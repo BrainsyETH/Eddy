@@ -1,20 +1,23 @@
 // src/app/api/upload/route.ts
 // POST /api/upload - Public image upload endpoint for community submissions
-// Validates file type/size and stores in Supabase Storage
+// Validates file type/size and stores in the PRIVATE quarantine bucket.
+// Nothing uploaded here is publicly reachable until a moderator verifies the
+// report it belongs to (audit F15) — the response carries the storage path,
+// not a URL.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { normalizeCommunityImage } from '@/lib/uploads/community-image';
+import { QUARANTINE_BUCKET } from '@/lib/uploads/visual-moderation';
 import { randomUUID } from 'node:crypto';
 
 export const dynamic = 'force-dynamic';
 
-const BUCKET_NAME = 'images';
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
-function json(body: { error?: string; success?: boolean; url?: string }, status = 200) {
+function json(body: { error?: string; success?: boolean; path?: string }, status = 200) {
   return NextResponse.json(body, {
     status,
     headers: { 'Cache-Control': 'private, no-store' },
@@ -24,7 +27,7 @@ function json(body: { error?: string; success?: boolean; url?: string }, status 
 export async function POST(request: NextRequest) {
   try {
     // Rate limit: 10 uploads per IP per 15 minutes (service-role write to Storage)
-    const rateLimitResult = await rateLimit(`upload:${getClientIp(request)}`, 10, 15 * 60 * 1000);
+    const rateLimitResult = await rateLimit(`upload:${getClientIp(request)}`, 10, 15 * 60 * 1000, { failClosed: true });
     if (rateLimitResult) return rateLimitResult;
 
     const contentType = request.headers.get('content-type') || '';
@@ -71,12 +74,13 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Generate unique filename under community-visuals folder
+    // Generate unique filename under community-visuals folder. The same path
+    // is reused verbatim in the public bucket if the photo is later approved.
     const month = new Date().toISOString().slice(0, 7);
     const fileName = `community-visuals/${month}/${randomUUID()}.webp`;
 
     const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
+      .from(QUARANTINE_BUCKET)
       .upload(fileName, normalized, {
         contentType: 'image/webp',
         cacheControl: '31536000',
@@ -88,13 +92,10 @@ export async function POST(request: NextRequest) {
       return json({ error: 'Upload failed. Please try again.' }, 500);
     }
 
-    const { data: { publicUrl } } = supabase.storage
-      .from(BUCKET_NAME)
-      .getPublicUrl(data.path);
-
+    // Deliberately no URL: the object is private until moderation publishes it.
     return json({
       success: true,
-      url: publicUrl,
+      path: data.path,
     });
   } catch (error) {
     console.error('Error uploading image:', error);
