@@ -178,6 +178,10 @@ export default function RiverVisualSubmitForm({
       setError('Please add a brief description.');
       return;
     }
+    if (!selectedAccessPointId) {
+      setError('Please choose the nearest access point so the photo is attached to the correct river location.');
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -201,17 +205,14 @@ export default function RiverVisualSubmitForm({
       const imageUrl: string = uploadData.url;
       setUploading(false);
 
-      // 2. Get coordinates from selected access point or use river center
-      let latitude = 37.5; // Default Missouri center
-      let longitude = -91.5;
-
-      if (selectedAccessPointId && accessPoints) {
-        const ap = accessPoints.find((p) => p.id === selectedAccessPointId);
-        if (ap) {
-          latitude = ap.coordinates.lat;
-          longitude = ap.coordinates.lng;
-        }
+      // 2. Anchor the public photo to a real access point on this river. Never
+      // substitute a state-specific centre coordinate.
+      const accessPoint = accessPoints?.find((p) => p.id === selectedAccessPointId);
+      if (!accessPoint) {
+        throw new Error('The selected access point is no longer available. Please choose another.');
       }
+      const latitude = accessPoint.coordinates.lat;
+      const longitude = accessPoint.coordinates.lng;
 
       // 3. Submit report
       const reportPayload = {
@@ -365,14 +366,15 @@ export default function RiverVisualSubmitForm({
         {/* Access point */}
         <div>
           <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-            Nearest Access Point
+            Nearest Access Point <span className="text-red-500">*</span>
           </label>
           <select
             value={selectedAccessPointId}
             onChange={(e) => setSelectedAccessPointId(e.target.value)}
+            required
             className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
           >
-            <option value="">Select access point (optional)</option>
+            <option value="">Select the nearest access point</option>
             {accessPoints?.map((ap) => (
               <option key={ap.id} value={ap.id}>
                 {ap.name}
@@ -458,7 +460,7 @@ export default function RiverVisualSubmitForm({
         {/* Submit */}
         <button
           type="submit"
-          disabled={submitting || !imageFile}
+          disabled={submitting || !imageFile || !selectedAccessPointId}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:bg-neutral-300 text-white text-sm font-medium rounded-lg transition-colors"
         >
           {submitting ? (
