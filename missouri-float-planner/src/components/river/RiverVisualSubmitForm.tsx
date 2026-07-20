@@ -205,10 +205,18 @@ export default function RiverVisualSubmitForm({
       );
       const data = res.ok ? await res.json() : null;
       if (data?.found) {
-        if (data.gaugeHeightFt != null) setGaugeHeight(String(data.gaugeHeightFt));
-        if (data.dischargeCfs != null) setDischargeCfs(String(data.dischargeCfs));
+        // Overwrite from the historical reading, clearing any field the record
+        // doesn't carry (older daily-mean records have discharge but no stage)
+        // so the form never keeps the live value it was seeded with for a past
+        // date.
+        setGaugeHeight(data.gaugeHeightFt != null ? String(data.gaugeHeightFt) : '');
+        setDischargeCfs(data.dischargeCfs != null ? String(data.dischargeCfs) : '');
         setReadingSource('historical');
-        setReadingNote(`Stage & flow pulled from USGS for ${label}.`);
+        setReadingNote(
+          data.gaugeHeightFt != null
+            ? `Stage & flow pulled from USGS for ${label}.`
+            : `Flow pulled from USGS for ${label}; enter the stage if you know it.`
+        );
       } else {
         setReadingNote(`No USGS reading found for ${label} — please enter the level.`);
       }
