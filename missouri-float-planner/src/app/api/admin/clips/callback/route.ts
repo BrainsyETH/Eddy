@@ -2,14 +2,14 @@
 // POST — Receives results from YouTube clip pipeline GitHub Actions workflow
 
 import { NextRequest, NextResponse } from 'next/server';
+import { hasValidMachineBearer } from '@/lib/security/machine-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  // Verify cron secret
   const auth = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && auth !== `Bearer ${cronSecret}`) {
+  if (!hasValidMachineBearer(auth, cronSecret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -28,6 +28,13 @@ export async function POST(request: NextRequest) {
     status: 'completed' | 'failed';
     error?: string;
   };
+
+  if (status !== 'completed' && status !== 'failed') {
+    return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+  }
+  if (clips !== undefined && (!Array.isArray(clips) || clips.length > 100)) {
+    return NextResponse.json({ error: 'Invalid clips' }, { status: 400 });
+  }
 
   if (status === 'failed') {
     console.error('[ClipPipeline Callback] Pipeline failed:', error);

@@ -81,9 +81,9 @@ export default function RiverVisualSubmitForm({
     if (!file) return;
 
     // Validate
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
-      setError('Please select a JPEG, PNG, WebP, or GIF image.');
+      setError('Please select a JPEG, PNG, or WebP image.');
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -206,6 +206,10 @@ export default function RiverVisualSubmitForm({
       setError('Please add a brief description.');
       return;
     }
+    if (!selectedAccessPointId) {
+      setError('Please choose the nearest access point so the photo is attached to the correct river location.');
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -225,8 +229,10 @@ export default function RiverVisualSubmitForm({
         throw new Error(uploadError.error || 'Failed to upload image');
       }
 
+      // The upload endpoint quarantines the photo and returns its storage
+      // path; the photo only becomes publicly visible after moderation.
       const uploadData = await uploadRes.json();
-      const imageUrl: string = uploadData.url;
+      const imagePath: string = uploadData.path;
       setUploading(false);
 
       // 2. Location: prefer the photo's own GPS when the submitter opted in
@@ -244,6 +250,8 @@ export default function RiverVisualSubmitForm({
           longitude = ap.coordinates.lng;
         }
       }
+      const latitude = accessPoint.coordinates.lat;
+      const longitude = accessPoint.coordinates.lng;
 
       // 3. Submit report
       const reportPayload = {
@@ -251,7 +259,7 @@ export default function RiverVisualSubmitForm({
         type: 'river_visual',
         latitude,
         longitude,
-        imageUrl,
+        imagePath,
         description: description.trim(),
         gaugeHeightFt: gaugeHeight ? parseFloat(gaugeHeight) : undefined,
         dischargeCfs: dischargeCfs ? parseFloat(dischargeCfs) : undefined,
@@ -355,7 +363,7 @@ export default function RiverVisualSubmitForm({
                   <span className="text-xs font-medium text-teal-700">Take Photo</span>
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    accept="image/jpeg,image/png,image/webp"
                     capture="environment"
                     onChange={handleFileChange}
                     className="hidden"
@@ -368,13 +376,13 @@ export default function RiverVisualSubmitForm({
                   <span className="text-xs font-medium text-neutral-500">Upload</span>
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    accept="image/jpeg,image/png,image/webp"
                     onChange={handleFileChange}
                     className="hidden"
                   />
                 </label>
               </div>
-              <span className="text-xs text-neutral-400">JPEG, PNG, WebP, GIF (max 10MB)</span>
+              <span className="text-xs text-neutral-400">JPEG, PNG, or WebP (max 10MB)</span>
             </div>
           )}
         </div>
@@ -397,14 +405,15 @@ export default function RiverVisualSubmitForm({
         {/* Access point */}
         <div>
           <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-            Nearest Access Point
+            Nearest Access Point <span className="text-red-500">*</span>
           </label>
           <select
             value={selectedAccessPointId}
             onChange={(e) => setSelectedAccessPointId(e.target.value)}
+            required
             className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
           >
-            <option value="">Select access point (optional)</option>
+            <option value="">Select the nearest access point</option>
             {accessPoints?.map((ap) => (
               <option key={ap.id} value={ap.id}>
                 {ap.name}
@@ -513,7 +522,7 @@ export default function RiverVisualSubmitForm({
         {/* Submit */}
         <button
           type="submit"
-          disabled={submitting || !imageFile}
+          disabled={submitting || !imageFile || !selectedAccessPointId}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:bg-neutral-300 text-white text-sm font-medium rounded-lg transition-colors"
         >
           {submitting ? (

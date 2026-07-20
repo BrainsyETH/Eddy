@@ -3,6 +3,7 @@
 // Used by the EddyQuote component on each river page.
 
 import type { ConditionCode } from '@/types/api';
+import { summarizeConditionCounts } from '@shared/condition-system';
 
 // --- River-specific local color (notes only — thresholds come from the DB) ---
 
@@ -184,6 +185,8 @@ export interface StaticEddyTextInput {
   conditionCode: ConditionCode;
   /** Current gauge height in feet (null → reading line omitted). */
   gaugeHeightFt?: number | null;
+  /** Current discharge, used when thresholds are cfs-based. */
+  dischargeCfs?: number | null;
   /** Optimal range bounds from DB thresholds. */
   optimalMin?: number | null;
   optimalMax?: number | null;
@@ -204,13 +207,16 @@ export interface StaticEddyTextInput {
 export function buildStaticEddyText({
   conditionCode,
   gaugeHeightFt,
+  dischargeCfs,
   optimalMin,
   optimalMax,
   thresholdUnit,
   riverNote,
 }: StaticEddyTextInput): string {
   const parts: string[] = [];
-  if (gaugeHeightFt != null) {
+  if (thresholdUnit === 'cfs' && dischargeCfs != null) {
+    parts.push(`Reading ${Math.round(dischargeCfs).toLocaleString()} cfs.`);
+  } else if (gaugeHeightFt != null) {
     parts.push(`Reading ${gaugeHeightFt.toFixed(1)} ft.`);
   }
   parts.push(CONDITION_CARD_BLURBS[conditionCode] || CONDITION_CARD_BLURBS.unknown);
@@ -222,22 +228,20 @@ export function buildStaticEddyText({
   return parts.join(' ');
 }
 
-/** Build a one-line Eddy summary across all rivers for the listing page. */
+/**
+ * Build a one-line Eddy summary across all rivers for the listing page.
+ * Derives from the same summarizeConditionCounts buckets as the filter pills,
+ * so "N looking great" always equals the "Floatable now" pill count.
+ */
 export function buildRiversSummary(conditionCodes: (ConditionCode | null)[]): string {
-  const counts: Partial<Record<ConditionCode | 'none', number>> = {};
-  for (const code of conditionCodes) {
-    const key = code ?? 'none';
-    counts[key] = (counts[key] ?? 0) + 1;
-  }
-
-  const good = (counts.flowing ?? 0) + (counts.good ?? 0);
-  const low = (counts.low ?? 0) + (counts.too_low ?? 0);
-  const high = (counts.high ?? 0) + (counts.dangerous ?? 0);
+  const counts = summarizeConditionCounts(conditionCodes);
 
   const parts: string[] = [];
-  if (good > 0) parts.push(`${good} river${good > 1 ? 's' : ''} looking great`);
-  if (low > 0) parts.push(`${low} running low`);
-  if (high > 0) parts.push(`${high} running high`);
+  if (counts.floatableNow > 0) {
+    parts.push(`${counts.floatableNow} river${counts.floatableNow > 1 ? 's' : ''} looking great`);
+  }
+  if (counts.runningLow > 0) parts.push(`${counts.runningLow} running low`);
+  if (counts.runningHigh > 0) parts.push(`${counts.runningHigh} running high`);
 
   if (parts.length === 0) return 'Checking conditions across all rivers — hang tight.';
   return parts.join(', ') + '. Check the details before you head out!';

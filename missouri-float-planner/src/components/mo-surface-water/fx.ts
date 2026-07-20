@@ -20,7 +20,7 @@ export function usePrefersReducedMotion(): boolean {
 
 /** True once the element has entered the viewport (latching). */
 export function useInView<T extends Element>(
-  ref: RefObject<T>,
+  ref: RefObject<T | null>,
   threshold = 0.25,
 ): boolean {
   const [inView, setInView] = useState(false);

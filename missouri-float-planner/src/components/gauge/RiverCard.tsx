@@ -17,6 +17,7 @@ import ConditionBadge from '@/components/ui/ConditionBadge';
 import { buildStaticEddyText, RIVER_NOTES } from '@/data/eddy-quotes';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import GaugeTrendContext from '@/components/gauge/GaugeTrendContext';
+import { conditionSnapshotMatches } from '@/lib/condition-snapshot';
 
 interface RiverCardProps {
   riverGroup: RiverGroup;
@@ -55,6 +56,19 @@ export default function RiverCard({ riverGroup, meta, distanceMiles }: RiverCard
   // instead of a per-card /api/eddy-update/[slug] fetch.
   const { data: eddyUpdates, isLoading: eddyLoading } = useEddyUpdates();
   const eddyUpdate = riverSlug ? eddyUpdates?.[riverSlug] ?? null : null;
+  const usableEddyUpdate = eddyUpdate && conditionSnapshotMatches(
+    {
+      conditionCode: eddyUpdate.conditionCode,
+      gaugeHeightFt: eddyUpdate.gaugeHeightFt,
+      dischargeCfs: eddyUpdate.dischargeCfs,
+    },
+    {
+      conditionCode: condition.code,
+      gaugeHeightFt: primaryGauge.gaugeHeightFt,
+      dischargeCfs: primaryGauge.dischargeCfs,
+    },
+    primaryThreshold.thresholdUnit,
+  ) ? eddyUpdate : null;
 
   // Static fallback text \u2014 shared with the full river report page so the quote
   // reads identically across the card and the report (see buildStaticEddyText).
@@ -62,6 +76,7 @@ export default function RiverCard({ riverGroup, meta, distanceMiles }: RiverCard
     buildStaticEddyText({
       conditionCode: condition.code,
       gaugeHeightFt: primaryGauge.gaugeHeightFt,
+      dischargeCfs: primaryGauge.dischargeCfs,
       optimalMin: primaryThreshold.levelOptimalMin,
       optimalMax: primaryThreshold.levelOptimalMax,
       thresholdUnit: primaryThreshold.thresholdUnit,
@@ -73,9 +88,9 @@ export default function RiverCard({ riverGroup, meta, distanceMiles }: RiverCard
   const surface = conditionChip(displayConditionCode);
   const surfaceStyle = { backgroundColor: surface.background, borderColor: surface.borderColor };
 
-  const displayText = eddyUpdate?.summaryText && !showFull
-    ? eddyUpdate.summaryText
-    : eddyUpdate ? eddyUpdate.quoteText : buildStaticText();
+  const displayText = usableEddyUpdate?.summaryText && !showFull
+    ? usableEddyUpdate.summaryText
+    : usableEddyUpdate ? usableEddyUpdate.quoteText : buildStaticText();
 
   // Measure whether the collapsed quote overflows its 2-line clamp so we can
   // offer a More toggle even when there's no AI summaryText. Only measured
@@ -97,7 +112,7 @@ export default function RiverCard({ riverGroup, meta, distanceMiles }: RiverCard
 
   // A toggle is worthwhile when there's a longer AI narrative to reveal, or
   // when the (static/AI) quote is being truncated by the clamp.
-  const canExpand = Boolean(eddyUpdate?.summaryText) || isClamped || showFull;
+  const canExpand = Boolean(usableEddyUpdate?.summaryText) || isClamped || showFull;
 
   const isCfsPrimary = primaryThreshold.thresholdUnit === 'cfs';
   const primaryValue = isCfsPrimary ? primaryGauge.dischargeCfs : primaryGauge.gaugeHeightFt;

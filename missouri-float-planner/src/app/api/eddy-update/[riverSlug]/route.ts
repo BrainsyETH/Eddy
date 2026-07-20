@@ -22,6 +22,8 @@ export interface EddyUpdateResponse {
     sectionSlug: string | null;
     sourcesUsed: string[];
     generatedAt: string;
+    readingTimestamp: string | null;
+    snapshotId: string | null;
   } | null;
 }
 
@@ -75,12 +77,12 @@ async function _GET(
       river_slug: riverSlug,
       condition_code: data.condition_code,
       gauge_height_ft: data.gauge_height_ft,
+      discharge_cfs: data.discharge_cfs,
       quote_text: data.quote_text,
       summary_text: data.summary_text,
     };
     const [overlaid] = await overlayLiveConditions(supabase, [overlayInput], {
-      // Website surface: keep the rich quote through routine reading gaps;
-      // only blank on a real condition change or a day-plus dead gauge.
+      // Website prose is valid only for the current, non-stale snapshot.
       proseStaleHours: WEBSITE_PROSE_STALE_HOURS,
       logLabel: 'eddy-update',
     });
@@ -99,10 +101,12 @@ async function _GET(
         summaryText: overlaid.summary_text ?? null,
         conditionCode: overlaid.condition_code,
         gaugeHeightFt: toNum(overlaid.gauge_height_ft),
-        dischargeCfs: toNum(data.discharge_cfs),
+        dischargeCfs: toNum(overlaid.discharge_cfs),
         sectionSlug: data.section_slug,
         sourcesUsed: data.sources_used || [],
         generatedAt: data.generated_at,
+        readingTimestamp: overlaid.reading_timestamp ?? null,
+        snapshotId: overlaid.snapshot_id ?? null,
       },
     }, { headers: cdnCacheHeaders(300, 1800) });
   } catch (error) {

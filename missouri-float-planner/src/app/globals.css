@@ -8,6 +8,7 @@
    ========================================= */
 
 :root {
+  --font-display: 'Fredoka Variable', system-ui, sans-serif;
   /* =========================================
      Color System
      ========================================= */
@@ -134,6 +135,13 @@
 /* Base styles */
 html {
   scroll-behavior: smooth;
+  /* iOS Safari auto-inflates text ("font boosting"/text auto-sizing) unless
+     text-size-adjust is pinned. On iPhones that inflation renders type larger
+     than authored, so pages read as slightly zoomed-in on first load — even
+     with a correct `width=device-width, initial-scale=1` viewport. Pin it so
+     text renders at the size we set. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -142,6 +150,11 @@ body {
   font-family: var(--font-body), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Defensive guard: never let a stray full-bleed/wide child make the page
+     horizontally pannable, which iOS presents as a slight zoom + left-shift.
+     `clip` (not `hidden`) does not create a scroll container, so sticky
+     header/section-nav keep working; unsupported browsers ignore it safely. */
+  overflow-x: clip;
 }
 
 /* Shared interaction behavior for self-contained Eddy embeds. Colors are

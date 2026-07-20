@@ -19,6 +19,7 @@ import { formatFloatTimeRangeCompact } from '@/lib/calculations/floatTime';
 import CompactAccessCard from './CompactAccessCard';
 import { AlongYourRoute, type RouteItem } from './FloatPlanCard';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import PlanFreshnessNotice from './PlanFreshnessNotice';
 
 
 
@@ -30,6 +31,9 @@ interface PlanSidebarProps {
   pois?: PointOfInterest[];
   plan: FloatPlan | null;
   isLoading: boolean;
+  isLastValidFallback?: boolean;
+  lastValidAt?: number | null;
+  onRetry?: () => void;
   putInPoint: AccessPoint | null;
   takeOutPoint: AccessPoint | null;
   onClearPutIn: () => void;
@@ -51,6 +55,9 @@ export default function PlanSidebar({
   pois,
   plan,
   isLoading,
+  isLastValidFallback = false,
+  lastValidAt = null,
+  onRetry,
   putInPoint,
   takeOutPoint,
   onClearPutIn,
@@ -93,6 +100,10 @@ export default function PlanSidebar({
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+
+        {isLastValidFallback && lastValidAt && (
+          <PlanFreshnessNotice savedAt={lastValidAt} isChecking={isLoading} onRetry={onRetry} />
+        )}
 
         {/* Empty state — no selection */}
         {!putInPoint && !takeOutPoint && (
@@ -163,6 +174,7 @@ export default function PlanSidebar({
                   <button
                     onClick={() => onVesselChange(canoeVessel.id)}
                     disabled={isLoading}
+                    aria-pressed={selectedVesselTypeId === canoeVessel.id}
                     className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${isLoading ? 'opacity-50 cursor-not-allowed' : ''} ${
                       selectedVesselTypeId === canoeVessel.id ? 'bg-primary-600 text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-100'
                     }`}
@@ -172,6 +184,7 @@ export default function PlanSidebar({
                   <button
                     onClick={() => onVesselChange(raftVessel.id)}
                     disabled={isLoading}
+                    aria-pressed={selectedVesselTypeId === raftVessel.id}
                     className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${isLoading ? 'opacity-50 cursor-not-allowed' : ''} ${
                       selectedVesselTypeId === raftVessel.id ? 'bg-primary-600 text-white shadow-sm' : 'text-neutral-600 hover:bg-neutral-100'
                     }`}
@@ -279,7 +292,7 @@ export default function PlanSidebar({
       </div>
 
       {/* Footer — share buttons (sticky at bottom) */}
-      {hasBothPoints && plan && (
+      {hasBothPoints && plan && !isLastValidFallback && (
         <div className="flex-shrink-0 px-4 py-3 border-t border-neutral-100 bg-white">
           <div className="flex justify-end mb-2">
             <button

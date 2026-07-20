@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { riverPath, riverAccessPath } from '@/lib/navigation/river-path';
+import { jsonLdString } from '@/lib/json-ld';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
@@ -138,7 +139,7 @@ export default async function AccessPointLayout({ params, children }: Props) {
       {placeJsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(placeJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdString(placeJsonLd) }}
         />
       )}
       {children}

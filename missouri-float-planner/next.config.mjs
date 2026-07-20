@@ -89,10 +89,25 @@ const nextConfig = {
       },
     ];
 
+    // 'unsafe-eval' is required only by the Next.js dev runtime (react-refresh
+    // uses eval); production ships without it so an injected string can never
+    // reach eval/Function. 'unsafe-inline' remains for the GTM bootstrap and
+    // Next's inline hydration scripts — replacing it with nonces/hashes is the
+    // remaining CSP hardening step (audit F12).
+    const isDev = process.env.NODE_ENV === 'development';
+    const scriptSrc = isDev
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com"
+      : "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com";
+
     const cspBase = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com",
+      scriptSrc,
       "style-src 'self' 'unsafe-inline'",
+      // No plugin content, no <base> retargeting, and forms may only submit to
+      // this origin (all app forms submit via fetch/onSubmit anyway).
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
       // Access-point imagery is hot-linked from a broad, growing set of external
       // hosts (mdc.mo.gov, cdn.recreation.gov, fs.usda.gov, mostateparks.com,
       // private outfitter domains, …) rather than self-hosted. Enumerating every

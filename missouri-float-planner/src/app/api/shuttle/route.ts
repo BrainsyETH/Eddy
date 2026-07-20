@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getDriveTime, geocodeAddress } from '@/lib/mapbox/directions';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
+import { assessShuttlePlausibility } from '@/lib/shuttle-plausibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,28 +35,13 @@ async function _GET(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Check drive_time_cache first (shuttle goes take-out → put-in, same as plan route)
-    const { data: cached } = await supabase
-      .from('drive_time_cache')
-      .select('drive_miles, drive_minutes, route_summary')
-      .eq('start_access_id', takeOutId)
-      .eq('end_access_id', putInId)
-      .gt('expires_at', new Date().toISOString())
-      .maybeSingle();
-
-    if (cached && cached.drive_minutes != null) {
-      return NextResponse.json({
-        available: true,
-        miles: Number(cached.drive_miles),
-        minutes: Number(cached.drive_minutes),
-        routeSummary: cached.route_summary,
-      });
-    }
-
-    // Fetch access point data for coordinate extraction
+    // Fetch both access points up front: coordinates for routing, plus river
+    // mile + river id so the plausibility check can compare road miles against
+    // river miles on the cached path too. Previously only the planner passed a
+    // comparison, so hub shuttle panels missed ratio anomalies (audit F07).
     const { data: points, error: pointsError } = await supabase
       .from('access_points')
-      .select('id, driving_lat, driving_lng, directions_override, location_snap, location_orig')
+      .select('id, river_id, river_mile_downstream, driving_lat, driving_lng, directions_override, location_snap, location_orig')
       .in('id', [putInId, takeOutId]);
 
     if (pointsError || !points || points.length < 2) {
@@ -66,6 +52,35 @@ async function _GET(request: NextRequest) {
     const takeOut = points.find((p: Record<string, unknown>) => p.id === takeOutId);
     if (!putIn || !takeOut) {
       return NextResponse.json({ error: 'Access points not found' }, { status: 404 });
+    }
+
+    // River-mile span between the endpoints — only meaningful when both points
+    // sit on the same river and both carry a mile marker.
+    const putInMile = putIn.river_mile_downstream != null ? Number(putIn.river_mile_downstream) : NaN;
+    const takeOutMile = takeOut.river_mile_downstream != null ? Number(takeOut.river_mile_downstream) : NaN;
+    const riverMiles =
+      putIn.river_id === takeOut.river_id && Number.isFinite(putInMile) && Number.isFinite(takeOutMile)
+        ? Math.abs(takeOutMile - putInMile)
+        : null;
+
+    // Check drive_time_cache first (shuttle goes take-out → put-in, same as plan route)
+    const { data: cached } = await supabase
+      .from('drive_time_cache')
+      .select('drive_miles, drive_minutes, route_summary')
+      .eq('start_access_id', takeOutId)
+      .eq('end_access_id', putInId)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle();
+
+    if (cached && cached.drive_minutes != null) {
+      const plausibility = assessShuttlePlausibility(Number(cached.drive_miles), riverMiles);
+      return NextResponse.json({
+        available: true,
+        miles: Number(cached.drive_miles),
+        minutes: Number(cached.drive_minutes),
+        routeSummary: cached.route_summary,
+        ...plausibility,
+      });
     }
 
     // Extract coordinates (same priority as /api/plan route)
@@ -111,11 +126,13 @@ async function _GET(request: NextRequest) {
         onConflict: 'start_access_id,end_access_id',
       });
 
+    const plausibility = assessShuttlePlausibility(result.miles, riverMiles);
     return NextResponse.json({
       available: true,
       miles: result.miles,
       minutes: result.minutes,
       routeSummary: result.routeSummary,
+      ...plausibility,
     });
   } catch (error) {
     console.error('Shuttle distance error:', error);

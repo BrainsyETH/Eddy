@@ -22,6 +22,7 @@ import RiverHeroStats from './RiverHeroStats';
 import HubSectionNav from './HubSectionNav';
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 import SiteFooter from '@/components/ui/SiteFooter';
+import { jsonLdString } from '@/lib/json-ld';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
@@ -265,8 +266,8 @@ export default async function RiverGuidePage({ params }: Props) {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(touristAttractionJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(touristAttractionJsonLd) }} />
 
       <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
         {/* ===== Hero (status-first, 2-col) ===== */}
@@ -372,12 +373,9 @@ export default async function RiverGuidePage({ params }: Props) {
         <main className="max-w-5xl mx-auto px-4 pb-16">
           {/* ===== Live report ===== */}
           <section id="status" className="scroll-mt-24 pt-6 md:pt-8">
-            <h2 className="text-xl md:text-2xl font-bold text-neutral-900 mb-1" style={{ fontFamily: 'var(--font-display)' }}>
+            <h2 className="text-xl md:text-2xl font-bold text-neutral-900 mb-4 md:mb-5" style={{ fontFamily: 'var(--font-display)' }}>
               Live report
             </h2>
-            <p className="text-sm text-neutral-600 mb-4 md:mb-5">
-              USGS gauge readings, updated hourly. Pick a gauge near your put-in.
-            </p>
             <RiverGaugeDetail riverSlug={slug} />
           </section>
 

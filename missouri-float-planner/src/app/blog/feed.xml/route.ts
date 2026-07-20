@@ -10,6 +10,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 // Same 1-hour cadence as the sitemap's weekly-ish blog churn; keeps Supabase
 // out of the hot path for feed pollers.
 export const revalidate = 3600;
+// Keep credentialed data access at request/revalidation time, not during a
+// local or preview build where production secrets may intentionally be absent.
+export const dynamic = 'force-dynamic';
 
 function escapeXml(value: string): string {
   return value

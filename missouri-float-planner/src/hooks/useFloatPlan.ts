@@ -2,8 +2,15 @@
 // React Query hook for calculating float plans
 // vesselTypeId is included in queryKey for native caching of different vessel types
 
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { PlanResponse } from '@/types/api';
+import {
+  readLastValidPlan,
+  samePlanIdentity,
+  writeLastValidPlan,
+  type CachedFloatPlan,
+} from '@/lib/plan-cache';
 
 interface PlanParams {
   riverId: string;
@@ -14,7 +21,28 @@ interface PlanParams {
 }
 
 export function useFloatPlan(params: PlanParams | null) {
-  return useQuery({
+  const riverId = params?.riverId;
+  const startId = params?.startId;
+  const endId = params?.endId;
+  const vesselTypeId = params?.vesselTypeId;
+  const tripDurationDays = params?.tripDurationDays;
+  const identity = useMemo(
+    () => riverId && startId && endId
+      ? { riverId, startId, endId, vesselTypeId, tripDurationDays }
+      : null,
+    [riverId, startId, endId, vesselTypeId, tripDurationDays]
+  );
+  const [cached, setCached] = useState<CachedFloatPlan | null>(null);
+
+  useEffect(() => {
+    if (!identity) {
+      setCached(null);
+      return;
+    }
+    setCached(readLastValidPlan(window.localStorage, identity));
+  }, [identity]);
+
+  const query = useQuery({
     // Include vesselTypeId explicitly in queryKey for instant vessel switching
     // TanStack Query will cache each vessel type separately
     queryKey: [
@@ -63,4 +91,28 @@ export function useFloatPlan(params: PlanParams | null) {
     // Stale time of 5 minutes - conditions don't change that fast
     staleTime: 5 * 60 * 1000,
   });
+
+  useEffect(() => {
+    if (!identity || !query.data || query.isFetching || query.isError) return;
+    const saved = writeLastValidPlan(window.localStorage, identity, query.data);
+    if (saved) setCached(saved);
+  }, [identity, query.data, query.isFetching, query.isError]);
+
+  const matchingCache = identity && cached && samePlanIdentity(identity, cached.identity)
+    ? cached
+    : null;
+  // React Query can retain an earlier in-memory result when a refresh fails.
+  // Treat that state as saved/fallback too; an error must never leave old
+  // conditions looking like a successful live response.
+  const isLastValidFallback = !!matchingCache && (!query.data || query.isError);
+  const displayData = query.isError
+    ? matchingCache?.plan ?? null
+    : query.data ?? matchingCache?.plan ?? null;
+
+  return {
+    ...query,
+    data: displayData,
+    isLastValidFallback,
+    lastValidAt: isLastValidFallback ? matchingCache?.savedAt ?? null : null,
+  };
 }

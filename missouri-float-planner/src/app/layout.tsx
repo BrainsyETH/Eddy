@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import localFont from "next/font/local";
-import { Fredoka } from "next/font/google";
+import '@fontsource-variable/fredoka';
 import { Providers } from "@/lib/providers";
 import SiteHeader from "@/components/layout/SiteHeader";
 import OfflineBanner from "@/components/ui/OfflineBanner";
 import AnalyticsListener from "@/components/AnalyticsListener";
 import { SOCIAL_SAME_AS } from "@/constants/social";
+import { jsonLdString } from '@/lib/json-ld';
 
 import "./globals.css";
 
@@ -31,13 +32,6 @@ const geistHeading = localFont({
   src: "./fonts/GeistVF.woff",
   variable: "--font-heading",
   weight: "100 900",
-});
-
-// Fun rounded display font for Eddy branding
-const fredoka = Fredoka({
-  subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["400", "500", "600", "700"],
 });
 
 const EDDY_FAVICON_URL = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
@@ -92,7 +86,7 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
+            __html: jsonLdString({
               '@context': 'https://schema.org',
               '@graph': [
                 {
@@ -134,7 +128,7 @@ export default function RootLayout({
         ) : null}
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${geistHeading.variable} ${fredoka.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${geistHeading.variable} antialiased`}
       >
         <Providers>
           <AnalyticsListener />

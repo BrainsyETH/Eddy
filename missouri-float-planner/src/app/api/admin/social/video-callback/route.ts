@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform } from '@/lib/social/types';
+import { hasValidMachineBearer } from '@/lib/security/machine-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
 
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!hasValidMachineBearer(authHeader, cronSecret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

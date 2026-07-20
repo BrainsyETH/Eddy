@@ -334,13 +334,18 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
     : null;
   const {
     data: plan,
-    isLoading: planLoading,
+    // Include background route/vessel recalculation. React Query may retain
+    // the last result during that fetch, but the UI must not imply it is new.
+    isFetching: planLoading,
     isError: planIsError,
     refetch: refetchPlan,
+    isLastValidFallback,
+    lastValidAt,
   } = useFloatPlan(planParams);
   // Show the plan error state only once both endpoints are chosen (a null
   // planParams simply means the user hasn't finished selecting yet).
   const planHasError = !!(selectedPutIn && selectedTakeOut && planIsError);
+  const showStandalonePlanError = planHasError && !isLastValidFallback;
 
   const selectedPutInPoint = accessPoints?.find(ap => ap.id === selectedPutIn);
   const nearestGauge = gaugeStations && gaugeStations.length > 0
@@ -556,8 +561,10 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
     }
   }, [river, accessPoints, selectedPutIn, selectedTakeOut, selectedVesselTypeId, queryClient]);
 
-  const putInPoint = accessPoints?.find(ap => ap.id === selectedPutIn) || null;
-  const takeOutPoint = accessPoints?.find(ap => ap.id === selectedTakeOut) || null;
+  const putInPoint = accessPoints?.find(ap => ap.id === selectedPutIn)
+    || (isLastValidFallback && plan?.putIn.id === selectedPutIn ? plan.putIn : null);
+  const takeOutPoint = accessPoints?.find(ap => ap.id === selectedTakeOut)
+    || (isLastValidFallback && plan?.takeOut.id === selectedTakeOut ? plan.takeOut : null);
 
   const pointsAlongRoute: RouteItem[] = useMemo(() => {
     if (!putInPoint || !takeOutPoint) return [];
@@ -710,9 +717,12 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             riverName={river.name}
             riverSlug={river.slug}
             pois={pois}
-            conditionCode={condition?.code ?? 'unknown'}
+            conditionCode={isLastValidFallback ? plan?.condition.code ?? 'unknown' : condition?.code ?? 'unknown'}
             plan={plan || null}
             isLoading={planLoading}
+            isLastValidFallback={isLastValidFallback}
+            lastValidAt={lastValidAt}
+            onRetry={() => refetchPlan()}
             putInPoint={putInPoint}
             takeOutPoint={takeOutPoint}
             onClearPutIn={() => setSelectedPutIn(null)}
@@ -783,13 +793,13 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
 
           {/* Left overlay stack — river switcher (until a put-in starts the
               plan), weather, filters. One column so they never overlap. */}
-          <div className="absolute top-4 left-4 z-30 flex w-[300px] flex-col items-start gap-2">
+          <div className="pointer-events-none absolute top-4 left-4 z-30 flex w-[300px] flex-col items-start gap-2">
             {!putInPoint && (
               // relative z-10: the backdrop-blur cards each create a stacking
               // context, and later siblings (weather, Filters) were painting
               // OVER the open river dropdown. Lifting the card lifts its
               // dropdown with it.
-              <div className="relative z-10 w-full rounded-2xl border border-neutral-200 bg-white/95 p-3 shadow-2xl backdrop-blur-sm">
+              <div className="pointer-events-auto relative z-10 w-full rounded-2xl border border-neutral-200 bg-white/95 p-3 shadow-2xl backdrop-blur-sm">
                 <RiverSwitcher
                   currentSlug={riverSlug}
                   rivers={rivers || []}
@@ -797,7 +807,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
                 />
               </div>
             )}
-            <WeatherBug riverSlug={riverSlug} riverId={river.id} positionClassName="relative" />
+            <WeatherBug riverSlug={riverSlug} riverId={river.id} positionClassName="pointer-events-auto relative" />
             <PlanFilters
               showNetwork={showNetwork}
               onToggleNetwork={toggleNetwork}
@@ -819,20 +829,20 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
               onToggleCondition={toggleCondition}
               onClearConditionFilter={clearConditionFilter}
               readingsAsOf={newestReadingAt}
-              className="relative"
+              className="pointer-events-auto relative"
             />
           </div>
 
           <MapEddySays
             riverSlug={riverSlug}
             conditionCode={condition?.code ?? 'unknown'}
-            gaugeHeightFt={plan?.condition?.gaugeHeightFt ?? null}
+            gaugeHeightFt={isLastValidFallback ? null : plan?.condition?.gaugeHeightFt ?? null}
             onSubmitPhoto={() => setShowVisualSubmitForm(true)}
           />
           {(putInPoint && takeOutPoint) && (
-            <RouteStatsBadge plan={plan ?? null} isLoading={planLoading} className="!top-[4.75rem]" />
+            <RouteStatsBadge plan={isLastValidFallback ? null : plan ?? null} isLoading={planLoading} className="!top-[4.75rem]" />
           )}
-          {planHasError && (
+          {showStandalonePlanError && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-2rem)]">
               <PlanErrorBanner onRetry={() => refetchPlan()} />
             </div>
@@ -982,14 +992,14 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             <MapEddySays
               riverSlug={riverSlug}
               conditionCode={condition?.code ?? 'unknown'}
-              gaugeHeightFt={plan?.condition?.gaugeHeightFt ?? null}
+              gaugeHeightFt={isLastValidFallback ? null : plan?.condition?.gaugeHeightFt ?? null}
               onSubmitPhoto={() => setShowVisualSubmitForm(true)}
             />
           )}
           {/* Same row as the Filters button (left-3) — centered stats,
               aligned tops, no overlap on ≥360px viewports. */}
           {(putInPoint && takeOutPoint) && (
-            <RouteStatsBadge plan={plan ?? null} isLoading={planLoading} className="!top-[4.25rem]" />
+            <RouteStatsBadge plan={isLastValidFallback ? null : plan ?? null} isLoading={planLoading} className="!top-[4.25rem]" />
           )}
 
           {/* Access point picker strip — only while picking. Once both
@@ -1013,7 +1023,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           )}
         </div>
 
-        {planHasError && (
+        {showStandalonePlanError && (
           <div className="px-4 py-3">
             <PlanErrorBanner onRetry={() => refetchPlan()} />
           </div>
@@ -1025,6 +1035,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             isLoading={planLoading}
             isError={planHasError}
             onRetry={() => refetchPlan()}
+            isLastValidFallback={isLastValidFallback}
+            lastValidAt={lastValidAt}
             putInPoint={putInPoint}
             takeOutPoint={takeOutPoint}
             onClearPutIn={() => setSelectedPutIn(null)}
@@ -1354,4 +1366,3 @@ function PlanErrorBanner({ onRetry }: { onRetry: () => void }) {
     </div>
   );
 }
-

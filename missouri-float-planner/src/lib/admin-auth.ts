@@ -4,8 +4,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
+import { ADMIN_SESSION_COOKIE } from '@/lib/admin-session';
+
+export { ADMIN_SESSION_COOKIE } from '@/lib/admin-session';
 
 const TOKEN_EXPIRY_MS = 4 * 60 * 60 * 1000; // 4 hours
+export const ADMIN_SESSION_MAX_AGE_SECONDS = TOKEN_EXPIRY_MS / 1000;
+const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /**
  * Returns the admin secret used for token derivation.
@@ -93,22 +98,27 @@ export function requireAdminAuth(request: NextRequest): NextResponse | null {
     console.error('[Admin Auth] No admin secret configured (set ADMIN_API_SECRET or ADMIN_PASSWORD)');
     return NextResponse.json(
       { error: 'Server configuration error' },
-      { status: 500 }
+      { status: 500, headers: { 'Cache-Control': 'private, no-store' } }
     );
   }
 
   const path = request.nextUrl?.pathname;
 
   const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.warn(`[Admin Auth] Rejected ${path}: no Bearer token`);
+  const bearerToken = authHeader?.startsWith('Bearer ')
+    ? authHeader.substring(7)
+    : null;
+  const cookieToken = request.cookies.get(ADMIN_SESSION_COOKIE)?.value ?? null;
+  const token = bearerToken || cookieToken;
+
+  if (!token) {
+    console.warn(`[Admin Auth] Rejected ${path}: no session token`);
     return NextResponse.json(
       { error: 'Unauthorized', reason: 'no-token' },
-      { status: 401 }
+      { status: 401, headers: { 'Cache-Control': 'private, no-store' } }
     );
   }
 
-  const token = authHeader.substring(7);
   const rejection = validateAdminToken(token);
   if (rejection) {
     // Distinct server log per cause: 'expired' is a normal 4h timeout, while a
@@ -122,8 +132,23 @@ export function requireAdminAuth(request: NextRequest): NextResponse | null {
         : 'Unauthorized — invalid token, please sign in again';
     return NextResponse.json(
       { error: message, reason: rejection },
-      { status: 401 }
+      { status: 401, headers: { 'Cache-Control': 'private, no-store' } }
     );
+  }
+
+  // Browser sessions authenticate with an HttpOnly cookie. For state-changing
+  // requests, require a same-origin Origin header so another site cannot use
+  // the browser's cookie to issue admin actions. Bearer tokens remain supported
+  // for trusted scripts and are not ambient browser credentials.
+  if (!bearerToken && cookieToken && UNSAFE_METHODS.has(request.method.toUpperCase())) {
+    const origin = request.headers.get('origin');
+    if (!origin || origin !== request.nextUrl.origin) {
+      console.warn(`[Admin Auth] Rejected ${path}: cross-origin cookie request`);
+      return NextResponse.json(
+        { error: 'Forbidden', reason: 'origin-mismatch' },
+        { status: 403, headers: { 'Cache-Control': 'private, no-store' } }
+      );
+    }
   }
 
   return null;

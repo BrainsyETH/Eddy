@@ -6,6 +6,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { isValidUUID } from '@/lib/admin-auth';
+import { isQuarantinePath } from '@/lib/uploads/visual-moderation';
+import {
+  isValidEarthCoordinate,
+  REPORT_CORRIDOR_MAX_DISTANCE_METERS,
+  validateReportCorridor,
+} from '@/lib/reports/location';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +23,7 @@ const MAX_IMAGE_URL_LEN = 1000;
 export async function POST(request: NextRequest) {
   try {
     // Rate limit: 5 report submissions per IP per 15 minutes
-    const rateLimitResult = await rateLimit(`reports:${getClientIp(request)}`, 5, 15 * 60 * 1000);
+    const rateLimitResult = await rateLimit(`reports:${getClientIp(request)}`, 5, 15 * 60 * 1000, { failClosed: true });
     if (rateLimitResult) return rateLimitResult;
 
     const body = await request.json();
@@ -29,6 +35,7 @@ export async function POST(request: NextRequest) {
       latitude,
       longitude,
       imageUrl,
+      imagePath,
       description,
       gaugeHeightFt,
       dischargeCfs,
@@ -65,17 +72,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Coordinates must be real numbers within Missouri bounds (with buffer).
-    if (typeof latitude !== 'number' || typeof longitude !== 'number' ||
-        !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    // First validate real Earth coordinates. State and region support comes
+    // from the selected river's stored geometry below, never a hardcoded box.
+    if (!isValidEarthCoordinate(latitude, longitude)) {
       return NextResponse.json(
-        { error: 'Coordinates must be numbers' },
-        { status: 400 }
-      );
-    }
-    if (latitude < 35 || latitude > 41 || longitude < -97 || longitude > -88) {
-      return NextResponse.json(
-        { error: 'Coordinates must be within Missouri' },
+        { error: 'Coordinates must be valid latitude and longitude values' },
         { status: 400 }
       );
     }
@@ -112,8 +113,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // River visual requires an image.
-    if (type === 'river_visual' && !imageUrl) {
+    // imagePath, when present, must be a well-formed quarantine object path
+    // as issued by /api/upload. The photo stays private until moderation
+    // publishes it (audit F15).
+    if (imagePath != null && !isQuarantinePath(imagePath)) {
+      return NextResponse.json(
+        { error: 'imagePath is not a valid upload reference' },
+        { status: 400 }
+      );
+    }
+
+    // River visual requires an image (a fresh quarantined upload, or a legacy
+    // already-public URL from older clients).
+    if (type === 'river_visual' && !imagePath && !imageUrl) {
       return NextResponse.json(
         { error: 'River visual reports require an image' },
         { status: 400 }
@@ -151,11 +163,83 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
+    // Reports are safety-relevant and must be anchored to the river they name.
+    // The existing PostGIS helper only returns active rivers, so this also
+    // rejects unknown/inactive river IDs without relying on a state whitelist.
+    const corridor = await validateReportCorridor(
+      (args) => supabase.rpc('find_nearest_river', args) as unknown as Promise<{ data: unknown; error: unknown }>,
+      String(riverId),
+      latitude,
+      longitude
+    );
+    if (!corridor.ok) {
+      if (corridor.reason === 'unavailable') {
+        console.error('[Reports] River corridor validation unavailable');
+        return NextResponse.json(
+          { error: 'Unable to validate report location. Please try again.' },
+          { status: 503 }
+        );
+      }
+      return NextResponse.json(
+        {
+          error: `Location must be within ${REPORT_CORRIDOR_MAX_DISTANCE_METERS / 1000} km of the selected river`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Optional references must belong to the same river. UUID format and
+    // foreign keys alone do not prevent linking a valid access, gauge, or
+    // hazard from a different river.
+    if (accessPointId) {
+      const { data: accessPoint, error: accessError } = await supabase
+        .from('access_points')
+        .select('river_id, approved')
+        .eq('id', accessPointId)
+        .maybeSingle();
+      if (accessError) {
+        return NextResponse.json({ error: 'Unable to validate access point' }, { status: 503 });
+      }
+      if (!accessPoint || accessPoint.river_id !== riverId || !accessPoint.approved) {
+        return NextResponse.json({ error: 'accessPointId does not belong to the selected river' }, { status: 400 });
+      }
+    }
+    if (hazardId) {
+      const { data: hazard, error: hazardError } = await supabase
+        .from('river_hazards')
+        .select('river_id')
+        .eq('id', hazardId)
+        .maybeSingle();
+      if (hazardError) {
+        return NextResponse.json({ error: 'Unable to validate hazard' }, { status: 503 });
+      }
+      if (!hazard || hazard.river_id !== riverId) {
+        return NextResponse.json({ error: 'hazardId does not belong to the selected river' }, { status: 400 });
+      }
+    }
+    if (gaugeStationId) {
+      const { data: gaugeLink, error: gaugeError } = await supabase
+        .from('river_gauges')
+        .select('river_id')
+        .eq('river_id', riverId)
+        .eq('gauge_station_id', gaugeStationId)
+        .maybeSingle();
+      if (gaugeError) {
+        return NextResponse.json({ error: 'Unable to validate gauge station' }, { status: 503 });
+      }
+      if (!gaugeLink) {
+        return NextResponse.json({ error: 'gaugeStationId does not belong to the selected river' }, { status: 400 });
+      }
+    }
+
     // Build the base insert payload (without coordinates — added below)
     const baseData: Record<string, unknown> = {
       river_id: riverId,
       type,
+      // image_url is only set for legacy clients that still send a URL; new
+      // uploads carry a quarantine path and get image_url at publish time.
       image_url: imageUrl || null,
+      image_path: imagePath || null,
       description: description.trim(),
       status: 'pending',
     };

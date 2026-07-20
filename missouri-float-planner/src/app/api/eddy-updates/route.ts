@@ -18,6 +18,9 @@ export interface EddyUpdateEntry {
   summaryText: string | null;
   conditionCode: string;
   gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  readingTimestamp: string | null;
+  snapshotId: string | null;
   generatedAt: string;
 }
 
@@ -32,6 +35,7 @@ interface EddyUpdateRow {
   summary_text: string | null;
   condition_code: string | null;
   gauge_height_ft: number | null;
+  discharge_cfs: number | null;
   generated_at: string | null;
 }
 
@@ -41,7 +45,7 @@ async function _GET() {
 
     const { data, error } = await supabase
       .from('eddy_updates')
-      .select('river_slug, quote_text, summary_text, condition_code, gauge_height_ft, generated_at')
+      .select('river_slug, quote_text, summary_text, condition_code, gauge_height_ft, discharge_cfs, generated_at')
       .gt('expires_at', new Date().toISOString())
       .is('section_slug', null)
       .order('generated_at', { ascending: false });
@@ -67,12 +71,12 @@ async function _GET() {
         river_slug: r.river_slug as string,
         condition_code: r.condition_code ?? 'unknown',
         gauge_height_ft: r.gauge_height_ft,
+        discharge_cfs: r.discharge_cfs,
         quote_text: r.quote_text ?? '',
         summary_text: r.summary_text,
         generated_at: r.generated_at ?? new Date().toISOString(),
       })),
-      // Website surface: keep the rich quote through routine reading gaps;
-      // only blank on a real condition change or a day-plus dead gauge.
+      // Website prose is valid only for the current, non-stale snapshot.
       { proseStaleHours: WEBSITE_PROSE_STALE_HOURS, logLabel: 'eddy-updates' },
     );
 
@@ -87,6 +91,9 @@ async function _GET() {
         summaryText,
         conditionCode: u.condition_code,
         gaugeHeightFt: u.gauge_height_ft,
+        dischargeCfs: u.discharge_cfs ?? null,
+        readingTimestamp: u.reading_timestamp ?? null,
+        snapshotId: u.snapshot_id ?? null,
         generatedAt: u.generated_at,
       };
     }

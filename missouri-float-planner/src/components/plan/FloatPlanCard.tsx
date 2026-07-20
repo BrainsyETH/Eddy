@@ -3,13 +3,14 @@
 // src/components/plan/FloatPlanCard.tsx
 // Merged journey card showing put-in and take-out side by side with float details
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useId } from 'react';
 import Image from 'next/image';
 import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info, Check, AlertTriangle, RefreshCw } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { formatFloatTimeRangeCompact } from '@/lib/calculations/floatTime';
+import PlanFreshnessNotice from '@/components/plan/PlanFreshnessNotice';
 import { POI_TYPES, ACCESS_POINT_TYPE_ORDER, CONDITION_SHORT_LABELS } from '@/constants';
 import {
   generateNavLinks,
@@ -175,6 +176,8 @@ interface FloatPlanCardProps {
   isLoading: boolean;
   isError?: boolean;
   onRetry?: () => void;
+  isLastValidFallback?: boolean;
+  lastValidAt?: number | null;
   putInPoint: AccessPoint | null;
   takeOutPoint: AccessPoint | null;
   onClearPutIn: () => void;
@@ -186,7 +189,7 @@ interface FloatPlanCardProps {
   riverName?: string;
   vesselTypeId: string | null;
   onVesselChange: (id: string) => void;
-  captureRef?: React.RefObject<HTMLDivElement>;
+  captureRef?: React.RefObject<HTMLDivElement | null>;
   onReportIssue?: (point: AccessPoint) => void;
   pointsAlongRoute?: RouteItem[];
 }
@@ -239,7 +242,7 @@ export function ShareableFloatCard({
   putInPoint: AccessPoint;
   takeOutPoint: AccessPoint;
   riverName?: string;
-  captureRef: React.RefObject<HTMLDivElement>;
+  captureRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const conditionCode: ConditionCode = plan.condition.code || 'unknown';
   const conditionConfig = CONDITION_CONFIG[conditionCode] || CONDITION_CONFIG.unknown;
@@ -393,11 +396,14 @@ function CollapsibleDetailSection({
   children: React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const contentId = useId();
 
   return (
     <div className="border-t border-neutral-100">
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-controls={contentId}
         className="w-full flex items-center justify-between py-2 text-left hover:bg-neutral-50 transition-colors"
       >
         <div className="flex items-center gap-2">
@@ -413,7 +419,7 @@ function CollapsibleDetailSection({
         )}
       </button>
       {isOpen && (
-        <div className="pb-3 text-sm text-neutral-600">
+        <div id={contentId} className="pb-3 text-sm text-neutral-600">
           {children}
         </div>
       )}
@@ -466,6 +472,7 @@ export function AlongYourRoute({ items }: { items: RouteItem[] }) {
             <button
               key={item.id}
               onClick={() => setExpandedId(isExpanded ? null : item.id)}
+              aria-expanded={isExpanded}
               className="w-full text-left rounded-lg border border-neutral-100 hover:border-neutral-200 bg-white transition-colors overflow-hidden"
             >
               <div className="flex items-center gap-2.5 px-3 py-2">
@@ -635,6 +642,7 @@ function AccessPointDetailCard({
       {point.description && showExpandToggle && (
         <button
           onClick={onToggleExpand}
+          aria-expanded={isExpanded}
           className="w-full px-3 py-1.5 flex items-center justify-between text-xs hover:bg-neutral-50 border-t border-neutral-100"
         >
           <span className="text-neutral-500 font-medium">Description</span>
@@ -956,6 +964,7 @@ function JourneyCenter({
             <button
               onClick={() => onVesselChange(canoeVessel.id)}
               disabled={recalculating}
+              aria-pressed={selectedVesselTypeId === canoeVessel.id}
               className={`px-3 py-1.5 text-sm font-bold rounded-md transition-all ${
                 recalculating ? 'opacity-50 cursor-not-allowed' : ''
               } ${
@@ -969,6 +978,7 @@ function JourneyCenter({
             <button
               onClick={() => onVesselChange(raftVessel.id)}
               disabled={recalculating}
+              aria-pressed={selectedVesselTypeId === raftVessel.id}
               className={`px-3 py-1.5 text-sm font-bold rounded-md transition-all ${
                 recalculating ? 'opacity-50 cursor-not-allowed' : ''
               } ${
@@ -1127,6 +1137,9 @@ function MobileBottomSheet({
   shareStatus = 'idle',
   onReportIssue,
   pointsAlongRoute = [],
+  isLastValidFallback = false,
+  lastValidAt = null,
+  onRetry,
 }: {
   plan: FloatPlan;
   putInPoint: AccessPoint;
@@ -1141,12 +1154,17 @@ function MobileBottomSheet({
   shareStatus?: 'idle' | 'copied' | 'saving';
   onReportIssue?: (point: AccessPoint) => void;
   pointsAlongRoute?: RouteItem[];
+  isLastValidFallback?: boolean;
+  lastValidAt?: number | null;
+  onRetry?: () => void;
 }) {
   // Three snap points instead of two: 'peek' keeps the route summary and
   // vessel toggle on screen while most of the map (and the drawn route) stays
   // visible — the state users actually want while deciding on a float.
   type SheetState = 'collapsed' | 'peek' | 'expanded';
-  const [sheetState, setSheetState] = useState<SheetState>('collapsed');
+  // Lead with the decision on phones. Peek keeps enough map visible for
+  // orientation while exposing time, distance, and endpoints immediately.
+  const [sheetState, setSheetState] = useState<SheetState>('peek');
   const [putInExpanded, setPutInExpanded] = useState(false);
   const [takeOutExpanded, setTakeOutExpanded] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -1280,6 +1298,9 @@ function MobileBottomSheet({
     <div
       ref={sheetRef}
       data-plan-sheet
+      role="region"
+      aria-labelledby="mobile-float-plan-title"
+      aria-busy={isLoading}
       // z-40: below the site header menu, river picker, photo/feedback modals,
       // and fullscreen map (all z-50) — the sheet used to win those ties by
       // DOM order and drew over every one of them.
@@ -1318,7 +1339,7 @@ function MobileBottomSheet({
               live ONCE in the route summary card below, not repeated here. */}
           <div className="px-4 pb-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Float Plan</p>
+              <h2 id="mobile-float-plan-title" className="text-xs font-bold uppercase tracking-wider text-neutral-500">Float Plan</h2>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <span className={`px-2 py-1 rounded text-xs font-bold ${conditionConfig.bgClass} ${conditionConfig.textClass}`}>
                   {conditionConfig.label}
@@ -1375,8 +1396,22 @@ function MobileBottomSheet({
 
       {/* Sheet Content (peek shows the route summary; scroll for the rest) */}
       <div className="overflow-y-auto px-4 pb-safe" style={{ height: `calc(100% - 84px)` }}>
+        {isLastValidFallback && lastValidAt ? (
+          <div className="mb-3">
+            <PlanFreshnessNotice savedAt={lastValidAt} isChecking={isLoading} onRetry={onRetry} />
+          </div>
+        ) : isLoading && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mb-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900"
+          >
+            <RefreshCw className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 animate-spin" aria-hidden="true" />
+            <span><strong>Updating this plan.</strong> Previous values are shown only for reference until the new calculation finishes.</span>
+          </div>
+        )}
         {/* Route Summary with Vessel Toggle */}
-        <div className="bg-neutral-50 rounded-xl p-3 mb-4">
+        <div className={`bg-neutral-50 rounded-xl p-3 mb-4 transition-opacity ${isLoading ? 'opacity-60' : ''}`}>
           <div className="flex items-center gap-3 mb-2">
             <div className="flex flex-col items-center">
               <div className="w-2.5 h-2.5 rounded-full bg-support-500"></div>
@@ -1401,6 +1436,7 @@ function MobileBottomSheet({
                 <button
                   onClick={() => onVesselChange(canoeVessel.id)}
                   disabled={isLoading}
+                  aria-pressed={vesselTypeId === canoeVessel.id}
                   className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
                     isLoading ? 'opacity-50' : ''
                   } ${
@@ -1414,6 +1450,7 @@ function MobileBottomSheet({
                 <button
                   onClick={() => onVesselChange(raftVessel.id)}
                   disabled={isLoading}
+                  aria-pressed={vesselTypeId === raftVessel.id}
                   className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
                     isLoading ? 'opacity-50' : ''
                   } ${
@@ -1546,7 +1583,7 @@ function MobileBottomSheet({
         </div>
 
         {/* Share Buttons */}
-        <div className="flex gap-3 pb-4">
+        {!isLastValidFallback && <div className="flex gap-3 pb-4">
           <button
             onClick={onShare}
             className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 text-sm font-medium transition-colors ${
@@ -1565,7 +1602,7 @@ function MobileBottomSheet({
             <Download size={16} />
             Image
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   );
@@ -1576,6 +1613,8 @@ export default function FloatPlanCard({
   isLoading,
   isError = false,
   onRetry,
+  isLastValidFallback = false,
+  lastValidAt = null,
   putInPoint,
   takeOutPoint,
   onClearPutIn,
@@ -1737,6 +1776,11 @@ export default function FloatPlanCard({
       <>
         {/* Desktop Layout - hidden on mobile */}
         <div className="hidden lg:block bg-white rounded-2xl border-2 border-neutral-200 shadow-lg overflow-hidden p-4">
+          {isLastValidFallback && lastValidAt && (
+            <div className="mb-4">
+              <PlanFreshnessNotice savedAt={lastValidAt} isChecking={isLoading} onRetry={onRetry} />
+            </div>
+          )}
           <div className="grid grid-cols-[1fr,280px,1fr] gap-4">
             {/* Put-in Card */}
             <AccessPointDetailCard
@@ -1770,7 +1814,7 @@ export default function FloatPlanCard({
           </div>
 
           {/* Actions Row */}
-          <div className="flex justify-end items-center mt-4 pt-4 border-t border-neutral-100">
+          {!isLastValidFallback && <div className="flex justify-end items-center mt-4 pt-4 border-t border-neutral-100">
             {/* Share Buttons */}
             <div className="flex gap-3">
               <button
@@ -1795,10 +1839,10 @@ export default function FloatPlanCard({
               Download Image
               </button>
             </div>
-          </div>
+          </div>}
 
           {/* Hidden capture component for image export */}
-          {captureRef && (
+          {captureRef && !isLastValidFallback && (
             <ShareableFloatCard
               plan={displayPlan}
               putInPoint={putInPoint}
@@ -1824,6 +1868,9 @@ export default function FloatPlanCard({
           shareStatus={shareStatus}
           onReportIssue={onReportIssue}
           pointsAlongRoute={pointsAlongRoute}
+          isLastValidFallback={isLastValidFallback}
+          lastValidAt={lastValidAt}
+          onRetry={onRetry}
         />
       </>
     );
