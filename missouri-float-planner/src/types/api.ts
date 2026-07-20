@@ -478,6 +478,20 @@ export interface RiverVisualLevelGroup {
   visuals: RiverVisual[];
 }
 
+/** A verified river-visual photo as a map pin (all levels, with coordinates). */
+export interface RiverVisualPin {
+  id: string;
+  imageUrl: string;
+  lat: number;
+  lng: number;
+  conditionCode: ConditionCode;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  accessPointName: string | null;
+  accessPointHref: string | null;
+  createdAt: string;
+}
+
 export interface RiverVisualsResponse {
   /** Photos matching the river's current condition (proximity-sorted). */
   visuals: RiverVisual[];

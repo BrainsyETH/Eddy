@@ -45,6 +45,7 @@ import { CONDITION_COLORS, CONDITION_LABELS, EDDY_IMAGES } from '@/constants';
 import { getConditionTailwindColor } from '@/lib/conditions';
 import { trackEvent } from '@/lib/analytics';
 import OutfittersNearby from '@/components/plan/OutfittersNearby';
+import { useRiverVisualPins } from '@/hooks/useRiverVisualPins';
 
 const ConditionNetworkLayer = dynamic(() => import('@/components/map/ConditionNetworkLayer'), { ssr: false });
 const ConditionRiverLayer = dynamic(() => import('@/components/map/ConditionRiverLayer'), { ssr: false });
@@ -60,6 +61,7 @@ const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMar
 const RouteLayer = dynamic(() => import('@/components/map/RouteLayer'), { ssr: false });
 const GaugeStationMarkers = dynamic(() => import('@/components/map/GaugeStationMarkers'), { ssr: false });
 const POIMarkers = dynamic(() => import('@/components/map/POIMarkers'), { ssr: false });
+const RiverPhotoMarkers = dynamic(() => import('@/components/map/RiverPhotoMarkers'), { ssr: false });
 const HazardMarkers = dynamic(() => import('@/components/map/HazardMarkers'), { ssr: false });
 const FlowParticlesLayer = dynamic(() => import('@/components/map/FlowParticlesLayer'), { ssr: false });
 
@@ -98,11 +100,13 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   const [showNetwork, setShowNetwork] = useState(true);
   const [showRiverNames, setShowRiverNames] = useState(true);
   const [showPOIs, setShowPOIs] = useState(true);
+  const [showPhotos, setShowPhotos] = useState(true);
   const [hiddenPoiCategories, setHiddenPoiCategories] = useState<Set<string>>(() => new Set());
   const toggleNetwork = useCallback(() => setShowNetwork((v) => !v), []);
   const toggleRiverNames = useCallback(() => setShowRiverNames((v) => !v), []);
   const toggleGauges = useCallback(() => setShowGauges((v) => !v), []);
   const togglePOIs = useCallback(() => setShowPOIs((v) => !v), []);
+  const togglePhotos = useCallback(() => setShowPhotos((v) => !v), []);
   const togglePoiCategory = useCallback((c: string) => {
     setHiddenPoiCategories((prev) => {
       const next = new Set(prev);
@@ -149,6 +153,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
       if (typeof saved.showRiverNames === 'boolean') setShowRiverNames(saved.showRiverNames);
       if (typeof saved.showGauges === 'boolean') setShowGauges(saved.showGauges);
       if (typeof saved.showPOIs === 'boolean') setShowPOIs(saved.showPOIs);
+      if (typeof saved.showPhotos === 'boolean') setShowPhotos(saved.showPhotos);
       if (Array.isArray(saved.hiddenPoiCategories)) {
         setHiddenPoiCategories(
           new Set(saved.hiddenPoiCategories.filter((c): c is string => typeof c === 'string')),
@@ -167,13 +172,14 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
           showRiverNames,
           showGauges,
           showPOIs,
+          showPhotos,
           hiddenPoiCategories: Array.from(hiddenPoiCategories),
         }),
       );
     } catch {
       // Storage full/blocked — persistence is best-effort.
     }
-  }, [showNetwork, showRiverNames, showGauges, showPOIs, hiddenPoiCategories]);
+  }, [showNetwork, showRiverNames, showGauges, showPOIs, showPhotos, hiddenPoiCategories]);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
   const [showVisualSubmitForm, setShowVisualSubmitForm] = useState(searchParams.get('submitPhoto') === 'true');
@@ -199,6 +205,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   // legend. Same React Query keys the network layer uses — no extra fetch.
   const { countsByCode, newestReadingAt } = useConditionNetwork();
   const { data: pois } = usePOIs(riverSlug);
+  const { data: photoPins } = useRiverVisualPins(riverSlug, showPhotos);
   const { data: hazards } = useHazards(riverSlug);
   const { data: weather } = useWeather(riverSlug);
   const { data: nearbyServices } = useNearbyServices(riverSlug);
@@ -746,6 +753,9 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {filteredPois.length > 0 && (
               <POIMarkers pois={filteredPois} activeMileRange={activeMileRange} />
             )}
+            {showPhotos && photoPins && photoPins.length > 0 && (
+              <RiverPhotoMarkers pins={photoPins} />
+            )}
             {/* Statewide condition network: every OTHER river in its live
                 condition color, thin, as context. Click one to switch the
                 active river. The selected river is drawn separately below. */}
@@ -799,6 +809,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
               onToggleFlow={toggleFlow}
               showPOIs={showPOIs}
               onTogglePOIs={togglePOIs}
+              showPhotos={showPhotos}
+              onTogglePhotos={togglePhotos}
               availableCategories={availablePoiCategories}
               hiddenCategories={hiddenPoiCategories}
               onToggleCategory={togglePoiCategory}
@@ -908,6 +920,9 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {filteredPois.length > 0 && (
               <POIMarkers pois={filteredPois} activeMileRange={activeMileRange} />
             )}
+            {showPhotos && photoPins && photoPins.length > 0 && (
+              <RiverPhotoMarkers pins={photoPins} />
+            )}
             {/* Statewide condition network: every OTHER river in its live
                 condition color, thin, as context. Click one to switch the
                 active river. The selected river is drawn separately below. */}
@@ -946,6 +961,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             onToggleFlow={toggleFlow}
             showPOIs={showPOIs}
             onTogglePOIs={togglePOIs}
+            showPhotos={showPhotos}
+            onTogglePhotos={togglePhotos}
             availableCategories={availablePoiCategories}
             hiddenCategories={hiddenPoiCategories}
             onToggleCategory={togglePoiCategory}
