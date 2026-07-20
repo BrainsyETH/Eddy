@@ -77,6 +77,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
+  // Dynamic add-a-photo pages (one per river) — the shareable, crawlable entry
+  // point for community photo submissions.
+  const addPhotoPages: MetadataRoute.Sitemap = (riversResult.data || []).map((river) => ({
+    url: `${BASE_URL}${riverPath(river.state, river.slug)}/add-photo`,
+    lastModified: river.updated_at ? new Date(river.updated_at) : new Date(),
+    changeFrequency: 'monthly' as const,
+    priority: 0.4,
+  }));
+
   // Dynamic blog post pages. Prefer updated_at (reflects later edits) and fall
   // back to published_at so an edited post signals a recrawl.
   const blogPages: MetadataRoute.Sitemap = (blogResult.data || []).map((post) => ({
@@ -103,5 +112,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       };
     });
 
-  return [...staticPages, ...statePages, ...riverPages, ...blogPages, ...accessPointPages];
+  return [...staticPages, ...statePages, ...riverPages, ...addPhotoPages, ...blogPages, ...accessPointPages];
 }
