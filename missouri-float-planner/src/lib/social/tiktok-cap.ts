@@ -6,7 +6,11 @@
 // formats, so before adding a TikTok fan-out we check how many TikTok posts
 // we've already put up in the last 24h. When the cap is reached we skip TikTok
 // for that post (Facebook/Instagram still go out) rather than let the init call
-// fail. This ceiling only lifts with a future direct-post (audited) phase.
+// fail. This ceiling applies to DRAFT mode only — direct-post mode (audited)
+// publishes straight to the profile with no pending-draft limit, so the helpers
+// below no-op when TIKTOK_DIRECT_POST is enabled.
+
+import { isTikTokDirectPost } from './tiktok-client';
 
 export const TIKTOK_DAILY_CAP = 5;
 
@@ -38,6 +42,8 @@ export async function tiktokRemainingBudget(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
 ): Promise<number> {
+  // Direct mode has no pending-draft cap — grant an effectively unlimited budget.
+  if (isTikTokDirectPost()) return Number.MAX_SAFE_INTEGER;
   return Math.max(0, TIKTOK_DAILY_CAP - (await tiktokPostCount24h(supabase)));
 }
 
@@ -46,5 +52,6 @@ export async function tiktokCapReached(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
 ): Promise<boolean> {
+  if (isTikTokDirectPost()) return false;
   return (await tiktokPostCount24h(supabase)) >= TIKTOK_DAILY_CAP;
 }
