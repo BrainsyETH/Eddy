@@ -15,7 +15,7 @@ import { useRiverGroups } from '@/hooks/useRiverGroups';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { CONDITION_COLORS } from '@/constants';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
-import type { RiverGroup } from '@/lib/river-groups';
+import { formatRiverLevel } from '@/lib/river-groups';
 
 // Show the best-looking rivers first, capped to keep the rotation tight.
 const RANK: Record<string, number> = {
@@ -24,13 +24,6 @@ const RANK: Record<string, number> = {
 const MAX_SLIDES = 5;
 const ROTATE_MS = 4500;
 const FADE_MS = 320;
-
-function levelLabel(r: RiverGroup): string | null {
-  const isCfs = r.primaryThreshold?.thresholdUnit === 'cfs';
-  const value = isCfs ? r.primaryGauge.dischargeCfs : r.primaryGauge.gaugeHeightFt;
-  if (value == null) return null;
-  return isCfs ? `${Math.round(value).toLocaleString()} cfs` : `${value.toFixed(1)} ft`;
-}
 
 function usePrefersReducedMotion(): boolean {
   const [reduce, setReduce] = useState(false);
@@ -85,7 +78,7 @@ export default function EddyHeroBubble() {
 
   const river = slides[index];
   const color = CONDITION_COLORS[river.condition.code] || CONDITION_COLORS.unknown;
-  const level = levelLabel(river);
+  const level = formatRiverLevel(river);
   const update = river.riverSlug ? eddyUpdates?.[river.riverSlug] : undefined;
   // Prefer the short summary so the bubble shows a complete quote rather than a
   // truncated full one; fall back to the full quote, then a static blurb.
