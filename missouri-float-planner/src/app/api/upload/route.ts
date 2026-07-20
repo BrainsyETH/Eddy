@@ -3,6 +3,7 @@
 // Validates file type/size and stores in Supabase Storage
 
 import { NextRequest, NextResponse } from 'next/server';
+import sharp from 'sharp';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
@@ -51,6 +52,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Strip metadata (including GPS) before storing to the public bucket.
+    // .rotate() bakes EXIF orientation into the pixels first so photos still
+    // display upright, then sharp drops all metadata by default; resize caps
+    // dimensions (defense against decompression bombs + smaller files). GIF is
+    // passed through untouched — it has no EXIF/GPS block and sharp would
+    // flatten its animation. Fail closed: a processing error rejects the upload
+    // rather than storing the original (which could still carry location data).
+    let uploadBuffer = buffer;
+    if (file.type !== 'image/gif') {
+      try {
+        uploadBuffer = await sharp(buffer, { animated: true })
+          .rotate()
+          .resize({ width: 2400, height: 2400, fit: 'inside', withoutEnlargement: true })
+          .toBuffer();
+      } catch (err) {
+        console.error('Image processing failed:', err);
+        return NextResponse.json(
+          { error: 'Could not process the image. Please try another photo.' },
+          { status: 400 }
+        );
+      }
+    }
+
     const supabase = createAdminClient();
 
     // Generate unique filename under community-visuals folder
@@ -60,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)
-      .upload(fileName, buffer, {
+      .upload(fileName, uploadBuffer, {
         contentType: file.type,
         upsert: false,
       });

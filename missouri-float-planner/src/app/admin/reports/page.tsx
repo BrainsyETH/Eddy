@@ -115,6 +115,9 @@ export default function AdminReportsPage() {
   const [page, setPage] = useState(1);
   const [totalReports, setTotalReports] = useState(0);
   const [pageLimit] = useState(50);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   const fetchReports = useCallback(async (p: number = page) => {
     try {
@@ -204,6 +207,42 @@ export default function AdminReportsPage() {
     }
   };
 
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const bulkUpdate = async (newStatus: 'verified' | 'rejected') => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    try {
+      setBulkUpdating(true);
+      setError(null);
+      const res = await adminFetch('/api/admin/reports', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, status: newStatus }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || `Failed to ${newStatus} reports`);
+      }
+      const data = await res.json();
+      setSuccessMessage(`${data.updated ?? ids.length} report${(data.updated ?? ids.length) !== 1 ? 's' : ''} ${newStatus}`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+      setSelectedIds(new Set());
+      await fetchReports();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Failed to ${newStatus} reports`);
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
   return (
     <AdminLayout
       title="Community Reports"
@@ -256,7 +295,54 @@ export default function AdminReportsPage() {
               className="px-3 py-1.5 bg-neutral-800 border border-neutral-600 rounded-lg text-white text-sm placeholder-neutral-500 w-48"
             />
           </div>
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <label className="flex items-center gap-1.5 text-xs text-neutral-400 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={filteredReports.length > 0 && filteredReports.every((r) => selectedIds.has(r.id))}
+                onChange={(e) => setSelectedIds(e.target.checked ? new Set(filteredReports.map((r) => r.id)) : new Set())}
+              />
+              Select all
+            </label>
+            <div className="flex rounded-lg border border-neutral-600 overflow-hidden">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-2.5 py-1.5 text-xs ${viewMode === 'list' ? 'bg-primary-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
+              >
+                List
+              </button>
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`px-2.5 py-1.5 text-xs ${viewMode === 'grid' ? 'bg-primary-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
+              >
+                Grid
+              </button>
+            </div>
+          </div>
         </div>
+
+        {selectedIds.size > 0 && (
+          <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 p-3 bg-neutral-900 border border-primary-600/60 rounded-lg">
+            <span className="text-sm font-medium text-white">{selectedIds.size} selected</span>
+            <button
+              onClick={() => bulkUpdate('verified')}
+              disabled={bulkUpdating}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-green-400 hover:bg-green-500/10 rounded-lg text-sm disabled:opacity-50"
+            >
+              <ShieldCheck className="w-4 h-4" /> Verify selected
+            </button>
+            <button
+              onClick={() => bulkUpdate('rejected')}
+              disabled={bulkUpdating}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-red-400 hover:bg-red-500/10 rounded-lg text-sm disabled:opacity-50"
+            >
+              <XCircle className="w-4 h-4" /> Reject selected
+            </button>
+            <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-neutral-400 hover:text-white">
+              Clear
+            </button>
+          </div>
+        )}
 
         {/* Report List */}
         {loading ? (
@@ -266,6 +352,7 @@ export default function AdminReportsPage() {
             <p className="text-sm text-neutral-400">
               {filteredReports.length} of {reports.length} reports
             </p>
+            {viewMode === 'list' && (
             <div className="space-y-2">
               {filteredReports.map(report => (
                 <div
@@ -277,6 +364,13 @@ export default function AdminReportsPage() {
                     onClick={() => setExpandedReport(expandedReport === report.id ? null : report.id)}
                   >
                     <div className="flex items-center gap-3 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(report.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => toggleSelect(report.id)}
+                        className="shrink-0"
+                      />
                       {expandedReport === report.id ? (
                         <ChevronDown className="w-4 h-4 text-neutral-400 shrink-0" />
                       ) : (
@@ -417,6 +511,47 @@ export default function AdminReportsPage() {
                 </div>
               ))}
             </div>
+            )}
+
+            {viewMode === 'grid' && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {filteredReports.filter((r) => r.imageUrl).length === 0 ? (
+                  <p className="col-span-full text-center py-8 text-neutral-500 text-sm">No photos to show.</p>
+                ) : (
+                  filteredReports.filter((r) => r.imageUrl).map((report) => (
+                    <div key={report.id} className="relative bg-neutral-800 rounded-lg border border-neutral-700 overflow-hidden">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(report.id)}
+                        onChange={() => toggleSelect(report.id)}
+                        className="absolute top-2 left-2 z-10"
+                      />
+                      <span className={`absolute top-2 right-2 z-10 px-2 py-0.5 text-[10px] rounded-full ${getStatusClasses(report.status)}`}>
+                        {report.status}
+                      </span>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={report.imageUrl ?? ''} alt="" className="w-full aspect-square object-cover" />
+                      <div className="p-2 text-xs space-y-0.5">
+                        <p className="truncate font-medium text-white">{report.riverName || 'Unknown'}</p>
+                        <p className="text-neutral-400 truncate">
+                          {[report.gaugeHeightFt != null ? `${report.gaugeHeightFt} ft` : null, report.dischargeCfs != null ? `${report.dischargeCfs} cfs` : null].filter(Boolean).join(' · ') || '—'}
+                        </p>
+                        {report.status === 'pending' && (
+                          <div className="flex gap-1 pt-1">
+                            <button onClick={() => updateReport(report, 'verified')} disabled={updating === report.id} className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-green-400 hover:bg-green-500/10 rounded text-xs disabled:opacity-50">
+                              <ShieldCheck className="w-3.5 h-3.5" /> Verify
+                            </button>
+                            <button onClick={() => updateReport(report, 'rejected')} disabled={updating === report.id} className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-red-400 hover:bg-red-500/10 rounded text-xs disabled:opacity-50">
+                              <XCircle className="w-3.5 h-3.5" /> Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
 
             {/* Pagination Controls */}
             {totalReports > pageLimit && (
