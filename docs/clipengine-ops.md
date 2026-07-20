@@ -185,5 +185,17 @@ Signals that the pipeline is stalled even though workflows are "green":
 3. Both healthy but zero candidates → the heatmap gate is starving the funnel:
    consider more high-traffic channels, or more small Tier-1 river channels
    (the bypass makes them productive).
-4. Refill on demand (safe anytime — posting stays gated):
-   `cd clipengine-local && VIDEOS_PER_CHANNEL=20 MAX_CLIPS=15 ./run-local.sh`
+4. Refill on demand (safe anytime — posting stays gated). A full scan re-walks
+   every channel and heatmap-scrapes each Tier-2 candidate (a `yt-dlp -J` per
+   video — slow), so prefer a targeted mode when you know what you want:
+   - Whole list: `cd clipengine-local && VIDEOS_PER_CHANNEL=20 MAX_CLIPS=15 ./run-local.sh`
+   - One channel only (e.g. a newly-added source):
+     `./run-local.sh --channel https://www.youtube.com/@ShowMeCreeks`
+   - Hand-picked videos — fastest, no channel scan, and each URL is pre-deduped
+     against `clip_library` BEFORE any download:
+     `./run-local.sh --urls-file videos.txt`. Each line is a YouTube URL with an
+     optional trailing river slug (`<url> current`); `#` comments and blank lines
+     are ignored. Add `--category high_water` to tag the whole batch as flood PSAs.
+   (yt-dlp has no metadata fetch lighter than `-J`, so the win here is *not
+   scanning* + skipping already-clipped videos before the download — not a
+   cheaper per-video call.)
