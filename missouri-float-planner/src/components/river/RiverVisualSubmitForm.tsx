@@ -8,6 +8,12 @@ import { useState, useEffect } from 'react';
 import { Camera, Upload, CheckCircle, AlertTriangle, X, Loader2, Clock } from 'lucide-react';
 import type { AccessPoint } from '@/types/api';
 
+/** Local YYYY-MM-DD for a native <input type="date">. */
+function toDateInputValue(d: Date): string {
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
 interface RiverVisualSubmitFormProps {
   riverId: string;
   riverSlug?: string;
@@ -41,9 +47,10 @@ export default function RiverVisualSubmitForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Capture-time metadata: when the photo was taken (EXIF) and how the gauge
-  // reading was determined. Older photos get their reading backfilled from USGS.
-  const [capturedAt, setCapturedAt] = useState<string | null>(null);
+  // When the photo/float happened. The date field is the source of truth (EXIF
+  // pre-fills it); changing it re-pulls the USGS reading for that day.
+  const [photoDate, setPhotoDate] = useState<string>(() => toDateInputValue(new Date()));
+  const [capturedAt, setCapturedAt] = useState<string | null>(() => new Date().toISOString());
   const [readingSource, setReadingSource] = useState<'live' | 'historical' | 'manual'>('live');
   const [readingNote, setReadingNote] = useState<string | null>(null);
   const [readingLoading, setReadingLoading] = useState(false);
@@ -86,57 +93,73 @@ export default function RiverVisualSubmitForm({
     void extractCaptureAndBackfill(file);
   }
 
+  // Pull the USGS reading for a chosen day. Shared by the date field and the
+  // EXIF pre-fill; `exactIso` carries EXIF's precise time when we have it.
+  async function selectDate(dateStr: string, exactIso?: string) {
+    if (!dateStr) return;
+    setPhotoDate(dateStr);
+    const when = new Date(exactIso ?? `${dateStr}T12:00:00`);
+    if (isNaN(when.getTime())) return;
+    setCapturedAt(when.toISOString());
+
+    // Today (or within a few hours) — the live reading the form opened with is
+    // right; restore it in case an older date had been chosen first.
+    const isToday = dateStr === toDateInputValue(new Date());
+    if (isToday || Date.now() - when.getTime() < 6 * 60 * 60 * 1000) {
+      setReadingSource('live');
+      setReadingNote(null);
+      setGaugeHeight(currentGaugeHeightFt?.toString() ?? '');
+      setDischargeCfs(currentDischargeCfs?.toString() ?? '');
+      return;
+    }
+
+    const label = when.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    if (!gaugeStationId) {
+      setReadingNote(`Using ${label}. Enter the level below.`);
+      return;
+    }
+
+    setReadingLoading(true);
+    try {
+      const res = await fetch(
+        `/api/gauge-reading-at?gaugeStationId=${gaugeStationId}&at=${encodeURIComponent(when.toISOString())}`
+      );
+      const data = res.ok ? await res.json() : null;
+      if (data?.found) {
+        if (data.gaugeHeightFt != null) setGaugeHeight(String(data.gaugeHeightFt));
+        if (data.dischargeCfs != null) setDischargeCfs(String(data.dischargeCfs));
+        setReadingSource('historical');
+        setReadingNote(`Stage & flow pulled from USGS for ${label}.`);
+      } else {
+        setReadingNote(`No USGS reading found for ${label} — please enter the level.`);
+      }
+    } finally {
+      setReadingLoading(false);
+    }
+  }
+
+  // On photo select, use EXIF capture time to pre-fill the date field (which
+  // triggers the USGS lookup). Best-effort — many photos carry no EXIF date.
   async function extractCaptureAndBackfill(file: File) {
-    setReadingNote(null);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mod: any = await import('exifr');
       const exifr = mod.default ?? mod;
       const exif = await exifr.parse(file, ['DateTimeOriginal', 'CreateDate']).catch(() => null);
       const taken: Date | undefined = exif?.DateTimeOriginal ?? exif?.CreateDate;
-
-      if (!(taken instanceof Date) || isNaN(taken.getTime())) {
-        setCapturedAt(null);
-        return;
-      }
-      setCapturedAt(taken.toISOString());
-
-      // A photo taken in the last few hours is effectively "now" — the reading
-      // auto-filled when the form opened is already right.
-      if (Date.now() - taken.getTime() < 6 * 60 * 60 * 1000) return;
-
-      const takenLabel = taken.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-      if (!gaugeStationId) {
-        setReadingNote(`Photo taken ${takenLabel}.`);
-        return;
-      }
-
-      setReadingLoading(true);
-      try {
-        const res = await fetch(
-          `/api/gauge-reading-at?gaugeStationId=${gaugeStationId}&at=${encodeURIComponent(taken.toISOString())}`
-        );
-        const data = res.ok ? await res.json() : null;
-        if (data?.found) {
-          if (data.gaugeHeightFt != null) setGaugeHeight(String(data.gaugeHeightFt));
-          if (data.dischargeCfs != null) setDischargeCfs(String(data.dischargeCfs));
-          setReadingSource('historical');
-          setReadingNote(`Stage & flow backfilled from USGS for ${takenLabel}.`);
-        } else {
-          setReadingNote(`Photo taken ${takenLabel} — no USGS reading found, please enter the level.`);
-        }
-      } finally {
-        setReadingLoading(false);
+      if (taken instanceof Date && !isNaN(taken.getTime())) {
+        await selectDate(toDateInputValue(taken), taken.toISOString());
       }
     } catch {
-      // EXIF/USGS lookup is best-effort; fall back to the live reading silently.
+      // EXIF is best-effort; the date field defaults to today.
     }
   }
 
   function clearImage() {
     setImageFile(null);
     setImagePreview(null);
-    setCapturedAt(null);
+    setPhotoDate(toDateInputValue(new Date()));
+    setCapturedAt(new Date().toISOString());
     setReadingSource('live');
     setReadingNote(null);
     setReadingLoading(false);
@@ -355,6 +378,23 @@ export default function RiverVisualSubmitForm({
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Date of photo / float — drives the USGS reading lookup */}
+        <div>
+          <label className="block text-xs font-medium text-neutral-600 mb-1.5">
+            Date of photo / float
+          </label>
+          <input
+            type="date"
+            value={photoDate}
+            max={toDateInputValue(new Date())}
+            onChange={(e) => { void selectDate(e.target.value); }}
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+          />
+          <p className="mt-1 text-xs text-neutral-400">
+            We&apos;ll pull the USGS gauge reading for this day.
+          </p>
         </div>
 
         {/* Capture-time reading note */}
