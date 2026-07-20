@@ -5,14 +5,18 @@
 // Auto-populates gauge readings from current conditions, user can edit
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Camera, Upload, CheckCircle, AlertTriangle, X, Loader2, Clock } from 'lucide-react';
+import { Camera, Upload, CheckCircle, AlertTriangle, X, Loader2, Clock, MapPin } from 'lucide-react';
 import type { AccessPoint } from '@/types/api';
 
 /** Local YYYY-MM-DD for a native <input type="date">. */
 function toDateInputValue(d: Date): string {
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
   return local.toISOString().slice(0, 10);
+}
+
+/** Matches the server-side Missouri bounds check in /api/reports. */
+function withinMissouri(lat: number, lng: number): boolean {
+  return lat >= 35 && lat <= 41 && lng >= -97 && lng <= -88;
 }
 
 interface RiverVisualSubmitFormProps {
@@ -55,6 +59,12 @@ export default function RiverVisualSubmitForm({
   const [readingSource, setReadingSource] = useState<'live' | 'historical' | 'manual'>('live');
   const [readingNote, setReadingNote] = useState<string | null>(null);
   const [readingLoading, setReadingLoading] = useState(false);
+
+  // The photo's own GPS (from EXIF), when it's a real on-water Missouri shot.
+  // Opting in pins the visual exactly where it was taken instead of at the
+  // (coarser) access point.
+  const [photoGps, setPhotoGps] = useState<{ lat: number; lng: number } | null>(null);
+  const [usePhotoLocation, setUsePhotoLocation] = useState(false);
 
   // Update gauge values if they change externally
   useEffect(() => {
@@ -151,6 +161,22 @@ export default function RiverVisualSubmitForm({
       if (taken instanceof Date && !isNaN(taken.getTime())) {
         await selectDate(toDateInputValue(taken), taken.toISOString());
       }
+
+      // Read the photo's GPS. If it's inside Missouri (a real on-water shot),
+      // offer to pin the visual exactly there — default on.
+      const gps = await exifr.gps(file).catch(() => null);
+      if (
+        gps &&
+        typeof gps.latitude === 'number' &&
+        typeof gps.longitude === 'number' &&
+        withinMissouri(gps.latitude, gps.longitude)
+      ) {
+        setPhotoGps({ lat: gps.latitude, lng: gps.longitude });
+        setUsePhotoLocation(true);
+      } else {
+        setPhotoGps(null);
+        setUsePhotoLocation(false);
+      }
     } catch {
       // EXIF is best-effort; the date field defaults to today.
     }
@@ -164,6 +190,8 @@ export default function RiverVisualSubmitForm({
     setReadingSource('live');
     setReadingNote(null);
     setReadingLoading(false);
+    setPhotoGps(null);
+    setUsePhotoLocation(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -207,11 +235,20 @@ export default function RiverVisualSubmitForm({
       const imagePath: string = uploadData.path;
       setUploading(false);
 
-      // 2. Anchor the public photo to a real access point on this river. Never
-      // substitute a state-specific centre coordinate.
-      const accessPoint = accessPoints?.find((p) => p.id === selectedAccessPointId);
-      if (!accessPoint) {
-        throw new Error('The selected access point is no longer available. Please choose another.');
+      // 2. Location: prefer the photo's own GPS when the submitter opted in
+      // (precise on-water spot); else the selected access point; else river center.
+      let latitude = 37.5; // Default Missouri center
+      let longitude = -91.5;
+
+      if (usePhotoLocation && photoGps) {
+        latitude = photoGps.lat;
+        longitude = photoGps.lng;
+      } else if (selectedAccessPointId && accessPoints) {
+        const ap = accessPoints.find((p) => p.id === selectedAccessPointId);
+        if (ap) {
+          latitude = ap.coordinates.lat;
+          longitude = ap.coordinates.lng;
+        }
       }
       const latitude = accessPoint.coordinates.lat;
       const longitude = accessPoint.coordinates.lng;
@@ -385,6 +422,29 @@ export default function RiverVisualSubmitForm({
           </select>
         </div>
 
+        {/* Precise location from the photo's GPS — shown only when the photo
+            was geotagged inside Missouri. Default on; opt-out anytime. */}
+        {photoGps && (
+          <label className="flex items-start gap-2.5 p-3 rounded-lg border border-teal-100 bg-teal-50 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={usePhotoLocation}
+              onChange={(e) => setUsePhotoLocation(e.target.checked)}
+              className="mt-0.5 shrink-0"
+            />
+            <span className="text-xs">
+              <span className="flex items-center gap-1 font-semibold text-teal-800">
+                <MapPin className="w-3.5 h-3.5" />
+                Pin it where I took the photo
+              </span>
+              <span className="mt-0.5 block text-teal-700/90">
+                Uses your photo&apos;s GPS so it lands on the map exactly where you were on the
+                river — more precise than the access point. Shown publicly once approved.
+              </span>
+            </span>
+          </label>
+        )}
+
         {/* Date of photo / float — drives the USGS reading lookup */}
         <div>
           <label className="block text-xs font-medium text-neutral-600 mb-1.5">
@@ -478,14 +538,9 @@ export default function RiverVisualSubmitForm({
           )}
         </button>
 
-        <p className="text-xs text-neutral-500 text-center leading-relaxed">
-          By submitting, you confirm this is your own photo and grant Eddy permission to display it.
-          {' '}Photos are re-encoded to remove camera metadata, reviewed, and may appear publicly
-          with the location, description, and name you provide. Don&apos;t include faces, license
-          plates, or private details. See our{' '}
-          <Link href="/privacy" className="underline hover:text-neutral-700">
-            privacy policy
-          </Link>.
+        <p className="text-xs text-neutral-400 text-center">
+          By submitting, you confirm this is your own photo and grant Eddy
+          permission to display it. Photos are reviewed before appearing publicly.
         </p>
       </form>
     </div>
