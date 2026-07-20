@@ -14,7 +14,7 @@ import type { Metadata } from 'next';
 import { getEmbedCardData } from '@/lib/embed/cards';
 import { embedPalette, embedShadow, EMBED_FONTS } from '@/lib/embed/theme';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
-import { WEEKEND_FLOATABLE } from '@shared/condition-system';
+import { FLOATABLE_NOW } from '@shared/condition-system';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +30,7 @@ const DEFAULT_ACCENT = '#2D7889';
 const VERDICT_TEXT: Record<string, string> = {
   flowing: 'Yes — great day to float',
   good: 'Yes — good to float',
-  high: 'Floatable — use caution',
+  high: 'High water — experienced only',
   low: 'Marginal today',
   too_low: 'Not today',
   dangerous: 'No — stay off the water',
@@ -64,7 +64,10 @@ export default async function EmbedCardPage({ params, searchParams }: Props) {
   const code = card.condition?.code ?? 'unknown';
   const conditionColor = CONDITION_COLORS[code] || CONDITION_COLORS.unknown;
   const conditionLabel = CONDITION_SHORT_LABELS[code] || 'Unknown';
-  const floatable = WEEKEND_FLOATABLE.has(code);
+  // Strictly positive verdicts keep the neutral headline color; anything else
+  // (including high water) renders in its condition color so caution reads as
+  // caution — same FLOATABLE_NOW taxonomy as the site (audit F09).
+  const floatable = FLOATABLE_NOW.has(code);
   const verdict = VERDICT_TEXT[code] || VERDICT_TEXT.unknown;
   const accent = card.accentColor || DEFAULT_ACCENT;
 
