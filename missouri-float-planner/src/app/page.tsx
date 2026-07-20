@@ -73,7 +73,7 @@ export default async function Home() {
                 Eddy
               </h1>
               <p className="text-base md:text-lg text-white/80 max-w-lg mx-auto md:mx-0 mb-8 leading-relaxed">
-                Get live conditions, water levels, and float trip plans.
+                Know before you go. Live river levels, float conditions, and trip plans for the Ozarks.
               </p>
 
               <div className="flex flex-wrap justify-center md:justify-start gap-3">

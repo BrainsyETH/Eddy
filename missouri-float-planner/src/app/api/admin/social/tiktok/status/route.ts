@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminAuth } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { hasTikTokCredentials } from '@/lib/social/tiktok-client';
+import { hasTikTokCredentials, resolveTikTokRedirectUri } from '@/lib/social/tiktok-client';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
     configured: hasTikTokCredentials(),
     // Whether an ACCOUNT is connected (a stored token exists).
     connected: Boolean(data),
+    // The exact redirect_uri this deployment sends TikTok. Must be registered
+    // verbatim on the app (Login Kit → Redirect URI), so surface it for the admin.
+    redirectUri: resolveTikTokRedirectUri(),
     openId: data?.open_id ?? null,
     accessTokenExpiresAt: data?.access_token_expires_at ?? null,
     refreshTokenExpiresAt: data?.refresh_token_expires_at ?? null,

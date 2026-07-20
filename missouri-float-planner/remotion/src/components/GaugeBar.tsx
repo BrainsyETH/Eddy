@@ -212,7 +212,12 @@ export function buildGaugeZones(opts: {
       cursor = t;
     }
   };
-  const highBottom = levelHigh ?? optimalMax;
+  // The GOOD/HIGH split MUST key off the same value the condition classifier
+  // uses for its "high" onset — computeCondition uses `optimalMax ?? levelHigh`.
+  // Keying off `levelHigh ?? optimalMax` instead let a reading classified "high"
+  // (via optimalMax) render inside the green GOOD zone whenever levelHigh sat
+  // above optimalMax (e.g. Spring River @ Carthage: 3.8 ft "high" drawn in GOOD).
+  const highBottom = optimalMax ?? levelHigh;
   // No trustworthy ft thresholds at all → no scale. Return empty so the caller
   // renders an honest LEVEL-ONLY instrument rather than inventing a full-bar
   // "HIGH" zone (which would mislabel every reading as high water). This is the
@@ -279,10 +284,16 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
     optimalMax != null ? (levelHigh != null ? Math.min(optimalMax, levelHigh) : optimalMax) : null;
   const hasBand = optimalMin != null && bandTopFt != null && bandTopFt > optimalMin;
 
+  // Emphasis (alert instrument) flips teal→condition-color at the SAME onset as
+  // the zone scale + the classifier (optimalMax ?? levelHigh), so the waterline
+  // marker turns "high"-colored exactly when it enters the HIGH zone. Compact
+  // keeps its legacy levelHigh crossing (its baseline is pixel-checked).
+  const highOnset = emphasis ? optimalMax ?? levelHigh : levelHigh;
+
   const fill = gaugeFillModel(frame, fps, {
     currentHeight,
     series,
-    levelHigh,
+    levelHigh: highOnset,
     riseStartFrame,
     riseDurationFrames,
     delay,

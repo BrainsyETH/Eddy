@@ -33,11 +33,46 @@ interface TikTokAppCreds {
   redirectUri?: string;
 }
 
+// The OAuth callback is always served at this fixed PUBLIC path. It lives
+// outside /api/admin on purpose — middleware Bearer-gates everything under
+// /api/admin, and TikTok reaches the callback via a browser redirect with no
+// admin token.
+export const TIKTOK_CALLBACK_PATH = '/api/social/tiktok/callback';
+
+/**
+ * Resolve the exact redirect_uri to hand TikTok. This value MUST be
+ * byte-identical between the authorize step and the code exchange, and MUST
+ * exactly match a redirect URI registered on the TikTok app — otherwise TikTok
+ * fails the flow with a "redirect_uri" error. So we derive it deterministically:
+ * keep the ORIGIN from TIKTOK_REDIRECT_URI (or NEXT_PUBLIC_SITE_URL, or the prod
+ * default) but always force the canonical callback path. This self-heals the two
+ * misconfigurations that most often trigger that error — a stale
+ * `/api/admin/social/tiktok/callback` path (where the callback used to live
+ * before it was moved out of the Bearer-gated tree) and a trailing slash.
+ */
+export function resolveTikTokRedirectUri(): string {
+  const raw = (
+    process.env.TIKTOK_REDIRECT_URI ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    'https://eddy.guide'
+  ).trim();
+  let origin: string;
+  try {
+    origin = new URL(raw).origin;
+  } catch {
+    // Not a full URL (e.g. "eddy.guide") — coerce the host into an https origin.
+    origin = `https://${raw.replace(/^https?:\/\//, '').replace(/\/.*$/, '')}`;
+  }
+  return `${origin}${TIKTOK_CALLBACK_PATH}`;
+}
+
 function getAppCreds(): TikTokAppCreds {
   return {
     clientKey: process.env.TIKTOK_CLIENT_KEY,
     clientSecret: process.env.TIKTOK_CLIENT_SECRET,
-    redirectUri: process.env.TIKTOK_REDIRECT_URI,
+    // Always the canonical callback URL, regardless of the path in env — see
+    // resolveTikTokRedirectUri. authorize + code-exchange therefore always agree.
+    redirectUri: resolveTikTokRedirectUri(),
   };
 }
 
