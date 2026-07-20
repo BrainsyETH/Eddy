@@ -19,6 +19,14 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'images.unsplash.com',
       },
+      {
+        // Community-submitted river visual photos live in Supabase Storage.
+        // Wildcard host so dev/preview/prod projects (different subdomains) all
+        // resolve; scoped to the public storage path only.
+        protocol: 'https',
+        hostname: '**.supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
     ],
   },
   async redirects() {

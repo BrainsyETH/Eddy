@@ -32,6 +32,14 @@ export interface FtThresholds {
   gaugeStationId: string | null;
   /** USGS station's human name for the instrument citation. */
   stationLabel?: string;
+  /** Unit the PRIMARY threshold ladder is in. 'cfs' gauges classify condition
+   *  from discharge, so the reel surfaces flow for them (a shallow-looking stage
+   *  can still be moving a lot of water). */
+  primaryUnit: 'ft' | 'cfs';
+  /** CFS-primary median (p50 = primary level_optimal_min, in cfs) — the "normal"
+   *  the reel frames the live discharge against ("N× normal flow"). Undefined for
+   *  ft-primary gauges. */
+  flowNormalCfs?: number;
 }
 
 interface LevelSet {
@@ -64,7 +72,7 @@ export async function loadFtThresholds(
   supabase: any,
   riverSlug: string,
 ): Promise<FtThresholds> {
-  const empty: FtThresholds = { gaugeStationId: null };
+  const empty: FtThresholds = { gaugeStationId: null, primaryUnit: 'ft' };
 
   // river_gauges.river_id is a UUID — resolve through the rivers join so the
   // filter actually executes (a bare .eq('river_id', slug) errors out).
@@ -85,9 +93,15 @@ export async function loadFtThresholds(
   }
 
   const station = Array.isArray(gauge.gauge_stations) ? gauge.gauge_stations[0] : gauge.gauge_stations;
+  const unit = (gauge.threshold_unit || 'ft').toLowerCase();
+  const primaryUnit: 'ft' | 'cfs' = unit === 'cfs' ? 'cfs' : 'ft';
   const base: FtThresholds = {
     gaugeStationId: gauge.gauge_station_id ?? null,
     stationLabel: station?.name || station?.usgs_site_id || undefined,
+    primaryUnit,
+    // p50 (median) discharge for cfs gauges — the "normal" the reel frames the
+    // live flow against. The primary level_optimal_min holds it in cfs.
+    flowNormalCfs: primaryUnit === 'cfs' ? num(gauge.level_optimal_min) : undefined,
   };
 
   const primary: LevelSet = {
@@ -106,8 +120,7 @@ export async function loadFtThresholds(
   // Unit routing: ft-primary (or legacy rows with no unit) → primary levels;
   // cfs-primary → the alt mirror. Either way the chosen set must still pass the
   // ft plausibility check before it's allowed onto the feet bar.
-  const unit = (gauge.threshold_unit || 'ft').toLowerCase();
-  const chosen = unit === 'ft' ? primary : alt;
+  const chosen = primaryUnit === 'ft' ? primary : alt;
   if (!plausibleFt(chosen)) return base;
 
   return { ...base, ...chosen };

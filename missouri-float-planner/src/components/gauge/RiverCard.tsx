@@ -244,7 +244,7 @@ export default function RiverCard({ riverGroup, meta, distanceMiles }: RiverCard
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
           <Link
-            href={`/rivers/${riverSlug}?submitPhoto=true`}
+            href={riverSlug ? `/plan?river=${riverSlug}&submitPhoto=true` : '#'}
             className="flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-teal-600 transition-colors"
           >
             <Camera className="w-3.5 h-3.5" />

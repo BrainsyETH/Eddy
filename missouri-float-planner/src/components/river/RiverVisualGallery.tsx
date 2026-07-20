@@ -3,22 +3,31 @@
 // src/components/river/RiverVisualGallery.tsx
 // Displays community-submitted river photos matching current conditions
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Camera, ChevronLeft, ChevronRight, X, MapPin, Droplets, Ruler } from 'lucide-react';
-import { CONDITION_SHORT_LABELS } from '@/constants';
-import type { RiverVisual, RiverVisualsResponse } from '@/types/api';
+import ConditionBadge from '@/components/ui/ConditionBadge';
+import type { ConditionCode, RiverVisual, RiverVisualsResponse } from '@/types/api';
+
+// Level bands ordered dry → flood, for the scrubber.
+const LEVEL_ORDER: ConditionCode[] = ['too_low', 'low', 'good', 'flowing', 'high', 'dangerous', 'unknown'];
 
 interface RiverVisualGalleryProps {
   riverSlug: string;
   accessPointId?: string | null;
+  /** When provided, an empty gallery shows a CTA linking to the add-photo page. */
+  addPhotoHref?: string;
+  /** Fallback empty-state CTA action (opens a modal) when no addPhotoHref is given. */
+  onAddPhoto?: () => void;
 }
 
-export default function RiverVisualGallery({ riverSlug, accessPointId }: RiverVisualGalleryProps) {
+export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoHref, onAddPhoto }: RiverVisualGalleryProps) {
   const [data, setData] = useState<RiverVisualsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [selectedLevel, setSelectedLevel] = useState<ConditionCode | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,6 +44,7 @@ export default function RiverVisualGallery({ riverSlug, accessPointId }: RiverVi
         if (!cancelled) {
           setData(json);
           setCurrentIndex(0);
+          setSelectedLevel(null);
         }
       } catch {
         // Silently fail — gallery is non-critical
@@ -47,42 +57,117 @@ export default function RiverVisualGallery({ riverSlug, accessPointId }: RiverVi
     return () => { cancelled = true; };
   }, [riverSlug, accessPointId]);
 
+  // Which band's photos are showing. Defaults to the river's current level when
+  // it has photos, else the nearest band that does.
+  const activeLevel = useMemo<ConditionCode | null>(() => {
+    if (!data || data.byLevel.length === 0) return null;
+    const has = (c: ConditionCode) => data.byLevel.some((l) => l.code === c);
+    if (selectedLevel && has(selectedLevel)) return selectedLevel;
+    if (has(data.currentCondition)) return data.currentCondition;
+    const i = LEVEL_ORDER.indexOf(data.currentCondition);
+    if (i >= 0) {
+      return [...data.byLevel].sort(
+        (a, b) => Math.abs(LEVEL_ORDER.indexOf(a.code) - i) - Math.abs(LEVEL_ORDER.indexOf(b.code) - i)
+      )[0].code;
+    }
+    return data.byLevel[0].code;
+  }, [data, selectedLevel]);
+
+  const activeGroup = data?.byLevel.find((l) => l.code === activeLevel) ?? null;
+  const groupVisuals = activeGroup?.visuals ?? [];
+
   const navigate = useCallback((direction: 1 | -1) => {
-    if (!data?.visuals.length) return;
+    if (!groupVisuals.length) return;
     setCurrentIndex((prev) => {
       const next = prev + direction;
-      if (next < 0) return data.visuals.length - 1;
-      if (next >= data.visuals.length) return 0;
+      if (next < 0) return groupVisuals.length - 1;
+      if (next >= groupVisuals.length) return 0;
       return next;
     });
-  }, [data?.visuals.length]);
+  }, [groupVisuals.length]);
 
-  // Don't render if no visuals or still loading
-  if (loading) return null;
-  if (!data || data.visuals.length === 0) return null;
+  // Don't render while loading or if the fetch failed.
+  if (loading || !data) return null;
 
-  const visuals = data.visuals;
-  const current = visuals[currentIndex];
-  const conditionLabel = CONDITION_SHORT_LABELS[data.currentCondition] || data.currentCondition;
+  // No verified photos at any level yet — invite a contribution in the image's
+  // place, when the host gives us a link (or a modal action) to add one.
+  if (data.byLevel.length === 0) {
+    if (!addPhotoHref && !onAddPhoto) return null;
+    const ctaClass = 'group w-full aspect-[16/10] flex flex-col items-center justify-center gap-2 px-6 text-center bg-neutral-50 hover:bg-neutral-100 transition-colors';
+    const ctaInner = (
+      <>
+        <span className="flex items-center justify-center w-12 h-12 rounded-full bg-teal-50 text-teal-600 group-hover:bg-teal-100 transition-colors">
+          <Camera className="w-6 h-6" />
+        </span>
+        <span className="text-sm font-semibold text-neutral-800">No photos at this level yet</span>
+        <span className="text-xs text-neutral-500 max-w-xs">
+          Show fellow floaters what the water looks like right now.
+        </span>
+        <span className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-semibold group-hover:bg-teal-700 transition-colors">
+          <Camera className="w-3.5 h-3.5" /> Add a photo
+        </span>
+      </>
+    );
+    return (
+      <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-neutral-100 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <Camera className="w-4 h-4 text-neutral-500 shrink-0" />
+          <h3 className="text-sm font-semibold text-neutral-800">
+            What the river looks like at this level
+          </h3>
+          <ConditionBadge code={data.currentCondition} size="sm" />
+        </div>
+        {addPhotoHref ? (
+          <Link href={addPhotoHref} className={ctaClass}>{ctaInner}</Link>
+        ) : (
+          <button type="button" onClick={onAddPhoto} className={ctaClass}>{ctaInner}</button>
+        )}
+      </div>
+    );
+  }
+
+  const visuals = groupVisuals;
+  const current = visuals[currentIndex] ?? visuals[0];
 
   return (
     <>
       <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Camera className="w-4 h-4 text-neutral-500" />
-            <h3 className="text-sm font-semibold text-neutral-800">
-              River Visuals
-            </h3>
-            <span className="text-xs text-neutral-400">
-              at {conditionLabel} conditions
-            </span>
-          </div>
-          <span className="text-xs text-neutral-400">
+        <div className="px-4 py-3 border-b border-neutral-100 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <Camera className="w-4 h-4 text-neutral-500 shrink-0" />
+          <h3 className="text-sm font-semibold text-neutral-800">
+            What the river looks like at this level
+          </h3>
+          <ConditionBadge code={activeLevel ?? data.currentCondition} size="sm" />
+          <span className="ml-auto text-xs text-neutral-400 whitespace-nowrap">
             {visuals.length} photo{visuals.length !== 1 ? 's' : ''}
           </span>
         </div>
+
+        {/* Level scrubber — see the river at each level we have photos for */}
+        {data.byLevel.length > 1 && (
+          <div className="px-4 pt-3 flex flex-wrap items-center gap-x-1.5 gap-y-2">
+            {data.byLevel.map((l) => {
+              const isActive = l.code === activeLevel;
+              const isNow = l.code === data.currentCondition;
+              return (
+                <button
+                  key={l.code}
+                  type="button"
+                  onClick={() => { setSelectedLevel(l.code); setCurrentIndex(0); }}
+                  aria-pressed={isActive}
+                  title={isNow ? 'The river is at this level right now' : `See the river at ${l.code}`}
+                  className="inline-flex items-center gap-1"
+                >
+                  <span className={`rounded-full transition ${isActive ? 'ring-2 ring-teal-500 ring-offset-1' : 'opacity-50 hover:opacity-100'}`}>
+                    <ConditionBadge code={l.code} size="sm" />
+                  </span>
+                  {isNow && <span className="text-[10px] font-semibold text-teal-600">now</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Image carousel */}
         <div className="relative aspect-[16/10] bg-neutral-100">
@@ -133,33 +218,55 @@ export default function RiverVisualGallery({ riverSlug, accessPointId }: RiverVi
         </div>
 
         {/* Caption / metadata */}
-        <div className="px-4 py-3 space-y-1">
+        <div className="px-4 py-3 space-y-2.5">
           {current.description && (
             <p className="text-sm text-neutral-700 line-clamp-2">{current.description}</p>
           )}
-          <div className="flex items-center gap-3 text-xs text-neutral-400">
-            {current.accessPointName && (
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                {current.accessPointName}
-              </span>
-            )}
-            {current.gaugeHeightFt != null && (
-              <span className="flex items-center gap-1">
-                <Ruler className="w-3 h-3" />
-                {current.gaugeHeightFt} ft
-              </span>
-            )}
-            {current.dischargeCfs != null && (
-              <span className="flex items-center gap-1">
-                <Droplets className="w-3 h-3" />
-                {current.dischargeCfs} cfs
-              </span>
-            )}
-            {current.submitterName && (
-              <span>by {current.submitterName}</span>
-            )}
-          </div>
+          {/* Stage + flow when the photo was taken — the whole point of the gallery */}
+          {(current.gaugeHeightFt != null || current.dischargeCfs != null) && (
+            <div className="flex flex-wrap gap-2">
+              {current.gaugeHeightFt != null && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-100 px-3 py-1.5">
+                  <Ruler className="w-4 h-4 text-neutral-400 shrink-0" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Stage</span>
+                  <span className="text-sm font-bold text-neutral-800">{current.gaugeHeightFt}</span>
+                  <span className="text-xs text-neutral-500">ft</span>
+                </span>
+              )}
+              {current.dischargeCfs != null && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-100 px-3 py-1.5">
+                  <Droplets className="w-4 h-4 text-neutral-400 shrink-0" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Flow</span>
+                  <span className="text-sm font-bold text-neutral-800">{current.dischargeCfs}</span>
+                  <span className="text-xs text-neutral-500">cfs</span>
+                </span>
+              )}
+            </div>
+          )}
+          {/* Where the shot was taken + who shared it */}
+          {(current.accessPointName || current.submitterName) && (
+            <div className="flex items-center gap-3 text-xs text-neutral-400">
+              {current.accessPointName && (
+                current.accessPointHref ? (
+                  <Link
+                    href={current.accessPointHref}
+                    className="flex items-center gap-1 hover:text-teal-600 transition-colors"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    {current.accessPointName}
+                  </Link>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    {current.accessPointName}
+                  </span>
+                )
+              )}
+              {current.submitterName && (
+                <span>by {current.submitterName}</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -257,12 +364,18 @@ function Lightbox({
           )}
           <div className="flex items-center justify-center gap-3 text-xs text-white/60">
             {current.accessPointName && (
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3 h-3" /> {current.accessPointName}
-              </span>
+              current.accessPointHref ? (
+                <Link href={current.accessPointHref} className="flex items-center gap-1 hover:text-white transition-colors">
+                  <MapPin className="w-3 h-3" /> {current.accessPointName}
+                </Link>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" /> {current.accessPointName}
+                </span>
+              )
             )}
-            {current.gaugeHeightFt != null && <span>{current.gaugeHeightFt} ft</span>}
-            {current.dischargeCfs != null && <span>{current.dischargeCfs} cfs</span>}
+            {current.gaugeHeightFt != null && <span className="font-semibold text-white">{current.gaugeHeightFt} ft</span>}
+            {current.dischargeCfs != null && <span className="font-semibold text-white">{current.dischargeCfs} cfs</span>}
             {current.submitterName && <span>by {current.submitterName}</span>}
             <span>{currentIndex + 1} / {visuals.length}</span>
           </div>

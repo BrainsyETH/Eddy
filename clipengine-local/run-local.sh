@@ -10,7 +10,11 @@
 #
 # Usage:
 #   ./run-local.sh                                  # scan all channels in channels.json
+#   ./run-local.sh --channel <youtube-channel-url>  # scan ONE channel only (targeted)
 #   ./run-local.sh --url <youtube-url> [--river current] [--peak 1] [--category high_water]
+#   ./run-local.sh --urls-file <file>               # batch-add hand-picked URLs (one per line,
+#                                                   #   optional trailing river slug), pre-deduped,
+#                                                   #   no channel scan — the fast "add videos" path
 #
 # Env (optional):
 #   YOUTUBE_COOKIES_FILE   Netscape cookies.txt — only needed if YouTube bot-blocks you
@@ -55,12 +59,16 @@ PEAK_NUMBER=1
 SINGLE_URL=""
 SINGLE_RIVER=""
 SINGLE_CATEGORY=""
+SINGLE_CHANNEL=""
+URLS_FILE=""
 VIDEOS_PER_CHANNEL="${VIDEOS_PER_CHANNEL:-5}"
 MAX_CLIPS="${MAX_CLIPS:-3}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --url)        SINGLE_URL="$2"; shift 2 ;;
+    --urls-file)  URLS_FILE="$2"; shift 2 ;;
+    --channel)    SINGLE_CHANNEL="$2"; shift 2 ;;
     --river)      SINGLE_RIVER="$2"; shift 2 ;;
     --peak)       PEAK_NUMBER="$2"; shift 2 ;;
     --instagram)  SINGLE_IG="$2"; shift 2 ;;
@@ -88,6 +96,15 @@ if [ -n "$MISSING" ]; then
   echo "❌ Branding is cloud-only (Remotion); this run needs:$MISSING"
   echo "   Store secrets with ./set-secret.sh <NAME> and install/auth gh, then retry."
   exit 1
+fi
+# handoff-clip.sh dispatches render-clip via `gh`, which resolves the repo from
+# the CWD's git remote. The cron cd's into this dir first, but manual runs
+# (--url/--urls-file/--channel) can start anywhere — a wrong CWD dispatches to the
+# wrong repo (a 404, no clip lands). Pin gh to THIS clone's origin unless already set.
+if [ -z "${GH_REPO:-}" ]; then
+  _slug="$(git -C "$REPO" remote get-url origin 2>/dev/null | sed -E 's#^(git@github.com:|https://github.com/)##; s#\.git$##' || true)"
+  [ -n "${_slug:-}" ] && export GH_REPO="$_slug"
+  unset _slug
 fi
 echo "Branding: Remotion clip-reel (cloud handoff) → Blob + clip_library (app gates & posts)"
 
@@ -145,12 +162,67 @@ process_video() {
   return 0
 }
 
-if [ -n "$SINGLE_URL" ]; then
+# ── Add-by-URL helpers (used by --urls-file batch adds) ──────────────────────
+# Extract the 11-char YouTube id from a URL (same pattern as scrape-heatmap.sh).
+video_id_of() { printf '%s' "$1" | grep -oE '[a-zA-Z0-9_-]{11}' | head -1 || true; }
+
+# Cheap clip_library pre-dedup by youtube_video_id — echoes exists|new|error.
+# One REST call; fails OPEN ('error' → caller proceeds) so a flaky API never
+# silently blocks a clip. Same query the channel scan uses inline below.
+dedup_status() {
+  local vid="$1" existing
+  existing="$(curl -s "${SUPABASE_URL}/rest/v1/clip_library?youtube_video_id=eq.${vid}&select=id&limit=1" \
+    -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null || echo "")"
+  printf '%s' "$existing" | python3 -c "import json,sys;d=json.loads(sys.stdin.read() or 'null');print('exists' if isinstance(d,list) and d else ('new' if isinstance(d,list) else 'error'))" 2>/dev/null || echo error
+}
+
+# Add ONE hand-picked video: pre-dedup (one REST call) BEFORE any yt-dlp -J or
+# download, so an already-clipped URL costs a call instead of a full scrape +
+# extract. Returns 0 only when a render was actually dispatched.
+add_one_url() {
+  local url="$1" river="${2:-}" ig="${3:-}" category="${4:-}" vid status
+  vid="$(video_id_of "$url")"
+  if [ -n "$vid" ]; then
+    status="$(dedup_status "$vid")"
+    if [ "$status" = exists ]; then
+      echo "  ⏭️  already in clip_library — skipping $url"; return 1
+    elif [ "$status" = error ]; then
+      echo "  ⚠️  dedup check failed — proceeding without dedup: $url"
+    fi
+  fi
+  process_video "$url" "$river" "$PEAK_NUMBER" "$ig" "$category"
+}
+
+if [ -n "$URLS_FILE" ]; then
+  # Batch add a hand-picked list: one URL per line, optional trailing river slug
+  # ("<url> current"); '#' comments and blank lines ignored. Each URL is
+  # pre-deduped against clip_library BEFORE any yt-dlp download, and NO channels
+  # are scanned — the efficient path for adding specific videos.
+  [ -f "$URLS_FILE" ] || { echo "❌ No urls file at $URLS_FILE"; exit 1; }
+  echo "→ Batch add from $URLS_FILE (river default: ${SINGLE_RIVER:-auto-detect}, category: ${SINGLE_CATEGORY:-default})"
+  N=0; ADDED=0
+  # Read the list on fd 3, not stdin: add_one_url → process_video runs ffmpeg,
+  # which consumes stdin; a stdin-fed loop loses every URL after the first.
+  while IFS= read -r RAW <&3 || [ -n "$RAW" ]; do
+    LINE="${RAW%%#*}"                       # drop trailing # comments
+    read -r U REST <<< "$LINE" || true      # U=url, REST=optional river slug
+    [ -z "${U:-}" ] && continue
+    N=$((N + 1))
+    if add_one_url "$U" "${REST:-$SINGLE_RIVER}" "${SINGLE_IG:-}" "${SINGLE_CATEGORY:-}"; then
+      ADDED=$((ADDED + 1))
+    fi
+  done 3< "$URLS_FILE"
+  echo "→ Batch add complete: $ADDED dispatched of $N URL(s)"
+elif [ -n "$SINGLE_URL" ]; then
   process_video "$SINGLE_URL" "$SINGLE_RIVER" "$PEAK_NUMBER" "${SINGLE_IG:-}" "${SINGLE_CATEGORY:-}"
 else
   CHANNELS="$HERE/channels.json"
-  [ -f "$CHANNELS" ] || { echo "No channels.json at $CHANNELS"; exit 1; }
-  echo "→ Scanning channels (newest $VIDEOS_PER_CHANNEL each, up to $MAX_CLIPS clips)"
+  if [ -n "$SINGLE_CHANNEL" ]; then
+    echo "→ Scanning ONE channel: $SINGLE_CHANNEL (newest $VIDEOS_PER_CHANNEL, up to $MAX_CLIPS clips)"
+  else
+    [ -f "$CHANNELS" ] || { echo "No channels.json at $CHANNELS"; exit 1; }
+    echo "→ Scanning channels (newest $VIDEOS_PER_CHANNEL each, up to $MAX_CLIPS clips)"
+  fi
   COUNT=0
   while IFS='|' read -r CH_URL CH_RIVER CH_IG CH_FLOODONLY; do
     [ -z "$CH_URL" ] && continue
@@ -206,14 +278,20 @@ else
         COUNT=$((COUNT + 1))
       fi
     done < <(yt-dlp --socket-timeout 30 --retries 3 --flat-playlist --playlist-end "$VIDEOS_PER_CHANNEL" --print "%(id)s|||%(title)s" "$LIST_URL" 2>/dev/null || true)
-  done < <(python3 -c "
+  done < <(
+    if [ -n "$SINGLE_CHANNEL" ]; then
+      printf '%s|%s||\n' "$SINGLE_CHANNEL" "$SINGLE_RIVER"
+    else
+      python3 -c "
 import json,sys
 # Pipe-delimited (not tab): tab is IFS-whitespace, so empty middle fields would
 # collapse and shift columns. '|' never appears in URLs/slugs/handles.
 for c in json.load(open('$CHANNELS')):
     if isinstance(c,str): print(c+'|||')
     else: print('|'.join([(c.get('url') or ''),(c.get('river_slug') or ''),(c.get('instagram') or ''),('1' if c.get('flood_only') else '')]))
-")
+"
+    fi
+  )
 fi
 
 echo ""

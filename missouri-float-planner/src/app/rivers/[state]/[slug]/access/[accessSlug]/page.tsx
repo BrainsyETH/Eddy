@@ -9,6 +9,7 @@ import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getAccessPointDetail } from '@/lib/access-points/detail';
 import AccessPointHeader from '@/components/access-point/AccessPointHeader';
+import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import AccessPointNav from '@/components/access-point/AccessPointNav';
 import AccessPointSection from '@/components/access-point/AccessPointSection';
 import AccessPointShareButton from '@/components/access-point/AccessPointShareButton';
@@ -66,6 +67,9 @@ export default async function AccessPointDetailPage({ params }: Props) {
       <div className="max-w-xl mx-auto px-4 py-6 space-y-4">
         {/* Header Card with Hero, Quick Stats, and Gauge */}
         <AccessPointHeader accessPoint={accessPoint} gaugeStatus={gaugeStatus} />
+
+        {/* Community photos, this access point first, matched to the current level */}
+        <RiverVisualGallery riverSlug={riverSlug} accessPointId={accessPoint.id} addPhotoHref={`${riverHref}/add-photo`} />
 
         {/* Navigation Buttons */}
         <AccessPointNav accessPoint={accessPoint} />

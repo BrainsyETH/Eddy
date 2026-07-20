@@ -11,7 +11,8 @@ import Link from 'next/link';
 import { ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp, Camera } from 'lucide-react';
 
 import { computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
-import { getEddyImageForCondition } from '@/constants';
+import { getEddyImageForCondition, CFS_EXPLAINER } from '@/constants';
+import InfoTip from '@/components/ui/InfoTip';
 import { conditionChip } from '@shared/condition-system';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { buildStaticEddyText, RIVER_NOTES } from '@/data/eddy-quotes';
@@ -25,6 +26,8 @@ import GaugeWeather from '@/components/ui/GaugeWeather';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import ThresholdTable from '@/components/gauge/ThresholdTable';
 import GaugeTabBar from '@/components/gauge/GaugeTabBar';
+import RiverVisualGallery from '@/components/river/RiverVisualGallery';
+import { usePathname } from 'next/navigation';
 
 interface RiverGaugeDetailProps {
   riverSlug: string;
@@ -33,11 +36,15 @@ interface RiverGaugeDetailProps {
 export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   const { riverGroup, isLoading } = useRiverGroup(riverSlug);
   const prefetchHistory = useGaugeHistoryPrefetch();
-
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState(14);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
+
+  // Dedicated, shareable Add-a-Photo page for this river. The hub is always at
+  // the canonical /rivers/[state]/[slug], so append the segment to the path.
+  const pathname = usePathname();
+  const addPhotoHref = `${pathname}/add-photo`;
 
   // Eddy AI update (river-level, pinned to primary gauge)
   const [eddyUpdate, setEddyUpdate] = useState<EddyUpdateResponse['update'] | null>(null);
@@ -391,7 +398,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             </div>
             <div className="flex items-center gap-4 sm:gap-3 sm:ml-auto">
               <Link
-                href={`/rivers/${riverSlug}?submitPhoto=true`}
+                href={addPhotoHref}
                 className="flex items-center gap-1 text-neutral-400 hover:text-teal-600 transition-colors"
               >
                 <Camera className="w-3.5 h-3.5" />
@@ -430,7 +437,21 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               <h2 className="text-base font-bold text-neutral-900">
                 {dateRange}-Day {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
               </h2>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                <InfoTip
+                  title={CFS_EXPLAINER.title}
+                  body={CFS_EXPLAINER.body}
+                  ariaLabel="What is CFS?"
+                  colors={{
+                    trigger: '#857D70',
+                    triggerBorder: '#C2BAAC',
+                    popBg: '#FFFFFF',
+                    popBorder: '#DBD5CA',
+                    title: '#2D2A24',
+                    body: '#524D43',
+                    focus: '#2D7889',
+                  }}
+                />
                 {/* Unit toggle — show when gauge reports both ft and cfs */}
                 {canToggleUnit && (
                   <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
@@ -627,6 +648,12 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             />
           </div>
         )}
+
+        {/* Community river visuals matching the river's current condition.
+            Self-hides when there are no approved photos at this level. */}
+        <div className="mb-8">
+          <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} />
+        </div>
     </div>
   );
 }

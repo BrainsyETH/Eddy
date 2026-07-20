@@ -3,8 +3,9 @@
 // Admin-gated (called via adminFetch with the admin bearer). Returns the
 // Login-Kit authorize URL as JSON and sets a state cookie for CSRF protection;
 // the admin page then navigates the browser to that URL. TikTok returns to
-// /api/admin/social/tiktok/callback with ?code&state, and the browser presents
-// the state cookie so the callback can verify the round-trip.
+// /api/social/tiktok/callback (public — outside the Bearer-gated /api/admin
+// tree) with ?code&state, and the browser presents the state cookie so the
+// callback can verify the round-trip.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminAuth } from '@/lib/admin-auth';

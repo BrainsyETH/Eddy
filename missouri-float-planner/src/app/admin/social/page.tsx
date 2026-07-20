@@ -24,6 +24,7 @@ import {
   X,
   Zap,
   Play,
+  Copy,
 } from 'lucide-react';
 
 type Tab = 'settings' | 'filters' | 'content' | 'history';
@@ -337,6 +338,8 @@ export default function SocialAdminPage() {
     accessTokenExpiresAt: string | null;
     refreshTokenExpiresAt: string | null;
     scope: string | null;
+    redirectUri?: string;
+    directPost?: boolean;
   } | null>(null);
   const [tiktokBusy, setTiktokBusy] = useState(false);
 
@@ -590,7 +593,9 @@ export default function SocialAdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: apiType,
-          platforms: ['facebook', 'instagram'],
+          // Post Now rows are all video reel types; include TikTok (draft) when
+          // an account is connected. The route ignores tiktok for image `tip`s.
+          platforms: ['facebook', 'instagram', ...(tiktokStatus?.connected ? ['tiktok'] : [])],
           asVideo,
         }),
       });
@@ -727,6 +732,19 @@ export default function SocialAdminPage() {
       showToast('Network error — could not publish', 'error');
     } finally {
       setPublishing(false);
+    }
+  };
+
+  // TikTok draft (inbox) mode can't receive a caption via the API, so the reel
+  // lands blank and you write the caption in-app. This copies the caption Eddy
+  // already generated for the post so you can paste it when finishing the draft.
+  // (Direct-post mode, once audited, sends the caption automatically instead.)
+  const copyCaption = async (post: SocialPost) => {
+    try {
+      await navigator.clipboard.writeText(post.caption || '');
+      showToast('Caption copied — paste it when you finish the TikTok draft', 'success');
+    } catch {
+      showToast('Could not copy caption', 'error');
     }
   };
 
@@ -1037,6 +1055,21 @@ export default function SocialAdminPage() {
                 />
                 Instagram
               </label>
+              {tiktokStatus?.connected && quickPostType !== 'tip' && (
+                <label className="flex items-center gap-2 text-sm text-neutral-300">
+                  <input
+                    type="checkbox"
+                    checked={quickPostPlatforms.includes('tiktok')}
+                    onChange={(e) => {
+                      setQuickPostPlatforms(e.target.checked
+                        ? [...quickPostPlatforms, 'tiktok']
+                        : quickPostPlatforms.filter(x => x !== 'tiktok'));
+                    }}
+                    className="rounded bg-neutral-900 border-neutral-600"
+                  />
+                  TikTok <span className="text-neutral-500">(draft)</span>
+                </label>
+              )}
             </div>
 
             {/* Media note — Digest/Highlight post as animated video; Tip is an image. */}
@@ -1319,11 +1352,18 @@ export default function SocialAdminPage() {
                         {tiktokStatus.refreshTokenExpiresAt
                           ? ` · re-auth by ${new Date(tiktokStatus.refreshTokenExpiresAt).toLocaleDateString()}`
                           : ''}
+                        {` · ${tiktokStatus.directPost ? 'direct post' : 'drafts'}`}
                       </span>
                     ) : (
                       <span className="text-neutral-400">Not connected.</span>
                     )}
                   </div>
+                  {tiktokStatus?.configured && tiktokStatus?.redirectUri && (
+                    <p className="mt-3 text-xs text-neutral-500 break-all">
+                      Register this exact URL in TikTok → Login Kit → Redirect URI:{' '}
+                      <code className="text-neutral-300 font-mono">{tiktokStatus.redirectUri}</code>
+                    </p>
+                  )}
                 </div>
 
                 {/* Posting Schedule — single unified grid */}
@@ -1558,7 +1598,7 @@ export default function SocialAdminPage() {
                         Condition-change alerts as Reels
                       </div>
                       <div className="text-sm text-neutral-400 mt-1">
-                        When a river flips to flowing, high, or dangerous, render a 12-second reel
+                        When a river flips to high or dangerous, render a 12-second reel
                         instead of posting a static image. Off = fast image alert; on = higher
                         engagement, slower publish.
                       </div>
@@ -1931,6 +1971,16 @@ export default function SocialAdminPage() {
                                       >
                                         <Play className="w-3 h-3" />
                                         Preview
+                                      </button>
+                                    )}
+                                    {post.platform === 'tiktok' && post.caption && (
+                                      <button
+                                        onClick={() => copyCaption(post)}
+                                        className="flex items-center gap-1 px-2 py-1 text-xs text-teal-400 hover:text-teal-300 bg-teal-500/10 hover:bg-teal-500/20 rounded transition-colors"
+                                        title="Copy the generated caption to paste when finishing the TikTok draft"
+                                      >
+                                        <Copy className="w-3 h-3" />
+                                        Copy caption
                                       </button>
                                     )}
                                     {post.status === 'failed' && (
