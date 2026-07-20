@@ -371,8 +371,20 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
   return (
     <div>
-        {/* Gauge meta — identity on top, actions below on mobile / inline on desktop */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 text-sm text-neutral-500 mb-5">
+        {/* Gauge selection first — surface the gauge picker right under the
+            "Live report" heading so it's the first thing people reach. */}
+        {tabs.length > 1 && (
+          <div className="mb-3">
+            <GaugeTabBar
+              gauges={tabs}
+              activeSiteId={activeSiteId || ''}
+              onTabChange={setActiveSiteId}
+            />
+          </div>
+        )}
+
+        {/* Selected-gauge meta — identity + actions, compact under the picker */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 text-sm text-neutral-500 mb-5 sm:mb-6">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
               <span className="font-medium text-neutral-600">{activeGauge.name}</span>
               <span className="text-neutral-300">&middot;</span>
@@ -416,17 +428,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               </button>
             </div>
           </div>
-
-        {/* Gauge Tab Bar */}
-        {tabs.length > 1 && (
-          <div className="mb-4 sm:mb-6">
-            <GaugeTabBar
-              gauges={tabs}
-              activeSiteId={activeSiteId || ''}
-              onTabChange={setActiveSiteId}
-            />
-          </div>
-        )}
 
         {/* Chart + Reading Row */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 sm:gap-6 mb-6 sm:mb-8">
