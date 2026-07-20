@@ -138,7 +138,10 @@ if hm:
             "start_formatted": fmt(start),
             "end_formatted": fmt(start + dur),
         })
-    peaks.sort(key=lambda p: p["start_secs"])
+    # "Most Replayed" intent: order by engagement score (desc) so PEAK_NUMBER=1 is
+    # the STRONGEST peak, not the earliest. runs[] was already score-ranked; a
+    # chronological re-sort here is what made weak 0:00 spikes win over the real peak.
+    peaks.sort(key=lambda p: p["score"], reverse=True)
     print(f"  Heatmap: {len(hm)} segments -> {len(peaks)} popular sections (lengths: {[p['duration_secs'] for p in peaks]}s)")
 
 # Detect which Eddy river this video is about (per-video, not per-channel — a
