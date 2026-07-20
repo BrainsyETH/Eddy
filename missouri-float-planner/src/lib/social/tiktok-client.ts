@@ -12,8 +12,29 @@
 
 const TIKTOK_OAUTH_URL = 'https://open.tiktokapis.com/v2/oauth/token/';
 const TIKTOK_INBOX_INIT_URL = 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/';
+// Direct-post (auto-publish) endpoints — used only in direct mode (audited apps).
+const TIKTOK_CREATOR_INFO_URL = 'https://open.tiktokapis.com/v2/post/publish/creator_info/query/';
+const TIKTOK_DIRECT_INIT_URL = 'https://open.tiktokapis.com/v2/post/publish/video/init/';
 export const TIKTOK_AUTHORIZE_URL = 'https://www.tiktok.com/v2/auth/authorize/';
-export const TIKTOK_SCOPES = 'video.upload';
+
+// Draft (inbox) mode needs only `video.upload` and no app audit. Direct-post
+// mode (auto-publish to the profile, caption included) needs `video.publish`,
+// granted only after the TikTok app audit. Toggle with TIKTOK_DIRECT_POST=true
+// AFTER the audit — enabling it before video.publish is granted makes the OAuth
+// connect fail with unauthorized_client.
+export const TIKTOK_DRAFT_SCOPES = 'video.upload';
+export const TIKTOK_DIRECT_SCOPES = 'video.upload,video.publish';
+
+/** True when reels should publish directly to the profile instead of landing as
+ *  inbox drafts. Requires an audited app + the video.publish scope. */
+export function isTikTokDirectPost(): boolean {
+  return process.env.TIKTOK_DIRECT_POST === 'true';
+}
+
+/** OAuth scope string to request, based on the active posting mode. */
+export function tiktokScopes(): string {
+  return isTikTokDirectPost() ? TIKTOK_DIRECT_SCOPES : TIKTOK_DRAFT_SCOPES;
+}
 
 // CSRF state cookie for the OAuth round-trip. Set by the (admin-gated) connect
 // route and verified by the public callback route (which TikTok reaches via a
@@ -109,7 +130,7 @@ export function buildAuthorizeUrl(state: string): string {
   const { clientKey, redirectUri } = getAppCreds();
   const params = new URLSearchParams({
     client_key: clientKey || '',
-    scope: TIKTOK_SCOPES,
+    scope: tiktokScopes(),
     response_type: 'code',
     redirect_uri: redirectUri || '',
     state,
@@ -289,6 +310,107 @@ export async function publishVideoToTikTok(
 
     // Success — the draft is now in the creator's TikTok inbox. publish_id is
     // stored as the platform_post_id for traceability.
+    return { success: true, postId: publishId };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Unknown TikTok error' };
+  }
+}
+
+interface CreatorInfoResponse {
+  data?: { privacy_level_options?: string[] };
+  error?: { code?: string; message?: string };
+}
+
+/**
+ * Publish a reel DIRECTLY to the connected profile (audited apps, video.publish).
+ * Unlike the draft flow this sends the caption as the post title and publishes
+ * with no manual in-app step — full parity with the FB/IG auto-publish.
+ *
+ * TikTok requires querying creator_info first to learn which privacy levels the
+ * creator allows: an UNAUDITED client is forced to SELF_ONLY (private), so we
+ * pick TIKTOK_PRIVACY_LEVEL (default PUBLIC_TO_EVERYONE) when it's allowed and
+ * otherwise fall back to the most permissive option the creator actually offers.
+ */
+export async function publishVideoToTikTokDirect(
+  params: { videoUrl: string; caption?: string },
+  supabase: Supabase,
+): Promise<{ success: boolean; postId?: string; error?: string }> {
+  try {
+    const accessToken = await getValidAccessToken(supabase);
+    if (!accessToken) {
+      return { success: false, error: 'TikTok is not connected (no stored token) — connect the account first' };
+    }
+
+    // 1. creator_info → the privacy levels this creator/app state permits.
+    const ciRes = await fetch(TIKTOK_CREATOR_INFO_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json; charset=UTF-8' },
+    });
+    const ciData = (await ciRes.json()) as CreatorInfoResponse;
+    const ciErrOk = !ciData.error?.code || ciData.error.code === 'ok';
+    const options = ciData.data?.privacy_level_options ?? [];
+    if (!ciRes.ok || !ciErrOk || options.length === 0) {
+      return {
+        success: false,
+        error: `TikTok creator_info failed: ${ciData.error?.message || ciData.error?.code || ciRes.status}`,
+      };
+    }
+    const preferred = process.env.TIKTOK_PRIVACY_LEVEL || 'PUBLIC_TO_EVERYONE';
+    const privacyLevel = options.includes(preferred) ? preferred : options[0];
+
+    // 2. Download the reel bytes (FILE_UPLOAD — no PULL_FROM_URL verification).
+    const videoRes = await fetch(params.videoUrl);
+    if (!videoRes.ok) {
+      return { success: false, error: `Failed to fetch video (${videoRes.status}) from ${params.videoUrl}` };
+    }
+    const bytes = Buffer.from(await videoRes.arrayBuffer());
+    const size = bytes.byteLength;
+    if (size === 0) return { success: false, error: 'Fetched video was empty' };
+
+    // 3. Init the direct post — the caption rides along as the title.
+    const initRes = await fetch(TIKTOK_DIRECT_INIT_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json; charset=UTF-8' },
+      body: JSON.stringify({
+        post_info: {
+          // TikTok titles cap at 2200 UTF-16 code units; #hashtags in the text
+          // are parsed by TikTok.
+          title: (params.caption || '').slice(0, 2200),
+          privacy_level: privacyLevel,
+          disable_comment: false,
+          disable_duet: false,
+          disable_stitch: false,
+        },
+        source_info: { source: 'FILE_UPLOAD', video_size: size, chunk_size: size, total_chunk_count: 1 },
+      }),
+    });
+    const initData = (await initRes.json()) as InboxInitResponse;
+    const publishId = initData.data?.publish_id;
+    const uploadUrl = initData.data?.upload_url;
+    const apiErrOk = !initData.error?.code || initData.error.code === 'ok';
+    if (!initRes.ok || !apiErrOk || !uploadUrl || !publishId) {
+      return {
+        success: false,
+        error: `TikTok direct init failed: ${initData.error?.message || initData.error?.code || initRes.status}`,
+      };
+    }
+
+    // 4. PUT the whole file as one chunk (same upload as the draft flow).
+    const putRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'video/mp4',
+        'Content-Length': String(size),
+        'Content-Range': `bytes 0-${size - 1}/${size}`,
+      },
+      body: bytes,
+    });
+    if (!putRes.ok) {
+      const text = await putRes.text().catch(() => '');
+      return { success: false, error: `TikTok direct upload PUT failed (${putRes.status}): ${text.slice(0, 200)}` };
+    }
+
+    // publish_id is stored as platform_post_id for traceability.
     return { success: true, postId: publishId };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Unknown TikTok error' };

@@ -338,6 +338,7 @@ export default function SocialAdminPage() {
     refreshTokenExpiresAt: string | null;
     scope: string | null;
     redirectUri?: string;
+    directPost?: boolean;
   } | null>(null);
   const [tiktokBusy, setTiktokBusy] = useState(false);
 
@@ -1337,6 +1338,7 @@ export default function SocialAdminPage() {
                         {tiktokStatus.refreshTokenExpiresAt
                           ? ` · re-auth by ${new Date(tiktokStatus.refreshTokenExpiresAt).toLocaleDateString()}`
                           : ''}
+                        {` · ${tiktokStatus.directPost ? 'direct post' : 'drafts'}`}
                       </span>
                     ) : (
                       <span className="text-neutral-400">Not connected.</span>
