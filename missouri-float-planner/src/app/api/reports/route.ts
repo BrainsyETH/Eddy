@@ -17,7 +17,7 @@ const MAX_IMAGE_URL_LEN = 1000;
 export async function POST(request: NextRequest) {
   try {
     // Rate limit: 5 report submissions per IP per 15 minutes
-    const rateLimitResult = await rateLimit(`reports:${getClientIp(request)}`, 5, 15 * 60 * 1000, { failClosed: true });
+    const rateLimitResult = await rateLimit(`reports:${getClientIp(request)}`, 5, 15 * 60 * 1000);
     if (rateLimitResult) return rateLimitResult;
 
     const body = await request.json();

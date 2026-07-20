@@ -9,8 +9,8 @@
 //   best-effort only (each lambda instance has its own store), which is why
 //   the Redis path exists — configure Upstash in production.
 //
-// High-cost and write routes opt into strict mode, which returns 503 when the
-// global limiter is unavailable in production. Read-only routes remain usable.
+// Redis remains optional. When unavailable, the per-instance fallback keeps
+// writes usable while still providing basic burst protection.
 
 import { NextResponse } from 'next/server';
 
@@ -41,13 +41,6 @@ function tooManyRequests(retryAfterSeconds: number): NextResponse {
         'Retry-After': String(Math.max(1, retryAfterSeconds)),
       },
     }
-  );
-}
-
-function limiterUnavailable(): NextResponse {
-  return NextResponse.json(
-    { error: 'This action is temporarily unavailable. Please try again shortly.' },
-    { status: 503, headers: { 'Retry-After': '60', 'Cache-Control': 'private, no-store' } }
   );
 }
 
@@ -106,22 +99,16 @@ async function redisIncrement(
 export async function rateLimit(
   key: string,
   limit: number,
-  windowMs: number,
-  options: { failClosed?: boolean } = {}
+  windowMs: number
 ): Promise<NextResponse | null> {
   // Global limiter when Upstash is configured
   if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
     const result = await redisIncrement(key, windowMs);
-    if (result === null) return options.failClosed ? limiterUnavailable() : null;
+    if (result === null) return null;
     if (result.count > limit) {
       return tooManyRequests(Math.ceil(result.ttlMs / 1000));
     }
     return null;
-  }
-
-  if (options.failClosed && process.env.NODE_ENV === 'production') {
-    console.error('[RateLimit] Strict route has no global limiter configured');
-    return limiterUnavailable();
   }
 
   // In-memory fallback (per-instance; dev / not-yet-configured environments)

@@ -24,7 +24,7 @@ function json(body: { error?: string; success?: boolean; url?: string }, status 
 export async function POST(request: NextRequest) {
   try {
     // Rate limit: 10 uploads per IP per 15 minutes (service-role write to Storage)
-    const rateLimitResult = await rateLimit(`upload:${getClientIp(request)}`, 10, 15 * 60 * 1000, { failClosed: true });
+    const rateLimitResult = await rateLimit(`upload:${getClientIp(request)}`, 10, 15 * 60 * 1000);
     if (rateLimitResult) return rateLimitResult;
 
     const contentType = request.headers.get('content-type') || '';

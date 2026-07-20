@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     // Rate limit: 5 subscriptions per IP per 15 minutes
-    const rateLimitResult = await rateLimit(`subscribe:${getClientIp(request)}`, 5, 15 * 60 * 1000, { failClosed: true });
+    const rateLimitResult = await rateLimit(`subscribe:${getClientIp(request)}`, 5, 15 * 60 * 1000);
     if (rateLimitResult) return rateLimitResult;
 
     const body = await request.json();
