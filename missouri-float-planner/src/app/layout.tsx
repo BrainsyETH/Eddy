@@ -7,6 +7,7 @@ import SiteHeader from "@/components/layout/SiteHeader";
 import OfflineBanner from "@/components/ui/OfflineBanner";
 import AnalyticsListener from "@/components/AnalyticsListener";
 import { SOCIAL_SAME_AS } from "@/constants/social";
+import { jsonLdString } from '@/lib/json-ld';
 
 import "./globals.css";
 
@@ -85,7 +86,7 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
+            __html: jsonLdString({
               '@context': 'https://schema.org',
               '@graph': [
                 {

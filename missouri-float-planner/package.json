@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint src shared && npm run lint:tokens",
     "lint:tokens": "tsx scripts/check-tailwind-tokens.ts",
-    "test": "tsx --test src/components/map/marker-pointer-priority.test.ts src/lib/admin-auth.test.ts src/lib/admin-session.test.ts src/lib/condition-snapshot.test.ts src/lib/plan-cache.test.ts src/lib/reports/location.test.ts src/lib/security/machine-auth.test.ts src/lib/shuttle-plausibility.test.ts src/lib/uploads/community-image.test.ts scripts/security/segment-cache-policy.test.ts scripts/security/workflow-action-pins.test.ts",
+    "test": "tsx --test shared/condition-system.test.ts src/components/map/marker-pointer-priority.test.ts src/lib/admin-auth.test.ts src/lib/admin-session.test.ts src/lib/condition-snapshot.test.ts src/lib/json-ld.test.ts src/lib/plan-cache.test.ts src/lib/monitoring/webhook-reporter.test.ts src/lib/rate-limit.test.ts src/lib/reports/location.test.ts src/lib/security/machine-auth.test.ts src/lib/shuttle-plausibility.test.ts src/lib/uploads/community-image.test.ts src/lib/uploads/visual-moderation.test.ts scripts/security/segment-cache-policy.test.ts scripts/security/workflow-action-pins.test.ts",
     "check:eddy-knowledge": "tsx scripts/check-eddy-knowledge.ts",
     "test:links": "tsx scripts/check-dead-links.ts",
     "db:import-rivers": "tsx scripts/import-nhd-rivers.ts",
@@ -45,7 +45,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
     "@coinbase/x402": "^2.1.0",
-    "@floating-ui/dom": "^1.7.5",
+    "@floating-ui/dom": "^1.8.0",
     "@fontsource-variable/fredoka": "5.3.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@supabase/ssr": "^0.8.0",

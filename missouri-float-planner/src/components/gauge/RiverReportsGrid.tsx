@@ -16,7 +16,7 @@ import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
 import { useRiverGroups } from '@/hooks/useRiverGroups';
 import type { RiverGroup } from '@/lib/river-groups';
 import RiverCard from '@/components/gauge/RiverCard';
-import { conditionColor } from '@shared/condition-system';
+import { conditionColor, CONDITION_SYSTEM, summarizeConditionCounts } from '@shared/condition-system';
 import {
   type RiverFilterMeta,
   type DifficultyTier,
@@ -285,24 +285,15 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
     });
   }, [riverGroups, riverMeta, searchQuery, floatableNow, selectedCondition, selectedState, selectedType, selectedDifficulty, selectedLength, sortBy, userLocation, distanceByRiverId]);
 
-  // Stats for condition pills (count rivers, not gauges)
-  const stats = useMemo(() => {
-    const counts = { total: 0, flowing: 0, good: 0, low: 0, high: 0, flood: 0, tooLow: 0 };
-    riverGroups.forEach(river => {
-      counts.total++;
-      switch (river.condition.code) {
-        case 'flowing': counts.flowing++; break;
-        case 'good': counts.good++; break;
-        case 'low': counts.low++; break;
-        case 'high': counts.high++; break;
-        case 'dangerous': counts.flood++; break;
-        case 'too_low': counts.tooLow++; break;
-      }
-    });
-    return counts;
-  }, [riverGroups]);
+  // Stats for condition pills (count rivers, not gauges). Uses the canonical
+  // shared calculation so these counts always agree with the hero summary —
+  // "Floatable now" is flowing/good only; high stays in caution language.
+  const stats = useMemo(
+    () => summarizeConditionCounts(riverGroups.map(river => river.condition.code)),
+    [riverGroups],
+  );
 
-  const floatableCount = stats.flowing + stats.good + stats.high;
+  const floatableCount = stats.floatableNow;
 
   // Choosing a specific condition and "floatable now" are mutually exclusive.
   const pickCondition = (code: ConditionCode) => {
@@ -417,6 +408,7 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
             <button
               onClick={toggleFloatable}
               aria-pressed={floatableNow}
+              title="Rivers at Flowing or Good — positive float conditions today. High water is counted separately under High."
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
                 floatableNow ? 'shadow-sm' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
@@ -430,12 +422,12 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
           </div>
 
           {([
-            { key: 'too_low' as ConditionCode, count: stats.tooLow, label: 'Too Low', dot: 'bg-neutral-500' },
-            { key: 'low' as ConditionCode, count: stats.low, label: 'Low', dot: 'bg-yellow-500' },
-            { key: 'good' as ConditionCode, count: stats.good, label: 'Good', dot: 'bg-lime-500' },
-            { key: 'flowing' as ConditionCode, count: stats.flowing, label: 'Flowing', dot: 'bg-emerald-500' },
-            { key: 'high' as ConditionCode, count: stats.high, label: 'High', dot: 'bg-orange-500' },
-            { key: 'dangerous' as ConditionCode, count: stats.flood, label: 'Flood', dot: 'bg-red-500' },
+            { key: 'too_low' as ConditionCode, count: stats.byCode.too_low, label: 'Too Low', dot: 'bg-neutral-500' },
+            { key: 'low' as ConditionCode, count: stats.byCode.low, label: 'Low', dot: 'bg-yellow-500' },
+            { key: 'good' as ConditionCode, count: stats.byCode.good, label: 'Good', dot: 'bg-lime-500' },
+            { key: 'flowing' as ConditionCode, count: stats.byCode.flowing, label: 'Flowing', dot: 'bg-emerald-500' },
+            { key: 'high' as ConditionCode, count: stats.byCode.high, label: 'High', dot: 'bg-orange-500' },
+            { key: 'dangerous' as ConditionCode, count: stats.byCode.dangerous, label: 'Flood', dot: 'bg-red-500' },
           ]).map(stat => {
             const isActive = !floatableNow && selectedCondition === stat.key;
             return (
@@ -443,6 +435,7 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
                 key={stat.key}
                 onClick={() => pickCondition(stat.key)}
                 aria-pressed={isActive}
+                title={CONDITION_SYSTEM[stat.key].description}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
                   isActive
                     ? 'shadow-sm'

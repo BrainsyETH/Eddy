@@ -22,6 +22,7 @@ import RiverHeroStats from './RiverHeroStats';
 import HubSectionNav from './HubSectionNav';
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 import SiteFooter from '@/components/ui/SiteFooter';
+import { jsonLdString } from '@/lib/json-ld';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
@@ -265,8 +266,8 @@ export default async function RiverGuidePage({ params }: Props) {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(touristAttractionJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(touristAttractionJsonLd) }} />
 
       <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
         {/* ===== Hero (status-first, 2-col) ===== */}

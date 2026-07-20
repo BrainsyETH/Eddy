@@ -7,7 +7,7 @@
 // filter and sort. Keeping the logic pure means both sides agree on exactly how
 // a river is bucketed.
 
-import { WEEKEND_SEVERITY, WEEKEND_FLOATABLE } from '@shared/condition-system';
+import { WEEKEND_SEVERITY, FLOATABLE_NOW } from '@shared/condition-system';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // River type (rivers.river_type)
@@ -179,9 +179,13 @@ export function conditionSortRank(code: string): number {
   return WEEKEND_SEVERITY[code] ?? 99;
 }
 
-/** Whether a condition counts as floatable right now (canonical floatable set). */
+/**
+ * Whether a condition counts as floatable right now — flowing/good only
+ * (canonical FLOATABLE_NOW set). High water is deliberately excluded from this
+ * positive bucket; it stays findable via its own High filter pill.
+ */
 export function isFloatableNow(code: string): boolean {
-  return WEEKEND_FLOATABLE.has(code);
+  return FLOATABLE_NOW.has(code);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
