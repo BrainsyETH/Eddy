@@ -72,7 +72,9 @@ Two layers, both against `clip_library`:
   (`detect-paddling.sh`) ⇒ Tier 2; else skip. (PR #716: river is a soft tag,
   not a gate — Tier-2 clips legitimately have `river_slug` NULL.)
 - **Heatmap gate (PR #740):** no "Most Replayed" heatmap ⇒ skip (empirically
-  needs roughly 75k+ views). Clip length is heatmap-driven, 12–60s.
+  needs roughly 75k+ views). Clip length is heatmap-driven, 12–60s. The clip is
+  the highest-**score** peak (the most-replayed span, not the earliest); `--peak N`
+  selects the Nth-strongest.
 - **Tier-1 bypass (`TIER1_HEATMAP_OPTIONAL`, PR #748/#749, ON in prod):**
   known-river videos with no heatmap get ONE synthesized fallback window
   (anchored 30% in, length 10% of runtime clamped to [12,60]s) with
