@@ -3,9 +3,10 @@
 // src/components/gauge/CurrentReadingCard.tsx
 // Dark-themed current reading card with condition status strip and 2-column layout
 
+import Image from 'next/image';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
-import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
+import { CONDITION_COLORS, CONDITION_SHORT_LABELS, getEddyImageForCondition } from '@/constants';
 import type { ConditionCode } from '@/types/api';
 import { computeTrend, computePercentile } from '@/lib/gauge-trend';
 
@@ -68,12 +69,21 @@ export default function CurrentReadingCard({
       </p>
 
       {/* Condition status strip — bold solid band for at-a-glance color, with
-          near-black ink (clears WCAG AA on every condition solid; white does not). */}
-      {conditionColor && conditionLabel && (
+          near-black ink (clears WCAG AA on every condition solid; white does not).
+          Eddy's condition-matched artwork fronts the label (same asset set as
+          the Eddy Says card and the hero pill). */}
+      {conditionCode && conditionColor && conditionLabel && (
         <div
-          className="px-4 py-2.5 flex items-center justify-center gap-2"
+          className="px-4 py-2 flex items-center justify-center gap-2"
           style={{ backgroundColor: conditionColor }}
         >
+          <Image
+            src={getEddyImageForCondition(conditionCode)}
+            alt=""
+            width={28}
+            height={28}
+            className="h-7 w-7 object-contain"
+          />
           <span className="text-xs font-bold tracking-wide uppercase" style={{ color: '#1A1814' }}>
             {conditionLabel}
           </span>

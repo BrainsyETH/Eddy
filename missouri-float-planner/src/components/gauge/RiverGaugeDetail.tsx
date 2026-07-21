@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp, Camera } from 'lucide-react';
+import { ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
 import { getEddyImageForCondition, CFS_EXPLAINER } from '@/constants';
@@ -340,17 +340,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
       });
   }, [riverGroup]);
 
-  // Big verdict-line reading for the active gauge, e.g. "2.89 ft · 987 cfs".
-  const readingSummary = useMemo(() => {
-    if (!activeGauge) return '';
-    return [
-      activeGauge.gaugeHeightFt != null ? `${activeGauge.gaugeHeightFt} ft` : null,
-      activeGauge.dischargeCfs != null ? `${Math.round(activeGauge.dischargeCfs).toLocaleString()} cfs` : null,
-    ]
-      .filter(Boolean)
-      .join(' · ');
-  }, [activeGauge]);
-
   // Show unit toggle when the gauge reports both ft and cfs data
   // (alt thresholds are a bonus — threshold lines just won't draw in the alt unit if missing)
   const canToggleUnit = activeGauge?.gaugeHeightFt != null && activeGauge?.dischargeCfs != null;
@@ -395,68 +384,31 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
           </div>
         )}
 
-        {/* Verdict — the canonical condition and current reading answer
-            "can I float it?" first, with the chart right beneath. */}
-        <div className="bg-white border border-neutral-200 rounded-xl px-4 py-4 sm:px-6 sm:py-5 mb-6">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
-            <ConditionBadge code={condition.code} size="md" uppercase />
-            {readingSummary && (
-              <span
-                className="text-2xl sm:text-3xl font-bold text-neutral-900 tabular-nums"
-                style={{ fontFamily: 'var(--font-display)' }}
-              >
-                {readingSummary}
-              </span>
+        {/* Selected-gauge meta — identity + freshness only. Condition and
+            reading live on the reading card (which also carries the trend);
+            Share sits in the hero, Add Photo in the photo gallery. */}
+        <div className="text-sm text-neutral-500 mb-5 sm:mb-6 min-w-0">
+          <span className="font-medium text-neutral-600">{activeGauge.name}</span>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-neutral-500 mt-0.5">
+            <a
+              href={`https://waterdata.usgs.gov/monitoring-location/${activeGauge.usgsSiteId}/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary-600 hover:text-primary-700 font-mono inline-flex items-center gap-1"
+            >
+              USGS {activeGauge.usgsSiteId}
+              <ExternalLink className="w-3 h-3" />
+            </a>
+            {ageText && (
+              <>
+                <span className="text-neutral-300">&middot;</span>
+                <span className="inline-flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {ageText}
+                </span>
+              </>
             )}
-          </div>
-          {/* Gauge identity + actions (unchanged content, now inside the verdict card) */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 text-sm text-neutral-500">
-            <div className="min-w-0">
-              <span className="font-medium text-neutral-600">{activeGauge.name}</span>
-              {/* Source + freshness stay together on their own line so the
-                  timestamp never wraps off on its own with an orphaned separator. */}
-              <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-neutral-500 mt-0.5">
-                <a
-                  href={`https://waterdata.usgs.gov/monitoring-location/${activeGauge.usgsSiteId}/`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary-600 hover:text-primary-700 font-mono inline-flex items-center gap-1"
-                >
-                  USGS {activeGauge.usgsSiteId}
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-                {ageText && (
-                  <>
-                    <span className="text-neutral-300">&middot;</span>
-                    <span className="inline-flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {ageText}
-                    </span>
-                  </>
-                )}
-              </span>
-            </div>
-            <div className="flex items-center gap-4 sm:gap-3 sm:ml-auto">
-              <Link
-                href={addPhotoHref}
-                className="flex items-center gap-1 text-neutral-400 hover:text-teal-600 transition-colors"
-              >
-                <Camera className="w-3.5 h-3.5" />
-                Add Photo
-              </Link>
-              <button
-                onClick={handleShare}
-                className={`flex items-center gap-1 transition-colors ${
-                  shareStatus === 'copied'
-                    ? 'text-emerald-600'
-                    : 'text-neutral-500 hover:text-primary-600'
-                }`}
-              >
-                {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-                {shareStatus === 'copied' ? 'Copied!' : 'Share'}
-              </button>
-            </div>
-          </div>
+          </span>
         </div>
 
         {/* Chart + Reading Row */}
