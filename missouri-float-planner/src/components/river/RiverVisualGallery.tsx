@@ -189,7 +189,10 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
                 title={isNow ? 'The river is at this level right now' : `See the river at ${l.code}`}
                 className="inline-flex items-center gap-1"
               >
-                <span className={`rounded-full transition ${isActive ? 'ring-2 ring-teal-500 ring-offset-1' : 'opacity-50 hover:opacity-100'}`}>
+                {/* inline-flex so this wrapper shrink-wraps the pill: a plain
+                    inline span is sized by font metrics, so the active ring
+                    painted on it sat misaligned around the taller badge. */}
+                <span className={`inline-flex rounded-full transition ${isActive ? 'ring-2 ring-teal-500 ring-offset-1' : 'opacity-50 hover:opacity-100'}`}>
                   <ConditionBadge code={l.code} size="sm" />
                 </span>
                 {isNow && <span className="text-[10px] font-semibold text-teal-600">now</span>}
