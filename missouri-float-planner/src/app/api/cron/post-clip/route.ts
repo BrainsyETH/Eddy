@@ -1,5 +1,6 @@
 // src/app/api/cron/post-clip/route.ts
-// Cron: twice a day, post the next approved clip from the backlog to FB/IG.
+// Cron: twice a day, post the next approved clip from the backlog to every
+// connected platform (Facebook/Instagram, plus TikTok as an inbox draft).
 //
 // This is the "posts twice a day" job. Production (scanning/extracting) lives in
 // the youtube-clip-pipeline, which fills clip_library with approved clips; this
@@ -9,6 +10,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { publishClip, type ClipRow } from '@/lib/social/clip-poster';
+import { getEnabledPlatforms } from '@/lib/social/adapters';
+import { tiktokCapReached } from '@/lib/social/tiktok-cap';
 
 export const dynamic = 'force-dynamic';
 // Publishing a Reel is a container flow that polls Meta for up to ~150s PER
@@ -86,7 +89,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Clip already claimed by a concurrent run' });
   }
 
-  console.log(`${LOG} posting clip ${next.id} (${next.river_slug})`);
-  const result = await publishClip(supabase, next as ClipRow, ['instagram', 'facebook']);
+  // Fan out to every connected platform instead of a hardcoded FB/IG list.
+  // getEnabledPlatforms adds TikTok only when an account is actually connected;
+  // clip Reels are video, so they qualify for TikTok's inbox-draft upload the
+  // same way scheduled reels do. Respect TikTok's 5-draft/24h cap — drop it once
+  // the rolling window is full so the init call never fails (FB/IG still go out).
+  let platforms = await getEnabledPlatforms(supabase);
+  if (platforms.includes('tiktok') && (await tiktokCapReached(supabase))) {
+    platforms = platforms.filter((p) => p !== 'tiktok');
+  }
+
+  console.log(`${LOG} posting clip ${next.id} (${next.river_slug}) → [${platforms.join(', ')}]`);
+  const result = await publishClip(supabase, next as ClipRow, platforms);
   return NextResponse.json({ clipId: next.id, ...result });
 }

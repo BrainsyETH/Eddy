@@ -107,8 +107,8 @@ const POST_STATUS_CLASS: Record<string, string> = {
   publishing: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   failed: 'bg-red-500/20 text-red-400 border-red-500/30',
 };
-const PLATFORM_ABBR: Record<string, string> = { instagram: 'IG', facebook: 'FB' };
-const PLATFORM_LABEL: Record<string, string> = { instagram: 'Instagram', facebook: 'Facebook' };
+const PLATFORM_ABBR: Record<string, string> = { instagram: 'IG', facebook: 'FB', tiktok: 'TT' };
+const PLATFORM_LABEL: Record<string, string> = { instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok' };
 
 // River options for the metadata editor (fix a null/wrong river_slug).
 const RIVER_OPTIONS: [string, string][] = [
@@ -229,20 +229,22 @@ export default function ClipsAdminPage() {
     }
   };
 
-  // ─── Post an approved clip straight to FB/IG ───
+  // ─── Post an approved clip straight to the connected platforms ───
   const [postingClip, setPostingClip] = useState<string | null>(null);
   const postClip = async (clip: ClipItem) => {
     const already = clip.post_state === 'published';
     const confirmMsg = already
       ? `This clip was already posted${clip.last_posted_at ? ' on ' + new Date(clip.last_posted_at).toLocaleDateString() : ''}. Post it again anyway?`
-      : 'Post this clip to Facebook and Instagram now?';
+      : 'Post this clip to the connected platforms (Facebook, Instagram, and TikTok when connected) now?';
     if (!confirm(confirmMsg)) return;
     setPostingClip(clip.id);
     try {
       const res = await adminFetch('/api/admin/clips/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clipId: clip.id, platforms: ['instagram', 'facebook'] }),
+        // TikTok is included; the API drops it when TikTok isn't connected or its
+        // 24h draft cap is reached, so this never records a guaranteed-fail row.
+        body: JSON.stringify({ clipId: clip.id, platforms: ['instagram', 'facebook', 'tiktok'] }),
       });
       const data = await res.json();
       if (res.ok && data.ok) {
