@@ -25,6 +25,7 @@ import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import GaugeWeather from '@/components/ui/GaugeWeather';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import ThresholdTable from '@/components/gauge/ThresholdTable';
+import ReachConditions, { type ReachRow } from '@/components/gauge/ReachConditions';
 import GaugeTabBar from '@/components/gauge/GaugeTabBar';
 import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import { usePathname } from 'next/navigation';
@@ -39,6 +40,9 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState(14);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
+  // Gauge machinery (chart, unit toggles, threshold ladder) collapses behind a
+  // disclosure — the verdict, proof, and per-reach rows lead the section.
+  const [numbersOpen, setNumbersOpen] = useState(false);
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
 
   // Dedicated, shareable Add-a-Photo page for this river. The hub is always at
@@ -340,6 +344,60 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
       });
   }, [riverGroup]);
 
+  // One row per gauge for multi-gauge rivers — each banded by ITS thresholds
+  // for this river (the same resolution order the active-gauge memo uses).
+  const reachRows: ReachRow[] = useMemo(() => {
+    if (!riverGroup || riverGroup.allGauges.length < 2) return [];
+    const primarySiteId = riverGroup.primaryGauge.usgsSiteId;
+    return riverGroup.allGauges
+      .map((g) => {
+        const t =
+          g.thresholds?.find((th) => th.riverId === riverGroup.riverId) ||
+          g.thresholds?.find((th) => th.isPrimary) ||
+          g.thresholds?.[0] ||
+          null;
+        const code: ConditionCode = t
+          ? computeCondition(
+              g.gaugeHeightFt,
+              {
+                levelTooLow: t.levelTooLow,
+                levelLow: t.levelLow,
+                levelOptimalMin: t.levelOptimalMin,
+                levelOptimalMax: t.levelOptimalMax,
+                levelHigh: t.levelHigh,
+                levelDangerous: t.levelDangerous,
+                thresholdUnit: t.thresholdUnit,
+              },
+              g.dischargeCfs
+            ).code
+          : 'unknown';
+        const reading =
+          [
+            g.gaugeHeightFt != null ? `${g.gaugeHeightFt} ft` : null,
+            g.dischargeCfs != null ? `${Math.round(g.dischargeCfs).toLocaleString()} cfs` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ') || null;
+        return { siteId: g.usgsSiteId, name: g.name, reading, code, isPrimary: g.usgsSiteId === primarySiteId };
+      })
+      .sort((a, b) => {
+        if (a.isPrimary) return -1;
+        if (b.isPrimary) return 1;
+        return a.name.localeCompare(b.name);
+      });
+  }, [riverGroup]);
+
+  // Big verdict-line reading for the active gauge, e.g. "2.89 ft · 987 cfs".
+  const readingSummary = useMemo(() => {
+    if (!activeGauge) return '';
+    return [
+      activeGauge.gaugeHeightFt != null ? `${activeGauge.gaugeHeightFt} ft` : null,
+      activeGauge.dischargeCfs != null ? `${Math.round(activeGauge.dischargeCfs).toLocaleString()} cfs` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  }, [activeGauge]);
+
   // Show unit toggle when the gauge reports both ft and cfs data
   // (alt thresholds are a bonus — threshold lines just won't draw in the alt unit if missing)
   const canToggleUnit = activeGauge?.gaugeHeightFt != null && activeGauge?.dischargeCfs != null;
@@ -372,20 +430,22 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
   return (
     <div>
-        {/* Gauge selection first — surface the gauge picker right under the
-            "Live report" heading so it's the first thing people reach. */}
-        {tabs.length > 1 && (
-          <div className="mb-3">
-            <GaugeTabBar
-              gauges={tabs}
-              activeSiteId={activeSiteId || ''}
-              onTabChange={setActiveSiteId}
-            />
+        {/* Verdict first — the canonical condition and current reading answer
+            "can I float it?" before any gauge machinery appears. */}
+        <div className="bg-white border border-neutral-200 rounded-xl px-4 py-4 sm:px-6 sm:py-5 mb-6">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
+            <ConditionBadge code={condition.code} size="md" uppercase />
+            {readingSummary && (
+              <span
+                className="text-2xl sm:text-3xl font-bold text-neutral-900 tabular-nums"
+                style={{ fontFamily: 'var(--font-display)' }}
+              >
+                {readingSummary}
+              </span>
+            )}
           </div>
-        )}
-
-        {/* Selected-gauge meta — identity + actions, compact under the picker */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 text-sm text-neutral-500 mb-5 sm:mb-6">
+          {/* Gauge identity + actions (unchanged content, now inside the verdict card) */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 text-sm text-neutral-500">
             <div className="min-w-0">
               <span className="font-medium text-neutral-600">{activeGauge.name}</span>
               {/* Source + freshness stay together on their own line so the
@@ -432,6 +492,143 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Proof row: paddler photos beside Eddy's take */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 items-start">
+          <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} />
+
+          {/* Eddy Says Section */}
+          <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+          <div className="px-4 py-4 sm:px-6 sm:py-5">
+            {/* Header row: avatar + label + badge + timestamp */}
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 relative">
+                <Image
+                  src={getEddyImageForCondition(eddyConditionCode)}
+                  alt="Eddy the Otter"
+                  fill
+                  className="object-contain"
+                  sizes="64px"
+                />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                  <span className="text-sm font-bold tracking-wide uppercase text-neutral-500">Eddy Says&hellip;</span>
+                  <ConditionBadge code={eddyConditionCode} size="sm" uppercase />
+                  {activeEddyUpdate?.generatedAt && (
+                    <span className="text-[10px] text-neutral-400">
+                      &middot; {(() => {
+                        const diffMs = Date.now() - new Date(activeEddyUpdate.generatedAt).getTime();
+                        const mins = Math.floor(diffMs / 60000);
+                        if (mins < 1) return 'Updated just now';
+                        if (mins < 60) return `Updated ${mins}m ago`;
+                        const hours = Math.floor(mins / 60);
+                        if (hours < 2) return 'Updated 1 hr ago';
+                        if (hours < 24) return `Updated ${hours} hrs ago`;
+                        return `Updated ${Math.floor(hours / 24)}d ago`;
+                      })()}
+                    </span>
+                  )}
+                  {(onSecondaryTabWithUpdate ? activeGauge : primaryGauge) && (
+                    <span className="text-[10px] text-neutral-400 ml-auto hidden sm:inline">
+                      via {(onSecondaryTabWithUpdate ? activeGauge : primaryGauge)?.name}
+                    </span>
+                  )}
+                </div>
+
+                {/* Summary + full narrative (expanded by default) */}
+                {activeEddyLoading && !activeEddyUpdate ? (
+                  <p className="text-sm text-neutral-500 italic">Loading Eddy&apos;s take...</p>
+                ) : activeEddyUpdate?.summaryText ? (
+                  <>
+                    <div className="rounded-lg px-3.5 py-2.5 mt-1" style={{ backgroundColor: surface.background }}>
+                      <p className="text-sm sm:text-base leading-relaxed font-semibold" style={{ color: surface.color }}>
+                        &ldquo;{activeEddyUpdate.summaryText}&rdquo;
+                      </p>
+                    </div>
+
+                    {/* Full narrative (shown by default, collapsible) */}
+                    {!eddyShowFull && (
+                      <p className="text-sm leading-relaxed font-medium mt-3 text-neutral-700">
+                        &ldquo;{activeEddyUpdate.quoteText}&rdquo;
+                      </p>
+                    )}
+
+                    <button
+                      onClick={() => setEddyShowFull(!eddyShowFull)}
+                      className="flex items-center gap-1 text-xs font-semibold transition-colors mt-2 text-neutral-500 hover:text-neutral-700"
+                    >
+                      {eddyShowFull ? (
+                        <>Show full report <ChevronDown className="w-3 h-3" /></>
+                      ) : (
+                        <>Show less <ChevronUp className="w-3 h-3" /></>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-sm sm:text-base leading-relaxed font-medium text-neutral-700">
+                    &ldquo;{eddyDisplayText}&rdquo;
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-wrap items-center gap-2 mt-4 ml-0 sm:ml-[72px] sm:mt-3">
+              <Link
+                href={`/plan?river=${riverSlug}`}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#163F4A] text-white text-xs font-semibold rounded-md hover:bg-[#1A4A57] transition-colors shadow-[2px_2px_0_#0F2D35]"
+              >
+                Plan a Trip
+              </Link>
+              <button
+                onClick={handleShare}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-neutral-800 text-xs font-semibold rounded-md hover:bg-neutral-50 transition-colors border border-neutral-300 shadow-[2px_2px_0_#C2BAAC]"
+              >
+                {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+                {shareStatus === 'copied' ? 'Copied!' : 'Share Report'}
+              </button>
+            </div>
+          </div>
+          </div>
+        </div>
+
+        {/* Conditions along the river — one row per gauge (multi-gauge rivers) */}
+        {reachRows.length > 0 && (
+          <div className="mb-6 sm:mb-8">
+            <ReachConditions rows={reachRows} activeSiteId={activeSiteId} onSelect={setActiveSiteId} />
+          </div>
+        )}
+
+        {/* Gauge machinery — chart, unit toggles, threshold ladder — collapsed
+            behind a disclosure so the verdict and proof lead the section. */}
+        <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+          <button
+            onClick={() => setNumbersOpen((v) => !v)}
+            aria-expanded={numbersOpen}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3.5 sm:px-6 text-left hover:bg-neutral-50 transition-colors"
+          >
+            <div>
+              <span className="block text-sm font-bold text-neutral-800">Gauge data &amp; thresholds</span>
+              <span className="block text-xs text-neutral-500 mt-0.5">Trend chart, readings, and the full threshold ladder</span>
+            </div>
+            {numbersOpen
+              ? <ChevronUp className="w-4 h-4 text-neutral-500 flex-shrink-0" />
+              : <ChevronDown className="w-4 h-4 text-neutral-500 flex-shrink-0" />}
+          </button>
+          {numbersOpen && (
+          <div className="border-t border-neutral-100 px-4 pt-4 pb-5 sm:px-6">
+            {tabs.length > 1 && (
+              <div className="mb-4">
+                <GaugeTabBar
+                  gauges={tabs}
+                  activeSiteId={activeSiteId || ''}
+                  onTabChange={setActiveSiteId}
+                />
+              </div>
+            )}
 
         {/* Chart + Reading Row */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 sm:gap-6 mb-6 sm:mb-8">
@@ -536,102 +733,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
           </div>
         </div>
 
-        {/* Eddy Says Section */}
-        <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden mb-8">
-          <div className="px-4 py-4 sm:px-6 sm:py-5">
-            {/* Header row: avatar + label + badge + timestamp */}
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 relative">
-                <Image
-                  src={getEddyImageForCondition(eddyConditionCode)}
-                  alt="Eddy the Otter"
-                  fill
-                  className="object-contain"
-                  sizes="64px"
-                />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                  <span className="text-sm font-bold tracking-wide uppercase text-neutral-500">Eddy Says&hellip;</span>
-                  <ConditionBadge code={eddyConditionCode} size="sm" uppercase />
-                  {activeEddyUpdate?.generatedAt && (
-                    <span className="text-[10px] text-neutral-400">
-                      &middot; {(() => {
-                        const diffMs = Date.now() - new Date(activeEddyUpdate.generatedAt).getTime();
-                        const mins = Math.floor(diffMs / 60000);
-                        if (mins < 1) return 'Updated just now';
-                        if (mins < 60) return `Updated ${mins}m ago`;
-                        const hours = Math.floor(mins / 60);
-                        if (hours < 2) return 'Updated 1 hr ago';
-                        if (hours < 24) return `Updated ${hours} hrs ago`;
-                        return `Updated ${Math.floor(hours / 24)}d ago`;
-                      })()}
-                    </span>
-                  )}
-                  {(onSecondaryTabWithUpdate ? activeGauge : primaryGauge) && (
-                    <span className="text-[10px] text-neutral-400 ml-auto hidden sm:inline">
-                      via {(onSecondaryTabWithUpdate ? activeGauge : primaryGauge)?.name}
-                    </span>
-                  )}
-                </div>
-
-                {/* Summary + full narrative (expanded by default) */}
-                {activeEddyLoading && !activeEddyUpdate ? (
-                  <p className="text-sm text-neutral-500 italic">Loading Eddy&apos;s take...</p>
-                ) : activeEddyUpdate?.summaryText ? (
-                  <>
-                    <div className="rounded-lg px-3.5 py-2.5 mt-1" style={{ backgroundColor: surface.background }}>
-                      <p className="text-sm sm:text-base leading-relaxed font-semibold" style={{ color: surface.color }}>
-                        &ldquo;{activeEddyUpdate.summaryText}&rdquo;
-                      </p>
-                    </div>
-
-                    {/* Full narrative (shown by default, collapsible) */}
-                    {!eddyShowFull && (
-                      <p className="text-sm leading-relaxed font-medium mt-3 text-neutral-700">
-                        &ldquo;{activeEddyUpdate.quoteText}&rdquo;
-                      </p>
-                    )}
-
-                    <button
-                      onClick={() => setEddyShowFull(!eddyShowFull)}
-                      className="flex items-center gap-1 text-xs font-semibold transition-colors mt-2 text-neutral-500 hover:text-neutral-700"
-                    >
-                      {eddyShowFull ? (
-                        <>Show full report <ChevronDown className="w-3 h-3" /></>
-                      ) : (
-                        <>Show less <ChevronUp className="w-3 h-3" /></>
-                      )}
-                    </button>
-                  </>
-                ) : (
-                  <p className="text-sm sm:text-base leading-relaxed font-medium text-neutral-700">
-                    &ldquo;{eddyDisplayText}&rdquo;
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex flex-wrap items-center gap-2 mt-4 ml-0 sm:ml-[72px] sm:mt-3">
-              <Link
-                href={`/plan?river=${riverSlug}`}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#163F4A] text-white text-xs font-semibold rounded-md hover:bg-[#1A4A57] transition-colors shadow-[2px_2px_0_#0F2D35]"
-              >
-                Plan a Trip
-              </Link>
-              <button
-                onClick={handleShare}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-neutral-800 text-xs font-semibold rounded-md hover:bg-neutral-50 transition-colors border border-neutral-300 shadow-[2px_2px_0_#C2BAAC]"
-              >
-                {shareStatus === 'copied' ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-                {shareStatus === 'copied' ? 'Copied!' : 'Share Report'}
-              </button>
-            </div>
-          </div>
-        </div>
-
         {/* Condition Thresholds Table */}
         {activeThreshold && (
           <div className="mb-8">
@@ -652,11 +753,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             />
           </div>
         )}
-
-        {/* Community river visuals matching the river's current condition.
-            Self-hides when there are no approved photos at this level. */}
-        <div className="mb-8">
-          <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} />
+          </div>
+          )}
         </div>
     </div>
   );
