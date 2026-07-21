@@ -211,23 +211,19 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
           </span>
           {data.byLevel.map((l) => {
             const isActive = l.code === activeLevel;
-            const isNow = l.code === data.currentCondition;
             return (
+              // No "now" tag here — the "Right now:" line above already names
+              // the live level. inline-flex so the button shrink-wraps the pill
+              // and the active ring hugs it exactly.
               <button
                 key={l.code}
                 type="button"
                 onClick={() => { setSelectedLevel(l.code); setCurrentIndex(0); }}
                 aria-pressed={isActive}
-                title={isNow ? 'The river is at this level right now' : `See the river at ${l.code}`}
-                className="inline-flex items-center gap-1"
+                title={`See photos at ${l.code.replace('_', ' ')}`}
+                className={`inline-flex rounded-full transition ${isActive ? 'ring-2 ring-teal-600' : 'opacity-50 hover:opacity-100'}`}
               >
-                {/* inline-flex so this wrapper shrink-wraps the pill: a plain
-                    inline span is sized by font metrics, so the active ring
-                    painted on it sat misaligned around the taller badge. */}
-                <span className={`inline-flex rounded-full transition ${isActive ? 'ring-2 ring-teal-500 ring-offset-1' : 'opacity-50 hover:opacity-100'}`}>
-                  <ConditionBadge code={l.code} size="sm" />
-                </span>
-                {isNow && <span className="text-[10px] font-semibold text-teal-600">now</span>}
+                <ConditionBadge code={l.code} size="sm" />
               </button>
             );
           })}
