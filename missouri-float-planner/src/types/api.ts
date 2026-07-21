@@ -491,6 +491,12 @@ export interface RiverVisualPin {
   dischargeCfs: number | null;
   /** Name of the gauge the photo's stage/flow reading came from (its reach gauge). */
   gaugeName: string | null;
+  /**
+   * Whether the photo's level band equals its own gauge's CURRENT band — i.e.
+   * the photo depicts roughly what that stretch looks like right now. True when
+   * either side is unknown: pins are only de-emphasized on positive evidence.
+   */
+  matchesCurrent: boolean;
   accessPointName: string | null;
   accessPointHref: string | null;
   createdAt: string;

@@ -38,13 +38,18 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
     popupsRef.current = [];
 
     const isTouchDevice = !supportsHoverRef.current;
-    const size = isTouchDevice ? 40 : 34;
 
     pins.forEach((pin) => {
       if (pin.lat == null || pin.lng == null) return;
       // A pin with no image has nothing to render, and passing a null URL into
       // the popup markup below would throw and take down the whole planner page.
       if (!pin.imageUrl) return;
+      // Photos from a different water level than their gauge's current band
+      // render small and faded — visible (uploads never silently vanish) but
+      // clearly secondary to shots of what the river looks like right now.
+      // A missing field (stale cached API response) counts as a match.
+      const matches = pin.matchesCurrent !== false;
+      const size = matches ? (isTouchDevice ? 40 : 34) : (isTouchDevice ? 28 : 24);
       const ring = CONDITION_COLORS[pin.conditionCode] || '#0d9488';
 
       // Outer element is a transparent ≥44px hit area (touch target); the
@@ -64,7 +69,7 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
         box-sizing: border-box;
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
-        z-index: 0;
+        z-index: ${matches ? 1 : 0};
       `;
 
       const circle = document.createElement('div');
@@ -73,12 +78,13 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
         width: ${size}px;
         height: ${size}px;
         border-radius: 50%;
-        border: 3px solid ${ring};
+        border: ${matches ? 3 : 2}px solid ${ring};
         box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         overflow: hidden;
         background: #e5e7eb;
         pointer-events: none;
         box-sizing: border-box;
+        opacity: ${matches ? 1 : 0.55};
       `;
 
       const img = document.createElement('img');
@@ -110,6 +116,7 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
             </div>
             ${stageFlow ? `<p style="margin: 0; font-size: 11px; color: var(--color-text-secondary);">${escapeHtml(stageFlow)}</p>` : ''}
             ${stageFlow && gaugeLabel ? `<p style="margin: 1px 0 0 0; font-size: 10px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">at ${escapeHtml(gaugeLabel)} gauge</p>` : ''}
+            ${matches ? '' : '<p style="margin: 2px 0 0 0; font-size: 10px; font-style: italic; color: var(--color-text-muted);">Taken at a different level than today</p>'}
             ${pin.accessPointName ? `<p style="margin: 2px 0 0 0; font-size: 11px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(pin.accessPointName)}</p>` : ''}
           </div>
         </div>

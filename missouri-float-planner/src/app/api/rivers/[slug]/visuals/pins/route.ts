@@ -69,6 +69,40 @@ export async function GET(
     const { thresholdsByGauge, primaryThresholds } = buildGaugeThresholds(gaugeRows);
     const gaugeNamesById = buildGaugeNameMap(gaugeRows);
 
+    // Each gauge's CURRENT band from its latest reading, so a pin is compared
+    // against conditions at ITS OWN gauge — a Montauk photo judged by the
+    // river-wide (Van Buren) code is apples vs oranges. Best-effort: on any
+    // failure the map falls back to treating every pin as current.
+    const primaryGaugeId =
+      gaugeRows.find((g) => g.is_primary)?.gauge_station_id ?? gaugeRows[0]?.gauge_station_id ?? null;
+    const currentBandByGauge = new Map<string, ConditionCode>();
+    try {
+      const stationIds = gaugeRows
+        .map((g) => g.gauge_station_id)
+        .filter((id): id is string => !!id);
+      if (stationIds.length > 0) {
+        const { data: readings } = await supabase.rpc('latest_readings_for_stations', {
+          p_station_ids: stationIds,
+        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const r of (readings || []) as any[]) {
+          if (currentBandByGauge.has(r.gauge_station_id)) continue;
+          const t = thresholdsByGauge.get(r.gauge_station_id);
+          if (!t) continue;
+          currentBandByGauge.set(
+            r.gauge_station_id,
+            getPhotoConditionCode(
+              r.gauge_height_ft != null ? Number(r.gauge_height_ft) : null,
+              r.discharge_cfs != null ? Number(r.discharge_cfs) : null,
+              t
+            )
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('Could not resolve current gauge bands for photo pins:', err);
+    }
+
     const pins: RiverVisualPin[] = [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const row of (visualsResult.data || []) as any[]) {
@@ -92,12 +126,22 @@ export async function GET(
           )
         : 'unknown';
 
+      // Current-level match, judged at the pin's own gauge. Unknown on either
+      // side counts as a match — only positive evidence de-emphasizes a pin.
+      const pinGaugeId: string | null = row.gauge_station_id ?? primaryGaugeId;
+      const gaugeNow = pinGaugeId ? currentBandByGauge.get(pinGaugeId) : undefined;
+      const matchesCurrent =
+        !gaugeNow || gaugeNow === 'unknown' || conditionCode === 'unknown'
+          ? true
+          : conditionCode === gaugeNow;
+
       pins.push({
         id: row.id,
         imageUrl: row.image_url,
         lat: coords.lat,
         lng: coords.lng,
         conditionCode,
+        matchesCurrent,
         gaugeHeightFt: row.gauge_height_ft ? parseFloat(row.gauge_height_ft) : null,
         dischargeCfs: row.discharge_cfs ? parseFloat(row.discharge_cfs) : null,
         gaugeName: (row.gauge_station_id ? gaugeNamesById.get(row.gauge_station_id) : null) ?? null,
