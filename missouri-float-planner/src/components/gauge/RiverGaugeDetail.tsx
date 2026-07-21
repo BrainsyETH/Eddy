@@ -566,8 +566,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 items-start">
           <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} />
 
-          {/* Eddy Says Section */}
-          <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+          {/* Eddy Says Section — anchor target for the hero condition pill */}
+          <div id="eddy-says" className="scroll-mt-24 bg-white border border-neutral-200 rounded-xl overflow-hidden">
           <div className="px-4 py-4 sm:px-6 sm:py-5">
             {/* Header row: avatar + label + badge + timestamp */}
             <div className="flex items-start gap-4">

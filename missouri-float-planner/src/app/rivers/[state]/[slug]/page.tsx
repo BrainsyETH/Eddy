@@ -12,13 +12,13 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { stateSlug, stateName } from '@/lib/navigation/states';
 import { riverPath, statePath } from '@/lib/navigation/river-path';
 import Link from 'next/link';
+import Image from 'next/image';
 import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
-import { ArrowRight, MapPin, Ruler, Mountain } from 'lucide-react';
+import { ArrowRight, ChevronDown, MapPin, Ruler, Mountain } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
+import { CONDITION_COLORS, CONDITION_LABELS, getEddyImageForCondition } from '@/constants';
 import type { ConditionCode } from '@/types/api';
 import RiverHubMap from './RiverHubMap';
-import RiverHeroStats from './RiverHeroStats';
 import HubSectionNav from './HubSectionNav';
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -285,13 +285,29 @@ export default async function RiverGuidePage({ params }: Props) {
             <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-8 items-stretch">
               {/* Left: identity + live metrics + CTAs */}
               <div className="flex flex-col">
-                <div
-                  className="inline-flex items-center gap-2 self-start rounded-full px-3 py-1.5 mb-4 text-sm font-semibold"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}
+                {/* Condition pill, fronted by Eddy — clicking jumps to his
+                    full report (the Eddy Says card in the live report). */}
+                <a
+                  href="#eddy-says"
+                  title="Read Eddy's full report"
+                  className="group inline-flex items-center gap-2.5 self-start mb-4 no-underline"
                 >
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: conditionColor }} />
-                  {conditionLabel}
-                </div>
+                  <Image
+                    src={getEddyImageForCondition(condKey)}
+                    alt=""
+                    width={44}
+                    height={44}
+                    className="h-11 w-11 object-contain drop-shadow"
+                  />
+                  <span
+                    className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold text-white transition-colors group-hover:bg-white/25"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}
+                  >
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: conditionColor }} />
+                    {conditionLabel}
+                    <ChevronDown className="w-3.5 h-3.5 text-white/60 transition-transform group-hover:translate-y-0.5" />
+                  </span>
+                </a>
 
                 <h1
                   className="text-4xl md:text-5xl font-bold leading-[1.05] mb-3"
@@ -304,10 +320,8 @@ export default async function RiverGuidePage({ params }: Props) {
                   <p className="text-base text-white/80 max-w-xl mb-5 leading-relaxed">{river.description}</p>
                 )}
 
-                {/* Live metric cards */}
-                <RiverHeroStats riverSlug={slug} />
-
-                {/* CTAs */}
+                {/* CTAs (live readings live in the report right below — the
+                    hero no longer duplicates gauge numbers) */}
                 <div className="flex flex-wrap items-center gap-3 mt-auto">
                   <Link
                     href={planUrl}
