@@ -87,6 +87,9 @@ export async function GET(
         .eq('river_id', river.id)
         .eq('type', 'river_visual')
         .eq('status', 'verified')
+        // Skip rows whose image was never published (image_url null) — the
+        // gallery renders each via next/image, which throws on a null src.
+        .not('image_url', 'is', null)
         .order('created_at', { ascending: false }),
     ]);
 
@@ -127,9 +130,14 @@ export async function GET(
     }
     if (!primaryThresholds && gaugeRows.length > 0) primaryThresholds = toThresholds(gaugeRows[0]);
 
-    // Map visuals and compute their condition codes dynamically
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const allVisuals: RiverVisual[] = (visualsResult.data || []).map((row: any) => {
+    // Map visuals and compute their condition codes dynamically. Guard against
+    // unpublished rows (null image_url) defensively — next/image throws on a
+    // null src, which would blank the whole planner page.
+    const allVisuals: RiverVisual[] = (visualsResult.data || [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((row: any) => row.image_url)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((row: any) => {
       const accessPointData = Array.isArray(row.access_points)
         ? row.access_points[0]
         : row.access_points;

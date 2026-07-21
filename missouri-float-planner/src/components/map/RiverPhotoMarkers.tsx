@@ -41,6 +41,9 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
 
     pins.forEach((pin) => {
       if (pin.lat == null || pin.lng == null) return;
+      // A pin with no image has nothing to render, and passing a null URL into
+      // the popup markup below would throw and take down the whole planner page.
+      if (!pin.imageUrl) return;
       const ring = CONDITION_COLORS[pin.conditionCode] || '#0d9488';
 
       // Outer element is a transparent ≥44px hit area (touch target); the
