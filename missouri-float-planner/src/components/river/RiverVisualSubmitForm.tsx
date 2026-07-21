@@ -6,6 +6,8 @@
 
 import { useState, useEffect } from 'react';
 import { Camera, Upload, CheckCircle, AlertTriangle, X, Loader2, Clock, MapPin } from 'lucide-react';
+import ConditionBadge from '@/components/ui/ConditionBadge';
+import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import type { AccessPoint } from '@/types/api';
 
 /** Local YYYY-MM-DD for a native <input type="date">. */
@@ -79,6 +81,16 @@ async function readJsonSafe(res: Response): Promise<Record<string, unknown>> {
   }
 }
 
+/** Pull each gauge's ladder out of a /api/conditions response's gauges array. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function harvestThresholds(gauges: Array<Record<string, any>>): Record<string, ConditionThresholds> {
+  const out: Record<string, ConditionThresholds> = {};
+  for (const g of gauges) {
+    if (g?.id && g?.thresholds) out[g.id as string] = g.thresholds as ConditionThresholds;
+  }
+  return out;
+}
+
 /** Friendly, human-readable message for a failed upload/report HTTP status. */
 function httpFailMessage(status: number, action: 'upload the photo' | 'submit the report'): string {
   if (status === 413) return 'That photo is too large to upload. Please try a smaller photo.';
@@ -143,9 +155,29 @@ export default function RiverVisualSubmitForm({
     { id: string; gaugeHeightFt: number | null; dischargeCfs: number | null } | null
   >(null);
 
+  // Per-gauge condition ladders (from /api/conditions), so the form can show
+  // live which level band this photo will file under as the reading changes.
+  const [gaugeThresholds, setGaugeThresholds] = useState<Record<string, ConditionThresholds>>({});
+  // Band captured at submit time, echoed on the success screen.
+  const [submittedBand, setSubmittedBand] = useState<string | null>(null);
+
   const effGaugeStationId = reachGauge?.id ?? gaugeStationId;
   const effCurrentGaugeHeightFt = reachGauge ? reachGauge.gaugeHeightFt : currentGaugeHeightFt;
   const effCurrentDischargeCfs = reachGauge ? reachGauge.dischargeCfs : currentDischargeCfs;
+
+  // Live "files under" preview: band the entered reading with the effective
+  // gauge's ladder. This is the level the photo will be grouped by in the
+  // gallery/map, which otherwise surprises submitters (a photo taken during
+  // High water can file under Dangerous and seem to vanish).
+  const previewThresholds = effGaugeStationId ? gaugeThresholds[effGaugeStationId] : undefined;
+  const parsedHeight = parseFloat(gaugeHeight);
+  const parsedCfs = parseFloat(dischargeCfs);
+  const previewHeight = gaugeHeight.trim() !== '' && Number.isFinite(parsedHeight) ? parsedHeight : null;
+  const previewCfs = dischargeCfs.trim() !== '' && Number.isFinite(parsedCfs) ? parsedCfs : null;
+  const previewBand =
+    previewThresholds && (previewHeight != null || previewCfs != null)
+      ? computeCondition(previewHeight, previewThresholds, previewCfs).code
+      : null;
 
   // Resolve the reach gauge for the chosen access point via the conditions
   // endpoint (which runs the segment-aware DB selection). Best-effort.
@@ -165,6 +197,7 @@ export default function RiverVisualSubmitForm({
         const usgsId: string | null = json?.condition?.gaugeUsgsId ?? null;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const gauges: Array<Record<string, any>> = Array.isArray(json?.gauges) ? json.gauges : [];
+        if (!cancelled) setGaugeThresholds((prev) => ({ ...prev, ...harvestThresholds(gauges) }));
         const match = usgsId ? gauges.find((g) => g.usgsSiteId === usgsId) : null;
         if (cancelled || !match) return;
         setReachGauge({
@@ -180,6 +213,28 @@ export default function RiverVisualSubmitForm({
       cancelled = true;
     };
   }, [selectedAccessPointId, riverId]);
+
+  // Seed the ladders on open (before an access point is chosen) so the
+  // "files under" preview works from the first keystroke. Best-effort.
+  useEffect(() => {
+    if (!riverId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/conditions/${riverId}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const gauges: Array<Record<string, any>> = Array.isArray(json?.gauges) ? json.gauges : [];
+        if (!cancelled) setGaugeThresholds((prev) => ({ ...harvestThresholds(gauges), ...prev }));
+      } catch {
+        // Preview is a nicety — the form works without it.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [riverId]);
 
   // Keep the live reading in sync with the effective gauge's current values,
   // unless the user picked a past date or hand-edited the field.
@@ -415,6 +470,7 @@ export default function RiverVisualSubmitForm({
       // Show the success confirmation; notify the parent when the user dismisses
       // it (below) rather than immediately — otherwise the host unmounts this
       // component and the "Photo Submitted!" screen is never seen.
+      setSubmittedBand(previewBand);
       setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -426,19 +482,40 @@ export default function RiverVisualSubmitForm({
 
   if (success) {
     return (
-      <div className="bg-white rounded-xl border border-neutral-200 p-6 text-center space-y-3">
-        <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto" />
-        <h3 className="text-lg font-semibold text-neutral-800">Photo Submitted!</h3>
-        <p className="text-sm text-neutral-500">
-          Your river visual has been submitted for review. Once approved by an admin,
-          it will appear in the gallery for others to see.
-        </p>
-        <button
-          onClick={() => { onSubmitted?.(); onClose(); }}
-          className="mt-2 px-4 py-2 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-sm font-medium text-neutral-700 transition-colors"
-        >
-          Close
-        </button>
+      <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden text-center">
+        <div className="bg-teal-50 px-6 pt-8 pb-6">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-teal-600">
+            <CheckCircle className="h-8 w-8 text-white" />
+          </span>
+          <h3 className="mt-3 text-lg font-bold text-neutral-900">Photo submitted</h3>
+          <p className="mt-1 text-sm text-neutral-600">Thanks for showing fellow floaters the river.</p>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          {imagePreview && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imagePreview}
+              alt=""
+              className="mx-auto h-24 w-24 rounded-lg border border-neutral-200 object-cover"
+            />
+          )}
+          {submittedBand && submittedBand !== 'unknown' && (
+            <p className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-sm text-neutral-600">
+              <span>Once approved, it&apos;ll appear under</span>
+              <ConditionBadge code={submittedBand} size="sm" />
+            </p>
+          )}
+          <p className="text-xs text-neutral-400">
+            A quick review keeps the gallery trustworthy — your photo goes live as soon
+            as it&apos;s approved.
+          </p>
+          <button
+            onClick={() => { onSubmitted?.(); onClose(); }}
+            className="w-full rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-700"
+          >
+            Done
+          </button>
+        </div>
       </div>
     );
   }
@@ -647,6 +724,15 @@ export default function RiverVisualSubmitForm({
             />
           </div>
         </div>
+
+        {/* Where this reading files the photo — set expectations before submit */}
+        {previewBand && previewBand !== 'unknown' && (
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
+            <span>This photo will file under</span>
+            <ConditionBadge code={previewBand} size="sm" />
+            <span className="text-neutral-400">— the level readers find it grouped by.</span>
+          </div>
+        )}
 
         {/* Name */}
         <div>

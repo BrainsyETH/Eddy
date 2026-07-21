@@ -2,19 +2,30 @@
 
 // src/components/map/RiverPhotoMarkers.tsx
 // Community river-photo pins: a circular thumbnail ringed by the photo's
-// condition color, with an image-preview popup. Modeled on POIMarkers.
+// condition color, with an image-preview popup. Photos taken at the same spot
+// (they default to their access point's coordinates) collapse into ONE pin
+// with a count badge whose popup flips through the stack. Modeled on
+// POIMarkers.
 
 import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useMap } from './MapContainer';
 import { presentPopup } from './popup-manager';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
-import { escapeHtml } from '@/lib/escape-html';
 import { shortenGaugeName } from '@/lib/gauge/format-name';
+import { formatPhotoDate } from '@/lib/river-visuals';
 import type { RiverVisualPin } from '@/types/api';
 
 interface RiverPhotoMarkersProps {
   pins: RiverVisualPin[];
+}
+
+/** Current-level shots first (the stack's face should show "now"), then newest. */
+function byRelevance(a: RiverVisualPin, b: RiverVisualPin): number {
+  const am = a.matchesCurrent !== false ? 0 : 1;
+  const bm = b.matchesCurrent !== false ? 0 : 1;
+  if (am !== bm) return am - bm;
+  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
 }
 
 export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
@@ -39,18 +50,30 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
 
     const isTouchDevice = !supportsHoverRef.current;
 
-    pins.forEach((pin) => {
-      if (pin.lat == null || pin.lng == null) return;
-      // A pin with no image has nothing to render, and passing a null URL into
-      // the popup markup below would throw and take down the whole planner page.
-      if (!pin.imageUrl) return;
-      // Photos from a different water level than their gauge's current band
-      // render small and faded — visible (uploads never silently vanish) but
-      // clearly secondary to shots of what the river looks like right now.
+    // Same-spot photos (identical coordinates) would stack into an unclickable
+    // pile of markers — group them and render one pin per location instead.
+    const groups = new Map<string, RiverVisualPin[]>();
+    for (const pin of pins) {
+      if (pin.lat == null || pin.lng == null) continue;
+      // A pin with no image has nothing to render (defensive; the API already
+      // excludes unpublished rows).
+      if (!pin.imageUrl) continue;
+      const key = `${pin.lat.toFixed(5)},${pin.lng.toFixed(5)}`;
+      const group = groups.get(key);
+      if (group) group.push(pin);
+      else groups.set(key, [pin]);
+    }
+
+    groups.forEach((group) => {
+      group.sort(byRelevance);
+      const primary = group[0];
+      const lng = primary.lng as number;
+      const lat = primary.lat as number;
+      // De-emphasize only when NOTHING in the stack matches the current level.
       // A missing field (stale cached API response) counts as a match.
-      const matches = pin.matchesCurrent !== false;
+      const matches = group.some((p) => p.matchesCurrent !== false);
       const size = matches ? (isTouchDevice ? 40 : 34) : (isTouchDevice ? 28 : 24);
-      const ring = CONDITION_COLORS[pin.conditionCode] || '#0d9488';
+      const ring = CONDITION_COLORS[primary.conditionCode] || '#0d9488';
 
       // Outer element is a transparent ≥44px hit area (touch target); the
       // visible thumbnail lives in an inner child. Don't set inline position —
@@ -71,6 +94,17 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
         -webkit-tap-highlight-color: transparent;
         z-index: ${matches ? 1 : 0};
       `;
+      // Keyboard + screen-reader affordance (AccessPointMarkers sets the bar).
+      el.setAttribute('role', 'button');
+      el.tabIndex = 0;
+      const levelLabel = CONDITION_SHORT_LABELS[primary.conditionCode] || primary.conditionCode;
+      const takenLabel = formatPhotoDate(primary.capturedAt ?? primary.createdAt);
+      el.setAttribute(
+        'aria-label',
+        group.length > 1
+          ? `${group.length} river photos${primary.accessPointName ? ` near ${primary.accessPointName}` : ''}. Press to preview.`
+          : `River photo${primary.accessPointName ? ` near ${primary.accessPointName}` : ''}, ${levelLabel} level${takenLabel ? `, taken ${takenLabel}` : ''}. Press to preview.`
+      );
 
       const circle = document.createElement('div');
       circle.className = 'river-photo-marker-thumb';
@@ -88,7 +122,7 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
       `;
 
       const img = document.createElement('img');
-      img.src = pin.imageUrl;
+      img.src = primary.imageUrl;
       img.alt = '';
       img.loading = 'lazy';
       img.decoding = 'async';
@@ -96,31 +130,31 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
       circle.appendChild(img);
       el.appendChild(circle);
 
-      const label = CONDITION_SHORT_LABELS[pin.conditionCode] || pin.conditionCode;
-      const stageFlow = [
-        pin.gaugeHeightFt != null ? `${pin.gaugeHeightFt} ft` : null,
-        pin.dischargeCfs != null ? `${pin.dischargeCfs} cfs` : null,
-      ]
-        .filter(Boolean)
-        .join(' · ');
-      // Name the gauge the reading came from, so "4.34 ft" isn't ambiguous.
-      const gaugeLabel = pin.gaugeName ? shortenGaugeName(pin.gaugeName) : null;
-
-      const popupContent = `
-        <div style="width: 180px;">
-          <img src="${escapeHtml(pin.imageUrl)}" alt="" style="width: 100%; height: 110px; object-fit: cover; border-radius: 6px 6px 0 0; display: block;" />
-          <div style="padding: 8px 10px;">
-            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
-              <span style="width: 8px; height: 8px; border-radius: 50%; background: ${ring}; display: inline-block;"></span>
-              <span style="font-weight: 600; font-size: 12px; color: var(--color-text-primary);">${escapeHtml(label)}</span>
-            </div>
-            ${stageFlow ? `<p style="margin: 0; font-size: 11px; color: var(--color-text-secondary);">${escapeHtml(stageFlow)}</p>` : ''}
-            ${stageFlow && gaugeLabel ? `<p style="margin: 1px 0 0 0; font-size: 10px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">at ${escapeHtml(gaugeLabel)} gauge</p>` : ''}
-            ${matches ? '' : '<p style="margin: 2px 0 0 0; font-size: 10px; font-style: italic; color: var(--color-text-muted);">Taken at a different level than today</p>'}
-            ${pin.accessPointName ? `<p style="margin: 2px 0 0 0; font-size: 11px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(pin.accessPointName)}</p>` : ''}
-          </div>
-        </div>
-      `;
+      // Stack size badge for grouped photos.
+      if (group.length > 1) {
+        const badge = document.createElement('span');
+        badge.textContent = String(group.length);
+        badge.setAttribute('aria-hidden', 'true');
+        badge.style.cssText = `
+          position: absolute;
+          right: 2px;
+          bottom: 2px;
+          min-width: 16px;
+          height: 16px;
+          padding: 0 4px;
+          border-radius: 999px;
+          background: #ffffff;
+          border: 1px solid #d4d4d4;
+          color: #171717;
+          font-size: 10px;
+          font-weight: 700;
+          line-height: 14px;
+          text-align: center;
+          box-sizing: border-box;
+          pointer-events: none;
+        `;
+        el.appendChild(badge);
+      }
 
       const popup = new maplibregl.Popup({
         closeButton: false,
@@ -128,12 +162,12 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
         offset: 18,
         maxWidth: '200px',
         className: 'river-photo-popup',
-      }).setHTML(popupContent);
+      }).setDOMContent(buildPopupContent(group));
+
+      const open = () => presentPopup(map, popup, [lng, lat]);
 
       if (supportsHoverRef.current) {
-        el.addEventListener('mouseenter', () => {
-          presentPopup(map, popup, [pin.lng, pin.lat]);
-        });
+        el.addEventListener('mouseenter', open);
         el.addEventListener('mouseleave', () => {
           popup.remove();
         });
@@ -141,15 +175,24 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
         // the river line's hit layer beneath.
         el.addEventListener('click', (e: MouseEvent) => {
           e.stopPropagation();
-          presentPopup(map, popup, [pin.lng, pin.lat]);
+          open();
         });
       } else {
         el.addEventListener('click', (e: MouseEvent) => {
           e.stopPropagation();
-          presentPopup(map, popup, [pin.lng, pin.lat]);
+          open();
           map.once('click', () => popup.remove());
         });
       }
+      el.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          open();
+          map.once('click', () => popup.remove());
+        } else if (e.key === 'Escape') {
+          popup.remove();
+        }
+      });
 
       const marker = new maplibregl.Marker({
         element: el,
@@ -157,7 +200,7 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
         rotationAlignment: 'map',
         pitchAlignment: 'map',
       })
-        .setLngLat([pin.lng, pin.lat])
+        .setLngLat([lng, lat])
         .addTo(map);
 
       markersRef.current.push(marker);
@@ -173,4 +216,92 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
   }, [map, pins]);
 
   return null;
+}
+
+/**
+ * Popup for a pin (or a same-spot stack): main image + reading metadata, plus a
+ * thumbnail strip to flip through stacked photos. Built as DOM with textContent
+ * (never HTML strings), so no escaping is needed.
+ */
+function buildPopupContent(group: RiverVisualPin[]): HTMLElement {
+  const root = document.createElement('div');
+  root.style.cssText = 'width: 180px;';
+
+  const mainImg = document.createElement('img');
+  mainImg.alt = '';
+  mainImg.decoding = 'async';
+  mainImg.style.cssText =
+    'width: 100%; height: 110px; object-fit: cover; border-radius: 6px 6px 0 0; display: block; background: #e5e7eb;';
+  root.appendChild(mainImg);
+
+  const meta = document.createElement('div');
+  meta.style.cssText = 'padding: 8px 10px;';
+  root.appendChild(meta);
+
+  let thumbs: HTMLImageElement[] = [];
+
+  const renderPin = (pin: RiverVisualPin) => {
+    mainImg.src = pin.imageUrl;
+    meta.replaceChildren();
+
+    const ring = CONDITION_COLORS[pin.conditionCode] || '#0d9488';
+    const header = document.createElement('div');
+    header.style.cssText = 'display: flex; align-items: center; gap: 6px; margin-bottom: 2px;';
+    const dot = document.createElement('span');
+    dot.style.cssText = `width: 8px; height: 8px; border-radius: 50%; background: ${ring}; display: inline-block;`;
+    const label = document.createElement('span');
+    label.style.cssText = 'font-weight: 600; font-size: 12px; color: var(--color-text-primary);';
+    label.textContent = CONDITION_SHORT_LABELS[pin.conditionCode] || pin.conditionCode;
+    header.append(dot, label);
+    meta.appendChild(header);
+
+    const line = (text: string, extra = '') => {
+      const p = document.createElement('p');
+      p.style.cssText = `margin: 2px 0 0 0; font-size: 11px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ${extra}`;
+      p.textContent = text;
+      meta.appendChild(p);
+    };
+
+    const stageFlow = [
+      pin.gaugeHeightFt != null ? `${pin.gaugeHeightFt} ft` : null,
+      pin.dischargeCfs != null ? `${pin.dischargeCfs} cfs` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    if (stageFlow) line(stageFlow, 'margin-top: 0; color: var(--color-text-secondary);');
+    if (stageFlow && pin.gaugeName) line(`at ${shortenGaugeName(pin.gaugeName)} gauge`, 'font-size: 10px;');
+    const taken = formatPhotoDate(pin.capturedAt ?? pin.createdAt);
+    if (taken) line(`Taken ${taken}`, 'font-size: 10px;');
+    if (pin.accessPointName) line(pin.accessPointName);
+    if (pin.matchesCurrent === false) {
+      line('Taken at a different level than today', 'font-size: 10px; font-style: italic;');
+    }
+
+    thumbs.forEach((thumb, i) => {
+      thumb.style.borderColor = group[i] === pin ? '#0d9488' : 'transparent';
+    });
+  };
+
+  if (group.length > 1) {
+    const strip = document.createElement('div');
+    strip.style.cssText = 'display: flex; flex-wrap: wrap; gap: 4px; padding: 0 10px 8px;';
+    thumbs = group.map((pin) => {
+      const thumb = document.createElement('img');
+      thumb.src = pin.imageUrl;
+      thumb.alt = '';
+      thumb.decoding = 'async';
+      thumb.style.cssText =
+        'width: 30px; height: 30px; object-fit: cover; border-radius: 4px; cursor: pointer; border: 2px solid transparent; box-sizing: border-box; background: #e5e7eb;';
+      thumb.addEventListener('click', (e) => {
+        e.stopPropagation();
+        renderPin(pin);
+      });
+      strip.appendChild(thumb);
+      return thumb;
+    });
+    root.appendChild(strip);
+  }
+
+  renderPin(group[0]);
+  return root;
 }

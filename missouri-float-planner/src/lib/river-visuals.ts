@@ -17,6 +17,17 @@ export function getPhotoConditionCode(
   return computeCondition(gaugeHeightFt, thresholds, dischargeCfs).code;
 }
 
+/**
+ * Human date for when a photo was taken ("Jul 5, 2026"). Prefer captured_at
+ * (EXIF) and fall back to the upload date at call sites. Null in, null out.
+ */
+export function formatPhotoDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 /** A river_gauges row carrying the threshold columns for one gauge. */
 export interface GaugeThresholdRow {
   gauge_station_id: string | null;

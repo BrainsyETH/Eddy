@@ -260,6 +260,20 @@ export interface ConditionGauge {
   thresholdUnit?: 'ft' | 'cfs';
   readingTimestamp: string | null;
   readingAgeHours: number | null;
+  /**
+   * This gauge's condition ladder (shape matches lib/conditions
+   * ConditionThresholds), so clients can band a reading without another fetch
+   * — e.g. the photo submit form's live "files under" preview.
+   */
+  thresholds?: {
+    levelTooLow: number | null;
+    levelLow: number | null;
+    levelOptimalMin: number | null;
+    levelOptimalMax: number | null;
+    levelHigh: number | null;
+    levelDangerous: number | null;
+    thresholdUnit?: 'ft' | 'cfs';
+  } | null;
 }
 
 export interface Hazard {
@@ -472,6 +486,8 @@ export interface RiverVisual {
   gaugeName: string | null;
   submitterName: string | null;
   conditionCode: ConditionCode;
+  /** When the photo was taken (EXIF capture time), when known. */
+  capturedAt: string | null;
   createdAt: string;
 }
 
@@ -499,6 +515,8 @@ export interface RiverVisualPin {
   matchesCurrent: boolean;
   accessPointName: string | null;
   accessPointHref: string | null;
+  /** When the photo was taken (EXIF capture time), when known. */
+  capturedAt: string | null;
   createdAt: string;
 }
 

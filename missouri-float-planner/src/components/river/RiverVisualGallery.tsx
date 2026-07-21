@@ -3,12 +3,13 @@
 // src/components/river/RiverVisualGallery.tsx
 // Displays community-submitted river photos matching current conditions
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Camera, ChevronLeft, ChevronRight, X, MapPin, Droplets, Ruler } from 'lucide-react';
+import { Camera, ChevronLeft, ChevronRight, X, MapPin, Droplets, Ruler, CalendarDays } from 'lucide-react';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { shortenGaugeName } from '@/lib/gauge/format-name';
+import { formatPhotoDate } from '@/lib/river-visuals';
 import type { ConditionCode, RiverVisual, RiverVisualsResponse } from '@/types/api';
 
 // Level bands ordered dry → flood, for the scrubber.
@@ -87,8 +88,36 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
     });
   }, [groupVisuals.length]);
 
-  // Don't render while loading or if the fetch failed.
-  if (loading || !data) return null;
+  // Swipe navigation — the first thing a phone user tries on a photo carousel.
+  // Horizontal-dominant drags over 48px flip photos; vertical drags scroll.
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+  }, []);
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy)) navigate(dx < 0 ? 1 : -1);
+  }, [navigate]);
+
+  // While loading, hold the card's shape so photos don't shove the page
+  // around when they arrive. A failed fetch renders nothing, as before.
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden" aria-hidden="true">
+        <div className="px-4 py-3 border-b border-neutral-100">
+          <div className="h-4 w-56 max-w-full rounded bg-neutral-100 animate-pulse" />
+        </div>
+        <div className="aspect-[16/10] bg-neutral-100 animate-pulse" />
+      </div>
+    );
+  }
+  if (!data) return null;
 
   // No verified photos at any level yet — invite a contribution in the image's
   // place, when the host gives us a link (or a modal action) to add one.
@@ -139,6 +168,9 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
   // Do we actually have a photo AT the river's current level? Drives whether the
   // "Right now" status notes that no photo matches yet.
   const hasCurrentLevelPhotos = data.byLevel.some((l) => l.code === data.currentCondition);
+  // When the shot was taken — EXIF capture time when we have it, else upload
+  // date. Recency is half the evidence in a conditions photo.
+  const takenLabel = formatPhotoDate(current.capturedAt ?? current.createdAt);
 
   return (
     <>
@@ -202,7 +234,11 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
         </div>
 
         {/* Image carousel */}
-        <div className="relative aspect-[16/10] bg-neutral-100">
+        <div
+          className="relative aspect-[16/10] bg-neutral-100"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
           <Image
             src={current.imageUrl}
             alt={current.description || 'River visual'}
@@ -212,22 +248,22 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
             onClick={() => setLightboxOpen(true)}
           />
 
-          {/* Navigation arrows */}
+          {/* Navigation arrows — small and quiet; swipe is the primary gesture */}
           {visuals.length > 1 && (
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); navigate(-1); }}
-                className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
                 aria-label="Previous photo"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); navigate(1); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
                 aria-label="Next photo"
               >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-4 h-4" />
               </button>
             </>
           )}
@@ -281,9 +317,15 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
               Reading from the {shortenGaugeName(current.gaugeName)} gauge
             </p>
           )}
-          {/* Where the shot was taken + who shared it */}
-          {(current.accessPointName || current.submitterName) && (
-            <div className="flex items-center gap-3 text-xs text-neutral-400">
+          {/* When and where the shot was taken + who shared it */}
+          {(takenLabel || current.accessPointName || current.submitterName) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-400">
+              {takenLabel && (
+                <span className="flex items-center gap-1">
+                  <CalendarDays className="w-3 h-3" />
+                  Taken {takenLabel}
+                </span>
+              )}
               {current.accessPointName && (
                 current.accessPointHref ? (
                   <Link
@@ -333,6 +375,7 @@ function Lightbox({
   onNavigate: (index: number) => void;
 }) {
   const current = visuals[currentIndex];
+  const taken = formatPhotoDate(current.capturedAt ?? current.createdAt);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -380,17 +423,17 @@ function Lightbox({
           <>
             <button
               onClick={() => onNavigate(currentIndex > 0 ? currentIndex - 1 : visuals.length - 1)}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
               aria-label="Previous photo"
             >
-              <ChevronLeft className="w-6 h-6" />
+              <ChevronLeft className="w-5 h-5" />
             </button>
             <button
               onClick={() => onNavigate(currentIndex < visuals.length - 1 ? currentIndex + 1 : 0)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
               aria-label="Next photo"
             >
-              <ChevronRight className="w-6 h-6" />
+              <ChevronRight className="w-5 h-5" />
             </button>
           </>
         )}
@@ -400,7 +443,8 @@ function Lightbox({
           {current.description && (
             <p className="text-white text-sm">{current.description}</p>
           )}
-          <div className="flex items-center justify-center gap-3 text-xs text-white/60">
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-white/60">
+            {taken && <span>Taken {taken}</span>}
             {current.accessPointName && (
               current.accessPointHref ? (
                 <Link href={current.accessPointHref} className="flex items-center gap-1 hover:text-white transition-colors">
