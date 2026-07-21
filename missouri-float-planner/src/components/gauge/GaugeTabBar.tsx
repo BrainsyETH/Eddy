@@ -4,6 +4,7 @@
 // Pill-style wrapping buttons for switching between gauges on a river
 
 import { Star } from 'lucide-react';
+import { shortenGaugeName } from '@/lib/gauge/format-name';
 
 interface GaugeTab {
   siteId: string;
@@ -15,26 +16,6 @@ interface GaugeTabBarProps {
   gauges: GaugeTab[];
   activeSiteId: string;
   onTabChange: (siteId: string) => void;
-}
-
-/**
- * Strips the river name prefix and state suffix from USGS gauge names.
- * e.g. "Current River at Doniphan, MO" → "Doniphan"
- *      "Jacks Fork near Mountain View, MO" → "Mountain View"
- *      "Niangua River at Tunnel Dam near Macks Creek, MO" → "Tunnel Dam nr Macks Creek"
- */
-function shortenGaugeName(fullName: string): string {
-  // Remove state suffix (", MO" or similar)
-  let name = fullName.replace(/,\s*[A-Z]{2}\s*$/, '');
-
-  // Strip "[River Name] at/near/above " prefix
-  // Match pattern: "Word(s) River/Creek/Fork at/near/above ..."
-  const prefixMatch = name.match(/^.+?\b(?:River|Creek|Fork|Branch)\s+(?:at|near|above|below)\s+/i);
-  if (prefixMatch) {
-    name = name.slice(prefixMatch[0].length);
-  }
-
-  return name;
 }
 
 export default function GaugeTabBar({ gauges, activeSiteId, onTabChange }: GaugeTabBarProps) {

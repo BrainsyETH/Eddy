@@ -4,9 +4,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { type ConditionThresholds } from '@/lib/conditions';
 import { mapConditionCode } from '@/lib/conditions';
-import { getPhotoConditionCode } from '@/lib/river-visuals';
+import { getPhotoConditionCode, buildGaugeThresholds, buildGaugeNameMap } from '@/lib/river-visuals';
 import { riverAccessPath } from '@/lib/navigation/river-path';
 import type { ConditionCode, RiverVisual, RiverVisualsResponse } from '@/types/api';
 
@@ -51,14 +50,15 @@ export async function GET(
 
     // 2. Fetch every gauge's thresholds + current condition + visuals in parallel
     const [gaugeRowsResult, conditionResult, visualsResult] = await Promise.all([
-      // Thresholds for ALL of the river's gauges — each photo is banded by the
-      // gauge that represents its reach, not just the primary gauge.
+      // Thresholds + names for ALL of the river's gauges — each photo is banded
+      // by (and labeled with) the gauge that represents its reach.
       supabase
         .from('river_gauges')
         .select(`
           gauge_station_id, is_primary,
           level_too_low, level_low, level_optimal_min, level_optimal_max,
-          level_high, level_dangerous, threshold_unit
+          level_high, level_dangerous, threshold_unit,
+          gauge_stations(name)
         `)
         .eq('river_id', river.id),
 
@@ -101,34 +101,12 @@ export async function GET(
       ? mapConditionCode(conditionData.condition_code)
       : 'unknown';
 
-    // Build a threshold set per gauge, keyed by station id, plus the primary as
-    // the fallback for photos with no gauge recorded (legacy) or an unknown one.
-    const toThresholds = (g: {
-      level_too_low: number | null;
-      level_low: number | null;
-      level_optimal_min: number | null;
-      level_optimal_max: number | null;
-      level_high: number | null;
-      level_dangerous: number | null;
-      threshold_unit: string | null;
-    }): ConditionThresholds => ({
-      levelTooLow: g.level_too_low,
-      levelLow: g.level_low,
-      levelOptimalMin: g.level_optimal_min,
-      levelOptimalMax: g.level_optimal_max,
-      levelHigh: g.level_high,
-      levelDangerous: g.level_dangerous,
-      thresholdUnit: (g.threshold_unit as 'ft' | 'cfs') || undefined,
-    });
+    // Band each photo by the gauge that recorded it (its reach gauge), falling
+    // back to the primary gauge for legacy rows — shared with the map pins so a
+    // photo lands in the same condition band on either surface.
     const gaugeRows = gaugeRowsResult.data || [];
-    const thresholdsByGauge = new Map<string, ConditionThresholds>();
-    let primaryThresholds: ConditionThresholds | null = null;
-    for (const g of gaugeRows) {
-      const t = toThresholds(g);
-      if (g.gauge_station_id) thresholdsByGauge.set(g.gauge_station_id, t);
-      if (g.is_primary) primaryThresholds = t;
-    }
-    if (!primaryThresholds && gaugeRows.length > 0) primaryThresholds = toThresholds(gaugeRows[0]);
+    const { thresholdsByGauge, primaryThresholds } = buildGaugeThresholds(gaugeRows);
+    const gaugeNamesById = buildGaugeNameMap(gaugeRows);
 
     // Map visuals and compute their condition codes dynamically. Guard against
     // unpublished rows (null image_url) defensively — next/image throws on a
@@ -168,6 +146,7 @@ export async function GET(
         accessPointName: accessPointData?.name || null,
         accessPointHref,
         gaugeStationId: row.gauge_station_id,
+        gaugeName: (row.gauge_station_id ? gaugeNamesById.get(row.gauge_station_id) : null) ?? null,
         submitterName: row.submitter_name,
         conditionCode,
         createdAt: row.created_at,

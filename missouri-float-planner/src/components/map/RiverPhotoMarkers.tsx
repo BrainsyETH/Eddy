@@ -10,6 +10,7 @@ import { useMap } from './MapContainer';
 import { presentPopup } from './popup-manager';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 import { escapeHtml } from '@/lib/escape-html';
+import { shortenGaugeName } from '@/lib/gauge/format-name';
 import type { RiverVisualPin } from '@/types/api';
 
 interface RiverPhotoMarkersProps {
@@ -96,6 +97,8 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
       ]
         .filter(Boolean)
         .join(' · ');
+      // Name the gauge the reading came from, so "4.34 ft" isn't ambiguous.
+      const gaugeLabel = pin.gaugeName ? shortenGaugeName(pin.gaugeName) : null;
 
       const popupContent = `
         <div style="width: 180px;">
@@ -106,6 +109,7 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
               <span style="font-weight: 600; font-size: 12px; color: var(--color-text-primary);">${escapeHtml(label)}</span>
             </div>
             ${stageFlow ? `<p style="margin: 0; font-size: 11px; color: var(--color-text-secondary);">${escapeHtml(stageFlow)}</p>` : ''}
+            ${stageFlow && gaugeLabel ? `<p style="margin: 1px 0 0 0; font-size: 10px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">at ${escapeHtml(gaugeLabel)} gauge</p>` : ''}
             ${pin.accessPointName ? `<p style="margin: 2px 0 0 0; font-size: 11px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(pin.accessPointName)}</p>` : ''}
           </div>
         </div>
