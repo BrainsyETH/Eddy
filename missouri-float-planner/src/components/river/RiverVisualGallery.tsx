@@ -205,7 +205,9 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
             above. Labeled so its condition pills read as "which level's photos"
             rather than another live-status claim. The current level, when we have
             a photo for it, is marked "now". */}
-        <div className="px-4 pt-3 flex flex-wrap items-center gap-x-2 gap-y-2">
+        {/* py-3 both sides: the active ring paints ~2px OUTSIDE the chip, so
+            without bottom padding the row sits flush against the image. */}
+        <div className="px-4 py-3 flex flex-wrap items-center gap-x-2 gap-y-2">
           <span className="text-xs font-medium text-neutral-500">
             {data.byLevel.length > 1 ? 'Photos at:' : 'Level:'}
           </span>
