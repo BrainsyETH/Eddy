@@ -239,16 +239,11 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
     [pois, showPOIs, hiddenPoiCategories],
   );
 
-  // Show only photos that depict the river at its current condition — a
-  // high-water photo is misleading when the river is running low. This mirrors
-  // the gallery's default band. When the current condition is unknown we can't
-  // pick a band, so fall back to showing every pin rather than an empty map.
-  const visiblePhotoPins = useMemo(() => {
-    const pins = photoPins ?? [];
-    const code = condition?.code;
-    if (!code || code === 'unknown') return pins;
-    return pins.filter((p) => p.conditionCode === code);
-  }, [photoPins, condition?.code]);
+  // Photo pins all render; ones from a different water level than their
+  // gauge's CURRENT band (pin.matchesCurrent, computed server-side) draw
+  // small and faded instead of being hidden — a strict filter left the map
+  // empty whenever no photo matched today's level, which read as uploads
+  // silently vanishing.
 
   // Update URL whenever any planner state changes
   const updateUrl = useCallback((next: {
@@ -774,8 +769,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {filteredPois.length > 0 && (
               <POIMarkers pois={filteredPois} activeMileRange={activeMileRange} />
             )}
-            {showPhotos && visiblePhotoPins.length > 0 && (
-              <RiverPhotoMarkers pins={visiblePhotoPins} />
+            {showPhotos && photoPins && photoPins.length > 0 && (
+              <RiverPhotoMarkers pins={photoPins} />
             )}
             {/* Statewide condition network: every OTHER river in its live
                 condition color, thin, as context. Click one to switch the
@@ -941,8 +936,8 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
             {filteredPois.length > 0 && (
               <POIMarkers pois={filteredPois} activeMileRange={activeMileRange} />
             )}
-            {showPhotos && visiblePhotoPins.length > 0 && (
-              <RiverPhotoMarkers pins={visiblePhotoPins} />
+            {showPhotos && photoPins && photoPins.length > 0 && (
+              <RiverPhotoMarkers pins={photoPins} />
             )}
             {/* Statewide condition network: every OTHER river in its live
                 condition color, thin, as context. Click one to switch the
