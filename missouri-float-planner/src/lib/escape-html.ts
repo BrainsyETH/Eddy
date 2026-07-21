@@ -3,7 +3,8 @@
 // popup markup built with maplibre's setHTML). For rich text, use
 // sanitizeRichText in sanitize.ts instead.
 
-export function escapeHtml(text: string): string {
+export function escapeHtml(text: string | null | undefined): string {
+  if (text == null) return '';
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

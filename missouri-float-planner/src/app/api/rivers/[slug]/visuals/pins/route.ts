@@ -59,6 +59,10 @@ export async function GET(
         .eq('river_id', river.id)
         .eq('type', 'river_visual')
         .eq('status', 'verified')
+        // A pin IS its photo thumbnail — a row whose image was never published
+        // (image_url null, e.g. verified before the quarantine copy ran) has
+        // nothing to show and would crash the map marker builder, so exclude it.
+        .not('image_url', 'is', null)
         .order('created_at', { ascending: false }),
     ]);
 
@@ -77,6 +81,9 @@ export async function GET(
     const pins: RiverVisualPin[] = [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const row of (visualsResult.data || []) as any[]) {
+      // No published image → no thumbnail to render (defensive; the query
+      // already filters these out).
+      if (!row.image_url) continue;
       const coords = getCoordinates(row.coordinates);
       if (!coords) continue;
       // Skip the default state-centroid placeholder (no real location).

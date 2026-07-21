@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 import { getCoordinates, getRiverData } from '@/lib/api-utils';
+import { applyMediaTransitions } from '@/lib/uploads/apply-media-transitions';
 
 export const dynamic = 'force-dynamic';
 
@@ -115,6 +116,22 @@ export async function PUT(
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }
 
+    // Snapshot media state BEFORE the status write so a verify/reject can
+    // publish or take down the quarantined photo (audit F15). Without this the
+    // single-report moderation button flips status but never publishes the
+    // image, and a verified river_visual with a null image_url crashes the
+    // planner map (escapeHtml on a null URL). The bulk PATCH route already does
+    // this; sharing the transition keeps both paths identical.
+    let mediaBefore: { id: string; image_path: string | null; image_url: string | null } | null = null;
+    if (updates.status !== undefined) {
+      const { data: snapshot } = await supabase
+        .from('community_reports')
+        .select('id, image_path, image_url')
+        .eq('id', id)
+        .maybeSingle();
+      mediaBefore = snapshot ?? null;
+    }
+
     const { error } = await supabase
       .from('community_reports')
       .update(updates)
@@ -126,6 +143,11 @@ export async function PUT(
         { error: 'Could not update community report' },
         { status: 500 }
       );
+    }
+
+    // Publish the quarantined image on verify (or take it down on reject).
+    if (mediaBefore && updates.status !== undefined) {
+      await applyMediaTransitions(supabase, updates.status, [mediaBefore]);
     }
 
     // Re-fetch to return updated data
