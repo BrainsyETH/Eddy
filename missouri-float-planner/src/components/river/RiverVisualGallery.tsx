@@ -187,6 +187,23 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
             <span className="ml-auto text-xs text-neutral-400 whitespace-nowrap">
               {visuals.length} photo{visuals.length !== 1 ? 's' : ''}
             </span>
+            {/* Add-a-photo lives with the photos it feeds */}
+            {addPhotoHref ? (
+              <Link
+                href={addPhotoHref}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 hover:text-teal-700 whitespace-nowrap"
+              >
+                <Camera className="w-3.5 h-3.5" /> Add a photo
+              </Link>
+            ) : onAddPhoto ? (
+              <button
+                type="button"
+                onClick={onAddPhoto}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 hover:text-teal-700 whitespace-nowrap"
+              >
+                <Camera className="w-3.5 h-3.5" /> Add a photo
+              </button>
+            ) : null}
           </div>
           {/* Live condition — the river's status right now. Distinct from the
               per-photo levels below so the two never get conflated. */}

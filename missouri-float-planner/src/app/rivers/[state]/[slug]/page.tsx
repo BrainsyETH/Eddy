@@ -19,6 +19,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { CONDITION_COLORS, CONDITION_LABELS, getEddyImageForCondition } from '@/constants';
 import type { ConditionCode } from '@/types/api';
 import RiverHubMap from './RiverHubMap';
+import ShareRiverButton from './ShareRiverButton';
 import HubSectionNav from './HubSectionNav';
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -339,6 +340,7 @@ export default async function RiverGuidePage({ params }: Props) {
                       River Guide
                     </Link>
                   )}
+                  <ShareRiverButton className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-white border border-white/25 hover:bg-white/10 transition-colors" />
                 </div>
 
                 {/* Meta */}
