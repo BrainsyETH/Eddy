@@ -134,15 +134,27 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
     <>
       <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-neutral-100 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-          <Camera className="w-4 h-4 text-neutral-500 shrink-0" />
-          <h3 className="text-sm font-semibold text-neutral-800">
-            What the river looks like at this level
-          </h3>
-          <ConditionBadge code={activeLevel ?? data.currentCondition} size="sm" />
-          <span className="ml-auto text-xs text-neutral-400 whitespace-nowrap">
-            {visuals.length} photo{visuals.length !== 1 ? 's' : ''}
-          </span>
+        <div className="px-4 py-3 border-b border-neutral-100">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+            <Camera className="w-4 h-4 text-neutral-500 shrink-0" />
+            <h3 className="text-sm font-semibold text-neutral-800">
+              What the river looks like at this level
+            </h3>
+            <ConditionBadge code={activeLevel ?? data.currentCondition} size="sm" />
+            <span className="ml-auto text-xs text-neutral-400 whitespace-nowrap">
+              {visuals.length} photo{visuals.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          {/* The gallery falls back to the closest level we have photos for. When
+              that isn't the river's current level, say so — otherwise the badge
+              above reads as a live-condition claim (it's the photo's level, not now). */}
+          {activeLevel && data.currentCondition !== 'unknown' && activeLevel !== data.currentCondition && (
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-neutral-500">
+              <span>River is</span>
+              <ConditionBadge code={data.currentCondition} size="sm" />
+              <span>right now — no photos at that level yet, so here&apos;s the closest we have.</span>
+            </p>
+          )}
         </div>
 
         {/* Level scrubber — see the river at each level we have photos for */}
