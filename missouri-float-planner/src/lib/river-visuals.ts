@@ -28,6 +28,21 @@ export function formatPhotoDate(iso: string | null | undefined): string | null {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+/**
+ * Full date label for a photo: "Taken <capture date>" when we know when the
+ * photo was shot (EXIF or the submitter's date field), else "Added <upload
+ * date>" — never present an upload date as a taken date.
+ */
+export function photoTakenLabel(
+  capturedAt: string | null | undefined,
+  createdAt: string | null | undefined
+): string | null {
+  const taken = formatPhotoDate(capturedAt);
+  if (taken) return `Taken ${taken}`;
+  const added = formatPhotoDate(createdAt);
+  return added ? `Added ${added}` : null;
+}
+
 /** A river_gauges row carrying the threshold columns for one gauge. */
 export interface GaugeThresholdRow {
   gauge_station_id: string | null;

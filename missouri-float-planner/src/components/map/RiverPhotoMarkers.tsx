@@ -13,7 +13,7 @@ import { useMap } from './MapContainer';
 import { presentPopup } from './popup-manager';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 import { shortenGaugeName } from '@/lib/gauge/format-name';
-import { formatPhotoDate } from '@/lib/river-visuals';
+import { photoTakenLabel } from '@/lib/river-visuals';
 import type { RiverVisualPin } from '@/types/api';
 
 interface RiverPhotoMarkersProps {
@@ -98,12 +98,12 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
       el.setAttribute('role', 'button');
       el.tabIndex = 0;
       const levelLabel = CONDITION_SHORT_LABELS[primary.conditionCode] || primary.conditionCode;
-      const takenLabel = formatPhotoDate(primary.capturedAt ?? primary.createdAt);
+      const takenLabel = photoTakenLabel(primary.capturedAt, primary.createdAt);
       el.setAttribute(
         'aria-label',
         group.length > 1
           ? `${group.length} river photos${primary.accessPointName ? ` near ${primary.accessPointName}` : ''}. Press to preview.`
-          : `River photo${primary.accessPointName ? ` near ${primary.accessPointName}` : ''}, ${levelLabel} level${takenLabel ? `, taken ${takenLabel}` : ''}. Press to preview.`
+          : `River photo${primary.accessPointName ? ` near ${primary.accessPointName}` : ''}, ${levelLabel} level${takenLabel ? `, ${takenLabel.toLowerCase()}` : ''}. Press to preview.`
       );
 
       const circle = document.createElement('div');
@@ -270,8 +270,8 @@ function buildPopupContent(group: RiverVisualPin[]): HTMLElement {
       .join(' · ');
     if (stageFlow) line(stageFlow, 'margin-top: 0; color: var(--color-text-secondary);');
     if (stageFlow && pin.gaugeName) line(`at ${shortenGaugeName(pin.gaugeName)} gauge`, 'font-size: 10px;');
-    const taken = formatPhotoDate(pin.capturedAt ?? pin.createdAt);
-    if (taken) line(`Taken ${taken}`, 'font-size: 10px;');
+    const taken = photoTakenLabel(pin.capturedAt, pin.createdAt);
+    if (taken) line(taken, 'font-size: 10px;');
     if (pin.accessPointName) line(pin.accessPointName);
     if (pin.matchesCurrent === false) {
       line('Taken at a different level than today', 'font-size: 10px; font-style: italic;');
