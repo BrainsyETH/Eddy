@@ -52,6 +52,7 @@ export async function GET(
           discharge_cfs,
           access_point_id,
           gauge_station_id,
+          captured_at,
           created_at,
           access_points(name, slug)
         `)
@@ -147,11 +148,14 @@ export async function GET(
         gaugeName: (row.gauge_station_id ? gaugeNamesById.get(row.gauge_station_id) : null) ?? null,
         accessPointName: accessPointData?.name || null,
         accessPointHref: accessPointData?.slug ? riverAccessPath(river.state, slug, accessPointData.slug) : null,
+        capturedAt: row.captured_at ?? null,
         createdAt: row.created_at,
       });
     }
 
-    return NextResponse.json({ pins }, { headers: cdnCacheHeaders(300, 3600) });
+    // Short CDN window: a moderator verifying a photo should see it appear
+    // within about a minute, not after a 5-minute cache ride.
+    return NextResponse.json({ pins }, { headers: cdnCacheHeaders(60, 600) });
   } catch (error) {
     console.error('Error fetching river visual pins:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

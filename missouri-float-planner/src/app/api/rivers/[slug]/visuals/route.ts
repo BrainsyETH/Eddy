@@ -81,6 +81,7 @@ export async function GET(
           access_point_id,
           gauge_station_id,
           submitter_name,
+          captured_at,
           created_at,
           access_points(name, slug)
         `)
@@ -149,6 +150,7 @@ export async function GET(
         gaugeName: (row.gauge_station_id ? gaugeNamesById.get(row.gauge_station_id) : null) ?? null,
         submitterName: row.submitter_name,
         conditionCode,
+        capturedAt: row.captured_at ?? null,
         createdAt: row.created_at,
       };
     });
@@ -214,7 +216,9 @@ export async function GET(
       currentDischargeCfs,
     };
 
-    return NextResponse.json(response, { headers: cdnCacheHeaders(300, 3600) });
+    // Short CDN window: a moderator verifying a photo should see it appear
+    // within about a minute, not after a 5-minute cache ride.
+    return NextResponse.json(response, { headers: cdnCacheHeaders(60, 600) });
   } catch (error) {
     console.error('Error fetching river visuals:', error);
     return NextResponse.json(

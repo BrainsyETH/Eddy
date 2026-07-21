@@ -92,7 +92,7 @@ async function _GET(
     // Kick off linked gauges query immediately (resolves while we process access point)
     const linkedGaugesPromise = supabase
       .from('river_gauges')
-      .select('id, is_primary, gauge_station_id, gauge_stations(id, name, usgs_site_id)')
+      .select('id, is_primary, gauge_station_id, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, threshold_unit, gauge_stations(id, name, usgs_site_id)')
       .eq('river_id', riverId);
 
     // Get put-in coordinates if access point ID provided
@@ -212,6 +212,17 @@ async function _GET(
             : usgsReading?.dischargeCfs ?? null,
         readingTimestamp,
         readingAgeHours,
+        // Ladder for this gauge, so clients (e.g. the photo submit form's live
+        // "files under" preview) can band a reading without another fetch.
+        thresholds: {
+          levelTooLow: toNum(gauge.level_too_low),
+          levelLow: toNum(gauge.level_low),
+          levelOptimalMin: toNum(gauge.level_optimal_min),
+          levelOptimalMax: toNum(gauge.level_optimal_max),
+          levelHigh: toNum(gauge.level_high),
+          levelDangerous: toNum(gauge.level_dangerous),
+          thresholdUnit: (gauge.threshold_unit as 'ft' | 'cfs') || undefined,
+        },
       };
     });
 
