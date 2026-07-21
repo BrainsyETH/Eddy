@@ -111,12 +111,19 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
     );
     return (
       <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-neutral-100 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-          <Camera className="w-4 h-4 text-neutral-500 shrink-0" />
-          <h3 className="text-sm font-semibold text-neutral-800">
-            What the river looks like at this level
-          </h3>
-          <ConditionBadge code={data.currentCondition} size="sm" />
+        <div className="px-4 py-3 border-b border-neutral-100">
+          <div className="flex items-center gap-x-2">
+            <Camera className="w-4 h-4 text-neutral-500 shrink-0" />
+            <h3 className="text-sm font-semibold text-neutral-800">
+              What the river looks like
+            </h3>
+          </div>
+          {data.currentCondition !== 'unknown' && (
+            <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-neutral-600">
+              <span className="font-semibold">Right now:</span>
+              <ConditionBadge code={data.currentCondition} size="sm" />
+            </p>
+          )}
         </div>
         {addPhotoHref ? (
           <Link href={addPhotoHref} className={ctaClass}>{ctaInner}</Link>
@@ -129,58 +136,67 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
 
   const visuals = groupVisuals;
   const current = visuals[currentIndex] ?? visuals[0];
+  // Do we actually have a photo AT the river's current level? Drives whether the
+  // "Right now" status notes that no photo matches yet.
+  const hasCurrentLevelPhotos = data.byLevel.some((l) => l.code === data.currentCondition);
 
   return (
     <>
       <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-        {/* Header */}
+        {/* Header: title + the ONE live-condition status. The photo's own level
+            lives on the "Photos at" scrubber below and is not repeated here —
+            three identical-looking condition pills read as one confused status. */}
         <div className="px-4 py-3 border-b border-neutral-100">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
             <Camera className="w-4 h-4 text-neutral-500 shrink-0" />
             <h3 className="text-sm font-semibold text-neutral-800">
-              What the river looks like at this level
+              What the river looks like
             </h3>
-            <ConditionBadge code={activeLevel ?? data.currentCondition} size="sm" />
             <span className="ml-auto text-xs text-neutral-400 whitespace-nowrap">
               {visuals.length} photo{visuals.length !== 1 ? 's' : ''}
             </span>
           </div>
-          {/* The gallery falls back to the closest level we have photos for. When
-              that isn't the river's current level, say so — otherwise the badge
-              above reads as a live-condition claim (it's the photo's level, not now). */}
-          {activeLevel && data.currentCondition !== 'unknown' && activeLevel !== data.currentCondition && (
-            <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-neutral-500">
-              <span>River is</span>
+          {/* Live condition — the river's status right now. Distinct from the
+              per-photo levels below so the two never get conflated. */}
+          {data.currentCondition !== 'unknown' && (
+            <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-neutral-600">
+              <span className="font-semibold">Right now:</span>
               <ConditionBadge code={data.currentCondition} size="sm" />
-              <span>right now — no photos at that level yet, so here&apos;s the closest we have.</span>
+              {!hasCurrentLevelPhotos && (
+                <span className="text-neutral-400">· no community photos at this level yet</span>
+              )}
             </p>
           )}
         </div>
 
-        {/* Level scrubber — see the river at each level we have photos for */}
-        {data.byLevel.length > 1 && (
-          <div className="px-4 pt-3 flex flex-wrap items-center gap-x-1.5 gap-y-2">
-            {data.byLevel.map((l) => {
-              const isActive = l.code === activeLevel;
-              const isNow = l.code === data.currentCondition;
-              return (
-                <button
-                  key={l.code}
-                  type="button"
-                  onClick={() => { setSelectedLevel(l.code); setCurrentIndex(0); }}
-                  aria-pressed={isActive}
-                  title={isNow ? 'The river is at this level right now' : `See the river at ${l.code}`}
-                  className="inline-flex items-center gap-1"
-                >
-                  <span className={`rounded-full transition ${isActive ? 'ring-2 ring-teal-500 ring-offset-1' : 'opacity-50 hover:opacity-100'}`}>
-                    <ConditionBadge code={l.code} size="sm" />
-                  </span>
-                  {isNow && <span className="text-[10px] font-semibold text-teal-600">now</span>}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        {/* Photos-by-level browser — a distinct control from the live status
+            above. Labeled so its condition pills read as "which level's photos"
+            rather than another live-status claim. The current level, when we have
+            a photo for it, is marked "now". */}
+        <div className="px-4 pt-3 flex flex-wrap items-center gap-x-2 gap-y-2">
+          <span className="text-xs font-medium text-neutral-500">
+            {data.byLevel.length > 1 ? 'Photos at:' : 'Level:'}
+          </span>
+          {data.byLevel.map((l) => {
+            const isActive = l.code === activeLevel;
+            const isNow = l.code === data.currentCondition;
+            return (
+              <button
+                key={l.code}
+                type="button"
+                onClick={() => { setSelectedLevel(l.code); setCurrentIndex(0); }}
+                aria-pressed={isActive}
+                title={isNow ? 'The river is at this level right now' : `See the river at ${l.code}`}
+                className="inline-flex items-center gap-1"
+              >
+                <span className={`rounded-full transition ${isActive ? 'ring-2 ring-teal-500 ring-offset-1' : 'opacity-50 hover:opacity-100'}`}>
+                  <ConditionBadge code={l.code} size="sm" />
+                </span>
+                {isNow && <span className="text-[10px] font-semibold text-teal-600">now</span>}
+              </button>
+            );
+          })}
+        </div>
 
         {/* Image carousel */}
         <div className="relative aspect-[16/10] bg-neutral-100">
