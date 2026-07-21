@@ -468,6 +468,8 @@ export interface RiverVisual {
   /** Canonical path to the access point detail page, when known. */
   accessPointHref: string | null;
   gaugeStationId: string | null;
+  /** Name of the gauge the photo's stage/flow reading came from (its reach gauge). */
+  gaugeName: string | null;
   submitterName: string | null;
   conditionCode: ConditionCode;
   createdAt: string;
@@ -487,6 +489,8 @@ export interface RiverVisualPin {
   conditionCode: ConditionCode;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
+  /** Name of the gauge the photo's stage/flow reading came from (its reach gauge). */
+  gaugeName: string | null;
   accessPointName: string | null;
   accessPointHref: string | null;
   createdAt: string;

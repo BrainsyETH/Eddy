@@ -6,8 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders, getCoordinates } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { type ConditionThresholds } from '@/lib/conditions';
-import { getPhotoConditionCode } from '@/lib/river-visuals';
+import { getPhotoConditionCode, buildGaugeThresholds, buildGaugeNameMap } from '@/lib/river-visuals';
 import { riverAccessPath } from '@/lib/navigation/river-path';
 import type { ConditionCode, RiverVisualPin } from '@/types/api';
 
@@ -36,14 +35,13 @@ export async function GET(
       return NextResponse.json({ error: 'River not found' }, { status: 404 });
     }
 
-    const [thresholdsResult, visualsResult] = await Promise.all([
+    const [gaugesResult, visualsResult] = await Promise.all([
+      // Every gauge's thresholds + name — each photo is banded by (and labeled
+      // with) the gauge that recorded it (its reach gauge), matching the gallery.
       supabase
         .from('river_gauges')
-        .select('level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, threshold_unit')
-        .eq('river_id', river.id)
-        .eq('is_primary', true)
-        .limit(1)
-        .maybeSingle(),
+        .select('gauge_station_id, is_primary, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, threshold_unit, gauge_stations(name)')
+        .eq('river_id', river.id),
       supabase
         .from('community_reports')
         .select(`
@@ -53,6 +51,7 @@ export async function GET(
           gauge_height_ft,
           discharge_cfs,
           access_point_id,
+          gauge_station_id,
           created_at,
           access_points(name, slug)
         `)
@@ -66,17 +65,9 @@ export async function GET(
         .order('created_at', { ascending: false }),
     ]);
 
-    const thresholds: ConditionThresholds | null = thresholdsResult.data
-      ? {
-          levelTooLow: thresholdsResult.data.level_too_low,
-          levelLow: thresholdsResult.data.level_low,
-          levelOptimalMin: thresholdsResult.data.level_optimal_min,
-          levelOptimalMax: thresholdsResult.data.level_optimal_max,
-          levelHigh: thresholdsResult.data.level_high,
-          levelDangerous: thresholdsResult.data.level_dangerous,
-          thresholdUnit: thresholdsResult.data.threshold_unit as 'ft' | 'cfs' | undefined,
-        }
-      : null;
+    const gaugeRows = gaugesResult.data || [];
+    const { thresholdsByGauge, primaryThresholds } = buildGaugeThresholds(gaugeRows);
+    const gaugeNamesById = buildGaugeNameMap(gaugeRows);
 
     const pins: RiverVisualPin[] = [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,11 +81,14 @@ export async function GET(
       if (Math.abs(coords.lat - DEFAULT_LAT) < 1e-6 && Math.abs(coords.lng - DEFAULT_LNG) < 1e-6) continue;
 
       const accessPointData = Array.isArray(row.access_points) ? row.access_points[0] : row.access_points;
-      const conditionCode: ConditionCode = thresholds
+      // Band by the gauge that recorded THIS photo (reach-aware), primary fallback.
+      const photoThresholds =
+        (row.gauge_station_id ? thresholdsByGauge.get(row.gauge_station_id) : null) ?? primaryThresholds;
+      const conditionCode: ConditionCode = photoThresholds
         ? getPhotoConditionCode(
             row.gauge_height_ft ? parseFloat(row.gauge_height_ft) : null,
             row.discharge_cfs ? parseFloat(row.discharge_cfs) : null,
-            thresholds
+            photoThresholds
           )
         : 'unknown';
 
@@ -106,6 +100,7 @@ export async function GET(
         conditionCode,
         gaugeHeightFt: row.gauge_height_ft ? parseFloat(row.gauge_height_ft) : null,
         dischargeCfs: row.discharge_cfs ? parseFloat(row.discharge_cfs) : null,
+        gaugeName: (row.gauge_station_id ? gaugeNamesById.get(row.gauge_station_id) : null) ?? null,
         accessPointName: accessPointData?.name || null,
         accessPointHref: accessPointData?.slug ? riverAccessPath(river.state, slug, accessPointData.slug) : null,
         createdAt: row.created_at,

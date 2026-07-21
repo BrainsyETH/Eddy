@@ -8,6 +8,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Camera, ChevronLeft, ChevronRight, X, MapPin, Droplets, Ruler } from 'lucide-react';
 import ConditionBadge from '@/components/ui/ConditionBadge';
+import { shortenGaugeName } from '@/lib/gauge/format-name';
 import type { ConditionCode, RiverVisual, RiverVisualsResponse } from '@/types/api';
 
 // Level bands ordered dry → flood, for the scrubber.
@@ -243,6 +244,12 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
               )}
             </div>
           )}
+          {/* Which gauge the stage/flow came from — names the reading's source. */}
+          {current.gaugeName && (current.gaugeHeightFt != null || current.dischargeCfs != null) && (
+            <p className="text-xs text-neutral-400">
+              Reading from the {shortenGaugeName(current.gaugeName)} gauge
+            </p>
+          )}
           {/* Where the shot was taken + who shared it */}
           {(current.accessPointName || current.submitterName) && (
             <div className="flex items-center gap-3 text-xs text-neutral-400">
@@ -376,6 +383,9 @@ function Lightbox({
             )}
             {current.gaugeHeightFt != null && <span className="font-semibold text-white">{current.gaugeHeightFt} ft</span>}
             {current.dischargeCfs != null && <span className="font-semibold text-white">{current.dischargeCfs} cfs</span>}
+            {current.gaugeName && (current.gaugeHeightFt != null || current.dischargeCfs != null) && (
+              <span>{shortenGaugeName(current.gaugeName)} gauge</span>
+            )}
             {current.submitterName && <span>by {current.submitterName}</span>}
             <span>{currentIndex + 1} / {visuals.length}</span>
           </div>
