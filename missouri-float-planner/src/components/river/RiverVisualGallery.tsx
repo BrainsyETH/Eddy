@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { Camera, ChevronLeft, ChevronRight, X, MapPin, Droplets, Ruler, CalendarDays } from 'lucide-react';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { shortenGaugeName } from '@/lib/gauge/format-name';
-import { formatPhotoDate } from '@/lib/river-visuals';
+import { photoTakenLabel } from '@/lib/river-visuals';
 import type { ConditionCode, RiverVisual, RiverVisualsResponse } from '@/types/api';
 
 // Level bands ordered dry → flood, for the scrubber.
@@ -168,9 +168,9 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
   // Do we actually have a photo AT the river's current level? Drives whether the
   // "Right now" status notes that no photo matches yet.
   const hasCurrentLevelPhotos = data.byLevel.some((l) => l.code === data.currentCondition);
-  // When the shot was taken — EXIF capture time when we have it, else upload
-  // date. Recency is half the evidence in a conditions photo.
-  const takenLabel = formatPhotoDate(current.capturedAt ?? current.createdAt);
+  // "Taken <capture date>", or "Added <upload date>" when the capture time is
+  // unknown. Recency is half the evidence in a conditions photo.
+  const takenLabel = photoTakenLabel(current.capturedAt, current.createdAt);
 
   return (
     <>
@@ -323,7 +323,7 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
               {takenLabel && (
                 <span className="flex items-center gap-1">
                   <CalendarDays className="w-3 h-3" />
-                  Taken {takenLabel}
+                  {takenLabel}
                 </span>
               )}
               {current.accessPointName && (
@@ -375,7 +375,7 @@ function Lightbox({
   onNavigate: (index: number) => void;
 }) {
   const current = visuals[currentIndex];
-  const taken = formatPhotoDate(current.capturedAt ?? current.createdAt);
+  const taken = photoTakenLabel(current.capturedAt, current.createdAt);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -444,7 +444,7 @@ function Lightbox({
             <p className="text-white text-sm">{current.description}</p>
           )}
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-white/60">
-            {taken && <span>Taken {taken}</span>}
+            {taken && <span>{taken}</span>}
             {current.accessPointName && (
               current.accessPointHref ? (
                 <Link href={current.accessPointHref} className="flex items-center gap-1 hover:text-white transition-colors">
