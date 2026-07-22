@@ -59,7 +59,7 @@ export default function CurrentReadingCard({
     : null;
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: '#163F4A' }} role="group" aria-label="Current gauge reading">
+    <div className="rounded-xl overflow-hidden bg-primary-800" role="group" aria-label="Current gauge reading">
       {/* One concise spoken summary instead of letting screen readers re-read the
           full two-column grid (both numbers + labels) on every background poll. */}
       <p className="sr-only" aria-live="polite">
@@ -84,7 +84,7 @@ export default function CurrentReadingCard({
             height={28}
             className="h-7 w-7 object-contain"
           />
-          <span className="text-xs font-bold tracking-wide uppercase" style={{ color: '#1A1814' }}>
+          <span className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--color-neutral-950)' }}>
             {conditionLabel}
           </span>
         </div>

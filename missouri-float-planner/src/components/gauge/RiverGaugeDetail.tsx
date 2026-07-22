@@ -411,113 +411,21 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
           </span>
         </div>
 
-        {/* Chart + Reading Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 sm:gap-6 mb-6 sm:mb-8">
-          {/* Chart */}
-          <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 pt-4 pb-0">
-              <h2 className="text-base font-bold text-neutral-900">
-                {dateRange}-Day {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
-              </h2>
-              <div className="flex items-center gap-2">
-                <InfoTip
-                  title={CFS_EXPLAINER.title}
-                  body={CFS_EXPLAINER.body}
-                  ariaLabel="What is CFS?"
-                  colors={{
-                    trigger: '#857D70',
-                    triggerBorder: '#C2BAAC',
-                    popBg: '#FFFFFF',
-                    popBorder: '#DBD5CA',
-                    title: '#2D2A24',
-                    body: '#524D43',
-                    focus: '#2D7889',
-                  }}
-                />
-                {/* Unit toggle — show when gauge reports both ft and cfs */}
-                {canToggleUnit && (
-                  <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-                    <button
-                      onClick={() => handleUnitToggle('ft')}
-                      aria-pressed={effectiveUnit === 'ft'}
-                      title="Gauge height in feet"
-                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
-                        effectiveUnit === 'ft'
-                          ? 'bg-primary-500 text-white'
-                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
-                      }`}
-                    >
-                      ft
-                    </button>
-                    <button
-                      onClick={() => handleUnitToggle('cfs')}
-                      aria-pressed={effectiveUnit === 'cfs'}
-                      title="Flow in cubic feet per second"
-                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
-                        effectiveUnit === 'cfs'
-                          ? 'bg-primary-500 text-white'
-                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
-                      }`}
-                    >
-                      cfs
-                    </button>
-                  </div>
-                )}
-                {/* Date range toggle */}
-                <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-                  {[{ days: 7, label: '7D' }, { days: 14, label: '14D' }, { days: 30, label: '30D' }].map((opt) => (
-                    <button
-                      key={opt.days}
-                      onClick={() => setDateRange(opt.days)}
-                      aria-pressed={dateRange === opt.days}
-                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
-                        dateRange === opt.days
-                          ? 'bg-primary-500 text-white'
-                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <FlowTrendChart
-              key={`${activeSiteId}-${effectiveUnit}`}
-              gaugeSiteId={activeGauge.usgsSiteId}
-              days={dateRange}
-              thresholds={chartThresholds}
-              latestValue={latestValue}
-              displayUnit={effectiveUnit}
-              chartClassName="h-48 md:h-56"
-            />
-          </div>
-
-          {/* Right column: Current Reading + Weather */}
-          <div className="flex flex-col gap-4">
-            <CurrentReadingCard
-              key={`reading-${activeSiteId}`}
-              siteId={activeGauge.usgsSiteId}
-              gaugeHeightFt={activeGauge.gaugeHeightFt}
-              dischargeCfs={activeGauge.dischargeCfs}
-              thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
-              conditionCode={condition.code}
-              readingAgeHours={activeGauge.readingAgeHours}
-            />
-            <GaugeWeather
-              key={`weather-${activeSiteId}`}
-              lat={activeGauge.coordinates.lat}
-              lon={activeGauge.coordinates.lng}
-              enabled={true}
-              variant="compact"
-            />
-          </div>
+        {/* Current reading — the one condition display (trend included) */}
+        <div className="mb-6 sm:mb-8">
+          <CurrentReadingCard
+            key={`reading-${activeSiteId}`}
+            siteId={activeGauge.usgsSiteId}
+            gaugeHeightFt={activeGauge.gaugeHeightFt}
+            dischargeCfs={activeGauge.dischargeCfs}
+            thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
+            conditionCode={condition.code}
+            readingAgeHours={activeGauge.readingAgeHours}
+          />
         </div>
 
-        {/* Proof row: paddler photos beside Eddy's take */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 items-start">
-          <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} />
-
+        {/* Eddy's take on the reading */}
+        <div className="mb-6 sm:mb-8">
           {/* Eddy Says Section — anchor target for the hero condition pill */}
           <div id="eddy-says" className="scroll-mt-24 bg-white border border-neutral-200 rounded-xl overflow-hidden">
           <div className="px-4 py-4 sm:px-6 sm:py-5">
@@ -615,6 +523,22 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
           </div>
         </div>
 
+        {/* Weather at the gauge */}
+        <div className="mb-6 sm:mb-8">
+          <GaugeWeather
+            key={`weather-${activeSiteId}`}
+            lat={activeGauge.coordinates.lat}
+            lon={activeGauge.coordinates.lng}
+            enabled={true}
+            variant="compact"
+          />
+        </div>
+
+        {/* What the river looks like */}
+        <div className="mb-6 sm:mb-8">
+          <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} />
+        </div>
+
         {/* Condition Thresholds Table */}
         {activeThreshold && (
           <div className="mb-8">
@@ -635,6 +559,88 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             />
           </div>
         )}
+
+        {/* Trend chart — the deep dive closes the report */}
+          {/* Chart */}
+          <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 pt-4 pb-0">
+              <h2 className="text-base font-bold text-neutral-900">
+                {dateRange}-Day {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
+              </h2>
+              <div className="flex items-center gap-2">
+                <InfoTip
+                  title={CFS_EXPLAINER.title}
+                  body={CFS_EXPLAINER.body}
+                  ariaLabel="What is CFS?"
+                  colors={{
+                    trigger: '#857D70',
+                    triggerBorder: '#C2BAAC',
+                    popBg: '#FFFFFF',
+                    popBorder: '#DBD5CA',
+                    title: '#2D2A24',
+                    body: '#524D43',
+                    focus: '#2D7889',
+                  }}
+                />
+                {/* Unit toggle — show when gauge reports both ft and cfs */}
+                {canToggleUnit && (
+                  <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
+                    <button
+                      onClick={() => handleUnitToggle('ft')}
+                      aria-pressed={effectiveUnit === 'ft'}
+                      title="Gauge height in feet"
+                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
+                        effectiveUnit === 'ft'
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                      }`}
+                    >
+                      ft
+                    </button>
+                    <button
+                      onClick={() => handleUnitToggle('cfs')}
+                      aria-pressed={effectiveUnit === 'cfs'}
+                      title="Flow in cubic feet per second"
+                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
+                        effectiveUnit === 'cfs'
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                      }`}
+                    >
+                      cfs
+                    </button>
+                  </div>
+                )}
+                {/* Date range toggle */}
+                <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
+                  {[{ days: 7, label: '7D' }, { days: 14, label: '14D' }, { days: 30, label: '30D' }].map((opt) => (
+                    <button
+                      key={opt.days}
+                      onClick={() => setDateRange(opt.days)}
+                      aria-pressed={dateRange === opt.days}
+                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
+                        dateRange === opt.days
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <FlowTrendChart
+              key={`${activeSiteId}-${effectiveUnit}`}
+              gaugeSiteId={activeGauge.usgsSiteId}
+              days={dateRange}
+              thresholds={chartThresholds}
+              latestValue={latestValue}
+              displayUnit={effectiveUnit}
+              chartClassName="h-48 md:h-56"
+            />
+          </div>
+
     </div>
   );
 }

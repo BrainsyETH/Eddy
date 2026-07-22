@@ -425,7 +425,7 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
             { key: 'too_low' as ConditionCode, count: stats.byCode.too_low, label: 'Too Low', dot: 'bg-neutral-500' },
             { key: 'low' as ConditionCode, count: stats.byCode.low, label: 'Low', dot: 'bg-yellow-500' },
             { key: 'good' as ConditionCode, count: stats.byCode.good, label: 'Good', dot: 'bg-lime-500' },
-            { key: 'flowing' as ConditionCode, count: stats.byCode.flowing, label: 'Flowing', dot: 'bg-emerald-500' },
+            { key: 'flowing' as ConditionCode, count: stats.byCode.flowing, label: 'Ideal', dot: 'bg-emerald-500' },
             { key: 'high' as ConditionCode, count: stats.byCode.high, label: 'High', dot: 'bg-orange-500' },
             { key: 'dangerous' as ConditionCode, count: stats.byCode.dangerous, label: 'Flood', dot: 'bg-red-500' },
           ]).map(stat => {

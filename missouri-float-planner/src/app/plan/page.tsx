@@ -21,7 +21,7 @@ interface Props {
 }
 
 const CONDITION_LABELS: Record<string, string> = {
-  flowing: 'Flowing',
+  flowing: 'Ideal',
   good: 'Good - Floatable',
   low: 'Very Low',
   high: 'High Water',

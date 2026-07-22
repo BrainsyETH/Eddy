@@ -18,8 +18,8 @@ export interface ChartThresholdLines {
 
 const THRESHOLD_LINE_CONFIG: { key: keyof ChartThresholdLines; label: string; color: string; dash?: string }[] = [
   { key: 'levelLow', label: 'Good', color: '#65a30d', dash: '3,3' },
-  { key: 'levelOptimalMin', label: 'Flowing', color: '#059669', dash: '2,2' },
-  { key: 'levelOptimalMax', label: 'Flowing', color: '#059669', dash: '2,2' },
+  { key: 'levelOptimalMin', label: 'Ideal', color: '#059669', dash: '2,2' },
+  { key: 'levelOptimalMax', label: 'Ideal', color: '#059669', dash: '2,2' },
   { key: 'levelHigh', label: 'High', color: '#f97316', dash: '3,3' },
   { key: 'levelDangerous', label: 'Flood', color: '#ef4444', dash: '4,2' },
 ];
@@ -248,7 +248,7 @@ export default function FlowTrendChart({
     if (levelDangerous !== null && val >= levelDangerous) return 'Flood';
     const highStart = levelOptimalMax ?? levelHigh;
     if (highStart !== null && val > highStart) return 'High';
-    if (levelOptimalMin !== null && levelOptimalMax !== null && val >= levelOptimalMin && val <= levelOptimalMax) return 'Flowing';
+    if (levelOptimalMin !== null && levelOptimalMax !== null && val >= levelOptimalMin && val <= levelOptimalMax) return 'Ideal';
     if (levelLow !== null && val >= levelLow) return 'Good';
     if (levelTooLow !== null && val >= levelTooLow) return 'Low';
     if (levelTooLow !== null && val < levelTooLow) return 'Too Low';

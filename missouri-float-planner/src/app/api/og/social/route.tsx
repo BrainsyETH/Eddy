@@ -1854,7 +1854,7 @@ async function generateTrendImage(
 // or orange accent, WARNING eyebrow, river name, transition arrow, gauge.
 // ---------------------------------------------------------------------------
 const CONDITION_DISPLAY: Record<string, string> = {
-  flowing: 'Flowing',
+  flowing: 'Ideal',
   good: 'Good',
   low: 'Low',
   too_low: 'Too low',

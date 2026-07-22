@@ -8,6 +8,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Camera, ChevronLeft, ChevronRight, X, MapPin, Droplets, Ruler, CalendarDays } from 'lucide-react';
 import ConditionBadge from '@/components/ui/ConditionBadge';
+import { conditionChip } from '@shared/condition-system';
 import { shortenGaugeName } from '@/lib/gauge/format-name';
 import { photoTakenLabel } from '@/lib/river-visuals';
 import type { ConditionCode, RiverVisual, RiverVisualsResponse } from '@/types/api';
@@ -239,7 +240,7 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
                 type="button"
                 onClick={() => { setSelectedLevel(l.code); setCurrentIndex(0); }}
                 aria-pressed={isActive}
-                title={`See photos at ${l.code.replace('_', ' ')}`}
+                title={`See photos at ${conditionChip(l.code).label}`}
                 className={`inline-flex rounded-full transition ${isActive ? 'ring-2 ring-teal-600' : 'opacity-50 hover:opacity-100'}`}
               >
                 <ConditionBadge code={l.code} size="sm" />

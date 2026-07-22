@@ -256,7 +256,7 @@ export default function PlanFilters({
 
           {/* Condition legend + filter — the chips explain the colors AND
               filter the network to matching rivers (the Observatory's
-              verdict-tile pattern): tap "Flowing" to answer "where can I
+              verdict-tile pattern): tap "Ideal" to answer "where can I
               float today?". Counts are statewide, live. */}
           <div className="border-t border-[color:var(--color-border)] px-3 py-2.5">
             <div className="mb-2 flex items-baseline justify-between gap-2">
