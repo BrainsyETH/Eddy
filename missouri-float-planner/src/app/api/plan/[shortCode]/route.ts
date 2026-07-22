@@ -16,28 +16,23 @@ export async function GET(
     const { shortCode } = await params;
     const supabase = await createClient();
 
-    // Get saved plan
-    const { data: savedPlan, error: planError } = await supabase
-      .from('float_plans')
-      .select('*')
-      .eq('short_code', shortCode)
-      .single();
+    // Share-code lookup goes through the SECURITY DEFINER RPC (00184):
+    // owned plans are no longer world-SELECTable, and the RPC also bumps
+    // view_count atomically (the old anon-client UPDATE silently no-oped
+    // once the permissive UPDATE policy was dropped).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: planRows, error: planError } = await (supabase.rpc as any)(
+      'get_float_plan_by_code',
+      { p_short_code: shortCode, p_increment_view: true }
+    );
 
+    const savedPlan = Array.isArray(planRows) ? planRows[0] : null;
     if (planError || !savedPlan) {
       return NextResponse.json(
         { error: 'Plan not found' },
         { status: 404 }
       );
     }
-
-    // Update view count
-    await supabase
-      .from('float_plans')
-      .update({
-        view_count: (savedPlan.view_count || 0) + 1,
-        last_viewed_at: new Date().toISOString(),
-      })
-      .eq('id', savedPlan.id);
 
     // Recalculate plan with current data
     const planUrl = new URL('/api/plan', request.nextUrl.origin);

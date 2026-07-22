@@ -51,13 +51,16 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
 
     const supabase = await createClient();
 
-    // Fetch the saved plan
-    const { data: savedPlan, error: planError } = await supabase
-      .from('float_plans')
-      .select('*')
-      .eq('short_code', shortCode)
-      .single();
+    // Share-code lookup via the SECURITY DEFINER RPC (00184) — owned plans
+    // aren't world-SELECTable. Metadata rendering must not inflate the view
+    // counter, so p_increment_view stays false here.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: planRows, error: planError } = await (supabase.rpc as any)(
+      'get_float_plan_by_code',
+      { p_short_code: shortCode, p_increment_view: false }
+    );
 
+    const savedPlan = Array.isArray(planRows) ? planRows[0] : null;
     if (planError || !savedPlan) {
       return {
         title: 'Plan Not Found',
