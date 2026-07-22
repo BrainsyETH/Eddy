@@ -16,6 +16,45 @@ export interface DailyRiverForecast {
   conditionCode: ConditionCode | null;
 }
 
+export interface OutlookWeatherDay {
+  date: string;
+  dayOfWeek: string;
+  tempHigh: number;
+  tempLow: number;
+  condition: string;
+  conditionIcon: string;
+  precipitation: number;
+}
+
+export interface RiverOutlookDay {
+  date: string;
+  weather: OutlookWeatherDay | null;
+  river: DailyRiverForecast;
+}
+
+export interface RiverOutlookState {
+  days: RiverOutlookDay[];
+  summary: string;
+  sourceKind: 'checking' | 'official' | 'guidance';
+  sourceLabel: string;
+  hasOfficialForecast: boolean;
+  isInitialLoading: boolean;
+  isWeatherLoading: boolean;
+  futureUnavailable: boolean;
+  isGuidance: boolean;
+}
+
+export interface BuildRiverOutlookInput {
+  weatherDays: OutlookWeatherDay[];
+  weatherPending: boolean;
+  weatherError: boolean;
+  riverStages: RiverForecastStage[];
+  riverPending: boolean;
+  trend: GaugeTrend | null;
+  stageThresholds: ConditionThresholds | null;
+  now?: Date;
+}
+
 function dateKey(date: Date, timeZone = OUTLOOK_TIME_ZONE): string {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -87,6 +126,57 @@ export function buildGuidanceSummary(
     return `${trendText} Rain ${names} could change levels—recheck before you go.`;
   }
   return `${trendText} No significant rain is forecast—recheck before launch.`;
+}
+
+/** Build the complete presentational state once so every consumer agrees. */
+export function buildRiverOutlookState({
+  weatherDays,
+  weatherPending,
+  weatherError,
+  riverStages,
+  riverPending,
+  trend,
+  stageThresholds,
+  now = new Date(),
+}: BuildRiverOutlookInput): RiverOutlookState {
+  const dates = getOutlookDates(now);
+  const weatherByDate = new Map(weatherDays.slice(0, 3).map((day) => [day.date, day]));
+  const riverDays = groupForecastByDay(riverStages, dates, stageThresholds);
+  const hasOfficialForecast = riverDays.some((day) => day.valueFt != null);
+  const isInitialLoading = weatherPending && riverPending;
+  const futureUnavailable = !hasOfficialForecast && (
+    weatherError || (!weatherPending && weatherDays.length === 0)
+  );
+  const sourceKind = riverPending ? 'checking' : hasOfficialForecast ? 'official' : 'guidance';
+  const summary = riverPending
+    ? 'Checking the official river forecast…'
+    : hasOfficialForecast
+      ? buildOfficialOutlookSummary(riverDays)
+      : futureUnavailable
+        ? 'Future outlook unavailable—use the current reading and recheck before launch.'
+        : weatherPending
+          ? 'Checking the river and weather outlook…'
+          : buildGuidanceSummary(trend, weatherDays.slice(0, 3));
+
+  return {
+    days: dates.map((date, index) => ({
+      date,
+      weather: weatherByDate.get(date) ?? null,
+      river: riverDays[index],
+    })),
+    summary,
+    sourceKind,
+    sourceLabel: sourceKind === 'checking'
+      ? 'Checking river forecast'
+      : sourceKind === 'official'
+        ? 'NWS 72-hour river forecast'
+        : 'Trend + local weather',
+    hasOfficialForecast,
+    isInitialLoading,
+    isWeatherLoading: weatherPending,
+    futureUnavailable,
+    isGuidance: sourceKind === 'guidance' && !futureUnavailable,
+  };
 }
 
 export function formatOutlookDay(date: string, todayLabel = true): string {

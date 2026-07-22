@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildGuidanceSummary, groupForecastByDay } from './river-outlook';
+import { buildGuidanceSummary, buildRiverOutlookState, groupForecastByDay } from './river-outlook';
 
 const stageThresholds = {
   levelTooLow: 1,
@@ -48,4 +48,65 @@ test('fallback guidance is qualified and never predicts a condition', () => {
   assert.match(dry, /recheck before launch/i);
   assert.match(wet, /Rain Sat could change levels/i);
   assert.doesNotMatch(`${dry} ${wet}`, /Ideal|Good|High|Flood/);
+});
+
+const baseOutlookInput = {
+  weatherDays: [{
+    date: '2026-07-22',
+    dayOfWeek: 'Wed',
+    tempHigh: 84,
+    tempLow: 68,
+    condition: 'Clear',
+    conditionIcon: '01d',
+    precipitation: 10,
+  }],
+  weatherPending: false,
+  weatherError: false,
+  riverStages: [],
+  riverPending: false,
+  trend: null,
+  stageThresholds,
+  now: new Date('2026-07-22T18:00:00Z'),
+};
+
+test('builds one official outlook state for the forecast and Eddy footer', () => {
+  const result = buildRiverOutlookState({
+    ...baseOutlookInput,
+    riverStages: [{ dateTime: '2026-07-22T18:00:00Z', valueFt: 4.5 }],
+  });
+  assert.equal(result.sourceKind, 'official');
+  assert.equal(result.sourceLabel, 'NWS 72-hour river forecast');
+  assert.match(result.summary, /stays Ideal/i);
+  assert.equal(result.days[0].river.conditionCode, 'flowing');
+});
+
+test('uses qualified guidance only after the official lookup finishes', () => {
+  const checking = buildRiverOutlookState({ ...baseOutlookInput, riverPending: true });
+  const guidance = buildRiverOutlookState(baseOutlookInput);
+  assert.equal(checking.sourceKind, 'checking');
+  assert.match(checking.summary, /Checking the official river forecast/i);
+  assert.equal(guidance.sourceKind, 'guidance');
+  assert.equal(guidance.isGuidance, true);
+  assert.match(guidance.summary, /recheck before launch/i);
+});
+
+test('fails honestly when future weather and official stages are unavailable', () => {
+  const result = buildRiverOutlookState({
+    ...baseOutlookInput,
+    weatherDays: [],
+    weatherError: true,
+  });
+  assert.equal(result.futureUnavailable, true);
+  assert.equal(result.isGuidance, false);
+  assert.match(result.summary, /Future outlook unavailable/i);
+  assert.doesNotMatch(result.summary, /steady|dry|hold/i);
+});
+
+test('does not treat an empty successful weather response as a dry forecast', () => {
+  const result = buildRiverOutlookState({
+    ...baseOutlookInput,
+    weatherDays: [],
+  });
+  assert.equal(result.futureUnavailable, true);
+  assert.match(result.summary, /Future outlook unavailable/i);
 });
