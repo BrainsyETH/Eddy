@@ -22,7 +22,6 @@ import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route'
 import { useRiverGroup } from '@/hooks/useRiverGroups';
 import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
-import GaugeWeather from '@/components/ui/GaugeWeather';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import WillItHold from '@/components/gauge/WillItHold';
 import ThresholdTable from '@/components/gauge/ThresholdTable';
@@ -211,6 +210,23 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   }, [activeThreshold]);
 
   const altUnit = primaryUnit === 'ft' ? 'cfs' as const : 'ft' as const;
+
+  // NWS forecasts are stage-only. Use the stored foot ladder regardless of
+  // which unit the user currently has selected, and never compare feet to CFS.
+  const stageThresholds = useMemo<ConditionThresholds | null>(() => {
+    if (!activeThreshold) return null;
+    const values = primaryUnit === 'ft'
+      ? {
+          levelTooLow: activeThreshold.levelTooLow,
+          levelLow: activeThreshold.levelLow,
+          levelOptimalMin: activeThreshold.levelOptimalMin,
+          levelOptimalMax: activeThreshold.levelOptimalMax,
+          levelHigh: activeThreshold.levelHigh,
+          levelDangerous: activeThreshold.levelDangerous,
+        }
+      : altThresholds;
+    return values ? { ...values, thresholdUnit: 'ft' } : null;
+  }, [activeThreshold, altThresholds, primaryUnit]);
 
   const latestValue = effectiveUnit === 'cfs' ? activeGauge?.dischargeCfs : activeGauge?.gaugeHeightFt;
 
@@ -415,14 +431,11 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
           </span>
         </div>
 
-        {/* Desktop pairs the compact reading rail with narrative + photos.
-            Mobile follows the DOM's decision-first order and leaves the
-            gallery until after thresholds and the trend chart. */}
-        <div className="lg:grid lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-x-6 lg:gap-y-8">
-        {/* Current reading + concise rain outlook. The reading card already
-            owns the condition and trend, so the outlook does not repeat them. */}
-        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-1 lg:row-start-1">
-          <div className="space-y-3">
+        {/* A single spacing system prevents CSS-grid row heights from creating
+            the large desktop holes that appeared when short and tall cards
+            shared implicit rows. */}
+        <div className="space-y-6">
+        <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
           <CurrentReadingCard
             key={`reading-${activeSiteId}`}
             siteId={activeGauge.usgsSiteId}
@@ -431,19 +444,23 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
             conditionCode={condition.code}
             readingAgeHours={activeGauge.readingAgeHours}
+            className="h-full"
           />
           <WillItHold
+            key={`outlook-${activeSiteId}`}
+            siteId={activeGauge.usgsSiteId}
             lat={activeGauge.coordinates.lat}
             lon={activeGauge.coordinates.lng}
+            trendUnit={activeThreshold?.thresholdUnit || 'ft'}
+            stageThresholds={stageThresholds}
           />
-          </div>
         </div>
 
         {/* Eddy's take on the reading */}
-        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-2 lg:row-start-1">
+        <div>
           {/* Eddy Says Section — anchor target for the hero condition pill */}
           <div id="eddy-says" className="scroll-mt-24 bg-white border border-neutral-200 rounded-xl overflow-hidden">
-          <div className="px-4 py-4 sm:px-6 sm:py-5">
+          <div className="px-4 py-4 sm:px-5 sm:py-5 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-6">
             {/* Header row: avatar + label + badge + timestamp */}
             <div className="flex items-start gap-4">
               <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 relative">
@@ -494,7 +511,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
                     {/* Full narrative (shown by default, collapsible) */}
                     {!eddyShowFull && (
-                      <p className="text-sm leading-relaxed font-medium mt-3 text-neutral-700">
+                      <p className="text-sm leading-relaxed font-medium mt-3 text-neutral-700 lg:hidden">
                         &ldquo;{activeEddyUpdate.quoteText}&rdquo;
                       </p>
                     )}
@@ -519,7 +536,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             </div>
 
             {/* Action buttons */}
-            <div className="flex flex-wrap items-center gap-2 mt-4 ml-0 sm:ml-[72px] sm:mt-3">
+            <div className="flex flex-wrap items-center gap-2 mt-4 sm:ml-[72px] lg:ml-0 lg:mt-0 lg:justify-end">
               <Link
                 href={`/plan?river=${riverSlug}`}
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#163F4A] text-white text-xs font-semibold rounded-md hover:bg-[#1A4A57] transition-colors shadow-[2px_2px_0_#0F2D35]"
@@ -534,25 +551,19 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                 {shareStatus === 'copied' ? 'Copied!' : 'Share Report'}
               </button>
             </div>
-          </div>
-          </div>
-        </div>
 
-        {/* Weather at the gauge */}
-        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-1 lg:row-start-2">
-          <GaugeWeather
-            key={`weather-${activeSiteId}`}
-            lat={activeGauge.coordinates.lat}
-            lon={activeGauge.coordinates.lng}
-            enabled={true}
-            variant="compact"
-            showRainAlert={false}
-          />
+            {!eddyShowFull && activeEddyUpdate?.summaryText && (
+              <p className="hidden text-sm leading-relaxed font-medium text-neutral-700 lg:col-span-2 lg:block">
+                &ldquo;{activeEddyUpdate.quoteText}&rdquo;
+              </p>
+            )}
+          </div>
+          </div>
         </div>
 
         {/* Condition Thresholds Table */}
         {activeThreshold && (
-          <div className="mb-8 lg:mb-0 lg:col-span-2 lg:row-start-3">
+          <div>
             <ThresholdTable
               thresholdUnit={activeThreshold.thresholdUnit}
               levelTooLow={activeThreshold.levelTooLow}
@@ -572,7 +583,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         )}
 
         {/* Decision deep dive — before imagery in the mobile reading order. */}
-          <div className="mb-8 bg-white border border-neutral-200 rounded-xl overflow-hidden lg:mb-0 lg:col-span-2 lg:row-start-4">
+          <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
             <div className="flex flex-col gap-3 px-5 pt-4 pb-0 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-base font-bold text-neutral-900 whitespace-nowrap">
                 {dateRange}-Day {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
@@ -651,10 +662,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             />
           </div>
 
-        {/* Keep imagery beside weather on desktop, but after the decision
-            tools on mobile so it does not delay thresholds and trend. */}
-        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-2 lg:row-start-2">
-          <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} />
+        <div>
+          <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} layout="wide" />
         </div>
 
         </div>

@@ -23,9 +23,17 @@ interface RiverVisualGalleryProps {
   addPhotoHref?: string;
   /** Fallback empty-state CTA action (opens a modal) when no addPhotoHref is given. */
   onAddPhoto?: () => void;
+  /** Opt-in report layout: image left, controls and context right on desktop. */
+  layout?: 'stacked' | 'wide';
 }
 
-export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoHref, onAddPhoto }: RiverVisualGalleryProps) {
+export default function RiverVisualGallery({
+  riverSlug,
+  accessPointId,
+  addPhotoHref,
+  onAddPhoto,
+  layout = 'stacked',
+}: RiverVisualGalleryProps) {
   const [data, setData] = useState<RiverVisualsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -114,7 +122,7 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
         <div className="px-4 py-3 border-b border-neutral-100">
           <div className="h-4 w-56 max-w-full rounded bg-neutral-100 animate-pulse" />
         </div>
-        <div className="aspect-[16/10] bg-neutral-100 animate-pulse" />
+        <div className={`aspect-[16/10] bg-neutral-100 animate-pulse ${layout === 'wide' ? 'lg:aspect-[5/2]' : ''}`} />
       </div>
     );
   }
@@ -124,7 +132,7 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
   // place, when the host gives us a link (or a modal action) to add one.
   if (data.byLevel.length === 0) {
     if (!addPhotoHref && !onAddPhoto) return null;
-    const ctaClass = 'group w-full aspect-[16/10] flex flex-col items-center justify-center gap-2 px-6 text-center bg-neutral-50 hover:bg-neutral-100 transition-colors';
+    const ctaClass = `group w-full aspect-[16/10] flex flex-col items-center justify-center gap-2 px-6 text-center bg-neutral-50 hover:bg-neutral-100 transition-colors ${layout === 'wide' ? 'lg:aspect-[5/2]' : ''}`;
     const ctaInner = (
       <>
         <span className="flex items-center justify-center w-12 h-12 rounded-full bg-teal-50 text-teal-600 group-hover:bg-teal-100 transition-colors">
@@ -219,13 +227,14 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
           )}
         </div>
 
+        <div className={layout === 'wide' ? 'lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(280px,2fr)] lg:grid-rows-[auto_1fr]' : ''}>
         {/* Photos-by-level browser — a distinct control from the live status
             above. Labeled so its condition pills read as "which level's photos"
             rather than another live-status claim. The current level, when we have
             a photo for it, is marked "now". */}
         {/* py-3 both sides: the active ring paints ~2px OUTSIDE the chip, so
             without bottom padding the row sits flush against the image. */}
-        <div className="px-4 py-3 flex flex-wrap items-center gap-x-2 gap-y-2">
+        <div className={`px-4 py-3 flex flex-wrap items-center gap-x-2 gap-y-2 ${layout === 'wide' ? 'lg:col-start-2 lg:row-start-1 lg:border-l lg:border-neutral-100' : ''}`}>
           <span className="text-xs font-medium text-neutral-500">
             {data.byLevel.length > 1 ? 'Photos at:' : 'Level:'}
           </span>
@@ -251,7 +260,7 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
 
         {/* Image carousel */}
         <div
-          className="relative aspect-[16/10] bg-neutral-100"
+          className={`relative aspect-[16/10] bg-neutral-100 ${layout === 'wide' ? 'lg:col-start-1 lg:row-start-1 lg:row-span-2 lg:aspect-auto lg:min-h-[360px]' : ''}`}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
@@ -260,7 +269,7 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
             alt={current.description || 'River visual'}
             fill
             className="object-cover cursor-pointer"
-            sizes="(max-width: 768px) 100vw, 600px"
+            sizes={layout === 'wide' ? '(max-width: 1023px) 100vw, 60vw' : '(max-width: 768px) 100vw, 600px'}
             onClick={() => setLightboxOpen(true)}
           />
 
@@ -302,7 +311,7 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
         </div>
 
         {/* Caption / metadata */}
-        <div className="px-4 py-3 space-y-2.5">
+        <div className={`px-4 py-3 space-y-2.5 ${layout === 'wide' ? 'lg:col-start-2 lg:row-start-2 lg:border-l lg:border-neutral-100' : ''}`}>
           {current.description && (
             <p className="text-sm text-neutral-700 line-clamp-2">{current.description}</p>
           )}
@@ -363,6 +372,7 @@ export default function RiverVisualGallery({ riverSlug, accessPointId, addPhotoH
               )}
             </div>
           )}
+        </div>
         </div>
       </div>
 

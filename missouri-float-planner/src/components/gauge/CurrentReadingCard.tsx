@@ -18,6 +18,7 @@ interface CurrentReadingCardProps {
   conditionCode?: ConditionCode;
   waterTempF?: number | null;
   readingAgeHours?: number | null;
+  className?: string;
 }
 
 function formatAge(hours: number): string {
@@ -37,6 +38,7 @@ export default function CurrentReadingCard({
   conditionCode,
   waterTempF,
   readingAgeHours,
+  className = '',
 }: CurrentReadingCardProps) {
   const { data: history } = useGaugeHistory(siteId, 14);
 
@@ -59,7 +61,7 @@ export default function CurrentReadingCard({
     : null;
 
   return (
-    <div className="rounded-xl overflow-hidden bg-primary-800" role="group" aria-label="Current gauge reading">
+    <div className={`rounded-xl overflow-hidden bg-primary-800 ${className}`} role="group" aria-label="Current gauge reading">
       {/* One concise spoken summary instead of letting screen readers re-read the
           full two-column grid (both numbers + labels) on every background poll. */}
       <p className="sr-only" aria-live="polite">

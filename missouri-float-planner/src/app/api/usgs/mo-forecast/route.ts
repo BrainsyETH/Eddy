@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { fetchMODataset } from '@/lib/usgs/mo-statewide-data';
 
 export const dynamic = 'force-dynamic';
@@ -72,7 +72,7 @@ async function fetchForecast(lid: string): Promise<MoForecastDatum[]> {
   return parseForecastDatums(xml);
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const dataset = await fetchMODataset();
 
@@ -95,7 +95,10 @@ export async function GET() {
       }
     }
 
-    const siteIds = Array.from(bySite.keys());
+    const requestedSiteId = request.nextUrl.searchParams.get('siteId');
+    const siteIds = requestedSiteId
+      ? (bySite.has(requestedSiteId) ? [requestedSiteId] : [])
+      : Array.from(bySite.keys());
     const results = await Promise.allSettled(
       siteIds.map(async (siteId) => {
         const meta = bySite.get(siteId)!;

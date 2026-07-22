@@ -136,6 +136,7 @@ export async function fetchForecast(
   }
 
   const data = await response.json();
+  const timezoneOffsetSeconds = data.city?.timezone ?? 0;
 
   // Group forecasts by day and extract daily highs/lows
   const dailyData = new Map<string, {
@@ -147,7 +148,9 @@ export async function fetchForecast(
   }>();
 
   for (const item of data.list) {
-    const date = new Date(item.dt * 1000);
+    // Group the three-hour points by the gauge's local calendar day rather
+    // than UTC so the first outlook tile is genuinely "Today" in Missouri.
+    const date = new Date((item.dt + timezoneOffsetSeconds) * 1000);
     const dateKey = date.toISOString().split('T')[0];
 
     if (!dailyData.has(dateKey)) {
@@ -181,12 +184,12 @@ export async function fetchForecast(
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   for (const [dateKey, dayData] of Array.from(dailyData.entries())) {
-    const date = new Date(dateKey);
+    const date = new Date(`${dateKey}T12:00:00Z`);
     const mostCommonCondition = dayData.conditions.sort((a, b) => b.count - a.count)[0];
 
     days.push({
       date: dateKey,
-      dayOfWeek: dayNames[date.getDay()],
+      dayOfWeek: dayNames[date.getUTCDay()],
       tempHigh: Math.round(Math.max(...dayData.temps)),
       tempLow: Math.round(Math.min(...dayData.temps)),
       condition: mostCommonCondition?.main || 'Unknown',

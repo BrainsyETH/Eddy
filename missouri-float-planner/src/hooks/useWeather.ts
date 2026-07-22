@@ -66,7 +66,7 @@ export function useWeatherByCoords(lat: number | null, lon: number | null, enabl
 }
 
 // Forecast data for coordinates
-interface ForecastDay {
+export interface ForecastDay {
   date: string;
   dayOfWeek: string;
   tempHigh: number;
@@ -78,7 +78,7 @@ interface ForecastDay {
   humidity: number;
 }
 
-interface ForecastResponse {
+export interface ForecastResponse {
   city: string;
   days: ForecastDay[];
 }
