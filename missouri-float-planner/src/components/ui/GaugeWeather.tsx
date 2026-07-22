@@ -12,9 +12,16 @@ interface GaugeWeatherProps {
   lon: number;
   enabled?: boolean;
   variant?: 'default' | 'compact';
+  showRainAlert?: boolean;
 }
 
-export default function GaugeWeather({ lat, lon, enabled = true, variant = 'default' }: GaugeWeatherProps) {
+export default function GaugeWeather({
+  lat,
+  lon,
+  enabled = true,
+  variant = 'default',
+  showRainAlert = true,
+}: GaugeWeatherProps) {
   const { data: weather, isLoading, error } = useWeatherByCoords(lat, lon, enabled);
   const { data: forecast } = useForecastByCoords(lat, lon, enabled);
 
@@ -125,7 +132,7 @@ export default function GaugeWeather({ lat, lon, enabled = true, variant = 'defa
         )}
 
         {/* Heavy-rain heads-up — bridges the forecast to Eddy's advice */}
-        {rainDays.length > 0 && (
+        {showRainAlert && rainDays.length > 0 && (
           <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800">
             <Droplets className="w-3.5 h-3.5 flex-shrink-0" />
             Rain {rainDaysLabel} — levels may rise

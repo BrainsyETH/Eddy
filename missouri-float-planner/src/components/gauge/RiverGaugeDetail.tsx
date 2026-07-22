@@ -415,15 +415,14 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
           </span>
         </div>
 
-        {/* Desktop: compact rail (reading card, weather) beside the main
-            column (Eddy Says, photos); explicit grid placement keeps the
-            mobile DOM order reading → Eddy → weather → photos. */}
-        <div className="lg:grid lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-6 lg:mb-8">
-        {/* Current reading — the one condition display (trend included) */}
+        {/* Desktop pairs the compact reading rail with narrative + photos.
+            Mobile follows the DOM's decision-first order and leaves the
+            gallery until after thresholds and the trend chart. */}
+        <div className="lg:grid lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-x-6 lg:gap-y-8">
+        {/* Current reading + concise rain outlook. The reading card already
+            owns the condition and trend, so the outlook does not repeat them. */}
         <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-1 lg:row-start-1">
-          {/* Sticky within the stretched cell: the verdict follows the scroll
-              beside the taller main column instead of leaving a blank rail. */}
-          <div className="lg:sticky lg:top-24">
+          <div className="space-y-3">
           <CurrentReadingCard
             key={`reading-${activeSiteId}`}
             siteId={activeGauge.usgsSiteId}
@@ -433,16 +432,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             conditionCode={condition.code}
             readingAgeHours={activeGauge.readingAgeHours}
           />
-          </div>
-        </div>
-
-        {/* Will it hold? — trend + rain outlook, between reading and weather */}
-        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-1 lg:row-start-2">
-          <div className="lg:sticky lg:top-24">
           <WillItHold
-            siteId={activeGauge.usgsSiteId}
-            thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
-            conditionCode={condition.code}
             lat={activeGauge.coordinates.lat}
             lon={activeGauge.coordinates.lng}
           />
@@ -549,27 +539,20 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         </div>
 
         {/* Weather at the gauge */}
-        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-1 lg:row-start-3">
-          <div className="lg:sticky lg:top-24">
+        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-1 lg:row-start-2">
           <GaugeWeather
             key={`weather-${activeSiteId}`}
             lat={activeGauge.coordinates.lat}
             lon={activeGauge.coordinates.lng}
             enabled={true}
             variant="compact"
+            showRainAlert={false}
           />
-          </div>
-        </div>
-
-        {/* What the river looks like */}
-        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-2 lg:row-start-2 lg:row-span-2">
-          <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} />
-        </div>
         </div>
 
         {/* Condition Thresholds Table */}
         {activeThreshold && (
-          <div className="mb-8">
+          <div className="mb-8 lg:mb-0 lg:col-span-2 lg:row-start-3">
             <ThresholdTable
               thresholdUnit={activeThreshold.thresholdUnit}
               levelTooLow={activeThreshold.levelTooLow}
@@ -588,14 +571,13 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
           </div>
         )}
 
-        {/* Trend chart — the deep dive closes the report */}
-          {/* Chart */}
-          <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 pt-4 pb-0">
-              <h2 className="text-base font-bold text-neutral-900">
+        {/* Decision deep dive — before imagery in the mobile reading order. */}
+          <div className="mb-8 bg-white border border-neutral-200 rounded-xl overflow-hidden lg:mb-0 lg:col-span-2 lg:row-start-4">
+            <div className="flex flex-col gap-3 px-5 pt-4 pb-0 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-base font-bold text-neutral-900 whitespace-nowrap">
                 {dateRange}-Day {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
               </h2>
-              <div className="flex items-center gap-2">
+              <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
                 <InfoTip
                   title={CFS_EXPLAINER.title}
                   body={CFS_EXPLAINER.body}
@@ -668,6 +650,14 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               chartClassName="h-48 md:h-56"
             />
           </div>
+
+        {/* Keep imagery beside weather on desktop, but after the decision
+            tools on mobile so it does not delay thresholds and trend. */}
+        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-2 lg:row-start-2">
+          <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} />
+        </div>
+
+        </div>
 
     </div>
   );
