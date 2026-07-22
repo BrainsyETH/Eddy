@@ -49,7 +49,10 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   // Eddy AI update (river-level, pinned to primary gauge)
   const [eddyUpdate, setEddyUpdate] = useState<EddyUpdateResponse['update'] | null>(null);
   const [eddyLoading, setEddyLoading] = useState(false);
-  const [eddyShowFull, setEddyShowFull] = useState(false);
+  // NOTE inverted naming: true = collapsed (summary only), false = expanded.
+  // Collapsed by default — the summary quote carries the verdict; "Show full
+  // report" expands the narrative.
+  const [eddyShowFull, setEddyShowFull] = useState(true);
 
   // Per-gauge Haiku update (only fetched when on a secondary tab)
   const [gaugeUpdate, setGaugeUpdate] = useState<GaugeUpdateResponse['update'] | null>(null);
@@ -107,7 +110,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     }
     let cancelled = false;
     setGaugeUpdateLoading(true);
-    setEddyShowFull(false);
+    setEddyShowFull(true);
 
     async function fetchGaugeUpdate() {
       try {
@@ -414,9 +417,12 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         {/* Desktop: compact rail (reading card, weather) beside the main
             column (Eddy Says, photos); explicit grid placement keeps the
             mobile DOM order reading → Eddy → weather → photos. */}
-        <div className="lg:grid lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-6 lg:items-start lg:mb-8">
+        <div className="lg:grid lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-6 lg:mb-8">
         {/* Current reading — the one condition display (trend included) */}
         <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-1 lg:row-start-1">
+          {/* Sticky within the stretched cell: the verdict follows the scroll
+              beside the taller main column instead of leaving a blank rail. */}
+          <div className="lg:sticky lg:top-24">
           <CurrentReadingCard
             key={`reading-${activeSiteId}`}
             siteId={activeGauge.usgsSiteId}
@@ -426,6 +432,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             conditionCode={condition.code}
             readingAgeHours={activeGauge.readingAgeHours}
           />
+          </div>
         </div>
 
         {/* Eddy's take on the reading */}
@@ -529,6 +536,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
         {/* Weather at the gauge */}
         <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-1 lg:row-start-2">
+          <div className="lg:sticky lg:top-24">
           <GaugeWeather
             key={`weather-${activeSiteId}`}
             lat={activeGauge.coordinates.lat}
@@ -536,6 +544,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             enabled={true}
             variant="compact"
           />
+          </div>
         </div>
 
         {/* What the river looks like */}

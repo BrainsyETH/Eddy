@@ -63,6 +63,11 @@ export default function GaugeWeather({ lat, lon, enabled = true, variant = 'defa
   // Skip today from forecast (we already show current weather)
   const forecastDays = forecast?.days?.slice(1, 4) ?? [];
 
+  // High-confidence rain ahead — worth a heads-up next to live conditions,
+  // since Ozark creeks respond to rainfall within hours.
+  const rainDays = forecastDays.filter((d) => d.precipitation >= 70);
+  const rainDaysLabel = rainDays.map((d) => d.dayOfWeek).join(' & ');
+
   // Compact variant — matches Stitch reference design
   if (variant === 'compact') {
     return (
@@ -116,6 +121,14 @@ export default function GaugeWeather({ lat, lon, enabled = true, variant = 'defa
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Heavy-rain heads-up — bridges the forecast to Eddy's advice */}
+        {rainDays.length > 0 && (
+          <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800">
+            <Droplets className="w-3.5 h-3.5 flex-shrink-0" />
+            Rain {rainDaysLabel} — levels may rise
           </div>
         )}
       </div>
