@@ -411,8 +411,12 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
           </span>
         </div>
 
+        {/* Desktop: compact rail (reading card, weather) beside the main
+            column (Eddy Says, photos); explicit grid placement keeps the
+            mobile DOM order reading → Eddy → weather → photos. */}
+        <div className="lg:grid lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-6 lg:items-start lg:mb-8">
         {/* Current reading — the one condition display (trend included) */}
-        <div className="mb-6 sm:mb-8">
+        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-1 lg:row-start-1">
           <CurrentReadingCard
             key={`reading-${activeSiteId}`}
             siteId={activeGauge.usgsSiteId}
@@ -425,7 +429,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         </div>
 
         {/* Eddy's take on the reading */}
-        <div className="mb-6 sm:mb-8">
+        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-2 lg:row-start-1">
           {/* Eddy Says Section — anchor target for the hero condition pill */}
           <div id="eddy-says" className="scroll-mt-24 bg-white border border-neutral-200 rounded-xl overflow-hidden">
           <div className="px-4 py-4 sm:px-6 sm:py-5">
@@ -524,7 +528,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         </div>
 
         {/* Weather at the gauge */}
-        <div className="mb-6 sm:mb-8">
+        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-1 lg:row-start-2">
           <GaugeWeather
             key={`weather-${activeSiteId}`}
             lat={activeGauge.coordinates.lat}
@@ -535,8 +539,9 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         </div>
 
         {/* What the river looks like */}
-        <div className="mb-6 sm:mb-8">
+        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-2 lg:row-start-2">
           <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} />
+        </div>
         </div>
 
         {/* Condition Thresholds Table */}
