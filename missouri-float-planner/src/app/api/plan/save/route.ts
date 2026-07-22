@@ -71,15 +71,17 @@ export async function POST(request: NextRequest) {
     let attempts = 0;
     const maxAttempts = 10;
 
-    // Ensure uniqueness
+    // Ensure uniqueness. Owned plans are invisible to anon SELECT since
+    // 00184, so the collision check runs through a SECURITY DEFINER helper
+    // that sees every row.
     while (attempts < maxAttempts) {
-      const { data: existing } = await supabase
-        .from('float_plans')
-        .select('id')
-        .eq('short_code', shortCode)
-        .maybeSingle();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: available } = await (supabase.rpc as any)(
+        'float_plan_code_available',
+        { p_short_code: shortCode }
+      );
 
-      if (!existing) {
+      if (available === true) {
         break; // Code is unique
       }
 

@@ -192,6 +192,47 @@ export type Database = {
         }
         Relationships: []
       }
+      alert_subscriptions: {
+        Row: {
+          created_at: string
+          fired_at: string | null
+          id: string
+          kind: string
+          one_shot: boolean
+          river_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fired_at?: string | null
+          id?: string
+          kind?: string
+          one_shot?: boolean
+          river_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fired_at?: string | null
+          id?: string
+          kind?: string
+          one_shot?: boolean
+          river_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_subscriptions_river_id_fkey"
+            columns: ["river_id"]
+            isOneToOne: false
+            referencedRelation: "rivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_posts: {
         Row: {
           category: string
@@ -201,6 +242,7 @@ export type Database = {
           featured_image_url: string | null
           guide_data: Json | null
           id: string
+          last_shared_at: string | null
           meta_keywords: string[] | null
           og_image_url: string | null
           published_at: string | null
@@ -219,6 +261,7 @@ export type Database = {
           featured_image_url?: string | null
           guide_data?: Json | null
           id?: string
+          last_shared_at?: string | null
           meta_keywords?: string[] | null
           og_image_url?: string | null
           published_at?: string | null
@@ -237,6 +280,7 @@ export type Database = {
           featured_image_url?: string | null
           guide_data?: Json | null
           id?: string
+          last_shared_at?: string | null
           meta_keywords?: string[] | null
           og_image_url?: string | null
           published_at?: string | null
@@ -345,6 +389,7 @@ export type Database = {
       community_reports: {
         Row: {
           access_point_id: string | null
+          captured_at: string | null
           coordinates: unknown
           created_at: string | null
           description: string
@@ -353,7 +398,9 @@ export type Database = {
           gauge_station_id: string | null
           hazard_id: string | null
           id: string
+          image_path: string | null
           image_url: string | null
+          reading_source: string | null
           river_id: string | null
           river_mile: number | null
           status: string | null
@@ -366,6 +413,7 @@ export type Database = {
         }
         Insert: {
           access_point_id?: string | null
+          captured_at?: string | null
           coordinates: unknown
           created_at?: string | null
           description: string
@@ -374,7 +422,9 @@ export type Database = {
           gauge_station_id?: string | null
           hazard_id?: string | null
           id?: string
+          image_path?: string | null
           image_url?: string | null
+          reading_source?: string | null
           river_id?: string | null
           river_mile?: number | null
           status?: string | null
@@ -387,6 +437,7 @@ export type Database = {
         }
         Update: {
           access_point_id?: string | null
+          captured_at?: string | null
           coordinates?: unknown
           created_at?: string | null
           description?: string
@@ -395,7 +446,9 @@ export type Database = {
           gauge_station_id?: string | null
           hazard_id?: string | null
           id?: string
+          image_path?: string | null
           image_url?: string | null
+          reading_source?: string | null
           river_id?: string | null
           river_mile?: number | null
           status?: string | null
@@ -462,6 +515,45 @@ export type Database = {
         }
         Relationships: []
       }
+      device_tokens: {
+        Row: {
+          app_version: string | null
+          created_at: string
+          device_name: string | null
+          disabled_at: string | null
+          expo_push_token: string
+          failure_count: number
+          id: string
+          last_seen_at: string
+          platform: string
+          user_id: string
+        }
+        Insert: {
+          app_version?: string | null
+          created_at?: string
+          device_name?: string | null
+          disabled_at?: string | null
+          expo_push_token: string
+          failure_count?: number
+          id?: string
+          last_seen_at?: string
+          platform?: string
+          user_id: string
+        }
+        Update: {
+          app_version?: string | null
+          created_at?: string
+          device_name?: string | null
+          disabled_at?: string | null
+          expo_push_token?: string
+          failure_count?: number
+          id?: string
+          last_seen_at?: string
+          platform?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       drive_time_cache: {
         Row: {
           drive_miles: number | null
@@ -470,7 +562,6 @@ export type Database = {
           expires_at: string | null
           fetched_at: string | null
           id: string
-          route_geometry: Json | null
           route_summary: string | null
           start_access_id: string | null
         }
@@ -481,7 +572,6 @@ export type Database = {
           expires_at?: string | null
           fetched_at?: string | null
           id?: string
-          route_geometry?: Json | null
           route_summary?: string | null
           start_access_id?: string | null
         }
@@ -492,7 +582,6 @@ export type Database = {
           expires_at?: string | null
           fetched_at?: string | null
           id?: string
-          route_geometry?: Json | null
           route_summary?: string | null
           start_access_id?: string | null
         }
@@ -597,6 +686,234 @@ export type Database = {
           email?: string
           id?: string
           source?: string | null
+        }
+        Relationships: []
+      }
+      embed_impressions: {
+        Row: {
+          count: number
+          day: string
+          id: number
+          partner: string | null
+          referrer_host: string
+          theme: string | null
+          widget_key: string
+          widget_type: string
+        }
+        Insert: {
+          count?: number
+          day?: string
+          id?: never
+          partner?: string | null
+          referrer_host?: string
+          theme?: string | null
+          widget_key: string
+          widget_type: string
+        }
+        Update: {
+          count?: number
+          day?: string
+          id?: never
+          partner?: string | null
+          referrer_host?: string
+          theme?: string | null
+          widget_key?: string
+          widget_type?: string
+        }
+        Relationships: []
+      }
+      embed_widgets: {
+        Row: {
+          accent_color: string | null
+          access_point_id: string | null
+          active: boolean
+          address: string | null
+          business_name: string | null
+          created_at: string
+          cta_label: string | null
+          cta_url: string | null
+          drive_fetched_at: string | null
+          drive_miles: number | null
+          drive_minutes: number | null
+          embed_id: string
+          id: string
+          location: unknown
+          logo_url: string | null
+          river_id: string | null
+          site_url: string | null
+          straight_line_miles: number | null
+          updated_at: string
+          widget_type: string
+        }
+        Insert: {
+          accent_color?: string | null
+          access_point_id?: string | null
+          active?: boolean
+          address?: string | null
+          business_name?: string | null
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          drive_fetched_at?: string | null
+          drive_miles?: number | null
+          drive_minutes?: number | null
+          embed_id: string
+          id?: string
+          location?: unknown
+          logo_url?: string | null
+          river_id?: string | null
+          site_url?: string | null
+          straight_line_miles?: number | null
+          updated_at?: string
+          widget_type?: string
+        }
+        Update: {
+          accent_color?: string | null
+          access_point_id?: string | null
+          active?: boolean
+          address?: string | null
+          business_name?: string | null
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          drive_fetched_at?: string | null
+          drive_miles?: number | null
+          drive_minutes?: number | null
+          embed_id?: string
+          id?: string
+          location?: unknown
+          logo_url?: string | null
+          river_id?: string | null
+          site_url?: string | null
+          straight_line_miles?: number | null
+          updated_at?: string
+          widget_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "embed_widgets_access_point_id_fkey"
+            columns: ["access_point_id"]
+            isOneToOne: false
+            referencedRelation: "access_points"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "embed_widgets_river_id_fkey"
+            columns: ["river_id"]
+            isOneToOne: false
+            referencedRelation: "rivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entitlements: {
+        Row: {
+          billing_issue_detected_at: string | null
+          created_at: string
+          entitlement_id: string
+          environment: string | null
+          expires_at: string | null
+          last_event_at: string | null
+          last_event_id: string | null
+          last_event_type: string | null
+          product_id: string | null
+          rc_app_user_id: string | null
+          rc_original_app_user_id: string | null
+          store: string | null
+          updated_at: string
+          user_id: string
+          will_renew: boolean | null
+        }
+        Insert: {
+          billing_issue_detected_at?: string | null
+          created_at?: string
+          entitlement_id?: string
+          environment?: string | null
+          expires_at?: string | null
+          last_event_at?: string | null
+          last_event_id?: string | null
+          last_event_type?: string | null
+          product_id?: string | null
+          rc_app_user_id?: string | null
+          rc_original_app_user_id?: string | null
+          store?: string | null
+          updated_at?: string
+          user_id: string
+          will_renew?: boolean | null
+        }
+        Update: {
+          billing_issue_detected_at?: string | null
+          created_at?: string
+          entitlement_id?: string
+          environment?: string | null
+          expires_at?: string | null
+          last_event_at?: string | null
+          last_event_id?: string | null
+          last_event_type?: string | null
+          product_id?: string | null
+          rc_app_user_id?: string | null
+          rc_original_app_user_id?: string | null
+          store?: string | null
+          updated_at?: string
+          user_id?: string
+          will_renew?: boolean | null
+        }
+        Relationships: []
+      }
+      feedback: {
+        Row: {
+          admin_notes: string | null
+          context_data: Json | null
+          context_id: string | null
+          context_name: string | null
+          context_type: string | null
+          created_at: string
+          feedback_type: string
+          id: string
+          image_url: string | null
+          message: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          user_email: string
+          user_name: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          context_data?: Json | null
+          context_id?: string | null
+          context_name?: string | null
+          context_type?: string | null
+          created_at?: string
+          feedback_type: string
+          id?: string
+          image_url?: string | null
+          message: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_email: string
+          user_name?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          context_data?: Json | null
+          context_id?: string | null
+          context_name?: string | null
+          context_type?: string | null
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          image_url?: string | null
+          message?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_email?: string
+          user_name?: string | null
         }
         Relationships: []
       }
@@ -941,6 +1258,78 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      inbound_emails: {
+        Row: {
+          attachments: Json
+          bcc_addresses: string[]
+          body_fetched: boolean
+          cc_addresses: string[]
+          created_at: string
+          email_id: string
+          from_address: string | null
+          headers: Json | null
+          html_body: string | null
+          id: string
+          last_replied_at: string | null
+          message_id: string | null
+          raw_event: Json | null
+          received_for: string[]
+          reply_to: string[]
+          resend_created_at: string | null
+          status: string
+          subject: string | null
+          text_body: string | null
+          to_addresses: string[]
+          updated_at: string
+        }
+        Insert: {
+          attachments?: Json
+          bcc_addresses?: string[]
+          body_fetched?: boolean
+          cc_addresses?: string[]
+          created_at?: string
+          email_id: string
+          from_address?: string | null
+          headers?: Json | null
+          html_body?: string | null
+          id?: string
+          last_replied_at?: string | null
+          message_id?: string | null
+          raw_event?: Json | null
+          received_for?: string[]
+          reply_to?: string[]
+          resend_created_at?: string | null
+          status?: string
+          subject?: string | null
+          text_body?: string | null
+          to_addresses?: string[]
+          updated_at?: string
+        }
+        Update: {
+          attachments?: Json
+          bcc_addresses?: string[]
+          body_fetched?: boolean
+          cc_addresses?: string[]
+          created_at?: string
+          email_id?: string
+          from_address?: string | null
+          headers?: Json | null
+          html_body?: string | null
+          id?: string
+          last_replied_at?: string | null
+          message_id?: string | null
+          raw_event?: Json | null
+          received_for?: string[]
+          reply_to?: string[]
+          resend_created_at?: string | null
+          status?: string
+          subject?: string | null
+          text_body?: string | null
+          to_addresses?: string[]
+          updated_at?: string
+        }
+        Relationships: []
       }
       nearby_services: {
         Row: {
@@ -1378,43 +1767,29 @@ export type Database = {
           },
         ]
       }
-      river_sections: {
+      profiles: {
         Row: {
-          created_at: string | null
-          description: string | null
+          created_at: string
+          display_name: string | null
+          home_region: string | null
           id: string
-          name: string
-          river_id: string
-          section_slug: string
-          sort_order: number
+          updated_at: string
         }
         Insert: {
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          name: string
-          river_id: string
-          section_slug: string
-          sort_order?: number
+          created_at?: string
+          display_name?: string | null
+          home_region?: string | null
+          id: string
+          updated_at?: string
         }
         Update: {
-          created_at?: string | null
-          description?: string | null
+          created_at?: string
+          display_name?: string | null
+          home_region?: string | null
           id?: string
-          name?: string
-          river_id?: string
-          section_slug?: string
-          sort_order?: number
+          updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "river_sections_river_id_fkey"
-            columns: ["river_id"]
-            isOneToOne: false
-            referencedRelation: "rivers"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       river_characteristics: {
         Row: {
@@ -1424,9 +1799,9 @@ export type Database = {
           primary_hazards: string[] | null
           rain_lag_hours: number | null
           rain_lag_note: string | null
+          rising_water_hazards: string | null
           river_id: string
           river_note: string | null
-          rising_water_hazards: string | null
           speed_curve: Json | null
           updated_at: string | null
         }
@@ -1437,9 +1812,9 @@ export type Database = {
           primary_hazards?: string[] | null
           rain_lag_hours?: number | null
           rain_lag_note?: string | null
+          rising_water_hazards?: string | null
           river_id: string
           river_note?: string | null
-          rising_water_hazards?: string | null
           speed_curve?: Json | null
           updated_at?: string | null
         }
@@ -1450,9 +1825,9 @@ export type Database = {
           primary_hazards?: string[] | null
           rain_lag_hours?: number | null
           rain_lag_note?: string | null
+          rising_water_hazards?: string | null
           river_id?: string
           river_note?: string | null
-          rising_water_hazards?: string | null
           speed_curve?: Json | null
           updated_at?: string | null
         }
@@ -1461,6 +1836,69 @@ export type Database = {
             foreignKeyName: "river_characteristics_river_id_fkey"
             columns: ["river_id"]
             isOneToOne: true
+            referencedRelation: "rivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      river_condition_events: {
+        Row: {
+          detected_at: string
+          id: string
+          kind: string
+          metadata: Json | null
+          new_condition_code: string
+          old_condition_code: string
+          push_attempts: number
+          push_delivered_at: string | null
+          reading_at: string | null
+          reading_unit: string | null
+          reading_value: number | null
+          river_gauge_id: string | null
+          river_id: string
+        }
+        Insert: {
+          detected_at?: string
+          id?: string
+          kind: string
+          metadata?: Json | null
+          new_condition_code: string
+          old_condition_code: string
+          push_attempts?: number
+          push_delivered_at?: string | null
+          reading_at?: string | null
+          reading_unit?: string | null
+          reading_value?: number | null
+          river_gauge_id?: string | null
+          river_id: string
+        }
+        Update: {
+          detected_at?: string
+          id?: string
+          kind?: string
+          metadata?: Json | null
+          new_condition_code?: string
+          old_condition_code?: string
+          push_attempts?: number
+          push_delivered_at?: string | null
+          reading_at?: string | null
+          reading_unit?: string | null
+          reading_value?: number | null
+          river_gauge_id?: string | null
+          river_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "river_condition_events_river_gauge_id_fkey"
+            columns: ["river_gauge_id"]
+            isOneToOne: false
+            referencedRelation: "river_gauges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "river_condition_events_river_id_fkey"
+            columns: ["river_id"]
+            isOneToOne: false
             referencedRelation: "rivers"
             referencedColumns: ["id"]
           },
@@ -1757,6 +2195,44 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rivers"
             referencedColumns: ["slug"]
+          },
+        ]
+      }
+      river_sections: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          river_id: string
+          section_slug: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          river_id: string
+          section_slug: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          river_id?: string
+          section_slug?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "river_sections_river_id_fkey"
+            columns: ["river_id"]
+            isOneToOne: false
+            referencedRelation: "rivers"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2090,6 +2566,104 @@ export type Database = {
         }
         Relationships: []
       }
+      social_tokens: {
+        Row: {
+          access_token: string
+          access_token_expires_at: string
+          created_at: string
+          open_id: string | null
+          platform: string
+          refresh_token: string
+          refresh_token_expires_at: string
+          scope: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          access_token_expires_at: string
+          created_at?: string
+          open_id?: string | null
+          platform: string
+          refresh_token: string
+          refresh_token_expires_at: string
+          scope?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          access_token_expires_at?: string
+          created_at?: string
+          open_id?: string | null
+          platform?: string
+          refresh_token?: string
+          refresh_token_expires_at?: string
+          scope?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      social_weekly_reviews: {
+        Row: {
+          bias_guidance: string | null
+          content_mix: Json | null
+          created_at: string | null
+          id: string
+          learnings: string | null
+          review_data: Json
+          top_performers: Json | null
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          bias_guidance?: string | null
+          content_mix?: Json | null
+          created_at?: string | null
+          id?: string
+          learnings?: string | null
+          review_data: Json
+          top_performers?: Json | null
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          bias_guidance?: string | null
+          content_mix?: Json | null
+          created_at?: string | null
+          id?: string
+          learnings?: string | null
+          review_data?: Json
+          top_performers?: Json | null
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
+      starred_rivers: {
+        Row: {
+          created_at: string
+          river_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          river_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          river_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "starred_rivers_river_id_fkey"
+            columns: ["river_id"]
+            isOneToOne: false
+            referencedRelation: "rivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -2156,6 +2730,66 @@ export type Database = {
           pois_created?: number | null
           pois_updated?: number | null
           sync_type?: string
+        }
+        Relationships: []
+      }
+      usgs_daily_percentiles: {
+        Row: {
+          begin_year: number | null
+          count_years: number | null
+          day_of_year: number
+          end_year: number | null
+          p05: number | null
+          p10: number | null
+          p20: number | null
+          p25: number | null
+          p50: number | null
+          p75: number | null
+          p80: number | null
+          p90: number | null
+          p95: number | null
+          parameter_code: string
+          site_no: string
+          snapshotted_at: string
+          source: string
+        }
+        Insert: {
+          begin_year?: number | null
+          count_years?: number | null
+          day_of_year: number
+          end_year?: number | null
+          p05?: number | null
+          p10?: number | null
+          p20?: number | null
+          p25?: number | null
+          p50?: number | null
+          p75?: number | null
+          p80?: number | null
+          p90?: number | null
+          p95?: number | null
+          parameter_code?: string
+          site_no: string
+          snapshotted_at?: string
+          source?: string
+        }
+        Update: {
+          begin_year?: number | null
+          count_years?: number | null
+          day_of_year?: number
+          end_year?: number | null
+          p05?: number | null
+          p10?: number | null
+          p20?: number | null
+          p25?: number | null
+          p50?: number | null
+          p75?: number | null
+          p80?: number | null
+          p90?: number | null
+          p95?: number | null
+          parameter_code?: string
+          site_no?: string
+          snapshotted_at?: string
+          source?: string
         }
         Relationships: []
       }
@@ -2316,7 +2950,48 @@ export type Database = {
           river_name: string
         }[]
       }
+      float_plan_code_available: {
+        Args: { p_short_code: string }
+        Returns: boolean
+      }
       generate_short_code: { Args: { length?: number }; Returns: string }
+      get_active_rivers_bounds: {
+        Args: { p_state?: string }
+        Returns: {
+          max_lat: number
+          max_lng: number
+          min_lat: number
+          min_lng: number
+        }[]
+      }
+      get_float_plan_by_code: {
+        Args: { p_increment_view?: boolean; p_short_code: string }
+        Returns: {
+          condition_at_creation: string | null
+          created_at: string | null
+          discharge_cfs_at_creation: number | null
+          distance_miles: number | null
+          drive_back_minutes: number | null
+          end_access_id: string | null
+          estimated_float_minutes: number | null
+          gauge_name_at_creation: string | null
+          gauge_reading_at_creation: number | null
+          id: string
+          last_viewed_at: string | null
+          river_id: string | null
+          short_code: string
+          start_access_id: string | null
+          user_id: string | null
+          vessel_type_id: string | null
+          view_count: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "float_plans"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_float_segment: {
         Args: { p_end_access_id: string; p_start_access_id: string }
         Returns: {
@@ -2446,6 +3121,16 @@ export type Database = {
         Returns: undefined
       }
       is_admin: { Args: never; Returns: boolean }
+      is_permanent_user: { Args: never; Returns: boolean }
+      latest_readings_for_stations: {
+        Args: { p_station_ids: string[] }
+        Returns: {
+          discharge_cfs: number
+          gauge_height_ft: number
+          gauge_station_id: string
+          reading_timestamp: string
+        }[]
+      }
       link_float_segments: {
         Args: never
         Returns: {
@@ -2457,6 +3142,16 @@ export type Database = {
         }[]
       }
       link_jacks_fork_nps_campgrounds: { Args: never; Returns: number }
+      log_embed_impression: {
+        Args: {
+          p_partner?: string
+          p_referrer_host: string
+          p_theme?: string
+          p_widget_key: string
+          p_widget_type: string
+        }
+        Returns: undefined
+      }
       match_nps_campground_to_access_point: {
         Args: {
           p_lat: number
@@ -2467,7 +3162,37 @@ export type Database = {
         }
         Returns: string
       }
+      nearest_access_points_to_point: {
+        Args: { p_limit?: number; p_point: unknown; p_river_id?: string }
+        Returns: {
+          access_point_id: string
+          distance_meters: number
+          lat: number
+          lng: number
+          name: string
+          river_id: string
+          river_mile: number
+          river_name: string
+          river_slug: string
+          slug: string
+          type: string
+        }[]
+      }
+      nearest_rivers_to_point: {
+        Args: { p_limit?: number; p_point: unknown }
+        Returns: {
+          distance_meters: number
+          name: string
+          river_id: string
+          slug: string
+          state: string
+        }[]
+      }
       release_cron_lock: { Args: { job_name: string }; Returns: undefined }
+      set_access_point_miles_from_geometry: {
+        Args: { p_force?: boolean; p_river_id: string }
+        Returns: number
+      }
       snap_to_river: {
         Args: { p_point: unknown; p_river_id: string }
         Returns: {
@@ -2479,6 +3204,15 @@ export type Database = {
       try_cron_lock: {
         Args: { job_name: string; stale_after_seconds?: number }
         Returns: boolean
+      }
+      validate_river_data: {
+        Args: never
+        Returns: {
+          check_name: string
+          detail: string
+          river_slug: string
+          severity: string
+        }[]
       }
     }
     Enums: {
