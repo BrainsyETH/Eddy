@@ -24,6 +24,7 @@ import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import GaugeWeather from '@/components/ui/GaugeWeather';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
+import WillItHold from '@/components/gauge/WillItHold';
 import ThresholdTable from '@/components/gauge/ThresholdTable';
 import GaugeTabBar from '@/components/gauge/GaugeTabBar';
 import RiverVisualGallery from '@/components/river/RiverVisualGallery';
@@ -435,6 +436,19 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
           </div>
         </div>
 
+        {/* Will it hold? — trend + rain outlook, between reading and weather */}
+        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-1 lg:row-start-2">
+          <div className="lg:sticky lg:top-24">
+          <WillItHold
+            siteId={activeGauge.usgsSiteId}
+            thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
+            conditionCode={condition.code}
+            lat={activeGauge.coordinates.lat}
+            lon={activeGauge.coordinates.lng}
+          />
+          </div>
+        </div>
+
         {/* Eddy's take on the reading */}
         <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-2 lg:row-start-1">
           {/* Eddy Says Section — anchor target for the hero condition pill */}
@@ -535,7 +549,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         </div>
 
         {/* Weather at the gauge */}
-        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-1 lg:row-start-2">
+        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-1 lg:row-start-3">
           <div className="lg:sticky lg:top-24">
           <GaugeWeather
             key={`weather-${activeSiteId}`}
@@ -548,7 +562,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         </div>
 
         {/* What the river looks like */}
-        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-2 lg:row-start-2">
+        <div className="mb-6 sm:mb-8 lg:mb-0 lg:col-start-2 lg:row-start-2 lg:row-span-2">
           <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} />
         </div>
         </div>
