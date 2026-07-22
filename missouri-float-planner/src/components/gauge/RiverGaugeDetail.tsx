@@ -9,7 +9,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ExternalLink, Clock } from 'lucide-react';
 
 import { computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
-import { CFS_EXPLAINER } from '@/constants';
+import { CFS_EXPLAINER, CONDITION_COLORS } from '@/constants';
 import InfoTip from '@/components/ui/InfoTip';
 import { buildStaticEddyText, RIVER_NOTES } from '@/data/eddy-quotes';
 import type { ConditionCode } from '@/types/api';
@@ -26,6 +26,7 @@ import ThresholdTable from '@/components/gauge/ThresholdTable';
 import GaugeTabBar from '@/components/gauge/GaugeTabBar';
 import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import { usePathname } from 'next/navigation';
+import { buildEddyTakeSummary } from '@/lib/river-outlook';
 
 interface RiverGaugeDetailProps {
   riverSlug: string;
@@ -258,6 +259,11 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     };
   }, [activeGauge, activeThreshold]);
 
+  const eddyTakeSummary = useMemo(
+    () => buildEddyTakeSummary(outlook, condition.code),
+    [outlook, condition.code],
+  );
+
   // Reading age
   const ageText = useMemo(() => {
     if (activeGauge?.readingAgeHours == null) return null;
@@ -325,7 +331,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         : null)
     : eddyUpdate;
   const activeEddyLoading = onSecondaryTabWithUpdate ? gaugeUpdateLoading : eddyLoading;
-  const eddyConditionCode: ConditionCode = onSecondaryTabWithUpdate ? condition.code : primaryCondition.code;
 
   // Static fallback text \u2014 shared with the river report card (RiverCard) via
   // buildStaticEddyText so the quote reads identically across both surfaces.
@@ -438,7 +443,11 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         {/* Now, next, and interpretation share one decision surface. Their data
             roles stay distinct; the outer shell removes card fragmentation. */}
         <div className="space-y-6">
-        <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white" aria-label="Current reading and 72-hour river outlook">
+        <section
+          className="overflow-hidden rounded-xl border border-t-4 border-neutral-200 bg-primary-50"
+          style={{ borderTopColor: CONDITION_COLORS[condition.code] ?? CONDITION_COLORS.unknown }}
+          aria-label="Current reading and 72-hour river outlook"
+        >
           <div className="grid grid-cols-1 items-stretch lg:grid-cols-[340px_minmax(0,1fr)]">
             <CurrentReadingCard
               key={`reading-${activeSiteId}`}
@@ -463,8 +472,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
           <EddyOutlookFooter
             riverSlug={riverSlug}
-            conditionCode={eddyConditionCode}
-            outlookSummary={outlook.summary}
+            conditionCode={condition.code}
+            outlookSummary={eddyTakeSummary}
             isGuidance={outlook.isGuidance}
             fullReportText={eddyFullReportText}
             fullReportLoading={activeEddyLoading && !activeEddyUpdate}
@@ -498,7 +507,13 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
           </div>
         )}
 
-        {/* Decision deep dive — before imagery in the mobile reading order. */}
+        {/* Show the current visual condition before asking floaters to parse the
+            longer historical trend. */}
+        <div>
+          <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} layout="wide" />
+        </div>
+
+        {/* Historical trend deep dive. */}
           <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
             <div className="flex flex-col gap-3 px-5 pt-4 pb-0 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-base font-bold text-neutral-900 whitespace-nowrap">
@@ -577,10 +592,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               chartClassName="h-48 md:h-56"
             />
           </div>
-
-        <div>
-          <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} layout="wide" />
-        </div>
 
         </div>
 

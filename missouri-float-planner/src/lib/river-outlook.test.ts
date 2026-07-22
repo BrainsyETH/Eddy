@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildGuidanceSummary, buildRiverOutlookState, groupForecastByDay } from './river-outlook';
+import { buildEddyTakeSummary, buildGuidanceSummary, buildRiverOutlookState, groupForecastByDay } from './river-outlook';
 
 const stageThresholds = {
   levelTooLow: 1,
@@ -109,4 +109,52 @@ test('does not treat an empty successful weather response as a dry forecast', ()
   });
   assert.equal(result.futureUnavailable, true);
   assert.match(result.summary, /Future outlook unavailable/i);
+});
+
+test('Eddy leads with today and translates qualified weather guidance into an action', () => {
+  const result = buildRiverOutlookState({
+    ...baseOutlookInput,
+    weatherDays: [
+      ...baseOutlookInput.weatherDays,
+      {
+        date: '2026-07-23',
+        dayOfWeek: 'Thu',
+        tempHigh: 79,
+        tempLow: 65,
+        condition: 'Rain',
+        conditionIcon: '10d',
+        precipitation: 80,
+      },
+    ],
+  });
+  assert.equal(
+    buildEddyTakeSummary(result, 'flowing'),
+    'Ideal today. Rain Thu could move the river—check again before launch.',
+  );
+});
+
+test('Eddy describes a steady official forecast without changing canonical labels', () => {
+  const result = buildRiverOutlookState({
+    ...baseOutlookInput,
+    riverStages: [
+      { dateTime: '2026-07-22T18:00:00Z', valueFt: 4.5 },
+      { dateTime: '2026-07-23T18:00:00Z', valueFt: 4.7 },
+    ],
+  });
+  assert.equal(
+    buildEddyTakeSummary(result, 'flowing'),
+    'Ideal today, and the NWS keeps it Ideal through Thu.',
+  );
+});
+
+test('Eddy is explicit when the future outlook is unavailable', () => {
+  const result = buildRiverOutlookState({
+    ...baseOutlookInput,
+    weatherDays: [],
+    weatherError: true,
+  });
+  assert.equal(
+    buildEddyTakeSummary(result, 'flowing'),
+    'I can tell you it’s Ideal today, but not what comes next—check again before launch.',
+  );
 });

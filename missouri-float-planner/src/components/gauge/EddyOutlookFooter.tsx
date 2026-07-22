@@ -47,7 +47,7 @@ export default function EddyOutlookFooter({
   onShare,
 }: EddyOutlookFooterProps) {
   return (
-    <section id="eddy-says" className="scroll-mt-24 border-t border-neutral-200 bg-white" aria-labelledby="eddy-outlook-heading">
+    <section id="eddy-says" className="scroll-mt-24 border-t border-primary-200 bg-primary-100" aria-labelledby="eddy-outlook-heading">
       <div className="px-4 py-4 sm:px-5 lg:grid lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-5">
         <div className="flex items-center gap-2.5">
           <Image
@@ -62,13 +62,16 @@ export default function EddyOutlookFooter({
           </h3>
         </div>
 
-        <div className="mt-2 lg:mt-0">
-          <p className="text-sm font-semibold leading-relaxed text-neutral-800" aria-live="polite">
-            {outlookSummary}
-          </p>
-          {isGuidance && (
-            <p className="mt-0.5 text-[10px] font-medium text-neutral-400">Guidance, not a river forecast.</p>
-          )}
+        <div className="mt-2 flex min-w-0 items-start gap-2 lg:mt-0">
+          <span className="-mt-1 text-2xl font-bold leading-none text-accent-500" aria-hidden="true">&ldquo;</span>
+          <div className="min-w-0">
+            <p className="text-[15px] font-semibold leading-relaxed text-neutral-900 sm:text-base" aria-live="polite">
+              {outlookSummary}
+            </p>
+            {isGuidance && (
+              <p className="mt-0.5 text-[10px] font-medium text-neutral-500">Guidance, not a river forecast.</p>
+            )}
+          </div>
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2 lg:mt-0 lg:justify-end">
@@ -90,7 +93,7 @@ export default function EddyOutlookFooter({
           <button
             type="button"
             onClick={onShare}
-            className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3.5 py-2 text-xs font-semibold text-neutral-800 shadow-[2px_2px_0_#C2BAAC] transition-colors hover:bg-neutral-50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-primary-200 bg-primary-50 px-3.5 py-2 text-xs font-semibold text-neutral-800 shadow-[2px_2px_0_#A3D1DB] transition-colors hover:bg-white"
           >
             {shareStatus === 'copied' ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
             {shareStatus === 'copied' ? 'Copied!' : 'Share'}
@@ -99,7 +102,7 @@ export default function EddyOutlookFooter({
       </div>
 
       {isOpen && (
-        <div id="eddy-full-report" className="border-t border-neutral-100 px-4 py-4 sm:px-5">
+        <div id="eddy-full-report" className="border-t border-primary-200 bg-white/60 px-4 py-4 sm:px-5">
           {fullReportLoading ? (
             <p className="text-sm italic text-neutral-500">Loading Eddy&apos;s full report…</p>
           ) : (

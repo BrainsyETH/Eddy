@@ -128,6 +128,68 @@ export function buildGuidanceSummary(
   return `${trendText} No significant rain is forecast—recheck before launch.`;
 }
 
+/**
+ * Turn the evidence-led outlook into Eddy's concise, deterministic verdict.
+ * This deliberately uses only canonical condition labels and the same forecast
+ * state already shown above it; the generated long-form report remains separate.
+ */
+export function buildEddyTakeSummary(
+  outlook: RiverOutlookState,
+  currentCondition: ConditionCode,
+): string {
+  const currentLabel = currentCondition === 'unknown'
+    ? null
+    : getConditionShortLabel(currentCondition);
+  const currentLead = currentLabel ? `${currentLabel} today` : 'Use today’s reading';
+
+  if (outlook.sourceKind === 'checking') {
+    return `${currentLead}. I’m checking what comes next—check back before launch.`;
+  }
+
+  if (outlook.futureUnavailable) {
+    return currentLabel
+      ? `I can tell you it’s ${currentLabel} today, but not what comes next—check again before launch.`
+      : 'I can’t see what comes next—use today’s reading and check again before launch.';
+  }
+
+  if (outlook.hasOfficialForecast) {
+    const forecastDays = outlook.days.filter((day) => day.river.conditionCode != null);
+    if (forecastDays.length === 0) {
+      return `${currentLead}. The NWS stage outlook is available—check the numbers before launch.`;
+    }
+
+    const labels = forecastDays.map((day) => getConditionShortLabel(day.river.conditionCode!));
+    const lastDay = forecastDays.at(-1)!;
+    const lastLabel = labels.at(-1)!;
+    const hasMultipleDays = forecastDays.length > 1;
+    const staysInOneBand = labels.every((label) => label === labels[0]);
+
+    if (hasMultipleDays && staysInOneBand && (!currentLabel || lastLabel === currentLabel)) {
+      return `${currentLead}, and the NWS keeps it ${lastLabel} through ${formatOutlookDay(lastDay.date, false)}.`;
+    }
+
+    const peak = forecastDays.reduce((highest, day) =>
+      day.river.valueFt! > highest.river.valueFt! ? day : highest,
+    );
+    const peakLabel = getConditionShortLabel(peak.river.conditionCode!);
+    if (!currentLabel || peakLabel !== currentLabel || !staysInOneBand) {
+      return `${currentLead}, but the NWS has it reaching ${peakLabel} by ${formatOutlookDay(peak.date, false)}—plan around that.`;
+    }
+
+    return `${currentLead}. The NWS stage outlook is available—check it again before launch.`;
+  }
+
+  const rainDays = outlook.days
+    .map((day) => day.weather)
+    .filter((day): day is OutlookWeatherDay => day != null && day.precipitation >= SIGNIFICANT_RAIN_CHANCE);
+  if (rainDays.length > 0) {
+    const names = rainDays.map((day) => day.dayOfWeek).join(' and ');
+    return `${currentLead}. Rain ${names} could move the river—check again before launch.`;
+  }
+
+  return `${currentLead}. The weather outlook is quiet, but check the river again before launch.`;
+}
+
 /** Build the complete presentational state once so every consumer agrees. */
 export function buildRiverOutlookState({
   weatherDays,
