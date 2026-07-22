@@ -79,7 +79,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
 
     const conditionLabels: Record<string, string> = {
-      flowing: 'Flowing',
+      flowing: 'Ideal',
       good: 'Good - Floatable',
       low: 'Very Low',
       high: 'High Water',

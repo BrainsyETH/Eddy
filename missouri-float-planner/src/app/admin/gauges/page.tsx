@@ -82,7 +82,7 @@ const THRESHOLD_LABELS = [
   { key: 'tooLow', label: 'Too Low', color: 'bg-neutral-400' },
   { key: 'low', label: 'Low', color: 'bg-yellow-500' },
   { key: 'good', label: 'Good', color: 'bg-lime-500' },
-  { key: 'flowing', label: 'Flowing', color: 'bg-emerald-600' },
+  { key: 'flowing', label: 'Ideal', color: 'bg-emerald-600' },
   { key: 'high', label: 'High', color: 'bg-orange-500' },
   { key: 'flood', label: 'Flood', color: 'bg-red-600' },
 ];

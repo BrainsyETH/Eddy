@@ -209,7 +209,7 @@ export function getConditionShortLabel(code: ConditionCode): string {
     case 'high':
       return 'High';
     case 'flowing':
-      return 'Flowing';
+      return 'Ideal';
     case 'good':
       return 'Good';
     case 'low':

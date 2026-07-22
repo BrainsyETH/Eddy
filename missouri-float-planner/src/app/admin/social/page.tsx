@@ -164,7 +164,7 @@ const FALLBACK_RIVERS = [
 ];
 
 const ALL_CONDITIONS = [
-  { code: 'flowing', label: 'Flowing', color: 'bg-emerald-500' },
+  { code: 'flowing', label: 'Ideal', color: 'bg-emerald-500' },
   { code: 'good', label: 'Good', color: 'bg-lime-500' },
   { code: 'low', label: 'Low', color: 'bg-yellow-500' },
   { code: 'too_low', label: 'Too Low', color: 'bg-gray-500' },

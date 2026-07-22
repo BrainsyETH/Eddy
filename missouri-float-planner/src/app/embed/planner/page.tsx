@@ -19,7 +19,7 @@ const EDDY_CANOE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy
 
 // Condition helper labels (#17)
 const CONDITION_LABELS: Record<string, string> = {
-  flowing: 'Flowing',
+  flowing: 'Ideal',
   good: 'Good',
   low: 'Low',
   too_low: 'Too Low',
