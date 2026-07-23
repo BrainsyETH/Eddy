@@ -18,6 +18,9 @@ import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { buildGaugeTrajectoryForSite, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { parseEddyResponse, extractUsage, type UsageStats } from '@/lib/eddy/generate-update';
 import { toNum } from '@/lib/utils/num';
+import { getCoordinates } from '@/lib/api-utils';
+import { fetchForecast, getWeatherPointForRiver, type ForecastData } from '@/lib/weather/openweather';
+import type { RiverContext } from '@/lib/rivers/context';
 
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001';
 const STALE_READING_MS = 2 * 60 * 60 * 1000;
@@ -28,6 +31,7 @@ export interface SecondaryGaugeTarget {
   gaugeName: string;
   riverSlug: string;
   riverName: string;
+  coordinates: { lat: number; lon: number } | null;
   /** Optional river-mile position for spatial context in the prompt. */
   distanceFromSectionMiles: number | null;
   thresholds: ConditionThresholds;
@@ -50,6 +54,7 @@ export interface GeneratedGaugeUpdate {
   dischargeCfs: number | null;
   quoteText: string;
   summaryText: string | null;
+  eddyRead: string | null;
   sourcesUsed: string[];
   modelUsed: string;
   /** Token usage for this generation (null if the response had none). */
@@ -75,7 +80,7 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
       level_too_low, level_low, level_optimal_min, level_optimal_max,
       level_high, level_dangerous, threshold_unit,
       rivers!inner (id, slug, name, active),
-      gauge_stations!inner (id, name, usgs_site_id, active)
+      gauge_stations!inner (id, name, usgs_site_id, location, active)
     `)
     .eq('rivers.active', true)
     .eq('gauge_stations.active', true);
@@ -96,7 +101,7 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
     level_dangerous: number | null;
     threshold_unit: 'ft' | 'cfs' | null;
     rivers: { id: string; slug: string; name: string } | { id: string; slug: string; name: string }[];
-    gauge_stations: { id: string; name: string; usgs_site_id: string } | { id: string; name: string; usgs_site_id: string }[];
+    gauge_stations: { id: string; name: string; usgs_site_id: string; location: unknown } | { id: string; name: string; usgs_site_id: string; location: unknown }[];
   };
 
   const rows = data as unknown as Row[];
@@ -202,6 +207,10 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
       gaugeName: station.name,
       riverSlug: river.slug,
       riverName: river.name,
+      coordinates: (() => {
+        const point = getCoordinates(station.location);
+        return point ? { lat: point.lat, lon: point.lng } : null;
+      })(),
       distanceFromSectionMiles: toNum(row.distance_from_section_miles),
       thresholds,
       primary,
@@ -260,9 +269,26 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
     console.warn(`[GaugeUpdates] Trajectory failed for ${target.usgsSiteId}:`, e);
   }
 
-  // 4. Build prompt + call Haiku (dates in the river's local timezone).
+  // 4. Add local weather and hydrology context, then call Haiku. This uses
+  // the selected gauge point when available and the river weather point as a
+  // fallback. Next's fetch cache prevents duplicate upstream weather calls.
   const riverCtx = await getRiverContext(target.riverSlug);
-  const prompt = buildGaugePrompt(target, gaugeHeightFt, dischargeCfs, conditionCode, readingTimestamp, trajectory, riverCtx?.timezone);
+  let forecast: ForecastData | null = null;
+  const apiKey = process.env.OPENWEATHER_API_KEY;
+  if (apiKey) {
+    try {
+      const fallbackPoint = target.coordinates ? null : await getWeatherPointForRiver(target.riverSlug);
+      const lat = target.coordinates?.lat ?? fallbackPoint?.lat;
+      const lon = target.coordinates?.lon ?? fallbackPoint?.lon;
+      if (lat != null && lon != null) {
+        forecast = await fetchForecast(lat, lon, apiKey);
+        sourcesUsed.push('OpenWeather forecast');
+      }
+    } catch (e) {
+      console.warn(`[GaugeUpdates] Forecast failed for ${target.usgsSiteId}:`, e);
+    }
+  }
+  const prompt = buildGaugePrompt(target, gaugeHeightFt, dischargeCfs, conditionCode, readingTimestamp, trajectory, forecast, riverCtx);
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) {
@@ -275,7 +301,7 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
   try {
     const message = await client.messages.create({
       model: HAIKU_MODEL,
-      max_tokens: 500,
+      max_tokens: 600,
       messages: [{ role: 'user', content: prompt }],
       system: GAUGE_SYSTEM_PROMPT,
     });
@@ -287,8 +313,8 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
       return null;
     }
 
-    const { summaryText, quoteText } = parseEddyResponse(rawText);
-    const cleanMarkers = (t: string) => t.replace(/\[(?:FULL|SUMMARY)\]/gi, '').trim();
+    const { summaryText, eddyRead, quoteText } = parseEddyResponse(rawText);
+    const cleanMarkers = (t: string) => t.replace(/\[(?:FULL|SUMMARY|EDDY_READ)\]/gi, '').trim();
 
     return {
       gaugeStationId: target.gaugeStationId,
@@ -299,6 +325,7 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
       dischargeCfs,
       quoteText: cleanMarkers(quoteText),
       summaryText: summaryText ? cleanMarkers(summaryText) : null,
+      eddyRead: eddyRead ? cleanMarkers(eddyRead) : null,
       sourcesUsed,
       modelUsed: HAIKU_MODEL,
       usage: extractUsage(HAIKU_MODEL, message.usage),
@@ -320,10 +347,13 @@ VOICE: Friendly, local-outfitter tone. Tight, no fluff. Use river terminology na
 SCOPE: You are commenting on ONE gauge, not the whole river. Focus on what this specific reading means for the segment of river around it. When a primary-gauge snapshot is provided, frame this gauge in comparison: "running slightly higher than the primary," "tracking with the main gauge," "lagging behind upstream," etc. The primary gauge is the canonical reading for the river; your job is to add segment-level color, not contradict it.
 
 OUTPUT FORMAT (strict):
-Your response MUST contain exactly two labeled blocks. Use the markers [SUMMARY] and [FULL] on their own lines, each followed by the text for that section. No other formatting, labels, or wrapping. Do NOT repeat the markers anywhere else.
+Your response MUST contain exactly three labeled blocks. Use the markers [SUMMARY], [EDDY_READ], and [FULL] on their own lines, each followed by the text for that section. No other formatting, labels, or wrapping. Do NOT repeat the markers anywhere else.
 
 [SUMMARY]
 A single sentence, under 120 characters. For chips and share cards.
+
+[EDDY_READ]
+One or two concise sentences, under 240 characters total. Explain the useful local meaning of this gauge's condition, trajectory, river behavior, and forecast. Add interpretation beyond the displayed values. Do not repeat exact readings, temperatures, or precipitation percentages. Never invent a future river level.
 
 [FULL]
 3-5 sentences. Pick the 2-3 most important points. Do not exceed 5 sentences.
@@ -336,7 +366,7 @@ RULES:
 - Do NOT recommend a different river as an alternative.
 - Do NOT use em dashes, emojis, hashtags, or exclamation marks.
 - Do NOT greet, sign off, or refer to yourself.
-- Output ONLY the [SUMMARY] and [FULL] blocks.`;
+- Output ONLY the [SUMMARY], [EDDY_READ], and [FULL] blocks.`;
 
 function buildGaugePrompt(
   target: SecondaryGaugeTarget,
@@ -345,11 +375,12 @@ function buildGaugePrompt(
   conditionCode: ConditionCode,
   readingTimestamp: string | null,
   trajectory: GaugeTrajectory | null,
-  timezone?: string | null,
+  forecast: ForecastData | null,
+  riverCtx: RiverContext | null,
 ): string {
   const lines: string[] = [];
 
-  const { dayOfWeek, dateStr } = getLocalDateStrings(timezone ?? DEFAULT_TIMEZONE);
+  const { dayOfWeek, dateStr } = getLocalDateStrings(riverCtx?.timezone ?? DEFAULT_TIMEZONE);
   lines.push(`Date: ${dayOfWeek}, ${dateStr}`);
   lines.push('');
   lines.push(`Generate a secondary-gauge update for: ${target.gaugeName} on the ${target.riverName}.`);
@@ -398,6 +429,29 @@ function buildGaugePrompt(
     }
     if (trajectory.narrative) lines.push(`Summary: ${trajectory.narrative}`);
     if (trajectory.percentileContext) lines.push(`Context: ${trajectory.percentileContext}`);
+  }
+
+  if (forecast?.days?.length) {
+    lines.push('');
+    lines.push('[3-DAY WEATHER OUTLOOK]');
+    for (const day of forecast.days.slice(0, 3)) {
+      lines.push(`${day.dayOfWeek}: ${day.condition}, ${day.tempLow}-${day.tempHigh}°F, ${day.precipitation}% rain`);
+    }
+  }
+
+  const characteristics = riverCtx?.characteristics;
+  if (characteristics) {
+    const behavior = [
+      characteristics.riverNote,
+      characteristics.lowWaterMeaning,
+      characteristics.risingWaterHazards,
+      characteristics.rainLagNote,
+    ].filter((value): value is string => Boolean(value));
+    if (behavior.length > 0) {
+      lines.push('');
+      lines.push('[LOCAL RIVER BEHAVIOR — use for interpretation, do not recite]');
+      lines.push(...behavior);
+    }
   }
 
   return lines.join('\n');

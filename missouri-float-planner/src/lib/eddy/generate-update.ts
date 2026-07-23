@@ -95,6 +95,7 @@ export interface GeneratedUpdate {
   dischargeCfs: number | null;
   quoteText: string;
   summaryText: string | null;
+  eddyRead: string | null;
   sourcesUsed: string[];
   /** Compact weather snapshot persisted on the update (null if unavailable). */
   weather: WeatherSummary | null;
@@ -196,7 +197,7 @@ export async function generateEddyUpdate(
   try {
     const message = await client.messages.create({
       model: SONNET_MODEL,
-      max_tokens: 700,
+      max_tokens: 800,
       messages: [{ role: 'user', content: prompt }],
       // Static system prompt with a cache breakpoint: every river/section call
       // in a cron run shares this exact prefix, so only the first pays full
@@ -220,10 +221,10 @@ export async function generateEddyUpdate(
     }
 
     // Parse summary and full text from the model output
-    const { summaryText, quoteText } = parseEddyResponse(rawText);
+    const { summaryText, eddyRead, quoteText } = parseEddyResponse(rawText);
 
     // Strip any stray [FULL] / [SUMMARY] markers that leaked into parsed text
-    const cleanMarkers = (t: string) => t.replace(/\[(?:FULL|SUMMARY)\]/gi, '').trim();
+    const cleanMarkers = (t: string) => t.replace(/\[(?:FULL|SUMMARY|EDDY_READ)\]/gi, '').trim();
 
     return {
       riverSlug: target.riverSlug,
@@ -233,6 +234,7 @@ export async function generateEddyUpdate(
       dischargeCfs: gaugeContext?.dischargeCfs ?? null,
       quoteText: cleanMarkers(quoteText),
       summaryText: summaryText ? cleanMarkers(summaryText) : null,
+      eddyRead: eddyRead ? cleanMarkers(eddyRead) : null,
       sourcesUsed,
       weather: buildWeatherSummary(weather, forecast),
       usage: extractUsage(SONNET_MODEL, message.usage),
@@ -248,7 +250,7 @@ export async function generateEddyUpdate(
 // ---------------------------------------------------------------------------
 
 /**
- * Parses the raw model response into summary and full report text.
+ * Parses the raw model response into summary, compact Eddy read, and full report text.
  * Tries multiple strategies in order of specificity:
  *  1. [SUMMARY] / [FULL] block markers (preferred, unambiguous)
  *  2. Legacy --- delimiter (backward compat with cached/in-flight responses)
@@ -256,21 +258,32 @@ export async function generateEddyUpdate(
  */
 export function parseEddyResponse(rawText: string): {
   summaryText: string | null;
+  eddyRead: string | null;
   quoteText: string;
 } {
-  // Strategy 1: [SUMMARY] and [FULL] block markers
-  const summaryMatch = rawText.match(/\[SUMMARY\]\s*\n?([\s\S]*?)(?=\[FULL\])/i);
+  // Strategy 1: new [SUMMARY] / [EDDY_READ] / [FULL] block markers.
+  const structuredSummaryMatch = rawText.match(/\[SUMMARY\]\s*\n?([\s\S]*?)(?=\[EDDY_READ\])/i);
+  const eddyReadMatch = rawText.match(/\[EDDY_READ\]\s*\n?([\s\S]*?)(?=\[FULL\])/i);
   const fullMatch = rawText.match(/\[FULL\]\s*\n?([\s\S]*?)$/i);
 
-  if (summaryMatch && fullMatch) {
-    const summary = summaryMatch[1].trim();
+  if (structuredSummaryMatch && eddyReadMatch && fullMatch) {
+    const summary = structuredSummaryMatch[1].trim();
+    const eddyRead = eddyReadMatch[1].trim();
     const full = fullMatch[1].trim();
-    if (summary && full) {
-      return { summaryText: summary, quoteText: full };
+    if (summary && eddyRead && full) {
+      return { summaryText: summary, eddyRead, quoteText: full };
     }
   }
 
-  // Strategy 2: Legacy --- delimiter (single occurrence on its own line)
+  // Strategy 2: legacy [SUMMARY] / [FULL] blocks.
+  const summaryMatch = rawText.match(/\[SUMMARY\]\s*\n?([\s\S]*?)(?=\[FULL\])/i);
+  if (summaryMatch && fullMatch) {
+    const summary = summaryMatch[1].trim();
+    const full = fullMatch[1].trim();
+    if (summary && full) return { summaryText: summary, eddyRead: null, quoteText: full };
+  }
+
+  // Strategy 3: Legacy --- delimiter (single occurrence on its own line)
   // Only match --- that appears as a line separator, not inside text
   const legacyMatch = rawText.match(/^([\s\S]+?)\n\s*---\s*\n([\s\S]+)$/);
   if (legacyMatch) {
@@ -278,11 +291,11 @@ export function parseEddyResponse(rawText: string): {
     const full = legacyMatch[2].trim();
     if (summary && full) {
       console.warn('[EddyGen] Parsed using legacy --- delimiter; model may not be following new format');
-      return { summaryText: summary, quoteText: full };
+      return { summaryText: summary, eddyRead: null, quoteText: full };
     }
   }
 
-  // Strategy 3: Fallback — extract first sentence as summary
+  // Strategy 4: Fallback — extract first sentence as summary
   // This ensures we always populate both fields even if the model ignores the format
   const firstSentenceEnd = rawText.match(/[.!?](?:\s|$)/);
   if (firstSentenceEnd && firstSentenceEnd.index !== undefined) {
@@ -292,13 +305,13 @@ export function parseEddyResponse(rawText: string): {
     // Only split if the remainder is meaningfully longer (not just a fragment)
     if (remainder.length > 40 && candidate.length <= 140) {
       console.warn('[EddyGen] Model did not use expected format; falling back to first-sentence extraction');
-      return { summaryText: candidate, quoteText: rawText };
+      return { summaryText: candidate, eddyRead: null, quoteText: rawText };
     }
   }
 
   // Last resort: no summary, entire text as quote
   console.warn('[EddyGen] Could not extract summary from model output; storing as quote_text only');
-  return { summaryText: null, quoteText: rawText };
+  return { summaryText: null, eddyRead: null, quoteText: rawText };
 }
 
 // ---------------------------------------------------------------------------
@@ -353,11 +366,14 @@ const EDDY_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a float trip pl
 VOICE: Friendly, knowledgeable, concise. Like a local outfitter who checks gauges every morning. Not overly casual, not corporate. Use river terminology naturally: put-in, take-out, gauge, riffle, gravel bar.
 
 OUTPUT FORMAT (strict):
-Your response MUST contain exactly two labeled blocks. Use the markers [SUMMARY] and [FULL] on their own lines, each followed by the text for that section. No other formatting, labels, or wrapping.
-IMPORTANT: [SUMMARY] and [FULL] are one-time section headers, not tags. Use each exactly once at the start of its section. Do NOT repeat them, use them as closing markers, or include the literal text "[FULL]" or "[SUMMARY]" anywhere in your prose.
+Your response MUST contain exactly three labeled blocks. Use the markers [SUMMARY], [EDDY_READ], and [FULL] on their own lines, each followed by the text for that section. No other formatting, labels, or wrapping.
+IMPORTANT: The markers are one-time section headers, not tags. Use each exactly once at the start of its section. Do NOT repeat them, use them as closing markers, or include the literal marker text anywhere in your prose.
 
 [SUMMARY]
 A single sentence, under 120 characters. This is for share cards and compact views.
+
+[EDDY_READ]
+One or two concise sentences, under 240 characters total. Synthesize the river's behavior, measured trend, forecast implications, and useful local knowledge into an experienced outfitter's read. Add interpretation that is not obvious from the displayed numbers. Do not repeat exact gauge values, temperatures, or precipitation percentages. Do not claim a future river level unless an official river forecast is provided.
 
 [FULL]
 4-6 sentences with details, trends, and context. Do not exceed 6 sentences. Pick the 2-3 most important points, not everything.
@@ -366,6 +382,9 @@ Example response:
 
 [SUMMARY]
 Ideal at 2.5 ft with a steady gauge, making today a strong float window.
+
+[EDDY_READ]
+Spring inputs make this reach more predictable than most after a dry stretch, and the steady trend supports a straightforward float today.
 
 [FULL]
 The Akers gauge reads 2.5 ft, in the optimal range of 2.0 to 3.0 ft. It has held steady over the past 24 hours, which makes today's conditions more predictable. If the dry forecast holds, the river has no obvious weather-driven change signal through Friday, but exact future readings are uncertain. Recheck the gauge before launch.
@@ -436,7 +455,7 @@ STYLE:
 - Do NOT use emojis, hashtags, or exclamation marks.
 - Do NOT include a greeting or sign-off.
 - Do NOT say "I" or refer to yourself.
-- Your entire output must be ONLY the [SUMMARY] and [FULL] blocks. Nothing else.`;
+- Your entire output must be ONLY the [SUMMARY], [EDDY_READ], and [FULL] blocks. Nothing else.`;
 
 /**
  * Per-river condition semantics (region + how "low"/"rising" water should be

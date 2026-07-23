@@ -608,6 +608,7 @@ export type Database = {
           cache_read_tokens: number | null
           condition_code: string
           discharge_cfs: number | null
+          eddy_read: string | null
           expires_at: string
           gauge_height_ft: number | null
           generated_at: string
@@ -629,6 +630,7 @@ export type Database = {
           cache_read_tokens?: number | null
           condition_code: string
           discharge_cfs?: number | null
+          eddy_read?: string | null
           expires_at: string
           gauge_height_ft?: number | null
           generated_at?: string
@@ -650,6 +652,7 @@ export type Database = {
           cache_read_tokens?: number | null
           condition_code?: string
           discharge_cfs?: number | null
+          eddy_read?: string | null
           expires_at?: string
           gauge_height_ft?: number | null
           generated_at?: string
@@ -1190,6 +1193,7 @@ export type Database = {
           cache_read_tokens: number | null
           condition_code: string
           discharge_cfs: number | null
+          eddy_read: string | null
           expires_at: string
           gauge_height_ft: number | null
           gauge_station_id: string
@@ -1209,6 +1213,7 @@ export type Database = {
           cache_read_tokens?: number | null
           condition_code: string
           discharge_cfs?: number | null
+          eddy_read?: string | null
           expires_at: string
           gauge_height_ft?: number | null
           gauge_station_id: string
@@ -1228,6 +1233,7 @@ export type Database = {
           cache_read_tokens?: number | null
           condition_code?: string
           discharge_cfs?: number | null
+          eddy_read?: string | null
           expires_at?: string
           gauge_height_ft?: number | null
           gauge_station_id?: string

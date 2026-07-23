@@ -4,16 +4,16 @@ import {
   Cloud,
   CloudFog,
   CloudLightning,
+  CloudOff,
   CloudRain,
   CloudSun,
-  Droplet,
   Snowflake,
   Sun,
   Waves,
   type LucideIcon,
 } from 'lucide-react';
 import ConditionBadge from '@/components/ui/ConditionBadge';
-import { formatOutlookDay, type RiverOutlookState } from '@/lib/river-outlook';
+import { formatOutlookDay, getRainPresentation, SIGNIFICANT_RAIN_CHANCE, type RiverOutlookState } from '@/lib/river-outlook';
 
 interface WillItHoldProps {
   outlook: RiverOutlookState;
@@ -39,6 +39,12 @@ export default function WillItHold({
   showSummary = true,
   className = '',
 }: WillItHoldProps) {
+  const rainWatchDays = outlook.days
+    .map(({ date, weather }, index) => weather && weather.precipitation >= SIGNIFICANT_RAIN_CHANCE
+      ? { label: index === 0 ? 'Today' : (weather.dayOfWeek || formatOutlookDay(date, false)), precipitation: weather.precipitation }
+      : null)
+    .filter((day): day is { label: string; precipitation: number } => day != null);
+
   return (
     <section
       className={`flex h-full flex-col overflow-hidden bg-white ${
@@ -61,6 +67,16 @@ export default function WillItHold({
         </span>
       </div>
 
+      {rainWatchDays.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b-2 border-accent-200 bg-accent-50 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-accent-800 sm:px-5">
+          <CloudRain className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+          <span>Rain watch</span>
+          {rainWatchDays.map((day) => (
+            <span key={day.label} className="font-mono">· {day.label} {day.precipitation}%</span>
+          ))}
+        </div>
+      )}
+
       <div className="grid flex-1 grid-cols-3 divide-x-2 divide-primary-100">
         {outlook.days.map(({ date, weather, river }, index) => (
           <div
@@ -73,6 +89,7 @@ export default function WillItHold({
             </span>
             {weather ? (() => {
               const WeatherGlyph = weatherGlyph(weather.conditionIcon);
+              const rain = getRainPresentation(weather.precipitation);
               return (
               <>
                 <WeatherGlyph
@@ -83,8 +100,17 @@ export default function WillItHold({
                 <span className="text-xs font-semibold tabular-nums text-neutral-900">
                   {weather.tempHigh}° <span className="font-normal text-neutral-400">{weather.tempLow}°</span>
                 </span>
-                <span className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] text-primary-600">
-                  <Droplet className="h-2.5 w-2.5" strokeWidth={2} aria-hidden="true" /> {weather.precipitation}%
+                <span className={`mt-2 inline-flex w-full items-center justify-center gap-1 rounded-sm border-2 px-1 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                  rain.kind === 'significant'
+                    ? 'border-accent-500 bg-accent-50 text-accent-800'
+                    : rain.kind === 'possible'
+                      ? 'border-primary-200 bg-primary-50 text-primary-800'
+                      : 'border-primary-100 bg-white text-primary-700'
+                }`}>
+                  {rain.kind === 'none'
+                    ? <CloudOff className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+                    : <CloudRain className="h-3 w-3" strokeWidth={2} aria-hidden="true" />}
+                  {rain.label}
                 </span>
               </>
               );
@@ -95,7 +121,7 @@ export default function WillItHold({
             )}
 
             {outlook.hasOfficialForecast && (
-              <div className="mt-auto pt-2">
+              <div className="mt-2 w-full border-t-2 border-primary-100 pt-2">
                 {river.valueFt != null ? (
                   <>
                     <div className="font-mono text-xs font-bold tabular-nums text-neutral-900">{river.valueFt.toFixed(2)} ft</div>

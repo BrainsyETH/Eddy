@@ -45,6 +45,7 @@ export async function regenerateGaugeUpdate(target: SecondaryGaugeTarget): Promi
     discharge_cfs: update.dischargeCfs,
     quote_text: update.quoteText,
     summary_text: update.summaryText,
+    eddy_read: update.eddyRead,
     sources_used: update.sourcesUsed,
     ...usageColumns(update.usage),
     generated_at: new Date().toISOString(),

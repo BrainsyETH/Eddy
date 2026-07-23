@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { BadgeInfo, Check, ChevronDown, ChevronUp, Eye, Share2 } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Eye, Share2, Sparkles } from 'lucide-react';
 import { EDDY_IMAGES } from '@/constants';
 import type { EddyTakeSections } from '@/lib/eddy/take-sections';
 
@@ -13,6 +13,7 @@ interface EddyOutlookFooterProps {
   fullReportText: string;
   fullReportLoading: boolean;
   fullReportIsGenerated: boolean;
+  eddyReadIsGenerated: boolean;
   generatedAt?: string | null;
   gaugeName?: string | null;
   isOpen: boolean;
@@ -39,6 +40,7 @@ export default function EddyOutlookFooter({
   fullReportText,
   fullReportLoading,
   fullReportIsGenerated,
+  eddyReadIsGenerated,
   generatedAt,
   gaugeName,
   isOpen,
@@ -48,12 +50,38 @@ export default function EddyOutlookFooter({
 }: EddyOutlookFooterProps) {
   return (
     <section id="eddy-says" className="scroll-mt-24 border-t-2 border-primary-200 bg-white" aria-labelledby="eddy-outlook-heading">
-      <div className="border-b-2 border-primary-100 bg-white px-4 py-2 sm:px-5">
+      <div className="flex items-center justify-between gap-3 border-b-2 border-primary-100 bg-white px-4 py-2 sm:px-5">
         <h3 id="eddy-outlook-heading" className="font-sans text-xs font-bold uppercase tracking-wide text-primary-800">
           Eddy&apos;s take
         </h3>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={isOpen}
+          aria-controls="eddy-take-content"
+          className="inline-flex items-center gap-1 rounded-sm text-xs font-semibold text-neutral-600 transition-colors hover:text-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+        >
+          {isOpen ? <>Show take <ChevronUp className="h-3 w-3" /></> : <>Full report <ChevronDown className="h-3 w-3" /></>}
+        </button>
       </div>
-      <div className="grid grid-cols-1 divide-y-2 divide-primary-100 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] lg:divide-x-2 lg:divide-y-0">
+
+      {isOpen ? (
+        <div id="eddy-take-content" className="bg-white px-4 py-4 sm:px-5">
+          {fullReportLoading ? (
+            <p className="text-sm italic text-neutral-500">Loading Eddy&apos;s full report…</p>
+          ) : (
+            <p className="text-sm font-medium leading-relaxed text-neutral-700">{fullReportText}</p>
+          )}
+          {!fullReportLoading && (
+            <p className="mt-2 text-[10px] text-neutral-400">
+              {fullReportIsGenerated && generatedAt ? updatedLabel(generatedAt) : 'Generated report unavailable · Live guidance shown'}
+              {gaugeName ? ' · ' : null}
+              {gaugeName ? `via ${gaugeName}` : null}
+            </p>
+          )}
+        </div>
+      ) : (
+      <div id="eddy-take-content" className="grid grid-cols-1 divide-y-2 divide-primary-100 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] lg:divide-x-2 lg:divide-y-0">
         <article className="min-w-0 border-l-4 border-accent-500 bg-white px-4 py-4 sm:px-5 lg:border-l-0 lg:border-t-4">
           <div className="mb-2 flex items-center gap-2 text-accent-800">
             <Image src={EDDY_IMAGES.favicon} alt="" width={20} height={20} className="h-5 w-5 object-contain" />
@@ -64,10 +92,13 @@ export default function EddyOutlookFooter({
 
         <article className="min-w-0 px-4 py-4 sm:px-5">
           <div className="mb-2 flex items-center gap-2 text-primary-800">
-            <BadgeInfo className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-            <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Why</h4>
+            <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Eddy&apos;s read</h4>
+            <span className="text-[9px] font-semibold uppercase tracking-wide text-neutral-400">
+              {eddyReadIsGenerated ? 'AI' : 'Live guidance'}
+            </span>
           </div>
-          <p className="text-sm font-medium leading-relaxed text-neutral-700">{sections.why}</p>
+          <p className="text-sm font-medium leading-relaxed text-neutral-700">{sections.eddyRead}</p>
         </article>
 
         <article className="min-w-0 px-4 py-4 sm:px-5">
@@ -81,17 +112,9 @@ export default function EddyOutlookFooter({
           )}
         </article>
       </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-end gap-2 border-t-2 border-primary-100 bg-white px-4 py-3 sm:px-5">
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-expanded={isOpen}
-            aria-controls="eddy-full-report"
-            className="inline-flex items-center gap-1 rounded-sm text-xs font-semibold text-neutral-600 transition-colors hover:text-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-          >
-            {isOpen ? <>Show less <ChevronUp className="h-3 w-3" /></> : <>Full report <ChevronDown className="h-3 w-3" /></>}
-          </button>
           <Link
             href={`/plan?river=${riverSlug}`}
             className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary-900 bg-primary-800 px-3.5 py-1.5 text-xs font-semibold text-white shadow-[2px_2px_0_var(--color-primary-900)] transition-colors hover:bg-primary-700"
@@ -107,23 +130,6 @@ export default function EddyOutlookFooter({
             {shareStatus === 'copied' ? 'Copied!' : 'Share'}
           </button>
       </div>
-
-      {isOpen && (
-        <div id="eddy-full-report" className="border-t-2 border-primary-100 bg-white px-4 py-4 sm:px-5">
-          {fullReportLoading ? (
-            <p className="text-sm italic text-neutral-500">Loading Eddy&apos;s full report…</p>
-          ) : (
-            <p className="max-w-4xl text-sm font-medium leading-relaxed text-neutral-700">{fullReportText}</p>
-          )}
-          {!fullReportLoading && (
-            <p className="mt-2 text-[10px] text-neutral-400">
-              {fullReportIsGenerated && generatedAt ? updatedLabel(generatedAt) : 'Generated report unavailable · Live take shown above'}
-              {gaugeName ? ' · ' : null}
-              {gaugeName ? `via ${gaugeName}` : null}
-            </p>
-          )}
-        </div>
-      )}
     </section>
   );
 }

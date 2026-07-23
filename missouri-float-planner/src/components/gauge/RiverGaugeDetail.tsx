@@ -24,7 +24,7 @@ import ThresholdTable from '@/components/gauge/ThresholdTable';
 import GaugeTabBar from '@/components/gauge/GaugeTabBar';
 import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import { usePathname } from 'next/navigation';
-import { buildEddyTakeSections } from '@/lib/river-outlook';
+import { buildDeterministicEddyReport, buildEddyTakeSections } from '@/lib/river-outlook';
 import { createPortal } from 'react-dom';
 
 interface RiverGaugeDetailProps {
@@ -77,7 +77,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     riverSlug,
     siteId: activeSiteId,
     isPrimary: isOnPrimaryTab,
-    enabled: isEddyReportOpen,
+    enabled: Boolean(activeSiteId),
   });
 
   // Active gauge derived state
@@ -216,8 +216,9 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     () => buildEddyTakeSections({
       outlook,
       currentCondition: condition.code,
+      generatedEddyRead: selectedEddyReport.data?.eddyRead,
     }),
-    [condition.code, outlook],
+    [condition.code, outlook, selectedEddyReport.data?.eddyRead],
   );
 
   // Reading age
@@ -247,7 +248,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
   const activeEddyUpdate = selectedEddyReport.data;
   const eddyFullReportText = activeEddyUpdate?.quoteText
-    || 'Eddy’s generated full report is unavailable right now. The live take above still reflects the current gauge and outlook data.';
+    || buildDeterministicEddyReport(eddyTakeSections);
   const eddySourceGaugeName = activeGauge?.name ?? null;
 
   // Tab data for GaugeTabBar
@@ -376,6 +377,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             fullReportText={eddyFullReportText}
             fullReportLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
             fullReportIsGenerated={Boolean(activeEddyUpdate?.quoteText)}
+            eddyReadIsGenerated={Boolean(activeEddyUpdate?.eddyRead)}
             generatedAt={activeEddyUpdate?.generatedAt}
             gaugeName={eddySourceGaugeName}
             isOpen={isEddyReportOpen}

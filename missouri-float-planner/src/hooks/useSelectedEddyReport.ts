@@ -7,6 +7,7 @@ import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route'
 export interface SelectedEddyReport {
   quoteText: string;
   summaryText: string | null;
+  eddyRead: string | null;
   generatedAt: string;
 }
 
@@ -39,6 +40,7 @@ export function useSelectedEddyReport({
         return {
           quoteText: data.update.quoteText,
           summaryText: data.update.summaryText,
+          eddyRead: data.update.eddyRead,
           generatedAt: data.update.generatedAt,
         };
       }
@@ -50,15 +52,16 @@ export function useSelectedEddyReport({
       return {
         quoteText: data.update.quoteText,
         summaryText: data.update.summaryText,
+        eddyRead: data.update.eddyRead,
         generatedAt: data.update.generatedAt,
       };
     },
     enabled: enabled && Boolean(id),
-    // A real report is stable for the session. An unavailable response is not
-    // a report, so let an open panel retry after background regeneration.
-    staleTime: (query) => query.state.data ? Infinity : 60 * 1000,
+    // One stored-report request per river/gauge for the browser session. Model
+    // generation is scheduled server-side and never triggered by this query.
+    staleTime: Infinity,
     gcTime: Infinity,
-    refetchInterval: (query) => enabled && query.state.data == null ? 60 * 1000 : false,
+    refetchInterval: false,
     retry: 1,
     throwOnError: false,
   });
