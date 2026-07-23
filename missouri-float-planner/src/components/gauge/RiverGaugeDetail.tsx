@@ -27,6 +27,7 @@ import GaugeTabBar from '@/components/gauge/GaugeTabBar';
 import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import { usePathname } from 'next/navigation';
 import { buildEddyTakeSummary } from '@/lib/river-outlook';
+import { createPortal } from 'react-dom';
 
 interface RiverGaugeDetailProps {
   riverSlug: string;
@@ -39,6 +40,11 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   const [dateRange, setDateRange] = useState(14);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
+  const [gaugeNavTarget, setGaugeNavTarget] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setGaugeNavTarget(document.getElementById('gauge-selection-slot'));
+  }, []);
 
   // Dedicated, shareable Add-a-Photo page for this river. The hub is always at
   // the canonical /rivers/[state]/[slug], so append the segment to the path.
@@ -401,24 +407,22 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
   return (
     <div>
-        {/* Gauge picker first — switching gauges re-points the verdict, chart,
-            and thresholds below, so no separate per-gauge condition list. */}
-        {tabs.length > 1 && (
-          <div className="mb-3">
+        {/* The gauge picker lives in the sticky section bar so it remains close
+            to Live status without consuming another row in the report. */}
+        {tabs.length > 1 && gaugeNavTarget && createPortal(
             <GaugeTabBar
               gauges={tabs}
               activeSiteId={activeSiteId || ''}
               onTabChange={setActiveSiteId}
-            />
-          </div>
+            />,
+            gaugeNavTarget,
         )}
 
         {/* Selected-gauge meta — identity + freshness only. Condition and
             reading live on the reading card (which also carries the trend);
             Share sits in the hero, Add Photo in the photo gallery. */}
-        <div className="text-sm text-neutral-500 mb-5 sm:mb-6 min-w-0">
-          <span className="font-medium text-neutral-600">{activeGauge.name}</span>
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-neutral-500 mt-0.5">
+        <div className="mb-3 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-neutral-500">
+          {tabs.length <= 1 && <span className="font-medium text-neutral-600">{activeGauge.name}</span>}
             <a
               href={`https://waterdata.usgs.gov/monitoring-location/${activeGauge.usgsSiteId}/`}
               target="_blank"
@@ -437,14 +441,13 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                 </span>
               </>
             )}
-          </span>
         </div>
 
         {/* Now, next, and interpretation share one decision surface. Their data
             roles stay distinct; the outer shell removes card fragmentation. */}
         <div className="space-y-6">
         <section
-          className="overflow-hidden rounded-xl border border-t-4 border-neutral-200 bg-primary-50"
+          className="overflow-hidden rounded-xl border-2 border-t-4 border-primary-800 bg-white shadow-[4px_4px_0_var(--color-primary-200)]"
           style={{
             borderTopColor: condition.code === 'flowing'
               ? 'var(--cond-flowing-solid)'
@@ -464,7 +467,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               className="h-full"
               embedded
             />
-            <div className="border-t border-neutral-200 lg:border-l lg:border-t-0">
+            <div className="border-t-2 border-primary-200 lg:border-l-2 lg:border-t-0">
               <WillItHold
                 key={`outlook-${activeSiteId}`}
                 outlook={outlook}

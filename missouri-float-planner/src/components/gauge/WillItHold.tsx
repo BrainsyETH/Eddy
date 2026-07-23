@@ -41,12 +41,12 @@ export default function WillItHold({
 }: WillItHoldProps) {
   return (
     <section
-      className={`flex h-full flex-col overflow-hidden bg-primary-50 ${
+      className={`flex h-full flex-col overflow-hidden bg-white ${
         embedded ? 'border-0 rounded-none' : 'rounded-xl border border-neutral-200'
       } ${className}`}
       aria-labelledby="river-outlook-heading"
     >
-      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-primary-100 px-4 py-3 sm:px-5">
+      <div className="flex flex-wrap items-start justify-between gap-2 border-b-2 border-primary-100 px-4 py-3 sm:px-5">
         <div>
           <h3 id="river-outlook-heading" className="font-heading text-sm font-bold text-neutral-900">Will it hold?</h3>
           <p className="font-sans text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Next 72 hours</p>
@@ -61,7 +61,7 @@ export default function WillItHold({
         </span>
       </div>
 
-      <div className="grid flex-1 grid-cols-3 divide-x divide-primary-100">
+      <div className="grid flex-1 grid-cols-3 divide-x-2 divide-primary-100">
         {outlook.days.map(({ date, weather, river }, index) => (
           <div
             key={date}

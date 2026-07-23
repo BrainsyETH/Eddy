@@ -388,8 +388,8 @@ export default async function RiverGuidePage({ params }: Props) {
 
         <main className="max-w-5xl mx-auto px-4 pb-16">
           {/* ===== Live report ===== */}
-          <section id="status" className="scroll-mt-24 pt-6 md:pt-8">
-            <h2 className="text-xl md:text-2xl font-bold text-neutral-900 mb-4 md:mb-5" style={{ fontFamily: 'var(--font-display)' }}>
+          <section id="status" className="scroll-mt-24 pt-4 md:pt-5">
+            <h2 className="mb-3 text-xl font-bold text-neutral-900 md:text-2xl" style={{ fontFamily: 'var(--font-display)' }}>
               Live report
             </h2>
             <RiverGaugeDetail riverSlug={slug} />
@@ -424,37 +424,12 @@ export default async function RiverGuidePage({ params }: Props) {
               Access points
             </h2>
             <p className="text-sm text-neutral-600 mb-5">
-              Ordered upstream → downstream. Tap a stop to start a float plan from there.
+              Explore put-ins and take-outs on the map. Select a marker to start planning from that access.
             </p>
 
-            <div className="mb-5">
+            <div>
               <RiverHubMap riverSlug={slug} />
             </div>
-
-            {accessPoints && accessPoints.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {accessPoints.map((ap) => (
-                  <Link
-                    key={ap.id}
-                    href={`/plan?river=${slug}&putIn=${ap.id}`}
-                    className="flex items-center gap-4 px-4 py-3.5 bg-white border border-neutral-200 rounded-xl hover:bg-primary-50 hover:border-primary-300 transition-colors no-underline"
-                  >
-                    <div className="w-12 flex-shrink-0 text-sm font-mono font-medium text-primary-600">
-                      {ap.river_mile_downstream != null ? `mi ${parseFloat(String(ap.river_mile_downstream)).toFixed(0)}` : '—'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-neutral-900 text-sm truncate">{ap.name}</div>
-                    </div>
-                    <span className="flex-shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-primary-700 bg-primary-50 border border-primary-100 px-3 py-1.5 rounded-lg">
-                      Set put-in
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-neutral-500">Access points coming soon for this river.</p>
-            )}
           </section>
 
           {/* ===== River guide (blog) ===== */}

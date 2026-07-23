@@ -47,7 +47,7 @@ export default function EddyOutlookFooter({
   onShare,
 }: EddyOutlookFooterProps) {
   return (
-    <section id="eddy-says" className="scroll-mt-24 border-t border-primary-200 bg-primary-100" aria-labelledby="eddy-outlook-heading">
+    <section id="eddy-says" className="scroll-mt-24 border-t-2 border-primary-200 bg-white" aria-labelledby="eddy-outlook-heading">
       <div className="px-4 py-4 sm:px-5 lg:grid lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-5">
         <div className="flex items-center gap-2.5">
           <Image
@@ -79,20 +79,20 @@ export default function EddyOutlookFooter({
             onClick={onToggle}
             aria-expanded={isOpen}
             aria-controls="eddy-full-report"
-            className="inline-flex items-center gap-1 rounded-sm text-xs font-semibold text-neutral-600 transition-colors hover:text-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-primary-100"
+            className="inline-flex items-center gap-1 rounded-sm text-xs font-semibold text-neutral-600 transition-colors hover:text-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           >
             {isOpen ? <>Show less <ChevronUp className="h-3 w-3" /></> : <>Full report <ChevronDown className="h-3 w-3" /></>}
           </button>
           <Link
             href={`/plan?river=${riverSlug}`}
-            className="inline-flex items-center gap-1.5 rounded-md bg-[#163F4A] px-3.5 py-2 text-xs font-semibold text-white shadow-[2px_2px_0_#0F2D35] transition-colors hover:bg-[#1A4A57]"
+            className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary-900 bg-primary-800 px-3.5 py-1.5 text-xs font-semibold text-white shadow-[2px_2px_0_var(--color-primary-900)] transition-colors hover:bg-primary-700"
           >
             Plan a Trip
           </Link>
           <button
             type="button"
             onClick={onShare}
-            className="inline-flex items-center gap-1.5 rounded-md border border-primary-200 bg-primary-50 px-3.5 py-2 text-xs font-semibold text-neutral-800 shadow-[2px_2px_0_#A3D1DB] transition-colors hover:bg-white"
+            className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary-700 bg-white px-3.5 py-1.5 text-xs font-semibold text-primary-900 shadow-[2px_2px_0_var(--color-primary-200)] transition-colors hover:bg-primary-50"
           >
             {shareStatus === 'copied' ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
             {shareStatus === 'copied' ? 'Copied!' : 'Share'}
@@ -101,7 +101,7 @@ export default function EddyOutlookFooter({
       </div>
 
       {isOpen && (
-        <div id="eddy-full-report" className="border-t border-primary-200 bg-white/60 px-4 py-4 sm:px-5">
+        <div id="eddy-full-report" className="border-t-2 border-primary-100 bg-white px-4 py-4 sm:px-5">
           {fullReportLoading ? (
             <p className="text-sm italic text-neutral-500">Loading Eddy&apos;s full report…</p>
           ) : (
