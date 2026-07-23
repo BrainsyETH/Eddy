@@ -57,6 +57,8 @@ export default function CurrentReadingCard({
   // Condition strip — solid color background with short label
   const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown : null;
   const conditionLabel = conditionCode ? CONDITION_SHORT_LABELS[conditionCode] ?? CONDITION_SHORT_LABELS.unknown : null;
+  const conditionSurfaceColor = conditionCode === 'flowing' ? 'var(--cond-flowing-solid)' : conditionColor;
+  const conditionInkColor = conditionCode === 'flowing' ? 'var(--cond-flowing-ink)' : 'var(--color-neutral-950)';
 
   const trendDelta = trend
     ? `${trend.delta > 0 ? '+' : ''}${isCfsPrimary ? Math.round(trend.delta) : trend.delta.toFixed(2)} ${isCfsPrimary ? 'cfs' : 'ft'}`
@@ -76,10 +78,10 @@ export default function CurrentReadingCard({
           near-black ink (clears WCAG AA on every condition solid; white does not).
           Eddy's condition-matched artwork fronts the label (same asset set as
           the Eddy Says card and the hero pill). */}
-      {conditionCode && conditionColor && conditionLabel && (
+      {conditionCode && conditionSurfaceColor && conditionLabel && (
         <div
           className="px-4 py-2 flex items-center justify-center gap-2"
-          style={{ backgroundColor: conditionColor }}
+          style={{ backgroundColor: conditionSurfaceColor }}
         >
           <Image
             src={getEddyImageForCondition(conditionCode)}
@@ -88,7 +90,7 @@ export default function CurrentReadingCard({
             height={28}
             className="h-7 w-7 object-contain"
           />
-          <span className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--color-neutral-950)' }}>
+          <span className="font-sans text-xs font-bold tracking-wide uppercase" style={{ color: conditionInkColor }}>
             {conditionLabel}
           </span>
         </div>
@@ -98,15 +100,15 @@ export default function CurrentReadingCard({
       <div className="grid grid-cols-2 divide-x divide-white/10" aria-hidden="true">
         {/* Stage (ft) */}
         <div className={`px-4 pt-4 pb-3 ${!isCfsPrimary ? '' : 'opacity-70'}`}>
-          <span className="text-[11px] font-semibold tracking-wider text-white/50 uppercase block mb-1">
+          <span className="mb-1 block font-sans text-[11px] font-semibold uppercase tracking-wider text-primary-100">
             Stage
           </span>
           {gaugeHeightFt !== null ? (
             <div className="flex items-baseline gap-1.5">
-              <span className={`${!isCfsPrimary ? 'text-3xl md:text-4xl' : 'text-2xl md:text-3xl'} font-bold text-white tabular-nums leading-none`}>
+              <span className={`${!isCfsPrimary ? 'text-3xl md:text-4xl' : 'text-2xl md:text-3xl'} font-mono font-bold text-white tabular-nums leading-none`}>
                 {formatFt(gaugeHeightFt)}
               </span>
-              <span className="text-sm text-white/50 font-medium">ft</span>
+              <span className="font-mono text-sm font-medium text-primary-100">ft</span>
             </div>
           ) : (
             <span className="text-xl text-white/30">—</span>
@@ -115,15 +117,15 @@ export default function CurrentReadingCard({
 
         {/* Flow (cfs) */}
         <div className={`px-4 pt-4 pb-3 ${isCfsPrimary ? '' : 'opacity-70'}`}>
-          <span className="text-[11px] font-semibold tracking-wider text-white/50 uppercase block mb-1">
+          <span className="mb-1 block font-sans text-[11px] font-semibold uppercase tracking-wider text-primary-100">
             Flow
           </span>
           {dischargeCfs !== null ? (
             <div className="flex items-baseline gap-1.5">
-              <span className={`${isCfsPrimary ? 'text-3xl md:text-4xl' : 'text-2xl md:text-3xl'} font-bold text-white tabular-nums leading-none`}>
+              <span className={`${isCfsPrimary ? 'text-3xl md:text-4xl' : 'text-2xl md:text-3xl'} font-mono font-bold text-white tabular-nums leading-none`}>
                 {formatCfs(dischargeCfs)}
               </span>
-              <span className="text-sm text-white/50 font-medium">cfs</span>
+              <span className="font-mono text-sm font-medium text-primary-100">cfs</span>
             </div>
           ) : (
             <span className="text-xl text-white/30">—</span>
@@ -134,10 +136,10 @@ export default function CurrentReadingCard({
       {/* Water temperature (when available) */}
       {waterTempF != null && (
         <div className="px-4 py-2.5 border-t border-white/10">
-          <span className="text-[11px] font-semibold tracking-wider text-white/50 uppercase">
+          <span className="font-sans text-[11px] font-semibold uppercase tracking-wider text-primary-100">
             Water Temp
           </span>
-          <span className="text-lg font-bold text-white tabular-nums ml-2">
+          <span className="ml-2 font-mono text-lg font-bold tabular-nums text-white">
             {waterTempF}°F
           </span>
         </div>
@@ -147,10 +149,10 @@ export default function CurrentReadingCard({
       {(trend || percentile) && (
         <div className="px-4 pb-4 pt-1 flex items-center justify-between gap-2">
           {trend ? (
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${
-              trend.direction === 'rising' ? 'bg-white/10 text-orange-300' :
-              trend.direction === 'falling' ? 'bg-white/10 text-blue-300' :
-              'bg-white/10 text-white/60'
+            <div className={`flex items-center gap-1.5 rounded-lg bg-primary-700 px-2.5 py-1 ${
+              trend.direction === 'rising' ? 'text-orange-200' :
+              trend.direction === 'falling' ? 'text-primary-100' :
+              'text-primary-100'
             }`}>
               {trend.direction === 'rising' ? (
                 <TrendingUp className="w-3.5 h-3.5" aria-hidden="true" />
@@ -160,13 +162,13 @@ export default function CurrentReadingCard({
                 <Minus className="w-3.5 h-3.5" aria-hidden="true" />
               )}
               <span className="text-sm font-semibold">{trend.label}</span>
-              {trendDelta && <span className="text-xs text-white/50 tabular-nums">{trendDelta}</span>}
+              {trendDelta && <span className="font-mono text-xs tabular-nums text-primary-100">{trendDelta}</span>}
             </div>
           ) : <span />}
           {percentile && (
-            <span className="text-[10px] text-white/50 text-right leading-tight" title={percentile.descriptor}>
+            <span className="text-right text-[10px] leading-tight text-primary-100" title={percentile.descriptor}>
               {percentile.label}
-              <span className="block text-white/30">last {percentile.windowDays}d</span>
+              <span className="block text-primary-200">last {percentile.windowDays}d</span>
             </span>
           )}
         </div>
@@ -175,7 +177,7 @@ export default function CurrentReadingCard({
       {/* Reading freshness — so staleness is obvious on the card itself */}
       {readingAgeHours != null && (
         <div className="px-4 pb-3 -mt-1">
-          <span className="text-[10px] text-white/40">Updated {formatAge(readingAgeHours)}</span>
+          <span className="text-[10px] text-primary-100">Updated {formatAge(readingAgeHours)}</span>
         </div>
       )}
     </div>

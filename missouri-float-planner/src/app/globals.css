@@ -61,6 +61,11 @@
   --color-support-100: #DCF4E2;
   --color-support-50: #EDFAF1;
 
+  /* Flowing condition — trail-green surface triplet */
+  --cond-flowing-solid: var(--color-support-500);
+  --cond-flowing-bg: var(--color-support-100);
+  --cond-flowing-ink: var(--color-support-900);
+
   /* Neutrals — Warm stone tones */
   --color-neutral-950: #1A1814;
   --color-neutral-900: #2D2A24;

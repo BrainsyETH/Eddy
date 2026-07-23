@@ -62,8 +62,7 @@ export default function EddyOutlookFooter({
           </h3>
         </div>
 
-        <div className="mt-2 flex min-w-0 items-start gap-2 lg:mt-0">
-          <span className="-mt-1 text-2xl font-bold leading-none text-accent-500" aria-hidden="true">&ldquo;</span>
+        <div className="mt-2 min-w-0 lg:mt-0">
           <div className="min-w-0">
             <p className="text-[15px] font-semibold leading-relaxed text-neutral-900 sm:text-base" aria-live="polite">
               {outlookSummary}
@@ -80,7 +79,7 @@ export default function EddyOutlookFooter({
             onClick={onToggle}
             aria-expanded={isOpen}
             aria-controls="eddy-full-report"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-500 transition-colors hover:text-neutral-700"
+            className="inline-flex items-center gap-1 rounded-sm text-xs font-semibold text-neutral-600 transition-colors hover:text-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-primary-100"
           >
             {isOpen ? <>Show less <ChevronUp className="h-3 w-3" /></> : <>Full report <ChevronDown className="h-3 w-3" /></>}
           </button>
@@ -106,7 +105,7 @@ export default function EddyOutlookFooter({
           {fullReportLoading ? (
             <p className="text-sm italic text-neutral-500">Loading Eddy&apos;s full report…</p>
           ) : (
-            <p className="text-sm font-medium leading-relaxed text-neutral-700">&ldquo;{fullReportText}&rdquo;</p>
+            <p className="text-sm font-medium leading-relaxed text-neutral-700">{fullReportText}</p>
           )}
           {(generatedAt || gaugeName) && !fullReportLoading && (
             <p className="mt-2 text-[10px] text-neutral-400">

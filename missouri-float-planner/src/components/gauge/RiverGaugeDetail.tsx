@@ -445,7 +445,11 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         <div className="space-y-6">
         <section
           className="overflow-hidden rounded-xl border border-t-4 border-neutral-200 bg-primary-50"
-          style={{ borderTopColor: CONDITION_COLORS[condition.code] ?? CONDITION_COLORS.unknown }}
+          style={{
+            borderTopColor: condition.code === 'flowing'
+              ? 'var(--cond-flowing-solid)'
+              : (CONDITION_COLORS[condition.code] ?? CONDITION_COLORS.unknown),
+          }}
           aria-label="Current reading and 72-hour river outlook"
         >
           <div className="grid grid-cols-1 items-stretch lg:grid-cols-[340px_minmax(0,1fr)]">

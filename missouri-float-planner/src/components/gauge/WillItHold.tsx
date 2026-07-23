@@ -1,9 +1,18 @@
 'use client';
 
-import Image from 'next/image';
-import { CloudRain, Droplets, Waves } from 'lucide-react';
+import {
+  Cloud,
+  CloudFog,
+  CloudLightning,
+  CloudRain,
+  CloudSun,
+  Droplet,
+  Snowflake,
+  Sun,
+  Waves,
+  type LucideIcon,
+} from 'lucide-react';
 import ConditionBadge from '@/components/ui/ConditionBadge';
-import { getWeatherIconUrl } from '@/hooks/useWeather';
 import { formatOutlookDay, type RiverOutlookState } from '@/lib/river-outlook';
 
 interface WillItHoldProps {
@@ -11,6 +20,17 @@ interface WillItHoldProps {
   embedded?: boolean;
   showSummary?: boolean;
   className?: string;
+}
+
+function weatherGlyph(iconCode: string): LucideIcon {
+  if (iconCode.startsWith('01')) return Sun;
+  if (iconCode.startsWith('02')) return CloudSun;
+  if (iconCode.startsWith('03') || iconCode.startsWith('04')) return Cloud;
+  if (iconCode.startsWith('09') || iconCode.startsWith('10')) return CloudRain;
+  if (iconCode.startsWith('11')) return CloudLightning;
+  if (iconCode.startsWith('13')) return Snowflake;
+  if (iconCode.startsWith('50')) return CloudFog;
+  return CloudSun;
 }
 
 export default function WillItHold({
@@ -28,8 +48,8 @@ export default function WillItHold({
     >
       <div className="flex flex-wrap items-start justify-between gap-2 border-b border-primary-100 px-4 py-3 sm:px-5">
         <div>
-          <h3 id="river-outlook-heading" className="text-sm font-bold text-neutral-900">Will it hold?</h3>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Next 72 hours</p>
+          <h3 id="river-outlook-heading" className="font-heading text-sm font-bold text-neutral-900">Will it hold?</h3>
+          <p className="font-sans text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Next 72 hours</p>
         </div>
         <span className={`inline-flex items-center gap-1 py-1 text-[10px] font-semibold ${
           outlook.sourceKind === 'official' ? 'text-primary-700' : 'text-neutral-600'
@@ -51,24 +71,24 @@ export default function WillItHold({
             <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
               {index === 0 ? 'Today' : (weather?.dayOfWeek ?? formatOutlookDay(date, false))}
             </span>
-            {weather ? (
+            {weather ? (() => {
+              const WeatherGlyph = weatherGlyph(weather.conditionIcon);
+              return (
               <>
-                <Image
-                  src={getWeatherIconUrl(weather.conditionIcon)}
-                  alt={weather.condition}
-                  width={36}
-                  height={36}
-                  className="h-9 w-9"
-                  unoptimized
+                <WeatherGlyph
+                  className="my-1 h-7 w-7 text-primary-700"
+                  strokeWidth={2}
+                  aria-hidden="true"
                 />
                 <span className="text-xs font-semibold tabular-nums text-neutral-900">
                   {weather.tempHigh}° <span className="font-normal text-neutral-400">{weather.tempLow}°</span>
                 </span>
-                <span className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] text-blue-600">
-                  <Droplets className="h-2.5 w-2.5" aria-hidden="true" /> {weather.precipitation}%
+                <span className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] text-primary-600">
+                  <Droplet className="h-2.5 w-2.5" strokeWidth={2} aria-hidden="true" /> {weather.precipitation}%
                 </span>
               </>
-            ) : outlook.isWeatherLoading ? (
+              );
+            })() : outlook.isWeatherLoading ? (
               <div className="my-2 h-12 w-12 animate-pulse rounded-lg bg-neutral-100" aria-hidden="true" />
             ) : (
               <span className="my-3 text-[10px] text-neutral-400">Weather unavailable</span>
@@ -78,7 +98,7 @@ export default function WillItHold({
               <div className="mt-auto pt-2">
                 {river.valueFt != null ? (
                   <>
-                    <div className="text-xs font-bold tabular-nums text-neutral-900">{river.valueFt.toFixed(2)} ft</div>
+                    <div className="font-mono text-xs font-bold tabular-nums text-neutral-900">{river.valueFt.toFixed(2)} ft</div>
                     {river.conditionCode && <ConditionBadge code={river.conditionCode} size="sm" />}
                   </>
                 ) : (
