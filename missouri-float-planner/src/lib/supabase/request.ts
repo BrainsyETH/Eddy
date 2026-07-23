@@ -19,6 +19,7 @@
 
 import { createClient as createSupabaseClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { apiError } from '@/lib/api/errors';
 
 export function createClientFromRequest(request: NextRequest): SupabaseClient {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -58,7 +59,7 @@ export interface AuthedRequest {
 export async function requireUser(request: NextRequest): Promise<AuthedRequest | NextResponse> {
   const authHeader = request.headers.get('authorization');
   if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return apiError(401, 'authentication_required', 'Authentication required');
   }
 
   const supabase = createClientFromRequest(request);
@@ -69,7 +70,7 @@ export async function requireUser(request: NextRequest): Promise<AuthedRequest |
   // never reaches a query.
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data.user) {
-    return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    return apiError(401, 'invalid_token', 'Invalid or expired token');
   }
 
   return { supabase, user: data.user };
@@ -86,10 +87,7 @@ export async function requirePermanentUser(request: NextRequest): Promise<Authed
   if (auth instanceof NextResponse) return auth;
 
   if (auth.user.is_anonymous) {
-    return NextResponse.json(
-      { error: 'Sign in required', code: 'permanent_account_required' },
-      { status: 403 }
-    );
+    return apiError(403, 'permanent_account_required', 'Sign in required');
   }
 
   return auth;

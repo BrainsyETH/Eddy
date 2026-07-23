@@ -18,6 +18,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/deliver-ios-push",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/sync-nps",
       "schedule": "0 8 * * 0"
     },

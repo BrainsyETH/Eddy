@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/supabase/request';
 import type { MeProfileResponse } from '@/types/api';
+import { apiError } from '@/lib/api/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
         .single();
       if (createError) {
         console.error('Error creating profile:', createError);
-        return NextResponse.json({ error: 'Could not load profile' }, { status: 500 });
+        return apiError(500, 'internal_error', 'Could not load profile');
       }
       profile = created;
     }
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching profile:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError(500, 'internal_error', 'Internal server error');
   }
 }
 
@@ -85,7 +86,7 @@ export async function PATCH(request: NextRequest) {
       | { displayName?: string | null; homeRegion?: string | null }
       | null;
     if (!body || (body.displayName === undefined && body.homeRegion === undefined)) {
-      return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+      return apiError(400, 'validation_failed', 'Nothing to update');
     }
 
     const updates: Record<string, string | null> = {};
@@ -107,7 +108,7 @@ export async function PATCH(request: NextRequest) {
 
     if (error) {
       console.error('Error updating profile:', error);
-      return NextResponse.json({ error: 'Could not update profile' }, { status: 500 });
+      return apiError(500, 'internal_error', 'Could not update profile');
     }
 
     return NextResponse.json({
@@ -120,6 +121,6 @@ export async function PATCH(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error updating profile:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError(500, 'internal_error', 'Internal server error');
   }
 }

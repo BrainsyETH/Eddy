@@ -8,6 +8,8 @@ import { getFlowProvider, type GaugeReading } from '@/lib/flow-providers';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { publishConditionChangeAlert, isElevatedCrossing, publishElevatedCrossings } from '@/lib/social/condition-alerts';
 import { regenerateEddyForRiver, type TriggerReason } from '@/lib/eddy/regenerate';
+import { classifyConditionEvent, hasSuspectQualifier } from '@/lib/push/policy';
+import { releaseCronLock, tryCronLock } from '@/lib/social/cron-lock';
 import { toNum } from '@/lib/utils/num';
 
 // Force dynamic rendering (cron endpoint)
@@ -16,7 +18,7 @@ export const dynamic = 'force-dynamic';
 // before the response so serverless doesn't kill them mid-publish; Meta Graph
 // calls add seconds each, so give the cron real headroom beyond the 10-15s
 // default (60s is within both Hobby and Pro limits).
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // Rate of change threshold (ft/hour) that triggers high-frequency polling
 const RAPID_CHANGE_THRESHOLD = 0.5;
@@ -62,6 +64,11 @@ async function runUpdate(request: NextRequest) {
   const isHighFrequencyPoll =
     request.headers.get('x-high-frequency') === 'true' ||
     new URL(request.url).searchParams.get('highFrequency') === '1';
+
+  const lockName = isHighFrequencyPoll ? 'update-gauges-high-frequency' : 'update-gauges';
+  if (!await tryCronLock(supabase, lockName, 600)) {
+    return NextResponse.json({ message: 'Gauge update already running', skipped: true });
+  }
 
   try {
     // Get gauge stations based on poll type
@@ -216,7 +223,7 @@ async function runUpdate(request: NextRequest) {
     // for all ~275 stations is what made the old loop unbounded.
     const { data: wiredData, error: wiredError } = await supabase
       .from('river_gauges')
-      .select('id, is_primary, gauge_station_id, last_condition_code, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, threshold_unit, rivers!inner(slug)');
+      .select('id, is_primary, gauge_station_id, last_condition_code, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, flood_stage_ft, threshold_unit, rivers!inner(slug)');
     if (wiredError) {
       console.error('[update-gauges] river_gauges prefetch failed:', wiredError.message);
     }
@@ -334,6 +341,15 @@ async function runUpdate(request: NextRequest) {
       // --- Condition change detection ---
       // river_gauges rows for this station come from the Stage-2 prefetch
       try {
+        const readingTime = reading.readingTimestamp ? new Date(reading.readingTimestamp).getTime() : 0;
+        const readingIsStale = !readingTime || Date.now() - readingTime > 2 * 60 * 60 * 1000;
+        if (readingIsStale || hasSuspectQualifier(reading.qualifiers || [])) {
+          console.warn(
+            `[update-gauges] Condition transition suppressed for ${reading.siteId}: ` +
+            (readingIsStale ? 'stale reading' : `suspect qualifier (${reading.qualifiers.join(',')})`)
+          );
+          continue;
+        }
         const riverGauges = wiredByStation.get(station.id);
 
         if (riverGauges && riverGauges.length > 0) {
@@ -360,24 +376,75 @@ async function runUpdate(request: NextRequest) {
               thresholdUnit: (rg.threshold_unit || 'ft') as 'ft' | 'cfs',
             };
 
+            // Paid notifications never fall back across units: a stage outage
+            // must not be interpreted as CFS (or vice versa).
+            const usesCfs = thresholds.thresholdUnit === 'cfs';
             const newCondition = computeCondition(
-              reading.gaugeHeightFt,
+              usesCfs ? null : reading.gaugeHeightFt,
               thresholds,
-              reading.dischargeCfs
+              usesCfs ? reading.dischargeCfs : null,
             );
+            let newCode = newCondition.code;
+            if (reading.gaugeHeightFt != null && rg.flood_stage_ft != null && reading.gaugeHeightFt >= rg.flood_stage_ft) {
+              newCode = 'dangerous';
+            }
 
             const oldCode = rg.last_condition_code || 'unknown';
-            if (newCondition.code !== oldCode && newCondition.code !== 'unknown') {
+            if (newCode !== oldCode && newCode !== 'unknown') {
+              // Elevated transitions require two consecutive readings. Query
+              // the observation immediately before this one; the current row
+              // was already persisted in Stage 1.
+              if (newCode === 'high' || newCode === 'dangerous') {
+                const { data: previousRows } = await supabase
+                  .from('gauge_readings')
+                  .select('gauge_height_ft, discharge_cfs')
+                  .eq('gauge_station_id', station.id)
+                  .lt('reading_timestamp', reading.readingTimestamp)
+                  .order('reading_timestamp', { ascending: false })
+                  .limit(1);
+                const previous = previousRows?.[0];
+                if (!previous) continue;
+                const previousCondition = computeCondition(
+                  usesCfs ? null : previous.gauge_height_ft,
+                  thresholds,
+                  usesCfs ? previous.discharge_cfs : null,
+                );
+                let previousCode = previousCondition.code;
+                if (previous.gauge_height_ft != null && rg.flood_stage_ft != null && previous.gauge_height_ft >= rg.flood_stage_ft) {
+                  previousCode = 'dangerous';
+                }
+                if (previousCode !== newCode) {
+                  console.log(`[update-gauges] Debouncing ${riverSlug} transition to ${newCode}`);
+                  continue;
+                }
+              }
+
+              const eventKind = classifyConditionEvent(oldCode, newCode);
+              const primaryValue = usesCfs ? reading.dischargeCfs : reading.gaugeHeightFt;
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const { data: eventId, error: transitionError } = await (supabase.rpc as any)(
+                'record_river_condition_transition',
+                {
+                  p_river_gauge_id: rg.id,
+                  p_expected_old_code: oldCode,
+                  p_new_code: newCode,
+                  p_kind: eventKind,
+                  p_reading_value: primaryValue,
+                  p_reading_unit: usesCfs ? 'cfs' : 'ft',
+                  p_reading_at: reading.readingTimestamp,
+                  p_metadata: { siteId: reading.siteId, qualifiers: reading.qualifiers || [] },
+                },
+              );
+              if (transitionError) {
+                console.error(`[update-gauges] Transition RPC failed for ${riverSlug}:`, transitionError.message);
+                continue;
+              }
+              if (!eventId) continue; // another cron instance won the CAS
+
               console.log(
-                `Condition change for ${riverSlug}: ${oldCode} → ${newCondition.code} ` +
+                `Condition change for ${riverSlug}: ${oldCode} → ${newCode} ` +
                 `(gauge ${reading.siteId}, ${reading.gaugeHeightFt?.toFixed(1)} ft)`
               );
-
-              // Update last_condition_code
-              await supabase
-                .from('river_gauges')
-                .update({ last_condition_code: newCondition.code })
-                .eq('id', rg.id);
 
               conditionChanges++;
 
@@ -387,10 +454,10 @@ async function runUpdate(request: NextRequest) {
               const transition: Transition = {
                 riverSlug,
                 oldCondition: oldCode,
-                newCondition: newCondition.code,
+                newCondition: newCode,
                 gaugeHeightFt: reading.gaugeHeightFt,
               };
-              if (isElevatedCrossing(oldCode, newCondition.code)) {
+              if (isElevatedCrossing(oldCode, newCode)) {
                 elevatedCrossings.push(transition);
               } else {
                 otherTransitions.push(transition);
@@ -487,6 +554,8 @@ async function runUpdate(request: NextRequest) {
       { error: 'Internal server error' },
       { status: 500 }
     );
+  } finally {
+    await releaseCronLock(supabase, lockName);
   }
 }
 

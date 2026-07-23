@@ -9,12 +9,16 @@ on:
   pull_request:
     paths:
       - 'missouri-float-planner/**'
+      - 'eddy-ios/**'
+      - 'packages/eddy-types/**'
       - '.github/workflows/**'
       - '.github/dependabot.yml'
   push:
     branches: [main]
     paths:
       - 'missouri-float-planner/**'
+      - 'eddy-ios/**'
+      - 'packages/eddy-types/**'
       - '.github/workflows/**'
       - '.github/dependabot.yml'
   workflow_dispatch:
@@ -23,7 +27,7 @@ permissions:
   contents: read
 
 jobs:
-  lint-and-typecheck:
+  quality:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -43,19 +47,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Reject high-severity runtime advisories
-        run: npm audit --omit=dev --audit-level=high
-
-      - name: Generate CycloneDX SBOM
-        run: npm sbom --package-lock-only --sbom-format cyclonedx > "$RUNNER_TEMP/eddy-sbom.cdx.json"
-
-      - name: Upload SBOM
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: eddy-sbom-${{ github.sha }}
-          path: ${{ runner.temp }}/eddy-sbom.cdx.json
-          retention-days: 14
-
       - name: Typecheck
         run: npx tsc --noEmit
 
@@ -64,3 +55,69 @@ jobs:
 
       - name: Test
         run: npm test
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: missouri-float-planner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: missouri-float-planner/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Reject high-severity runtime advisories
+        run: npm audit --omit=dev --audit-level=high
+      - name: Generate CycloneDX SBOM
+        run: npm sbom --package-lock-only --sbom-format cyclonedx > "$RUNNER_TEMP/eddy-sbom.cdx.json"
+      - name: Upload SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: eddy-sbom-${{ github.sha }}
+          path: ${{ runner.temp }}/eddy-sbom.cdx.json
+          retention-days: 14
+
+  migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: missouri-float-planner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+        with:
+          version: latest
+      - name: Start clean local database
+        run: supabase start
+      - name: Apply repository migration chain
+        run: bash scripts/verify-migrations.sh
+
+  ios-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: eddy-ios
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: eddy-ios/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck native app and shared contracts
+        run: npm run typecheck

@@ -5,9 +5,9 @@
 -- powers "% of normal" framing comes from the LEGACY USGS statistics service,
 -- which is slated for decommission in early 2027 with no confirmed modern
 -- equivalent (strategy doc, "External risk"). This table lets us snapshot the
--- statistics into our own DB before the service disappears; readers fall back
--- to it when the live service goes away. Ingestion script is a follow-up —
--- landing the schema now so the snapshot can run any time.
+-- statistics into our own DB before the service disappears; the ingestion
+-- script populates this table and the USGS reader falls back to it whenever
+-- the legacy endpoint is unavailable.
 
 create table if not exists public.usgs_daily_percentiles (
     site_no text not null,
