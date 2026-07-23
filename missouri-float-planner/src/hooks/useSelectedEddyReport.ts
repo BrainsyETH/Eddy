@@ -3,10 +3,12 @@
 import { useQuery } from '@tanstack/react-query';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route';
+import type { EddyTakeSections } from '@/lib/eddy/take-sections';
 
 export interface SelectedEddyReport {
   quoteText: string;
   summaryText: string | null;
+  takeSections: EddyTakeSections | null;
   generatedAt: string;
 }
 
@@ -39,6 +41,7 @@ export function useSelectedEddyReport({
         return {
           quoteText: data.update.quoteText,
           summaryText: data.update.summaryText,
+          takeSections: data.update.takeSections,
           generatedAt: data.update.generatedAt,
         };
       }
@@ -50,6 +53,7 @@ export function useSelectedEddyReport({
       return {
         quoteText: data.update.quoteText,
         summaryText: data.update.summaryText,
+        takeSections: data.update.takeSections,
         generatedAt: data.update.generatedAt,
       };
     },

@@ -621,6 +621,7 @@ export type Database = {
           section_slug: string | null
           sources_used: Json | null
           summary_text: string | null
+          take_sections: Json | null
           trigger_reason: string | null
           weather: Json | null
         }
@@ -642,6 +643,7 @@ export type Database = {
           section_slug?: string | null
           sources_used?: Json | null
           summary_text?: string | null
+          take_sections?: Json | null
           trigger_reason?: string | null
           weather?: Json | null
         }
@@ -663,6 +665,7 @@ export type Database = {
           section_slug?: string | null
           sources_used?: Json | null
           summary_text?: string | null
+          take_sections?: Json | null
           trigger_reason?: string | null
           weather?: Json | null
         }
@@ -1202,6 +1205,7 @@ export type Database = {
           river_slug: string | null
           sources_used: Json | null
           summary_text: string | null
+          take_sections: Json | null
           usgs_site_id: string
         }
         Insert: {
@@ -1221,6 +1225,7 @@ export type Database = {
           river_slug?: string | null
           sources_used?: Json | null
           summary_text?: string | null
+          take_sections?: Json | null
           usgs_site_id: string
         }
         Update: {
@@ -1240,6 +1245,7 @@ export type Database = {
           river_slug?: string | null
           sources_used?: Json | null
           summary_text?: string | null
+          take_sections?: Json | null
           usgs_site_id?: string
         }
         Relationships: [

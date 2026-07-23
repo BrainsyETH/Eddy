@@ -24,7 +24,7 @@ import ThresholdTable from '@/components/gauge/ThresholdTable';
 import GaugeTabBar from '@/components/gauge/GaugeTabBar';
 import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import { usePathname } from 'next/navigation';
-import { buildDeterministicEddyReport, buildEddyTakeParts } from '@/lib/river-outlook';
+import { buildEddyTakeSections } from '@/lib/river-outlook';
 import { createPortal } from 'react-dom';
 
 interface RiverGaugeDetailProps {
@@ -212,15 +212,12 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     };
   }, [activeGauge, activeThreshold]);
 
-  const eddyTakeParts = useMemo(
-    () => buildEddyTakeParts({
+  const eddyTakeSections = useMemo(
+    () => buildEddyTakeSections({
       outlook,
       currentCondition: condition.code,
-      gaugeHeightFt: activeGauge?.gaugeHeightFt ?? null,
-      dischargeCfs: activeGauge?.dischargeCfs ?? null,
-      thresholdUnit: activeThreshold?.thresholdUnit || 'ft',
     }),
-    [activeGauge, activeThreshold, condition.code, outlook],
+    [condition.code, outlook],
   );
 
   // Reading age
@@ -249,7 +246,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   };
 
   const activeEddyUpdate = selectedEddyReport.data;
-  const eddyFullReportText = activeEddyUpdate?.quoteText || buildDeterministicEddyReport(eddyTakeParts);
   const eddySourceGaugeName = activeGauge?.name ?? null;
 
   // Tab data for GaugeTabBar
@@ -373,11 +369,11 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
           <EddyOutlookFooter
             riverSlug={riverSlug}
-            parts={eddyTakeParts}
+            sections={eddyTakeSections}
+            generatedSections={activeEddyUpdate?.takeSections ?? null}
             isGuidance={outlook.isGuidance}
-            fullReportText={eddyFullReportText}
             fullReportLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
-            fullReportIsGenerated={Boolean(activeEddyUpdate)}
+            fullReportIsGenerated={Boolean(activeEddyUpdate?.takeSections)}
             generatedAt={activeEddyUpdate?.generatedAt}
             gaugeName={eddySourceGaugeName}
             isOpen={isEddyReportOpen}

@@ -125,6 +125,7 @@ async function runGeneration(request: NextRequest) {
       discharge_cfs: update.dischargeCfs,
       quote_text: update.quoteText,
       summary_text: update.summaryText,
+      take_sections: update.takeSections,
       sources_used: update.sourcesUsed,
       weather: update.weather,
       ...usageColumns(update.usage),

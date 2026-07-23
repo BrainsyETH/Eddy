@@ -1,6 +1,7 @@
 import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
 import type { GaugeTrend } from '@/lib/gauge-trend';
 import type { ConditionCode } from '@/types/api';
+import type { EddyTakeSections } from '@/lib/eddy/take-sections';
 
 export const OUTLOOK_TIME_ZONE = 'America/Chicago';
 export const SIGNIFICANT_RAIN_CHANCE = 70;
@@ -45,18 +46,9 @@ export interface RiverOutlookState {
   trend: GaugeTrend | null;
 }
 
-export interface EddyTakeParts {
-  river: string;
-  weather: string;
-  eddstimate: string;
-}
-
-export interface BuildEddyTakePartsInput {
+export interface BuildEddyTakeSectionsInput {
   outlook: RiverOutlookState;
   currentCondition: ConditionCode;
-  gaugeHeightFt: number | null;
-  dischargeCfs: number | null;
-  thresholdUnit: 'ft' | 'cfs';
 }
 
 export interface BuildRiverOutlookInput {
@@ -205,65 +197,92 @@ export function buildEddyTakeSummary(
   return `${currentLead}. The weather outlook is quiet, but check the river again before launch.`;
 }
 
-function formatGaugeReading(value: number, unit: 'ft' | 'cfs'): string {
-  return unit === 'cfs' ? `${Math.round(value).toLocaleString('en-US')} cfs` : `${value.toFixed(2)} ft`;
+function buildBottomLine(condition: ConditionCode): string {
+  switch (condition) {
+    case 'dangerous':
+      return 'Stay off the river today; this gauge is in the Dangerous range.';
+    case 'high':
+      return 'Treat today as a caution window; this gauge is in the High range.';
+    case 'too_low':
+      return 'Wait on this float today; this gauge is Too Low for a reliable trip.';
+    case 'low':
+      return 'Today is floatable, but expect shallow water and some dragging.';
+    case 'good':
+      return 'Today looks floatable with workable water at this gauge.';
+    case 'flowing':
+      return 'Today looks like a strong float window at this gauge.';
+    default:
+      return 'There is not enough current river data to make a reliable call.';
+  }
 }
 
-/** Build the three evidence-led snippets shown in the collapsed Eddy footer. */
-export function buildEddyTakeParts({
+function significantRainDays(outlook: RiverOutlookState): OutlookWeatherDay[] {
+  return outlook.days
+    .map((day) => day.weather)
+    .filter((day): day is OutlookWeatherDay => day != null && day.precipitation >= SIGNIFICANT_RAIN_CHANCE);
+}
+
+/** Build the live decision hierarchy shown in the compact and fallback report. */
+export function buildEddyTakeSections({
   outlook,
   currentCondition,
-  gaugeHeightFt,
-  dischargeCfs,
-  thresholdUnit,
-}: BuildEddyTakePartsInput): EddyTakeParts {
+}: BuildEddyTakeSectionsInput): EddyTakeSections {
   const conditionLabel = currentCondition === 'unknown' ? null : getConditionShortLabel(currentCondition);
-  const reading = thresholdUnit === 'cfs' ? dischargeCfs : gaugeHeightFt;
-  const readingText = reading == null ? null : formatGaugeReading(reading, thresholdUnit);
-  const trendText = outlook.trend
-    ? `${outlook.trend.label} over the last ${outlook.trend.windowHours} hours.`
-    : 'Recent trend is unavailable.';
-  const riverLead = conditionLabel && readingText
-    ? `${conditionLabel} at ${readingText}.`
-    : conditionLabel
-      ? `${conditionLabel} conditions now.`
-      : readingText
-        ? `The gauge reads ${readingText}.`
-        : 'The current gauge reading is unavailable.';
+  const forecastDays = outlook.days.filter((day) => day.river.conditionCode != null);
+  const rainDays = significantRainDays(outlook);
 
-  let weather: string;
-  const weatherDays = outlook.days
-    .map((day) => day.weather)
-    .filter((day): day is OutlookWeatherDay => day != null);
-  if (outlook.isWeatherLoading && weatherDays.length === 0) {
-    weather = 'Checking the local weather outlook.';
-  } else if (weatherDays.length === 0) {
-    weather = 'The local weather outlook is unavailable. Recheck before launch.';
+  let why: string;
+  if (!conditionLabel) {
+    why = 'The current gauge condition is unavailable, so there is no verified river basis for a recommendation.';
+  } else if (outlook.sourceKind === 'checking') {
+    why = `${conditionLabel} is the verified condition now; the 72-hour river outlook is still loading.`;
+  } else if (outlook.hasOfficialForecast && forecastDays.length > 0) {
+    const labels = forecastDays.map((day) => getConditionShortLabel(day.river.conditionCode!));
+    const lastDay = forecastDays.at(-1)!;
+    if (labels.every((label) => label === labels[0]) && labels[0] === conditionLabel) {
+      why = `The official NWS outlook keeps the river in the ${conditionLabel} band through ${formatOutlookDay(lastDay.date, false)}.`;
+    } else {
+      const peak = forecastDays.reduce((highest, day) =>
+        day.river.valueFt! > highest.river.valueFt! ? day : highest,
+      );
+      why = `The official NWS outlook reaches ${getConditionShortLabel(peak.river.conditionCode!)} by ${formatOutlookDay(peak.date, false)}.`;
+    }
+  } else if (outlook.hasOfficialForecast) {
+    why = 'An official NWS stage outlook is available, but local foot-based condition bands are unavailable.';
+  } else if (outlook.trend) {
+    why = `The measured gauge is ${outlook.trend.label.toLowerCase()} over the last ${outlook.trend.windowHours} hours; no official river forecast is available.`;
   } else {
-    const today = weatherDays[0];
-    const condition = today.condition && today.condition !== 'Unknown'
-      ? today.condition.toLowerCase()
-      : 'mixed conditions';
-    const rainiest = weatherDays.reduce((highest, day) =>
-      day.precipitation > highest.precipitation ? day : highest,
-    );
-    const rainText = rainiest.precipitation >= SIGNIFICANT_RAIN_CHANCE
-      ? ` Rain peaks at ${rainiest.precipitation}% ${rainiest.dayOfWeek}.`
-      : weatherDays.length === 3
-        ? ' No significant rain is forecast in the next three days.'
-        : ' No significant rain appears in the available forecast; recheck before launch.';
-    weather = `${today.tempHigh}°/${today.tempLow}° today with ${condition}.${rainText}`;
+    why = `${conditionLabel} is the verified condition now; a recent measured trend and official river forecast are unavailable.`;
+  }
+
+  let watchFor: string;
+  if (outlook.sourceKind === 'checking') {
+    watchFor = 'Wait for the 72-hour outlook, then recheck the gauge before launch.';
+  } else if (outlook.futureUnavailable) {
+    watchFor = 'Future river and weather guidance is unavailable; recheck the gauge before launch.';
+  } else {
+    const changedDay = forecastDays.find((day) => day.river.conditionCode !== currentCondition);
+    if (changedDay) {
+      watchFor = `Watch ${formatOutlookDay(changedDay.date, false)}, when the NWS outlook reaches ${getConditionShortLabel(changedDay.river.conditionCode!)}; recheck before launch.`;
+    } else if (rainDays.length > 0) {
+      const names = rainDays.map((day) => day.dayOfWeek).join(' and ');
+      watchFor = `Forecast rain ${names} is the main swing factor; recheck before launch and after the rain.`;
+    } else if (outlook.trend?.direction === 'rising') {
+      watchFor = `${outlook.trend.label} is the main change signal; recheck immediately before launch.`;
+    } else {
+      watchFor = 'No major change signal appears in the available outlook; still recheck the gauge before launch.';
+    }
   }
 
   return {
-    river: `${riverLead} ${trendText}`,
-    weather,
-    eddstimate: buildEddyTakeSummary(outlook, currentCondition),
+    bottomLine: buildBottomLine(currentCondition),
+    why,
+    watchFor,
   };
 }
 
-export function buildDeterministicEddyReport(parts: EddyTakeParts): string {
-  return `River: ${parts.river} Weather: ${parts.weather} Eddstimate: ${parts.eddstimate}`;
+export function buildDeterministicEddyReport(sections: EddyTakeSections): string {
+  return `Bottom line: ${sections.bottomLine} Why: ${sections.why} Watch for: ${sections.watchFor}`;
 }
 
 /** Build the complete presentational state once so every consumer agrees. */

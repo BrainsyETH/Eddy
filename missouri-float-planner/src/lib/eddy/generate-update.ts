@@ -15,6 +15,7 @@ import { RAIN_LAG, type RainLagInfo } from '@/lib/eddy/rain-lag';
 import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
 import { getRiverContext, DEFAULT_TIMEZONE, type RiverContext, type RiverType } from '@/lib/rivers/context';
 import { getLocalDateStrings } from '@/lib/social/local-time';
+import type { EddyTakeSections } from '@/lib/eddy/take-sections';
 
 
 export interface GaugeContext {
@@ -95,6 +96,7 @@ export interface GeneratedUpdate {
   dischargeCfs: number | null;
   quoteText: string;
   summaryText: string | null;
+  takeSections: EddyTakeSections | null;
   sourcesUsed: string[];
   /** Compact weather snapshot persisted on the update (null if unavailable). */
   weather: WeatherSummary | null;
@@ -196,7 +198,7 @@ export async function generateEddyUpdate(
   try {
     const message = await client.messages.create({
       model: SONNET_MODEL,
-      max_tokens: 700,
+      max_tokens: 900,
       messages: [{ role: 'user', content: prompt }],
       // Static system prompt with a cache breakpoint: every river/section call
       // in a cron run shares this exact prefix, so only the first pays full
@@ -220,10 +222,10 @@ export async function generateEddyUpdate(
     }
 
     // Parse summary and full text from the model output
-    const { summaryText, quoteText } = parseEddyResponse(rawText);
+    const { summaryText, quoteText, takeSections } = parseEddyResponse(rawText);
 
-    // Strip any stray [FULL] / [SUMMARY] markers that leaked into parsed text
-    const cleanMarkers = (t: string) => t.replace(/\[(?:FULL|SUMMARY)\]/gi, '').trim();
+    // Strip any response markers that leaked into parsed text.
+    const cleanMarkers = (t: string) => t.replace(/\[(?:FULL|SUMMARY|BOTTOM_LINE|WHY|WATCH_FOR)\]/gi, '').trim();
 
     return {
       riverSlug: target.riverSlug,
@@ -233,6 +235,11 @@ export async function generateEddyUpdate(
       dischargeCfs: gaugeContext?.dischargeCfs ?? null,
       quoteText: cleanMarkers(quoteText),
       summaryText: summaryText ? cleanMarkers(summaryText) : null,
+      takeSections: takeSections ? {
+        bottomLine: cleanMarkers(takeSections.bottomLine),
+        why: cleanMarkers(takeSections.why),
+        watchFor: cleanMarkers(takeSections.watchFor),
+      } : null,
       sourcesUsed,
       weather: buildWeatherSummary(weather, forecast),
       usage: extractUsage(SONNET_MODEL, message.usage),
@@ -244,7 +251,7 @@ export async function generateEddyUpdate(
 }
 
 // ---------------------------------------------------------------------------
-// Response parser — extracts summary + full text from Haiku output
+// Response parser — extracts legacy prose plus optional decision sections
 // ---------------------------------------------------------------------------
 
 /**
@@ -257,17 +264,27 @@ export async function generateEddyUpdate(
 export function parseEddyResponse(rawText: string): {
   summaryText: string | null;
   quoteText: string;
+  takeSections: EddyTakeSections | null;
 } {
-  // Strategy 1: [SUMMARY] and [FULL] block markers
-  const summaryMatch = rawText.match(/\[SUMMARY\]\s*\n?([\s\S]*?)(?=\[FULL\])/i);
-  const fullMatch = rawText.match(/\[FULL\]\s*\n?([\s\S]*?)$/i);
+  const markerPattern = '\\[(?:SUMMARY|BOTTOM_LINE|WHY|WATCH_FOR|FULL)\\]';
+  const block = (marker: string): string | null => {
+    const match = rawText.match(new RegExp(`\\[${marker}\\]\\s*\\n?([\\s\\S]*?)(?=${markerPattern}|$)`, 'i'));
+    return match?.[1]?.trim() || null;
+  };
 
-  if (summaryMatch && fullMatch) {
-    const summary = summaryMatch[1].trim();
-    const full = fullMatch[1].trim();
-    if (summary && full) {
-      return { summaryText: summary, quoteText: full };
-    }
+  // Strategy 1: labeled blocks. The three decision sections are optional so
+  // responses generated before this rollout remain valid.
+  const summary = block('SUMMARY');
+  const full = block('FULL');
+
+  if (summary && full) {
+    const bottomLine = block('BOTTOM_LINE');
+    const why = block('WHY');
+    const watchFor = block('WATCH_FOR');
+    const takeSections = bottomLine && why && watchFor
+      ? { bottomLine, why, watchFor }
+      : null;
+    return { summaryText: summary, quoteText: full, takeSections };
   }
 
   // Strategy 2: Legacy --- delimiter (single occurrence on its own line)
@@ -278,7 +295,7 @@ export function parseEddyResponse(rawText: string): {
     const full = legacyMatch[2].trim();
     if (summary && full) {
       console.warn('[EddyGen] Parsed using legacy --- delimiter; model may not be following new format');
-      return { summaryText: summary, quoteText: full };
+      return { summaryText: summary, quoteText: full, takeSections: null };
     }
   }
 
@@ -292,13 +309,13 @@ export function parseEddyResponse(rawText: string): {
     // Only split if the remainder is meaningfully longer (not just a fragment)
     if (remainder.length > 40 && candidate.length <= 140) {
       console.warn('[EddyGen] Model did not use expected format; falling back to first-sentence extraction');
-      return { summaryText: candidate, quoteText: rawText };
+      return { summaryText: candidate, quoteText: rawText, takeSections: null };
     }
   }
 
   // Last resort: no summary, entire text as quote
   console.warn('[EddyGen] Could not extract summary from model output; storing as quote_text only');
-  return { summaryText: null, quoteText: rawText };
+  return { summaryText: null, quoteText: rawText, takeSections: null };
 }
 
 // ---------------------------------------------------------------------------
@@ -353,11 +370,20 @@ const EDDY_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a float trip pl
 VOICE: Friendly, knowledgeable, concise. Like a local outfitter who checks gauges every morning. Not overly casual, not corporate. Use river terminology naturally: put-in, take-out, gauge, riffle, gravel bar.
 
 OUTPUT FORMAT (strict):
-Your response MUST contain exactly two labeled blocks. Use the markers [SUMMARY] and [FULL] on their own lines, each followed by the text for that section. No other formatting, labels, or wrapping.
-IMPORTANT: [SUMMARY] and [FULL] are one-time section headers, not tags. Use each exactly once at the start of its section. Do NOT repeat them, use them as closing markers, or include the literal text "[FULL]" or "[SUMMARY]" anywhere in your prose.
+Your response MUST contain exactly five labeled blocks. Use the markers [SUMMARY], [BOTTOM_LINE], [WHY], [WATCH_FOR], and [FULL] on their own lines, each followed by that section's text. No other formatting, labels, or wrapping.
+IMPORTANT: The markers are one-time section headers, not tags. Use each exactly once at the start of its section. Do NOT repeat them, use them as closing markers, or include marker text in your prose.
 
 [SUMMARY]
 A single sentence, under 120 characters. This is for share cards and compact views.
+
+[BOTTOM_LINE]
+One action-oriented sentence, under 140 characters, stating what today's condition means for a floater. This is interpretation, not a new condition label.
+
+[WHY]
+One or two concise sentences naming only the strongest evidence behind the bottom line. Do not repeat every reading or forecast detail.
+
+[WATCH_FOR]
+One concise sentence naming the most important change trigger and when to recheck. Never promise that conditions will hold.
 
 [FULL]
 4-6 sentences with details, trends, and context. Do not exceed 6 sentences. Pick the 2-3 most important points, not everything.
@@ -365,10 +391,19 @@ A single sentence, under 120 characters. This is for share cards and compact vie
 Example response:
 
 [SUMMARY]
-Gauge reads 2.5 ft, right in the sweet spot. Great day to float.
+Ideal at 2.5 ft with a steady gauge, making today a strong float window.
+
+[BOTTOM_LINE]
+Today looks like a solid float window at this gauge.
+
+[WHY]
+The river is in its ideal band and has held steady over the available trend window.
+
+[WATCH_FOR]
+Recheck the gauge before launch, especially if forecast rain develops upstream.
 
 [FULL]
-Reading 2.5 ft at Akers, right in the optimal range of 2.0 to 3.0 ft. The gauge has held steady over the past 24 hours and the trend is flat, so expect consistent conditions through the weekend. Water clarity is excellent with good depth over the riffles. No significant rain in the forecast through Friday, so the river should hold right where it is. Pack the sunscreen, it is 85 and clear out there.
+The Akers gauge reads 2.5 ft, in the optimal range of 2.0 to 3.0 ft. It has held steady over the past 24 hours, which makes today's conditions more predictable. If the dry forecast holds, the river has no obvious weather-driven change signal through Friday, but exact future readings are uncertain. Recheck the gauge before launch.
 
 CONDITION ASSESSMENT:
 - Match your language to the condition code provided. If the code is "high", say it IS high water, not "approaching high." If "dangerous", say "stay off the water" with zero hedging.
@@ -436,7 +471,7 @@ STYLE:
 - Do NOT use emojis, hashtags, or exclamation marks.
 - Do NOT include a greeting or sign-off.
 - Do NOT say "I" or refer to yourself.
-- Your entire output must be ONLY the [SUMMARY] and [FULL] blocks. Nothing else.`;
+- Your entire output must be ONLY the five required blocks. Nothing else.`;
 
 /**
  * Per-river condition semantics (region + how "low"/"rising" water should be
@@ -655,4 +690,3 @@ function buildPrompt(
 
   return lines.join('\n');
 }
-

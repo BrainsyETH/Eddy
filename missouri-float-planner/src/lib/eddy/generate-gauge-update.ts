@@ -18,6 +18,7 @@ import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { buildGaugeTrajectoryForSite, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { parseEddyResponse, extractUsage, type UsageStats } from '@/lib/eddy/generate-update';
 import { toNum } from '@/lib/utils/num';
+import type { EddyTakeSections } from '@/lib/eddy/take-sections';
 
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001';
 const STALE_READING_MS = 2 * 60 * 60 * 1000;
@@ -50,6 +51,7 @@ export interface GeneratedGaugeUpdate {
   dischargeCfs: number | null;
   quoteText: string;
   summaryText: string | null;
+  takeSections: EddyTakeSections | null;
   sourcesUsed: string[];
   modelUsed: string;
   /** Token usage for this generation (null if the response had none). */
@@ -275,7 +277,7 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
   try {
     const message = await client.messages.create({
       model: HAIKU_MODEL,
-      max_tokens: 500,
+      max_tokens: 700,
       messages: [{ role: 'user', content: prompt }],
       system: GAUGE_SYSTEM_PROMPT,
     });
@@ -287,8 +289,8 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
       return null;
     }
 
-    const { summaryText, quoteText } = parseEddyResponse(rawText);
-    const cleanMarkers = (t: string) => t.replace(/\[(?:FULL|SUMMARY)\]/gi, '').trim();
+    const { summaryText, quoteText, takeSections } = parseEddyResponse(rawText);
+    const cleanMarkers = (t: string) => t.replace(/\[(?:FULL|SUMMARY|BOTTOM_LINE|WHY|WATCH_FOR)\]/gi, '').trim();
 
     return {
       gaugeStationId: target.gaugeStationId,
@@ -299,6 +301,11 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
       dischargeCfs,
       quoteText: cleanMarkers(quoteText),
       summaryText: summaryText ? cleanMarkers(summaryText) : null,
+      takeSections: takeSections ? {
+        bottomLine: cleanMarkers(takeSections.bottomLine),
+        why: cleanMarkers(takeSections.why),
+        watchFor: cleanMarkers(takeSections.watchFor),
+      } : null,
       sourcesUsed,
       modelUsed: HAIKU_MODEL,
       usage: extractUsage(HAIKU_MODEL, message.usage),
@@ -320,10 +327,19 @@ VOICE: Friendly, local-outfitter tone. Tight, no fluff. Use river terminology na
 SCOPE: You are commenting on ONE gauge, not the whole river. Focus on what this specific reading means for the segment of river around it. When a primary-gauge snapshot is provided, frame this gauge in comparison: "running slightly higher than the primary," "tracking with the main gauge," "lagging behind upstream," etc. The primary gauge is the canonical reading for the river; your job is to add segment-level color, not contradict it.
 
 OUTPUT FORMAT (strict):
-Your response MUST contain exactly two labeled blocks. Use the markers [SUMMARY] and [FULL] on their own lines, each followed by the text for that section. No other formatting, labels, or wrapping. Do NOT repeat the markers anywhere else.
+Your response MUST contain exactly five labeled blocks. Use [SUMMARY], [BOTTOM_LINE], [WHY], [WATCH_FOR], and [FULL] once each, on their own lines, followed by that section's text. No other formatting, labels, or wrapping. Do NOT repeat the markers anywhere else.
 
 [SUMMARY]
 A single sentence, under 120 characters. For chips and share cards.
+
+[BOTTOM_LINE]
+One action-oriented sentence under 140 characters explaining what today's condition means near this gauge.
+
+[WHY]
+One or two concise sentences with only the strongest evidence from this gauge and its trend or primary-gauge comparison.
+
+[WATCH_FOR]
+One concise sentence naming the most important change trigger and when to recheck. Never claim the river will hold.
 
 [FULL]
 3-5 sentences. Pick the 2-3 most important points. Do not exceed 5 sentences.
@@ -336,7 +352,7 @@ RULES:
 - Do NOT recommend a different river as an alternative.
 - Do NOT use em dashes, emojis, hashtags, or exclamation marks.
 - Do NOT greet, sign off, or refer to yourself.
-- Output ONLY the [SUMMARY] and [FULL] blocks.`;
+- Output ONLY the five required blocks.`;
 
 function buildGaugePrompt(
   target: SecondaryGaugeTarget,

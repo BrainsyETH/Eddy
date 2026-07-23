@@ -2,15 +2,15 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Check, ChevronDown, ChevronUp, CloudSun, Share2, Waves } from 'lucide-react';
+import { BadgeInfo, Check, ChevronDown, ChevronUp, Eye, Share2 } from 'lucide-react';
 import { EDDY_IMAGES } from '@/constants';
-import type { EddyTakeParts } from '@/lib/river-outlook';
+import type { EddyTakeSections } from '@/lib/eddy/take-sections';
 
 interface EddyOutlookFooterProps {
   riverSlug: string;
-  parts: EddyTakeParts;
+  sections: EddyTakeSections;
+  generatedSections: EddyTakeSections | null;
   isGuidance: boolean;
-  fullReportText: string;
   fullReportLoading: boolean;
   fullReportIsGenerated: boolean;
   generatedAt?: string | null;
@@ -34,9 +34,9 @@ function updatedLabel(generatedAt: string): string {
 
 export default function EddyOutlookFooter({
   riverSlug,
-  parts,
+  sections,
+  generatedSections,
   isGuidance,
-  fullReportText,
   fullReportLoading,
   fullReportIsGenerated,
   generatedAt,
@@ -46,6 +46,8 @@ export default function EddyOutlookFooter({
   shareStatus,
   onShare,
 }: EddyOutlookFooterProps) {
+  const expandedSections = generatedSections ?? sections;
+
   return (
     <section id="eddy-says" className="scroll-mt-24 border-t-2 border-primary-200 bg-white" aria-labelledby="eddy-outlook-heading">
       <div className="border-b-2 border-primary-100 bg-white px-4 py-2 sm:px-5">
@@ -53,29 +55,29 @@ export default function EddyOutlookFooter({
           Eddy&apos;s take
         </h3>
       </div>
-      <div className="grid grid-cols-1 divide-y-2 divide-primary-100 lg:grid-cols-3 lg:divide-x-2 lg:divide-y-0">
-        <article className="min-w-0 px-4 py-4 sm:px-5">
-          <div className="mb-2 flex items-center gap-2 text-primary-800">
-            <Waves className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-            <h4 className="font-sans text-xs font-bold uppercase tracking-wide">River</h4>
-          </div>
-          <p className="text-sm font-medium leading-relaxed text-neutral-700" aria-live="polite">{parts.river}</p>
-        </article>
-
-        <article className="min-w-0 px-4 py-4 sm:px-5">
-          <div className="mb-2 flex items-center gap-2 text-primary-800">
-            <CloudSun className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-            <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Weather</h4>
-          </div>
-          <p className="text-sm font-medium leading-relaxed text-neutral-700">{parts.weather}</p>
-        </article>
-
+      <div className="grid grid-cols-1 divide-y-2 divide-primary-100 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] lg:divide-x-2 lg:divide-y-0">
         <article className="min-w-0 border-l-4 border-accent-500 bg-white px-4 py-4 sm:px-5 lg:border-l-0 lg:border-t-4">
           <div className="mb-2 flex items-center gap-2 text-accent-800">
             <Image src={EDDY_IMAGES.favicon} alt="" width={20} height={20} className="h-5 w-5 object-contain" />
-            <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Eddstimate</h4>
+            <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Bottom line</h4>
           </div>
-          <p className="text-sm font-semibold leading-relaxed text-neutral-900">{parts.eddstimate}</p>
+          <p className="font-display text-base font-semibold leading-relaxed text-neutral-900" aria-live="polite">{sections.bottomLine}</p>
+        </article>
+
+        <article className="min-w-0 px-4 py-4 sm:px-5">
+          <div className="mb-2 flex items-center gap-2 text-primary-800">
+            <BadgeInfo className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Why</h4>
+          </div>
+          <p className="text-sm font-medium leading-relaxed text-neutral-700">{sections.why}</p>
+        </article>
+
+        <article className="min-w-0 px-4 py-4 sm:px-5">
+          <div className="mb-2 flex items-center gap-2 text-primary-800">
+            <Eye className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Watch for</h4>
+          </div>
+          <p className="text-sm font-medium leading-relaxed text-neutral-700">{sections.watchFor}</p>
           {isGuidance && (
             <p className="mt-1 text-[10px] font-medium text-neutral-500">Guidance, not a river forecast.</p>
           )}
@@ -113,7 +115,20 @@ export default function EddyOutlookFooter({
           {fullReportLoading ? (
             <p className="text-sm italic text-neutral-500">Loading Eddy&apos;s full report…</p>
           ) : (
-            <p className="text-sm font-medium leading-relaxed text-neutral-700">{fullReportText}</p>
+            <div className="grid grid-cols-1 divide-y divide-primary-100 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+              <div className="pb-3 lg:pb-0 lg:pr-5">
+                <p className="mb-1 font-sans text-[10px] font-bold uppercase tracking-wide text-accent-800">Bottom line</p>
+                <p className="text-sm font-semibold leading-relaxed text-neutral-900">{expandedSections.bottomLine}</p>
+              </div>
+              <div className="py-3 lg:px-5 lg:py-0">
+                <p className="mb-1 font-sans text-[10px] font-bold uppercase tracking-wide text-primary-800">Why</p>
+                <p className="text-sm font-medium leading-relaxed text-neutral-700">{expandedSections.why}</p>
+              </div>
+              <div className="pt-3 lg:pl-5 lg:pt-0">
+                <p className="mb-1 font-sans text-[10px] font-bold uppercase tracking-wide text-primary-800">Watch for</p>
+                <p className="text-sm font-medium leading-relaxed text-neutral-700">{expandedSections.watchFor}</p>
+              </div>
+            </div>
           )}
           {!fullReportLoading && (
             <p className="mt-2 text-[10px] text-neutral-400">
