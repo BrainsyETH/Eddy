@@ -11,13 +11,11 @@ import { ExternalLink, Clock } from 'lucide-react';
 import { computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
 import { CFS_EXPLAINER, CONDITION_COLORS } from '@/constants';
 import InfoTip from '@/components/ui/InfoTip';
-import { buildStaticEddyText, RIVER_NOTES } from '@/data/eddy-quotes';
 import type { ConditionCode } from '@/types/api';
-import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
-import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route';
 import { useRiverGroup } from '@/hooks/useRiverGroups';
 import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
 import { useRiverOutlook } from '@/hooks/useRiverOutlook';
+import { useSelectedEddyReport } from '@/hooks/useSelectedEddyReport';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import WillItHold from '@/components/gauge/WillItHold';
@@ -26,7 +24,7 @@ import ThresholdTable from '@/components/gauge/ThresholdTable';
 import GaugeTabBar from '@/components/gauge/GaugeTabBar';
 import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import { usePathname } from 'next/navigation';
-import { buildEddyTakeSummary } from '@/lib/river-outlook';
+import { buildDeterministicEddyReport, buildEddyTakeParts } from '@/lib/river-outlook';
 import { createPortal } from 'react-dom';
 
 interface RiverGaugeDetailProps {
@@ -51,14 +49,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   const pathname = usePathname();
   const addPhotoHref = `${pathname}/add-photo`;
 
-  // Eddy AI update (river-level, pinned to primary gauge)
-  const [eddyUpdate, setEddyUpdate] = useState<EddyUpdateResponse['update'] | null>(null);
-  const [eddyLoading, setEddyLoading] = useState(false);
   const [isEddyReportOpen, setIsEddyReportOpen] = useState(false);
-
-  // Per-gauge Haiku update (only fetched when on a secondary tab)
-  const [gaugeUpdate, setGaugeUpdate] = useState<GaugeUpdateResponse['update'] | null>(null);
-  const [gaugeUpdateLoading, setGaugeUpdateLoading] = useState(false);
 
   // Set default active gauge when river group loads
   useEffect(() => {
@@ -77,61 +68,17 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     return () => clearTimeout(timeout);
   }, [riverGroup, prefetchHistory]);
 
-  // Fetch Eddy update for this river
-  useEffect(() => {
-    if (!riverSlug) return;
-    let cancelled = false;
-    setEddyLoading(true);
-
-    async function fetchEddy() {
-      try {
-        const res = await fetch(`/api/eddy-update/${riverSlug}`);
-        if (!res.ok) return;
-        const data: EddyUpdateResponse = await res.json();
-        if (!cancelled) {
-          setEddyUpdate(data.available ? data.update : null);
-        }
-      } catch {
-        // silently fail
-      } finally {
-        if (!cancelled) setEddyLoading(false);
-      }
-    }
-    fetchEddy();
-    return () => { cancelled = true; };
-  }, [riverSlug]);
-
-  // Fetch per-gauge update when active tab is a secondary gauge.
-  // When on the primary tab we leave gaugeUpdate null and the render falls
-  // back to the river-level eddyUpdate above.
   const isOnPrimaryTab = riverGroup ? activeSiteId === riverGroup.primaryGauge.usgsSiteId : true;
   useEffect(() => {
     setIsEddyReportOpen(false);
   }, [activeSiteId]);
 
-  useEffect(() => {
-    if (!activeSiteId || isOnPrimaryTab) {
-      setGaugeUpdate(null);
-      return;
-    }
-    let cancelled = false;
-    setGaugeUpdateLoading(true);
-
-    async function fetchGaugeUpdate() {
-      try {
-        const res = await fetch(`/api/gauge-update/${activeSiteId}`);
-        if (!res.ok) return;
-        const data: GaugeUpdateResponse = await res.json();
-        if (!cancelled) setGaugeUpdate(data.available ? data.update : null);
-      } catch {
-        // silently fail — UI falls back to static blurb
-      } finally {
-        if (!cancelled) setGaugeUpdateLoading(false);
-      }
-    }
-    fetchGaugeUpdate();
-    return () => { cancelled = true; };
-  }, [activeSiteId, isOnPrimaryTab]);
+  const selectedEddyReport = useSelectedEddyReport({
+    riverSlug,
+    siteId: activeSiteId,
+    isPrimary: isOnPrimaryTab,
+    enabled: isEddyReportOpen,
+  });
 
   // Active gauge derived state
   const activeGauge = useMemo(() => {
@@ -265,9 +212,15 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     };
   }, [activeGauge, activeThreshold]);
 
-  const eddyTakeSummary = useMemo(
-    () => buildEddyTakeSummary(outlook, condition.code),
-    [outlook, condition.code],
+  const eddyTakeParts = useMemo(
+    () => buildEddyTakeParts({
+      outlook,
+      currentCondition: condition.code,
+      gaugeHeightFt: activeGauge?.gaugeHeightFt ?? null,
+      dischargeCfs: activeGauge?.dischargeCfs ?? null,
+      thresholdUnit: activeThreshold?.thresholdUnit || 'ft',
+    }),
+    [activeGauge, activeThreshold, condition.code, outlook],
   );
 
   // Reading age
@@ -295,68 +248,9 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     } catch { /* clipboard failed */ }
   };
 
-  // Eddy Says — pinned to primary gauge condition so it doesn't change
-  // when user switches between gauge tabs. The AI update is river-level,
-  // not per-gauge, so it should always reflect the primary gauge.
-  const primaryGauge = riverGroup?.primaryGauge;
-  const primaryThreshold = useMemo(() => {
-    if (!primaryGauge || !riverGroup) return null;
-    return primaryGauge.thresholds?.find(t => t.riverId === riverGroup.riverId) ||
-      primaryGauge.thresholds?.find(t => t.isPrimary) ||
-      primaryGauge.thresholds?.[0] || null;
-  }, [primaryGauge, riverGroup]);
-
-  const primaryCondition = useMemo(() => {
-    if (!primaryGauge || !primaryThreshold) {
-      return { code: 'unknown' as ConditionCode, label: 'Unknown' };
-    }
-    const thresholds: ConditionThresholds = {
-      levelTooLow: primaryThreshold.levelTooLow,
-      levelLow: primaryThreshold.levelLow,
-      levelOptimalMin: primaryThreshold.levelOptimalMin,
-      levelOptimalMax: primaryThreshold.levelOptimalMax,
-      levelHigh: primaryThreshold.levelHigh,
-      levelDangerous: primaryThreshold.levelDangerous,
-      thresholdUnit: primaryThreshold.thresholdUnit,
-    };
-    const result = computeCondition(primaryGauge.gaugeHeightFt, thresholds, primaryGauge.dischargeCfs);
-    return { code: result.code, label: getConditionShortLabel(result.code) };
-  }, [primaryGauge, primaryThreshold]);
-
-  // When on a secondary tab, surface the per-gauge Haiku update; otherwise
-  // pin to the primary's Sonnet update. The shared shape lets the existing
-  // render block stay identical regardless of source.
-  const onSecondaryTabWithUpdate = !isOnPrimaryTab;
-  const activeEddyUpdate = onSecondaryTabWithUpdate
-    ? (gaugeUpdate
-        ? {
-            quoteText: gaugeUpdate.quoteText,
-            summaryText: gaugeUpdate.summaryText,
-            generatedAt: gaugeUpdate.generatedAt,
-          }
-        : null)
-    : eddyUpdate;
-  const activeEddyLoading = onSecondaryTabWithUpdate ? gaugeUpdateLoading : eddyLoading;
-
-  // Static fallback text \u2014 shared with the river report card (RiverCard) via
-  // buildStaticEddyText so the quote reads identically across both surfaces.
-  const buildStaticText = () => {
-    const sourceGauge = onSecondaryTabWithUpdate ? activeGauge : primaryGauge;
-    const sourceThreshold = onSecondaryTabWithUpdate ? activeThreshold : primaryThreshold;
-    const sourceCode = onSecondaryTabWithUpdate ? condition.code : primaryCondition.code;
-    return buildStaticEddyText({
-      conditionCode: sourceCode,
-      gaugeHeightFt: sourceGauge?.gaugeHeightFt ?? null,
-      dischargeCfs: sourceGauge?.dischargeCfs ?? null,
-      optimalMin: sourceThreshold?.levelOptimalMin,
-      optimalMax: sourceThreshold?.levelOptimalMax,
-      thresholdUnit: sourceThreshold?.thresholdUnit,
-      riverNote: RIVER_NOTES[riverSlug] ?? null,
-    });
-  };
-
-  const eddyFullReportText = activeEddyUpdate?.quoteText || buildStaticText();
-  const eddySourceGaugeName = (onSecondaryTabWithUpdate ? activeGauge : primaryGauge)?.name ?? null;
+  const activeEddyUpdate = selectedEddyReport.data;
+  const eddyFullReportText = activeEddyUpdate?.quoteText || buildDeterministicEddyReport(eddyTakeParts);
+  const eddySourceGaugeName = activeGauge?.name ?? null;
 
   // Tab data for GaugeTabBar
   const tabs = useMemo(() => {
@@ -479,11 +373,11 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
 
           <EddyOutlookFooter
             riverSlug={riverSlug}
-            conditionCode={condition.code}
-            outlookSummary={eddyTakeSummary}
+            parts={eddyTakeParts}
             isGuidance={outlook.isGuidance}
             fullReportText={eddyFullReportText}
-            fullReportLoading={activeEddyLoading && !activeEddyUpdate}
+            fullReportLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
+            fullReportIsGenerated={Boolean(activeEddyUpdate)}
             generatedAt={activeEddyUpdate?.generatedAt}
             gaugeName={eddySourceGaugeName}
             isOpen={isEddyReportOpen}
