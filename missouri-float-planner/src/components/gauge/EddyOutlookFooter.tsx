@@ -9,8 +9,8 @@ import type { EddyTakeSections } from '@/lib/eddy/take-sections';
 interface EddyOutlookFooterProps {
   riverSlug: string;
   sections: EddyTakeSections;
-  generatedSections: EddyTakeSections | null;
   isGuidance: boolean;
+  fullReportText: string;
   fullReportLoading: boolean;
   fullReportIsGenerated: boolean;
   generatedAt?: string | null;
@@ -35,8 +35,8 @@ function updatedLabel(generatedAt: string): string {
 export default function EddyOutlookFooter({
   riverSlug,
   sections,
-  generatedSections,
   isGuidance,
+  fullReportText,
   fullReportLoading,
   fullReportIsGenerated,
   generatedAt,
@@ -46,8 +46,6 @@ export default function EddyOutlookFooter({
   shareStatus,
   onShare,
 }: EddyOutlookFooterProps) {
-  const expandedSections = generatedSections ?? sections;
-
   return (
     <section id="eddy-says" className="scroll-mt-24 border-t-2 border-primary-200 bg-white" aria-labelledby="eddy-outlook-heading">
       <div className="border-b-2 border-primary-100 bg-white px-4 py-2 sm:px-5">
@@ -115,24 +113,11 @@ export default function EddyOutlookFooter({
           {fullReportLoading ? (
             <p className="text-sm italic text-neutral-500">Loading Eddy&apos;s full report…</p>
           ) : (
-            <div className="grid grid-cols-1 divide-y divide-primary-100 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
-              <div className="pb-3 lg:pb-0 lg:pr-5">
-                <p className="mb-1 font-sans text-[10px] font-bold uppercase tracking-wide text-accent-800">Bottom line</p>
-                <p className="text-sm font-semibold leading-relaxed text-neutral-900">{expandedSections.bottomLine}</p>
-              </div>
-              <div className="py-3 lg:px-5 lg:py-0">
-                <p className="mb-1 font-sans text-[10px] font-bold uppercase tracking-wide text-primary-800">Why</p>
-                <p className="text-sm font-medium leading-relaxed text-neutral-700">{expandedSections.why}</p>
-              </div>
-              <div className="pt-3 lg:pl-5 lg:pt-0">
-                <p className="mb-1 font-sans text-[10px] font-bold uppercase tracking-wide text-primary-800">Watch for</p>
-                <p className="text-sm font-medium leading-relaxed text-neutral-700">{expandedSections.watchFor}</p>
-              </div>
-            </div>
+            <p className="max-w-4xl text-sm font-medium leading-relaxed text-neutral-700">{fullReportText}</p>
           )}
           {!fullReportLoading && (
             <p className="mt-2 text-[10px] text-neutral-400">
-              {fullReportIsGenerated && generatedAt ? updatedLabel(generatedAt) : 'Live deterministic guidance'}
+              {fullReportIsGenerated && generatedAt ? updatedLabel(generatedAt) : 'Generated report unavailable · Live take shown above'}
               {gaugeName ? ' · ' : null}
               {gaugeName ? `via ${gaugeName}` : null}
             </p>

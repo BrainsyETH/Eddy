@@ -246,6 +246,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   };
 
   const activeEddyUpdate = selectedEddyReport.data;
+  const eddyFullReportText = activeEddyUpdate?.quoteText
+    || 'Eddy’s generated full report is unavailable right now. The live take above still reflects the current gauge and outlook data.';
   const eddySourceGaugeName = activeGauge?.name ?? null;
 
   // Tab data for GaugeTabBar
@@ -370,10 +372,10 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
           <EddyOutlookFooter
             riverSlug={riverSlug}
             sections={eddyTakeSections}
-            generatedSections={activeEddyUpdate?.takeSections ?? null}
             isGuidance={outlook.isGuidance}
+            fullReportText={eddyFullReportText}
             fullReportLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
-            fullReportIsGenerated={Boolean(activeEddyUpdate?.takeSections)}
+            fullReportIsGenerated={Boolean(activeEddyUpdate?.quoteText)}
             generatedAt={activeEddyUpdate?.generatedAt}
             gaugeName={eddySourceGaugeName}
             isOpen={isEddyReportOpen}

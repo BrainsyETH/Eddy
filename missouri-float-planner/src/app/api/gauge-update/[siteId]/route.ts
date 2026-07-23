@@ -7,7 +7,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { toNum } from '@/lib/utils/num';
 import { computeConditionFromDbRow } from '@/lib/conditions';
 import { isGaugeReportCompatible } from '@/lib/eddy/gauge-update-policy';
-import { parseEddyTakeSections, type EddyTakeSections } from '@/lib/eddy/take-sections';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +15,6 @@ export interface GaugeUpdateResponse {
   update: {
     quoteText: string;
     summaryText: string | null;
-    takeSections: EddyTakeSections | null;
     conditionCode: string;
     gaugeHeightFt: number | null;
     dischargeCfs: number | null;
@@ -37,7 +35,7 @@ export async function GET(
 
     const { data, error } = await supabase
       .from('gauge_updates')
-      .select('quote_text, summary_text, take_sections, condition_code, gauge_height_ft, discharge_cfs, river_slug, sources_used, model_used, generated_at, expires_at, gauge_station_id')
+      .select('quote_text, summary_text, condition_code, gauge_height_ft, discharge_cfs, river_slug, sources_used, model_used, generated_at, expires_at, gauge_station_id')
       .eq('usgs_site_id', siteId)
       .gt('expires_at', new Date().toISOString())
       .order('generated_at', { ascending: false })
@@ -94,7 +92,6 @@ export async function GET(
       update: {
         quoteText: data.quote_text,
         summaryText: data.summary_text,
-        takeSections: parseEddyTakeSections(data.take_sections),
         conditionCode: liveCondition,
         gaugeHeightFt: liveHeight ?? toNum(data.gauge_height_ft),
         dischargeCfs: liveDischarge ?? toNum(data.discharge_cfs),

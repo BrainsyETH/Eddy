@@ -105,7 +105,6 @@ export async function regenerateEddyForRiver(
         discharge_cfs: update.dischargeCfs,
         quote_text: update.quoteText,
         summary_text: update.summaryText,
-        take_sections: update.takeSections,
         sources_used: update.sourcesUsed,
         ...usageColumns(update.usage),
         generated_at: new Date().toISOString(),

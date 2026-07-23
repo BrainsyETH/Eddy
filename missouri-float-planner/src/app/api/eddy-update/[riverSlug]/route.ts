@@ -8,7 +8,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
 import { toNum } from '@/lib/utils/num';
 import { overlayLiveConditions, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
-import { parseEddyTakeSections, type EddyTakeSections } from '@/lib/eddy/take-sections';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +16,6 @@ export interface EddyUpdateResponse {
   update: {
     quoteText: string;
     summaryText: string | null;
-    takeSections: EddyTakeSections | null;
     conditionCode: string;
     gaugeHeightFt: number | null;
     dischargeCfs: number | null;
@@ -42,7 +40,7 @@ async function _GET(
     // Fetch the most recent non-expired update for this river/section
     let query = supabase
       .from('eddy_updates')
-      .select('quote_text, summary_text, take_sections, condition_code, gauge_height_ft, discharge_cfs, section_slug, sources_used, generated_at, expires_at')
+      .select('quote_text, summary_text, condition_code, gauge_height_ft, discharge_cfs, section_slug, sources_used, generated_at, expires_at')
       .eq('river_slug', riverSlug)
       .gt('expires_at', new Date().toISOString())
       .order('generated_at', { ascending: false })
@@ -101,7 +99,6 @@ async function _GET(
       update: {
         quoteText: overlaid.quote_text ?? '',
         summaryText: overlaid.summary_text ?? null,
-        takeSections: parseEddyTakeSections(data.take_sections),
         conditionCode: overlaid.condition_code,
         gaugeHeightFt: toNum(overlaid.gauge_height_ft),
         dischargeCfs: toNum(overlaid.discharge_cfs),
