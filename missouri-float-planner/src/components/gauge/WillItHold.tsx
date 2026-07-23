@@ -114,7 +114,7 @@ export default function WillItHold({
         <div className="border-t border-primary-100 px-4 py-3 sm:px-5">
           <p className="text-xs leading-relaxed text-neutral-600" aria-live="polite">{outlook.summary}</p>
           {outlook.isGuidance && (
-            <p className="mt-1 text-[10px] font-medium text-neutral-400">Guidance, not a river forecast.</p>
+            <p className="mt-1 text-[10px] font-medium text-neutral-400">Weather outlook; future river levels are not predicted.</p>
           )}
         </div>
       )}

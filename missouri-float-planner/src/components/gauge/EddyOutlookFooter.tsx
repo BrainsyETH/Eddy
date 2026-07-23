@@ -77,7 +77,7 @@ export default function EddyOutlookFooter({
           </div>
           <p className="text-sm font-medium leading-relaxed text-neutral-700">{sections.watchFor}</p>
           {isGuidance && (
-            <p className="mt-1 text-[10px] font-medium text-neutral-500">Guidance, not a river forecast.</p>
+            <p className="mt-1 text-[10px] font-medium text-neutral-500">Weather outlook; future river levels are not predicted.</p>
           )}
         </article>
       </div>

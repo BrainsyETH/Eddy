@@ -250,9 +250,9 @@ export function buildEddyTakeSections({
   } else if (outlook.hasOfficialForecast) {
     why = 'An official NWS stage outlook is available, but local foot-based condition bands are unavailable.';
   } else if (outlook.trend) {
-    why = `The measured gauge is ${outlook.trend.label.toLowerCase()} over the last ${outlook.trend.windowHours} hours; no official river forecast is available.`;
+    why = `Today’s verified ${conditionLabel} condition and the gauge’s measured trend—${outlook.trend.label.toLowerCase()} over the last ${outlook.trend.windowHours} hours—support this call.`;
   } else {
-    why = `${conditionLabel} is the verified condition now; a recent measured trend and official river forecast are unavailable.`;
+    why = `Today’s verified ${conditionLabel} condition supports this call; a recent measured trend is unavailable.`;
   }
 
   let watchFor: string;
@@ -297,7 +297,13 @@ export function buildRiverOutlookState({
   now = new Date(),
 }: BuildRiverOutlookInput): RiverOutlookState {
   const dates = getOutlookDates(now);
-  const weatherByDate = new Map(weatherDays.slice(0, 3).map((day) => [day.date, day]));
+  // Match the requested local calendar dates before limiting the display. The
+  // weather service can include a trailing part of the previous local day;
+  // slicing first would then discard the third requested day.
+  const weatherByDate = new Map(weatherDays.map((day) => [day.date, day]));
+  const outlookWeatherDays = dates
+    .map((date) => weatherByDate.get(date))
+    .filter((day): day is OutlookWeatherDay => day != null);
   const riverDays = groupForecastByDay(riverStages, dates, stageThresholds);
   const hasOfficialForecast = riverDays.some((day) => day.valueFt != null);
   const isInitialLoading = weatherPending && riverPending;
@@ -313,7 +319,7 @@ export function buildRiverOutlookState({
         ? 'Future outlook unavailable—use the current reading and recheck before launch.'
         : weatherPending
           ? 'Checking the river and weather outlook…'
-          : buildGuidanceSummary(trend, weatherDays.slice(0, 3));
+          : buildGuidanceSummary(trend, outlookWeatherDays);
 
   return {
     days: dates.map((date, index) => ({
@@ -327,7 +333,7 @@ export function buildRiverOutlookState({
       ? 'Checking river forecast'
       : sourceKind === 'official'
         ? 'NWS 72-hour river forecast'
-        : 'Trend + local weather',
+        : 'Current river trend + weather outlook',
     hasOfficialForecast,
     isInitialLoading,
     isWeatherLoading: weatherPending,

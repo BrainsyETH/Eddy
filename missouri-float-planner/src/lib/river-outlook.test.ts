@@ -170,8 +170,37 @@ test('builds a decision-led Bottom line, Why, and Watch for from the selected-ga
   });
   assert.match(sections.bottomLine, /strong float window/i);
   assert.match(sections.why, /holding steady/i);
+  assert.doesNotMatch(sections.why, /no official river forecast/i);
   assert.match(sections.watchFor, /recheck the gauge before launch/i);
   assert.match(buildDeterministicEddyReport(sections), /^Bottom line: .* Why: .* Watch for:/);
+});
+
+test('matches all requested weather dates before choosing the three-day outlook', () => {
+  const previousDay = {
+    ...baseOutlookInput.weatherDays[0],
+    date: '2026-07-21',
+    dayOfWeek: 'Tue',
+  };
+  const friday = {
+    ...baseOutlookInput.weatherDays[0],
+    date: '2026-07-23',
+    dayOfWeek: 'Thu',
+  };
+  const saturday = {
+    ...baseOutlookInput.weatherDays[0],
+    date: '2026-07-24',
+    dayOfWeek: 'Fri',
+  };
+  const outlook = buildRiverOutlookState({
+    ...baseOutlookInput,
+    weatherDays: [previousDay, ...baseOutlookInput.weatherDays, friday, saturday],
+  });
+
+  assert.deepEqual(outlook.days.map((day) => day.weather?.date), [
+    '2026-07-22',
+    '2026-07-23',
+    '2026-07-24',
+  ]);
 });
 
 test('three-part summary stays honest when readings and weather are unavailable', () => {
