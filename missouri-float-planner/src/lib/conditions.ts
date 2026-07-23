@@ -20,6 +20,33 @@ export interface ConditionResult {
   color: string;
 }
 
+export type FloatabilityClass = 'too_low' | 'floatable' | 'high' | 'dangerous' | 'unknown';
+
+/**
+ * Coarse safety class used to decide whether prose written for an earlier
+ * reading is still compatible with the live river. Canonical labels remain
+ * unchanged; this only prevents harmless good/low/ideal jitter from causing
+ * unnecessary AI regeneration.
+ */
+export function getFloatabilityClass(code: string): FloatabilityClass {
+  switch (code) {
+    case 'too_low': return 'too_low';
+    case 'low':
+    case 'good':
+    case 'flowing':
+    case 'optimal': return 'floatable';
+    case 'high': return 'high';
+    case 'dangerous': return 'dangerous';
+    default: return 'unknown';
+  }
+}
+
+export function hasMaterialConditionChange(previousCode: string, nextCode: string): boolean {
+  const previous = getFloatabilityClass(previousCode);
+  const next = getFloatabilityClass(nextCode);
+  return previous !== 'unknown' && next !== 'unknown' && previous !== next;
+}
+
 /**
  * Determines condition code based on gauge reading and thresholds
  * This is the single source of truth for condition calculation across the app

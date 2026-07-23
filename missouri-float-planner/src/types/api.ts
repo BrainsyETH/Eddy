@@ -802,45 +802,18 @@ export interface UpdateAccessPointDetailRequest {
   imageUrls?: string[];
 }
 
-// ─────────────────────────────────────────────────────────────
-// /api/me/* — Bearer-token consumer endpoints (iOS Phase 0)
-// ─────────────────────────────────────────────────────────────
-
-/** Entitlement snapshot derived from RevenueCat-synced state */
-export interface MeEntitlement {
-  entitlementId: string;
-  /** True iff expires_at is in the future (computed server-side) */
-  isActive: boolean;
-  expiresAt: string | null;
-  willRenew: boolean | null;
-  productId: string | null;
-  billingIssue: boolean;
-}
-
-export interface MeProfile {
-  id: string;
-  displayName: string | null;
-  homeRegion: string | null;
-  createdAt: string;
-}
-
-/** Response for GET /api/me/profile */
-export interface MeProfileResponse {
-  profile: MeProfile;
-  /** True for anonymous Supabase sessions (pre Sign-in-with-Apple) */
-  isAnonymous: boolean;
-  /** Null when the user has never had an entitlement */
-  entitlement: MeEntitlement | null;
-}
-
-export interface StarredRiverEntry {
-  riverId: string;
-  riverName: string;
-  riverSlug: string;
-  starredAt: string;
-}
-
-/** Response for GET /api/me/starred-rivers */
-export interface StarredRiversResponse {
-  starred: StarredRiverEntry[];
-}
+// Consumer/mobile contracts live in the package shared with the native app.
+export type {
+  AlertSubscription,
+  AlertSubscriptionKind,
+  ApiErrorBody,
+  ApiErrorCode,
+  AppConfigResponse,
+  MeEntitlement,
+  MeProfile,
+  MeProfileResponse,
+  RiverConditionEvent,
+  SavedFloatSummary,
+  StarredRiverEntry,
+  StarredRiversResponse,
+} from '@eddy/types';

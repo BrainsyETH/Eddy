@@ -22,6 +22,7 @@ import type {
   HistoricalData,
   HistoricalReading,
 } from './types';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 const MODERN_BASE = 'https://api.waterdata.usgs.gov/ogcapi/v0/collections';
 const LEGACY_IV_URL = 'https://waterservices.usgs.gov/nwis/iv/';
@@ -459,6 +460,42 @@ async function fetchDailyStatisticsLegacy(siteId: string, date?: Date): Promise<
   };
 }
 
+function dayOfYear(date: Date): number {
+  const start = Date.UTC(date.getFullYear(), 0, 0);
+  const current = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.floor((current - start) / 86_400_000);
+}
+
+async function fetchDailyStatisticsSnapshot(siteId: string, date?: Date): Promise<DailyStatistics | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  const target = date || new Date();
+  const client = createSupabaseClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await client
+    .from('usgs_daily_percentiles')
+    .select('p10, p25, p50, p75, p90, count_years')
+    .eq('site_no', siteId)
+    .eq('parameter_code', PARAM_DISCHARGE)
+    .eq('day_of_year', dayOfYear(target))
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    siteId,
+    month: target.getMonth() + 1,
+    day: target.getDate(),
+    p10: data.p10,
+    p25: data.p25,
+    p50: data.p50,
+    p75: data.p75,
+    p90: data.p90,
+    mean: null,
+    yearsOfRecord: data.count_years,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
@@ -510,11 +547,12 @@ export class UsgsProvider implements FlowProvider {
 
   async fetchDailyStatistics(siteId: string, date?: Date): Promise<DailyStatistics | null> {
     try {
-      return await fetchDailyStatisticsLegacy(siteId, date);
+      const live = await fetchDailyStatisticsLegacy(siteId, date);
+      if (live) return live;
     } catch (error) {
-      console.error(`Error fetching USGS statistics for site ${siteId}:`, error);
-      return null;
+      console.warn(`USGS statistics unavailable for ${siteId}; using snapshot:`, error);
     }
+    return fetchDailyStatisticsSnapshot(siteId, date);
   }
 
   publicUrl(siteId: string): string {

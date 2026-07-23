@@ -1791,6 +1791,111 @@ export type Database = {
         }
         Relationships: []
       }
+      push_deliveries: {
+        Row: {
+          attempts: number
+          created_at: string
+          delivered_at: string | null
+          device_token_id: string
+          event_id: string
+          expo_ticket_id: string | null
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          delivered_at?: string | null
+          device_token_id: string
+          event_id: string
+          expo_ticket_id?: string | null
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          delivered_at?: string | null
+          device_token_id?: string
+          event_id?: string
+          expo_ticket_id?: string | null
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_deliveries_device_token_id_fkey"
+            columns: ["device_token_id"]
+            isOneToOne: false
+            referencedRelation: "device_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_deliveries_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "river_condition_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      revenuecat_webhook_events: {
+        Row: {
+          aliases: string[]
+          app_user_id: string | null
+          environment: string | null
+          error: string | null
+          event_id: string
+          event_timestamp: string
+          event_type: string
+          original_app_user_id: string | null
+          payload: Json
+          processed_at: string | null
+          received_at: string
+          status: string
+        }
+        Insert: {
+          aliases?: string[]
+          app_user_id?: string | null
+          environment?: string | null
+          error?: string | null
+          event_id: string
+          event_timestamp: string
+          event_type: string
+          original_app_user_id?: string | null
+          payload: Json
+          processed_at?: string | null
+          received_at?: string
+          status?: string
+        }
+        Update: {
+          aliases?: string[]
+          app_user_id?: string | null
+          environment?: string | null
+          error?: string | null
+          event_id?: string
+          event_timestamp?: string
+          event_type?: string
+          original_app_user_id?: string | null
+          payload?: Json
+          processed_at?: string | null
+          received_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       river_characteristics: {
         Row: {
           drop_rate_note: string | null
@@ -2954,6 +3059,29 @@ export type Database = {
         Args: { p_short_code: string }
         Returns: boolean
       }
+      apply_revenuecat_entitlement_event: {
+        Args: {
+          p_billing_issue_at: string | null
+          p_clear_billing_issue: boolean
+          p_entitlement_id: string
+          p_environment: string | null
+          p_event_at: string
+          p_event_id: string
+          p_event_type: string
+          p_expires_at: string | null
+          p_product_id: string | null
+          p_rc_app_user_id: string | null
+          p_rc_original_app_user_id: string | null
+          p_store: string | null
+          p_user_id: string
+          p_will_renew: boolean | null
+        }
+        Returns: boolean
+      }
+      mark_device_token_failure: {
+        Args: { p_disable?: boolean; p_token_id: string }
+        Returns: undefined
+      }
       generate_short_code: { Args: { length?: number }; Returns: string }
       get_active_rivers_bounds: {
         Args: { p_state?: string }
@@ -2991,6 +3119,23 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      merge_anonymous_user_data: {
+        Args: { p_source_user_id: string; p_target_user_id: string }
+        Returns: Json
+      }
+      record_river_condition_transition: {
+        Args: {
+          p_expected_old_code: string
+          p_kind: string
+          p_metadata?: Json
+          p_new_code: string
+          p_reading_at: string
+          p_reading_unit: string
+          p_reading_value: number | null
+          p_river_gauge_id: string
+        }
+        Returns: string
       }
       get_float_segment: {
         Args: { p_end_access_id: string; p_start_access_id: string }

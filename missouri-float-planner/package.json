@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint src shared && npm run lint:tokens",
     "lint:tokens": "tsx scripts/check-tailwind-tokens.ts",
-    "test": "tsx --test shared/condition-system.test.ts src/components/map/marker-pointer-priority.test.ts src/lib/admin-auth.test.ts src/lib/admin-session.test.ts src/lib/condition-snapshot.test.ts src/lib/json-ld.test.ts src/lib/plan-cache.test.ts src/lib/river-outlook.test.ts src/lib/monitoring/webhook-reporter.test.ts src/lib/rate-limit.test.ts src/lib/reports/location.test.ts src/lib/security/machine-auth.test.ts src/lib/shuttle-plausibility.test.ts src/lib/uploads/community-image.test.ts src/lib/uploads/visual-moderation.test.ts scripts/security/segment-cache-policy.test.ts scripts/security/workflow-action-pins.test.ts",
+    "test": "tsx --test shared/condition-system.test.ts src/components/map/marker-pointer-priority.test.ts src/lib/admin-auth.test.ts src/lib/admin-session.test.ts src/lib/condition-snapshot.test.ts src/lib/eddy/gauge-update-policy.test.ts src/lib/json-ld.test.ts src/lib/plan-cache.test.ts src/lib/push/policy.test.ts src/lib/revenuecat/events.test.ts src/lib/river-outlook.test.ts src/lib/monitoring/webhook-reporter.test.ts src/lib/rate-limit.test.ts src/lib/reports/location.test.ts src/lib/security/machine-auth.test.ts src/lib/shuttle-plausibility.test.ts src/lib/uploads/community-image.test.ts src/lib/uploads/visual-moderation.test.ts scripts/security/segment-cache-policy.test.ts scripts/security/workflow-action-pins.test.ts",
     "check:eddy-knowledge": "tsx scripts/check-eddy-knowledge.ts",
     "test:links": "tsx scripts/check-dead-links.ts",
     "db:import-rivers": "tsx scripts/import-nhd-rivers.ts",
@@ -24,6 +24,7 @@
     "db:import-services": "tsx scripts/import-services-csv.ts",
     "db:fix-gauges": "tsx scripts/fix-gauge-associations.ts",
     "db:sync-thresholds": "tsx scripts/sync-gauge-thresholds.ts",
+    "db:snapshot-usgs-percentiles": "tsx scripts/snapshot-usgs-percentiles.ts",
     "db:import-rivers-tnm": "tsx scripts/import-nhd-rivers-from-tnm.ts",
     "data:build-outline": "tsx scripts/build-mo-outline.ts",
     "db:import-segments": "tsx scripts/import-float-segments.ts",
@@ -73,7 +74,7 @@
     "html2canvas": "^1.4.1",
     "lucide-react": "^0.263.1",
     "maplibre-gl": "^5.16.0",
-    "next": "16.2.10",
+    "next": "16.2.11",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "react-markdown": "^10.1.0",
@@ -92,7 +93,7 @@
     "@types/shpjs": "^3.4.7",
     "@types/topojson-client": "^3.1.5",
     "eslint": "9.39.5",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.2.11",
     "playwright": "^1.61.1",
     "postcss": "8.5.10",
     "shpjs": "^6.2.0",
@@ -101,5 +102,10 @@
     "tsx": "^4.19.0",
     "typescript": "^5",
     "us-atlas": "^3.0.1"
+  },
+  "overrides": {
+    "axios": "1.18.1",
+    "postcss": "$postcss",
+    "sharp": "$sharp"
   }
 }

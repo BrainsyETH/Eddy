@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Eddy",
+    "slug": "eddy-ios",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "eddy",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "guide.eddy.app",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Eddy uses your location to show nearby rivers and your position on the map."
+      }
+    },
+    "plugins": [
+      "expo-apple-authentication",
+      "expo-notifications",
+      "expo-secure-store",
+      "@maplibre/maplibre-react-native",
+      "@sentry/react-native/expo"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
+    }
+  }
+}

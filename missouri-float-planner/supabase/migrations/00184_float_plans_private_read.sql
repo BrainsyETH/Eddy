@@ -18,6 +18,33 @@
 --     ones included) — float_plan_code_available() covers that without
 --     leaking anything but code existence.
 
+-- The production project received this ownership column and its first RLS
+-- policies through a dashboard migration named `float_plans_user_ownership`.
+-- Keep the repository migration chain self-contained as well. Every statement
+-- is idempotent so this file is also safe against that already-upgraded shape.
+alter table public.float_plans
+    add column if not exists user_id uuid references auth.users(id) on delete cascade;
+
+create index if not exists idx_float_plans_user_created
+    on public.float_plans (user_id, created_at desc)
+    where user_id is not null;
+
+drop policy if exists "Anyone can create float plans" on public.float_plans;
+drop policy if exists "Anyone can update float plan view count" on public.float_plans;
+drop policy if exists "Users create own float plans" on public.float_plans;
+drop policy if exists "Users delete own float plans" on public.float_plans;
+
+-- Accountless web saves remain possible, while authenticated callers may only
+-- attach their own uid. Owned plans are immutable through the public Data API;
+-- view counters use the narrowly-scoped SECURITY DEFINER function below.
+create policy "Users create own or anonymous float plans"
+    on public.float_plans for insert
+    with check (user_id is null or user_id = (select auth.uid()));
+
+create policy "Users delete own float plans"
+    on public.float_plans for delete
+    using (user_id is not null and user_id = (select auth.uid()));
+
 drop policy if exists "Float plans are viewable by everyone" on public.float_plans;
 
 create policy "Anonymous plans public, owned plans owner-only"

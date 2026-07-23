@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/supabase/request';
 import type { StarredRiversResponse } from '@/types/api';
+import { apiError } from '@/lib/api/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error listing starred rivers:', error);
-      return NextResponse.json({ error: 'Could not load starred rivers' }, { status: 500 });
+      return apiError(500, 'internal_error', 'Could not load starred rivers');
     }
 
     // Untyped client: PostgREST types the to-one embed as an array; at
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error listing starred rivers:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError(500, 'internal_error', 'Internal server error');
   }
 }
 
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
       | { riverId?: string; riverSlug?: string }
       | null;
     if (!body?.riverId && !body?.riverSlug) {
-      return NextResponse.json({ error: 'riverId or riverSlug required' }, { status: 400 });
+      return apiError(400, 'validation_failed', 'riverId or riverSlug required');
     }
 
     let riverId = body.riverId ?? null;
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
       riverId = river?.id ?? null;
     }
     if (!riverId) {
-      return NextResponse.json({ error: 'River not found' }, { status: 404 });
+      return apiError(404, 'not_found', 'River not found');
     }
 
     // Idempotent: re-starring is a no-op, not an error.
@@ -92,16 +93,16 @@ export async function POST(request: NextRequest) {
     if (error) {
       // FK violation = unknown river id.
       if (error.code === '23503') {
-        return NextResponse.json({ error: 'River not found' }, { status: 404 });
+        return apiError(404, 'not_found', 'River not found');
       }
       console.error('Error starring river:', error);
-      return NextResponse.json({ error: 'Could not star river' }, { status: 500 });
+      return apiError(500, 'internal_error', 'Could not star river');
     }
 
     return NextResponse.json({ ok: true, riverId });
   } catch (error) {
     console.error('Error starring river:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError(500, 'internal_error', 'Internal server error');
   }
 }
 
@@ -113,7 +114,7 @@ export async function DELETE(request: NextRequest) {
 
     const riverId = request.nextUrl.searchParams.get('riverId');
     if (!riverId) {
-      return NextResponse.json({ error: 'riverId required' }, { status: 400 });
+      return apiError(400, 'validation_failed', 'riverId required');
     }
 
     const { error } = await supabase
@@ -124,12 +125,12 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       console.error('Error unstarring river:', error);
-      return NextResponse.json({ error: 'Could not unstar river' }, { status: 500 });
+      return apiError(500, 'internal_error', 'Could not unstar river');
     }
 
     return NextResponse.json({ ok: true, riverId });
   } catch (error) {
     console.error('Error unstarring river:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiError(500, 'internal_error', 'Internal server error');
   }
 }

@@ -392,9 +392,72 @@ const spec = {
         },
       },
     },
+    '/api/app-config': {
+      get: {
+        operationId: 'getAppConfig',
+        summary: 'Get iOS version gates and feature flags',
+        responses: { '200': { description: 'Current mobile configuration', content: { 'application/json': { schema: { $ref: '#/components/schemas/AppConfig' } } } } },
+      },
+    },
+    '/api/me/profile': {
+      get: {
+        operationId: 'getMyProfile', summary: 'Get the authenticated consumer profile and entitlement',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Profile snapshot', content: { 'application/json': { schema: { type: 'object' } } } }, '401': { $ref: '#/components/responses/AuthError' } },
+      },
+      patch: {
+        operationId: 'updateMyProfile', summary: 'Update the authenticated consumer profile',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Updated profile' }, '401': { $ref: '#/components/responses/AuthError' } },
+      },
+    },
+    '/api/me/starred-rivers': {
+      get: { operationId: 'getMyStarredRivers', summary: 'List starred rivers', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Starred rivers' } } },
+      post: { operationId: 'starRiver', summary: 'Star a river', security: [{ bearerAuth: [] }], responses: { '200': { description: 'River starred' } } },
+      delete: { operationId: 'unstarRiver', summary: 'Unstar a river', security: [{ bearerAuth: [] }], responses: { '200': { description: 'River unstarred' } } },
+    },
+    '/api/me/merge-anonymous': {
+      post: { operationId: 'mergeAnonymousAccount', summary: 'Merge verified anonymous data into the current permanent account', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Merge result' }, '401': { $ref: '#/components/responses/AuthError' } } },
+    },
+    '/api/me/device-tokens': {
+      put: { operationId: 'registerDeviceToken', summary: 'Register or refresh an Expo push token', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Registered token' } } },
+      delete: { operationId: 'removeDeviceToken', summary: 'Remove an Expo push token', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Token removed' } } },
+    },
+    '/api/me/alert-subscriptions': {
+      get: { operationId: 'getAlertSubscriptions', summary: 'List alert subscriptions', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Subscriptions' } } },
+      put: { operationId: 'putAlertSubscription', summary: 'Create or replace a river alert subscription', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Saved subscription' } } },
+      delete: { operationId: 'deleteAlertSubscription', summary: 'Delete a river alert subscription', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Subscription removed' } } },
+    },
+    '/api/me/alerts': {
+      get: { operationId: 'getMyAlertFeed', summary: 'Get condition events for starred rivers', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Paginated alert feed' } } },
+    },
+    '/api/me/saved-floats': {
+      get: { operationId: 'getMySavedFloats', summary: 'List owned float plans', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Saved float summaries' } } },
+      post: { operationId: 'saveMyFloat', summary: 'Save and attach a float plan to the current account', security: [{ bearerAuth: [] }], responses: { '200': { description: 'Saved float share code' } } },
+    },
+    '/api/webhooks/revenuecat': {
+      post: { operationId: 'receiveRevenueCatEvent', summary: 'Receive authenticated RevenueCat lifecycle events', responses: { '200': { description: 'Event applied or already processed' }, '401': { description: 'Invalid webhook authorization' } } },
+    },
   },
   components: {
+    securitySchemes: {
+      bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'Supabase JWT' },
+    },
+    responses: {
+      AuthError: { description: 'Missing or invalid authentication', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+    },
     schemas: {
+      ApiError: {
+        type: 'object', required: ['error', 'code'],
+        properties: { error: { type: 'string' }, code: { type: 'string' }, details: { type: 'object' } },
+      },
+      AppConfig: {
+        type: 'object', required: ['minimumSupportedVersion', 'latestVersion', 'maintenance', 'features'],
+        properties: {
+          minimumSupportedVersion: { type: 'string' }, latestVersion: { type: 'string' }, maintenance: { type: 'boolean' },
+          features: { type: 'object', additionalProperties: { type: 'boolean' } },
+        },
+      },
       RiversResponse: {
         type: 'array',
         items: {
