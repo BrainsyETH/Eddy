@@ -13,7 +13,7 @@
 // as-is — re-generating copy is out of scope and needs the Anthropic call
 // anyway. Only the condition code + current height move.
 
-import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
+import { computeCondition, getFloatabilityClass, type ConditionThresholds } from '@/lib/conditions';
 import { toNum } from '@/lib/utils/num';
 
 export interface LiveCondition {
@@ -203,25 +203,6 @@ export interface OverlayOptions {
  * is the case the blanking actually exists for. 'unknown' is a wildcard (lost
  * telemetry) and never counts as a class change on its own.
  */
-type FloatabilityClass = 'too_low' | 'floatable' | 'high' | 'dangerous' | 'unknown';
-function floatabilityClass(code: string): FloatabilityClass {
-  switch (code) {
-    case 'too_low':
-      return 'too_low';
-    case 'low':
-    case 'good':
-    case 'flowing':
-    case 'optimal':
-      return 'floatable';
-    case 'high':
-      return 'high';
-    case 'dangerous':
-      return 'dangerous';
-    default:
-      return 'unknown';
-  }
-}
-
 export type LiveOverlaid<T> = T & {
   discharge_cfs: number | null;
   reading_timestamp: string | null;
@@ -278,8 +259,8 @@ export async function overlayLiveConditions<
     // static one-liner within hours of the daily regen, since gauge discharge
     // moves on essentially every reading. Transitions to/from 'unknown' (lost
     // telemetry) don't count — the morning quote stays the best info.
-    const storedClass = floatabilityClass(u.condition_code);
-    const liveClass = floatabilityClass(live.condition_code);
+    const storedClass = getFloatabilityClass(u.condition_code);
+    const liveClass = getFloatabilityClass(live.condition_code);
     const classChanged =
       storedClass !== 'unknown' && liveClass !== 'unknown' && storedClass !== liveClass;
     // Prose is "too stale" only past the caller's threshold (default 6 h; the

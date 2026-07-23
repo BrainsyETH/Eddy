@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildEddyTakeSummary, buildGuidanceSummary, buildRiverOutlookState, groupForecastByDay } from './river-outlook';
+import { buildDeterministicEddyReport, buildEddyTakeParts, buildEddyTakeSummary, buildGuidanceSummary, buildRiverOutlookState, groupForecastByDay } from './river-outlook';
 
 const stageThresholds = {
   levelTooLow: 1,
@@ -157,4 +157,41 @@ test('Eddy is explicit when the future outlook is unavailable', () => {
     buildEddyTakeSummary(result, 'flowing'),
     'I can tell you it’s Ideal today, but not what comes next—check again before launch.',
   );
+});
+
+test('builds River, Weather, and Eddstimate from the shared selected-gauge outlook', () => {
+  const outlook = buildRiverOutlookState({
+    ...baseOutlookInput,
+    trend: { direction: 'steady', delta: 0.01, windowHours: 6, qualifier: null, label: 'Holding steady' },
+  });
+  const parts = buildEddyTakeParts({
+    outlook,
+    currentCondition: 'flowing',
+    gaugeHeightFt: 2.93,
+    dischargeCfs: 1020,
+    thresholdUnit: 'ft',
+  });
+  assert.equal(parts.river, 'Ideal at 2.93 ft. Holding steady over the last 6 hours.');
+  assert.match(parts.weather, /84°\/68° today with clear/i);
+  assert.match(parts.weather, /available forecast/i);
+  assert.match(parts.eddstimate, /Ideal today/i);
+  assert.match(buildDeterministicEddyReport(parts), /^River: .* Weather: .* Eddstimate:/);
+});
+
+test('three-part summary stays honest when readings and weather are unavailable', () => {
+  const outlook = buildRiverOutlookState({
+    ...baseOutlookInput,
+    weatherDays: [],
+    weatherError: true,
+  });
+  const parts = buildEddyTakeParts({
+    outlook,
+    currentCondition: 'unknown',
+    gaugeHeightFt: null,
+    dischargeCfs: null,
+    thresholdUnit: 'ft',
+  });
+  assert.match(parts.river, /reading is unavailable/i);
+  assert.match(parts.weather, /weather outlook is unavailable/i);
+  assert.doesNotMatch(buildDeterministicEddyReport(parts), /holding|no rain/i);
 });

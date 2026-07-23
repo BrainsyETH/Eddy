@@ -2,17 +2,17 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Check, ChevronDown, ChevronUp, Share2 } from 'lucide-react';
-import { getEddyImageForCondition } from '@/constants';
-import type { ConditionCode } from '@/types/api';
+import { Check, ChevronDown, ChevronUp, CloudSun, Share2, Waves } from 'lucide-react';
+import { EDDY_IMAGES } from '@/constants';
+import type { EddyTakeParts } from '@/lib/river-outlook';
 
 interface EddyOutlookFooterProps {
   riverSlug: string;
-  conditionCode: ConditionCode;
-  outlookSummary: string;
+  parts: EddyTakeParts;
   isGuidance: boolean;
   fullReportText: string;
   fullReportLoading: boolean;
+  fullReportIsGenerated: boolean;
   generatedAt?: string | null;
   gaugeName?: string | null;
   isOpen: boolean;
@@ -34,11 +34,11 @@ function updatedLabel(generatedAt: string): string {
 
 export default function EddyOutlookFooter({
   riverSlug,
-  conditionCode,
-  outlookSummary,
+  parts,
   isGuidance,
   fullReportText,
   fullReportLoading,
+  fullReportIsGenerated,
   generatedAt,
   gaugeName,
   isOpen,
@@ -48,32 +48,41 @@ export default function EddyOutlookFooter({
 }: EddyOutlookFooterProps) {
   return (
     <section id="eddy-says" className="scroll-mt-24 border-t-2 border-primary-200 bg-white" aria-labelledby="eddy-outlook-heading">
-      <div className="px-4 py-4 sm:px-5 lg:grid lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-5">
-        <div className="flex items-center gap-2.5">
-          <Image
-            src={getEddyImageForCondition(conditionCode)}
-            alt=""
-            width={44}
-            height={44}
-            className="h-11 w-11 flex-shrink-0 object-contain"
-          />
-          <h3 id="eddy-outlook-heading" className="whitespace-nowrap text-xs font-bold uppercase tracking-wide text-neutral-500">
-            Eddy&apos;s take
-          </h3>
-        </div>
-
-        <div className="mt-2 min-w-0 lg:mt-0">
-          <div className="min-w-0">
-            <p className="text-[15px] font-semibold leading-relaxed text-neutral-900 sm:text-base" aria-live="polite">
-              {outlookSummary}
-            </p>
-            {isGuidance && (
-              <p className="mt-0.5 text-[10px] font-medium text-neutral-500">Guidance, not a river forecast.</p>
-            )}
+      <div className="border-b-2 border-primary-100 bg-white px-4 py-2 sm:px-5">
+        <h3 id="eddy-outlook-heading" className="font-sans text-xs font-bold uppercase tracking-wide text-primary-800">
+          Eddy&apos;s take
+        </h3>
+      </div>
+      <div className="grid grid-cols-1 divide-y-2 divide-primary-100 lg:grid-cols-3 lg:divide-x-2 lg:divide-y-0">
+        <article className="min-w-0 px-4 py-4 sm:px-5">
+          <div className="mb-2 flex items-center gap-2 text-primary-800">
+            <Waves className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            <h4 className="font-sans text-xs font-bold uppercase tracking-wide">River</h4>
           </div>
-        </div>
+          <p className="text-sm font-medium leading-relaxed text-neutral-700" aria-live="polite">{parts.river}</p>
+        </article>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2 lg:mt-0 lg:justify-end">
+        <article className="min-w-0 px-4 py-4 sm:px-5">
+          <div className="mb-2 flex items-center gap-2 text-primary-800">
+            <CloudSun className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Weather</h4>
+          </div>
+          <p className="text-sm font-medium leading-relaxed text-neutral-700">{parts.weather}</p>
+        </article>
+
+        <article className="min-w-0 border-l-4 border-accent-500 bg-white px-4 py-4 sm:px-5 lg:border-l-0 lg:border-t-4">
+          <div className="mb-2 flex items-center gap-2 text-accent-800">
+            <Image src={EDDY_IMAGES.favicon} alt="" width={20} height={20} className="h-5 w-5 object-contain" />
+            <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Eddstimate</h4>
+          </div>
+          <p className="text-sm font-semibold leading-relaxed text-neutral-900">{parts.eddstimate}</p>
+          {isGuidance && (
+            <p className="mt-1 text-[10px] font-medium text-neutral-500">Guidance, not a river forecast.</p>
+          )}
+        </article>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-end gap-2 border-t-2 border-primary-100 bg-white px-4 py-3 sm:px-5">
           <button
             type="button"
             onClick={onToggle}
@@ -97,7 +106,6 @@ export default function EddyOutlookFooter({
             {shareStatus === 'copied' ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
             {shareStatus === 'copied' ? 'Copied!' : 'Share'}
           </button>
-        </div>
       </div>
 
       {isOpen && (
@@ -107,10 +115,10 @@ export default function EddyOutlookFooter({
           ) : (
             <p className="text-sm font-medium leading-relaxed text-neutral-700">{fullReportText}</p>
           )}
-          {(generatedAt || gaugeName) && !fullReportLoading && (
+          {!fullReportLoading && (
             <p className="mt-2 text-[10px] text-neutral-400">
-              {generatedAt ? updatedLabel(generatedAt) : null}
-              {generatedAt && gaugeName ? ' · ' : null}
+              {fullReportIsGenerated && generatedAt ? updatedLabel(generatedAt) : 'Live deterministic guidance'}
+              {gaugeName ? ' · ' : null}
               {gaugeName ? `via ${gaugeName}` : null}
             </p>
           )}

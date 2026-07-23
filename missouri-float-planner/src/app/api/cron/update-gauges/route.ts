@@ -5,12 +5,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getFlowProvider, type GaugeReading } from '@/lib/flow-providers';
-import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
+import { computeCondition, hasMaterialConditionChange, type ConditionThresholds } from '@/lib/conditions';
 import { publishConditionChangeAlert, isElevatedCrossing, publishElevatedCrossings } from '@/lib/social/condition-alerts';
 import { regenerateEddyForRiver, type TriggerReason } from '@/lib/eddy/regenerate';
 import { classifyConditionEvent, hasSuspectQualifier } from '@/lib/push/policy';
 import { releaseCronLock, tryCronLock } from '@/lib/social/cron-lock';
 import { toNum } from '@/lib/utils/num';
+import { getSecondaryGaugeTargets } from '@/lib/eddy/generate-gauge-update';
+import { regenerateGaugeUpdate } from '@/lib/eddy/regenerate-gauge';
+import { confirmsGaugeConditionChange, MAX_GAUGE_REGENS_PER_POLL } from '@/lib/eddy/gauge-update-policy';
 
 // Force dynamic rendering (cron endpoint)
 export const dynamic = 'force-dynamic';
@@ -164,6 +167,7 @@ async function runUpdate(request: NextRequest) {
     // after the response is sent, silently dropping the regeneration.
     // condition_change outranks rapid_change for the same river.
     const pendingEddyRegens = new Map<string, TriggerReason>();
+    const pendingGaugeRegens = new Set<string>();
     const queueEddyRegen = (slug: string, reason: TriggerReason) => {
       if (reason === 'condition_change' || !pendingEddyRegens.has(slug)) {
         pendingEddyRegens.set(slug, reason);
@@ -235,6 +239,29 @@ async function runUpdate(request: NextRequest) {
       const group = wiredByStation.get(stationId) || [];
       group.push(rg);
       wiredByStation.set(stationId, group);
+    }
+
+    // Secondary gauges do not drive river-wide alerts. Their latest generated
+    // condition is the comparison point for deciding whether their own Haiku
+    // report needs refreshing.
+    const secondaryStationIds = (wiredData || [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((rg) => !(rg as any).is_primary)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((rg) => (rg as any).gauge_station_id as string);
+    const latestGaugeUpdateByStation = new Map<string, { condition_code: string }>();
+    if (secondaryStationIds.length > 0) {
+      const { data: gaugeUpdateRows } = await supabase
+        .from('gauge_updates')
+        .select('gauge_station_id, condition_code, generated_at')
+        .in('gauge_station_id', secondaryStationIds)
+        .gt('expires_at', new Date().toISOString())
+        .order('generated_at', { ascending: false });
+      for (const row of gaugeUpdateRows || []) {
+        if (!latestGaugeUpdateByStation.has(row.gauge_station_id)) {
+          latestGaugeUpdateByStation.set(row.gauge_station_id, { condition_code: row.condition_code });
+        }
+      }
     }
 
     // Even scoped, enrichment runs under a time budget: readings are already
@@ -358,14 +385,6 @@ async function runUpdate(request: NextRequest) {
             const rg = rawRg as any;
             const riverSlug: string | undefined = rg.rivers?.slug;
             if (!riverSlug) continue;
-            // Only the PRIMARY gauge drives a river's condition + alerts. A river
-            // with several gauges (e.g. the Meramec's upper/lower stations) would
-            // otherwise post a separate reel per gauge — often at conflicting
-            // states (one "high", another "dangerous"). The primary gauge is the
-            // one the whole app treats as the river's condition (loadGaugeContext,
-            // the river page). Readings for every gauge are still stored upstream.
-            if (!rg.is_primary) continue;
-
             const thresholds: ConditionThresholds = {
               levelTooLow: rg.level_too_low,
               levelLow: rg.level_low,
@@ -387,6 +406,44 @@ async function runUpdate(request: NextRequest) {
             let newCode = newCondition.code;
             if (reading.gaugeHeightFt != null && rg.flood_stage_ft != null && reading.gaugeHeightFt >= rg.flood_stage_ft) {
               newCode = 'dangerous';
+            }
+
+            if (!rg.is_primary) {
+              const stored = latestGaugeUpdateByStation.get(station.id);
+              if (!stored || !hasMaterialConditionChange(stored.condition_code, newCode)) continue;
+
+              // Match the primary path's elevated debounce: do not regenerate
+              // safety copy from a single high/flood sample.
+              let previousCode: string | null = null;
+              if (newCode === 'high' || newCode === 'dangerous') {
+                const { data: previousRows } = await supabase
+                  .from('gauge_readings')
+                  .select('gauge_height_ft, discharge_cfs')
+                  .eq('gauge_station_id', station.id)
+                  .lt('reading_timestamp', reading.readingTimestamp)
+                  .order('reading_timestamp', { ascending: false })
+                  .limit(1);
+                const previous = previousRows?.[0];
+                if (!previous) continue;
+                const previousCondition = computeCondition(
+                  usesCfs ? null : previous.gauge_height_ft,
+                  thresholds,
+                  usesCfs ? previous.discharge_cfs : null,
+                );
+                previousCode = previousCondition.code;
+                if (previous.gauge_height_ft != null && rg.flood_stage_ft != null && previous.gauge_height_ft >= rg.flood_stage_ft) {
+                  previousCode = 'dangerous';
+                }
+              }
+
+              if (!confirmsGaugeConditionChange({
+                storedCondition: stored.condition_code,
+                liveCondition: newCode,
+                previousCondition: previousCode,
+              })) continue;
+
+              pendingGaugeRegens.add(station.id);
+              continue;
             }
 
             const oldCode = rg.last_condition_code || 'unknown';
@@ -529,6 +586,26 @@ async function runUpdate(request: NextRequest) {
       }
     }
 
+    // Secondary reports refresh independently and never emit river alerts or
+    // change the primary river condition. A capped tail retries naturally on
+    // the next poll because the stored report remains mismatched.
+    let gaugeRegensGenerated = 0;
+    let gaugeRegensSkipped = 0;
+    if (pendingGaugeRegens.size > 0) {
+      const targets = await getSecondaryGaugeTargets();
+      const targetByStation = new Map(targets.map((target) => [target.gaugeStationId, target]));
+      const queuedTargets = Array.from(pendingGaugeRegens)
+        .map((stationId) => targetByStation.get(stationId))
+        .filter((target): target is NonNullable<typeof target> => Boolean(target));
+      const toRun = queuedTargets.slice(0, MAX_GAUGE_REGENS_PER_POLL);
+      gaugeRegensSkipped = queuedTargets.length - toRun.length;
+      const regenResults = await Promise.allSettled(toRun.map((target) => regenerateGaugeUpdate(target)));
+      for (const result of regenResults) {
+        if (result.status === 'fulfilled') gaugeRegensGenerated += result.value;
+        else console.error('[GaugeRegen] Event regeneration failed:', result.reason);
+      }
+    }
+
     const executionTime = new Date().toISOString();
 
     return NextResponse.json({
@@ -540,6 +617,8 @@ async function runUpdate(request: NextRequest) {
       highFrequencyFlagsSet,
       highFrequencyFlagsCleared,
       conditionChanges,
+      gaugeRegensGenerated,
+      gaugeRegensSkipped,
       flatlined,
       wiredStations: wiredEntries.length,
       enrichmentSkipped,
