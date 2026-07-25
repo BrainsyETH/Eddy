@@ -349,7 +349,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             fullReportText={eddyFullReportText}
             fullReportLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
             fullReportIsGenerated={Boolean(activeEddyUpdate?.quoteText)}
-            eddyReadIsGenerated={Boolean(activeEddyUpdate?.eddyRead)}
             generatedAt={activeEddyUpdate?.generatedAt}
             gaugeName={eddySourceGaugeName}
             isOpen={isEddyReportOpen}
