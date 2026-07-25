@@ -70,6 +70,16 @@ RESEND_WEBHOOK_SECRET=whsec_your_signing_secret # verifies the Svix signature
 # RESEND_REPLY_FROM=hello@eddy.guide            # optional: From for admin replies when the
                                                 #   message wasn't sent to an @eddy.guide address
 
+# RevenueCat — iOS subscription entitlements. Required for POST /api/webhooks/revenuecat.
+# In the RevenueCat dashboard (Project → Integrations → Webhooks) set the
+# Authorization header to exactly "Bearer <REVENUECAT_WEBHOOK_SECRET>".
+REVENUECAT_WEBHOOK_SECRET=a_long_random_secret
+
+# Honor StoreKit sandbox / TestFlight purchases as real entitlements.
+# Set ONLY on preview/dev deploys — with this unset in production, a sandbox
+# purchase can never unlock Eddy+. See src/lib/entitlement.ts.
+# ALLOW_SANDBOX_ENTITLEMENTS=true
+
 # x402 — AI-agent payments (x402 V2). Optional; dormant until a wallet is set.
 # Browsers always pass through free; only AI agents are asked to pay (USDC).
 # X402_WALLET_ADDRESS=0xYourBaseWallet        # EVM payout on Base — activates x402
