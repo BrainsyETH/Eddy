@@ -844,3 +844,22 @@ export interface StarredRiverEntry {
 export interface StarredRiversResponse {
   starred: StarredRiverEntry[];
 }
+
+export type AlertSubscriptionKind = 'floatable' | 'safety' | 'all';
+
+export interface AlertSubscriptionEntry {
+  id: string;
+  riverId: string;
+  riverName: string;
+  riverSlug: string;
+  kind: AlertSubscriptionKind;
+  /** One-shot subscriptions auto-expire after their first matching push */
+  oneShot: boolean;
+  firedAt: string | null;
+  createdAt: string;
+}
+
+/** Response for GET /api/me/alert-subscriptions */
+export interface AlertSubscriptionsResponse {
+  subscriptions: AlertSubscriptionEntry[];
+}
