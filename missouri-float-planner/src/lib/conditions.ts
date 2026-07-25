@@ -12,6 +12,25 @@ export interface ConditionThresholds {
   levelHigh: number | null;
   levelDangerous: number | null;
   thresholdUnit?: 'ft' | 'cfs';
+  /**
+   * NWS flood stage in FEET. Authoritative hazard line regardless of the unit
+   * the gauge is classified in — a reading at flood stage is dangerous whether
+   * or not the editorial `levelDangerous` band says so.
+   */
+  floodStageFt?: number | null;
+}
+
+export interface ComputeConditionOptions {
+  /**
+   * Reject the cross-unit fallback: when true, a gauge whose PRIMARY unit has
+   * no value returns `unknown` instead of silently classifying the other unit's
+   * number against the wrong thresholds.
+   *
+   * Defaults to false so every existing display call site keeps its current
+   * behavior. The alert path passes true — comparing cfs against ft thresholds
+   * is how a dead stage sensor used to manufacture a `dangerous` social post.
+   */
+  strictUnit?: boolean;
 }
 
 export interface ConditionResult {
@@ -62,14 +81,37 @@ export function hasMaterialConditionChange(previousCode: string, nextCode: strin
 export function computeCondition(
   gaugeHeightFt: number | null,
   thresholds: ConditionThresholds,
-  dischargeCfs?: number | null
+  dischargeCfs?: number | null,
+  options?: ComputeConditionOptions
 ): ConditionResult {
   // Determine which value to use based on threshold unit
   const useCfs = thresholds.thresholdUnit === 'cfs';
 
-  // Use the preferred value, with fallback to the other if null
+  // ── Flood-stage override ────────────────────────────────────────
+  // Checked BEFORE the null guard below, and before the threshold ladder,
+  // mirroring the `is_flood` branch in the get_river_condition RPC
+  // (migration 00166). Order matters for safety: a cfs-primary gauge whose
+  // discharge sensor has died still reports `dangerous` from its stored
+  // stage rather than degrading to `unknown`.
+  if (
+    thresholds.floodStageFt != null &&
+    gaugeHeightFt != null &&
+    gaugeHeightFt >= thresholds.floodStageFt
+  ) {
+    return {
+      code: 'dangerous',
+      label: CONDITION_LABELS.dangerous,
+      color: CONDITION_COLORS.dangerous,
+    };
+  }
+
+  // Use the preferred value. The cross-unit fallback is preserved by default
+  // for display call sites, but suppressed under strictUnit — see
+  // ComputeConditionOptions.
   let compareValue: number | null;
-  if (useCfs) {
+  if (options?.strictUnit) {
+    compareValue = (useCfs ? dischargeCfs : gaugeHeightFt) ?? null;
+  } else if (useCfs) {
     compareValue = dischargeCfs ?? gaugeHeightFt;
   } else {
     compareValue = gaugeHeightFt ?? dischargeCfs ?? null;

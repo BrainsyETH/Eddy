@@ -242,19 +242,14 @@ export function classifyStageFromThresholds(
   },
   stageFt?: number | null,
 ): ConditionCode {
-  // Flood-stage override: the NWS flood stage (feet) is the authoritative hazard
-  // line regardless of the unit the gauge is classified in. Both readings are
-  // stored, so a cfs-primary gauge still gets it via the stored gauge height —
-  // pass `stageFt` at the call site (for ft gauges `value` already is the stage).
+  // The flood-stage override now lives inside computeCondition (it applies the
+  // NWS stage before the null guard and before the ladder, matching the
+  // get_river_condition RPC). This function just adapts the snake_case row and
+  // resolves which reading is the stage in feet.
   const stage = unit === 'ft' ? value : (stageFt ?? null);
-  if (th.flood_stage_ft != null && stage != null && stage >= th.flood_stage_ft) {
-    return 'dangerous';
-  }
-
-  if (value == null) return 'unknown';
 
   const result = computeCondition(
-    unit === 'ft' ? value : null,
+    unit === 'ft' ? value : stage,
     {
       levelTooLow: th.level_too_low ?? null,
       levelLow: th.level_low ?? null,
@@ -263,8 +258,13 @@ export function classifyStageFromThresholds(
       levelHigh: th.level_high,
       levelDangerous: th.level_dangerous,
       thresholdUnit: unit,
+      floodStageFt: th.flood_stage_ft ?? null,
     },
     unit === 'cfs' ? value : null,
+    // Preserve this function's original contract: a cfs gauge with no
+    // discharge reading returned 'unknown' rather than classifying its stage
+    // against cfs thresholds.
+    { strictUnit: true },
   );
   return result.code;
 }
