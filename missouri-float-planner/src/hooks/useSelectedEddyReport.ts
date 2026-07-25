@@ -57,11 +57,16 @@ export function useSelectedEddyReport({
       };
     },
     enabled: enabled && Boolean(id),
-    // One stored-report request per river/gauge for the browser session. Model
-    // generation is scheduled server-side and never triggered by this query.
-    staleTime: Infinity,
-    gcTime: Infinity,
+    // Model generation is scheduled server-side and is never triggered by this
+    // query, so this stays cheap — but it must not be cached for the whole
+    // session. The API withholds generated prose once the live reading crosses
+    // into a different safety class, and that check only runs on a fetch. With
+    // an infinite staleTime, a tab left open through a rain event would keep
+    // showing float-friendly AI copy beside a live "stay off the river" call.
+    staleTime: 15 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
     refetchInterval: false,
+    refetchOnWindowFocus: true,
     retry: 1,
     throwOnError: false,
   });

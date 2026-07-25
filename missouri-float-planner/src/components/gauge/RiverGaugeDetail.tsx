@@ -6,9 +6,9 @@
 // canonical river hub at /rivers/[slug].
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { ExternalLink, Clock } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 
-import { computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
+import { applyFloodStageOverride, computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
 import { CFS_EXPLAINER, CONDITION_COLORS } from '@/constants';
 import InfoTip from '@/components/ui/InfoTip';
 import type { ConditionCode } from '@/types/api';
@@ -36,7 +36,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   const prefetchHistory = useGaugeHistoryPrefetch();
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState(14);
-  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
   const [gaugeNavTarget, setGaugeNavTarget] = useState<HTMLElement | null>(null);
 
@@ -205,10 +204,18 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
       thresholdUnit: activeThreshold.thresholdUnit,
     };
     const result = computeCondition(activeGauge.gaugeHeightFt, thresholds, activeGauge.dischargeCfs);
+    // Same flood-stage escalation the gauge-report API applies. Without it the
+    // server could withhold prose for a "dangerous" reading that this page was
+    // still labeling "High".
+    const code = applyFloodStageOverride(
+      result.code,
+      activeGauge.gaugeHeightFt,
+      activeThreshold.floodStageFt,
+    );
     return {
-      code: result.code,
-      label: getConditionShortLabel(result.code),
-      tailwindColor: getConditionTailwindColor(result.code),
+      code,
+      label: getConditionShortLabel(code),
+      tailwindColor: getConditionTailwindColor(code),
     };
   }, [activeGauge, activeThreshold]);
 
@@ -220,31 +227,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     }),
     [condition.code, outlook, selectedEddyReport.data?.eddyRead],
   );
-
-  // Reading age
-  const ageText = useMemo(() => {
-    if (activeGauge?.readingAgeHours == null) return null;
-    if (activeGauge.readingAgeHours < 1) {
-      const mins = Math.round(activeGauge.readingAgeHours * 60);
-      return mins < 2 ? 'Just now' : `${mins}m ago`;
-    }
-    if (activeGauge.readingAgeHours < 24) return `${Math.round(activeGauge.readingAgeHours)}h ago`;
-    return `${Math.round(activeGauge.readingAgeHours / 24)}d ago`;
-  }, [activeGauge]);
-
-  // Share handler
-  const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/rivers/${riverSlug}`;
-    const isMobile = window.matchMedia('(pointer: coarse)').matches;
-    if (isMobile && navigator.share) {
-      try { await navigator.share({ url: shareUrl }); return; } catch { /* cancelled */ }
-    }
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setShareStatus('copied');
-      setTimeout(() => setShareStatus('idle'), 2000);
-    } catch { /* clipboard failed */ }
-  };
 
   const activeEddyUpdate = selectedEddyReport.data;
   const eddyFullReportText = activeEddyUpdate?.quoteText
@@ -311,8 +293,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             gaugeNavTarget,
         )}
 
-        {/* Selected-gauge meta — identity + freshness only. Condition and
-            reading live on the reading card (which also carries the trend);
+        {/* Selected-gauge meta — identity only. Freshness is stated on the
+            reading card itself, where the number it qualifies actually is;
             Share sits in the hero, Add Photo in the photo gallery. */}
         <div className="mb-3 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-neutral-500">
           {tabs.length <= 1 && <span className="font-medium text-neutral-600">{activeGauge.name}</span>}
@@ -325,15 +307,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               USGS {activeGauge.usgsSiteId}
               <ExternalLink className="w-3 h-3" />
             </a>
-            {ageText && (
-              <>
-                <span className="text-neutral-300">&middot;</span>
-                <span className="inline-flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {ageText}
-                </span>
-              </>
-            )}
         </div>
 
         {/* Now, next, and interpretation share one decision surface. Their data
@@ -365,7 +338,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                 key={`outlook-${activeSiteId}`}
                 outlook={outlook}
                 embedded
-                showSummary={false}
               />
             </div>
           </div>
@@ -382,8 +354,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             gaugeName={eddySourceGaugeName}
             isOpen={isEddyReportOpen}
             onToggle={() => setIsEddyReportOpen((open) => !open)}
-            shareStatus={shareStatus}
-            onShare={handleShare}
           />
         </section>
 

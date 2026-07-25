@@ -2,9 +2,10 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Check, ChevronDown, ChevronUp, Eye, Share2, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eye, Sparkles } from 'lucide-react';
 import { EDDY_IMAGES } from '@/constants';
 import type { EddyTakeSections } from '@/lib/eddy/take-sections';
+import { formatAgeFromTimestamp } from '@/lib/utils/reading-age';
 
 interface EddyOutlookFooterProps {
   riverSlug: string;
@@ -12,25 +13,13 @@ interface EddyOutlookFooterProps {
   isGuidance: boolean;
   fullReportText: string;
   fullReportLoading: boolean;
+  /** Only a model-written report earns the expander; see hasFullReport below. */
   fullReportIsGenerated: boolean;
   eddyReadIsGenerated: boolean;
   generatedAt?: string | null;
   gaugeName?: string | null;
   isOpen: boolean;
   onToggle: () => void;
-  shareStatus: 'idle' | 'copied';
-  onShare: () => void;
-}
-
-function updatedLabel(generatedAt: string): string {
-  const diffMs = Date.now() - new Date(generatedAt).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return 'Updated just now';
-  if (mins < 60) return `Updated ${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 2) return 'Updated 1 hr ago';
-  if (hours < 24) return `Updated ${hours} hrs ago`;
-  return `Updated ${Math.floor(hours / 24)}d ago`;
 }
 
 export default function EddyOutlookFooter({
@@ -45,39 +34,47 @@ export default function EddyOutlookFooter({
   gaugeName,
   isOpen,
   onToggle,
-  shareStatus,
-  onShare,
 }: EddyOutlookFooterProps) {
+  // Without a generated report the "full report" was the three sections below
+  // re-pasted into one paragraph — an expander that promised more and returned
+  // the same words. Offer it only when there is genuinely more to read.
+  const hasFullReport = fullReportIsGenerated || fullReportLoading;
+  const expanded = isOpen && hasFullReport;
+  const updatedLabel = generatedAt ? formatAgeFromTimestamp(generatedAt) : null;
+
   return (
     <section id="eddy-says" className="scroll-mt-24 border-t-2 border-primary-200 bg-white" aria-labelledby="eddy-outlook-heading">
       <div className="flex items-center justify-between gap-3 border-b-2 border-primary-100 bg-white px-4 py-2 sm:px-5">
         <h3 id="eddy-outlook-heading" className="font-sans text-xs font-bold uppercase tracking-wide text-primary-800">
           Eddy&apos;s take
         </h3>
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={isOpen}
-          aria-controls="eddy-take-content"
-          className="inline-flex items-center gap-1 rounded-sm text-xs font-semibold text-neutral-600 transition-colors hover:text-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-        >
-          {isOpen ? <>Show take <ChevronUp className="h-3 w-3" /></> : <>Full report <ChevronDown className="h-3 w-3" /></>}
-        </button>
+        {hasFullReport && (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={expanded}
+            aria-controls="eddy-take-content"
+            className="inline-flex items-center gap-1 rounded-sm text-xs font-semibold text-neutral-600 transition-colors hover:text-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+          >
+            {expanded
+              ? <>Show summary <ChevronUp className="h-3 w-3" /></>
+              : <>Full report <ChevronDown className="h-3 w-3" /></>}
+          </button>
+        )}
       </div>
 
-      {isOpen ? (
+      {expanded ? (
         <div id="eddy-take-content" className="bg-white px-4 py-4 sm:px-5">
           {fullReportLoading ? (
             <p className="text-sm italic text-neutral-500">Loading Eddy&apos;s full report…</p>
           ) : (
-            <p className="text-sm font-medium leading-relaxed text-neutral-700">{fullReportText}</p>
-          )}
-          {!fullReportLoading && (
-            <p className="mt-2 text-[10px] text-neutral-400">
-              {fullReportIsGenerated && generatedAt ? updatedLabel(generatedAt) : 'Generated report unavailable · Live guidance shown'}
-              {gaugeName ? ' · ' : null}
-              {gaugeName ? `via ${gaugeName}` : null}
-            </p>
+            <>
+              <p className="text-sm font-medium leading-relaxed text-neutral-700">{fullReportText}</p>
+              <p className="mt-2 text-[11px] text-neutral-500">
+                {updatedLabel ? `Written ${updatedLabel}` : 'Generated report'}
+                {gaugeName ? ` · via ${gaugeName}` : null}
+              </p>
+            </>
           )}
         </div>
       ) : (
@@ -91,10 +88,16 @@ export default function EddyOutlookFooter({
         </article>
 
         <article className="min-w-0 px-4 py-4 sm:px-5">
-          <div className="mb-2 flex items-center gap-2 text-primary-800">
+          <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-primary-800">
             <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
             <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Eddy&apos;s read</h4>
-            <span className="text-[9px] font-semibold uppercase tracking-wide text-neutral-400">
+            {/* Whether a human is reading model prose or a deterministic rule
+                is a trust question, so it gets readable type, not 9px. */}
+            <span className={`rounded-sm border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+              eddyReadIsGenerated
+                ? 'border-primary-200 bg-primary-50 text-primary-700'
+                : 'border-neutral-200 bg-neutral-50 text-neutral-600'
+            }`}>
               {eddyReadIsGenerated ? 'AI' : 'Live guidance'}
             </span>
           </div>
@@ -121,14 +124,6 @@ export default function EddyOutlookFooter({
           >
             Plan a Trip
           </Link>
-          <button
-            type="button"
-            onClick={onShare}
-            className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary-700 bg-white px-3.5 py-1.5 text-xs font-semibold text-primary-900 shadow-[2px_2px_0_var(--color-primary-200)] transition-colors hover:bg-primary-50"
-          >
-            {shareStatus === 'copied' ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
-            {shareStatus === 'copied' ? 'Copied!' : 'Share'}
-          </button>
       </div>
     </section>
   );

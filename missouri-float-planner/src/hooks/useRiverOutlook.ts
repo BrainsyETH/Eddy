@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { useRiverForecast } from '@/hooks/useRiverForecast';
 import { useForecastByCoords } from '@/hooks/useWeather';
@@ -23,15 +24,32 @@ export function useRiverOutlook({
   const weatherQuery = useForecastByCoords(lat, lon, !!siteId);
   const riverQuery = useRiverForecast(siteId);
   const historyQuery = useGaugeHistory(siteId, 14);
-  const trend = computeTrend(historyQuery.data?.readings, trendUnit, 6);
 
-  return buildRiverOutlookState({
-    weatherDays: weatherQuery.data?.days ?? [],
-    weatherPending: weatherQuery.isPending,
-    weatherError: weatherQuery.isError,
-    riverStages: riverQuery.data?.stages ?? [],
-    riverPending: riverQuery.isPending,
-    trend,
+  const weatherDays = weatherQuery.data?.days;
+  const riverStages = riverQuery.data?.stages;
+  const readings = historyQuery.data?.readings;
+
+  // A fresh object each render would defeat every downstream useMemo that
+  // depends on the outlook.
+  return useMemo(() => {
+    const trend = computeTrend(readings, trendUnit, 6);
+    return buildRiverOutlookState({
+      weatherDays: weatherDays ?? [],
+      weatherPending: weatherQuery.isPending,
+      weatherError: weatherQuery.isError,
+      riverStages: riverStages ?? [],
+      riverPending: riverQuery.isPending,
+      trend,
+      stageThresholds,
+    });
+  }, [
+    weatherDays,
+    weatherQuery.isPending,
+    weatherQuery.isError,
+    riverStages,
+    riverQuery.isPending,
+    readings,
+    trendUnit,
     stageThresholds,
-  });
+  ]);
 }

@@ -243,30 +243,16 @@ export function relativeTime(iso: string): string {
   return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
-// Coarse floatability bucket for a condition code — the client mirror of the
-// server's overlayLiveConditions grouping (src/lib/social/live-conditions).
+// Coarse floatability bucket for a condition code, re-exported under the local
+// name so callers here read the same as before. Canonical definition lives in
+// lib/conditions alongside the condition ladder itself; this file, the social
+// overlay, and the gauge-report policy previously each carried a copy.
 // Used to decide whether Eddy's daily AI note still agrees with the LIVE
 // gauge: if the live reading has crossed into a different bucket since the
 // note was written, the note is suppressed rather than shown contradicting
 // the live badge (e.g. a "good, dialed in" quote next to a Flood reading).
-export type FloatabilityClass = 'too_low' | 'floatable' | 'high' | 'dangerous' | 'unknown';
-export function floatabilityClass(code: string): FloatabilityClass {
-  switch (code) {
-    case 'too_low':
-      return 'too_low';
-    case 'low':
-    case 'good':
-    case 'flowing':
-    case 'optimal':
-      return 'floatable';
-    case 'high':
-      return 'high';
-    case 'dangerous':
-      return 'dangerous';
-    default:
-      return 'unknown';
-  }
-}
+export type { FloatabilityClass } from '@/lib/conditions';
+export { getFloatabilityClass as floatabilityClass } from '@/lib/conditions';
 
 // ─── Data age ────────────────────────────────────────────────────────────
 //

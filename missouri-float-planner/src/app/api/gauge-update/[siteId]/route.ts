@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { toNum } from '@/lib/utils/num';
-import { computeConditionFromDbRow } from '@/lib/conditions';
+import { applyFloodStageOverride, computeConditionFromDbRow } from '@/lib/conditions';
 import { isGaugeReportCompatible } from '@/lib/eddy/gauge-update-policy';
 
 export const dynamic = 'force-dynamic';
@@ -52,6 +52,15 @@ export async function GET(
       return NextResponse.json<GaugeUpdateResponse>({ available: false, update: null }, { headers: cdnCacheHeaders(300, 1800) });
     }
 
+    // Scope the threshold ladder to the river the report was written for, but
+    // only when we know it. Filtering on `rivers.slug = ''` for a legacy row
+    // with a null river_slug matches nothing, which silently made every such
+    // stored report unavailable.
+    const thresholdQuery = supabase
+      .from('river_gauges')
+      .select('level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, flood_stage_ft, threshold_unit, is_primary, rivers!inner(slug)')
+      .eq('gauge_station_id', data.gauge_station_id);
+
     const [{ data: reading }, { data: thresholdRow }] = await Promise.all([
       supabase
         .from('gauge_readings')
@@ -60,11 +69,10 @@ export async function GET(
         .order('reading_timestamp', { ascending: false })
         .limit(1)
         .maybeSingle(),
-      supabase
-        .from('river_gauges')
-        .select('level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, flood_stage_ft, threshold_unit, rivers!inner(slug)')
-        .eq('gauge_station_id', data.gauge_station_id)
-        .eq('rivers.slug', data.river_slug ?? '')
+      (data.river_slug
+        ? thresholdQuery.eq('rivers.slug', data.river_slug)
+        : thresholdQuery.order('is_primary', { ascending: false })
+      )
         .limit(1)
         .maybeSingle(),
     ]);
@@ -75,9 +83,11 @@ export async function GET(
 
     const liveHeight = toNum(reading.gauge_height_ft);
     const liveDischarge = toNum(reading.discharge_cfs);
-    let liveCondition = computeConditionFromDbRow(liveHeight, thresholdRow, liveDischarge).code;
-    const floodStage = toNum(thresholdRow.flood_stage_ft);
-    if (liveHeight != null && floodStage != null && liveHeight >= floodStage) liveCondition = 'dangerous';
+    const liveCondition = applyFloodStageOverride(
+      computeConditionFromDbRow(liveHeight, thresholdRow, liveDischarge).code,
+      liveHeight,
+      toNum(thresholdRow.flood_stage_ft),
+    );
 
     if (!isGaugeReportCompatible({
       storedCondition: data.condition_code,

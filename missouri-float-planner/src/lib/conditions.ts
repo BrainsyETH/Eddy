@@ -148,6 +148,24 @@ export function computeCondition(
   };
 }
 
+/**
+ * NWS flood stage outranks the local condition ladder: a river at or above
+ * flood stage is Dangerous regardless of where the float thresholds sit.
+ *
+ * SINGLE SOURCE OF TRUTH for that escalation. The gauge-report API used to
+ * apply it inline while the river report's client-side computation did not,
+ * so the server could withhold prose for a "dangerous" reading that the page
+ * was still labeling "High".
+ */
+export function applyFloodStageOverride(
+  code: ConditionCode,
+  gaugeHeightFt: number | null,
+  floodStageFt: number | null | undefined,
+): ConditionCode {
+  if (gaugeHeightFt == null || floodStageFt == null) return code;
+  return gaugeHeightFt >= floodStageFt ? 'dangerous' : code;
+}
+
 /** Raw river_gauges row shape (snake_case) as returned by Supabase. */
 export interface DbThresholdRow {
   level_too_low: number | null;

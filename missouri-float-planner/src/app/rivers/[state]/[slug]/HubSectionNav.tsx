@@ -65,7 +65,10 @@ export default function HubSectionNav({ planUrl, hasGuide = true }: { planUrl: s
           ))}
         </nav>
         <div className="flex flex-shrink-0 items-center gap-2">
-          <div id="gauge-selection-slot" className="flex min-h-9 items-center" aria-live="polite" />
+          {/* No aria-live here: the gauge <select> is portaled into this slot,
+              and wrapping an interactive control in a live region makes screen
+              readers re-announce it on mount and on every selection change. */}
+          <div id="gauge-selection-slot" className="flex min-h-9 items-center" />
           <Link
             href={planUrl}
             className="hidden flex-shrink-0 items-center rounded-md border-2 border-accent-700 bg-accent-500 px-4 py-1.5 text-sm font-semibold text-white no-underline shadow-[2px_2px_0_var(--color-accent-700)] transition-colors hover:bg-accent-600 sm:inline-flex"
