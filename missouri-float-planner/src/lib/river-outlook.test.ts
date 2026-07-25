@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildDeterministicEddyReport, buildEddyTakeSections, buildEddyTakeSummary, buildGuidanceSummary, buildRiverOutlookState, getRainPresentation, groupForecastByDay } from './river-outlook';
+import { buildDeterministicEddyReport, buildEddyTakeSections, buildRiverOutlookState, getRainPresentation, groupForecastByDay } from './river-outlook';
 
 const stageThresholds = {
   levelTooLow: 1,
@@ -42,16 +42,9 @@ test('keeps an official stage but omits a condition without foot thresholds', ()
   assert.equal(result.conditionCode, null);
 });
 
-test('fallback guidance is qualified and never predicts a condition', () => {
-  const dry = buildGuidanceSummary(null, [{ dayOfWeek: 'Thu', precipitation: 10 }]);
-  const wet = buildGuidanceSummary(null, [{ dayOfWeek: 'Sat', precipitation: 80 }]);
-  assert.match(dry, /recheck before launch/i);
-  assert.match(wet, /Rain Sat could change levels/i);
-  assert.doesNotMatch(`${dry} ${wet}`, /Ideal|Good|High|Flood/);
-});
-
-test('rain presentation distinguishes no rain, possible rain, and rain watch conditions', () => {
+test('rain presentation separates no rain, noise, possible rain, and rain watch', () => {
   assert.deepEqual(getRainPresentation(0), { kind: 'none', label: 'No rain' });
+  assert.deepEqual(getRainPresentation(5), { kind: 'unlikely', label: 'Rain 5%' });
   assert.deepEqual(getRainPresentation(35), { kind: 'possible', label: 'Rain 35%' });
   assert.deepEqual(getRainPresentation(70), { kind: 'significant', label: 'Rain 70%' });
 });
@@ -82,7 +75,6 @@ test('builds one official outlook state for the forecast and Eddy footer', () =>
   });
   assert.equal(result.sourceKind, 'official');
   assert.equal(result.sourceLabel, 'NWS 72-hour river forecast');
-  assert.match(result.summary, /stays Ideal/i);
   assert.equal(result.days[0].river.conditionCode, 'flowing');
 });
 
@@ -90,10 +82,10 @@ test('uses qualified guidance only after the official lookup finishes', () => {
   const checking = buildRiverOutlookState({ ...baseOutlookInput, riverPending: true });
   const guidance = buildRiverOutlookState(baseOutlookInput);
   assert.equal(checking.sourceKind, 'checking');
-  assert.match(checking.summary, /Checking the official river forecast/i);
+  assert.equal(checking.sourceLabel, 'Checking river forecast');
   assert.equal(guidance.sourceKind, 'guidance');
   assert.equal(guidance.isGuidance, true);
-  assert.match(guidance.summary, /recheck before launch/i);
+  assert.equal(guidance.sourceLabel, 'Current river trend + weather outlook');
 });
 
 test('fails honestly when future weather and official stages are unavailable', () => {
@@ -104,8 +96,6 @@ test('fails honestly when future weather and official stages are unavailable', (
   });
   assert.equal(result.futureUnavailable, true);
   assert.equal(result.isGuidance, false);
-  assert.match(result.summary, /Future outlook unavailable/i);
-  assert.doesNotMatch(result.summary, /steady|dry|hold/i);
 });
 
 test('does not treat an empty successful weather response as a dry forecast', () => {
@@ -114,55 +104,6 @@ test('does not treat an empty successful weather response as a dry forecast', ()
     weatherDays: [],
   });
   assert.equal(result.futureUnavailable, true);
-  assert.match(result.summary, /Future outlook unavailable/i);
-});
-
-test('Eddy leads with today and translates qualified weather guidance into an action', () => {
-  const result = buildRiverOutlookState({
-    ...baseOutlookInput,
-    weatherDays: [
-      ...baseOutlookInput.weatherDays,
-      {
-        date: '2026-07-23',
-        dayOfWeek: 'Thu',
-        tempHigh: 79,
-        tempLow: 65,
-        condition: 'Rain',
-        conditionIcon: '10d',
-        precipitation: 80,
-      },
-    ],
-  });
-  assert.equal(
-    buildEddyTakeSummary(result, 'flowing'),
-    'Ideal today. Rain Thu could move the river—check again before launch.',
-  );
-});
-
-test('Eddy describes a steady official forecast without changing canonical labels', () => {
-  const result = buildRiverOutlookState({
-    ...baseOutlookInput,
-    riverStages: [
-      { dateTime: '2026-07-22T18:00:00Z', valueFt: 4.5 },
-      { dateTime: '2026-07-23T18:00:00Z', valueFt: 4.7 },
-    ],
-  });
-  assert.equal(
-    buildEddyTakeSummary(result, 'flowing'),
-    'Ideal today, and the NWS keeps it Ideal through Thu.',
-  );
-});
-
-test('Eddy is explicit when the future outlook is unavailable', () => {
-  const result = buildRiverOutlookState({
-    ...baseOutlookInput,
-    weatherDays: [],
-    weatherError: true,
-  });
-  assert.equal(
-    buildEddyTakeSummary(result, 'flowing'),
-    'I can tell you it’s Ideal today, but not what comes next—check again before launch.',
-  );
 });
 
 test('builds a decision-led Bottom line, Eddy read, and Watch from the selected-gauge outlook', () => {
@@ -174,7 +115,7 @@ test('builds a decision-led Bottom line, Eddy read, and Watch from the selected-
     outlook,
     currentCondition: 'flowing',
   });
-  assert.equal(sections.bottomLine, 'Floatable today. This gauge is in the Ideal range.');
+  assert.equal(sections.bottomLine, 'Floatable today. Levels are about as good as this gauge gets.');
   assert.match(sections.eddyRead, /holding steady/i);
   assert.doesNotMatch(sections.eddyRead, /no official river forecast/i);
   assert.match(sections.watchFor, /recheck the gauge before launch/i);
@@ -189,7 +130,7 @@ test('uses a valid generated Eddy read without changing live Bottom line or Watc
     generatedEddyRead: 'Spring influence makes this reach less reactive than nearby rain-fed creeks.',
   });
 
-  assert.equal(sections.bottomLine, 'Floatable today. This gauge is in the Ideal range.');
+  assert.equal(sections.bottomLine, 'Floatable today. Levels are about as good as this gauge gets.');
   assert.equal(sections.eddyRead, 'Spring influence makes this reach less reactive than nearby rain-fed creeks.');
   assert.match(sections.watchFor, /recheck/i);
 });
@@ -258,4 +199,55 @@ test('Watch for prioritizes forecast rain without inventing a river response', (
   assert.match(sections.watchFor, /forecast rain/i);
   assert.match(sections.watchFor, /recheck/i);
   assert.doesNotMatch(sections.watchFor, /will rise|holding/i);
+});
+
+test('Watch for ignores condition jitter inside the floatable band', () => {
+  // Day one's forecast value is that day's maximum stage, so it routinely
+  // lands a band below the current reading. Only a safety-class change is
+  // worth flagging.
+  const outlook = buildRiverOutlookState({
+    ...baseOutlookInput,
+    riverStages: [
+      { dateTime: '2026-07-22T18:00:00Z', valueFt: 2.5 }, // Good
+      { dateTime: '2026-07-23T18:00:00Z', valueFt: 2.6 }, // Good
+    ],
+  });
+  const sections = buildEddyTakeSections({ outlook, currentCondition: 'flowing' });
+  assert.doesNotMatch(sections.watchFor, /when the NWS outlook reaches/i);
+});
+
+test('Watch for still flags a forecast crossing into a different safety class', () => {
+  const outlook = buildRiverOutlookState({
+    ...baseOutlookInput,
+    riverStages: [
+      { dateTime: '2026-07-22T18:00:00Z', valueFt: 4.5 }, // Ideal
+      { dateTime: '2026-07-23T18:00:00Z', valueFt: 7.0 }, // High
+    ],
+  });
+  const sections = buildEddyTakeSections({ outlook, currentCondition: 'flowing' });
+  assert.match(sections.watchFor, /Thu.*reaches High/i);
+});
+
+test('Eddy read interprets the present and never repeats the Watch for forecast', () => {
+  const outlook = buildRiverOutlookState({
+    ...baseOutlookInput,
+    riverStages: [
+      { dateTime: '2026-07-22T18:00:00Z', valueFt: 4.5 },
+      { dateTime: '2026-07-23T18:00:00Z', valueFt: 7.0 },
+    ],
+    trend: { direction: 'rising', delta: 0.4, windowHours: 6, qualifier: null, label: 'Rising' },
+  });
+  const sections = buildEddyTakeSections({ outlook, currentCondition: 'flowing' });
+  assert.match(sections.eddyRead, /rising over the last 6 hours/i);
+  assert.doesNotMatch(sections.eddyRead, /NWS/i);
+  assert.match(sections.watchFor, /NWS/i);
+});
+
+test('Bottom line states the call without restating the condition band', () => {
+  const outlook = buildRiverOutlookState(baseOutlookInput);
+  const high = buildEddyTakeSections({ outlook, currentCondition: 'high' });
+  const flood = buildEddyTakeSections({ outlook, currentCondition: 'dangerous' });
+  assert.match(high.bottomLine, /^Use caution today/);
+  assert.match(flood.bottomLine, /^Stay off the river today/);
+  assert.doesNotMatch(`${high.bottomLine} ${flood.bottomLine}`, /is in the .* range/i);
 });

@@ -424,12 +424,37 @@ export default async function RiverGuidePage({ params }: Props) {
               Access points
             </h2>
             <p className="text-sm text-neutral-600 mb-5">
-              Explore put-ins and take-outs on the map. Select a marker to start planning from that access.
+              Ordered upstream → downstream. Pick a stop on the map or from the list to start a float plan from there.
             </p>
 
-            <div>
+            <div className="mb-4">
               <RiverHubMap riverSlug={slug} />
             </div>
+
+            {/* Map markers are not reachable by keyboard or screen reader, so
+                the list is the only version of this flow some visitors get.
+                Kept compact so the map still reads as the primary view. */}
+            {accessPoints && accessPoints.length > 0 ? (
+              <ul className="grid list-none grid-cols-1 gap-1.5 p-0 sm:grid-cols-2">
+                {accessPoints.map((ap) => (
+                  <li key={ap.id}>
+                    <Link
+                      href={`/plan?river=${slug}&putIn=${ap.id}`}
+                      className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-3 py-2.5 no-underline transition-colors hover:border-primary-300 hover:bg-primary-50"
+                    >
+                      <span className="w-11 flex-shrink-0 font-mono text-xs font-medium text-primary-600">
+                        {ap.river_mile_downstream != null ? `mi ${parseFloat(String(ap.river_mile_downstream)).toFixed(0)}` : '—'}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-neutral-900">{ap.name}</span>
+                      <ArrowRight className="w-4 h-4 flex-shrink-0 text-primary-600" aria-hidden="true" />
+                      <span className="sr-only">Set as put-in and plan a float</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-neutral-500">Access points coming soon for this river.</p>
+            )}
           </section>
 
           {/* ===== River guide (blog) ===== */}

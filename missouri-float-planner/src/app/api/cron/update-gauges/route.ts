@@ -244,11 +244,15 @@ async function runUpdate(request: NextRequest) {
       .map((rg) => (rg as any).gauge_station_id as string);
     const latestGaugeUpdateByStation = new Map<string, { condition_code: string }>();
     if (secondaryStationIds.length > 0) {
+      // Deliberately not filtered on expires_at. An expired report still tells
+      // us which condition the stored prose was written for; skipping expired
+      // rows left `stored` null, so a gauge whose report had aged out could
+      // never trigger an event regeneration and sat on fallback guidance until
+      // the next daily baseline run.
       const { data: gaugeUpdateRows } = await supabase
         .from('gauge_updates')
         .select('gauge_station_id, condition_code, generated_at')
         .in('gauge_station_id', secondaryStationIds)
-        .gt('expires_at', new Date().toISOString())
         .order('generated_at', { ascending: false });
       for (const row of gaugeUpdateRows || []) {
         if (!latestGaugeUpdateByStation.has(row.gauge_station_id)) {

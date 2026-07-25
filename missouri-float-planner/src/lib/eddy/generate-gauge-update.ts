@@ -16,7 +16,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { buildGaugeTrajectoryForSite, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
-import { parseEddyResponse, extractUsage, type UsageStats } from '@/lib/eddy/generate-update';
+import { extractUsage, type UsageStats } from '@/lib/eddy/generate-update';
+import { parseEddyResponse, stripEddyMarkers } from '@/lib/eddy/parse-response';
 import { toNum } from '@/lib/utils/num';
 import { getCoordinates } from '@/lib/api-utils';
 import { fetchForecast, getWeatherPointForRiver, type ForecastData } from '@/lib/weather/openweather';
@@ -314,7 +315,6 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
     }
 
     const { summaryText, eddyRead, quoteText } = parseEddyResponse(rawText);
-    const cleanMarkers = (t: string) => t.replace(/\[(?:FULL|SUMMARY|EDDY_READ)\]/gi, '').trim();
 
     return {
       gaugeStationId: target.gaugeStationId,
@@ -323,9 +323,9 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
       conditionCode,
       gaugeHeightFt,
       dischargeCfs,
-      quoteText: cleanMarkers(quoteText),
-      summaryText: summaryText ? cleanMarkers(summaryText) : null,
-      eddyRead: eddyRead ? cleanMarkers(eddyRead) : null,
+      quoteText: stripEddyMarkers(quoteText),
+      summaryText: summaryText ? stripEddyMarkers(summaryText) : null,
+      eddyRead: eddyRead ? stripEddyMarkers(eddyRead) : null,
       sourcesUsed,
       modelUsed: HAIKU_MODEL,
       usage: extractUsage(HAIKU_MODEL, message.usage),

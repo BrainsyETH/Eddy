@@ -145,6 +145,8 @@ export interface GaugeStation {
     levelOptimalMax: number | null;
     levelHigh: number | null;
     levelDangerous: number | null;
+    /** NWS flood stage in feet — outranks the ladder above when reached. */
+    floodStageFt: number | null;
     // Alternate unit thresholds (opposite of thresholdUnit)
     altLevelTooLow: number | null;
     altLevelLow: number | null;
@@ -311,7 +313,8 @@ async function _GET(request: NextRequest) {
         level_optimal_min,
         level_optimal_max,
         level_high,
-        level_dangerous,${includeAlt ? altColumns : ''}
+        level_dangerous,
+        flood_stage_ft,${includeAlt ? altColumns : ''}
         rivers!inner (
           id,
           name,
@@ -361,6 +364,7 @@ async function _GET(request: NextRequest) {
           levelOptimalMax: (rg.level_optimal_max as number) ?? null,
           levelHigh: (rg.level_high as number) ?? null,
           levelDangerous: (rg.level_dangerous as number) ?? null,
+          floodStageFt: (rg.flood_stage_ft as number) ?? null,
           altLevelTooLow: (rg.alt_level_too_low as number) ?? null,
           altLevelLow: (rg.alt_level_low as number) ?? null,
           altLevelOptimalMin: (rg.alt_level_optimal_min as number) ?? null,

@@ -9,6 +9,7 @@ import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS, getEddyImageForCondition } from '@/constants';
 import type { ConditionCode } from '@/types/api';
 import { computeTrend, computePercentile } from '@/lib/gauge-trend';
+import { formatAgeFromHours } from '@/lib/utils/reading-age';
 
 interface CurrentReadingCardProps {
   siteId: string;
@@ -20,15 +21,6 @@ interface CurrentReadingCardProps {
   readingAgeHours?: number | null;
   className?: string;
   embedded?: boolean;
-}
-
-function formatAge(hours: number): string {
-  if (hours < 1) {
-    const mins = Math.round(hours * 60);
-    return mins < 2 ? 'just now' : `${mins}m ago`;
-  }
-  if (hours < 24) return `${Math.round(hours)}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
 }
 
 export default function CurrentReadingCard({
@@ -177,7 +169,7 @@ export default function CurrentReadingCard({
       {/* Reading freshness — so staleness is obvious on the card itself */}
       {readingAgeHours != null && (
         <div className="px-4 pb-3 -mt-1">
-          <span className="text-[10px] text-primary-100">Updated {formatAge(readingAgeHours)}</span>
+          <span className="text-[10px] text-primary-100">Updated {formatAgeFromHours(readingAgeHours)}</span>
         </div>
       )}
     </div>

@@ -25,8 +25,10 @@ export default function GaugeTabBar({ gauges, activeSiteId, onTabChange }: Gauge
 
   return (
     <label className="flex min-w-0 items-center gap-2">
-      <span className="hidden whitespace-nowrap font-sans text-[10px] font-bold uppercase tracking-wide text-neutral-500 lg:inline">
-        USGS gauge
+      {/* The label used to be desktop-only, which left mobile showing a bare
+          chip of truncated gauge names with nothing saying what it switched. */}
+      <span className="whitespace-nowrap font-sans text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+        Gauge
       </span>
       <span className="relative min-w-0">
         <select
@@ -38,7 +40,9 @@ export default function GaugeTabBar({ gauges, activeSiteId, onTabChange }: Gauge
         >
           {gauges.map((gauge) => (
             <option key={gauge.siteId} value={gauge.siteId}>
-              {shortenGaugeName(gauge.name)}
+              {/* The old pill bar marked the canonical gauge with a star; the
+                  select needs to say so in text or the distinction is lost. */}
+              {shortenGaugeName(gauge.name)}{gauge.isPrimaryForRiver ? ' (main)' : ''}
             </option>
           ))}
         </select>

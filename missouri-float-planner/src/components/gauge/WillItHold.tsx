@@ -13,12 +13,11 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import ConditionBadge from '@/components/ui/ConditionBadge';
-import { formatOutlookDay, getRainPresentation, SIGNIFICANT_RAIN_CHANCE, type RiverOutlookState } from '@/lib/river-outlook';
+import { formatOutlookDay, getRainPresentation, type RiverOutlookState } from '@/lib/river-outlook';
 
 interface WillItHoldProps {
   outlook: RiverOutlookState;
   embedded?: boolean;
-  showSummary?: boolean;
   className?: string;
 }
 
@@ -33,18 +32,18 @@ function weatherGlyph(iconCode: string): LucideIcon {
   return CloudSun;
 }
 
+const RAIN_CHIP_STYLES: Record<string, string> = {
+  significant: 'border-accent-500 bg-accent-50 text-accent-800',
+  possible: 'border-primary-200 bg-primary-50 text-primary-800',
+  unlikely: 'border-primary-100 bg-white text-primary-700',
+  none: 'border-primary-100 bg-white text-primary-700',
+};
+
 export default function WillItHold({
   outlook,
   embedded = false,
-  showSummary = true,
   className = '',
 }: WillItHoldProps) {
-  const rainWatchDays = outlook.days
-    .map(({ date, weather }, index) => weather && weather.precipitation >= SIGNIFICANT_RAIN_CHANCE
-      ? { label: index === 0 ? 'Today' : (weather.dayOfWeek || formatOutlookDay(date, false)), precipitation: weather.precipitation }
-      : null)
-    .filter((day): day is { label: string; precipitation: number } => day != null);
-
   return (
     <section
       className={`flex h-full flex-col overflow-hidden bg-white ${
@@ -67,16 +66,9 @@ export default function WillItHold({
         </span>
       </div>
 
-      {rainWatchDays.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b-2 border-accent-200 bg-accent-50 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-accent-800 sm:px-5">
-          <CloudRain className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-          <span>Rain watch</span>
-          {rainWatchDays.map((day) => (
-            <span key={day.label} className="font-mono">· {day.label} {day.precipitation}%</span>
-          ))}
-        </div>
-      )}
-
+      {/* The per-day rain chips below carry the same numbers a "Rain watch"
+          strip used to repeat directly above them, and "Watch for" states the
+          consequence. One place per fact. */}
       <div className="grid flex-1 grid-cols-3 divide-x-2 divide-primary-100">
         {outlook.days.map(({ date, weather, river }, index) => (
           <div
@@ -101,11 +93,7 @@ export default function WillItHold({
                   {weather.tempHigh}° <span className="font-normal text-neutral-400">{weather.tempLow}°</span>
                 </span>
                 <span className={`mt-2 inline-flex w-full items-center justify-center gap-1 rounded-sm border-2 px-1 py-1 text-[10px] font-bold uppercase tracking-wide ${
-                  rain.kind === 'significant'
-                    ? 'border-accent-500 bg-accent-50 text-accent-800'
-                    : rain.kind === 'possible'
-                      ? 'border-primary-200 bg-primary-50 text-primary-800'
-                      : 'border-primary-100 bg-white text-primary-700'
+                  RAIN_CHIP_STYLES[rain.kind] ?? RAIN_CHIP_STYLES.none
                 }`}>
                   {rain.kind === 'none'
                     ? <CloudOff className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
@@ -128,22 +116,13 @@ export default function WillItHold({
                     {river.conditionCode && <ConditionBadge code={river.conditionCode} size="sm" />}
                   </>
                 ) : (
-                  <span className="text-[10px] text-neutral-400">No stage point</span>
+                  <span className="text-[10px] text-neutral-400">No river forecast</span>
                 )}
               </div>
             )}
           </div>
         ))}
       </div>
-
-      {showSummary && (
-        <div className="border-t border-primary-100 px-4 py-3 sm:px-5">
-          <p className="text-xs leading-relaxed text-neutral-600" aria-live="polite">{outlook.summary}</p>
-          {outlook.isGuidance && (
-            <p className="mt-1 text-[10px] font-medium text-neutral-400">Weather outlook; future river levels are not predicted.</p>
-          )}
-        </div>
-      )}
     </section>
   );
 }

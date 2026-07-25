@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseEddyResponse } from './generate-update';
+import { parseEddyResponse } from './parse-response';
 
 test('parses summary, Eddy read, and full report from one model response', () => {
   const parsed = parseEddyResponse(`[SUMMARY]
