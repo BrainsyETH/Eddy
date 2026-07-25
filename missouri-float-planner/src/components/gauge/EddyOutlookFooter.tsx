@@ -15,7 +15,6 @@ interface EddyOutlookFooterProps {
   fullReportLoading: boolean;
   /** Only a model-written report earns the expander; see hasFullReport below. */
   fullReportIsGenerated: boolean;
-  eddyReadIsGenerated: boolean;
   generatedAt?: string | null;
   gaugeName?: string | null;
   isOpen: boolean;
@@ -29,7 +28,6 @@ export default function EddyOutlookFooter({
   fullReportText,
   fullReportLoading,
   fullReportIsGenerated,
-  eddyReadIsGenerated,
   generatedAt,
   gaugeName,
   isOpen,
@@ -78,30 +76,26 @@ export default function EddyOutlookFooter({
           )}
         </div>
       ) : (
-      <div id="eddy-take-content" className="grid grid-cols-1 divide-y-2 divide-primary-100 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] lg:divide-x-2 lg:divide-y-0">
+      // Eddy's read takes the wide middle column on desktop; Bottom line and
+      // Watch for flank it at equal, narrower width. Mobile keeps the stacked
+      // order with Bottom line leading.
+      <div id="eddy-take-content" className="grid grid-cols-1 divide-y-2 divide-primary-100 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] lg:divide-x-2 lg:divide-y-0">
         <article className="min-w-0 border-l-4 border-accent-500 bg-white px-4 py-4 sm:px-5 lg:border-l-0 lg:border-t-4">
           <div className="mb-2 flex items-center gap-2 text-accent-800">
             <Image src={EDDY_IMAGES.favicon} alt="" width={20} height={20} className="h-5 w-5 object-contain" />
             <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Bottom line</h4>
           </div>
-          <p className="font-display text-base font-semibold leading-relaxed text-neutral-900" aria-live="polite">{sections.bottomLine}</p>
+          {/* Type tracks the column width, so the narrow box does not end up
+              with larger text than the wide one beside it. */}
+          <p className="font-display text-base font-semibold leading-relaxed text-neutral-900 lg:text-sm" aria-live="polite">{sections.bottomLine}</p>
         </article>
 
         <article className="min-w-0 px-4 py-4 sm:px-5">
           <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-primary-800">
             <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
             <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Eddy&apos;s read</h4>
-            {/* Whether a human is reading model prose or a deterministic rule
-                is a trust question, so it gets readable type, not 9px. */}
-            <span className={`rounded-sm border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-              eddyReadIsGenerated
-                ? 'border-primary-200 bg-primary-50 text-primary-700'
-                : 'border-neutral-200 bg-neutral-50 text-neutral-600'
-            }`}>
-              {eddyReadIsGenerated ? 'AI' : 'Live guidance'}
-            </span>
           </div>
-          <p className="text-sm font-medium leading-relaxed text-neutral-700">{sections.eddyRead}</p>
+          <p className="text-sm font-medium leading-relaxed text-neutral-700 lg:text-base">{sections.eddyRead}</p>
         </article>
 
         <article className="min-w-0 px-4 py-4 sm:px-5">
