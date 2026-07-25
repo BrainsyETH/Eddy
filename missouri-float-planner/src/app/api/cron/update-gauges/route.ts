@@ -12,6 +12,9 @@ import { toNum } from '@/lib/utils/num';
 import { getSecondaryGaugeTargets } from '@/lib/eddy/generate-gauge-update';
 import { regenerateGaugeUpdate } from '@/lib/eddy/regenerate-gauge';
 import { confirmsGaugeConditionChange, MAX_GAUGE_REGENS_PER_POLL } from '@/lib/eddy/gauge-update-policy';
+import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
+import { gateReading, type GateRejection } from '@/lib/alerts/gate';
+import { classifyEventKind } from '@/lib/alerts/event-kind';
 
 // Force dynamic rendering (cron endpoint)
 export const dynamic = 'force-dynamic';
@@ -65,6 +68,24 @@ async function runUpdate(request: NextRequest) {
   const isHighFrequencyPoll =
     request.headers.get('x-high-frequency') === 'true' ||
     new URL(request.url).searchParams.get('highFrequency') === '1';
+
+  // Serialize runs. The hourly cron and the 15-minute high-frequency cron BOTH
+  // fire at :00, and until now nothing stopped them processing the same
+  // stations concurrently. One shared lock name is deliberate — separate names
+  // per variant would leave exactly the collision we're removing. The hourly
+  // pass covers a superset of the high-frequency stations, so the 15-minute run
+  // losing the :00 race is pure duplicate work skipped.
+  //
+  // The stale window is 2x maxDuration, not the 600s default: a run killed at
+  // the ceiling never reaches its finally, so a long window would starve the
+  // :15/:30/:45 passes. At 120s the worst case is one skipped cycle.
+  const LOCK_JOB = 'update_gauges';
+  const LOCK_STALE_SECONDS = 120;
+  const gotLock = await tryCronLock(supabase, LOCK_JOB, LOCK_STALE_SECONDS);
+  if (!gotLock) {
+    console.log('[update-gauges] Skipped: another run holds the lock');
+    return NextResponse.json({ skipped: true, reason: 'concurrent run' });
+  }
 
   try {
     // Get gauge stations based on poll type
@@ -149,6 +170,11 @@ async function runUpdate(request: NextRequest) {
     let highFrequencyFlagsCleared = 0;
     let conditionChanges = 0;
     let flatlined = 0;
+    let outboxErrors = 0;
+    // Observability for the new gate/outbox: without these, a gate that starts
+    // rejecting everything would look identical to a quiet river day.
+    const gatedReadings: Partial<Record<GateRejection, number>> = {};
+    const outboxOutcomes: Record<string, number> = {};
     // Condition transitions collected during the loop and published after it
     // (elevated ones get the storm-vs-single decision; the rest publish
     // individually).
@@ -220,7 +246,7 @@ async function runUpdate(request: NextRequest) {
     // for all ~275 stations is what made the old loop unbounded.
     const { data: wiredData, error: wiredError } = await supabase
       .from('river_gauges')
-      .select('id, is_primary, gauge_station_id, last_condition_code, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, threshold_unit, rivers!inner(slug)');
+      .select('id, is_primary, gauge_station_id, last_condition_code, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, threshold_unit, flood_stage_ft, rivers!inner(slug)');
     if (wiredError) {
       console.error('[update-gauges] river_gauges prefetch failed:', wiredError.message);
     }
@@ -373,6 +399,7 @@ async function runUpdate(request: NextRequest) {
             const rg = rawRg as any;
             const riverSlug: string | undefined = rg.rivers?.slug;
             if (!riverSlug) continue;
+            const thresholdUnit = (rg.threshold_unit || 'ft') as 'ft' | 'cfs';
             const thresholds: ConditionThresholds = {
               levelTooLow: rg.level_too_low,
               levelLow: rg.level_low,
@@ -380,13 +407,38 @@ async function runUpdate(request: NextRequest) {
               levelOptimalMax: rg.level_optimal_max,
               levelHigh: rg.level_high,
               levelDangerous: rg.level_dangerous,
-              thresholdUnit: (rg.threshold_unit || 'ft') as 'ft' | 'cfs',
+              thresholdUnit,
+              // NWS flood stage, so the alert engine reaches the same verdict as
+              // the website's get_river_condition RPC. Without it a river above
+              // flood stage but below the editorial dangerous band read
+              // "Dangerous" on the site while alerts stayed silent.
+              floodStageFt: rg.flood_stage_ft,
             };
+
+            // Refuse to act on untrustworthy data. A stuck or equipment-flagged
+            // sensor used to classify exactly like a clean one — and because
+            // this path posts publicly, that could put a false DANGEROUS on
+            // Facebook.
+            const gate = gateReading({
+              gaugeHeightFt: reading.gaugeHeightFt,
+              dischargeCfs: reading.dischargeCfs,
+              thresholdUnit,
+              floodStageFt: rg.flood_stage_ft,
+              qualifiers: reading.qualifiers,
+              readingAt: reading.readingTimestamp,
+              provider: station.provider,
+            });
+            if (!gate.ok) {
+              gatedReadings[gate.reason] = (gatedReadings[gate.reason] ?? 0) + 1;
+              continue;
+            }
 
             const newCondition = computeCondition(
               reading.gaugeHeightFt,
               thresholds,
-              reading.dischargeCfs
+              reading.dischargeCfs,
+              // Never classify one unit's number against the other's thresholds.
+              { strictUnit: true }
             );
             const newCode = newCondition.code;
 
@@ -432,11 +484,46 @@ async function runUpdate(request: NextRequest) {
                 `(gauge ${reading.siteId}, ${reading.gaugeHeightFt?.toFixed(1)} ft)`
               );
 
-              // Update last_condition_code
-              await supabase
-                .from('river_gauges')
-                .update({ last_condition_code: newCondition.code })
-                .eq('id', rg.id);
+              // `dangerous` fires on the first clean reading; `high` needs two
+              // consecutive readings. Safety warnings must not wait an hour,
+              // but a one-off spike shouldn't cry wolf either.
+              const requiredConfirmations = newCondition.code === 'high' ? 2 : 1;
+
+              // Atomic: compare-and-swap of last_condition_code + the outbox
+              // event in one transaction (migration 00189). Replaces a bare
+              // UPDATE whose result was discarded — if the run died before the
+              // post-loop publish, that transition was lost forever.
+              const { data: rpcRows, error: rpcError } = await supabase.rpc(
+                'record_condition_transition',
+                {
+                  p_river_gauge_id: rg.id,
+                  p_expected_condition_code: rg.last_condition_code,
+                  p_new_condition_code: newCondition.code,
+                  p_kind: classifyEventKind(oldCode, newCondition.code),
+                  p_reading_value: gate.value,
+                  p_reading_unit: thresholdUnit,
+                  p_reading_at: reading.readingTimestamp,
+                  p_required_confirmations: requiredConfirmations,
+                  p_metadata: { site_id: reading.siteId, gauge_height_ft: reading.gaugeHeightFt },
+                }
+              );
+
+              if (rpcError) {
+                // Nothing flipped and no event, so the next pass re-detects
+                // naturally. This is exactly what the outbox buys us.
+                console.error(`[update-gauges] Outbox RPC failed for ${riverSlug}:`, rpcError.message);
+                outboxErrors++;
+                continue;
+              }
+
+              const outcome = (Array.isArray(rpcRows) ? rpcRows[0]?.outcome : null) ?? 'unknown';
+              outboxOutcomes[outcome] = (outboxOutcomes[outcome] ?? 0) + 1;
+
+              // Only a genuine emit feeds the social path and Eddy regeneration.
+              // 'pending' (debouncing), 'stale_cas' (another run won) and
+              // 'duplicate' must stay silent. This preserves today's coupling:
+              // the cron posts iff it advanced the condition.
+              if (outcome !== 'emitted') continue;
 
               conditionChanges++;
 
@@ -556,6 +643,9 @@ async function runUpdate(request: NextRequest) {
       gaugeRegensSkipped,
       flatlined,
       wiredStations: wiredEntries.length,
+      gatedReadings,
+      outboxOutcomes,
+      outboxErrors,
       enrichmentSkipped,
       eddyRegensGenerated,
       eddyRegensSkipped,
@@ -568,6 +658,10 @@ async function runUpdate(request: NextRequest) {
       { error: 'Internal server error' },
       { status: 500 }
     );
+  } finally {
+    // Best-effort: if the lambda is killed at maxDuration this never runs, which
+    // is why LOCK_STALE_SECONDS is deliberately short.
+    await releaseCronLock(supabase, LOCK_JOB);
   }
 }
 
