@@ -381,17 +381,146 @@ function assembleHistory(
 // ---------------------------------------------------------------------------
 // Legacy statistics service (no modern equivalent confirmed yet)
 // ---------------------------------------------------------------------------
+//
+// Two hard-won facts about this endpoint:
+//
+// 1. It does NOT support format=json — that returns HTTP 400 with an HTML
+//    error page. Only format=rdb (tab-delimited) works. An earlier JSON
+//    implementation here silently returned null on every call.
+//
+// 2. As of 2026 it publishes p05/p10/p20/p25/p50/p75/p80/p95 but leaves
+//    p90_va EMPTY for every site/day checked. Consumers must not require p90
+//    (see calculateDischargePercentile in src/lib/usgs/gauges.ts).
+//
+// One request returns the whole year for a site, which is also what the
+// percentile snapshot (src/lib/usgs/percentile-snapshot.ts) captures against
+// the service's scheduled decommission.
 
-interface LegacyStatValue {
-  month_nu: string;
-  day_nu: string;
-  p10_va?: string;
-  p25_va?: string;
-  p50_va?: string;
-  p75_va?: string;
-  p90_va?: string;
-  mean_va?: string;
-  count_nu?: string;
+/** Every percentile the service publishes, plus the mean. */
+const STAT_TYPES = 'p05,p10,p20,p25,p50,p75,p80,p90,p95,mean';
+
+/** One day-of-year row of discharge statistics, straight from the service. */
+export interface DailyStatisticsRow {
+  month: number;
+  day: number;
+  p05: number | null;
+  p10: number | null;
+  p20: number | null;
+  p25: number | null;
+  p50: number | null;
+  p75: number | null;
+  p80: number | null;
+  p90: number | null;
+  p95: number | null;
+  mean: number | null;
+  countYears: number | null;
+  beginYear: number | null;
+  endYear: number | null;
+}
+
+/** USGS uses -999999 as a no-data sentinel; treat it as null, not a flow. */
+function parseStatVal(val?: string): number | null {
+  if (val === undefined || val === null || val.trim() === '' || val.trim() === '-999999') return null;
+  const num = parseFloat(val);
+  return Number.isFinite(num) ? num : null;
+}
+
+function parseStatInt(val?: string): number | null {
+  const num = parseStatVal(val);
+  return num === null ? null : Math.round(num);
+}
+
+/**
+ * Parses an RDB (tab-delimited) payload into records keyed by column name.
+ * RDB = '#'-prefixed comments, a header row, a format-spec row, then data.
+ */
+export function parseRdb(text: string): Array<Record<string, string>> {
+  const lines = text.split('\n').filter((line) => line.trim() !== '' && !line.startsWith('#'));
+  if (lines.length < 2) return [];
+
+  const headers = lines[0].split('\t');
+  // lines[1] is the format spec ('5s', '15s', …) — skip it.
+  return lines.slice(2).map((line) => {
+    const cells = line.split('\t');
+    const row: Record<string, string> = {};
+    headers.forEach((header, index) => {
+      row[header] = cells[index] ?? '';
+    });
+    return row;
+  });
+}
+
+/** Parses a daily-statistics RDB payload into day-of-year rows. */
+export function parseDailyStatisticsRdb(text: string): DailyStatisticsRow[] {
+  const rows: DailyStatisticsRow[] = [];
+
+  for (const record of parseRdb(text)) {
+    if (record.parameter_cd && record.parameter_cd !== PARAM_DISCHARGE) continue;
+
+    const month = parseStatInt(record.month_nu);
+    const day = parseStatInt(record.day_nu);
+    if (month === null || day === null) continue;
+    if (month < 1 || month > 12 || day < 1 || day > 31) continue;
+
+    rows.push({
+      month,
+      day,
+      p05: parseStatVal(record.p05_va),
+      p10: parseStatVal(record.p10_va),
+      p20: parseStatVal(record.p20_va),
+      p25: parseStatVal(record.p25_va),
+      p50: parseStatVal(record.p50_va),
+      p75: parseStatVal(record.p75_va),
+      p80: parseStatVal(record.p80_va),
+      p90: parseStatVal(record.p90_va),
+      p95: parseStatVal(record.p95_va),
+      mean: parseStatVal(record.mean_va),
+      countYears: parseStatInt(record.count_nu),
+      beginYear: parseStatInt(record.begin_yr),
+      endYear: parseStatInt(record.end_yr),
+    });
+  }
+
+  return rows;
+}
+
+/** Fetches the full year of daily statistics for one site. */
+export async function fetchAllDailyStatistics(siteId: string): Promise<DailyStatisticsRow[]> {
+  const url = new URL(LEGACY_STAT_URL);
+  url.searchParams.set('format', 'rdb');
+  url.searchParams.set('sites', siteId);
+  url.searchParams.set('statReportType', 'daily');
+  url.searchParams.set('statTypeCd', STAT_TYPES);
+  url.searchParams.set('parameterCd', PARAM_DISCHARGE);
+
+  const response = await fetch(url.toString(), { next: { revalidate: 86400 } });
+  if (!response.ok) {
+    throw new Error(
+      `USGS statistics API error for ${siteId}: ${response.status} ${response.statusText}`
+    );
+  }
+
+  return parseDailyStatisticsRdb(await response.text());
+}
+
+/** Converts a row to the app-wide DailyStatistics shape. */
+export function toDailyStatistics(siteId: string, row: DailyStatisticsRow): DailyStatistics {
+  return {
+    siteId,
+    month: row.month,
+    day: row.day,
+    p05: row.p05,
+    p10: row.p10,
+    p20: row.p20,
+    p25: row.p25,
+    p50: row.p50,
+    p75: row.p75,
+    p80: row.p80,
+    p90: row.p90,
+    p95: row.p95,
+    mean: row.mean,
+    yearsOfRecord: row.countYears,
+  };
 }
 
 async function fetchDailyStatisticsLegacy(siteId: string, date?: Date): Promise<DailyStatistics | null> {
@@ -399,64 +528,14 @@ async function fetchDailyStatisticsLegacy(siteId: string, date?: Date): Promise<
   const month = targetDate.getMonth() + 1;
   const day = targetDate.getDate();
 
-  const url = new URL(LEGACY_STAT_URL);
-  url.searchParams.set('format', 'json');
-  url.searchParams.set('sites', siteId);
-  url.searchParams.set('statReportType', 'daily');
-  url.searchParams.set('statTypeCd', 'p10,p25,p50,p75,p90,mean');
-  url.searchParams.set('parameterCd', PARAM_DISCHARGE);
-
-  const response = await fetch(url.toString(), {
-    next: { revalidate: 86400 }, // Stats change rarely
-  });
-  if (!response.ok) {
-    console.error(`USGS Statistics API error: ${response.status} ${response.statusText}`);
-    return null;
-  }
-
-  const data = await response.json();
-  const timeSeries = data?.value?.timeSeries;
-  if (!timeSeries || timeSeries.length === 0) {
-    console.warn(`No statistics available for site ${siteId}`);
-    return null;
-  }
-
-  const dischargeSeries = timeSeries.find(
-    (ts: { variable?: { variableCode?: Array<{ value: string }> } }) =>
-      ts.variable?.variableCode?.[0]?.value === PARAM_DISCHARGE
-  );
-  if (!dischargeSeries?.values?.[0]?.value) {
-    console.warn(`No discharge statistics for site ${siteId}`);
-    return null;
-  }
-
-  const allStats = dischargeSeries.values[0].value as LegacyStatValue[];
-  const dayStats = allStats.find(
-    (stat) => parseInt(stat.month_nu) === month && parseInt(stat.day_nu) === day
-  );
+  const rows = await fetchAllDailyStatistics(siteId);
+  const dayStats = rows.find((row) => row.month === month && row.day === day);
   if (!dayStats) {
     console.warn(`No statistics for ${month}/${day} at site ${siteId}`);
     return null;
   }
 
-  const parseVal = (val?: string): number | null => {
-    if (!val || val === '' || val === '-999999') return null;
-    const num = parseFloat(val);
-    return isNaN(num) ? null : num;
-  };
-
-  return {
-    siteId,
-    month,
-    day,
-    p10: parseVal(dayStats.p10_va),
-    p25: parseVal(dayStats.p25_va),
-    p50: parseVal(dayStats.p50_va),
-    p75: parseVal(dayStats.p75_va),
-    p90: parseVal(dayStats.p90_va),
-    mean: parseVal(dayStats.mean_va),
-    yearsOfRecord: parseVal(dayStats.count_nu),
-  };
+  return toDailyStatistics(siteId, dayStats);
 }
 
 // ---------------------------------------------------------------------------
