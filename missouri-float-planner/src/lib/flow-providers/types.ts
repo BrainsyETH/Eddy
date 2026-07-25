@@ -37,8 +37,24 @@ export interface DailyStatistics {
   p50: number | null;
   /** 75th percentile discharge (cfs) - above average */
   p75: number | null;
-  /** 90th percentile discharge (cfs) - high */
+  /**
+   * 90th percentile discharge (cfs) - high.
+   *
+   * NOTE: as of 2026 the USGS daily-statistics service returns this column
+   * EMPTY for every site/day we've checked, while still publishing p80 and
+   * p95. Treat null as expected, not exceptional — percentile math must fall
+   * back to another upper anchor rather than giving up (see
+   * calculateDischargePercentile).
+   */
   p90: number | null;
+  /** 5th percentile discharge (cfs). Optional — not all sources publish it. */
+  p05?: number | null;
+  /** 20th percentile discharge (cfs). Optional. */
+  p20?: number | null;
+  /** 80th percentile discharge (cfs). Optional — the usual p90 stand-in. */
+  p80?: number | null;
+  /** 95th percentile discharge (cfs). Optional. */
+  p95?: number | null;
   /** Mean discharge (cfs) */
   mean: number | null;
   /** Number of years of data used */

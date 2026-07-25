@@ -1,0 +1,139 @@
+// src/lib/usgs/percentile-snapshot.ts
+// Snapshot + read-back of USGS day-of-year discharge percentiles.
+//
+// WHY THIS EXISTS
+// The percentile ladder (p10/p25/p50/p75/p90) behind "× normal" framing and
+// the CFS condition ladders comes from the USGS LEGACY statistics service
+// (waterservices.usgs.gov/nwis/stat/). Unlike instantaneous values and daily
+// history, it has NO confirmed modern OGC equivalent — see the header of
+// src/lib/flow-providers/usgs.ts — and the legacy service is scheduled for
+// decommission in early 2027, with possible degradation well before that.
+//
+// These statistics describe decades of record; they are effectively static.
+// So we snapshot them into our own table while the service still answers, and
+// fall back to the snapshot when the live call fails. If the service vanishes
+// tomorrow, conditions keep working.
+//
+// LEAP-YEAR NORMALIZATION
+// Rows are keyed by day_of_year computed as if every year were a leap year
+// (Feb 29 = 60, Mar 1 = 61 — always). USGS reports month/day, so normalizing
+// this way means a calendar date maps to exactly one row no matter the year.
+// Using a naive "nth day of THIS year" would silently shift every date after
+// February by one whenever the year's leapness differed from the snapshot's.
+
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { DailyStatistics } from '@/lib/flow-providers/types';
+import { fetchAllDailyStatistics } from '@/lib/flow-providers/usgs';
+
+const PARAM_DISCHARGE = '00060';
+
+/** Cumulative days before each month IN A LEAP YEAR. */
+const LEAP_MONTH_OFFSETS = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+
+/**
+ * Leap-year-normalized day of year for a 1-indexed month/day.
+ * Returns null for an impossible date rather than a wrong number.
+ */
+export function leapDayOfYear(month: number, day: number): number | null {
+  if (!Number.isInteger(month) || !Number.isInteger(day)) return null;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const dayOfYear = LEAP_MONTH_OFFSETS[month - 1] + day;
+  return dayOfYear >= 1 && dayOfYear <= 366 ? dayOfYear : null;
+}
+
+/** Same, for a Date (uses local calendar fields, matching USGS month/day). */
+export function leapDayOfYearForDate(date: Date): number | null {
+  return leapDayOfYear(date.getMonth() + 1, date.getDate());
+}
+
+/**
+ * Snapshot one site into usgs_daily_percentiles. Returns the number of rows
+ * written (≈366 for a site with a full record).
+ */
+export async function snapshotSite(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any>,
+  siteId: string
+): Promise<number> {
+  const rows = await fetchAllDailyStatistics(siteId);
+  if (!rows.length) return 0;
+
+  const payload = rows.flatMap((row) => {
+    const dayOfYear = leapDayOfYear(row.month, row.day);
+    if (dayOfYear === null) return [];
+    return [{
+    site_no: siteId,
+    parameter_code: PARAM_DISCHARGE,
+    day_of_year: dayOfYear,
+    p05: row.p05,
+    p10: row.p10,
+    p20: row.p20,
+    p25: row.p25,
+    p50: row.p50,
+    p75: row.p75,
+    p80: row.p80,
+    p90: row.p90,
+    p95: row.p95,
+    mean: row.mean,
+    count_years: row.countYears,
+    begin_year: row.beginYear,
+    end_year: row.endYear,
+    source: 'usgs_legacy_stat_service',
+    snapshotted_at: new Date().toISOString(),
+    }];
+  });
+
+  if (!payload.length) return 0;
+
+  const { error } = await supabase
+    .from('usgs_daily_percentiles')
+    .upsert(payload, { onConflict: 'site_no,parameter_code,day_of_year' });
+
+  if (error) {
+    throw new Error(`Failed to upsert percentiles for ${siteId}: ${error.message}`);
+  }
+
+  return payload.length;
+}
+
+/**
+ * Read the snapshot back as a DailyStatistics — the shape the rest of the app
+ * already consumes, so callers can't tell whether it came from the live
+ * service or our table.
+ */
+export async function readSnapshotStatistics(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any>,
+  siteId: string,
+  date: Date = new Date()
+): Promise<DailyStatistics | null> {
+  const dayOfYear = leapDayOfYearForDate(date);
+  if (dayOfYear === null) return null;
+
+  const { data, error } = await supabase
+    .from('usgs_daily_percentiles')
+    .select('p05, p10, p20, p25, p50, p75, p80, p90, p95, mean, count_years')
+    .eq('site_no', siteId)
+    .eq('parameter_code', PARAM_DISCHARGE)
+    .eq('day_of_year', dayOfYear)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return {
+    siteId,
+    month: date.getMonth() + 1,
+    day: date.getDate(),
+    p05: data.p05,
+    p10: data.p10,
+    p20: data.p20,
+    p25: data.p25,
+    p50: data.p50,
+    p75: data.p75,
+    p80: data.p80,
+    p90: data.p90,
+    p95: data.p95,
+    mean: data.mean,
+    yearsOfRecord: data.count_years,
+  };
+}

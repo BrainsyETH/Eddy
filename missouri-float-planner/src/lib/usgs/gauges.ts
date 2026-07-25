@@ -7,6 +7,7 @@
 // getFlowProvider(gauge_stations.provider) instead of importing this module.
 
 import { getFlowProvider } from '@/lib/flow-providers';
+import { readSnapshotStatistics } from '@/lib/usgs/percentile-snapshot';
 import type {
   DailyStatistics,
   GaugeReading,
@@ -68,12 +69,42 @@ export async function fetchGaugeReading(siteId: string): Promise<GaugeReading | 
 
 /**
  * Fetches daily discharge statistics (day-of-year percentiles) for a site.
+ *
+ * These come from the USGS LEGACY statistics service, which has no modern OGC
+ * equivalent and is scheduled for decommission (see
+ * src/lib/usgs/percentile-snapshot.ts). When the live call comes back empty or
+ * throws, fall back to our own snapshot of the same numbers so percentile
+ * framing keeps working after the service degrades or disappears.
+ *
+ * The fallback is deliberately here rather than in the flow provider: the
+ * provider stays a pure HTTP client with no database dependency.
  */
 export async function fetchDailyStatistics(
   siteId: string,
   date?: Date
 ): Promise<DailyStatistics | null> {
-  return usgs().fetchDailyStatistics(siteId, date);
+  let live: DailyStatistics | null = null;
+  try {
+    live = await usgs().fetchDailyStatistics(siteId, date);
+  } catch (error) {
+    console.warn(`[USGS] Live statistics failed for ${siteId}; trying snapshot:`, error);
+  }
+
+  // A row with no median is as useless as no row at all — fall back on both.
+  if (live && live.p50 !== null) return live;
+
+  try {
+    const { createAdminClient } = await import('@/lib/supabase/admin');
+    const snapshot = await readSnapshotStatistics(createAdminClient(), siteId, date);
+    if (snapshot && snapshot.p50 !== null) {
+      console.log(`[USGS] Served ${siteId} statistics from snapshot`);
+      return snapshot;
+    }
+  } catch (error) {
+    console.warn(`[USGS] Snapshot lookup failed for ${siteId}:`, error);
+  }
+
+  return live;
 }
 
 /**
@@ -98,11 +129,28 @@ export async function fetchHistoricalReadings(
  * @param stats Daily statistics for comparison
  * @returns Estimated percentile (0-100) or null if can't be calculated
  */
+/**
+ * The upper anchor for the top of the interpolation.
+ *
+ * USGS stopped publishing p90 in the daily-statistics service — it comes back
+ * empty for every site/day we've checked, while p80 and p95 still have values.
+ * Requiring p90 therefore killed this whole calculation. Fall back to the
+ * nearest published percentile instead, carrying its true label so the math
+ * interpolates against a real number rather than an invented p90.
+ */
+function upperAnchor(stats: DailyStatistics): { value: number; percentile: number } | null {
+  if (stats.p90 !== null && stats.p90 !== undefined) return { value: stats.p90, percentile: 90 };
+  if (stats.p95 !== null && stats.p95 !== undefined) return { value: stats.p95, percentile: 95 };
+  if (stats.p80 !== null && stats.p80 !== undefined) return { value: stats.p80, percentile: 80 };
+  return null;
+}
+
 export function calculateDischargePercentile(
   dischargeCfs: number,
   stats: DailyStatistics
 ): number | null {
-  if (stats.p10 === null || stats.p50 === null || stats.p90 === null) {
+  const upper = upperAnchor(stats);
+  if (stats.p10 === null || stats.p50 === null || upper === null) {
     return null;
   }
 
@@ -123,12 +171,17 @@ export function calculateDischargePercentile(
     // Between p50 and p75
     return Math.round(50 + ((dischargeCfs - stats.p50) / (stats.p75 - stats.p50)) * 25);
   }
-  if (stats.p75 !== null && dischargeCfs <= stats.p90) {
-    // Between p75 and p90
-    return Math.round(75 + ((dischargeCfs - stats.p75) / (stats.p90 - stats.p75)) * 15);
+  if (stats.p75 !== null && dischargeCfs <= upper.value) {
+    // Between p75 and whichever upper percentile is published
+    const span = upper.value - stats.p75;
+    if (span <= 0) return upper.percentile;
+    return Math.round(75 + ((dischargeCfs - stats.p75) / span) * (upper.percentile - 75));
   }
-  // Above 90th percentile
-  return Math.min(100, Math.round(90 + ((dischargeCfs - stats.p90) / stats.p90) * 10));
+  // Above the upper anchor
+  return Math.min(
+    100,
+    Math.round(upper.percentile + ((dischargeCfs - upper.value) / upper.value) * (100 - upper.percentile))
+  );
 }
 
 export type FlowRating = 'flood' | 'high' | 'good' | 'low' | 'poor' | 'unknown';
