@@ -19,6 +19,7 @@ import type {
   RiverConditionDetail,
   RiverDetail,
   RiverDetailResponse,
+  RiverOutlookResponse,
   RiversResponse,
   RiverListItem,
   StarredRiversResponse,
@@ -166,6 +167,29 @@ export async function fetchCondition(
     signal,
   );
   return data.available ? (data.condition ?? null) : null;
+}
+
+/**
+ * The 72-hour outlook and Eddy's take for one river.
+ *
+ * One request on purpose. The website assembles this client-side from weather,
+ * the NWS hydrograph and gauge history; doing the same here would mean three
+ * round trips at a put-in, where connectivity is worst and the answer matters
+ * most. The server runs the same pure functions and sends the finished object.
+ *
+ * Returns null when the river has no primary gauge or the endpoint fails — the
+ * caller hides the panel rather than showing an error, because a river without
+ * a forecast is an ordinary state.
+ */
+export async function fetchRiverOutlook(
+  slug: string,
+  signal?: AbortSignal,
+): Promise<RiverOutlookResponse | null> {
+  const data = await get<RiverOutlookResponse>(
+    `/api/rivers/${encodeURIComponent(slug)}/outlook`,
+    signal,
+  );
+  return data.available ? data : null;
 }
 
 /**

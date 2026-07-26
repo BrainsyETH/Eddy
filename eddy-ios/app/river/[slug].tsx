@@ -24,7 +24,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import type { Hazard, MapAccessPoint, RiverConditionDetail, RiverListItem } from '@eddy/types';
+import type {
+  Hazard,
+  MapAccessPoint,
+  RiverConditionDetail,
+  RiverListItem,
+  RiverOutlookResponse,
+} from '@eddy/types';
 import {
   criticalHazards,
   hazardConditionCode,
@@ -38,6 +44,7 @@ import {
   fetchCondition,
   fetchHazards,
   fetchRiverAccessPoints,
+  fetchRiverOutlook,
   fetchRivers,
   subscribeToRiver,
 } from '@/api/client';
@@ -58,6 +65,7 @@ import {
   primaryReading,
   readingAge,
 } from '@/lib/readingCopy';
+import { EddyTake } from '@/components/EddyTake';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { useSession } from '@/hooks/useSession';
@@ -74,6 +82,7 @@ export default function RiverDetailScreen() {
   const [condition, setCondition] = useState<RiverConditionDetail | null>(null);
   const [hazards, setHazards] = useState<Hazard[]>([]);
   const [accessPoints, setAccessPoints] = useState<MapAccessPoint[]>([]);
+  const [outlook, setOutlook] = useState<RiverOutlookResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -100,14 +109,19 @@ export default function RiverDetailScreen() {
         // Each of these degrades on its own. A river with no gauge, no recorded
         // hazards or no access points is an ordinary state, and one failing must
         // not blank the other two.
-        const [cond, haz, access] = await Promise.all([
+        const [cond, haz, access, look] = await Promise.all([
           fetchCondition(match.id, controller.signal).catch(() => null),
           fetchHazards(slug, controller.signal).catch(() => [] as Hazard[]),
           fetchRiverAccessPoints(slug, controller.signal).catch(() => [] as MapAccessPoint[]),
+          // The outlook reaches three third-party services behind one request.
+          // Any of them being down is an ordinary day, and the screen's core job
+          // — condition, reading, hazards — must not depend on the forecast.
+          fetchRiverOutlook(slug, controller.signal).catch(() => null),
         ]);
         setCondition(cond);
         setHazards(haz);
         setAccessPoints(access);
+        setOutlook(look);
         setError(null);
       } catch (err) {
         if (err instanceof ApiError && err.message === 'Request cancelled') return;
@@ -252,6 +266,12 @@ export default function RiverDetailScreen() {
             </View>
           ) : null}
         </View>
+
+        {/* ── What it means. Directly under the status card, because the card
+               above says what the river IS and this says what to do about it.
+               Hidden entirely when the river has no gauge or every upstream
+               source failed — an empty interpretation is worse than none. ── */}
+        {outlook ? <EddyTake outlook={outlook} /> : null}
 
         {/* ── The bell. The only paid affordance on this screen. ── */}
         <Pressable

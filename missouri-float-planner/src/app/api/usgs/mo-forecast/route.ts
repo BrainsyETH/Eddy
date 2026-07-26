@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { fetchMODataset } from '@/lib/usgs/mo-statewide-data';
+import { fetchAhpsForecast } from '@/lib/usgs/ahps-forecast';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,37 +43,6 @@ export interface MoForecastResponse {
   entries: MoForecastEntry[];
 }
 
-const AHPS_BASE = 'https://water.weather.gov/ahps2/hydrograph_to_xml.php';
-
-function ahpsUrl(lid: string): string {
-  return `${AHPS_BASE}?gage=${encodeURIComponent(lid)}&output=xml`;
-}
-
-function parseForecastDatums(xml: string): MoForecastDatum[] {
-  const block = xml.match(/<forecast[^>]*>([\s\S]*?)<\/forecast>/i)?.[1];
-  if (!block) return [];
-  const out: MoForecastDatum[] = [];
-  const datumRegex = /<datum>([\s\S]*?)<\/datum>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = datumRegex.exec(block)) !== null) {
-    const inner = m[1];
-    const valid = inner.match(/<valid[^>]*>([^<]+)<\/valid>/i)?.[1]?.trim();
-    const primary = inner.match(/<primary[^>]*>([^<]+)<\/primary>/i)?.[1]?.trim();
-    if (!valid || !primary) continue;
-    const valueFt = parseFloat(primary);
-    if (!Number.isFinite(valueFt)) continue;
-    out.push({ dateTime: valid, valueFt });
-  }
-  return out;
-}
-
-async function fetchForecast(lid: string): Promise<MoForecastDatum[]> {
-  const res = await fetch(ahpsUrl(lid), { signal: AbortSignal.timeout(10_000), next: { revalidate: 3600 } });
-  if (!res.ok) return [];
-  const xml = await res.text();
-  return parseForecastDatums(xml);
-}
-
 export async function GET(request: NextRequest) {
   try {
     const dataset = await fetchMODataset();
@@ -103,7 +73,7 @@ export async function GET(request: NextRequest) {
     const results = await Promise.allSettled(
       siteIds.map(async (siteId) => {
         const meta = bySite.get(siteId)!;
-        const stages = await fetchForecast(meta.nws_lid);
+        const stages = await fetchAhpsForecast(meta.nws_lid);
         let peakFt: number | null = null;
         let peakAt: string | null = null;
         for (const d of stages) {
