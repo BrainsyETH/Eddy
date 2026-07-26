@@ -288,8 +288,46 @@ splash and tinted assets keep their alpha (the OS composites those itself).
 | River Reports | **live** against `/api/rivers` |
 | Alerts | **live** against `/api/alerts` |
 | Favorites | **live**, local-first via AsyncStorage; server sync pending |
-| Profile | placeholder — awaiting Sign in with Apple + RevenueCat |
+| Profile | **live** — Sign in with Apple, subscription state, Restore Purchases, account deletion |
 
 Remote config and the forced-upgrade gate are wired (`/api/app-config`), and both
 fail open: an unreachable config means no upgrade requirement and all features
 enabled.
+
+## Accounts, purchases and deletion
+
+The identity model is anonymous-first and upgrades in place. `signInWithIdToken`
+against an existing anonymous session links Apple to that SAME user id, so stars
+collected before converting are already the new account's — nothing is migrated,
+because nothing moved.
+
+Three things about it are load-bearing rather than stylistic:
+
+- **The session lives in the Keychain**, not AsyncStorage. RevenueCat is keyed on
+  the Supabase user id, so losing the session loses the entitlement — the app
+  would take a fresh anonymous identity and a paying subscriber's subscription
+  would vanish. Keychain survives reinstall and is encrypted at rest. It also
+  needs chunking, because a Supabase session exceeds expo-secure-store's
+  2048-byte limit; that logic is in `src/lib/chunked-store.ts` and covered by
+  `src/lib/chunked-store.test.ts` in the web app.
+- **RevenueCat is never configured with an anonymous id.** An entitlement bought
+  under one is stranded the moment the id is replaced. `configurePurchases()`
+  refuses outright rather than trusting callers to check.
+- **Apple returns the user's real name exactly once**, on the first
+  authorisation for that Apple ID, and never again — not on reinstall. It is
+  persisted immediately in `signInWithApple` for that reason.
+
+**Account deletion cannot be left to the FK cascade.** `float_plans.user_id` is
+`ON DELETE SET NULL`, and float_plans treats a NULL `user_id` as the anonymous,
+world-readable tier — so cascading would PUBLISH a deleted user's saved floats
+instead of removing them. `src/lib/account-deletion.ts` in the web app deletes
+them explicitly, before the auth user, and a test fails if that is ever removed.
+
+Three controls here exist because App Review requires them: Sign in with Apple,
+Restore Purchases (3.1.1), and in-app account deletion (5.1.1(v)). The auto-renew
+disclosure sits with the subscription controls rather than behind a link, for the
+same reason.
+
+Notification preferences are **not** in this tab yet, deliberately:
+`expo-notifications` is not wired, and a toggle that does nothing is worse than
+an absent one. It lands with the push work.

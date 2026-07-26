@@ -22,8 +22,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
+import { updateDisplayName } from '@/api/client';
 
 interface SessionValue {
   session: Session | null;
@@ -33,6 +35,16 @@ interface SessionValue {
   unavailable: boolean;
   /** A fresh access token, or null. Refreshes if the cached one has expired. */
   getAccessToken: () => Promise<string | null>;
+  /**
+   * True while the session belongs to an anonymous user — someone who has
+   * stars but no account. Purchases and push both require this to be false.
+   */
+  isAnonymous: boolean;
+  /** Upgrade the current identity with Apple. Throws with a message to show. */
+  signInWithApple: () => Promise<void>;
+  signOut: () => Promise<void>;
+  /** Drop the local session after the server has deleted the account. */
+  forgetSession: () => Promise<void>;
 }
 
 const SessionContext = createContext<SessionValue>({
@@ -40,7 +52,14 @@ const SessionContext = createContext<SessionValue>({
   ready: false,
   unavailable: true,
   getAccessToken: async () => null,
+  isAnonymous: true,
+  signInWithApple: async () => {},
+  signOut: async () => {},
+  forgetSession: async () => {},
 });
+
+/** Thrown when the user backs out of the Apple sheet — never shown as an error. */
+export const APPLE_SIGN_IN_CANCELLED = 'apple_sign_in_cancelled';
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -121,9 +140,106 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  /**
+   * Sign in with Apple, UPGRADING the current anonymous user rather than
+   * replacing it.
+   *
+   * This is the whole reason the app starts anonymous. `signInWithIdToken`
+   * against an existing anonymous session links the Apple identity to that same
+   * user id, so the stars someone accumulated before converting are already
+   * theirs — nothing is migrated, because nothing moved. It is also why the
+   * purchase flow must run AFTER this: RevenueCat is keyed on the Supabase user
+   * id, and an entitlement bought under an anonymous id would be stranded the
+   * first time that id was replaced.
+   */
+  const signInWithApple = useCallback(async () => {
+    const supabase = getSupabase();
+    if (!supabase) throw new Error('Accounts are unavailable right now.');
+
+    let credential: AppleAuthentication.AppleAuthenticationCredential;
+    try {
+      credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+    } catch (err) {
+      // Backing out of the sheet is not a failure and must not surface as one.
+      if ((err as { code?: string })?.code === 'ERR_REQUEST_CANCELED') {
+        throw new Error(APPLE_SIGN_IN_CANCELLED);
+      }
+      throw new Error('Could not reach Apple. Please try again.');
+    }
+
+    if (!credential.identityToken) {
+      throw new Error('Apple did not return a sign-in token. Please try again.');
+    }
+
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: 'apple',
+      token: credential.identityToken,
+    });
+
+    if (error) throw new Error(error.message);
+    if (data.session) setSession(data.session);
+
+    // Apple sends the real name EXACTLY ONCE, on the very first authorisation
+    // for this Apple ID, and never again — not on re-install, not on
+    // re-authorisation. If it is not persisted here it is gone for good, so
+    // this write is deliberately not deferred to a later "complete your
+    // profile" step. Failure is non-fatal: a missing display name costs a
+    // greeting, not access.
+    const fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    if (fullName && data.session) {
+      try {
+        await updateDisplayName(data.session.access_token, fullName);
+      } catch {
+        // ignored on purpose — see above
+      }
+    }
+  }, []);
+
+  const signOut = useCallback(async () => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setSession(null);
+  }, []);
+
+  /**
+   * Clear the local session WITHOUT calling the server.
+   *
+   * Used after account deletion, where signOut() would post to an endpoint
+   * whose user no longer exists. `scope: 'local'` drops the stored session and
+   * skips the network call.
+   */
+  const forgetSession = useCallback(async () => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+    setSession(null);
+  }, []);
+
   const value = useMemo<SessionValue>(
-    () => ({ session, ready, unavailable, getAccessToken }),
-    [session, ready, unavailable, getAccessToken],
+    () => ({
+      session,
+      ready,
+      unavailable,
+      getAccessToken,
+      // Absent claim means anonymous: a session that predates the claim is not
+      // a signed-in one, and treating an unknown as permanent would let it
+      // reach the purchase path.
+      isAnonymous: session?.user?.is_anonymous ?? true,
+      signInWithApple,
+      signOut,
+      forgetSession,
+    }),
+    [session, ready, unavailable, getAccessToken, signInWithApple, signOut, forgetSession],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
