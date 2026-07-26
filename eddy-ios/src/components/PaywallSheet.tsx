@@ -13,17 +13,48 @@
 // The offer below is deliberately about being told FIRST, not about being told
 // at all.
 
-import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
+import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
+import { waitForEntitlement } from '@/api/client';
+import {
+  fetchOfferings,
+  identifyUser,
+  packageCta,
+  purchasePackage,
+  purchasesUnavailableReason,
+  restorePurchases,
+  type PurchasePackage,
+} from '@/lib/purchases';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
   /** The river that triggered it, so the offer can name what they just asked for. */
   riverName?: string;
+  /**
+   * Fired once the entitlement is live on the SERVER, not merely bought.
+   *
+   * The caller's job is to finish what the user originally asked for — they
+   * tapped "notify me", hit the wall, and paid; the subscription they wanted
+   * still has to be created.
+   */
+  onPurchased?: () => void;
 }
 
 const BENEFITS = [
@@ -50,8 +81,106 @@ const BENEFITS = [
 const TERMS_URL = 'https://eddy.guide/terms';
 const PRIVACY_URL = 'https://eddy.guide/privacy';
 
-export function PaywallSheet({ visible, onClose, riverName }: Props) {
+export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props) {
   const { colors, elevation } = useTheme();
+  const { session, isAnonymous, getAccessToken, signInWithApple } = useSession();
+
+  const [packages, setPackages] = useState<PurchasePackage[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<null | 'apple' | 'buy' | 'restore'>(null);
+
+  const userId = session?.user?.id ?? null;
+  const signedIn = Boolean(userId) && !isAnonymous;
+  const blocked = purchasesUnavailableReason(userId, isAnonymous);
+
+  // Offerings load only once someone is signed in, because that is the earliest
+  // point the SDK is configured — see identifyUser. Loading them behind the
+  // sign-in step also means the prices shown are the ones this Apple ID will
+  // actually be charged.
+  useEffect(() => {
+    if (!visible || !signedIn || !userId) return;
+
+    let cancelled = false;
+    (async () => {
+      await identifyUser(userId, isAnonymous);
+      const result = await fetchOfferings();
+      if (cancelled) return;
+      setPackages(result.packages);
+      setLoadError(result.error);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, signedIn, userId, isAnonymous]);
+
+  const handleSignIn = useCallback(async () => {
+    setBusy('apple');
+    try {
+      await signInWithApple();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Sign in failed.';
+      if (message !== APPLE_SIGN_IN_CANCELLED) Alert.alert('Could not sign in', message);
+    } finally {
+      setBusy(null);
+    }
+  }, [signInWithApple]);
+
+  const handleBuy = useCallback(
+    async (pkg: PurchasePackage) => {
+      setBusy('buy');
+      try {
+        const outcome = await purchasePackage(pkg);
+
+        // Backing out of Apple's sheet is a decision, not a failure. Say
+        // nothing at all and leave the paywall as they left it.
+        if (outcome.status === 'cancelled') return;
+
+        if (outcome.status === 'error') {
+          Alert.alert('Purchase failed', outcome.message);
+          return;
+        }
+
+        // StoreKit is done, but the entitlement reaches us through
+        // RevenueCat's webhook. Wait for the server before claiming anything.
+        const token = await getAccessToken();
+        const live = token ? await waitForEntitlement(token) : false;
+
+        if (!live) {
+          // Their money moved and Apple has the receipt. The only true
+          // statement is that it has not reached us yet, so say that and let
+          // them go — never imply the purchase did not happen.
+          Alert.alert(
+            'Thanks — you are subscribed',
+            'It can take a moment to show up. If anything still looks locked in a minute, pull to refresh.',
+          );
+        }
+
+        onPurchased?.();
+        onClose();
+      } finally {
+        setBusy(null);
+      }
+    },
+    [getAccessToken, onPurchased, onClose],
+  );
+
+  const handleRestore = useCallback(async () => {
+    setBusy('restore');
+    try {
+      const result = await restorePurchases();
+      if (result.entitled) {
+        const token = await getAccessToken();
+        if (token) await waitForEntitlement(token);
+        onPurchased?.();
+        onClose();
+        return;
+      }
+      Alert.alert('Nothing to restore', result.message);
+    } finally {
+      setBusy(null);
+    }
+  }, [getAccessToken, onPurchased, onClose]);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -125,15 +254,78 @@ export function PaywallSheet({ visible, onClose, riverName }: Props) {
         </ScrollView>
 
         <View style={[styles.footer, { borderTopColor: colors.border }]}>
-          {/* Purchases cannot be wired until the Apple Developer enrollment
-              clears and RevenueCat has products, so this states that plainly
-              rather than presenting a button that silently does nothing. */}
-          <View style={[styles.pending, { backgroundColor: colors.cardRaised }]}>
-            <Ionicons name="time-outline" size={16} color={colors.textMuted} />
-            <Text style={[styles.pendingText, { color: colors.textMuted }]}>
-              Subscriptions aren&apos;t open yet — coming soon.
-            </Text>
-          </View>
+          {/* SIGN IN FIRST, ALWAYS. A purchase made before there is a permanent
+              Supabase user id attaches the entitlement to an anonymous id that
+              a reinstall replaces — the buyer then has no route back to what
+              they paid for. This ordering is the fix, so the purchase controls
+              genuinely do not exist until someone is signed in. */}
+          {!signedIn ? (
+            <>
+              <Text style={[styles.signInNote, { color: colors.textMuted }]}>
+                Sign in first so your subscription follows you to a new phone.
+              </Text>
+              {busy === 'apple' ? (
+                <ActivityIndicator color={colors.accent} style={styles.footerBusy} />
+              ) : (
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                  buttonStyle={
+                    colors.scheme === 'dark'
+                      ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                      : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                  }
+                  cornerRadius={12}
+                  style={styles.appleButton}
+                  onPress={handleSignIn}
+                />
+              )}
+            </>
+          ) : blocked || loadError ? (
+            <View style={[styles.pending, { backgroundColor: colors.cardRaised }]}>
+              <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+              <Text style={[styles.pendingText, { color: colors.textMuted }]}>
+                {loadError ?? 'Subscriptions are not available in this build.'}
+              </Text>
+            </View>
+          ) : packages === null ? (
+            <ActivityIndicator color={colors.accent} style={styles.footerBusy} />
+          ) : (
+            packages.map((pkg) => (
+              <Pressable
+                key={pkg.id}
+                onPress={() => void handleBuy(pkg)}
+                disabled={busy !== null}
+                style={({ pressed }) => [
+                  pkg.recommended ? styles.primary : styles.secondary,
+                  {
+                    backgroundColor: pkg.recommended ? colors.accent : 'transparent',
+                    borderColor: colors.border,
+                    opacity: pressed || busy !== null ? 0.6 : 1,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    pkg.recommended ? styles.primaryText : styles.secondaryText,
+                    { color: pkg.recommended ? colors.onAccent : colors.textMuted },
+                  ]}
+                >
+                  {busy === 'buy' ? 'One moment…' : packageCta(pkg)}
+                </Text>
+              </Pressable>
+            ))
+          )}
+
+          {/* Restore has to be reachable from the purchase screen itself, not
+              only from Profile — a reviewer looks for it here, and so does
+              anyone who already paid and is seeing this wall by mistake. */}
+          {signedIn && (
+            <Pressable onPress={() => void handleRestore()} disabled={busy !== null} hitSlop={8}>
+              <Text style={[styles.restore, { color: colors.textMuted }]}>
+                {busy === 'restore' ? 'Restoring…' : 'Restore purchases'}
+              </Text>
+            </Pressable>
+          )}
 
           <Pressable
             onPress={onClose}
@@ -152,6 +344,12 @@ export function PaywallSheet({ visible, onClose, riverName }: Props) {
 
 const styles = StyleSheet.create({
   sheet: { flex: 1 },
+  signInNote: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginBottom: 10 },
+  appleButton: { height: 50, alignSelf: 'stretch' },
+  footerBusy: { paddingVertical: 16 },
+  primary: { borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
+  primaryText: { ...t.base, fontFamily: fonts.semibold },
+  restore: { ...t.xs, fontFamily: fonts.medium, textAlign: 'center', paddingVertical: 4 },
   handleRow: { alignItems: 'flex-end', paddingHorizontal: 20, paddingTop: 14 },
   body: { paddingHorizontal: 24, paddingBottom: 24, alignItems: 'center' },
   title: { ...t['2xl'], fontFamily: fonts.displayBold, marginTop: 8, textAlign: 'center' },

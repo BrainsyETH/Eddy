@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { MeEntitlement, MeProfile } from '@eddy/types';
 import { fetchMeProfile } from '@/api/client';
 import { useSession } from '@/hooks/useSession';
-import { configurePurchases } from '@/lib/purchases';
+import { identifyUser } from '@/lib/purchases';
 
 interface AccountState {
   profile: MeProfile | null;
@@ -76,7 +76,7 @@ export function useAccount(): AccountState {
   // becoming an appUserID — see src/lib/purchases.ts.
   useEffect(() => {
     if (!userId || isAnonymous) return;
-    configurePurchases(userId, isAnonymous);
+    void identifyUser(userId, isAnonymous);
   }, [userId, isAnonymous]);
 
   const refresh = useCallback(async () => {

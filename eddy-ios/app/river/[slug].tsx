@@ -120,26 +120,48 @@ export default function RiverDetailScreen() {
     return () => controller.abort();
   }, [slug]);
 
-  const onNotify = useCallback(async () => {
-    if (!river) return;
-    setSubscribing(true);
-    try {
-      const token = await getAccessToken();
-      if (!token) {
-        // No session — anonymous sign-in is off or unreachable. Show the offer
-        // rather than an error: the user asked for something we cannot deliver
-        // yet, and the reason is ours, not theirs.
-        setPaywallOpen(true);
-        return;
+  /**
+   * Create the alert subscription.
+   *
+   * `offerOnFailure` controls what happens when the server says no. On the
+   * user's own tap that means showing the paywall — the 402 IS the trigger.
+   * Straight after a purchase it must not: they have just paid, and bouncing
+   * them back into the wall they only escaped a second ago is the worst
+   * possible moment to ask again. If it fails there the button simply stays as
+   * it was, and their next tap tries again.
+   */
+  const subscribe = useCallback(
+    async ({ offerOnFailure }: { offerOnFailure: boolean }) => {
+      if (!river) return;
+      setSubscribing(true);
+      try {
+        const token = await getAccessToken();
+        if (!token) {
+          // No session — anonymous sign-in is off or unreachable. Show the offer
+          // rather than an error: the user asked for something we cannot deliver
+          // yet, and the reason is ours, not theirs.
+          if (offerOnFailure) setPaywallOpen(true);
+          return;
+        }
+        const result = await subscribeToRiver(token, river.id, 'floatable');
+        if (result.paymentRequired && offerOnFailure) setPaywallOpen(true);
+      } catch {
+        if (offerOnFailure) setPaywallOpen(true);
+      } finally {
+        setSubscribing(false);
       }
-      const result = await subscribeToRiver(token, river.id, 'floatable');
-      if (result.paymentRequired) setPaywallOpen(true);
-    } catch {
-      setPaywallOpen(true);
-    } finally {
-      setSubscribing(false);
-    }
-  }, [river, getAccessToken]);
+    },
+    [river, getAccessToken],
+  );
+
+  const onNotify = useCallback(() => subscribe({ offerOnFailure: true }), [subscribe]);
+
+  // Fired once the entitlement is live on the server. Finishes what the user
+  // originally tapped: they wanted to be told about THIS river, and the
+  // purchase was only the obstacle in the way of that.
+  const onPurchased = useCallback(() => {
+    void subscribe({ offerOnFailure: false });
+  }, [subscribe]);
 
   if (loading) {
     return (
@@ -362,6 +384,7 @@ export default function RiverDetailScreen() {
         visible={paywallOpen}
         onClose={() => setPaywallOpen(false)}
         riverName={river.name}
+        onPurchased={onPurchased}
       />
     </SafeAreaView>
   );
