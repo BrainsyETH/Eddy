@@ -5,8 +5,15 @@
 // First of the /api/me/* family (iOS Phase 0): Bearer-token auth, RLS-scoped
 // queries. Works for anonymous sessions too — an anonymous user has a profile
 // (created by the auth trigger) and simply no entitlement row.
+//
+// These limits fail OPEN (no failClosed), unlike /api/me/device-tokens. The
+// writes here are tiny idempotent upserts scoped by RLS, so unlimited access
+// during a limiter outage is far less harmful than blocking someone from
+// saving a favourite because Upstash hiccuped.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { jsonPrivate } from '@/lib/api-utils';
+import { rateLimit } from '@/lib/rate-limit';
 import { requireUser } from '@/lib/supabase/request';
 import type { MeProfileResponse } from '@/types/api';
 
@@ -17,6 +24,13 @@ export async function GET(request: NextRequest) {
     const auth = await requireUser(request);
     if (auth instanceof NextResponse) return auth;
     const { supabase, user } = auth;
+
+    // A cold start plus pull-to-refresh; generous by design.
+    // Keyed on the USER, never the IP: carrier NAT collapses thousands of
+    // mobile subscribers into one bucket, so a per-IP limit would throttle
+    // a whole network because one person's client misbehaved.
+    const limited = await rateLimit(`me-profile-read:${user.id}`, 120, 15 * 60 * 1000);
+    if (limited) return limited;
 
     let { data: profile } = await supabase
       .from('profiles')
@@ -34,7 +48,7 @@ export async function GET(request: NextRequest) {
         .single();
       if (createError) {
         console.error('Error creating profile:', createError);
-        return NextResponse.json({ error: 'Could not load profile' }, { status: 500 });
+        return jsonPrivate({ error: 'Could not load profile' }, { status: 500 });
       }
       profile = created;
     }
@@ -68,10 +82,10 @@ export async function GET(request: NextRequest) {
         : null,
     };
 
-    return NextResponse.json(response);
+    return jsonPrivate(response);
   } catch (error) {
     console.error('Error fetching profile:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return jsonPrivate({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -81,11 +95,18 @@ export async function PATCH(request: NextRequest) {
     if (auth instanceof NextResponse) return auth;
     const { supabase, user } = auth;
 
+    // Editing a display name is a rare, deliberate act.
+    // Keyed on the USER, never the IP: carrier NAT collapses thousands of
+    // mobile subscribers into one bucket, so a per-IP limit would throttle
+    // a whole network because one person's client misbehaved.
+    const limited = await rateLimit(`me-profile-write:${user.id}`, 20, 15 * 60 * 1000);
+    if (limited) return limited;
+
     const body = await request.json().catch(() => null) as
       | { displayName?: string | null; homeRegion?: string | null }
       | null;
     if (!body || (body.displayName === undefined && body.homeRegion === undefined)) {
-      return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+      return jsonPrivate({ error: 'Nothing to update' }, { status: 400 });
     }
 
     const updates: Record<string, string | null> = {};
@@ -107,10 +128,10 @@ export async function PATCH(request: NextRequest) {
 
     if (error) {
       console.error('Error updating profile:', error);
-      return NextResponse.json({ error: 'Could not update profile' }, { status: 500 });
+      return jsonPrivate({ error: 'Could not update profile' }, { status: 500 });
     }
 
-    return NextResponse.json({
+    return jsonPrivate({
       profile: {
         id: profile.id,
         displayName: profile.display_name,
@@ -120,6 +141,6 @@ export async function PATCH(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error updating profile:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return jsonPrivate({ error: 'Internal server error' }, { status: 500 });
   }
 }

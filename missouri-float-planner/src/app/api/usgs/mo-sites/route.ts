@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { fetchMoContextSites, type MoContextSite } from '@/lib/usgs/mo-sites';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,7 @@ export async function GET() {
       capped,
     };
     return NextResponse.json(body, {
-      headers: { 'Cache-Control': 's-maxage=900, stale-while-revalidate=1800' },
+      headers: cdnCacheHeaders(900, 1800),
     });
   } catch {
     // Context layer is strictly optional — degrade to curated-only.

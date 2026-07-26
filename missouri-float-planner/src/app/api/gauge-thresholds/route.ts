@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 
 export interface GaugeThreshold {
   riverId: string;
@@ -113,7 +114,9 @@ async function _GET() {
       rivers,
     };
 
-    return NextResponse.json(response);
+    // Thresholds are edited by hand and change a few times a year, so this
+    // is the longest window of any public route here.
+    return NextResponse.json(response, { headers: cdnCacheHeaders(900, 3600) });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[Gauge Thresholds API] Unexpected error:', errorMessage);

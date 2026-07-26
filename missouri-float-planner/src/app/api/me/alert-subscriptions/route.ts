@@ -16,8 +16,15 @@
 //
 // Entitlement is ALSO re-checked at send time by the fan-out, so a lapse
 // between subscribing and the next transition doesn't leak paid pushes.
+//
+// These limits fail OPEN (no failClosed), unlike /api/me/device-tokens. The
+// writes here are tiny idempotent upserts scoped by RLS, so unlimited access
+// during a limiter outage is far less harmful than blocking someone from
+// saving a favourite because Upstash hiccuped.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { jsonPrivate } from '@/lib/api-utils';
+import { rateLimit } from '@/lib/rate-limit';
 import { requireUser } from '@/lib/supabase/request';
 import { requireEntitlement } from '@/lib/entitlement';
 import type { AlertSubscriptionsResponse } from '@/types/api';
@@ -33,6 +40,13 @@ export async function GET(request: NextRequest) {
     if (auth instanceof NextResponse) return auth;
     const { supabase, user } = auth;
 
+    // Read alongside stars whenever the app opens.
+    // Keyed on the USER, never the IP: carrier NAT collapses thousands of
+    // mobile subscribers into one bucket, so a per-IP limit would throttle
+    // a whole network because one person's client misbehaved.
+    const limited = await rateLimit(`me-subs-read:${user.id}`, 120, 15 * 60 * 1000);
+    if (limited) return limited;
+
     const { data, error } = await supabase
       .from('alert_subscriptions')
       .select('id, river_id, kind, one_shot, fired_at, created_at, rivers!inner(name, slug)')
@@ -41,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error listing alert subscriptions:', error);
-      return NextResponse.json({ error: 'Could not load subscriptions' }, { status: 500 });
+      return jsonPrivate({ error: 'Could not load subscriptions' }, { status: 500 });
     }
 
     // Untyped client: PostgREST types the to-one embed as an array; at
@@ -73,10 +87,10 @@ export async function GET(request: NextRequest) {
       }),
     };
 
-    return NextResponse.json(response);
+    return jsonPrivate(response);
   } catch (error) {
     console.error('Error listing alert subscriptions:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return jsonPrivate({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -88,16 +102,23 @@ export async function POST(request: NextRequest) {
     if (auth instanceof NextResponse) return auth;
     const { supabase, user } = auth;
 
+    // Subscribing is per-river and deliberate.
+    // Keyed on the USER, never the IP: carrier NAT collapses thousands of
+    // mobile subscribers into one bucket, so a per-IP limit would throttle
+    // a whole network because one person's client misbehaved.
+    const limited = await rateLimit(`me-subs-write:${user.id}`, 60, 15 * 60 * 1000);
+    if (limited) return limited;
+
     const body = await request.json().catch(() => null) as
       | { riverId?: string; riverSlug?: string; kind?: string; oneShot?: boolean }
       | null;
     if (!body?.riverId && !body?.riverSlug) {
-      return NextResponse.json({ error: 'riverId or riverSlug required' }, { status: 400 });
+      return jsonPrivate({ error: 'riverId or riverSlug required' }, { status: 400 });
     }
 
     const kind = (body.kind ?? 'all') as SubscriptionKind;
     if (!VALID_KINDS.includes(kind)) {
-      return NextResponse.json(
+      return jsonPrivate(
         { error: `kind must be one of ${VALID_KINDS.join(', ')}` },
         { status: 400 }
       );
@@ -113,7 +134,7 @@ export async function POST(request: NextRequest) {
       riverId = river?.id ?? null;
     }
     if (!riverId) {
-      return NextResponse.json({ error: 'River not found' }, { status: 404 });
+      return jsonPrivate({ error: 'River not found' }, { status: 404 });
     }
 
     // Re-subscribing updates the kind rather than erroring, and clears
@@ -135,13 +156,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       if (error.code === '23503') {
-        return NextResponse.json({ error: 'River not found' }, { status: 404 });
+        return jsonPrivate({ error: 'River not found' }, { status: 404 });
       }
       console.error('Error saving alert subscription:', error);
-      return NextResponse.json({ error: 'Could not save subscription' }, { status: 500 });
+      return jsonPrivate({ error: 'Could not save subscription' }, { status: 500 });
     }
 
-    return NextResponse.json({
+    return jsonPrivate({
       subscription: {
         id: saved.id,
         riverId: saved.river_id,
@@ -152,7 +173,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error saving alert subscription:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return jsonPrivate({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -163,9 +184,16 @@ export async function DELETE(request: NextRequest) {
     if (auth instanceof NextResponse) return auth;
     const { supabase, user } = auth;
 
+    // Shares the write budget with POST.
+    // Keyed on the USER, never the IP: carrier NAT collapses thousands of
+    // mobile subscribers into one bucket, so a per-IP limit would throttle
+    // a whole network because one person's client misbehaved.
+    const limited = await rateLimit(`me-subs-write:${user.id}`, 60, 15 * 60 * 1000);
+    if (limited) return limited;
+
     const riverId = request.nextUrl.searchParams.get('riverId');
     if (!riverId) {
-      return NextResponse.json({ error: 'riverId required' }, { status: 400 });
+      return jsonPrivate({ error: 'riverId required' }, { status: 400 });
     }
 
     const { error } = await supabase
@@ -176,12 +204,12 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       console.error('Error deleting alert subscription:', error);
-      return NextResponse.json({ error: 'Could not delete subscription' }, { status: 500 });
+      return jsonPrivate({ error: 'Could not delete subscription' }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, riverId });
+    return jsonPrivate({ ok: true, riverId });
   } catch (error) {
     console.error('Error deleting alert subscription:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return jsonPrivate({ error: 'Internal server error' }, { status: 500 });
   }
 }

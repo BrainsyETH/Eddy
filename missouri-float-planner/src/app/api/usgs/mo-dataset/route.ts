@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import { fetchMODataset } from '@/lib/usgs/mo-statewide-data';
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
       : data;
 
     return NextResponse.json(body, {
-      headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate=3600' },
+      headers: cdnCacheHeaders(300, 3600),
     });
   } catch (e) {
     console.error('[usgs/mo-dataset] Error:', e);

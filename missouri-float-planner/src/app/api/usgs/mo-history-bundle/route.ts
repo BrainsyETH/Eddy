@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import {
   fetchHistoricalReadings,
   fetchDailyStatistics,
@@ -139,7 +140,7 @@ export async function GET() {
     };
 
     return NextResponse.json(body, {
-      headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=86400' },
+      headers: cdnCacheHeaders(3600, 86400),
     });
   } catch (e) {
     console.error('[usgs/mo-history-bundle] Error:', e);
