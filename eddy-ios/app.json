@@ -10,7 +10,7 @@
     "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "guide.eddy.ios",
+      "bundleIdentifier": "eddy.guide.app",
       "icon": {
         "light": "./assets/icon.png",
         "dark": "./assets/icon-dark.png",
