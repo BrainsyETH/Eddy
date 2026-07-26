@@ -7,7 +7,7 @@
 // the free path (see src/lib/x402/ in the web app).
 
 import Constants from 'expo-constants';
-import type { RiversResponse, RiverListItem } from '@eddy/types';
+import type { AppConfigResponse, RiversResponse, RiverListItem } from '@eddy/types';
 
 const BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? 'https://eddy.guide';
@@ -47,4 +47,19 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
 export async function fetchRivers(signal?: AbortSignal): Promise<RiverListItem[]> {
   const data = await get<RiversResponse>('/api/rivers', signal);
   return data.rivers ?? [];
+}
+
+/**
+ * Remote config and kill switches.
+ *
+ * Never throws: the caller treats an unreachable config as "no restrictions"
+ * rather than blocking startup. A version gate that fails closed would turn a
+ * config outage into a total outage.
+ */
+export async function fetchAppConfig(signal?: AbortSignal): Promise<AppConfigResponse | null> {
+  try {
+    return await get<AppConfigResponse>('/api/app-config', signal);
+  } catch {
+    return null;
+  }
 }
