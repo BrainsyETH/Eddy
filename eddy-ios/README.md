@@ -42,7 +42,18 @@ directories outside the app, with matching `tsconfig` path aliases:
 | Alias | Points at | Holds |
 |---|---|---|
 | `@eddy/types` | `../packages/eddy-types` | API contracts shared with the backend |
+| `@eddy/geo` | `../packages/eddy-geo` | Web Mercator tile maths for offline packs |
+| `@eddy/offline` | `../packages/eddy-offline` | offline download planning and budget policy |
 | `@shared/*` | `../missouri-float-planner/shared/*` | the canonical condition system |
+
+`eddy-geo` and `eddy-offline` are shared rather than app-local for a specific
+reason: they are pure, they hold the download-size *policy*, and they need tests.
+The app has no test runner yet, so the alternative was re-implementing them
+inside a web test — the duplicate-then-drift pattern this repo has already been
+bitten by. They are covered by `src/lib/geo-tiles.test.ts` and
+`src/lib/offline-plan.test.ts` in the web app, which imports them by relative
+path. Their own imports are relative for the same reason: both Metro and the
+web's plain `tsx` runner have to resolve them.
 
 Metro handles runtime resolution, `tsconfig` handles types, and they are
 configured independently — change one, change the other.
@@ -70,6 +81,54 @@ Two severity orderings exist and **must not be conflated**:
 River Reports uses the second. Public "floatable now" counts use `FLOATABLE_NOW`
 (strictly `flowing`/`good`), which is narrower than `WEEKEND_FLOATABLE`.
 
+## Maps (Mapbox)
+
+`@rnmapbox/maps` is a **native module**, so from here on the Map tab needs a
+development build — Expo Go cannot load it. The other three tabs still work in
+Expo Go: the map is reached through a lazy `require` in `src/map/runtime.ts` and
+the tab shows an explanatory panel instead of crashing the bundle.
+
+One environment variable is needed:
+
+```bash
+echo 'EXPO_PUBLIC_MAPBOX_TOKEN=pk.your_public_token' > .env   # gitignored
+```
+
+`EXPO_PUBLIC_` is deliberate. A Mapbox `pk.` token is public by design and ships
+inside every app binary regardless of where you put it — protect it with URL and
+scope restrictions in the Mapbox dashboard, not by hiding it. For EAS builds set
+it as an environment variable per environment (`eas env:create`); `eas.json`
+declares `environment` on each profile so builds pick up the right set.
+
+**You do not need a secret `sk.` download token.** Most guides still tell you to
+create one and pass `RNMapboxMapsDownloadToken` to the config plugin. That prop is
+deprecated — the plugin's own types say "Download token is no longer required by
+Mapbox. Do not set this."
+
+Do not pin `RNMapboxMapsVersion` unless you have a reason. `@rnmapbox/maps` 10.3.5
+pins Mapbox iOS `~> 11.23.1` in its own `package.json`, and overriding it with a
+lower version silently builds against an SDK the library is not tested on.
+
+### Why downloads follow the river instead of its bounding box
+
+A river's bounding box is a rectangle; a river is a line. Measured against the
+real Current River geometry (632 points):
+
+| Zoom | Plain bounding box | Corridor (10 boxes) |
+|---|---|---|
+| z8–12 | 286 tiles (~10 MB) | 187 (~6 MB) |
+| z8–14 | 3,919 (~134 MB) | 1,237 (~42 MB) |
+| z8–15 | 15,511 (~530 MB) | 4,079 (~139 MB) |
+
+So the shipped setting is **z8–14 along the corridor, ~42 MB per river**.
+
+Two hard limits shape that. Mapbox's default ceiling is **6,000 offline tiles per
+device**, and `setTileCountLimit`'s own documentation says the Mapbox Terms of
+Service prohibit raising it without permission. At z14 that is roughly four
+rivers stored at once, which the UI has to handle by asking someone to remove a
+river. At z15 a *single* river would consume two thirds of the entire device
+allowance — which is the second, decisive reason `MAX_ZOOM` is 14.
+
 ## Builds (EAS)
 
 `eas.json` defines three profiles. All of them need an Expo account and
@@ -90,10 +149,9 @@ eas init            # writes projectId into app.json
 
 Two notes:
 
-- The `development` profile requires `expo-dev-client`, which is **deliberately
-  not installed yet**. It is a native module, so adding it means Expo Go can no
-  longer run this app. Install it at the point you genuinely need a dev build —
-  which is when MapLibre lands, since that is also a native module.
+- A development build is now **required for the Map tab**, since `@rnmapbox/maps`
+  is a native module (`eas build --profile development --platform ios`). Expo Go
+  still runs everything else.
 - `submit.production.ios.ascAppId` is a placeholder until the App Store Connect
   app record exists.
 
@@ -101,9 +159,9 @@ Two notes:
 
 | Tab | Status |
 |---|---|
-| Map | placeholder — awaiting native MapLibre + the offline-pack spike |
+| Map | **live** in a dev build — Mapbox, condition-coloured river, offline packs |
 | River Reports | **live** against `/api/rivers` |
-| Alerts | placeholder — awaiting a public `river_condition_events` feed |
+| Alerts | **live** against `/api/alerts` |
 | Favorites | **live**, local-first via AsyncStorage; server sync pending |
 | Profile | placeholder — awaiting Sign in with Apple + RevenueCat |
 

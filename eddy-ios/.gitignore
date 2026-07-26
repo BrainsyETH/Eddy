@@ -6,3 +6,7 @@ web-build/
 .DS_Store
 ios/
 android/
+
+# Local secrets. EXPO_PUBLIC_MAPBOX_TOKEN lives here; EAS supplies it in builds.
+.env
+.env.local

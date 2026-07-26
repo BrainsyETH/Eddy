@@ -8,9 +8,13 @@
 
 import Constants from 'expo-constants';
 import type {
+  AccessPointsResponse,
   AlertFeedEntry,
   AlertsResponse,
   AppConfigResponse,
+  MapAccessPoint,
+  RiverDetail,
+  RiverDetailResponse,
   RiversResponse,
   RiverListItem,
 } from '@eddy/types';
@@ -53,6 +57,30 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
 export async function fetchRivers(signal?: AbortSignal): Promise<RiverListItem[]> {
   const data = await get<RiversResponse>('/api/rivers', signal);
   return data.rivers ?? [];
+}
+
+/**
+ * One river with its full centreline geometry.
+ *
+ * This is the heaviest response the app fetches — the Current River alone is a
+ * 632-point LineString — so callers should treat it as a per-river load, not
+ * something to fan out across all thirteen.
+ */
+export async function fetchRiverDetail(slug: string, signal?: AbortSignal): Promise<RiverDetail> {
+  const data = await get<RiverDetailResponse>(`/api/rivers/${encodeURIComponent(slug)}`, signal);
+  return data.river;
+}
+
+/** Approved access points, ordered from headwaters downstream. */
+export async function fetchRiverAccessPoints(
+  slug: string,
+  signal?: AbortSignal,
+): Promise<MapAccessPoint[]> {
+  const data = await get<AccessPointsResponse>(
+    `/api/rivers/${encodeURIComponent(slug)}/access-points`,
+    signal,
+  );
+  return data.accessPoints ?? [];
 }
 
 /**

@@ -9,6 +9,12 @@
       "@eddy/types": [
         "../packages/eddy-types/index.ts"
       ],
+      "@eddy/offline": [
+        "../packages/eddy-offline/index.ts"
+      ],
+      "@eddy/geo": [
+        "../packages/eddy-geo/index.ts"
+      ],
       "@shared/*": [
         "../missouri-float-planner/shared/*"
       ]
@@ -20,6 +26,8 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "../packages/eddy-types/index.ts",
+    "../packages/eddy-geo/index.ts",
+    "../packages/eddy-offline/index.ts",
     "../missouri-float-planner/shared/condition-system.ts"
   ]
 }

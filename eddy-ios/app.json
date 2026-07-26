@@ -11,7 +11,10 @@
       "supportsTablet": false,
       "bundleIdentifier": "guide.eddy.ios"
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      "@rnmapbox/maps"
+    ],
     "experiments": { "typedRoutes": true },
     "extra": {
       "apiBaseUrl": "https://eddy.guide"

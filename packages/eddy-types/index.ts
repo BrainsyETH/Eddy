@@ -67,6 +67,53 @@ export interface RiversResponse {
   rivers: RiverListItem[];
 }
 
+// ── Map geometry (GET /api/rivers/[slug]) ────────────────────────
+// Mirrors the web app's RiverWithDetails in src/types/api.ts. Only the fields
+// the map actually draws are declared here — see the note on MapAccessPoint
+// below for why this is a subset rather than a second full definition.
+
+// Bounds is NOT redefined here. packages/eddy-geo already owns it, because the
+// tile maths there is what consumes it, and a second identical tuple type is
+// exactly the kind of duplication this file exists to prevent.
+export type { Bounds } from '../eddy-geo/index';
+import type { Bounds } from '../eddy-geo/index';
+
+export interface RiverGeometry {
+  type: 'LineString';
+  /** [lng, lat] pairs. Can be empty: the endpoint degrades rather than 404s. */
+  coordinates: Array<[number, number]>;
+}
+
+export interface RiverDetail extends River {
+  geometry: RiverGeometry;
+  bounds: Bounds;
+}
+
+export interface RiverDetailResponse {
+  river: RiverDetail;
+}
+
+/**
+ * The access-point fields the map needs, and only those.
+ *
+ * The web's AccessPoint carries ~25 fields (NPS campground data, fee notes,
+ * road surface, nearby services) that exist for the detail page and would be
+ * pure drift risk to restate here. This is a STRUCTURAL SUBSET, so the web type
+ * stays assignable to it without either side redefining the other.
+ */
+export interface MapAccessPoint {
+  id: string;
+  name: string;
+  riverMile: number;
+  type: string;
+  isPublic: boolean;
+  coordinates: { lng: number; lat: number };
+}
+
+export interface AccessPointsResponse {
+  accessPoints: MapAccessPoint[];
+}
+
 // ── Alert events (the outbox the app's Alerts tab reads) ─────────
 
 export type EventKind = 'floatable' | 'warning' | 'easing' | 'recovery' | 'info';
