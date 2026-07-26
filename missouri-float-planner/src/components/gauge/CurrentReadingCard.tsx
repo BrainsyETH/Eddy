@@ -95,22 +95,37 @@ export default function CurrentReadingCard({
       {/* Condition status strip — bold solid band for at-a-glance color, with
           near-black ink (clears WCAG AA on every condition solid; white does not).
           Eddy's condition-matched artwork fronts the label (same asset set as
-          the Eddy Says card and the hero pill). */}
+          the Eddy Says card and the hero pill).
+
+          The band's description rides along beneath the label. "Ideal 300–900"
+          on the track states the range; this states what the range means for a
+          boat, which is the only part of the levels table every visitor needs.
+          The other bands stay in the collapsed reference list below. */}
       {conditionCode && conditionSurfaceColor && conditionLabel && (
         <div
-          className="px-4 py-2 flex items-center justify-center gap-2"
+          className="flex items-center gap-2.5 px-4 py-2.5"
           style={{ backgroundColor: conditionSurfaceColor }}
         >
           <Image
             src={getEddyImageForCondition(conditionCode)}
             alt=""
-            width={28}
-            height={28}
-            className="h-7 w-7 object-contain"
+            width={32}
+            height={32}
+            className="h-8 w-8 flex-shrink-0 object-contain"
           />
-          <span className="font-sans text-xs font-bold tracking-wide uppercase" style={{ color: conditionInkColor }}>
-            {conditionLabel}
-          </span>
+          <div className="min-w-0" style={{ color: conditionInkColor }}>
+            <span className="block font-sans text-xs font-bold uppercase tracking-wide">
+              {conditionLabel}
+            </span>
+            {activeZone && (
+              // Full ink colour, no opacity — the strip's contrast guarantee is
+              // built on near-black on the condition solid, and dimming it to
+              // signal hierarchy would spend the AA margin to do it.
+              <span className="mt-0.5 block text-[11px] font-medium leading-snug">
+                {activeZone.description}
+              </span>
+            )}
+          </div>
         </div>
       )}
 
