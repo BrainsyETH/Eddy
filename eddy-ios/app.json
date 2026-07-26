@@ -9,12 +9,23 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "guide.eddy.ios"
+      "bundleIdentifier": "guide.eddy.ios",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
-    "plugins": ["expo-router"],
-    "experiments": { "typedRoutes": true },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
     "extra": {
-      "apiBaseUrl": "https://eddy.guide"
+      "apiBaseUrl": "https://eddy.guide",
+      "router": {},
+      "eas": {
+        "projectId": "018d7a3e-7e3c-47a9-bd02-1fe370317a7f"
+      }
     }
   }
 }
