@@ -76,7 +76,14 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
   // closure there would reconcile against an out-of-date local set and undo a
   // star the user made moments earlier.
   const entriesRef = useRef<LocalStar[]>([]);
-  entriesRef.current = entries;
+  // Written in an effect, not during render. A ref mutated during render is a
+  // React rule violation (it breaks under StrictMode's double render and under
+  // concurrent rendering, where a render can be thrown away), and React 19's
+  // lint rejects it. An effect is also sufficient here: every reader of this
+  // ref — sync() and the handlers that call it — runs after commit.
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
 
   const persist = useCallback((next: LocalStar[]) => {
     // Fire-and-forget: in-memory state is already updated, so a failed write

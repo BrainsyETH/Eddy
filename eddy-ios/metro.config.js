@@ -1,22 +1,37 @@
 // eddy-ios/metro.config.js
-// Reaches the shared contracts in ../packages/eddy-types WITHOUT making the
-// repo root an npm workspace.
+// Nearly default. The shared code this app consumes lives outside the project
+// directory, and it is reached through ordinary node_modules resolution — see
+// the `@eddy/*` file: dependencies in package.json — so there are no aliases
+// here to keep in sync with anything.
 //
 // WHY NOT A WORKSPACE: Vercel builds the web app with Root Directory =
 // missouri-float-planner/. Adding a root package.json with workspaces changes
 // how installs resolve there, which risks a live deploy for no benefit to the
-// backend. Metro can watch a folder outside the project instead, so the app
-// gets one source of truth for API contracts and Vercel never sees any of it.
+// backend. `file:` dependencies give one-directional sharing without a
+// workspace: npm symlinks each package into this project's node_modules, and
+// Vercel never sees any of it.
 //
-// Two things are required and easy to get wrong:
-//   1. watchFolders — otherwise Metro refuses to bundle files outside the
-//      project root ("Unable to resolve module ... outside of the project").
-//   2. nodeModulesPaths — the shared folder has no node_modules of its own, so
-//      resolution must fall back to the app's.
+// ── Why aliases were abandoned ────────────────────────────────────────────
+// Until SDK 57 these modules resolved through `watchFolders` plus tsconfig
+// `compilerOptions.paths`. That combination is not viable on SDK 57 and the
+// failure is production-only, so it is worth writing down:
 //
-// Keep this in sync with the `@eddy/types` path alias in tsconfig.json:
-// Metro handles the runtime resolution, tsconfig handles the types, and they
-// are configured independently.
+//   * Expo's tsconfig-paths emulation stopped matching EXACT path mappings.
+//     Wildcards (`@/*`) kept working, so `@eddy/types` failed while
+//     `@/theme/x` resolved — from a tsconfig that had not changed.
+//
+//   * Metro's file map does not index files outside the project root during
+//     `expo export`, whatever `watchFolders` says. Point a resolver at one and
+//     the bundle dies with "Failed to get the SHA-1 for ...". `expo start`
+//     indexes them fine, so the dev server works and every production bundle —
+//     including every EAS build — fails.
+//
+// Symlinked node_modules is the path Metro actually supports (`enableSymlinks`
+// is on in Expo's file map fork), and it needs no configuration at all.
+//
+// watchFolders below is therefore about EDITING, not resolution: it is what
+// makes a change to packages/ or shared/ hot-reload instead of requiring a
+// bundler restart.
 
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
@@ -24,26 +39,18 @@ const path = require('path');
 const projectRoot = __dirname;
 const repoRoot = path.resolve(projectRoot, '..');
 
-// Two folders outside the app that it imports from:
-//   packages/                     — API contracts shared with the backend
-//   missouri-float-planner/shared — the CANONICAL condition system
-//
-// The second matters more than it looks. shared/condition-system.ts is the
-// single source of truth for condition colours, labels and orderings, and it
-// says so explicitly: "Do not hardcode condition hex anywhere else; derive from
-// CONDITION_SYSTEM." Reaching it here is what lets the app obey that instead of
-// keeping its own drifting copy. It has zero imports, so React Native can
-// consume it directly.
-const sharedFolders = [
-  path.resolve(repoRoot, 'packages'),
-  path.resolve(repoRoot, 'missouri-float-planner/shared'),
-];
-
 const config = getDefaultConfig(projectRoot);
 
-// Watch them so edits hot-reload like local files. These two lines are the
-// whole mechanism — everything else stays default.
-config.watchFolders = sharedFolders;
+config.watchFolders = [
+  // @eddy/types, @eddy/geo, @eddy/offline, @eddy/sync, @eddy/hazards
+  path.resolve(repoRoot, 'packages'),
+  // @eddy/conditions — the CANONICAL condition system, which lives in the web
+  // app because 38 files there import it. It is the single source of truth for
+  // condition colours, labels and orderings, and says so explicitly: "Do not
+  // hardcode condition hex anywhere else; derive from CONDITION_SYSTEM."
+  // Consuming it here is what stops the app keeping a drifting copy.
+  path.resolve(repoRoot, 'missouri-float-planner/shared'),
+];
 
 // NOTE: the widely-copied workspace-monorepo recipe also sets
 // `nodeModulesPaths` + `disableHierarchicalLookup: true`. Do NOT do that here.
