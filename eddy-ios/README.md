@@ -252,8 +252,15 @@ Two notes:
   Map tab can all be exercised before enrolment completes. Everything that
   installs on a physical device (`preview`, `production`, TestFlight) does need
   the account.
-- `submit.production` is empty and `ios.bundleIdentifier` is unregistered until
-  the App Store Connect app record exists.
+- `submit.production` is empty until the App Store Connect app record exists and
+  can supply an `ascAppId`.
+- **The bundle identifier is `eddy.guide.app`**, which is the domain in forward
+  order rather than the reverse-DNS `guide.eddy.app` the convention implies.
+  That is deliberate — it is what is registered with Apple, and a bundle ID is
+  immutable once a build ships. Nothing resolves it as a hostname and Apple
+  never checks it against a domain, so the difference is cosmetic. Universal
+  links are unaffected: those are keyed on `TEAMID.eddy.guide.app` in the
+  `apple-app-site-association` file, not on the identifier's shape.
 
 ## Icons and splash
 
