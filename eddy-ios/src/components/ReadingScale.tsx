@@ -6,10 +6,17 @@
 // the catalog is cfs-rated, and nobody has an intuition for whether 944 is close
 // to the flood line. The track answers it in one glance.
 //
-// The band maths comes from @shared/threshold-zones, the SAME module the
-// website's reading card and levels table use, reached through Metro's
-// watchFolders. Not a port: the phone runs that file. So the app cannot decide
-// "Ideal" starts somewhere the website doesn't.
+// The band maths comes from @eddy/conditions, the SAME module the website's
+// reading card and levels table use — reached through the `file:` dependency on
+// missouri-float-planner/shared, which npm symlinks into node_modules. Not a
+// port: the phone runs that file. So the app cannot decide "Ideal" starts
+// somewhere the website doesn't.
+//
+// The subpath import works because @eddy/conditions declares no `exports` map,
+// so `@eddy/conditions/threshold-zones` resolves straight to the file. Do NOT
+// reach for a tsconfig path alias instead — this file originally used
+// `@shared/threshold-zones`, written against the pre-SDK-57 layout, and that is
+// exactly what broke: see metro.config.js for why aliases were abandoned.
 //
 // Bands render at EQUAL width regardless of numeric range — see the note in the
 // shared module. The marker position means "how far through this band", not
@@ -17,7 +24,7 @@
 // the bands people actually float in down to a sliver.
 
 import { StyleSheet, Text, View } from 'react-native';
-import { buildZones, formatZoneValue, zoneMarkerPercent } from '@shared/threshold-zones';
+import { buildZones, formatZoneValue, zoneMarkerPercent } from '@eddy/conditions/threshold-zones';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
