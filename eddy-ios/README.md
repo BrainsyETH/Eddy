@@ -30,6 +30,55 @@ you see `No iOS devices available`, either the runtime is missing
 directory (`sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`).
 Note `Simulator.app` lives *inside* `Xcode.app`, so deleting Xcode removes it.
 
+### Three ways to run this, and when each applies
+
+| Command | Needs | Use it for |
+|---|---|---|
+| `npx expo start` | Expo Go on a device | everything except the Map tab |
+| `npx expo run:ios` | Xcode + CocoaPods, locally | native modules, i.e. the Map tab |
+| `eas build` | an Expo account | builds for testers and the App Store |
+
+`run:ios` prebuilds — it generates the native project and resolves every entry in
+`app.json`'s `plugins` before Xcode ever starts. Which leads to the one rule that
+is easy to break:
+
+**`plugins` may only list packages that actually ship a config plugin.** A config
+plugin is a package exporting `app.plugin.js`; it is not the same thing as a
+dependency, and most dependencies are not one. The current list is complete:
+
+```json
+"plugins": ["expo-router", "@rnmapbox/maps", "expo-font"]
+```
+
+`expo-status-bar` is the trap. It is a dependency, it is imported in
+`app/_layout.tsx`, and its name looks plugin-shaped — but it is an ordinary
+component with no `app.plugin.js`. Adding it to `plugins` fails like this:
+
+```
+PluginError: Unable to resolve a valid config plugin for expo-status-bar.
+Error: Stripping types is currently unsupported for files under node_modules,
+for ".../expo-status-bar/src/StatusBar.ts"
+```
+
+That second line sends people hunting through Node versions and TypeScript
+settings, and it is a red herring. The package's `main` points at
+`src/StatusBar.ts` (Metro compiles it; Node is never meant to), so Expo's attempt
+to `require` it as a plugin surfaces as a type-stripping error from deep inside
+Node instead of "this is not a plugin". **The fix is always to remove the entry,
+never to change Node.** Expo raises `PluginError` here on every Node version.
+
+### Node version
+
+`.nvmrc` pins **Node 20**, matching what all five CI workflows use
+(`.github/workflows/app-ci.yml`), and `package.json` declares
+`engines: node >=20 <23`. Run `nvm use` in this directory.
+
+This is drift prevention, not a fix for anything in particular — Node 22 LTS
+works fine. The upper bound exists because Node 23+ strips TypeScript types by
+default, which turns several Expo-adjacent failures into internal Node errors
+that read as unrelated to their real cause (the plugin trap above being the
+clearest example).
+
 ## Why this is a monorepo without an npm workspace
 
 Vercel builds the web app with **Root Directory = `missouri-float-planner/`**.
