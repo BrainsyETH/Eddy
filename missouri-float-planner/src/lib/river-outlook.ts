@@ -12,6 +12,13 @@ export const OUTLOOK_TIME_ZONE = 'America/Chicago';
 export const SIGNIFICANT_RAIN_CHANCE = 70;
 /** Below this, a nonzero rain chance is shown but styled as background noise. */
 export const LOW_RAIN_CHANCE = 20;
+/**
+ * Forecast high at or above which a float day needs a heat plan — earlier
+ * launch, more water, a shade stop. Set at the NWS heat-advisory neighbourhood
+ * for Missouri rather than a "hot day" threshold, so the flag stays rare enough
+ * to mean something in July.
+ */
+export const HEAT_ADVISORY_TEMP_F = 95;
 
 export type RainPresentation = {
   kind: 'none' | 'unlikely' | 'possible' | 'significant';

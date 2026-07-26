@@ -4,16 +4,21 @@ import {
   Cloud,
   CloudFog,
   CloudLightning,
-  CloudOff,
   CloudRain,
   CloudSun,
   Snowflake,
   Sun,
+  Thermometer,
   Waves,
   type LucideIcon,
 } from 'lucide-react';
 import ConditionBadge from '@/components/ui/ConditionBadge';
-import { formatOutlookDay, getRainPresentation, type RiverOutlookState } from '@/lib/river-outlook';
+import {
+  HEAT_ADVISORY_TEMP_F,
+  formatOutlookDay,
+  getRainPresentation,
+  type RiverOutlookState,
+} from '@/lib/river-outlook';
 
 interface WillItHoldProps {
   outlook: RiverOutlookState;
@@ -32,11 +37,13 @@ function weatherGlyph(iconCode: string): LucideIcon {
   return CloudSun;
 }
 
-const RAIN_CHIP_STYLES: Record<string, string> = {
-  significant: 'border-accent-500 bg-accent-50 text-accent-800',
-  possible: 'border-primary-200 bg-primary-50 text-primary-800',
-  unlikely: 'border-primary-100 bg-white text-primary-700',
-  none: 'border-primary-100 bg-white text-primary-700',
+// Rain is a fact about the day, not a control. It reads as plain text, weighted
+// only when the chance is high enough to move a float plan.
+const RAIN_TEXT_STYLES: Record<string, string> = {
+  significant: 'font-bold text-accent-700',
+  possible: 'font-semibold text-primary-800',
+  unlikely: 'text-neutral-500',
+  none: 'text-neutral-500',
 };
 
 export default function WillItHold({
@@ -74,7 +81,7 @@ export default function WillItHold({
           <div
             key={date}
             className="flex min-w-0 flex-col items-center px-2 py-3 text-center sm:px-3"
-            aria-label={`${formatOutlookDay(date)}, ${weather ? `${weather.tempHigh} degrees high, ${weather.tempLow} degrees low, ${weather.precipitation} percent rain` : 'weather unavailable'}${river.valueFt != null ? `, forecast high ${river.valueFt.toFixed(2)} feet` : ''}`}
+            aria-label={`${formatOutlookDay(date)}, ${weather ? `${weather.tempHigh} degrees high, ${weather.tempLow} degrees low, ${weather.precipitation} percent rain${weather.tempHigh >= HEAT_ADVISORY_TEMP_F ? ', heat advisory range' : ''}` : 'weather unavailable'}${river.valueFt != null ? `, forecast high ${river.valueFt.toFixed(2)} feet` : ''}`}
           >
             <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
               {index === 0 ? 'Today' : (weather?.dayOfWeek ?? formatOutlookDay(date, false))}
@@ -92,14 +99,19 @@ export default function WillItHold({
                 <span className="text-xs font-semibold tabular-nums text-neutral-900">
                   {weather.tempHigh}° <span className="font-normal text-neutral-400">{weather.tempLow}°</span>
                 </span>
-                <span className={`mt-2 inline-flex w-full items-center justify-center gap-1 rounded-sm border-2 px-1 py-1 text-[10px] font-bold uppercase tracking-wide ${
-                  RAIN_CHIP_STYLES[rain.kind] ?? RAIN_CHIP_STYLES.none
+                <span className={`mt-1.5 text-[10px] uppercase tracking-wide ${
+                  RAIN_TEXT_STYLES[rain.kind] ?? RAIN_TEXT_STYLES.none
                 }`}>
-                  {rain.kind === 'none'
-                    ? <CloudOff className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
-                    : <CloudRain className="h-3 w-3" strokeWidth={2} aria-hidden="true" />}
                   {rain.label}
                 </span>
+                {/* Heat decides a Missouri float day as often as water does —
+                    launch time, water carried, whether there is a shade stop. */}
+                {weather.tempHigh >= HEAT_ADVISORY_TEMP_F && (
+                  <span className="mt-1.5 inline-flex items-center gap-1 rounded-sm bg-accent-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent-800">
+                    <Thermometer className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+                    Heat
+                  </span>
+                )}
               </>
               );
             })() : outlook.isWeatherLoading ? (

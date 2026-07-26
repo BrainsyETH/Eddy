@@ -20,6 +20,7 @@ import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import GaugeWeather from '@/components/ui/GaugeWeather';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import ThresholdTable from '@/components/gauge/ThresholdTable';
+import { buildZones } from '@/lib/gauge/threshold-zones';
 import SiteFooter from '@/components/ui/SiteFooter';
 
 interface GaugeDetailViewProps {
@@ -183,6 +184,18 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
   const altUnit = primaryUnit === 'ft' ? 'cfs' as const : 'ft' as const;
   const canToggleUnit = gauge?.gaugeHeightFt != null && gauge?.dischargeCfs != null;
+
+  // Same ladder the river hub draws, in the gauge's primary unit.
+  const ladderZones = primaryRiver
+    ? buildZones({
+        levelTooLow: primaryRiver.levelTooLow,
+        levelLow: primaryRiver.levelLow,
+        levelOptimalMin: primaryRiver.levelOptimalMin,
+        levelOptimalMax: primaryRiver.levelOptimalMax,
+        levelHigh: primaryRiver.levelHigh,
+        levelDangerous: primaryRiver.levelDangerous,
+      }, gauge?.thresholdDescriptions)
+    : undefined;
 
   // Eddy Says display — use live condition for visual indicators
   const eddyConditionCode = condition.code;
@@ -381,7 +394,9 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               gaugeHeightFt={gauge.gaugeHeightFt}
               dischargeCfs={gauge.dischargeCfs}
               thresholdUnit={primaryRiver?.thresholdUnit || 'ft'}
+              conditionCode={condition.code}
               readingAgeHours={gauge.readingAgeHours}
+              zones={ladderZones}
             />
             <GaugeWeather
               lat={gauge.coordinates.lat}

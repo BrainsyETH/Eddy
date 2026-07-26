@@ -25,6 +25,7 @@ import GaugeTabBar from '@/components/gauge/GaugeTabBar';
 import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import { usePathname } from 'next/navigation';
 import { buildDeterministicEddyReport, buildEddyTakeSections } from '@/lib/river-outlook';
+import { buildZones } from '@/lib/gauge/threshold-zones';
 import { createPortal } from 'react-dom';
 
 interface RiverGaugeDetailProps {
@@ -161,6 +162,21 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   }, [activeThreshold]);
 
   const altUnit = primaryUnit === 'ft' ? 'cfs' as const : 'ft' as const;
+
+  // Ladder for the reading card's band track. Always the primary unit — the
+  // track sits beside the reading the condition was computed from, and the
+  // ft/cfs toggle below only reframes the reference list.
+  const ladderZones = useMemo(() => {
+    if (!activeThreshold) return undefined;
+    return buildZones({
+      levelTooLow: activeThreshold.levelTooLow,
+      levelLow: activeThreshold.levelLow,
+      levelOptimalMin: activeThreshold.levelOptimalMin,
+      levelOptimalMax: activeThreshold.levelOptimalMax,
+      levelHigh: activeThreshold.levelHigh,
+      levelDangerous: activeThreshold.levelDangerous,
+    }, activeGauge?.thresholdDescriptions);
+  }, [activeThreshold, activeGauge?.thresholdDescriptions]);
 
   // NWS forecasts are stage-only. Use the stored foot ladder regardless of
   // which unit the user currently has selected, and never compare feet to CFS.
@@ -330,6 +346,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
               conditionCode={condition.code}
               readingAgeHours={activeGauge.readingAgeHours}
+              zones={ladderZones}
               className="h-full"
               embedded
             />
@@ -371,8 +388,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               altUnit={altUnit}
               thresholdDescriptions={activeGauge.thresholdDescriptions}
               currentCondition={condition.code}
-              gaugeHeightFt={activeGauge.gaugeHeightFt}
-              dischargeCfs={activeGauge.dischargeCfs}
             />
           </div>
         )}
