@@ -204,7 +204,7 @@ export default function MapScreen() {
       </View>
 
       <View style={styles.footer}>
-        {error ? <Text style={[styles.errorText, { color: colors.warm }]}>{error}</Text> : null}
+        {error ? <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text> : null}
 
         {packs.active ? (
           <View style={styles.progressRow}>
@@ -246,6 +246,35 @@ export default function MapScreen() {
             {plan.regions.length} areas along the river, zoom {plan.minZoom}–{plan.maxZoom}.
             Works with no signal once downloaded.
           </Text>
+        ) : null}
+
+        {/* The tile budget, which the hook has always computed and enforced but
+            never showed. Mapbox caps offline tiles globally, so a download can
+            be refused — and until now the only way to learn the cap existed was
+            to hit it. A bar that fills is a warning you can act on beforehand:
+            remove a river you are not floating this weekend. */}
+        {packs.budget.used > 0 && !packs.active ? (
+          <View style={styles.budget}>
+            <View style={[styles.budgetTrack, { backgroundColor: colors.border }]}>
+              <View
+                style={[
+                  styles.budgetFill,
+                  {
+                    // Clamped: a stale pack count can exceed the limit, and a
+                    // >100% bar would overflow its own track.
+                    width: `${Math.min(100, Math.round((packs.budget.used / packs.budget.limit) * 100))}%`,
+                    backgroundColor:
+                      packs.budget.remaining === 0 ? colors.error : colors.accent,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={[styles.footnote, { color: colors.textSubtle }]}>
+              {packs.budget.remaining === 0
+                ? 'Offline storage full — remove a river to download another.'
+                : `${packs.budget.used.toLocaleString()} of ${packs.budget.limit.toLocaleString()} offline tiles used`}
+            </Text>
+          </View>
         ) : null}
       </View>
     </SafeAreaView>
@@ -340,4 +369,7 @@ const styles = StyleSheet.create({
   },
   progressText: { ...t.base, fontFamily: fonts.semibold },
   footnote: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },
+  budget: { marginTop: 10 },
+  budgetTrack: { height: 6, borderRadius: 999, overflow: 'hidden' },
+  budgetFill: { height: '100%', borderRadius: 999 },
 });
