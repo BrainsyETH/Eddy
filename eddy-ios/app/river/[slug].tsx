@@ -60,6 +60,8 @@ import {
 } from '@/lib/readingCopy';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { PaywallSheet } from '@/components/PaywallSheet';
+import { PushPrimer } from '@/components/PushPrimer';
+import { usePush } from '@/hooks/usePush';
 import { useSession } from '@/hooks/useSession';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 
@@ -77,6 +79,8 @@ export default function RiverDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const [primerOpen, setPrimerOpen] = useState(false);
+  const { permission, enable } = usePush();
   const [subscribing, setSubscribing] = useState(false);
   const [showAllHazards, setShowAllHazards] = useState(false);
 
@@ -144,14 +148,23 @@ export default function RiverDetailScreen() {
           return;
         }
         const result = await subscribeToRiver(token, river.id, 'floatable');
-        if (result.paymentRequired && offerOnFailure) setPaywallOpen(true);
+        if (result.paymentRequired) {
+          if (offerOnFailure) setPaywallOpen(true);
+          return;
+        }
+
+        // The subscription exists — now, and only now, is it worth spending
+        // the one-shot iOS permission prompt: there is a concrete notification
+        // waiting to be delivered, which is the strongest case this app will
+        // ever have. Asking earlier would burn it on a hypothetical.
+        if (permission === 'undetermined') setPrimerOpen(true);
       } catch {
         if (offerOnFailure) setPaywallOpen(true);
       } finally {
         setSubscribing(false);
       }
     },
-    [river, getAccessToken],
+    [river, getAccessToken, permission],
   );
 
   const onNotify = useCallback(() => subscribe({ offerOnFailure: true }), [subscribe]);
@@ -385,6 +398,19 @@ export default function RiverDetailScreen() {
         onClose={() => setPaywallOpen(false)}
         riverName={river.name}
         onPurchased={onPurchased}
+      />
+
+      <PushPrimer
+        visible={primerOpen}
+        riverName={river.name}
+        onAllow={async () => {
+          setPrimerOpen(false);
+          // Spends the one-shot prompt. The outcome needs no handling here:
+          // the subscription already exists either way, and someone who
+          // declines still sees the change in the Alerts feed.
+          await enable();
+        }}
+        onDismiss={() => setPrimerOpen(false)}
       />
     </SafeAreaView>
   );

@@ -337,3 +337,40 @@ export async function waitForEntitlement(
   }
   return false;
 }
+
+/**
+ * Register this device for push. Requires a permanent (signed-in) account —
+ * the backend and the RLS policy both enforce that independently.
+ *
+ * Returns a boolean rather than throwing: a device that cannot register is a
+ * device that does not get alerts, which is a degraded state rather than an
+ * error worth interrupting anyone over.
+ */
+export async function registerDeviceToken(
+  token: string,
+  device: {
+    expoPushToken: string;
+    platform: 'ios' | 'android';
+    deviceName?: string;
+    appVersion?: string;
+  },
+): Promise<boolean> {
+  try {
+    const result = await authed('/api/me/device-tokens', token, {
+      method: 'POST',
+      body: device,
+    });
+    return result !== null;
+  } catch {
+    return false;
+  }
+}
+
+/** Stop this device receiving push. */
+export async function unregisterDeviceToken(token: string, expoPushToken: string): Promise<void> {
+  await authed(
+    `/api/me/device-tokens?expoPushToken=${encodeURIComponent(expoPushToken)}`,
+    token,
+    { method: 'DELETE' },
+  );
+}

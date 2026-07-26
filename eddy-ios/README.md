@@ -352,6 +352,36 @@ Restore Purchases (3.1.1), and in-app account deletion (5.1.1(v)). The auto-rene
 disclosure sits with the subscription controls rather than behind a link, for the
 same reason.
 
-Notification preferences are **not** in this tab yet, deliberately:
-`expo-notifications` is not wired, and a toggle that does nothing is worse than
-an absent one. It lands with the push work.
+## Push
+
+The backend was built first — outbox, `deliver-push` cron every 5 minutes,
+`/api/me/device-tokens` — so the client's whole job is to acquire a token, hand
+it over, and route a tap. Three things shape how it does that.
+
+**The iOS permission prompt is a one-shot resource.** It shows once per install;
+a denial is permanent, and the app can then only send someone to Settings, which
+almost nobody does. So nothing calls `requestPermissionsAsync()` on its own.
+`PushPrimer` explains what will arrive first, and declining THERE leaves the real
+permission untouched so the app can ask again at a better moment.
+
+**It is spent at the best moment available**, which is not first launch. The
+primer appears once an alert subscription actually exists — the user has asked
+to be told about a specific river and there is a concrete notification waiting
+to be delivered. That is the strongest case this app will ever have.
+
+**`getExpoPushTokenAsync` needs `projectId`.** Without it the call throws about
+being unable to determine the project, and only in a real build — it is never
+reached on a simulator, where `Device.isDevice` is false. It comes from the same
+`extra.eas.projectId` that `eas init` wrote.
+
+Registration requires a signed-in account, because push identity is purchase
+identity: the route and the RLS policy in migration `00183` both enforce it.
+Signing out and deleting an account each unregister first, while the token can
+still authenticate.
+
+Profile reports OS state rather than mirroring it in a switch — iOS owns the
+permission, and a second source of truth can only disagree with Settings. The
+sentence explaining why alerts will or will not arrive is a precedence order
+(`src/lib/notificationCopy.ts`), tested in the web app: several reasons can be
+true at once, and naming the wrong one sends someone to fix something that was
+never the problem.
