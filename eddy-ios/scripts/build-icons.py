@@ -36,10 +36,13 @@ OUT = ROOT / "eddy-ios/assets"
 
 SIZE = 1024
 
-# Deep River Teal 900, the DESIGN.md primary. Chosen over the website's white
-# because a white icon disappears against a light wallpaper, and the otter's
-# green reads hardest against this.
-TEAL = "#0F2D35"
+# Light appearance is white, matching the website's favicon treatment, so the
+# mark reads the same in the App Store listing as it does in a browser tab.
+LIGHT_BG = "#FFFFFF"
+
+# Dark appearance is Deep River Teal, the DESIGN.md primary. Not black: the
+# otter's outline is near-black itself and would dissolve into it.
+DARK_BG = "#0A1F26"
 
 # How much of the icon's width the mark spans. 0.84 keeps ~8% clear on each side,
 # which survives the superellipse corner mask without the mark looking inset.
@@ -84,12 +87,12 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     art = artwork()
 
-    # App icon — opaque, no alpha channel. See rule 1 above.
-    centred(art, ICON_FILL, TEAL).save(OUT / "icon.png")
+    # App icon — opaque, no alpha channel. See rule 1 above. This is also the
+    # asset App Store Connect uses for the listing, so it is the white one.
+    centred(art, ICON_FILL, LIGHT_BG).save(OUT / "icon.png")
 
-    # iOS 18 dark variant. Kept on the same teal rather than going black: the
-    # icon should stay recognisably Eddy between the two appearance modes.
-    centred(art, ICON_FILL, "#0A1F26").save(OUT / "icon-dark.png")
+    # iOS 18 dark variant.
+    centred(art, ICON_FILL, DARK_BG).save(OUT / "icon-dark.png")
 
     # iOS 18 tinted variant — alpha retained, the system supplies the backdrop.
     tinted(art).save(OUT / "icon-tinted.png")
