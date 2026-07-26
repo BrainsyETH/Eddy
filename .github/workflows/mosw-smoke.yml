@@ -17,6 +17,14 @@ on:
       - 'missouri-float-planner/src/app/river-map/**'
       - 'missouri-float-planner/src/app/api/usgs/**'
       - 'missouri-float-planner/shared/condition-system.ts'
+      # The reading card and threshold table render INSIDE the surface-water
+      # mobile sheet but live under components/gauge, so changes there could
+      # break this smoke without ever triggering it. That is exactly what
+      # happened: the condition ladder moved into the reading card, the sheet's
+      # content-capped height changed, and nothing ran until an unrelated PR
+      # touched api/usgs.
+      - 'missouri-float-planner/src/components/gauge/**'
+      - 'missouri-float-planner/src/lib/gauge/**'
       - 'missouri-float-planner/scripts/mosw-smoke.ts'
       - '.github/workflows/mosw-smoke.yml'
   workflow_dispatch:

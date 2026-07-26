@@ -429,10 +429,20 @@ async function main() {
         });
         await page.waitForTimeout(450);
         const expandedBox = await sheet.boundingBox();
+        // Asserted RELATIVE to peek, not as a fixed share of the viewport.
+        // rail.tsx caps the expanded snap at the card's own content height
+        // (`Math.min(EXPANDED, contentH + HANDLE_H)`) precisely so a short card
+        // doesn't leave a page of dead space under its CTA — so a card that
+        // gets shorter legitimately expands to less than 88vh. The previous
+        // `> 0.8 * 844` bar asserted a guarantee the component never made, and
+        // broke by 1.2px when the condition ladder moved into the reading card.
+        // What actually matters is that the swipe changed snap state, which
+        // this plus the scrim and flow-pause checks below cover.
+        const peekH = box?.height ?? 0;
         check(
           'swipe up expands the sheet',
-          !!expandedBox && expandedBox.height > 844 * 0.8,
-          expandedBox ? `${Math.round(expandedBox.height)}px of 844` : 'no box',
+          !!expandedBox && !!peekH && expandedBox.height > peekH * 1.3,
+          expandedBox ? `${Math.round(expandedBox.height)}px, peek was ${Math.round(peekH)}px` : 'no box',
         );
         const scrim = page.locator('button[aria-label="Collapse detail"]');
         check('scrim present when expanded', (await scrim.count()) === 1);
