@@ -8,7 +8,10 @@ import test from 'node:test';
 type Unit = 'ft' | 'cfs';
 
 function primaryReading(c: {
-  thresholdUnit?: Unit;
+  // Nullable as well as optional: /api/conditions omits the key when it cannot
+  // establish a unit, while /api/rivers sends an explicit null. Both mean "no
+  // declared unit" and must reach the same branch.
+  thresholdUnit?: Unit | null;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
 }): { value: number; unit: Unit } | null {
@@ -89,6 +92,26 @@ test('with no declared unit, stage is preferred', () => {
   // Most Ozark gauges are rated on stage, so that is the safer default.
   const undeclared = { gaugeHeightFt: 1.51, dischargeCfs: 240 };
   assert.deepEqual(primaryReading(undeclared), { value: 1.51, unit: 'ft' });
+});
+
+test('an explicitly null unit is treated as undeclared, not as feet', () => {
+  // /api/rivers sends thresholdUnit: null rather than omitting the key. A
+  // truthiness check or a `=== undefined` guard would let null slip past the
+  // two declared-unit branches and silently land on the stage fallback — which
+  // is the cross-unit bug this function exists to prevent, reintroduced.
+  const nullUnit = { thresholdUnit: null, gaugeHeightFt: 1.51, dischargeCfs: 240 };
+  assert.deepEqual(primaryReading(nullUnit), { value: 1.51, unit: 'ft' });
+
+  const nullUnitStageOnly = { thresholdUnit: null, gaugeHeightFt: null, dischargeCfs: 240 };
+  assert.deepEqual(primaryReading(nullUnitStageOnly), { value: 240, unit: 'cfs' });
+});
+
+test('a cfs river formats as a rounded, grouped discharge', () => {
+  // The row layout has to survive this: 18 of 24 active rivers are cfs-rated,
+  // and a flood discharge is five digits wide where a stage is four characters.
+  const flood = { thresholdUnit: 'cfs' as const, gaugeHeightFt: 14.2, dischargeCfs: 12400.4 };
+  const reading = primaryReading(flood)!;
+  assert.equal(formatReading(reading.value, reading.unit), '12,400 cfs');
 });
 
 test('a river with no reading at all yields null', () => {

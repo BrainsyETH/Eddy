@@ -27,6 +27,23 @@ export interface RiverListItem extends River {
   currentCondition: {
     label: string;
     code: ConditionCode;
+    /**
+     * The unit this river's thresholds are defined in, and therefore the only
+     * unit its reading may be displayed in. Most rivers are 'cfs'.
+     */
+    thresholdUnit: 'ft' | 'cfs' | null;
+    gaugeHeightFt: number | null;
+    dischargeCfs: number | null;
+    readingAgeHours: number | null;
+    /**
+     * Words only, no delta — see RiverReadingTrend in packages/eddy-types for
+     * why a raw delta must not cross an API that serves both ft and cfs rivers.
+     */
+    trend: {
+      direction: 'rising' | 'falling' | 'steady';
+      label: string;
+      windowHours: number;
+    } | null;
   } | null;
 }
 

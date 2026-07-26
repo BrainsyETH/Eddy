@@ -4,11 +4,69 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { mapConditionCode } from '@/lib/conditions';
+import { computeTrend, type GaugeUnit } from '@/lib/gauge-trend';
 import { riverPath } from '@/lib/navigation/river-path';
 import type { RiverListItem } from '@/types/api';
 
+/**
+ * How far back to pull readings for the row-level trend.
+ *
+ * computeTrend targets a 6h comparison, picking the reading nearest that mark.
+ * Fetching exactly 6h would leave it nothing older than the target on a gauge
+ * that reports sparsely, so the window carries margin.
+ */
+const TREND_LOOKBACK_HOURS = 9;
+
+/**
+ * Recent readings per gauge station, in two queries rather than one per river.
+ *
+ * getRivers already pays a per-river cost for the access-point count and the
+ * condition RPC; adding a third fan-out for history would have put ~72 queries
+ * behind a CDN-cached list endpoint. These two batch calls are flat regardless
+ * of how many rivers are onboarded.
+ */
+async function fetchTrendInputs(supabase: ReturnType<typeof createAdminClient>) {
+  const { data: primaryGauges } = await supabase
+    .from('river_gauges')
+    .select('river_id, gauge_station_id')
+    .eq('is_primary', true);
+
+  const stationByRiver = new Map<string, string>();
+  for (const row of primaryGauges ?? []) {
+    if (row.river_id && row.gauge_station_id) stationByRiver.set(row.river_id, row.gauge_station_id);
+  }
+  if (stationByRiver.size === 0) return { stationByRiver, readingsByStation: new Map() };
+
+  const since = new Date(Date.now() - TREND_LOOKBACK_HOURS * 3_600_000).toISOString();
+  const { data: rows } = await supabase
+    .from('gauge_readings')
+    .select('gauge_station_id, reading_timestamp, gauge_height_ft, discharge_cfs')
+    .in('gauge_station_id', [...new Set(stationByRiver.values())])
+    .gte('reading_timestamp', since)
+    // computeTrend documents that it expects chronologically ascending input and
+    // treats the LAST element as the most recent. Sorting here, not there.
+    .order('reading_timestamp', { ascending: true });
+
+  const readingsByStation = new Map<
+    string,
+    Array<{ timestamp: string; gaugeHeightFt: number | null; dischargeCfs: number | null }>
+  >();
+  for (const row of rows ?? []) {
+    const list = readingsByStation.get(row.gauge_station_id) ?? [];
+    list.push({
+      timestamp: row.reading_timestamp,
+      gaugeHeightFt: row.gauge_height_ft == null ? null : Number(row.gauge_height_ft),
+      dischargeCfs: row.discharge_cfs == null ? null : Number(row.discharge_cfs),
+    });
+    readingsByStation.set(row.gauge_station_id, list);
+  }
+
+  return { stationByRiver, readingsByStation };
+}
+
 export async function getRivers(): Promise<RiverListItem[]> {
   const supabase = createAdminClient();
+  const { stationByRiver, readingsByStation } = await fetchTrendInputs(supabase);
 
   // Try with active filter first, fall back to all rivers if column doesn't exist.
   // access_points is a LEFT join (not !inner): an active river with zero access
@@ -79,6 +137,22 @@ export async function getRivers(): Promise<RiverListItem[]> {
 
       const condition = conditionData?.[0];
 
+      // The unit is not cosmetic: it decides WHICH reading a client is allowed to
+      // show. A null unit means we could not establish one, and a consumer must
+      // then show no reading rather than guess — see primaryReading() in eddy-ios.
+      const thresholdUnit =
+        condition?.threshold_unit === 'cfs' || condition?.threshold_unit === 'ft'
+          ? (condition.threshold_unit as GaugeUnit)
+          : null;
+
+      // Trend is computed against the SAME unit the condition was computed from.
+      // Trending stage while grading on discharge would let the row say "falling"
+      // about a number it isn't showing.
+      const stationId = stationByRiver.get(river.id);
+      const trend = thresholdUnit && stationId
+        ? computeTrend(readingsByStation.get(stationId), thresholdUnit, 6)
+        : null;
+
       return {
         id: river.id,
         name: river.name,
@@ -95,6 +169,22 @@ export async function getRivers(): Promise<RiverListItem[]> {
           ? {
               label: condition.condition_label,
               code: mapConditionCode(condition.condition_code),
+              thresholdUnit,
+              gaugeHeightFt:
+                condition.gauge_height_ft == null ? null : Number(condition.gauge_height_ft),
+              dischargeCfs:
+                condition.discharge_cfs == null ? null : Number(condition.discharge_cfs),
+              readingAgeHours:
+                condition.reading_age_hours == null ? null : Number(condition.reading_age_hours),
+              // Words only. GaugeTrend's `delta` is deliberately dropped here —
+              // it is unit-dependent and would be meaningless on a cfs river.
+              trend: trend
+                ? {
+                    direction: trend.direction,
+                    label: trend.label,
+                    windowHours: trend.windowHours,
+                  }
+                : null,
             }
           : null,
       };

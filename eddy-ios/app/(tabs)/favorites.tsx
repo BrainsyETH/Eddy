@@ -1,13 +1,28 @@
 // eddy-ios/app/(tabs)/favorites.tsx
 // Starred rivers, from the local-first store. Works with no account and no
 // network — see src/hooks/useStarredRivers.tsx for why that matters.
+//
+// The store is the source of truth for WHICH rivers appear. It cannot be the
+// source of truth for their condition: it only holds an id, a name and a slug,
+// which is why this screen used to print the raw slug as a subtitle. The one
+// list of rivers a user explicitly curated was the only list in the app with no
+// condition on it at all.
+//
+// So conditions are an ENRICHMENT, not a dependency. /api/rivers is fetched
+// opportunistically and matched by id; if it fails — offline at a put-in, which
+// is the case this screen exists for — the rows still render from the store with
+// an honest "conditions unavailable" note instead of vanishing.
 
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import type { RiverListItem } from '@eddy/types';
+import { fetchRivers } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
+import { RiverRow } from '@/components/RiverRow';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useRouter } from 'expo-router';
 
@@ -16,11 +31,44 @@ export default function FavoritesScreen() {
   const { colors, elevation } = useTheme();
   const router = useRouter();
 
+  const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Errors are swallowed on purpose. A failed enrichment must not produce an
+  // error state on a screen whose whole promise is that it works offline.
+  const load = useCallback(async (signal?: AbortSignal) => {
+    try {
+      setRivers(await fetchRivers(signal));
+    } catch {
+      /* keep whatever we already had; the store still renders the list */
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
+  const byId = useMemo(
+    () => new Map((rivers ?? []).map((river) => [river.id, river])),
+    [rivers],
+  );
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <FlatList
         data={starred}
         keyExtractor={(item) => item.riverId}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+        }
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.text }]}>Favorites</Text>
@@ -43,32 +91,44 @@ export default function FavoritesScreen() {
             </View>
           ) : null
         }
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() => router.push(`/river/${item.slug}`)}
-            style={({ pressed }) => [
-              styles.row,
-              { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
-              elevation(1),
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={`${item.name} details`}
-          >
-            <View style={styles.rowBody}>
-              <Text style={[styles.riverName, { color: colors.text }]}>{item.name}</Text>
-              <Text style={[styles.riverMeta, { color: colors.textMuted }]}>{item.slug}</Text>
+        renderItem={({ item }) => {
+          const river = byId.get(item.riverId);
+          if (river) {
+            return (
+              <RiverRow
+                river={river}
+                starred
+                onPress={() => router.push(`/river/${item.slug}`)}
+                onToggleStar={() => toggleStar(item)}
+              />
+            );
+          }
+
+          // Store-only fallback: named, tappable, honest about what's missing.
+          return (
+            <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>
+              <Pressable
+                onPress={() => router.push(`/river/${item.slug}`)}
+                style={({ pressed }) => [styles.rowBody, { opacity: pressed ? 0.6 : 1 }]}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.name} details, conditions unavailable`}
+              >
+                <Text style={[styles.riverName, { color: colors.text }]}>{item.name}</Text>
+                <Text style={[styles.riverMeta, { color: colors.textSubtle }]}>
+                  Conditions unavailable — pull to refresh
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => toggleStar(item)}
+                style={({ pressed }) => [styles.starColumn, { opacity: pressed ? 0.5 : 1 }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Unstar ${item.name}`}
+              >
+                <Ionicons name="star" size={21} color={colors.warm} />
+              </Pressable>
             </View>
-            <Pressable
-              onPress={() => toggleStar(item)}
-              hitSlop={10}
-              style={styles.starButton}
-              accessibilityRole="button"
-              accessibilityLabel={`Unstar ${item.name}`}
-            >
-              <Ionicons name="star" size={22} color={colors.warm} />
-            </Pressable>
-          </Pressable>
-        )}
+          );
+        }}
       />
     </SafeAreaView>
   );
@@ -77,21 +137,21 @@ export default function FavoritesScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
-  title: { ...t['3xl'], fontFamily: fonts.heading },
+  title: { ...t['3xl'], fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   empty: { alignItems: 'center', paddingHorizontal: 40, paddingTop: 40 },
   emptyTitle: { ...t.lg, fontFamily: fonts.semibold, marginTop: 10 },
   emptyBody: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     marginHorizontal: 16,
-    marginBottom: 10,
-    padding: 16,
+    marginBottom: 9,
     borderRadius: 14,
+    overflow: 'hidden',
   },
-  rowBody: { flex: 1 },
+  rowBody: { flex: 1, minWidth: 0, paddingVertical: 14, paddingLeft: 16, paddingRight: 4 },
   riverName: { ...t.base, fontFamily: fonts.semibold },
-  riverMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  starButton: { paddingLeft: 8, paddingVertical: 4 },
+  riverMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
+  starColumn: { width: 52, alignItems: 'center', justifyContent: 'center' },
 });
