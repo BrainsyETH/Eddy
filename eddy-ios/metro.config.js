@@ -23,13 +23,27 @@ const path = require('path');
 
 const projectRoot = __dirname;
 const repoRoot = path.resolve(projectRoot, '..');
-const sharedTypes = path.resolve(repoRoot, 'packages');
+
+// Two folders outside the app that it imports from:
+//   packages/                     — API contracts shared with the backend
+//   missouri-float-planner/shared — the CANONICAL condition system
+//
+// The second matters more than it looks. shared/condition-system.ts is the
+// single source of truth for condition colours, labels and orderings, and it
+// says so explicitly: "Do not hardcode condition hex anywhere else; derive from
+// CONDITION_SYSTEM." Reaching it here is what lets the app obey that instead of
+// keeping its own drifting copy. It has zero imports, so React Native can
+// consume it directly.
+const sharedFolders = [
+  path.resolve(repoRoot, 'packages'),
+  path.resolve(repoRoot, 'missouri-float-planner/shared'),
+];
 
 const config = getDefaultConfig(projectRoot);
 
-// Watch the shared package so edits hot-reload like local files. This single
-// line is the whole mechanism — everything else stays default.
-config.watchFolders = [sharedTypes];
+// Watch them so edits hot-reload like local files. These two lines are the
+// whole mechanism — everything else stays default.
+config.watchFolders = sharedFolders;
 
 // NOTE: the widely-copied workspace-monorepo recipe also sets
 // `nodeModulesPaths` + `disableHierarchicalLookup: true`. Do NOT do that here.

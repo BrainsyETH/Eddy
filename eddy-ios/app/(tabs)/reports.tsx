@@ -1,24 +1,41 @@
 // eddy-ios/app/(tabs)/reports.tsx
 // River Reports — the list view: every curated river ranked by how floatable it
-// is right now. This is the tab that answers "what can I float today?", and it
-// is the one screen in the shell wired to live data, because it needs no new
-// backend: /api/rivers already returns each river's current condition.
+// is right now. This is the tab that answers "what can I float today?".
 //
-// Deliberately sorted floatable-first rather than alphabetically. The product
-// question is "where can I go", not "tell me about the Current River".
+// Ordering and the floatable count both come from the canonical condition
+// system rather than local logic, so the app's headline number always matches
+// the website's. See src/theme/conditions.ts for why the two severity orderings
+// must not be conflated.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import type { RiverListItem } from '@eddy/types';
-import { CONDITION_SEVERITY, isFloatable } from '@eddy/types';
 import { ApiError, fetchRivers } from '@/api/client';
-import { CONDITION_COLOR, CONDITION_LABEL, COLORS } from '@/theme/conditions';
+import {
+  COLORS,
+  conditionBg,
+  conditionColor,
+  conditionLabel,
+  floatableRank,
+  isFloatableNow,
+} from '@/theme/conditions';
+import { useStarredRivers } from '@/hooks/useStarredRivers';
 
 export default function ReportsScreen() {
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const { isStarred, toggleStar, ready: starsReady } = useStarredRivers();
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -42,23 +59,23 @@ export default function ReportsScreen() {
     setRefreshing(false);
   }, [load]);
 
-  // Floatable rivers first, then by severity, then by name. A paddler opening
+  // Floatable first, then by canonical rank, then by name. A paddler opening
   // this screen wants somewhere to go, not an index.
   const sorted = useMemo(() => {
     if (!rivers) return [];
     return [...rivers].sort((a, b) => {
       const aCode = a.currentCondition?.code ?? 'unknown';
       const bCode = b.currentCondition?.code ?? 'unknown';
-      const aFloat = isFloatable(aCode) ? 1 : 0;
-      const bFloat = isFloatable(bCode) ? 1 : 0;
-      if (aFloat !== bFloat) return bFloat - aFloat;
-      const bySeverity = CONDITION_SEVERITY[bCode] - CONDITION_SEVERITY[aCode];
-      if (bySeverity !== 0) return bySeverity;
+      const byRank = floatableRank(aCode) - floatableRank(bCode);
+      if (byRank !== 0) return byRank;
       return a.name.localeCompare(b.name);
     });
   }, [rivers]);
 
-  const floatableCount = sorted.filter((r) => isFloatable(r.currentCondition?.code ?? 'unknown')).length;
+  // Uses the strict flowing/good bucket, matching every public floatable count.
+  const floatableCount = sorted.filter((r) =>
+    isFloatableNow(r.currentCondition?.code ?? 'unknown')
+  ).length;
 
   if (!rivers && !error) {
     return (
@@ -80,9 +97,7 @@ export default function ReportsScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>River Reports</Text>
             <Text style={styles.subtitle}>
-              {error
-                ? error
-                : `${floatableCount} of ${sorted.length} rivers floatable right now`}
+              {error ? error : `${floatableCount} of ${sorted.length} rivers floatable right now`}
             </Text>
           </View>
         }
@@ -93,18 +108,35 @@ export default function ReportsScreen() {
         }
         renderItem={({ item }) => {
           const code = item.currentCondition?.code ?? 'unknown';
+          const starred = isStarred(item.id);
           return (
             <View style={styles.row}>
-              <View style={[styles.dot, { backgroundColor: CONDITION_COLOR[code] }]} />
+              <View style={[styles.dot, { backgroundColor: conditionColor(code) }]} />
               <View style={styles.rowBody}>
                 <Text style={styles.riverName}>{item.name}</Text>
                 <Text style={styles.riverMeta}>
                   {item.region ?? item.state} · {item.accessPointCount} access points
                 </Text>
               </View>
-              <Text style={[styles.condition, { color: CONDITION_COLOR[code] }]}>
-                {item.currentCondition?.label ?? CONDITION_LABEL[code]}
-              </Text>
+              <View style={[styles.chip, { backgroundColor: conditionBg(code) }]}>
+                <Text style={[styles.chipText, { color: conditionColor(code) }]}>
+                  {item.currentCondition?.label ?? conditionLabel(code)}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => toggleStar({ riverId: item.id, name: item.name, slug: item.slug })}
+                disabled={!starsReady}
+                hitSlop={10}
+                style={styles.starButton}
+                accessibilityRole="button"
+                accessibilityLabel={starred ? `Unstar ${item.name}` : `Star ${item.name}`}
+              >
+                <Ionicons
+                  name={starred ? 'star' : 'star-outline'}
+                  size={22}
+                  color={starred ? COLORS.warm : COLORS.textSubtle}
+                />
+              </Pressable>
             </View>
           );
         }}
@@ -115,7 +147,13 @@ export default function ReportsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bg },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.bg, padding: 24 },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.bg,
+    padding: 24,
+  },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
   title: { color: COLORS.text, fontSize: 30, fontWeight: '700' },
   subtitle: { color: COLORS.textMuted, fontSize: 15, marginTop: 4 },
@@ -125,14 +163,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     marginHorizontal: 16,
     marginBottom: 10,
-    padding: 16,
+    padding: 14,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  dot: { width: 12, height: 12, borderRadius: 6, marginRight: 14 },
+  dot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
   rowBody: { flex: 1 },
   riverName: { color: COLORS.text, fontSize: 17, fontWeight: '600' },
   riverMeta: { color: COLORS.textMuted, fontSize: 13, marginTop: 2 },
-  condition: { fontSize: 13, fontWeight: '700', marginLeft: 12 },
+  chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, marginRight: 4 },
+  chipText: { fontSize: 12, fontWeight: '700' },
+  starButton: { paddingLeft: 8, paddingVertical: 4 },
 });

@@ -12,7 +12,8 @@ export default function TabsLayout() {
         headerStyle: { backgroundColor: COLORS.bg },
         headerTitleStyle: { color: COLORS.text },
         tabBarStyle: { backgroundColor: COLORS.card, borderTopColor: COLORS.border },
-        tabBarActiveTintColor: COLORS.accent,
+        tabBarLabelStyle: { fontSize: 11 },
+        tabBarActiveTintColor: COLORS.accentOnDark,
         tabBarInactiveTintColor: COLORS.textMuted,
       }}
     >

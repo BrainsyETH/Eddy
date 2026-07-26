@@ -3,9 +3,23 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": ["./src/*"],
-      "@eddy/types": ["../packages/eddy-types/index.ts"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@eddy/types": [
+        "../packages/eddy-types/index.ts"
+      ],
+      "@shared/*": [
+        "../missouri-float-planner/shared/*"
+      ]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "../packages/eddy-types/index.ts"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts",
+    "../packages/eddy-types/index.ts",
+    "../missouri-float-planner/shared/condition-system.ts"
+  ]
 }

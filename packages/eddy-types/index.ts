@@ -17,32 +17,25 @@
 // Move a type here only when BOTH sides use it.
 
 // ── Conditions ───────────────────────────────────────────────────
-// Must stay in sync with src/types/api.ts and shared/condition-system.ts.
+// NOT redefined here. The canonical condition system lives in
+// missouri-float-planner/shared/condition-system.ts, which owns the codes, the
+// colours, the labels and BOTH severity orderings, and which states outright
+// that nothing else may hardcode condition values.
+//
+// This file re-exports the type so the API shapes below can reference it
+// without a second definition. Anything needing colours, labels or ordering
+// should import from shared/condition-system directly:
+//   CONDITION_SYSTEM  — colours + labels (never hardcode hex)
+//   FLOATABLE_NOW     — the strict flowing/good bucket public counts use
+//   WEEKEND_SEVERITY   — floatable-first ordering for "where can I go"
+//
+// An earlier version of this file duplicated a severity map and a floatable
+// helper. Both already existed there, and WEEKEND_SEVERITY had itself already
+// been consolidated out of four copies — so the duplicates were re-creating a
+// problem someone had explicitly fixed.
 
-export type ConditionCode =
-  | 'dangerous'
-  | 'high'
-  | 'flowing'
-  | 'good'
-  | 'low'
-  | 'too_low'
-  | 'unknown';
-
-/** Ordered most to least hazardous — useful for sorting a report list. */
-export const CONDITION_SEVERITY: Record<ConditionCode, number> = {
-  dangerous: 6,
-  high: 5,
-  flowing: 4,
-  good: 3,
-  low: 2,
-  too_low: 1,
-  unknown: 0,
-};
-
-/** True when a river is worth floating right now. */
-export function isFloatable(code: ConditionCode): boolean {
-  return code === 'good' || code === 'flowing';
-}
+export type { ConditionCode } from '../../missouri-float-planner/shared/condition-system';
+import type { ConditionCode } from '../../missouri-float-planner/shared/condition-system';
 
 // ── Rivers ───────────────────────────────────────────────────────
 
