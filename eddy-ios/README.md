@@ -58,6 +58,38 @@ web's plain `tsx` runner have to resolve them.
 Metro handles runtime resolution, `tsconfig` handles types, and they are
 configured independently — change one, change the other.
 
+### What this costs on EAS, and why it works anyway
+
+Reaching outside the project directory is the thing that usually breaks a
+non-workspace monorepo on EAS, so it is worth stating what actually happens.
+
+`eas build` does **not** archive the Expo project directory. It clones from
+`git rev-parse --show-toplevel` (`eas-cli/build/vcs/clients/git.js`,
+`makeShallowCopyAsync`), so the repository root is the archive root and
+`packages/` + `missouri-float-planner/shared/` arrive on the worker. Verified by
+bundling from a copy of the archive: `npx expo export --platform ios` succeeds.
+
+The failure this avoids is loud rather than subtle. Scope the archive to
+`eddy-ios/` and Metro will not even start — `watchFolders` are stat'd up front,
+so you get `ENOENT ... /packages` out of `verifyRootExists` before a single
+module resolves. Also verified, by doing it.
+
+The cost is that the archive is the whole repo: 87 MB, mostly Remotion audio and
+blog imagery the app never touches. `/.easignore` trims it to 3 MB.
+
+**`.easignore` replaces `.gitignore` entirely** — when the file exists, eas-cli
+stops reading `.gitignore` (`eas-cli/build/vcs/local.js`), so every ignored path
+is uploaded unless re-stated, `.env` included. That is why it is written as an
+allowlist rather than a denylist, and why it has a test:
+
+```bash
+python3 eddy-ios/scripts/check-easignore.py
+```
+
+which asserts every Metro-resolved path is still in the archive and that no
+secret or media file has crept in. Run it after touching `.easignore`,
+`metro.config.js` watchFolders, or `tsconfig` paths.
+
 **Do not add `nodeModulesPaths` or `disableHierarchicalLookup` to
 `metro.config.js`.** Those appear in every workspace-monorepo guide and are
 wrong here: this project has a single `node_modules` and npm nests some
@@ -175,14 +207,12 @@ allowance — which is the second, decisive reason `MAX_ZOOM` is 14.
 
 ## Builds (EAS)
 
-`eas.json` defines three profiles. All of them need an Expo account and
-`eas init` to write an `extra.eas.projectId` into `app.json`, which has not been
-done yet:
+`eas.json` defines three profiles. `eas init` has been run — `app.json` carries
+an `extra.eas.projectId` — so building only needs an Expo login:
 
 ```bash
 npm install -g eas-cli
 eas login
-eas init            # writes projectId into app.json
 ```
 
 | Profile | Use |
@@ -196,8 +226,30 @@ Two notes:
 - A development build is now **required for the Map tab**, since `@rnmapbox/maps`
   is a native module (`eas build --profile development --platform ios`). Expo Go
   still runs everything else.
-- `submit.production.ios.ascAppId` is a placeholder until the App Store Connect
-  app record exists.
+- **The `development` profile needs no Apple Developer account.** It sets
+  `ios.simulator: true`, and a simulator build is signed ad-hoc rather than with
+  a provisioning profile — so the native modules, the icon, the splash and the
+  Map tab can all be exercised before enrolment completes. Everything that
+  installs on a physical device (`preview`, `production`, TestFlight) does need
+  the account.
+- `submit.production` is empty and `ios.bundleIdentifier` is unregistered until
+  the App Store Connect app record exists.
+
+## Icons and splash
+
+Generated from the Eddy favicon artwork, not hand-exported:
+
+```bash
+python3 eddy-ios/scripts/build-icons.py    # needs Pillow
+```
+
+The mark is Deep River Teal 900 behind the otter — chosen over the website's
+white because a white icon disappears against a light wallpaper. iOS 18's dark
+and tinted variants are generated too, and wired through `ios.icon`.
+
+The rule that bites: **the App Store icon must have no alpha channel.** Apple
+rejects it at upload rather than at review, so `icon.png` is flattened while the
+splash and tinted assets keep their alpha (the OS composites those itself).
 
 ## Current state
 

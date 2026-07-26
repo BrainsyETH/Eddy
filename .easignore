@@ -1,0 +1,49 @@
+# .easignore — what EAS Build uploads.
+#
+# EAS archives from the GIT ROOT, not from eddy-ios/. That is deliberate and
+# load-bearing: metro.config.js watches ../packages and
+# ../missouri-float-planner/shared, so an archive scoped to the app directory
+# fails before bundling even starts ("ENOENT ... /packages" out of Metro's
+# verifyRootExists). Do not try to "fix" that by scoping the archive down.
+#
+# But archiving the whole repo means uploading 84 MB of Remotion audio, blog
+# imagery and marketing PDFs on every build, none of which the app bundle
+# touches. So this file is an ALLOWLIST: deny everything, then re-admit only
+# what Metro actually resolves.
+#
+# ── The trap ──────────────────────────────────────────────────────────────
+# When .easignore exists, eas-cli STOPS READING .gitignore ENTIRELY
+# (eas-cli/build/vcs/local.js: "if .easignore exists, .gitignore files are not
+# used"). Every gitignored path is therefore uploaded unless it is re-stated
+# here — including .env files. Writing this as an allowlist rather than a
+# denylist is what makes that safe by construction: secrets are excluded
+# because nothing is admitted unless it is named.
+#
+# Only .git and node_modules are ignored unconditionally by eas-cli itself.
+#
+# Verify after any edit:  python3 eddy-ios/scripts/check-easignore.py
+
+# Deny everything at the root.
+/*
+
+# The app itself.
+!/eddy-ios
+
+# Shared TypeScript resolved by metro.config.js watchFolders + tsconfig paths:
+#   @eddy/types, @eddy/geo, @eddy/offline, @eddy/sync, @eddy/hazards
+!/packages
+
+# @shared/* — the canonical condition system. Re-admit the parent directory,
+# then deny its contents, then re-admit only shared/. Gitignore cannot
+# re-include a path whose parent directory is excluded, so the walk down has to
+# be explicit at every level.
+!/missouri-float-planner
+/missouri-float-planner/*
+!/missouri-float-planner/shared
+
+# Build output and local secrets. Re-stated because .gitignore is not consulted
+# once this file exists — see the trap above.
+.env
+.env.*
+.expo/
+dist/

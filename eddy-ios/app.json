@@ -7,9 +7,15 @@
     "scheme": "eddy",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "guide.eddy.ios",
+      "icon": {
+        "light": "./assets/icon.png",
+        "dark": "./assets/icon-dark.png",
+        "tinted": "./assets/icon-tinted.png"
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -17,7 +23,20 @@
     "plugins": [
       "expo-router",
       "@rnmapbox/maps",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#F7F6F3",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#1A1814"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
