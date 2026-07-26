@@ -192,6 +192,64 @@ export type Database = {
         }
         Relationships: []
       }
+      alert_push_deliveries: {
+        Row: {
+          device_token_id: string
+          error_code: string | null
+          event_id: string
+          kind: string
+          river_id: string | null
+          sent_at: string
+          status: string
+          ticket_id: string | null
+          user_id: string
+        }
+        Insert: {
+          device_token_id: string
+          error_code?: string | null
+          event_id: string
+          kind: string
+          river_id?: string | null
+          sent_at?: string
+          status?: string
+          ticket_id?: string | null
+          user_id: string
+        }
+        Update: {
+          device_token_id?: string
+          error_code?: string | null
+          event_id?: string
+          kind?: string
+          river_id?: string | null
+          sent_at?: string
+          status?: string
+          ticket_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_push_deliveries_device_token_id_fkey"
+            columns: ["device_token_id"]
+            isOneToOne: false
+            referencedRelation: "device_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_push_deliveries_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "river_condition_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_push_deliveries_river_id_fkey"
+            columns: ["river_id"]
+            isOneToOne: false
+            referencedRelation: "rivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alert_subscriptions: {
         Row: {
           created_at: string
@@ -1933,6 +1991,10 @@ export type Database = {
           level_optimal_max: number | null
           level_optimal_min: number | null
           level_too_low: number | null
+          pending_condition_code: string | null
+          pending_count: number
+          pending_first_at: string | null
+          pending_reading_at: string | null
           river_id: string | null
           river_mile: number | null
           threshold_source: string | null
@@ -1963,6 +2025,10 @@ export type Database = {
           level_optimal_max?: number | null
           level_optimal_min?: number | null
           level_too_low?: number | null
+          pending_condition_code?: string | null
+          pending_count?: number
+          pending_first_at?: string | null
+          pending_reading_at?: string | null
           river_id?: string | null
           river_mile?: number | null
           threshold_source?: string | null
@@ -1993,6 +2059,10 @@ export type Database = {
           level_optimal_max?: number | null
           level_optimal_min?: number | null
           level_too_low?: number | null
+          pending_condition_code?: string | null
+          pending_count?: number
+          pending_first_at?: string | null
+          pending_reading_at?: string | null
           river_id?: string | null
           river_mile?: number | null
           threshold_source?: string | null
@@ -2745,6 +2815,7 @@ export type Database = {
           count_years: number | null
           day_of_year: number
           end_year: number | null
+          mean: number | null
           p05: number | null
           p10: number | null
           p20: number | null
@@ -2764,6 +2835,7 @@ export type Database = {
           count_years?: number | null
           day_of_year: number
           end_year?: number | null
+          mean?: number | null
           p05?: number | null
           p10?: number | null
           p20?: number | null
@@ -2783,6 +2855,7 @@ export type Database = {
           count_years?: number | null
           day_of_year?: number
           end_year?: number | null
+          mean?: number | null
           p05?: number | null
           p10?: number | null
           p20?: number | null
@@ -3192,6 +3265,24 @@ export type Database = {
           river_id: string
           slug: string
           state: string
+        }[]
+      }
+      record_condition_transition: {
+        Args: {
+          p_expected_condition_code: string
+          p_kind: string
+          p_metadata?: Json
+          p_new_condition_code: string
+          p_reading_at?: string
+          p_reading_unit?: string
+          p_reading_value?: number
+          p_required_confirmations?: number
+          p_river_gauge_id: string
+        }
+        Returns: {
+          event_id: string
+          outcome: string
+          pending_count: number
         }[]
       }
       release_cron_lock: { Args: { job_name: string }; Returns: undefined }

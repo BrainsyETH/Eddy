@@ -17,11 +17,21 @@ import { buildPostContext } from '@/lib/social/post-context';
 import type { PostKind } from '@/lib/social/post-types';
 
 const CRON_LOCK_NAME = 'post_social';
-// Renders routinely take 5–9 min on GH Actions; give slack before another
-// cron run is allowed to reclaim the lock.
-const CRON_STALE_SECONDS = 30 * 60;
+// Sized to THIS route's runtime, not the render's. triggerVideoRender POSTs a
+// workflow_dispatch to GitHub Actions and returns on 204 — it never waits for
+// the 5–9 minute render, so the old 30-minute window was protecting a wait that
+// does not happen here.
+//
+// Why that matters now: try_cron_lock was broken until migration 00188 and
+// never actually blocked, so this window was inert. With the lock working, a
+// run killed at maxDuration never reaches its `finally`, and the lock stays
+// held for the full stale window — a 30-minute posting outage from one timeout.
+// Keep this comfortably above maxDuration but far below the 30-minute cadence.
+const CRON_STALE_SECONDS = 5 * 60;
 
 export const dynamic = 'force-dynamic';
+// Declared explicitly so the stale window above has a real bound to sit above.
+export const maxDuration = 60;
 
 const LOG_PREFIX = '[SocialCron]';
 
