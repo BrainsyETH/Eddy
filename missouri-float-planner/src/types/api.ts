@@ -887,3 +887,32 @@ export interface AppConfigResponse {
   /** Free-form outage banner, e.g. "USGS is down; readings may be stale". */
   notice: string | null;
 }
+
+// ─────────────────────────────────────────────────────────────
+// /api/alerts — public condition-change feed (free to read)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * One condition change. `readingAt` is when the river was MEASURED and is what
+ * UI must quote; `detectedAt` is when our cron noticed, which trails reality by
+ * roughly 20–75 minutes.
+ */
+export interface AlertFeedEntry {
+  id: string;
+  riverId: string;
+  riverName: string;
+  riverSlug: string;
+  oldConditionCode: ConditionCode;
+  newConditionCode: ConditionCode;
+  kind: 'floatable' | 'warning' | 'easing' | 'recovery' | 'info';
+  /** In the gauge's primary unit only — never a cross-unit fallback. */
+  readingValue: number | null;
+  readingUnit: 'ft' | 'cfs' | null;
+  readingAt: string | null;
+  detectedAt: string;
+}
+
+/** Response for GET /api/alerts */
+export interface AlertsResponse {
+  alerts: AlertFeedEntry[];
+}

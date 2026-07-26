@@ -15,7 +15,9 @@
       }
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "@rnmapbox/maps",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

@@ -7,7 +7,25 @@
 // the free path (see src/lib/x402/ in the web app).
 
 import Constants from 'expo-constants';
-import type { AppConfigResponse, RiversResponse, RiverListItem } from '@eddy/types';
+import type {
+  AccessPointsResponse,
+  AlertFeedEntry,
+  AlertsResponse,
+  AppConfigResponse,
+  ConditionResponse,
+  Hazard,
+  HazardsResponse,
+  MapAccessPoint,
+  RiverConditionDetail,
+  RiverDetail,
+  RiverDetailResponse,
+  RiversResponse,
+  RiverListItem,
+  StarredRiversResponse,
+  AlertSubscriptionEntry,
+  AlertSubscriptionsResponse,
+} from '@eddy/types';
+import type { ServerStar } from '@eddy/sync';
 
 const BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? 'https://eddy.guide';
@@ -43,10 +61,171 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   return (await response.json()) as T;
 }
 
+/**
+ * Authenticated request against /api/me/*.
+ *
+ * A 401 is returned as null rather than thrown: the caller's job is to fall
+ * back to local data, and an expired session is an ordinary event, not an
+ * error worth surfacing.
+ */
+async function authed<T>(
+  path: string,
+  token: string,
+  init?: { method?: string; body?: unknown; signal?: AbortSignal },
+): Promise<T | null> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: init?.method ?? 'GET',
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': USER_AGENT,
+      Authorization: `Bearer ${token}`,
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: init?.body ? JSON.stringify(init.body) : undefined,
+    signal: init?.signal,
+  });
+
+  if (response.status === 401 || response.status === 403) return null;
+  if (!response.ok) {
+    throw new ApiError(`Request failed (${response.status})`, response.status);
+  }
+  return (await response.json()) as T;
+}
+
+/** The caller's starred rivers. Null when the session is not usable. */
+export async function fetchStarredRivers(
+  token: string,
+  signal?: AbortSignal,
+): Promise<ServerStar[] | null> {
+  const data = await authed<StarredRiversResponse>('/api/me/starred-rivers', token, { signal });
+  if (!data) return null;
+  return data.starred.map((entry) => ({
+    riverId: entry.riverId,
+    riverName: entry.riverName,
+    riverSlug: entry.riverSlug,
+    starredAt: entry.starredAt,
+  }));
+}
+
+export async function starRiver(token: string, riverId: string): Promise<void> {
+  await authed('/api/me/starred-rivers', token, { method: 'POST', body: { riverId } });
+}
+
+export async function unstarRiver(token: string, riverId: string): Promise<void> {
+  await authed(
+    `/api/me/starred-rivers?riverId=${encodeURIComponent(riverId)}`,
+    token,
+    { method: 'DELETE' },
+  );
+}
+
 /** All curated Eddy Rivers with their current condition. */
 export async function fetchRivers(signal?: AbortSignal): Promise<RiverListItem[]> {
   const data = await get<RiversResponse>('/api/rivers', signal);
   return data.rivers ?? [];
+}
+
+/**
+ * One river with its full centreline geometry.
+ *
+ * This is the heaviest response the app fetches — the Current River alone is a
+ * 632-point LineString — so callers should treat it as a per-river load, not
+ * something to fan out across all thirteen.
+ */
+export async function fetchRiverDetail(slug: string, signal?: AbortSignal): Promise<RiverDetail> {
+  const data = await get<RiverDetailResponse>(`/api/rivers/${encodeURIComponent(slug)}`, signal);
+  return data.river;
+}
+
+/** Approved access points, ordered from headwaters downstream. */
+export async function fetchRiverAccessPoints(
+  slug: string,
+  signal?: AbortSignal,
+): Promise<MapAccessPoint[]> {
+  const data = await get<AccessPointsResponse>(
+    `/api/rivers/${encodeURIComponent(slug)}/access-points`,
+    signal,
+  );
+  return data.accessPoints ?? [];
+}
+
+/**
+ * Live conditions for one river: the reading, its age, and where today's flow
+ * sits historically.
+ *
+ * Returns null when no gauge is wired or the reading is unavailable — the
+ * endpoint answers 200 with `available: false` rather than erroring, because a
+ * river without a gauge is an ordinary state, not a fault.
+ */
+export async function fetchCondition(
+  riverId: string,
+  signal?: AbortSignal,
+): Promise<RiverConditionDetail | null> {
+  const data = await get<ConditionResponse>(
+    `/api/conditions/${encodeURIComponent(riverId)}`,
+    signal,
+  );
+  return data.available ? (data.condition ?? null) : null;
+}
+
+/**
+ * Hazards for a river — low-water dams, strainers, required portages.
+ *
+ * No entitlement check anywhere in this path, by design. Safety information
+ * behind a paywall is a liability, and the alert engine already applies the same
+ * rule (see kindRequiresEntitlement: `warning` is free).
+ */
+export async function fetchHazards(slug: string, signal?: AbortSignal): Promise<Hazard[]> {
+  const data = await get<HazardsResponse>(
+    `/api/rivers/${encodeURIComponent(slug)}/hazards`,
+    signal,
+  );
+  return data.hazards ?? [];
+}
+
+/** Subscribe to condition alerts for a river. 402 means the paywall. */
+export async function subscribeToRiver(
+  token: string,
+  riverId: string,
+  kind: 'floatable' | 'safety' | 'all',
+): Promise<{ ok: boolean; paymentRequired: boolean }> {
+  const response = await fetch(`${BASE_URL}/api/me/alert-subscriptions`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'User-Agent': USER_AGENT,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ riverId, kind }),
+  });
+
+  // 402 is the contextual paywall trigger, not a failure — the caller presents
+  // an offer rather than an error.
+  if (response.status === 402) return { ok: false, paymentRequired: true };
+  if (!response.ok) throw new ApiError(`Request failed (${response.status})`, response.status);
+  return { ok: true, paymentRequired: false };
+}
+
+export async function unsubscribeFromRiver(token: string, riverId: string): Promise<void> {
+  await authed(
+    `/api/me/alert-subscriptions?riverId=${encodeURIComponent(riverId)}`,
+    token,
+    { method: 'DELETE' },
+  );
+}
+
+/** The caller's current alert subscriptions. Null when the session is unusable. */
+export async function fetchSubscriptions(
+  token: string,
+  signal?: AbortSignal,
+): Promise<AlertSubscriptionEntry[] | null> {
+  const data = await authed<AlertSubscriptionsResponse>(
+    '/api/me/alert-subscriptions',
+    token,
+    { signal },
+  );
+  return data ? (data.subscriptions ?? []) : null;
 }
 
 /**
@@ -62,4 +241,14 @@ export async function fetchAppConfig(signal?: AbortSignal): Promise<AppConfigRes
   } catch {
     return null;
   }
+}
+
+/**
+ * Public condition-change feed. Free to read and requires no account, which is
+ * why the app filters to locally-starred rivers on the client rather than
+ * asking the server for "my" alerts.
+ */
+export async function fetchAlerts(signal?: AbortSignal): Promise<AlertFeedEntry[]> {
+  const data = await get<AlertsResponse>('/api/alerts?limit=100', signal);
+  return data.alerts ?? [];
 }

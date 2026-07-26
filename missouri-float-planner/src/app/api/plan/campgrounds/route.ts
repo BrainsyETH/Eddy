@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { AccessPoint, AccessPointType } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 
 // Force dynamic rendering (uses cookies and searchParams)
 export const dynamic = 'force-dynamic';
@@ -128,7 +129,9 @@ async function _GET(request: NextRequest) {
       recommendedStops,
     };
 
-    return NextResponse.json(response);
+    // Matches /api/rivers/[slug]/access-points — the same underlying rows,
+    // so a different window would only make the two disagree.
+    return NextResponse.json(response, { headers: cdnCacheHeaders(300, 3600) });
   } catch (error) {
     console.error('Error calculating campgrounds:', error);
     return NextResponse.json(

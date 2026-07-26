@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import {
   fetchGaugeReadings,
   fetchDailyStatistics,
@@ -160,7 +161,7 @@ export async function GET() {
     };
 
     return NextResponse.json(body, {
-      headers: { 'Cache-Control': 's-maxage=900, stale-while-revalidate=3600' },
+      headers: cdnCacheHeaders(900, 3600),
     });
   } catch (e) {
     console.error('[usgs/mo-statewide] Error:', e);

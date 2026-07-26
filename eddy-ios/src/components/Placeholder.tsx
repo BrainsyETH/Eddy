@@ -1,11 +1,18 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS } from '@/theme/conditions';
+import { useTheme } from '@/theme/ThemeProvider';
+import { fonts, type as t } from '@/theme/typography';
+import { Otter } from '@/components/Otter';
 
 /**
  * Shell placeholder. Each one names what the tab will do and what it is waiting
- * on, so the scaffold documents the remaining Phase 1 work rather than showing
- * four identical "coming soon" screens.
+ * on, so the scaffold documents the remaining work rather than showing four
+ * identical "coming soon" screens.
+ *
+ * Note the colour/layout split used throughout the app: StyleSheet.create holds
+ * layout and type only — it runs once at import, so any colour written into it
+ * would be frozen at whichever scheme the app launched with. Colour is applied
+ * inline from useTheme().
  */
 export function Placeholder({
   title,
@@ -16,13 +23,16 @@ export function Placeholder({
   blurb: string;
   waitingOn: string;
 }) {
+  const { colors, elevation } = useTheme();
+
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={styles.body}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.blurb}>{blurb}</Text>
-        <View style={styles.pill}>
-          <Text style={styles.pillText}>Next: {waitingOn}</Text>
+        <Otter mood="standard" size={120} />
+        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+        <Text style={[styles.blurb, { color: colors.textMuted }]}>{blurb}</Text>
+        <View style={[styles.pill, { backgroundColor: colors.card }, elevation(1)]}>
+          <Text style={[styles.pillText, { color: colors.accent }]}>Next: {waitingOn}</Text>
         </View>
       </View>
     </SafeAreaView>
@@ -30,18 +40,10 @@ export function Placeholder({
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.bg },
+  screen: { flex: 1 },
   body: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  title: { color: COLORS.text, fontSize: 26, fontWeight: '700', marginBottom: 10 },
-  blurb: { color: COLORS.textMuted, fontSize: 15, textAlign: 'center', lineHeight: 22 },
-  pill: {
-    marginTop: 24,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.card,
-  },
-  pillText: { color: COLORS.accent, fontSize: 13, fontWeight: '600' },
+  title: { ...t['2xl'], fontFamily: fonts.heading, marginTop: 12, marginBottom: 10 },
+  blurb: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
+  pill: { marginTop: 24, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999 },
+  pillText: { ...t.xs, fontFamily: fonts.semibold },
 });

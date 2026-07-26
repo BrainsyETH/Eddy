@@ -3,9 +3,39 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": ["./src/*"],
-      "@eddy/types": ["../packages/eddy-types/index.ts"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@eddy/types": [
+        "../packages/eddy-types/index.ts"
+      ],
+      "@eddy/offline": [
+        "../packages/eddy-offline/index.ts"
+      ],
+      "@eddy/sync": [
+        "../packages/eddy-sync/index.ts"
+      ],
+      "@eddy/hazards": [
+        "../packages/eddy-hazards/index.ts"
+      ],
+      "@eddy/geo": [
+        "../packages/eddy-geo/index.ts"
+      ],
+      "@shared/*": [
+        "../missouri-float-planner/shared/*"
+      ]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "../packages/eddy-types/index.ts"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts",
+    "../packages/eddy-types/index.ts",
+    "../packages/eddy-geo/index.ts",
+    "../packages/eddy-offline/index.ts",
+    "../packages/eddy-sync/index.ts",
+    "../packages/eddy-hazards/index.ts",
+    "../missouri-float-planner/shared/condition-system.ts"
+  ]
 }

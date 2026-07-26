@@ -1,6 +1,8 @@
 // src/lib/api-utils.ts
 // Shared utility functions for admin API routes
 
+import { NextResponse } from 'next/server';
+
 /**
  * CDN cache headers for public read-mostly API routes.
  *
@@ -17,6 +19,38 @@ export function cdnCacheHeaders(sMaxageSeconds: number, staleWhileRevalidateSeco
   return {
     'Cache-Control': `public, s-maxage=${sMaxageSeconds}, stale-while-revalidate=${staleWhileRevalidateSeconds}`,
   };
+}
+
+/**
+ * Cache headers for authenticated, per-user responses (`/api/me/*`).
+ *
+ * The inverse of cdnCacheHeaders, and not merely decorative. A response with no
+ * Cache-Control at all is eligible for HEURISTIC caching under RFC 9111 — a
+ * shared cache may store it and pick its own freshness lifetime. For a route
+ * whose body differs per caller that is a cross-user data leak, so the absence
+ * of a cache header is not the same as saying "don't cache this".
+ *
+ * `private` bars shared caches outright; `no-store` additionally stops the
+ * response being written to disk on the device.
+ */
+export function privateNoStore(): Record<string, string> {
+  return { 'Cache-Control': 'private, no-store' };
+}
+
+/**
+ * NextResponse.json with privateNoStore applied.
+ *
+ * Used for EVERY response in `/api/me/*`, including errors, rather than only
+ * the ones carrying user data. A total convention is auditable — you can grep a
+ * route for `NextResponse.json` and expect none — whereas "add the header where
+ * it matters" quietly fails the first time someone adds a response and doesn't
+ * think about caching.
+ */
+export function jsonPrivate(body: unknown, init?: ResponseInit): NextResponse {
+  return NextResponse.json(body, {
+    ...init,
+    headers: { ...(init?.headers ?? {}), ...privateNoStore() },
+  });
 }
 
 /**

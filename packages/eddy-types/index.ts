@@ -17,32 +17,25 @@
 // Move a type here only when BOTH sides use it.
 
 // ── Conditions ───────────────────────────────────────────────────
-// Must stay in sync with src/types/api.ts and shared/condition-system.ts.
+// NOT redefined here. The canonical condition system lives in
+// missouri-float-planner/shared/condition-system.ts, which owns the codes, the
+// colours, the labels and BOTH severity orderings, and which states outright
+// that nothing else may hardcode condition values.
+//
+// This file re-exports the type so the API shapes below can reference it
+// without a second definition. Anything needing colours, labels or ordering
+// should import from shared/condition-system directly:
+//   CONDITION_SYSTEM  — colours + labels (never hardcode hex)
+//   FLOATABLE_NOW     — the strict flowing/good bucket public counts use
+//   WEEKEND_SEVERITY   — floatable-first ordering for "where can I go"
+//
+// An earlier version of this file duplicated a severity map and a floatable
+// helper. Both already existed there, and WEEKEND_SEVERITY had itself already
+// been consolidated out of four copies — so the duplicates were re-creating a
+// problem someone had explicitly fixed.
 
-export type ConditionCode =
-  | 'dangerous'
-  | 'high'
-  | 'flowing'
-  | 'good'
-  | 'low'
-  | 'too_low'
-  | 'unknown';
-
-/** Ordered most to least hazardous — useful for sorting a report list. */
-export const CONDITION_SEVERITY: Record<ConditionCode, number> = {
-  dangerous: 6,
-  high: 5,
-  flowing: 4,
-  good: 3,
-  low: 2,
-  too_low: 1,
-  unknown: 0,
-};
-
-/** True when a river is worth floating right now. */
-export function isFloatable(code: ConditionCode): boolean {
-  return code === 'good' || code === 'flowing';
-}
+export type { ConditionCode } from '../../missouri-float-planner/shared/condition-system';
+import type { ConditionCode } from '../../missouri-float-planner/shared/condition-system';
 
 // ── Rivers ───────────────────────────────────────────────────────
 
@@ -74,6 +67,126 @@ export interface RiversResponse {
   rivers: RiverListItem[];
 }
 
+// ── Map geometry (GET /api/rivers/[slug]) ────────────────────────
+// Mirrors the web app's RiverWithDetails in src/types/api.ts. Only the fields
+// the map actually draws are declared here — see the note on MapAccessPoint
+// below for why this is a subset rather than a second full definition.
+
+// Bounds is NOT redefined here. packages/eddy-geo already owns it, because the
+// tile maths there is what consumes it, and a second identical tuple type is
+// exactly the kind of duplication this file exists to prevent.
+export type { Bounds } from '../eddy-geo/index';
+import type { Bounds } from '../eddy-geo/index';
+
+export interface RiverGeometry {
+  type: 'LineString';
+  /** [lng, lat] pairs. Can be empty: the endpoint degrades rather than 404s. */
+  coordinates: Array<[number, number]>;
+}
+
+export interface RiverDetail extends River {
+  geometry: RiverGeometry;
+  bounds: Bounds;
+}
+
+export interface RiverDetailResponse {
+  river: RiverDetail;
+}
+
+/**
+ * The access-point fields the map needs, and only those.
+ *
+ * The web's AccessPoint carries ~25 fields (NPS campground data, fee notes,
+ * road surface, nearby services) that exist for the detail page and would be
+ * pure drift risk to restate here. This is a STRUCTURAL SUBSET, so the web type
+ * stays assignable to it without either side redefining the other.
+ */
+export interface MapAccessPoint {
+  id: string;
+  name: string;
+  riverMile: number;
+  type: string;
+  isPublic: boolean;
+  coordinates: { lng: number; lat: number };
+}
+
+export interface AccessPointsResponse {
+  accessPoints: MapAccessPoint[];
+}
+
+// ── Live conditions (GET /api/conditions/[riverId]) ──────────────
+// Mirrors the web app's RiverCondition, narrowed to the fields a phone shows.
+
+export type FlowRating = 'very_low' | 'low' | 'normal' | 'high' | 'very_high';
+
+export interface RiverConditionDetail {
+  label: string;
+  code: ConditionCode;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  /** Which unit this river's thresholds are actually defined in. */
+  thresholdUnit?: 'ft' | 'cfs';
+  /** When the river was MEASURED. Quote this, never "now". */
+  readingTimestamp: string | null;
+  readingAgeHours: number | null;
+  /** True when the reading is stale or the gauge is suspect — always surface it. */
+  accuracyWarning: boolean;
+  accuracyWarningReason: string | null;
+  gaugeName: string | null;
+  gaugeUsgsId: string | null;
+  /**
+   * Where today's flow sits against this day-of-year historically, 0-100.
+   * Backed by usgs_daily_percentiles — 89,304 rows snapshotted before USGS
+   * decommissioned the legacy statistics service.
+   */
+  percentile?: number | null;
+  medianDischargeCfs?: number | null;
+  flowRating?: FlowRating;
+  flowDescription?: string;
+  usgsUrl?: string | null;
+}
+
+export interface ConditionResponse {
+  condition: RiverConditionDetail | null;
+  available: boolean;
+  error?: string;
+}
+
+// ── Hazards (GET /api/rivers/[slug]/hazards) ─────────────────────
+// Safety data. Free, always — see kindRequiresEntitlement in the alert engine
+// for the same rule applied to push.
+
+export type HazardType =
+  | 'low_water_dam'
+  | 'portage'
+  | 'strainer'
+  | 'rapid'
+  | 'private_property'
+  | 'waterfall'
+  | 'shoal'
+  | 'bridge_piling'
+  | 'other';
+
+export type HazardSeverity = 'info' | 'caution' | 'warning' | 'danger';
+
+export interface Hazard {
+  id: string;
+  riverId: string;
+  name: string;
+  type: HazardType;
+  riverMile: number;
+  description: string | null;
+  severity: HazardSeverity;
+  portageRequired: boolean;
+  portageSide: 'left' | 'right' | 'either' | null;
+  seasonalNotes: string | null;
+  coordinates: { lng: number; lat: number };
+}
+
+export interface HazardsResponse {
+  hazards: Hazard[];
+}
+
 // ── Alert events (the outbox the app's Alerts tab reads) ─────────
 
 export type EventKind = 'floatable' | 'warning' | 'easing' | 'recovery' | 'info';
@@ -95,6 +208,26 @@ export interface RiverConditionEvent {
  * "instantly", and should surface `readingAt` rather than `detectedAt`.
  */
 export const ALERT_LATENCY_NOTE = 'Conditions are checked regularly; readings can lag the river by up to about an hour.';
+
+export interface AlertFeedEntry {
+  id: string;
+  riverId: string;
+  riverName: string;
+  riverSlug: string;
+  oldConditionCode: ConditionCode;
+  newConditionCode: ConditionCode;
+  kind: EventKind;
+  /** In the gauge's primary unit only — never a cross-unit fallback. */
+  readingValue: number | null;
+  readingUnit: 'ft' | 'cfs' | null;
+  /** When the river was MEASURED. Quote this, not detectedAt. */
+  readingAt: string | null;
+  detectedAt: string;
+}
+
+export interface AlertsResponse {
+  alerts: AlertFeedEntry[];
+}
 
 // ── Consumer account endpoints (/api/me/*) ───────────────────────
 

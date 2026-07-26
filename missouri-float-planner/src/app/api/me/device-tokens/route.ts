@@ -14,6 +14,7 @@
 // carrier NAT collapses thousands of subscribers into one bucket.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { jsonPrivate } from '@/lib/api-utils';
 import { requireUser, requirePermanentUser } from '@/lib/supabase/request';
 import { rateLimit } from '@/lib/rate-limit';
 import { isExpoPushToken } from '@/lib/push/expo';
@@ -39,11 +40,11 @@ export async function POST(request: NextRequest) {
 
     const expoPushToken = body?.expoPushToken?.trim();
     if (!expoPushToken) {
-      return NextResponse.json({ error: 'expoPushToken required' }, { status: 400 });
+      return jsonPrivate({ error: 'expoPushToken required' }, { status: 400 });
     }
     if (!isExpoPushToken(expoPushToken)) {
       // Reject early: a malformed token would sit in the table failing forever.
-      return NextResponse.json({ error: 'Not a valid Expo push token' }, { status: 400 });
+      return jsonPrivate({ error: 'Not a valid Expo push token' }, { status: 400 });
     }
 
     const platform = body?.platform === 'android' ? 'android' : 'ios';
@@ -71,15 +72,15 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Error registering device token:', error);
-      return NextResponse.json({ error: 'Could not register device' }, { status: 500 });
+      return jsonPrivate({ error: 'Could not register device' }, { status: 500 });
     }
 
-    return NextResponse.json({
+    return jsonPrivate({
       device: { id: saved.id, platform: saved.platform, createdAt: saved.created_at },
     });
   } catch (error) {
     console.error('Error registering device token:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return jsonPrivate({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -94,7 +95,7 @@ export async function DELETE(request: NextRequest) {
     const token = request.nextUrl.searchParams.get('expoPushToken');
     const id = request.nextUrl.searchParams.get('id');
     if (!token && !id) {
-      return NextResponse.json({ error: 'expoPushToken or id required' }, { status: 400 });
+      return jsonPrivate({ error: 'expoPushToken or id required' }, { status: 400 });
     }
 
     let query = supabase.from('device_tokens').delete().eq('user_id', user.id);
@@ -103,12 +104,12 @@ export async function DELETE(request: NextRequest) {
     const { error } = await query;
     if (error) {
       console.error('Error deleting device token:', error);
-      return NextResponse.json({ error: 'Could not unregister device' }, { status: 500 });
+      return jsonPrivate({ error: 'Could not unregister device' }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true });
+    return jsonPrivate({ ok: true });
   } catch (error) {
     console.error('Error deleting device token:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return jsonPrivate({ error: 'Internal server error' }, { status: 500 });
   }
 }

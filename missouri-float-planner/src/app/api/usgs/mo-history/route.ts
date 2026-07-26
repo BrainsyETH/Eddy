@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cdnCacheHeaders } from '@/lib/api-utils';
 import {
   fetchHistoricalReadings,
   fetchDailyStatistics,
@@ -82,7 +83,7 @@ export async function GET(req: Request) {
 
   return NextResponse.json(body, {
     headers: {
-      'Cache-Control': 's-maxage=3600, stale-while-revalidate=86400',
+      ...cdnCacheHeaders(3600, 86400),
     },
   });
 }
