@@ -148,3 +148,65 @@ export interface AlertSubscriptionEntry {
 export interface AlertSubscriptionsResponse {
   subscriptions: AlertSubscriptionEntry[];
 }
+
+// ── Remote config / kill switches (GET /api/app-config) ──────────
+
+export interface AppFeatureFlags {
+  push: boolean;
+  offlineDownloads: boolean;
+  planner: boolean;
+  chat: boolean;
+}
+
+export interface AppConfigResponse {
+  /** Builds below this must refuse to run and prompt for an upgrade. */
+  minSupportedVersion: string;
+  latestVersion: string;
+  upgradeMessage: string | null;
+  features: AppFeatureFlags;
+  minRefreshSeconds: number;
+  notice: string | null;
+}
+
+/**
+ * Compares dotted numeric versions. Returns <0, 0, >0 like a sort comparator.
+ *
+ * Missing segments count as 0, so "1.2" === "1.2.0". Non-numeric segments are
+ * treated as 0 rather than NaN: a malformed version must not silently compare
+ * as "newer than everything" and let an unsupported build through.
+ */
+export function compareVersions(a: string, b: string): number {
+  const parse = (v: string) =>
+    String(v ?? '')
+      .split('.')
+      .map((part) => {
+        const n = parseInt(part, 10);
+        return Number.isFinite(n) ? n : 0;
+      });
+
+  const left = parse(a);
+  const right = parse(b);
+  const len = Math.max(left.length, right.length);
+
+  for (let i = 0; i < len; i++) {
+    const diff = (left[i] ?? 0) - (right[i] ?? 0);
+    if (diff !== 0) return diff < 0 ? -1 : 1;
+  }
+  return 0;
+}
+
+/**
+ * Whether this build is below the server's supported floor.
+ *
+ * Fails OPEN: if either version is missing we return false (allow the app to
+ * run). Locking someone out because config was unreadable is far worse than
+ * briefly letting an old build through — and /api/app-config already serves
+ * permissive defaults for the same reason.
+ */
+export function isUpgradeRequired(
+  currentVersion: string | null | undefined,
+  minSupportedVersion: string | null | undefined,
+): boolean {
+  if (!currentVersion || !minSupportedVersion) return false;
+  return compareVersions(currentVersion, minSupportedVersion) < 0;
+}

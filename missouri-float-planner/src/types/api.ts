@@ -863,3 +863,27 @@ export interface AlertSubscriptionEntry {
 export interface AlertSubscriptionsResponse {
   subscriptions: AlertSubscriptionEntry[];
 }
+
+// ─────────────────────────────────────────────────────────────
+// /api/app-config — remote config + kill switches for the app
+// ─────────────────────────────────────────────────────────────
+
+export interface AppFeatureFlags {
+  push: boolean;
+  offlineDownloads: boolean;
+  planner: boolean;
+  chat: boolean;
+}
+
+/** Response for GET /api/app-config. Mirrored in packages/eddy-types. */
+export interface AppConfigResponse {
+  /** Builds below this must refuse to run and prompt for an upgrade. */
+  minSupportedVersion: string;
+  latestVersion: string;
+  upgradeMessage: string | null;
+  features: AppFeatureFlags;
+  /** Client-side floor on refresh frequency, so we can shed load remotely. */
+  minRefreshSeconds: number;
+  /** Free-form outage banner, e.g. "USGS is down; readings may be stale". */
+  notice: string | null;
+}
