@@ -243,9 +243,11 @@ Generated from the Eddy favicon artwork, not hand-exported:
 python3 eddy-ios/scripts/build-icons.py    # needs Pillow
 ```
 
-The mark is Deep River Teal 900 behind the otter — chosen over the website's
-white because a white icon disappears against a light wallpaper. iOS 18's dark
-and tinted variants are generated too, and wired through `ios.icon`.
+Light appearance is white, matching the website's favicon so the mark reads the
+same in the App Store listing as it does in a browser tab. iOS 18's dark and
+tinted variants are generated alongside it and wired through `ios.icon` — dark
+is Deep River Teal rather than black, because the otter's outline is near-black
+itself and dissolves into a black field.
 
 The rule that bites: **the App Store icon must have no alpha channel.** Apple
 rejects it at upload rather than at review, so `icon.png` is flattened while the
