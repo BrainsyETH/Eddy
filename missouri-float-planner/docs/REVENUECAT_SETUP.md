@@ -1,4 +1,4 @@
-# Eddy+ subscriptions via RevenueCat
+# Eddy Premium subscriptions via RevenueCat
 
 Everything required to take Eddy from "no consumer payments" to a working
 Apple IAP subscription, end to end. Written as a runbook — follow it top to
@@ -72,7 +72,7 @@ this is step one.
 App Store Connect → **Business → Small Business Program** → enroll.
 
 Drops Apple's commission from 30% → **15%** for under ~$1M/yr. Net revenue on a
-$29.99 annual sub goes from ~$21 to ~$25 — the strategy's margin model assumes
+$19.99 annual sub goes from ~$14 to ~$17 — the strategy's margin model assumes
 this. Enrollment takes effect the *month after* approval, so enrolling early
 costs nothing and forgetting is expensive.
 
@@ -189,15 +189,20 @@ App Store Connect → your app → **Monetization → Subscriptions**.
 2. **Add the annual product:**
    - Product ID: `eddy_plus_annual`
    - Duration: 1 year
-   - Price: **$29.99**
+   - Price: **$19.99**
    - Localized display name + description (required before submission)
 
 3. **Add the monthly product:**
    - Product ID: `eddy_plus_monthly`
    - Duration: 1 month
-   - Price: **$5.99**
-   - Deliberately worse value than annual — this is intentional pricing
-     strategy, not an oversight.
+   - Price: **$1.99**
+   - ⚠️ At these prices monthly is **no longer a decoy**. Twelve months of
+     monthly is $23.88 against $19.99 annual — a 1.19x premium, where the
+     original $5.99/$29.99 pair was 2.4x. More to the point, this product is
+     SEASONAL: four summer months on monthly costs $7.96, or 40% of the annual
+     price, against 80% under the old pair. A rational floater now subscribes
+     in May and cancels in September. See the strategy doc's break-even
+     section — the annual-first framing depends on that arithmetic.
 
 4. **Add the free trial** — on `eddy_plus_annual` → **Introductory Offers** →
    **Free** → **7 days** → all territories.
@@ -234,7 +239,7 @@ never branches on them. Only the *entitlement* identifier is load-bearing.
 Product Catalog → **Entitlements** → **+ New**:
 
 - Identifier: **`eddy_plus`** ← must match exactly; see gotcha #3
-- Description: `Eddy+ — push alerts, offline rivers, sync`
+- Description: `Eddy Premium — push alerts, offline rivers, sync`
 - **Attach both products** to it.
 
 If you want a different identifier, say so before the app ships — it's a
@@ -321,7 +326,7 @@ design (fail-closed) rather than accepting unverified events.
 project across web and iOS. Sandbox/TestFlight purchases write rows tagged
 `environment='SANDBOX'`; those rows are ignored at read time unless this flag is
 set. **Setting it in Production would let anyone with a sandbox Apple ID unlock
-Eddy+ for free.** Redeploy after changing it — env vars are read at build time.
+Eddy Premium for free.** Redeploy after changing it — env vars are read at build time.
 
 ---
 

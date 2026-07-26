@@ -68,7 +68,7 @@ export function isPushableKind(kind: EventKind): boolean {
 }
 
 /**
- * Whether a push of this kind requires an active Eddy+ entitlement.
+ * Whether a push of this kind requires an active Eddy Premium entitlement.
  *
  * Safety-adjacent warnings are FREE: the product principle is that condition
  * display is always free including "dangerous", and putting a hazard warning

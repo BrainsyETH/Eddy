@@ -77,7 +77,7 @@ REVENUECAT_WEBHOOK_SECRET=a_long_random_secret
 
 # Honor StoreKit sandbox / TestFlight purchases as real entitlements.
 # Set ONLY on preview/dev deploys — with this unset in production, a sandbox
-# purchase can never unlock Eddy+. See src/lib/entitlement.ts.
+# purchase can never unlock Eddy Premium. See src/lib/entitlement.ts.
 # ALLOW_SANDBOX_ENTITLEMENTS=true
 
 # x402 — AI-agent payments (x402 V2). Optional; dormant until a wallet is set.

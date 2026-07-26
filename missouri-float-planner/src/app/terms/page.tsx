@@ -53,7 +53,7 @@ export default function TermsPage() {
           <p className="text-neutral-700 leading-relaxed mt-3">
             Viewing river conditions, gauge readings, hazard information, and access points is
             free and always will be. Eddy also offers an optional paid subscription
-            (&ldquo;Eddy+&rdquo;) which adds convenience features such as push notifications when
+            (&ldquo;Eddy Premium&rdquo;) which adds convenience features such as push notifications when
             a river changes condition and downloadable offline maps. A paid subscription never
             unlocks safety information that free users cannot see.
           </p>
@@ -152,10 +152,10 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-neutral-900 mb-3">Eddy+ Subscriptions</h2>
+          <h2 className="text-2xl font-bold text-neutral-900 mb-3">Eddy Premium Subscriptions</h2>
           <div className="space-y-3 text-neutral-700 leading-relaxed">
             <p>
-              Eddy+ is an auto-renewing subscription sold through the Apple App Store. Payment is
+              Eddy Premium is an auto-renewing subscription sold through the Apple App Store. Payment is
               charged to your Apple ID account at confirmation of purchase.
             </p>
             <ul className="list-disc list-inside space-y-2 ml-4">
@@ -181,7 +181,7 @@ export default function TermsPage() {
             </ul>
             <p>
               Refunds are handled by Apple under the App Store terms, not by Eddy. We may change
-              subscription pricing or the features included in Eddy+; changes to price take
+              subscription pricing or the features included in Eddy Premium; changes to price take
               effect at your next renewal and Apple will ask for your consent where required.
             </p>
             <p>

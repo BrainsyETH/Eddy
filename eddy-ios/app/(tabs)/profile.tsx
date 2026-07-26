@@ -228,13 +228,13 @@ export default function ProfileScreen() {
         </Section>
 
         {/* ── Subscription ────────────────────────────────────────── */}
-        <Section title="Eddy+" muted={colors.textMuted}>
+        <Section title="Eddy Premium" muted={colors.textMuted}>
           <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
             <View style={styles.row}>
               <Otter mood={entitlement?.isActive ? 'green' : 'standard'} size={40} />
               <View style={styles.rowBody}>
                 <Text style={[styles.rowTitle, { color: colors.text }]}>
-                  {entitlement?.isActive ? 'Eddy+ is active' : 'Eddy+'}
+                  {entitlement?.isActive ? 'Eddy Premium is active' : 'Eddy Premium'}
                 </Text>
                 <Text
                   style={[
@@ -272,7 +272,7 @@ export default function ProfileScreen() {
                 or managed, and it has to sit WITH the controls rather than
                 behind a link. */}
             <Text style={[styles.legal, { color: colors.textSubtle }]}>
-              Eddy+ is an auto-renewing subscription billed through your Apple ID. It renews
+              Eddy Premium is an auto-renewing subscription billed through your Apple ID. It renews
               automatically unless turned off at least 24 hours before the period ends. Manage or
               cancel it in your Apple ID settings — deleting the app does not cancel it.
             </Text>

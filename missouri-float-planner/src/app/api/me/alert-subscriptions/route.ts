@@ -1,6 +1,6 @@
 // src/app/api/me/alert-subscriptions/route.ts
 // GET    /api/me/alert-subscriptions            — list the caller's push subscriptions
-// POST   /api/me/alert-subscriptions            — subscribe to a curated river (Eddy+)
+// POST   /api/me/alert-subscriptions            — subscribe to a curated river (Eddy Premium)
 // DELETE /api/me/alert-subscriptions?riverId=…  — unsubscribe
 //
 // This is the backend half of the "🔔 notify me when it's floatable" tap — the
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // 401 (no token) / 403 (anonymous) / 402 (no active Eddy+) are all
+    // 401 (no token) / 403 (anonymous) / 402 (no active Eddy Premium) are all
     // returned ready-to-send; the app maps 402 to the paywall.
     const auth = await requireEntitlement(request);
     if (auth instanceof NextResponse) return auth;

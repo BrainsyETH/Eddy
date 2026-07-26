@@ -1,5 +1,5 @@
 // src/lib/entitlement.ts
-// Eddy+ entitlement guard for consumer (iOS) API routes.
+// Eddy Premium entitlement guard for consumer (iOS) API routes.
 //
 // Two shapes, mirroring the existing guards in this codebase:
 //   * requireEntitlement(request)  — imperative, like requireAdminAuth()
@@ -62,7 +62,7 @@ export interface AuthedEntitlement extends AuthedRequest {
 function paymentRequired(reason: 'no_entitlement' | 'expired'): NextResponse {
   return NextResponse.json(
     {
-      error: 'Eddy+ subscription required',
+      error: 'Eddy Premium subscription required',
       code: reason,
       // The app turns this into the paywall; keep it machine-readable.
       entitlementId: DEFAULT_ENTITLEMENT_ID,
@@ -72,7 +72,7 @@ function paymentRequired(reason: 'no_entitlement' | 'expired'): NextResponse {
 }
 
 /**
- * Authenticate the caller and require an active Eddy+ entitlement.
+ * Authenticate the caller and require an active Eddy Premium entitlement.
  * Returns { supabase, user, entitlement } or a ready-to-send response:
  *   401 — no/invalid token
  *   403 — anonymous session (purchases require a permanent account)
