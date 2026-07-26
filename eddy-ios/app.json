@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Eddy",
+    "slug": "eddy",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "eddy",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "guide.eddy.ios"
+    },
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true },
+    "extra": {
+      "apiBaseUrl": "https://eddy.guide"
+    }
+  }
+}
