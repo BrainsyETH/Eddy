@@ -2,7 +2,7 @@
 // POST /api/webhooks/revenuecat — RevenueCat subscription lifecycle receiver.
 //
 // This is the ONLY writer of the `entitlements` table: the app never tells the
-// backend what it bought, so a tampered client cannot grant itself Eddy+.
+// backend what it bought, so a tampered client cannot grant itself Eddy Premium.
 //
 // Authenticity: RevenueCat sends a fixed Authorization header configured in
 // its dashboard (Project → Integrations → Webhooks). Set that value to

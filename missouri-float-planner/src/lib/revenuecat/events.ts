@@ -81,7 +81,7 @@ export function eventTimestamp(event: RevenueCatEvent, now: Date = new Date()): 
   return msToIso(event.event_timestamp_ms) ?? now.toISOString();
 }
 
-/** Entitlement ids the event applies to, defaulting to the Eddy+ entitlement. */
+/** Entitlement ids the event applies to, defaulting to the Eddy Premium entitlement. */
 export function entitlementIdsFor(event: RevenueCatEvent, fallback: string): string[] {
   const ids = (event.entitlement_ids ?? []).filter((id): id is string => !!id);
   if (ids.length) return [...new Set(ids)];

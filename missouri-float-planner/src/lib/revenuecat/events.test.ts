@@ -130,7 +130,7 @@ test('sandbox events are tagged so read-time gating can ignore them', () => {
   assert.equal(patch?.environment, 'SANDBOX');
 });
 
-test('entitlement ids fall back to the Eddy+ default', () => {
+test('entitlement ids fall back to the Eddy Premium default', () => {
   assert.deepEqual(entitlementIdsFor(event({ entitlement_ids: null }), 'eddy_plus'), ['eddy_plus']);
   assert.deepEqual(entitlementIdsFor(event({ entitlement_ids: ['a', 'b', 'a'] }), 'eddy_plus'), ['a', 'b']);
   assert.deepEqual(entitlementIdsFor(event({ entitlement_ids: [], entitlement_id: 'legacy' }), 'eddy_plus'), [

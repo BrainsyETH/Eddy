@@ -73,7 +73,7 @@ export default function PrivacyPage() {
               removed when the device stops accepting notifications.
             </li>
             <li>
-              <strong>Subscription status.</strong> If you purchase Eddy+, Eddy stores the
+              <strong>Subscription status.</strong> If you purchase Eddy Premium, Eddy stores the
               product purchased, whether the subscription is active, when it expires or renews,
               and whether there is a billing problem. <strong>Eddy never receives or stores your
               payment card, billing address, or Apple ID credentials</strong> &mdash; the

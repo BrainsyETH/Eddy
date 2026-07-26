@@ -142,7 +142,7 @@ export function subscriptionSummary(entitlement: MeEntitlement | null): string {
   if (!entitlement || !entitlement.isActive) return 'No active subscription';
 
   if (entitlement.billingIssue) {
-    return 'There is a problem with your payment method — update it in Settings to keep Eddy+.';
+    return 'There is a problem with your payment method — update it in Settings to keep Eddy Premium.';
   }
 
   if (!entitlement.expiresAt) return 'Active';
