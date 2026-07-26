@@ -317,6 +317,30 @@ Three things about it are load-bearing rather than stylistic:
   authorisation for that Apple ID, and never again — not on reinstall. It is
   persisted immediately in `signInWithApple` for that reason.
 
+### The purchase flow
+
+The paywall is contextual — it appears when `/api/me/alert-subscriptions`
+returns 402, i.e. at the moment someone asked to be told about a river. Three
+things about how it runs:
+
+- **Sign-in is not a step you can skip past.** The purchase controls do not
+  render until there is a permanent user, because RevenueCat keys on the
+  Supabase user id and a purchase made under an anonymous one is stranded by
+  the next reinstall.
+- **Prices are never constructed.** `priceString` comes from StoreKit already
+  localised. Storefronts differ in currency, symbol placement and separator,
+  and Apple charges what it says rather than what we format.
+- **A completed purchase does not mean the server knows.** The entitlement
+  arrives through RevenueCat's webhook, so `waitForEntitlement` polls
+  `/api/me/profile` before anything claims success. On timeout the app says the
+  purchase went through and may take a moment — never that it failed, because
+  the money moved and Apple has the receipt.
+
+After the entitlement lands, `onPurchased` finishes what the user originally
+tapped: the alert subscription they wanted is created. That retry deliberately
+does NOT re-open the paywall if it fails — bouncing someone back into the wall
+they just paid to escape is the worst possible moment to ask again.
+
 **Account deletion cannot be left to the FK cascade.** `float_plans.user_id` is
 `ON DELETE SET NULL`, and float_plans treats a NULL `user_id` as the anonymous,
 world-readable tier — so cascading would PUBLISH a deleted user's saved floats

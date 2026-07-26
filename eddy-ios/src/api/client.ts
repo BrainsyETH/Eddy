@@ -303,3 +303,37 @@ export async function deleteAccount(token: string): Promise<MeDeleteResponse> {
 
   return (await response.json()) as MeDeleteResponse;
 }
+
+/**
+ * Poll /api/me/profile until the entitlement appears, after a purchase.
+ *
+ * WHY THIS IS NEEDED: a completed purchase means StoreKit is done, not that we
+ * know about it. The entitlement reaches our database through RevenueCat's
+ * webhook, which is fast but asynchronous — usually a second or two, longer if
+ * RevenueCat is retrying. Refreshing the profile once, immediately, reliably
+ * reads the state from BEFORE the purchase and tells a paying customer they
+ * have not paid.
+ *
+ * Returns false on timeout, and that is NOT a failure to show as an error. The
+ * money moved and Apple has the receipt; the only true statement is that it has
+ * not reached us yet. Callers say that, and let the user proceed.
+ */
+export async function waitForEntitlement(
+  token: string,
+  { attempts = 6, delayMs = 1200 }: { attempts?: number; delayMs?: number } = {},
+): Promise<boolean> {
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const profile = await fetchMeProfile(token);
+      if (profile?.entitlement?.isActive) return true;
+    } catch {
+      // A network blip mid-poll is not terminal — keep trying the remaining
+      // attempts rather than reporting a purchase as unconfirmed.
+    }
+    // No delay after the final attempt: nothing follows it.
+    if (i < attempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  return false;
+}
