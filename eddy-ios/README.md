@@ -227,6 +227,19 @@ allowance — which is the second, decisive reason `MAX_ZOOM` is 14.
 
 ## Builds (EAS)
 
+Full sandbox verification — sign-in, purchase, entitlement, push, deletion — is
+a runbook of its own: `missouri-float-planner/docs/SANDBOX_TESTING.md`. Two
+things from it are worth knowing before you build anything:
+
+- **A simulator can test none of it.** StoreKit sandbox and APNs both need a
+  real device, which is what the `development-device` profile is for.
+- **A sandbox purchase against production will never unlock.** Those rows are
+  tagged `environment='SANDBOX'` and ignored unless
+  `ALLOW_SANDBOX_ENTITLEMENTS` is set, which belongs on preview deploys only.
+  Set `EXPO_PUBLIC_API_BASE_URL` to a preview host; Profile prints it in accent
+  colour whenever the build is not pointed at production.
+
+
 `eas.json` defines three profiles. `eas init` has been run — `app.json` carries
 an `extra.eas.projectId` — so building only needs an Expo login:
 

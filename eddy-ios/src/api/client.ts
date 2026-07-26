@@ -29,8 +29,31 @@ import type {
 } from '@eddy/types';
 import type { ServerStar } from '@eddy/sync';
 
-const BASE_URL =
-  (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? 'https://eddy.guide';
+/**
+ * Which backend this build talks to.
+ *
+ * OVERRIDABLE FOR SANDBOX TESTING, and it has to be. A StoreKit sandbox
+ * purchase writes an entitlement row tagged environment='SANDBOX', and those
+ * rows are ignored at read time unless ALLOW_SANDBOX_ENTITLEMENTS is set —
+ * which belongs on preview deploys ONLY, because setting it in production
+ * would let anyone with a sandbox Apple ID unlock the paid product for free.
+ *
+ * So a build used for sandbox testing MUST point at a preview deploy. Against
+ * production the purchase succeeds at Apple, the webhook writes the row, and
+ * the app still reports no subscription — which looks exactly like a broken
+ * purchase flow rather than the safety interlock working as designed.
+ *
+ * Set EXPO_PUBLIC_API_BASE_URL per EAS environment (`eas env:create`). The
+ * fallback is production deliberately: a build that forgets the variable talks
+ * to production, which is wrong for testing but never dangerous.
+ */
+export const BASE_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL ||
+  (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ||
+  'https://eddy.guide';
+
+/** True when this build is NOT pointed at production — surfaced in Profile. */
+export const IS_NON_PRODUCTION_API = BASE_URL !== 'https://eddy.guide';
 
 export const USER_AGENT = 'EddyiOS/0.1';
 

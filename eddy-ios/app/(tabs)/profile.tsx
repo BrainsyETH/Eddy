@@ -44,7 +44,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { useAccount } from '@/hooks/useAccount';
-import { deleteAccount } from '@/api/client';
+import { deleteAccount, BASE_URL, IS_NON_PRODUCTION_API } from '@/api/client';
 import { restorePurchases, subscriptionSummary } from '@/lib/purchases';
 import { usePush } from '@/hooks/usePush';
 import { notificationDetail } from '@/lib/notificationCopy';
@@ -400,6 +400,16 @@ export default function ProfileScreen() {
         )}
 
         <Text style={[styles.version, { color: colors.textSubtle }]}>Eddy {version}</Text>
+
+        {/* Which backend this build talks to, shown ONLY when it is not
+            production. Sandbox testing lives or dies on this: a purchase that
+            succeeds at Apple but never unlocks looks identical whether the
+            cause is a bug or a build pointed at production, where SANDBOX
+            entitlements are correctly ignored. Naming the host turns ten
+            minutes of confusion into a glance. */}
+        {IS_NON_PRODUCTION_API && (
+          <Text style={[styles.version, { color: colors.accent }]}>{BASE_URL}</Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
