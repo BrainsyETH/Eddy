@@ -98,6 +98,13 @@ export interface OfflineRegion {
   /** Stable per-river, per-chunk id — Mapbox uses it as the pack name. */
   id: string;
   bounds: Bounds;
+  /**
+   * Tiles this region alone will fetch. Carried per region rather than
+   * recomputed because it weights the progress bar and, written into the pack
+   * metadata, lets the tile budget be reconstructed without asking Mapbox for a
+   * status that can fail while a download is still in flight.
+   */
+  tileCount: number;
 }
 
 export interface OfflinePlan {
@@ -128,12 +135,17 @@ export function planOffline(river: RiverDetail): OfflinePlan | null {
   const boxes = corridorBoxes(river.geometry.coordinates, CHUNK_SIZE, BUFFER_KM);
   if (boxes.length === 0) return null;
 
+  const regions: OfflineRegion[] = boxes.map((bounds, i) => ({
+    id: regionId(river.slug, i),
+    bounds,
+    tileCount: tileCountForRange(bounds, MIN_ZOOM, MAX_ZOOM),
+  }));
   const tileCount = tileCountForBoxes(boxes, MIN_ZOOM, MAX_ZOOM);
 
   return {
     riverSlug: river.slug,
     riverName: river.name,
-    regions: boxes.map((bounds, i) => ({ id: regionId(river.slug, i), bounds })),
+    regions,
     minZoom: MIN_ZOOM,
     maxZoom: MAX_ZOOM,
     tileCount,
@@ -171,13 +183,11 @@ export function riverSlugFromRegionId(id: string): string | null {
 export function overallProgress(
   regions: OfflineRegion[],
   percentByRegionId: Record<string, number>,
-  minZoom = MIN_ZOOM,
-  maxZoom = MAX_ZOOM,
 ): number {
   let weighted = 0;
   let total = 0;
   for (const region of regions) {
-    const weight = tileCountForRange(region.bounds, minZoom, maxZoom);
+    const weight = region.tileCount;
     total += weight;
     const pct = Math.max(0, Math.min(100, percentByRegionId[region.id] ?? 0));
     weighted += weight * pct;

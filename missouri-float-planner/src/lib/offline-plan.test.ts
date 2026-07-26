@@ -126,6 +126,25 @@ test('every region carries a distinct id and covers part of the river', () => {
   assert.equal(plan.regions.length, Math.ceil(632 / CHUNK_SIZE));
 });
 
+test('per-region tile counts sum to the plan total', () => {
+  const plan = planOffline(river());
+  assert.ok(plan);
+  // The budget check uses plan.tileCount; the progress bar and the pack
+  // metadata use the per-region figures. If those two ever disagree, the app
+  // would promise one download size and account for another.
+  const summed = plan.regions.reduce((n, r) => n + r.tileCount, 0);
+  assert.equal(summed, plan.tileCount);
+  assert.ok(plan.regions.every((r) => r.tileCount > 0));
+});
+
+test('regions differ in size, which is why progress is weighted', () => {
+  const plan = planOffline(river());
+  assert.ok(plan);
+  const counts = plan.regions.map((r) => r.tileCount);
+  // A flat average would only be equivalent if every region were the same size.
+  assert.ok(Math.max(...counts) > Math.min(...counts), 'regions were all equal');
+});
+
 test('progress is weighted by tile count, not a flat average', () => {
   const plan = planOffline(river());
   assert.ok(plan);

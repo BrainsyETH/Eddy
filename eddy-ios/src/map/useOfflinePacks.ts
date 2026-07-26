@@ -30,6 +30,26 @@ import {
 /** Mapbox's outdoors style: contours and trails, which is what a river needs. */
 export const STYLE_URL = 'mapbox://styles/mapbox/outdoors-v12';
 
+interface OfflineStatus {
+  percentage?: number;
+  state?: string | number;
+  completedTileCount?: number;
+}
+
+/**
+ * Whether a region has finished downloading.
+ *
+ * Checks both signals on purpose. The native side reports a string enum whose
+ * complete case is `"complete"`, but the JS layer compares against a module
+ * constant typed `string | number`, so the wire value is not guaranteed to be
+ * either one. Percentage is the reliable fallback.
+ */
+function isComplete(status: OfflineStatus | undefined): boolean {
+  if (!status) return false;
+  if ((status.percentage ?? 0) >= 100) return true;
+  return String(status.state ?? '').toLowerCase() === 'complete';
+}
+
 export interface DownloadState {
   riverSlug: string;
   /** 0-100, weighted by tile count across the river's regions. */
@@ -68,8 +88,18 @@ export function useOfflinePacks() {
       for (const pack of packs) {
         const slug = riverSlugFromRegionId(pack.name ?? '');
         if (!slug) continue; // A pack we didn't create — leave it alone.
-        const status = await pack.status();
-        const tiles = status?.completedTileCount ?? 0;
+
+        // status() reaches into the TileStore and rejects for a region that is
+        // still being written, so it must not be allowed to abandon the scan
+        // and leave the budget reading zero. The planned tile count we stored
+        // in metadata is the fallback: it over-counts a part-finished region,
+        // which is the safe direction for a budget check.
+        let tiles = 0;
+        try {
+          tiles = (await pack.status())?.completedTileCount ?? 0;
+        } catch {
+          tiles = Number(pack.metadata?.tileCount) || 0;
+        }
         usedTiles += tiles;
         const existing = byRiver[slug];
         byRiver[slug] = {
@@ -93,13 +123,25 @@ export function useOfflinePacks() {
   }, [refresh]);
 
   /**
-   * Downloads every region for a river.
+   * Downloads every region for a river, one at a time.
    *
-   * Regions are created SEQUENTIALLY. Firing ten createPack calls at once
-   * saturates the connection and — more importantly — makes a partial failure
-   * incoherent: you end up with some regions done, some not, and no useful
-   * progress figure. One at a time means an interrupted download leaves a
-   * prefix of complete regions that a later run can skip.
+   * The awaiting is the subtle part. `createPack` resolves as soon as the
+   * download STARTS, not when it finishes — the native module registers the
+   * pack, calls startLoading, and returns. Awaiting it therefore does not
+   * sequence anything: an earlier version of this loop fired all fifteen
+   * regions at once, reported completion immediately, and then raced its own
+   * refresh against regions the TileStore had not materialised yet, producing
+   * "Unable to fetch region for river:<slug>:0".
+   *
+   * So each region is wrapped in a promise settled by its own progress and
+   * error listeners. That makes the loop genuinely sequential, which matters
+   * for a reason beyond tidiness: fifteen concurrent downloads saturate a weak
+   * connection and leave a partial failure incoherent, whereas one at a time
+   * leaves a prefix of finished regions that a later run skips.
+   *
+   * There is deliberately no timeout. A river on poor signal can legitimately
+   * take many minutes, and cutting that off would break the exact case offline
+   * maps exist for. Failures surface through the error listener instead.
    */
   const download = useCallback(
     async (river: RiverDetail): Promise<{ ok: boolean; error?: string }> => {
@@ -122,29 +164,43 @@ export function useOfflinePacks() {
         for (const region of plan.regions) {
           const [minLng, minLat, maxLng, maxLat] = region.bounds;
           try {
-            await manager.createPack(
-              {
-                name: region.id,
-                styleURL: STYLE_URL,
-                // Mapbox wants [northEast, southWest] as [lng, lat] pairs — the
-                // opposite corner order to our [minLng, minLat, ...] bounds.
-                bounds: [
-                  [maxLng, maxLat],
-                  [minLng, minLat],
-                ],
-                minZoom: MIN_ZOOM,
-                maxZoom: MAX_ZOOM,
-                metadata: { riverSlug: river.slug, riverName: river.name },
-              },
-              (_pack: unknown, status: { percentage?: number } | undefined) => {
-                progressRef.current[region.id] = status?.percentage ?? 0;
-                setActive((prev) =>
-                  prev && prev.riverSlug === river.slug
-                    ? { ...prev, percent: overallProgress(plan.regions, progressRef.current) }
-                    : prev,
-                );
-              },
-            );
+            await new Promise<void>((resolve, reject) => {
+              manager
+                .createPack(
+                  {
+                    name: region.id,
+                    styleURL: STYLE_URL,
+                    // Mapbox wants [northEast, southWest] as [lng, lat] pairs —
+                    // the opposite corner order to our [minLng, minLat, …].
+                    bounds: [
+                      [maxLng, maxLat],
+                      [minLng, minLat],
+                    ],
+                    minZoom: MIN_ZOOM,
+                    maxZoom: MAX_ZOOM,
+                    // tileCount rides along so the budget can be rebuilt from
+                    // metadata alone when a status call is unavailable.
+                    metadata: {
+                      riverSlug: river.slug,
+                      riverName: river.name,
+                      tileCount: region.tileCount,
+                    },
+                  },
+                  (_pack: unknown, status: OfflineStatus | undefined) => {
+                    progressRef.current[region.id] = status?.percentage ?? 0;
+                    setActive((prev) =>
+                      prev && prev.riverSlug === river.slug
+                        ? { ...prev, percent: overallProgress(plan.regions, progressRef.current) }
+                        : prev,
+                    );
+                    if (isComplete(status)) resolve();
+                  },
+                  (_pack: unknown, err: { message?: string } | undefined) => {
+                    reject(new Error(err?.message ?? 'Download failed'));
+                  },
+                )
+                .catch(reject);
+            });
           } catch (err) {
             // createPack rejects when a pack of that name already exists, which
             // is the normal shape of resuming an interrupted download rather
