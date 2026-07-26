@@ -12,6 +12,9 @@
       "@eddy/offline": [
         "../packages/eddy-offline/index.ts"
       ],
+      "@eddy/sync": [
+        "../packages/eddy-sync/index.ts"
+      ],
       "@eddy/geo": [
         "../packages/eddy-geo/index.ts"
       ],
@@ -28,6 +31,7 @@
     "../packages/eddy-types/index.ts",
     "../packages/eddy-geo/index.ts",
     "../packages/eddy-offline/index.ts",
+    "../packages/eddy-sync/index.ts",
     "../missouri-float-planner/shared/condition-system.ts"
   ]
 }

@@ -17,7 +17,9 @@ import type {
   RiverDetailResponse,
   RiversResponse,
   RiverListItem,
+  StarredRiversResponse,
 } from '@eddy/types';
+import type { ServerStar } from '@eddy/sync';
 
 const BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? 'https://eddy.guide';
@@ -51,6 +53,64 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   }
 
   return (await response.json()) as T;
+}
+
+/**
+ * Authenticated request against /api/me/*.
+ *
+ * A 401 is returned as null rather than thrown: the caller's job is to fall
+ * back to local data, and an expired session is an ordinary event, not an
+ * error worth surfacing.
+ */
+async function authed<T>(
+  path: string,
+  token: string,
+  init?: { method?: string; body?: unknown; signal?: AbortSignal },
+): Promise<T | null> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: init?.method ?? 'GET',
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': USER_AGENT,
+      Authorization: `Bearer ${token}`,
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: init?.body ? JSON.stringify(init.body) : undefined,
+    signal: init?.signal,
+  });
+
+  if (response.status === 401 || response.status === 403) return null;
+  if (!response.ok) {
+    throw new ApiError(`Request failed (${response.status})`, response.status);
+  }
+  return (await response.json()) as T;
+}
+
+/** The caller's starred rivers. Null when the session is not usable. */
+export async function fetchStarredRivers(
+  token: string,
+  signal?: AbortSignal,
+): Promise<ServerStar[] | null> {
+  const data = await authed<StarredRiversResponse>('/api/me/starred-rivers', token, { signal });
+  if (!data) return null;
+  return data.starred.map((entry) => ({
+    riverId: entry.riverId,
+    riverName: entry.riverName,
+    riverSlug: entry.riverSlug,
+    starredAt: entry.starredAt,
+  }));
+}
+
+export async function starRiver(token: string, riverId: string): Promise<void> {
+  await authed('/api/me/starred-rivers', token, { method: 'POST', body: { riverId } });
+}
+
+export async function unstarRiver(token: string, riverId: string): Promise<void> {
+  await authed(
+    `/api/me/starred-rivers?riverId=${encodeURIComponent(riverId)}`,
+    token,
+    { method: 'DELETE' },
+  );
 }
 
 /** All curated Eddy Rivers with their current condition. */
