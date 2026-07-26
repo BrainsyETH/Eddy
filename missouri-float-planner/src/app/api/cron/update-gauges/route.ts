@@ -14,6 +14,7 @@ import { regenerateGaugeUpdate } from '@/lib/eddy/regenerate-gauge';
 import { confirmsGaugeConditionChange, MAX_GAUGE_REGENS_PER_POLL } from '@/lib/eddy/gauge-update-policy';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { gateReading, type GateRejection } from '@/lib/alerts/gate';
+import { logger } from '@/lib/logger';
 import { classifyEventKind } from '@/lib/alerts/event-kind';
 
 // Force dynamic rendering (cron endpoint)
@@ -629,6 +630,41 @@ async function runUpdate(request: NextRequest) {
     }
 
     const executionTime = new Date().toISOString();
+
+    // ── Alert-pipeline observability ────────────────────────────────
+    // Vercel does not store cron responses, so the counters below would
+    // otherwise be invisible: a gate rejecting every reading looks exactly like
+    // a quiet river day. One structured line per run makes it greppable, and
+    // genuine anomalies go through the logger chokepoint so they reach whatever
+    // reporter instrumentation.ts registered (ERROR_WEBHOOK_URL today).
+    const gatedTotal = Object.values(gatedReadings).reduce((sum, n) => sum + (n ?? 0), 0);
+    logger.info('[update-gauges] alert pipeline', {
+      wiredStations: wiredEntries.length,
+      conditionChanges,
+      gatedTotal,
+      gatedReadings,
+      outboxOutcomes,
+      outboxErrors,
+      isHighFrequencyPoll,
+    });
+
+    if (outboxErrors > 0) {
+      // The outbox is the durability guarantee — failures here mean transitions
+      // are being re-detected rather than recorded, and must not stay silent.
+      logger.error(
+        '[update-gauges] outbox writes failed',
+        new Error(`record_condition_transition failed ${outboxErrors}x`),
+        { outboxErrors, outboxOutcomes }
+      );
+    } else if (wiredEntries.length > 0 && gatedTotal >= wiredEntries.length) {
+      // Every wired gauge rejected: far more likely a provider/format change or
+      // an over-tight gate than every sensor failing at once.
+      logger.error(
+        '[update-gauges] every wired reading was gated',
+        new Error(`all ${gatedTotal} wired readings rejected by the quality gate`),
+        { gatedReadings, wiredStations: wiredEntries.length }
+      );
+    }
 
     return NextResponse.json({
       message: 'Gauge update complete',
