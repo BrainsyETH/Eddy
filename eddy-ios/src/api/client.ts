@@ -7,7 +7,13 @@
 // the free path (see src/lib/x402/ in the web app).
 
 import Constants from 'expo-constants';
-import type { AppConfigResponse, RiversResponse, RiverListItem } from '@eddy/types';
+import type {
+  AlertFeedEntry,
+  AlertsResponse,
+  AppConfigResponse,
+  RiversResponse,
+  RiverListItem,
+} from '@eddy/types';
 
 const BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? 'https://eddy.guide';
@@ -62,4 +68,14 @@ export async function fetchAppConfig(signal?: AbortSignal): Promise<AppConfigRes
   } catch {
     return null;
   }
+}
+
+/**
+ * Public condition-change feed. Free to read and requires no account, which is
+ * why the app filters to locally-starred rivers on the client rather than
+ * asking the server for "my" alerts.
+ */
+export async function fetchAlerts(signal?: AbortSignal): Promise<AlertFeedEntry[]> {
+  const data = await get<AlertsResponse>('/api/alerts?limit=100', signal);
+  return data.alerts ?? [];
 }

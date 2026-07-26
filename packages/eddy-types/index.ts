@@ -89,6 +89,26 @@ export interface RiverConditionEvent {
  */
 export const ALERT_LATENCY_NOTE = 'Conditions are checked regularly; readings can lag the river by up to about an hour.';
 
+export interface AlertFeedEntry {
+  id: string;
+  riverId: string;
+  riverName: string;
+  riverSlug: string;
+  oldConditionCode: ConditionCode;
+  newConditionCode: ConditionCode;
+  kind: EventKind;
+  /** In the gauge's primary unit only — never a cross-unit fallback. */
+  readingValue: number | null;
+  readingUnit: 'ft' | 'cfs' | null;
+  /** When the river was MEASURED. Quote this, not detectedAt. */
+  readingAt: string | null;
+  detectedAt: string;
+}
+
+export interface AlertsResponse {
+  alerts: AlertFeedEntry[];
+}
+
 // ── Consumer account endpoints (/api/me/*) ───────────────────────
 
 export interface MeEntitlement {
