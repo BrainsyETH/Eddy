@@ -1,11 +1,17 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '@/theme/conditions';
+import { useTheme } from '@/theme/ThemeProvider';
+import { fonts } from '@/theme/typography';
 
 // The five tabs from the product plan: Map, River Reports, Alerts, Favorites,
-// Profile. Reports is the only one wired to live data in this shell — it needs
-// no new backend, so it proves the whole path end to end.
+// Profile.
+//
+// Tab colours come from the hook rather than a constant because the bar has to
+// repaint when the system flips scheme — a frozen tabBarStyle would leave a
+// teal bar sitting under a light app.
 export default function TabsLayout() {
+  const { colors } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
@@ -13,10 +19,10 @@ export default function TabsLayout() {
         // so the navigator header would be a second "Map"/"Alerts" above it.
         // `title` below is still used — it names the tab in the bar.
         headerShown: false,
-        tabBarStyle: { backgroundColor: COLORS.card, borderTopColor: COLORS.border },
-        tabBarLabelStyle: { fontSize: 11 },
-        tabBarActiveTintColor: COLORS.accentOnDark,
-        tabBarInactiveTintColor: COLORS.textMuted,
+        tabBarStyle: { backgroundColor: colors.chrome, borderTopColor: colors.border },
+        tabBarLabelStyle: { fontSize: 11, fontFamily: fonts.medium },
+        tabBarActiveTintColor: colors.accentActive,
+        tabBarInactiveTintColor: colors.textMuted,
       }}
     >
       <Tabs.Screen

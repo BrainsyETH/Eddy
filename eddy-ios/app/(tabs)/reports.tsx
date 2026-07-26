@@ -22,13 +22,16 @@ import { Ionicons } from '@expo/vector-icons';
 import type { RiverListItem } from '@eddy/types';
 import { ApiError, fetchRivers } from '@/api/client';
 import {
-  COLORS,
   conditionBg,
+  conditionChipBorder,
   conditionColor,
+  conditionInk,
   conditionLabel,
   floatableRank,
   isFloatableNow,
 } from '@/theme/conditions';
+import { useTheme } from '@/theme/ThemeProvider';
+import { fonts, type as t } from '@/theme/typography';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 
 export default function ReportsScreen() {
@@ -36,6 +39,7 @@ export default function ReportsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const { isStarred, toggleStar, ready: starsReady } = useStarredRivers();
+  const { colors, elevation } = useTheme();
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -79,47 +83,58 @@ export default function ReportsScreen() {
 
   if (!rivers && !error) {
     return (
-      <SafeAreaView style={styles.centered} edges={['top']}>
-        <ActivityIndicator color={COLORS.accent} />
+      <SafeAreaView style={[styles.centered, { backgroundColor: colors.bg }]} edges={['top']}>
+        <ActivityIndicator color={colors.accent} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <FlatList
         data={sorted}
         keyExtractor={(item) => item.id}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
         }
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text style={styles.title}>River Reports</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.title, { color: colors.text }]}>River Reports</Text>
+            <Text style={[styles.subtitle, { color: colors.textMuted }]}>
               {error ? error : `${floatableCount} of ${sorted.length} rivers floatable right now`}
             </Text>
           </View>
         }
         ListEmptyComponent={
           <View style={styles.centered}>
-            <Text style={styles.subtitle}>{error ?? 'No rivers found'}</Text>
+            <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+              {error ?? 'No rivers found'}
+            </Text>
           </View>
         }
         renderItem={({ item }) => {
           const code = item.currentCondition?.code ?? 'unknown';
           const starred = isStarred(item.id);
           return (
-            <View style={styles.row}>
+            <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>
               <View style={[styles.dot, { backgroundColor: conditionColor(code) }]} />
               <View style={styles.rowBody}>
-                <Text style={styles.riverName}>{item.name}</Text>
-                <Text style={styles.riverMeta}>
+                <Text style={[styles.riverName, { color: colors.text }]}>{item.name}</Text>
+                <Text style={[styles.riverMeta, { color: colors.textMuted }]}>
                   {item.region ?? item.state} · {item.accessPointCount} access points
                 </Text>
               </View>
-              <View style={[styles.chip, { backgroundColor: conditionBg(code) }]}>
-                <Text style={[styles.chipText, { color: conditionColor(code) }]}>
+              <View
+                style={[
+                  styles.chip,
+                  { backgroundColor: conditionBg(code), borderColor: conditionChipBorder(code) },
+                ]}
+              >
+                {/* ink, never `solid`, and never white: the canonical file is
+                    explicit that white text on the light condition fills fails
+                    contrast. On dark the tint is translucent, so ink still
+                    reads. */}
+                <Text style={[styles.chipText, { color: conditionInk(code) }]}>
                   {item.currentCondition?.label ?? conditionLabel(code)}
                 </Text>
               </View>
@@ -134,7 +149,7 @@ export default function ReportsScreen() {
                 <Ionicons
                   name={starred ? 'star' : 'star-outline'}
                   size={22}
-                  color={starred ? COLORS.warm : COLORS.textSubtle}
+                  color={starred ? colors.warm : colors.textSubtle}
                 />
               </Pressable>
             </View>
@@ -146,33 +161,30 @@ export default function ReportsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.bg },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.bg,
-    padding: 24,
-  },
+  screen: { flex: 1 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
-  title: { color: COLORS.text, fontSize: 30, fontWeight: '700' },
-  subtitle: { color: COLORS.textMuted, fontSize: 15, marginTop: 4 },
+  title: { ...t['3xl'], fontFamily: fonts.heading },
+  subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
     marginHorizontal: 16,
     marginBottom: 10,
     padding: 14,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
   rowBody: { flex: 1 },
-  riverName: { color: COLORS.text, fontSize: 17, fontWeight: '600' },
-  riverMeta: { color: COLORS.textMuted, fontSize: 13, marginTop: 2 },
-  chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, marginRight: 4 },
-  chipText: { fontSize: 12, fontWeight: '700' },
+  riverName: { ...t.base, fontFamily: fonts.semibold },
+  riverMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginRight: 4,
+  },
+  chipText: { ...t.xs, fontFamily: fonts.semibold },
   starButton: { paddingLeft: 8, paddingVertical: 4 },
 });

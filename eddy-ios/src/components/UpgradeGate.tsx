@@ -10,22 +10,28 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ReactNode } from 'react';
 import { useAppConfig } from '@/hooks/useAppConfig';
-import { COLORS } from '@/theme/conditions';
+import { useTheme } from '@/theme/ThemeProvider';
+import { fonts, type as t } from '@/theme/typography';
+import { Otter } from '@/components/Otter';
 
 export function UpgradeGate({ children }: { children: ReactNode }) {
   const { upgradeRequired, config } = useAppConfig();
+  const { colors } = useTheme();
 
   if (!upgradeRequired) return <>{children}</>;
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]}>
       <View style={styles.body}>
-        <Text style={styles.title}>Time to update Eddy</Text>
-        <Text style={styles.message}>
+        {/* The "flag" mood is the canonical caution otter — a dead end still
+            gets a face rather than a wall of text. */}
+        <Otter mood="flag" size={110} />
+        <Text style={[styles.title, { color: colors.text }]}>Time to update Eddy</Text>
+        <Text style={[styles.message, { color: colors.textMuted }]}>
           {config?.upgradeMessage ??
             'This version is out of date and can no longer show accurate river conditions. Please update from the App Store.'}
         </Text>
-        <Text style={styles.footnote}>
+        <Text style={[styles.footnote, { color: colors.textSubtle }]}>
           River conditions change fast — an outdated app could show you the wrong water.
         </Text>
       </View>
@@ -34,9 +40,9 @@ export function UpgradeGate({ children }: { children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.bg },
+  screen: { flex: 1 },
   body: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  title: { color: COLORS.text, fontSize: 26, fontWeight: '700', marginBottom: 12, textAlign: 'center' },
-  message: { color: COLORS.textMuted, fontSize: 16, textAlign: 'center', lineHeight: 24 },
-  footnote: { color: COLORS.textMuted, fontSize: 13, textAlign: 'center', marginTop: 24, opacity: 0.8 },
+  title: { ...t['2xl'], fontFamily: fonts.heading, marginTop: 14, marginBottom: 12, textAlign: 'center' },
+  message: { ...t.base, fontFamily: fonts.body, textAlign: 'center' },
+  footnote: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: 24 },
 });

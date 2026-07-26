@@ -18,7 +18,6 @@ import {
   type ConditionCode,
 } from '@shared/condition-system';
 
-export { COLORS } from './palette';
 export type { ConditionCode };
 
 /** Solid brand colour for a condition. Never hardcode these. */
@@ -26,9 +25,32 @@ export function conditionColor(code: string): string {
   return CONDITION_SYSTEM[code as ConditionCode]?.solid ?? CONDITION_SYSTEM.unknown.solid;
 }
 
-/** Translucent fill for chips and badges. */
+/**
+ * Translucent fill for chips and badges.
+ *
+ * An rgba tint, not a hex — which is precisely why condition colours need no
+ * light/dark variants: the same tint composites correctly over a warm off-white
+ * canvas and over near-black stone.
+ */
 export function conditionBg(code: string): string {
   return CONDITION_SYSTEM[code as ConditionCode]?.bg ?? CONDITION_SYSTEM.unknown.bg;
+}
+
+/**
+ * Accessible dark text/icon colour for use ON the `bg` tint.
+ *
+ * The canonical file is explicit: "NEVER print white text on the light condition
+ * fills — use tint + ink." These clear WCAG 2.2 AA at 4.5:1.
+ */
+export function conditionInk(code: string): string {
+  return CONDITION_SYSTEM[code as ConditionCode]?.ink ?? CONDITION_SYSTEM.unknown.ink;
+}
+
+/** Border for a tinted chip — a mid tint of the same hue. */
+export function conditionChipBorder(code: string): string {
+  return (
+    CONDITION_SYSTEM[code as ConditionCode]?.chipBorder ?? CONDITION_SYSTEM.unknown.chipBorder
+  );
 }
 
 /**

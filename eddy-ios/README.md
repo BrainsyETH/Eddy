@@ -65,6 +65,50 @@ transitive dependencies (`expo-asset` under `node_modules/expo/`). Disabling
 hierarchical lookup makes Metro refuse to look inside them and the bundle fails
 with `Unable to resolve module expo-asset`.
 
+## Theming
+
+Light and dark, following the system setting (`useColorScheme`). `DESIGN.md` is a
+light, desktop-first web system; its neutral scale also names the dark-mode
+surfaces, so both palettes come from the document rather than one being an
+inversion of the other.
+
+**The rule that makes it work:** `StyleSheet.create` runs ONCE at module import,
+so a colour written into a StyleSheet is frozen at whichever scheme the app
+launched with. The convention is therefore a split:
+
+- `StyleSheet.create` — layout, spacing, radii, type. **Never colour.**
+- inline `style` props — colour, from `useTheme()`.
+
+`src/lib/app-theme.test.ts` in the web app enforces this, along with both
+palettes defining every semantic role (a missing key renders as a transparent
+label on one scheme only, which is easy to miss).
+
+### Translating, not transcribing
+
+`DESIGN.md`'s signature is a hard-edged offset shadow (`3px 3px 0 #A49C8E`,
+never blurred) with a hover lift. That is a web idiom — it reads as an
+affectation on iOS and pairs with a hover state touch does not have. So the
+brand's *structure* carries over (cards stay distinct, bordered objects) while
+depth is retranslated in `elevation()`: soft downward shadow on light, border
+weight on dark, where a shadow against near-black is invisible anyway.
+
+Fredoka, Geist and Geist Mono carry over unchanged. Mono for gauge readings is
+functional, not decorative: proportional digits change width as a number ticks,
+so a reading going from `1.51 ft` to `1.62 ft` shifts the whole row.
+
+**Import fonts from the weight subpath** (`@expo-google-fonts/geist/400Regular`),
+never the package root. Each package's index re-exports every weight it ships and
+Metro bundles what is reachable — the root import put ~8 MB of TTFs in the export
+for the eight faces actually used.
+
+### Eddy the Otter
+
+`CONDITION_SYSTEM` assigns every condition an `otter` mood, so which otter to
+show is already a decision the canonical system has made — `src/components/Otter.tsx`
+just draws it. The source art in `remotion/public/eddy` is video resolution
+(~700 KB each); `assets/otter/` holds 300px copies, which took the set from
+4.58 MB to 193 KB.
+
 ## Condition colours and labels
 
 Import them from `@shared/condition-system` via `src/theme/conditions.ts`. Never

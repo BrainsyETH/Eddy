@@ -19,12 +19,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { MapAccessPoint, RiverDetail, RiverListItem } from '@eddy/types';
 import { ApiError, fetchRiverAccessPoints, fetchRiverDetail, fetchRivers } from '@/api/client';
-import { COLORS, conditionColor, conditionLabel, floatableRank } from '@/theme/conditions';
+import { conditionColor, conditionLabel, floatableRank } from '@/theme/conditions';
+import { useTheme } from '@/theme/ThemeProvider';
+import { fonts, type as t } from '@/theme/typography';
 import { RiverMap } from '@/map/RiverMap';
 import { mapUnavailableReason } from '@/map/runtime';
 import { planOffline } from '@eddy/offline';
 import { useOfflinePacks } from '@/map/useOfflinePacks';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { Otter } from '@/components/Otter';
 
 export default function MapScreen() {
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
@@ -38,6 +41,7 @@ export default function MapScreen() {
   const { isStarred } = useStarredRivers();
   const packs = useOfflinePacks();
   const unavailable = mapUnavailableReason();
+  const { colors } = useTheme();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -127,13 +131,13 @@ export default function MapScreen() {
   const conditionCode = selected?.currentCondition?.code ?? 'unknown';
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Map</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Map</Text>
         {selected ? (
           <View style={styles.headerMeta}>
             <View style={[styles.dot, { backgroundColor: conditionColor(conditionCode) }]} />
-            <Text style={styles.headerMetaText}>
+            <Text style={[styles.headerMetaText, { color: colors.textMuted }]}>
               {selected.name} · {conditionLabel(conditionCode)}
             </Text>
           </View>
@@ -152,7 +156,11 @@ export default function MapScreen() {
             <Pressable
               key={river.id}
               onPress={() => setSelectedSlug(river.slug)}
-              style={[styles.chip, active && styles.chipActive]}
+              style={[
+                styles.chip,
+                { backgroundColor: colors.card, borderColor: colors.border },
+                active && { backgroundColor: colors.cardRaised, borderColor: colors.accent },
+              ]}
             >
               <View
                 style={[
@@ -160,9 +168,11 @@ export default function MapScreen() {
                   { backgroundColor: conditionColor(river.currentCondition?.code ?? 'unknown') },
                 ]}
               />
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{river.name}</Text>
+              <Text style={[styles.chipText, { color: active ? colors.text : colors.textMuted }]}>
+                {river.name}
+              </Text>
               {packs.isDownloaded(river.slug) ? (
-                <Ionicons name="cloud-done" size={13} color={COLORS.success} />
+                <Ionicons name="cloud-done" size={13} color={colors.success} />
               ) : null}
             </Pressable>
           );
@@ -174,7 +184,7 @@ export default function MapScreen() {
           <MapUnavailable reason={unavailable} />
         ) : loadingDetail || !detail ? (
           <View style={styles.centered}>
-            <ActivityIndicator color={COLORS.accent} />
+            <ActivityIndicator color={colors.accent} />
           </View>
         ) : (
           <RiverMap river={detail} accessPoints={accessPoints} conditionCode={conditionCode} />
@@ -182,22 +192,37 @@ export default function MapScreen() {
       </View>
 
       <View style={styles.footer}>
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? <Text style={[styles.errorText, { color: colors.warm }]}>{error}</Text> : null}
 
         {packs.active ? (
           <View style={styles.progressRow}>
-            <ActivityIndicator color={COLORS.accent} size="small" />
-            <Text style={styles.progressText}>Downloading… {packs.active.percent}%</Text>
+            <ActivityIndicator color={colors.accent} size="small" />
+            <Text style={[styles.progressText, { color: colors.text }]}>
+              Downloading… {packs.active.percent}%
+            </Text>
           </View>
         ) : unavailable ? null : isDownloaded ? (
-          <Pressable style={styles.secondaryButton} onPress={onRemove} disabled={busy}>
-            <Ionicons name="trash-outline" size={16} color={COLORS.textMuted} />
-            <Text style={styles.secondaryButtonText}>Remove offline map</Text>
+          <Pressable
+            style={[styles.secondaryButton, { borderColor: colors.border }]}
+            onPress={onRemove}
+            disabled={busy}
+          >
+            <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
+            <Text style={[styles.secondaryButtonText, { color: colors.textMuted }]}>
+              Remove offline map
+            </Text>
           </Pressable>
         ) : plan ? (
-          <Pressable style={styles.button} onPress={onDownload} disabled={busy}>
-            <Ionicons name="cloud-download-outline" size={17} color="#FFFFFF" />
-            <Text style={styles.buttonText}>Download for offline · {plan.sizeLabel}</Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+            ]}
+            onPress={onDownload}
+            disabled={busy}
+          >
+            <Ionicons name="cloud-download-outline" size={17} color={colors.onAccent} />
+            <Text style={[styles.buttonText, { color: colors.onAccent }]}>Download for offline · {plan.sizeLabel}</Text>
           </Pressable>
         ) : null}
 
@@ -205,7 +230,7 @@ export default function MapScreen() {
           // Stating the size before the tap is the point of the tile maths.
           // Downloading the plain bounding box instead of following the river
           // would be several times this, so the number is worth showing.
-          <Text style={styles.footnote}>
+          <Text style={[styles.footnote, { color: colors.textSubtle }]}>
             {plan.regions.length} areas along the river, zoom {plan.minZoom}–{plan.maxZoom}.
             Works with no signal once downloaded.
           </Text>
@@ -220,6 +245,7 @@ export default function MapScreen() {
  * so beats an infinite spinner that looks like a network problem.
  */
 function MapUnavailable({ reason }: { reason: 'expo-go' | 'missing-token' | 'load-failed' }) {
+  const { colors } = useTheme();
   const copy = {
     'expo-go': {
       title: 'Map needs a full build',
@@ -237,20 +263,20 @@ function MapUnavailable({ reason }: { reason: 'expo-go' | 'missing-token' | 'loa
 
   return (
     <View style={styles.centered}>
-      <Ionicons name="map-outline" size={44} color={COLORS.textSubtle} />
-      <Text style={styles.unavailableTitle}>{copy.title}</Text>
-      <Text style={styles.unavailableBody}>{copy.body}</Text>
+      <Otter mood="flag" size={110} />
+      <Text style={[styles.unavailableTitle, { color: colors.text }]}>{copy.title}</Text>
+      <Text style={[styles.unavailableBody, { color: colors.textMuted }]}>{copy.body}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.bg },
+  screen: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 12 },
-  title: { color: COLORS.text, fontSize: 30, fontWeight: '700' },
+  title: { ...t['3xl'], fontFamily: fonts.heading },
   headerMeta: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 },
   dot: { width: 9, height: 9, borderRadius: 999 },
-  headerMetaText: { color: COLORS.textMuted, fontSize: 14 },
+  headerMetaText: { ...t.sm, fontFamily: fonts.body },
   // A horizontal ScrollView in a column stretches to fill the cross axis by
   // default, which made every chip as tall as the free space and squeezed the
   // map into a strip. flexGrow: 0 sizes the row to its content; alignItems
@@ -265,46 +291,34 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.card,
   },
-  chipActive: { borderColor: COLORS.accent, backgroundColor: COLORS.cardRaised },
   chipDot: { width: 7, height: 7, borderRadius: 999 },
-  chipText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
-  chipTextActive: { color: COLORS.text },
+  chipText: { ...t.xs, fontFamily: fonts.semibold },
   mapArea: { flex: 1, overflow: 'hidden' },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
-  unavailableTitle: { color: COLORS.text, fontSize: 18, fontWeight: '600', marginTop: 14 },
-  unavailableBody: {
-    color: COLORS.textMuted,
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 21,
-  },
+  unavailableTitle: { ...t.lg, fontFamily: fonts.semibold, marginTop: 10 },
+  unavailableBody: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },
   footer: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
-  errorText: { color: COLORS.warm, fontSize: 13, marginBottom: 10 },
+  errorText: { ...t.xs, fontFamily: fonts.body, marginBottom: 10 },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: COLORS.accent,
     paddingVertical: 13,
     borderRadius: 12,
   },
-  buttonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  buttonText: { ...t.base, fontFamily: fonts.heading },
   secondaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: COLORS.border,
     paddingVertical: 12,
     borderRadius: 12,
   },
-  secondaryButtonText: { color: COLORS.textMuted, fontSize: 14, fontWeight: '600' },
+  secondaryButtonText: { ...t.sm, fontFamily: fonts.semibold },
   progressRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -312,12 +326,6 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 13,
   },
-  progressText: { color: COLORS.text, fontSize: 15, fontWeight: '600' },
-  footnote: {
-    color: COLORS.textSubtle,
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 17,
-  },
+  progressText: { ...t.base, fontFamily: fonts.semibold },
+  footnote: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },
 });

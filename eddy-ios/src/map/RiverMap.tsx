@@ -9,7 +9,8 @@
 import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { MapAccessPoint, RiverDetail } from '@eddy/types';
-import { COLORS, conditionColor } from '@/theme/conditions';
+import { conditionColor } from '@/theme/conditions';
+import { useTheme } from '@/theme/ThemeProvider';
 import { loadMapbox } from './runtime';
 import { STYLE_URL } from './useOfflinePacks';
 
@@ -23,6 +24,7 @@ interface Props {
 
 export function RiverMap({ river, accessPoints, conditionCode, onSelectAccessPoint }: Props) {
   const Mapbox = loadMapbox();
+  const { colors } = useTheme();
 
   const lineFeature = useMemo(
     () => ({
@@ -66,12 +68,12 @@ export function RiverMap({ river, accessPoints, conditionCode, onSelectAccessPoi
 
   // The caller is responsible for not rendering this when Mapbox is unavailable;
   // this guard is here so a mistake shows an empty map rather than a red screen.
-  if (!Mapbox) return <View style={styles.fill} />;
+  if (!Mapbox) return <View style={[styles.fill, { backgroundColor: colors.bg }]} />;
 
   const stroke = conditionColor(conditionCode);
 
   return (
-    <Mapbox.MapView style={styles.fill} styleURL={STYLE_URL} scaleBarEnabled={false}>
+    <Mapbox.MapView style={[styles.fill, { backgroundColor: colors.bg }]} styleURL={STYLE_URL} scaleBarEnabled={false}>
       <Mapbox.Camera
         // defaultSettings is not optional here. `bounds` alone is applied as an
         // UPDATE, and on first mount there is nothing to update from — the map
@@ -128,8 +130,8 @@ export function RiverMap({ river, accessPoints, conditionCode, onSelectAccessPoi
               'match',
               ['get', 'access'],
               'public',
-              COLORS.accent,
-              COLORS.textSubtle,
+              colors.accent,
+              colors.textSubtle,
             ],
             circleStrokeWidth: 2,
             circleStrokeColor: '#FFFFFF',
@@ -145,7 +147,7 @@ export function RiverMap({ river, accessPoints, conditionCode, onSelectAccessPoi
             textSize: 11,
             textOffset: [0, 1.2],
             textAnchor: 'top',
-            textColor: COLORS.text,
+            textColor: colors.text,
             textHaloColor: '#FFFFFF',
             textHaloWidth: 1.5,
           }}
@@ -156,5 +158,5 @@ export function RiverMap({ river, accessPoints, conditionCode, onSelectAccessPoi
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: COLORS.bg },
+  fill: { flex: 1 },
 });
