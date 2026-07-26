@@ -464,12 +464,24 @@ async function _GET(
       }
     }
 
+    // The ladder belonging to the gauge this condition actually came from, so a
+    // client can draw the band track beside the reading without a second fetch.
+    // Matched by site id rather than isPrimary: the condition may have been
+    // computed from a segment-selected gauge, and banding a reading against a
+    // different gauge's thresholds would put the marker in the wrong band.
+    const sourceGauge =
+      gaugeSummaries.find((g) => g.usgsSiteId && g.usgsSiteId === finalCondition.gaugeUsgsId) ??
+      gaugeSummaries.find((g) => g.isPrimary);
+
     finalCondition = {
       ...finalCondition,
       flowRating: thresholdBasedRating,
       flowDescription: thresholdBasedDescription,
       percentile,
       medianDischargeCfs,
+      // ?? undefined, not ?? null: the field is optional, and JSON.stringify
+      // drops an undefined key entirely rather than sending "thresholds": null.
+      thresholds: sourceGauge?.thresholds ?? undefined,
       usgsUrl: finalCondition.gaugeUsgsId
         ? `https://waterdata.usgs.gov/monitoring-location/${finalCondition.gaugeUsgsId}/`
         : null,

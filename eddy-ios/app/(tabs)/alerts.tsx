@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12 },
-  title: { ...t['3xl'], fontFamily: fonts.heading },
+  title: { ...t['3xl'], fontFamily: fonts.display },
   toggleRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
   toggle: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1 },
   toggleText: { ...t.xs, fontFamily: fonts.semibold },

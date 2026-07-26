@@ -263,6 +263,20 @@ export interface RiverCondition {
   percentile?: number | null;
   /** Median (50th percentile) discharge for this date in cfs */
   medianDischargeCfs?: number | null;
+  /**
+   * The condition ladder for the gauge this reading came from, in that gauge's
+   * threshold unit. Lets a client band the reading — draw the scale it sits on
+   * — without a second request. Same shape as ConditionGauge.thresholds.
+   */
+  thresholds?: {
+    levelTooLow: number | null;
+    levelLow: number | null;
+    levelOptimalMin: number | null;
+    levelOptimalMax: number | null;
+    levelHigh: number | null;
+    levelDangerous: number | null;
+    thresholdUnit?: 'ft' | 'cfs';
+  };
   /** Link to USGS gauge page for more details */
   usgsUrl?: string | null;
 }

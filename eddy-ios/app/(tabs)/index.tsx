@@ -311,7 +311,7 @@ function MapUnavailable({ reason }: { reason: 'expo-go' | 'missing-token' | 'loa
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 12 },
-  title: { ...t['3xl'], fontFamily: fonts.heading },
+  title: { ...t['3xl'], fontFamily: fonts.display },
   headerMeta: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 },
   dot: { width: 9, height: 9, borderRadius: 999 },
   headerMetaText: { ...t.sm, fontFamily: fonts.body },

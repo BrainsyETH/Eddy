@@ -145,14 +145,10 @@ export const CFS_EXPLAINER = {
 // Both derive from CONDITION_SYSTEM, so high stays orange and contrast stays AA.
 
 // Default threshold descriptions for the condition thresholds table
-export const DEFAULT_THRESHOLD_DESCRIPTIONS: Record<string, string> = {
-  tooLow: 'Expect frequent dragging on gravel bars. Recommended for wading only.',
-  low: 'Floatable but expect occasional scraping. Lighter boats recommended.',
-  good: 'Floatable conditions. Some shallow spots possible.',
-  flowing: 'Ideal conditions. All boats clear, gentle current, crystal clear water.',
-  high: 'Moving quick. Experienced paddlers only; expect submerged obstacles and root-balls.',
-  flood: 'Dangerous. High water, heavy debris, and flood warnings usually in effect.',
-};
+// Owned by shared/threshold-zones.ts, which builds the bands these describe and
+// is reachable from the iOS app. Re-exported here so existing imports from
+// '@/constants' keep working without a second copy of the copy.
+export { DEFAULT_THRESHOLD_DESCRIPTIONS } from '@shared/threshold-zones';
 
 // API cache times (in milliseconds)
 export const CACHE_TIMES = {
