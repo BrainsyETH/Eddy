@@ -175,6 +175,24 @@ export interface RiverConditionDetail {
   medianDischargeCfs?: number | null;
   flowRating?: FlowRating;
   flowDescription?: string;
+  /**
+   * The ladder this reading is graded against, in `thresholdUnit`.
+   *
+   * Present so the phone can draw the band scale without a second request. A
+   * bare "944 cfs" is not a decision — most people cannot say whether that is
+   * near the low end or the flood end, and that is more true in cfs than in
+   * feet. Bands come from buildZones in @shared/threshold-zones, which the app
+   * imports directly so the scale cannot drift from the website's.
+   */
+  thresholds?: {
+    levelTooLow: number | null;
+    levelLow: number | null;
+    levelOptimalMin: number | null;
+    levelOptimalMax: number | null;
+    levelHigh: number | null;
+    levelDangerous: number | null;
+    thresholdUnit?: 'ft' | 'cfs';
+  };
   usgsUrl?: string | null;
 }
 

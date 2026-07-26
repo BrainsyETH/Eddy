@@ -67,6 +67,7 @@ import {
 } from '@/lib/readingCopy';
 import { EddyTake } from '@/components/EddyTake';
 import { Otter, otterForCondition } from '@/components/Otter';
+import { ReadingScale } from '@/components/ReadingScale';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { PushPrimer } from '@/components/PushPrimer';
 import { usePush } from '@/hooks/usePush';
@@ -278,6 +279,17 @@ export default function RiverDetailScreen() {
             </View>
           </View>
 
+          {/* The scale the number sits on. Placed directly under the reading
+              because it is the reading's context, not a separate fact — "944
+              cfs" is only a decision once you can see it is nowhere near flood. */}
+          {condition?.thresholds && reading ? (
+            <ReadingScale
+              thresholds={condition.thresholds}
+              value={reading.value}
+              unit={reading.unit}
+            />
+          ) : null}
+
           {percentileText ? (
             <View style={[styles.percentileRow, { borderTopColor: colors.border }]}>
               <Text style={[styles.percentileText, { color: colors.text }]}>{percentileText}</Text>
@@ -449,7 +461,7 @@ const styles = StyleSheet.create({
     paddingTop: 6,
   },
   body: { paddingHorizontal: 16, paddingBottom: 40 },
-  riverName: { ...t['3xl'], fontFamily: fonts.heading, paddingHorizontal: 4, marginTop: 6 },
+  riverName: { ...t['3xl'], fontFamily: fonts.display, paddingHorizontal: 4, marginTop: 6 },
   riverMeta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 4, marginTop: 2, marginBottom: 16 },
   card: { padding: 16, borderRadius: 16, marginBottom: 10 },
   statusHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },

@@ -42,7 +42,9 @@ export function Placeholder({
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   body: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  title: { ...t['2xl'], fontFamily: fonts.heading, marginTop: 12, marginBottom: 10 },
+  // Fredoka, matching the four real screen titles. This is the Profile tab's
+  // title, not decorative chrome — a stub screen should still look like Eddy.
+  title: { ...t['2xl'], fontFamily: fonts.display, marginTop: 12, marginBottom: 10 },
   blurb: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
   pill: { marginTop: 24, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999 },
   pillText: { ...t.xs, fontFamily: fonts.semibold },
