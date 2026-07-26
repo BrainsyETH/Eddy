@@ -40,7 +40,8 @@
     "video:render:all": "npm run video:render && npm run video:render:vertical",
     "video:studio": "cd remotion && npx remotion studio",
     "promo:capture": "cd remotion && node scripts/capture-promo.mjs",
-    "promo:render": "cd remotion && bash scripts/render-promo.sh"
+    "promo:render": "cd remotion && bash scripts/render-promo.sh",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",

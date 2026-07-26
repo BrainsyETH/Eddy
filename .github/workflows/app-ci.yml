@@ -1,7 +1,25 @@
 # .github/workflows/app-ci.yml
-# CI gate for the Next.js app: dependency audit, SBOM, typecheck, lint, and
-# unit tests on every relevant PR and push to main. Keeps regressions visible
-# before deploy.
+# CI gate for both apps: dependency audit, SBOM, typecheck, lint, and unit tests
+# for the Next.js app, plus typecheck, lint and a PRODUCTION BUNDLE for the Expo
+# app. Keeps regressions visible before deploy.
+#
+# ── Why the path filters reach outside missouri-float-planner ─────────────
+#
+# The web test suite is where the Expo app's pure logic is covered — the app has
+# no test runner of its own, so chunked-store, purchase-copy, notification-copy,
+# entitlement-id and app-theme all import or read files under eddy-ios/, and
+# geo-tiles and offline-plan import packages/.
+#
+# So a change to either directory can break tests in this workflow. Filtering on
+# missouri-float-planner/** alone meant those changes did not trigger CI at all,
+# and the first sign of a break would have been a red build on some later,
+# unrelated PR.
+#
+# The dependency runs BOTH ways, which is why both jobs run on any of these
+# paths rather than being filtered per job: missouri-float-planner/shared IS
+# the app's @eddy/conditions package, so editing the canonical condition system
+# can break the iOS bundle just as easily as editing the app can break a web
+# test.
 
 name: App CI
 
@@ -9,12 +27,18 @@ on:
   pull_request:
     paths:
       - 'missouri-float-planner/**'
+      - 'eddy-ios/**'
+      - 'packages/**'
+      - '.easignore'
       - '.github/workflows/**'
       - '.github/dependabot.yml'
   push:
     branches: [main]
     paths:
       - 'missouri-float-planner/**'
+      - 'eddy-ios/**'
+      - 'packages/**'
+      - '.easignore'
       - '.github/workflows/**'
       - '.github/dependabot.yml'
   workflow_dispatch:
@@ -56,11 +80,78 @@ jobs:
           path: ${{ runner.temp }}/eddy-sbom.cdx.json
           retention-days: 14
 
+      # Two configs: tsconfig.json is what `next build` uses and covers only
+      # shippable code, tsconfig.test.json adds the tests. They are separate
+      # because several tests import Expo-app source to cover logic that has no
+      # runner of its own, and type-checking that during a Vercel build broke
+      # the deploy — Vercel installs only this directory, so the app's
+      # node_modules is not there to resolve @eddy/types through.
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Lint
         run: npm run lint
 
       - name: Test
         run: npm test
+
+  mobile-app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: eddy-ios
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: eddy-ios/package-lock.json
+
+      # --legacy-peer-deps is mandatory here, not a workaround for a stale lock
+      # file: @expo/metro-runtime is a required expo-router peer whose own
+      # react-dom peer conflicts with the pinned React. The conflict is web-only
+      # and does not affect the iOS bundle, but a plain install fails outright.
+      #
+      # This also resolves the `file:` dependencies on ../packages and
+      # ../missouri-float-planner/shared, which is why the full repo checkout
+      # matters — the same thing EAS relies on.
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx expo lint
+
+      # THE STEP THAT EARNS THIS JOB. Typecheck and lint both passed throughout
+      # the SDK 57 upgrade while every production bundle was broken: Expo's
+      # tsconfig-paths emulation stopped matching exact aliases, and Metro's
+      # file map stopped indexing files outside the project root — but only
+      # during `expo export`, so `expo start` kept working.
+      #
+      # A bug class that is invisible in development and fatal in every EAS
+      # build needs a production bundle in CI to catch it. Nothing here needs
+      # credentials: this compiles the JS bundle, it does not build the app.
+      - name: Bundle for iOS
+        run: npx expo export --platform ios --output-dir "$RUNNER_TEMP/expo-export"
+
+      # .easignore is an allowlist, and an allowlist that silently stops
+      # matching looks fine until an EAS build fails on the worker. It also
+      # disables .gitignore entirely while it exists, so a mistake uploads .env
+      # files. Both are asserted here.
+      #
+      # python3 is preinstalled on ubuntu-latest, so this needs no extra action
+      # to pin.
+      - name: Check the EAS archive allowlist
+        run: |
+          # The fallback covers PEP 668 runners, where the system Python is
+          # marked externally-managed and a plain install is refused.
+          python3 -m pip install --quiet pathspec \
+            || python3 -m pip install --quiet --break-system-packages pathspec
+          python3 scripts/check-easignore.py

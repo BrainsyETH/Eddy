@@ -1,0 +1,48 @@
+{
+  "_comment": [
+    "Type-checks the test files, which tsconfig.json deliberately excludes.",
+    "",
+    "WHY THEY ARE EXCLUDED THERE: several tests cover the Expo app, whose",
+    "pure logic has no runner of its own, by importing files under",
+    "eddy-ios/. That pulled mobile source into `next build`s type-check, and",
+    "Vercel installs only missouri-float-planner/ \u2014 so @eddy/types, which",
+    "resolves locally through eddy-ios/node_modules, was not resolvable",
+    "there and broke the deploy. The web production build has no business",
+    "type-checking tests, and now does not.",
+    "",
+    "WHY THE PATH ALIAS IS HERE: it lets these tests resolve @eddy/types",
+    "from the package source directly, so CI does not need the Expo app",
+    "installed to check them.",
+    "",
+    "It is a SUPERSET of the build config rather than tests-only: replacing",
+    "`include` dropped Next's ambient type augmentations (RequestInit.next and",
+    "friends), which every route file depends on. Checking everything here is",
+    "also what tsc --noEmit did before the split, so CI coverage is unchanged."
+  ],
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@shared/*": [
+        "./shared/*"
+      ],
+      "@eddy/types": [
+        "../packages/eddy-types/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "shared/**/*.ts",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "remotion"
+  ]
+}
