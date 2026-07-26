@@ -1,14 +1,25 @@
 'use client';
 
 // src/components/gauge/CurrentReadingCard.tsx
-// Dark-themed current reading card with condition status strip and 2-column layout
+// Dark-themed current reading card: condition strip, the two headline numbers,
+// and the band track showing where this reading falls on the river's ladder.
+//
+// The track lives here rather than on the levels table below because "where am
+// I" belongs next to the number it qualifies. The table lists what each band
+// means; it no longer draws a second marker of its own.
 
 import Image from 'next/image';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS, getEddyImageForCondition } from '@/constants';
 import type { ConditionCode } from '@/types/api';
-import { computeTrend, computePercentile } from '@/lib/gauge-trend';
+import { computeTrend } from '@/lib/gauge-trend';
+import {
+  findZoneIndex,
+  formatZoneRange,
+  zoneMarkerPercent,
+  type Zone,
+} from '@/lib/gauge/threshold-zones';
 import { formatAgeFromHours } from '@/lib/utils/reading-age';
 
 interface CurrentReadingCardProps {
@@ -19,6 +30,8 @@ interface CurrentReadingCardProps {
   conditionCode?: ConditionCode;
   waterTempF?: number | null;
   readingAgeHours?: number | null;
+  /** Condition ladder in `thresholdUnit`. Omit to render the card without a track. */
+  zones?: Zone[];
   className?: string;
   embedded?: boolean;
 }
@@ -31,6 +44,7 @@ export default function CurrentReadingCard({
   conditionCode,
   waterTempF,
   readingAgeHours,
+  zones,
   className = '',
   embedded = false,
 }: CurrentReadingCardProps) {
@@ -38,10 +52,20 @@ export default function CurrentReadingCard({
 
   const isCfsPrimary = thresholdUnit === 'cfs';
 
-  // Plain-language trend (last ~6h) + how today compares to the recent window.
+  // Plain-language trend over the last ~6h. There is deliberately no percentile
+  // beside it: the one we showed compared today against a 14-day window that
+  // today sits inside, so a falling river read "below typical" almost by
+  // construction. A tautology is worse than a blank space.
   const trend = computeTrend(history?.readings, thresholdUnit, 6);
   const primaryReadingValue = isCfsPrimary ? dischargeCfs : gaugeHeightFt;
-  const percentile = computePercentile(history?.readings, primaryReadingValue, thresholdUnit, 14);
+
+  // Band track — equal-width bands, marker interpolated within its own band.
+  const ladder = zones ?? [];
+  const markerPercent = zoneMarkerPercent(ladder, primaryReadingValue);
+  const activeIndex = findZoneIndex(ladder, conditionCode);
+  const activeZone = activeIndex >= 0 ? ladder[activeIndex] : null;
+  const prevZone = activeIndex > 0 ? ladder[activeIndex - 1] : null;
+  const nextZone = activeIndex >= 0 && activeIndex < ladder.length - 1 ? ladder[activeIndex + 1] : null;
 
   const formatFt = (val: number) => val.toFixed(2);
   const formatCfs = (val: number) => val.toLocaleString();
@@ -63,7 +87,9 @@ export default function CurrentReadingCard({
       <p className="sr-only" aria-live="polite">
         {conditionLabel ? `${conditionLabel}. ` : ''}
         {gaugeHeightFt !== null ? `Stage ${formatFt(gaugeHeightFt)} feet. ` : ''}
-        {dischargeCfs !== null ? `Flow ${formatCfs(dischargeCfs)} cubic feet per second.` : ''}
+        {dischargeCfs !== null ? `Flow ${formatCfs(dischargeCfs)} cubic feet per second. ` : ''}
+        {activeZone ? `${activeZone.label} range is ${formatZoneRange(activeZone, thresholdUnit)}. ` : ''}
+        {trend ? `${trend.label}.` : ''}
       </p>
 
       {/* Condition status strip — bold solid band for at-a-glance color, with
@@ -125,6 +151,64 @@ export default function CurrentReadingCard({
         </div>
       </div>
 
+      {/* Band track — where this reading sits on the river's ladder. Only the
+          two neighbouring band names are labelled; the full ladder with what
+          each band means is the levels table below. */}
+      {ladder.length > 0 && (
+        <div className="px-4 pb-1 pt-1" aria-hidden="true">
+          <div className="relative">
+            <div className="flex h-2.5 overflow-hidden rounded-full">
+              {ladder.map((zone) => (
+                <div
+                  key={zone.key}
+                  className="flex-1"
+                  style={{
+                    backgroundColor: zone.color,
+                    // Dim the bands you are not in so the active one reads first.
+                    opacity: activeZone && zone.key !== activeZone.key ? 0.4 : 1,
+                  }}
+                />
+              ))}
+            </div>
+            {markerPercent !== null && (
+              <div
+                className="absolute top-1/2 h-[18px] w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_0_1.5px_var(--color-primary-900)]"
+                style={{ left: `${markerPercent}%` }}
+              />
+            )}
+          </div>
+
+          {activeZone && (
+            <div className="mt-2 flex items-baseline justify-between gap-2 font-mono text-[10px] uppercase tracking-wide text-primary-200">
+              <span className="min-w-0 truncate">{prevZone ? `← ${prevZone.label}` : ''}</span>
+              <span className="whitespace-nowrap font-semibold text-white">
+                {activeZone.label} {formatZoneRange(activeZone, thresholdUnit)}
+              </span>
+              <span className="min-w-0 truncate text-right">{nextZone ? `${nextZone.label} →` : ''}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Which way it is moving right now. */}
+      {trend && (
+        <div className="flex items-center gap-1.5 px-4 pb-3 pt-2">
+          {trend.direction === 'rising' ? (
+            <TrendingUp className="h-3.5 w-3.5 text-orange-200" aria-hidden="true" />
+          ) : trend.direction === 'falling' ? (
+            <TrendingDown className="h-3.5 w-3.5 text-primary-100" aria-hidden="true" />
+          ) : (
+            <Minus className="h-3.5 w-3.5 text-primary-100" aria-hidden="true" />
+          )}
+          <span className={`text-xs font-semibold ${trend.direction === 'rising' ? 'text-orange-200' : 'text-primary-100'}`}>
+            {trend.label}
+          </span>
+          {trendDelta && (
+            <span className="font-mono text-xs tabular-nums text-primary-200">{trendDelta}</span>
+          )}
+        </div>
+      )}
+
       {/* Water temperature (when available) */}
       {waterTempF != null && (
         <div className="px-4 py-2.5 border-t border-white/10">
@@ -137,38 +221,9 @@ export default function CurrentReadingCard({
         </div>
       )}
 
-      {/* Trend + how today compares to the recent window */}
-      {(trend || percentile) && (
-        <div className="px-4 pb-4 pt-1 flex items-center justify-between gap-2">
-          {trend ? (
-            <div className={`flex items-center gap-1.5 rounded-lg bg-primary-700 px-2.5 py-1 ${
-              trend.direction === 'rising' ? 'text-orange-200' :
-              trend.direction === 'falling' ? 'text-primary-100' :
-              'text-primary-100'
-            }`}>
-              {trend.direction === 'rising' ? (
-                <TrendingUp className="w-3.5 h-3.5" aria-hidden="true" />
-              ) : trend.direction === 'falling' ? (
-                <TrendingDown className="w-3.5 h-3.5" aria-hidden="true" />
-              ) : (
-                <Minus className="w-3.5 h-3.5" aria-hidden="true" />
-              )}
-              <span className="text-sm font-semibold">{trend.label}</span>
-              {trendDelta && <span className="font-mono text-xs tabular-nums text-primary-100">{trendDelta}</span>}
-            </div>
-          ) : <span />}
-          {percentile && (
-            <span className="text-right text-[10px] leading-tight text-primary-100" title={percentile.descriptor}>
-              {percentile.label}
-              <span className="block text-primary-200">last {percentile.windowDays}d</span>
-            </span>
-          )}
-        </div>
-      )}
-
       {/* Reading freshness — so staleness is obvious on the card itself */}
       {readingAgeHours != null && (
-        <div className="px-4 pb-3 -mt-1">
+        <div className="px-4 pb-3">
           <span className="text-[10px] text-primary-100">Updated {formatAgeFromHours(readingAgeHours)}</span>
         </div>
       )}
