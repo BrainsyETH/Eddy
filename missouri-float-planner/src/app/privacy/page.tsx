@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           >
             Privacy Policy
           </h1>
-          <p className="text-white/80">Last updated: July 20, 2026</p>
+          <p className="text-white/80">Last updated: July 26, 2026</p>
         </div>
       </section>
 
@@ -34,10 +34,12 @@ export default function PrivacyPage() {
         <section>
           <h2 className={heading}>Overview</h2>
           <p className={body}>
-            Eddy is a river-conditions and float-trip planning service. You can browse rivers
-            and create a plan without an account. Some optional features—such as feedback,
-            alerts, shared plans, and community reports—require or store additional information.
-            This policy describes that information and the choices available to you.
+            Eddy is a river-conditions and float-trip planning service, available as a website
+            and as a mobile application. You can browse rivers and create a plan without signing
+            up. Some optional features—such as feedback, alerts, shared plans, community reports,
+            and paid subscriptions—require or store additional information. This policy describes
+            that information and the choices available to you, and applies to both the website
+            and the app.
           </p>
         </section>
 
@@ -49,6 +51,46 @@ export default function PrivacyPage() {
               referral information, approximate location derived from network information,
               browser/device details, and diagnostic events. Hosting and security logs may
               include an IP address.
+            </li>
+            <li>
+              <strong>Anonymous app accounts.</strong> When you first open the mobile app, Eddy
+              creates an anonymous account so saved rivers can be stored and restored. It
+              consists of a randomly generated identifier and a timestamp. It contains no email
+              address, name, or password, and you are not asked to sign up. If you later sign in
+              with Apple, that same identifier is reused rather than replaced.
+            </li>
+            <li>
+              <strong>Sign in with Apple.</strong> If you choose to sign in, Apple provides a
+              user identifier and, at your option, a name and an email address. Apple lets you
+              hide your real address behind a private relay; Eddy works either way and does not
+              require you to reveal it.
+            </li>
+            <li>
+              <strong>Push notification tokens.</strong> If you enable notifications, Eddy stores
+              a push token issued by Apple and the notification service, together with the
+              platform, app version, an optional device name, and a record of which alerts were
+              sent to that device. Tokens identify a device installation, not a person, and are
+              removed when the device stops accepting notifications.
+            </li>
+            <li>
+              <strong>Subscription status.</strong> If you purchase Eddy+, Eddy stores the
+              product purchased, whether the subscription is active, when it expires or renews,
+              and whether there is a billing problem. <strong>Eddy never receives or stores your
+              payment card, billing address, or Apple ID credentials</strong> &mdash; the
+              purchase is made with Apple, and Eddy is told only whether access should be
+              granted.
+            </li>
+            <li>
+              <strong>Precise location in the app.</strong> If you allow it, the app may use your
+              device&apos;s location to show where you are relative to a river. Location is used
+              on the device to draw the map and is not stored on Eddy&apos;s servers or shared
+              with third parties for advertising. You can decline, and the app remains usable;
+              you can revoke the permission at any time in iOS Settings.
+            </li>
+            <li>
+              <strong>Downloaded maps and on-device storage.</strong> Offline map downloads,
+              saved rivers, and app preferences are stored on your device. Map tiles are
+              downloaded from the map provider and cached locally. Deleting the app removes them.
             </li>
             <li>
               <strong>Feedback and correspondence.</strong> Email address, optional name,
@@ -134,7 +176,12 @@ export default function PrivacyPage() {
             respond, moderate, maintain an audit trail, prevent abuse, and meet legal obligations.
             Shared plans remain available while their links are supported. Approved community
             content and its display name, description, river location, and photo may be public.
-            Backups may retain deleted information for a limited recovery period.
+            Anonymous accounts and the rivers saved to them are kept until you ask us to delete
+            them or the account has been inactive long enough that it is no longer useful. Push
+            tokens are removed when a device stops accepting notifications or you disable them.
+            Subscription records are kept while a subscription is or was active, and afterwards
+            only as long as needed for accounting and dispute handling. Backups may retain
+            deleted information for a limited recovery period.
           </p>
         </section>
 

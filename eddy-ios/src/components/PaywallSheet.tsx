@@ -13,7 +13,7 @@
 // The offer below is deliberately about being told FIRST, not about being told
 // at all.
 
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -43,6 +43,12 @@ const BENEFITS = [
     body: 'Download a river before you leave and keep the map, access points and hazards on the water.',
   },
 ];
+
+// App Store review requires a subscription screen to link to both the terms
+// (EULA) and the privacy policy. These are not optional decoration — a paywall
+// without them is a rejection.
+const TERMS_URL = 'https://eddy.guide/terms';
+const PRIVACY_URL = 'https://eddy.guide/privacy';
 
 export function PaywallSheet({ visible, onClose, riverName }: Props) {
   const { colors, elevation } = useTheme();
@@ -99,6 +105,23 @@ export function PaywallSheet({ visible, onClose, riverName }: Props) {
           <Text style={[styles.freeNote, { color: colors.textSubtle }]}>
             River conditions, gauge readings and hazard information are always free.
           </Text>
+
+          {/* Apple also requires the renewal terms themselves to be visible on
+              the purchase screen, not only inside the linked document. */}
+          <Text style={[styles.legal, { color: colors.textSubtle }]}>
+            Subscriptions renew automatically unless auto-renew is turned off at least 24 hours
+            before the period ends. Manage or cancel in your Apple ID settings.
+          </Text>
+
+          <View style={styles.legalLinks}>
+            <Pressable onPress={() => Linking.openURL(TERMS_URL)} hitSlop={8}>
+              <Text style={[styles.legalLink, { color: colors.textMuted }]}>Terms of Use</Text>
+            </Pressable>
+            <Text style={[styles.legalLink, { color: colors.textSubtle }]}>·</Text>
+            <Pressable onPress={() => Linking.openURL(PRIVACY_URL)} hitSlop={8}>
+              <Text style={[styles.legalLink, { color: colors.textMuted }]}>Privacy Policy</Text>
+            </Pressable>
+          </View>
         </ScrollView>
 
         <View style={[styles.footer, { borderTopColor: colors.border }]}>
@@ -159,6 +182,9 @@ const styles = StyleSheet.create({
   benefitBody: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
   honesty: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: 14 },
   freeNote: { ...t.xs, fontFamily: fonts.medium, textAlign: 'center', marginTop: 10 },
+  legal: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: 14 },
+  legalLinks: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  legalLink: { ...t.xs, fontFamily: fonts.semibold, textDecorationLine: 'underline' },
   footer: { paddingHorizontal: 24, paddingTop: 14, paddingBottom: 28, borderTopWidth: 1, gap: 10 },
   pending: {
     flexDirection: 'row',
