@@ -18,7 +18,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermanentUser, type AuthedRequest } from '@/lib/supabase/request';
 
-export const DEFAULT_ENTITLEMENT_ID = 'eddy_plus';
+/**
+ * The RevenueCat entitlement identifier. Dashboard key, not a display string —
+ * the product is called "Eddy Premium", this is what RevenueCat sends.
+ *
+ * THE ONLY DEFINITION ON THIS SIDE. Import it; never retype the literal. A
+ * mismatch between this and the RevenueCat dashboard fails silently — rows get
+ * written that no query reads, and the paywall simply never unlocks — so the
+ * one thing that must not happen is four copies drifting apart.
+ *
+ * The app holds a second copy (eddy-ios/src/lib/purchases.ts) because Vercel
+ * builds with Root Directory = missouri-float-planner/ and cannot import from
+ * packages/ at runtime. src/lib/entitlement-id.test.ts asserts the two agree.
+ */
+export const DEFAULT_ENTITLEMENT_ID = 'eddy_premium';
 
 /** The subset of an `entitlements` row that decides access. */
 export interface EntitlementRow {

@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { jsonPrivate } from '@/lib/api-utils';
 import { rateLimit } from '@/lib/rate-limit';
 import { requireUser } from '@/lib/supabase/request';
+import { DEFAULT_ENTITLEMENT_ID } from '@/lib/entitlement';
 import type { MeProfileResponse } from '@/types/api';
 
 export const dynamic = 'force-dynamic';
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
       .from('entitlements')
       .select('entitlement_id, expires_at, will_renew, product_id, store, billing_issue_detected_at')
       .eq('user_id', user.id)
-      .eq('entitlement_id', 'eddy_plus')
+      .eq('entitlement_id', DEFAULT_ENTITLEMENT_ID)
       .maybeSingle();
 
     const response: MeProfileResponse = {
