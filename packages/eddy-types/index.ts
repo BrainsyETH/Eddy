@@ -49,6 +49,24 @@ export interface River {
   region: string | null;
 }
 
+/**
+ * Direction of travel for a gauge, as words rather than a number.
+ *
+ * Deliberately carries NO raw delta. The web's GaugeTrend has one, but it is
+ * unit-dependent: "+0.04" reads sensibly in feet and absurdly against a
+ * discharge of 944 cfs. `label` is derived from PERCENT change upstream
+ * (see computeTrend in the web app), so it is the only part of a trend that
+ * means the same thing in both units — which is why it is the only part that
+ * crosses this boundary.
+ */
+export interface RiverReadingTrend {
+  direction: 'rising' | 'falling' | 'steady';
+  /** e.g. "Rising fast", "Falling slowly", "Holding steady". */
+  label: string;
+  /** Hours actually spanned, which is near but rarely exactly the 6h requested. */
+  windowHours: number;
+}
+
 export interface RiverListItem extends River {
   accessPointCount: number;
   /** rivers.state code, e.g. 'MO' */
@@ -60,6 +78,20 @@ export interface RiverListItem extends River {
   currentCondition: {
     label: string;
     code: ConditionCode;
+    /**
+     * Which unit this river's thresholds are defined in — and therefore the ONLY
+     * unit its reading may be shown in. 18 of 24 active rivers are 'cfs', so a
+     * consumer defaulting to feet is wrong most of the time.
+     *
+     * Null only when no primary gauge row carries a unit. Consumers must not
+     * substitute the other unit's value; see primaryReading() in eddy-ios.
+     */
+    thresholdUnit: 'ft' | 'cfs' | null;
+    gaugeHeightFt: number | null;
+    dischargeCfs: number | null;
+    readingAgeHours: number | null;
+    /** Null when there aren't two readings in the window to compare honestly. */
+    trend: RiverReadingTrend | null;
   } | null;
 }
 

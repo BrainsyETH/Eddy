@@ -11,27 +11,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import type { RiverListItem } from '@eddy/types';
 import { ApiError, fetchRivers } from '@/api/client';
-import {
-  conditionBg,
-  conditionChipBorder,
-  conditionColor,
-  conditionInk,
-  conditionLabel,
-  floatableRank,
-  isFloatableNow,
-} from '@/theme/conditions';
+import { floatableRank, isFloatableNow } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { RiverRow } from '@/components/RiverRow';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useRouter } from 'expo-router';
 
@@ -40,7 +31,7 @@ export default function ReportsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const { isStarred, toggleStar, ready: starsReady } = useStarredRivers();
-  const { colors, elevation } = useTheme();
+  const { colors } = useTheme();
   const router = useRouter();
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -114,58 +105,17 @@ export default function ReportsScreen() {
             </Text>
           </View>
         }
-        renderItem={({ item }) => {
-          const code = item.currentCondition?.code ?? 'unknown';
-          const starred = isStarred(item.id);
-          return (
-            <Pressable
-              onPress={() => router.push(`/river/${item.slug}`)}
-              style={({ pressed }) => [
-                styles.row,
-                { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
-                elevation(1),
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.name} details`}
-            >
-              <View style={[styles.dot, { backgroundColor: conditionColor(code) }]} />
-              <View style={styles.rowBody}>
-                <Text style={[styles.riverName, { color: colors.text }]}>{item.name}</Text>
-                <Text style={[styles.riverMeta, { color: colors.textMuted }]}>
-                  {item.region ?? item.state} · {item.accessPointCount} access points
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.chip,
-                  { backgroundColor: conditionBg(code), borderColor: conditionChipBorder(code) },
-                ]}
-              >
-                {/* ink, never `solid`, and never white: the canonical file is
-                    explicit that white text on the light condition fills fails
-                    contrast. On dark the tint is translucent, so ink still
-                    reads. */}
-                <Text style={[styles.chipText, { color: conditionInk(code) }]}>
-                  {item.currentCondition?.label ?? conditionLabel(code)}
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => toggleStar({ riverId: item.id, name: item.name, slug: item.slug })}
-                disabled={!starsReady}
-                hitSlop={10}
-                style={styles.starButton}
-                accessibilityRole="button"
-                accessibilityLabel={starred ? `Unstar ${item.name}` : `Star ${item.name}`}
-              >
-                <Ionicons
-                  name={starred ? 'star' : 'star-outline'}
-                  size={22}
-                  color={starred ? colors.warm : colors.textSubtle}
-                />
-              </Pressable>
-            </Pressable>
-          );
-        }}
+        renderItem={({ item }) => (
+          <RiverRow
+            river={item}
+            starred={isStarred(item.id)}
+            starDisabled={!starsReady}
+            onPress={() => router.push(`/river/${item.slug}`)}
+            onToggleStar={() =>
+              toggleStar({ riverId: item.id, name: item.name, slug: item.slug })
+            }
+          />
+        )}
       />
     </SafeAreaView>
   );
@@ -175,27 +125,9 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
-  title: { ...t['3xl'], fontFamily: fonts.heading },
+  // Fredoka, the brand display face. It previously appeared nowhere in the
+  // product — only inside the paywall — so the app looked generic on every
+  // screen a user actually spends time on.
+  title: { ...t['3xl'], fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginBottom: 10,
-    padding: 14,
-    borderRadius: 14,
-  },
-  dot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
-  rowBody: { flex: 1 },
-  riverName: { ...t.base, fontFamily: fonts.semibold },
-  riverMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  chip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    borderWidth: 1,
-    marginRight: 4,
-  },
-  chipText: { ...t.xs, fontFamily: fonts.semibold },
-  starButton: { paddingLeft: 8, paddingVertical: 4 },
 });

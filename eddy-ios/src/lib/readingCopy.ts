@@ -17,7 +17,13 @@ import type { RiverConditionDetail } from '@eddy/types';
  * is enforced server-side in the alert gate (`strictUnit`).
  */
 export function primaryReading(
-  condition: Pick<RiverConditionDetail, 'thresholdUnit' | 'gaugeHeightFt' | 'dischargeCfs'>,
+  condition: Pick<RiverConditionDetail, 'gaugeHeightFt' | 'dischargeCfs'> & {
+    // Widened to accept null as well as undefined. /api/conditions omits the key
+    // when it cannot establish a unit, while /api/rivers sends an explicit null;
+    // both mean the same thing — "no declared unit" — and must take the same
+    // branch below rather than one of them silently matching 'ft'.
+    thresholdUnit?: 'ft' | 'cfs' | null;
+  },
 ): { value: number; unit: 'ft' | 'cfs' } | null {
   const unit = condition.thresholdUnit;
 
