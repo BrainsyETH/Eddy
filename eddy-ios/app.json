@@ -13,9 +13,12 @@
     },
     "plugins": [
       "expo-router",
-      "@rnmapbox/maps"
+      "@rnmapbox/maps",
+      "expo-font"
     ],
-    "experiments": { "typedRoutes": true },
+    "experiments": {
+      "typedRoutes": true
+    },
     "extra": {
       "apiBaseUrl": "https://eddy.guide"
     }
