@@ -76,20 +76,28 @@ $29.99 annual sub goes from ~$21 to ~$25 — the strategy's margin model assumes
 this. Enrollment takes effect the *month after* approval, so enrolling early
 costs nothing and forgetting is expensive.
 
-### 1c. App record and bundle ID
+### 1c. App record and bundle ID — ✅ DONE
 
-1. Apple Developer portal → **Certificates, Identifiers & Profiles → Identifiers**
-   → register an App ID, e.g. `guide.eddy.ios`.
-2. App Store Connect → **Apps → +** → New App. Pick the bundle ID from 1c.1.
+The registered bundle ID is **`eddy.guide.app`**. Note it is the domain in
+forward order rather than reverse-DNS; that is intentional and immutable. Use
+this exact string everywhere below — RevenueCat, App Store Connect and the
+Supabase Apple provider all key on it, and a mismatch fails at runtime with an
+unhelpful error.
 
-You do **not** need a built binary for this. Doing it now also **reserves the
-App Store name**, which the strategy flags as a Phase 0 task. Because coverage
-is national (raw gauges) and multi-state (the Buffalo is in Arkansas), avoid a
-state in the name — e.g. *"Eddy: Ozark River Conditions"*, not *"Missouri…"*.
+Also confirm **Sign in with Apple** is enabled as a capability on this App ID
+(Identifiers → `eddy.guide.app` → Capabilities). Without it the entitlement is
+missing from the provisioning profile and the native sign-in sheet never
+appears.
+
+Still outstanding from this step: the App Store Connect app record itself, which
+**reserves the App Store name**. Because coverage is national (raw gauges) and
+multi-state (the Buffalo is in Arkansas), avoid a state in the name — e.g.
+*"Eddy: Ozark River Conditions"*, not *"Missouri…"*. You do not need a built
+binary to create it.
 
 ---
 
-## 2. Keys Apple issues to RevenueCat
+## 2. Keys and provider configuration
 
 ### 2a. In-App Purchase Key (StoreKit 2 — preferred)
 
@@ -117,6 +125,57 @@ Still worth setting: it covers receipt validation paths the newer keys don't.
 
 > Store all three secrets in your password manager. None of them should ever be
 > pasted into a chat, a commit, or an issue.
+
+---
+
+### 2d. Supabase: the Apple provider
+
+This is what makes Sign in with Apple actually mint a Supabase session, and it
+is the smallest step here by a wide margin — which is worth saying plainly,
+because most Apple/Supabase guides describe a much heavier setup that does not
+apply.
+
+Supabase dashboard → **Authentication → Sign In / Providers → Apple**:
+
+1. **Enable** the provider.
+2. **Client IDs**: `eddy.guide.app`
+3. Leave **Secret Key (for OAuth)** and **Services ID** EMPTY.
+4. Save.
+
+Then, still under Authentication → Providers, confirm **Anonymous sign-ins** is
+**enabled**. The app acquires an anonymous identity on first launch so stars
+have somewhere to live before anyone signs in, and Apple sign-in upgrades that
+same user id in place. With it disabled the client gets
+`422 anonymous_provider_disabled`, degrades to local-only, and the conversion
+path silently stops working.
+
+### Why there is no secret key here
+
+Two different Apple sign-in flows exist and they need different things:
+
+| Flow | Used by | Needs |
+|---|---|---|
+| **Web OAuth** — redirect to appleid.apple.com | a browser | Services ID + a `.p8` key + a **JWT client secret that expires ~6 months** |
+| **Native ID token** — `signInWithIdToken` | this app | the **bundle ID**, and nothing else |
+
+The app takes the second path (`src/hooks/useSession.tsx`). iOS hands back a
+signed identity token whose `aud` claim is the bundle ID; Supabase verifies the
+signature against Apple's public keys and checks `aud` against the Client IDs
+list. There is no shared secret in that exchange, so there is nothing to rotate
+and nothing to expire.
+
+**Do not add the Services ID "for completeness."** Configuring the OAuth flow
+creates a credential that expires in six months, and when it does, the failure
+is a silent one nobody is watching for.
+
+### Verifying it
+
+There is nothing to test until a build runs on a device or simulator (Sign in
+with Apple does not work in Expo Go). Once it does, a successful sign-in shows
+up in the dashboard: **Authentication → Users**, where the row's provider reads
+`apple` and — the part that matters — the **user id is unchanged from the
+anonymous session it replaced**. A NEW row appearing instead means the upgrade
+path broke and the user's stars were left behind on the old id.
 
 ---
 
@@ -157,7 +216,7 @@ never branches on them. Only the *entitlement* identifier is load-bearing.
 
 2. **Project Settings → Apps → + New → App Store**:
    - App name: `Eddy`
-   - Bundle ID: the one from step 1c
+   - Bundle ID: `eddy.guide.app` (exactly — see 1c)
    - **In-App Purchase Key**: upload the `.p8` from 2a, with its Key ID + Issuer ID
    - **App Store Connect API Key**: upload the `.p8` from 2b
    - **App-Specific Shared Secret**: paste from 2c
@@ -340,8 +399,12 @@ newer renewal (ordering guard).
 
 ## 11. Ongoing operations
 
-- **Apple's signing key for Sign in with Apple expires roughly every 6 months.**
-  Calendar the rotation now; an expired key silently breaks all new sign-ins.
+- **No Apple signing key to rotate — as long as sign-in stays native.** The
+  often-cited "the Apple secret expires every 6 months" applies to the *web*
+  OAuth flow, which needs a Services ID and a JWT client secret. The app uses
+  `signInWithIdToken`, which Supabase validates against the bundle ID alone (see
+  §2d). Nothing expires. If web sign-in is ever added (strategy: v2), that
+  secret and its rotation come with it — calendar it *then*.
 - Refunds revoke entitlement automatically via the webhook — no manual step.
 - RevenueCat's dashboard is the source of truth for subscription analytics
   (trial→paid, churn, cohorts); `entitlements` is only the access-control
