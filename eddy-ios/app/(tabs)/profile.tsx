@@ -14,9 +14,10 @@
 //   * Auto-renew disclosure plus Terms and Privacy, shown WITH the subscription
 //     controls rather than buried behind a link.
 //
-// Notification preferences are not here yet, on purpose: expo-notifications is
-// not wired, so a toggle would be a control that does nothing. It lands with
-// the push work.
+// Notification preferences show OS state rather than duplicating it. iOS owns
+// the permission, so a switch here would be a second source of truth that can
+// disagree with Settings — the section reports what is true and links to the
+// place that can change it.
 //
 // Colour convention, as everywhere in this app: StyleSheet.create holds layout
 // and type only — it runs once at import, so a colour written into it would be
@@ -45,6 +46,8 @@ import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { useAccount } from '@/hooks/useAccount';
 import { deleteAccount } from '@/api/client';
 import { restorePurchases, subscriptionSummary } from '@/lib/purchases';
+import { usePush } from '@/hooks/usePush';
+import { notificationDetail } from '@/lib/notificationCopy';
 
 const TERMS_URL = 'https://eddy.guide/terms';
 const PRIVACY_URL = 'https://eddy.guide/privacy';
@@ -69,6 +72,7 @@ export default function ProfileScreen() {
     forgetSession,
   } = useSession();
   const { profile, entitlement, loaded, error, refresh } = useAccount();
+  const { permission, registered, enable, disable } = usePush();
 
   const [busy, setBusy] = useState<null | 'apple' | 'restore' | 'delete'>(null);
 
@@ -113,6 +117,11 @@ export default function ProfileScreen() {
         return;
       }
 
+      // Unregister first, while the token still authenticates. After deletion
+      // the device_tokens row is gone with the cascade anyway; doing it here
+      // covers the case where deletion fails partway.
+      await disable();
+
       const result = await deleteAccount(token);
 
       // signOut() would post to an endpoint whose user no longer exists, so the
@@ -130,7 +139,7 @@ export default function ProfileScreen() {
     } finally {
       setBusy(null);
     }
-  }, [getAccessToken, forgetSession]);
+  }, [getAccessToken, forgetSession, disable]);
 
   const handleDelete = useCallback(() => {
     // Two steps, and the first names what is lost. This is the only
@@ -158,9 +167,21 @@ export default function ProfileScreen() {
   const handleSignOut = useCallback(() => {
     Alert.alert('Sign out?', 'Your stars stay on this device.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => void signOut() },
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: () => {
+          // Unregister BEFORE signing out: the call needs the token that is
+          // about to be discarded. Otherwise this device keeps receiving
+          // alerts for an account no longer on it.
+          void (async () => {
+            await disable();
+            await signOut();
+          })();
+        },
+      },
     ]);
-  }, [signOut]);
+  }, [signOut, disable]);
 
   const version = Constants.expoConfig?.version ?? '0.0.0';
 
@@ -286,6 +307,70 @@ export default function ProfileScreen() {
                 <Text style={[styles.legalLink, { color: colors.accent }]}>Privacy</Text>
               </Pressable>
             </View>
+          </View>
+        </Section>
+
+        {/* ── Notifications ───────────────────────────────────────── */}
+        <Section title="Notifications" muted={colors.textMuted}>
+          <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
+            <View style={styles.row}>
+              <Ionicons
+                name={permission === 'granted' ? 'notifications' : 'notifications-off-outline'}
+                size={22}
+                color={permission === 'granted' ? colors.success : colors.textMuted}
+              />
+              <View style={styles.rowBody}>
+                <Text style={[styles.rowTitle, { color: colors.text }]}>
+                  {permission === 'granted' ? 'Alerts are on' : 'Alerts are off'}
+                </Text>
+                <Text style={[styles.rowNote, { color: colors.textMuted }]}>
+                  {notificationDetail({ permission, registered, signedIn })}
+                </Text>
+              </View>
+            </View>
+
+            {/* Three different states, three different actions — and only one
+                of them is a prompt we are still allowed to show. */}
+            {permission === 'undetermined' && signedIn && (
+              <Pressable
+                onPress={() => void enable()}
+                style={[styles.secondary, { borderColor: colors.border }]}
+              >
+                <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
+                  Turn on alerts
+                </Text>
+              </Pressable>
+            )}
+
+            {permission === 'denied' && (
+              // iOS will not show its dialog again, so Settings is the only
+              // route left. Saying "turn on alerts" here would be a button
+              // that cannot do what it says.
+              <Pressable
+                onPress={() => void Linking.openSettings()}
+                style={[styles.secondary, { borderColor: colors.border }]}
+              >
+                <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
+                  Open Settings
+                </Text>
+              </Pressable>
+            )}
+
+            {permission === 'granted' && registered && (
+              <Pressable
+                onPress={() => void disable()}
+                style={[styles.secondary, { borderColor: colors.border }]}
+              >
+                <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
+                  Stop alerts on this device
+                </Text>
+              </Pressable>
+            )}
+
+            <Text style={[styles.legal, { color: colors.textSubtle }]}>
+              Readings come from USGS gauges and can trail the river by up to about an hour. Alerts
+              are a planning aid — always judge the water in front of you.
+            </Text>
           </View>
         </Section>
 
