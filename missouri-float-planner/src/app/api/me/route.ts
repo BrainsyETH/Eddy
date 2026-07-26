@@ -25,7 +25,7 @@ import { rateLimit } from '@/lib/rate-limit';
 import { requireUser } from '@/lib/supabase/request';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { deleteAccount } from '@/lib/account-deletion';
-import { isEntitlementActive } from '@/lib/entitlement';
+import { DEFAULT_ENTITLEMENT_ID, isEntitlementActive } from '@/lib/entitlement';
 import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -52,7 +52,7 @@ export async function DELETE(request: NextRequest) {
       .from('entitlements')
       .select('expires_at, environment')
       .eq('user_id', user.id)
-      .eq('entitlement_id', 'eddy_plus')
+      .eq('entitlement_id', DEFAULT_ENTITLEMENT_ID)
       .maybeSingle();
 
     const hadActiveEntitlement = isEntitlementActive(entitlement);

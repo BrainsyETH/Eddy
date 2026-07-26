@@ -45,10 +45,13 @@ Backend code this configures:
    route compares the entire header against `Bearer ${REVENUECAT_WEBHOOK_SECRET}`
    in constant time. Pasting only the secret produces a 401 on every event.
 
-3. **The entitlement identifier is not free-form.** It must be `eddy_plus` —
-   that string is the default in the `entitlements` table and in
-   `DEFAULT_ENTITLEMENT_ID`. A different identifier writes rows nothing reads,
-   and the paywall never unlocks.
+3. **The entitlement identifier is not free-form.** It must be `eddy_premium` —
+   that string is `DEFAULT_ENTITLEMENT_ID` in `src/lib/entitlement.ts`, the
+   `entitlements` column default (migration 00192), and `ENTITLEMENT_ID` in the
+   app. A different identifier writes rows nothing reads, and the paywall never
+   unlocks — silently, with no error anywhere. `src/lib/entitlement-id.test.ts`
+   keeps the copies in step; it cannot check the dashboard, so that one is on
+   you.
 
 4. **Auto-renewable subscriptions must live in a subscription group.** Annual
    and monthly belong in the *same* group, or users cannot upgrade/downgrade
@@ -211,7 +214,9 @@ App Store Connect → your app → **Monetization → Subscriptions**.
    product we actually want people on.
 
 Product IDs are yours to choose — the backend records whatever arrives and
-never branches on them. Only the *entitlement* identifier is load-bearing.
+never branches on them, so the `eddy_plus_*` names above are illustrative and
+may not match what is actually live in App Store Connect. Only the *entitlement*
+identifier is load-bearing, and that one is `eddy_premium`.
 
 ---
 
@@ -238,13 +243,15 @@ never branches on them. Only the *entitlement* identifier is load-bearing.
 
 Product Catalog → **Entitlements** → **+ New**:
 
-- Identifier: **`eddy_plus`** ← must match exactly; see gotcha #3
+- Identifier: **`eddy_premium`** ← must match exactly; see gotcha #3
 - Description: `Eddy Premium — push alerts, offline rivers, sync`
 - **Attach both products** to it.
 
-If you want a different identifier, say so before the app ships — it's a
-one-line change in `src/lib/entitlement.ts` plus the `entitlements.entitlement_id`
-column default, but the two must never diverge.
+Changing it later means changing `DEFAULT_ENTITLEMENT_ID` in
+`src/lib/entitlement.ts`, `ENTITLEMENT_ID` in `eddy-ios/src/lib/purchases.ts`,
+and a migration for the column default — all three together.
+`src/lib/entitlement-id.test.ts` fails if any two disagree, but nothing can
+check the dashboard for you.
 
 ### 5b. Offering
 
@@ -363,7 +370,7 @@ select user_id, entitlement_id, expires_at, environment, last_event_type
 from entitlements order by updated_at desc limit 5;
 ```
 
-- one row, `entitlement_id = 'eddy_plus'`, `environment = 'SANDBOX'`
+- one row, `entitlement_id = 'eddy_premium'`, `environment = 'SANDBOX'`
 - `user_id` equals the Supabase user id of the signed-in account
 - `GET /api/me/profile` on a **preview** deploy reports `isActive: true`
 - the same call in **production** reports `isActive: false` ← this is correct
@@ -383,7 +390,7 @@ curl -X POST "https://<preview-host>/api/webhooks/revenuecat" \
        "app_user_id":"<a-real-supabase-user-uuid>",
        "product_id":"eddy_plus_annual","store":"APP_STORE",
        "environment":"SANDBOX","event_timestamp_ms":1784000000000,
-       "expiration_at_ms":1815536000000,"entitlement_ids":["eddy_plus"]}}'
+       "expiration_at_ms":1815536000000,"entitlement_ids":["eddy_premium"]}}'
 ```
 
 Re-sending the identical payload must leave the row unchanged (idempotency),

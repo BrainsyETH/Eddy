@@ -16,7 +16,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
-import { isEntitlementActive } from '@/lib/entitlement';
+import { DEFAULT_ENTITLEMENT_ID, isEntitlementActive } from '@/lib/entitlement';
 import { planDeliveries, type FanoutEvent, type FanoutSubscription, type FanoutToken } from '@/lib/alerts/fanout';
 import { chunkMessages, classifyTicketError, sendExpoPush } from '@/lib/push/expo';
 import { logger } from '@/lib/logger';
@@ -141,7 +141,7 @@ async function run(request: NextRequest) {
       .from('entitlements')
       .select('user_id, expires_at, environment')
       .in('user_id', userIds)
-      .eq('entitlement_id', 'eddy_plus');
+      .eq('entitlement_id', DEFAULT_ENTITLEMENT_ID);
     const entitledUserIds = new Set(
       (entitlementRows ?? [])
         .filter((row: { expires_at: string | null; environment: string | null }) =>

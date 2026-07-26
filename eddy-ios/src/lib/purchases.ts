@@ -25,8 +25,19 @@ import type { MeEntitlement } from '@eddy/types';
 
 const API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? '';
 
-/** The entitlement identifier configured in the RevenueCat dashboard. */
-export const ENTITLEMENT_ID = 'eddy_plus';
+/**
+ * The entitlement identifier configured in the RevenueCat dashboard. A
+ * dashboard key, not a display string — the product is called "Eddy Premium",
+ * this is what RevenueCat sends.
+ *
+ * DUPLICATED from DEFAULT_ENTITLEMENT_ID in the web app's src/lib/entitlement.ts,
+ * and it has to be: Vercel builds with Root Directory = missouri-float-planner/,
+ * so the backend cannot import from packages/ at runtime and the constant cannot
+ * live in @eddy/types where it belongs. src/lib/entitlement-id.test.ts in the web
+ * app asserts the two literals agree — a mismatch fails silently, with rows
+ * written that nothing reads and a paywall that never unlocks.
+ */
+export const ENTITLEMENT_ID = 'eddy_premium';
 
 export type PurchasesUnavailableReason =
   | 'not_configured'
