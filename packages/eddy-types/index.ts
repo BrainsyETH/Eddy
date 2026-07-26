@@ -241,6 +241,71 @@ export interface RiverConditionEvent {
  */
 export const ALERT_LATENCY_NOTE = 'Conditions are checked regularly; readings can lag the river by up to about an hour.';
 
+// ── River outlook (GET /api/rivers/[slug]/outlook) ───────────────
+// The 72-hour picture and Eddy's interpretation, assembled server-side.
+//
+// The website builds this in the browser from three separate fetches (weather,
+// NWS forecast, gauge history). The phone gets it finished instead: three round
+// trips at a put-in on one bar of LTE is three chances to fail, and the phone
+// has no business holding threshold ladders to do the arithmetic itself.
+
+/**
+ * The decision hierarchy. Three fields, and the split between them is load
+ * bearing: `eddyRead` interprets the river as it stands NOW, `watchFor` owns
+ * everything forward-looking. Collapsing them into one paragraph is what makes
+ * a report restate the same NWS sentence twice.
+ */
+export interface EddyTakeSections {
+  /** The call, not the label — "Stay off the river today", never "This is High". */
+  bottomLine: string;
+  eddyRead: string;
+  watchFor: string;
+}
+
+export interface OutlookWeatherDay {
+  date: string;
+  dayOfWeek: string;
+  tempHigh: number;
+  tempLow: number;
+  condition: string;
+  /** OpenWeather icon code, e.g. '10d'. Clients map it to their own glyphs. */
+  conditionIcon: string;
+  /** Probability, 0-100. */
+  precipitation: number;
+}
+
+export interface RiverOutlookDay {
+  date: string;
+  weather: OutlookWeatherDay | null;
+  /**
+   * NWS forecast stage. ALWAYS feet, even on a cfs-rated river — the NWS
+   * publishes stage only — and `conditionCode` is graded against the river's
+   * foot ladder accordingly. Never render `valueFt` beside a cfs reading
+   * without saying which is which.
+   */
+  river: { valueFt: number | null; conditionCode: ConditionCode | null };
+  /** Emphasis decided server-side so clients cannot drift on what counts. */
+  rainKind: 'none' | 'unlikely' | 'possible' | 'significant';
+  rainLabel: string;
+  heatAdvisory: boolean;
+}
+
+export interface RiverOutlookResponse {
+  available: boolean;
+  sections: EddyTakeSections | null;
+  days: RiverOutlookDay[];
+  sourceKind: 'checking' | 'official' | 'guidance';
+  sourceLabel: string;
+  hasOfficialForecast: boolean;
+  /** True when there is no official hydrograph and this is weather-only. */
+  isGuidance: boolean;
+  trend: RiverReadingTrend | null;
+  currentCondition: ConditionCode;
+  gaugeName: string | null;
+  /** Non-null only when a model wrote the read; null means deterministic copy. */
+  generatedAt: string | null;
+}
+
 export interface AlertFeedEntry {
   id: string;
   riverId: string;
