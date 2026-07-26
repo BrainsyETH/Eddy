@@ -1622,14 +1622,21 @@ export default function MOMap(props: MOMapProps) {
       {/* Shadow caster — a dark copy of the state, blurred via the filter.
           The parchment group paints over its fill, leaving only the soft
           halo around MO's edges. */}
-      <path d={stateOutlinePath} fill="#0B2027" filter="url(#mo-shadow)" />
+      <path d={stateOutlinePath} fill="#0B2027" filter="url(#mo-shadow)" pointerEvents="none" />
 
       {/* State silhouette — parchment fill, clipped to state, plus a stroked
           border for definition. The state path may extend off-canvas; SVG
           clips it naturally. */}
       <g clipPath="url(#mo-clip)">
-        <rect width={W} height={H} fill="url(#mo-bg)" />
-        <rect width={W} height={H} fill="url(#mo-grain)" />
+        {/* pointerEvents none is load-bearing, not tidiness. These fills cover
+            the entire state, so without it every tap over the landmass targets
+            a decorative rect — and the empty-area handler on the container only
+            clears focus when the target IS the svg. The result was that tapping
+            the map to dismiss the mobile sheet worked only in the sky outside
+            Missouri's outline. Same reason the relief image group below opts
+            out. */}
+        <rect width={W} height={H} fill="url(#mo-bg)" pointerEvents="none" />
+        <rect width={W} height={H} fill="url(#mo-grain)" pointerEvents="none" />
 
         {/* Real terrain relief — hillshade baked at build time from SRTM
             (AWS terrarium tiles) in this exact projection, so the Ozark
@@ -1669,6 +1676,7 @@ export default function MOMap(props: MOMapProps) {
         stroke="rgba(80,60,30,0.65)"
         strokeWidth={2.2}
         strokeLinejoin="round"
+        pointerEvents="none"
       />
 
       {/* Cities */}
