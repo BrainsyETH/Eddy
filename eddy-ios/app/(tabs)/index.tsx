@@ -32,7 +32,7 @@ import { Otter } from '@/components/Otter';
 
 export default function MapScreen() {
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
-  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [pickedSlug, setPickedSlug] = useState<string | null>(null);
   const [detail, setDetail] = useState<RiverDetail | null>(null);
   const [accessPoints, setAccessPoints] = useState<MapAccessPoint[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -73,9 +73,12 @@ export default function MapScreen() {
     });
   }, [rivers, isStarred]);
 
-  useEffect(() => {
-    if (!selectedSlug && ordered.length > 0) setSelectedSlug(ordered[0].slug);
-  }, [ordered, selectedSlug]);
+  // The selection is DERIVED, not stored: "nothing picked yet" means the first
+  // river in the current ordering, computed during render. It used to be an
+  // effect that wrote the default into state, which meant the first paint had
+  // no selection and the second did — a visible flash of the empty map, and one
+  // React flags outright (react-hooks/set-state-in-effect).
+  const selectedSlug = pickedSlug ?? ordered[0]?.slug ?? null;
 
   // Geometry is the heaviest response the app fetches — the Current River alone
   // is a 632-point LineString — so it loads one river at a time, on selection,
@@ -164,7 +167,7 @@ export default function MapScreen() {
           return (
             <Pressable
               key={river.id}
-              onPress={() => setSelectedSlug(river.slug)}
+              onPress={() => setPickedSlug(river.slug)}
               style={[
                 styles.chip,
                 { backgroundColor: colors.card, borderColor: colors.border },

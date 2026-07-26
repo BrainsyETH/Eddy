@@ -22,7 +22,7 @@ Two things that are not optional:
 - **Run commands from inside `eddy-ios/`.** There is deliberately no
   `package.json` at the repo root (see below), so `npx expo` run from the root
   will fetch the latest Expo from the registry instead of using this project's
-  pinned SDK 54.
+  pinned SDK 57.
 
 `npx expo start --ios` needs Xcode plus an installed iOS simulator runtime. If
 you see `No iOS devices available`, either the runtime is missing
@@ -36,15 +36,23 @@ Vercel builds the web app with **Root Directory = `missouri-float-planner/`**.
 Adding a root `package.json` with workspaces changes how installs resolve there
 — a real risk to a live deploy, for no benefit to the backend.
 
-So instead of a workspace, `metro.config.js` uses `watchFolders` to reach two
-directories outside the app, with matching `tsconfig` path aliases:
+So instead of a workspace, the shared code is pulled in as **`file:`
+dependencies**. npm symlinks each one into `node_modules`, so they resolve like
+any other package and Vercel never sees them:
 
-| Alias | Points at | Holds |
+| Package | Points at | Holds |
 |---|---|---|
 | `@eddy/types` | `../packages/eddy-types` | API contracts shared with the backend |
 | `@eddy/geo` | `../packages/eddy-geo` | Web Mercator tile maths for offline packs |
 | `@eddy/offline` | `../packages/eddy-offline` | offline download planning and budget policy |
-| `@shared/*` | `../missouri-float-planner/shared/*` | the canonical condition system |
+| `@eddy/sync` | `../packages/eddy-sync` | favourites reconciliation |
+| `@eddy/hazards` | `../packages/eddy-hazards` | hazard classification |
+| `@eddy/conditions` | `../missouri-float-planner/shared` | the canonical condition system |
+
+`@eddy/conditions` is the odd one: it lives inside the **web app** rather than
+`packages/`, because 38 files there import it through that app's own `@shared/*`
+alias. Adding a `package.json` beside it lets this app consume the same file
+without moving it or touching those imports.
 
 `eddy-geo` and `eddy-offline` are shared rather than app-local for a specific
 reason: they are pure, they hold the download-size *policy*, and they need tests.
@@ -55,8 +63,23 @@ bitten by. They are covered by `src/lib/geo-tiles.test.ts` and
 path. Their own imports are relative for the same reason: both Metro and the
 web's plain `tsx` runner have to resolve them.
 
-Metro handles runtime resolution, `tsconfig` handles types, and they are
-configured independently — change one, change the other.
+### These used to be path aliases. Do not put them back.
+
+Until SDK 57 the same modules resolved through `metro.config.js` `watchFolders`
+plus `tsconfig` `compilerOptions.paths`. That stopped working, and the way it
+stopped is worth knowing before anyone reaches for an alias again:
+
+- **Expo's tsconfig-paths emulation only matches wildcard patterns now.** `@/*`
+  kept resolving; the exact mappings (`@eddy/types` and friends) were not even
+  attempted — from a `tsconfig.json` that had not changed.
+- **Metro's file map does not index files outside the project root during
+  `expo export`**, whatever `watchFolders` says. Point a resolver at one and the
+  bundle dies with `Failed to get the SHA-1 for .../packages/eddy-types/index.ts`.
+
+The second is the dangerous one: `expo start` indexes those files fine, so the
+**dev server works and every production bundle fails** — including every EAS
+build. `watchFolders` is still set, but only so edits to the shared code
+hot-reload; nothing resolves through it.
 
 ### What this costs on EAS, and why it works anyway
 
@@ -66,13 +89,10 @@ non-workspace monorepo on EAS, so it is worth stating what actually happens.
 `eas build` does **not** archive the Expo project directory. It clones from
 `git rev-parse --show-toplevel` (`eas-cli/build/vcs/clients/git.js`,
 `makeShallowCopyAsync`), so the repository root is the archive root and
-`packages/` + `missouri-float-planner/shared/` arrive on the worker. Verified by
-bundling from a copy of the archive: `npx expo export --platform ios` succeeds.
-
-The failure this avoids is loud rather than subtle. Scope the archive to
-`eddy-ios/` and Metro will not even start — `watchFolders` are stat'd up front,
-so you get `ENOENT ... /packages` out of `verifyRootExists` before a single
-module resolves. Also verified, by doing it.
+`packages/` + `missouri-float-planner/shared/` arrive on the worker — which is
+exactly what the `file:` dependencies need, since `npm ci` resolves them from
+disk. Verified end to end against a copy of the real archive: `npm ci` then
+`npx expo export --platform ios` both succeed.
 
 The cost is that the archive is the whole repo: 87 MB, mostly Remotion audio and
 blog imagery the app never touches. `/.easignore` trims it to 3 MB.
@@ -87,8 +107,8 @@ python3 eddy-ios/scripts/check-easignore.py
 ```
 
 which asserts every Metro-resolved path is still in the archive and that no
-secret or media file has crept in. Run it after touching `.easignore`,
-`metro.config.js` watchFolders, or `tsconfig` paths.
+secret or media file has crept in. Run it after touching `.easignore`, the
+`file:` dependencies in `package.json`, or `metro.config.js` watchFolders.
 
 **Do not add `nodeModulesPaths` or `disableHierarchicalLookup` to
 `metro.config.js`.** Those appear in every workspace-monorepo guide and are
@@ -143,7 +163,7 @@ just draws it. The source art in `remotion/public/eddy` is video resolution
 
 ## Condition colours and labels
 
-Import them from `@shared/condition-system` via `src/theme/conditions.ts`. Never
+Import them from `@eddy/conditions` via `src/theme/conditions.ts`. Never
 hardcode condition hex — that file says so explicitly, and an earlier version of
 this app ignored it and immediately drifted (`#DC2626` here vs the canonical
 `#ef4444`), so the app showed different colours than the website for the same

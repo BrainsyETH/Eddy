@@ -11,7 +11,7 @@
 // render at @3x — which took the set from 4.58 MB to 193 KB.
 
 import { Image, StyleSheet, type ImageStyle, type StyleProp } from 'react-native';
-import { CONDITION_SYSTEM, type ConditionCode } from '@shared/condition-system';
+import { CONDITION_SYSTEM, type ConditionCode } from '@eddy/conditions';
 
 // require() rather than a dynamic path: Metro resolves asset requires
 // statically, so a computed path would simply fail to bundle.

@@ -1,0 +1,8 @@
+{
+  "name": "@eddy/conditions",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The canonical condition system. Source of truth for condition colours, labels and orderings.",
+  "main": "condition-system.ts",
+  "types": "condition-system.ts"
+}

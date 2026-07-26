@@ -16,7 +16,7 @@ import {
   FLOATABLE_NOW,
   WEEKEND_SEVERITY,
   type ConditionCode,
-} from '@shared/condition-system';
+} from '@eddy/conditions';
 
 export type { ConditionCode };
 
