@@ -143,6 +143,7 @@ export default function MapScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.picker}
         contentContainerStyle={styles.pickerRow}
       >
         {ordered.map((river) => {
@@ -250,7 +251,12 @@ const styles = StyleSheet.create({
   headerMeta: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 },
   dot: { width: 9, height: 9, borderRadius: 999 },
   headerMetaText: { color: COLORS.textMuted, fontSize: 14 },
-  pickerRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
+  // A horizontal ScrollView in a column stretches to fill the cross axis by
+  // default, which made every chip as tall as the free space and squeezed the
+  // map into a strip. flexGrow: 0 sizes the row to its content; alignItems
+  // stops the chips themselves stretching inside it.
+  picker: { flexGrow: 0, flexShrink: 0 },
+  pickerRow: { alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',

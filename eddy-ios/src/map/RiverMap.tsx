@@ -56,6 +56,14 @@ export function RiverMap({ river, accessPoints, conditionCode, onSelectAccessPoi
     [accessPoints],
   );
 
+  const cameraBounds = useMemo(
+    () => ({
+      ne: [river.bounds[2], river.bounds[3]],
+      sw: [river.bounds[0], river.bounds[1]],
+    }),
+    [river.bounds],
+  );
+
   // The caller is responsible for not rendering this when Mapbox is unavailable;
   // this guard is here so a mistake shows an empty map rather than a red screen.
   if (!Mapbox) return <View style={styles.fill} />;
@@ -65,17 +73,23 @@ export function RiverMap({ river, accessPoints, conditionCode, onSelectAccessPoi
   return (
     <Mapbox.MapView style={styles.fill} styleURL={STYLE_URL} scaleBarEnabled={false}>
       <Mapbox.Camera
-        // Padding keeps the ends of the river clear of the header and the
-        // bottom sheet rather than tucked under them.
-        bounds={{
-          ne: [river.bounds[2], river.bounds[3]],
-          sw: [river.bounds[0], river.bounds[1]],
-          paddingTop: 60,
-          paddingBottom: 140,
-          paddingLeft: 40,
-          paddingRight: 40,
+        // defaultSettings is not optional here. `bounds` alone is applied as an
+        // UPDATE, and on first mount there is nothing to update from — the map
+        // opens on the default world view and stays there, which looks like a
+        // spinning globe rather than a river. defaultSettings sets the initial
+        // camera; bounds then moves it when the user picks another river.
+        defaultSettings={{ bounds: cameraBounds }}
+        bounds={cameraBounds}
+        // Padding belongs on the root prop. Passing it inside `bounds` still
+        // works but is deprecated in @rnmapbox/maps 10 — the type comment says
+        // the nested props exist only for backwards compatibility.
+        padding={{
+          paddingTop: 40,
+          paddingBottom: 40,
+          paddingLeft: 32,
+          paddingRight: 32,
         }}
-        animationDuration={0}
+        animationMode="none"
       />
 
       <Mapbox.ShapeSource id="river-line" shape={lineFeature}>

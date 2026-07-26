@@ -9,8 +9,10 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: COLORS.bg },
-        headerTitleStyle: { color: COLORS.text },
+        // Every screen draws its own large title inside a top-edge SafeAreaView,
+        // so the navigator header would be a second "Map"/"Alerts" above it.
+        // `title` below is still used — it names the tab in the bar.
+        headerShown: false,
         tabBarStyle: { backgroundColor: COLORS.card, borderTopColor: COLORS.border },
         tabBarLabelStyle: { fontSize: 11 },
         tabBarActiveTintColor: COLORS.accentOnDark,
