@@ -254,6 +254,20 @@ export interface MeProfileResponse {
   entitlement: MeEntitlement | null;
 }
 
+/** Response from DELETE /api/me. */
+export interface MeDeleteResponse {
+  ok: true;
+  /** Rows removed per table — float_plans is deleted explicitly, not cascaded. */
+  deleted: Record<string, number>;
+  /**
+   * True when the account had a live subscription at deletion time. Deleting an
+   * account CANNOT cancel an Apple subscription — only the user can, in their
+   * Apple ID settings — so the app has to say so rather than imply billing
+   * stopped.
+   */
+  hadActiveEntitlement: boolean;
+}
+
 export interface StarredRiverEntry {
   riverId: string;
   riverName: string;

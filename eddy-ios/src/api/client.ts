@@ -24,6 +24,8 @@ import type {
   StarredRiversResponse,
   AlertSubscriptionEntry,
   AlertSubscriptionsResponse,
+  MeProfileResponse,
+  MeDeleteResponse,
 } from '@eddy/types';
 import type { ServerStar } from '@eddy/sync';
 
@@ -251,4 +253,53 @@ export async function fetchAppConfig(signal?: AbortSignal): Promise<AppConfigRes
 export async function fetchAlerts(signal?: AbortSignal): Promise<AlertFeedEntry[]> {
   const data = await get<AlertsResponse>('/api/alerts?limit=100', signal);
   return data.alerts ?? [];
+}
+
+/**
+ * The caller's profile and entitlement snapshot.
+ *
+ * `isActive` on the entitlement is computed SERVER-side from `expires_at` — a
+ * device clock is trivially wrong and occasionally set forward on purpose, so
+ * the app never decides this itself.
+ */
+export async function fetchMeProfile(
+  token: string,
+  signal?: AbortSignal,
+): Promise<MeProfileResponse | null> {
+  return authed<MeProfileResponse>('/api/me/profile', token, { signal });
+}
+
+/** Persist a display name. Used once, right after Apple returns one. */
+export async function updateDisplayName(token: string, displayName: string): Promise<void> {
+  await authed('/api/me/profile', token, { method: 'PATCH', body: { displayName } });
+}
+
+/**
+ * Delete the account and its owned data. Irreversible.
+ *
+ * Unlike the rest of the /api/me family this THROWS on failure rather than
+ * returning null. Everywhere else a 401 means "fall back to local data", which
+ * is a fine outcome; here, silently doing nothing would leave the app claiming
+ * an account was deleted when it still exists.
+ */
+export async function deleteAccount(token: string): Promise<MeDeleteResponse> {
+  const response = await fetch(`${BASE_URL}/api/me`, {
+    method: 'DELETE',
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': USER_AGENT,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new ApiError(
+      response.status === 429
+        ? 'Too many attempts. Please try again later.'
+        : 'Could not delete your account. Please try again.',
+      response.status,
+    );
+  }
+
+  return (await response.json()) as MeDeleteResponse;
 }

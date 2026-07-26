@@ -7,12 +7,15 @@
 // instead of two. What the app cannot do without a Supabase client is obtain a
 // token in the first place, which is all this is for.
 //
-// Sessions persist in AsyncStorage and refresh in the background, so a user who
-// starred rivers six months ago still owns them on next launch.
+// Sessions persist in the KEYCHAIN and refresh in the background, so a user who
+// starred rivers six months ago still owns them on next launch — and so a
+// paying subscriber who reinstalls still owns their subscription, since
+// RevenueCat is keyed on this user id. See src/lib/secure-session-store.ts for
+// why that storage choice is load-bearing rather than incidental.
 
 import 'react-native-url-polyfill/auto';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
+import { secureSessionStore } from '@/lib/secure-session-store';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
@@ -36,7 +39,7 @@ export function getSupabase(): SupabaseClient | null {
 
   client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
-      storage: AsyncStorage,
+      storage: secureSessionStore,
       persistSession: true,
       autoRefreshToken: true,
       // No URL to read a session out of on native — leaving this on makes the
