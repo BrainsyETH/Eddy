@@ -1,0 +1,8 @@
+{
+  "name": "@eddy/types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared API contracts between the Next.js backend and the Expo app",
+  "main": "index.ts",
+  "types": "index.ts"
+}
