@@ -26,6 +26,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { alertDetail, alertHeadline } from '@/lib/alertCopy';
 import { Otter } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { useRouter } from 'expo-router';
 
 export default function AlertsScreen() {
   const [alerts, setAlerts] = useState<AlertFeedEntry[] | null>(null);
@@ -34,6 +35,7 @@ export default function AlertsScreen() {
   const [onlyStarred, setOnlyStarred] = useState(true);
   const { isStarred, starred } = useStarredRivers();
   const { colors, elevation } = useTheme();
+  const router = useRouter();
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -146,7 +148,16 @@ export default function AlertsScreen() {
           ) : null
         }
         renderItem={({ item }) => (
-          <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>
+          <Pressable
+            onPress={() => router.push(`/river/${item.riverSlug}`)}
+            style={({ pressed }) => [
+              styles.row,
+              { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
+              elevation(1),
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.riverName} details`}
+          >
             <View
               style={[styles.stripe, { backgroundColor: conditionColor(item.newConditionCode) }]}
             />
@@ -168,7 +179,7 @@ export default function AlertsScreen() {
                 color={conditionInk(item.newConditionCode)}
               />
             </View>
-          </View>
+          </Pressable>
         )}
       />
     </SafeAreaView>

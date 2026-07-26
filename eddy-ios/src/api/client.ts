@@ -12,12 +12,18 @@ import type {
   AlertFeedEntry,
   AlertsResponse,
   AppConfigResponse,
+  ConditionResponse,
+  Hazard,
+  HazardsResponse,
   MapAccessPoint,
+  RiverConditionDetail,
   RiverDetail,
   RiverDetailResponse,
   RiversResponse,
   RiverListItem,
   StarredRiversResponse,
+  AlertSubscriptionEntry,
+  AlertSubscriptionsResponse,
 } from '@eddy/types';
 import type { ServerStar } from '@eddy/sync';
 
@@ -141,6 +147,85 @@ export async function fetchRiverAccessPoints(
     signal,
   );
   return data.accessPoints ?? [];
+}
+
+/**
+ * Live conditions for one river: the reading, its age, and where today's flow
+ * sits historically.
+ *
+ * Returns null when no gauge is wired or the reading is unavailable — the
+ * endpoint answers 200 with `available: false` rather than erroring, because a
+ * river without a gauge is an ordinary state, not a fault.
+ */
+export async function fetchCondition(
+  riverId: string,
+  signal?: AbortSignal,
+): Promise<RiverConditionDetail | null> {
+  const data = await get<ConditionResponse>(
+    `/api/conditions/${encodeURIComponent(riverId)}`,
+    signal,
+  );
+  return data.available ? (data.condition ?? null) : null;
+}
+
+/**
+ * Hazards for a river — low-water dams, strainers, required portages.
+ *
+ * No entitlement check anywhere in this path, by design. Safety information
+ * behind a paywall is a liability, and the alert engine already applies the same
+ * rule (see kindRequiresEntitlement: `warning` is free).
+ */
+export async function fetchHazards(slug: string, signal?: AbortSignal): Promise<Hazard[]> {
+  const data = await get<HazardsResponse>(
+    `/api/rivers/${encodeURIComponent(slug)}/hazards`,
+    signal,
+  );
+  return data.hazards ?? [];
+}
+
+/** Subscribe to condition alerts for a river. 402 means the paywall. */
+export async function subscribeToRiver(
+  token: string,
+  riverId: string,
+  kind: 'floatable' | 'safety' | 'all',
+): Promise<{ ok: boolean; paymentRequired: boolean }> {
+  const response = await fetch(`${BASE_URL}/api/me/alert-subscriptions`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'User-Agent': USER_AGENT,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ riverId, kind }),
+  });
+
+  // 402 is the contextual paywall trigger, not a failure — the caller presents
+  // an offer rather than an error.
+  if (response.status === 402) return { ok: false, paymentRequired: true };
+  if (!response.ok) throw new ApiError(`Request failed (${response.status})`, response.status);
+  return { ok: true, paymentRequired: false };
+}
+
+export async function unsubscribeFromRiver(token: string, riverId: string): Promise<void> {
+  await authed(
+    `/api/me/alert-subscriptions?riverId=${encodeURIComponent(riverId)}`,
+    token,
+    { method: 'DELETE' },
+  );
+}
+
+/** The caller's current alert subscriptions. Null when the session is unusable. */
+export async function fetchSubscriptions(
+  token: string,
+  signal?: AbortSignal,
+): Promise<AlertSubscriptionEntry[] | null> {
+  const data = await authed<AlertSubscriptionsResponse>(
+    '/api/me/alert-subscriptions',
+    token,
+    { signal },
+  );
+  return data ? (data.subscriptions ?? []) : null;
 }
 
 /**

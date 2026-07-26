@@ -33,6 +33,7 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { useRouter } from 'expo-router';
 
 export default function ReportsScreen() {
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
@@ -40,6 +41,7 @@ export default function ReportsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { isStarred, toggleStar, ready: starsReady } = useStarredRivers();
   const { colors, elevation } = useTheme();
+  const router = useRouter();
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -116,7 +118,16 @@ export default function ReportsScreen() {
           const code = item.currentCondition?.code ?? 'unknown';
           const starred = isStarred(item.id);
           return (
-            <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>
+            <Pressable
+              onPress={() => router.push(`/river/${item.slug}`)}
+              style={({ pressed }) => [
+                styles.row,
+                { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
+                elevation(1),
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.name} details`}
+            >
               <View style={[styles.dot, { backgroundColor: conditionColor(code) }]} />
               <View style={styles.rowBody}>
                 <Text style={[styles.riverName, { color: colors.text }]}>{item.name}</Text>
@@ -152,7 +163,7 @@ export default function ReportsScreen() {
                   color={starred ? colors.warm : colors.textSubtle}
                 />
               </Pressable>
-            </View>
+            </Pressable>
           );
         }}
       />

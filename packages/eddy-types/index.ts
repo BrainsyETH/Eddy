@@ -114,6 +114,79 @@ export interface AccessPointsResponse {
   accessPoints: MapAccessPoint[];
 }
 
+// ── Live conditions (GET /api/conditions/[riverId]) ──────────────
+// Mirrors the web app's RiverCondition, narrowed to the fields a phone shows.
+
+export type FlowRating = 'very_low' | 'low' | 'normal' | 'high' | 'very_high';
+
+export interface RiverConditionDetail {
+  label: string;
+  code: ConditionCode;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  /** Which unit this river's thresholds are actually defined in. */
+  thresholdUnit?: 'ft' | 'cfs';
+  /** When the river was MEASURED. Quote this, never "now". */
+  readingTimestamp: string | null;
+  readingAgeHours: number | null;
+  /** True when the reading is stale or the gauge is suspect — always surface it. */
+  accuracyWarning: boolean;
+  accuracyWarningReason: string | null;
+  gaugeName: string | null;
+  gaugeUsgsId: string | null;
+  /**
+   * Where today's flow sits against this day-of-year historically, 0-100.
+   * Backed by usgs_daily_percentiles — 89,304 rows snapshotted before USGS
+   * decommissioned the legacy statistics service.
+   */
+  percentile?: number | null;
+  medianDischargeCfs?: number | null;
+  flowRating?: FlowRating;
+  flowDescription?: string;
+  usgsUrl?: string | null;
+}
+
+export interface ConditionResponse {
+  condition: RiverConditionDetail | null;
+  available: boolean;
+  error?: string;
+}
+
+// ── Hazards (GET /api/rivers/[slug]/hazards) ─────────────────────
+// Safety data. Free, always — see kindRequiresEntitlement in the alert engine
+// for the same rule applied to push.
+
+export type HazardType =
+  | 'low_water_dam'
+  | 'portage'
+  | 'strainer'
+  | 'rapid'
+  | 'private_property'
+  | 'waterfall'
+  | 'shoal'
+  | 'bridge_piling'
+  | 'other';
+
+export type HazardSeverity = 'info' | 'caution' | 'warning' | 'danger';
+
+export interface Hazard {
+  id: string;
+  riverId: string;
+  name: string;
+  type: HazardType;
+  riverMile: number;
+  description: string | null;
+  severity: HazardSeverity;
+  portageRequired: boolean;
+  portageSide: 'left' | 'right' | 'either' | null;
+  seasonalNotes: string | null;
+  coordinates: { lng: number; lat: number };
+}
+
+export interface HazardsResponse {
+  hazards: Hazard[];
+}
+
 // ── Alert events (the outbox the app's Alerts tab reads) ─────────
 
 export type EventKind = 'floatable' | 'warning' | 'easing' | 'recovery' | 'info';

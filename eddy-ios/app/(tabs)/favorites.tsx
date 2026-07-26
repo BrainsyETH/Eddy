@@ -9,10 +9,12 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { useRouter } from 'expo-router';
 
 export default function FavoritesScreen() {
   const { starred, toggleStar, ready } = useStarredRivers();
   const { colors, elevation } = useTheme();
+  const router = useRouter();
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
@@ -42,7 +44,16 @@ export default function FavoritesScreen() {
           ) : null
         }
         renderItem={({ item }) => (
-          <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>
+          <Pressable
+            onPress={() => router.push(`/river/${item.slug}`)}
+            style={({ pressed }) => [
+              styles.row,
+              { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
+              elevation(1),
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.name} details`}
+          >
             <View style={styles.rowBody}>
               <Text style={[styles.riverName, { color: colors.text }]}>{item.name}</Text>
               <Text style={[styles.riverMeta, { color: colors.textMuted }]}>{item.slug}</Text>
@@ -56,7 +67,7 @@ export default function FavoritesScreen() {
             >
               <Ionicons name="star" size={22} color={colors.warm} />
             </Pressable>
-          </View>
+          </Pressable>
         )}
       />
     </SafeAreaView>

@@ -27,6 +27,7 @@ import { mapUnavailableReason } from '@/map/runtime';
 import { planOffline } from '@eddy/offline';
 import { useOfflinePacks } from '@/map/useOfflinePacks';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { useRouter } from 'expo-router';
 import { Otter } from '@/components/Otter';
 
 export default function MapScreen() {
@@ -42,6 +43,7 @@ export default function MapScreen() {
   const packs = useOfflinePacks();
   const unavailable = mapUnavailableReason();
   const { colors } = useTheme();
+  const router = useRouter();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -135,12 +137,19 @@ export default function MapScreen() {
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Map</Text>
         {selected ? (
-          <View style={styles.headerMeta}>
+          <Pressable
+            onPress={() => router.push(`/river/${selected.slug}`)}
+            style={styles.headerMeta}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`${selected.name} details`}
+          >
             <View style={[styles.dot, { backgroundColor: conditionColor(conditionCode) }]} />
             <Text style={[styles.headerMetaText, { color: colors.textMuted }]}>
               {selected.name} · {conditionLabel(conditionCode)}
             </Text>
-          </View>
+            <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+          </Pressable>
         ) : null}
       </View>
 
