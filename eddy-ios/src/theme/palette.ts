@@ -95,6 +95,20 @@ export interface Palette {
   onAccent: string;
   success: string;
   warm: string;
+  /**
+   * Something went wrong.
+   *
+   * This role exists because it was missing: error text was being painted in
+   * `warm` (Sandbar Tan), which is a decorative brand accent and reads as
+   * emphasis, not as a warning. Tan on a warm off-white canvas is also barely a
+   * signal at all.
+   *
+   * NOT a condition colour. `dangerous` means the river is in flood; this means
+   * the app failed. Conflating them would let a network timeout borrow the
+   * visual weight of a safety call, so this is deliberately drawn from the
+   * generic red rather than from CONDITION_SYSTEM.
+   */
+  error: string;
   /** Tab bar and other chrome, kept distinct from `card`. */
   chrome: string;
 }
@@ -123,6 +137,8 @@ export const darkPalette: Palette = {
   onAccent: '#FFFFFF',
   success: support[500],
   warm: secondary[500],
+  // red-400. The darker red-500 used on light is muddy against near-black stone.
+  error: '#F87171',
   chrome: primary[900],
 };
 
@@ -150,6 +166,9 @@ export const lightPalette: Palette = {
   // Support 700, not 500: the base green fails AA as text on white.
   success: support[700],
   warm: secondary[500],
+  // red-600, matching the canonical `dangerous` ink's contrast discipline: the
+  // lighter red-500 clears AA on white only at large sizes, and error text is small.
+  error: '#DC2626',
   chrome: '#FFFFFF',
 };
 

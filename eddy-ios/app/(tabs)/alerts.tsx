@@ -122,7 +122,7 @@ export default function AlertsScreen() {
                 </Text>
               </Pressable>
             </View>
-            {error ? <Text style={[styles.errorText, { color: colors.textMuted }]}>{error}</Text> : null}
+            {error ? <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text> : null}
           </View>
         }
         ListEmptyComponent={
@@ -163,8 +163,12 @@ export default function AlertsScreen() {
             />
             <View style={styles.rowBody}>
               <Text style={[styles.riverName, { color: colors.text }]}>{item.riverName}</Text>
+              {/* ink, not `solid`. The solid is the marker/stripe colour and is
+                  not a text colour: lime-500 and yellow-500 fall below 4.5:1 on
+                  white, so a "Good" or "Low" headline was failing contrast while
+                  the icon two lines down already used ink correctly. */}
               <Text
-                style={[styles.headline, { color: conditionColor(item.newConditionCode) }]}
+                style={[styles.headline, { color: conditionInk(item.newConditionCode) }]}
               >
                 {alertHeadline(item)}
               </Text>
