@@ -25,10 +25,31 @@
 // river with no discharge reading must come back 'unknown' rather than have its
 // stage in feet compared against cfs thresholds.
 
-import type { Feature, FeatureCollection, LineString } from 'geojson';
 import { classifyReading, hasLadder } from '@eddy/conditions/condition-ladder';
 import type { ConditionCode } from '@eddy/conditions';
 import { conditionColor } from '@/theme/conditions';
+
+// GeoJSON shapes declared here rather than imported from `geojson`. That
+// package is present only TRANSITIVELY (via @types/geojson, pulled in by a
+// dependency of a dependency), so importing it works today and disappears
+// without warning the next time the lockfile is refreshed. Three interfaces is
+// a cheaper price than a build that breaks for a reason nobody can see.
+interface LineString {
+  type: 'LineString';
+  coordinates: number[][];
+}
+
+interface Feature<P> {
+  type: 'Feature';
+  id?: string;
+  geometry: LineString;
+  properties: P;
+}
+
+export interface FeatureCollection<P> {
+  type: 'FeatureCollection';
+  features: Feature<P>[];
+}
 
 /** A river as the statewide dataset ships it. Only the fields we use. */
 export interface StatewideRiver {
@@ -71,7 +92,7 @@ export interface NetworkFeatureProps {
   color: string;
 }
 
-export type NetworkCollection = FeatureCollection<LineString, NetworkFeatureProps>;
+export type NetworkCollection = FeatureCollection<NetworkFeatureProps>;
 
 /**
  * Reading lookup key.
@@ -93,7 +114,13 @@ export function gradeRiver(
   const gauge = river.gauges?.find((g) => g.is_primary) ?? river.gauges?.[0];
   if (!gauge) return 'unknown';
 
-  const unit = gauge.threshold_unit ?? 'ft';
+  // A DECLARED unit or nothing. Defaulting to feet and then grading with
+  // strictUnit would compare a stage against whatever ladder the row carries —
+  // which is exactly the cross-unit substitution primaryReading() exists to
+  // refuse. No live row hits this today; it is a guard, not a fix.
+  const unit = gauge.threshold_unit;
+  if (!unit) return 'unknown';
+
   const thresholds = {
     levelTooLow: gauge.level_too_low,
     levelLow: gauge.level_low,
@@ -150,7 +177,7 @@ export function buildNetwork(
     if (!existing || (r.is_primary && !existing.is_primary)) byKey.set(r.site_no, r);
   }
 
-  const features: Feature<LineString, NetworkFeatureProps>[] = [];
+  const features: Feature<NetworkFeatureProps>[] = [];
   for (const river of rivers) {
     if (!river.geometry?.coordinates?.length) continue;
     const code = gradeRiver(river, byKey);

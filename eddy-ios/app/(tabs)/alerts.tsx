@@ -133,7 +133,7 @@ export default function AlertsScreen() {
             </Text>
             <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
               {onlyStarred && !hasStars
-                ? 'Star a river in River Reports to see its condition changes here.'
+                ? 'Star a river in Search to see its condition changes here.'
                 : onlyStarred
                   ? "None of your starred rivers have changed condition recently. That's usually good news."
                   : 'No rivers have changed condition recently.'}
