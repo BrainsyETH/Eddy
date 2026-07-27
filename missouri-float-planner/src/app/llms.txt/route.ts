@@ -32,6 +32,7 @@ All API endpoints return JSON. AI agents accessing the API programmatically shou
 - GET ${BASE_URL}/api/rivers/{slug}/services — Nearby outfitters, campgrounds, shuttle services
 - GET ${BASE_URL}/api/conditions/{riverId} — Current water conditions (level, flow, trend)
 - GET ${BASE_URL}/api/gauges — All gauge stations with latest readings and thresholds
+- GET ${BASE_URL}/api/search?q={query} — Search rivers, gauges and access points by name
 - GET ${BASE_URL}/api/gauges/{siteId}/history — Historical gauge readings
 - GET ${BASE_URL}/api/plan?riverId={id}&startId={id}&endId={id}&vesselTypeId={id} — Calculate a float plan with distance, time, drive-back, hazards
 - GET ${BASE_URL}/api/vessel-types — Vessel types (canoe, kayak, tube, raft) with speed profiles

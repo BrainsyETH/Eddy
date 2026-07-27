@@ -196,6 +196,68 @@ const spec = {
         },
       },
     },
+    '/api/search': {
+      get: {
+        operationId: 'search',
+        summary: 'Search rivers, gauges and access points',
+        description:
+          'One query across active rivers, active gauge stations (by name or USGS site id) and approved access points. Results carry a pre-composed subtitle and, where one exists, the river the result belongs to.',
+        parameters: [
+          {
+            name: 'q',
+            in: 'query',
+            required: true,
+            schema: { type: 'string', minLength: 2 },
+            description: 'Search text. Fewer than 2 characters returns no results.',
+          },
+          {
+            name: 'limit',
+            in: 'query',
+            required: false,
+            schema: { type: 'integer', minimum: 1, maximum: 50, default: 20 },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Matching rivers, access points and gauges',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    query: { type: 'string' },
+                    results: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          kind: { type: 'string', enum: ['river', 'gauge', 'access_point'] },
+                          id: { type: 'string' },
+                          name: { type: 'string' },
+                          subtitle: { type: 'string', nullable: true },
+                          riverId: { type: 'string', nullable: true },
+                          riverName: { type: 'string', nullable: true },
+                          riverSlug: { type: 'string', nullable: true },
+                          riverMile: { type: 'number', nullable: true },
+                          coordinates: {
+                            type: 'object',
+                            nullable: true,
+                            properties: {
+                              lng: { type: 'number' },
+                              lat: { type: 'number' },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     '/api/gauges': {
       get: {
         operationId: 'listGauges',
