@@ -24,10 +24,12 @@ import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { RiverRow } from '@/components/RiverRow';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { useRouter } from 'expo-router';
 
 export default function FavoritesScreen() {
   const { starred, toggleStar, ready } = useStarredRivers();
+  const { floats: savedFloats } = useSavedFloats();
   const { colors, elevation } = useTheme();
   const router = useRouter();
 
@@ -77,6 +79,31 @@ export default function FavoritesScreen() {
                 ? 'Stars are saved on this device'
                 : `${starred.length} river${starred.length === 1 ? '' : 's'} starred`}
             </Text>
+
+            {/* Saved floats live here rather than in a sixth tab: this is
+                already the screen for "things I kept", and both of them are
+                local, account-free and work offline. Hidden at zero — an empty
+                row teaching a feature nobody has used yet is clutter on the one
+                screen that should be all the user's own stuff. */}
+            {savedFloats.length > 0 ? (
+              <Pressable
+                onPress={() => router.push('/floats')}
+                style={({ pressed }) => [
+                  styles.floatsRow,
+                  { backgroundColor: colors.card, opacity: pressed ? 0.6 : 1 },
+                  elevation(1),
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Saved floats, ${savedFloats.length}`}
+              >
+                <Ionicons name="navigate-outline" size={18} color={colors.accent} />
+                <Text style={[styles.floatsText, { color: colors.text }]}>Saved floats</Text>
+                <Text style={[styles.floatsCount, { color: colors.textSubtle }]}>
+                  {savedFloats.length}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
+              </Pressable>
+            ) : null}
           </View>
         }
         ListEmptyComponent={
@@ -139,6 +166,17 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
   title: { ...t['3xl'], fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
+  floatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 14,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  floatsText: { ...t.sm, fontFamily: fonts.semibold, flex: 1 },
+  floatsCount: { ...t.sm, fontFamily: fonts.mono },
   empty: { alignItems: 'center', paddingHorizontal: 40, paddingTop: 40 },
   emptyTitle: { ...t.lg, fontFamily: fonts.semibold, marginTop: 10 },
   emptyBody: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },

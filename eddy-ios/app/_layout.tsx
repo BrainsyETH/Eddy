@@ -20,6 +20,7 @@ import { GeistMono_500Medium } from '@expo-google-fonts/geist-mono/500Medium';
 import { AppConfigProvider } from '@/hooks/useAppConfig';
 import { SessionProvider } from '@/hooks/useSession';
 import { StarredRiversProvider } from '@/hooks/useStarredRivers';
+import { SavedFloatsProvider } from '@/hooks/useSavedFloats';
 import { PushProvider } from '@/hooks/usePush';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { UpgradeGate } from '@/components/UpgradeGate';
@@ -71,11 +72,16 @@ export default function RootLayout() {
           <UpgradeGate>
             <SessionProvider>
               <StarredRiversProvider>
-                {/* Inside SessionProvider: registration needs a token, and the
-                    backend only accepts one from a permanent account. */}
-                <PushProvider>
-                  <ThemedShell />
-                </PushProvider>
+                {/* Beside the stars, and for the same reason: a share-code
+                    history is local, works with no account, and never blocks a
+                    render on disk. */}
+                <SavedFloatsProvider>
+                  {/* Inside SessionProvider: registration needs a token, and the
+                      backend only accepts one from a permanent account. */}
+                  <PushProvider>
+                    <ThemedShell />
+                  </PushProvider>
+                </SavedFloatsProvider>
               </StarredRiversProvider>
             </SessionProvider>
           </UpgradeGate>

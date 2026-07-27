@@ -1,0 +1,151 @@
+// eddy-ios/app/float/[shortCode].tsx
+// One saved float, re-read against today's river.
+//
+// ── This screen is not a cache ──────────────────────────────────────────────
+// /api/plan/[shortCode] recalculates the whole plan from the two access points
+// before answering — the same gauge read, the same shuttle drive, the same
+// hazard sweep as a plan built a moment ago. That is the only correct behaviour
+// here. A float saved in April and opened in July is the same stretch and
+// completely different water, and a screen that replayed April's numbers under
+// July's date would be dangerous rather than merely stale.
+//
+// Which is also why it needs a connection and says so plainly when it does not
+// have one, rather than showing a skeleton of a plan.
+//
+// The rendering is PlanResult, shared with the sheet a plan is built in, so a
+// shared float and the plan that produced it cannot read differently.
+
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import type { FloatPlan } from '@eddy/types';
+import { ApiError, fetchSavedPlan } from '@/api/client';
+import { useTheme } from '@/theme/ThemeProvider';
+import { fonts, type as t } from '@/theme/typography';
+import { Otter } from '@/components/Otter';
+import { PlanResult } from '@/components/PlanResult';
+import { useSavedFloats } from '@/hooks/useSavedFloats';
+
+export default function SavedFloatScreen() {
+  const { shortCode } = useLocalSearchParams<{ shortCode: string }>();
+  const router = useRouter();
+  const { colors } = useTheme();
+  const { floats } = useSavedFloats();
+
+  const [plan, setPlan] = useState<FloatPlan | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // The local stub, used only for the header while the real plan loads. It is
+  // what makes this screen name the stretch instantly instead of showing a
+  // spinner with no idea what it is loading.
+  const stub = floats.find((f) => f.shortCode === shortCode) ?? null;
+
+  const load = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!shortCode) return;
+      setLoading(true);
+      try {
+        setPlan(await fetchSavedPlan(shortCode, signal));
+        setError(null);
+      } catch (err) {
+        if (err instanceof ApiError && err.message === 'Request cancelled') return;
+        setError(
+          err instanceof ApiError && err.status === 404
+            ? 'This float is no longer available. The link may have expired.'
+            : 'We need a connection to read this float against today’s river.',
+        );
+      } finally {
+        if (!signal?.aborted) setLoading(false);
+      }
+    },
+    [shortCode],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+
+  const onShare = useCallback(async () => {
+    const url = stub?.url ?? `https://eddy.guide/plan/${shortCode}`;
+    const summary = plan
+      ? `${plan.putIn.name} → ${plan.takeOut.name} on the ${plan.river.name} · ${plan.distance.formatted}`
+      : `${stub?.putInName ?? 'A float'} → ${stub?.takeOutName ?? ''}`.trim();
+    await Share.share({ message: `${summary}\n${url}` });
+  }, [plan, stub, shortCode]);
+
+  return (
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <View style={styles.navRow}>
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
+        </Pressable>
+        <Pressable
+          onPress={() => void onShare()}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Share this float"
+        >
+          <Ionicons name="share-outline" size={22} color={colors.text} />
+        </Pressable>
+      </View>
+
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
+          {plan?.river.name ?? stub?.riverName ?? 'Saved float'}
+        </Text>
+        <Text style={[styles.subtitle, { color: colors.textMuted }]} numberOfLines={2}>
+          {plan
+            ? 'Re-read against the river right now'
+            : stub
+              ? `${stub.putInName} → ${stub.takeOutName}`
+              : ' '}
+        </Text>
+      </View>
+
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator color={colors.accent} />
+          <Text style={[styles.centeredText, { color: colors.textMuted }]}>
+            Reading the gauge and driving the shuttle…
+          </Text>
+        </View>
+      ) : error || !plan ? (
+        <View style={styles.centered}>
+          <Otter mood="flag" size={110} />
+          <Text style={[styles.centeredText, { color: colors.text }]}>
+            {error ?? 'Could not load this float'}
+          </Text>
+          <Pressable onPress={() => void load()} hitSlop={10} accessibilityRole="button">
+            <Text style={[styles.link, { color: colors.accent }]}>Try again</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <PlanResult plan={plan} />
+      )}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingTop: 6,
+  },
+  header: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 8 },
+  title: { ...t['2xl'], fontFamily: fonts.display },
+  subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
+  centeredText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
+  link: { ...t.sm, fontFamily: fonts.semibold },
+});
