@@ -36,6 +36,7 @@ import { saveFloatPlan } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
+import { EddySymbol } from '@/components/EddySymbol';
 import { Otter } from '@/components/Otter';
 import { PlanResult } from '@/components/PlanResult';
 import type { FloatPlanState } from '@/hooks/useFloatPlan';
@@ -417,11 +418,15 @@ function AccessPointList({
             accessibilityRole="button"
             accessibilityState={{ selected }}
           >
-            <Ionicons
-              name={point.isPublic ? 'location' : 'lock-closed-outline'}
-              size={17}
-              color={point.isPublic ? colors.accent : colors.textSubtle}
-            />
+            {/* Eddy's pin for a public access point; the padlock stays an
+                Ionicon, because "you cannot get on here without permission" is
+                a different fact about the place rather than a prettier way of
+                drawing the same one, and the catalog has no mark for it. */}
+            {point.isPublic ? (
+              <EddySymbol name="accessPoint" size={17} />
+            ) : (
+              <Ionicons name="lock-closed-outline" size={17} color={colors.textSubtle} />
+            )}
             <View style={styles.optionBody}>
               <Text style={[styles.optionName, { color: colors.text }]} numberOfLines={1}>
                 {point.name}
