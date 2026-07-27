@@ -212,19 +212,11 @@ export default function RiverDetailScreen() {
   }
 
   const code = condition?.code ?? river.currentCondition?.code ?? 'unknown';
-  // BELT AND BRACES on the unit. The server now sends `thresholdUnit` on the
-  // condition itself, but the same value has always been present on the nested
-  // ladder, and an old app against a new server — or the reverse — must not
-  // fall back into primaryReading's "no declared unit" branch. That branch
-  // prefers stage, which on the 18 of 24 cfs-rated rivers printed a reading in
-  // feet over a band track built from cfs thresholds.
-  const gradedCondition = condition
-    ? {
-        ...condition,
-        thresholdUnit: condition.thresholdUnit ?? condition.thresholds?.thresholdUnit,
-      }
-    : null;
-  const reading = gradedCondition ? primaryReading(gradedCondition) : null;
+  // primaryReading resolves the unit through shared/reading-unit.ts, which
+  // prefers the nested ladder over the top-level field — so this works against
+  // an older deploy that never sent the top-level one, which is the deploy the
+  // App Store review lag guarantees will exist.
+  const reading = condition ? primaryReading(condition) : null;
   const caveat = condition ? accuracyNote(condition) : null;
   const percentileText = percentileSentence(condition?.percentile);
   const starred = isStarred(river.id);
@@ -337,7 +329,7 @@ export default function RiverDetailScreen() {
                above says what the river IS and this says what to do about it.
                Hidden entirely when the river has no gauge or every upstream
                source failed — an empty interpretation is worse than none. ── */}
-        {outlook ? <EddyTake outlook={outlook} /> : null}
+        {outlook ? <EddyTake outlook={outlook} ratedUnit={reading?.unit ?? null} /> : null}
 
         {/* ── The bell. The only paid affordance on this screen. ── */}
         <Pressable

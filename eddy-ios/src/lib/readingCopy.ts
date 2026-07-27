@@ -6,6 +6,7 @@
 // gauge, not "the river right now", and the app's copy has to keep that
 // distinction visible without being tedious about it.
 
+import { ratedUnit } from '@eddy/conditions/reading-unit';
 import type { RiverConditionDetail } from '@eddy/types';
 
 /**
@@ -23,9 +24,12 @@ export function primaryReading(
     // both mean the same thing — "no declared unit" — and must take the same
     // branch below rather than one of them silently matching 'ft'.
     thresholdUnit?: 'ft' | 'cfs' | null;
+    thresholds?: { thresholdUnit?: 'ft' | 'cfs' | null } | null;
   },
 ): { value: number; unit: 'ft' | 'cfs' } | null {
-  const unit = condition.thresholdUnit;
+  // Resolved through the shared rule so the ladder wins over a missing or stale
+  // top-level field. See shared/reading-unit.ts for why that rule is not local.
+  const unit = ratedUnit(condition);
 
   // A DECLARED unit is absolute: if its reading is missing we show nothing. An
   // earlier version let these fall through to the block below, which quietly
@@ -65,14 +69,20 @@ export function formatReading(value: number, unit: 'ft' | 'cfs'): string {
 export function allReadings(
   condition: Pick<RiverConditionDetail, 'gaugeHeightFt' | 'dischargeCfs'> & {
     thresholdUnit?: 'ft' | 'cfs' | null;
+    thresholds?: { thresholdUnit?: 'ft' | 'cfs' | null } | null;
   },
 ): { value: number; unit: 'ft' | 'cfs'; rated: boolean }[] {
+  // The SAME resolution as primaryReading, and for the same reason: `rated`
+  // decides which number is sorted first and which one the headline agrees
+  // with, so resolving the unit differently here would tag the wrong reading as
+  // the one the verdict came from — the identical bug, one row lower.
+  const unit = ratedUnit(condition);
   const out: { value: number; unit: 'ft' | 'cfs'; rated: boolean }[] = [];
   if (condition.gaugeHeightFt != null) {
-    out.push({ value: condition.gaugeHeightFt, unit: 'ft', rated: condition.thresholdUnit === 'ft' });
+    out.push({ value: condition.gaugeHeightFt, unit: 'ft', rated: unit === 'ft' });
   }
   if (condition.dischargeCfs != null) {
-    out.push({ value: condition.dischargeCfs, unit: 'cfs', rated: condition.thresholdUnit === 'cfs' });
+    out.push({ value: condition.dischargeCfs, unit: 'cfs', rated: unit === 'cfs' });
   }
   return out.sort((a, b) => Number(b.rated) - Number(a.rated));
 }

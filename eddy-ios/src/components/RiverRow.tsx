@@ -168,11 +168,10 @@ function RiverRowComponent({
             The "≈" is not decoration: this is a straight line to the river's
             gauge, not a drive. */}
         {/* The gauge card: every number this station published, each stating
-            its own unit, with a "rated" tag on the one the condition colour was
-            computed from. That tag is the whole point of showing two — 18 of 24
-            rivers are graded on cfs, so a reader who assumes the feet figure
-            drove the verdict is wrong most of the time. Neutral ink, unlike the
-            headline: only the rated number carries the verdict. */}
+            its own unit. The graded one comes FIRST — allReadings sorts it
+            there — and it is also the number in the headline above, in condition
+            ink. That ordering is now the only cue, the explicit "rated" tag
+            having been dropped as noise on a row that already says it twice. */}
         {showBoth ? (
           <View style={[styles.gaugeCard, { backgroundColor: colors.bg }]}>
             {gaugeReadings.map((r) => (
@@ -180,11 +179,6 @@ function RiverRowComponent({
                 <Text style={[styles.gaugeValue, { color: colors.text }]} numberOfLines={1}>
                   {formatReading(r.value, r.unit)}
                 </Text>
-                {r.rated ? (
-                  <Text style={[styles.gaugeTag, { color: conditionText(code, isDark) }]}>
-                    rated
-                  </Text>
-                ) : null}
               </View>
             ))}
           </View>
@@ -246,7 +240,6 @@ const styles = StyleSheet.create({
   },
   gaugeItem: { flexDirection: 'row', alignItems: 'baseline', gap: 5 },
   gaugeValue: { ...t.xs, fontFamily: fonts.mono },
-  gaugeTag: { ...t.xs, fontFamily: fonts.semibold, fontSize: 10 },
   main: { flex: 1, minWidth: 0, paddingVertical: 12, paddingLeft: 12, paddingRight: 4 },
   titleLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   name: { ...t.base, fontFamily: fonts.semibold, flexShrink: 1 },
