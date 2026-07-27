@@ -120,11 +120,6 @@ export function PlanResult({ plan, actions }: Props) {
                   the SHORT end while printing the long one. A published
                   outfitter time gets no pace claim at all: we did not set it. */}
               {floatTimeCeilingBasisNote(plan.floatTime.isEstimate)}
-              {/* The boat is no longer something anyone picks — the server's
-                  default carries the estimate — but which boat it assumed is
-                  still the difference between a plausible time and a wrong one,
-                  so it is stated rather than hidden. */}
-              {plan.vessel?.name ? ` · assumes a ${plan.vessel.name.toLowerCase()}` : ''}
             </Text>
           </>
         ) : (
@@ -254,13 +249,13 @@ function GettingThere({ plan }: { plan: FloatPlan }) {
           { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
         ]}
         accessibilityRole="button"
-        accessibilityLabel="Shuttle route, take-out back to the put-in"
+        accessibilityLabel="Shuttle route, driving directions from point to point"
       >
         <Ionicons name="car-outline" size={16} color={colors.accent} />
         <View style={styles.shuttleText}>
           <Text style={[styles.shuttleTitle, { color: colors.text }]}>Shuttle route</Text>
           <Text style={[styles.shuttleMeta, { color: colors.textMuted }]} numberOfLines={1}>
-            Take-out back to the put-in
+            Driving directions from point-to-point
             {plan.driveBack.formatted ? ` · ${plan.driveBack.formatted}` : ''}
           </Text>
         </View>

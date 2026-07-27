@@ -113,7 +113,11 @@ export function formatFloatTimeCeilingCompact(maxMinutes: number): string {
  * whatever the outfitter measured — we cannot claim a pace for it, so we say
  * nothing about one. Everything else is ours, and the honest description of the
  * long end is a relaxed pace that stops on gravel bars.
+ *
+ * Written as one plain sentence rather than the app's usual dot-separated
+ * fragments, because it is a sentence: it says what the number assumed, and
+ * "Estimated · relaxed pace, some stops" made a reader assemble that themselves.
  */
 export function floatTimeCeilingBasisNote(isEstimate: boolean | undefined): string {
-  return isEstimate === false ? 'Published time' : 'Estimated · relaxed pace, some stops';
+  return isEstimate === false ? 'Published time' : 'Estimated at a relaxed pace with stops';
 }

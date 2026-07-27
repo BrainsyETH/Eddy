@@ -55,6 +55,14 @@ export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
   // impossible rather than merely unlikely.
   const scaleUnit = thresholds.thresholdUnit ?? unit;
 
+  // A GENUINE DISAGREEMENT MEANS NO SCALE. Formatting the labels with the
+  // ladder's unit fixes the words, but the marker is placed by comparing `value`
+  // against the raw band bounds — arithmetic that cannot tell feet from cfs. So
+  // if the caller's reading really is in the other unit, the marker lands
+  // somewhere confident and wrong, which is worse than nothing. Same posture as
+  // the two-band guard below: refuse rather than mislead.
+  if (thresholds.thresholdUnit && unit !== thresholds.thresholdUnit) return null;
+
   const zones = buildZones(thresholds);
   // A partial ladder is common — plenty of gauges carry only some levels — but
   // below two bands there is no scale to speak of, and a one-band track would

@@ -46,7 +46,16 @@ function dayLabel(date: string, index: number): string {
   return new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short' });
 }
 
-export function EddyTake({ outlook }: { outlook: RiverOutlookResponse }) {
+interface EddyTakeProps {
+  outlook: RiverOutlookResponse;
+  /**
+   * The unit the river's CURRENT reading is in, so the forecast can say when it
+   * differs from its own. Null when there is no reading to differ from.
+   */
+  ratedUnit?: 'ft' | 'cfs' | null;
+}
+
+export function EddyTake({ outlook, ratedUnit = null }: EddyTakeProps) {
   const { colors, elevation } = useTheme();
   const { sections, days } = outlook;
 
@@ -137,20 +146,14 @@ export function EddyTake({ outlook }: { outlook: RiverOutlookResponse }) {
 
                 {/* Forecast stage. Only shown when the NWS actually publishes a
                     hydrograph for this gauge — otherwise the column would imply
-                    a river prediction we do not have.
-
-                    "stage" is not decoration. The NWS publishes stage ONLY, so
-                    this is always feet even on a cfs-rated river — and now that
-                    the reading card above it correctly prints cfs, these two
-                    numbers sit on one screen in different units. The type
-                    comment on RiverOutlookDay is blunt about it: "Never render
-                    valueFt beside a cfs reading without saying which is which." */}
+                    a river prediction we do not have. The unit is disclosed once
+                    below the strip rather than seven times inside it. */}
                 {outlook.hasOfficialForecast ? (
                   <View style={[styles.forecast, { borderTopColor: colors.border }]}>
                     {day.river.valueFt != null ? (
                       <>
                         <Text style={[styles.forecastValue, { color: colors.text }]}>
-                          {day.river.valueFt.toFixed(2)} ft stage
+                          {day.river.valueFt.toFixed(2)} ft
                         </Text>
                         {day.river.conditionCode ? (
                           <Text
@@ -172,6 +175,20 @@ export function EddyTake({ outlook }: { outlook: RiverOutlookResponse }) {
               </View>
             ))}
           </View>
+
+          {/* SAY WHICH IS WHICH. The NWS publishes stage only, so the forecast
+              row above is always feet — including on the 18 of 24 rivers rated
+              in cfs, whose reading card a few hundred pixels up now correctly
+              prints cfs. RiverOutlookDay's own type comment demands this:
+              "Never render valueFt beside a cfs reading without saying which is
+              which." Once, under the strip, rather than seven times inside it. */}
+          {outlook.hasOfficialForecast ? (
+            <Text style={[styles.forecastNote, { color: colors.textSubtle }]}>
+              {ratedUnit === 'cfs'
+                ? 'Forecast is river stage in feet — this river is rated in cfs.'
+                : 'Forecast is river stage in feet.'}
+            </Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -242,6 +259,7 @@ const styles = StyleSheet.create({
   heatText: { fontSize: 9, lineHeight: 13, fontFamily: fonts.heading },
   unavailable: { ...t.xs, fontFamily: fonts.body },
   forecast: { alignItems: 'center', marginTop: 8, paddingTop: 8, borderTopWidth: 1, width: '100%' },
+  forecastNote: { ...t.xs, fontFamily: fonts.body, paddingHorizontal: 14, paddingBottom: 12 },
   forecastValue: { ...t.xs, fontFamily: fonts.monoMedium },
   forecastCode: { ...t.xs, fontFamily: fonts.semibold, marginTop: 1 },
   takeHeading: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.8, marginBottom: 12 },

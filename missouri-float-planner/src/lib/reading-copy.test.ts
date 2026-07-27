@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ratedUnit } from '@shared/reading-unit';
 
 // Mirrors eddy-ios/src/lib/readingCopy.ts. The app has no test runner, so the
 // pure copy rules are covered here — the unit rule below in particular is a
@@ -205,4 +206,37 @@ test('a flagged reading with no reason still says something', () => {
 test('a fresh, unflagged reading gets no caveat', () => {
   const fine = { accuracyWarning: false, accuracyWarningReason: null, readingAgeHours: 1 };
   assert.equal(accuracyNote(fine), null);
+});
+
+// ── The unit rule, against the REAL implementation ───────────────────────
+// Everything above this line tests a re-implementation of readingCopy.ts, which
+// is why the ft/cfs bug survived a green suite: /api/conditions never sent
+// `thresholdUnit`, the shipping primaryReading() fell into its "no declared
+// unit" branch, and the copy in this file kept passing. The rule now lives in
+// shared/reading-unit.ts precisely so it can be imported, and these cases run
+// against the same function the phone runs.
+
+test('ratedUnit prefers the ladder over the top-level field', () => {
+  // The exact shape /api/conditions sent for eighteen of twenty-four rivers
+  // before the fix: no top-level unit, a cfs ladder, and both readings present.
+  // Resolving this to 'ft' is what put a stage reading over a discharge scale.
+  assert.equal(
+    ratedUnit({ thresholds: { thresholdUnit: 'cfs' } }),
+    'cfs',
+  );
+  // The ladder wins even when the two disagree — it is what the band track is
+  // drawn from, so a reading that contradicts it is wrong whichever is "right".
+  assert.equal(
+    ratedUnit({ thresholdUnit: 'ft', thresholds: { thresholdUnit: 'cfs' } }),
+    'cfs',
+  );
+});
+
+test('ratedUnit falls back to the top-level field, then to null', () => {
+  // /api/rivers has always sent the top level and carries no ladder.
+  assert.equal(ratedUnit({ thresholdUnit: 'cfs' }), 'cfs');
+  // Genuinely unknown must stay unknown. Guessing "prefer stage" here is the
+  // whole bug: true of six rivers, wrong about the other eighteen.
+  assert.equal(ratedUnit({}), null);
+  assert.equal(ratedUnit({ thresholdUnit: null, thresholds: null }), null);
 });

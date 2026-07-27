@@ -199,14 +199,6 @@ export default function ReportsScreen() {
     });
   }, [rivers, sort]);
 
-  // Uses the strict flowing/good bucket, matching every public floatable count.
-  // Computed over ALL rivers, not the filtered view: "4 of 24 floatable" is a
-  // fact about Missouri, and it would be nonsense as "4 of 4" under a filter
-  // that already selected for it.
-  const floatableCount = sorted.filter((r) =>
-    isFloatableNow(r.currentCondition?.code ?? 'unknown')
-  ).length;
-
   // Gauge coordinates, keyed by the river each one is primary for. One flat
   // request, fetched only when someone actually taps Near me.
   const distanceByRiver = useMemo(() => {
@@ -305,9 +297,15 @@ export default function ReportsScreen() {
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Search</Text>
-        <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-          {error ? error : `${floatableCount} of ${sorted.length} rivers floatable right now`}
-        </Text>
+        {/* ERROR ONLY. This slot used to fall back to "N of 24 rivers floatable
+            right now", which is a fact the "Floatable now" chip already carries
+            with its own count. What the slot cannot lose is the error: a failed
+            pull-to-refresh leaves the stale list on screen, so ListEmptyComponent
+            never renders and this is the only thing that says the refresh
+            failed. Collapses to nothing when there is no error. */}
+        {error ? (
+          <Text style={[styles.subtitle, { color: colors.error }]}>{error}</Text>
+        ) : null}
       </View>
 
       {/* Header and controls sit OUTSIDE the FlatList rather than in
