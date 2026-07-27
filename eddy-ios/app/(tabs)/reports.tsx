@@ -223,7 +223,7 @@ export default function ReportsScreen() {
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const matched = sorted.filter((river) => {
-      if (!FILTERS[filter](river, isStarred(river.id))) return false;
+      if (!FILTERS[filter](river, isStarred('river', river.id))) return false;
       if (!needle) return true;
       // Region and gauge label are matched as well as the name: people search
       // for "Ozark" and for the condition word they can see on the row.
@@ -253,7 +253,7 @@ export default function ReportsScreen() {
         // A count on every chip is what keeps an empty result explainable: a
         // person tapping "Low water" on a chip reading 0 already knows why the
         // list is empty before it renders.
-        count: sorted.filter((river) => FILTERS[key](river, isStarred(river.id))).length,
+        count: sorted.filter((river) => FILTERS[key](river, isStarred('river', river.id))).length,
       })),
     [sorted, isStarred],
   );
@@ -412,7 +412,7 @@ export default function ReportsScreen() {
         renderItem={({ item }) => (
           <RiverRow
             river={item}
-            starred={isStarred(item.id)}
+            starred={isStarred('river', item.id)}
             starDisabled={!starsReady}
             distanceMiles={distanceByRiver?.get(item.id) ?? null}
             // This is the tab people come to to read gauges, so the row shows
@@ -421,7 +421,7 @@ export default function ReportsScreen() {
             showGauge
             onPress={() => router.push(`/river/${item.slug}`)}
             onToggleStar={() =>
-              toggleStar({ riverId: item.id, name: item.name, slug: item.slug })
+              toggleStar({ kind: 'river', entityId: item.id, name: item.name, slug: item.slug })
             }
           />
         )}

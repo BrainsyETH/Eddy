@@ -642,6 +642,21 @@ export interface MeDeleteResponse {
   hadActiveEntitlement: boolean;
 }
 
+export interface StarredGaugeEntry {
+  gaugeId: string;
+  gaugeName: string;
+  usgsSiteId: string;
+  /** The river this gauge is PRIMARY for, when it is primary for one. */
+  riverName: string | null;
+  riverSlug: string | null;
+  starredAt: string;
+}
+
+/** Response for GET /api/me/starred-gauges */
+export interface StarredGaugesResponse {
+  starred: StarredGaugeEntry[];
+}
+
 export interface StarredRiverEntry {
   riverId: string;
   riverName: string;
