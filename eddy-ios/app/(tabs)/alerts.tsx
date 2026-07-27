@@ -62,7 +62,7 @@ export default function AlertsScreen() {
   const visible = useMemo(() => {
     if (!alerts) return [];
     if (!onlyStarred) return alerts;
-    return alerts.filter((a) => isStarred(a.riverId));
+    return alerts.filter((a) => isStarred('river', a.riverId));
   }, [alerts, onlyStarred, isStarred]);
 
   if (!alerts && !error) {

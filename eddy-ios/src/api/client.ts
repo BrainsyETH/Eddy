@@ -32,6 +32,7 @@ import type {
   SearchResponse,
   SearchResult,
   ServicesResponse,
+  StarredGaugesResponse,
   StarredRiversResponse,
   AlertSubscriptionEntry,
   AlertSubscriptionsResponse,
@@ -106,7 +107,13 @@ async function authed<T>(
   return (await response.json()) as T;
 }
 
-/** The caller's starred rivers. Null when the session is not usable. */
+/**
+ * The caller's starred rivers. Null when the session is not usable.
+ *
+ * Normalised into the wire-agnostic ServerStar here rather than in @eddy/sync,
+ * which has no business knowing that one endpoint says `riverId` and the other
+ * says `gaugeId`.
+ */
 export async function fetchStarredRivers(
   token: string,
   signal?: AbortSignal,
@@ -114,11 +121,48 @@ export async function fetchStarredRivers(
   const data = await authed<StarredRiversResponse>('/api/me/starred-rivers', token, { signal });
   if (!data) return null;
   return data.starred.map((entry) => ({
-    riverId: entry.riverId,
-    riverName: entry.riverName,
-    riverSlug: entry.riverSlug,
+    kind: 'river' as const,
+    entityId: entry.riverId,
+    name: entry.riverName,
+    slug: entry.riverSlug,
     starredAt: entry.starredAt,
   }));
+}
+
+/**
+ * The caller's starred gauges. Null when the session is not usable — OR when
+ * the backend does not have this endpoint yet.
+ *
+ * That second case is not hypothetical: the app ships through App Store review
+ * and the server does not, so a build that knows about gauge stars will meet a
+ * deploy that does not. Returning null rather than [] is what keeps that safe —
+ * @eddy/sync treats an empty array as "the server has nothing", which would
+ * prune every gauge tombstone and re-push every gauge star as if it were new.
+ * Same posture as searchEddy, which tolerates its endpoint being absent.
+ */
+export async function fetchStarredGauges(
+  token: string,
+  signal?: AbortSignal,
+): Promise<ServerStar[] | null> {
+  try {
+    const data = await authed<StarredGaugesResponse>('/api/me/starred-gauges', token, { signal });
+    if (!data) return null;
+    return data.starred.map((entry) => ({
+      kind: 'gauge' as const,
+      entityId: entry.gaugeId,
+      name: entry.gaugeName,
+      slug: entry.riverSlug ?? '',
+      usgsSiteId: entry.usgsSiteId,
+      starredAt: entry.starredAt,
+    }));
+  } catch {
+    // ANY failure is null, not just a 404. The table behind this endpoint
+    // arrives in a migration, and if the app is deployed first the route
+    // answers 500 rather than 404 — which, thrown, would reject the Promise.all
+    // in sync() and abort the RIVER reconciliation too. A feature that does not
+    // exist yet must not be able to break one that does.
+    return null;
+  }
 }
 
 export async function starRiver(token: string, riverId: string): Promise<void> {
@@ -128,6 +172,18 @@ export async function starRiver(token: string, riverId: string): Promise<void> {
 export async function unstarRiver(token: string, riverId: string): Promise<void> {
   await authed(
     `/api/me/starred-rivers?riverId=${encodeURIComponent(riverId)}`,
+    token,
+    { method: 'DELETE' },
+  );
+}
+
+export async function starGauge(token: string, gaugeId: string): Promise<void> {
+  await authed('/api/me/starred-gauges', token, { method: 'POST', body: { gaugeId } });
+}
+
+export async function unstarGauge(token: string, gaugeId: string): Promise<void> {
+  await authed(
+    `/api/me/starred-gauges?gaugeId=${encodeURIComponent(gaugeId)}`,
     token,
     { method: 'DELETE' },
   );

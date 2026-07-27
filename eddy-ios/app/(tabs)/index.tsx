@@ -202,7 +202,7 @@ export default function MapScreen() {
   const [paywallOpen, setPaywallOpen] = useState(false);
 
   const network = useStatewideNetwork();
-  const { isStarred } = useStarredRivers();
+  const { isStarred, toggleStar } = useStarredRivers();
   const packs = useOfflinePacks();
   const unavailable = mapUnavailableReason();
   const { colors, floating } = useTheme();
@@ -231,7 +231,7 @@ export default function MapScreen() {
   const ordered = useMemo(() => {
     if (!rivers) return [];
     return [...rivers].sort((a, b) => {
-      const starDiff = Number(isStarred(b.id)) - Number(isStarred(a.id));
+      const starDiff = Number(isStarred('river', b.id)) - Number(isStarred('river', a.id));
       if (starDiff !== 0) return starDiff;
       const rankDiff =
         floatableRank(a.currentCondition?.code ?? 'unknown') -
@@ -525,6 +525,15 @@ export default function MapScreen() {
 
   const pinAccessPoint = accessPointForPin(selectedPin);
 
+  // The gauge behind a tapped gauge pin. Looked up rather than carried on
+  // MapPin, which is a presentation struct — growing it a per-layer field for
+  // every layer that wants one is how it stops being that.
+  const pinGauge = useMemo(() => {
+    if (!selectedPin || selectedPin.layer !== 'gauges') return null;
+    const id = selectedPin.id.replace(/^gauge:/, '');
+    return (gauges ?? []).find((g) => g.id === id) ?? null;
+  }, [selectedPin, gauges]);
+
   // FAILS OPEN, deliberately. An unreachable /api/me/profile means we do not
   // know whether this person is subscribed — and telling a paying customer on
   // one bar of signal that their offline maps are locked is a far worse outcome
@@ -812,6 +821,22 @@ export default function MapScreen() {
                 setSelectedPin(null);
                 setFocus(null);
               }}
+              starred={pinGauge ? isStarred('gauge', pinGauge.id) : false}
+              onToggleStar={
+                pinGauge
+                  ? () =>
+                      toggleStar({
+                        kind: 'gauge',
+                        entityId: pinGauge.id,
+                        name: pinGauge.name,
+                        // The river it is PRIMARY for, which is where a starred
+                        // gauge taps through to. Empty when it rates none.
+                        slug:
+                          pinGauge.thresholds?.find((link) => link.isPrimary)?.riverSlug ?? '',
+                        usgsSiteId: pinGauge.usgsSiteId,
+                      })
+                  : null
+              }
             />
           </View>
         ) : null}
@@ -891,6 +916,8 @@ function PinCallout({
   onSetTakeOut,
   onOpenRiver,
   onClose,
+  starred = false,
+  onToggleStar = null,
 }: {
   pin: MapPin;
   accessPoint: MapAccessPoint | null;
@@ -899,6 +926,9 @@ function PinCallout({
   onSetTakeOut: () => void;
   onOpenRiver: (slug: string) => void;
   onClose: () => void;
+  starred?: boolean;
+  /** Null for anything that cannot be starred, which is everything but gauges. */
+  onToggleStar?: (() => void) | null;
 }) {
   const { colors, elevation, isDark } = useTheme();
   const layer = MAP_LAYERS.find((l) => l.key === pin.layer);
@@ -919,6 +949,25 @@ function PinCallout({
             </Text>
           ) : null}
         </View>
+        {/* IN THE HEAD, not in calloutActions. Those buttons are flex:1 and
+            would resize "Put in here" on access-point callouts to make room for
+            something only gauges have. The star belongs to the OBJECT, which is
+            what this row names — the same relationship RiverRow expresses by
+            giving the star its own column beside the name. */}
+        {onToggleStar ? (
+          <Pressable
+            onPress={onToggleStar}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={starred ? `Unstar ${pin.name}` : `Star ${pin.name}`}
+          >
+            <Ionicons
+              name={starred ? 'star' : 'star-outline'}
+              size={19}
+              color={starred ? colors.warm : colors.textMuted}
+            />
+          </Pressable>
+        ) : null}
         <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
           <Ionicons name="close" size={19} color={colors.textMuted} />
         </Pressable>

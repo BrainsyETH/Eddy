@@ -229,7 +229,7 @@ export default function RiverDetailScreen() {
   const reading = condition ? primaryReading(condition) : null;
   const caveat = condition ? accuracyNote(condition) : null;
   const percentileText = percentileSentence(condition?.percentile);
-  const starred = isStarred(river.id);
+  const starred = isStarred('river', river.id);
   const sortedHazards = sortHazards(hazards);
   const criticalCount = criticalHazards(hazards).length;
   const shownHazards = showAllHazards ? sortedHazards : criticalHazards(hazards);
@@ -244,7 +244,7 @@ export default function RiverDetailScreen() {
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <Pressable
-          onPress={() => toggleStar({ riverId: river.id, name: river.name, slug: river.slug })}
+          onPress={() => toggleStar({ kind: 'river', entityId: river.id, name: river.name, slug: river.slug })}
           hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel={starred ? `Unstar ${river.name}` : `Star ${river.name}`}

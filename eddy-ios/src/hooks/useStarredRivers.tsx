@@ -28,32 +28,48 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   mergeStars,
-  migrateLegacyStars,
+  migrateStars,
   toggleLocal,
   visibleStars,
   type LocalStar,
+  type StarKind,
 } from '@eddy/sync';
-import { fetchStarredRivers, starRiver, unstarRiver } from '@/api/client';
+import {
+  fetchStarredGauges,
+  fetchStarredRivers,
+  starGauge,
+  starRiver,
+  unstarGauge,
+  unstarRiver,
+} from '@/api/client';
 import { useSession } from '@/hooks/useSession';
 
-// v2 carries tombstones; v1 was a plain list of starred rivers. Reading the old
-// key and writing the new one means an upgrade never loses stars.
-const STORAGE_KEY = 'eddy.starredRivers.v2';
-const LEGACY_KEY = 'eddy.starredRivers.v1';
+// v3 carries gauges as well as rivers; v2 carried tombstones; v1 was a plain
+// list of starred rivers. Each older key is READ and left in place — a rollback
+// to a previous build must not find an empty store, and the payload is a few
+// hundred bytes. The namespace changed with v3 because "starredRivers" is no
+// longer what it holds.
+const STORAGE_KEY = 'eddy.stars.v3';
+const LEGACY_KEYS = ['eddy.starredRivers.v2', 'eddy.starredRivers.v1'];
 
-export interface StarredRiver {
-  riverId: string;
+/** A starred river or gauge, as the UI consumes it. */
+export interface StarredItem {
+  kind: StarKind;
+  /** A river id or a gauge station id, depending on `kind`. */
+  entityId: string;
   name: string;
+  /** The river route this opens. Empty for a gauge that rates no river. */
   slug: string;
+  usgsSiteId?: string | null;
   starredAt: string;
 }
 
 interface StarredRiversValue {
-  starred: StarredRiver[];
+  starred: StarredItem[];
   /** False until the first load from disk completes. */
   ready: boolean;
-  isStarred: (riverId: string) => boolean;
-  toggleStar: (river: Omit<StarredRiver, 'starredAt'>) => void;
+  isStarred: (kind: StarKind, entityId: string) => boolean;
+  toggleStar: (item: Omit<StarredItem, 'starredAt'>) => void;
   /** True while a background reconciliation is in flight. Never blocks the UI. */
   syncing: boolean;
 }
@@ -91,7 +107,11 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
   }, []);
 
-  // Load once on mount, migrating the v1 payload if that is what is there.
+  // Load once on mount, reading whichever stored version is present. Newest
+  // key first, then each legacy key in turn; migrateStars understands all three
+  // and stamps `kind: 'river'` on anything that predates gauges — TOMBSTONES
+  // INCLUDED, or an unstar made before the upgrade comes straight back on the
+  // next sync.
   useEffect(() => {
     let cancelled = false;
 
@@ -99,14 +119,16 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       try {
         const current = await AsyncStorage.getItem(STORAGE_KEY);
         if (current) {
-          if (!cancelled) setEntries(migrateLegacyStars(JSON.parse(current)));
+          if (!cancelled) setEntries(migrateStars(JSON.parse(current)));
           return;
         }
-        const legacy = await AsyncStorage.getItem(LEGACY_KEY);
-        if (legacy) {
-          const migrated = migrateLegacyStars(JSON.parse(legacy));
+        for (const key of LEGACY_KEYS) {
+          const legacy = await AsyncStorage.getItem(key);
+          if (!legacy) continue;
+          const migrated = migrateStars(JSON.parse(legacy));
           if (!cancelled) setEntries(migrated);
           persist(migrated);
+          return;
         }
       } catch {
         // Unreadable or corrupt store: start empty rather than blocking launch.
@@ -133,23 +155,51 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
 
     setSyncing(true);
     try {
-      const server = await fetchStarredRivers(token);
-      // null means the session was rejected — not "the server has no stars".
-      // Treating those the same would re-push everything and prune every
-      // tombstone against an empty set.
-      if (!server) return;
-
-      const plan = mergeStars(entriesRef.current, server);
-
-      await Promise.all([
-        ...plan.toStar.map((riverId) => starRiver(token, riverId)),
-        ...plan.toUnstar.map((riverId) => unstarRiver(token, riverId)),
+      // Fetched together, merged SEPARATELY. Each null is its own story: a
+      // rejected session, or — for gauges — a backend that predates the
+      // endpoint, which is guaranteed to exist for as long as an App Store
+      // review takes. Neither may be read as "the server has nothing", which
+      // would re-push everything and prune every tombstone against an empty set.
+      const [riverServer, gaugeServer] = await Promise.all([
+        // Independently resilient: one kind failing must not cost the other its
+        // reconciliation, and neither failure may be read as "the server has
+        // nothing" — which would re-push everything and prune every tombstone.
+        fetchStarredRivers(token).catch(() => null),
+        fetchStarredGauges(token),
       ]);
+      if (!riverServer && !gaugeServer) return;
+
+      let merged = entriesRef.current;
+      const settledIds: string[] = [];
+
+      // One kind at a time, chained. mergeStars carries the other kind through
+      // untouched — see the note in @eddy/sync for why merging both against a
+      // unioned list would push gauge ids to the rivers endpoint and prune every
+      // gauge tombstone the moment one of the two fetches failed.
+      if (riverServer) {
+        const plan = mergeStars(merged, riverServer, 'river');
+        await Promise.all([
+          ...plan.toStar.map((id) => starRiver(token, id)),
+          ...plan.toUnstar.map((id) => unstarRiver(token, id)),
+        ]);
+        merged = plan.merged;
+        settledIds.push(...plan.toUnstar);
+      }
+
+      if (gaugeServer) {
+        const plan = mergeStars(merged, gaugeServer, 'gauge');
+        await Promise.all([
+          ...plan.toStar.map((id) => starGauge(token, id)),
+          ...plan.toUnstar.map((id) => unstarGauge(token, id)),
+        ]);
+        merged = plan.merged;
+        settledIds.push(...plan.toUnstar);
+      }
 
       // Tombstones that were just deleted server-side have done their job.
-      const settled = plan.toUnstar.length
-        ? plan.merged.filter((e) => e.starred || !plan.toUnstar.includes(e.riverId))
-        : plan.merged;
+      const settled = settledIds.length
+        ? merged.filter((e) => e.starred || !settledIds.includes(e.entityId))
+        : merged;
 
       setEntries(settled);
       persist(settled);
@@ -171,9 +221,9 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
   }, [ready, session, sync]);
 
   const toggleStar = useCallback(
-    (river: Omit<StarredRiver, 'starredAt'>) => {
+    (item: Omit<StarredItem, 'starredAt'>) => {
       setEntries((current) => {
-        const next = toggleLocal(current, river, new Date().toISOString());
+        const next = toggleLocal(current, item, new Date().toISOString());
         persist(next);
         return next;
       });
@@ -186,17 +236,21 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<StarredRiversValue>(() => {
     const visible = visibleStars(entries);
-    const ids = new Set(visible.map((r) => r.riverId));
+    // Keyed on the PAIR: a river and a gauge could carry the same uuid, and a
+    // bare id set would report one as starred because the other is.
+    const keys = new Set(visible.map((e) => `${e.kind}:${e.entityId}`));
     return {
       starred: visible.map((entry) => ({
-        riverId: entry.riverId,
+        kind: entry.kind,
+        entityId: entry.entityId,
         name: entry.name,
         slug: entry.slug,
+        usgsSiteId: entry.usgsSiteId ?? null,
         starredAt: entry.updatedAt,
       })),
       ready,
       syncing,
-      isStarred: (riverId: string) => ids.has(riverId),
+      isStarred: (kind: StarKind, entityId: string) => keys.has(`${kind}:${entityId}`),
       toggleStar,
     };
   }, [entries, ready, syncing, toggleStar]);

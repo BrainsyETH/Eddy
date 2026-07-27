@@ -9,7 +9,7 @@
 //
 // Most of the per-user tables hang off auth.users with ON DELETE CASCADE, so
 // removing the auth user removes them: profiles, entitlements, starred_rivers,
-// device_tokens, alert_subscriptions, alert_push_deliveries.
+// starred_gauges, device_tokens, alert_subscriptions, alert_push_deliveries.
 //
 // float_plans does NOT. Its FK is ON DELETE SET NULL, and float_plans has this
 // RLS policy (migration 00184):

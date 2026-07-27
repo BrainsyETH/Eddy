@@ -17,12 +17,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import type { RiverListItem } from '@eddy/types';
-import { fetchRivers } from '@/api/client';
+import type { MapGauge, RiverListItem } from '@eddy/types';
+import { fetchGauges, fetchRivers } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { RiverRow } from '@/components/RiverRow';
+import { GaugeRow } from '@/components/GaugeRow';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { useRouter } from 'expo-router';
@@ -34,16 +35,22 @@ export default function FavoritesScreen() {
   const router = useRouter();
 
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
+  const [gauges, setGauges] = useState<MapGauge[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   // Errors are swallowed on purpose. A failed enrichment must not produce an
   // error state on a screen whose whole promise is that it works offline.
   const load = useCallback(async (signal?: AbortSignal) => {
-    try {
-      setRivers(await fetchRivers(signal));
-    } catch {
-      /* keep whatever we already had; the store still renders the list */
-    }
+    // Rivers and gauges enrich independently: a starred gauge must still show a
+    // live reading when the river list fails, and vice versa.
+    await Promise.all([
+      fetchRivers(signal)
+        .then(setRivers)
+        .catch(() => {}),
+      fetchGauges(signal)
+        .then(setGauges)
+        .catch(() => {}),
+    ]);
   }, []);
 
   useEffect(() => {
@@ -62,12 +69,29 @@ export default function FavoritesScreen() {
     () => new Map((rivers ?? []).map((river) => [river.id, river])),
     [rivers],
   );
+  const gaugeById = useMemo(
+    () => new Map((gauges ?? []).map((gauge) => [gauge.id, gauge])),
+    [gauges],
+  );
+
+  // "3 rivers · 1 gauge", and never a kind with a zero — a mixed list should
+  // describe what is in it, not enumerate what is not.
+  const favoritesSummary = useMemo(() => {
+    const riverCount = starred.filter((s) => s.kind === 'river').length;
+    const gaugeCount = starred.length - riverCount;
+    return [
+      riverCount > 0 ? `${riverCount} river${riverCount === 1 ? '' : 's'}` : null,
+      gaugeCount > 0 ? `${gaugeCount} gauge${gaugeCount === 1 ? '' : 's'}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  }, [starred]);
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <FlatList
         data={starred}
-        keyExtractor={(item) => item.riverId}
+        keyExtractor={(item) => `${item.kind}:${item.entityId}`}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
         }
@@ -76,8 +100,8 @@ export default function FavoritesScreen() {
             <Text style={[styles.title, { color: colors.text }]}>Favorites</Text>
             <Text style={[styles.subtitle, { color: colors.textMuted }]}>
               {starred.length === 0
-                ? 'Stars are saved on this device'
-                : `${starred.length} river${starred.length === 1 ? '' : 's'} starred`}
+                ? 'Favorites are saved on this device'
+                : favoritesSummary}
             </Text>
 
             {/* Saved floats live here rather than in a sixth tab: this is
@@ -121,7 +145,29 @@ export default function FavoritesScreen() {
           ) : null
         }
         renderItem={({ item }) => {
-          const river = byId.get(item.riverId);
+          if (item.kind === 'gauge') {
+            const gauge = gaugeById.get(item.entityId) ?? null;
+            // The gauge's own primary association names the river, so this does
+            // not depend on the river list having loaded. Falls back to the
+            // river list by slug, and then to nothing.
+            const riverName =
+              gauge?.thresholds?.find((link) => link.isPrimary)?.riverName ??
+              (rivers ?? []).find((r) => r.slug === item.slug)?.name ??
+              null;
+            return (
+              <GaugeRow
+                name={item.name}
+                riverName={riverName}
+                gauge={gauge}
+                // Only when it actually rates a river. A gauge that rates none
+                // has nowhere honest to go, and a dead tap is worse than none.
+                onPress={item.slug ? () => router.push(`/river/${item.slug}`) : null}
+                onToggleStar={() => toggleStar(item)}
+              />
+            );
+          }
+
+          const river = byId.get(item.entityId);
           if (river) {
             return (
               <RiverRow
