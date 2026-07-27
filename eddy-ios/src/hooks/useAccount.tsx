@@ -1,9 +1,18 @@
 // eddy-ios/src/hooks/useAccount.tsx
 // The caller's profile and entitlement, loaded from /api/me/profile.
 //
-// Deliberately a hook rather than a provider: only the Profile tab needs this
-// today, and fetching it app-wide would put an authenticated request on the
-// critical path of every cold start for a screen most launches never open.
+// Deliberately a hook rather than a provider. Three screens read it — Profile,
+// the map's offline row and the river screen's Eddy read — and each mounts it
+// for itself so an authenticated request never lands on the critical path of a
+// cold start that opens none of them.
+//
+// EVERY CALLER MUST FAIL OPEN. `loaded` and `error` exist so a consumer can
+// tell "not subscribed" from "could not ask", and the two are not the same
+// answer: this app is used on river banks with one bar, and locking a paying
+// customer out because their profile request timed out is a worse failure than
+// showing an unsubscribed one something they did not pay for. The established
+// shape is `loaded && !error ? Boolean(entitlement?.isActive) : null`, with
+// null meaning unknown and only an explicit false locking anything.
 //
 // Entitlement is READ, never decided. `isActive` comes from the server, which
 // derives it from expires_at — a device clock is trivially wrong and sometimes
