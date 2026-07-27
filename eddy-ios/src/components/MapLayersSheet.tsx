@@ -286,6 +286,10 @@ export function MapLayersSheet({
                     const tierOn = active.includes(key);
                     const tierTint = tier.color(colors);
                     const tierCount = counts?.[key];
+                    // `tierSymbol ?? symbol`, the same fallback `tierLabel`
+                    // uses: a tier that wants its own mark says so, and one
+                    // that is only ever a tier just sets `symbol`.
+                    const tierMark = tier.tierSymbol ?? tier.symbol;
                     return (
                       <Pressable
                         key={key}
@@ -307,7 +311,22 @@ export function MapLayersSheet({
                         }
                         accessibilityHint={tier.description}
                       >
-                        <View style={[styles.tierDot, { backgroundColor: tierTint }]} />
+                        {/* The mark where there is one, the dot where there is
+                            not. Both are doing the same job — saying which
+                            tier this is — but a dot can only say it by colour,
+                            and these two tiers are told apart by whether Eddy
+                            graded them, which is a thing a colour cannot say
+                            and a face can. The tint is not lost: it is the
+                            chip's border, exactly as in the well above. */}
+                        {tierMark ? (
+                          <EddySymbol
+                            name={tierMark}
+                            size={15}
+                            style={{ opacity: tierOn ? 1 : DIMMED }}
+                          />
+                        ) : (
+                          <View style={[styles.tierDot, { backgroundColor: tierTint }]} />
+                        )}
                         <Text
                           style={[
                             styles.tierText,
