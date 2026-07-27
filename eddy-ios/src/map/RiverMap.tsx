@@ -737,8 +737,19 @@ export function RiverMap({
    * a 1pt halo instead of 2, labels held back two more zoom levels. The tier is
    * reference, and it should look like reference.
    */
-  const contextGaugeLayer = (data: MapPin[]) =>
-    data.length === 0 ? null : (
+  const contextGaugeLayer = (data: MapPin[]) => {
+    // No early return on an empty list, for the reason above networkShape — and
+    // this layer would have hit it harder than any other. Its data empties on
+    // every pan below the zoom floor, on every filter that matches nothing, and
+    // between a viewport request going out and landing. A source that unmounts
+    // takes its four layers out of the style with it, and the next prop change
+    // then calls updateLayer against a style they are no longer in.
+    //
+    // The layerOn('allGauges') gate in the render is a different thing and
+    // stays: that is an explicit user action, not data arriving, so nothing is
+    // racing its teardown — the same line 00196's plan-route and plan-endpoints
+    // sit on.
+    return (
       <Mapbox.ShapeSource
         id="pins-allGauges"
         shape={featureCollection(data, layerColor('allGauges'))}
@@ -816,6 +827,7 @@ export function RiverMap({
         />
       </Mapbox.ShapeSource>
     );
+  };
 
   return (
     <Mapbox.MapView
