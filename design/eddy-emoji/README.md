@@ -25,6 +25,10 @@ isolated on an off-white background for easy review and future app integration.
 - `eddy-weather.png`
 - `eddy-water-droplet.png`
 - `eddy-poi.png`
+- `eddy-other-usgs-gauge.png`
+- `eddy-hazard.png`
+- `eddy-campground.png`
+- `eddy-outfitter.png`
 
 ## Art direction
 
@@ -35,9 +39,9 @@ isolated on an off-white background for easy review and future app integration.
 - One clear action or prop per icon, optimized for small-size recognition
 - No words, watermarks, detailed scenery, or photorealistic elements
 
-The AI assistant, weather, water droplet, and POI icons are mascot-free utility
-symbols that use the same palette and bold sticker treatment without depicting
-Eddy.
+The AI assistant, weather, water droplet, POI, USGS gauge, hazard, campground,
+and outfitter icons are mascot-free utility symbols that use the same palette
+and bold sticker treatment without depicting Eddy.
 
 These are source concepts rather than final iOS asset-catalog exports. Final asset
 sizes and transparency can be derived after the preferred icons are selected.
