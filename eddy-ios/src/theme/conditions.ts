@@ -46,6 +46,23 @@ export function conditionInk(code: string): string {
   return CONDITION_SYSTEM[code as ConditionCode]?.ink ?? CONDITION_SYSTEM.unknown.ink;
 }
 
+/**
+ * Condition colour for TEXT sitting on an ordinary card, not on a tinted chip.
+ *
+ * The two existing roles both assume a background: `solid` is drawn as a stripe
+ * or a dot, and `ink` is explicitly "for use ON the light `bg` tint". Neither is
+ * safe on a plain surface in both schemes — the canonical inks are 800-level
+ * darks, which vanish against Eddy's near-black stone, while several solids
+ * (lime-500, yellow-500) fail AA as small text on the warm off-white.
+ *
+ * So this picks per scheme: ink on light, solid on dark. Callers pass
+ * `isDark` from useTheme rather than reading it here, because this file has no
+ * business importing React.
+ */
+export function conditionText(code: string, isDark: boolean): string {
+  return isDark ? conditionColor(code) : conditionInk(code);
+}
+
 /** Border for a tinted chip — a mid tint of the same hue. */
 export function conditionChipBorder(code: string): string {
   return (

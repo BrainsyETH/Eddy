@@ -293,6 +293,78 @@ rivers stored at once, which the UI has to handle by asking someone to remove a
 river. At z15 a *single* river would consume two thirds of the entire device
 allowance — which is the second, decisive reason `MAX_ZOOM` is 14.
 
+## Search, layers, and the float plan
+
+The Map tab is three features sharing one screen, and each of them has a
+constraint worth writing down.
+
+### Search is half local, half server
+
+`src/hooks/useEddySearch.ts` matches **rivers and gauges in memory** and asks the
+server for **access points**. The split is not arbitrary:
+
+| Source | Where it is matched | Why |
+|---|---|---|
+| Rivers | Local (`/api/rivers`, already loaded) | ~24 rows the screen holds anyway |
+| Gauges | Local (`/api/gauges`, one flat request) | ~40 rows, fetched once, reused as a map layer |
+| Access points | Server (`/api/search`) | Several hundred rows, served per river — an index would be downloaded on cellular at a put-in |
+
+Local hits render on the keystroke, with no spinner; the server's fuller list
+replaces them when it lands. **`/api/search` is allowed to be missing.** It is
+newer than some deployed builds of the website this app talks to, so a 404 marks
+it unavailable for the session and search continues as rivers-and-gauges only —
+`searchEddy()` in `src/api/client.ts` never throws for this reason.
+
+### Layers are fetched only when switched on
+
+`src/map/layers.ts` is the single definition of what the map can draw — a filter
+chip is literally the colour of the pins it toggles, so the chip row doubles as
+the legend. Access points are the only layer on by default; hazards, services
+and gauges are each requested the first time their chip is turned on.
+
+Every pin is a `CircleLayer` plus a text `SymbolLayer`, never a sprite icon. The
+icon names in Mapbox's outdoors style are not a contract we control, and a
+missing sprite renders as *nothing* — an invisible hazard is a worse failure
+than a plain dot.
+
+### The plan lives on the screen, not in the sheet
+
+`useFloatPlan` holds put-in → take-out → boat → answer, and the map draws the
+route and endpoints from it. Closing `PlanSheet` therefore does not discard the
+plan: people plan a float and then dismiss the sheet to look at the water
+between the two ends.
+
+Two rules the flow is built around:
+
+- **The take-out list is filtered, not validated.** `river_mile_downstream`
+  counts from the headwaters, so a float always has `takeOut.riverMile >
+  putIn.riverMile`. An impossible pair should be unreachable, not rejected after
+  the fact.
+- **`floatTime: null` is a verdict.** `/api/plan` refuses to estimate a time in
+  dangerous water. The sheet renders that refusal rather than a number, because
+  "about 5 hours" for a river in flood is an invitation.
+
+Nothing in the plan flow is gated. It is the reason someone opens Eddy on a
+Thursday night.
+
+### Offline downloads are the paid line
+
+The download control is a quiet row (`src/components/OfflineMapRow.tsx`), not a
+CTA. It used to be a full-width coral button pinned under the map, which made
+"download 12 MB of tiles" the loudest thing on a screen whose job is showing
+where the river is — shouted at every person on wifi at home, days from needing
+it.
+
+The lock is shown **before** the tap, and the entitlement check **fails open**:
+an unreachable `/api/me/profile` means "unknown", not "not subscribed". Telling
+a paying customer on one bar of signal that their offline maps are locked is a
+worse outcome than letting an unsubscribed one press a button that needs a
+connection anyway.
+
+What stays free, online or off: conditions, gauge readings, hazards, and the
+float plan itself. See `PaywallSheet` for the same list and why safety data can
+never sit behind a wall.
+
 ## Builds (EAS)
 
 `eas.json` defines three profiles. `eas init` has been run — `app.json` carries
@@ -352,8 +424,8 @@ splash and tinted assets keep their alpha (the OS composites those itself).
 
 | Tab | Status |
 |---|---|
-| Map | **live** in a dev build — Mapbox, condition-coloured river, offline packs |
-| River Reports | **live** against `/api/rivers` |
+| Map | **live** in a dev build — search, layer filters, the float plan flow, premium-gated offline packs |
+| River Reports | **live** against `/api/rivers`, with local search and condition filters |
 | Alerts | **live** against `/api/alerts` |
 | Favorites | **live**, local-first via AsyncStorage; server sync pending |
 | Profile | **live** — Sign in with Apple, subscription state, Restore Purchases, account deletion |
