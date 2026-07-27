@@ -138,6 +138,9 @@ export const X402_ROUTES = {
   // weather + NWS forecast + gauge history, plus the interpretation on top.
   '/api/rivers/:slug/outlook': { price: '$0.02', description: '72-hour river outlook and interpretation' },
   '/api/gauges': { price: '$0.001', description: 'Gauge stations data' },
+  // Priced with the cheap lookups rather than the composed feeds: it returns
+  // names and ids, and its value is finding the row you then pay to read.
+  '/api/search': { price: '$0.001', description: 'Search rivers, gauges and access points' },
   '/api/gauges/:siteId/history': { price: '$0.005', description: 'Gauge history data' },
   '/api/gauge-thresholds': { price: '$0.001', description: 'Gauge thresholds data' },
   '/api/vessel-types': { price: '$0.001', description: 'Vessel types data' },

@@ -140,10 +140,47 @@ export interface MapAccessPoint {
   type: string;
   isPublic: boolean;
   coordinates: { lng: number; lat: number };
+  /**
+   * Every type this point carries, not just the primary one. OPTIONAL because
+   * the field is a later addition on the web side and older rows fall back to a
+   * single `type` — a consumer that needs the full set must treat an absent
+   * array as `[type]` rather than as "no types".
+   *
+   * The map filter reads this: a point can be both a boat ramp AND a
+   * campground, and filtering on `type` alone would hide it under one of them.
+   */
+  types?: string[];
+  slug?: string;
+  description?: string | null;
+  amenities?: string[];
+  feeRequired?: boolean;
 }
 
 export interface AccessPointsResponse {
   accessPoints: MapAccessPoint[];
+}
+
+/** Access-point types the planner and the map filters know about. */
+export const ACCESS_POINT_TYPES = [
+  'boat_ramp',
+  'gravel_bar',
+  'campground',
+  'bridge',
+  'access',
+  'park',
+] as const;
+
+/**
+ * Does this access point camp?
+ *
+ * Checks `types` first and falls back to `type`, which is the whole reason
+ * `types` is optional above. Written once here because both the map filter and
+ * the planner's overnight logic ask the same question, and a second copy would
+ * be a second answer.
+ */
+export function isCampground(point: MapAccessPoint): boolean {
+  const all = point.types?.length ? point.types : [point.type];
+  return all.includes('campground');
 }
 
 // ── Live conditions (GET /api/conditions/[riverId]) ──────────────
@@ -235,6 +272,195 @@ export interface Hazard {
 
 export interface HazardsResponse {
   hazards: Hazard[];
+}
+
+// ── Gauge stations (GET /api/gauges) ─────────────────────────────
+// Every active USGS station Eddy tracks, with its latest reading. One flat
+// request for all of them, which is what lets the map draw a gauge layer and
+// the search bar match on gauge names without a request per river.
+
+export interface MapGauge {
+  id: string;
+  usgsSiteId: string;
+  name: string;
+  /**
+   * The endpoint defaults unparseable PostGIS locations to (0, 0) rather than
+   * omitting the gauge, so a consumer plotting these MUST drop null island —
+   * see hasCoordinates below.
+   */
+  coordinates: { lng: number; lat: number };
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  readingTimestamp: string | null;
+  readingAgeHours: number | null;
+  /** USGS qualifier codes flag this reading as ice-affected, estimated, or bad. */
+  readingSuspect: boolean;
+  qualifierNote: string | null;
+  /**
+   * Which rivers grade against this gauge. Null for a station tracked but not
+   * yet wired to a river — those still exist on the map, they just have no
+   * ladder to colour against.
+   */
+  thresholds:
+    | Array<{
+        riverId: string;
+        riverName: string;
+        riverSlug: string | null;
+        isPrimary: boolean;
+        thresholdUnit: 'ft' | 'cfs';
+      }>
+    | null;
+}
+
+export interface GaugesResponse {
+  gauges: MapGauge[];
+}
+
+/** Rejects null island, which /api/gauges emits for an unparseable location. */
+export function hasCoordinates(point: { coordinates: { lng: number; lat: number } }): boolean {
+  const { lng, lat } = point.coordinates;
+  return Number.isFinite(lng) && Number.isFinite(lat) && (lng !== 0 || lat !== 0);
+}
+
+// ── Services (GET /api/rivers/[slug]/services) ───────────────────
+// Outfitters, campgrounds, shuttles and lodging near a river. Narrowed hard:
+// the web response carries booking platforms, fee ranges and NPS site counts
+// for a detail page the phone does not have.
+
+export type ServiceType =
+  | 'outfitter'
+  | 'campground'
+  | 'canoe_rental'
+  | 'shuttle'
+  | 'lodging'
+  | string;
+
+export interface RiverService {
+  id: string;
+  name: string;
+  type: ServiceType;
+  phone: string | null;
+  website: string | null;
+  city: string | null;
+  state: string | null;
+  /** Null when the service has no geocode — it then belongs in a list, not a map. */
+  latitude: number | null;
+  longitude: number | null;
+  description: string | null;
+  servicesOffered: string[];
+}
+
+export interface ServicesResponse {
+  services: RiverService[];
+}
+
+// ── Float planning (GET /api/vessel-types, GET /api/plan) ────────
+// The planner is the reason the map exists. A plan answers four questions in
+// one request — how far, how long, how bad is the shuttle, and what is in the
+// water between here and there — because at a put-in on one bar of LTE, four
+// round trips is four chances to fail.
+
+export interface VesselType {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  icon: string;
+  speeds: { lowWater: number; normal: number; highWater: number };
+}
+
+export interface VesselTypesResponse {
+  vesselTypes: VesselType[];
+}
+
+export interface FloatPlanCondition {
+  label: string;
+  code: ConditionCode;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  thresholdUnit: 'ft' | 'cfs';
+  readingTimestamp?: string | null;
+  readingAgeHours?: number | null;
+  accuracyWarning: boolean;
+  accuracyWarningReason?: string | null;
+  gaugeName?: string | null;
+  gaugeUsgsId?: string | null;
+  percentile?: number | null;
+  medianDischargeCfs?: number | null;
+}
+
+export interface FloatPlan {
+  river: River;
+  putIn: MapAccessPoint;
+  takeOut: MapAccessPoint;
+  vessel: VesselType;
+  distance: { miles: number; formatted: string };
+  /**
+   * NULL IS A VERDICT, NOT A GAP. The server refuses to estimate a float time
+   * in dangerous water — publishing "about 5 hours" for a river in flood would
+   * be an invitation. Render the absence as the warning it is.
+   */
+  floatTime: {
+    minutes: number;
+    formatted: string;
+    speedMph: number;
+    isEstimate?: boolean;
+    /** 'trip' includes typical stops; 'moving' is paddling-only. */
+    basis?: 'trip' | 'moving';
+    timeRange?: { min: number; max: number };
+  } | null;
+  /** Take-out → put-in, which is the direction the shuttle actually drives. */
+  driveBack: {
+    minutes: number;
+    miles: number;
+    formatted: string;
+    routeSummary: string | null;
+    routeGeometry: RiverGeometry | null;
+  };
+  condition: FloatPlanCondition;
+  hazards: Hazard[];
+  /** The floated stretch itself. Geometry can be null on an unmapped segment. */
+  route: { type: 'Feature'; geometry: RiverGeometry | null; properties: unknown };
+  /**
+   * Everything the server thinks is worth saying out loud: a worse gauge inside
+   * the span, a stale reading, an implausible shuttle, a put-in with no road.
+   * Never filter these down on the client.
+   */
+  warnings: string[];
+}
+
+export interface PlanResponse {
+  plan: FloatPlan;
+}
+
+export interface SavePlanResponse {
+  shortCode: string;
+  url: string;
+}
+
+// ── Search (GET /api/search) ─────────────────────────────────────
+// One query across rivers, gauges and access points. Server-side rather than a
+// downloaded index: there are ~500 access points, and shipping all of them to
+// every phone that opens the map would cost more than the feature is worth.
+
+export type SearchResultKind = 'river' | 'gauge' | 'access_point';
+
+export interface SearchResult {
+  kind: SearchResultKind;
+  id: string;
+  name: string;
+  /** Pre-composed second line — the server owns this wording, not the client. */
+  subtitle: string | null;
+  riverId: string | null;
+  riverName: string | null;
+  riverSlug: string | null;
+  riverMile: number | null;
+  coordinates: { lng: number; lat: number } | null;
+}
+
+export interface SearchResponse {
+  query: string;
+  results: SearchResult[];
 }
 
 // ── Alert events (the outbox the app's Alerts tab reads) ─────────
