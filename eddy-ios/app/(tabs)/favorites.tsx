@@ -21,7 +21,7 @@ import type { MapGauge, RiverListItem } from '@eddy/types';
 import { fetchGauges, fetchRivers } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { Otter } from '@/components/Otter';
+import { EddyScene } from '@/components/EddyScene';
 import { RiverRow } from '@/components/RiverRow';
 import { GaugeRow } from '@/components/GaugeRow';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
@@ -133,7 +133,8 @@ export default function FavoritesScreen() {
         ListEmptyComponent={
           ready ? (
             <View style={styles.empty}>
-              <Otter mood="standard" size={128} />
+              {/* "No favorite rivers yet?" — the heart is the screen. */}
+              <EddyScene name="heart" size={128} />
               <Text style={[styles.emptyTitle, { color: colors.text }]}>
                 No favorite rivers yet?
               </Text>

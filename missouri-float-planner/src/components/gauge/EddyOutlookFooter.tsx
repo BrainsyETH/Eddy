@@ -1,9 +1,8 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronDown, ChevronUp, Eye, Sparkles } from 'lucide-react';
-import { EDDY_IMAGES } from '@/constants';
+import { EddyIcon } from '@/components/ui/EddyIcon';
 import type { EddyTakeSections } from '@/lib/eddy/take-sections';
 import { formatAgeFromTimestamp } from '@/lib/utils/reading-age';
 
@@ -82,7 +81,11 @@ export default function EddyOutlookFooter({
       <div id="eddy-take-content" className="grid grid-cols-1 divide-y-2 divide-primary-100 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] lg:divide-x-2 lg:divide-y-0">
         <article className="min-w-0 border-l-4 border-accent-500 bg-white px-4 py-4 sm:px-5 lg:border-l-0 lg:border-t-4">
           <div className="mb-2 flex items-center gap-2 text-accent-800">
-            <Image src={EDDY_IMAGES.favicon} alt="" width={20} height={20} className="h-5 w-5 object-contain" />
+            {/* The AI mark, not the mascot's head. Every word in this section
+                is model-written — the heading above says "Eddy's take" — and
+                the catalog draws that as its own symbol. The condition otters
+                stay where a condition is being reported. */}
+            <EddyIcon name="ai" size={20} />
             <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Bottom line</h4>
           </div>
           {/* Type tracks the column width, so the narrow box does not end up

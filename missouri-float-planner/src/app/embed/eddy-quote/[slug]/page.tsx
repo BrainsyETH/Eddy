@@ -12,6 +12,7 @@ import { RIVER_NOTES, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import { getEddyImageForCondition, CFS_EXPLAINER } from '@/constants';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 import { FLAG_GREEN_ICON } from '@/lib/embed/tileIcons';
+import { eddyIconUrl } from '@/components/ui/EddyIcon';
 import InfoTip from '@/components/ui/InfoTip';
 import EmbedFooter from '@/components/embed/EmbedFooter';
 import EmbedMetricGrid from '@/components/embed/EmbedMetricGrid';
@@ -331,6 +332,10 @@ export default function EddyQuoteEmbedPage() {
           {
             label: 'Weather',
             icon: 'weather',
+            // Eddy's own weather mark instead of the generic inline glyph. The
+            // gauge and flow tiles above keep getEddyImageForCondition — those
+            // are the reading, and the catalog has no opinion on a reading.
+            iconImageUrl: eddyIconUrl('weather'),
             value: weather ? `${Math.round(weather.temp)}°F` : forecast ? `${Math.round(forecast.tempHigh)}°F` : 'Unavailable',
             detail: [
               weather?.condition || forecast?.condition,

@@ -24,7 +24,7 @@ import { conditionBg, conditionColor, conditionInk } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { alertDetail, alertHeadline } from '@/lib/alertCopy';
-import { Otter } from '@/components/Otter';
+import { EddyScene } from '@/components/EddyScene';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useRouter } from 'expo-router';
 
@@ -127,7 +127,10 @@ export default function AlertsScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Otter mood="standard" size={120} />
+            {/* Checking, not alarmed. Every string below this is a version of
+                "we looked and nothing has changed", and the catalog's
+                high-water scene would announce the opposite. */}
+            <EddyScene name="checkingGauge" size={120} />
             <Text style={[styles.emptyTitle, { color: colors.text }]}>
               {onlyStarred && !hasStars ? 'No starred rivers yet' : 'No recent changes'}
             </Text>

@@ -17,7 +17,7 @@ import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { Otter } from '@/components/Otter';
+import { EddyScene } from '@/components/EddyScene';
 import { useSavedFloats, type SavedFloat } from '@/hooks/useSavedFloats';
 
 /** "3 days ago" — the precision a share history deserves and no more. */
@@ -63,7 +63,10 @@ export default function SavedFloatsScreen() {
         ListEmptyComponent={
           ready ? (
             <View style={styles.empty}>
-              <Otter mood="yellow" size={110} />
+              {/* The empty state's whole job is to send you to the Map to plan
+                  one, so it shows Eddy planning. "yellow" was a condition mood
+                  on a screen with no river to have a condition. */}
+              <EddyScene name="routePlanning" size={110} />
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                 Plan a float on the Map tab and tap Share. The link goes to whoever is coming, and
                 the float shows up here.

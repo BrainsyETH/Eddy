@@ -13,6 +13,7 @@ import { computeCondition, getConditionShortLabel, type ConditionThresholds } fr
 import { eddyDeepLink } from '@/lib/embed/branding';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 import { FLAG_GREEN_ICON } from '@/lib/embed/tileIcons';
+import { eddyIconUrl } from '@/components/ui/EddyIcon';
 import InfoTip from '@/components/ui/InfoTip';
 import EmbedFooter from '@/components/embed/EmbedFooter';
 import EmbedMetricGrid from '@/components/embed/EmbedMetricGrid';
@@ -421,6 +422,8 @@ export default function EmbedWidgetPage() {
                 {
                   label: 'Weather',
                   icon: 'weather',
+                  // Eddy's own weather mark instead of the generic inline glyph.
+                  iconImageUrl: eddyIconUrl('weather'),
                   value: weather ? `${Math.round(weather.temp)}°F` : 'Unavailable',
                   detail: weather
                     ? `${weather.condition}${weather.windSpeed > 5 ? ` · Wind ${Math.round(weather.windSpeed)} mph` : ''}`

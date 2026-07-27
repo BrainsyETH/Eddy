@@ -10,6 +10,17 @@
 // state — the README in design/eddy-emoji calls them "mascot-free utility
 // symbols" — so they are chosen by the caller and nothing decides for them.
 //
+// Keys are ROLES, not drawings — `gauge`, not `waterDroplet`. A caller asking
+// for a gauge mark should not have to know the catalog decided that is a
+// droplet, and the day it becomes something else this map is the only edit.
+//
+// NOT FOR MAP PINS. These are fixed-colour, three-tone stickers, and the map's
+// pins are registered `sdf: true` (see src/map/RiverMap.tsx) precisely so they
+// can be RECOLOURED at runtime — a gauge wears its condition, an access point
+// wears its layer. Drawing a gauge with the blue droplet paints every reading
+// blue. Same reason they stay out of the layer sheet, where the glyph sits in a
+// well filled with the layer tint.
+//
 // The sources are 1254px concept art with an off-white card baked in. These are
 // derived: see eddy-ios/scripts/build-eddy-icons.py, which cuts the background
 // and downscales to 300px. Do not hand-export into assets/eddy.
@@ -19,6 +30,8 @@ import { Image, StyleSheet, type ImageStyle, type StyleProp } from 'react-native
 const SYMBOLS = {
   weather: require('../../assets/eddy/eddy-weather.png'),
   aiAssistant: require('../../assets/eddy/eddy-ai-assistant.png'),
+  gauge: require('../../assets/eddy/eddy-water-droplet.png'),
+  accessPoint: require('../../assets/eddy/eddy-poi.png'),
 } as const;
 
 export type EddySymbolName = keyof typeof SYMBOLS;

@@ -6,9 +6,10 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { MapPin, Droplets, ArrowRight } from 'lucide-react';
+import { Droplets, ArrowRight } from 'lucide-react';
 import RiverFilters, { type FilterType } from './RiverFilters';
 import ConditionBadge from '@/components/ui/ConditionBadge';
+import { EddyIcon } from '@/components/ui/EddyIcon';
 
 interface RiverCardData {
   id: string;
@@ -110,7 +111,7 @@ export default function RiverCardGrid({ rivers }: RiverCardGridProps) {
                     {river.lengthMiles} miles
                   </span>
                   <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5" />
+                    <EddyIcon name="accessPoint" size={14} />
                     {river.accessPointCount} access points
                   </span>
                 </div>

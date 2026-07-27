@@ -5,10 +5,11 @@
 // Auto-populates gauge readings from current conditions, user can edit
 
 import { useState, useEffect } from 'react';
-import { Camera, Upload, CheckCircle, AlertTriangle, X, Loader2, Clock, MapPin } from 'lucide-react';
+import { Camera, Upload, AlertTriangle, X, Loader2, Clock, MapPin } from 'lucide-react';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import type { AccessPoint } from '@/types/api';
+import { EddyIcon } from '@/components/ui/EddyIcon';
 
 /** Local YYYY-MM-DD for a native <input type="date">. */
 function toDateInputValue(d: Date): string {
@@ -484,9 +485,7 @@ export default function RiverVisualSubmitForm({
     return (
       <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden text-center">
         <div className="bg-teal-50 px-6 pt-8 pb-6">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-teal-600">
-            <CheckCircle className="h-8 w-8 text-white" />
-          </span>
+          <EddyIcon name="thumbsUp" size={80} className="mx-auto" />
           <h3 className="mt-3 text-lg font-bold text-neutral-900">Photo submitted</h3>
           <p className="mt-1 text-sm text-neutral-600">Thanks for showing fellow floaters the river.</p>
         </div>

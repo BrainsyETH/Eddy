@@ -25,6 +25,11 @@ interface Props {
   title: string;
   /** One line describing what is inside, shown whether open or shut. */
   summary?: string | null;
+  /**
+   * A mark before the title. Decorative only — the title already names the
+   * section, so the accessibility label below deliberately ignores this.
+   */
+  leading?: ReactNode;
   /** Cues that must survive the fold — severity dots, a count, a warning. */
   trailing?: ReactNode;
   /** Open on mount. Defaults to shut. */
@@ -35,6 +40,7 @@ interface Props {
 export function CollapsibleSection({
   title,
   summary = null,
+  leading = null,
   trailing = null,
   defaultExpanded = false,
   children,
@@ -51,6 +57,7 @@ export function CollapsibleSection({
         accessibilityState={{ expanded }}
         accessibilityLabel={summary ? `${title}, ${summary}` : title}
       >
+        {leading}
         <View style={styles.headText}>
           <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
           {summary ? (
