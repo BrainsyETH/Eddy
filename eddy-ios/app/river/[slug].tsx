@@ -74,6 +74,7 @@ import { RiverVisuals } from '@/components/RiverVisuals';
 import { ReadingScale } from '@/components/ReadingScale';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { PushPrimer } from '@/components/PushPrimer';
+import { useAccount } from '@/hooks/useAccount';
 import { usePush } from '@/hooks/usePush';
 import { useSession } from '@/hooks/useSession';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
@@ -84,6 +85,11 @@ export default function RiverDetailScreen() {
   const { colors, elevation } = useTheme();
   const { getAccessToken } = useSession();
   const { isStarred, toggleStar } = useStarredRivers();
+
+  // Only Eddy's read is gated on this screen, and it fails OPEN — see the
+  // `entitled` computation below and the prop comment in EddyTake. Everything
+  // that decides whether to get on the water stays free.
+  const { entitlement, loaded: accountLoaded, error: accountError } = useAccount();
 
   const [river, setRiver] = useState<RiverListItem | null>(null);
   const [condition, setCondition] = useState<RiverConditionDetail | null>(null);
@@ -235,6 +241,12 @@ export default function RiverDetailScreen() {
   const shownHazards = showAllHazards ? sortedHazards : criticalHazards(hazards);
   const hiddenCount = sortedHazards.length - shownHazards.length;
 
+  // FAILS OPEN, same as the map's offline row. An unreachable /api/me/profile
+  // means we do not KNOW whether this person subscribed, and locking a paying
+  // customer's read on a river bank with one bar is a worse outcome by far than
+  // letting an unsubscribed one read it. Null is "unknown"; only false locks.
+  const entitled = accountLoaded && !accountError ? Boolean(entitlement?.isActive) : null;
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -345,9 +357,16 @@ export default function RiverDetailScreen() {
             which is why nothing below shifts on the ones without any. */}
         {visuals ? <RiverVisuals data={visuals} /> : null}
 
-        {outlook ? <EddyTake outlook={outlook} ratedUnit={reading?.unit ?? null} /> : null}
+        {outlook ? (
+          <EddyTake
+            outlook={outlook}
+            ratedUnit={reading?.unit ?? null}
+            entitled={entitled}
+            onUpgrade={() => setPaywallOpen(true)}
+          />
+        ) : null}
 
-        {/* ── The bell. The only paid affordance on this screen. ── */}
+        {/* ── The bell. ── */}
         <Pressable
           onPress={onNotify}
           disabled={subscribing}

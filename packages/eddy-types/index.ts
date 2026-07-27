@@ -638,6 +638,25 @@ export interface RiverOutlookResponse {
   trend: RiverReadingTrend | null;
   currentCondition: ConditionCode;
   gaugeName: string | null;
+  /**
+   * The town the weather above was actually fetched at.
+   *
+   * OPTIONAL because an app build can outrun a deploy. Null and absent both mean
+   * "do not label it" — never substitute the river's name, which is not a place
+   * a forecast comes from.
+   */
+  weatherLocation?: string | null;
+  /**
+   * The long read: the same multi-paragraph prose /rivers shows on the web, as
+   * against `sections.eddyRead`, which is one line.
+   *
+   * OPTIONAL for the same forward-compatibility reason. Null means either that
+   * no model wrote one or that the live river has moved far enough that the
+   * prose would contradict the condition badge — the server withholds it in
+   * that case, and a client must NOT paper over the difference by reaching for
+   * its own cached copy.
+   */
+  fullRead?: string | null;
   /** Non-null only when a model wrote the read; null means deterministic copy. */
   generatedAt: string | null;
 }

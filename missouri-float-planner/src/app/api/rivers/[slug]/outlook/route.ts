@@ -27,7 +27,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { computeTrend } from '@/lib/gauge-trend';
 import { mapConditionCode, type ConditionThresholds } from '@/lib/conditions';
 import { fetchAhpsForecast } from '@/lib/usgs/ahps-forecast';
-import { fetchForecast } from '@/lib/weather/openweather';
+import { fetchForecast, getWeatherPointForRiver } from '@/lib/weather/openweather';
+import { overlayLiveConditions, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
 import {
   HEAT_ADVISORY_TEMP_F,
   buildEddyTakeSections,
@@ -75,6 +76,28 @@ export interface RiverOutlookApiResponse {
   trend: { direction: 'rising' | 'falling' | 'steady'; label: string; windowHours: number } | null;
   currentCondition: ConditionCode;
   gaugeName: string | null;
+  /**
+   * WHERE the weather above was measured — a town, not the river.
+   *
+   * The forecast is a point sample, and "72 hours" means nothing without
+   * knowing 72 hours *where*. On a river with 90 miles of valley the difference
+   * between the headwaters and the take-out is a real one, and this is the only
+   * thing on the panel that discloses which end we asked about.
+   *
+   * Null when there is nothing honest to print, in which case the client shows
+   * no label at all rather than falling back to the river's own name — a river
+   * is not a weather station.
+   */
+  weatherLocation: string | null;
+  /**
+   * The long-form read: the same 4-6 sentence prose /rivers shows on the web,
+   * as opposed to `sections.eddyRead`, which is one line.
+   *
+   * Null when no model prose exists for this river, and — importantly — also
+   * null when the live river has moved far enough that the prose would
+   * contradict the condition badge. See the overlay call below.
+   */
+  fullRead: string | null;
   /** Present only when a model wrote the read; null means it is deterministic. */
   generatedAt: string | null;
 }
@@ -90,6 +113,8 @@ const EMPTY: RiverOutlookApiResponse = {
   trend: null,
   currentCondition: 'unknown',
   gaugeName: null,
+  weatherLocation: null,
+  fullRead: null,
   generatedAt: null,
 };
 
@@ -142,7 +167,22 @@ async function _GET(
     // gauge_stations stores a PostGIS point, not lat/lng columns. getCoordinates
     // is the repo's canonical reader for it and already handles the GeoJSON, WKT
     // and EWKB shapes PostgREST can return depending on the query.
-    const coords = station ? getCoordinates(station.location) : null;
+    const gaugeCoords = station ? getCoordinates(station.location) : null;
+
+    // WEATHER IS FETCHED AT THE RIVER'S OWN WEATHER POINT, not at the gauge.
+    //
+    // It used to be the gauge, which was wrong in a way nothing on screen could
+    // reveal until the panel started naming the place: rivers.weather_city is a
+    // curated town — Van Buren, Steelville, Alton — and labelling a
+    // gauge-sourced forecast with it would name somewhere we never asked about.
+    // getWeatherPointForRiver returns the coordinates AND the name together, so
+    // the label cannot drift from the query. All 24 active rivers have
+    // weather_lat/weather_lon; the gauge stays as the fallback for anything
+    // that somehow does not.
+    const weatherPoint = await getWeatherPointForRiver(slug);
+    const coords = weatherPoint
+      ? { lat: weatherPoint.lat, lng: weatherPoint.lon }
+      : gaugeCoords;
 
     const primaryUnit = gauge.threshold_unit === 'cfs' ? 'cfs' : 'ft';
 
@@ -194,7 +234,7 @@ async function _GET(
         station?.nws_lid ? fetchAhpsForecast(station.nws_lid) : Promise.resolve([]),
         supabase
           .from('eddy_updates')
-          .select('eddy_read, generated_at')
+          .select('eddy_read, quote_text, summary_text, condition_code, gauge_height_ft, discharge_cfs, generated_at')
           .eq('river_slug', slug)
           .is('section_slug', null)
           .gt('expires_at', new Date().toISOString())
@@ -224,6 +264,52 @@ async function _GET(
     const weatherDays = weatherOk ? weatherResult.value!.days : [];
     const riverStages = stagesResult.status === 'fulfilled' ? stagesResult.value : [];
     const update = updateResult.status === 'fulfilled' ? updateResult.value.data : null;
+
+    // The curated town, falling back to whatever OpenWeather resolved the
+    // coordinates to. Two active rivers (Kings, Spring River MO) have
+    // weather_lat/lon but no weather_city, and getWeatherPointForRiver's own
+    // fallback for that is the RIVER's name — which is exactly what this field
+    // must not be. Null rather than a wrong answer.
+    const weatherLocation =
+      weatherPoint?.city ?? (weatherOk ? weatherResult.value!.city || null : null);
+
+    // THE SAME GUARD /api/eddy-update APPLIES, and for the same reason.
+    //
+    // quote_text is written once a day against that morning's reading. If the
+    // river has since crossed into a different floatability class, the prose
+    // says "dialed in" while the badge a few hundred pixels up says High Water.
+    // The website has never shipped that quote without this overlay, and the
+    // app's river screen is the one place the two sit closest together — the
+    // condition chip is directly above it. WEBSITE_PROSE_STALE_HOURS (24), not
+    // the stricter social default: a routine multi-hour gauge gap should not
+    // drop a reader to nothing.
+    //
+    // eddy_read is deliberately NOT put through it. It is one deterministic
+    // line derived from the condition when no model wrote one, and
+    // buildEddyTakeSections already reconciles it against currentCondition.
+    let fullRead: string | null = null;
+    if (update?.quote_text) {
+      try {
+        const [overlaid] = await overlayLiveConditions(
+          supabase,
+          [{
+            river_slug: slug,
+            condition_code: update.condition_code,
+            gauge_height_ft: update.gauge_height_ft,
+            discharge_cfs: update.discharge_cfs,
+            quote_text: update.quote_text,
+            summary_text: update.summary_text,
+          }],
+          { proseStaleHours: WEBSITE_PROSE_STALE_HOURS, logLabel: 'river-outlook' },
+        );
+        fullRead = overlaid?.quote_text || null;
+      } catch (error) {
+        // Degrade to the short read rather than the stale long one. Withholding
+        // is the safe direction here: the failure mode this guard exists to
+        // prevent is showing prose, not hiding it.
+        console.warn(`[RiverOutlook] Live-condition overlay failed for ${slug}:`, error);
+      }
+    }
 
     const outlook = buildRiverOutlookState({
       weatherDays,
@@ -269,6 +355,8 @@ async function _GET(
           : null,
         currentCondition,
         gaugeName: station?.name ?? null,
+        weatherLocation,
+        fullRead,
         generatedAt: update?.eddy_read ? update.generated_at : null,
       },
       // Short CDN life with a long stale window: the weather and NWS inputs

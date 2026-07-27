@@ -9,22 +9,31 @@
 // The three-way split is not a layout choice, it is the content model, and it
 // comes from the same server-side functions the website uses:
 //
+//   Eddy's read  the river as it stands now. The long model-written report when
+//                a fresh one exists, otherwise one deterministic line.
+//   Weather      everything forward-looking. Keeping this separate is what stops
+//                the two panels printing the same NWS sentence twice.
 //   Bottom line  the call, derived from the CURRENT condition alone. Leads with
 //                the decision ("Stay off the river today"), never the label —
 //                the condition chip above already shows the band in full colour,
 //                so restating it would spend the loudest line on a repeat.
-//   Eddy's read  the river as it stands now. Replaced by model-written prose
-//                when a fresh one exists, otherwise deterministic.
-//   Watch for    everything forward-looking. Keeping this separate is what stops
-//                the two panels printing the same NWS sentence twice.
 //
-// On the web these are three columns; on a phone they stack, with Bottom line
-// leading, which is the same order the web falls back to at mobile widths.
+// BOTTOM LINE CLOSES rather than opens. It used to lead, on the reasoning that
+// the answer should come first — but the reading card directly above this
+// already gives the answer in colour, and leading with it here meant the card
+// opened by repeating the thing you had just read. Reading it last, after the
+// river and the sky have been described, is reading it as a conclusion. It gets
+// the favicon otter for the same reason: it is Eddy's line, and the two sections
+// above it are now marked with Eddy's own symbols too.
+//
+// On the web these are three columns; on a phone they stack.
 
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
 import type { RiverOutlookResponse } from '@eddy/types';
 import { conditionBg, conditionInk, conditionLabel } from '@/theme/conditions';
+import { EddySymbol } from '@/components/EddySymbol';
+import { Otter } from '@/components/Otter';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -53,11 +62,33 @@ interface EddyTakeProps {
    * differs from its own. Null when there is no reading to differ from.
    */
   ratedUnit?: 'ft' | 'cfs' | null;
+  /**
+   * Whether this person is subscribed — `null` meaning UNKNOWN, not "no".
+   *
+   * Only `false` locks anything. An unreachable /api/me/profile must not lock a
+   * paying customer out on one bar of signal, so unknown fails open. Same
+   * contract as OfflineMapRow; see the note where it is computed on the map.
+   */
+  entitled?: boolean | null;
+  /** Opens the paywall. Only ever called from the locked read. */
+  onUpgrade?: () => void;
 }
 
-export function EddyTake({ outlook, ratedUnit = null }: EddyTakeProps) {
+export function EddyTake({
+  outlook,
+  ratedUnit = null,
+  entitled = null,
+  onUpgrade,
+}: EddyTakeProps) {
   const { colors, elevation } = useTheme();
   const { sections, days } = outlook;
+
+  // The long report when the server sent one, the single deterministic line
+  // otherwise. `fullRead` is withheld server-side when the live river has moved
+  // far enough that the prose would contradict the condition chip above — so a
+  // null here is an ANSWER, and must not be worked around.
+  const read = outlook.fullRead || sections?.eddyRead || '';
+  const locked = entitled === false;
 
   return (
     <View style={styles.wrapper}>
@@ -69,16 +100,27 @@ export function EddyTake({ outlook, ratedUnit = null }: EddyTakeProps) {
               <Text style={[styles.stripTitle, { color: colors.text }]}>Will it hold?</Text>
               <Text style={[styles.stripSub, { color: colors.textSubtle }]}>Next 72 hours</Text>
             </View>
-            <View style={styles.source}>
-              <Ionicons
-                name={outlook.sourceKind === 'official' ? 'water-outline' : 'cloud-outline'}
-                size={12}
-                color={colors.textMuted}
-              />
-              <Text style={[styles.sourceText, { color: colors.textMuted }]} numberOfLines={2}>
-                {outlook.sourceLabel}
-              </Text>
-            </View>
+            {/* WHERE, not what. This slot used to print sourceLabel — one of
+                three fixed strings, most often "Current river trend + weather
+                outlook", which restated in six words what the strip's own
+                contents already show and told you nothing you could act on.
+
+                A forecast is a point sample, and a Missouri river runs ninety
+                miles; "72 hours" is only useful once you know 72 hours WHERE.
+                The server names the town it actually queried, so this cannot
+                drift from the data beside it.
+
+                The official-vs-guidance distinction that icon used to carry is
+                not lost: hasOfficialForecast gates the stage row below, and
+                isGuidance prints it in words under Weather. */}
+            {outlook.weatherLocation ? (
+              <View style={styles.source}>
+                <Ionicons name="location-outline" size={12} color={colors.textMuted} />
+                <Text style={[styles.sourceText, { color: colors.textMuted }]} numberOfLines={2}>
+                  {outlook.weatherLocation}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           <View style={[styles.dayRow, { borderTopColor: colors.border }]}>
@@ -199,27 +241,55 @@ export function EddyTake({ outlook, ratedUnit = null }: EddyTakeProps) {
         <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
           <Text style={[styles.takeHeading, { color: colors.textMuted }]}>EDDY&apos;S TAKE</Text>
 
-          <View style={[styles.bottomLine, { borderLeftColor: colors.accent }]}>
-            <Text style={[styles.sectionLabel, { color: colors.accent }]}>BOTTOM LINE</Text>
-            <Text style={[styles.bottomLineText, { color: colors.text }]}>
-              {sections.bottomLine}
-            </Text>
-          </View>
-
-          <View style={[styles.section, { borderTopColor: colors.border }]}>
+          {/* No top rule: this is the first section in the card, and the two
+              below separate themselves from what precedes them. */}
+          <View>
             <View style={styles.sectionHead}>
-              <Ionicons name="sparkles-outline" size={13} color={colors.textMuted} />
+              <EddySymbol name="aiAssistant" size={17} />
               <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>EDDY&apos;S READ</Text>
             </View>
-            <Text style={[styles.sectionText, { color: colors.textMuted }]}>
-              {sections.eddyRead}
-            </Text>
+
+            {/* THE ONE PAID THING ON THIS SCREEN, and deliberately the only one.
+                PaywallSheet's own header lists what must never sit behind it —
+                condition colours and readings, hazards, safety alerts — and
+                Bottom line and Weather below are safety calls, so they stay
+                free no matter what this returns. What is sold here is the long
+                written report: several paragraphs a model wrote about this
+                river this morning. Nobody is stranded for want of it.
+
+                `locked` is entitled === false, never a falsy check: unknown
+                entitlement shows the read. See the prop's comment. */}
+            {locked ? (
+              <Pressable
+                onPress={onUpgrade}
+                disabled={!onUpgrade}
+                style={({ pressed }) => [
+                  styles.lock,
+                  { backgroundColor: colors.cardRaised, opacity: pressed ? 0.7 : 1 },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Unlock Eddy's read"
+              >
+                <Ionicons name="lock-closed" size={15} color={colors.accent} />
+                <View style={styles.lockText}>
+                  <Text style={[styles.lockTitle, { color: colors.text }]}>
+                    Unlock Eddy&apos;s read
+                  </Text>
+                  <Text style={[styles.lockBody, { color: colors.textMuted }]}>
+                    The full written report on this river, updated daily.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
+              </Pressable>
+            ) : read ? (
+              <Text style={[styles.sectionText, { color: colors.textMuted }]}>{read}</Text>
+            ) : null}
           </View>
 
           <View style={[styles.section, { borderTopColor: colors.border }]}>
             <View style={styles.sectionHead}>
-              <Ionicons name="eye-outline" size={13} color={colors.textMuted} />
-              <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>WATCH FOR</Text>
+              <EddySymbol name="weather" size={17} />
+              <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>WEATHER</Text>
             </View>
             <Text style={[styles.sectionText, { color: colors.textMuted }]}>
               {sections.watchFor}
@@ -229,6 +299,18 @@ export function EddyTake({ outlook, ratedUnit = null }: EddyTakeProps) {
                 Weather outlook; future river levels are not predicted.
               </Text>
             ) : null}
+          </View>
+
+          <View style={[styles.section, { borderTopColor: colors.border }]}>
+            <View style={[styles.bottomLine, { borderLeftColor: colors.accent }]}>
+              <View style={styles.sectionHead}>
+                <Otter mood="favicon" size={18} style={styles.bottomLineOtter} />
+                <Text style={[styles.sectionLabel, { color: colors.accent }]}>BOTTOM LINE</Text>
+              </View>
+              <Text style={[styles.bottomLineText, { color: colors.text }]}>
+                {sections.bottomLine}
+              </Text>
+            </View>
           </View>
 
           {outlook.gaugeName ? (
@@ -265,10 +347,24 @@ const styles = StyleSheet.create({
   forecastValue: { ...t.xs, fontFamily: fonts.monoMedium },
   forecastCode: { ...t.xs, fontFamily: fonts.semibold, marginTop: 1 },
   takeHeading: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.8, marginBottom: 12 },
-  // The one section with a coloured edge. It is the answer; the other two explain it.
+  // The one section with a coloured edge. It is the answer; the two above explain it.
   bottomLine: { borderLeftWidth: 3, paddingLeft: 12, paddingVertical: 2 },
+  // Nudged up so the mark sits on the label's cap height rather than its box —
+  // the artwork carries its own margin, which a 13pt glyph does not.
+  bottomLineOtter: { marginLeft: -2 },
   bottomLineText: { ...t.base, fontFamily: fonts.semibold, marginTop: 4 },
   section: { marginTop: 14, paddingTop: 12, borderTopWidth: 1 },
+  lock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 11,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  lockText: { flex: 1, minWidth: 0 },
+  lockTitle: { ...t.sm, fontFamily: fonts.semibold },
+  lockBody: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   sectionLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6 },
   sectionText: { ...t.sm, fontFamily: fonts.body, marginTop: 5 },
