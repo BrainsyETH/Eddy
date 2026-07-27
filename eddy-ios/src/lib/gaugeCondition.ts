@@ -19,9 +19,37 @@ import { classifyReading, hasLadder } from '@eddy/conditions/condition-ladder';
 import type { ConditionCode } from '@eddy/conditions';
 import { formatReading } from '@/lib/readingCopy';
 
-/** The association the app should grade and navigate by: primary, else first. */
-function primaryLink(gauge: MapGauge) {
-  return gauge.thresholds?.find((t) => t.isPrimary) ?? gauge.thresholds?.[0] ?? null;
+/**
+ * The association to grade and navigate by.
+ *
+ * WITH `riverSlug`, that river's own row — which is not a preference but a
+ * correctness requirement wherever the river is already known. One physical
+ * gauge can rate two rivers against different editorial ladders (07014000 is
+ * primary for Huzzah and also rates Courtois), so the same reading is a
+ * different verdict depending on which river is asking. A river screen that
+ * graded through the gauge's *primary* link would show its neighbour's opinion.
+ *
+ * WITHOUT it — the map, Favorites — there is no river in the question, so the
+ * gauge's own primary association is the best available answer.
+ */
+export function gaugeLink(gauge: MapGauge, riverSlug?: string | null) {
+  const links = gauge.thresholds;
+  if (riverSlug) {
+    const own = links?.find((t) => t.riverSlug === riverSlug);
+    if (own) return own;
+  }
+  return links?.find((t) => t.isPrimary) ?? links?.[0] ?? null;
+}
+
+/** Every gauge that rates this river, primary first. */
+export function gaugesForRiver(gauges: MapGauge[], riverSlug: string): MapGauge[] {
+  return gauges
+    .filter((g) => g.thresholds?.some((t) => t.riverSlug === riverSlug))
+    .sort((a, b) => {
+      const ap = gaugeLink(a, riverSlug)?.isPrimary ? 0 : 1;
+      const bp = gaugeLink(b, riverSlug)?.isPrimary ? 0 : 1;
+      return ap - bp || a.name.localeCompare(b.name);
+    });
 }
 
 /**
@@ -38,8 +66,8 @@ function primaryLink(gauge: MapGauge) {
  *     sensor-fault values. Those numbers are real enough to display beside a
  *     caveat and nowhere near real enough to drive a colour that says "go".
  */
-export function gaugeConditionCode(gauge: MapGauge): ConditionCode {
-  const link = primaryLink(gauge);
+export function gaugeConditionCode(gauge: MapGauge, riverSlug?: string | null): ConditionCode {
+  const link = gaugeLink(gauge, riverSlug);
   if (!link || !hasLadder(link)) return 'unknown';
   if (gauge.readingSuspect) return 'unknown';
 
@@ -59,8 +87,8 @@ export function gaugeConditionCode(gauge: MapGauge): ConditionCode {
  * when the ladder is in feet produces a number that looks authoritative and
  * does not correspond to the colour beside it.
  */
-export function gaugeReadingText(gauge: MapGauge): string | null {
-  const link = primaryLink(gauge);
+export function gaugeReadingText(gauge: MapGauge, riverSlug?: string | null): string | null {
+  const link = gaugeLink(gauge, riverSlug);
   const unit = link?.thresholdUnit;
 
   if (unit === 'cfs') {
@@ -78,5 +106,5 @@ export function gaugeReadingText(gauge: MapGauge): string | null {
 
 /** The river this gauge should open, when it grades one. */
 export function gaugeRiverSlug(gauge: MapGauge): string | null {
-  return primaryLink(gauge)?.riverSlug ?? null;
+  return gaugeLink(gauge)?.riverSlug ?? null;
 }
