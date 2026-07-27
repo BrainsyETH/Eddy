@@ -223,6 +223,50 @@ grant execute on function public.gauges_in_bbox(
     double precision, double precision, double precision, double precision, integer, boolean
 ) to anon, authenticated, service_role;
 
+-- ── gauge_points: cursor pagination over every station's coordinates ────────
+--
+-- gauges_in_bbox caps at 1,000 rows ON PURPOSE — it answers a viewport for a
+-- phone. Scripts need the opposite: all ~14,000 stations, in a stable order,
+-- a page at a time. Keyset pagination on the primary key rather than OFFSET so
+-- a station inserted mid-walk cannot make the walk skip or repeat a row.
+--
+-- Exists because PostgREST cannot select st_x(location); without it a bulk
+-- reader would have to pull the WKB and parse it in TypeScript, which is the
+-- hand-rolled parseWKBHex path /api/gauges is stuck with and nothing new
+-- should join.
+
+create or replace function public.gauge_points(
+    p_after uuid default null,
+    p_limit integer default 1000
+)
+returns table (
+    id uuid,
+    site_id text,
+    curated boolean,
+    lng double precision,
+    lat double precision
+)
+language sql
+stable
+security invoker
+set search_path = public, extensions
+as $$
+    select
+        gs.id,
+        coalesce(gs.usgs_site_id, gs.site_id_external) as site_id,
+        gs.curated,
+        st_x(gs.location) as lng,
+        st_y(gs.location) as lat
+    from public.gauge_stations gs
+    where gs.active
+      and (p_after is null or gs.id > p_after)
+    order by gs.id
+    limit greatest(1, least(p_limit, 5000));
+$$;
+
+grant execute on function public.gauge_points(uuid, integer)
+    to anon, authenticated, service_role;
+
 -- ── search_gauges: /api/search, once the table is 16,500 rows ───────────────
 --
 -- Curated first — a gauge Eddy has rated is a better answer than one it has

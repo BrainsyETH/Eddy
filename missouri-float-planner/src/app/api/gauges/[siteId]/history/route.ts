@@ -21,6 +21,18 @@ export const dynamic = 'force-dynamic';
 // brand-new gauge with no accumulated readings) and fall back to live USGS.
 const MIN_DB_POINTS = 6;
 
+// A stored history whose newest point is older than this is STALE, and a count
+// check alone will not notice.
+//
+// Since 00196 the update-gauges cron polls only curated and starred stations.
+// Every other station in gauge_stations — the ~213 Missouri sites imported
+// before that and the ~14,000 national ones — has whatever history it had
+// frozen at that moment. Those rows are plentiful, so the MIN_DB_POINTS test
+// passes happily and the route would serve a week-old chart as current. Age is
+// the check that catches it; the live USGS fallback below already exists and
+// is exactly the right answer.
+const MAX_DB_AGE_HOURS = 6;
+
 async function fetchHistoryFromDb(siteId: string, days: number): Promise<HistoricalData | null> {
   const supabase = createAdminClient();
 
@@ -78,12 +90,21 @@ async function _GET(
     // Validate days parameter (max 30 days)
     const validDays = Math.min(Math.max(days, 1), 30);
 
-    // Prefer the cron-populated DB; fall back to live USGS only when sparse.
+    // Prefer the cron-populated DB; fall back to live USGS when it is sparse
+    // OR stale. Stale is the case that matters for any station the cron no
+    // longer polls — see MAX_DB_AGE_HOURS.
     let historicalData = await fetchHistoryFromDb(siteId, validDays);
 
-    if (!historicalData || historicalData.readings.length < MIN_DB_POINTS) {
+    const newest = historicalData?.readings.at(-1)?.timestamp;
+    const ageHours = newest ? (Date.now() - new Date(newest).getTime()) / 3_600_000 : Infinity;
+    const stale = !Number.isFinite(ageHours) || ageHours > MAX_DB_AGE_HOURS;
+
+    if (!historicalData || historicalData.readings.length < MIN_DB_POINTS || stale) {
       const usgs = await fetchHistoricalReadings(siteId, validDays);
-      if (usgs && (!historicalData || usgs.readings.length > historicalData.readings.length)) {
+      // When the stored history is merely STALE the live series is the better
+      // answer even if it is shorter, so the length comparison that guards the
+      // sparse case must not veto it.
+      if (usgs && (!historicalData || stale || usgs.readings.length > historicalData.readings.length)) {
         historicalData = usgs;
       }
     }
