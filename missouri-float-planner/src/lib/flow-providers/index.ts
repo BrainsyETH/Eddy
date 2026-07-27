@@ -6,6 +6,7 @@
 import type { FlowProvider } from './types';
 import { UsgsProvider } from './usgs';
 import { NwsProvider } from './nws';
+import { UsaceProvider } from './usace';
 
 export type {
   FlowProvider,
@@ -20,6 +21,10 @@ const PROVIDERS: Record<string, FlowProvider> = {
   // NWPS gauges (siteId = NWS LID) — for sites NWS observes but USGS
   // telemetry doesn't, e.g. St. Francis at Roselle (ROZM7).
   nws: new NwsProvider(),
+  // USACE dam releases (siteId = an Eddy slug like 'swl-clearwater-dam').
+  // A regulated tailwater's level IS the release, so it enters the pipeline as
+  // an ordinary discharge reading — see src/lib/flow-providers/usace.ts.
+  usace: new UsaceProvider(),
 };
 
 export const DEFAULT_PROVIDER_ID = 'usgs';
