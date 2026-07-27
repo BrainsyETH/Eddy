@@ -33,19 +33,79 @@ import type {
 } from '@eddy/types';
 import { hasCoordinates, isCampground } from '@eddy/types';
 import { boundsForLine } from '@eddy/geo';
-import { conditionColor } from '@/theme/conditions';
+import {
+  hazardConditionCode,
+  hazardTypeLabel,
+  portageNote,
+  severityLabel,
+} from '@eddy/hazards';
+import { conditionColor, conditionLabel } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
+import { readingAge } from '@/lib/readingCopy';
+import { gaugeConditionCode, gaugeReadingText, gaugeRiverSlug } from '@/lib/gaugeCondition';
 import { loadMapbox } from './runtime';
 import { STYLE_URL } from './useOfflinePacks';
 import { MAP_LAYERS, OUTFITTER_SERVICE_TYPES, type LayerKey } from './layers';
 
-/** A point the map can draw and hand back when tapped. */
+const SERVICE_TYPE_LABELS: Record<string, string> = {
+  outfitter: 'Outfitter',
+  canoe_rental: 'Canoe rental',
+  shuttle: 'Shuttle',
+  lodging: 'Lodging',
+  campground: 'Campground',
+};
+
+function serviceTypeLabel(type: string): string {
+  return SERVICE_TYPE_LABELS[type] ?? type.replace(/_/g, ' ');
+}
+
+/**
+ * The one useful thing you can do with an outfitter from a riverbank.
+ *
+ * Phone first: at a take-out with a dead shuttle plan, a number you can tap
+ * beats a website you have to load. Returns null rather than a dead button when
+ * the row has neither — a "Call" that does nothing is worse than no button.
+ */
+function serviceLink(service: RiverService): { label: string; url: string } | null {
+  if (service.phone) {
+    return { label: `Call ${service.phone}`, url: `tel:${service.phone.replace(/[^\d+]/g, '')}` };
+  }
+  if (service.website) {
+    const url = /^https?:\/\//i.test(service.website) ? service.website : `https://${service.website}`;
+    return { label: 'Open website', url };
+  }
+  return null;
+}
+
+/**
+ * A point the map can draw and hand back when tapped.
+ *
+ * Everything past `coordinates` exists for the CALLOUT rather than the pin. A
+ * tapped hazard that says "Mile 41" and nothing else is a worse answer than no
+ * callout at all — the layer's entire job is telling you what is in the water —
+ * so each pin carries the sentence it would want to say. Building that here,
+ * where the source objects are, keeps the callout a dumb renderer and stops it
+ * growing a branch per layer.
+ */
 export interface MapPin {
   id: string;
   name: string;
   layer: LayerKey;
   subtitle: string | null;
   coordinates: { lng: number; lat: number };
+  /** Overrides the layer colour. A gauge wears its own condition, not teal. */
+  color?: string;
+  /** Condition or severity code, for a tinted chip in the callout. */
+  code?: string;
+  codeLabel?: string;
+  /** The headline number: a gauge's reading, in its own unit. */
+  value?: string | null;
+  /** Prose — a hazard's description and portage note. */
+  body?: string | null;
+  /** A river to open from the callout, when the pin belongs to one. */
+  riverSlug?: string | null;
+  /** Tap-to-call or tap-to-book. Never fabricated: null when there is no number. */
+  link?: { label: string; url: string } | null;
 }
 
 interface Props {
@@ -60,19 +120,33 @@ interface Props {
   layers: LayerKey[];
   /** Centres and zooms here instead of fitting the river. Cleared by the caller. */
   focus?: { lng: number; lat: number } | null;
+  /**
+   * Draw the blue dot. Only ever true once the user has granted location, which
+   * the screen asks for on an explicit tap — see useLocation.
+   */
+  showUserLocation?: boolean;
   /** The planned float, drawn over the river line. */
   planRoute?: RiverGeometry | null;
   planEndpoints?: { putIn: MapAccessPoint; takeOut: MapAccessPoint } | null;
+  /** Overnight stops, in order. Drawn as numbered nights along the route. */
+  planCamps?: MapAccessPoint[];
   onSelectPin?: (pin: MapPin) => void;
 }
 
-function featureCollection(pins: MapPin[]) {
+/**
+ * GeoJSON for one layer.
+ *
+ * `color` is written onto every feature, not just the ones that override it, so
+ * the paint expression can be a flat `['get','color']` rather than a `case` that
+ * has to test for the property's presence.
+ */
+function featureCollection(pins: MapPin[], defaultColor: string) {
   return {
     type: 'FeatureCollection' as const,
     features: pins.map((pin) => ({
       type: 'Feature' as const,
       id: pin.id,
-      properties: { id: pin.id, name: pin.name },
+      properties: { id: pin.id, name: pin.name, color: pin.color ?? defaultColor },
       geometry: {
         type: 'Point' as const,
         coordinates: [pin.coordinates.lng, pin.coordinates.lat],
@@ -90,8 +164,10 @@ export function RiverMap({
   services,
   layers,
   focus,
+  showUserLocation,
   planRoute,
   planEndpoints,
+  planCamps,
   onSelectPin,
 }: Props) {
   const Mapbox = loadMapbox();
@@ -139,26 +215,61 @@ export function RiverMap({
           layer: 'campgrounds' as const,
           subtitle: [s.city, s.state].filter(Boolean).join(', ') || 'Campground',
           coordinates: { lng: s.longitude as number, lat: s.latitude as number },
+          body: s.description,
+          link: serviceLink(s),
         })),
     ];
 
-    const gaugePins: MapPin[] = gauges.filter(hasCoordinates).map((g) => ({
-      id: `gauge:${g.id}`,
-      name: g.name,
-      layer: 'gauges' as const,
-      subtitle: g.usgsSiteId,
-      coordinates: g.coordinates,
-    }));
+    // A gauge wears its OWN condition, graded on the phone from the ladder that
+    // came down with the reading. That is the difference between a layer of
+    // labels and a layer that answers "where is the water good right now" —
+    // and the colours are the canonical ones, so a green dot here means what a
+    // green row means in River Reports.
+    const gaugePins: MapPin[] = gauges.filter(hasCoordinates).map((g) => {
+      const code = gaugeConditionCode(g);
+      const reading = gaugeReadingText(g);
+      return {
+        id: `gauge:${g.id}`,
+        name: g.name,
+        layer: 'gauges' as const,
+        subtitle: [readingAge(g.readingAgeHours), `USGS ${g.usgsSiteId}`]
+          .filter(Boolean)
+          .join(' · '),
+        coordinates: g.coordinates,
+        color: conditionColor(code),
+        code,
+        codeLabel: conditionLabel(code),
+        value: reading,
+        // The qualifier note is the reason the pin is grey. Saying so beats a
+        // colourless dot with no explanation.
+        body: g.qualifierNote,
+        riverSlug: gaugeRiverSlug(g),
+      };
+    });
 
     const hazardPins: MapPin[] = hazards
       .filter((h) => hasCoordinates(h))
-      .map((h) => ({
-        id: `hazard:${h.id}`,
-        name: h.name,
-        layer: 'hazards' as const,
-        subtitle: `Mile ${h.riverMile}`,
-        coordinates: h.coordinates,
-      }));
+      .map((h) => {
+        const code = hazardConditionCode(h.severity);
+        const portage = portageNote(h);
+        return {
+          id: `hazard:${h.id}`,
+          name: h.name,
+          layer: 'hazards' as const,
+          subtitle: [hazardTypeLabel(h.type), h.riverMile ? `Mile ${h.riverMile}` : null]
+            .filter(Boolean)
+            .join(' · '),
+          coordinates: h.coordinates,
+          // Severity, not one flat red. A `caution` shoal and a low-water dam
+          // are both hazards and they are not the same news.
+          color: conditionColor(code),
+          code,
+          codeLabel: severityLabel(h.severity),
+          // The portage instruction leads: it is the only part of a hazard that
+          // is an instruction rather than a description.
+          body: [portage, h.description, h.seasonalNotes].filter(Boolean).join('\n\n') || null,
+        };
+      });
 
     const outfitterPins: MapPin[] = services
       .filter(
@@ -169,8 +280,12 @@ export function RiverMap({
         id: `outfitter:${s.id}`,
         name: s.name,
         layer: 'outfitters' as const,
-        subtitle: s.phone ?? ([s.city, s.state].filter(Boolean).join(', ') || null),
+        subtitle: [serviceTypeLabel(s.type), [s.city, s.state].filter(Boolean).join(', ')]
+          .filter(Boolean)
+          .join(' · '),
         coordinates: { lng: s.longitude as number, lat: s.latitude as number },
+        body: s.description,
+        link: serviceLink(s),
       }));
 
     return { access, campgrounds, gauges: gaugePins, hazards: hazardPins, outfitters: outfitterPins };
@@ -202,6 +317,22 @@ export function RiverMap({
       })),
     };
   }, [planEndpoints]);
+
+  const campFeatures = useMemo(() => {
+    if (!planCamps?.length) return null;
+    return {
+      type: 'FeatureCollection' as const,
+      features: planCamps.map((camp, index) => ({
+        type: 'Feature' as const,
+        id: `night:${camp.id}`,
+        properties: { label: `Night ${index + 1} · ${camp.name}`, night: String(index + 1) },
+        geometry: {
+          type: 'Point' as const,
+          coordinates: [camp.coordinates.lng, camp.coordinates.lat],
+        },
+      })),
+    };
+  }, [planCamps]);
 
   // Fit the PLANNED stretch when there is one — a twelve-mile float inside a
   // hundred-mile river is invisible at river zoom — and the whole river
@@ -259,12 +390,18 @@ export function RiverMap({
    */
   const pinLayer = (id: LayerKey, data: MapPin[], color: string) =>
     data.length === 0 ? null : (
-      <Mapbox.ShapeSource id={`pins-${id}`} shape={featureCollection(data)} onPress={onPress}>
+      <Mapbox.ShapeSource
+        id={`pins-${id}`}
+        shape={featureCollection(data, color)}
+        onPress={onPress}
+      >
         <Mapbox.CircleLayer
           id={`pins-${id}-circle`}
           style={{
             circleRadius: 6,
-            circleColor: color,
+            // Data-driven rather than flat, so a gauge can wear its condition
+            // while every other layer still gets its own single colour.
+            circleColor: ['get', 'color'],
             circleStrokeWidth: 2,
             circleStrokeColor: '#FFFFFF',
           }}
@@ -303,6 +440,11 @@ export function RiverMap({
         // works but is deprecated in @rnmapbox/maps 10.
         padding={{ paddingTop: 40, paddingBottom: 40, paddingLeft: 32, paddingRight: 32 }}
       />
+
+      {/* Rendered only once permission exists. @rnmapbox/maps triggers the
+          system prompt itself the moment this mounts, which would spend the
+          one-shot iOS dialog on merely opening the Map tab. */}
+      {showUserLocation ? <Mapbox.UserLocation visible /> : null}
 
       <Mapbox.ShapeSource id="river-line" shape={lineFeature}>
         {/* Casing first: a dark outline under the colour keeps a thin river
@@ -349,6 +491,49 @@ export function RiverMap({
         : null}
       {layerOn('gauges') ? pinLayer('gauges', pins.gauges, layerColor('gauges')) : null}
       {layerOn('hazards') ? pinLayer('hazards', pins.hazards, layerColor('hazards')) : null}
+
+      {/* Nights sit UNDER the put-in and take-out markers: those two are the
+          ends of the trip and must stay findable when a camp lands near one. */}
+      {campFeatures ? (
+        <Mapbox.ShapeSource id="plan-camps" shape={campFeatures}>
+          <Mapbox.CircleLayer
+            id="plan-camps-circle"
+            style={{
+              circleRadius: 11,
+              circleColor: colors.success,
+              circleStrokeWidth: 3,
+              circleStrokeColor: '#FFFFFF',
+            }}
+          />
+          {/* The night number goes INSIDE its circle — a numbered dot reads as
+              an itinerary at a glance, which a row of identical green dots
+              never does. The name rides below at the same zoom as every other
+              label. */}
+          <Mapbox.SymbolLayer
+            id="plan-camps-number"
+            style={{
+              textField: ['get', 'night'],
+              textSize: 12,
+              textColor: '#FFFFFF',
+              textAllowOverlap: true,
+              textIgnorePlacement: true,
+            }}
+          />
+          <Mapbox.SymbolLayer
+            id="plan-camps-label"
+            minZoomLevel={10}
+            style={{
+              textField: ['get', 'label'],
+              textSize: 11,
+              textOffset: [0, 1.6],
+              textAnchor: 'top',
+              textColor: colors.text,
+              textHaloColor: '#FFFFFF',
+              textHaloWidth: 1.5,
+            }}
+          />
+        </Mapbox.ShapeSource>
+      ) : null}
 
       {endpointFeatures ? (
         <Mapbox.ShapeSource id="plan-endpoints" shape={endpointFeatures}>
