@@ -30,6 +30,7 @@ import type {
   RiverConditionDetail,
   RiverListItem,
   RiverOutlookResponse,
+  RiverVisualsResponse,
 } from '@eddy/types';
 import {
   criticalHazards,
@@ -45,6 +46,7 @@ import {
   fetchHazards,
   fetchRiverAccessPoints,
   fetchRiverOutlook,
+  fetchRiverVisuals,
   fetchRivers,
   subscribeToRiver,
 } from '@/api/client';
@@ -68,6 +70,7 @@ import {
 import { EddyTake } from '@/components/EddyTake';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
+import { RiverVisuals } from '@/components/RiverVisuals';
 import { ReadingScale } from '@/components/ReadingScale';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { PushPrimer } from '@/components/PushPrimer';
@@ -87,6 +90,7 @@ export default function RiverDetailScreen() {
   const [hazards, setHazards] = useState<Hazard[]>([]);
   const [accessPoints, setAccessPoints] = useState<MapAccessPoint[]>([]);
   const [outlook, setOutlook] = useState<RiverOutlookResponse | null>(null);
+  const [visuals, setVisuals] = useState<RiverVisualsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -115,7 +119,7 @@ export default function RiverDetailScreen() {
         // Each of these degrades on its own. A river with no gauge, no recorded
         // hazards or no access points is an ordinary state, and one failing must
         // not blank the other two.
-        const [cond, haz, access, look] = await Promise.all([
+        const [cond, haz, access, look, looks] = await Promise.all([
           fetchCondition(match.id, controller.signal).catch(() => null),
           fetchHazards(slug, controller.signal).catch(() => [] as Hazard[]),
           fetchRiverAccessPoints(slug, controller.signal).catch(() => [] as MapAccessPoint[]),
@@ -123,11 +127,16 @@ export default function RiverDetailScreen() {
           // Any of them being down is an ordinary day, and the screen's core job
           // — condition, reading, hazards — must not depend on the forecast.
           fetchRiverOutlook(slug, controller.signal).catch(() => null),
+          // Thin coverage by nature — verified community photos exist for three
+          // rivers of twenty-four — so a null here is the ordinary case and the
+          // card just does not render.
+          fetchRiverVisuals(slug, controller.signal).catch(() => null),
         ]);
         setCondition(cond);
         setHazards(haz);
         setAccessPoints(access);
         setOutlook(look);
+        setVisuals(looks);
         setError(null);
       } catch (err) {
         if (err instanceof ApiError && err.message === 'Request cancelled') return;
@@ -331,6 +340,11 @@ export default function RiverDetailScreen() {
                above says what the river IS and this says what to do about it.
                Hidden entirely when the river has no gauge or every upstream
                source failed — an empty interpretation is worse than none. ── */}
+        {/* Under the reading, above the forecast: these photos are what the
+            number above means, so they belong to it. Absent on most rivers,
+            which is why nothing below shifts on the ones without any. */}
+        {visuals ? <RiverVisuals data={visuals} /> : null}
+
         {outlook ? <EddyTake outlook={outlook} ratedUnit={reading?.unit ?? null} /> : null}
 
         {/* ── The bell. The only paid affordance on this screen. ── */}

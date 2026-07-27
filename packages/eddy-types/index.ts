@@ -731,3 +731,59 @@ export function isUpgradeRequired(
   if (!currentVersion || !minSupportedVersion) return false;
   return compareVersions(currentVersion, minSupportedVersion) < 0;
 }
+
+// ── River visuals ───────────────────────────────────────────────────────────
+// What the river actually looks like, banded by the condition it was photographed
+// at. Ported from the web app's src/types/api.ts, which has served the same
+// endpoint to the website's gallery since it shipped.
+//
+// THE BANDING IS THE POINT. These are not decorative river photos — each one
+// carries the reading it was taken at and the level that reading grades to, so
+// the question they answer is "what does 900 cfs look like here", not "is this
+// river pretty". A photo shown without its level would be the second thing while
+// claiming to be the first.
+
+export interface RiverVisual {
+  id: string;
+  imageUrl: string;
+  description: string;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  /**
+   * Which of the two readings above this photo was BANDED on — from the photo's
+   * own gauge, not the river's. Optional because it post-dates the endpoint;
+   * treat a missing value the way readingCopy does, as "no declared unit".
+   */
+  thresholdUnit?: 'ft' | 'cfs';
+  accessPointId: string | null;
+  accessPointName: string | null;
+  accessPointHref: string | null;
+  gaugeStationId: string | null;
+  gaugeName: string | null;
+  submitterName: string | null;
+  conditionCode: ConditionCode;
+  capturedAt: string | null;
+  createdAt: string;
+}
+
+export interface RiverVisualLevelGroup {
+  code: ConditionCode;
+  visuals: RiverVisual[];
+}
+
+export interface RiverVisualsResponse {
+  /**
+   * Photos matching the river's CURRENT condition, proximity-sorted.
+   *
+   * Frequently empty even where photos exist — a river with four photos taken
+   * at flowing and one at flood has nothing here on a low-water day — so a
+   * consumer that reads only this field shows an empty card most of the time.
+   * Fall back to `byLevel` and say which level is being shown.
+   */
+  visuals: RiverVisual[];
+  /** Every verified photo grouped by level (dry → flood); non-empty bands only. */
+  byLevel: RiverVisualLevelGroup[];
+  currentCondition: ConditionCode;
+  currentGaugeHeightFt: number | null;
+  currentDischargeCfs: number | null;
+}
