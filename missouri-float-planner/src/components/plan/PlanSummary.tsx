@@ -20,10 +20,10 @@ const CONDITION_CONFIG: Record<ConditionCode, {
   explanation: string;
 }> = {
   flowing: {
-    label: 'Ideal',
+    label: 'Flowing',
     bgClass: 'bg-emerald-500',
     textClass: 'text-white',
-    explanation: 'Ideal conditions for floating.',
+    explanation: 'Flowing conditions for floating.',
   },
   good: {
     label: 'Good',

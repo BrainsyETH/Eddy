@@ -56,7 +56,7 @@ function buildStrategy(contexts: RiverContext[]): string {
     lines.push(`- Dry weather: check spring-fed rivers first (${springFed.join(', ')})`);
   }
   if (quickResponding.length > 0) {
-    lines.push(`- Rainy: quick-responding smaller streams (${quickResponding.join(', ')}) may be at ideal levels`);
+    lines.push(`- Rainy: quick-responding smaller streams (${quickResponding.join(', ')}) may be at flowing levels`);
   }
   // Editorial picks — only mentioned while those rivers are on the roster.
   if (bySlug.has('current') || bySlug.has('meramec')) {
@@ -118,7 +118,7 @@ Always use URLs from the search results. Don't write a wall of prose about each 
 
 MULTI-RIVER COMPARISONS — CRITICAL:
 When you check multiple rivers, the UI displays a compact comparison card showing all conditions at a glance. DO NOT repeat individual river stats in your text. Instead:
-- State your top pick in 1 sentence with a link: "Go with Eleven Point. Flowing and ideal right now, spring-fed, and no crowds. [Float Eleven Point](/rivers/eleven-point)"
+- State your top pick in 1 sentence with a link: "Go with Eleven Point. Flowing right now, spring-fed, and no crowds. [Float Eleven Point](/rivers/eleven-point)"
 - If relevant, add 1 sentence about the runner-up.
 - Only mention other rivers if there's a safety concern (high/dangerous).
 - Total text for multi-river: 2-4 sentences max. The cards handle the data, you handle the opinion.

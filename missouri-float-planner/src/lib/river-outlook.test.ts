@@ -220,7 +220,7 @@ test('Watch for still flags a forecast crossing into a different safety class', 
   const outlook = buildRiverOutlookState({
     ...baseOutlookInput,
     riverStages: [
-      { dateTime: '2026-07-22T18:00:00Z', valueFt: 4.5 }, // Ideal
+      { dateTime: '2026-07-22T18:00:00Z', valueFt: 4.5 }, // Flowing
       { dateTime: '2026-07-23T18:00:00Z', valueFt: 7.0 }, // High
     ],
   });

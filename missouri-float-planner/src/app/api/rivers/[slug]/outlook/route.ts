@@ -11,7 +11,7 @@
 //
 // It reuses the SAME pure functions the website calls, which is the point: the
 // split between "Eddy's read" (now) and "Watch for" (ahead), the material-change
-// comparison that stops a peak nudging Ideal into Good from firing a warning,
+// comparison that stops a peak nudging Flowing into Good from firing a warning,
 // and the refusal to promise more than the data supports all live in
 // src/lib/river-outlook.ts and are not restated here.
 //

@@ -188,7 +188,7 @@ export async function buildPostContext(
     // Float Pick — the SINGLE decision point for which float gets posted (the
     // scheduler delegates here, so caption, cover, and render always describe
     // the same float). Live-first: a condition-aware section pick when any
-    // river is ideal-floatable (flowing / good, 5-9 mi); otherwise fall back to
+    // river is floatable (flowing / good, 5-9 mi); otherwise fall back to
     // an evergreen favorite from the river-guide blogs so the slot always
     // publishes. Skip only when neither source yields a float.
     const deduped = await freshRivers();

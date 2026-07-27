@@ -9,7 +9,7 @@
 // The band maths comes from @eddy/conditions, the SAME module the website's
 // reading card and levels table use — reached through the `file:` dependency on
 // missouri-float-planner/shared, which npm symlinks into node_modules. Not a
-// port: the phone runs that file. So the app cannot decide "Ideal" starts
+// port: the phone runs that file. So the app cannot decide "Flowing" starts
 // somewhere the website doesn't.
 //
 // The subpath import works because @eddy/conditions declares no `exports` map,

@@ -5,7 +5,7 @@
 // Three surfaces render this ladder now — the web reading card draws the compact
 // band track, the web levels table lists the bands in full, and the iOS river
 // screen draws the same track. They used to derive the bands independently,
-// which is one edit away from disagreeing about where "Ideal" starts.
+// which is one edit away from disagreeing about where "Flowing" starts.
 //
 // LIVES IN shared/ FOR THE SAME REASON condition-system.ts DOES: eddy-ios reaches
 // this folder through Metro watchFolders (see eddy-ios/metro.config.js) and the
@@ -28,7 +28,7 @@ export const DEFAULT_THRESHOLD_DESCRIPTIONS: Record<string, string> = {
   tooLow: 'Expect frequent dragging on gravel bars. Recommended for wading only.',
   low: 'Floatable but expect occasional scraping. Lighter boats recommended.',
   good: 'Floatable conditions. Some shallow spots possible.',
-  flowing: 'Ideal conditions. All boats clear, gentle current, crystal clear water.',
+  flowing: 'Flowing conditions. All boats clear, gentle current, crystal clear water.',
   high: 'Moving quick. Experienced paddlers only; expect submerged obstacles and root-balls.',
   flood: 'Dangerous. High water, heavy debris, and flood warnings usually in effect.',
 };
@@ -112,7 +112,7 @@ export function buildZones(
   if (tv.levelOptimalMin !== null && tv.levelOptimalMax !== null) {
     zones.push({
       key: 'flowing',
-      label: 'Ideal',
+      label: 'Flowing',
       color: CONDITION_COLORS.flowing,
       min: tv.levelOptimalMin,
       max: tv.levelOptimalMax,

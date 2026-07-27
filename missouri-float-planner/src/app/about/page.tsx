@@ -61,7 +61,7 @@ const conditionDescriptions: Record<ConditionCode, {
   low: {
     title: 'Low - Scraping Likely',
     description: 'Water levels are below normal for most sections. Expect shallow areas, frequent scraping, and possible portaging — though conditions can differ between upper and lower stretches of the same river. Float times will likely be longer than estimated.',
-    recommendation: 'Not ideal for beginners or large groups. Some river sections may float better than others — consider checking with local outfitters for section-specific advice.',
+    recommendation: 'Not recommended for beginners or large groups. Some river sections may float better than others — consider checking with local outfitters for section-specific advice.',
     icon: '⚠️',
   },
   good: {
@@ -71,8 +71,8 @@ const conditionDescriptions: Record<ConditionCode, {
     icon: '✓',
   },
   flowing: {
-    title: 'Flowing - Ideal Conditions',
-    description: 'Water levels are in the ideal range for floating. Most river sections will have good depth without dangerously fast currents. This is generally the best time to be on the water, though conditions may still vary somewhat between sections.',
+    title: 'Flowing',
+    description: 'Water levels are in the optimal range for floating. Most river sections will have good depth without dangerously fast currents. This is generally the best time to be on the water, though conditions may still vary somewhat between sections.',
     recommendation: 'Great conditions for floating. Always check local conditions before heading out.',
     icon: '🎯',
   },
@@ -407,7 +407,7 @@ export default function AboutPage() {
                 name: 'What do the river condition codes mean on Eddy?',
                 acceptedAnswer: {
                   '@type': 'Answer',
-                  text: 'Eddy uses six condition codes based on real-time USGS gauge data: Too Low (not recommended), Low (scraping likely), Good (floatable), Flowing (ideal conditions), High (use caution), and Flood (do not float). Each code reflects current water levels compared to researched thresholds for each river.',
+                  text: 'Eddy uses six condition codes based on real-time USGS gauge data: Too Low (not recommended), Low (scraping likely), Good (floatable), Flowing (optimal conditions), High (use caution), and Flood (do not float). Each code reflects current water levels compared to researched thresholds for each river.',
                 },
               },
               {
