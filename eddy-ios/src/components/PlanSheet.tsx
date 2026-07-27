@@ -31,6 +31,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MapAccessPoint } from '@eddy/types';
+import { accessTypeLabel } from '@eddy/types';
 import { saveFloatPlan } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -52,19 +53,6 @@ interface Props {
    * different reason.
    */
   userCoords?: Coords | null;
-}
-
-const ACCESS_TYPE_LABELS: Record<string, string> = {
-  boat_ramp: 'Boat ramp',
-  gravel_bar: 'Gravel bar',
-  campground: 'Campground',
-  bridge: 'Bridge',
-  access: 'Access',
-  park: 'Park',
-};
-
-function accessTypeLabel(type: string): string {
-  return ACCESS_TYPE_LABELS[type] ?? type.replace(/_/g, ' ');
 }
 
 export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Props) {

@@ -530,13 +530,20 @@ export function RiverMap({
       // which only moved them under the callout: full-width, bottom-anchored
       // and 115-251pt tall, so selecting any pin covered both outright.
       //
-      // The +4 on the attribution and the left:104 carry over from that
-      // arrangement — the (i)'s glyph is bottom-aligned inside a 44pt box, and
-      // that pair already reads level with the 21pt wordmark beside it.
+      // THE OFFSETS ARE MEASURED, NOT TASTE. The wordmark is a fixed 85x21
+      // bitmap, so at left:12 its right edge lands at x=97. The (i) is a 44x44
+      // .infoLight button with a ~22pt glyph centred in it, so its left:N puts
+      // the visible glyph at N+11 — left:94 is what makes the gap between the
+      // two read as 8pt, matching the gap the callout's own rows use. Anything
+      // larger reads as two unrelated controls rather than one attribution.
+      //
+      // bottom:9 centres the glyph against the wordmark (bottom:14 sat it
+      // high) and, more usefully, puts the top of its 44pt tap frame at y=53 —
+      // which is the number MAP_CHROME_BOTTOM has to clear.
       logoEnabled
       logoPosition={{ bottom: 10, left: 12 }}
       attributionEnabled
-      attributionPosition={{ bottom: 14, left: 104 }}
+      attributionPosition={{ bottom: 9, left: 94 }}
     >
       {/* defaultSettings is not optional in the bounds case. `bounds` alone is
           applied as an UPDATE, and on first mount there is nothing to update

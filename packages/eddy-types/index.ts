@@ -171,16 +171,75 @@ export const ACCESS_POINT_TYPES = [
 ] as const;
 
 /**
+ * Every type this point carries, resolved and in display order.
+ *
+ * `types` first, falling back to `[type]` — the reason `types` is optional
+ * above. Unknown slugs are kept and sorted last rather than dropped: a type the
+ * database grows before the app ships is still true about the place.
+ */
+export function accessPointTypes(point: MapAccessPoint): string[] {
+  const all = point.types?.length ? point.types : [point.type];
+  const seen = Array.from(new Set(all.filter(Boolean)));
+  return seen.sort((a, b) => {
+    const ai = ACCESS_POINT_TYPE_ORDER.indexOf(a as AccessPointType);
+    const bi = ACCESS_POINT_TYPE_ORDER.indexOf(b as AccessPointType);
+    return (ai < 0 ? ACCESS_POINT_TYPE_ORDER.length : ai) -
+      (bi < 0 ? ACCESS_POINT_TYPE_ORDER.length : bi);
+  });
+}
+
+/**
  * Does this access point camp?
  *
- * Checks `types` first and falls back to `type`, which is the whole reason
- * `types` is optional above. Written once here because both the map filter and
- * the planner's overnight logic ask the same question, and a second copy would
- * be a second answer.
+ * Written once here because both the map filter and the planner's overnight
+ * logic ask the same question, and a second copy would be a second answer.
  */
 export function isCampground(point: MapAccessPoint): boolean {
-  const all = point.types?.length ? point.types : [point.type];
-  return all.includes('campground');
+  return accessPointTypes(point).includes('campground');
+}
+
+export type AccessPointType = (typeof ACCESS_POINT_TYPES)[number];
+
+/**
+ * What to CALL each type on screen.
+ *
+ * Sentence case, which is the app's register — the website's own map in
+ * src/constants/index.ts is Title Case ("Boat Ramp", "River Access") because it
+ * sits in headings there. Deliberately not shared with it: the two differ on
+ * purpose, and a single map would have to pick a loser.
+ *
+ * Lives here rather than in a component because three screens ask the same
+ * question — the plan sheet, the bail-out list along a route, and the map
+ * callout — and it was already answered twice, identically, in two of them.
+ */
+export const ACCESS_POINT_TYPE_LABELS: Record<AccessPointType, string> = {
+  boat_ramp: 'Boat ramp',
+  gravel_bar: 'Gravel bar',
+  campground: 'Campground',
+  bridge: 'Bridge',
+  access: 'Access',
+  park: 'Park',
+};
+
+/**
+ * Display order, most-specific-use first: how you get on the water, then
+ * whether you can stay, then what the bank is like.
+ *
+ * Matches ACCESS_POINT_TYPE_ORDER on the website so a point tagged three ways
+ * lists them the same on both.
+ */
+export const ACCESS_POINT_TYPE_ORDER: AccessPointType[] = [
+  'access',
+  'campground',
+  'boat_ramp',
+  'gravel_bar',
+  'bridge',
+  'park',
+];
+
+/** Falls back to the de-slugged raw value, so an unmapped type still reads. */
+export function accessTypeLabel(type: string): string {
+  return ACCESS_POINT_TYPE_LABELS[type as AccessPointType] ?? type.replace(/_/g, ' ');
 }
 
 // ── Live conditions (GET /api/conditions/[riverId]) ──────────────
