@@ -5,16 +5,20 @@
 // tapping one went nowhere; the alert engine had no button; hazards existed in
 // the database and appeared on no surface at all.
 //
-// Free/paid boundary, enforced by what this screen renders rather than by a
-// check anywhere in it:
-//   FREE  condition, reading, percentile context, hazards, access points
-//   PAID  being told about a change before you look
-// Nothing on this screen is gated. The bell is the only paid affordance, and it
-// only gates the NOTIFICATION, never the information.
+// Free/paid boundary:
+//   FREE  condition, reading, the gauge picker, percentile context, hazards,
+//         access points, the bottom line and the weather
+//   PAID  being told about a change before you look; Eddy's written report
+//
+// Everything that decides whether to get on the water is free, and that is a
+// rule rather than a description — see the header of PaywallSheet. The two paid
+// affordances are the bell, which gates the NOTIFICATION and never the
+// information, and the long read, which is commentary on facts shown above it.
 
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,11 +31,13 @@ import { Ionicons } from '@expo/vector-icons';
 import type {
   Hazard,
   MapAccessPoint,
+  MapGauge,
   RiverConditionDetail,
   RiverListItem,
   RiverOutlookResponse,
   RiverVisualsResponse,
 } from '@eddy/types';
+import { accessPointTypes, accessTypeLabel } from '@eddy/types';
 import {
   criticalHazards,
   hazardConditionCode,
@@ -43,6 +49,7 @@ import {
 import {
   ApiError,
   fetchCondition,
+  fetchGauges,
   fetchHazards,
   fetchRiverAccessPoints,
   fetchRiverOutlook,
@@ -70,10 +77,13 @@ import {
 import { EddyTake } from '@/components/EddyTake';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
+import { GaugePicker } from '@/components/GaugePicker';
 import { RiverVisuals } from '@/components/RiverVisuals';
 import { ReadingScale } from '@/components/ReadingScale';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { PushPrimer } from '@/components/PushPrimer';
+import { gaugeConditionCode, gaugeLink, gaugesForRiver } from '@/lib/gaugeCondition';
+import { driveToUrl } from '@/lib/directions';
 import { useAccount } from '@/hooks/useAccount';
 import { usePush } from '@/hooks/usePush';
 import { useSession } from '@/hooks/useSession';
@@ -97,6 +107,13 @@ export default function RiverDetailScreen() {
   const [accessPoints, setAccessPoints] = useState<MapAccessPoint[]>([]);
   const [outlook, setOutlook] = useState<RiverOutlookResponse | null>(null);
   const [visuals, setVisuals] = useState<RiverVisualsResponse | null>(null);
+  const [gauges, setGauges] = useState<MapGauge[]>([]);
+  /**
+   * Which gauge the reading card is showing. Null means the river's own
+   * primary, which is what /api/conditions already answered with — so the card
+   * opens exactly as it did before anyone touched the picker.
+   */
+  const [pickedGaugeId, setPickedGaugeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -125,7 +142,7 @@ export default function RiverDetailScreen() {
         // Each of these degrades on its own. A river with no gauge, no recorded
         // hazards or no access points is an ordinary state, and one failing must
         // not blank the other two.
-        const [cond, haz, access, look, looks] = await Promise.all([
+        const [cond, haz, access, look, looks, allGauges] = await Promise.all([
           fetchCondition(match.id, controller.signal).catch(() => null),
           fetchHazards(slug, controller.signal).catch(() => [] as Hazard[]),
           fetchRiverAccessPoints(slug, controller.signal).catch(() => [] as MapAccessPoint[]),
@@ -137,12 +154,18 @@ export default function RiverDetailScreen() {
           // rivers of twenty-four — so a null here is the ordinary case and the
           // card just does not render.
           fetchRiverVisuals(slug, controller.signal).catch(() => null),
+          // Statewide and CDN-cached, and the only place carrying every gauge's
+          // ladder PER RIVER — which is what lets the picker below grade a
+          // shared station against this river rather than its neighbour's.
+          // Failing just means no picker; the primary reading is unaffected.
+          fetchGauges(controller.signal).catch(() => [] as MapGauge[]),
         ]);
         setCondition(cond);
         setHazards(haz);
         setAccessPoints(access);
         setOutlook(look);
         setVisuals(looks);
+        setGauges(gaugesForRiver(allGauges, slug));
         setError(null);
       } catch (err) {
         if (err instanceof ApiError && err.message === 'Request cancelled') return;
@@ -227,13 +250,43 @@ export default function RiverDetailScreen() {
     );
   }
 
-  const code = condition?.code ?? river.currentCondition?.code ?? 'unknown';
+  // ── Which gauge the card is reading ──────────────────────────────────────
+  // Null until someone picks one, and then everything in the card below comes
+  // from that gauge instead of from /api/conditions. The RIVER's rating does
+  // not move: the chip on the rivers list, the alerts and Eddy's take are all
+  // still the primary gauge's verdict. This is a second opinion on a specific
+  // stretch, which is the thing a five-gauge river could not previously give.
+  const pickedGauge = pickedGaugeId ? gauges.find((g) => g.id === pickedGaugeId) ?? null : null;
+  // THIS river's ladder for that station, not the station's primary one — a
+  // gauge shared between two rivers grades differently for each.
+  const pickedLink = pickedGauge ? gaugeLink(pickedGauge, slug) : null;
+
+  const code = pickedGauge
+    ? gaugeConditionCode(pickedGauge, slug)
+    : condition?.code ?? river.currentCondition?.code ?? 'unknown';
+
   // primaryReading resolves the unit through shared/reading-unit.ts, which
   // prefers the nested ladder over the top-level field — so this works against
   // an older deploy that never sent the top-level one, which is the deploy the
-  // App Store review lag guarantees will exist.
-  const reading = condition ? primaryReading(condition) : null;
-  const caveat = condition ? accuracyNote(condition) : null;
+  // App Store review lag guarantees will exist. Reused for the picked gauge
+  // rather than re-derived, so a secondary station cannot start printing feet
+  // for a cfs ladder the way the river card once did.
+  const reading =
+    pickedGauge && pickedLink
+      ? primaryReading({
+          gaugeHeightFt: pickedGauge.gaugeHeightFt,
+          dischargeCfs: pickedGauge.dischargeCfs,
+          thresholdUnit: pickedLink.thresholdUnit,
+        })
+      : condition
+        ? primaryReading(condition)
+        : null;
+
+  const scaleThresholds = pickedLink ?? condition?.thresholds ?? null;
+  const readingAgeHours = pickedGauge ? pickedGauge.readingAgeHours : condition?.readingAgeHours;
+  const shownGaugeName = pickedGauge ? pickedGauge.name : condition?.gaugeName;
+
+  const caveat = condition && !pickedGauge ? accuracyNote(condition) : null;
   const percentileText = percentileSentence(condition?.percentile);
   const starred = isStarred('river', river.id);
   const sortedHazards = sortHazards(hazards);
@@ -309,16 +362,29 @@ export default function RiverDetailScreen() {
           {/* The scale the number sits on. Placed directly under the reading
               because it is the reading's context, not a separate fact — "944
               cfs" is only a decision once you can see it is nowhere near flood. */}
-          {condition?.thresholds && reading ? (
+          {scaleThresholds && reading ? (
             <ReadingScale
-              thresholds={condition.thresholds}
+              thresholds={scaleThresholds}
               value={reading.value}
               unit={reading.unit}
             />
           ) : null}
 
+          {/* Which station this is, when the river has more than one. Under the
+              scale rather than above the reading: the primary gauge's number is
+              still what opens, so this is an offer to look further, not a
+              question you have to answer before the screen makes sense. */}
+          <GaugePicker
+            gauges={gauges}
+            riverSlug={slug}
+            selectedId={pickedGaugeId ?? gauges.find((g) => gaugeLink(g, slug)?.isPrimary)?.id ?? ''}
+            onSelect={setPickedGaugeId}
+          />
 
-          {percentileText ? (
+          {/* PRIMARY ONLY. The percentile comes from /api/conditions and is
+              computed for the river's rated gauge, so printing it under another
+              station's reading would attach a statistic to the wrong water. */}
+          {percentileText && !pickedGauge ? (
             <View style={[styles.percentileRow, { borderTopColor: colors.border }]}>
               <Text style={[styles.percentileText, { color: colors.text }]}>{percentileText}</Text>
               <Text style={[styles.percentileMeta, { color: colors.textSubtle }]}>
@@ -333,10 +399,10 @@ export default function RiverDetailScreen() {
             </View>
           ) : null}
 
-          {condition?.readingAgeHours != null ? (
+          {readingAgeHours != null ? (
             <Text style={[styles.updated, { color: colors.textSubtle }]}>
-              {readingAge(condition.readingAgeHours)}
-              {condition.gaugeName ? ` · ${condition.gaugeName}` : ''}
+              {readingAge(readingAgeHours)}
+              {shownGaugeName ? ` · ${shownGaugeName}` : ''}
             </Text>
           ) : null}
 
@@ -352,11 +418,6 @@ export default function RiverDetailScreen() {
                above says what the river IS and this says what to do about it.
                Hidden entirely when the river has no gauge or every upstream
                source failed — an empty interpretation is worse than none. ── */}
-        {/* Under the reading, above the forecast: these photos are what the
-            number above means, so they belong to it. Absent on most rivers,
-            which is why nothing below shifts on the ones without any. */}
-        {visuals ? <RiverVisuals data={visuals} /> : null}
-
         {outlook ? (
           <EddyTake
             outlook={outlook}
@@ -365,6 +426,14 @@ export default function RiverDetailScreen() {
             onUpgrade={() => setPaywallOpen(true)}
           />
         ) : null}
+
+        {/* AFTER the take, not before it. These photos are banded by condition,
+            so they illustrate a verdict — and putting them above the verdict
+            asked the reader to interpret a picture of brown water before
+            anything on the screen had told them what brown water meant here.
+            Absent on most rivers (three of twenty-four have any), which is why
+            nothing below shifts on the ones without. */}
+        {visuals ? <RiverVisuals data={visuals} /> : null}
 
         {/* ── The bell. ── */}
         <Pressable
@@ -467,10 +536,27 @@ export default function RiverDetailScreen() {
             title="Access points"
             summary={`${accessPoints.length} put-in${accessPoints.length === 1 ? '' : 's'} and take-out${accessPoints.length === 1 ? '' : 's'}`}
           >
+            {/* TAPPABLE, and to somewhere useful. These were flat rows: they
+                named a place and a river mile and then did nothing, which on a
+                list of put-ins is the one obvious question left unanswered —
+                how do I get there. Directions is the answer the whole row is
+                about, and it is the same handoff the plan screen's endpoints
+                already make, so the two behave alike.
+
+                Apple Maps by coordinate, never by name: "Akers Ferry" is
+                ambiguous to a geocoder and most Ozark access points are not in
+                one at all. See src/lib/directions.ts. */}
             {accessPoints.map((point) => (
-              <View
+              <Pressable
                 key={point.id}
-                style={[styles.accessRow, { backgroundColor: colors.card }, elevation(1)]}
+                onPress={() => void Linking.openURL(driveToUrl(point))}
+                style={({ pressed }) => [
+                  styles.accessRow,
+                  { backgroundColor: colors.card, opacity: pressed ? 0.6 : 1 },
+                  elevation(1),
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Directions to ${point.name}, mile ${point.riverMile}`}
               >
                 <Ionicons
                   name={point.isPublic ? 'location' : 'lock-closed-outline'}
@@ -480,11 +566,20 @@ export default function RiverDetailScreen() {
                 <View style={styles.accessBody}>
                   <Text style={[styles.accessName, { color: colors.text }]}>{point.name}</Text>
                   <Text style={[styles.accessMeta, { color: colors.textMuted }]}>
-                    Mile {point.riverMile}
-                    {point.isPublic ? '' : ' · Private'}
+                    {/* What is actually there, from the same resolver the map
+                        callout uses — a boat ramp you can camp at is a
+                        different stop from a gravel bar. */}
+                    {[
+                      `Mile ${point.riverMile}`,
+                      ...accessPointTypes(point).map(accessTypeLabel),
+                      point.isPublic ? null : 'Private',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </Text>
                 </View>
-              </View>
+                <Ionicons name="navigate-outline" size={16} color={colors.accent} />
+              </Pressable>
             ))}
           </CollapsibleSection>
         ) : null}
