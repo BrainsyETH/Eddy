@@ -158,16 +158,25 @@ export function getConditionTailwindColor(code: ConditionCode): string {
 }
 
 /**
- * Maps legacy database condition codes to aligned frontend codes.
- * The database RPC returns 'optimal', 'low' (meaning "good/floatable"),
- * and 'very_low' (meaning "low/scraping").
- * Frontend uses 'flowing', 'good', and 'low' respectively for clarity.
+ * Tolerates PRE-00081 database condition codes.
+ *
+ * Migration 00081_rename_condition_codes rewrote get_river_condition() and
+ * get_river_condition_segment() to emit the canonical taxonomy directly, so
+ * every live RPC response already speaks 'too_low' | 'low' | 'good' |
+ * 'flowing' | 'high' | 'dangerous'. Canonical codes MUST pass through
+ * untouched; the two arms below exist only for a stale cached row.
+ *
+ * There used to be a third arm, `case 'low': return 'good'`, from the era when
+ * the RPC's 'low' meant "good/floatable". It outlived its input: the RPC now
+ * returns a canonical 'low' meaning "scraping likely", and rewriting it to
+ * 'good' painted eight scraping rivers green, counted them as floatable, and
+ * sorted them to the top of "where should I go" — while the label beside them,
+ * which is never remapped, still read "Low - Scraping Likely".
  */
 export function mapConditionCode(dbCode: string): ConditionCode {
   switch (dbCode) {
     case 'optimal': return 'flowing';
     case 'very_low': return 'low';
-    case 'low': return 'good';
     default: return dbCode as ConditionCode;
   }
 }
