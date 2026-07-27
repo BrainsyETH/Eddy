@@ -6,23 +6,13 @@
 // somewhere else entirely — being told when a river changes, and carrying the
 // map past the end of cell coverage.
 //
-// ── What the answer has to say, in order ────────────────────────────────────
-//   1. warnings, if any            — a worse gauge in the span, a flood, a
-//                                    stale reading. Before the numbers, always.
-//   2. how long                    — the question people came with
-//   3. how far, and the shuttle    — the two facts that decide the logistics
-//   4. the water it was built from — a plan is only as good as its reading
-//   5. hazards along the route     — free, and never summarised away
-//
-// ── Float time is a RANGE, and sometimes nothing ────────────────────────────
-// The server returns `floatTime: null` in dangerous water rather than an
-// estimate, and that null is a verdict, not a gap. Printing "about 5 hours" for
-// a river in flood would be an invitation, so the absence is rendered as the
-// refusal it is. When a time does exist, the range is shown as the headline
-// wherever the server gave one: a single number implies a precision that a
-// river with a headwind and a lunch stop does not have.
+// ── Structure ───────────────────────────────────────────────────────────────
+// This file owns the FLOW — the breadcrumb, the three pickers, and the sheet
+// they live in. The answer itself is PlanResult, which is shared with the
+// screen that opens a saved float: a shared plan that read differently from the
+// plan that produced it would be a plan nobody trusts.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -34,28 +24,29 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { FloatPlan, MapAccessPoint, VesselType } from '@eddy/types';
-import { hazardConditionCode, hazardTypeLabel, portageNote, sortHazards } from '@eddy/hazards';
+import type { MapAccessPoint, VesselType } from '@eddy/types';
 import { saveFloatPlan } from '@/api/client';
-import {
-  conditionBg,
-  conditionChipBorder,
-  conditionColor,
-  conditionInk,
-  conditionLongLabel,
-  conditionText,
-} from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
-import { Otter, otterForCondition } from '@/components/Otter';
+import { Otter } from '@/components/Otter';
+import { PlanResult } from '@/components/PlanResult';
+import { PlanItinerary } from '@/components/PlanItinerary';
 import type { FloatPlanState } from '@/hooks/useFloatPlan';
+import { useSavedFloats } from '@/hooks/useSavedFloats';
+import { milesBetween, type Coords } from '@/hooks/useLocation';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
   riverName: string;
   state: FloatPlanState;
+  /**
+   * Where the user is, if they have already granted it on the map. Never
+   * requested from in here — a sheet that prompts for location the moment it
+   * opens spends the one-shot iOS dialog on a screen the user came to for a
+   * different reason.
+   */
+  userCoords?: Coords | null;
 }
 
 const ACCESS_TYPE_LABELS: Record<string, string> = {
@@ -71,8 +62,9 @@ function accessTypeLabel(type: string): string {
   return ACCESS_TYPE_LABELS[type] ?? type.replace(/_/g, ' ');
 }
 
-export function PlanSheet({ visible, onClose, riverName, state }: Props) {
-  const { colors, elevation, isDark } = useTheme();
+export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Props) {
+  const { colors } = useTheme();
+  const { remember } = useSavedFloats();
   const [sharing, setSharing] = useState(false);
 
   const { step, putIn, takeOut, vessel, vessels, plan, calculating, error } = state;
@@ -82,6 +74,10 @@ export function PlanSheet({ visible, onClose, riverName, state }: Props) {
     setSharing(true);
     try {
       const saved = await saveFloatPlan(plan);
+      // Recorded BEFORE the share sheet opens. Whether they actually send it is
+      // between them and their group chat; the plan exists either way, and this
+      // is the only place its code is ever handed to us.
+      remember(plan, saved);
       const time = plan.floatTime?.formatted ?? 'no estimate in this water';
       await Share.share({
         message: `${plan.putIn.name} → ${plan.takeOut.name} on the ${plan.river.name} · ${plan.distance.formatted} · ${time}\n${saved.url}`,
@@ -95,7 +91,7 @@ export function PlanSheet({ visible, onClose, riverName, state }: Props) {
     } finally {
       setSharing(false);
     }
-  }, [plan]);
+  }, [plan, remember]);
 
   return (
     <Modal
@@ -123,6 +119,7 @@ export function PlanSheet({ visible, onClose, riverName, state }: Props) {
             emptyMessage="This river has no mapped access points yet."
             onSelect={state.choosePutIn}
             selectedId={putIn?.id ?? null}
+            userCoords={userCoords}
           />
         ) : step === 'take-out' ? (
           <AccessPointList
@@ -158,178 +155,56 @@ export function PlanSheet({ visible, onClose, riverName, state }: Props) {
             </Pressable>
           </View>
         ) : (
-          <ScrollView contentContainerStyle={styles.body}>
-            {/* Warnings sit ABOVE the numbers on purpose. Everything below is a
-                plan; this is the reason the plan might be wrong, or the reason
-                not to go at all. */}
-            {plan.warnings.length > 0 ? (
-              <View
-                style={[
-                  styles.warnings,
-                  { backgroundColor: conditionBg(plan.condition.code), borderColor: conditionChipBorder(plan.condition.code) },
-                ]}
-              >
-                {plan.warnings.map((warning) => (
-                  <View key={warning} style={styles.warningRow}>
-                    <Ionicons name="alert-circle" size={15} color={conditionInk(plan.condition.code)} />
-                    <Text style={[styles.warningText, { color: conditionInk(plan.condition.code) }]}>
-                      {warning}
-                    </Text>
-                  </View>
-                ))}
+          <PlanResult
+            plan={plan}
+            overnight={
+              <PlanItinerary
+                plan={plan}
+                nights={state.nights}
+                onChangeNights={state.setNights}
+                camps={state.camps}
+                loading={state.campsLoading}
+              />
+            }
+            actions={
+              <View style={styles.actions}>
+                <Pressable
+                  onPress={() => void onShare()}
+                  disabled={sharing}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+                  ]}
+                  accessibilityRole="button"
+                >
+                  {sharing ? (
+                    <ActivityIndicator color={colors.onAccent} size="small" />
+                  ) : (
+                    <Ionicons name="share-outline" size={17} color={colors.onAccent} />
+                  )}
+                  <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>
+                    Share this float
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={state.reset}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+                  ]}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.secondaryButtonText, { color: colors.textMuted }]}>
+                    Plan a different stretch
+                  </Text>
+                </Pressable>
               </View>
-            ) : null}
-
-            <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-              <Text style={[styles.segment, { color: colors.textMuted }]} numberOfLines={2}>
-                {plan.putIn.name} → {plan.takeOut.name}
-              </Text>
-
-              {plan.floatTime ? (
-                <>
-                  <Text style={[styles.headline, { color: colors.text }]}>
-                    {plan.floatTime.formatted}
-                  </Text>
-                  <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
-                    {plan.floatTime.isEstimate ? 'Estimated' : 'Published time'}
-                    {plan.floatTime.basis === 'moving'
-                      ? ' · paddling only, no stops'
-                      : ' · includes typical stops'}
-                    {plan.vessel?.name ? ` · ${plan.vessel.name}` : ''}
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Text style={[styles.headline, { color: conditionColor(plan.condition.code) }]}>
-                    No float time
-                  </Text>
-                  <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
-                    We do not estimate a time in this water. Wait for it to drop.
-                  </Text>
-                </>
-              )}
-
-              <View style={[styles.statRow, { borderTopColor: colors.border }]}>
-                <Stat label="Distance" value={plan.distance.formatted} />
-                <Stat
-                  label="Shuttle drive"
-                  value={plan.driveBack.formatted}
-                  note={
-                    plan.driveBack.miles > 0
-                      ? `${plan.driveBack.miles.toFixed(0)} mi back to the put-in`
-                      : null
-                  }
-                />
-              </View>
-            </View>
-
-            {/* The water the plan was built from. A float time is a function of
-                the flow, so the reading belongs with the plan rather than only
-                on the river screen. */}
-            <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-              <View style={styles.conditionHead}>
-                <Otter mood={otterForCondition(plan.condition.code)} size={52} />
-                <View style={styles.conditionText}>
-                  <Text
-                    style={[styles.conditionLabel, { color: conditionText(plan.condition.code, isDark) }]}
-                  >
-                    {conditionLongLabel(plan.condition.code)}
-                  </Text>
-                  <PlanReading plan={plan} />
-                </View>
-              </View>
-            </View>
-
-            {plan.hazards.length > 0 ? (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                  On this stretch ({plan.hazards.length})
-                </Text>
-                {sortHazards(plan.hazards).map((hazard) => {
-                  const code = hazardConditionCode(hazard.severity);
-                  const portage = portageNote(hazard);
-                  return (
-                    <View
-                      key={hazard.id}
-                      style={[styles.hazard, { backgroundColor: colors.card }, elevation(1)]}
-                    >
-                      <View style={[styles.hazardDot, { backgroundColor: conditionColor(code) }]} />
-                      <View style={styles.hazardBody}>
-                        <Text style={[styles.hazardName, { color: colors.text }]}>{hazard.name}</Text>
-                        <Text style={[styles.hazardMeta, { color: colors.textMuted }]}>
-                          {hazardTypeLabel(hazard.type)}
-                          {hazard.riverMile ? ` · Mile ${hazard.riverMile}` : ''}
-                          {portage ? ` · ${portage}` : ''}
-                        </Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            ) : null}
-
-            <View style={styles.actions}>
-              <Pressable
-                onPress={() => void onShare()}
-                disabled={sharing}
-                style={({ pressed }) => [
-                  styles.primaryButton,
-                  { backgroundColor: pressed ? colors.accentPressed : colors.accent },
-                ]}
-                accessibilityRole="button"
-              >
-                {sharing ? (
-                  <ActivityIndicator color={colors.onAccent} size="small" />
-                ) : (
-                  <Ionicons name="share-outline" size={17} color={colors.onAccent} />
-                )}
-                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>
-                  Share this float
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={state.reset}
-                style={({ pressed }) => [
-                  styles.secondaryButton,
-                  { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
-                ]}
-                accessibilityRole="button"
-              >
-                <Text style={[styles.secondaryButtonText, { color: colors.textMuted }]}>
-                  Plan a different stretch
-                </Text>
-              </Pressable>
-            </View>
-
-            <Text style={[styles.footnote, { color: colors.textSubtle }]}>
-              Times assume the flow at the put-in gauge right now. Wind, stops and a loaded boat all
-              move them. Judge the water in front of you.
-            </Text>
-          </ScrollView>
+            }
+          />
         )}
       </View>
     </Modal>
-  );
-}
-
-/** The reading behind the plan, in the unit this river is actually rated in. */
-function PlanReading({ plan }: { plan: FloatPlan }) {
-  const { colors } = useTheme();
-  const reading = primaryReading(plan.condition);
-  const age = readingAge(plan.condition.readingAgeHours);
-
-  return (
-    <>
-      <Text style={[styles.planReading, { color: reading ? colors.text : colors.textSubtle }]}>
-        {reading ? formatReading(reading.value, reading.unit) : 'No gauge reading'}
-      </Text>
-      {age || plan.condition.gaugeName ? (
-        <Text style={[styles.planReadingMeta, { color: colors.textSubtle }]} numberOfLines={2}>
-          {[age, plan.condition.gaugeName].filter(Boolean).join(' · ')}
-        </Text>
-      ) : null}
-    </>
   );
 }
 
@@ -392,6 +267,7 @@ function AccessPointList({
   selectedId,
   emptyMessage,
   fromMile,
+  userCoords,
 }: {
   points: MapAccessPoint[];
   onSelect: (point: MapAccessPoint) => void;
@@ -399,8 +275,30 @@ function AccessPointList({
   emptyMessage: string;
   /** Set on the take-out step so each row can show the float length it makes. */
   fromMile?: number | null;
+  /** Set on the PUT-IN step only, enabling a nearest-first ordering. */
+  userCoords?: Coords | null;
 }) {
   const { colors, elevation } = useTheme();
+  // Headwaters-first by default. That is the order a river runs in, and it is
+  // the order someone who knows the river thinks in — so nearest-first is an
+  // option rather than the default, even when we know where they are.
+  const [nearestFirst, setNearestFirst] = useState(false);
+
+  const distances = useMemo(() => {
+    if (!userCoords) return null;
+    const map = new Map<string, number>();
+    for (const point of points) {
+      map.set(point.id, milesBetween(userCoords, point.coordinates));
+    }
+    return map;
+  }, [points, userCoords]);
+
+  const ordered = useMemo(() => {
+    if (!nearestFirst || !distances) return points;
+    return [...points].sort(
+      (a, b) => (distances.get(a.id) ?? Infinity) - (distances.get(b.id) ?? Infinity),
+    );
+  }, [points, nearestFirst, distances]);
 
   if (points.length === 0) {
     return (
@@ -413,9 +311,36 @@ function AccessPointList({
 
   return (
     <ScrollView contentContainerStyle={styles.list}>
-      {points.map((point) => {
+      {/* Shown only when we already know where they are — the map's locate
+          button is the one place that asks. A sort control that prompts for a
+          permission when tapped is a trap. */}
+      {distances ? (
+        <Pressable
+          onPress={() => setNearestFirst((prev) => !prev)}
+          style={({ pressed }) => [
+            styles.sortRow,
+            { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+          ]}
+          accessibilityRole="button"
+          accessibilityState={{ selected: nearestFirst }}
+        >
+          <Ionicons
+            name={nearestFirst ? 'navigate' : 'navigate-outline'}
+            size={14}
+            color={nearestFirst ? colors.accent : colors.textMuted}
+          />
+          <Text
+            style={[styles.sortText, { color: nearestFirst ? colors.text : colors.textMuted }]}
+          >
+            {nearestFirst ? 'Nearest to you' : 'Downstream order'}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {ordered.map((point) => {
         const selected = point.id === selectedId;
         const miles = fromMile != null ? point.riverMile - fromMile : null;
+        const away = distances?.get(point.id) ?? null;
         return (
           <Pressable
             key={point.id}
@@ -446,6 +371,10 @@ function AccessPointList({
                   // two river miles in your head is exactly the arithmetic an
                   // app should be doing for you.
                   miles != null ? `${miles.toFixed(1)} mi float` : null,
+                  // Straight-line, and labelled "away" rather than "drive" for
+                  // exactly that reason — an Ozark put-in eight miles off can be
+                  // forty minutes of gravel road.
+                  away != null ? `${away < 10 ? away.toFixed(1) : away.toFixed(0)} mi away` : null,
                 ]
                   .filter(Boolean)
                   .join(' · ')}
@@ -539,17 +468,6 @@ function VesselList({
   );
 }
 
-function Stat({ label, value, note }: { label: string; value: string; note?: string | null }) {
-  const { colors } = useTheme();
-  return (
-    <View style={styles.stat}>
-      <Text style={[styles.statLabel, { color: colors.textSubtle }]}>{label}</Text>
-      <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
-      {note ? <Text style={[styles.statNote, { color: colors.textSubtle }]}>{note}</Text> : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   sheet: { flex: 1 },
   head: {
@@ -572,6 +490,18 @@ const styles = StyleSheet.create({
   optionBody: { flex: 1, minWidth: 0 },
   optionName: { ...t.sm, fontFamily: fonts.semibold },
   optionMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginBottom: 4,
+  },
+  sortText: { ...t.xs, fontFamily: fonts.semibold },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
   calculating: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
   emptyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },

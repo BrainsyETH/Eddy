@@ -22,7 +22,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FloatPlan, MapAccessPoint, VesselType } from '@eddy/types';
-import { ApiError, fetchFloatPlan, fetchVesselTypes } from '@/api/client';
+import {
+  ApiError,
+  fetchFloatPlan,
+  fetchRouteCampgrounds,
+  fetchVesselTypes,
+} from '@/api/client';
 
 export type PlanStep = 'put-in' | 'take-out' | 'vessel' | 'result';
 
@@ -41,6 +46,17 @@ export interface FloatPlanState {
   putInOptions: MapAccessPoint[];
   /** Only what is downstream of the chosen put-in. Empty until one is chosen. */
   takeOutOptions: MapAccessPoint[];
+  /** 0 is a day trip. Anything higher fetches camps along the stretch. */
+  nights: number;
+  setNights: (nights: number) => void;
+  /** Camps the server spaced along the route. Empty on a day trip. */
+  camps: MapAccessPoint[];
+  campsLoading: boolean;
+  /**
+   * How many nights the SERVER thinks this stretch supports, which can be fewer
+   * than asked for. Null until camps have been fetched.
+   */
+  recommendedStops: number | null;
   choosePutIn: (point: MapAccessPoint) => void;
   chooseTakeOut: (point: MapAccessPoint) => void;
   chooseVessel: (vessel: VesselType) => void;
@@ -67,6 +83,10 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
   const [plan, setPlan] = useState<FloatPlan | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nights, setNights] = useState(0);
+  const [camps, setCamps] = useState<MapAccessPoint[]>([]);
+  const [campsLoading, setCampsLoading] = useState(false);
+  const [recommendedStops, setRecommendedStops] = useState<number | null>(null);
 
   // Vessel types are a handful of rows that change roughly never, and the list
   // is CDN-cached for an hour. Loading it once here means the boat step never
@@ -92,7 +112,48 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
     setTakeOut(null);
     setPlan(null);
     setError(null);
+    setNights(0);
+    setCamps([]);
+    setRecommendedStops(null);
   }, [riverId]);
+
+  // ── Overnight legs ────────────────────────────────────────────
+  // Fetched only once a plan exists AND someone has asked for a night. The
+  // stretch is the input, so there is nothing to ask about until both ends are
+  // fixed, and a day trip must not pay for a request it will not render.
+  //
+  // The camps are the SERVER's spacing (a database function walks the segment
+  // at floatable intervals), not the campground layer filtered by mile. Those
+  // are different questions: "where can I camp on this river" and "where should
+  // I stop tonight" have different answers, and the second one is the plan.
+  useEffect(() => {
+    if (!riverId || !putIn || !takeOut || nights < 1) {
+      setCamps([]);
+      setRecommendedStops(null);
+      return;
+    }
+    const controller = new AbortController();
+    setCampsLoading(true);
+    fetchRouteCampgrounds(
+      { riverId, startId: putIn.id, endId: takeOut.id, nights },
+      controller.signal,
+    )
+      .then((result) => {
+        setCamps(result.campgrounds ?? []);
+        setRecommendedStops(result.recommendedStops ?? null);
+      })
+      .catch(() => {
+        // Non-fatal by design. A float plan without camps is still a float
+        // plan, and the day-trip numbers above it are unaffected.
+        setCamps([]);
+        setRecommendedStops(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCampsLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [riverId, putIn, takeOut, nights]);
 
   const putInOptions = useMemo(
     () => [...accessPoints].sort((a, b) => a.riverMile - b.riverMile),
@@ -170,6 +231,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
     setTakeOut(null);
     setPlan(null);
     setError(null);
+    setNights(0);
   }, []);
 
   return {
@@ -184,6 +246,11 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
     error,
     putInOptions,
     takeOutOptions,
+    nights,
+    setNights,
+    camps,
+    campsLoading,
+    recommendedStops,
     choosePutIn,
     chooseTakeOut,
     chooseVessel,
