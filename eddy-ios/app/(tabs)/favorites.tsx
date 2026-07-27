@@ -112,7 +112,7 @@ export default function FavoritesScreen() {
               <Otter mood="standard" size={128} />
               <Text style={[styles.emptyTitle, { color: colors.text }]}>No starred rivers yet</Text>
               <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
-                Tap the star on any river in River Reports. No account needed — stars are kept on
+                Tap the star on any river in Search. No account needed — stars are kept on
                 this device and will sync when you sign in.
               </Text>
             </View>

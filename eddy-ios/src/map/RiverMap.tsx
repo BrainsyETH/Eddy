@@ -84,6 +84,17 @@ const LABEL_INK = neutral[900];
 const LABEL_HALO = '#FFFFFF';
 
 /**
+ * Where the map sits before it knows anything.
+ *
+ * Mirrors DEFAULT_MAP_CENTER / DEFAULT_MAP_ZOOM in the website's
+ * src/constants/index.ts, so a cold app and a cold browser open on the same
+ * piece of Missouri. Zoom 6.2 rather than the web's 7 because a phone screen is
+ * narrower than a browser window and has to fit the same state.
+ */
+const COLD_START_CENTER: [number, number] = [-91.5, 37.5];
+const COLD_START_ZOOM = 6.2;
+
+/**
  * The one useful thing you can do with an outfitter from a riverbank.
  *
  * Phone first: at a take-out with a dead shuttle plan, a number you can tap
@@ -411,11 +422,15 @@ export function RiverMap({
           bounds: cameraBounds,
           animationMode: 'none' as const,
         }
-      // Nothing to frame yet — neither a river nor the network has landed.
-      // Passing no camera instruction at all leaves the map on its style's
-      // default centre for the one frame before bounds arrive, which is a
-      // held still map rather than a spinning globe.
-      : {};
+      : {
+          // Nothing to frame yet — neither a river nor the network has landed.
+          // An empty camera is NOT a still map: with no defaultSettings the map
+          // opens on the style's own default view, which is the whole globe.
+          defaultSettings: {
+            centerCoordinate: COLD_START_CENTER,
+            zoomLevel: COLD_START_ZOOM,
+          },
+        };
 
   // The network minus whatever is already drawn brighter as the selection —
   // two lines on the same coordinates fight, and the selected river's own
