@@ -8,10 +8,17 @@ headless API.
 ```bash
 cd eddy-ios
 npm install --legacy-peer-deps
-npx expo start
+npx expo run:ios          # build + install the dev client (first run only)
+npx expo start            # serve the JS — needed every session
 ```
 
-Then scan the QR code with the Camera app and open in **Expo Go**.
+`expo-dev-client` is a dependency, so `expo start` runs in **dev-client mode**,
+not Expo Go mode. Expo Go still loads — `@rnmapbox/maps` and
+`react-native-purchases` sit behind lazy `require`s (`src/map/runtime.ts`,
+`src/lib/purchases.ts`) precisely so it can — but with Mapbox, Apple auth,
+notifications and purchases all in the app, a development build is the normal
+path now and Expo Go is the fallback for the screens that do not need native
+modules.
 
 Two things that are not optional:
 
@@ -32,11 +39,16 @@ Note `Simulator.app` lives *inside* `Xcode.app`, so deleting Xcode removes it.
 
 ### Three ways to run this, and when each applies
 
-| Command | Needs | Use it for |
+| Command | Needs | What it actually does |
 |---|---|---|
-| `npx expo start` | Expo Go on a device | everything except the Map tab |
-| `npx expo run:ios` | Xcode + CocoaPods, locally | native modules, i.e. the Map tab |
+| `npx expo start` | a dev client, or Expo Go | serves the JS bundle. Does **not** build anything |
+| `npx expo run:ios` | Xcode + CocoaPods + a signing certificate | compiles and installs the native app, then starts Metro |
 | `eas build` | an Expo account | builds for testers and the App Store |
+
+**The first two are one flow, not alternatives.** `run:ios` produces the app on
+the device or simulator; `expo start` feeds it JavaScript. You need `run:ios`
+once per native change (a new native dependency, an `app.json` change) and
+`expo start` every time you sit down to work.
 
 `run:ios` prebuilds — it generates the native project and resolves every entry in
 `app.json`'s `plugins` before Xcode ever starts. Which leads to the one rule that
@@ -83,6 +95,121 @@ Two things make this hard to diagnose, which is why it is written down:
 
 Only if a reinstall does not clear it is the entry itself wrong — then confirm
 with `ls node_modules/<pkg>/app.plugin.js` before removing anything.
+
+### `CommandError: No code signing certificates are available to use.`
+
+**A simulator does not avoid this**, which is the surprising part. `app.json`
+sets `ios.usesAppleSignIn: true`, producing the
+`com.apple.developer.applesignin` entitlement, and Expo requires code signing
+for any build carrying it — see `ENTITLEMENTS_THAT_REQUIRE_CODE_SIGNING` in
+`@expo/cli/build/src/run/ios/codeSigning/simulatorCodeSigning.js`, which lists
+that alongside `associated-domains`. So the accompanying line about "physical
+iOS devices" is misleading: it prints even when the selected target is a
+simulator, and switching targets will not help.
+
+Check what you have. This is the exact command Expo runs
+(`.../run/ios/codeSigning/Security.js`):
+
+```bash
+security find-identity -p codesigning -v
+xcode-select -p     # must be inside Xcode.app, not CommandLineTools
+```
+
+`0 valid identities found` means there is no certificate. **Signing into Xcode
+does not create one** — the account and the certificate are separate, which is
+the second trap. Add the account under **Xcode → Settings → Accounts**, then
+either:
+
+- **Manage Certificates… → "+" → Apple Development**, or
+- open the generated workspace, select the target → **Signing & Capabilities** →
+  tick *Automatically manage signing* and set **Team**. This is the more reliable
+  route on a free Apple ID, since personal teams provision on demand.
+
+A free Apple ID is sufficient. No paid Developer Program membership is needed
+until TestFlight.
+
+#### Certificates exist but there are still 0 identities
+
+An identity is a certificate **plus its private key**, unexpired, chaining to a
+trusted root. If `security find-certificate -a -c "Apple Development"` shows
+entries while `find-identity` shows none, one of those three is missing:
+
+```bash
+rm -f /tmp/devcert-*.pem
+security find-certificate -a -c "Apple Development" -p | \
+  awk '/-----BEGIN CERTIFICATE-----/{n++} n{print > ("/tmp/devcert-" n ".pem")}'
+for f in /tmp/devcert-*.pem; do openssl x509 -in "$f" -noout -subject -enddate; done
+
+security find-certificate -a -c "Apple Worldwide Developer Relations" | grep -c "alis"
+```
+
+`notAfter` in the past means expired. A WWDR count of `0` means the chain is
+broken — install `AppleWWDRCAG3.cer` from
+<https://www.apple.com/certificateauthority/>. Unexpired with WWDR present means
+the private keys are gone and the certificates are unusable.
+
+Expired and keyless are both fixed the same way, and stale certificates are why
+Xcode's "+" can appear to do nothing: delete every **Apple Development** entry
+in *Keychain Access → login → My Certificates*, then create a fresh one.
+
+(Use the `awk` above rather than `csplit -z` — that flag is GNU-only and BSD
+`csplit` on macOS rejects it.)
+
+### The dev client opens on "Searching for development servers…"
+
+**This is not a failure.** The native build succeeded and the app is installed —
+that screen is `expo-dev-client` looking for a bundler that is not running.
+
+```bash
+npx expo start
+```
+
+from `eddy-ios/`, and the server appears in the list. If discovery does not find
+it — a VPN or a locked-down network is usually the cause — tap **Enter URL
+manually** and give it `http://localhost:8081` on a simulator, or
+`http://<your-mac-lan-ip>:8081` on a device.
+
+Worth internalising, because it is the step that looks like something went
+wrong: `run:ios` builds the app, `expo start` serves the JavaScript. Finishing
+the first without the second always lands here.
+
+### `[runtime not ready]: ReferenceError: Property '…' doesn't exist`
+
+Usually a **stale Metro cache**, and the reason it is confusing is that
+reinstalling does not fix it: Metro caches transforms in `$TMPDIR`, which
+`rm -rf node_modules` never touches. Any large dependency swap in place — an SDK
+upgrade being the obvious one — can leave it serving transforms keyed to the old
+module graph.
+
+The error reads as a missing global but is not one. In Hermes,
+`Property 'X' doesn't exist` is thrown for an undeclared **identifier**;
+a genuinely missing global (`global.X`) evaluates to `undefined` silently. So the
+bundle references a binding nothing declares, which means the emitted output and
+the module graph disagree — a cache artifact, not a code bug. `MessageQueue` is a
+common one to see, since React Native's bridge modules load early.
+
+```bash
+npx expo start --clear
+```
+
+If that is not enough, clear everything Metro keeps:
+
+```bash
+watchman watch-del-all 2>/dev/null
+rm -rf "$TMPDIR"/metro-* "$TMPDIR"/haste-map-* node_modules/.cache .expo
+npx expo start --clear
+```
+
+If it survives both, the installed binary and the JS bundle are genuinely from
+different versions, and only a rebuild fixes that:
+
+```bash
+rm -rf ios && npx expo run:ios
+```
+
+Which of the three it is shows up in the error text: a **different** identifier
+after clearing points at the cache (it is still being rebuilt); the **same** one
+points at the native/JS mismatch.
 
 ### Node version
 
