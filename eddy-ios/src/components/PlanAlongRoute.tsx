@@ -96,11 +96,6 @@ export function PlanAlongRoute({ plan }: { plan: FloatPlan }) {
           </View>
         );
       })}
-
-      <Text style={[styles.note, { color: colors.textSubtle }]}>
-        Miles are measured from your put-in. These are the places a car can meet you if the day
-        stops early.
-      </Text>
     </View>
   );
 }
@@ -121,5 +116,4 @@ const styles = StyleSheet.create({
   body: { flex: 1, minWidth: 0 },
   name: { ...t.sm, fontFamily: fonts.semibold },
   meta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  note: { ...t.xs, fontFamily: fonts.body, marginTop: 2, paddingHorizontal: 2 },
 });

@@ -508,53 +508,46 @@ async function _GET(request: NextRequest) {
           routeGeometry: (cachedDrive.route_geometry as GeoJSON.LineString | null) ?? null,
         };
       } else {
-      // Get put-in driving coordinates
-      // Priority: directions_override (geocode) > driving_lat/lng > location_snap > location_orig
-      let putInLng: number, putInLat: number;
-      if (putIn.directions_override) {
-        const geocoded = await geocodeAddress(putIn.directions_override);
-        if (geocoded) {
-          [putInLng, putInLat] = geocoded;
-        } else if (putIn.driving_lat && putIn.driving_lng) {
-          putInLng = parseFloat(String(putIn.driving_lng));
-          putInLat = parseFloat(String(putIn.driving_lat));
-        } else {
-          const coords = (putIn.location_snap as { coordinates?: number[] } | null)?.coordinates || (putIn.location_orig as { coordinates?: number[] } | null)?.coordinates;
-          if (!coords) throw new Error('Missing put-in coordinates');
-          [putInLng, putInLat] = coords;
-        }
-      } else if (putIn.driving_lat && putIn.driving_lng) {
-        putInLng = parseFloat(String(putIn.driving_lng));
-        putInLat = parseFloat(String(putIn.driving_lat));
-      } else {
-        const coords = (putIn.location_snap as { coordinates?: number[] } | null)?.coordinates || (putIn.location_orig as { coordinates?: number[] } | null)?.coordinates;
-        if (!coords) throw new Error('Missing put-in coordinates');
-        [putInLng, putInLat] = coords;
-      }
+      // Where a car meets the river, for each end of the float.
+      //
+      // Priority: directions_override (geocoded) > driving_lat/lng >
+      // location_snap > location_orig. Written once rather than twice because
+      // the two copies had to stay identical and the geocode is now anchored —
+      // three places to keep in step is one too many.
+      //
+      // THE ANCHOR IS LOAD-BEARING. directions_override is free text and the
+      // geocoder's `proximity` is only a soft bias, so an unchecked result is
+      // whatever Mapbox ranked first anywhere in the country. Passing the
+      // point's own position lets geocodeAddress reject a match that lands in
+      // the wrong state — which is how a Two Rivers, MO shuttle came to be
+      // cached at 1,689 miles by way of Two Rivers, WISCONSIN. A rejection
+      // falls through to the coordinates we already had, which is what the
+      // other 372 access points use anyway.
+      const drivingCoords = async (
+        point: typeof putIn,
+        role: string,
+      ): Promise<[number, number]> => {
+        const own = (point.location_snap as { coordinates?: number[] } | null)?.coordinates
+          || (point.location_orig as { coordinates?: number[] } | null)?.coordinates;
 
-      // Get take-out driving coordinates
-      // Priority: directions_override (geocode) > driving_lat/lng > location_snap > location_orig
-      let takeOutLng: number, takeOutLat: number;
-      if (takeOut.directions_override) {
-        const geocoded = await geocodeAddress(takeOut.directions_override);
-        if (geocoded) {
-          [takeOutLng, takeOutLat] = geocoded;
-        } else if (takeOut.driving_lat && takeOut.driving_lng) {
-          takeOutLng = parseFloat(String(takeOut.driving_lng));
-          takeOutLat = parseFloat(String(takeOut.driving_lat));
-        } else {
-          const coords = (takeOut.location_snap as { coordinates?: number[] } | null)?.coordinates || (takeOut.location_orig as { coordinates?: number[] } | null)?.coordinates;
-          if (!coords) throw new Error('Missing take-out coordinates');
-          [takeOutLng, takeOutLat] = coords;
+        if (point.directions_override) {
+          const geocoded = await geocodeAddress(
+            point.directions_override,
+            own ? { lng: own[0], lat: own[1] } : null,
+          );
+          if (geocoded) return geocoded;
         }
-      } else if (takeOut.driving_lat && takeOut.driving_lng) {
-        takeOutLng = parseFloat(String(takeOut.driving_lng));
-        takeOutLat = parseFloat(String(takeOut.driving_lat));
-      } else {
-        const coords = (takeOut.location_snap as { coordinates?: number[] } | null)?.coordinates || (takeOut.location_orig as { coordinates?: number[] } | null)?.coordinates;
-        if (!coords) throw new Error('Missing take-out coordinates');
-        [takeOutLng, takeOutLat] = coords;
-      }
+
+        if (point.driving_lat && point.driving_lng) {
+          return [parseFloat(String(point.driving_lng)), parseFloat(String(point.driving_lat))];
+        }
+
+        if (!own) throw new Error(`Missing ${role} coordinates`);
+        return [own[0], own[1]];
+      };
+
+      const [putInLng, putInLat] = await drivingCoords(putIn, 'put-in');
+      const [takeOutLng, takeOutLat] = await drivingCoords(takeOut, 'take-out');
 
       // Call Mapbox Directions API (shuttle goes take-out -> put-in)
       const driveResult = await getDriveTime(
@@ -622,9 +615,24 @@ async function _GET(request: NextRequest) {
     // Build warnings array
     const warnings: string[] = [];
     warnings.push(...spanWarnings);
+    // NOT PUSHED INTO `warnings` ANY MORE, deliberately.
+    //
+    // "This shuttle route looks unusually long" was a warning about a number
+    // the app now declines to print — the drive time and its mileage are both
+    // gone from PlanResult, because the routing behind them is only as good as
+    // the endpoints, and 372 of 406 access points still have no driving
+    // coordinates and route from mid-river. A caveat about a figure the reader
+    // cannot see is noise at best and alarming at worst.
+    //
+    // The assessment itself stays, because it is the server-side smoke alarm
+    // for exactly the class of breakage the geocode anchor was added to stop.
+    // Logged, not shown.
     const shuttlePlausibility = assessShuttlePlausibility(driveBack.miles, distanceMiles);
-    if (shuttlePlausibility.anomaly && shuttlePlausibility.warning) {
-      warnings.push(shuttlePlausibility.warning);
+    if (shuttlePlausibility.anomaly) {
+      console.warn(
+        `[Plan] Implausible shuttle ${putIn.name} → ${takeOut.name}: ` +
+          `${driveBack.miles.toFixed(0)} road mi against ${distanceMiles.toFixed(1)} river mi.`,
+      );
     }
     if (condition?.accuracy_warning) {
       warnings.push(condition.accuracy_warning_reason || 'Gauge reading may be inaccurate');
