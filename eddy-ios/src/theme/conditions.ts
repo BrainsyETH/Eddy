@@ -71,7 +71,7 @@ export function conditionChipBorder(code: string): string {
 }
 
 /**
- * Short canonical label — "Flood", "Ideal", "Good", "High"…
+ * Short canonical label — "Flood", "Flowing", "Good", "High"…
  * Note `dangerous` reads "Flood", not "Dangerous"; that wording is deliberate
  * and shared with the website.
  */

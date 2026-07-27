@@ -276,7 +276,7 @@ export const currentScenes: SceneVO[] = [
     compositionId: "current-eddy-says",
     title: "Eddy Says",
     script:
-      "Right now, the Current is sitting at three feet — the low end of the ideal range — running clear and steady. Eddy says conditions are excellent today.",
+      "Right now, the Current is sitting at three feet — the low end of the optimal range — running clear and steady. Eddy says conditions are excellent today.",
     voDuration: 9.36,
     animationPadding: 1.04,
     audioFile: "current-02-eddysays.mp3",

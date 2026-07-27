@@ -29,7 +29,7 @@ export type FloatabilityClass = 'too_low' | 'floatable' | 'high' | 'dangerous' |
 /**
  * Coarse safety class used to decide whether prose written for an earlier
  * reading is still compatible with the live river. Canonical labels remain
- * unchanged; this only prevents harmless good/low/ideal jitter from causing
+ * unchanged; this only prevents harmless good/low/flowing jitter from causing
  * unnecessary AI regeneration.
  */
 export function getFloatabilityClass(code: string): FloatabilityClass {
@@ -183,7 +183,7 @@ export function getConditionShortLabel(code: ConditionCode): string {
     case 'high':
       return 'High';
     case 'flowing':
-      return 'Ideal';
+      return 'Flowing';
     case 'good':
       return 'Good';
     case 'low':

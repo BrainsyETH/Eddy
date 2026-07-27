@@ -201,7 +201,7 @@ export function buildEddyTakeSections({
   } else {
     // Compare safety classes, not raw labels. Day one's forecast value is the
     // day's maximum stage, so a raw comparison flagged "watch today" whenever
-    // the peak nudged Ideal into Good — a warning about nothing.
+    // the peak nudged Flowing into Good — a warning about nothing.
     const changedDay = forecastDays.find((day) =>
       hasMaterialConditionChange(currentCondition, day.river.conditionCode!),
     );

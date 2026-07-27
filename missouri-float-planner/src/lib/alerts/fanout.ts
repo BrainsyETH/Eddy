@@ -91,7 +91,7 @@ export function subscriptionKindsFor(kind: EventKind): Array<'floatable' | 'safe
 
 function conditionPhrase(code: string): string {
   switch (code) {
-    case 'flowing': return 'ideal';
+    case 'flowing': return 'flowing';
     case 'good': return 'floatable';
     case 'high': return 'high water';
     case 'dangerous': return 'dangerous';

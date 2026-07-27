@@ -62,13 +62,13 @@ test('a high ceiling without a flood level still yields a High band', () => {
 
 test('marker lands inside the band the reading actually belongs to', () => {
   const zones = buildZones(FULL);
-  // 339 cfs is 39 into the 300-900 Ideal band, which is band 4 of 6 and so
+  // 339 cfs is 39 into the 300-900 Flowing band, which is band 4 of 6 and so
   // occupies 50%-66.7% of the track. Anything below 50% would put the marker
-  // in Good while the card's pill says Ideal.
+  // in Good while the card's pill says Flowing.
   const percent = zoneMarkerPercent(zones, 339)!;
-  const idealStart = (3 / 6) * 100;
-  const idealEnd = (4 / 6) * 100;
-  assert.ok(percent > idealStart && percent < idealEnd, `expected Ideal band, got ${percent}`);
+  const flowingStart = (3 / 6) * 100;
+  const flowingEnd = (4 / 6) * 100;
+  assert.ok(percent > flowingStart && percent < flowingEnd, `expected Flowing band, got ${percent}`);
   assert.equal(findZoneIndex(zones, 'flowing'), 3);
 });
 
@@ -111,8 +111,8 @@ test('the flood band prints as open-ended, never with its synthetic maximum', ()
   const zones = buildZones(FULL);
   const flood = zones.find((z) => z.key === 'dangerous')!;
   assert.equal(formatZoneRange(flood, 'cfs'), '5,000+ cfs');
-  const ideal = zones.find((z) => z.key === 'flowing')!;
-  assert.equal(formatZoneRange(ideal, 'cfs'), '300 – 900 cfs');
+  const flowing = zones.find((z) => z.key === 'flowing')!;
+  assert.equal(formatZoneRange(flowing, 'cfs'), '300 – 900 cfs');
 });
 
 test('feet render to two decimals, cfs as whole grouped numbers', () => {
@@ -124,14 +124,14 @@ test('feet render to two decimals, cfs as whole grouped numbers', () => {
     levelHigh: null,
     levelDangerous: null,
   });
-  const ideal = zones.find((z) => z.key === 'flowing')!;
-  assert.equal(formatZoneRange(ideal, 'ft'), '1.50 – 3.25 ft');
+  const flowing = zones.find((z) => z.key === 'flowing')!;
+  assert.equal(formatZoneRange(flowing, 'ft'), '1.50 – 3.25 ft');
 });
 
 test('per-gauge descriptions override the defaults', () => {
   const zones = buildZones(FULL, { flowing: 'Feet up. Crystal water.' });
-  const ideal = zones.find((z) => z.key === 'flowing')!;
-  assert.equal(ideal.description, 'Feet up. Crystal water.');
+  const flowing = zones.find((z) => z.key === 'flowing')!;
+  assert.equal(flowing.description, 'Feet up. Crystal water.');
   const low = zones.find((z) => z.key === 'low')!;
   assert.ok(low.description.length > 0, 'unspecified bands keep their default copy');
 });

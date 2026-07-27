@@ -13,7 +13,7 @@ export function getConditionLabel(code: ConditionCode): string {
     case 'high':
       return 'High Water - Use Caution';
     case 'flowing':
-      return 'Flowing - Ideal Conditions';
+      return 'Flowing';
     case 'good':
       return 'Good - Floatable';
     case 'low':
@@ -91,7 +91,7 @@ export const FLOW_DESCRIPTIONS: Record<FlowRating, string> = {
  */
 export function getThresholdBasedDescription(code: ConditionCode): string {
   switch (code) {
-    case 'flowing': return 'Ideal conditions for floating';
+    case 'flowing': return 'Flowing conditions for floating';
     case 'good': return 'Good conditions - minimal dragging expected';
     case 'low': return 'Expect some dragging in shallow areas';
     case 'too_low': return 'Frequent dragging and portaging likely';

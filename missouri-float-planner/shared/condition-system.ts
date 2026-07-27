@@ -47,9 +47,9 @@ export interface ConditionDef {
   ink: string;
   /** Border hex for tinted chips/badges (a mid tint of the same hue). */
   chipBorder: string;
-  /** Short label for compact displays, e.g. "Ideal". */
+  /** Short label for compact displays, e.g. "Flowing". */
   label: string;
-  /** Long label with guidance, e.g. "Flowing - Ideal Conditions". */
+  /** Long label with guidance, e.g. "Good - Floatable". */
   longLabel: string;
   /** One-line plain-language description of what the level means on the water. */
   description: string;
@@ -88,10 +88,10 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     glow: "rgba(16,185,129,0.5)",
     ink: "#065F46", // emerald-800
     chipBorder: "#6EE7B7", // emerald-300
-    label: "Ideal",
-    longLabel: "Flowing - Ideal Conditions",
+    label: "Flowing",
+    longLabel: "Flowing",
     description:
-      "Ideal conditions. All boats clear, gentle current, crystal clear water.",
+      "Flowing conditions. All boats clear, gentle current, crystal clear water.",
     otter: "green",
     severity: 1,
   },

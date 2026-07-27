@@ -16,8 +16,8 @@ import type { PromoFormat } from "./PromoScaffold";
 // Live Current River verdict (see /api/eddy-update/current). The card mirrors the
 // site's "Eddy Says" feature — condition badge + plain-English read of the gauge.
 const QUOTE =
-  "Sitting at 3.0 ft, right at the bottom of the ideal range — clear, steady, and in fine shape. Conditions are excellent today.";
-const CONDITION = "Flowing · Ideal";
+  "Sitting at 3.0 ft, right at the bottom of the optimal range — clear, steady, and in fine shape. Conditions are excellent today.";
+const CONDITION = "Flowing";
 const GAUGE_LINE = "Van Buren gauge · 3.0 ft · optimal 3.0–3.9 ft";
 const FLOW = colors.support[400]; // healthy green
 

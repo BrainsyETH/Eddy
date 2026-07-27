@@ -190,7 +190,7 @@ const STAGE_DESC: Record<ConditionCode, string> = {
   too_low: 'Too low to float — frequent dragging and portaging likely.',
   low: 'Low — expect some dragging in shallow areas.',
   good: 'Good — floatable with minimal dragging.',
-  flowing: 'Ideal conditions. Go.',
+  flowing: 'Flowing conditions. Go.',
   high: 'Fast current — strong paddlers only.',
   dangerous: 'Flood-stage water. Do not float.',
   unknown: '',
