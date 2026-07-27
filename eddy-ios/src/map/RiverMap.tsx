@@ -784,7 +784,18 @@ export function RiverMap({
             textColor: '#FFFFFF',
             // No halo: white on the cluster's own dark teal is already legible,
             // and a halo at this size closes up the counter's inner shapes.
-            allowOverlap: true,
+            //
+            // textAllowOverlap, NOT allowOverlap. The unprefixed name is not a
+            // Mapbox style property and @rnmapbox throws "allowOverlap is not a
+            // valid Mapbox layer style" at RENDER time — which took down the
+            // whole map the moment the layer was switched on. The style prop is
+            // typed loosely enough that tsc passed it.
+            //
+            // The value matters as well as the name: a cluster's count must
+            // never be dropped by collision detection. A circle with no number
+            // in it is a dot that lies about being one gauge.
+            textAllowOverlap: true,
+            textIgnorePlacement: true,
           }}
         />
         <Mapbox.CircleLayer
