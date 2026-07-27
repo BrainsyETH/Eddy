@@ -108,3 +108,24 @@ export function gaugeReadingText(gauge: MapGauge, riverSlug?: string | null): st
 export function gaugeRiverSlug(gauge: MapGauge): string | null {
   return gaugeLink(gauge)?.riverSlug ?? null;
 }
+
+/**
+ * The part of a station's name that says WHERE it is.
+ *
+ * USGS names a gauge "<river> <preposition> <place>" — "Current River at Van
+ * Buren, MO", "Meramec River near Sullivan, MO" — and on a map the river is
+ * already drawn underneath the pin in its own condition colour. Printing the
+ * whole name puts the same two or three words under every dot on a river and
+ * pushes the one word that distinguishes them off the end of the label.
+ *
+ * Falls back to the full name whenever the pattern does not hold, which is the
+ * only safe direction here: a label that is too long is a cosmetic problem, and
+ * a label that names the wrong place is a navigational one.
+ */
+export function gaugePlaceLabel(name: string): string {
+  // The four prepositions USGS actually uses, plus the abbreviations that show
+  // up in the national tier ("BL TEX CREEK", "ABV LAKE"). Anchored on a space
+  // either side so a place called "Nathan" is not cut at "n".
+  const match = name.match(/\s(?:at|near|nr|below|blw|bl|above|abv|ab)\s+(.+)$/i);
+  return match?.[1]?.trim() || name;
+}

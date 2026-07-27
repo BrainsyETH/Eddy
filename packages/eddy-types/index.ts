@@ -154,6 +154,20 @@ export interface MapAccessPoint {
   description?: string | null;
   amenities?: string[];
   feeRequired?: boolean;
+  /**
+   * Photographs of the place, best first.
+   *
+   * Already on the wire — /api/rivers/[slug]/access-points has sent
+   * `imageUrls` since the imagery backfill — and simply never declared here, so
+   * the app listed put-ins as three lines of text while the website showed what
+   * each one looks like. That difference matters more than it sounds: "Cedar
+   * Grove Access" is a name, and a photo of a gravel ramp with room for two
+   * cars is the thing that tells you whether you can get a trailer down it.
+   *
+   * OPTIONAL and possibly EMPTY. Coverage is partial and always will be, so
+   * every consumer has to have a no-photo layout that is not an apology.
+   */
+  imageUrls?: string[];
 }
 
 export interface AccessPointsResponse {
@@ -689,6 +703,16 @@ export interface RiverOutlookResponse {
   trend: RiverReadingTrend | null;
   currentCondition: ConditionCode;
   gaugeName: string | null;
+  /**
+   * The station this whole answer describes.
+   *
+   * OPTIONAL, because an app build can outrun a deploy. When a caller asked for
+   * a specific gauge, this is how it tells whether it got one — an unknown id
+   * falls back to the river's primary rather than failing, and a screen that
+   * could not see the difference would label the primary's forecast and read
+   * with the name of a station ninety miles away.
+   */
+  gaugeStationId?: string | null;
   /**
    * The town the weather above was actually fetched at.
    *

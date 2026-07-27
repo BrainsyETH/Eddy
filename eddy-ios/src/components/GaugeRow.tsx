@@ -37,11 +37,20 @@ interface Props {
   riverName?: string | null;
   /** Live data, when it has arrived. Null is an ordinary state, not an error. */
   gauge: MapGauge | null;
+  /**
+   * Whether this gauge is starred.
+   *
+   * STATED, not assumed. The row was written for Favorites, where every member
+   * is starred by definition and the glyph could be a constant — and then the
+   * Search tab started rendering gauges that mostly are not. A star that is
+   * always filled is a control that cannot say what it does.
+   */
+  starred: boolean;
   onPress: (() => void) | null;
   onToggleStar: () => void;
 }
 
-function GaugeRowComponent({ name, riverName, gauge, onPress, onToggleStar }: Props) {
+function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleStar }: Props) {
   const { colors, elevation, isDark } = useTheme();
 
   const code = gauge ? gaugeConditionCode(gauge) : 'unknown';
@@ -103,9 +112,13 @@ function GaugeRowComponent({ name, riverName, gauge, onPress, onToggleStar }: Pr
         onPress={onToggleStar}
         style={({ pressed }) => [styles.starColumn, { opacity: pressed ? 0.5 : 1 }]}
         accessibilityRole="button"
-        accessibilityLabel={`Unstar ${name}`}
+        accessibilityLabel={starred ? `Unstar ${name}` : `Star ${name}`}
       >
-        <Ionicons name="star" size={21} color={colors.warm} />
+        <Ionicons
+          name={starred ? 'star' : 'star-outline'}
+          size={21}
+          color={starred ? colors.warm : colors.textSubtle}
+        />
       </Pressable>
     </View>
   );

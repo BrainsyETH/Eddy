@@ -69,7 +69,12 @@ import { conditionColor, conditionLabel } from '@/theme/conditions';
 import { neutral, primary } from '@/theme/palette';
 import { useTheme } from '@/theme/ThemeProvider';
 import { readingAge } from '@/lib/readingCopy';
-import { gaugeConditionCode, gaugeReadingText, gaugeRiverSlug } from '@/lib/gaugeCondition';
+import {
+  gaugeConditionCode,
+  gaugePlaceLabel,
+  gaugeReadingText,
+  gaugeRiverSlug,
+} from '@/lib/gaugeCondition';
 import type { NetworkCollection } from '@/lib/statewideNetwork';
 import { loadMapbox } from './runtime';
 import { STYLE_URL } from './useOfflinePacks';
@@ -213,6 +218,14 @@ export interface MapPin {
   layer: LayerKey;
   subtitle: string | null;
   coordinates: { lng: number; lat: number };
+  /**
+   * What the map draws under the pin, when that differs from `name`.
+   *
+   * Only gauges use it, and only because their names are built for a database
+   * rather than for a map — see gaugePlaceLabel. Everything else labels itself
+   * with the name it is called, and the callout always shows `name` in full.
+   */
+  label?: string;
   /** Overrides the layer colour. A gauge wears its own condition, not teal. */
   color?: string;
   /**
@@ -311,6 +324,7 @@ function featureCollection(pins: MapPin[], defaultColor: string) {
       properties: {
         id: pin.id,
         name: pin.name,
+        label: pin.label ?? pin.name,
         color: pin.color ?? defaultColor,
         magnitude: pin.magnitude ?? 0,
       },
@@ -405,6 +419,10 @@ export function RiverMap({
       return {
         id: `gauge:${g.id}`,
         name: g.name,
+        // "Van Buren, MO", not "Current River at Van Buren, MO". These labels
+        // are drawn at every zoom now (see pinLayer), and at statewide zoom a
+        // full station name is a paragraph laid across the river it names.
+        label: gaugePlaceLabel(g.name),
         layer: 'gauges' as const,
         subtitle: [readingAge(g.readingAgeHours), `USGS ${g.usgsSiteId}`]
           .filter(Boolean)
@@ -468,8 +486,14 @@ export function RiverMap({
   const byId = useMemo(() => {
     const map = new Map<string, MapPin>();
     for (const list of Object.values(pins)) for (const pin of list) map.set(pin.id, pin);
+    // THE NATIONAL TIER BELONGS IN HERE TOO. Its pins are built by the screen
+    // rather than by the block above, and they were missing from this index —
+    // so onContextPress looked up an id that could never be found, and every
+    // tap on a reference gauge silently did nothing. The layer drew fine, which
+    // is what made it read as "these just are not clickable".
+    for (const pin of referenceGauges ?? []) map.set(pin.id, pin);
     return map;
-  }, [pins]);
+  }, [pins, referenceGauges]);
 
   // The plan's own endpoints, drawn larger and labelled, because "which end is
   // the put-in" is the one question a route line cannot answer by itself.
@@ -661,6 +685,18 @@ export function RiverMap({
     data: MapPin[],
     color: string,
     shape: PinShape = 'dot',
+    /**
+     * The zoom a layer's labels switch on at.
+     *
+     * 11 for the place layers, where thirty overlapping put-in names at river
+     * zoom are noise. Gauges pass 0: a gauge is a NUMBER attached to a place,
+     * and a coloured dot with no name is a verdict about somewhere you cannot
+     * identify — which was the state of the map at every zoom below 11,
+     * including the one it opens on. Collision detection still drops labels
+     * that would overlap, so the statewide view thins itself rather than
+     * turning into a wall of text.
+     */
+    labelMinZoom = 11,
   ) => {
     // No early return on an empty list. Access points and gauges arrive
     // asynchronously, and a source that unmounts takes its layers out of the
@@ -706,11 +742,11 @@ export function RiverMap({
         )}
         <Mapbox.SymbolLayer
           id={`pins-${id}-label`}
-          // Labels only once zoomed in; at river zoom thirty overlapping names
-          // are noise, and Mapbox's collision detection would drop most anyway.
-          minZoomLevel={11}
+          minZoomLevel={labelMinZoom}
           style={{
-            textField: ['get', 'name'],
+            // `label`, not `name`: gauges write a short place name into it and
+            // everything else falls back to the name it is called.
+            textField: ['get', 'label'],
             textSize: 11,
             // Clears whatever is above it: a 6pt dot, or the taller icon.
             textOffset: [0, icon ? icon.labelOffset : 1.2],
@@ -822,12 +858,14 @@ export function RiverMap({
         <Mapbox.SymbolLayer
           id="pins-allGauges-label"
           filter={['!', ['has', 'point_count']]}
-          // Two levels later than the curated labels. USGS station names are
-          // long ("WILLOW CREEK BL TEX CREEK NR RIRIE ID") and there are far
-          // more of them; showing them at 11 would bury the rivers.
-          minZoomLevel={13}
+          // From the moment this tier stops being bubbles and starts being
+          // gauges — clusterMaxZoomLevel above — every dot is named. It used to
+          // wait two more levels because a raw USGS station name is a sentence
+          // ("WILLOW CREEK BL TEX CREEK NR RIRIE ID"); the caller now sends the
+          // place instead, which is what made that restraint unnecessary.
+          minZoomLevel={11}
           style={{
-            textField: ['get', 'name'],
+            textField: ['get', 'label'],
             textSize: 10,
             textOffset: [0, 1.2],
             textAnchor: 'top',
@@ -1002,7 +1040,12 @@ export function RiverMap({
       {layerOn('campgrounds')
         ? pinLayer('campgrounds', pins.campgrounds, layerColor('campgrounds'))
         : null}
-      {layerOn('gauges') ? pinLayer('gauges', pins.gauges, layerColor('gauges'), 'drop') : null}
+      {/* Labelled at EVERY zoom — the 0 is the whole of "names below each
+          gauge". There are ~46 of these statewide, not thirty per river, so
+          the argument for holding place labels back to z11 never applied. */}
+      {layerOn('gauges')
+        ? pinLayer('gauges', pins.gauges, layerColor('gauges'), 'drop', 0)
+        : null}
       {layerOn('hazards') ? pinLayer('hazards', pins.hazards, layerColor('hazards')) : null}
 
       {endpointFeatures ? (

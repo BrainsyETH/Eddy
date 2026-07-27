@@ -1,5 +1,5 @@
 // eddy-ios/app/floats.tsx
-// Floats you have shared, so a plan is not something you can only make once.
+// Floats you have kept, so a plan is not something you can only make once.
 //
 // The list renders from a local stub — river, both ends, distance, date — and
 // nothing else. No conditions, no float time, no gauge reading. Those are
@@ -51,8 +51,8 @@ export default function SavedFloatsScreen() {
         <Text style={[styles.title, { color: colors.text }]}>Saved floats</Text>
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>
           {floats.length === 0
-            ? 'Every float you share is kept here'
-            : `${floats.length} float${floats.length === 1 ? '' : 's'} you have shared`}
+            ? 'Star a float to keep it here'
+            : `${floats.length} float${floats.length === 1 ? '' : 's'} you have saved`}
         </Text>
       </View>
 
@@ -68,8 +68,8 @@ export default function SavedFloatsScreen() {
                   on a screen with no river to have a condition. */}
               <EddyScene name="routePlanning" size={110} />
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                Plan a float on the Map tab and tap Share. The link goes to whoever is coming, and
-                the float shows up here.
+                Plan a float on the Map tab and tap Save. It shows up here, re-read against the
+                river every time you open it.
               </Text>
             </View>
           ) : null
