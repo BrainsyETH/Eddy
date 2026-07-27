@@ -174,9 +174,36 @@ allowlist rather than a denylist, and why it has a test:
 python3 eddy-ios/scripts/check-easignore.py
 ```
 
-which asserts every Metro-resolved path is still in the archive and that no
-secret or media file has crept in. Run it after touching `.easignore`, the
-`file:` dependencies in `package.json`, or `metro.config.js` watchFolders.
+which asserts every Metro-resolved path is still in the archive, that no secret
+or media file has crept in, and that the total stays under 200 MB. Run it after
+touching `.easignore`, the `file:` dependencies in `package.json`, or
+`metro.config.js` watchFolders.
+
+**The generated `ios/` and `android/` directories are excluded, and that matters
+for more than size.** They are gitignored, so under the rule above they upload
+unless named — and once you have run `npx expo run:ios` locally, `ios/Pods`
+carries the Mapbox SDK and the archive clears 2 GB, which is EAS's hard limit:
+
+```
+✔ Compressed project files 3m 14s (2.5 GB)
+Failed to upload the project tarball to EAS Build
+Reason: Project archive is too big. Maximum allowed size is 2.0 GB.
+```
+
+The subtler problem is that **EAS decides between a managed and a bare build by
+whether `ios/` is in the archive**. Uploading a local one turns a
+prebuild-managed build into a bare build against whatever Pods happened to be on
+that laptop, so the worker stops regenerating the native project from
+`app.json` — and a config-plugin change (say, adding `expo-location`) lands in
+nobody's build while appearing to succeed.
+
+The check script covers this because it walks **untracked files too** — `git
+ls-files --others` without `--exclude-standard`, which is the set eas-cli
+actually uploads once `.easignore` exists. An earlier version walked only
+tracked files and therefore reported a tidy 3 MB archive for a developer who was
+uploading 2.5 GB. The 200 MB ceiling is the generic backstop: naming `ios/`
+fixes today's offender, a ceiling catches tomorrow's without anyone having to
+predict which directory it will be.
 
 **Do not add `nodeModulesPaths` or `disableHierarchicalLookup` to
 `metro.config.js`.** Those appear in every workspace-monorepo guide and are

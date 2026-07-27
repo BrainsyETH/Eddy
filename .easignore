@@ -47,3 +47,20 @@
 .env.*
 .expo/
 dist/
+
+# ── The generated native projects ─────────────────────────────────────────
+# These are gitignored, which under the trap above means they upload unless
+# named here. Two reasons that is bad, and the second is worse than the first:
+#
+#   SIZE. `npx expo run:ios` runs CocoaPods, and ios/Pods with the Mapbox SDK
+#   in it is well over a gigabyte. A developer who has ever built locally then
+#   pushes a >2 GB archive and hits EAS's hard limit — which is exactly how
+#   this rule came to be written.
+#
+#   CORRECTNESS. EAS decides between managed and bare by whether ios/ is in
+#   the archive. Uploading a local one silently turns a prebuild-managed build
+#   into a bare build against whatever Pods happened to be on that laptop, so
+#   the worker stops regenerating the native project from app.json — and a
+#   config-plugin change lands in nobody's build.
+/eddy-ios/ios
+/eddy-ios/android
