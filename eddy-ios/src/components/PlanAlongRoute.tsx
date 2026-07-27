@@ -21,26 +21,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { FloatPlan, MapAccessPoint } from '@eddy/types';
-import { isCampground } from '@eddy/types';
+import { accessTypeLabel, isCampground } from '@eddy/types';
 import { fetchRiverAccessPoints } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
 /** Enough to plan a bail-out; past this it is a list of the whole river. */
 const MAX_SHOWN = 6;
-
-const ACCESS_TYPE_LABELS: Record<string, string> = {
-  boat_ramp: 'Boat ramp',
-  gravel_bar: 'Gravel bar',
-  campground: 'Campground',
-  bridge: 'Bridge',
-  access: 'Access',
-  park: 'Park',
-};
-
-function accessTypeLabel(type: string): string {
-  return ACCESS_TYPE_LABELS[type] ?? type.replace(/_/g, ' ');
-}
 
 export function PlanAlongRoute({ plan }: { plan: FloatPlan }) {
   const { colors, elevation } = useTheme();

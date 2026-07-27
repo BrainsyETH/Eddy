@@ -53,7 +53,7 @@ import type {
   RiverService,
   SearchResult,
 } from '@eddy/types';
-import { hasCoordinates, isCampground } from '@eddy/types';
+import { accessPointTypes, accessTypeLabel, hasCoordinates, isCampground } from '@eddy/types';
 import {
   formatFloatTimeCeilingCompact,
   formatFloatTimeCompact,
@@ -109,15 +109,16 @@ import { PaywallSheet } from '@/components/PaywallSheet';
  *
  * The Mapbox wordmark and the (i) attribution button live down there now, and
  * they are a legal obligation rather than decoration — the terms require them
- * visible and forbid hiding them. 58 is the top of the (i)'s 44x44 tap frame;
- * the rest absorbs the floating shadow above it.
+ * visible and forbid hiding them. 53 is the top of the (i)'s 44x44 tap frame at
+ * its current offset (see the ornament comment in RiverMap); the remaining 9
+ * absorbs the floating shadow above it.
  *
  * This fixes an exposure rather than creating one. The callout is full-width at
  * the bottom and 115-251pt tall, so until now it covered the wordmark and the
  * attribution button outright whenever a pin was selected — and attribution you
  * have covered up is attribution you have not given.
  */
-const MAP_CHROME_BOTTOM = 72;
+const MAP_CHROME_BOTTOM = 62;
 
 /**
  * A camera target, tagged with the river it belongs to.
@@ -681,10 +682,10 @@ export default function MapScreen() {
         ) : null}
 
         {/* ── The bottom stack ──────────────────────────────────────────
-            One bottom-anchored column holding the map controls and the callout,
+            One bottom-anchored column holding the callout and the map controls,
             rather than three overlays each anchored to the screen edge on their
-            own. The callout is the LAST child, so it takes the bottom and pushes
-            the control row up by exactly its own height — correct by
+            own. The column has no `top`, so it sizes to its content and grows
+            UPWARD from MAP_CHROME_BOTTOM — which is what makes it correct by
             construction for a 115pt access-point callout and a 251pt
             gauge-with-a-qualifier-note alike.
 
@@ -694,10 +695,66 @@ export default function MapScreen() {
             carrying a large reading row — by 59pt or more. No constant could
             have been right, because the height depends on what was tapped.
 
+            THE CALLOUT COMES FIRST, so the controls sit BELOW whatever you
+            selected. Locate and Plan a float are the same two buttons wherever
+            you are on this screen; a selection is transient and specific, and
+            putting it under the controls made them jump to a new position on
+            every tap. Fixed chrome at the bottom, the answer above it.
+
             `gap` rather than a margin: it applies only BETWEEN children, so with
             no callout the row sits flush at the ornament band and nothing adds
             phantom space. */}
         <View style={styles.bottomStack} pointerEvents="box-none">
+          {selectedPin && !search.active ? (
+            <View style={styles.calloutWrap} pointerEvents="box-none">
+              <PinCallout
+                pin={selectedPin}
+                accessPoint={pinAccessPoint}
+                canSetTakeOut={
+                  Boolean(planner.putIn) &&
+                  pinAccessPoint != null &&
+                  pinAccessPoint.riverMile > (planner.putIn?.riverMile ?? Infinity)
+                }
+                onSetPutIn={() => {
+                  if (!pinAccessPoint) return;
+                  planner.choosePutIn(pinAccessPoint);
+                  setSelectedPin(null);
+                  setPlanOpen(true);
+                }}
+                onSetTakeOut={() => {
+                  if (!pinAccessPoint) return;
+                  planner.chooseTakeOut(pinAccessPoint);
+                  setSelectedPin(null);
+                  setPlanOpen(true);
+                }}
+                onOpenRiver={(slug) => {
+                  setSelectedPin(null);
+                  router.push(`/river/${slug}`);
+                }}
+                onClose={() => {
+                  setSelectedPin(null);
+                  setFocus(null);
+                }}
+                starred={pinGauge ? isStarred('gauge', pinGauge.id) : false}
+                onToggleStar={
+                  pinGauge
+                    ? () =>
+                        toggleStar({
+                          kind: 'gauge',
+                          entityId: pinGauge.id,
+                          name: pinGauge.name,
+                          // The river it is PRIMARY for, which is where a starred
+                          // gauge taps through to. Empty when it rates none.
+                          slug:
+                            pinGauge.thresholds?.find((link) => link.isPrimary)?.riverSlug ?? '',
+                          usgsSiteId: pinGauge.usgsSiteId,
+                        })
+                    : null
+                }
+              />
+            </View>
+          ) : null}
+
           <View style={styles.controlRow} pointerEvents="box-none">
           {/* Locate. The ONLY thing that ever asks for location permission on
               this screen — see useLocation for why the prompt is never spent on
@@ -791,55 +848,6 @@ export default function MapScreen() {
           ) : null}
           </View>
 
-        {selectedPin && !search.active ? (
-          <View style={styles.calloutWrap} pointerEvents="box-none">
-            <PinCallout
-              pin={selectedPin}
-              accessPoint={pinAccessPoint}
-              canSetTakeOut={
-                Boolean(planner.putIn) &&
-                pinAccessPoint != null &&
-                pinAccessPoint.riverMile > (planner.putIn?.riverMile ?? Infinity)
-              }
-              onSetPutIn={() => {
-                if (!pinAccessPoint) return;
-                planner.choosePutIn(pinAccessPoint);
-                setSelectedPin(null);
-                setPlanOpen(true);
-              }}
-              onSetTakeOut={() => {
-                if (!pinAccessPoint) return;
-                planner.chooseTakeOut(pinAccessPoint);
-                setSelectedPin(null);
-                setPlanOpen(true);
-              }}
-              onOpenRiver={(slug) => {
-                setSelectedPin(null);
-                router.push(`/river/${slug}`);
-              }}
-              onClose={() => {
-                setSelectedPin(null);
-                setFocus(null);
-              }}
-              starred={pinGauge ? isStarred('gauge', pinGauge.id) : false}
-              onToggleStar={
-                pinGauge
-                  ? () =>
-                      toggleStar({
-                        kind: 'gauge',
-                        entityId: pinGauge.id,
-                        name: pinGauge.name,
-                        // The river it is PRIMARY for, which is where a starred
-                        // gauge taps through to. Empty when it rates none.
-                        slug:
-                          pinGauge.thresholds?.find((link) => link.isPrimary)?.riverSlug ?? '',
-                        usgsSiteId: pinGauge.usgsSiteId,
-                      })
-                  : null
-              }
-            />
-          </View>
-        ) : null}
         </View>
       </View>
 
@@ -972,6 +980,31 @@ function PinCallout({
           <Ionicons name="close" size={19} color={colors.textMuted} />
         </Pressable>
       </View>
+
+      {/* WHAT THIS PLACE ACTUALLY IS. A point can carry several of the six
+          types at once — a boat ramp you can also camp at is a different day
+          out from a gravel bar — and until now the callout said only "Mile
+          12.4", with the pin's colour standing in for a category it could only
+          ever express one of.
+
+          Resolved through accessPointTypes so the `types` array wins and a row
+          that predates it still falls back to its single `type`. Rendered even
+          when there is one, because "Access" is information: it is the type
+          that means "somewhere to put a boat in and nothing more". */}
+      {accessPoint ? (
+        <View style={styles.calloutTypes}>
+          {accessPointTypes(accessPoint).map((type) => (
+            <View
+              key={type}
+              style={[styles.calloutType, { backgroundColor: colors.cardRaised }]}
+            >
+              <Text style={[styles.calloutTypeText, { color: colors.textMuted }]}>
+                {accessTypeLabel(type)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       {/* The reading and its verdict on one line: a gauge's number means nothing
           without the band it sits in, and the band means less without the
@@ -1150,6 +1183,11 @@ const styles = StyleSheet.create({
   calloutText: { flex: 1, minWidth: 0 },
   calloutName: { ...t.sm, fontFamily: fonts.semibold },
   calloutMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
+  // Wraps, because six types is the ceiling and three is common. Quieter than
+  // calloutChip — a condition chip is a verdict, these are labels.
+  calloutTypes: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
+  calloutType: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  calloutTypeText: { ...t.xs, fontFamily: fonts.medium },
   calloutReadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9 },
   calloutReading: { ...t.lg, fontFamily: fonts.mono },
   calloutChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
