@@ -42,17 +42,21 @@ Note `Simulator.app` lives *inside* `Xcode.app`, so deleting Xcode removes it.
 `app.json`'s `plugins` before Xcode ever starts. Which leads to the one rule that
 is easy to break:
 
-**`plugins` may only list packages that actually ship a config plugin.** A config
-plugin is a package exporting `app.plugin.js`; it is not the same thing as a
-dependency, and most dependencies are not one. The current list is complete:
+**`plugins` may only list packages that actually ship a config plugin** — one
+exporting `app.plugin.js`. That is not the same thing as a dependency, and most
+dependencies are not one. Every entry in the current list is valid; you can check
+any of them with `ls node_modules/<pkg>/app.plugin.js`.
 
-```json
-"plugins": ["expo-router", "@rnmapbox/maps", "expo-font"]
-```
+### `PluginError: Unable to resolve a valid config plugin for …`
 
-`expo-status-bar` is the trap. It is a dependency, it is imported in
-`app/_layout.tsx`, and its name looks plugin-shaped — but it is an ordinary
-component with no `app.plugin.js`. Adding it to `plugins` fails like this:
+Almost always **stale `node_modules`**, not a bad `app.json`.
+
+Prebuild resolves plugins out of `node_modules`, so a checkout whose packages
+predate the config will report a perfectly valid plugin as invalid. The SDK 57
+upgrade is the case that bites: `expo-status-bar` gained an `app.plugin.js` at
+57.0.1 and is correctly listed in `plugins`, but at 3.0.9 (SDK 54) it had none.
+Pull the new `app.json` without reinstalling and prebuild looks for a plugin in
+the old package and does not find one:
 
 ```
 PluginError: Unable to resolve a valid config plugin for expo-status-bar.
@@ -60,12 +64,25 @@ Error: Stripping types is currently unsupported for files under node_modules,
 for ".../expo-status-bar/src/StatusBar.ts"
 ```
 
-That second line sends people hunting through Node versions and TypeScript
-settings, and it is a red herring. The package's `main` points at
-`src/StatusBar.ts` (Metro compiles it; Node is never meant to), so Expo's attempt
-to `require` it as a plugin surfaces as a type-stripping error from deep inside
-Node instead of "this is not a plugin". **The fix is always to remove the entry,
-never to change Node.** Expo raises `PluginError` here on every Node version.
+The fix:
+
+```bash
+rm -rf node_modules && npm ci --legacy-peer-deps
+```
+
+Two things make this hard to diagnose, which is why it is written down:
+
+- **`rm -rf ios` does not help**, and it is the natural first instinct. That
+  clears the generated native project while leaving the packages prebuild
+  actually reads.
+- **The second line is a red herring.** It sends people hunting through Node
+  versions and TypeScript settings. It appears because the old package's `main`
+  points at `src/StatusBar.ts` — Metro compiles that, Node never should — so a
+  failed plugin lookup surfaces as a type-stripping error from deep inside Node
+  rather than "this package is not a plugin". Changing Node does not fix it.
+
+Only if a reinstall does not clear it is the entry itself wrong — then confirm
+with `ls node_modules/<pkg>/app.plugin.js` before removing anything.
 
 ### Node version
 
@@ -75,9 +92,11 @@ never to change Node.** Expo raises `PluginError` here on every Node version.
 
 This is drift prevention, not a fix for anything in particular — Node 22 LTS
 works fine. The upper bound exists because Node 23+ strips TypeScript types by
-default, which turns several Expo-adjacent failures into internal Node errors
-that read as unrelated to their real cause (the plugin trap above being the
-clearest example).
+default, which turns some Expo failures into internal Node errors that read as
+unrelated to their real cause. The stale-`node_modules` case above is the
+clearest example: the real problem is an out-of-date package, but what surfaces
+is `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`. Pinning Node does not fix
+that; it just keeps the error message honest more often.
 
 ## Why this is a monorepo without an npm workspace
 
