@@ -14,6 +14,7 @@
 import { primary, type Palette } from '@/theme/palette';
 import { conditionColor } from '@/theme/conditions';
 import { flowBandColor } from '@/theme/flow';
+import type { EddySymbolName } from '@/components/EddySymbol';
 import type { Ionicons } from '@expo/vector-icons';
 
 export type LayerKey = 'access' | 'campgrounds' | 'gauges' | 'allGauges' | 'hazards' | 'outfitters';
@@ -24,6 +25,25 @@ export interface LayerDef {
   /** One line under the label, saying what the layer actually shows. */
   description: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
+  /**
+   * Eddy's own mark for this layer, where the catalog has one.
+   *
+   * Only two layers carry one, and the reason the other four do not is worth
+   * stating so nobody "finishes the set" later:
+   *
+   *   allGauges — the catalog's only gauge mark is the droplet, and `gauges`
+   *     has it. Two identical droplets would undo #1023, whose whole point was
+   *     that these two rows partition one network between them.
+   *   hazards, campgrounds — the catalog draws these as full-body mascot
+   *     scenes. A whole otter beside a campfire is a smudge in a 30pt well.
+   *   outfitters — no mark exists.
+   *
+   * These are fixed-colour art, so a layer with a symbol keeps its `color` for
+   * the well's border and nothing recolours the mark itself. That works here,
+   * and only here, because the well is a LEGEND rather than a pin: the pins on
+   * the map still wear their condition.
+   */
+  symbol?: EddySymbolName;
   color: (colors: Palette) => string;
 }
 
@@ -59,6 +79,10 @@ export const MAP_LAYERS: LayerDef[] = [
     label: 'Access points',
     description: 'Put-ins, take-outs and ramps',
     icon: 'location',
+    // The catalog's pin is drawn in the accent coral this layer already uses,
+    // so the mark and the well's border are the same colour by coincidence of
+    // both coming from the brand.
+    symbol: 'accessPoint',
     color: (c) => c.accent,
   },
   {
@@ -72,6 +96,7 @@ export const MAP_LAYERS: LayerDef[] = [
     label: 'Eddy-rated gauges',
     description: 'Live readings, coloured by float condition',
     icon: 'speedometer-outline',
+    symbol: 'gauge',
     // Deep River Teal from the brand palette rather than coral: a gauge is a
     // measurement, not a destination, and it should read as instrumentation
     // against the accent-coloured places. Sourced from the palette scale so it

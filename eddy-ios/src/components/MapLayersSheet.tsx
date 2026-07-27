@@ -33,9 +33,19 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { EddySymbol } from '@/components/EddySymbol';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { DEFAULT_LAYERS, MAP_LAYERS, type LayerKey } from '@/map/layers';
+
+/**
+ * How far an off layer's mark fades.
+ *
+ * Opacity rather than a muted colour, because the branded marks cannot be
+ * recoloured — and it has to stay legible: an off row is still the thing you
+ * read to decide whether to switch it ON.
+ */
+const DIMMED = 0.45;
 
 interface Props {
   visible: boolean;
@@ -132,20 +142,42 @@ export function MapLayersSheet({
                 }
                 accessibilityHint={layer.description}
               >
+                {/* ── The well is outlined, not filled ────────────────────
+                    It used to fill with the layer tint and print a white
+                    glyph on it, and that had to change for two reasons.
+
+                    The small one: Eddy's own marks are fixed-colour art (see
+                    EddySymbol) and a coral pin on a coral chip is invisible.
+
+                    The larger one: the fill was a second answer to a question
+                    the Switch on the right already answers — the note beside
+                    it says "the switch DRAWS the state". What the well is for
+                    is the LEGEND, and an icon in the layer's own colour is a
+                    truer legend than a white silhouette, because the layer's
+                    own colour is what its pins are drawn in. On/off survives
+                    in the border, the mark's opacity, and the switch. */}
                 <View
                   style={[
                     styles.iconWell,
                     {
-                      backgroundColor: on ? tint : colors.cardRaised,
+                      backgroundColor: colors.cardRaised,
                       borderColor: on ? tint : colors.border,
                     },
                   ]}
                 >
-                  <Ionicons
-                    name={layer.icon}
-                    size={15}
-                    color={on ? colors.onAccent : colors.textSubtle}
-                  />
+                  {layer.symbol ? (
+                    <EddySymbol
+                      name={layer.symbol}
+                      size={17}
+                      style={{ opacity: on ? 1 : DIMMED }}
+                    />
+                  ) : (
+                    <Ionicons
+                      name={layer.icon}
+                      size={15}
+                      color={on ? tint : colors.textSubtle}
+                    />
+                  )}
                 </View>
 
                 <View style={styles.rowText}>
