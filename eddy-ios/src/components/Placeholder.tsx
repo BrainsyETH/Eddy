@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { Otter } from '@/components/Otter';
+import { EddyScene } from '@/components/EddyScene';
 
 /**
  * Shell placeholder. Each one names what the tab will do and what it is waiting
@@ -28,7 +28,9 @@ export function Placeholder({
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={styles.body}>
-        <Otter mood="standard" size={120} />
+        {/* A screen that does not exist yet is the one place in the app that is
+            purely a greeting — nothing has been read, nothing has gone wrong. */}
+        <EddyScene name="wave" size={120} />
         <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
         <Text style={[styles.blurb, { color: colors.textMuted }]}>{blurb}</Text>
         <View style={[styles.pill, { backgroundColor: colors.card }, elevation(1)]}>

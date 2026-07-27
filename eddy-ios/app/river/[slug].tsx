@@ -74,6 +74,7 @@ import {
   primaryReading,
   readingAge,
 } from '@/lib/readingCopy';
+import { EddySymbol } from '@/components/EddySymbol';
 import { EddyTake } from '@/components/EddyTake';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
@@ -534,6 +535,7 @@ export default function RiverDetailScreen() {
         {accessPoints.length > 0 ? (
           <CollapsibleSection
             title="Access points"
+            leading={<EddySymbol name="accessPoint" size={18} />}
             summary={`${accessPoints.length} put-in${accessPoints.length === 1 ? '' : 's'} and take-out${accessPoints.length === 1 ? '' : 's'}`}
           >
             {/* TAPPABLE, and to somewhere useful. These were flat rows: they

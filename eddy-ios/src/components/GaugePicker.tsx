@@ -19,6 +19,7 @@
 
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { MapGauge } from '@eddy/types';
+import { EddySymbol } from '@/components/EddySymbol';
 import { conditionColor } from '@/theme/conditions';
 import { gaugeConditionCode, gaugeLink } from '@/lib/gaugeCondition';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -57,7 +58,10 @@ export function GaugePicker({ gauges, riverSlug, selectedId, onSelect }: Props) 
 
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.label, { color: colors.textSubtle }]}>GAUGES ON THIS RIVER</Text>
+      <View style={styles.labelRow}>
+        <EddySymbol name="gauge" size={14} />
+        <Text style={[styles.label, { color: colors.textSubtle }]}>GAUGES ON THIS RIVER</Text>
+      </View>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -109,7 +113,10 @@ export function GaugePicker({ gauges, riverSlug, selectedId, onSelect }: Props) 
 
 const styles = StyleSheet.create({
   wrap: { marginTop: 14 },
-  label: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6, marginBottom: 8 },
+  // The mark rides with the label rather than above the row, so the eyebrow
+  // stays one object and the chips below keep their own left edge.
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  label: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6 },
   // Horizontal scroll rather than a wrap: a river can have five gauges with
   // long place names, and a wrapping grid would push the reading card's own
   // content off the first screen.

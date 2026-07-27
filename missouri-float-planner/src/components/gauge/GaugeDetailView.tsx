@@ -22,6 +22,7 @@ import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import ThresholdTable from '@/components/gauge/ThresholdTable';
 import { buildZones } from '@/lib/gauge/threshold-zones';
 import SiteFooter from '@/components/ui/SiteFooter';
+import { EddyIcon } from '@/components/ui/EddyIcon';
 
 interface GaugeDetailViewProps {
   siteId: string;
@@ -286,7 +287,10 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
           </h1>
 
           <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500">
-            <span>Gauge near {primaryRiver?.riverName || 'Unknown'}, Missouri</span>
+            <span className="flex items-center gap-1.5">
+              <EddyIcon name="gauge" size={16} />
+              Gauge near {primaryRiver?.riverName || 'Unknown'}, Missouri
+            </span>
             <span className="text-neutral-300">&middot;</span>
             <a
               href={`https://waterdata.usgs.gov/monitoring-location/${gauge.usgsSiteId}/`}

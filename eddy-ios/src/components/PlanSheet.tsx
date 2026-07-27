@@ -35,6 +35,7 @@ import { accessTypeLabel } from '@eddy/types';
 import { saveFloatPlan } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { EddyScene } from '@/components/EddyScene';
 import { Otter } from '@/components/Otter';
 import { PlanResult } from '@/components/PlanResult';
 import type { FloatPlanState } from '@/hooks/useFloatPlan';
@@ -278,7 +279,11 @@ function AccessPointList({
   if (points.length === 0) {
     return (
       <View style={styles.centered}>
-        <Otter mood="yellow" size={100} />
+        {/* Both messages this renders are about picking a point — no mapped
+            access points, or nothing downstream of the put-in — so it shows
+            Eddy over a map, not a mood for a river nobody has read.
+            The error branch above keeps the canonical `flag` otter. */}
+        <EddyScene name="routePlanning" size={100} />
         <Text style={[styles.emptyText, { color: colors.textMuted }]}>{emptyMessage}</Text>
       </View>
     );

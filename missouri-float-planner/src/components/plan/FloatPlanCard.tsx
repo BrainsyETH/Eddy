@@ -11,6 +11,7 @@ import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/typ
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { formatFloatTimeRangeCompact } from '@/lib/calculations/floatTime';
 import PlanFreshnessNotice from '@/components/plan/PlanFreshnessNotice';
+import { eddyIconUrl } from '@/components/ui/EddyIcon';
 import { POI_TYPES, ACCESS_POINT_TYPE_ORDER, CONDITION_SHORT_LABELS } from '@/constants';
 import {
   generateNavLinks,
@@ -27,12 +28,17 @@ const NAV_APP_ICONS: Record<string, string> = {
   apple: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/Apple_Maps_Logo.png',
 };
 
-// Detail section icon URLs from Vercel blob storage
+// Detail section icon URLs from Vercel blob storage.
+//
+// Camping is the exception: it comes from the Eddy catalog (public/icons, built
+// by eddy-ios/scripts/build-eddy-icons.py) rather than the Blob bucket, because
+// the catalog has a campfire drawn in the brand's own style and the bucket's
+// camping-icon.png is a generic mark that predates it.
 const DETAIL_ICONS = {
   road: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/road-icon.png',
   parking: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/parking-icon.png',
   facilities: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/restroom-icon.png',
-  camping: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/camping-icon.png',
+  camping: eddyIconUrl('campfire'),
 };
 
 // Eddy the Otter condition images from Vercel blob storage
