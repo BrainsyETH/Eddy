@@ -46,6 +46,15 @@ interface ReadingScaleProps {
 export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
   const { colors } = useTheme();
 
+  // THE LADDER'S OWN UNIT WINS. Every label below is formatted with `unit`, but
+  // the numbers being formatted are the THRESHOLDS — so if the caller's unit and
+  // the ladder's disagree, this track prints cfs bounds with a stage's two
+  // decimal places and no thousands separator ("3000.00+ flood" beside a
+  // "2.85 now"). The field has been declared on the thresholds prop since this
+  // component shipped and was never read; reading it makes the mismatch
+  // impossible rather than merely unlikely.
+  const scaleUnit = thresholds.thresholdUnit ?? unit;
+
   const zones = buildZones(thresholds);
   // A partial ladder is common — plenty of gauges carry only some levels — but
   // below two bands there is no scale to speak of, and a one-band track would
@@ -61,7 +70,7 @@ export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
       style={styles.wrapper}
       accessibilityLabel={
         value != null
-          ? `${formatZoneValue(value, unit)} ${unit}, between ${formatZoneValue(first.min, unit)} and ${formatZoneValue(last.min, unit)} ${unit}`
+          ? `${formatZoneValue(value, scaleUnit)} ${scaleUnit}, between ${formatZoneValue(first.min, scaleUnit)} and ${formatZoneValue(last.min, scaleUnit)} ${scaleUnit}`
           : 'Condition scale, no current reading'
       }
     >
@@ -84,17 +93,17 @@ export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
 
       <View style={styles.labels}>
         <Text style={[styles.label, { color: colors.textSubtle }]}>
-          {formatZoneValue(first.max, unit)} low
+          {formatZoneValue(first.max, scaleUnit)} low
         </Text>
         {value != null ? (
           <Text style={[styles.labelNow, { color: colors.text }]}>
-            {formatZoneValue(value, unit)} now
+            {formatZoneValue(value, scaleUnit)} now
           </Text>
         ) : null}
         {/* The flood band is open-ended, so its floor is the meaningful number —
             printing the synthetic max would invent a ceiling. */}
         <Text style={[styles.label, { color: colors.textSubtle }]}>
-          {formatZoneValue(last.min, unit)}
+          {formatZoneValue(last.min, scaleUnit)}
           {last.openEnded ? '+' : ''} flood
         </Text>
       </View>

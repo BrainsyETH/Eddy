@@ -479,6 +479,20 @@ async function _GET(
       flowDescription: thresholdBasedDescription,
       percentile,
       medianDischargeCfs,
+      // WHICH UNIT THIS RIVER IS GRADED IN. Declared on RiverConditionDetail
+      // since the ladder shipped, and never actually set until now — all four
+      // branches above build a condition without it, and this spread is the one
+      // place they converge.
+      //
+      // The omission was not cosmetic. primaryReading() in eddy-ios branches on
+      // this field and falls back to "prefer stage" when it is missing, so the
+      // river screen printed FEET for every river — while the band track beside
+      // it was built from the same gauge's cfs ladder. On the 18 of 24 rivers
+      // rated in cfs that put a "2.85 ft" headline over a marker pinned in the
+      // Too Low band under a chip reading Flowing, with a "3000.00+ flood"
+      // label beside it. /api/rivers has always sent the field, so the list and
+      // the detail screen disagreed about the same gauge at the same instant.
+      thresholdUnit: sourceGauge?.thresholds?.thresholdUnit,
       // ?? undefined, not ?? null: the field is optional, and JSON.stringify
       // drops an undefined key entirely rather than sending "thresholds": null.
       thresholds: sourceGauge?.thresholds ?? undefined,

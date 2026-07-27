@@ -137,13 +137,20 @@ export function EddyTake({ outlook }: { outlook: RiverOutlookResponse }) {
 
                 {/* Forecast stage. Only shown when the NWS actually publishes a
                     hydrograph for this gauge — otherwise the column would imply
-                    a river prediction we do not have. */}
+                    a river prediction we do not have.
+
+                    "stage" is not decoration. The NWS publishes stage ONLY, so
+                    this is always feet even on a cfs-rated river — and now that
+                    the reading card above it correctly prints cfs, these two
+                    numbers sit on one screen in different units. The type
+                    comment on RiverOutlookDay is blunt about it: "Never render
+                    valueFt beside a cfs reading without saying which is which." */}
                 {outlook.hasOfficialForecast ? (
                   <View style={[styles.forecast, { borderTopColor: colors.border }]}>
                     {day.river.valueFt != null ? (
                       <>
                         <Text style={[styles.forecastValue, { color: colors.text }]}>
-                          {day.river.valueFt.toFixed(2)} ft
+                          {day.river.valueFt.toFixed(2)} ft stage
                         </Text>
                         {day.river.conditionCode ? (
                           <Text

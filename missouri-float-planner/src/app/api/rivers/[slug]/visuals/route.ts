@@ -143,6 +143,13 @@ export async function GET(
         description: row.description,
         gaugeHeightFt: row.gauge_height_ft ? parseFloat(row.gauge_height_ft) : null,
         dischargeCfs: row.discharge_cfs ? parseFloat(row.discharge_cfs) : null,
+        // Which of the two readings above this photo was BANDED on. Declared on
+        // RiverVisual since it shipped and never set, which left every consumer
+        // guessing — the same omission that made the river screen print feet for
+        // cfs-rated rivers. Taken from the photo's OWN gauge rather than the
+        // river's selected unit, because that is the ladder `conditionCode`
+        // directly above was computed against.
+        thresholdUnit: photoThresholds?.thresholdUnit,
         accessPointId: row.access_point_id,
         accessPointName: accessPointData?.name || null,
         accessPointHref,
