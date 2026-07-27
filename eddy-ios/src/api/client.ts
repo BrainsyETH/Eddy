@@ -12,7 +12,6 @@ import type {
   AlertFeedEntry,
   AlertsResponse,
   AppConfigResponse,
-  CampgroundsResponse,
   ConditionResponse,
   FloatPlan,
   GaugesResponse,
@@ -33,8 +32,6 @@ import type {
   SearchResult,
   ServicesResponse,
   StarredRiversResponse,
-  VesselType,
-  VesselTypesResponse,
   AlertSubscriptionEntry,
   AlertSubscriptionsResponse,
   MeProfileResponse,
@@ -193,21 +190,19 @@ export async function fetchRiverServices(
   return data.services ?? [];
 }
 
-/** Canoe, kayak, raft, tube — each with the speeds the float-time model uses. */
-export async function fetchVesselTypes(signal?: AbortSignal): Promise<VesselType[]> {
-  const data = await get<VesselTypesResponse>('/api/vessel-types', signal);
-  return data.vesselTypes ?? [];
-}
-
 /**
  * The float plan: distance, time, shuttle, condition, hazards and the route.
  *
  * The heaviest call in the app by wall-clock — it reaches USGS for a live
  * reading and Mapbox for the shuttle drive — so it runs once on an explicit
  * tap, never speculatively as the user moves between access points.
+ *
+ * NO vesselTypeId. The app stopped asking which boat you are in — the endpoint
+ * defaults to a canoe, and the plan it returns names the vessel it used, which
+ * is all the answer needs to say. See useFloatPlan for why that step is gone.
  */
 export async function fetchFloatPlan(
-  params: { riverId: string; startId: string; endId: string; vesselTypeId?: string },
+  params: { riverId: string; startId: string; endId: string },
   signal?: AbortSignal,
 ): Promise<FloatPlan> {
   const query = new URLSearchParams({
@@ -215,30 +210,8 @@ export async function fetchFloatPlan(
     startId: params.startId,
     endId: params.endId,
   });
-  if (params.vesselTypeId) query.set('vesselTypeId', params.vesselTypeId);
   const data = await get<PlanResponse>(`/api/plan?${query.toString()}`, signal);
   return data.plan;
-}
-
-/**
- * Campgrounds spaced along a planned stretch, for an overnight trip.
- *
- * `nights` rather than days, because that is what a paddler counts and what the
- * itinerary needs — the endpoint's `tripDurationDays` is nights + 1, and it
- * rejects anything under 2 days. Callers must not ask for zero nights; that is
- * a day trip, and a day trip has no camps.
- */
-export async function fetchRouteCampgrounds(
-  params: { riverId: string; startId: string; endId: string; nights: number },
-  signal?: AbortSignal,
-): Promise<CampgroundsResponse> {
-  const query = new URLSearchParams({
-    riverId: params.riverId,
-    startId: params.startId,
-    endId: params.endId,
-    tripDurationDays: String(Math.max(2, params.nights + 1)),
-  });
-  return get<CampgroundsResponse>(`/api/plan/campgrounds?${query.toString()}`, signal);
 }
 
 /**

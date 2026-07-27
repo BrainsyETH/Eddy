@@ -13,9 +13,20 @@
 // ── Everything else is layers ───────────────────────────────────────────────
 // Access points, campgrounds, gauges, hazards and outfitters are independent
 // toggles rather than a single "show detail" switch, and each one's data is
-// fetched only once its chip is on. A river with five layers of pins is
-// unreadable; the point of the filter row is that you choose which map you are
-// looking at.
+// fetched only once it is switched on. Two of them — access points and gauges —
+// are on when the app opens, because "where do I get on" and "is there water in
+// it" are the two questions the map exists to answer. The rest are one tap away
+// in the layers sheet; see src/components/MapLayersSheet.tsx for why that stopped
+// being a row of chips above the map.
+//
+// ── Changing river does not reload the screen ──────────────────────────────
+// Geometry loads per river, and this screen used to blank the map to a spinner
+// while the next one arrived — which on a fast tap reads as the app restarting.
+// The previously loaded river therefore keeps drawing until the new one lands,
+// and the only signal is a small pill over the map. Everything downstream of the
+// map (the planner, the offline row, the line colour) is keyed off the river
+// actually being DRAWN rather than the one selected, so nothing is ever a
+// half-second out of step with what is on screen.
 //
 // ── Mapbox may be absent ────────────────────────────────────────────────────
 // The native module cannot run in Expo Go, so instead of a red screen the tab
@@ -41,8 +52,7 @@ import type {
   RiverService,
   SearchResult,
 } from '@eddy/types';
-import { hasCoordinates } from '@eddy/types';
-import { bufferBounds } from '@eddy/geo';
+import { hasCoordinates, isCampground } from '@eddy/types';
 import {
   ApiError,
   fetchGauges,
@@ -65,7 +75,12 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { RiverMap, type MapPin } from '@/map/RiverMap';
 import { mapUnavailableReason } from '@/map/runtime';
-import { DEFAULT_LAYERS, MAP_LAYERS, type LayerKey } from '@/map/layers';
+import {
+  DEFAULT_LAYERS,
+  MAP_LAYERS,
+  OUTFITTER_SERVICE_TYPES,
+  type LayerKey,
+} from '@/map/layers';
 import { useOfflinePacks } from '@/map/useOfflinePacks';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useEddySearch } from '@/hooks/useEddySearch';
@@ -77,7 +92,7 @@ import { useRouter } from 'expo-router';
 import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
 import { SearchResultsList } from '@/components/SearchResultsList';
-import { FilterChips, type FilterChip } from '@/components/FilterChips';
+import { MapLayersButton, MapLayersSheet, isDefaultLayers } from '@/components/MapLayersSheet';
 import { PlanSheet } from '@/components/PlanSheet';
 import { OfflineMapRow } from '@/components/OfflineMapRow';
 import { PaywallSheet } from '@/components/PaywallSheet';
@@ -89,18 +104,38 @@ interface Focus {
   lat: number;
 }
 
+/**
+ * A per-river layer's data, tagged with the river it was fetched for.
+ *
+ * Necessary because river geometry and layer data arrive independently, and the
+ * layers sheet publishes COUNTS off this. An untagged list would let the sheet
+ * report "3 hazards" for a river whose hazards have not been fetched, which is
+ * the one thing a count must never do. Pins themselves are absolute
+ * coordinates, so a brief mismatch cannot draw anything in the wrong place — it
+ * just draws off screen — and the map therefore uses whatever it has.
+ */
+interface RiverScoped<T> {
+  slug: string;
+  items: T[];
+}
+
 export default function MapScreen() {
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [pickedSlug, setPickedSlug] = useState<string | null>(null);
   const [detail, setDetail] = useState<RiverDetail | null>(null);
   const [accessPoints, setAccessPoints] = useState<MapAccessPoint[]>([]);
-  const [hazards, setHazards] = useState<Hazard[]>([]);
-  const [services, setServices] = useState<RiverService[]>([]);
+  // Null rather than [] until fetched, so the layers sheet can tell "this river
+  // has none" from "we have not asked yet" and only claims a zero it knows.
+  const [hazards, setHazards] = useState<RiverScoped<Hazard> | null>(null);
+  const [services, setServices] = useState<RiverScoped<RiverService> | null>(null);
   const [gauges, setGauges] = useState<MapGauge[] | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [layers, setLayers] = useState<LayerKey[]>(DEFAULT_LAYERS);
+  // Copied, not aliased: DEFAULT_LAYERS is a module constant and nothing should
+  // be one `push` away from redefining what the app opens with.
+  const [layers, setLayers] = useState<LayerKey[]>(() => [...DEFAULT_LAYERS]);
+  const [layersOpen, setLayersOpen] = useState(false);
   const [focus, setFocus] = useState<Focus | null>(null);
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
@@ -163,8 +198,11 @@ export default function MapScreen() {
     if (!selectedSlug) return;
     const controller = new AbortController();
     setLoadingDetail(true);
-    setDetail(null);
-    setAccessPoints([]);
+    // NOTHING is cleared here, deliberately. Blanking `detail` and
+    // `accessPoints` is what made switching rivers look like a page reload: the
+    // map unmounts, Mapbox tears down its view, and a spinner replaces a
+    // perfectly good river for as long as the network takes. The old river keeps
+    // drawing until the new one is ready to replace it in one frame.
     setSelectedPin(null);
 
     Promise.all([
@@ -175,6 +213,8 @@ export default function MapScreen() {
       fetchRiverAccessPoints(selectedSlug, controller.signal).catch(() => []),
     ])
       .then(([river, points]) => {
+        // Swapped together: the geometry and the pins drawn on it must never be
+        // from two different rivers, not even for one frame.
         setDetail(river);
         setAccessPoints(points);
         setError(null);
@@ -183,13 +223,29 @@ export default function MapScreen() {
         if (err instanceof ApiError && err.message === 'Request cancelled') return;
         setError(err instanceof ApiError ? err.message : 'Could not load this river');
       })
-      .finally(() => setLoadingDetail(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingDetail(false);
+      });
 
     return () => controller.abort();
   }, [selectedSlug]);
 
+  /**
+   * The river actually on screen, which is not always the one just tapped.
+   *
+   * Everything that describes what is being drawn — the line colour, the
+   * planner, the offline row — reads from here rather than from `selected`, so a
+   * river mid-load cannot lend its condition colour or its download state to the
+   * river still visible underneath.
+   */
+  const drawnSlug = detail?.slug ?? null;
+  const drawn = useMemo(
+    () => ordered.find((r) => r.slug === drawnSlug) ?? null,
+    [ordered, drawnSlug],
+  );
+
   // ── Layer data, fetched on demand ───────────────────────────────
-  // Nothing below is requested until its chip is on. Hazards and services are
+  // Nothing below is requested until its layer is on. Hazards and services are
   // per-river and cheap; gauges are one flat list for the whole state, which is
   // why the request is fired once and reused by search.
   const wantsGauges = layers.includes('gauges');
@@ -200,7 +256,7 @@ export default function MapScreen() {
     gaugesRequested.current = true;
     // Deliberately un-aborted and un-erroring: this is a background enrichment
     // for search and a map layer, and a failure means "no gauges", not a
-    // message. Retrying is one more tap on the chip.
+    // message. Retrying is one more tap in the layers sheet.
     fetchGauges()
       .then(setGauges)
       .catch(() => setGauges([]));
@@ -213,20 +269,28 @@ export default function MapScreen() {
   const wantsHazards = layers.includes('hazards');
   useEffect(() => {
     if (!wantsHazards || !selectedSlug) return;
+    const slug = selectedSlug;
     const controller = new AbortController();
-    fetchHazards(selectedSlug, controller.signal)
-      .then(setHazards)
-      .catch(() => setHazards([]));
+    fetchHazards(slug, controller.signal)
+      .then((items) => setHazards({ slug, items }))
+      .catch(() => {
+        // A cancelled request must not be recorded as "this river has no
+        // hazards" — that answer would then survive until the river changed.
+        if (!controller.signal.aborted) setHazards({ slug, items: [] });
+      });
     return () => controller.abort();
   }, [wantsHazards, selectedSlug]);
 
   const wantsServices = layers.includes('campgrounds') || layers.includes('outfitters');
   useEffect(() => {
     if (!wantsServices || !selectedSlug) return;
+    const slug = selectedSlug;
     const controller = new AbortController();
-    fetchRiverServices(selectedSlug, controller.signal)
-      .then(setServices)
-      .catch(() => setServices([]));
+    fetchRiverServices(slug, controller.signal)
+      .then((items) => setServices({ slug, items }))
+      .catch(() => {
+        if (!controller.signal.aborted) setServices({ slug, items: [] });
+      });
     return () => controller.abort();
   }, [wantsServices, selectedSlug]);
 
@@ -252,7 +316,9 @@ export default function MapScreen() {
     }
 
     // Turn on the layer the result lives in, so what was searched for is
-    // visible when the map arrives.
+    // visible when the map arrives. Both are on by default; this covers the
+    // person who switched one off earlier in the session and then searched for
+    // exactly that kind of thing.
     if (result.kind === 'gauge') {
       setLayers((prev) => (prev.includes('gauges') ? prev : [...prev, 'gauges']));
     } else if (result.kind === 'access_point') {
@@ -261,7 +327,10 @@ export default function MapScreen() {
   }, [clearSearch]);
 
   // ── Float plan ──────────────────────────────────────────────────
-  const planner = useFloatPlan(selected?.id ?? null, accessPoints);
+  // Keyed off the DRAWN river, so the plan's river id and its access points can
+  // never come from two different rivers while one is still loading — the two are
+  // swapped in together, and an access point belongs to exactly one river.
+  const planner = useFloatPlan(detail?.id ?? null, accessPoints);
 
   const accessPointForPin = useCallback(
     (pin: MapPin | null): MapAccessPoint | null => {
@@ -271,47 +340,54 @@ export default function MapScreen() {
     [accessPoints],
   );
 
-  const toggleLayer = useCallback((key: string) => {
-    setLayers((prev) =>
-      prev.includes(key as LayerKey)
-        ? prev.filter((k) => k !== key)
-        : [...prev, key as LayerKey],
-    );
+  const toggleLayer = useCallback((key: LayerKey) => {
+    setLayers((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   }, []);
 
-  const chips: FilterChip[] = useMemo(
-    () =>
-      MAP_LAYERS.map((layer) => ({
-        key: layer.key,
-        label: layer.label,
-        icon: layer.icon,
-        activeColor: layer.color(colors),
-      })),
-    [colors],
-  );
+  const resetLayers = useCallback(() => setLayers([...DEFAULT_LAYERS]), []);
 
-  // /api/gauges is statewide — one flat list is what makes it affordable — but
-  // the map is one river, so the layer is narrowed to what is near it. Bounds
-  // rather than the river association on purpose: a gauge on a tributary a few
-  // miles upstream is exactly the reading a paddler wants, and it is not
-  // recorded against this river anywhere in the database.
-  const nearbyGauges = useMemo(() => {
-    if (!gauges || !detail) return [];
-    const [minLng, minLat, maxLng, maxLat] = bufferBounds(detail.bounds, 15);
-    return gauges.filter(
-      (g) =>
-        hasCoordinates(g) &&
-        g.coordinates.lng >= minLng &&
-        g.coordinates.lng <= maxLng &&
-        g.coordinates.lat >= minLat &&
-        g.coordinates.lat <= maxLat,
-    );
-  }, [gauges, detail]);
+  // /api/gauges is statewide, and the map now draws all of it.
+  //
+  // This used to be narrowed to a 15-mile buffer around the selected river's
+  // bounds, on the reasoning that the map is about one river. But the camera is
+  // already fitted to that river, so the narrowing only ever removed pins that
+  // were off screen anyway — and it removed them from the one view where they
+  // matter most, the zoomed-out one. "Which rivers have water in them right now"
+  // is a question the gauge layer can answer at a glance, and it cannot answer it
+  // through a filter that hides every gauge but this river's.
+  const mappableGauges = useMemo(() => (gauges ?? []).filter(hasCoordinates), [gauges]);
 
-  const conditionCode = selected?.currentCondition?.code ?? 'unknown';
+  /**
+   * How many of each thing we hold, for the layers sheet.
+   *
+   * `undefined` is load-bearing: it means the layer has never been fetched, and
+   * the sheet renders no number at all rather than a zero it cannot stand behind.
+   * The campground and outfitter tallies mirror RiverMap's own filtering,
+   * including dropping services with no geocode — a count that includes pins the
+   * map cannot draw is a count that makes the map look broken.
+   */
+  const layerCounts = useMemo<Partial<Record<LayerKey, number>>>(() => {
+    const riverHazards = hazards?.slug === drawnSlug ? hazards.items : null;
+    const riverServices = services?.slug === drawnSlug ? services.items : null;
+    const placed =
+      riverServices?.filter((s) => s.latitude != null && s.longitude != null) ?? null;
+    return {
+      access: accessPoints.length,
+      gauges: gauges ? mappableGauges.length : undefined,
+      hazards: riverHazards?.filter(hasCoordinates).length,
+      campgrounds: placed
+        ? accessPoints.filter(isCampground).length +
+          placed.filter((s) => s.type === 'campground').length
+        : undefined,
+      outfitters: placed?.filter((s) => OUTFITTER_SERVICE_TYPES.includes(s.type)).length,
+    };
+  }, [accessPoints, gauges, mappableGauges, hazards, services, drawnSlug]);
+
+  const conditionCode = drawn?.currentCondition?.code ?? 'unknown';
+  const headerCode = selected?.currentCondition?.code ?? 'unknown';
   const activeFocus = focus && focus.slug === selectedSlug ? focus : null;
   const downloadProgress =
-    packs.active && packs.active.riverSlug === selectedSlug ? packs.active.percent : null;
+    packs.active && packs.active.riverSlug === drawnSlug ? packs.active.percent : null;
 
   const onDownload = useCallback(async () => {
     if (!detail) return;
@@ -320,9 +396,9 @@ export default function MapScreen() {
   }, [detail, packs]);
 
   const onRemove = useCallback(async () => {
-    if (!selectedSlug) return;
-    await packs.remove(selectedSlug);
-  }, [packs, selectedSlug]);
+    if (!drawnSlug) return;
+    await packs.remove(drawnSlug);
+  }, [packs, drawnSlug]);
 
   // Asks for permission the first time, then recentres. A denial is not
   // re-prompted — iOS would suppress the dialog anyway — so the button simply
@@ -353,9 +429,9 @@ export default function MapScreen() {
             accessibilityRole="button"
             accessibilityLabel={`${selected.name} details`}
           >
-            <View style={[styles.dot, { backgroundColor: conditionColor(conditionCode) }]} />
+            <View style={[styles.dot, { backgroundColor: conditionColor(headerCode) }]} />
             <Text style={[styles.headerMetaText, { color: colors.textMuted }]}>
-              {selected.name} · {conditionLabel(conditionCode)}
+              {selected.name} · {conditionLabel(headerCode)}
             </Text>
             <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
           </Pressable>
@@ -373,17 +449,12 @@ export default function MapScreen() {
         />
       </View>
 
-      {/* The filter row is hidden while searching. Two rows of controls stacked
-          over a shrinking map is the layout this screen was rebuilt to avoid,
-          and nobody toggles a layer mid-query. */}
-      {search.active ? null : (
-        <FilterChips chips={chips} active={layers} onToggle={toggleLayer} paddingHorizontal={16} />
-      )}
-
       <View style={styles.mapArea}>
         {unavailable ? (
           <MapUnavailable reason={unavailable} />
-        ) : loadingDetail || !detail ? (
+        ) : !detail ? (
+          // Only the FIRST river gets a spinner. Every switch after that draws
+          // the river already on screen until the next one arrives.
           <View style={styles.centered}>
             <ActivityIndicator color={colors.accent} />
           </View>
@@ -392,9 +463,9 @@ export default function MapScreen() {
             river={detail}
             conditionCode={conditionCode}
             accessPoints={accessPoints}
-            gauges={nearbyGauges}
-            hazards={hazards}
-            services={services}
+            gauges={mappableGauges}
+            hazards={hazards?.items ?? []}
+            services={services?.items ?? []}
             layers={layers}
             focus={activeFocus}
             showUserLocation={location.status === 'ready'}
@@ -402,14 +473,22 @@ export default function MapScreen() {
             planEndpoints={
               planner.plan ? { putIn: planner.plan.putIn, takeOut: planner.plan.takeOut } : null
             }
-            // Only as many camps as nights asked for. The endpoint returns
-            // every well-spaced camp on the stretch, which for a one-night trip
-            // is a menu rather than an itinerary — and the map should show the
-            // plan, not the options.
-            planCamps={planner.camps.slice(0, planner.nights)}
             onSelectPin={setSelectedPin}
           />
         )}
+
+        {/* The whole signal that a different river is on its way. A pill over a
+            live map, rather than a spinner where the map used to be. */}
+        {!unavailable && detail && loadingDetail && selected && drawnSlug !== selectedSlug ? (
+          <View style={styles.loadingPillWrap} pointerEvents="none">
+            <View style={[styles.loadingPill, floating(), { backgroundColor: colors.card }]}>
+              <ActivityIndicator size="small" color={colors.accent} />
+              <Text style={[styles.loadingPillText, { color: colors.text }]} numberOfLines={1}>
+                {selected.name}
+              </Text>
+            </View>
+          </View>
+        ) : null}
 
         {/* Results overlay the map rather than pushing it down, so the map keeps
             its size and the list can be dismissed by clearing the field. */}
@@ -422,6 +501,15 @@ export default function MapScreen() {
               emptyMessage="Nothing matched. Try a river, a gauge name, or a put-in."
             />
           </View>
+        ) : null}
+
+        {/* Layers. Top-right, opposite the search results, and the reason the
+            map got a band of its height back — see MapLayersSheet. */}
+        {!unavailable && detail && !search.active ? (
+          <MapLayersButton
+            onPress={() => setLayersOpen(true)}
+            changed={!isDefaultLayers(layers)}
+          />
         ) : null}
 
         {selectedPin && !search.active ? (
@@ -533,7 +621,7 @@ export default function MapScreen() {
       {features.offlineDownloads && !unavailable ? (
         <OfflineMapRow
           river={detail}
-          downloaded={selectedSlug ? packs.isDownloaded(selectedSlug) : false}
+          downloaded={drawnSlug ? packs.isDownloaded(drawnSlug) : false}
           progressPercent={downloadProgress}
           budget={packs.budget}
           entitled={entitled}
@@ -543,13 +631,22 @@ export default function MapScreen() {
         />
       ) : null}
 
+      <MapLayersSheet
+        visible={layersOpen}
+        onClose={() => setLayersOpen(false)}
+        active={layers}
+        onToggle={toggleLayer}
+        onReset={resetLayers}
+        counts={layerCounts}
+      />
+
       {/* The plan flow is deliberately a sibling of the map rather than a child
           of the button that opens it: the plan outlives the sheet, and the map
           keeps drawing the route after this closes. */}
       <PlanSheet
         visible={planOpen}
         onClose={() => setPlanOpen(false)}
-        riverName={selected?.name ?? 'this river'}
+        riverName={detail?.name ?? 'this river'}
         state={planner}
         // Passed, never requested from inside the sheet. The locate button on
         // the map is the one place that spends the permission prompt.
@@ -559,7 +656,7 @@ export default function MapScreen() {
       <PaywallSheet
         visible={paywallOpen}
         onClose={() => setPaywallOpen(false)}
-        riverName={selected?.name}
+        riverName={detail?.name}
         onPurchased={() => {
           // They paid to get this river onto the phone. Finish the thing they
           // asked for rather than making them find the row again.
@@ -754,9 +851,22 @@ const styles = StyleSheet.create({
   headerMeta: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 },
   dot: { width: 9, height: 9, borderRadius: 999 },
   headerMetaText: { ...t.sm, fontFamily: fonts.body },
-  searchRow: { paddingHorizontal: 16, paddingTop: 12 },
+  searchRow: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
   mapArea: { flex: 1, overflow: 'hidden' },
   resultsOverlay: { position: 'absolute', top: 10, left: 16, right: 16 },
+  // Top-centre: clear of the layers button on the right and of nothing on the
+  // left, and gone again the moment the river lands.
+  loadingPillWrap: { position: 'absolute', top: 16, left: 0, right: 0, alignItems: 'center' },
+  loadingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    borderRadius: 999,
+    maxWidth: '70%',
+  },
+  loadingPillText: { ...t.xs, fontFamily: fonts.semibold },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
   unavailableTitle: { ...t.lg, fontFamily: fonts.semibold, marginTop: 10 },
   unavailableBody: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },

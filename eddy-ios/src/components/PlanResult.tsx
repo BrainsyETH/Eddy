@@ -3,17 +3,26 @@
 //
 // Split out of PlanSheet because two screens show a plan: the sheet you build
 // one in, and the screen you open a saved one on. Those must not be two
-// renderings of the same object — a shared float that reads differently from
-// the plan that produced it is a plan nobody trusts.
+// renderings of the same object — a shared float that reads differently from the
+// plan that produced it is a plan nobody trusts.
 //
 // ── What the answer says, in order ──────────────────────────────────────────
 //   1. warnings, if any            — a worse gauge in the span, a flood, a
 //                                    stale reading. Before the numbers, always.
-//   2. how long                    — the question people came with
-//   3. how far, and the shuttle    — the two facts that decide the logistics
-//   4. the water it was built from — a plan is only as good as its reading
-//   5. overnight legs (slot)       — nothing on a day trip
-//   6. hazards along the route     — free, and never summarised away
+//   2. how long, how far, shuttle  — the questions people came with
+//   3. the water it was built from — a plan is only as good as its reading
+//   4. getting there               — the drives, handed to Apple Maps
+//   5. hazards along the route     — free, and never summarised away
+//   6. bail-outs along the way     — where a car can meet you
+//   7. shuttles near the put-in    — who can move your car
+//
+// ── Why 4-7 exist ───────────────────────────────────────────────────────────
+// This screen used to end at the hazards, and then offer to pick a boat and
+// count nights on the river. Both of those were the app asking the user for
+// input; none of it was the app answering the question that follows "yes, let's
+// float this" — which is entirely logistics. The website's plan page has known
+// that for a while (directions, shuttle route, outfitters, points along the
+// route), so those are the shapes borrowed here.
 //
 // ── Float time is a RANGE, and sometimes nothing ────────────────────────────
 // The server returns `floatTime: null` in dangerous water rather than an
@@ -24,9 +33,9 @@
 // headwind and a lunch stop does not have.
 
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { FloatPlan } from '@eddy/types';
+import type { FloatPlan, MapAccessPoint } from '@eddy/types';
 import { hazardConditionCode, hazardTypeLabel, portageNote, sortHazards } from '@eddy/hazards';
 import {
   conditionBg,
@@ -39,17 +48,18 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
+import { driveBetweenUrl, driveToUrl, usgsGaugeUrl } from '@/lib/directions';
 import { Otter, otterForCondition } from '@/components/Otter';
+import { PlanAlongRoute } from '@/components/PlanAlongRoute';
+import { PlanNearby } from '@/components/PlanNearby';
 
 interface Props {
   plan: FloatPlan;
-  /** Overnight planning. Sits between the water and the hazards. */
-  overnight?: ReactNode;
   /** Share, start over — whatever the host screen offers. */
   actions?: ReactNode;
 }
 
-export function PlanResult({ plan, overnight, actions }: Props) {
+export function PlanResult({ plan, actions }: Props) {
   const { colors, elevation, isDark } = useTheme();
 
   return (
@@ -90,7 +100,11 @@ export function PlanResult({ plan, overnight, actions }: Props) {
               {plan.floatTime.basis === 'moving'
                 ? ' · paddling only, no stops'
                 : ' · includes typical stops'}
-              {plan.vessel?.name ? ` · ${plan.vessel.name}` : ''}
+              {/* The boat is no longer something anyone picks — the server's
+                  default carries the estimate — but which boat it assumed is
+                  still the difference between a plausible time and a wrong one,
+                  so it is stated rather than hidden. */}
+              {plan.vessel?.name ? ` · assumes a ${plan.vessel.name.toLowerCase()}` : ''}
             </Text>
           </>
         ) : (
@@ -133,9 +147,11 @@ export function PlanResult({ plan, overnight, actions }: Props) {
             <PlanReading plan={plan} />
           </View>
         </View>
+
+        <GaugeSourceLink plan={plan} />
       </View>
 
-      {overnight}
+      <GettingThere plan={plan} />
 
       {plan.hazards.length > 0 ? (
         <View style={styles.section}>
@@ -165,6 +181,10 @@ export function PlanResult({ plan, overnight, actions }: Props) {
         </View>
       ) : null}
 
+      <PlanAlongRoute plan={plan} />
+
+      <PlanNearby plan={plan} />
+
       {actions}
 
       <Text style={[styles.footnote, { color: colors.textSubtle }]}>
@@ -172,6 +192,95 @@ export function PlanResult({ plan, overnight, actions }: Props) {
         them. Judge the water in front of you.
       </Text>
     </ScrollView>
+  );
+}
+
+/**
+ * The drives, in the order they happen.
+ *
+ * Every one of these is a handoff to Apple Maps rather than something Eddy tries
+ * to draw itself: turn-by-turn on a gravel county road is a whole product, and
+ * the phone already has one.
+ */
+function GettingThere({ plan }: { plan: FloatPlan }) {
+  const { colors, elevation } = useTheme();
+
+  return (
+    <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
+      <Text style={[styles.cardTitle, { color: colors.text }]}>Getting there</Text>
+
+      {/* Put-in and take-out wear the same two colours they wear on the map, so
+          the card and the pins are obviously the same two places. */}
+      <EndpointRow
+        role="Put-in"
+        point={plan.putIn}
+        dotColor={colors.success}
+        onPress={() => void Linking.openURL(driveToUrl(plan.putIn))}
+      />
+      <View style={[styles.endpointRule, { borderLeftColor: colors.border }]} />
+      <EndpointRow
+        role="Take-out"
+        point={plan.takeOut}
+        dotColor={colors.accent}
+        onPress={() => void Linking.openURL(driveToUrl(plan.takeOut))}
+      />
+
+      {/* The shuttle is its own drive, and the one people underestimate. The
+          plan already has a time for it; this is the route behind that number. */}
+      <Pressable
+        onPress={() => void Linking.openURL(driveBetweenUrl(plan.takeOut, plan.putIn))}
+        style={({ pressed }) => [
+          styles.shuttleRow,
+          { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Shuttle route, take-out back to the put-in"
+      >
+        <Ionicons name="car-outline" size={16} color={colors.accent} />
+        <View style={styles.shuttleText}>
+          <Text style={[styles.shuttleTitle, { color: colors.text }]}>Shuttle route</Text>
+          <Text style={[styles.shuttleMeta, { color: colors.textMuted }]} numberOfLines={1}>
+            Take-out back to the put-in
+            {plan.driveBack.formatted ? ` · ${plan.driveBack.formatted}` : ''}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
+      </Pressable>
+    </View>
+  );
+}
+
+function EndpointRow({
+  role,
+  point,
+  dotColor,
+  onPress,
+}: {
+  role: string;
+  point: MapAccessPoint;
+  dotColor: string;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.endpointRow, { opacity: pressed ? 0.6 : 1 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`Directions to ${point.name}, the ${role.toLowerCase()}`}
+    >
+      <View style={[styles.endpointDot, { backgroundColor: dotColor }]} />
+      <View style={styles.endpointText}>
+        <Text style={[styles.endpointRole, { color: colors.textSubtle }]}>
+          {role} · Mile {point.riverMile.toFixed(1)}
+          {point.isPublic ? '' : ' · Private'}
+        </Text>
+        <Text style={[styles.endpointName, { color: colors.text }]} numberOfLines={1}>
+          {point.name}
+        </Text>
+      </View>
+      <Ionicons name="navigate-outline" size={17} color={colors.accent} />
+    </Pressable>
   );
 }
 
@@ -195,6 +304,37 @@ function PlanReading({ plan }: { plan: FloatPlan }) {
   );
 }
 
+/**
+ * Where the number came from.
+ *
+ * The website puts a USGS link on its condition strip and it is worth carrying
+ * over: this is a safety-adjacent number, and "check it yourself" has to be one
+ * tap away rather than an act of faith. Absent when the plan came back without a
+ * site id — see usgsGaugeUrl.
+ */
+function GaugeSourceLink({ plan }: { plan: FloatPlan }) {
+  const { colors } = useTheme();
+  const url = usgsGaugeUrl(plan.condition.gaugeUsgsId);
+  if (!url) return null;
+
+  return (
+    <Pressable
+      onPress={() => void Linking.openURL(url)}
+      style={({ pressed }) => [
+        styles.sourceRow,
+        { borderTopColor: colors.border, opacity: pressed ? 0.6 : 1 },
+      ]}
+      accessibilityRole="link"
+      accessibilityLabel="Open this gauge on USGS"
+    >
+      <Text style={[styles.sourceText, { color: colors.textMuted }]}>
+        Reading from USGS {plan.condition.gaugeUsgsId}
+      </Text>
+      <Ionicons name="open-outline" size={14} color={colors.accent} />
+    </Pressable>
+  );
+}
+
 function Stat({ label, value, note }: { label: string; value: string; note?: string | null }) {
   const { colors } = useTheme();
   return (
@@ -212,6 +352,7 @@ const styles = StyleSheet.create({
   warningRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   warningText: { ...t.xs, fontFamily: fonts.medium, flex: 1 },
   card: { padding: 16, borderRadius: 16, marginBottom: 10 },
+  cardTitle: { ...t.base, fontFamily: fonts.heading, marginBottom: 6 },
   segment: { ...t.xs, fontFamily: fonts.semibold },
   headline: { ...t['3xl'], fontFamily: fonts.display, marginTop: 6 },
   headlineNote: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
@@ -228,6 +369,36 @@ const styles = StyleSheet.create({
   conditionLabel: { ...t.sm, fontFamily: fonts.semibold },
   planReading: { ...t.xl, fontFamily: fonts.mono, marginTop: 4 },
   planReadingMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
+  sourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 11,
+    borderTopWidth: 1,
+  },
+  sourceText: { ...t.xs, fontFamily: fonts.body, flex: 1 },
+  endpointRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  endpointDot: { width: 12, height: 12, borderRadius: 999, marginLeft: 1 },
+  endpointText: { flex: 1, minWidth: 0 },
+  endpointRole: { ...t.xs, fontFamily: fonts.semibold },
+  endpointName: { ...t.sm, fontFamily: fonts.semibold, marginTop: 1 },
+  // The dashed leg between the two ends, aligned under the put-in's dot so the
+  // pair reads as one route rather than two unrelated rows.
+  endpointRule: { height: 10, marginLeft: 7, borderLeftWidth: 1, borderStyle: 'dashed' },
+  shuttleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    marginTop: 12,
+    padding: 11,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  shuttleText: { flex: 1, minWidth: 0 },
+  shuttleTitle: { ...t.sm, fontFamily: fonts.semibold },
+  shuttleMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
   section: { marginTop: 8, marginBottom: 10 },
   sectionTitle: { ...t.base, fontFamily: fonts.heading, marginBottom: 8, paddingHorizontal: 2 },
   hazard: {

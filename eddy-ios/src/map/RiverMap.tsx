@@ -20,6 +20,13 @@
 // river line, then the planned segment on top of it, then places, then
 // campgrounds over places, then gauges, then hazards over everything. A hazard
 // must never be hidden under a put-in.
+//
+// ── Label ink is not the theme's text colour ────────────────────────────────
+// Mapbox's outdoors style is a LIGHT basemap in both app appearances — there is
+// no dark outdoors style to switch to — so pin labels are painted in the brand's
+// darkest stone with a white halo regardless of scheme. Using colors.text here
+// (as this once did) put white text inside a white halo on dark mode: a map full
+// of invisible labels.
 
 import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -40,6 +47,7 @@ import {
   severityLabel,
 } from '@eddy/hazards';
 import { conditionColor, conditionLabel } from '@/theme/conditions';
+import { neutral } from '@/theme/palette';
 import { useTheme } from '@/theme/ThemeProvider';
 import { readingAge } from '@/lib/readingCopy';
 import { gaugeConditionCode, gaugeReadingText, gaugeRiverSlug } from '@/lib/gaugeCondition';
@@ -58,6 +66,17 @@ const SERVICE_TYPE_LABELS: Record<string, string> = {
 function serviceTypeLabel(type: string): string {
   return SERVICE_TYPE_LABELS[type] ?? type.replace(/_/g, ' ');
 }
+
+/**
+ * Ink for text drawn ON the map, in either app appearance.
+ *
+ * Warm Stone 900 rather than black: it is the brand's own darkest text colour,
+ * and it sits on the outdoors style's greens and gravels without the harshness
+ * of pure black. Paired with a white halo, which is what keeps it legible over
+ * both forest and water.
+ */
+const LABEL_INK = neutral[900];
+const LABEL_HALO = '#FFFFFF';
 
 /**
  * The one useful thing you can do with an outfitter from a riverbank.
@@ -128,8 +147,6 @@ interface Props {
   /** The planned float, drawn over the river line. */
   planRoute?: RiverGeometry | null;
   planEndpoints?: { putIn: MapAccessPoint; takeOut: MapAccessPoint } | null;
-  /** Overnight stops, in order. Drawn as numbered nights along the route. */
-  planCamps?: MapAccessPoint[];
   onSelectPin?: (pin: MapPin) => void;
 }
 
@@ -167,7 +184,6 @@ export function RiverMap({
   showUserLocation,
   planRoute,
   planEndpoints,
-  planCamps,
   onSelectPin,
 }: Props) {
   const Mapbox = loadMapbox();
@@ -318,22 +334,6 @@ export function RiverMap({
     };
   }, [planEndpoints]);
 
-  const campFeatures = useMemo(() => {
-    if (!planCamps?.length) return null;
-    return {
-      type: 'FeatureCollection' as const,
-      features: planCamps.map((camp, index) => ({
-        type: 'Feature' as const,
-        id: `night:${camp.id}`,
-        properties: { label: `Night ${index + 1} · ${camp.name}`, night: String(index + 1) },
-        geometry: {
-          type: 'Point' as const,
-          coordinates: [camp.coordinates.lng, camp.coordinates.lat],
-        },
-      })),
-    };
-  }, [planCamps]);
-
   // Fit the PLANNED stretch when there is one — a twelve-mile float inside a
   // hundred-mile river is invisible at river zoom — and the whole river
   // otherwise.
@@ -416,8 +416,8 @@ export function RiverMap({
             textSize: 11,
             textOffset: [0, 1.2],
             textAnchor: 'top',
-            textColor: colors.text,
-            textHaloColor: '#FFFFFF',
+            textColor: LABEL_INK,
+            textHaloColor: LABEL_HALO,
             textHaloWidth: 1.5,
           }}
         />
@@ -492,49 +492,6 @@ export function RiverMap({
       {layerOn('gauges') ? pinLayer('gauges', pins.gauges, layerColor('gauges')) : null}
       {layerOn('hazards') ? pinLayer('hazards', pins.hazards, layerColor('hazards')) : null}
 
-      {/* Nights sit UNDER the put-in and take-out markers: those two are the
-          ends of the trip and must stay findable when a camp lands near one. */}
-      {campFeatures ? (
-        <Mapbox.ShapeSource id="plan-camps" shape={campFeatures}>
-          <Mapbox.CircleLayer
-            id="plan-camps-circle"
-            style={{
-              circleRadius: 11,
-              circleColor: colors.success,
-              circleStrokeWidth: 3,
-              circleStrokeColor: '#FFFFFF',
-            }}
-          />
-          {/* The night number goes INSIDE its circle — a numbered dot reads as
-              an itinerary at a glance, which a row of identical green dots
-              never does. The name rides below at the same zoom as every other
-              label. */}
-          <Mapbox.SymbolLayer
-            id="plan-camps-number"
-            style={{
-              textField: ['get', 'night'],
-              textSize: 12,
-              textColor: '#FFFFFF',
-              textAllowOverlap: true,
-              textIgnorePlacement: true,
-            }}
-          />
-          <Mapbox.SymbolLayer
-            id="plan-camps-label"
-            minZoomLevel={10}
-            style={{
-              textField: ['get', 'label'],
-              textSize: 11,
-              textOffset: [0, 1.6],
-              textAnchor: 'top',
-              textColor: colors.text,
-              textHaloColor: '#FFFFFF',
-              textHaloWidth: 1.5,
-            }}
-          />
-        </Mapbox.ShapeSource>
-      ) : null}
-
       {endpointFeatures ? (
         <Mapbox.ShapeSource id="plan-endpoints" shape={endpointFeatures}>
           <Mapbox.CircleLayer
@@ -559,8 +516,8 @@ export function RiverMap({
               textSize: 12,
               textOffset: [0, 1.4],
               textAnchor: 'top',
-              textColor: colors.text,
-              textHaloColor: '#FFFFFF',
+              textColor: LABEL_INK,
+              textHaloColor: LABEL_HALO,
               textHaloWidth: 1.8,
             }}
           />
