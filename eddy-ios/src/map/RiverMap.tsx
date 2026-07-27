@@ -524,15 +524,19 @@ export function RiverMap({
       // question by running MapLibre on self-hosted styles; the app cannot
       // follow without rebuilding offline packs on a different offline API.)
       //
-      // Both sit bottom-left, LIFTED CLEAR of the 44x44 locate button that
-      // occupies left:16/bottom:16. At the default inset the locate button
-      // covers the wordmark outright — attribution you have covered up is
-      // attribution you have not given. 68 clears the button plus its shadow;
-      // the (i) is offset right to clear the wordmark's own width.
+      // Both sit at the map's BOTTOM EDGE, with everything else on the screen
+      // lifted above them instead — see MAP_CHROME_BOTTOM in the map screen.
+      // The previous arrangement lifted the ornaments over the locate button,
+      // which only moved them under the callout: full-width, bottom-anchored
+      // and 115-251pt tall, so selecting any pin covered both outright.
+      //
+      // The +4 on the attribution and the left:104 carry over from that
+      // arrangement — the (i)'s glyph is bottom-aligned inside a 44pt box, and
+      // that pair already reads level with the 21pt wordmark beside it.
       logoEnabled
-      logoPosition={{ bottom: 68, left: 12 }}
+      logoPosition={{ bottom: 10, left: 12 }}
       attributionEnabled
-      attributionPosition={{ bottom: 72, left: 104 }}
+      attributionPosition={{ bottom: 14, left: 104 }}
     >
       {/* defaultSettings is not optional in the bounds case. `bounds` alone is
           applied as an UPDATE, and on first mount there is nothing to update

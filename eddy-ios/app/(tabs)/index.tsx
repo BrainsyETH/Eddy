@@ -105,6 +105,21 @@ import { OfflineMapRow } from '@/components/OfflineMapRow';
 import { PaywallSheet } from '@/components/PaywallSheet';
 
 /**
+ * How far above the map's bottom edge everything floating has to sit.
+ *
+ * The Mapbox wordmark and the (i) attribution button live down there now, and
+ * they are a legal obligation rather than decoration — the terms require them
+ * visible and forbid hiding them. 58 is the top of the (i)'s 44x44 tap frame;
+ * the rest absorbs the floating shadow above it.
+ *
+ * This fixes an exposure rather than creating one. The callout is full-width at
+ * the bottom and 115-251pt tall, so until now it covered the wordmark and the
+ * attribution button outright whenever a pin was selected — and attribution you
+ * have covered up is attribution you have not given.
+ */
+const MAP_CHROME_BOTTOM = 72;
+
+/**
  * A camera target, tagged with the river it belongs to.
  *
  * `slug` is nullable because the map now opens with no river selected, and
@@ -641,11 +656,131 @@ export default function MapScreen() {
         {!unavailable && !search.active && network.collection.features.length > 0 ? (
           <View style={styles.filterButtonWrap}>
             <ConditionFilterButton
-              onPress={() => setFilterOpen((open) => !open)}
+              onPress={() => {
+                // Clearing the pin is not tidiness. The filter bar renders
+                // ABOVE the map and shrinks it by ~100pt, while the bottom
+                // stack can reach 379pt with a worst-case gauge callout — on a
+                // small phone the plan button would then clip against
+                // mapArea's overflow:'hidden'. Selecting a network river
+                // already drops the pin for a similar reason.
+                setSelectedPin(null);
+                setFilterOpen((open) => !open);
+              }}
               filtering={conditionFilter.size > 0}
             />
           </View>
         ) : null}
+
+        {/* ── The bottom stack ──────────────────────────────────────────
+            One bottom-anchored column holding the map controls and the callout,
+            rather than three overlays each anchored to the screen edge on their
+            own. The callout is the LAST child, so it takes the bottom and pushes
+            the control row up by exactly its own height — correct by
+            construction for a 115pt access-point callout and a 251pt
+            gauge-with-a-qualifier-note alike.
+
+            This replaces `bottom: selectedPin ? 110 : 16` on the plan button,
+            which handed 94pt of clearance to a callout whose SHORTEST variant is
+            115pt. It overlapped every pin type, and a gauge — the only pin
+            carrying a large reading row — by 59pt or more. No constant could
+            have been right, because the height depends on what was tapped.
+
+            `gap` rather than a margin: it applies only BETWEEN children, so with
+            no callout the row sits flush at the ornament band and nothing adds
+            phantom space. */}
+        <View style={styles.bottomStack} pointerEvents="box-none">
+          <View style={styles.controlRow} pointerEvents="box-none">
+          {/* Locate. The ONLY thing that ever asks for location permission on
+              this screen — see useLocation for why the prompt is never spent on
+              launch. A granted tap recentres; the map keeps the fix for the rest
+              of the session and hands it to the planner. */}
+          {!unavailable && !search.active ? (
+            <Pressable
+              onPress={onLocate}
+              disabled={location.status === 'locating'}
+              style={({ pressed }) => [
+                styles.locateButton,
+                floating(),
+                { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Show my location"
+            >
+              {location.status === 'locating' ? (
+                <ActivityIndicator size="small" color={colors.accent} />
+              ) : (
+                <Ionicons
+                  name={location.status === 'ready' ? 'locate' : 'locate-outline'}
+                  size={19}
+                  color={location.status === 'denied' ? colors.textSubtle : colors.accent}
+                />
+              )}
+            </Pressable>
+          ) : null}
+
+            {/* Pushes the plan button to the right edge. A spacer rather
+                than justifyContent: 'space-between', because both buttons are
+                conditional and space-between would left-align a lone one. */}
+            <View style={styles.controlSpacer} pointerEvents="none" />
+
+            {/* CLEAR THE PLAN. The plan deliberately outlives its sheet — you
+                build a float and dismiss the sheet to look at the water between
+                its ends — but nothing on the map could undo it. The only way
+                back was to open the sheet and press "Plan a different stretch",
+                which reads as starting another one, not discarding this one. So
+                someone who just wanted a clean map had no reason to open the
+                planner at all. It belongs where the plan is visible. */}
+            {!unavailable && planner.plan && !search.active ? (
+              <Pressable
+                onPress={() => {
+                  planner.reset();
+                  setSelectedPin(null);
+                }}
+                style={({ pressed }) => [
+                  styles.clearPlanButton,
+                  floating(),
+                  { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Clear this float plan"
+              >
+                <Ionicons name="close" size={18} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
+
+          {/* The screen's one primary action, floated over the map so the map
+              keeps every pixel it can. It changes label rather than multiplying:
+              once a plan exists this is how you get back to it. */}
+          {!unavailable && detail && !search.active ? (
+            <Pressable
+              onPress={() => setPlanOpen(true)}
+              style={({ pressed }) => [
+                styles.planButton,
+                // A floating control needs its own separation from the map behind
+                // it; the shared elevation() helper is tuned for cards on a flat
+                // canvas and is border-only on dark.
+                floating(),
+                { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+              ]}
+              accessibilityRole="button"
+            >
+              <Ionicons
+                name={planner.plan ? 'map-outline' : 'navigate-outline'}
+                size={17}
+                color={colors.onAccent}
+              />
+              {/* COMPACT, because this button sits ON the map. The verbose form
+                  ("8.3 miles · ~2 hours 30 minutes – ~4 hours") wrapped to two
+                  lines and took a band of river with it. The numbers stay rather
+                  than becoming a bare "View float" — they are what decides the
+                  tap — but as "8.3 mi · up to ~4h", a third of the width. The
+                  full wording lives in PlanResult, one tap away. */}
+              <Text style={[styles.planButtonText, { color: colors.onAccent }]} numberOfLines={1}>
+                {planner.plan ? planButtonLabel(planner.plan) : 'Plan a float'}
+              </Text>
+            </Pressable>
+          ) : null}
+          </View>
 
         {selectedPin && !search.active ? (
           <View style={styles.calloutWrap} pointerEvents="box-none">
@@ -680,72 +815,7 @@ export default function MapScreen() {
             />
           </View>
         ) : null}
-
-        {/* Locate. The ONLY thing that ever asks for location permission on
-            this screen — see useLocation for why the prompt is never spent on
-            launch. A granted tap recentres; the map keeps the fix for the rest
-            of the session and hands it to the planner. */}
-        {!unavailable && !search.active ? (
-          <Pressable
-            onPress={onLocate}
-            disabled={location.status === 'locating'}
-            style={({ pressed }) => [
-              styles.locateButton,
-              floating(),
-              { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Show my location"
-          >
-            {location.status === 'locating' ? (
-              <ActivityIndicator size="small" color={colors.accent} />
-            ) : (
-              <Ionicons
-                name={location.status === 'ready' ? 'locate' : 'locate-outline'}
-                size={19}
-                color={location.status === 'denied' ? colors.textSubtle : colors.accent}
-              />
-            )}
-          </Pressable>
-        ) : null}
-
-        {/* The screen's one primary action, floated over the map so the map
-            keeps every pixel it can. It changes label rather than multiplying:
-            once a plan exists this is how you get back to it. */}
-        {!unavailable && detail && !search.active ? (
-          <Pressable
-            onPress={() => setPlanOpen(true)}
-            style={({ pressed }) => [
-              styles.planButton,
-              // A floating control needs its own separation from the map behind
-              // it; the shared elevation() helper is tuned for cards on a flat
-              // canvas and is border-only on dark.
-              floating(),
-              {
-                backgroundColor: pressed ? colors.accentPressed : colors.accent,
-                // Steps up over the callout rather than sitting on top of it —
-                // both are bottom-anchored and both need to stay tappable.
-                bottom: selectedPin ? 110 : 16,
-              },
-            ]}
-            accessibilityRole="button"
-          >
-            <Ionicons
-              name={planner.plan ? 'map-outline' : 'navigate-outline'}
-              size={17}
-              color={colors.onAccent}
-            />
-            {/* COMPACT, because this button sits ON the map. The verbose form
-                ("8.3 miles · ~2 hours 30 minutes – ~4 hours") wrapped to two
-                lines and took a band of river with it. The numbers stay rather
-                than becoming a bare "View float" — they are what decides the
-                tap — but as "8.3 mi · up to ~4h", a third of the width. The
-                full wording lives in PlanResult, one tap away. */}
-            <Text style={[styles.planButtonText, { color: colors.onAccent }]} numberOfLines={1}>
-              {planner.plan ? planButtonLabel(planner.plan) : 'Plan a float'}
-            </Text>
-          </Pressable>
-        ) : null}
+        </View>
       </View>
 
       {error ? (
@@ -1009,7 +1079,22 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
   unavailableTitle: { ...t.lg, fontFamily: fonts.semibold, marginTop: 10 },
   unavailableBody: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },
-  calloutWrap: { position: 'absolute', left: 16, right: 16, bottom: 16 },
+  // Bottom-anchored column. MAP_CHROME_BOTTOM clears the Mapbox ornaments,
+  // which are a legal obligation and now sit at the map's bottom edge.
+  bottomStack: { position: 'absolute', left: 0, right: 0, bottom: MAP_CHROME_BOTTOM, gap: 12 },
+  controlRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
+  controlSpacer: { flex: 1 },
+  // 44pt, same as locate: it is a destructive action and must not be a
+  // near-miss for the plan button it sits beside.
+  clearPlanButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  calloutWrap: { paddingHorizontal: 16 },
   callout: { borderRadius: 14, padding: 13 },
   calloutHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   calloutDot: { width: 10, height: 10, borderRadius: 999 },
@@ -1033,9 +1118,10 @@ const styles = StyleSheet.create({
   },
   calloutActionText: { ...t.xs, fontFamily: fonts.semibold },
   planButton: {
-    position: 'absolute',
-    right: 16,
     flexDirection: 'row',
+    // Never wider than most of the row, so a long label cannot crowd the
+    // controls to its left.
+    maxWidth: '62%',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 16,
@@ -1048,9 +1134,6 @@ const styles = StyleSheet.create({
   // Directly under the layers button (44 + 16 gap + its own 16 top inset).
   filterButtonWrap: { position: 'absolute', top: 76, right: 16 },
   locateButton: {
-    position: 'absolute',
-    left: 16,
-    bottom: 16,
     width: 44,
     height: 44,
     borderRadius: 999,
