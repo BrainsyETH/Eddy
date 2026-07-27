@@ -44,7 +44,16 @@ WEB_OUT = ROOT / "missouri-float-planner/public/icons"
 # Split by how each one is DRAWN, not by what it depicts, because the two halves
 # are rendered by different components and at different sizes. See EddySymbol.tsx
 # (inline, ~18pt) and EddyScene.tsx (hero, ~110pt).
-SYMBOLS = ("eddy-weather", "eddy-ai-assistant", "eddy-water-droplet", "eddy-poi")
+SYMBOLS = (
+    "eddy-weather",
+    "eddy-ai-assistant",
+    "eddy-water-droplet",
+    "eddy-poi",
+    "eddy-other-usgs-gauge",
+    "eddy-hazard",
+    "eddy-campground",
+    "eddy-outfitter",
+)
 
 # Four, not the ten the catalog offers, because a scene needs a hero-sized slot
 # to live in and the app has six of them. The rest of the catalog's scenes are

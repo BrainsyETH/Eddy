@@ -26,22 +26,15 @@ export interface LayerDef {
   description: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
   /**
-   * Eddy's own mark for this layer, where the catalog has one.
-   *
-   * Only two layers carry one, and the reason the other four do not is worth
-   * stating so nobody "finishes the set" later:
-   *
-   *   allGauges — the catalog's only gauge mark is the droplet, and `gauges`
-   *     has it. Two identical droplets would undo #1023, whose whole point was
-   *     that these two rows partition one network between them.
-   *   hazards, campgrounds — the catalog draws these as full-body mascot
-   *     scenes. A whole otter beside a campfire is a smudge in a 30pt well.
-   *   outfitters — no mark exists.
+   * Eddy's own mark for this layer. Every layer has one.
    *
    * These are fixed-colour art, so a layer with a symbol keeps its `color` for
    * the well's border and nothing recolours the mark itself. That works here,
-   * and only here, because the well is a LEGEND rather than a pin: the pins on
-   * the map still wear their condition.
+   * and only here, because a row is a LEGEND rather than a pin: the pins on the
+   * map are still SDF and still wear their condition.
+   *
+   * Optional only because `icon` is the fallback a new layer starts life with,
+   * before the catalog has drawn for it.
    */
   symbol?: EddySymbolName;
   color: (colors: Palette) => string;
@@ -62,6 +55,17 @@ export interface LayerDef {
   tiers?: LayerKey[];
   /** How this layer is named inside a tier strip, where the row is the context. */
   tierLabel?: string;
+  /**
+   * How this layer is MARKED inside a tier strip. Sibling of `tierLabel`, and
+   * needed for the same reason it is.
+   *
+   * A row and its first tier are one definition here — `gauges` is both the
+   * "Gauges" row and the "Eddy-rated" chip under it — and the two want
+   * different marks. The row asks "show me gauges", which is the droplet. The
+   * chip asks "the ones Eddy graded, or the rest", which is Eddy's own face
+   * against the plain USGS staff. One field could not say both.
+   */
+  tierSymbol?: EddySymbolName;
   /** True when the layer only ever appears as a tier and never as a row. */
   nested?: boolean;
 }
@@ -117,6 +121,7 @@ export const MAP_LAYERS: LayerDef[] = [
     tierLabel: 'Eddy-rated',
     icon: 'speedometer-outline',
     symbol: 'gauge',
+    tierSymbol: 'eddyRated',
     // Deep River Teal from the brand palette rather than coral: a gauge is a
     // measurement, not a destination, and it should read as instrumentation
     // against the accent-coloured places. Sourced from the palette scale so it
@@ -142,6 +147,9 @@ export const MAP_LAYERS: LayerDef[] = [
     // thing they must understand is that Eddy has not rated any of them.
     description: 'The rest of the USGS network — reading only',
     icon: 'globe-outline',
+    // A bare staff gauge in water, against Eddy's face on the tier above it:
+    // the pair says "graded" and "not graded" without either chip having to.
+    symbol: 'otherGauge',
     // The middle of the flow ramp, so the sheet row is literally the colour of
     // an average pin it draws — the same "a row is only a legend if it matches"
     // rule the rest of this file follows.
@@ -152,6 +160,7 @@ export const MAP_LAYERS: LayerDef[] = [
     label: 'Hazards',
     description: 'Low-water dams, strainers, portages',
     icon: 'warning-outline',
+    symbol: 'hazard',
     color: () => conditionColor('dangerous'),
   },
   {
@@ -159,6 +168,7 @@ export const MAP_LAYERS: LayerDef[] = [
     label: 'Campgrounds',
     description: 'Places to sleep on the river',
     icon: 'bonfire-outline',
+    symbol: 'campground',
     color: (c) => c.success,
   },
   {
@@ -166,6 +176,7 @@ export const MAP_LAYERS: LayerDef[] = [
     label: 'Outfitters',
     description: 'Rentals, shuttles and lodging',
     icon: 'boat-outline',
+    symbol: 'outfitter',
     color: (c) => c.warm,
   },
 ];
