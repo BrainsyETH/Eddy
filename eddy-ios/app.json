@@ -7,14 +7,14 @@
     "scheme": "eddy",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon-polished-light.png",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "eddy.guide.app",
       "usesAppleSignIn": true,
       "icon": {
-        "light": "./assets/icon.png",
-        "dark": "./assets/icon-dark.png",
+        "light": "./assets/icon-polished-light.png",
+        "dark": "./assets/icon-polished-dark.png",
         "tinted": "./assets/icon-tinted.png"
       },
       "infoPlist": {
