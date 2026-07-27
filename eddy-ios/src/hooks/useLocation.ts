@@ -19,7 +19,7 @@
 // data the app already holds, which is why the permission copy in app.json can
 // say so plainly.
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Location from 'expo-location';
 
 export interface Coords {
@@ -127,6 +127,36 @@ export function useLocation(): LocationValue {
     inFlight.current = run;
     return run;
   }, [coords, status]);
+
+  // ── Resolve a position we ALREADY have permission for, without prompting ──
+  //
+  // getForegroundPermissionsAsync is the getter, not the asker: it reports the
+  // current grant and never shows the system dialog. That distinction is the
+  // whole feature. Someone who granted location on a previous run should have
+  // the map open where they are, and someone who has not should not be
+  // interrupted by a dialog for merely opening a tab — which is exactly the
+  // trade the `request`-on-tap design above already makes.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { status: permission } = await Location.getForegroundPermissionsAsync();
+        if (cancelled || permission !== Location.PermissionStatus.GRANTED) return;
+        // Cached only. A cold GPS fix is a multi-second wait, and nothing here
+        // was asked for — this is opportunistic, so it either has an answer to
+        // hand or it stays quiet.
+        const cached = await Location.getLastKnownPositionAsync({ maxAge: 5 * 60 * 1000 });
+        if (cancelled || !cached) return;
+        setCoords({ lat: cached.coords.latitude, lng: cached.coords.longitude });
+        setStatus('ready');
+      } catch {
+        // Nothing to report: we never claimed to be locating.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return { coords, status, request };
 }

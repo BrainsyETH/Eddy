@@ -38,6 +38,7 @@ import type {
   MeDeleteResponse,
 } from '@eddy/types';
 import type { ServerStar } from '@eddy/sync';
+import type { StatewideReading, StatewideRiver } from '@/lib/statewideNetwork';
 
 const BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? 'https://eddy.guide';
@@ -159,6 +160,34 @@ export async function fetchRiverAccessPoints(
     signal,
   );
   return data.accessPoints ?? [];
+}
+
+/**
+ * The statewide river network: geometry plus each gauge's editorial ladder.
+ *
+ * `?slim=1` drops the access points, POIs and campgrounds the Observatory
+ * ships, leaving roughly 260 KB for all 24 rivers. This and the readings below
+ * are the SAME endpoints the website's statewide map runs on, and both are
+ * CDN-cached, so the app is not asking the database for anything new.
+ *
+ * NOT the per-river geometry from fetchRiverDetail: that one is full-resolution
+ * and used to snap a float route, and still loads one river at a time. This is
+ * coarser context for drawing the whole network at once.
+ */
+export async function fetchStatewideNetwork(signal?: AbortSignal): Promise<StatewideRiver[]> {
+  const data = await get<{ rivers?: StatewideRiver[] }>('/api/usgs/mo-dataset?slim=1', signal);
+  return data.rivers ?? [];
+}
+
+/**
+ * Live readings for every gauge in the statewide dataset.
+ *
+ * Numbers, not verdicts — the phone grades them through the same ladder the
+ * server uses, the way it already does for gauge pins.
+ */
+export async function fetchStatewideReadings(signal?: AbortSignal): Promise<StatewideReading[]> {
+  const data = await get<{ gauges?: StatewideReading[] }>('/api/usgs/mo-statewide', signal);
+  return data.gauges ?? [];
 }
 
 /**

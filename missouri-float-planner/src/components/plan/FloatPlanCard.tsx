@@ -1014,11 +1014,11 @@ function JourneyCenter({
             className="relative group/tip inline-flex rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
             tabIndex={0}
             role="button"
-            aria-label="Float time estimate reflects continuous paddling and does not account for stops, swimming, or slowdowns."
+            aria-label="Float time estimate assumes a relaxed pace with typical stops. Wind, a loaded boat and long swims all move it."
           >
             <Info className="w-3 h-3 text-neutral-400 cursor-help" aria-hidden="true" />
             <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-neutral-800 rounded-lg shadow-lg w-48 text-center opacity-0 pointer-events-none group-hover/tip:opacity-100 group-hover/tip:pointer-events-auto group-focus-within/tip:opacity-100 transition-opacity z-50 normal-case tracking-normal">
-              Estimate reflects continuous paddling and does not account for stops, swimming, or slowdowns.
+              Estimate assumes a relaxed pace with typical stops. Wind, a loaded boat and long swims all move it.
             </span>
           </span>
         </p>

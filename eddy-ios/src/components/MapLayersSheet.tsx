@@ -62,7 +62,15 @@ export function MapLayersSheet({ visible, onClose, active, onToggle, onReset, co
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       {/* Tapping the map behind the sheet closes it, which is how every iOS
           popover behaves and what a thumb reaches for first. */}
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close layers" />
+      <Pressable
+        // Scrim colour inline, not in the StyleSheet below: StyleSheet.create
+        // runs once at import, so any colour in it is frozen at whichever
+        // scheme the app launched with. This one happens to be scheme-neutral,
+        // but the invariant is structural — see app-theme.test.ts.
+        style={[styles.backdrop, { backgroundColor: colors.scrim }]}
+        onPress={onClose}
+        accessibilityLabel="Close layers"
+      />
 
       <View
         style={[
@@ -202,9 +210,7 @@ export function MapLayersButton({
 }
 
 const styles = StyleSheet.create({
-  // Light on purpose. A dimmed-to-black map cannot show you what the switch you
-  // just flipped did.
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.22)' },
+  backdrop: { flex: 1 },
   sheet: {
     position: 'absolute',
     left: 0,

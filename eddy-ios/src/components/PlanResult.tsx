@@ -24,13 +24,18 @@
 // that for a while (directions, shuttle route, outfitters, points along the
 // route), so those are the shapes borrowed here.
 //
-// ── Float time is a RANGE, and sometimes nothing ────────────────────────────
+// ── Float time is a CEILING, and sometimes nothing ──────────────────────────
 // The server returns `floatTime: null` in dangerous water rather than an
 // estimate, and that null is a verdict, not a gap. Printing "about 5 hours" for
 // a river in flood would be an invitation, so the absence is rendered as the
-// refusal it is. When a time does exist, the range is the headline wherever the
-// server gave one: a single number implies a precision that a river with a
-// headwind and a lunch stop does not have.
+// refusal it is.
+//
+// When a time does exist the headline is the LONG end of the server's range,
+// worded "Up to ~4 hours". This is still not a point estimate — it is an upper
+// bound, and it keeps the honesty a bare number would lose — but it stops
+// making the reader subtract two quarter-hour-rounded strings to work out
+// whether they get off the water before dark. The short end was never the
+// useful one.
 
 import type { ReactNode } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -47,6 +52,10 @@ import {
 } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import {
+  floatTimeCeilingBasisNote,
+  formatFloatTimeCeiling,
+} from '@eddy/conditions/float-time-format';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import { driveBetweenUrl, driveToUrl, usgsGaugeUrl } from '@/lib/directions';
 import { Otter, otterForCondition } from '@/components/Otter';
@@ -94,12 +103,23 @@ export function PlanResult({ plan, actions }: Props) {
 
         {plan.floatTime ? (
           <>
-            <Text style={[styles.headline, { color: colors.text }]}>{plan.floatTime.formatted}</Text>
+            {/* A CEILING, NOT A RANGE. "~2 hours 30 minutes – ~4 hours" makes
+                the reader do arithmetic before they can answer the only
+                question they actually have — will I be off the water before
+                dark? The long end answers it outright, and it is the end that
+                matters; nobody was ever caught out by finishing early.
+                `timeRange` has always been on the wire and was never read. */}
+            <Text style={[styles.headline, { color: colors.text }]}>
+              {plan.floatTime.timeRange
+                ? formatFloatTimeCeiling(plan.floatTime.timeRange.max)
+                : plan.floatTime.formatted}
+            </Text>
             <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
-              {plan.floatTime.isEstimate ? 'Estimated' : 'Published time'}
-              {plan.floatTime.basis === 'moving'
-                ? ' · paddling only, no stops'
-                : ' · includes typical stops'}
+              {/* NOT "no stops". The long end is moving time x1.6 — a relaxed
+                  pace that stops on gravel bars — so "no stops" would describe
+                  the SHORT end while printing the long one. A published
+                  outfitter time gets no pace claim at all: we did not set it. */}
+              {floatTimeCeilingBasisNote(plan.floatTime.isEstimate)}
               {/* The boat is no longer something anyone picks — the server's
                   default carries the estimate — but which boat it assumed is
                   still the difference between a plausible time and a wrong one,
