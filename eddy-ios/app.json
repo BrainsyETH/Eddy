@@ -19,7 +19,8 @@
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "runtimeVersion": "1.0.0"
     },
     "plugins": [
       "expo-router",
@@ -58,6 +59,18 @@
       "router": {},
       "eas": {
         "projectId": "018d7a3e-7e3c-47a9-bd02-1fe370317a7f"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/018d7a3e-7e3c-47a9-bd02-1fe370317a7f"
+    },
+    "android": {
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "runtimeVersion": {
+        "policy": "appVersion"
       }
     }
   }
