@@ -24,6 +24,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -51,7 +52,15 @@ import {
   fetchRiverServices,
   fetchRivers,
 } from '@/api/client';
-import { conditionColor, conditionLabel, floatableRank } from '@/theme/conditions';
+import {
+  conditionBg,
+  conditionChipBorder,
+  conditionColor,
+  conditionInk,
+  conditionLabel,
+  conditionText,
+  floatableRank,
+} from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { RiverMap, type MapPin } from '@/map/RiverMap';
@@ -63,6 +72,7 @@ import { useEddySearch } from '@/hooks/useEddySearch';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { useAccount } from '@/hooks/useAccount';
 import { useAppConfig } from '@/hooks/useAppConfig';
+import { useLocation } from '@/hooks/useLocation';
 import { useRouter } from 'expo-router';
 import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
@@ -102,6 +112,7 @@ export default function MapScreen() {
   const { colors, floating } = useTheme();
   const { features } = useAppConfig();
   const { entitlement, loaded: accountLoaded, error: accountError } = useAccount();
+  const location = useLocation();
   const router = useRouter();
 
   useEffect(() => {
@@ -313,6 +324,14 @@ export default function MapScreen() {
     await packs.remove(selectedSlug);
   }, [packs, selectedSlug]);
 
+  // Asks for permission the first time, then recentres. A denial is not
+  // re-prompted — iOS would suppress the dialog anyway — so the button simply
+  // goes quiet rather than becoming a trap.
+  const onLocate = useCallback(async () => {
+    const coords = await location.request();
+    if (coords) setFocus({ slug: selectedSlug ?? '', lng: coords.lng, lat: coords.lat });
+  }, [location, selectedSlug]);
+
   const pinAccessPoint = accessPointForPin(selectedPin);
 
   // FAILS OPEN, deliberately. An unreachable /api/me/profile means we do not
@@ -378,10 +397,16 @@ export default function MapScreen() {
             services={services}
             layers={layers}
             focus={activeFocus}
+            showUserLocation={location.status === 'ready'}
             planRoute={planner.plan?.route?.geometry ?? null}
             planEndpoints={
               planner.plan ? { putIn: planner.plan.putIn, takeOut: planner.plan.takeOut } : null
             }
+            // Only as many camps as nights asked for. The endpoint returns
+            // every well-spaced camp on the stretch, which for a one-night trip
+            // is a menu rather than an itinerary — and the map should show the
+            // plan, not the options.
+            planCamps={planner.camps.slice(0, planner.nights)}
             onSelectPin={setSelectedPin}
           />
         )}
@@ -421,12 +446,44 @@ export default function MapScreen() {
                 setSelectedPin(null);
                 setPlanOpen(true);
               }}
+              onOpenRiver={(slug) => {
+                setSelectedPin(null);
+                router.push(`/river/${slug}`);
+              }}
               onClose={() => {
                 setSelectedPin(null);
                 setFocus(null);
               }}
             />
           </View>
+        ) : null}
+
+        {/* Locate. The ONLY thing that ever asks for location permission on
+            this screen — see useLocation for why the prompt is never spent on
+            launch. A granted tap recentres; the map keeps the fix for the rest
+            of the session and hands it to the planner. */}
+        {!unavailable && detail && !search.active ? (
+          <Pressable
+            onPress={onLocate}
+            disabled={location.status === 'locating'}
+            style={({ pressed }) => [
+              styles.locateButton,
+              floating(),
+              { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Show my location"
+          >
+            {location.status === 'locating' ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <Ionicons
+                name={location.status === 'ready' ? 'locate' : 'locate-outline'}
+                size={19}
+                color={location.status === 'denied' ? colors.textSubtle : colors.accent}
+              />
+            )}
+          </Pressable>
         ) : null}
 
         {/* The screen's one primary action, floated over the map so the map
@@ -494,6 +551,9 @@ export default function MapScreen() {
         onClose={() => setPlanOpen(false)}
         riverName={selected?.name ?? 'this river'}
         state={planner}
+        // Passed, never requested from inside the sheet. The locate button on
+        // the map is the one place that spends the permission prompt.
+        userCoords={location.coords}
       />
 
       <PaywallSheet
@@ -523,6 +583,7 @@ function PinCallout({
   canSetTakeOut,
   onSetPutIn,
   onSetTakeOut,
+  onOpenRiver,
   onClose,
 }: {
   pin: MapPin;
@@ -530,17 +591,20 @@ function PinCallout({
   canSetTakeOut: boolean;
   onSetPutIn: () => void;
   onSetTakeOut: () => void;
+  onOpenRiver: (slug: string) => void;
   onClose: () => void;
 }) {
-  const { colors, elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
   const layer = MAP_LAYERS.find((l) => l.key === pin.layer);
 
   return (
     <View style={[styles.callout, { backgroundColor: colors.card }, elevation(2)]}>
       <View style={styles.calloutHead}>
-        <View style={[styles.calloutDot, { backgroundColor: layer?.color(colors) ?? colors.accent }]} />
+        <View
+          style={[styles.calloutDot, { backgroundColor: pin.color ?? layer?.color(colors) ?? colors.accent }]}
+        />
         <View style={styles.calloutText}>
-          <Text style={[styles.calloutName, { color: colors.text }]} numberOfLines={1}>
+          <Text style={[styles.calloutName, { color: colors.text }]} numberOfLines={2}>
             {pin.name}
           </Text>
           {pin.subtitle ? (
@@ -554,28 +618,97 @@ function PinCallout({
         </Pressable>
       </View>
 
-      {accessPoint ? (
+      {/* The reading and its verdict on one line: a gauge's number means nothing
+          without the band it sits in, and the band means less without the
+          number. Same rule the river row is built on. */}
+      {pin.value || pin.codeLabel ? (
+        <View style={styles.calloutReadingRow}>
+          {pin.value ? (
+            <Text style={[styles.calloutReading, { color: conditionText(pin.code ?? 'unknown', isDark) }]}>
+              {pin.value}
+            </Text>
+          ) : null}
+          {pin.codeLabel && pin.code ? (
+            <View
+              style={[
+                styles.calloutChip,
+                { backgroundColor: conditionBg(pin.code), borderColor: conditionChipBorder(pin.code) },
+              ]}
+            >
+              <Text style={[styles.calloutChipText, { color: conditionInk(pin.code) }]}>
+                {pin.codeLabel}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {pin.body ? (
+        // Capped at four lines. A callout that grows to a hazard's full seasonal
+        // notes covers the river it is describing; the river screen has room.
+        <Text style={[styles.calloutBody, { color: colors.textMuted }]} numberOfLines={4}>
+          {pin.body}
+        </Text>
+      ) : null}
+
+      {accessPoint || pin.link || pin.riverSlug ? (
         <View style={styles.calloutActions}>
-          <Pressable
-            onPress={onSetPutIn}
-            style={({ pressed }) => [
-              styles.calloutAction,
-              { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
-            ]}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.calloutActionText, { color: colors.text }]}>Put in here</Text>
-          </Pressable>
-          {canSetTakeOut ? (
+          {accessPoint ? (
+            <>
+              <Pressable
+                onPress={onSetPutIn}
+                style={({ pressed }) => [
+                  styles.calloutAction,
+                  { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+                ]}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.calloutActionText, { color: colors.text }]}>Put in here</Text>
+              </Pressable>
+              {canSetTakeOut ? (
+                <Pressable
+                  onPress={onSetTakeOut}
+                  style={({ pressed }) => [
+                    styles.calloutAction,
+                    { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+                  ]}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.calloutActionText, { color: colors.text }]}>
+                    Take out here
+                  </Text>
+                </Pressable>
+              ) : null}
+            </>
+          ) : null}
+
+          {pin.link ? (
             <Pressable
-              onPress={onSetTakeOut}
+              onPress={() => Linking.openURL(pin.link!.url)}
               style={({ pressed }) => [
                 styles.calloutAction,
                 { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
               ]}
               accessibilityRole="button"
             >
-              <Text style={[styles.calloutActionText, { color: colors.text }]}>Take out here</Text>
+              <Text style={[styles.calloutActionText, { color: colors.text }]} numberOfLines={1}>
+                {pin.link.label}
+              </Text>
+            </Pressable>
+          ) : null}
+
+          {/* A gauge belongs to a river, and the river screen is where its
+              history, its scale and Eddy's read on it live. */}
+          {pin.riverSlug ? (
+            <Pressable
+              onPress={() => onOpenRiver(pin.riverSlug!)}
+              style={({ pressed }) => [
+                styles.calloutAction,
+                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+              ]}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.calloutActionText, { color: colors.text }]}>View river</Text>
             </Pressable>
           ) : null}
         </View>
@@ -634,7 +767,14 @@ const styles = StyleSheet.create({
   calloutText: { flex: 1, minWidth: 0 },
   calloutName: { ...t.sm, fontFamily: fonts.semibold },
   calloutMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
-  calloutActions: { flexDirection: 'row', gap: 8, marginTop: 11 },
+  calloutReadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9 },
+  calloutReading: { ...t.lg, fontFamily: fonts.mono },
+  calloutChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
+  calloutChipText: { ...t.xs, fontFamily: fonts.semibold },
+  calloutBody: { ...t.xs, fontFamily: fonts.body, marginTop: 9 },
+  // Wraps: an outfitter can carry a call button next to a website button, and a
+  // put-in inside a plan carries two of its own.
+  calloutActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 11 },
   calloutAction: {
     flex: 1,
     alignItems: 'center',
@@ -654,5 +794,17 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   planButtonText: { ...t.sm, fontFamily: fonts.heading },
+  // Left of the plan button and the same height, so the two read as one row of
+  // map controls rather than two unrelated floating things.
+  locateButton: {
+    position: 'absolute',
+    left: 16,
+    bottom: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   errorText: { ...t.xs, fontFamily: fonts.body, paddingHorizontal: 20, paddingTop: 8 },
 });

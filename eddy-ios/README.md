@@ -315,6 +315,25 @@ newer than some deployed builds of the website this app talks to, so a 404 marks
 it unavailable for the session and search continues as rivers-and-gauges only —
 `searchEddy()` in `src/api/client.ts` never throws for this reason.
 
+### Gauge pins are graded on the phone
+
+`/api/gauges` sends every station's reading **and the ladder each river grades
+it with**, so all forty are classified in one pass off one request — asking the
+server for a condition per gauge would be forty requests to draw one map.
+
+The comparisons are not re-implemented on the client. `classifyReading` in
+`@eddy/conditions/condition-ladder` is the same function `/api/plan` and
+`/api/conditions` run server-side; it moved out of the web app's
+`src/lib/conditions.ts` (which imports `@/constants` and so can only run inside
+Next) precisely so both sides could share it. This repo has been bitten before
+by one concept implemented twice — four condition ladders, two flood-stage
+overrides — and a map that disagreed with the river screen it was opened from
+would be the same bug again.
+
+Two cases deliberately return `unknown` rather than a colour: a station with no
+rated ladder (a row of nulls would otherwise fall through to `too_low` and paint
+a healthy river brown), and a reading USGS has flagged as suspect.
+
 ### Layers are fetched only when switched on
 
 `src/map/layers.ts` is the single definition of what the map can draw — a filter
@@ -346,6 +365,42 @@ Two rules the flow is built around:
 
 Nothing in the plan flow is gated. It is the reason someone opens Eddy on a
 Thursday night.
+
+**Overnights** come from `/api/plan/campgrounds`, not from filtering the
+campground map layer by river mile. Those answer different questions: the
+endpoint runs a database function that walks the segment at floatable intervals,
+where a filtered map layer would happily suggest two camps four hundred yards
+apart. Per-day mileage is the number that decides an overnight, so the section
+is built around legs rather than camps — and the per-leg time is the trip
+estimate apportioned by distance, which is a real simplification and is labelled
+"about" everywhere it appears.
+
+**Saved floats** are local (`useSavedFloats`) because the server has no notion of
+"mine": `float_plans` is keyed by share code, and most users are anonymous. Only
+a stub is stored — river, both ends, distance, date. Never the numbers.
+`/api/plan/[shortCode]` recalculates the whole plan against today's gauge when
+one is opened, which is the only correct behaviour: a float saved in April and
+opened in July is the same stretch and completely different water. So the list
+works offline and opening one does not, and the screen says so.
+
+### Location is never requested on launch
+
+iOS gives an app one shot at the location prompt. `useLocation` therefore does
+nothing until an explicit tap — the locate button on the map, the compass in
+River Reports' search field — so the ask always arrives with a visible reason
+attached. A denial is not re-prompted; iOS would suppress the dialog anyway, so
+the only effect would be a silent retry behind a spinner.
+
+Coordinates never leave the phone, which is why the permission strings in
+`app.json` can say so plainly.
+
+Two things it powers. The planner's put-in list gains a **nearest-first**
+ordering (headwaters-first stays the default — that is the order a river runs
+in). And River Reports gains a distance sort, which measures to **the river's
+primary gauge**: `/api/rivers` carries no coordinate, and rather than change a
+CDN-cached endpoint the website depends on, the gauge is used as a point known
+to be on the river. Both surfaces say "≈" and "away", never a drive time — an
+Ozark river forty miles off can be ninety minutes of two-lane.
 
 ### Offline downloads are the paid line
 

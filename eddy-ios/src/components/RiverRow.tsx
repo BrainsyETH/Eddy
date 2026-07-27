@@ -56,6 +56,12 @@ interface RiverRowProps {
   onToggleStar: () => void;
   /** Disables only the star, never navigation — the store loads independently. */
   starDisabled?: boolean;
+  /**
+   * Straight-line miles to this river's gauge, when the list is sorted by
+   * distance. Never a drive time, and the screen that sets it says so — an
+   * Ozark river forty miles off can be ninety minutes of two-lane.
+   */
+  distanceMiles?: number | null;
 }
 
 function RiverRowComponent({
@@ -64,6 +70,7 @@ function RiverRowComponent({
   onPress,
   onToggleStar,
   starDisabled = false,
+  distanceMiles = null,
 }: RiverRowProps) {
   const { colors, elevation, isDark } = useTheme();
 
@@ -136,13 +143,23 @@ function RiverRowComponent({
           ) : null}
         </View>
 
-        {/* Reading age, and nothing else. The region and the access-point count
-            used to sit here too, and neither survives the question "would this
-            change which river I drive to?" — every Ozark river is in the
-            Ozarks, and a count of put-ins says nothing about the water. */}
-        {age ? (
+        {/* Reading age, and — only when the list is sorted by distance — how
+            far away it is. The region and the access-point count used to sit
+            here too, and neither survives the question "would this change which
+            river I drive to?" — every Ozark river is in the Ozarks, and a count
+            of put-ins says nothing about the water. Distance does survive it,
+            which is exactly why it earns the space the other two lost.
+
+            The "≈" is not decoration: this is a straight line to the river's
+            gauge, not a drive. */}
+        {age || distanceMiles != null ? (
           <Text style={[styles.meta, { color: colors.textSubtle }]} numberOfLines={1}>
-            {age}
+            {[
+              distanceMiles != null ? `≈${Math.round(distanceMiles)} mi away` : null,
+              age,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </Text>
         ) : null}
       </Pressable>

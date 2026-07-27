@@ -17,19 +17,30 @@
 // ("what's floatable?", "what am I following?"), not as a taxonomy of every
 // condition code. A picker with seven mutually exclusive states is a database
 // query wearing a UI.
+//
+// ── "Near me" measures to the river's GAUGE ─────────────────────────────────
+// /api/rivers carries no coordinate — a river is a line, and the list endpoint
+// has never needed to say where that line is. Rather than change a CDN-cached
+// endpoint the website depends on, distance is measured to the river's primary
+// gauge, which is by definition a point ON the river. It is a proxy, and the UI
+// says so: "≈" and "to its gauge", never a drive time. A river with no gauge
+// sorts last rather than pretending to a distance of zero.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { RiverListItem } from '@eddy/types';
-import { ApiError, fetchRivers } from '@/api/client';
+import { Ionicons } from '@expo/vector-icons';
+import type { MapGauge, RiverListItem } from '@eddy/types';
+import { hasCoordinates } from '@eddy/types';
+import { ApiError, fetchGauges, fetchRivers } from '@/api/client';
 import { floatableRank, isFloatableNow } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -37,6 +48,7 @@ import { RiverRow } from '@/components/RiverRow';
 import { SearchBar } from '@/components/SearchBar';
 import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { milesBetween, useLocation, type Coords } from '@/hooks/useLocation';
 import { useRouter } from 'expo-router';
 
 type FilterKey = 'all' | 'floatable' | 'starred' | 'low' | 'high';
@@ -81,6 +93,9 @@ export default function ReportsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterKey>('all');
+  const [nearest, setNearest] = useState(false);
+  const [gauges, setGauges] = useState<MapGauge[] | null>(null);
+  const location = useLocation();
   const { isStarred, toggleStar, ready: starsReady } = useStarredRivers();
   const { colors } = useTheme();
   const router = useRouter();
@@ -128,9 +143,30 @@ export default function ReportsScreen() {
     isFloatableNow(r.currentCondition?.code ?? 'unknown')
   ).length;
 
+  // Gauge coordinates, keyed by the river each one is primary for. One flat
+  // request, fetched only when someone actually taps Near me.
+  const distanceByRiver = useMemo(() => {
+    if (!nearest || !location.coords || !gauges) return null;
+    const here = location.coords as Coords;
+    const map = new Map<string, number>();
+    for (const gauge of gauges) {
+      if (!hasCoordinates(gauge)) continue;
+      const miles = milesBetween(here, gauge.coordinates);
+      for (const link of gauge.thresholds ?? []) {
+        // Primary wins; a secondary association only fills a gap. A gauge two
+        // rivers share should measure the river it actually rates.
+        const existing = map.get(link.riverId);
+        if (existing == null || (link.isPrimary && miles < existing)) {
+          map.set(link.riverId, miles);
+        }
+      }
+    }
+    return map;
+  }, [nearest, location.coords, gauges]);
+
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return sorted.filter((river) => {
+    const matched = sorted.filter((river) => {
       if (!FILTERS[filter](river, isStarred(river.id))) return false;
       if (!needle) return true;
       // Region and gauge label are matched as well as the name: people search
@@ -141,7 +177,17 @@ export default function ReportsScreen() {
         (river.currentCondition?.label ?? '').toLowerCase().includes(needle)
       );
     });
-  }, [sorted, filter, query, isStarred]);
+
+    // Nearest-first REPLACES the condition ranking rather than tie-breaking it.
+    // Someone who asked "what is closest" has changed the question, and burying
+    // the river twenty minutes away under four floatable ones two hours off
+    // would be answering the old one.
+    if (!distanceByRiver) return matched;
+    return [...matched].sort(
+      (a, b) =>
+        (distanceByRiver.get(a.id) ?? Infinity) - (distanceByRiver.get(b.id) ?? Infinity),
+    );
+  }, [sorted, filter, query, isStarred, distanceByRiver]);
 
   const chips: FilterChip[] = useMemo(
     () =>
@@ -155,6 +201,23 @@ export default function ReportsScreen() {
       })),
     [sorted, isStarred],
   );
+
+  // Two things have to arrive before this list can be sorted: permission, and
+  // the gauge coordinates to measure against. Both are fetched here, on the
+  // tap, and never on mount — see useLocation for why the prompt is never spent
+  // on launch, and /api/gauges is a request nobody who ignores this chip should
+  // pay for.
+  const onToggleNearest = useCallback(async () => {
+    if (nearest) {
+      setNearest(false);
+      return;
+    }
+    const [coords] = await Promise.all([
+      location.request(),
+      gauges ? Promise.resolve(gauges) : fetchGauges().then(setGauges).catch(() => setGauges([])),
+    ]);
+    if (coords) setNearest(true);
+  }, [nearest, location, gauges]);
 
   if (!rivers && !error) {
     return (
@@ -183,8 +246,50 @@ export default function ReportsScreen() {
           value={query}
           onChangeText={setQuery}
           placeholder="Search rivers"
+          trailing={
+            // Inside the field rather than as a sixth filter chip: this changes
+            // the ORDER, and the chips all change which rivers appear. Mixing
+            // the two in one row would make "Near me" look mutually exclusive
+            // with "Floatable now", which it is not — they compose.
+            <Pressable
+              onPress={() => void onToggleNearest()}
+              disabled={location.status === 'locating'}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityState={{ selected: nearest }}
+              accessibilityLabel={nearest ? 'Sorted by distance' : 'Sort by distance'}
+            >
+              {location.status === 'locating' ? (
+                <ActivityIndicator size="small" color={colors.accent} />
+              ) : (
+                <Ionicons
+                  name={nearest ? 'navigate' : 'navigate-outline'}
+                  size={17}
+                  color={
+                    nearest
+                      ? colors.accent
+                      : location.status === 'denied'
+                        ? colors.textSubtle
+                        : colors.textMuted
+                  }
+                />
+              )}
+            </Pressable>
+          }
         />
       </View>
+
+      {/* Stated once, above the list, rather than repeated on every row. The
+          proxy is worth admitting exactly as loudly as it deserves. */}
+      {nearest ? (
+        <Text style={[styles.sortNote, { color: colors.textSubtle }]}>
+          Nearest first, straight-line to each river&apos;s gauge — not drive time.
+        </Text>
+      ) : location.status === 'denied' ? (
+        <Text style={[styles.sortNote, { color: colors.textSubtle }]}>
+          Location is off for Eddy. Turn it on in Settings to sort by what is closest.
+        </Text>
+      ) : null}
 
       <FilterChips
         chips={chips}
@@ -218,6 +323,7 @@ export default function ReportsScreen() {
             river={item}
             starred={isStarred(item.id)}
             starDisabled={!starsReady}
+            distanceMiles={distanceByRiver?.get(item.id) ?? null}
             onPress={() => router.push(`/river/${item.slug}`)}
             onToggleStar={() =>
               toggleStar({ riverId: item.id, name: item.name, slug: item.slug })
@@ -239,6 +345,7 @@ const styles = StyleSheet.create({
   title: { ...t['3xl'], fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   searchRow: { paddingHorizontal: 16, paddingTop: 12 },
+  sortNote: { ...t.xs, fontFamily: fonts.body, paddingHorizontal: 20, paddingTop: 8 },
   listContent: { paddingTop: 4, paddingBottom: 16 },
   empty: { padding: 32, alignItems: 'center' },
   emptyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
