@@ -28,7 +28,7 @@ export interface LayerDef {
 }
 
 /**
- * Access points and gauges are on by default.
+ * Access points and Eddy-rated gauges are on by default.
  *
  * The two questions someone opens the map with are "where can I get on this
  * river" and "is there any water in it", and those are exactly these two layers.
@@ -63,8 +63,14 @@ export const MAP_LAYERS: LayerDef[] = [
   },
   {
     key: 'gauges',
-    label: 'Gauges',
-    description: 'Live USGS readings, coloured by condition',
+    // NAMED FOR WHAT SEPARATES IT from the row below, not for what it holds.
+    // Both rows hold USGS gauges, and calling this one "Gauges" made the other
+    // one read as a superset that happened to be bigger — so "Eddy-rated" was
+    // the obvious thing to look for in the WRONG row's filter, where it existed
+    // as a chip that could only ever match the pins that row excludes. The two
+    // labels now state the partition the code has always drawn.
+    label: 'Eddy-rated gauges',
+    description: 'Live readings, coloured by float condition',
     icon: 'speedometer-outline',
     // Deep River Teal from the brand palette rather than coral: a gauge is a
     // measurement, not a destination, and it should read as instrumentation
@@ -74,11 +80,16 @@ export const MAP_LAYERS: LayerDef[] = [
   },
   {
     key: 'allGauges',
-    label: 'All U.S. gauges',
+    // "Other", not "All". This layer has always DROPPED the curated gauges —
+    // the screen filters them out so a rated station is not drawn twice, once
+    // as a verdict and once as a comparison a pixel apart — but the old label
+    // claimed the opposite, and nothing on screen said the two rows partitioned
+    // the same network between them.
+    label: 'Other USGS gauges',
     // Says what it is AND what it is not. Someone who switches this on gets
     // thousands of dots that look like the gauge pins above them, and the one
     // thing they must understand is that Eddy has not rated any of them.
-    description: 'Every USGS stream gauge — reading only, not Eddy-rated',
+    description: 'The rest of the USGS network — reading only',
     icon: 'globe-outline',
     // The middle of the flow ramp, so the sheet row is literally the colour of
     // an average pin it draws — the same "a row is only a legend if it matches"

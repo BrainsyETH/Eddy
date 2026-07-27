@@ -25,6 +25,22 @@
 // layer holds; it never claims to count the country. The heading reads "Gauges
 // in view" so a count of 3 next to a national dataset is not a lie. Zeroes stay
 // visible and tappable, as everywhere else in this app.
+//
+// The caller passes the layer's DRAWABLE population — curated gauges already
+// removed — and not the raw viewport response. That is load-bearing, not tidy:
+// counting the response meant every number here included pins this layer will
+// never draw, and it is the same mismatch that made the old "Eddy-rated" chip
+// report "Showing 12 gauges" over an empty map.
+//
+// ── Two chips that could not work, removed ──────────────────────────────────
+// "Eddy-rated" and "Following" used to sit at the head of this strip, and both
+// matched exactly the gauges this layer excludes: the screen drops `curated`
+// pins before drawing, so selecting either produced an empty intersection every
+// time — no pins, a 0 in the layers sheet, and a cheerful "Showing 12 gauges"
+// here. "Eddy-rated" is a SCOPE (it is the layer row above this one, now named
+// so), never a trait of the layer that is defined as its complement, and every
+// starrable gauge in the app is starred from that row's callout. Narrowing the
+// rated tier is a job for a filter under the rated tier, not for this one.
 
 import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -40,32 +56,22 @@ import { FilterChips, type FilterChip } from '@/components/FilterChips';
  * The filter keys.
  *
  * Two families in one multi-select set, which is honest here in a way it would
- * not be in the condition strip: "Eddy-rated" and "Reports flow" are properties
- * of a gauge, and the five bands are a scale. Selecting across families reads
- * as AND ("Eddy-rated gauges running much higher"), which is what someone
- * tapping both means.
+ * not be in the condition strip: "Reports flow" and "Reports stage" are
+ * properties of a gauge, and the five bands are a scale. Selecting across
+ * families reads as AND ("gauges reporting flow and running much higher"),
+ * which is what someone tapping both means.
+ *
+ * Every key here is a property of the READING, which is what this tier has and
+ * all it has. Nothing in this union may describe the gauge's relationship to
+ * Eddy — see the note at the top of the file for the two keys that tried.
  */
-export type GaugeFilterKey = FlowBand | 'curated' | 'starred' | 'flow' | 'stage';
+export type GaugeFilterKey = FlowBand | 'flow' | 'stage';
 
-export const GAUGE_FILTER_KEYS: GaugeFilterKey[] = [
-  'curated',
-  'starred',
-  ...FLOW_BAND_ORDER,
-  'flow',
-  'stage',
-];
+export const GAUGE_FILTER_KEYS: GaugeFilterKey[] = [...FLOW_BAND_ORDER, 'flow', 'stage'];
 
 /** Does this gauge satisfy one filter key? */
-export function matchesGaugeFilter(
-  gauge: MapGaugeLite,
-  key: GaugeFilterKey,
-  isStarred: (id: string) => boolean,
-): boolean {
+export function matchesGaugeFilter(gauge: MapGaugeLite, key: GaugeFilterKey): boolean {
   switch (key) {
-    case 'curated':
-      return gauge.curated;
-    case 'starred':
-      return isStarred(gauge.id);
     case 'flow':
       return gauge.dischargeCfs != null;
     case 'stage':
@@ -82,14 +88,13 @@ export function matchesGaugeFilter(
  * Gauges passing the active set.
  *
  * Keys within the same family are OR (any of these bands), and families are
- * AND (a band AND Eddy-rated). One flat set with everything OR'd would make
- * "Eddy-rated + Much higher" show every Eddy gauge plus every high one, which
+ * AND (a band AND reporting flow). One flat set with everything OR'd would make
+ * "Reports flow + Much higher" show every flow gauge plus every high one, which
  * is the opposite of narrowing.
  */
 export function applyGaugeFilters(
   gauges: MapGaugeLite[],
   active: ReadonlySet<GaugeFilterKey>,
-  isStarred: (id: string) => boolean,
 ): MapGaugeLite[] {
   if (active.size === 0) return gauges;
 
@@ -97,22 +102,45 @@ export function applyGaugeFilters(
   const traits = [...active].filter((k) => !(FLOW_BAND_ORDER as string[]).includes(k));
 
   return gauges.filter((g) => {
-    if (bands.length && !bands.some((k) => matchesGaugeFilter(g, k, isStarred))) return false;
-    if (traits.length && !traits.every((k) => matchesGaugeFilter(g, k, isStarred))) return false;
+    if (bands.length && !bands.some((k) => matchesGaugeFilter(g, k))) return false;
+    if (traits.length && !traits.every((k) => matchesGaugeFilter(g, k))) return false;
     return true;
   });
 }
 
 interface Props {
-  /** Everything the viewport holds, before filtering — counts come from this. */
+  /**
+   * What this layer will actually DRAW in the current viewport, before the
+   * chips narrow it. Curated gauges are already gone — see the file header.
+   */
   gauges: MapGaugeLite[];
   active: ReadonlySet<GaugeFilterKey>;
-  isStarred: (id: string) => boolean;
   onToggle: (key: GaugeFilterKey) => void;
   onClear: () => void;
+  /**
+   * The camera is below MIN_ALL_GAUGES_ZOOM, so the layer draws nothing at all.
+   *
+   * Surfaced because the map's own cold-start zoom (6.2) is BELOW that floor
+   * (7): switching this layer on from the opening view drew nothing, reported
+   * 0, and gave no reason — indistinguishable from a layer that is broken or a
+   * country with no gauges in it.
+   */
+  belowMinZoom?: boolean;
+  /** The server dropped low-flow gauges to meet its cap. */
+  capped?: boolean;
+  /** How many were in the viewport before the cap. Only read when capped. */
+  total?: number;
 }
 
-function GaugeFilterBarComponent({ gauges, active, isStarred, onToggle, onClear }: Props) {
+function GaugeFilterBarComponent({
+  gauges,
+  active,
+  onToggle,
+  onClear,
+  belowMinZoom = false,
+  capped = false,
+  total = 0,
+}: Props) {
   const { colors } = useTheme();
 
   const counts = useMemo(() => {
@@ -120,15 +148,13 @@ function GaugeFilterBarComponent({ gauges, active, isStarred, onToggle, onClear 
     for (const key of GAUGE_FILTER_KEYS) out[key] = 0;
     for (const g of gauges) {
       for (const key of GAUGE_FILTER_KEYS) {
-        if (matchesGaugeFilter(g, key, isStarred)) out[key]++;
+        if (matchesGaugeFilter(g, key)) out[key]++;
       }
     }
     return out;
-  }, [gauges, isStarred]);
+  }, [gauges]);
 
   const chips: FilterChip[] = [
-    { key: 'curated', label: 'Eddy-rated', icon: 'water', count: counts.curated },
-    { key: 'starred', label: 'Following', icon: 'star', count: counts.starred },
     ...FLOW_BAND_ORDER.map((band) => ({
       key: band,
       label: flowBandLabel(band),
@@ -143,7 +169,20 @@ function GaugeFilterBarComponent({ gauges, active, isStarred, onToggle, onClear 
   ];
 
   const filtering = active.size > 0;
-  const matching = filtering ? applyGaugeFilters(gauges, active, isStarred).length : gauges.length;
+  const matching = filtering ? applyGaugeFilters(gauges, active).length : gauges.length;
+
+  // Nothing is drawn and nothing has been fetched, so there is nothing to
+  // narrow — chips over an empty set are five zeroes and a reason nobody gave.
+  // The one useful thing to say here is what would make the layer work.
+  if (belowMinZoom) {
+    return (
+      <View style={[styles.bar, { borderLeftColor: colors.border }]}>
+        <Text style={[styles.hint, { color: colors.textSubtle }]}>
+          Zoom in to see USGS gauges — there are too many to draw from this far out.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.bar, { borderLeftColor: colors.border }]}>
@@ -176,10 +215,28 @@ function GaugeFilterBarComponent({ gauges, active, isStarred, onToggle, onClear 
           <Text style={[styles.statusText, { color: colors.accent }]}>Clear ×</Text>
         </Pressable>
       ) : (
+        // "hide", not "dim". Copied from ConditionFilterBar, where dimming is
+        // literally what happens — a filtered-out RIVER keeps its tap target so
+        // the map does not read as broken. This layer genuinely removes: it is
+        // thousands of interchangeable dots with no selection riding on them,
+        // and dimming them all to 0.16 leaves a grey haze that is harder to read
+        // than an honest empty patch. The copy now matches the code.
         <Text style={[styles.hint, { color: colors.textSubtle }]}>
-          Tap a filter to dim the rest
+          Tap a filter to hide the rest
         </Text>
       )}
+
+      {/* THE CAP, SAID OUT LOUD. The server returns at most 300 gauges per
+          viewport and drops the lowest-discharge ones to get there — a rated
+          gauge can never be dropped, they are ordered first. `capped` and
+          `total` have come back on every response since this layer shipped and
+          nothing rendered them, so a viewport holding 1,240 gauges quietly drew
+          300 and looked complete. */}
+      {capped ? (
+        <Text style={[styles.hint, { color: colors.textSubtle }]}>
+          {total.toLocaleString()} gauges here — more than fit. Zoom in to see them all.
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -187,22 +244,6 @@ function GaugeFilterBarComponent({ gauges, active, isStarred, onToggle, onClear 
 export const GaugeFilterBar = memo(GaugeFilterBarComponent);
 
 const styles = StyleSheet.create({
-  button: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dot: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 2,
-  },
   // Indented under its layer row with a hairline spine, so it reads as
   // belonging to that row rather than as a sixth layer.
   bar: {
