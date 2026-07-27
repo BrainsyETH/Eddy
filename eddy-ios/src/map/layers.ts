@@ -13,9 +13,10 @@
 
 import { primary, type Palette } from '@/theme/palette';
 import { conditionColor } from '@/theme/conditions';
+import { flowBandColor } from '@/theme/flow';
 import type { Ionicons } from '@expo/vector-icons';
 
-export type LayerKey = 'access' | 'campgrounds' | 'gauges' | 'hazards' | 'outfitters';
+export type LayerKey = 'access' | 'campgrounds' | 'gauges' | 'allGauges' | 'hazards' | 'outfitters';
 
 export interface LayerDef {
   key: LayerKey;
@@ -33,8 +34,24 @@ export interface LayerDef {
  * river" and "is there any water in it", and those are exactly these two layers.
  * Everything else is a follow-up question and stays off until asked — a river
  * under five layers of pins answers nothing. The choice sticks for the session.
+ *
+ * `allGauges` is deliberately NOT here. The curated network is the product and
+ * it stays the thing the map opens on; the national tier is a reference someone
+ * asks for. Adding it to the defaults would also mean every cold start fires a
+ * viewport request before anyone has asked a question.
  */
 export const DEFAULT_LAYERS: LayerKey[] = ['access', 'gauges'];
+
+/**
+ * Below this zoom the national layer draws nothing.
+ *
+ * A continental viewport holds ~14,000 gauges; there is no payload and no
+ * clustering budget that makes drawing them all useful, and the strategy doc is
+ * explicit that reference gauges are FOUND, not browsed. The curated network
+ * still answers the zoomed-out question the map exists for — "where can I float
+ * today" — so nothing is lost by making this layer earn its request.
+ */
+export const MIN_ALL_GAUGES_ZOOM = 7;
 
 export const MAP_LAYERS: LayerDef[] = [
   {
@@ -54,6 +71,19 @@ export const MAP_LAYERS: LayerDef[] = [
     // against the accent-coloured places. Sourced from the palette scale so it
     // moves with the brand instead of being a hex nobody can trace.
     color: (c) => (c.scheme === 'dark' ? primary[300] : primary[600]),
+  },
+  {
+    key: 'allGauges',
+    label: 'All U.S. gauges',
+    // Says what it is AND what it is not. Someone who switches this on gets
+    // thousands of dots that look like the gauge pins above them, and the one
+    // thing they must understand is that Eddy has not rated any of them.
+    description: 'Every USGS stream gauge — reading only, not Eddy-rated',
+    icon: 'globe-outline',
+    // The middle of the flow ramp, so the sheet row is literally the colour of
+    // an average pin it draws — the same "a row is only a legend if it matches"
+    // rule the rest of this file follows.
+    color: () => flowBandColor('normal'),
   },
   {
     key: 'hazards',

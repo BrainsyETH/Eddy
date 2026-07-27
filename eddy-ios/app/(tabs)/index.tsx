@@ -86,6 +86,9 @@ import {
   OUTFITTER_SERVICE_TYPES,
   type LayerKey,
 } from '@/map/layers';
+import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
+import { flowBandColor, flowBandLabel } from '@/theme/flow';
+import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
 import { useOfflinePacks } from '@/map/useOfflinePacks';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useEddySearch } from '@/hooks/useEddySearch';
@@ -100,6 +103,12 @@ import { SearchBar } from '@/components/SearchBar';
 import { SearchResultsList } from '@/components/SearchResultsList';
 import { MapLayersButton, MapLayersSheet, isDefaultLayers } from '@/components/MapLayersSheet';
 import { ConditionFilterBar, ConditionFilterButton } from '@/components/ConditionFilterBar';
+import {
+  GaugeFilterBar,
+  GaugeFilterButton,
+  applyGaugeFilters,
+  type GaugeFilterKey,
+} from '@/components/GaugeFilterBar';
 import { PlanSheet } from '@/components/PlanSheet';
 import { OfflineMapRow } from '@/components/OfflineMapRow';
 import { PaywallSheet } from '@/components/PaywallSheet';
@@ -197,7 +206,15 @@ export default function MapScreen() {
     () => new Set(),
   );
   const [filterOpen, setFilterOpen] = useState(false);
+  // Which gauge traits/bands the national layer is narrowed to. Empty = all.
+  // Not persisted, for the same reason the condition filter is not: a filter
+  // restored from last week reads as gauges having gone missing.
+  const [gaugeFilter, setGaugeFilter] = useState<ReadonlySet<GaugeFilterKey>>(() => new Set());
+  const [gaugeFilterOpen, setGaugeFilterOpen] = useState(false);
   const [focus, setFocus] = useState<Focus | null>(null);
+  // The camera, as of the last time it stopped moving. Only the national gauge
+  // layer reads it — everything else on this screen loads a bounded set up front.
+  const [viewport, setViewport] = useState<Viewport | null>(null);
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -425,6 +442,64 @@ export default function MapScreen() {
   // through a filter that hides every gauge but this river's.
   const mappableGauges = useMemo(() => (gauges ?? []).filter(hasCoordinates), [gauges]);
 
+  // ── The national tier ──────────────────────────────────────────────────────
+  // Fetched by viewport, not up front, and only while its layer is on. See
+  // useViewportGauges for the debounce/containment/quantize chain that keeps a
+  // pan from being a request.
+  const referenceGauges = useViewportGauges(layers.includes('allGauges'), viewport);
+
+  /**
+   * Reference gauges as map pins.
+   *
+   * Curated gauges are dropped here rather than drawn twice: /api/gauges/map
+   * returns them too (they are gauges in the viewport), but the curated layer
+   * already paints them in their condition colour, and a second dot underneath
+   * in a flow-band colour would be the same station wearing two different
+   * verdicts a pixel apart.
+   */
+  /** The star predicate the gauge filter needs, in MapGaugeLite terms. */
+  const isGaugeStarred = useCallback((id: string) => isStarred('gauge', id), [isStarred]);
+
+  /**
+   * The viewport's gauges, narrowed.
+   *
+   * Applied BEFORE pins are built rather than as a Mapbox opacity expression,
+   * which is where this deliberately differs from the condition filter. That
+   * one dims because hiding a river takes its tap target with it and a map that
+   * empties reads as broken. Here the layer is thousands of interchangeable
+   * dots with no selection riding on them, the strip states the count it is
+   * showing, and dimming ~1,200 circles to 0.16 leaves a grey haze that is
+   * harder to read than an honest empty patch.
+   */
+  const visibleReferenceGauges = useMemo(
+    () => applyGaugeFilters(referenceGauges.gauges, gaugeFilter, isGaugeStarred),
+    [referenceGauges.gauges, gaugeFilter, isGaugeStarred],
+  );
+
+  const referencePins = useMemo<MapPin[]>(
+    () =>
+      visibleReferenceGauges
+        .filter((g) => !g.curated && hasCoordinates(g))
+        .map((g) => {
+          const band = flowBandFor(g);
+          return {
+            id: `refgauge:${g.id}`,
+            name: g.name,
+            layer: 'allGauges' as LayerKey,
+            subtitle: 'USGS gauge — not Eddy-rated',
+            coordinates: g.coordinates,
+            color: flowBandColor(band),
+            // No `code`: that field drives a CONDITION-tinted chip in the
+            // callout, and this gauge has no condition. codeLabel carries the
+            // band's words instead, which is a comparison, not a verdict.
+            codeLabel: flowBandLabel(band),
+            value: flowReadingText(g),
+            magnitude: flowMagnitude(g),
+          };
+        }),
+    [visibleReferenceGauges],
+  );
+
   /**
    * How many of each thing we hold, for the layers sheet.
    *
@@ -442,6 +517,17 @@ export default function MapScreen() {
     return {
       access: accessPoints.length,
       gauges: gauges ? mappableGauges.length : undefined,
+      // Viewport-scoped, so it moves as you pan — and `undefined` until the
+      // layer has actually been switched on and fetched something, per the rule
+      // above. Below the zoom floor it is 0 rather than undefined: we HAVE
+      // looked, and the honest answer is that this layer draws nothing here.
+      allGauges: layers.includes('allGauges')
+        ? referenceGauges.belowMinZoom
+          ? 0
+          : referenceGauges.loading && referencePins.length === 0
+            ? undefined
+            : referencePins.length
+        : undefined,
       hazards: riverHazards?.filter(hasCoordinates).length,
       campgrounds: placed
         ? accessPoints.filter(isCampground).length +
@@ -449,7 +535,18 @@ export default function MapScreen() {
         : undefined,
       outfitters: placed?.filter((s) => OUTFITTER_SERVICE_TYPES.includes(s.type)).length,
     };
-  }, [accessPoints, gauges, mappableGauges, hazards, services, drawnSlug]);
+  }, [
+    accessPoints,
+    gauges,
+    mappableGauges,
+    hazards,
+    services,
+    drawnSlug,
+    layers,
+    referenceGauges.belowMinZoom,
+    referenceGauges.loading,
+    referencePins,
+  ]);
 
   const conditionCode = drawn?.currentCondition?.code ?? 'unknown';
   const headerCode = selected?.currentCondition?.code ?? 'unknown';
@@ -587,6 +684,27 @@ export default function MapScreen() {
         />
       ) : null}
 
+      {/* The gauge filter, same posture: above the map, one at a time. Opening
+          one closes the other — two stacked strips would eat most of a small
+          phone's map, which is the complaint the chips-vs-sheet ruling exists
+          to answer. */}
+      {gaugeFilterOpen && !unavailable && layers.includes('allGauges') ? (
+        <GaugeFilterBar
+          gauges={referenceGauges.gauges}
+          active={gaugeFilter}
+          isStarred={isGaugeStarred}
+          onToggle={(key) =>
+            setGaugeFilter((prev) => {
+              const next = new Set(prev);
+              if (next.has(key)) next.delete(key);
+              else next.add(key);
+              return next;
+            })
+          }
+          onClear={() => setGaugeFilter(new Set())}
+        />
+      ) : null}
+
       <View style={styles.mapArea}>
         {unavailable ? (
           <MapUnavailable reason={unavailable} />
@@ -608,6 +726,17 @@ export default function MapScreen() {
             onSelectRiverSlug={onSelectNetworkRiver}
             accessPoints={accessPoints}
             gauges={mappableGauges}
+            referenceGauges={referencePins}
+            onViewportChange={setViewport}
+            onZoomToCluster={(point) =>
+              setFocus({
+                slug: null,
+                lng: point.lng,
+                lat: point.lat,
+                // Two levels in reliably splits a cluster at clusterRadius 50.
+                zoom: Math.min(16, (viewport?.zoom ?? 10) + 2),
+              })
+            }
             hazards={hazards?.items ?? []}
             services={services?.items ?? []}
             layers={layers}
@@ -674,9 +803,27 @@ export default function MapScreen() {
                 // mapArea's overflow:'hidden'. Selecting a network river
                 // already drops the pin for a similar reason.
                 setSelectedPin(null);
+                setGaugeFilterOpen(false);
                 setFilterOpen((open) => !open);
               }}
               filtering={conditionFilter.size > 0}
+            />
+          </View>
+        ) : null}
+
+        {/* Gauge filter, third in the stack. Offered only while the national
+            layer is on — a filter for a layer nobody switched on is a control
+            that cannot do anything, the same rule the condition button follows
+            for an empty network. */}
+        {!unavailable && !search.active && layers.includes('allGauges') ? (
+          <View style={styles.gaugeFilterButtonWrap}>
+            <GaugeFilterButton
+              onPress={() => {
+                setSelectedPin(null);
+                setFilterOpen(false);
+                setGaugeFilterOpen((open) => !open);
+              }}
+              filtering={gaugeFilter.size > 0}
             />
           </View>
         ) : null}
@@ -1240,6 +1387,10 @@ const styles = StyleSheet.create({
   // map controls rather than two unrelated floating things.
   // Directly under the layers button (44 + 16 gap + its own 16 top inset).
   filterButtonWrap: { position: 'absolute', top: 76, right: 16 },
+  // Third in the right-hand stack: layers at 16, condition filter at 76, this
+  // at 136 — 44pt buttons with a 16pt gap, so the rhythm is the one already set
+  // rather than a new number.
+  gaugeFilterButtonWrap: { position: 'absolute', top: 136, right: 16 },
   locateButton: {
     width: 44,
     height: 44,

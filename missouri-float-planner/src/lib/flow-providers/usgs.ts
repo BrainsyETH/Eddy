@@ -23,13 +23,16 @@ import type {
   HistoricalReading,
 } from './types';
 
-const MODERN_BASE = 'https://api.waterdata.usgs.gov/ogcapi/v0/collections';
+// Exported because src/lib/usgs/national-sites.ts fetches the SAME collections
+// by bbox rather than by site id, and a second copy of these constants is how
+// the two paths would end up pointed at different API generations.
+export const MODERN_BASE = 'https://api.waterdata.usgs.gov/ogcapi/v0/collections';
 const LEGACY_IV_URL = 'https://waterservices.usgs.gov/nwis/iv/';
 const LEGACY_STAT_URL = 'https://waterservices.usgs.gov/nwis/stat/';
 
 // USGS parameter codes: 00065 = gage height (ft), 00060 = discharge (cfs)
-const PARAM_GAGE_HEIGHT = '00065';
-const PARAM_DISCHARGE = '00060';
+export const PARAM_GAGE_HEIGHT = '00065';
+export const PARAM_DISCHARGE = '00060';
 
 type UsgsApiMode = 'modern' | 'modern-only' | 'legacy';
 
@@ -40,7 +43,7 @@ function apiMode(): UsgsApiMode {
 }
 
 /** Optional API key raises the modern API's rate limit. */
-function modernHeaders(): HeadersInit {
+export function modernHeaders(): HeadersInit {
   const headers: Record<string, string> = { Accept: 'application/geo+json' };
   const key = process.env.USGS_API_KEY;
   if (key) headers['X-Api-Key'] = key;
@@ -59,7 +62,15 @@ function validDischarge(v: number): boolean {
 function toLocationId(siteId: string): string {
   return siteId.startsWith('USGS-') ? siteId : `USGS-${siteId}`;
 }
-function fromLocationId(locationId: string): string {
+/**
+ * 'USGS-07019000' → '07019000'.
+ *
+ * Exported alongside the fold below for national-sites.ts. Note it strips only
+ * the USGS agency prefix: the monitoring-locations collection also carries
+ * 'AR001-…' and other agencies, which national ingest filters out rather than
+ * mangling into a site id that looks USGS-shaped and is not.
+ */
+export function fromLocationId(locationId: string): string {
   return locationId.replace(/^USGS-/, '');
 }
 
@@ -67,7 +78,16 @@ function fromLocationId(locationId: string): string {
 // Modern OGC API response shape (GeoJSON FeatureCollection)
 // ---------------------------------------------------------------------------
 
-interface OgcFeature {
+export interface OgcFeature {
+  /** Present on bbox queries; the by-site path never reads it. */
+  id?: string;
+  /**
+   * latest-continuous returns the site's point geometry. The by-site path
+   * ignores it (coordinates come from gauge_stations), but national ingest
+   * uses it as a coordinate fallback when monitoring-locations is missing a
+   * site — which happens, and dropping the gauge would be the worse answer.
+   */
+  geometry?: { type?: string; coordinates?: number[] } | null;
   properties?: {
     monitoring_location_id?: string;
     parameter_code?: string;
@@ -76,7 +96,7 @@ interface OgcFeature {
     unit_of_measure?: string;
     approval_status?: string;
     qualifier?: string | string[] | null;
-  };
+  } | null;
 }
 
 interface OgcFeatureCollection {
@@ -112,8 +132,15 @@ function mergeQualifierCodes(target: string[], source: string[]): void {
   }
 }
 
-/** Folds OGC features (one per site × parameter) into per-site readings. */
-function foldOgcFeatures(features: OgcFeature[]): Map<string, GaugeReading> {
+/**
+ * Folds OGC features (one per site × parameter) into per-site readings.
+ *
+ * Exported because national-sites.ts folds the SAME collection fetched by bbox
+ * instead of by site id. The sentinel rejection (-999999), the qualifier
+ * normalization and the "stage wins the timestamp" rule all have to be
+ * identical on both paths, and the only way to guarantee that is one function.
+ */
+export function foldOgcFeatures(features: OgcFeature[]): Map<string, GaugeReading> {
   const readings = new Map<string, GaugeReading>();
 
   for (const feature of features) {

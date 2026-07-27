@@ -19,6 +19,7 @@ import type {
   HazardsResponse,
   MapAccessPoint,
   MapGauge,
+  MapGaugesResponse,
   PlanResponse,
   RiverConditionDetail,
   RiverDetail,
@@ -257,6 +258,40 @@ export async function fetchStatewideReadings(signal?: AbortSignal): Promise<Stat
 export async function fetchGauges(signal?: AbortSignal): Promise<MapGauge[]> {
   const data = await get<GaugesResponse>('/api/gauges', signal);
   return data.gauges ?? [];
+}
+
+/**
+ * Gauges inside a viewport — the national "All Gauges" tier.
+ *
+ * A DIFFERENT endpoint from fetchGauges above, not a parameter on it. That one
+ * returns the ~46 gauges Eddy has rated, with the full ladder each river grades
+ * against, and it stays exactly as it is. This one returns up to a few hundred
+ * of the ~14,000 USGS stream gauges in the country, with a reading and a
+ * percentile and no ladder at all — because there isn't one.
+ *
+ * Callers must quantize and pad the bbox first (`quantizeBbox`/`padBbox` in
+ * @eddy/geo). A raw camera bbox is a fresh URL on every pan, which is a CDN
+ * miss every time; the grid is what makes this cacheable.
+ *
+ * `capped` comes back true when the server dropped lower-discharge gauges to
+ * meet the limit — surface it rather than silently showing a third of the map.
+ * Curated gauges are ordered first server-side, so the cap can never drop one.
+ */
+export async function fetchMapGauges(
+  bbox: [number, number, number, number],
+  options?: { limit?: number; curatedOnly?: boolean },
+  signal?: AbortSignal,
+): Promise<MapGaugesResponse> {
+  const params = new URLSearchParams({ bbox: bbox.join(',') });
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.curatedOnly) params.set('curated', '1');
+
+  const data = await get<MapGaugesResponse>(`/api/gauges/map?${params.toString()}`, signal);
+  return {
+    gauges: data.gauges ?? [],
+    capped: data.capped ?? false,
+    total: data.total ?? 0,
+  };
 }
 
 /**

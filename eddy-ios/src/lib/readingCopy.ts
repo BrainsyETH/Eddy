@@ -7,6 +7,7 @@
 // distinction visible without being tedious about it.
 
 import { ratedUnit } from '@eddy/conditions/reading-unit';
+import { flowBand, flowBandSentence } from '@eddy/conditions/flow-band';
 import type { RiverConditionDetail } from '@eddy/types';
 
 /**
@@ -111,13 +112,12 @@ export function readingAge(hours: number | null | undefined): string | null {
  * as normal rather than alarming.
  */
 export function percentileSentence(percentile: number | null | undefined): string | null {
-  if (percentile == null || !Number.isFinite(percentile)) return null;
-  const p = Math.max(0, Math.min(100, percentile));
-  if (p < 10) return 'Much lower than usual for this time of year';
-  if (p < 25) return 'Lower than usual for this time of year';
-  if (p < 75) return 'About normal for this time of year';
-  if (p < 90) return 'Higher than usual for this time of year';
-  return 'Much higher than usual for this time of year';
+  // The bands and the words both live in @eddy/conditions/flow-band now, because
+  // the national gauge layer paints pins from the SAME cut points this sentence
+  // describes. Two copies would mean a pin and the sheet it opens could
+  // eventually describe one number differently — the bug that moved
+  // reading-unit into shared/ (commit d251f76). One implementation, one answer.
+  return flowBandSentence(flowBand(percentile));
 }
 
 /** "12th percentile" — the number behind the sentence, for people who want it. */
