@@ -784,35 +784,45 @@ export default function MapScreen() {
             </Pressable>
           ) : null}
 
-            {/* Pushes the plan button to the right edge. A spacer rather
-                than justifyContent: 'space-between', because both buttons are
-                conditional and space-between would left-align a lone one. */}
-            <View style={styles.controlSpacer} pointerEvents="none" />
+          </View>
+        </View>
 
-            {/* CLEAR THE PLAN. The plan deliberately outlives its sheet — you
-                build a float and dismiss the sheet to look at the water between
-                its ends — but nothing on the map could undo it. The only way
-                back was to open the sheet and press "Plan a different stretch",
-                which reads as starting another one, not discarding this one. So
-                someone who just wanted a clean map had no reason to open the
-                planner at all. It belongs where the plan is visible. */}
-            {!unavailable && planner.plan && !search.active ? (
-              <Pressable
-                onPress={() => {
-                  planner.reset();
-                  setSelectedPin(null);
-                }}
-                style={({ pressed }) => [
-                  styles.clearPlanButton,
-                  floating(),
-                  { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Clear this float plan"
-              >
-                <Ionicons name="close" size={18} color={colors.textMuted} />
-              </Pressable>
-            ) : null}
+        {/* ── The plan cluster ──────────────────────────────────────────
+            IN THE CORNER, not in the stack above. Locate has to clear the
+            Mapbox ornaments because it shares their horizontal band on the
+            left; the plan button is on the RIGHT, where the wordmark and the
+            (i) end around x=149 and nothing else is competing. Sitting it at
+            MAP_CHROME_BOTTOM cost it 46pt of drop it never owed anyone.
+
+            It still reads as below the selection: the callout's own bottom edge
+            is a control row and a gap above MAP_CHROME_BOTTOM, well clear of
+            this. See planButton's maxWidth for the one thing that could put a
+            long label back over the ornaments. */}
+        <View style={styles.planCluster} pointerEvents="box-none">
+          {/* CLEAR THE PLAN. The plan deliberately outlives its sheet — you
+              build a float and dismiss the sheet to look at the water between
+              its ends — but nothing on the map could undo it. The only way
+              back was to open the sheet and press "Plan a different stretch",
+              which reads as starting another one, not discarding this one. So
+              someone who just wanted a clean map had no reason to open the
+              planner at all. It belongs where the plan is visible. */}
+          {!unavailable && planner.plan && !search.active ? (
+            <Pressable
+              onPress={() => {
+                planner.reset();
+                setSelectedPin(null);
+              }}
+              style={({ pressed }) => [
+                styles.clearPlanButton,
+                floating(),
+                { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Clear this float plan"
+            >
+              <Ionicons name="close" size={18} color={colors.textMuted} />
+            </Pressable>
+          ) : null}
 
           {/* The screen's one primary action, floated over the map so the map
               keeps every pixel it can. It changes label rather than multiplying:
@@ -846,8 +856,6 @@ export default function MapScreen() {
               </Text>
             </Pressable>
           ) : null}
-          </View>
-
         </View>
       </View>
 
@@ -1165,7 +1173,17 @@ const styles = StyleSheet.create({
   // which are a legal obligation and now sit at the map's bottom edge.
   bottomStack: { position: 'absolute', left: 0, right: 0, bottom: MAP_CHROME_BOTTOM, gap: 12 },
   controlRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
-  controlSpacer: { flex: 1 },
+  // Hard into the corner. 16/12 rather than MAP_CHROME_BOTTOM because the
+  // Mapbox ornaments run along the map's bottom LEFT and end around x=149 —
+  // there is nothing on the right for this to clear.
+  planCluster: {
+    position: 'absolute',
+    right: 12,
+    bottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   // 44pt, same as locate: it is a destructive action and must not be a
   // near-miss for the plan button it sits beside.
   clearPlanButton: {
@@ -1206,9 +1224,11 @@ const styles = StyleSheet.create({
   calloutActionText: { ...t.xs, fontFamily: fonts.semibold },
   planButton: {
     flexDirection: 'row',
-    // Never wider than most of the row, so a long label cannot crowd the
-    // controls to its left.
-    maxWidth: '62%',
+    // 55%, and the number is load-bearing rather than aesthetic. Right-aligned
+    // at bottom:16 this shares a row with the Mapbox wordmark and the (i),
+    // which together run from x=12 to about x=149. On the narrowest phone we
+    // support, 55% of the width still starts to the right of that; 62% did not.
+    maxWidth: '55%',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 16,
