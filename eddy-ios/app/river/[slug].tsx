@@ -212,7 +212,19 @@ export default function RiverDetailScreen() {
   }
 
   const code = condition?.code ?? river.currentCondition?.code ?? 'unknown';
-  const reading = condition ? primaryReading(condition) : null;
+  // BELT AND BRACES on the unit. The server now sends `thresholdUnit` on the
+  // condition itself, but the same value has always been present on the nested
+  // ladder, and an old app against a new server — or the reverse — must not
+  // fall back into primaryReading's "no declared unit" branch. That branch
+  // prefers stage, which on the 18 of 24 cfs-rated rivers printed a reading in
+  // feet over a band track built from cfs thresholds.
+  const gradedCondition = condition
+    ? {
+        ...condition,
+        thresholdUnit: condition.thresholdUnit ?? condition.thresholds?.thresholdUnit,
+      }
+    : null;
+  const reading = gradedCondition ? primaryReading(gradedCondition) : null;
   const caveat = condition ? accuracyNote(condition) : null;
   const percentileText = percentileSentence(condition?.percentile);
   const starred = isStarred(river.id);
@@ -290,11 +302,18 @@ export default function RiverDetailScreen() {
             />
           ) : null}
 
+
           {percentileText ? (
             <View style={[styles.percentileRow, { borderTopColor: colors.border }]}>
               <Text style={[styles.percentileText, { color: colors.text }]}>{percentileText}</Text>
               <Text style={[styles.percentileMeta, { color: colors.textSubtle }]}>
+                {/* "for flow" is load-bearing. The percentile is computed from
+                    DISCHARGE only — it is null unless the gauge reported cfs —
+                    so on a ft-rated river it sits directly under a stage
+                    reading while describing a different quantity entirely.
+                    Unlabelled, it reads as a judgement about the number above. */}
                 {percentileLabel(condition?.percentile)}
+                {condition?.percentile != null ? ' for flow' : ''}
               </Text>
             </View>
           ) : null}
