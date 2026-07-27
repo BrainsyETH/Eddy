@@ -1,37 +1,22 @@
 // src/lib/conditions.ts
-// Centralized condition calculation logic used across the app
+// Centralized condition calculation logic used across the app.
+//
+// The COMPARISONS themselves now live in @shared/condition-ladder, alongside
+// the condition system they produce codes for. They moved because the Expo app
+// needs them too — it grades gauge readings on the phone to colour map pins —
+// and this module cannot cross that boundary: it imports '@/constants', which
+// is Next-only. Everything here is presentation on top of that ladder.
 
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
+import {
+  classifyReading,
+  type ClassifyReadingOptions,
+  type ConditionThresholds as LadderThresholds,
+} from '@shared/condition-ladder';
 
-export interface ConditionThresholds {
-  levelTooLow: number | null;
-  levelLow: number | null;
-  levelOptimalMin: number | null;
-  levelOptimalMax: number | null;
-  levelHigh: number | null;
-  levelDangerous: number | null;
-  thresholdUnit?: 'ft' | 'cfs';
-  /**
-   * NWS flood stage in FEET. Authoritative hazard line regardless of the unit
-   * the gauge is classified in — a reading at flood stage is dangerous whether
-   * or not the editorial `levelDangerous` band says so.
-   */
-  floodStageFt?: number | null;
-}
-
-export interface ComputeConditionOptions {
-  /**
-   * Reject the cross-unit fallback: when true, a gauge whose PRIMARY unit has
-   * no value returns `unknown` instead of silently classifying the other unit's
-   * number against the wrong thresholds.
-   *
-   * Defaults to false so every existing display call site keeps its current
-   * behavior. The alert path passes true — comparing cfs against ft thresholds
-   * is how a dead stage sensor used to manufacture a `dangerous` social post.
-   */
-  strictUnit?: boolean;
-}
+export type ConditionThresholds = LadderThresholds;
+export type ComputeConditionOptions = ClassifyReadingOptions;
 
 export interface ConditionResult {
   code: ConditionCode;
@@ -84,109 +69,11 @@ export function computeCondition(
   dischargeCfs?: number | null,
   options?: ComputeConditionOptions
 ): ConditionResult {
-  // Determine which value to use based on threshold unit
-  const useCfs = thresholds.thresholdUnit === 'cfs';
-
-  // ── Flood-stage override ────────────────────────────────────────
-  // Checked BEFORE the null guard below, and before the threshold ladder,
-  // mirroring the `is_flood` branch in the get_river_condition RPC
-  // (migration 00166). Order matters for safety: a cfs-primary gauge whose
-  // discharge sensor has died still reports `dangerous` from its stored
-  // stage rather than degrading to `unknown`.
-  if (
-    thresholds.floodStageFt != null &&
-    gaugeHeightFt != null &&
-    gaugeHeightFt >= thresholds.floodStageFt
-  ) {
-    return {
-      code: 'dangerous',
-      label: CONDITION_LABELS.dangerous,
-      color: CONDITION_COLORS.dangerous,
-    };
-  }
-
-  // Use the preferred value. The cross-unit fallback is preserved by default
-  // for display call sites, but suppressed under strictUnit — see
-  // ComputeConditionOptions.
-  let compareValue: number | null;
-  if (options?.strictUnit) {
-    compareValue = (useCfs ? dischargeCfs : gaugeHeightFt) ?? null;
-  } else if (useCfs) {
-    compareValue = dischargeCfs ?? gaugeHeightFt;
-  } else {
-    compareValue = gaugeHeightFt ?? dischargeCfs ?? null;
-  }
-
-  if (compareValue === null) {
-    return {
-      code: 'unknown',
-      label: CONDITION_LABELS.unknown,
-      color: CONDITION_COLORS.unknown,
-    };
-  }
-
-  // Check thresholds from highest to lowest (most dangerous first)
-  if (thresholds.levelDangerous !== null && compareValue >= thresholds.levelDangerous) {
-    return {
-      code: 'dangerous',
-      label: CONDITION_LABELS.dangerous,
-      color: CONDITION_COLORS.dangerous,
-    };
-  }
-
-  // Anything above optimal_max (or above level_high if optimal_max is null) is "high".
-  // The Float Conditions bar paints the High band starting at optimal_max, so the code
-  // must agree — otherwise the badge ("Good") and the needle position ("High") disagree.
-  const highStart = thresholds.levelOptimalMax ?? thresholds.levelHigh;
-  if (highStart !== null && compareValue > highStart) {
-    return {
-      code: 'high',
-      label: CONDITION_LABELS.high,
-      color: CONDITION_COLORS.high,
-    };
-  }
-
-  if (
-    thresholds.levelOptimalMin !== null &&
-    thresholds.levelOptimalMax !== null &&
-    compareValue >= thresholds.levelOptimalMin &&
-    compareValue <= thresholds.levelOptimalMax
-  ) {
-    return {
-      code: 'flowing',
-      label: CONDITION_LABELS.flowing,
-      color: CONDITION_COLORS.flowing,
-    };
-  }
-
-  // "Good": at or above the low threshold. When a partial ladder defines only
-  // where the optimal band begins (optimal_min) with no low/optimal_max anchor —
-  // e.g. the moherp "Good begins at X" ratings on Gasconade/Jerome (400 cfs) and
-  // Black/Annapolis (180 cfs) — fall back to optimal_min as the good floor.
-  // Without this, a healthy reading passes every band above and lands on the
-  // final "too_low" fall-through, so the gauge reads "Too Low" at any level.
-  const goodFloor = thresholds.levelLow ?? thresholds.levelOptimalMin;
-  if (goodFloor !== null && compareValue >= goodFloor) {
-    return {
-      code: 'good',
-      label: CONDITION_LABELS.good,
-      color: CONDITION_COLORS.good,
-    };
-  }
-
-  if (thresholds.levelTooLow !== null && compareValue >= thresholds.levelTooLow) {
-    return {
-      code: 'low',
-      label: CONDITION_LABELS.low,
-      color: CONDITION_COLORS.low,
-    };
-  }
-
-  // Below all thresholds
+  const code = classifyReading(gaugeHeightFt, thresholds, dischargeCfs, options);
   return {
-    code: 'too_low',
-    label: CONDITION_LABELS.too_low,
-    color: CONDITION_COLORS.too_low,
+    code,
+    label: CONDITION_LABELS[code],
+    color: CONDITION_COLORS[code],
   };
 }
 

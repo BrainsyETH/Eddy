@@ -297,9 +297,16 @@ export interface MapGauge {
   readingSuspect: boolean;
   qualifierNote: string | null;
   /**
-   * Which rivers grade against this gauge. Null for a station tracked but not
-   * yet wired to a river — those still exist on the map, they just have no
-   * ladder to colour against.
+   * Which rivers grade against this gauge, and the ladder each grades with.
+   *
+   * The levels ride along so a client can classify the reading ITSELF rather
+   * than asking for a condition per gauge — which is what lets the map paint
+   * forty pins in their own colours off one request. Grade them through
+   * classifyReading in @eddy/conditions/condition-ladder; never re-implement
+   * the comparisons.
+   *
+   * Null for a station tracked but not yet wired to a river — those still
+   * belong on the map, they just have no ladder to colour against.
    */
   thresholds:
     | Array<{
@@ -308,6 +315,14 @@ export interface MapGauge {
         riverSlug: string | null;
         isPrimary: boolean;
         thresholdUnit: 'ft' | 'cfs';
+        levelTooLow: number | null;
+        levelLow: number | null;
+        levelOptimalMin: number | null;
+        levelOptimalMax: number | null;
+        levelHigh: number | null;
+        levelDangerous: number | null;
+        /** NWS flood stage in feet. Outranks the ladder above when reached. */
+        floodStageFt: number | null;
       }>
     | null;
 }
@@ -436,6 +451,24 @@ export interface PlanResponse {
 export interface SavePlanResponse {
   shortCode: string;
   url: string;
+}
+
+/**
+ * Campgrounds along a planned stretch (GET /api/plan/campgrounds).
+ *
+ * The server does the spacing, not the client: a database function walks the
+ * segment and returns camps at floatable intervals (10–15 river miles by
+ * default), which is a different list from "every campground on this river".
+ *
+ * `recommendedStops` is nights, i.e. `tripDurationDays - 1`. It can disagree
+ * with `campgrounds.length` — a stretch may simply not have four well-spaced
+ * camps on it — and that disagreement is information, not an error to hide.
+ * The endpoint requires `tripDurationDays >= 2` and 400s below that.
+ */
+export interface CampgroundsResponse {
+  campgrounds: MapAccessPoint[];
+  totalDistance: number;
+  recommendedStops: number;
 }
 
 // ── Search (GET /api/search) ─────────────────────────────────────
