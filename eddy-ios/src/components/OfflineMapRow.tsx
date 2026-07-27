@@ -10,9 +10,19 @@
 // at home, days from needing it.
 //
 // So it is a quiet row that states what it is, and expands only when tapped.
-// The description matters as much as the size does: "Download for offline"
-// tells you nothing about what survives losing signal, and the answer — the
-// map, the put-ins, the hazards — is the entire reason to do it.
+//
+// ── The copy ────────────────────────────────────────────────────────────────
+// "Download for offline" tells you nothing about what survives losing signal,
+// and the answer — the map, the put-ins, the hazards — is the entire reason to
+// do it. So the description names those three things and then stops.
+//
+// It used to keep going: an aside about how much of the Ozarks has no signal,
+// and a sentence about following the river corridor rather than a bounding box.
+// The first is something anyone who floats here already knows, and the second is
+// an engineering decision the size label already reports the outcome of. Neither
+// belonged in a row you tap while deciding whether to press a button. Tile
+// counts are gone from the storage line for the same reason — nobody outside
+// this codebase has any idea how many tiles is a lot.
 //
 // ── Premium ─────────────────────────────────────────────────────────────────
 // Offline maps are a paid feature, and the lock is shown BEFORE the tap rather
@@ -125,8 +135,8 @@ export function OfflineMapRow({
         <View style={styles.detail}>
           <Text style={[styles.description, { color: colors.textMuted }]}>
             {downloaded
-              ? `The ${river?.name ?? 'river'} is on this phone. Its map, access points and hazards all work with no signal — which is most of the Ozarks once you are off the highway.`
-              : `Keeps this river's map, access points and hazards working with no signal — which is most of the Ozarks once you are off the highway. Follows the river corridor rather than a square around it, so it costs about ${plan.sizeLabel} instead of several times that.`}
+              ? 'The map, put-ins and hazards work with no signal.'
+              : `Use the map, put-ins and hazards with no signal. About ${plan.sizeLabel}.`}
           </Text>
 
           {/* The tile budget, shown only here. Mapbox caps offline tiles
@@ -149,8 +159,8 @@ export function OfflineMapRow({
               </View>
               <Text style={[styles.budgetText, { color: colors.textSubtle }]}>
                 {budget.remaining === 0
-                  ? 'Offline storage is full — remove a river to download another.'
-                  : `${budget.used.toLocaleString()} of ${budget.limit.toLocaleString()} offline tiles used`}
+                  ? 'Offline storage is full — remove a river to save another.'
+                  : `Offline storage ${Math.min(100, Math.round((budget.used / budget.limit) * 100))}% full`}
               </Text>
             </View>
           ) : null}

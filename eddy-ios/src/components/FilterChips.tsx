@@ -1,16 +1,20 @@
 // eddy-ios/src/components/FilterChips.tsx
-// A scrollable row of toggles, in both the shapes the app needs.
+// A scrollable row of toggles.
 //
-// Two modes, one component, because the difference is one prop and the styling
-// must not diverge:
-//   • single-select — River Reports, where "Floatable" and "High water" are
-//     mutually exclusive answers to "show me which rivers?"
-//   • multi-select  — the Map, where gauges, campgrounds and hazards are
-//     independent layers and any combination is meaningful.
+// USED BY RIVER REPORTS, where "Floatable" and "High water" are mutually
+// exclusive answers to "show me which rivers?". Chips are the right control for
+// that: the choices are alternatives, one is always live, and the row reads as a
+// single question with several answers.
+//
+// The Map used to share this in a multi-select mode, and no longer does — map
+// layers are independent switches rather than alternatives, and dressing them as
+// chips said the wrong thing about them while eating a band of the screen. See
+// src/components/MapLayersSheet.tsx. The array-shaped `active` prop is what is
+// left of that: single-select callers pass an array of one.
 //
 // A chip can carry a `count`, which is what makes an empty filter honest: a
-// person tapping "Campgrounds" on a river with none should see a zero on the
-// chip, not an unexplained empty map.
+// person tapping a filter that matches nothing should see a zero on the chip,
+// not an unexplained empty list.
 
 import { memo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';

@@ -1,16 +1,22 @@
 // eddy-ios/src/components/PlanSheet.tsx
-// The float plan flow: put-in, take-out, boat, answer.
+// The float plan flow: put-in, take-out, answer.
 //
 // Everything on this screen is FREE. The plan is the reason someone opens Eddy
 // on a Thursday night, and gating it would gate the product. The paid line runs
 // somewhere else entirely — being told when a river changes, and carrying the
 // map past the end of cell coverage.
 //
+// ── Two taps to an answer ───────────────────────────────────────────────────
+// There used to be a third step here: pick a boat. It is gone. A required tap
+// that moves the answer less than the wind does is a tap that only ever loses
+// people between "I picked two access points" and "how long is it" — see the
+// note at the top of useFloatPlan. The estimate still says which boat it assumed.
+//
 // ── Structure ───────────────────────────────────────────────────────────────
-// This file owns the FLOW — the breadcrumb, the three pickers, and the sheet
-// they live in. The answer itself is PlanResult, which is shared with the
-// screen that opens a saved float: a shared plan that read differently from the
-// plan that produced it would be a plan nobody trusts.
+// This file owns the FLOW — the breadcrumb, the two pickers, and the sheet they
+// live in. The answer itself is PlanResult, which is shared with the screen that
+// opens a saved float: a shared plan that read differently from the plan that
+// produced it would be a plan nobody trusts.
 
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -24,13 +30,12 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { MapAccessPoint, VesselType } from '@eddy/types';
+import type { MapAccessPoint } from '@eddy/types';
 import { saveFloatPlan } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { PlanResult } from '@/components/PlanResult';
-import { PlanItinerary } from '@/components/PlanItinerary';
 import type { FloatPlanState } from '@/hooks/useFloatPlan';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { milesBetween, type Coords } from '@/hooks/useLocation';
@@ -67,7 +72,7 @@ export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Pr
   const { remember } = useSavedFloats();
   const [sharing, setSharing] = useState(false);
 
-  const { step, putIn, takeOut, vessel, vessels, plan, calculating, error } = state;
+  const { step, putIn, takeOut, plan, calculating, error } = state;
 
   const onShare = useCallback(async () => {
     if (!plan) return;
@@ -129,14 +134,6 @@ export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Pr
             onSelect={state.chooseTakeOut}
             selectedId={takeOut?.id ?? null}
           />
-        ) : step === 'vessel' ? (
-          <VesselList
-            vessels={vessels}
-            loaded={state.vesselsLoaded}
-            selectedId={vessel?.id ?? null}
-            onSelect={state.chooseVessel}
-            onSkip={state.skipVessel}
-          />
         ) : calculating ? (
           <View style={styles.centered}>
             <ActivityIndicator color={colors.accent} />
@@ -157,15 +154,6 @@ export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Pr
         ) : (
           <PlanResult
             plan={plan}
-            overnight={
-              <PlanItinerary
-                plan={plan}
-                nights={state.nights}
-                onChangeNights={state.setNights}
-                camps={state.camps}
-                loading={state.campsLoading}
-              />
-            }
             actions={
               <View style={styles.actions}>
                 <Pressable
@@ -217,10 +205,9 @@ export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Pr
  */
 function Breadcrumb({ state }: { state: FloatPlanState }) {
   const { colors } = useTheme();
-  const crumbs: { step: 'put-in' | 'take-out' | 'vessel'; label: string; value?: string }[] = [
+  const crumbs: { step: 'put-in' | 'take-out'; label: string; value?: string }[] = [
     { step: 'put-in', label: 'Put-in', value: state.putIn?.name },
     { step: 'take-out', label: 'Take-out', value: state.takeOut?.name },
-    { step: 'vessel', label: 'Boat', value: state.vessel?.name },
   ];
 
   return (
@@ -388,86 +375,6 @@ function AccessPointList({
   );
 }
 
-function VesselList({
-  vessels,
-  loaded,
-  selectedId,
-  onSelect,
-  onSkip,
-}: {
-  vessels: VesselType[];
-  loaded: boolean;
-  selectedId: string | null;
-  onSelect: (vessel: VesselType) => void;
-  onSkip: () => void;
-}) {
-  const { colors, elevation } = useTheme();
-
-  if (!loaded) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.accent} />
-      </View>
-    );
-  }
-
-  // Loaded and empty means the boat list failed to reach us, not that there are
-  // no boats. The plan does not depend on it — the server falls back to its own
-  // default vessel — so this offers the answer rather than a dead end.
-  if (vessels.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-          We could not load the boat list. Your float time will assume a canoe.
-        </Text>
-        <Pressable
-          onPress={onSkip}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            { backgroundColor: pressed ? colors.accentPressed : colors.accent, alignSelf: 'stretch' },
-          ]}
-          accessibilityRole="button"
-        >
-          <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>
-            Build the plan anyway
-          </Text>
-        </Pressable>
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView contentContainerStyle={styles.list}>
-      {vessels.map((vesselType) => {
-        const selected = vesselType.id === selectedId;
-        return (
-          <Pressable
-            key={vesselType.id}
-            onPress={() => onSelect(vesselType)}
-            style={({ pressed }) => [
-              styles.option,
-              { backgroundColor: selected ? colors.cardRaised : colors.card, opacity: pressed ? 0.65 : 1 },
-              elevation(1),
-            ]}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-          >
-            <View style={styles.optionBody}>
-              <Text style={[styles.optionName, { color: colors.text }]}>{vesselType.name}</Text>
-              {vesselType.description ? (
-                <Text style={[styles.optionMeta, { color: colors.textMuted }]} numberOfLines={2}>
-                  {vesselType.description}
-                </Text>
-              ) : null}
-            </View>
-            {selected ? <Ionicons name="checkmark" size={18} color={colors.accent} /> : null}
-          </Pressable>
-        );
-      })}
-    </ScrollView>
-  );
-}
-
 const styles = StyleSheet.create({
   sheet: { flex: 1 },
   head: {
@@ -481,7 +388,13 @@ const styles = StyleSheet.create({
   headText: { flex: 1 },
   title: { ...t['2xl'], fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 1 },
-  breadcrumb: { flexDirection: 'row', paddingHorizontal: 20, paddingBottom: 12, borderBottomWidth: 1, gap: 12 },
+  breadcrumb: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    gap: 12,
+  },
   crumb: { flex: 1, minWidth: 0 },
   crumbLabel: { ...t.xs, fontFamily: fonts.semibold },
   crumbValue: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
@@ -507,34 +420,6 @@ const styles = StyleSheet.create({
   emptyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
   errorText: { ...t.base, fontFamily: fonts.semibold, textAlign: 'center' },
   link: { ...t.sm, fontFamily: fonts.semibold },
-  body: { padding: 16, paddingBottom: 40 },
-  warnings: { borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 10, gap: 8 },
-  warningRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  warningText: { ...t.xs, fontFamily: fonts.medium, flex: 1 },
-  card: { padding: 16, borderRadius: 16, marginBottom: 10 },
-  segment: { ...t.xs, fontFamily: fonts.semibold },
-  headline: { ...t['3xl'], fontFamily: fonts.display, marginTop: 6 },
-  headlineNote: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  statRow: { flexDirection: 'row', gap: 16, marginTop: 14, paddingTop: 14, borderTopWidth: 1 },
-  stat: { flex: 1 },
-  statLabel: { ...t.xs, fontFamily: fonts.semibold },
-  // Mono for the same reason readings use it: these numbers change between
-  // plans and a proportional face makes the two columns jitter against
-  // each other.
-  statValue: { ...t.lg, fontFamily: fonts.mono, marginTop: 2 },
-  statNote: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  conditionHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  conditionText: { flex: 1, minWidth: 0 },
-  conditionLabel: { ...t.sm, fontFamily: fonts.semibold },
-  planReading: { ...t.xl, fontFamily: fonts.mono, marginTop: 4 },
-  planReadingMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
-  section: { marginTop: 8, marginBottom: 10 },
-  sectionTitle: { ...t.base, fontFamily: fonts.heading, marginBottom: 8, paddingHorizontal: 2 },
-  hazard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, marginBottom: 8 },
-  hazardDot: { width: 10, height: 10, borderRadius: 999 },
-  hazardBody: { flex: 1, minWidth: 0 },
-  hazardName: { ...t.sm, fontFamily: fonts.semibold },
-  hazardMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   actions: { gap: 10, marginTop: 6 },
   primaryButton: {
     flexDirection: 'row',
@@ -547,5 +432,4 @@ const styles = StyleSheet.create({
   primaryButtonText: { ...t.base, fontFamily: fonts.heading },
   secondaryButton: { alignItems: 'center', paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
   secondaryButtonText: { ...t.sm, fontFamily: fonts.semibold },
-  footnote: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: 18, paddingHorizontal: 12 },
 });

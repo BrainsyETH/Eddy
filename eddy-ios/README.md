@@ -336,22 +336,64 @@ a healthy river brown), and a reading USGS has flagged as suspect.
 
 ### Layers are fetched only when switched on
 
-`src/map/layers.ts` is the single definition of what the map can draw — a filter
-chip is literally the colour of the pins it toggles, so the chip row doubles as
-the legend. Access points are the only layer on by default; hazards, services
-and gauges are each requested the first time their chip is turned on.
+`src/map/layers.ts` is the single definition of what the map can draw — a row in
+the layers sheet is literally the colour of the pins it toggles, so the sheet
+doubles as the legend. **Access points and gauges are on by default**, because
+"where do I get on" and "is there water in it" are the two questions the map
+exists to answer; hazards and services are requested the first time they are
+switched on.
+
+The control is a layers button over the map opening a sheet of labelled switches
+(`src/components/MapLayersSheet.tsx`), not the row of filter chips it used to be.
+Chips cost a permanent band of a phone screen on the one view that wants every
+pixel, hid whatever sat past the right edge, and — being the same control River
+Reports uses for mutually-exclusive filters — implied "narrow to this" when they
+meant "also draw this". `FilterChips` still exists for River Reports, where the
+choices really are alternatives.
+
+The gauge layer is **statewide**, not narrowed to the selected river. It was
+briefly clipped to a 15-mile buffer around the river's bounds, which only ever
+removed pins the camera was not looking at anyway — and removed them from the one
+view where the layer earns its place, the zoomed-out "which rivers have water in
+them" one.
 
 Every pin is a `CircleLayer` plus a text `SymbolLayer`, never a sprite icon. The
 icon names in Mapbox's outdoors style are not a contract we control, and a
 missing sprite renders as *nothing* — an invisible hazard is a worse failure
-than a plain dot.
+than a plain dot. Label ink is the brand's darkest stone with a white halo in
+**both** appearances, because the outdoors basemap is light in both: painting
+labels in `colors.text` put white text inside a white halo on dark mode.
+
+### Changing river is not a reload
+
+River geometry loads per river, and the map used to be replaced by a spinner
+while the next one arrived — which on a quick tap reads as the app restarting.
+The previously loaded river now keeps drawing until the new geometry and its
+access points can be swapped in together, with a small pill over the map as the
+only signal. Everything that describes what is on screen — the line colour, the
+planner's river id, the offline row — is keyed off the river being **drawn**
+rather than the one selected, so nothing is ever a half-second out of step with
+what is visible. Per-river layer data is tagged with the slug it was fetched for
+(`RiverScoped<T>`) so the layers sheet cannot publish one river's counts under
+another's name.
 
 ### The plan lives on the screen, not in the sheet
 
-`useFloatPlan` holds put-in → take-out → boat → answer, and the map draws the
-route and endpoints from it. Closing `PlanSheet` therefore does not discard the
-plan: people plan a float and then dismiss the sheet to look at the water
-between the two ends.
+`useFloatPlan` holds put-in → take-out → answer, and the map draws the route and
+endpoints from it. Closing `PlanSheet` therefore does not discard the plan:
+people plan a float and then dismiss the sheet to look at the water between the
+two ends.
+
+**Two questions, not four.** There used to be a boat picker between the take-out
+and the answer, and a nights-on-the-river control under it. Both are gone. The
+boat because `/api/plan` already defaults to a canoe and the difference between a
+canoe and a kayak sits inside the error bars of a float-time estimate — a
+mandatory tap that changes nothing anyone notices only loses people on the way to
+the answer. Which boat the estimate assumed is still printed on it. The nights
+because it was a planner inside a planner (a second endpoint, a segmented
+control, an itinerary, and a class of "this stretch has fewer camps than you
+asked for" copy) sitting under a question most people opened the app to ask about
+a Saturday afternoon.
 
 Two rules the flow is built around:
 
@@ -366,14 +408,17 @@ Two rules the flow is built around:
 Nothing in the plan flow is gated. It is the reason someone opens Eddy on a
 Thursday night.
 
-**Overnights** come from `/api/plan/campgrounds`, not from filtering the
-campground map layer by river mile. Those answer different questions: the
-endpoint runs a database function that walks the segment at floatable intervals,
-where a filtered map layer would happily suggest two camps four hundred yards
-apart. Per-day mileage is the number that decides an overnight, so the section
-is built around legs rather than camps — and the per-leg time is the trip
-estimate apportioned by distance, which is a real simplification and is labelled
-"about" everywhere it appears.
+**What the answer says** is now mostly logistics, following the website's plan
+page rather than the app's old shape. Warnings, then the time and the two numbers
+that decide the day, then the reading it was built from with a tap through to
+USGS, then *Getting there* — put-in, take-out and the shuttle leg, each handed to
+Apple Maps (`src/lib/directions.ts`; Apple rather than Google because it is
+guaranteed present and so can never bounce to a web page). Below that: hazards on
+the stretch, the access points **between** the two ends — which are bail-outs, and
+are listed by miles from the put-in rather than from the headwaters — and the
+outfitters nearest the put-in with tap-to-call. `PlanAlongRoute` and `PlanNearby`
+fetch their own data so they work identically on the screen that opens a shared
+float, which holds a plan and nothing else.
 
 **Saved floats** are local (`useSavedFloats`) because the server has no notion of
 "mine": `float_plans` is keyed by share code, and most users are anonymous. Only
@@ -409,6 +454,14 @@ CTA. It used to be a full-width coral button pinned under the map, which made
 "download 12 MB of tiles" the loudest thing on a screen whose job is showing
 where the river is — shouted at every person on wifi at home, days from needing
 it.
+
+The expanded description names the three things that survive losing signal — the
+map, the put-ins, the hazards — and stops. It used to also explain how much of
+the Ozarks has no cell coverage, and that the pack follows the river corridor
+rather than a bounding box: the first is something anyone who floats here already
+knows, and the second is an engineering decision whose outcome the size label
+already reports. The storage bar reads as a percentage for the same reason —
+nobody outside this codebase knows how many map tiles is a lot.
 
 The lock is shown **before** the tap, and the entitlement check **fails open**:
 an unreachable `/api/me/profile` means "unknown", not "not subscribed". Telling
