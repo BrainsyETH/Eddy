@@ -40,7 +40,15 @@
       ],
       "expo-status-bar",
       "expo-secure-store",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Eddy uses your location to show which put-ins and rivers are closest to you. It is never sent to our servers.",
+          "locationWhenInUsePermission": "Eddy uses your location to show which put-ins and rivers are closest to you. It is never sent to our servers.",
+          "isIosBackgroundLocationEnabled": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
