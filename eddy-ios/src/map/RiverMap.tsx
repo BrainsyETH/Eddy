@@ -126,6 +126,22 @@ const PIN_IMAGES = {
 };
 
 /**
+ * Module scope, not an inline arrow. Mapbox.Images is a PureComponent, so a
+ * fresh callback on every render makes it re-register both images against the
+ * style on every render of this screen — which is pure work at best, and at
+ * worst touches the style while layers are being updated.
+ *
+ * Should be unreachable: these are bundled, not sprite-sheet names. Said out
+ * loud anyway, because the symptom is invisible pins.
+ */
+function onPinImageMissing(name: string) {
+  console.warn(`[map] Missing pin image "${name}" — pins in that layer will not draw.`);
+}
+
+/** What a source draws when it has nothing to draw. See the note in the render. */
+const EMPTY_COLLECTION = { type: 'FeatureCollection' as const, features: [] };
+
+/**
  * Where the map sits before it knows anything.
  *
  * Mirrors DEFAULT_MAP_CENTER / DEFAULT_MAP_ZOOM in the website's
@@ -436,6 +452,52 @@ export function RiverMap({
     return { ne: [b[2], b[3]], sw: [b[0], b[1]] };
   }, [routeFeature, river, networkBounds]);
 
+  // ── Why the two river sources are never unmounted ───────────────────────────
+  //
+  // "Layer 'network-fill' is not in style", thrown by updateLayer.
+  //
+  // A ShapeSource that stops rendering is REMOVED, and RNMBXSource.removeFromMap
+  // removes every layer belonging to it on the way out. The React layer
+  // component survives that — it still holds a live styleLayer — so the next
+  // prop change calls updateLayer against a style the layer is no longer in.
+  // That is the error, and it has exactly one cause here: a source going away
+  // and coming back.
+  //
+  // So neither of these sources is conditional any more. They mount once and
+  // stay, and "nothing to draw" is expressed as an EMPTY FeatureCollection —
+  // which is a source update rather than a teardown, and cannot orphan a layer.
+  const networkShape = useMemo(
+    () => network ?? EMPTY_COLLECTION,
+    [network],
+  );
+
+  /**
+   * The selected river's own full-resolution line.
+   *
+   * Drawn only when the network does NOT already carry it, because the network
+   * paints it per gauge and this would flatten it back to one colour. Usually
+   * that means empty — which is the point of the note above.
+   */
+  const detailShape = useMemo(() => {
+    const covered =
+      river && network?.features.some((f) => f.properties.slug === river.slug);
+    return {
+      type: 'FeatureCollection' as const,
+      features: !lineFeature || covered ? [] : [lineFeature],
+    };
+  }, [lineFeature, network, river]);
+
+  // Memoised so the native layer only hears about a width change when one
+  // actually happened. These are expressions rather than numbers — a selected
+  // river is drawn heavier — and rebuilding the array every render made every
+  // unrelated re-render of the map screen an updateLayer call, which is both
+  // wasted work and more chances to land in the window described above.
+  const networkWidths = useMemo(() => {
+    const bySlug = (base: number, selected: number): number | unknown[] =>
+      river ? ['case', ['==', ['get', 'slug'], river.slug], selected, base] : base;
+    return { casing: bySlug(4.5, 7), fill: bySlug(2.5, 4) };
+  }, [river]);
+
   // The caller is responsible for not rendering this when Mapbox is unavailable;
   // this guard is here so a mistake shows an empty map rather than a red screen.
   if (!Mapbox) return <View style={[styles.fill, { backgroundColor: colors.bg }]} />;
@@ -473,24 +535,6 @@ export function RiverMap({
             zoomLevel: COLD_START_ZOOM,
           },
         };
-
-  // THE SELECTED RIVER STAYS IN THE NETWORK, and this is a change from how it
-  // used to work. It was filtered out and redrawn as one flat colour on top,
-  // which was fine when the network was flat too — but now that a river is
-  // painted by each of its gauges, selecting one would have thrown that away
-  // and repainted a hundred miles in the primary gauge's single opinion.
-  // Selection is expressed as WIDTH below instead, so the colour survives it.
-  const networkFeature = network && network.features.length ? network : null;
-
-  /** True when the network already draws this river, so nothing else should. */
-  const networkHasSelected = Boolean(
-    river && network?.features.some((f) => f.properties.slug === river.slug),
-  );
-
-  // Selected rivers are drawn heavier. A `case` rather than a second source:
-  // one river changing width should not re-upload 155 LineStrings.
-  const selectedWidth = (base: number, selected: number): number | unknown[] =>
-    river ? ['case', ['==', ['get', 'slug'], river.slug], selected, base] : base;
 
   // Dimming, expressed in the style rather than by rebuilding the source: the
   // filter changes on every chip tap and re-uploading 24 LineStrings for each
@@ -533,7 +577,10 @@ export function RiverMap({
     color: string,
     shape: PinShape = 'dot',
   ) => {
-    if (data.length === 0) return null;
+    // No early return on an empty list. Access points and gauges arrive
+    // asynchronously, and a source that unmounts takes its layers out of the
+    // style with it — see the note above networkShape. An empty collection is
+    // a source update; `null` is a teardown.
     const icon = PIN_ICONS[shape];
     return (
       <Mapbox.ShapeSource
@@ -641,14 +688,7 @@ export function RiverMap({
           iconImage name resolves against every Images component on the view,
           so this does not belong inside pinLayer, where it would re-register
           the same two assets for each layer that uses one. */}
-      <Mapbox.Images
-        images={PIN_IMAGES}
-        onImageMissing={(name: string) =>
-          // Should be unreachable: these are bundled, not sprite-sheet names.
-          // Said out loud anyway, because the symptom is invisible pins.
-          console.warn(`[map] Missing pin image "${name}" — pins in that layer will not draw.`)
-        }
-      />
+      <Mapbox.Images images={PIN_IMAGES} onImageMissing={onPinImageMissing} />
 
       {/* Rendered only once permission exists. @rnmapbox/maps triggers the
           system prompt itself the moment this mounts, which would spend the
@@ -665,62 +705,59 @@ export function RiverMap({
           filter reads as broken rather than filtered — the same call the
           website's Observatory made. The selected river is drawn separately
           below and is never dimmed. */}
-      {networkFeature ? (
-        <Mapbox.ShapeSource id="network" shape={networkFeature} onPress={onNetworkPress}>
-          {/* Casing first: a dark outline under the colour keeps a thin river
-              legible over both the green forest and the pale gravel of the
-              outdoors style, which the condition colour alone does not. */}
-          <Mapbox.LineLayer
-            id="network-casing"
-            style={{
-              lineColor: 'rgba(0,0,0,0.28)',
-              lineWidth: selectedWidth(4.5, 7),
-              lineCap: 'round',
-              lineJoin: 'round',
-              lineOpacity: networkOpacity,
-            }}
-          />
-          <Mapbox.LineLayer
-            id="network-fill"
-            style={{
-              // Per RUN, not per river: buildNetwork cuts each line where the
-              // colour changes, so this reads a gradient off the geometry.
-              lineColor: ['get', 'color'],
-              lineWidth: selectedWidth(2.5, 4),
-              lineCap: 'round',
-              lineJoin: 'round',
-              lineOpacity: networkOpacity,
-            }}
-          />
-        </Mapbox.ShapeSource>
-      ) : null}
+      <Mapbox.ShapeSource id="network" shape={networkShape} onPress={onNetworkPress}>
+        {/* Casing first: a dark outline under the colour keeps a thin river
+            legible over both the green forest and the pale gravel of the
+            outdoors style, which the condition colour alone does not. */}
+        <Mapbox.LineLayer
+          id="network-casing"
+          style={{
+            lineColor: 'rgba(0,0,0,0.28)',
+            lineWidth: networkWidths.casing,
+            lineCap: 'round',
+            lineJoin: 'round',
+            lineOpacity: networkOpacity,
+          }}
+        />
+        <Mapbox.LineLayer
+          id="network-fill"
+          style={{
+            // Per RUN, not per river: buildNetwork cuts each line where the
+            // colour changes, so this reads a gradient off the geometry.
+            lineColor: ['get', 'color'],
+            lineWidth: networkWidths.fill,
+            lineCap: 'round',
+            lineJoin: 'round',
+            lineOpacity: networkOpacity,
+          }}
+        />
+      </Mapbox.ShapeSource>
 
-      {/* FALLBACK ONLY. The network draws every curated river including the
-          selected one; this covers the case where it has not loaded, or a river
-          reached by deep link that the statewide dataset does not carry. Flat,
-          because without the network there are no per-gauge stops to fade
-          between either. */}
-      {lineFeature && !networkHasSelected ? (
-        <Mapbox.ShapeSource id="river-line" shape={lineFeature}>
-          <Mapbox.LineLayer
-            id="river-line-casing"
-            style={{ lineColor: 'rgba(0,0,0,0.35)', lineWidth: 7, lineCap: 'round', lineJoin: 'round' }}
-          />
-          <Mapbox.LineLayer
-            id="river-line-fill"
-            style={{
-              lineColor: stroke,
-              lineWidth: 4,
-              lineCap: 'round',
-              lineJoin: 'round',
-              // Dimmed under a plan so the floated stretch is the bright part.
-              // Still visible: the rest of the river is context for where the
-              // float sits, not clutter to hide.
-              lineOpacity: routeFeature ? 0.35 : 1,
-            }}
-          />
-        </Mapbox.ShapeSource>
-      ) : null}
+      {/* FALLBACK ONLY, and usually empty. The network draws every curated
+          river including the selected one; this covers the case where it has
+          not loaded, or a river reached by deep link that the statewide dataset
+          does not carry. Flat, because without the network there are no
+          per-gauge stops to fade between either. See detailShape for why it
+          empties rather than unmounting. */}
+      <Mapbox.ShapeSource id="river-line" shape={detailShape}>
+        <Mapbox.LineLayer
+          id="river-line-casing"
+          style={{ lineColor: 'rgba(0,0,0,0.35)', lineWidth: 7, lineCap: 'round', lineJoin: 'round' }}
+        />
+        <Mapbox.LineLayer
+          id="river-line-fill"
+          style={{
+            lineColor: stroke,
+            lineWidth: 4,
+            lineCap: 'round',
+            lineJoin: 'round',
+            // Dimmed under a plan so the floated stretch is the bright part.
+            // Still visible: the rest of the river is context for where the
+            // float sits, not clutter to hide.
+            lineOpacity: routeFeature ? 0.35 : 1,
+          }}
+        />
+      </Mapbox.ShapeSource>
 
       {routeFeature ? (
         <Mapbox.ShapeSource id="plan-route" shape={routeFeature}>
