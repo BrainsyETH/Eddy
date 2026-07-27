@@ -1197,51 +1197,109 @@ export type Database = {
           },
         ]
       }
+      // HAND-PATCHED to the live schema, against this file's own header, and
+      // said out loud rather than left for the next reader to discover.
+      //
+      // 00196_national_gauges added fourteen columns to this table and nothing
+      // regenerated afterwards, so typed code could not reference `curated` —
+      // the flag that separates the ~46 gauges Eddy rates from the ~14,000
+      // national reference stations. /api/search has to order by it (rated
+      // first, or a search for "Big" returns nine BIG CREEK NR ... stations
+      // ahead of Big River), and could not: the column did not exist as far as
+      // the compiler was concerned.
+      //
+      // The right fix is `npm run db:gen-types`, which needs a Supabase access
+      // token this environment does not have. Patched by hand from
+      // information_schema for the one table that was wrong. RE-RUN THE
+      // GENERATOR when you next have credentials; this block should survive it
+      // unchanged, and if it does not, the generator is right and this is wrong.
       gauge_stations: {
         Row: {
           active: boolean | null
+          agency_code: string | null
+          county: string | null
           created_at: string | null
+          curated: boolean
           drainage_area_sqmi: number | null
+          first_seen_at: string | null
           high_frequency_flag: boolean | null
+          huc: string | null
           id: string
+          last_seen_at: string | null
           location: unknown
           name: string
           notes: string | null
+          nwps_action_stage_ft: number | null
+          nwps_flood_stage_ft: number | null
+          nwps_major_stage_ft: number | null
+          nwps_moderate_stage_ft: number | null
           nws_lid: string | null
+          parameter_codes: string[] | null
           provider: string
           site_id_external: string | null
+          site_type_code: string | null
+          state_code: string | null
           threshold_descriptions: Json | null
           usgs_site_id: string | null
+          waterbody_name: string | null
         }
         Insert: {
           active?: boolean | null
+          agency_code?: string | null
+          county?: string | null
           created_at?: string | null
+          curated?: boolean
           drainage_area_sqmi?: number | null
+          first_seen_at?: string | null
           high_frequency_flag?: boolean | null
+          huc?: string | null
           id?: string
+          last_seen_at?: string | null
           location: unknown
           name: string
           notes?: string | null
+          nwps_action_stage_ft?: number | null
+          nwps_flood_stage_ft?: number | null
+          nwps_major_stage_ft?: number | null
+          nwps_moderate_stage_ft?: number | null
           nws_lid?: string | null
+          parameter_codes?: string[] | null
           provider?: string
           site_id_external?: string | null
+          site_type_code?: string | null
+          state_code?: string | null
           threshold_descriptions?: Json | null
           usgs_site_id?: string | null
+          waterbody_name?: string | null
         }
         Update: {
           active?: boolean | null
+          agency_code?: string | null
+          county?: string | null
           created_at?: string | null
+          curated?: boolean
           drainage_area_sqmi?: number | null
+          first_seen_at?: string | null
           high_frequency_flag?: boolean | null
+          huc?: string | null
           id?: string
+          last_seen_at?: string | null
           location?: unknown
           name?: string
           notes?: string | null
+          nwps_action_stage_ft?: number | null
+          nwps_flood_stage_ft?: number | null
+          nwps_major_stage_ft?: number | null
+          nwps_moderate_stage_ft?: number | null
           nws_lid?: string | null
+          parameter_codes?: string[] | null
           provider?: string
           site_id_external?: string | null
+          site_type_code?: string | null
+          state_code?: string | null
           threshold_descriptions?: Json | null
           usgs_site_id?: string | null
+          waterbody_name?: string | null
         }
         Relationships: []
       }

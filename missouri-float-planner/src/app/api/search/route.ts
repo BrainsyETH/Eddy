@@ -209,11 +209,26 @@ async function _GET(request: NextRequest) {
     // ── Gauges ──────────────────────────────────────────────────
     // Matched on station name AND on USGS site id, because plenty of people
     // know a gauge as "07068000" and nothing else.
+    //
+    // CURATED FIRST, and that ordering is now load-bearing. This query filters
+    // on `active` and nothing else, so with the national tier activated it
+    // searches ~14,300 stations rather than the 288 it was written against —
+    // and a plain alphabetical sort over that set buries every gauge Eddy rates
+    // under un-rated stations that merely sort earlier. "Big" matched Big River
+    // before; it would otherwise match nine BIG CREEK NR ... stations first.
+    //
+    // 00196 shipped a search_gauges RPC that does this ordering server-side and
+    // also returns coordinates. It is not used here because src/types/
+    // database.ts predates that migration, so an .rpc() call against the TYPED
+    // anon client does not compile — and regenerating the whole schema type
+    // does not belong in this fix. The ordering is the part that matters; see
+    // the coordinates note below for what adopting the RPC would still buy.
     const { data: gaugeRows, error: gaugeError } = await supabase
       .from('gauge_stations')
-      .select('id, name, usgs_site_id')
+      .select('id, name, usgs_site_id, curated')
       .eq('active', true)
       .or(`name.ilike.${pattern},usgs_site_id.ilike.${pattern}`)
+      .order('curated', { ascending: false })
       .order('name', { ascending: true })
       .limit(limit);
 
@@ -248,6 +263,9 @@ async function _GET(request: NextRequest) {
         kind: 'gauge' as const,
         id: g.id,
         name: g.name,
+        // "USGS gauge" for anything with no river association, which is now the
+        // common case rather than the exception — a national station is a real
+        // answer to a search, it just is not one Eddy has rated.
         subtitle: [river ? river.name : 'USGS gauge', g.usgs_site_id]
           .filter(Boolean)
           .join(' · '),
@@ -255,10 +273,17 @@ async function _GET(request: NextRequest) {
         riverName: river?.name ?? null,
         riverSlug: river?.slug ?? null,
         riverMile: null,
-        // Deliberately omitted. gauge_stations.location is PostGIS and comes
-        // back in three different shapes depending on how it was written (see
-        // the parser in /api/gauges); the client already holds the parsed
-        // coordinates from that endpoint and looks them up by id.
+        // STILL NULL, and the justification has narrowed to the curated set.
+        // The original reasoning was that the client already holds every gauge
+        // from /api/gauges and looks these up by id — true of the 46 rated
+        // stations, false of the ~14,000 national ones, which the client has
+        // never fetched. So a national gauge found by search is a result the
+        // map cannot fly to; it selects, and the camera stays put.
+        //
+        // Fixing it means coordinates on this row, and the honest way to get
+        // them is search_gauges (st_x/st_y) rather than selecting `location`
+        // and reaching for the hand-rolled EWKB parser in /api/gauges that
+        // falls back to {0,0}. That needs the regenerated types above.
         coordinates: null,
       };
     });
