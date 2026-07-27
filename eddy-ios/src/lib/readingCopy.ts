@@ -51,6 +51,33 @@ export function formatReading(value: number, unit: 'ft' | 'cfs'): string {
 }
 
 /**
+ * BOTH readings the gauge published, each labelled, with the rated one flagged.
+ *
+ * The deliberate counterpart to primaryReading, not a loosening of it. That
+ * function refuses to cross units because a lone number has to correspond to
+ * the colour beside it, and the wrong unit silently would not. Showing both is
+ * safe for the opposite reason: nothing is implied, each value states its own
+ * unit, and `rated` marks the one the condition was actually computed from.
+ *
+ * Ordered rated-first so the number that carries the verdict is read first.
+ * Returns [] when the gauge published nothing.
+ */
+export function allReadings(
+  condition: Pick<RiverConditionDetail, 'gaugeHeightFt' | 'dischargeCfs'> & {
+    thresholdUnit?: 'ft' | 'cfs' | null;
+  },
+): { value: number; unit: 'ft' | 'cfs'; rated: boolean }[] {
+  const out: { value: number; unit: 'ft' | 'cfs'; rated: boolean }[] = [];
+  if (condition.gaugeHeightFt != null) {
+    out.push({ value: condition.gaugeHeightFt, unit: 'ft', rated: condition.thresholdUnit === 'ft' });
+  }
+  if (condition.dischargeCfs != null) {
+    out.push({ value: condition.dischargeCfs, unit: 'cfs', rated: condition.thresholdUnit === 'cfs' });
+  }
+  return out.sort((a, b) => Number(b.rated) - Number(a.rated));
+}
+
+/**
  * How old the reading is, phrased for a person.
  *
  * Anything past a day is called out in days rather than a large hour count,

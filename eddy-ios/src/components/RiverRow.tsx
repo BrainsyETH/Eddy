@@ -32,7 +32,7 @@ import type { RiverListItem } from '@eddy/types';
 import { conditionColor, conditionLabel, conditionText } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { formatReading, primaryReading } from '@/lib/readingCopy';
+import { allReadings, formatReading, primaryReading } from '@/lib/readingCopy';
 
 /** Compact age for a row — the detail screen owns the long-form phrasing. */
 function shortAge(hours: number | null | undefined): string | null {
@@ -62,6 +62,14 @@ interface RiverRowProps {
    * Ozark river forty miles off can be ninety minutes of two-lane.
    */
   distanceMiles?: number | null;
+  /**
+   * Show BOTH published readings — stage and discharge — rather than only the
+   * rated one. Off by default: the row's headline is deliberately a single
+   * number, and two numbers on every row is the state this component was
+   * written to get away from. The Search tab turns it on so a gauge can be
+   * read and sorted properly.
+   */
+  showGauge?: boolean;
 }
 
 function RiverRowComponent({
@@ -71,6 +79,7 @@ function RiverRowComponent({
   onToggleStar,
   starDisabled = false,
   distanceMiles = null,
+  showGauge = false,
 }: RiverRowProps) {
   const { colors, elevation, isDark } = useTheme();
 
@@ -84,6 +93,12 @@ function RiverRowComponent({
   const age = shortAge(condition?.readingAgeHours);
 
   const readingText = reading ? formatReading(reading.value, reading.unit) : 'No gauge reading';
+
+  // Both published values, rated one first. Only interesting when the gauge
+  // actually reported two — a single value is already the headline above, and
+  // repeating it under itself says nothing.
+  const gaugeReadings = showGauge && condition ? allReadings(condition) : [];
+  const showBoth = gaugeReadings.length > 1;
 
   return (
     <View
@@ -152,6 +167,29 @@ function RiverRowComponent({
 
             The "≈" is not decoration: this is a straight line to the river's
             gauge, not a drive. */}
+        {/* The gauge card: every number this station published, each stating
+            its own unit, with a "rated" tag on the one the condition colour was
+            computed from. That tag is the whole point of showing two — 18 of 24
+            rivers are graded on cfs, so a reader who assumes the feet figure
+            drove the verdict is wrong most of the time. Neutral ink, unlike the
+            headline: only the rated number carries the verdict. */}
+        {showBoth ? (
+          <View style={[styles.gaugeCard, { backgroundColor: colors.bg }]}>
+            {gaugeReadings.map((r) => (
+              <View key={r.unit} style={styles.gaugeItem}>
+                <Text style={[styles.gaugeValue, { color: colors.text }]} numberOfLines={1}>
+                  {formatReading(r.value, r.unit)}
+                </Text>
+                {r.rated ? (
+                  <Text style={[styles.gaugeTag, { color: conditionText(code, isDark) }]}>
+                    rated
+                  </Text>
+                ) : null}
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         {age || distanceMiles != null ? (
           <Text style={[styles.meta, { color: colors.textSubtle }]} numberOfLines={1}>
             {[
@@ -197,6 +235,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   stripe: { width: 4 },
+  gaugeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  gaugeItem: { flexDirection: 'row', alignItems: 'baseline', gap: 5 },
+  gaugeValue: { ...t.xs, fontFamily: fonts.mono },
+  gaugeTag: { ...t.xs, fontFamily: fonts.semibold, fontSize: 10 },
   main: { flex: 1, minWidth: 0, paddingVertical: 12, paddingLeft: 12, paddingRight: 4 },
   titleLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   name: { ...t.base, fontFamily: fonts.semibold, flexShrink: 1 },
