@@ -42,7 +42,8 @@ select
     'swl-clearwater-dam',
     'usace',
     'Black River below Clearwater Dam',
-    st_setsrid(st_makepoint(-90.7708833, 37.1349222), 4326)::geography,
+    -- geometry(POINT, 4326), not geography — matches gauge_stations.location.
+    st_setsrid(st_makepoint(-90.7708833, 37.1349222), 4326),
     true,
     jsonb_build_object(
         'source', 'USACE Little Rock District (CWMS)',
