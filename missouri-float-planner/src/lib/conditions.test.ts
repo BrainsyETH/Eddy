@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { computeCondition, type ConditionThresholds } from './conditions';
+import { computeCondition, mapConditionCode, type ConditionThresholds } from './conditions';
+import { CONDITION_ORDER } from '@shared/condition-system';
 
 // A ft-primary ladder in the shape the Ozark rivers actually use.
 const FT: ConditionThresholds = {
@@ -146,4 +147,21 @@ test('a partial ladder with only optimal_min uses it as the good floor', () => {
   };
   assert.equal(computeCondition(null, partial, 500).code, 'good');
   assert.equal(computeCondition(null, partial, 300).code, 'too_low');
+});
+
+// ── mapConditionCode: canonical codes must survive it ────────────
+
+test('mapConditionCode is identity for every canonical code', () => {
+  // The RPC has emitted the canonical taxonomy since migration 00081, so any
+  // arm that rewrites one of these is a bug, not a translation. A `low` river
+  // rewritten to `good` renders lime-green under a "Low - Scraping Likely"
+  // label and gets counted as floatable — which is exactly what happened.
+  for (const code of [...CONDITION_ORDER, 'unknown' as const]) {
+    assert.equal(mapConditionCode(code), code, `${code} must pass through unchanged`);
+  }
+});
+
+test('mapConditionCode still tolerates the pre-00081 codes', () => {
+  assert.equal(mapConditionCode('optimal'), 'flowing');
+  assert.equal(mapConditionCode('very_low'), 'low');
 });
