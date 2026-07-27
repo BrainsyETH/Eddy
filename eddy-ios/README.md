@@ -242,7 +242,7 @@ Two severity orderings exist and **must not be conflated**:
 - `CONDITION_SYSTEM[code].severity` — most-alarming-first, for alerts
 - `WEEKEND_SEVERITY` — floatable-first, for "where can I go" lists
 
-River Reports uses the second. Public "floatable now" counts use `FLOATABLE_NOW`
+Search uses the second. Public "floatable now" counts use `FLOATABLE_NOW`
 (strictly `flowing`/`good`), which is narrower than `WEEKEND_FLOATABLE`.
 
 ## Maps (Mapbox)
@@ -268,6 +268,29 @@ declares `environment` on each profile so builds pick up the right set.
 create one and pass `RNMapboxMapsDownloadToken` to the config plugin. That prop is
 deprecated — the plugin's own types say "Download token is no longer required by
 Mapbox. Do not set this."
+
+### The logo is not a preference
+
+Mapbox's terms require their logo on every map they render. It may be moved to
+another corner; it may not be restyled, and **no plan tier exempts you** from
+showing it. The attribution notice (the `(i)` button, which discloses
+© Mapbox / © OpenStreetMap) is likewise required — its text may be repositioned
+and recoloured to match a theme so long as it stays legible, and if you ever
+disable the built-in button you must render the same credits as text yourself.
+
+So `logoEnabled` and `attributionEnabled` are passed **explicitly** in
+`src/map/RiverMap.tsx` rather than left to a default, and both are positioned to
+sit clear of the locate button — at the default inset the 44×44 locate button
+covers the wordmark, and attribution you have covered up is attribution you have
+not given.
+
+If the branding genuinely has to go, the answer is not a prop: it is changing
+renderer. The website already runs **MapLibre** against self-hosted styles in
+`missouri-float-planner/public/map-styles/` with no API key and no Mapbox
+dependency at all. `@maplibre/maplibre-react-native` is a fork of this very
+library with a near-identical API, so the port is tractable — but offline packs
+would have to be rebuilt on MapLibre's own offline API, which is the reason it
+has not been done.
 
 Do not pin `RNMapboxMapsVersion` unless you have a reason. `@rnmapbox/maps` 10.3.5
 pins Mapbox iOS `~> 11.23.1` in its own `package.json`, and overriding it with a
@@ -315,6 +338,54 @@ newer than some deployed builds of the website this app talks to, so a 404 marks
 it unavailable for the session and search continues as rivers-and-gauges only —
 `searchEddy()` in `src/api/client.ts` never throws for this reason.
 
+### The map opens on the network, not on a river
+
+The Map tab draws **every** curated river, coloured by its live condition, and
+the selected one brighter on top. It used to draw only the selection, which
+meant the map could show you a river you had already chosen and nothing else —
+so the one question a map is best placed to answer, *where can I float today?*,
+was the one it could not answer.
+
+That also fixed how it opened. There was no default coordinate anywhere: the
+river list was sorted starred-first, then floatable-first, then alphabetically,
+and `ordered[0]` became the opening river. With nothing starred and several
+rivers sharing the top band, the alphabetical tiebreak decided — which is why it
+always opened on Big River, a river nobody had chosen. It now opens on the whole
+network, or on **your own position if location was already granted** —
+`useLocation` resolves that through `getForegroundPermissionsAsync`, the getter,
+which reports an existing grant and never shows the dialog. The prompt is still
+only ever spent on an explicit tap of the locate button.
+
+Two payloads, two jobs, and they are easy to confuse: `/api/rivers/{slug}`
+serves the **full-resolution** centreline used to snap a float route and still
+loads one river at a time, while `/api/usgs/mo-dataset?slim=1` serves coarse
+geometry for all 24 at once (~260 KB, CDN-cached) purely as context. Readings
+come separately from `/api/usgs/mo-statewide` and are graded on the phone, the
+same way gauge pins are.
+
+One wrinkle worth knowing: a single physical gauge can be the primary for two
+rivers, and the readings payload emits it under only one of them. Courtois
+Creek's primary gauge *is* Huzzah Creek's, so a strict river+site lookup left
+Courtois grey. `statewideNetwork.ts` falls back to a site-only match — borrowing
+the number, never the verdict, because the ladder it is graded against is still
+the river's own.
+
+### Condition filter: chips here, sheet for layers
+
+The chips-vs-sheet ruling below sends map **layers** to a sheet because they are
+additive switches, and chips imply "narrow to this". The condition filter
+genuinely means narrow to this, so it is chips — but behind a button beside the
+layers button rather than a permanent band, which keeps the ruling's actual
+complaint (a strip eating the one view that needs the room).
+
+Non-matching rivers are **dimmed to 0.16, not hidden**. Hiding takes the tap
+target with it, and a map that empties when you tap a filter reads as broken
+rather than filtered. Counts come from `summarizeConditionCounts` and the
+floatable macro from `FLOATABLE_NOW`, both out of `@eddy/conditions` — the
+website hand-rolls `good + flowing` in three separate places and this is
+deliberately not a fourth. The filter is not persisted: "what is floatable" is a
+today question, and one restored from last week reads as rivers gone missing.
+
 ### Gauge pins are graded on the phone
 
 `/api/gauges` sends every station's reading **and the ladder each river grades
@@ -348,7 +419,7 @@ The control is a layers button over the map opening a sheet of labelled switches
 Chips cost a permanent band of a phone screen on the one view that wants every
 pixel, hid whatever sat past the right edge, and — being the same control River
 Reports uses for mutually-exclusive filters — implied "narrow to this" when they
-meant "also draw this". `FilterChips` still exists for River Reports, where the
+meant "also draw this". `FilterChips` still exists for the Search tab, where the
 choices really are alternatives.
 
 The gauge layer is **statewide**, not narrowed to the selected river. It was
@@ -432,7 +503,7 @@ works offline and opening one does not, and the screen says so.
 
 iOS gives an app one shot at the location prompt. `useLocation` therefore does
 nothing until an explicit tap — the locate button on the map, the compass in
-River Reports' search field — so the ask always arrives with a visible reason
+the Search tab's search field — so the ask always arrives with a visible reason
 attached. A denial is not re-prompted; iOS would suppress the dialog anyway, so
 the only effect would be a silent retry behind a spinner.
 
@@ -441,7 +512,7 @@ Coordinates never leave the phone, which is why the permission strings in
 
 Two things it powers. The planner's put-in list gains a **nearest-first**
 ordering (headwaters-first stays the default — that is the order a river runs
-in). And River Reports gains a distance sort, which measures to **the river's
+in). And Search gains a distance sort, which measures to **the river's
 primary gauge**: `/api/rivers` carries no coordinate, and rather than change a
 CDN-cached endpoint the website depends on, the gauge is used as a point known
 to be on the river. Both surfaces say "≈" and "away", never a drive time — an
@@ -533,7 +604,7 @@ splash and tinted assets keep their alpha (the OS composites those itself).
 | Tab | Status |
 |---|---|
 | Map | **live** in a dev build — search, layer filters, the float plan flow, premium-gated offline packs |
-| River Reports | **live** against `/api/rivers`, with local search and condition filters |
+| Search | **live** against `/api/rivers`, with local search and condition filters |
 | Alerts | **live** against `/api/alerts` |
 | Favorites | **live**, local-first via AsyncStorage; server sync pending |
 | Profile | **live** — Sign in with Apple, subscription state, Restore Purchases, account deletion |

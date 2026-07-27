@@ -1,6 +1,9 @@
 // eddy-ios/app/(tabs)/reports.tsx
-// River Reports — the list view: every curated river ranked by how floatable it
-// is right now. This is the tab that answers "what can I float today?".
+// Search — the list view: every curated river ranked by how floatable it is
+// right now. This is the tab that answers "what can I float today?".
+//
+// The file keeps its `reports` route name; only the labels say "Search". See
+// app/(tabs)/_layout.tsx for why the filename was left alone.
 //
 // Ordering and the floatable count both come from the canonical condition
 // system rather than local logic, so the app's headline number always matches
@@ -232,7 +235,7 @@ export default function ReportsScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>River Reports</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Search</Text>
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>
           {error ? error : `${floatableCount} of ${sorted.length} rivers floatable right now`}
         </Text>

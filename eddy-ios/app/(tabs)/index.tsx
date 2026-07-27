@@ -44,6 +44,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type {
+  FloatPlan,
   Hazard,
   MapAccessPoint,
   MapGauge,
@@ -53,6 +54,10 @@ import type {
   SearchResult,
 } from '@eddy/types';
 import { hasCoordinates, isCampground } from '@eddy/types';
+import {
+  formatFloatTimeCeilingCompact,
+  formatFloatTimeCompact,
+} from '@eddy/conditions/float-time-format';
 import {
   ApiError,
   fetchGauges,
@@ -88,20 +93,32 @@ import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { useAccount } from '@/hooks/useAccount';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useLocation } from '@/hooks/useLocation';
+import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
 import { useRouter } from 'expo-router';
 import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
 import { SearchResultsList } from '@/components/SearchResultsList';
 import { MapLayersButton, MapLayersSheet, isDefaultLayers } from '@/components/MapLayersSheet';
+import { ConditionFilterBar, ConditionFilterButton } from '@/components/ConditionFilterBar';
 import { PlanSheet } from '@/components/PlanSheet';
 import { OfflineMapRow } from '@/components/OfflineMapRow';
 import { PaywallSheet } from '@/components/PaywallSheet';
 
-/** A camera target, tagged with the river it belongs to. */
+/**
+ * A camera target, tagged with the river it belongs to.
+ *
+ * `slug` is nullable because the map now opens with no river selected, and
+ * "show me where I am" is if anything MORE useful in that state. Tagging it
+ * null rather than '' matters: activeFocus compares this against selectedSlug,
+ * and an empty string would never equal a null selection, which quietly turned
+ * the locate button into a no-op on the opening screen.
+ */
 interface Focus {
-  slug: string;
+  slug: string | null;
   lng: number;
   lat: number;
+  /** Omitted for pin/search focus, which wants the map's default close zoom. */
+  zoom?: number;
 }
 
 /**
@@ -117,6 +134,26 @@ interface Focus {
 interface RiverScoped<T> {
   slug: string;
   items: T[];
+}
+
+/**
+ * The plan button's label, sized for a button that sits on top of the map.
+ *
+ * `distance.formatted` and `floatTime.formatted` are both written for a card
+ * with a whole line to spend ("8.3 miles", "~2 hours 30 minutes – ~4 hours").
+ * Concatenated they wrapped this button to two lines and covered a band of
+ * river. Abbreviated units and the ceiling instead of the range say the same
+ * thing in a third of the space; PlanResult still carries the long form.
+ */
+function planButtonLabel(plan: FloatPlan): string {
+  const miles = `${Math.round(plan.distance.miles * 10) / 10} mi`;
+  if (!plan.floatTime) return miles;
+  // No range means a float short enough that both ends round together — the
+  // ceiling and the estimate are the same number, so print it plainly.
+  const time = plan.floatTime.timeRange
+    ? formatFloatTimeCeilingCompact(plan.floatTime.timeRange.max)
+    : `~${formatFloatTimeCompact(plan.floatTime.minutes)}`;
+  return `${miles} · ${time}`;
 }
 
 export default function MapScreen() {
@@ -136,11 +173,20 @@ export default function MapScreen() {
   // be one `push` away from redefining what the app opens with.
   const [layers, setLayers] = useState<LayerKey[]>(() => [...DEFAULT_LAYERS]);
   const [layersOpen, setLayersOpen] = useState(false);
+  // Which conditions the network is narrowed to. Empty = everything.
+  //
+  // NOT persisted, deliberately. "What is floatable" is a today question, and a
+  // filter restored from last week reads as rivers having gone missing.
+  const [conditionFilter, setConditionFilter] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [filterOpen, setFilterOpen] = useState(false);
   const [focus, setFocus] = useState<Focus | null>(null);
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
 
+  const network = useStatewideNetwork();
   const { isStarred } = useStarredRivers();
   const packs = useOfflinePacks();
   const unavailable = mapUnavailableReason();
@@ -163,9 +209,10 @@ export default function MapScreen() {
 
   // Ordered the way someone actually chooses: their starred rivers first, then
   // floatable-first within the rest. floatableRank uses WEEKEND_SEVERITY, the
-  // "where should I go" ordering rather than the alert-severity one. With the
-  // chip strip gone this no longer draws anything — it decides which river the
-  // map opens on, which is the same judgement it always encoded.
+  // "where should I go" ordering rather than the alert-severity one.
+  //
+  // This no longer decides which river the map opens on — nothing does, the map
+  // opens on the network — so it is now only a lookup order.
   const ordered = useMemo(() => {
     if (!rivers) return [];
     return [...rivers].sort((a, b) => {
@@ -184,7 +231,12 @@ export default function MapScreen() {
   // effect that wrote the default into state, which meant the first paint had
   // no selection and the second did — a visible flash of the empty map, and one
   // React flags outright (react-hooks/set-state-in-effect).
-  const selectedSlug = pickedSlug ?? ordered[0]?.slug ?? null;
+  // NULL until someone picks one. This used to fall back to `ordered[0]`,
+  // which meant the map opened on whichever river won the sort — and with
+  // nothing starred and several rivers sharing the top condition band, the
+  // tiebreak is alphabetical, so it always opened on Big River. Nobody chose
+  // that. The map now opens on the whole network instead and waits to be asked.
+  const selectedSlug = pickedSlug;
 
   const selected = useMemo(
     () => ordered.find((r) => r.slug === selectedSlug) ?? null,
@@ -386,6 +438,26 @@ export default function MapScreen() {
   const conditionCode = drawn?.currentCondition?.code ?? 'unknown';
   const headerCode = selected?.currentCondition?.code ?? 'unknown';
   const activeFocus = focus && focus.slug === selectedSlug ? focus : null;
+
+  // ── Where the map opens ────────────────────────────────────────────────────
+  // Nothing selected, so: the user's own position if location was ALREADY
+  // granted on a previous run (useLocation resolves that without prompting),
+  // otherwise the whole network. Never a river nobody picked.
+  //
+  // Only while no river is selected and no focus is set — after that the
+  // ordinary camera rules take over, and re-centring on the user mid-plan would
+  // yank the map out from under them.
+  const openingFocus: Focus | null =
+    !selectedSlug && !activeFocus && location.coords
+      ? {
+          slug: null,
+          lng: location.coords.lng,
+          lat: location.coords.lat,
+          // Regional, not local. The question this answers is "which rivers are
+          // near me", and that is unanswerable at street zoom.
+          zoom: 8.5,
+        }
+      : null;
   const downloadProgress =
     packs.active && packs.active.riverSlug === drawnSlug ? packs.active.percent : null;
 
@@ -403,9 +475,37 @@ export default function MapScreen() {
   // Asks for permission the first time, then recentres. A denial is not
   // re-prompted — iOS would suppress the dialog anyway — so the button simply
   // goes quiet rather than becoming a trap.
+  // Multi-select union: tapping Flowing and then Good shows both, the way the
+  // website's legend chips work. Tapping a live one turns it back off.
+  const onToggleCondition = useCallback((code: string) => {
+    setConditionFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }, []);
+
+  const onSetConditions = useCallback((codes: string[]) => {
+    setConditionFilter(new Set(codes));
+  }, []);
+
+  const onClearConditions = useCallback(() => {
+    setConditionFilter(new Set());
+  }, []);
+
+  // Tapping a river on the network selects it, which is the whole point of
+  // drawing it: the map is now a way of CHOOSING a river, not just of looking
+  // at one you already chose. Any open callout belongs to the old river.
+  const onSelectNetworkRiver = useCallback((slug: string) => {
+    setPickedSlug(slug);
+    setSelectedPin(null);
+    setFocus(null);
+  }, []);
+
   const onLocate = useCallback(async () => {
     const coords = await location.request();
-    if (coords) setFocus({ slug: selectedSlug ?? '', lng: coords.lng, lat: coords.lat });
+    if (coords) setFocus({ slug: selectedSlug, lng: coords.lng, lat: coords.lat });
   }, [location, selectedSlug]);
 
   const pinAccessPoint = accessPointForPin(selectedPin);
@@ -449,12 +549,27 @@ export default function MapScreen() {
         />
       </View>
 
+      {/* Open on demand, gone again on the next tap. It sits ABOVE the map
+          rather than over it: a filter panel that covers the thing it filters
+          makes you close it to see what you did. */}
+      {filterOpen && !unavailable && network.collection.features.length > 0 ? (
+        <ConditionFilterBar
+          counts={network.counts}
+          active={conditionFilter}
+          onToggle={onToggleCondition}
+          onSetAll={onSetConditions}
+          onClear={onClearConditions}
+        />
+      ) : null}
+
       <View style={styles.mapArea}>
         {unavailable ? (
           <MapUnavailable reason={unavailable} />
-        ) : !detail ? (
-          // Only the FIRST river gets a spinner. Every switch after that draws
-          // the river already on screen until the next one arrives.
+        ) : !detail && !network.collection.features.length ? (
+          // The spinner is for a COLD map — neither the network nor a river has
+          // arrived. Once either has, the map draws: switching rivers keeps the
+          // one already on screen until the next lands, and a river loading over
+          // an already-drawn network needs no spinner at all.
           <View style={styles.centered}>
             <ActivityIndicator color={colors.accent} />
           </View>
@@ -462,12 +577,16 @@ export default function MapScreen() {
           <RiverMap
             river={detail}
             conditionCode={conditionCode}
+            network={network.collection}
+            conditionFilter={conditionFilter}
+            networkBounds={network.bounds}
+            onSelectRiverSlug={onSelectNetworkRiver}
             accessPoints={accessPoints}
             gauges={mappableGauges}
             hazards={hazards?.items ?? []}
             services={services?.items ?? []}
             layers={layers}
-            focus={activeFocus}
+            focus={activeFocus ?? openingFocus}
             showUserLocation={location.status === 'ready'}
             planRoute={planner.plan?.route?.geometry ?? null}
             planEndpoints={
@@ -504,12 +623,28 @@ export default function MapScreen() {
         ) : null}
 
         {/* Layers. Top-right, opposite the search results, and the reason the
-            map got a band of its height back — see MapLayersSheet. */}
-        {!unavailable && detail && !search.active ? (
+            map got a band of its height back — see MapLayersSheet.
+
+            Both buttons need the map to be up, but NOT a selected river: the
+            network is filterable and the gauge layer is statewide, so gating
+            these on `detail` would have hidden them on the opening screen. */}
+        {!unavailable && !search.active ? (
           <MapLayersButton
             onPress={() => setLayersOpen(true)}
             changed={!isDefaultLayers(layers)}
           />
+        ) : null}
+
+        {/* Condition filter, tucked under the layers button. Only offered once
+            the network has actually arrived — a filter over nothing is a
+            control that cannot do anything. */}
+        {!unavailable && !search.active && network.collection.features.length > 0 ? (
+          <View style={styles.filterButtonWrap}>
+            <ConditionFilterButton
+              onPress={() => setFilterOpen((open) => !open)}
+              filtering={conditionFilter.size > 0}
+            />
+          </View>
         ) : null}
 
         {selectedPin && !search.active ? (
@@ -550,7 +685,7 @@ export default function MapScreen() {
             this screen — see useLocation for why the prompt is never spent on
             launch. A granted tap recentres; the map keeps the fix for the rest
             of the session and hands it to the planner. */}
-        {!unavailable && detail && !search.active ? (
+        {!unavailable && !search.active ? (
           <Pressable
             onPress={onLocate}
             disabled={location.status === 'locating'}
@@ -600,10 +735,14 @@ export default function MapScreen() {
               size={17}
               color={colors.onAccent}
             />
-            <Text style={[styles.planButtonText, { color: colors.onAccent }]}>
-              {planner.plan
-                ? `${planner.plan.distance.formatted}${planner.plan.floatTime ? ` · ${planner.plan.floatTime.formatted}` : ''}`
-                : 'Plan a float'}
+            {/* COMPACT, because this button sits ON the map. The verbose form
+                ("8.3 miles · ~2 hours 30 minutes – ~4 hours") wrapped to two
+                lines and took a band of river with it. The numbers stay rather
+                than becoming a bare "View float" — they are what decides the
+                tap — but as "8.3 mi · up to ~4h", a third of the width. The
+                full wording lives in PlanResult, one tap away. */}
+            <Text style={[styles.planButtonText, { color: colors.onAccent }]} numberOfLines={1}>
+              {planner.plan ? planButtonLabel(planner.plan) : 'Plan a float'}
             </Text>
           </Pressable>
         ) : null}
@@ -906,6 +1045,8 @@ const styles = StyleSheet.create({
   planButtonText: { ...t.sm, fontFamily: fonts.heading },
   // Left of the plan button and the same height, so the two read as one row of
   // map controls rather than two unrelated floating things.
+  // Directly under the layers button (44 + 16 gap + its own 16 top inset).
+  filterButtonWrap: { position: 'absolute', top: 76, right: 16 },
   locateButton: {
     position: 'absolute',
     left: 16,

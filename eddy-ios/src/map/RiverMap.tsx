@@ -1,7 +1,11 @@
 // eddy-ios/src/map/RiverMap.tsx
-// The Mapbox view: one river's centreline in its live condition colour, plus
-// whichever layers the filter row has switched on, plus the planned float when
-// there is one.
+// The Mapbox view: every curated river drawn in its live condition colour, the
+// selected one drawn brighter on top, plus whichever layers the sheet has
+// switched on, plus the planned float when there is one.
+//
+// The network underneath is why `river` is nullable. The map used to require a
+// selection and open on whichever river won a sort, which meant it could only
+// show you a river you had already chosen — the opposite of what a map is for.
 //
 // Mapbox is reached through loadMapbox() at RENDER time rather than by importing
 // components at module scope. That is what keeps this file safe to import from a
@@ -51,6 +55,7 @@ import { neutral } from '@/theme/palette';
 import { useTheme } from '@/theme/ThemeProvider';
 import { readingAge } from '@/lib/readingCopy';
 import { gaugeConditionCode, gaugeReadingText, gaugeRiverSlug } from '@/lib/gaugeCondition';
+import type { NetworkCollection } from '@/lib/statewideNetwork';
 import { loadMapbox } from './runtime';
 import { STYLE_URL } from './useOfflinePacks';
 import { MAP_LAYERS, OUTFITTER_SERVICE_TYPES, type LayerKey } from './layers';
@@ -128,17 +133,41 @@ export interface MapPin {
 }
 
 interface Props {
-  river: RiverDetail;
+  /**
+   * The river in focus, or NULL when the map is showing the network and the
+   * user has not picked one yet. Null is the opening state now, not an error:
+   * everything river-scoped below simply does not render.
+   */
+  river: RiverDetail | null;
   /** Live condition code, used only for the line colour. */
   conditionCode: string;
+  /** Every curated river, condition-coloured. Drawn under the selected one. */
+  network?: NetworkCollection | null;
+  /**
+   * Conditions the network is narrowed to. Empty set = show everything.
+   * Out-of-filter rivers are DIMMED rather than hidden — a filtered-out river
+   * that vanishes takes its tap target with it and reads as a broken map.
+   */
+  conditionFilter?: ReadonlySet<string>;
+  /** Fit this instead of a river, when nothing is selected. [w, s, e, n]. */
+  networkBounds?: [number, number, number, number] | null;
+  onSelectRiverSlug?: (slug: string) => void;
   accessPoints: MapAccessPoint[];
   gauges: MapGauge[];
   hazards: Hazard[];
   services: RiverService[];
   /** Which layers are switched on. Anything absent is not fetched into GeoJSON. */
   layers: LayerKey[];
-  /** Centres and zooms here instead of fitting the river. Cleared by the caller. */
-  focus?: { lng: number; lat: number } | null;
+  /**
+   * Centres and zooms here instead of fitting the river. Cleared by the caller.
+   *
+   * `zoom` defaults to 13, which is right for the thing that usually sets a
+   * focus — a tapped search result or pin, where you want to see the bank.
+   * Opening on the user's own position wants far less: at 13 someone thirty
+   * miles from the nearest river sees an empty field, so that caller passes a
+   * regional zoom instead.
+   */
+  focus?: { lng: number; lat: number; zoom?: number } | null;
   /**
    * Draw the blue dot. Only ever true once the user has granted location, which
    * the screen asks for on an explicit tap — see useLocation.
@@ -175,6 +204,10 @@ function featureCollection(pins: MapPin[], defaultColor: string) {
 export function RiverMap({
   river,
   conditionCode,
+  network,
+  conditionFilter,
+  networkBounds,
+  onSelectRiverSlug,
   accessPoints,
   gauges,
   hazards,
@@ -190,8 +223,9 @@ export function RiverMap({
   const { colors } = useTheme();
 
   const lineFeature = useMemo(
-    () => ({ type: 'Feature' as const, properties: {}, geometry: river.geometry }),
-    [river.geometry],
+    () =>
+      river ? { type: 'Feature' as const, properties: {}, geometry: river.geometry } : null,
+    [river],
   );
 
   const routeFeature = useMemo(
@@ -341,9 +375,13 @@ export function RiverMap({
     const planBounds = routeFeature?.geometry.coordinates?.length
       ? boundsForLine(routeFeature.geometry.coordinates)
       : null;
-    const b = planBounds ?? river.bounds;
+    // Narrowest meaningful frame first: the planned stretch, then the selected
+    // river, then the whole network. The last is the opening state — the map
+    // shows every river it knows rather than guessing at one.
+    const b = planBounds ?? river?.bounds ?? networkBounds ?? null;
+    if (!b) return null;
     return { ne: [b[2], b[3]], sw: [b[0], b[1]] };
-  }, [routeFeature, river.bounds]);
+  }, [routeFeature, river, networkBounds]);
 
   // The caller is responsible for not rendering this when Mapbox is unavailable;
   // this guard is here so a mistake shows an empty map rather than a red screen.
@@ -358,17 +396,51 @@ export function RiverMap({
         // defaultSettings for the same reason it is set in the bounds case: on
         // first mount there is nothing for an update to move FROM, and a camera
         // given only an update opens on the default world view.
-        defaultSettings: { centerCoordinate: [focus.lng, focus.lat], zoomLevel: 13 },
+        defaultSettings: {
+          centerCoordinate: [focus.lng, focus.lat],
+          zoomLevel: focus.zoom ?? 13,
+        },
         centerCoordinate: [focus.lng, focus.lat],
-        zoomLevel: 13,
+        zoomLevel: focus.zoom ?? 13,
         animationMode: 'flyTo' as const,
         animationDuration: 700,
       }
-    : {
-        defaultSettings: { bounds: cameraBounds },
-        bounds: cameraBounds,
-        animationMode: 'none' as const,
-      };
+    : cameraBounds
+      ? {
+          defaultSettings: { bounds: cameraBounds },
+          bounds: cameraBounds,
+          animationMode: 'none' as const,
+        }
+      // Nothing to frame yet — neither a river nor the network has landed.
+      // Passing no camera instruction at all leaves the map on its style's
+      // default centre for the one frame before bounds arrive, which is a
+      // held still map rather than a spinning globe.
+      : {};
+
+  // The network minus whatever is already drawn brighter as the selection —
+  // two lines on the same coordinates fight, and the selected river's own
+  // casing is thicker, so the network copy would only muddy its edges.
+  const networkFeature =
+    network && network.features.length
+      ? {
+          ...network,
+          features: network.features.filter((f) => f.properties.slug !== river?.slug),
+        }
+      : null;
+
+  // Dimming, expressed in the style rather than by rebuilding the source: the
+  // filter changes on every chip tap and re-uploading 24 LineStrings for each
+  // one would stutter. An empty filter means "show everything", so the whole
+  // expression collapses to a constant.
+  const networkOpacity: number | unknown[] =
+    conditionFilter && conditionFilter.size > 0
+      ? ['case', ['in', ['get', 'code'], ['literal', [...conditionFilter]]], 1, 0.16]
+      : 1;
+
+  const onNetworkPress = (event: { features?: { properties?: Record<string, unknown> }[] }) => {
+    const slug = event.features?.[0]?.properties?.slug;
+    if (typeof slug === 'string') onSelectRiverSlug?.(slug);
+  };
 
   const layerOn = (key: LayerKey) => layers.includes(key);
   const layerColor = (key: LayerKey) =>
@@ -429,6 +501,23 @@ export function RiverMap({
       style={[styles.fill, { backgroundColor: colors.bg }]}
       styleURL={STYLE_URL}
       scaleBarEnabled={false}
+      // MAPBOX CHROME. The logo is NOT optional — Mapbox's terms require it on
+      // every map they render, on every plan tier, and it may not be restyled.
+      // It may only be MOVED. Both props are therefore stated explicitly rather
+      // than left to a default, so the next reader sees that `logoEnabled` is a
+      // legal obligation and not a preference. (The website sidesteps the whole
+      // question by running MapLibre on self-hosted styles; the app cannot
+      // follow without rebuilding offline packs on a different offline API.)
+      //
+      // Both sit bottom-left, LIFTED CLEAR of the 44x44 locate button that
+      // occupies left:16/bottom:16. At the default inset the locate button
+      // covers the wordmark outright — attribution you have covered up is
+      // attribution you have not given. 68 clears the button plus its shadow;
+      // the (i) is offset right to clear the wordmark's own width.
+      logoEnabled
+      logoPosition={{ bottom: 68, left: 12 }}
+      attributionEnabled
+      attributionPosition={{ bottom: 72, left: 104 }}
     >
       {/* defaultSettings is not optional in the bounds case. `bounds` alone is
           applied as an UPDATE, and on first mount there is nothing to update
@@ -446,28 +535,65 @@ export function RiverMap({
           one-shot iOS dialog on merely opening the Map tab. */}
       {showUserLocation ? <Mapbox.UserLocation visible /> : null}
 
-      <Mapbox.ShapeSource id="river-line" shape={lineFeature}>
-        {/* Casing first: a dark outline under the colour keeps a thin river
-            legible over both the green forest and the pale gravel of the
-            outdoors style, which the condition colour alone does not. */}
-        <Mapbox.LineLayer
-          id="river-line-casing"
-          style={{ lineColor: 'rgba(0,0,0,0.35)', lineWidth: 7, lineCap: 'round', lineJoin: 'round' }}
-        />
-        <Mapbox.LineLayer
-          id="river-line-fill"
-          style={{
-            lineColor: stroke,
-            lineWidth: 4,
-            lineCap: 'round',
-            lineJoin: 'round',
-            // Dimmed under a plan so the floated stretch is the bright part.
-            // Still visible: the rest of the river is context for where the
-            // float sits, not clutter to hide.
-            lineOpacity: routeFeature ? 0.35 : 1,
-          }}
-        />
-      </Mapbox.ShapeSource>
+      {/* ── The statewide network ─────────────────────────────────────────
+          Every curated river, coloured by its live condition, drawn UNDER the
+          selected river and its pins. This is what makes the map able to
+          answer "where can I float today?" without knowing the answer first.
+
+          Out-of-filter rivers are dimmed to 0.16, not hidden. Hiding them
+          removes their tap target too, and a map that empties when you tap a
+          filter reads as broken rather than filtered — the same call the
+          website's Observatory made. The selected river is drawn separately
+          below and is never dimmed. */}
+      {networkFeature ? (
+        <Mapbox.ShapeSource id="network" shape={networkFeature} onPress={onNetworkPress}>
+          <Mapbox.LineLayer
+            id="network-casing"
+            style={{
+              lineColor: 'rgba(0,0,0,0.28)',
+              lineWidth: 4.5,
+              lineCap: 'round',
+              lineJoin: 'round',
+              lineOpacity: networkOpacity,
+            }}
+          />
+          <Mapbox.LineLayer
+            id="network-fill"
+            style={{
+              lineColor: ['get', 'color'],
+              lineWidth: 2.5,
+              lineCap: 'round',
+              lineJoin: 'round',
+              lineOpacity: networkOpacity,
+            }}
+          />
+        </Mapbox.ShapeSource>
+      ) : null}
+
+      {lineFeature ? (
+        <Mapbox.ShapeSource id="river-line" shape={lineFeature}>
+          {/* Casing first: a dark outline under the colour keeps a thin river
+              legible over both the green forest and the pale gravel of the
+              outdoors style, which the condition colour alone does not. */}
+          <Mapbox.LineLayer
+            id="river-line-casing"
+            style={{ lineColor: 'rgba(0,0,0,0.35)', lineWidth: 7, lineCap: 'round', lineJoin: 'round' }}
+          />
+          <Mapbox.LineLayer
+            id="river-line-fill"
+            style={{
+              lineColor: stroke,
+              lineWidth: 4,
+              lineCap: 'round',
+              lineJoin: 'round',
+              // Dimmed under a plan so the floated stretch is the bright part.
+              // Still visible: the rest of the river is context for where the
+              // float sits, not clutter to hide.
+              lineOpacity: routeFeature ? 0.35 : 1,
+            }}
+          />
+        </Mapbox.ShapeSource>
+      ) : null}
 
       {routeFeature ? (
         <Mapbox.ShapeSource id="plan-route" shape={routeFeature}>

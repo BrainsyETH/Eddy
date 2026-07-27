@@ -111,6 +111,16 @@ export interface Palette {
   error: string;
   /** Tab bar and other chrome, kept distinct from `card`. */
   chrome: string;
+  /**
+   * Modal scrim.
+   *
+   * DELIBERATELY LIGHT, and the same on both schemes. The sheets that use it
+   * sit over the map, and a dimmed-to-black map cannot show you what the switch
+   * you just flipped did. It lives here rather than in a StyleSheet because
+   * StyleSheet.create runs once at import and freezes whatever scheme the app
+   * launched with — see app-theme.test.ts.
+   */
+  scrim: string;
 }
 
 /**
@@ -140,6 +150,7 @@ export const darkPalette: Palette = {
   // red-400. The darker red-500 used on light is muddy against near-black stone.
   error: '#F87171',
   chrome: primary[900],
+  scrim: 'rgba(0,0,0,0.22)',
 };
 
 /**
@@ -170,6 +181,7 @@ export const lightPalette: Palette = {
   // lighter red-500 clears AA on white only at large sizes, and error text is small.
   error: '#DC2626',
   chrome: '#FFFFFF',
+  scrim: 'rgba(0,0,0,0.22)',
 };
 
 /**

@@ -3,9 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/typography';
 
-// Five tabs: River Reports, Map, Alerts, Favorites, Profile.
+// Five tabs: Search, Map, Alerts, Favorites, Profile.
 //
-// REPORTS LAUNCHES, NOT MAP. The app opens on the screen that answers the
+// The first tab's route file is still `reports.tsx` — only its labels changed.
+// Renaming the file would mean chasing `initialRouteName` below, every
+// router.push('/reports'), and any deep link already in the wild, for nothing.
+//
+// SEARCH LAUNCHES, NOT MAP. The app opens on the screen that answers the
 // question people came with — "what can I float today?" — rather than on the
 // one screen that cannot render at all in Expo Go (Mapbox is a native module;
 // see src/map/runtime.ts) and that answers it least directly. Map is still one
@@ -39,8 +43,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="reports"
         options={{
-          title: 'Rivers',
-          tabBarIcon: ({ color, size }) => <Ionicons name="list-outline" size={size} color={color} />,
+          title: 'Search',
+          tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen

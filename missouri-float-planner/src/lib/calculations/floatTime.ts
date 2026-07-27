@@ -186,72 +186,21 @@ export function calculateFloatTime(
   };
 }
 
-/** Rounds a minute count to the nearest quarter hour (no false precision on estimates). */
-export function roundToQuarterHour(minutes: number): number {
-  return Math.max(15, Math.round(minutes / 15) * 15);
-}
-
-/**
- * Formats float time as a human-readable string. Rounds to the nearest quarter
- * hour so we never imply minute-level precision on an estimate.
- */
-export function formatFloatTime(minutes: number): string {
-  const rounded = roundToQuarterHour(minutes);
-  if (rounded < 60) {
-    return `~${rounded} minutes`;
-  }
-
-  const hours = Math.floor(rounded / 60);
-  const remainingMinutes = rounded % 60;
-
-  if (remainingMinutes === 0) {
-    return `~${hours} ${hours === 1 ? 'hour' : 'hours'}`;
-  }
-
-  return `~${hours} ${hours === 1 ? 'hour' : 'hours'} ${remainingMinutes} ${remainingMinutes === 1 ? 'minute' : 'minutes'}`;
-}
-
-/**
- * Formats an estimate as a range, e.g. "~2 hours 30 minutes – ~4 hours".
- * Collapses to a single value when the rounded ends coincide.
- */
-export function formatFloatTimeRange(minMinutes: number, maxMinutes: number): string {
-  const lo = roundToQuarterHour(minMinutes);
-  const hi = roundToQuarterHour(maxMinutes);
-  if (lo >= hi) {
-    return formatFloatTime(lo);
-  }
-  return `${formatFloatTime(lo)} – ${formatFloatTime(hi)}`;
-}
-
-/**
- * Compact abbreviated float time, e.g. "11h 30m", "4h", or "45m". Built for
- * tight stat displays where the verbose "~11 hours 30 minutes" wraps badly.
- */
-export function formatFloatTimeCompact(minutes: number): string {
-  const rounded = roundToQuarterHour(minutes);
-  if (rounded < 60) {
-    return `${rounded}m`;
-  }
-  const hours = Math.floor(rounded / 60);
-  const remainingMinutes = rounded % 60;
-  return remainingMinutes === 0 ? `${hours}h` : `${hours}h ${remainingMinutes}m`;
-}
-
-/**
- * Compact estimate range for narrow stat columns, e.g. "~11h 30m–18h 30m".
- * A single "~" leads the range and the units are abbreviated so the value
- * stays on one or two lines instead of wrapping to three. Collapses to a
- * single value when the rounded ends coincide.
- */
-export function formatFloatTimeRangeCompact(minMinutes: number, maxMinutes: number): string {
-  const lo = roundToQuarterHour(minMinutes);
-  const hi = roundToQuarterHour(maxMinutes);
-  if (lo >= hi) {
-    return `~${formatFloatTimeCompact(lo)}`;
-  }
-  return `~${formatFloatTimeCompact(lo)}–${formatFloatTimeCompact(hi)}`;
-}
+// ── Wording ──────────────────────────────────────────────────────────────
+// The formatters moved to shared/float-time-format.ts so eddy-ios can word a
+// float time with the same rounding the website uses; a phone that rounded
+// differently would show a different number for the same float. Re-exported
+// here because ~20 call sites import them from this module.
+export {
+  roundToQuarterHour,
+  formatFloatTime,
+  formatFloatTimeRange,
+  formatFloatTimeCompact,
+  formatFloatTimeRangeCompact,
+  formatFloatTimeCeiling,
+  formatFloatTimeCeilingCompact,
+  floatTimeCeilingBasisNote,
+} from '@shared/float-time-format';
 
 /**
  * Formats distance as a human-readable string
