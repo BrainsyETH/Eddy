@@ -123,6 +123,40 @@ test('nws sites get a longer staleness window than usgs', () => {
   assert.equal(gateReading(input({ readingAt: fourHoursAgo, provider: 'nws' })).ok, true);
 });
 
+test('usace sites get a longer staleness window than usgs', () => {
+  // CWMS release series publish hourly but lag enough in publication that the
+  // 3h usgs default would gate a perfectly healthy dam.
+  const fourHoursAgo = new Date('2026-07-25T08:00:00.000Z').toISOString();
+  assert.deepEqual(
+    gateReading(input({ readingAt: fourHoursAgo, provider: 'usgs' })),
+    { ok: false, reason: 'stale' }
+  );
+  assert.equal(gateReading(input({ readingAt: fourHoursAgo, provider: 'usace' })).ok, true);
+});
+
+test('a steady dam release is not treated as a flatlined sensor', () => {
+  // A dam holding one release rate for hours is normal operation. On a usgs
+  // gauge the same series means a stuck sensor, so the exemption is by
+  // provider — without it, flatline detection would suppress exactly the
+  // regulated-river alerts this provider exists to produce.
+  const stuck = [3590, 3590, 3590, 3590, 3590, 3590];
+  assert.deepEqual(
+    gateReading(input({ dischargeCfs: 3590, thresholdUnit: 'cfs', recentPrimaryValues: stuck })),
+    { ok: false, reason: 'flatline' }
+  );
+  assert.equal(
+    gateReading(
+      input({
+        dischargeCfs: 3590,
+        thresholdUnit: 'cfs',
+        recentPrimaryValues: stuck,
+        provider: 'usace',
+      })
+    ).ok,
+    true
+  );
+});
+
 test('rejects timestamps implausibly in the future', () => {
   const future = new Date('2026-07-25T13:00:00.000Z').toISOString();
   assert.deepEqual(gateReading(input({ readingAt: future })), { ok: false, reason: 'future' });

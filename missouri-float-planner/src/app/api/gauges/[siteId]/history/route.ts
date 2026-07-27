@@ -5,13 +5,18 @@
 // continuously (hourly, or every 15 min for rapidly-changing gauges). This
 // keeps the trend chart off the live USGS API at render time — the previous
 // behaviour, where every river card fired its own USGS request on load, led to
-// burst rate-limiting and "trend data unavailable". A live USGS fetch is only
-// used as a fallback when the DB has too little history (e.g. a new station).
+// burst rate-limiting and "trend data unavailable". A live fetch is only used
+// as a fallback when the DB has too little history (e.g. a new station), and it
+// goes through the provider registry so this route stays provider-agnostic.
+//
+// siteId is whichever id the station's provider uses: a USGS site number, an
+// NWS LID, or a USACE dam slug. Both id columns are checked.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
+import { DEFAULT_PROVIDER_ID, getFlowProvider } from '@/lib/flow-providers';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchHistoricalReadings, type HistoricalData } from '@/lib/usgs/gauges';
+import { type HistoricalData } from '@/lib/usgs/gauges';
 import { toNum } from '@/lib/utils/num';
 import { withX402Route } from '@/lib/x402-config';
 
@@ -21,15 +26,36 @@ export const dynamic = 'force-dynamic';
 // brand-new gauge with no accumulated readings) and fall back to live USGS.
 const MIN_DB_POINTS = 6;
 
+/**
+ * Resolve a station by whichever id column its provider uses.
+ *
+ * Two lookups rather than a PostgREST `.or()`: the filter grammar needs
+ * quoting care around values containing dashes, and dam slugs
+ * ('swl-clearwater-dam') are exactly that shape.
+ */
+async function findStation(
+  supabase: ReturnType<typeof createAdminClient>,
+  siteId: string
+): Promise<{ id: string; name: string | null; provider: string | null } | null> {
+  const byUsgs = await supabase
+    .from('gauge_stations')
+    .select('id, name, provider')
+    .eq('usgs_site_id', siteId)
+    .maybeSingle();
+  if (byUsgs.data) return byUsgs.data;
+
+  const byExternal = await supabase
+    .from('gauge_stations')
+    .select('id, name, provider')
+    .eq('site_id_external', siteId)
+    .maybeSingle();
+  return byExternal.data ?? null;
+}
+
 async function fetchHistoryFromDb(siteId: string, days: number): Promise<HistoricalData | null> {
   const supabase = createAdminClient();
 
-  const { data: station } = await supabase
-    .from('gauge_stations')
-    .select('id, name')
-    .eq('usgs_site_id', siteId)
-    .single();
-
+  const station = await findStation(supabase, siteId);
   if (!station) return null;
 
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
@@ -78,13 +104,19 @@ async function _GET(
     // Validate days parameter (max 30 days)
     const validDays = Math.min(Math.max(days, 1), 30);
 
-    // Prefer the cron-populated DB; fall back to live USGS only when sparse.
+    // Prefer the cron-populated DB; fall back to the live upstream only when
+    // sparse. The fallback goes through the provider registry rather than
+    // straight to USGS — this route is provider-agnostic, and a usace or nws
+    // station reaching fetchHistoricalReadings would query waterservices with
+    // an id that means nothing there.
     let historicalData = await fetchHistoryFromDb(siteId, validDays);
 
     if (!historicalData || historicalData.readings.length < MIN_DB_POINTS) {
-      const usgs = await fetchHistoricalReadings(siteId, validDays);
-      if (usgs && (!historicalData || usgs.readings.length > historicalData.readings.length)) {
-        historicalData = usgs;
+      const station = await findStation(createAdminClient(), siteId);
+      const provider = getFlowProvider(station?.provider ?? DEFAULT_PROVIDER_ID);
+      const live = provider ? await provider.fetchHistory(siteId, validDays) : null;
+      if (live && (!historicalData || live.readings.length > historicalData.readings.length)) {
+        historicalData = live;
       }
     }
 

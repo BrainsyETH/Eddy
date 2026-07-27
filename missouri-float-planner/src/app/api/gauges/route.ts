@@ -114,7 +114,16 @@ function mapThresholdDescriptionKeys(
 
 export interface GaugeStation {
   id: string;
+  /**
+   * The station's provider-native site id — a USGS site number, an NWS LID, or
+   * a USACE dam slug. Named `usgsSiteId` for history: it predates
+   * multi-provider support and has ~105 call sites, so renaming it to `siteId`
+   * is a separate refactor. Pair it with `provider` before building any
+   * provider-specific URL.
+   */
   usgsSiteId: string;
+  /** Registry id from src/lib/flow-providers. Absent means 'usgs'. */
+  provider?: string;
   name: string;
   coordinates: {
     lng: number;
@@ -177,6 +186,8 @@ async function _GET(request: NextRequest) {
       .select(`
         id,
         usgs_site_id,
+        site_id_external,
+        provider,
         name,
         location,
         active,
@@ -255,16 +266,23 @@ async function _GET(request: NextRequest) {
         : 'readings are stale';
       console.log(`Fetching live from USGS (${reason})...`);
       try {
-        const siteIds = stations
-          .map((s: { usgs_site_id: string }) => s.usgs_site_id)
-          .filter((id: string) => id);
+        // USGS-provided stations only. Non-USGS providers (nws LIDs, usace dam
+        // slugs) keep their own site id in site_id_external, and posting one of
+        // those to waterservices.usgs.gov returns nothing for every site in the
+        // batch — which also means the stale-readings heuristic above would
+        // fire on every request once a single non-USGS station exists.
+        const usgsStations = stations.filter(
+          (s: { provider: string | null; usgs_site_id: string | null }) =>
+            (s.provider ?? 'usgs') === 'usgs' && s.usgs_site_id
+        );
+        const siteIds = usgsStations.map((s: { usgs_site_id: string }) => s.usgs_site_id);
 
         if (siteIds.length > 0) {
           const usgsReadings = await fetchGaugeReadings(siteIds);
 
           // Create a map from USGS site ID to station ID
           const siteToStationMap = new Map<string, string>();
-          for (const station of stations) {
+          for (const station of usgsStations) {
             if (station.usgs_site_id) {
               siteToStationMap.set(station.usgs_site_id, station.id);
             }
@@ -436,7 +454,11 @@ async function _GET(request: NextRequest) {
 
       return {
         id: station.id,
-        usgsSiteId: station.usgs_site_id,
+        // Field name kept despite now carrying non-USGS ids too: `usgsSiteId`
+        // has ~105 call sites across 29 files, so renaming it to `siteId` is a
+        // separate refactor rather than a prerequisite for a new provider.
+        usgsSiteId: station.usgs_site_id ?? station.site_id_external,
+        provider: station.provider ?? 'usgs',
         name: station.name,
         coordinates,
         active: station.active,
