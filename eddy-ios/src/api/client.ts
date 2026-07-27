@@ -12,6 +12,7 @@ import type {
   AlertFeedEntry,
   AlertsResponse,
   AppConfigResponse,
+  CampgroundsResponse,
   ConditionResponse,
   FloatPlan,
   GaugesResponse,
@@ -216,6 +217,48 @@ export async function fetchFloatPlan(
   });
   if (params.vesselTypeId) query.set('vesselTypeId', params.vesselTypeId);
   const data = await get<PlanResponse>(`/api/plan?${query.toString()}`, signal);
+  return data.plan;
+}
+
+/**
+ * Campgrounds spaced along a planned stretch, for an overnight trip.
+ *
+ * `nights` rather than days, because that is what a paddler counts and what the
+ * itinerary needs — the endpoint's `tripDurationDays` is nights + 1, and it
+ * rejects anything under 2 days. Callers must not ask for zero nights; that is
+ * a day trip, and a day trip has no camps.
+ */
+export async function fetchRouteCampgrounds(
+  params: { riverId: string; startId: string; endId: string; nights: number },
+  signal?: AbortSignal,
+): Promise<CampgroundsResponse> {
+  const query = new URLSearchParams({
+    riverId: params.riverId,
+    startId: params.startId,
+    endId: params.endId,
+    tripDurationDays: String(Math.max(2, params.nights + 1)),
+  });
+  return get<CampgroundsResponse>(`/api/plan/campgrounds?${query.toString()}`, signal);
+}
+
+/**
+ * A previously saved plan, by its share code.
+ *
+ * RECALCULATED SERVER-SIDE, not replayed. The saved row holds the river and the
+ * two access points; the endpoint re-runs the whole plan against today's gauge
+ * before answering. That is the only correct behaviour for this: a float saved
+ * in April and opened in July describes the same stretch and completely
+ * different water, and handing back April's numbers would be a lie with a
+ * timestamp on it.
+ */
+export async function fetchSavedPlan(
+  shortCode: string,
+  signal?: AbortSignal,
+): Promise<FloatPlan> {
+  const data = await get<PlanResponse>(
+    `/api/plan/${encodeURIComponent(shortCode)}`,
+    signal,
+  );
   return data.plan;
 }
 
