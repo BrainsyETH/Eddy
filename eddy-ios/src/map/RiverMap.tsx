@@ -11,13 +11,28 @@
 // components at module scope. That is what keeps this file safe to import from a
 // screen that also has to work in Expo Go — see runtime.ts.
 //
-// ── Why circles and text, and no icons ──────────────────────────────────────
-// Every pin here is a CircleLayer in its layer's colour with a white halo, and a
-// SymbolLayer of plain text above zoom 11. Sprite icons would read better, but
-// the icon names in Mapbox's outdoors style are not a contract we control, and a
-// missing sprite renders as nothing at all — an invisible hazard is a worse
-// failure than a plain dot. Colour comes from src/map/layers.ts so a filter chip
-// is literally the colour of the pins it toggles.
+// ── Pin shapes ──────────────────────────────────────────────────────────────
+// Most layers are a CircleLayer in the layer's colour with a white halo, plus a
+// SymbolLayer of plain text above zoom 11. Two are not:
+//
+//   gauges       a water droplet, filled with the gauge's own condition colour
+//   access       a map marker, anchored at its point
+//
+// Both are SDF icons we generate and BUNDLE (assets/map, built by
+// scripts/build-map-icons.py), which is the distinction that matters. This file
+// used to argue against icons altogether, and the argument was about the
+// OUTDOORS STYLE's sprite sheet: those names are not a contract we control, and
+// a missing sprite renders as nothing at all — an invisible hazard being a worse
+// failure than a plain dot. An image Metro bundles and we register by name
+// cannot go missing that way. onImageMissing below still says so out loud if it
+// ever does.
+//
+// SDF rather than plain PNGs because the colour is the information. A gauge's
+// droplet has to BE its condition, so the asset is a signed distance field —
+// shape only — and iconColor supplies the rest.
+//
+// Colour comes from src/map/layers.ts so a filter chip is literally the colour
+// of the pins it toggles.
 //
 // ── Draw order ──────────────────────────────────────────────────────────────
 // Later sources paint over earlier ones, so the order below is deliberate:
@@ -82,6 +97,33 @@ function serviceTypeLabel(type: string): string {
  */
 const LABEL_INK = neutral[900];
 const LABEL_HALO = '#FFFFFF';
+
+/** Which silhouette a layer's pins are drawn with. */
+type PinShape = 'dot' | 'drop' | 'pin';
+
+/**
+ * The two bundled SDF icons, and how each one sits on its coordinate.
+ *
+ * ANCHORING IS THE POINT OF THE DISTINCTION. A droplet is a symbol for the
+ * thing, so it centres on the gauge. A map marker is a POINTER — its tip is the
+ * location and its bulb is a label floating above it — so it anchors at the
+ * bottom. Centre a marker and every access point sits half a pin upstream of
+ * where it actually is.
+ *
+ * `scale: 3` is what makes a 66px asset draw at 22pt rather than 66.
+ */
+const PIN_ICONS: Record<PinShape, { image: string; anchor: 'center' | 'bottom'; labelOffset: number } | null> = {
+  dot: null,
+  drop: { image: 'gauge-drop', anchor: 'center', labelOffset: 1.4 },
+  // Already sitting entirely above its point, so its label needs less room than
+  // a centred icon of the same height.
+  pin: { image: 'poi-pin', anchor: 'bottom', labelOffset: 0.9 },
+};
+
+const PIN_IMAGES = {
+  'gauge-drop': { image: require('../../assets/map/gauge-drop.png'), sdf: true, scale: 3 },
+  'poi-pin': { image: require('../../assets/map/poi-pin.png'), sdf: true, scale: 3 },
+};
 
 /**
  * Where the map sits before it knows anything.
@@ -432,16 +474,23 @@ export function RiverMap({
           },
         };
 
-  // The network minus whatever is already drawn brighter as the selection —
-  // two lines on the same coordinates fight, and the selected river's own
-  // casing is thicker, so the network copy would only muddy its edges.
-  const networkFeature =
-    network && network.features.length
-      ? {
-          ...network,
-          features: network.features.filter((f) => f.properties.slug !== river?.slug),
-        }
-      : null;
+  // THE SELECTED RIVER STAYS IN THE NETWORK, and this is a change from how it
+  // used to work. It was filtered out and redrawn as one flat colour on top,
+  // which was fine when the network was flat too — but now that a river is
+  // painted by each of its gauges, selecting one would have thrown that away
+  // and repainted a hundred miles in the primary gauge's single opinion.
+  // Selection is expressed as WIDTH below instead, so the colour survives it.
+  const networkFeature = network && network.features.length ? network : null;
+
+  /** True when the network already draws this river, so nothing else should. */
+  const networkHasSelected = Boolean(
+    river && network?.features.some((f) => f.properties.slug === river.slug),
+  );
+
+  // Selected rivers are drawn heavier. A `case` rather than a second source:
+  // one river changing width should not re-upload 155 LineStrings.
+  const selectedWidth = (base: number, selected: number): number | unknown[] =>
+    river ? ['case', ['==', ['get', 'slug'], river.slug], selected, base] : base;
 
   // Dimming, expressed in the style rather than by rebuilding the source: the
   // filter changes on every chip tap and re-uploading 24 LineStrings for each
@@ -468,31 +517,61 @@ export function RiverMap({
   };
 
   /**
-   * Circles plus labels for one layer. Every layer is drawn the same way.
+   * A layer's pins, plus their labels.
+   *
+   * `shape` picks between the plain dot and one of the two bundled SDF icons.
+   * See the pin-shapes note at the top of this file.
    *
    * A FUNCTION THAT RETURNS JSX, not a component. Declaring a component inside
    * a render gives it a new identity on every pass, so React unmounts and
    * remounts it — which for a ShapeSource means tearing down and rebuilding the
    * native source each time the parent renders, and the pins visibly flicker.
    */
-  const pinLayer = (id: LayerKey, data: MapPin[], color: string) =>
-    data.length === 0 ? null : (
+  const pinLayer = (
+    id: LayerKey,
+    data: MapPin[],
+    color: string,
+    shape: PinShape = 'dot',
+  ) => {
+    if (data.length === 0) return null;
+    const icon = PIN_ICONS[shape];
+    return (
       <Mapbox.ShapeSource
         id={`pins-${id}`}
         shape={featureCollection(data, color)}
         onPress={onPress}
       >
-        <Mapbox.CircleLayer
-          id={`pins-${id}-circle`}
-          style={{
-            circleRadius: 6,
-            // Data-driven rather than flat, so a gauge can wear its condition
-            // while every other layer still gets its own single colour.
-            circleColor: ['get', 'color'],
-            circleStrokeWidth: 2,
-            circleStrokeColor: '#FFFFFF',
-          }}
-        />
+        {icon ? (
+          <Mapbox.SymbolLayer
+            id={`pins-${id}-icon`}
+            style={{
+              iconImage: icon.image,
+              // The reason these are SDFs. Data-driven, so a gauge wears its
+              // condition while every other layer gets its single colour.
+              iconColor: ['get', 'color'],
+              // The white ring the circles had, kept so a pin stays legible
+              // over both the forest green and the pale gravel of the basemap.
+              iconHaloColor: '#FFFFFF',
+              iconHaloWidth: 1.4,
+              iconAnchor: icon.anchor,
+              // NOT OPTIONAL. A SymbolLayer hides colliding icons by default,
+              // which on a cluster of access points would silently drop pins —
+              // a CircleLayer never did that, and a hazard you cannot see is
+              // the one failure this whole layer exists to prevent.
+              iconAllowOverlap: true,
+            }}
+          />
+        ) : (
+          <Mapbox.CircleLayer
+            id={`pins-${id}-circle`}
+            style={{
+              circleRadius: 6,
+              circleColor: ['get', 'color'],
+              circleStrokeWidth: 2,
+              circleStrokeColor: '#FFFFFF',
+            }}
+          />
+        )}
         <Mapbox.SymbolLayer
           id={`pins-${id}-label`}
           // Labels only once zoomed in; at river zoom thirty overlapping names
@@ -501,7 +580,8 @@ export function RiverMap({
           style={{
             textField: ['get', 'name'],
             textSize: 11,
-            textOffset: [0, 1.2],
+            // Clears whatever is above it: a 6pt dot, or the taller icon.
+            textOffset: [0, icon ? icon.labelOffset : 1.2],
             textAnchor: 'top',
             textColor: LABEL_INK,
             textHaloColor: LABEL_HALO,
@@ -510,6 +590,7 @@ export function RiverMap({
         />
       </Mapbox.ShapeSource>
     );
+  };
 
   return (
     <Mapbox.MapView
@@ -556,6 +637,19 @@ export function RiverMap({
         padding={{ paddingTop: 40, paddingBottom: 40, paddingLeft: 32, paddingRight: 32 }}
       />
 
+      {/* The bundled pin shapes. Registered once for the whole map — an
+          iconImage name resolves against every Images component on the view,
+          so this does not belong inside pinLayer, where it would re-register
+          the same two assets for each layer that uses one. */}
+      <Mapbox.Images
+        images={PIN_IMAGES}
+        onImageMissing={(name: string) =>
+          // Should be unreachable: these are bundled, not sprite-sheet names.
+          // Said out loud anyway, because the symptom is invisible pins.
+          console.warn(`[map] Missing pin image "${name}" — pins in that layer will not draw.`)
+        }
+      />
+
       {/* Rendered only once permission exists. @rnmapbox/maps triggers the
           system prompt itself the moment this mounts, which would spend the
           one-shot iOS dialog on merely opening the Map tab. */}
@@ -573,11 +667,14 @@ export function RiverMap({
           below and is never dimmed. */}
       {networkFeature ? (
         <Mapbox.ShapeSource id="network" shape={networkFeature} onPress={onNetworkPress}>
+          {/* Casing first: a dark outline under the colour keeps a thin river
+              legible over both the green forest and the pale gravel of the
+              outdoors style, which the condition colour alone does not. */}
           <Mapbox.LineLayer
             id="network-casing"
             style={{
               lineColor: 'rgba(0,0,0,0.28)',
-              lineWidth: 4.5,
+              lineWidth: selectedWidth(4.5, 7),
               lineCap: 'round',
               lineJoin: 'round',
               lineOpacity: networkOpacity,
@@ -586,8 +683,10 @@ export function RiverMap({
           <Mapbox.LineLayer
             id="network-fill"
             style={{
+              // Per RUN, not per river: buildNetwork cuts each line where the
+              // colour changes, so this reads a gradient off the geometry.
               lineColor: ['get', 'color'],
-              lineWidth: 2.5,
+              lineWidth: selectedWidth(2.5, 4),
               lineCap: 'round',
               lineJoin: 'round',
               lineOpacity: networkOpacity,
@@ -596,11 +695,13 @@ export function RiverMap({
         </Mapbox.ShapeSource>
       ) : null}
 
-      {lineFeature ? (
+      {/* FALLBACK ONLY. The network draws every curated river including the
+          selected one; this covers the case where it has not loaded, or a river
+          reached by deep link that the statewide dataset does not carry. Flat,
+          because without the network there are no per-gauge stops to fade
+          between either. */}
+      {lineFeature && !networkHasSelected ? (
         <Mapbox.ShapeSource id="river-line" shape={lineFeature}>
-          {/* Casing first: a dark outline under the colour keeps a thin river
-              legible over both the green forest and the pale gravel of the
-              outdoors style, which the condition colour alone does not. */}
           <Mapbox.LineLayer
             id="river-line-casing"
             style={{ lineColor: 'rgba(0,0,0,0.35)', lineWidth: 7, lineCap: 'round', lineJoin: 'round' }}
@@ -634,14 +735,14 @@ export function RiverMap({
         </Mapbox.ShapeSource>
       ) : null}
 
-      {layerOn('access') ? pinLayer('access', pins.access, layerColor('access')) : null}
+      {layerOn('access') ? pinLayer('access', pins.access, layerColor('access'), 'pin') : null}
       {layerOn('outfitters')
         ? pinLayer('outfitters', pins.outfitters, layerColor('outfitters'))
         : null}
       {layerOn('campgrounds')
         ? pinLayer('campgrounds', pins.campgrounds, layerColor('campgrounds'))
         : null}
-      {layerOn('gauges') ? pinLayer('gauges', pins.gauges, layerColor('gauges')) : null}
+      {layerOn('gauges') ? pinLayer('gauges', pins.gauges, layerColor('gauges'), 'drop') : null}
       {layerOn('hazards') ? pinLayer('hazards', pins.hazards, layerColor('hazards')) : null}
 
       {endpointFeatures ? (
