@@ -135,8 +135,8 @@ export function OfflineMapRow({
         <View style={styles.detail}>
           <Text style={[styles.description, { color: colors.textMuted }]}>
             {downloaded
-              ? 'The map, put-ins and hazards work with no signal.'
-              : `Use the map, put-ins and hazards with no signal. About ${plan.sizeLabel}.`}
+              ? 'Saved for bad service areas.'
+              : 'Save this map offline for bad service areas.'}
           </Text>
 
           {/* The tile budget, shown only here. Mapbox caps offline tiles
@@ -197,11 +197,6 @@ export function OfflineMapRow({
             </Text>
           </Pressable>
 
-          {entitled === false && !downloaded ? (
-            <Text style={[styles.gateNote, { color: colors.textSubtle }]}>
-              Conditions, readings and hazards stay free, online or off.
-            </Text>
-          ) : null}
         </View>
       ) : null}
     </View>
@@ -237,5 +232,4 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   actionText: { ...t.sm, fontFamily: fonts.semibold },
-  gateNote: { ...t.xs, fontFamily: fonts.body, textAlign: 'center' },
 });
