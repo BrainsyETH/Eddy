@@ -111,19 +111,21 @@ export function EddyTake({ outlook, ratedUnit = null }: EddyTakeProps) {
                       {day.weather.tempHigh}°{' '}
                       <Text style={{ color: colors.textSubtle }}>{day.weather.tempLow}°</Text>
                     </Text>
-                    {/* Rain reads as a fact, weighted only when the chance is
-                        high enough to move a float plan. The server decides
-                        which bucket it lands in. */}
+                    {/* Rain ramps grey → blue → deep blue with the chance, so
+                        the strip can be read at a glance without parsing seven
+                        percentages. The server picks the bucket; see the rain
+                        roles in palette.ts for why the ramp is per scheme and
+                        why it stopped being coral. */}
                     <Text
                       style={[
                         styles.rain,
                         {
                           color:
                             day.rainKind === 'significant'
-                              ? colors.accent
+                              ? colors.rainHeavy
                               : day.rainKind === 'possible'
-                                ? colors.text
-                                : colors.textSubtle,
+                                ? colors.rainLikely
+                                : colors.rainQuiet,
                           fontFamily:
                             day.rainKind === 'significant' ? fonts.heading : fonts.body,
                         },

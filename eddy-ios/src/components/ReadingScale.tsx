@@ -70,6 +70,13 @@ export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
   if (zones.length < 2) return null;
 
   const markerPercent = zoneMarkerPercent(zones, value);
+  // Which band the marker sits in, derived from its position rather than
+  // re-graded: bands are drawn at EQUAL width, so the percentage maps straight
+  // onto an index and cannot disagree with where the marker is painted.
+  const markerIndex =
+    markerPercent == null
+      ? null
+      : Math.min(zones.length - 1, Math.floor((markerPercent / 100) * zones.length));
   const first = zones[0];
   const last = zones[zones.length - 1];
 
@@ -83,8 +90,21 @@ export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
       }
     >
       <View style={styles.track}>
-        {zones.map((zone) => (
-          <View key={zone.key} style={[styles.band, { backgroundColor: zone.color }]} />
+        {/* The band the reading is IN stays at full strength and the rest
+            recede. Six saturated bands compete with a 6pt marker for attention
+            and win; dimming makes the answer readable before the marker is even
+            found. Same treatment as the website's reading card. */}
+        {zones.map((zone, index) => (
+          <View
+            key={zone.key}
+            style={[
+              styles.band,
+              {
+                backgroundColor: zone.color,
+                opacity: markerIndex == null || index === markerIndex ? 1 : 0.4,
+              },
+            ]}
+          />
         ))}
         {markerPercent != null ? (
           // Pulled back by half its width so the marker centres on its position
@@ -119,7 +139,16 @@ export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
   );
 }
 
-const MARKER_WIDTH = 3;
+/**
+ * 6, not 3.
+ *
+ * React Native draws a border INSIDE the box, so the old 3pt width with a 1pt
+ * halo left exactly 1pt of visible fill — a hairline that is close to invisible
+ * on a device, over mid-track bands especially. 6 with a 1.5pt halo gives a 3pt
+ * core, which is what the website's marker actually shows.
+ */
+const MARKER_WIDTH = 6;
+const MARKER_HALO = 1.5;
 
 const styles = StyleSheet.create({
   wrapper: { marginTop: 14 },
@@ -127,12 +156,12 @@ const styles = StyleSheet.create({
   band: { flex: 1, height: '100%' },
   marker: {
     position: 'absolute',
-    top: -3,
+    top: -4,
     width: MARKER_WIDTH,
-    height: 14,
+    height: 16,
     marginLeft: -MARKER_WIDTH / 2,
-    borderRadius: 2,
-    borderWidth: 1,
+    borderRadius: 3,
+    borderWidth: MARKER_HALO,
   },
   labels: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 6 },
   label: { ...t.xs, fontFamily: fonts.mono },

@@ -67,6 +67,7 @@ import {
 } from '@/lib/readingCopy';
 import { EddyTake } from '@/components/EddyTake';
 import { Otter, otterForCondition } from '@/components/Otter';
+import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { ReadingScale } from '@/components/ReadingScale';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { PushPrimer } from '@/components/PushPrimer';
@@ -221,6 +222,7 @@ export default function RiverDetailScreen() {
   const percentileText = percentileSentence(condition?.percentile);
   const starred = isStarred(river.id);
   const sortedHazards = sortHazards(hazards);
+  const criticalCount = criticalHazards(hazards).length;
   const shownHazards = showAllHazards ? sortedHazards : criticalHazards(hazards);
   const hiddenCount = sortedHazards.length - shownHazards.length;
 
@@ -351,10 +353,34 @@ export default function RiverDetailScreen() {
           </Text>
         </Pressable>
 
-        {/* ── Hazards. Free, and above access points on purpose. ── */}
+        {/* ── Hazards. Free, and above access points on purpose. ──
+            COLLAPSED, BUT NEVER SILENT. This section used to open showing the
+            dangerous ones, so folding it shut could hide that a river has a
+            low-water dam on it. The header therefore carries the count and a
+            dot per critical hazard in its own severity colour — the fold hides
+            the detail, not the warning. */}
         {sortedHazards.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Hazards</Text>
+          <CollapsibleSection
+            title="Hazards"
+            summary={
+              criticalCount > 0
+                ? `${criticalCount} need${criticalCount === 1 ? 's' : ''} attention · ${sortedHazards.length} total`
+                : `${sortedHazards.length} noted`
+            }
+            trailing={
+              <View style={styles.severityCues}>
+                {sortedHazards
+                  .filter((h) => hazardConditionCode(h.severity) === 'dangerous')
+                  .slice(0, 3)
+                  .map((h) => (
+                    <View
+                      key={h.id}
+                      style={[styles.severityCue, { backgroundColor: conditionColor('dangerous') }]}
+                    />
+                  ))}
+              </View>
+            }
+          >
             {shownHazards.map((hazard) => {
               const hazardCode = hazardConditionCode(hazard.severity);
               const portage = portageNote(hazard);
@@ -399,15 +425,15 @@ export default function RiverDetailScreen() {
                 </Text>
               </Pressable>
             ) : null}
-          </View>
+          </CollapsibleSection>
         ) : null}
 
         {/* ── Access points ───────────────────────────────────── */}
         {accessPoints.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Access points ({accessPoints.length})
-            </Text>
+          <CollapsibleSection
+            title="Access points"
+            summary={`${accessPoints.length} put-in${accessPoints.length === 1 ? '' : 's'} and take-out${accessPoints.length === 1 ? '' : 's'}`}
+          >
             {accessPoints.map((point) => (
               <View
                 key={point.id}
@@ -427,7 +453,7 @@ export default function RiverDetailScreen() {
                 </View>
               </View>
             ))}
-          </View>
+          </CollapsibleSection>
         ) : null}
 
         <Text style={[styles.footnote, { color: colors.textSubtle }]}>
@@ -512,6 +538,8 @@ const styles = StyleSheet.create({
   },
   notifyText: { ...t.base, fontFamily: fonts.heading },
   section: { marginBottom: 18 },
+  severityCues: { flexDirection: 'row', gap: 4 },
+  severityCue: { width: 8, height: 8, borderRadius: 999 },
   sectionTitle: { ...t.lg, fontFamily: fonts.heading, marginBottom: 10, paddingHorizontal: 4 },
   hazardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   severityDot: { width: 10, height: 10, borderRadius: 999 },

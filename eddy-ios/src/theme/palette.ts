@@ -112,6 +112,26 @@ export interface Palette {
   /** Tab bar and other chrome, kept distinct from `card`. */
   chrome: string;
   /**
+   * Rain, as a three-step ramp from "not a factor" to "this moves your plan".
+   *
+   * Grey → blue → deep blue. Blue because rain is water and the teal `primary`
+   * family is the brand's water colour; a ramp inside ONE hue reads as more of
+   * the same thing, which is what a rising chance of rain is.
+   *
+   * It replaces grey → body-text → coral, which had two problems: coral is the
+   * CTA colour and a rain chance is not an action, and `none` and `unlikely`
+   * were both textSubtle, so "No rain" and "Rain 15%" looked identical.
+   *
+   * Per scheme rather than one value each: a deep teal that reads as emphatic on
+   * white disappears entirely against near-black stone, so dark mode ramps the
+   * other way — up the scale into the light end — to get the same "this one
+   * matters" effect.
+   */
+  rainQuiet: string;
+  rainLikely: string;
+  rainHeavy: string;
+
+  /**
    * Modal scrim.
    *
    * DELIBERATELY LIGHT, and the same on both schemes. The sheets that use it
@@ -150,6 +170,9 @@ export const darkPalette: Palette = {
   // red-400. The darker red-500 used on light is muddy against near-black stone.
   error: '#F87171',
   chrome: primary[900],
+  rainQuiet: neutral[400],
+  rainLikely: primary[300],
+  rainHeavy: primary[200],
   scrim: 'rgba(0,0,0,0.22)',
 };
 
@@ -181,6 +204,9 @@ export const lightPalette: Palette = {
   // lighter red-500 clears AA on white only at large sizes, and error text is small.
   error: '#DC2626',
   chrome: '#FFFFFF',
+  rainQuiet: neutral[500],
+  rainLikely: primary[500],
+  rainHeavy: primary[800],
   scrim: 'rgba(0,0,0,0.22)',
 };
 
