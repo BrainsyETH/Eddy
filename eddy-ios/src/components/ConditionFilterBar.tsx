@@ -91,7 +91,13 @@ function ConditionFilterBarComponent({ counts, active, onToggle, onSetAll, onCle
   return (
     <View style={[styles.bar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
       <View style={styles.head}>
-        <Text style={[styles.heading, { color: colors.textMuted }]}>River conditions</Text>
+        {/* Named for the TIER, not the topic. "River conditions" sitting a
+            thumb away from a 14,000-gauge layer read as though Eddy were
+            rating all of them — the same confusion that made "155 floatable"
+            alarming rather than obviously wrong. Floatability is a verdict
+            Eddy only issues about the rivers it has curated, and the heading
+            now says which those are. */}
+        <Text style={[styles.heading, { color: colors.textMuted }]}>Eddy Rivers</Text>
         <Pressable
           onPress={() => (floatableOn ? onClear() : onSetAll(floatableCodes))}
           accessibilityRole="button"
@@ -116,7 +122,7 @@ function ConditionFilterBarComponent({ counts, active, onToggle, onSetAll, onCle
               { color: floatableOn ? '#1A1814' : colors.textMuted },
             ]}
           >
-            {counts.floatableNow}/{counts.total} floatable
+            {counts.floatableNow} of {counts.total} floatable
           </Text>
         </Pressable>
       </View>

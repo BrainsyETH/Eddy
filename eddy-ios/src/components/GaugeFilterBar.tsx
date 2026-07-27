@@ -9,9 +9,16 @@
 // imply they are the same kind of answer. They are not, and the whole point of
 // the flow-band vocabulary is that the difference stays visible.
 //
-// Chips, not switches, per README.md's ruling: these genuinely mean "narrow to
-// this". Behind a button rather than a permanent band, for the same reason the
-// condition strip is — the map wants every pixel.
+// ── Where this lives, and why it moved ─────────────────────────────────────
+// Inside the layers sheet, indented under the "All U.S. gauges" row it refines.
+// It spent one release behind its own floating button on the map, which made
+// three stacked 44pt buttons down the right edge — precisely the permanent tax
+// on the map's pixels that MapLayersSheet exists to have removed. A refinement
+// for a layer belongs where the layer is switched on: you turn it on, the
+// chips appear under it, and the map keeps two buttons.
+//
+// Still chips rather than switches, per README.md's ruling: these genuinely
+// mean "narrow to this", where the row above them means "also draw this".
 //
 // ── Counts are viewport-scoped, and the heading says so ─────────────────────
 // Everything here counts what is currently on screen, because that is what the
@@ -21,7 +28,6 @@
 
 import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import type { MapGaugeLite } from '@eddy/types';
 import { FLOW_BAND_ORDER, type FlowBand } from '@eddy/conditions/flow-band';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
@@ -48,34 +54,6 @@ export const GAUGE_FILTER_KEYS: GaugeFilterKey[] = [
   'flow',
   'stage',
 ];
-
-/** The button that opens the strip. Dotted while a filter is on. */
-export function GaugeFilterButton({
-  onPress,
-  filtering,
-}: {
-  onPress: () => void;
-  filtering: boolean;
-}) {
-  const { colors, floating } = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel="Filter gauges"
-      style={({ pressed }) => [
-        styles.button,
-        floating(),
-        { backgroundColor: colors.card, opacity: pressed ? 0.8 : 1 },
-      ]}
-    >
-      <Ionicons name="options-outline" size={20} color={colors.text} />
-      {filtering ? (
-        <View style={[styles.dot, { backgroundColor: colors.accent, borderColor: colors.card }]} />
-      ) : null}
-    </Pressable>
-  );
-}
 
 /** Does this gauge satisfy one filter key? */
 export function matchesGaugeFilter(
@@ -168,13 +146,13 @@ function GaugeFilterBarComponent({ gauges, active, isStarred, onToggle, onClear 
   const matching = filtering ? applyGaugeFilters(gauges, active, isStarred).length : gauges.length;
 
   return (
-    <View style={[styles.bar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+    <View style={[styles.bar, { borderLeftColor: colors.border }]}>
       <View style={styles.head}>
         {/* "in view", not "nationwide". The layer only ever holds the viewport,
             and a heading that implied otherwise would make every count wrong. */}
-        <Text style={[styles.heading, { color: colors.textMuted }]}>Gauges in view</Text>
+        <Text style={[styles.heading, { color: colors.textMuted }]}>Narrow to</Text>
         <Text style={[styles.subheading, { color: colors.textSubtle }]}>
-          {gauges.length} loaded
+          {gauges.length} in view
         </Text>
       </View>
 
@@ -182,7 +160,7 @@ function GaugeFilterBarComponent({ gauges, active, isStarred, onToggle, onClear 
         chips={chips}
         active={[...active]}
         onToggle={(k) => onToggle(k as GaugeFilterKey)}
-        paddingHorizontal={12}
+        paddingHorizontal={0}
       />
 
       {filtering ? (
@@ -225,17 +203,21 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderWidth: 2,
   },
+  // Indented under its layer row with a hairline spine, so it reads as
+  // belonging to that row rather than as a sixth layer.
   bar: {
-    paddingTop: 10,
-    paddingBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginLeft: 30,
+    paddingLeft: 10,
+    paddingTop: 4,
+    paddingBottom: 10,
+    borderLeftWidth: StyleSheet.hairlineWidth,
   },
   head: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    marginBottom: 8,
+    paddingHorizontal: 0,
+    marginBottom: 6,
   },
   heading: { ...t.xs, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.6 },
   subheading: { ...t.xs, fontFamily: fonts.body },
@@ -243,9 +225,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
+    paddingHorizontal: 0,
     paddingTop: 8,
   },
   statusText: { ...t.xs, fontFamily: fonts.semibold },
-  hint: { ...t.xs, fontFamily: fonts.body, paddingHorizontal: 12, paddingBottom: 10 },
+  hint: { ...t.xs, fontFamily: fonts.body, paddingTop: 6 },
 });

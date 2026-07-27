@@ -105,7 +105,6 @@ import { MapLayersButton, MapLayersSheet, isDefaultLayers } from '@/components/M
 import { ConditionFilterBar, ConditionFilterButton } from '@/components/ConditionFilterBar';
 import {
   GaugeFilterBar,
-  GaugeFilterButton,
   applyGaugeFilters,
   type GaugeFilterKey,
 } from '@/components/GaugeFilterBar';
@@ -210,7 +209,6 @@ export default function MapScreen() {
   // Not persisted, for the same reason the condition filter is not: a filter
   // restored from last week reads as gauges having gone missing.
   const [gaugeFilter, setGaugeFilter] = useState<ReadonlySet<GaugeFilterKey>>(() => new Set());
-  const [gaugeFilterOpen, setGaugeFilterOpen] = useState(false);
   const [focus, setFocus] = useState<Focus | null>(null);
   // The camera, as of the last time it stopped moving. Only the national gauge
   // layer reads it — everything else on this screen loads a bounded set up front.
@@ -684,26 +682,6 @@ export default function MapScreen() {
         />
       ) : null}
 
-      {/* The gauge filter, same posture: above the map, one at a time. Opening
-          one closes the other — two stacked strips would eat most of a small
-          phone's map, which is the complaint the chips-vs-sheet ruling exists
-          to answer. */}
-      {gaugeFilterOpen && !unavailable && layers.includes('allGauges') ? (
-        <GaugeFilterBar
-          gauges={referenceGauges.gauges}
-          active={gaugeFilter}
-          isStarred={isGaugeStarred}
-          onToggle={(key) =>
-            setGaugeFilter((prev) => {
-              const next = new Set(prev);
-              if (next.has(key)) next.delete(key);
-              else next.add(key);
-              return next;
-            })
-          }
-          onClear={() => setGaugeFilter(new Set())}
-        />
-      ) : null}
 
       <View style={styles.mapArea}>
         {unavailable ? (
@@ -803,7 +781,6 @@ export default function MapScreen() {
                 // mapArea's overflow:'hidden'. Selecting a network river
                 // already drops the pin for a similar reason.
                 setSelectedPin(null);
-                setGaugeFilterOpen(false);
                 setFilterOpen((open) => !open);
               }}
               filtering={conditionFilter.size > 0}
@@ -811,22 +788,6 @@ export default function MapScreen() {
           </View>
         ) : null}
 
-        {/* Gauge filter, third in the stack. Offered only while the national
-            layer is on — a filter for a layer nobody switched on is a control
-            that cannot do anything, the same rule the condition button follows
-            for an empty network. */}
-        {!unavailable && !search.active && layers.includes('allGauges') ? (
-          <View style={styles.gaugeFilterButtonWrap}>
-            <GaugeFilterButton
-              onPress={() => {
-                setSelectedPin(null);
-                setFilterOpen(false);
-                setGaugeFilterOpen((open) => !open);
-              }}
-              filtering={gaugeFilter.size > 0}
-            />
-          </View>
-        ) : null}
 
         {/* ── The bottom stack ──────────────────────────────────────────
             One bottom-anchored column holding the callout and the map controls,
@@ -1035,6 +996,27 @@ export default function MapScreen() {
         onToggle={toggleLayer}
         onReset={resetLayers}
         counts={layerCounts}
+        // Gauge filtering lives under the layer it refines, not behind a third
+        // button on the map. Rendered only while the layer is ON, because
+        // chips that narrow a layer nobody is drawing narrow nothing.
+        renderLayerDetail={(key, on) =>
+          key === 'allGauges' && on ? (
+            <GaugeFilterBar
+              gauges={referenceGauges.gauges}
+              active={gaugeFilter}
+              isStarred={isGaugeStarred}
+              onToggle={(k) =>
+                setGaugeFilter((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(k)) next.delete(k);
+                  else next.add(k);
+                  return next;
+                })
+              }
+              onClear={() => setGaugeFilter(new Set())}
+            />
+          ) : null
+        }
       />
 
       {/* The plan flow is deliberately a sibling of the map rather than a child
@@ -1387,10 +1369,6 @@ const styles = StyleSheet.create({
   // map controls rather than two unrelated floating things.
   // Directly under the layers button (44 + 16 gap + its own 16 top inset).
   filterButtonWrap: { position: 'absolute', top: 76, right: 16 },
-  // Third in the right-hand stack: layers at 16, condition filter at 76, this
-  // at 136 — 44pt buttons with a 16pt gap, so the rhythm is the one already set
-  // rather than a new number.
-  gaugeFilterButtonWrap: { position: 'absolute', top: 136, right: 16 },
   locateButton: {
     width: 44,
     height: 44,

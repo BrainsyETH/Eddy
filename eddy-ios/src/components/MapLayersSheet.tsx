@@ -45,6 +45,17 @@ interface Props {
   onReset: () => void;
   /** How many of each thing we hold. Absent means "not loaded", not "none". */
   counts?: Partial<Record<LayerKey, number>>;
+  /**
+   * Refinements for a layer, rendered indented directly beneath its row.
+   *
+   * The national gauge layer needs a way to say "only the ones running high",
+   * and that lived behind a THIRD floating button on the map for one release.
+   * Three stacked 44pt buttons down the right edge is exactly the complaint
+   * this sheet was built to answer — a permanent tax on the one view that wants
+   * every pixel. Refinements belong where the layer is switched on: you turn it
+   * on here, you narrow it here, and the map keeps two buttons.
+   */
+  renderLayerDetail?: (key: LayerKey, on: boolean) => React.ReactNode;
 }
 
 /** True when the live selection is the one the app opens with. */
@@ -54,7 +65,15 @@ export function isDefaultLayers(active: LayerKey[]): boolean {
   );
 }
 
-export function MapLayersSheet({ visible, onClose, active, onToggle, onReset, counts }: Props) {
+export function MapLayersSheet({
+  visible,
+  onClose,
+  active,
+  onToggle,
+  onReset,
+  counts,
+  renderLayerDetail,
+}: Props) {
   const { colors, floating } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -97,9 +116,10 @@ export function MapLayersSheet({ visible, onClose, active, onToggle, onReset, co
             const on = active.includes(layer.key);
             const tint = layer.color(colors);
             const count = counts?.[layer.key];
+            const detail = renderLayerDetail?.(layer.key, on);
             return (
+              <View key={layer.key}>
               <Pressable
-                key={layer.key}
                 onPress={() => onToggle(layer.key)}
                 style={({ pressed }) => [
                   styles.row,
@@ -158,6 +178,8 @@ export function MapLayersSheet({ visible, onClose, active, onToggle, onReset, co
                   />
                 </View>
               </Pressable>
+              {detail}
+              </View>
             );
           })}
         </ScrollView>
