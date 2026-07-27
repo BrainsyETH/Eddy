@@ -17,12 +17,19 @@
 //   2. DIRECTION IS NOT A VERDICT. The trend is drawn in muted ink, never in
 //      green-for-rising: on a river approaching flood, "rising fast" is the
 //      opposite of good news. The condition stripe and label carry the verdict.
+//
+//   3. THE READING WEARS THE CONDITION'S COLOUR. "944 cfs" and the word beside
+//      the name are the same fact stated twice, so they are drawn in the same
+//      ink — the number is the thing people read, and leaving it in neutral
+//      text made the colour a decoration on the row rather than a property of
+//      the measurement. conditionText() resolves that ink per scheme; see the
+//      note there for why neither `solid` nor `ink` works alone.
 
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { RiverListItem } from '@eddy/types';
-import { conditionColor, conditionInk, conditionLabel } from '@/theme/conditions';
+import { conditionColor, conditionLabel, conditionText } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading, primaryReading } from '@/lib/readingCopy';
@@ -58,7 +65,7 @@ function RiverRowComponent({
   onToggleStar,
   starDisabled = false,
 }: RiverRowProps) {
-  const { colors, elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
 
   const condition = river.currentCondition;
   const code = condition?.code ?? 'unknown';
@@ -98,7 +105,7 @@ function RiverRowComponent({
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
             {river.name}
           </Text>
-          <Text style={[styles.conditionWord, { color: conditionInk(code) }]}>
+          <Text style={[styles.conditionWord, { color: conditionText(code, isDark) }]}>
             {condition?.label ?? conditionLabel(code)}
           </Text>
         </View>
@@ -110,7 +117,10 @@ function RiverRowComponent({
           <Text
             style={[
               styles.reading,
-              { color: reading ? colors.text : colors.textSubtle },
+              // No reading is not a condition, so it stays neutral: painting
+              // "No gauge reading" in the unknown grey would imply the grey was
+              // measured.
+              { color: reading ? conditionText(code, isDark) : colors.textSubtle },
             ]}
             numberOfLines={1}
           >
@@ -126,15 +136,15 @@ function RiverRowComponent({
           ) : null}
         </View>
 
-        <Text style={[styles.meta, { color: colors.textSubtle }]} numberOfLines={1}>
-          {[
-            river.region ?? river.state,
-            `${river.accessPointCount} access points`,
-            age,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        </Text>
+        {/* Reading age, and nothing else. The region and the access-point count
+            used to sit here too, and neither survives the question "would this
+            change which river I drive to?" — every Ozark river is in the
+            Ozarks, and a count of put-ins says nothing about the water. */}
+        {age ? (
+          <Text style={[styles.meta, { color: colors.textSubtle }]} numberOfLines={1}>
+            {age}
+          </Text>
+        ) : null}
       </Pressable>
 
       {/* A SIBLING of the navigation Pressable, not a child of it. The previous
