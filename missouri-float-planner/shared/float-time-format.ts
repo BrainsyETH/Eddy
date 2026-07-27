@@ -107,17 +107,27 @@ export function formatFloatTimeCeilingCompact(maxMinutes: number): string {
 }
 
 /**
- * The one-line caveat that belongs under a ceiling.
+ * The one-line caveat that belongs under a ceiling. ALWAYS THE SAME SENTENCE.
  *
- * `isEstimate === false` means a published outfitter time, whose upper bound is
- * whatever the outfitter measured — we cannot claim a pace for it, so we say
- * nothing about one. Everything else is ours, and the honest description of the
- * long end is a relaxed pace that stops on gravel bars.
+ * It used to branch on `isEstimate`, printing "Published time" for the ~30
+ * outfitter-published segments in float_segments on the reasoning that a time
+ * we did not set gets no pace claim from us. That reasoning was sound and the
+ * premise was false: the plan route runs every published time through
+ * scaleKnownTimeForCondition, which multiplies it by 2.0 at too_low, 1.33 at
+ * low and 0.85 at high. In three of the four condition bands the number on
+ * screen is OURS, derived from a published seed — Akers to Pulltite has a
+ * published max of six hours and printed "Up to ~8 hours / Published time" in
+ * low water. No outfitter published eight hours for that stretch.
+ *
+ * Rather than carry a flag that is right a quarter of the time, everything now
+ * says what is true of every number we print: it is an estimate, and the long
+ * end describes a relaxed pace that stops on gravel bars. Do not caption a
+ * ceiling "no stops" — that describes the SHORT end while printing the long one.
  *
  * Written as one plain sentence rather than the app's usual dot-separated
  * fragments, because it is a sentence: it says what the number assumed, and
  * "Estimated · relaxed pace, some stops" made a reader assemble that themselves.
  */
-export function floatTimeCeilingBasisNote(isEstimate: boolean | undefined): string {
-  return isEstimate === false ? 'Published time' : 'Estimated at a relaxed pace with stops';
+export function floatTimeCeilingBasisNote(): string {
+  return 'Estimated at a relaxed pace with stops';
 }

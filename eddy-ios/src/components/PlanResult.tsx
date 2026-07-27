@@ -97,9 +97,18 @@ export function PlanResult({ plan, actions }: Props) {
       ) : null}
 
       <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-        <Text style={[styles.segment, { color: colors.textMuted }]} numberOfLines={2}>
-          {plan.putIn.name} → {plan.takeOut.name}
-        </Text>
+        <View style={styles.segmentRow}>
+          <Text style={[styles.segment, { color: colors.textMuted }]} numberOfLines={2}>
+            {plan.putIn.name} → {plan.takeOut.name}
+          </Text>
+          {/* Distance rides here rather than in a stat row of its own. It used
+              to share that row with Shuttle drive; with the shuttle gone, a
+              lone stat sat left-aligned under a full-width rule with half the
+              card empty beside it. One number does not need a table. */}
+          <Text style={[styles.segmentDistance, { color: colors.textMuted }]}>
+            {plan.distance.formatted}
+          </Text>
+        </View>
 
         {plan.floatTime ? (
           <>
@@ -117,9 +126,8 @@ export function PlanResult({ plan, actions }: Props) {
             <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
               {/* NOT "no stops". The long end is moving time x1.6 — a relaxed
                   pace that stops on gravel bars — so "no stops" would describe
-                  the SHORT end while printing the long one. A published
-                  outfitter time gets no pace claim at all: we did not set it. */}
-              {floatTimeCeilingBasisNote(plan.floatTime.isEstimate)}
+                  the SHORT end while printing the long one. */}
+              {floatTimeCeilingBasisNote()}
             </Text>
           </>
         ) : (
@@ -133,18 +141,6 @@ export function PlanResult({ plan, actions }: Props) {
           </>
         )}
 
-        <View style={[styles.statRow, { borderTopColor: colors.border }]}>
-          <Stat label="Distance" value={plan.distance.formatted} />
-          <Stat
-            label="Shuttle drive"
-            value={plan.driveBack.formatted}
-            note={
-              plan.driveBack.miles > 0
-                ? `${plan.driveBack.miles.toFixed(0)} mi back to the put-in`
-                : null
-            }
-          />
-        </View>
       </View>
 
       {/* The water the plan was built from. A float time is a function of the
@@ -201,11 +197,6 @@ export function PlanResult({ plan, actions }: Props) {
       <PlanNearby plan={plan} />
 
       {actions}
-
-      <Text style={[styles.footnote, { color: colors.textSubtle }]}>
-        Times assume the flow at the put-in gauge right now. Wind, stops and a loaded boat all move
-        them. Judge the water in front of you.
-      </Text>
     </ScrollView>
   );
 }
@@ -240,8 +231,10 @@ function GettingThere({ plan }: { plan: FloatPlan }) {
         onPress={() => void Linking.openURL(driveToUrl(plan.takeOut))}
       />
 
-      {/* The shuttle is its own drive, and the one people underestimate. The
-          plan already has a time for it; this is the route behind that number. */}
+      {/* The shuttle is its own drive, and the one people underestimate. This
+          hands it to Apple Maps, which is the only thing here that can time it
+          honestly — see the note on driveBack in the plan route for why we no
+          longer print a number of our own. */}
       <Pressable
         onPress={() => void Linking.openURL(driveBetweenUrl(plan.takeOut, plan.putIn))}
         style={({ pressed }) => [
@@ -256,7 +249,6 @@ function GettingThere({ plan }: { plan: FloatPlan }) {
           <Text style={[styles.shuttleTitle, { color: colors.text }]}>Shuttle route</Text>
           <Text style={[styles.shuttleMeta, { color: colors.textMuted }]} numberOfLines={1}>
             Driving directions from point-to-point
-            {plan.driveBack.formatted ? ` · ${plan.driveBack.formatted}` : ''}
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
@@ -350,17 +342,6 @@ function GaugeSourceLink({ plan }: { plan: FloatPlan }) {
   );
 }
 
-function Stat({ label, value, note }: { label: string; value: string; note?: string | null }) {
-  const { colors } = useTheme();
-  return (
-    <View style={styles.stat}>
-      <Text style={[styles.statLabel, { color: colors.textSubtle }]}>{label}</Text>
-      <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
-      {note ? <Text style={[styles.statNote, { color: colors.textSubtle }]}>{note}</Text> : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   body: { padding: 16, paddingBottom: 40 },
   warnings: { borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 10, gap: 8 },
@@ -368,17 +349,13 @@ const styles = StyleSheet.create({
   warningText: { ...t.xs, fontFamily: fonts.medium, flex: 1 },
   card: { padding: 16, borderRadius: 16, marginBottom: 10 },
   cardTitle: { ...t.base, fontFamily: fonts.heading, marginBottom: 6 },
-  segment: { ...t.xs, fontFamily: fonts.semibold },
+  segmentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  segment: { ...t.xs, fontFamily: fonts.semibold, flex: 1 },
+  // Mono for the same reason readings use it: the number changes between plans
+  // and a proportional face makes it shift against the endpoints beside it.
+  segmentDistance: { ...t.xs, fontFamily: fonts.mono },
   headline: { ...t['3xl'], fontFamily: fonts.display, marginTop: 6 },
   headlineNote: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  statRow: { flexDirection: 'row', gap: 16, marginTop: 14, paddingTop: 14, borderTopWidth: 1 },
-  stat: { flex: 1 },
-  statLabel: { ...t.xs, fontFamily: fonts.semibold },
-  // Mono for the same reason readings use it: these numbers change between
-  // plans and a proportional face makes the two columns jitter against
-  // each other.
-  statValue: { ...t.lg, fontFamily: fonts.mono, marginTop: 2 },
-  statNote: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   conditionHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   conditionText: { flex: 1, minWidth: 0 },
   conditionLabel: { ...t.sm, fontFamily: fonts.semibold },
@@ -428,11 +405,4 @@ const styles = StyleSheet.create({
   hazardBody: { flex: 1, minWidth: 0 },
   hazardName: { ...t.sm, fontFamily: fonts.semibold },
   hazardMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  footnote: {
-    ...t.xs,
-    fontFamily: fonts.body,
-    textAlign: 'center',
-    marginTop: 18,
-    paddingHorizontal: 12,
-  },
 });
