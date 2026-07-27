@@ -50,6 +50,7 @@ import {
   conditionLongLabel,
   conditionText,
 } from '@/theme/conditions';
+import { primary } from '@/theme/palette';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import {
@@ -105,7 +106,11 @@ export function PlanResult({ plan, actions }: Props) {
               to share that row with Shuttle drive; with the shuttle gone, a
               lone stat sat left-aligned under a full-width rule with half the
               card empty beside it. One number does not need a table. */}
-          <Text style={[styles.segmentDistance, { color: colors.textMuted }]}>
+          {/* Raised out of the muted grey it shared with the endpoint names.
+              How far is one of the two questions the card exists to answer —
+              the other is how long, printed at 3xl below — and it was being
+              set at the same size and colour as the caption beside it. */}
+          <Text style={[styles.segmentDistance, { color: colors.text }]}>
             {plan.distance.formatted}
           </Text>
         </View>
@@ -244,7 +249,13 @@ function GettingThere({ plan }: { plan: FloatPlan }) {
         accessibilityRole="button"
         accessibilityLabel="Shuttle route, driving directions from point to point"
       >
-        <Ionicons name="car-outline" size={16} color={colors.accent} />
+        {/* The same badge the website's "Drive Route" row wears: a car in a
+            filled teal disc, not a loose outline glyph. Teal rather than the
+            accent coral because the shuttle is the one thing in this card that
+            is NOT the float — it is the drive that bookends it. */}
+        <View style={[styles.shuttleBadge, { backgroundColor: primary[600] }]}>
+          <Ionicons name="car" size={14} color={colors.onAccent} />
+        </View>
         <View style={styles.shuttleText}>
           <Text style={[styles.shuttleTitle, { color: colors.text }]}>Shuttle route</Text>
           <Text style={[styles.shuttleMeta, { color: colors.textMuted }]} numberOfLines={1}>
@@ -349,11 +360,15 @@ const styles = StyleSheet.create({
   warningText: { ...t.xs, fontFamily: fonts.medium, flex: 1 },
   card: { padding: 16, borderRadius: 16, marginBottom: 10 },
   cardTitle: { ...t.base, fontFamily: fonts.heading, marginBottom: 6 },
-  segmentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  // `center`, now that the distance is taller than the endpoint line it sits
+  // beside — top-aligned, a larger number hangs above the text it belongs to.
+  segmentRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   segment: { ...t.xs, fontFamily: fonts.semibold, flex: 1 },
   // Mono for the same reason readings use it: the number changes between plans
   // and a proportional face makes it shift against the endpoints beside it.
-  segmentDistance: { ...t.xs, fontFamily: fonts.mono },
+  // One step up from the caption it used to match, and no further: the float
+  // time below is the headline and this must not start competing with it.
+  segmentDistance: { ...t.base, fontFamily: fonts.mono },
   headline: { ...t['3xl'], fontFamily: fonts.display, marginTop: 6 },
   headlineNote: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   conditionHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -387,6 +402,15 @@ const styles = StyleSheet.create({
     padding: 11,
     borderRadius: 12,
     borderWidth: 1,
+  },
+  // 28pt disc, 14pt glyph — the website's proportions (w-8 around a 14px svg),
+  // taken down one step because a phone row is tighter than a card column.
+  shuttleBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   shuttleText: { flex: 1, minWidth: 0 },
   shuttleTitle: { ...t.sm, fontFamily: fonts.semibold },
