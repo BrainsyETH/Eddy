@@ -422,11 +422,43 @@ Reports uses for mutually-exclusive filters — implied "narrow to this" when th
 meant "also draw this". `FilterChips` still exists for the Search tab, where the
 choices really are alternatives.
 
-The gauge layer is **statewide**, not narrowed to the selected river. It was
-briefly clipped to a 15-mile buffer around the river's bounds, which only ever
-removed pins the camera was not looking at anyway — and removed them from the one
-view where the layer earns its place, the zoomed-out "which rivers have water in
-them" one.
+The Eddy-rated gauge layer is **statewide**, not narrowed to the selected river.
+It was briefly clipped to a 15-mile buffer around the river's bounds, which only
+ever removed pins the camera was not looking at anyway — and removed them from
+the one view where the layer earns its place, the zoomed-out "which rivers have
+water in them" one.
+
+### Two gauge rows, and the partition between them
+
+**Eddy-rated gauges** and **Other USGS gauges** hold disjoint sets, and the
+labels have to say so. The second row has always dropped the curated stations —
+the map screen filters them out before building pins, so a rated gauge is not
+drawn twice, once as a *verdict* in its condition colour and once as a
+*comparison* in a flow band a pixel apart — but it used to be called "All U.S.
+gauges", which claimed the opposite.
+
+That one word cost real behaviour. The national tier's filter strip offered an
+**Eddy-rated** chip, and it could only ever match the pins that layer excludes:
+selecting it asked for the curated gauges and then removed every one of them, so
+the map drew nothing while the strip said "Showing 12 gauges" and the layers
+sheet said 0. **Following** was the same shape — every starrable gauge in the app
+is starred from a curated pin's callout, so it too matched only what the layer
+throws away. Both chips are gone. "Eddy-rated" is a *scope*, and the scope is the
+row above; what remains in the strip is flow bands plus reports-flow/reports-stage,
+every one of them a property of the reading, which is all this tier has.
+
+The ordering is the durable fix, not the chip removal. `layerGauges` in
+`app/(tabs)/index.tsx` computes the layer's drawable population **once, before**
+anything narrows it, and the filter, the counts and the pins all read from that.
+Narrowing a set the layer will never draw is not a filter anyone can reason about.
+
+Two disclosures the strip owes and did not make: the layer draws nothing below
+`MIN_ALL_GAUGES_ZOOM` (7) while the map's own cold start opens at 6.2, so
+switching it on from the opening view drew nothing and reported 0 with no reason
+given; and `/api/gauges/map` caps a viewport at 300, ordered curated-first then by
+discharge, so a viewport holding 1,240 quietly drew 300 and looked complete.
+`belowMinZoom`, `capped` and `total` had all been coming back from
+`useViewportGauges` unrendered. Both now say so in the strip.
 
 Every pin is a `CircleLayer` plus a text `SymbolLayer`, never a sprite icon. The
 icon names in Mapbox's outdoors style are not a contract we control, and a

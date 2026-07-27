@@ -447,19 +447,30 @@ export default function MapScreen() {
   const referenceGauges = useViewportGauges(layers.includes('allGauges'), viewport);
 
   /**
-   * Reference gauges as map pins.
+   * What the "Other USGS gauges" layer actually holds.
    *
    * Curated gauges are dropped here rather than drawn twice: /api/gauges/map
    * returns them too (they are gauges in the viewport), but the curated layer
    * already paints them in their condition colour, and a second dot underneath
    * in a flow-band colour would be the same station wearing two different
    * verdicts a pixel apart.
+   *
+   * COMPUTED ONCE, AT THE TOP, and everything downstream reads from it — the
+   * filter, the counts, the pins. It used to happen last, after the chips had
+   * already narrowed the raw response, which made the drop silently intersect
+   * with the filter: selecting "Eddy-rated" asked for exactly the gauges the
+   * next line removed, so the map drew nothing while the strip said "Showing
+   * 12 gauges" and the layers sheet said 0. Three surfaces, three answers, one
+   * ordering mistake. Narrowing a set the layer will never draw is not a filter
+   * anyone can reason about, so the set comes first now.
    */
-  /** The star predicate the gauge filter needs, in MapGaugeLite terms. */
-  const isGaugeStarred = useCallback((id: string) => isStarred('gauge', id), [isStarred]);
+  const layerGauges = useMemo(
+    () => referenceGauges.gauges.filter((g) => !g.curated && hasCoordinates(g)),
+    [referenceGauges.gauges],
+  );
 
   /**
-   * The viewport's gauges, narrowed.
+   * That set, narrowed by the chips.
    *
    * Applied BEFORE pins are built rather than as a Mapbox opacity expression,
    * which is where this deliberately differs from the condition filter. That
@@ -470,31 +481,29 @@ export default function MapScreen() {
    * harder to read than an honest empty patch.
    */
   const visibleReferenceGauges = useMemo(
-    () => applyGaugeFilters(referenceGauges.gauges, gaugeFilter, isGaugeStarred),
-    [referenceGauges.gauges, gaugeFilter, isGaugeStarred],
+    () => applyGaugeFilters(layerGauges, gaugeFilter),
+    [layerGauges, gaugeFilter],
   );
 
   const referencePins = useMemo<MapPin[]>(
     () =>
-      visibleReferenceGauges
-        .filter((g) => !g.curated && hasCoordinates(g))
-        .map((g) => {
-          const band = flowBandFor(g);
-          return {
-            id: `refgauge:${g.id}`,
-            name: g.name,
-            layer: 'allGauges' as LayerKey,
-            subtitle: 'USGS gauge — not Eddy-rated',
-            coordinates: g.coordinates,
-            color: flowBandColor(band),
-            // No `code`: that field drives a CONDITION-tinted chip in the
-            // callout, and this gauge has no condition. codeLabel carries the
-            // band's words instead, which is a comparison, not a verdict.
-            codeLabel: flowBandLabel(band),
-            value: flowReadingText(g),
-            magnitude: flowMagnitude(g),
-          };
-        }),
+      visibleReferenceGauges.map((g) => {
+        const band = flowBandFor(g);
+        return {
+          id: `refgauge:${g.id}`,
+          name: g.name,
+          layer: 'allGauges' as LayerKey,
+          subtitle: 'USGS gauge — not Eddy-rated',
+          coordinates: g.coordinates,
+          color: flowBandColor(band),
+          // No `code`: that field drives a CONDITION-tinted chip in the
+          // callout, and this gauge has no condition. codeLabel carries the
+          // band's words instead, which is a comparison, not a verdict.
+          codeLabel: flowBandLabel(band),
+          value: flowReadingText(g),
+          magnitude: flowMagnitude(g),
+        };
+      }),
     [visibleReferenceGauges],
   );
 
@@ -1002,9 +1011,13 @@ export default function MapScreen() {
         renderLayerDetail={(key, on) =>
           key === 'allGauges' && on ? (
             <GaugeFilterBar
-              gauges={referenceGauges.gauges}
+              // The DRAWABLE set, not the raw response — see layerGauges. Every
+              // count in the strip is a count of pins you can actually see.
+              gauges={layerGauges}
               active={gaugeFilter}
-              isStarred={isGaugeStarred}
+              belowMinZoom={referenceGauges.belowMinZoom}
+              capped={referenceGauges.capped}
+              total={referenceGauges.total}
               onToggle={(k) =>
                 setGaugeFilter((prev) => {
                   const next = new Set(prev);
