@@ -1,5 +1,17 @@
 // eddy-ios/src/hooks/useSavedFloats.tsx
-// Floats you have shared, kept so you can open them again.
+// Floats you have kept, so you can open them again.
+//
+// ── Kept is not the same as shared ──────────────────────────────────────────
+// This list used to be written by the Share button, and by nothing else. Two
+// things were wrong with that, and they are the same thing from two sides:
+// sharing a float with the person driving is not a statement that you want to
+// keep it, and wanting to keep one does not mean you have anybody to send it
+// to. So a plan you built for yourself could not be saved at all, and a plan
+// you sent to a group chat was filed under Favorites whether you meant it or
+// not.
+//
+// Keeping is now its own explicit action — the star on an open plan — and Share
+// does not write here. What is stored is unchanged; only who decides.
 //
 // ── Why local, and why only a stub ──────────────────────────────────────────
 // A saved plan already lives server-side — /api/plan/save writes the row and
@@ -45,7 +57,17 @@ export interface SavedFloat {
   riverSlug: string;
   putInName: string;
   takeOutName: string;
-  /** Rendered straight from the plan, so the list matches what was shared. */
+  /**
+   * The two ends, by id.
+   *
+   * What makes "is this stretch already kept?" answerable from a plan that has
+   * no short code yet — which is every plan, at the moment the star is tapped.
+   * OPTIONAL because rows written by older builds do not have them, and a
+   * history is not worth dropping over a field it can live without.
+   */
+  putInId?: string;
+  takeOutId?: string;
+  /** Rendered straight from the plan, so the list matches what was saved. */
   distanceLabel: string;
   savedAt: string;
 }
@@ -56,6 +78,18 @@ interface SavedFloatsValue {
   ready: boolean;
   remember: (plan: FloatPlan, saved: { shortCode: string; url: string }) => void;
   forget: (shortCode: string) => void;
+  /**
+   * Is this exact stretch already kept?
+   *
+   * Matched on the RIVER AND THE TWO ENDS, never on the short code: the code is
+   * assigned by the server when a plan is first kept, so a freshly built plan
+   * has none and would otherwise always read as unsaved — a star that never
+   * fills in. Rows from before those ids were stored fall back to the names,
+   * which are what the list is keyed on visually anyway.
+   */
+  isSaved: (plan: FloatPlan) => boolean;
+  /** Drop this stretch, whatever code it happens to be filed under. */
+  forgetPlan: (plan: FloatPlan) => void;
 }
 
 const SavedFloatsContext = createContext<SavedFloatsValue>({
@@ -63,7 +97,18 @@ const SavedFloatsContext = createContext<SavedFloatsValue>({
   ready: false,
   remember: () => {},
   forget: () => {},
+  isSaved: () => false,
+  forgetPlan: () => {},
 });
+
+/** True when a stored stub describes the same stretch as this plan. */
+function matchesPlan(entry: SavedFloat, plan: FloatPlan): boolean {
+  if (entry.riverSlug !== plan.river.slug) return false;
+  if (entry.putInId && entry.takeOutId) {
+    return entry.putInId === plan.putIn.id && entry.takeOutId === plan.takeOut.id;
+  }
+  return entry.putInName === plan.putIn.name && entry.takeOutName === plan.takeOut.name;
+}
 
 export function SavedFloatsProvider({ children }: { children: ReactNode }) {
   const [floats, setFloats] = useState<SavedFloat[]>([]);
@@ -105,15 +150,20 @@ export function SavedFloatsProvider({ children }: { children: ReactNode }) {
           riverSlug: plan.river.slug,
           putInName: plan.putIn.name,
           takeOutName: plan.takeOut.name,
+          putInId: plan.putIn.id,
+          takeOutId: plan.takeOut.id,
           distanceLabel: plan.distance.formatted,
           savedAt: new Date().toISOString(),
         };
-        // De-duped by code: sharing the same stretch twice returns the same
-        // short code, and two identical rows is not a history.
-        const next = [entry, ...current.filter((f) => f.shortCode !== entry.shortCode)].slice(
-          0,
-          MAX_ENTRIES,
-        );
+        // De-duped by code AND by stretch. The code alone was enough while this
+        // list only ever recorded shares — saving the same stretch twice
+        // returns the same short code — but a row written by an older build has
+        // no ids to match on and could otherwise reappear beside its own
+        // replacement. Two identical rows is not a history either way.
+        const next = [
+          entry,
+          ...current.filter((f) => f.shortCode !== entry.shortCode && !matchesPlan(f, plan)),
+        ].slice(0, MAX_ENTRIES);
         AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
         return next;
       });
@@ -128,9 +178,21 @@ export function SavedFloatsProvider({ children }: { children: ReactNode }) {
     [floats, persist],
   );
 
+  const isSaved = useCallback(
+    (plan: FloatPlan) => floats.some((f) => matchesPlan(f, plan)),
+    [floats],
+  );
+
+  const forgetPlan = useCallback(
+    (plan: FloatPlan) => {
+      persist(floats.filter((f) => !matchesPlan(f, plan)));
+    },
+    [floats, persist],
+  );
+
   const value = useMemo<SavedFloatsValue>(
-    () => ({ floats, ready, remember, forget }),
-    [floats, ready, remember, forget],
+    () => ({ floats, ready, remember, forget, isSaved, forgetPlan }),
+    [floats, ready, remember, forget, isSaved, forgetPlan],
   );
 
   return <SavedFloatsContext.Provider value={value}>{children}</SavedFloatsContext.Provider>;

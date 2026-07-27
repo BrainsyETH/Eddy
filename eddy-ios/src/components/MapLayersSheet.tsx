@@ -36,7 +36,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { EddySymbol } from '@/components/EddySymbol';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { DEFAULT_LAYERS, MAP_LAYERS, type LayerKey } from '@/map/layers';
+import {
+  DEFAULT_LAYERS,
+  MAP_LAYERS,
+  SHEET_LAYERS,
+  layerKeysFor,
+  type LayerKey,
+} from '@/map/layers';
 
 /**
  * How far an off layer's mark fades.
@@ -64,8 +70,34 @@ interface Props {
    * this sheet was built to answer — a permanent tax on the one view that wants
    * every pixel. Refinements belong where the layer is switched on: you turn it
    * on here, you narrow it here, and the map keeps two buttons.
+   *
+   * Called per TIER on a row that has them, so a refinement still belongs to
+   * the layer it narrows rather than to the row that happens to contain it.
    */
   renderLayerDetail?: (key: LayerKey, on: boolean) => React.ReactNode;
+}
+
+/**
+ * A row's total across its live tiers, or `undefined` if any of them is unknown.
+ *
+ * `undefined` propagates deliberately. A count is only worth printing when the
+ * whole of it has arrived — "1" beside a row whose second tier is still
+ * fetching is a number that will change under the reader's eyes, and this sheet
+ * has never shown a figure it cannot stand behind. No live tiers means nothing
+ * to total, which is also `undefined` rather than a zero.
+ */
+function sumCounts(
+  keys: LayerKey[],
+  counts: Partial<Record<LayerKey, number>> | undefined,
+): number | undefined {
+  if (keys.length === 0) return undefined;
+  let total = 0;
+  for (const key of keys) {
+    const value = counts?.[key];
+    if (value == null) return undefined;
+    total += value;
+  }
+  return total;
 }
 
 /** True when the live selection is the one the app opens with. */
@@ -122,15 +154,41 @@ export function MapLayersSheet({
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.rows}>
-          {MAP_LAYERS.map((layer) => {
-            const on = active.includes(layer.key);
+          {SHEET_LAYERS.map((layer) => {
+            const keys = layerKeysFor(layer);
+            // A row with tiers is on when ANY of them is drawing. There is no
+            // third "partly on" state to express: the strip below already says
+            // which tiers are live, and a half-lit switch would be a second,
+            // vaguer answer to a question the strip answers exactly.
+            const on = keys.some((key) => active.includes(key));
             const tint = layer.color(colors);
-            const count = counts?.[layer.key];
-            const detail = renderLayerDetail?.(layer.key, on);
+            // Summed across the tiers, and `undefined` the moment ANY live tier
+            // has not answered yet — a row that adds a loaded tier to an
+            // unloaded one would print a total it cannot stand behind, which is
+            // the rule the per-layer counts already follow.
+            const count = layer.tiers
+              ? sumCounts(layer.tiers.filter((key) => active.includes(key)), counts)
+              : counts?.[layer.key];
             return (
               <View key={layer.key}>
               <Pressable
-                onPress={() => onToggle(layer.key)}
+                onPress={() => {
+                  // Off → on turns on the row's OWN key only. For gauges that
+                  // is the rated tier, which is the one carrying a verdict and
+                  // the one the app opens with; asking for "gauges" and being
+                  // handed several hundred grey reference dots as well would be
+                  // answering a bigger question than the switch asked.
+                  if (!on) {
+                    onToggle(layer.key);
+                    return;
+                  }
+                  // On → off clears every tier, so the switch means what it
+                  // shows. Each call is a functional update, so several in one
+                  // handler compose rather than racing.
+                  for (const key of keys) {
+                    if (active.includes(key)) onToggle(key);
+                  }
+                }}
                 style={({ pressed }) => [
                   styles.row,
                   { backgroundColor: pressed ? colors.cardRaised : 'transparent' },
@@ -210,7 +268,74 @@ export function MapLayersSheet({
                   />
                 </View>
               </Pressable>
-              {detail}
+
+              {/* ── The tiers ────────────────────────────────────────────
+                  Chips rather than switches, and that is the same ruling the
+                  gauge filter follows: a switch means "also draw this", a chip
+                  means "which of these". Two tiers of one thing are a which,
+                  and they are drawn in their own pin colours so the strip is
+                  the legend for what appears on the map.
+
+                  Only while the row is on. Tiers of a layer nobody is drawing
+                  are a choice with no consequence. */}
+              {on && layer.tiers ? (
+                <View style={[styles.tiers, { borderLeftColor: colors.border }]}>
+                  {layer.tiers.map((key) => {
+                    const tier = MAP_LAYERS.find((l) => l.key === key);
+                    if (!tier) return null;
+                    const tierOn = active.includes(key);
+                    const tierTint = tier.color(colors);
+                    const tierCount = counts?.[key];
+                    return (
+                      <Pressable
+                        key={key}
+                        onPress={() => onToggle(key)}
+                        style={({ pressed }) => [
+                          styles.tier,
+                          {
+                            backgroundColor: tierOn ? colors.cardRaised : 'transparent',
+                            borderColor: tierOn ? tierTint : colors.border,
+                            opacity: pressed ? 0.7 : 1,
+                          },
+                        ]}
+                        accessibilityRole="switch"
+                        accessibilityState={{ checked: tierOn }}
+                        accessibilityLabel={
+                          tierCount == null
+                            ? (tier.tierLabel ?? tier.label)
+                            : `${tier.tierLabel ?? tier.label}, ${tierCount}`
+                        }
+                        accessibilityHint={tier.description}
+                      >
+                        <View style={[styles.tierDot, { backgroundColor: tierTint }]} />
+                        <Text
+                          style={[
+                            styles.tierText,
+                            { color: tierOn ? colors.text : colors.textMuted },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {tier.tierLabel ?? tier.label}
+                        </Text>
+                        {tierCount != null ? (
+                          <Text style={[styles.tierCount, { color: colors.textSubtle }]}>
+                            {tierCount}
+                          </Text>
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
+
+              {/* A refinement belongs to the TIER it narrows, not to the row
+                  that happens to own that tier — the flow-band chips describe
+                  the reference gauges and nothing else. */}
+              {layer.tiers
+                ? layer.tiers.map((key) => (
+                    <View key={`detail-${key}`}>{renderLayerDetail?.(key, active.includes(key))}</View>
+                  ))
+                : renderLayerDetail?.(layer.key, on)}
               </View>
             );
           })}
@@ -304,6 +429,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Indented under the row they belong to, on the same hairline spine the
+  // gauge filter uses — so a strip and the chips that narrow it read as one
+  // nested block rather than as two more rows.
+  tiers: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginLeft: 30,
+    paddingLeft: 10,
+    paddingBottom: 4,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+  },
+  tier: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 11,
+    // 32pt tall rather than 44: these sit inside a modal sheet with a 44pt row
+    // above them and no neighbour below to mis-hit, and a full-height chip
+    // strip would push Done off a small screen.
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  tierDot: { width: 8, height: 8, borderRadius: 999 },
+  tierText: { ...t.xs, fontFamily: fonts.semibold, flexShrink: 1 },
+  tierCount: { ...t.xs, fontFamily: fonts.mono },
   rowText: { flex: 1, minWidth: 0 },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   label: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },

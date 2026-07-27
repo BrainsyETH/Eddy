@@ -16,6 +16,27 @@
 // signal, which is the state this app is designed around. Nothing on this
 // screen should ever wait on a network round trip to filter data it holds.
 //
+// ── Gauges are searchable here too ──────────────────────────────────────────
+// The tab is called Search, and until now it could only find rivers. But a
+// gauge is what half the questions are actually about — people know "Van
+// Buren" and "07067000" the way they know a river's name, and the map's own
+// search field has found gauges since it replaced the river chips. A search
+// field that finds fewer things than the one on the next tab is a search field
+// people learn not to trust.
+//
+// The gauges come from the same statewide /api/gauges the map uses, fetched on
+// the first keystroke rather than on mount: it is ~40 rows nobody who only ever
+// scrolls the river list should pay for. They are matched locally like
+// everything else, and they render as GaugeRow — the same row Favorites uses,
+// so a gauge cannot read one way here and another there.
+//
+// THE CHIPS DO NOT NARROW THEM, deliberately. Every chip is a question about
+// rivers ("All rivers", "Floatable now"), and their counts are river counts
+// computed off the whole list rather than off the query. Silently applying them
+// to a second kind of thing would make those numbers describe one set while
+// filtering another. Gauges sit under their own heading instead, which says
+// what they are and what narrowed them.
+//
 // The filters are single-select and phrased as questions someone actually asks
 // ("what's floatable?", "what am I following?"), not as a taxonomy of every
 // condition code. A picker with seven mutually exclusive states is a database
@@ -29,7 +50,7 @@
 // says so: "≈" and "to its gauge", never a drive time. A river with no gauge
 // sorts last rather than pretending to a distance of zero.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -48,10 +69,12 @@ import { floatableRank, isFloatableNow } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { RiverRow } from '@/components/RiverRow';
+import { GaugeRow } from '@/components/GaugeRow';
 import { SearchBar } from '@/components/SearchBar';
 import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { milesBetween, useLocation, type Coords } from '@/hooks/useLocation';
+import { gaugeLink } from '@/lib/gaugeCondition';
 import { primaryReading } from '@/lib/readingCopy';
 import { useRouter } from 'expo-router';
 
@@ -105,6 +128,24 @@ const FILTERS: Record<FilterKey, (river: RiverListItem, starred: boolean) => boo
   },
 };
 
+/**
+ * Below this a query matches most of the network, which is not a search result.
+ * Same floor the map's search uses, so the two fields behave alike.
+ */
+const MIN_GAUGE_QUERY = 2;
+
+/**
+ * One row of the list, which now holds two kinds of thing plus the heading
+ * between them.
+ *
+ * A tagged union rather than two lists stacked in a ScrollView: this screen
+ * carries every river in the state, and it stays a FlatList.
+ */
+type SearchRow =
+  | { kind: 'river'; key: string; river: RiverListItem }
+  | { kind: 'heading'; key: string; label: string }
+  | { kind: 'gauge'; key: string; gauge: MapGauge };
+
 const FILTER_LABELS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: 'All rivers' },
   { key: 'floatable', label: 'Floatable now' },
@@ -136,6 +177,33 @@ export default function ReportsScreen() {
       if (err instanceof ApiError && err.message === 'Request cancelled') return;
       setError(err instanceof ApiError ? err.message : 'Something went wrong');
     }
+  }, []);
+
+  /**
+   * The statewide gauge list, fetched at most once per visit to this screen.
+   *
+   * Two things want it — searching by station name and sorting by distance —
+   * and neither happens on mount, so the request is paid for by whichever asks
+   * first. The PROMISE is held rather than a boolean, so the sort path can
+   * await the fetch the search field started instead of firing a second one.
+   *
+   * Never rejects: a failed enrichment is "no gauges to search", not an error
+   * banner over a perfectly good river list.
+   */
+  const gaugesPromise = useRef<Promise<MapGauge[]> | null>(null);
+  const ensureGauges = useCallback(() => {
+    if (!gaugesPromise.current) {
+      gaugesPromise.current = fetchGauges()
+        .then((list) => {
+          setGauges(list);
+          return list;
+        })
+        .catch(() => {
+          setGauges([]);
+          return [] as MapGauge[];
+        });
+    }
+    return gaugesPromise.current;
   }, []);
 
   useEffect(() => {
@@ -245,6 +313,50 @@ export default function ReportsScreen() {
     );
   }, [sorted, filter, query, isStarred, distanceByRiver]);
 
+  /**
+   * Gauges matching what is in the field.
+   *
+   * Name OR site id: "Van Buren" is how a person searches and "07067000" is
+   * what is printed on a bookmark, a USGS page and half the forum posts about
+   * a river. Rated stations lead — those are the ones carrying a condition
+   * Eddy stands behind, and the rest are reference — and the tie-break is the
+   * name so the order is stable between keystrokes.
+   */
+  const gaugeMatches = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (needle.length < MIN_GAUGE_QUERY || !gauges) return [];
+    return gauges
+      .filter(
+        (gauge) =>
+          gauge.name.toLowerCase().includes(needle) ||
+          gauge.usgsSiteId.toLowerCase().includes(needle),
+      )
+      .sort((a, b) => {
+        const rank = (g: MapGauge) => (g.thresholds?.length ? 0 : 1);
+        return rank(a) - rank(b) || a.name.localeCompare(b.name);
+      });
+  }, [query, gauges]);
+
+  // Rivers, then the gauges, under a heading that says what narrowed them.
+  const rows = useMemo<SearchRow[]>(() => {
+    const out: SearchRow[] = visible.map((river) => ({
+      kind: 'river',
+      key: `river:${river.id}`,
+      river,
+    }));
+    if (gaugeMatches.length > 0) {
+      out.push({
+        kind: 'heading',
+        key: 'heading:gauges',
+        label: `${gaugeMatches.length} ${gaugeMatches.length === 1 ? 'gauge' : 'gauges'} matching “${query.trim()}”`,
+      });
+      for (const gauge of gaugeMatches) {
+        out.push({ kind: 'gauge', key: `gauge:${gauge.id}`, gauge });
+      }
+    }
+    return out;
+  }, [visible, gaugeMatches, query]);
+
   const chips: FilterChip[] = useMemo(
     () =>
       FILTER_LABELS.map(({ key, label }) => ({
@@ -271,16 +383,13 @@ export default function ReportsScreen() {
         return;
       }
       if (nearest) return;
-      const [coords] = await Promise.all([
-        location.request(),
-        gauges ? Promise.resolve(gauges) : fetchGauges().then(setGauges).catch(() => setGauges([])),
-      ]);
+      const [coords] = await Promise.all([location.request(), ensureGauges()]);
       // Only commit to the ordering if a position actually arrived. Selecting
       // "Near me" and then being shown an unchanged list with no explanation is
       // worse than the selection not sticking.
       if (coords) setSort('nearest');
     },
-    [nearest, location, gauges],
+    [nearest, location, ensureGauges],
   );
 
   if (!rivers && !error) {
@@ -315,7 +424,11 @@ export default function ReportsScreen() {
         <SearchBar
           value={query}
           onChangeText={setQuery}
-          placeholder="Search rivers"
+          placeholder="Search rivers and gauges"
+          // Gauges are matched locally, so the list has to exist before the
+          // first keystroke rather than after it — the same reason the map's
+          // field warms it on focus.
+          onFocus={ensureGauges}
           trailing={
             // Inside the field rather than as a sixth filter chip: this changes
             // the ORDER, and the chips all change which rivers appear. Mixing
@@ -392,8 +505,8 @@ export default function ReportsScreen() {
       />
 
       <FlatList
-        data={visible}
-        keyExtractor={(item) => item.id}
+        data={rows}
+        keyExtractor={(item) => item.key}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -404,27 +517,63 @@ export default function ReportsScreen() {
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>
               {error ??
                 (filtering
-                  ? 'No rivers match that. Try another name or clear the filter.'
+                  ? 'Nothing matches that. Try another name, a gauge, or clear the filter.'
                   : 'No rivers found')}
             </Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <RiverRow
-            river={item}
-            starred={isStarred('river', item.id)}
-            starDisabled={!starsReady}
-            distanceMiles={distanceByRiver?.get(item.id) ?? null}
-            // This is the tab people come to to read gauges, so the row shows
-            // every number the station published rather than only the rated
-            // one. Favorites keeps the single-number row.
-            showGauge
-            onPress={() => router.push(`/river/${item.slug}`)}
-            onToggleStar={() =>
-              toggleStar({ kind: 'river', entityId: item.id, name: item.name, slug: item.slug })
-            }
-          />
-        )}
+        renderItem={({ item }) => {
+          if (item.kind === 'heading') {
+            return (
+              <Text style={[styles.rowsHeading, { color: colors.textSubtle }]}>{item.label}</Text>
+            );
+          }
+
+          if (item.kind === 'gauge') {
+            const gauge = item.gauge;
+            // The gauge's own primary association names the river, which is
+            // also the only river it can honestly tap through to — a station
+            // that rates nothing has nowhere to go, and GaugeRow renders a
+            // dead row rather than a dead tap.
+            const link = gaugeLink(gauge);
+            return (
+              <GaugeRow
+                name={gauge.name}
+                riverName={link?.riverName ?? null}
+                gauge={gauge}
+                starred={isStarred('gauge', gauge.id)}
+                onPress={link?.riverSlug ? () => router.push(`/river/${link.riverSlug}`) : null}
+                onToggleStar={() =>
+                  toggleStar({
+                    kind: 'gauge',
+                    entityId: gauge.id,
+                    name: gauge.name,
+                    slug: link?.riverSlug ?? '',
+                    usgsSiteId: gauge.usgsSiteId,
+                  })
+                }
+              />
+            );
+          }
+
+          const river = item.river;
+          return (
+            <RiverRow
+              river={river}
+              starred={isStarred('river', river.id)}
+              starDisabled={!starsReady}
+              distanceMiles={distanceByRiver?.get(river.id) ?? null}
+              // This is the tab people come to to read gauges, so the row shows
+              // every number the station published rather than only the rated
+              // one. Favorites keeps the single-number row.
+              showGauge
+              onPress={() => router.push(`/river/${river.slug}`)}
+              onToggleStar={() =>
+                toggleStar({ kind: 'river', entityId: river.id, name: river.name, slug: river.slug })
+              }
+            />
+          );
+        }}
       />
     </SafeAreaView>
   );
@@ -458,6 +607,16 @@ const styles = StyleSheet.create({
   sortItemText: { ...t.sm, fontFamily: fonts.medium },
   sortNote: { ...t.xs, fontFamily: fonts.body, paddingHorizontal: 20, paddingTop: 8 },
   listContent: { paddingTop: 4, paddingBottom: 16 },
+  // Aligned with the row cards below it (16pt margin + 4pt of optical inset),
+  // so the heading reads as the label on the group rather than as a stray line.
+  rowsHeading: {
+    ...t.xs,
+    fontFamily: fonts.heading,
+    letterSpacing: 0.4,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
   empty: { padding: 32, alignItems: 'center' },
   emptyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
 });

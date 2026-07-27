@@ -89,6 +89,8 @@ import {
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
+import { gaugePlaceLabel } from '@/lib/gaugeCondition';
+import { usgsGaugeUrl } from '@/lib/directions';
 import { useOfflinePacks } from '@/map/useOfflinePacks';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useEddySearch } from '@/hooks/useEddySearch';
@@ -489,11 +491,15 @@ export default function MapScreen() {
     () =>
       visibleReferenceGauges.map((g) => {
         const band = flowBandFor(g);
+        const usgs = usgsGaugeUrl(g.siteId);
         return {
           id: `refgauge:${g.id}`,
           name: g.name,
+          // The place, for the label under the dot. A national station name is
+          // a sentence, and the map has room for a town.
+          label: gaugePlaceLabel(g.name),
           layer: 'allGauges' as LayerKey,
-          subtitle: 'USGS gauge — not Eddy-rated',
+          subtitle: `USGS ${g.siteId} — not Eddy-rated`,
           coordinates: g.coordinates,
           color: flowBandColor(band),
           // No `code`: that field drives a CONDITION-tinted chip in the
@@ -502,6 +508,10 @@ export default function MapScreen() {
           codeLabel: flowBandLabel(band),
           value: flowReadingText(g),
           magnitude: flowMagnitude(g),
+          // Straight to the source. This tier has no river screen to open —
+          // Eddy has not rated it — so the honest destination is the station's
+          // own USGS page, which is where the rest of its record lives.
+          link: usgs ? { label: 'Open on USGS', url: usgs } : null,
         };
       }),
     [visibleReferenceGauges],
@@ -1158,22 +1168,46 @@ function PinCallout({
 
       {/* The reading and its verdict on one line: a gauge's number means nothing
           without the band it sits in, and the band means less without the
-          number. Same rule the river row is built on. */}
+          number. Same rule the river row is built on.
+
+          THE CHIP NO LONGER REQUIRES A CONDITION CODE. It used to, and the one
+          layer that carries a label without a code is the national gauge tier —
+          deliberately, because a flow band is a comparison to a station's own
+          history and never a verdict about floating. So the pin that most
+          needed its label explained was the only one that never showed it, and
+          a tapped reference gauge came back as a bare number. A code still
+          buys the condition tint; without one the chip is drawn in the pin's
+          own band colour, which is what the dot on the map is wearing. */}
       {pin.value || pin.codeLabel ? (
         <View style={styles.calloutReadingRow}>
           {pin.value ? (
-            <Text style={[styles.calloutReading, { color: conditionText(pin.code ?? 'unknown', isDark) }]}>
+            <Text
+              style={[
+                styles.calloutReading,
+                { color: pin.code ? conditionText(pin.code, isDark) : colors.text },
+              ]}
+            >
               {pin.value}
             </Text>
           ) : null}
-          {pin.codeLabel && pin.code ? (
+          {pin.codeLabel ? (
             <View
               style={[
                 styles.calloutChip,
-                { backgroundColor: conditionBg(pin.code), borderColor: conditionChipBorder(pin.code) },
+                pin.code
+                  ? {
+                      backgroundColor: conditionBg(pin.code),
+                      borderColor: conditionChipBorder(pin.code),
+                    }
+                  : { backgroundColor: colors.cardRaised, borderColor: pin.color ?? colors.border },
               ]}
             >
-              <Text style={[styles.calloutChipText, { color: conditionInk(pin.code) }]}>
+              <Text
+                style={[
+                  styles.calloutChipText,
+                  { color: pin.code ? conditionInk(pin.code) : colors.textMuted },
+                ]}
+              >
                 {pin.codeLabel}
               </Text>
             </View>
@@ -1318,12 +1352,24 @@ const styles = StyleSheet.create({
   // Hard into the corner. 16/12 rather than MAP_CHROME_BOTTOM because the
   // Mapbox ornaments run along the map's bottom LEFT and end around x=149 —
   // there is nothing on the right for this to clear.
+  //
+  // ANCHORED ON BOTH EDGES, which is the fix for a truncated "Plan a float".
+  // With only `right` set this row was content-sized, and the button's
+  // `maxWidth: '55%'` then resolved a percentage against a parent whose width
+  // was itself being derived from that button — a circular measurement Yoga
+  // settles by clamping the child to far less than 55% of anything. The label
+  // came out as "Plan a f…" on a button with most of a screen beside it.
+  // A definite width gives the percentage something real to be a percentage OF;
+  // `flex-end` keeps the cluster in the corner it was already in, and
+  // box-none means the band it now spans stays transparent to touches.
   planCluster: {
     position: 'absolute',
+    left: 16,
     right: 12,
     bottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: 8,
   },
   // 44pt, same as locate: it is a destructive action and must not be a
@@ -1366,10 +1412,14 @@ const styles = StyleSheet.create({
   calloutActionText: { ...t.xs, fontFamily: fonts.semibold },
   planButton: {
     flexDirection: 'row',
-    // 55%, and the number is load-bearing rather than aesthetic. Right-aligned
-    // at bottom:16 this shares a row with the Mapbox wordmark and the (i),
-    // which together run from x=12 to about x=149. On the narrowest phone we
-    // support, 55% of the width still starts to the right of that; 62% did not.
+    // 55% OF THE CLUSTER, which is now a real width — see planCluster. Right-
+    // aligned at bottom:16 this shares a row with the Mapbox wordmark and the
+    // (i), which together run from x=12 to about x=149; on the narrowest phone
+    // we support, 55% still starts to the right of that, and 62% did not.
+    //
+    // A ceiling, not a size: the button shrinks to its content, so the plain
+    // "Plan a float" label sits well inside it and only a long distance-and-
+    // time label ever reaches the cap.
     maxWidth: '55%',
     alignItems: 'center',
     gap: 8,

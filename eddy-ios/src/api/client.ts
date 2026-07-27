@@ -457,6 +457,13 @@ export async function fetchCondition(
  * round trips at a put-in, where connectivity is worst and the answer matters
  * most. The server runs the same pure functions and sends the finished object.
  *
+ * `gaugeId` — a gauge_stations id, which is what /api/gauges calls MapGauge.id
+ * — asks for the outlook AT THAT STATION rather than at the river's rated one:
+ * its weather, its hydrograph, its condition and its own written report. Omit
+ * it for the river as a whole. An id the river does not rate falls back to the
+ * primary server-side, and the response names the station it used, so a caller
+ * that cares must compare `gaugeStationId` rather than assume.
+ *
  * Returns null when the river has no primary gauge or the endpoint fails — the
  * caller hides the panel rather than showing an error, because a river without
  * a forecast is an ordinary state.
@@ -464,9 +471,11 @@ export async function fetchCondition(
 export async function fetchRiverOutlook(
   slug: string,
   signal?: AbortSignal,
+  gaugeId?: string | null,
 ): Promise<RiverOutlookResponse | null> {
+  const query = gaugeId ? `?gaugeId=${encodeURIComponent(gaugeId)}` : '';
   const data = await get<RiverOutlookResponse>(
-    `/api/rivers/${encodeURIComponent(slug)}/outlook`,
+    `/api/rivers/${encodeURIComponent(slug)}/outlook${query}`,
     signal,
   );
   return data.available ? data : null;

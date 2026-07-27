@@ -15,9 +15,10 @@
 // affordances are the bell, which gates the NOTIFICATION and never the
 // information, and the long read, which is commentary on facts shown above it.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Linking,
   Pressable,
   ScrollView,
@@ -143,14 +144,16 @@ export default function RiverDetailScreen() {
         // Each of these degrades on its own. A river with no gauge, no recorded
         // hazards or no access points is an ordinary state, and one failing must
         // not blank the other two.
-        const [cond, haz, access, look, looks, allGauges] = await Promise.all([
+        //
+        // The OUTLOOK is not here. It is fetched per gauge by its own effect
+        // below, because it is the one thing on this screen that has to be
+        // re-read when the picker moves — and a screen that waits for it before
+        // painting anything would be waiting on three third-party services for
+        // a panel that is allowed to be absent entirely.
+        const [cond, haz, access, looks, allGauges] = await Promise.all([
           fetchCondition(match.id, controller.signal).catch(() => null),
           fetchHazards(slug, controller.signal).catch(() => [] as Hazard[]),
           fetchRiverAccessPoints(slug, controller.signal).catch(() => [] as MapAccessPoint[]),
-          // The outlook reaches three third-party services behind one request.
-          // Any of them being down is an ordinary day, and the screen's core job
-          // — condition, reading, hazards — must not depend on the forecast.
-          fetchRiverOutlook(slug, controller.signal).catch(() => null),
           // Thin coverage by nature — verified community photos exist for three
           // rivers of twenty-four — so a null here is the ordinary case and the
           // card just does not render.
@@ -164,7 +167,6 @@ export default function RiverDetailScreen() {
         setCondition(cond);
         setHazards(haz);
         setAccessPoints(access);
-        setOutlook(look);
         setVisuals(looks);
         setGauges(gaugesForRiver(allGauges, slug));
         setError(null);
@@ -178,6 +180,71 @@ export default function RiverDetailScreen() {
 
     return () => controller.abort();
   }, [slug]);
+
+  /**
+   * The outlook, for whichever gauge the picker is on.
+   *
+   * ── Why this is its own effect ─────────────────────────────────────────────
+   * Picking a gauge used to move the reading card and nothing else. The 72-hour
+   * strip kept showing the river's rated town, and Eddy's read kept describing
+   * the rated stretch — so on the Current, tapping "Montauk" left you reading
+   * Van Buren's weather and Van Buren's report over a Montauk number. The panel
+   * now follows the picker: /outlook?gaugeId fetches that station's weather, its
+   * hydrograph, its condition and its own written report.
+   *
+   * ── The cache is not an optimisation ──────────────────────────────────────
+   * Switching back and forth between two gauges is the entire point of the
+   * picker, and a request per tap makes comparing them a series of spinners.
+   * Keyed by gauge id, cleared when the river changes.
+   *
+   * ── Cleared, not kept, while the next one loads ───────────────────────────
+   * Everywhere else in this app a slow load keeps the previous answer on screen.
+   * Not here: this panel NAMES the place it describes, and holding Van Buren's
+   * card under a chip that now says Montauk would be showing the right words
+   * about the wrong water for as long as the network takes.
+   */
+  const outlookCache = useRef(new Map<string, RiverOutlookResponse | null>());
+  const [outlookLoading, setOutlookLoading] = useState(true);
+  // The rated station's id, so picking it explicitly and never having picked
+  // anything resolve to the SAME request. The picker shows the primary as
+  // selected before anyone has touched it, so tapping that chip is a no-op the
+  // user expects to be instant — without this it would be a cache miss and a
+  // cleared panel for a card we were already looking at.
+  const primaryGaugeId = gauges.find((g) => gaugeLink(g, slug)?.isPrimary)?.id ?? null;
+
+  useEffect(() => {
+    outlookCache.current.clear();
+  }, [slug]);
+
+  useEffect(() => {
+    if (!slug) return;
+    const askedFor = pickedGaugeId && pickedGaugeId !== primaryGaugeId ? pickedGaugeId : null;
+    const key = askedFor ?? '';
+
+    const cached = outlookCache.current.get(key);
+    if (cached !== undefined) {
+      setOutlook(cached);
+      setOutlookLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setOutlook(null);
+    setOutlookLoading(true);
+    // Any failure is "no outlook", never an error on the screen: the reading,
+    // the hazards and the access points below it are the parts that decide
+    // whether to get on the water, and none of them depend on this.
+    fetchRiverOutlook(slug, controller.signal, askedFor)
+      .catch(() => null)
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        outlookCache.current.set(key, data);
+        setOutlook(data);
+        setOutlookLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [slug, pickedGaugeId, primaryGaugeId]);
 
   /**
    * Create the alert subscription.
@@ -330,6 +397,23 @@ export default function RiverDetailScreen() {
           {river.lengthMiles ? ` · ${Math.round(river.lengthMiles)} river miles` : ''}
         </Text>
 
+        {/* ── Which gauge everything below is about ─────────────
+            ABOVE THE CARD, not buried inside it. It used to sit under the
+            reading scale, on the reasoning that the primary gauge's number is
+            what opens and the picker is only an offer to look further. That was
+            true when it moved one number. It now re-reads the whole panel — the
+            condition, the scale, the 72-hour strip, the weather and Eddy's
+            report all follow it — and a control with that much reach cannot be
+            discovered halfway down the thing it controls. Read in order, the
+            screen now says which stretch, then what it is doing, then what to
+            do about it. */}
+        <GaugePicker
+          gauges={gauges}
+          riverSlug={slug}
+          selectedId={pickedGaugeId ?? gauges.find((g) => gaugeLink(g, slug)?.isPrimary)?.id ?? ''}
+          onSelect={setPickedGaugeId}
+        />
+
         {/* ── Live status ─────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
           <View style={styles.statusHead}>
@@ -370,17 +454,6 @@ export default function RiverDetailScreen() {
               unit={reading.unit}
             />
           ) : null}
-
-          {/* Which station this is, when the river has more than one. Under the
-              scale rather than above the reading: the primary gauge's number is
-              still what opens, so this is an offer to look further, not a
-              question you have to answer before the screen makes sense. */}
-          <GaugePicker
-            gauges={gauges}
-            riverSlug={slug}
-            selectedId={pickedGaugeId ?? gauges.find((g) => gaugeLink(g, slug)?.isPrimary)?.id ?? ''}
-            onSelect={setPickedGaugeId}
-          />
 
           {/* PRIMARY ONLY. The percentile comes from /api/conditions and is
               computed for the river's rated gauge, so printing it under another
@@ -426,6 +499,16 @@ export default function RiverDetailScreen() {
             entitled={entitled}
             onUpgrade={() => setPaywallOpen(true)}
           />
+        ) : outlookLoading ? (
+          // A placeholder the height of a sentence, not a full-card skeleton.
+          // This panel is absent on plenty of rivers, so the loading state has
+          // to be quiet enough that its disappearance is not a loss.
+          <View style={[styles.card, styles.outlookLoading, { backgroundColor: colors.card }]}>
+            <ActivityIndicator size="small" color={colors.accent} />
+            <Text style={[styles.outlookLoadingText, { color: colors.textMuted }]}>
+              {shownGaugeName ? `Reading ${shownGaugeName}…` : 'Reading the gauge…'}
+            </Text>
+          </View>
         ) : null}
 
         {/* AFTER the take, not before it. These photos are banded by condition,
@@ -560,11 +643,32 @@ export default function RiverDetailScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Directions to ${point.name}, mile ${point.riverMile}`}
               >
-                <Ionicons
-                  name={point.isPublic ? 'location' : 'lock-closed-outline'}
-                  size={17}
-                  color={point.isPublic ? colors.accent : colors.textSubtle}
-                />
+                {/* WHAT IT LOOKS LIKE. A put-in's name is a label and its river
+                    mile is a coordinate; neither answers the question people
+                    actually have standing in a driveway with a boat on the
+                    roof, which is whether they can get down there. The photo
+                    does, and it has been on the wire all along — see imageUrls
+                    on MapAccessPoint.
+
+                    The icon stays for every point without one, rather than a
+                    grey placeholder box: coverage is partial by nature, and a
+                    row that looks broken is worse than a row that is plain.
+                    `isPublic` keeps its cue in the meta line below either way. */}
+                {point.imageUrls?.[0] ? (
+                  <Image
+                    source={{ uri: point.imageUrls[0] }}
+                    style={[styles.accessThumb, { backgroundColor: colors.cardRaised }]}
+                    // Required by RN's a11y lint: a photograph must not be
+                    // colour-inverted by Smart Invert, unlike UI chrome.
+                    accessibilityIgnoresInvertColors
+                  />
+                ) : (
+                  <Ionicons
+                    name={point.isPublic ? 'location' : 'lock-closed-outline'}
+                    size={17}
+                    color={point.isPublic ? colors.accent : colors.textSubtle}
+                  />
+                )}
                 <View style={styles.accessBody}>
                   <Text style={[styles.accessName, { color: colors.text }]}>{point.name}</Text>
                   <Text style={[styles.accessMeta, { color: colors.textMuted }]}>
@@ -656,6 +760,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   caveatText: { ...t.xs, fontFamily: fonts.body, flex: 1 },
+  outlookLoading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  outlookLoadingText: { ...t.sm, fontFamily: fonts.body, flex: 1 },
   notifyButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -697,6 +803,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 8,
   },
+  // 52pt: big enough to read a ramp and a treeline, small enough that a river
+  // with thirty access points is still a list rather than a gallery. `cover`
+  // because these are landscape photographs in a square well, and letterboxing
+  // them would spend the height on nothing.
+  accessThumb: { width: 52, height: 52, borderRadius: 10, resizeMode: 'cover' },
   accessBody: { flex: 1 },
   accessName: { ...t.sm, fontFamily: fonts.semibold },
   accessMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
