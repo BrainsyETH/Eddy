@@ -182,7 +182,21 @@ async function _GET(request: NextRequest) {
         active,
         threshold_descriptions
       `)
-      .eq('active', true);
+      .eq('active', true)
+      // CURATED ONLY, and this is now load-bearing rather than tidy.
+      //
+      // This route has always ended by dropping gauges with no active-river
+      // association (see activeGauges below), so the result is unchanged — but
+      // it used to do that AFTER fetching readings for every active station.
+      // Since 00196 that is ~14,300 stations, and the consequences were not
+      // subtle: the .in() below exceeded PostgREST's header limit, the route
+      // decided it had no readings, and the "fetch live from USGS" fallback
+      // then built a comma-joined URL of 14,000 site ids and took a 414.
+      // /api/gauges returned an empty list.
+      //
+      // The national tier has its own endpoint, /api/gauges/map, which is
+      // bounded by a viewport and reads gauge_latest.
+      .eq('curated', true);
 
     if (stationsError) {
       console.error('Error fetching gauge stations:', stationsError);

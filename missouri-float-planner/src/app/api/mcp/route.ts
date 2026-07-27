@@ -345,6 +345,12 @@ function createMcpServer() {
         .from('gauge_stations')
         .select('id, usgs_site_id, name, location, active')
         .eq('active', true)
+        // Curated only, and here it is a correctness AND cost matter: the loop
+        // below issues one readings query PER GAUGE, so the ~14,000 national
+        // reference gauges added in 00196 would turn a single tool call into
+        // 14,000 round trips. The gauges this tool is for are the ones Eddy
+        // rates against a river.
+        .eq('curated', true)
         .order('name');
 
       if (!gauges || gauges.length === 0) {

@@ -129,6 +129,10 @@ export async function readAllSnapshotStatistics(
       .select(`site_no, ${SNAPSHOT_COLUMNS}`)
       .eq('parameter_code', PARAM_DISCHARGE)
       .eq('day_of_year', dayOfYear)
+      // Ordered because .range() over an unordered result is not stable
+      // pagination — windows can repeat and skip rows, which here would look
+      // like "most gauges have no historical data".
+      .order('site_no')
       .range(from, from + PAGE - 1);
 
     if (error) {

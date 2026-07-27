@@ -72,6 +72,12 @@ async function loadStationIds(
       .select('id, usgs_site_id, site_id_external, provider')
       .eq('provider', 'usgs')
       .eq('active', true)
+      // ORDER IS NOT OPTIONAL when paging. Without it Postgres may return rows
+      // in any order it likes, and consecutive .range() windows over an
+      // unordered result can repeat rows and skip others. The first run of this
+      // cron built a map short by ~3,500 stations that way, which surfaced as
+      // 5,291 live readings looking like sites we had never heard of.
+      .order('id')
       .range(from, from + PAGE - 1);
 
     if (error) throw new Error(`station lookup failed: ${error.message}`);

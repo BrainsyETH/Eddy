@@ -41,7 +41,12 @@ export async function GET() {
       supabase
         .from('gauge_stations')
         .select('id, usgs_site_id, name, location, active')
-        .eq('active', true),
+        .eq('active', true)
+        // Curated only. This export describes Eddy's rivers; since 00196 the
+        // table also holds ~14,000 national reference gauges, and dumping them
+        // here would bury the dataset in stations no river in this file
+        // references.
+        .eq('curated', true),
       supabase
         .from('points_of_interest')
         .select('id, river_id, name, slug, description, type, latitude, longitude, river_mile, amenities')

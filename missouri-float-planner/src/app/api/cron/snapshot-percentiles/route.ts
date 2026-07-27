@@ -36,10 +36,24 @@ async function run(request: NextRequest) {
   const supabase = createAdminClient();
   const startedAt = Date.now();
 
+  // ORDER MATTERS since 00196, because the list no longer fits the budget.
+  //
+  // This used to be ~290 stations and a pass covered all of them. It is now
+  // ~14,300, and at DELAY_MS apart a run reaches roughly 600 before the 270s
+  // guard stops it. Unordered, that would be an arbitrary 600 every month —
+  // and the sites Eddy actually grades against could go indefinitely without a
+  // refresh while the run burned its budget on creeks nobody has opened.
+  //
+  // Curated first, then biggest watershed first: the rivers people float are
+  // large, and the long tail of headwater gauges genuinely does not need a
+  // monthly refresh of statistics that describe decades. A full national
+  // backfill is a script (scripts/snapshot-usgs-percentiles.ts), not this.
   const { data, error } = await supabase
     .from('gauge_stations')
-    .select('usgs_site_id')
-    .not('usgs_site_id', 'is', null);
+    .select('usgs_site_id, curated, drainage_area_sqmi')
+    .not('usgs_site_id', 'is', null)
+    .order('curated', { ascending: false })
+    .order('drainage_area_sqmi', { ascending: false, nullsFirst: false });
 
   if (error) {
     console.error('[SnapshotPercentiles] Could not list gauge stations:', error);

@@ -208,6 +208,47 @@ async function collectRegion(
   return { rows, liveCount: live.length, noMeta, noCoords };
 }
 
+/**
+ * USGS site ids that an upsert on (provider, site_id_external) cannot reach.
+ *
+ * gauge_stations has TWO unique keys: the (provider, site_id_external) pair we
+ * upsert on, and usgs_site_id on its own. A station held under a different
+ * provider still carries its USGS number — St. Francis near Roselle is stored
+ * as ('nws','ROZM7') with usgs_site_id 07034000, because USGS stopped
+ * telemetering that site in 1997 and the NWS gauge is the live source (see
+ * src/lib/flow-providers/nws.ts).
+ *
+ * Upserting ('usgs','07034000') does not match that row, so PostgREST tries to
+ * INSERT and the usgs_site_id unique constraint kills the whole chunk. It is
+ * also the wrong thing to want: a second row would be the SAME physical gauge,
+ * splitting its stars, its thresholds and its readings across two ids.
+ *
+ * So these are skipped and named in the output. The station is already in the
+ * table; it just answers to a different provider.
+ */
+async function loadUnreachableSiteIds(db: SupabaseClient): Promise<Set<string>> {
+  const claimed = new Set<string>();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await db
+      .from('gauge_stations')
+      .select('provider, usgs_site_id, site_id_external')
+      .not('usgs_site_id', 'is', null)
+      // Ordered: .range() over an unordered result can skip rows, and a skipped
+      // row here is a collision we fail to see until the upsert dies mid-chunk.
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`collision scan failed: ${error.message}`);
+    for (const r of data ?? []) {
+      if (r.provider !== 'usgs' || r.site_id_external !== r.usgs_site_id) {
+        claimed.add(r.usgs_site_id as string);
+      }
+    }
+    if (!data || data.length < PAGE) break;
+  }
+  return claimed;
+}
+
 async function upsertRows(db: SupabaseClient, rows: StationRow[]): Promise<number> {
   let written = 0;
   for (let i = 0; i < rows.length; i += CHUNK) {
@@ -287,7 +328,18 @@ async function main() {
   }
 
   console.log('');
-  const written = await upsertRows(db!, all);
+  const unreachable = await loadUnreachableSiteIds(db!);
+  const writable = all.filter((r) => !unreachable.has(r.usgs_site_id));
+  const skipped = all.length - writable.length;
+  if (skipped) {
+    const names = all
+      .filter((r) => unreachable.has(r.usgs_site_id))
+      .map((r) => r.usgs_site_id)
+      .join(', ');
+    console.log(`  held under another provider, skipped: ${skipped} (${names})`);
+  }
+
+  const written = await upsertRows(db!, writable);
   console.log(`  upserted ${written} stations.`);
   console.log('  `curated` untouched — it is owned by river_gauges (00196).');
 }
