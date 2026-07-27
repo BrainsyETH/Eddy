@@ -24,6 +24,7 @@ import type {
   RiverDetail,
   RiverDetailResponse,
   RiverOutlookResponse,
+  RiverVisualsResponse,
   RiverService,
   RiversResponse,
   RiverListItem,
@@ -378,6 +379,23 @@ export async function fetchRiverOutlook(
     signal,
   );
   return data.available ? data : null;
+}
+
+/**
+ * Photos of this river, banded by the condition each was taken at.
+ *
+ * Degrades to null like the outlook does: most rivers have no photos yet, and a
+ * river with none is an ordinary state rather than a failure. The card simply
+ * does not render.
+ */
+export async function fetchRiverVisuals(
+  slug: string,
+  signal?: AbortSignal,
+): Promise<RiverVisualsResponse | null> {
+  return get<RiverVisualsResponse>(
+    `/api/rivers/${encodeURIComponent(slug)}/visuals`,
+    signal,
+  );
 }
 
 /**
