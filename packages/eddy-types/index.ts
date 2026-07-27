@@ -390,6 +390,57 @@ export interface GaugesResponse {
   gauges: MapGauge[];
 }
 
+// ── The national tier (GET /api/gauges/map) ──────────────────────────────────
+// "All Gauges" from docs/EDDY_IOS_STRATEGY.md: ~14,000 USGS stream gauges the
+// map draws by viewport. A SEPARATE type from MapGauge rather than a widened
+// one, for two reasons:
+//
+//   1. MapGauge carries a thresholds array with twelve level columns per linked
+//      river. Repeating that shape for hundreds of gauges per pan is a payload
+//      that exists to be thrown away — a reference gauge has no ladder.
+//   2. The two are graded by different code and MUST NOT be confused.
+//      gaugeConditionCode() takes a MapGauge and answers a floatability
+//      verdict; a MapGaugeLite gets a flow band, which is a comparison to this
+//      site's own history and never a verdict. Keeping them structurally
+//      distinct is what stops the second becoming the first by accident.
+
+export interface MapGaugeLite {
+  /** gauge_stations.id — the key stars are stored under. */
+  id: string;
+  /** USGS site number, e.g. "07019000". */
+  siteId: string;
+  name: string;
+  /** Nested to match MapGauge, so hasCoordinates() applies unchanged. */
+  coordinates: { lng: number; lat: number };
+  dischargeCfs: number | null;
+  gaugeHeightFt: number | null;
+  readingTimestamp: string | null;
+  readingAgeHours: number | null;
+  /** USGS qualifier codes flag this reading as ice-affected, estimated, or bad. */
+  readingSuspect: boolean;
+  /**
+   * Eddy rates this gauge against a river. When true, the full ladder is
+   * available from /api/gauges — this payload deliberately does not carry it.
+   */
+  curated: boolean;
+  /**
+   * 0-100 against this site's own discharge on this day of the year.
+   *
+   * null means we hold no statistics for the site, which is common and is NOT
+   * an error: it renders as a neutral pin. Grade it with flowBand() from
+   * @eddy/conditions/flow-band — never with the condition ladder.
+   */
+  flowPercentile: number | null;
+}
+
+export interface MapGaugesResponse {
+  gauges: MapGaugeLite[];
+  /** True when the cap dropped lower-discharge gauges; the UI discloses it. */
+  capped: boolean;
+  /** How many matched before the cap — what lets the UI say "300 of 1,240". */
+  total: number;
+}
+
 /** Rejects null island, which /api/gauges emits for an unparseable location. */
 export function hasCoordinates(point: { coordinates: { lng: number; lat: number } }): boolean {
   const { lng, lat } = point.coordinates;

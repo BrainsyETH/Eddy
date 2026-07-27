@@ -51,7 +51,7 @@ import {
   severityLabel,
 } from '@eddy/hazards';
 import { conditionColor, conditionLabel } from '@/theme/conditions';
-import { neutral } from '@/theme/palette';
+import { neutral, primary } from '@/theme/palette';
 import { useTheme } from '@/theme/ThemeProvider';
 import { readingAge } from '@/lib/readingCopy';
 import { gaugeConditionCode, gaugeReadingText, gaugeRiverSlug } from '@/lib/gaugeCondition';
@@ -82,6 +82,33 @@ function serviceTypeLabel(type: string): string {
  */
 const LABEL_INK = neutral[900];
 const LABEL_HALO = '#FFFFFF';
+
+/**
+ * Cluster fill for the national gauge layer.
+ *
+ * Mid teal from the brand scale, and pointedly NOT a flow-band or condition
+ * colour: a cluster of forty gauges has no single reading and therefore no
+ * band. Painting it with one would average five verdicts into a sixth that
+ * nobody computed.
+ */
+const CLUSTER_FILL = primary[600];
+
+/**
+ * What onMapIdle hands back, structurally.
+ *
+ * @rnmapbox/maps calls this MapState but does not re-export it from the package
+ * root, and this file deliberately never imports Mapbox at module scope (see
+ * runtime.ts) — reaching into lib/typescript/... for a type would be a path we
+ * do not control. Declared structurally instead, the same way onPress types its
+ * own event, and every field is optional because the only cost of a shape
+ * change upstream should be no fetch, not a crash on a river.
+ */
+type MapIdleState = {
+  properties?: {
+    bounds?: { ne?: number[]; sw?: number[] };
+    zoom?: number;
+  };
+};
 
 /**
  * Where the map sits before it knows anything.
@@ -130,6 +157,11 @@ export interface MapPin {
   coordinates: { lng: number; lat: number };
   /** Overrides the layer colour. A gauge wears its own condition, not teal. */
   color?: string;
+  /**
+   * sqrt(discharge), for the reference-gauge layer's radius. Magnitude only —
+   * a big dot means a lot of water, never a dangerous river.
+   */
+  magnitude?: number | null;
   /** Condition or severity code, for a tinted chip in the callout. */
   code?: string;
   codeLabel?: string;
@@ -165,6 +197,21 @@ interface Props {
   onSelectRiverSlug?: (slug: string) => void;
   accessPoints: MapAccessPoint[];
   gauges: MapGauge[];
+  /**
+   * The national tier, already converted to pins by the screen. Drawn CLUSTERED
+   * and UNDER the curated gauges — see contextGaugeLayer.
+   */
+  referenceGauges?: MapPin[];
+  /**
+   * Fired when the camera settles, so the caller can fetch the new viewport.
+   *
+   * onMapIdle rather than onCameraChanged: idle fires once when motion stops
+   * and hands over bounds and zoom directly, where onCameraChanged fires every
+   * frame and would need throttling before it could be used at all.
+   */
+  onViewportChange?: (viewport: { bounds: [number, number, number, number]; zoom: number }) => void;
+  /** A tapped cluster: the caller sets `focus` here at a closer zoom. */
+  onZoomToCluster?: (point: { lng: number; lat: number }) => void;
   hazards: Hazard[];
   services: RiverService[];
   /** Which layers are switched on. Anything absent is not fetched into GeoJSON. */
@@ -203,7 +250,12 @@ function featureCollection(pins: MapPin[], defaultColor: string) {
     features: pins.map((pin) => ({
       type: 'Feature' as const,
       id: pin.id,
-      properties: { id: pin.id, name: pin.name, color: pin.color ?? defaultColor },
+      properties: {
+        id: pin.id,
+        name: pin.name,
+        color: pin.color ?? defaultColor,
+        magnitude: pin.magnitude ?? 0,
+      },
       geometry: {
         type: 'Point' as const,
         coordinates: [pin.coordinates.lng, pin.coordinates.lat],
@@ -221,6 +273,9 @@ export function RiverMap({
   onSelectRiverSlug,
   accessPoints,
   gauges,
+  referenceGauges,
+  onViewportChange,
+  onZoomToCluster,
   hazards,
   services,
   layers,
@@ -468,6 +523,39 @@ export function RiverMap({
   };
 
   /**
+   * A tap on the clustered layer is either a gauge or a bubble of them.
+   *
+   * A cluster feature has `point_count` and no id of ours, so it zooms in
+   * instead of opening a callout. Recentring at zoom + 2 rather than asking the
+   * source for getClusterExpansionZoom: that call needs a ShapeSource ref
+   * threaded through this render, and two levels reliably splits a cluster at
+   * clusterRadius 50 — the user cannot tell the difference, and the ref can
+   * break silently.
+   */
+  const onContextPress = (event: {
+    features?: { properties?: Record<string, unknown>; geometry?: { coordinates?: number[] } }[];
+    coordinates?: { latitude: number; longitude: number };
+  }) => {
+    const feature = event.features?.[0];
+    const props = feature?.properties;
+    if (!props) return;
+
+    if (props.point_count !== undefined) {
+      const coords = feature?.geometry?.coordinates;
+      const lng = typeof coords?.[0] === 'number' ? coords[0] : event.coordinates?.longitude;
+      const lat = typeof coords?.[1] === 'number' ? coords[1] : event.coordinates?.latitude;
+      if (lng !== undefined && lat !== undefined) {
+        onZoomToCluster?.({ lng, lat });
+      }
+      return;
+    }
+
+    const id = props.id;
+    const match = typeof id === 'string' ? byId.get(id) : undefined;
+    if (match) onSelectPin?.(match);
+  };
+
+  /**
    * Circles plus labels for one layer. Every layer is drawn the same way.
    *
    * A FUNCTION THAT RETURNS JSX, not a component. Declaring a component inside
@@ -511,6 +599,99 @@ export function RiverMap({
       </Mapbox.ShapeSource>
     );
 
+  /**
+   * The national tier: thousands of dots, so this one clusters.
+   *
+   * A SIBLING of pinLayer, not a flag on it. pinLayer is shared by five layers
+   * and clustering it would change how curated gauges, access points and
+   * hazards all render — and CURATED GAUGES MUST NEVER CLUSTER. A rated pin
+   * disappearing into a grey bubble would break the one promise that layer
+   * makes, which is that its colour is a verdict you can act on.
+   *
+   * Everything here is deliberately quieter than a curated pin: smaller radius,
+   * a 1pt halo instead of 2, labels held back two more zoom levels. The tier is
+   * reference, and it should look like reference.
+   */
+  const contextGaugeLayer = (data: MapPin[]) =>
+    data.length === 0 ? null : (
+      <Mapbox.ShapeSource
+        id="pins-allGauges"
+        shape={featureCollection(data, layerColor('allGauges'))}
+        onPress={onContextPress}
+        cluster
+        clusterRadius={50}
+        // Past z11 the individual gauges are the point; below it they are a
+        // count. Matches where the curated labels switch on, so the map changes
+        // character once rather than twice.
+        clusterMaxZoomLevel={11}
+      >
+        <Mapbox.CircleLayer
+          id="pins-allGauges-cluster"
+          filter={['has', 'point_count']}
+          style={{
+            // Neutral, ALWAYS. A cluster mixes gauges running high with gauges
+            // running low, so it has no band and must not borrow one — the
+            // average of five verdicts is not a verdict.
+            circleColor: CLUSTER_FILL,
+            circleOpacity: 0.9,
+            circleStrokeWidth: 1.5,
+            circleStrokeColor: '#FFFFFF',
+            circleRadius: ['step', ['get', 'point_count'], 14, 20, 18, 100, 22],
+          }}
+        />
+        <Mapbox.SymbolLayer
+          id="pins-allGauges-count"
+          filter={['has', 'point_count']}
+          style={{
+            textField: ['get', 'point_count_abbreviated'],
+            textSize: 11,
+            textColor: '#FFFFFF',
+            // No halo: white on the cluster's own dark teal is already legible,
+            // and a halo at this size closes up the counter's inner shapes.
+            allowOverlap: true,
+          }}
+        />
+        <Mapbox.CircleLayer
+          id="pins-allGauges-dot"
+          filter={['!', ['has', 'point_count']]}
+          style={{
+            circleColor: ['get', 'color'],
+            circleStrokeWidth: 1,
+            circleStrokeColor: '#FFFFFF',
+            // Radius carries discharge, on sqrt already applied by the caller,
+            // interpolated so a creek is still tappable and the Mississippi is
+            // not a blob. Gauges with no discharge land at the floor.
+            circleRadius: [
+              'interpolate',
+              ['linear'],
+              ['get', 'magnitude'],
+              0, 3.5,
+              10, 5,
+              55, 7,
+              300, 9,
+            ],
+          }}
+        />
+        <Mapbox.SymbolLayer
+          id="pins-allGauges-label"
+          filter={['!', ['has', 'point_count']]}
+          // Two levels later than the curated labels. USGS station names are
+          // long ("WILLOW CREEK BL TEX CREEK NR RIRIE ID") and there are far
+          // more of them; showing them at 11 would bury the rivers.
+          minZoomLevel={13}
+          style={{
+            textField: ['get', 'name'],
+            textSize: 10,
+            textOffset: [0, 1.2],
+            textAnchor: 'top',
+            textColor: LABEL_INK,
+            textHaloColor: LABEL_HALO,
+            textHaloWidth: 1.5,
+          }}
+        />
+      </Mapbox.ShapeSource>
+    );
+
   return (
     <Mapbox.MapView
       style={[styles.fill, { backgroundColor: colors.bg }]}
@@ -544,6 +725,22 @@ export function RiverMap({
       logoPosition={{ bottom: 10, left: 12 }}
       attributionEnabled
       attributionPosition={{ bottom: 9, left: 94 }}
+      // The camera settled. This is the ONLY viewport-driven fetch in the app
+      // — everything else loads a bounded set up front — and it is on idle
+      // rather than onCameraChanged because idle fires once when motion stops
+      // and already carries bounds and zoom. onCameraChanged fires per frame,
+      // which on a fling is a request per frame unless it is throttled first.
+      onMapIdle={
+        onViewportChange
+          ? (state: MapIdleState) => {
+              const sw = state?.properties?.bounds?.sw;
+              const ne = state?.properties?.bounds?.ne;
+              const zoom = state?.properties?.zoom;
+              if (!sw || !ne || typeof zoom !== 'number') return;
+              onViewportChange({ bounds: [sw[0], sw[1], ne[0], ne[1]], zoom });
+            }
+          : undefined
+      }
     >
       {/* defaultSettings is not optional in the bounds case. `bounds` alone is
           applied as an UPDATE, and on first mount there is nothing to update
@@ -633,6 +830,12 @@ export function RiverMap({
           />
         </Mapbox.ShapeSource>
       ) : null}
+
+      {/* The national tier goes FIRST of the pin layers, so everything Eddy has
+          curated paints over it. A reference dot must never sit on top of a
+          rated gauge, an access point or a hazard — it is the layer with the
+          least to say and the most members. */}
+      {layerOn('allGauges') ? contextGaugeLayer(referenceGauges ?? []) : null}
 
       {layerOn('access') ? pinLayer('access', pins.access, layerColor('access')) : null}
       {layerOn('outfitters')

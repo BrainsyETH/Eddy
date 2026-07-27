@@ -96,6 +96,69 @@ export async function snapshotSite(
   return payload.length;
 }
 
+/** Columns both readers select; one list so they can never drift apart. */
+const SNAPSHOT_COLUMNS = 'p05, p10, p20, p25, p50, p75, p80, p90, p95, mean, count_years';
+
+/**
+ * Every site's statistics for one calendar day, as a Map keyed by site id.
+ *
+ * The national readings cron grades ~14,000 sites in a pass, and
+ * readSnapshotStatistics() is one round trip per site. This is one query for
+ * the whole day instead — there is at most one row per site per day_of_year,
+ * so "today's rows" IS the working set, and no site-id list has to be shipped
+ * up in the request (a 14,000-element `.in()` would blow the URL length the
+ * same way fetchLatestModern does).
+ *
+ * Paged explicitly because PostgREST caps a response at 1,000 rows by default,
+ * and a silent truncation here would look exactly like "most gauges have no
+ * historical data" — a wrong answer that reads as a plausible one.
+ */
+export async function readAllSnapshotStatistics(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any>,
+  date: Date = new Date()
+): Promise<Map<string, DailyStatistics>> {
+  const out = new Map<string, DailyStatistics>();
+  const dayOfYear = leapDayOfYearForDate(date);
+  if (dayOfYear === null) return out;
+
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('usgs_daily_percentiles')
+      .select(`site_no, ${SNAPSHOT_COLUMNS}`)
+      .eq('parameter_code', PARAM_DISCHARGE)
+      .eq('day_of_year', dayOfYear)
+      .range(from, from + PAGE - 1);
+
+    if (error) {
+      console.error('[percentiles] batch read failed:', error.message);
+      return out;
+    }
+    for (const row of data ?? []) {
+      out.set(row.site_no, {
+        siteId: row.site_no,
+        month: date.getMonth() + 1,
+        day: date.getDate(),
+        p05: row.p05,
+        p10: row.p10,
+        p20: row.p20,
+        p25: row.p25,
+        p50: row.p50,
+        p75: row.p75,
+        p80: row.p80,
+        p90: row.p90,
+        p95: row.p95,
+        mean: row.mean,
+        yearsOfRecord: row.count_years,
+      });
+    }
+    if (!data || data.length < PAGE) break;
+  }
+
+  return out;
+}
+
 /**
  * Read the snapshot back as a DailyStatistics — the shape the rest of the app
  * already consumes, so callers can't tell whether it came from the live
