@@ -198,3 +198,30 @@ export function elevation(palette: Palette, level: 1 | 2) {
     elevation: level === 1 ? 1 : 3,
   };
 }
+
+/**
+ * Depth for a control floating OVER content, rather than a card sitting on the
+ * canvas.
+ *
+ * Separate from elevation() because the two problems are different. A card
+ * needs separating from a flat page, which on dark is done with a border since
+ * a shadow against near-black stone is invisible. A button floating over a
+ * Mapbox view has no flat page behind it — it sits on forest green, gravel and
+ * water, all of them lighter than the app's own dark canvas — so it needs a
+ * real drop shadow in BOTH schemes, and a border would just outline it.
+ *
+ * Always cast from the neutral scale rather than from a palette role: a shadow
+ * is a shadow in either appearance, and painting it in the scheme's text colour
+ * would put a white glow under a button on dark.
+ */
+export function floating(palette: Palette) {
+  return {
+    shadowColor: neutral[950],
+    // Heavier on dark: the map is the brightest surface in the app there, and a
+    // light-mode shadow disappears against it.
+    shadowOpacity: palette.scheme === 'dark' ? 0.45 : 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  };
+}

@@ -15,13 +15,15 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
-import { darkPalette, elevation, lightPalette, type Palette } from './palette';
+import { darkPalette, elevation, floating, lightPalette, type Palette } from './palette';
 
 interface ThemeValue {
   colors: Palette;
   isDark: boolean;
   /** Depth for `level`, already resolved for the current scheme. */
   elevation: (level: 1 | 2) => ReturnType<typeof elevation>;
+  /** Depth for a control floating over content — see floating() in palette.ts. */
+  floating: () => ReturnType<typeof floating>;
 }
 
 // Dark is the default so a first frame rendered before the scheme resolves
@@ -30,6 +32,7 @@ const ThemeContext = createContext<ThemeValue>({
   colors: darkPalette,
   isDark: true,
   elevation: (level) => elevation(darkPalette, level),
+  floating: () => floating(darkPalette),
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -43,6 +46,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       colors,
       isDark: colors.scheme === 'dark',
       elevation: (level: 1 | 2) => elevation(colors, level),
+      floating: () => floating(colors),
     };
   }, [scheme]);
 

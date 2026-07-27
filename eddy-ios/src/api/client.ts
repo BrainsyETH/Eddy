@@ -13,16 +13,27 @@ import type {
   AlertsResponse,
   AppConfigResponse,
   ConditionResponse,
+  FloatPlan,
+  GaugesResponse,
   Hazard,
   HazardsResponse,
   MapAccessPoint,
+  MapGauge,
+  PlanResponse,
   RiverConditionDetail,
   RiverDetail,
   RiverDetailResponse,
   RiverOutlookResponse,
+  RiverService,
   RiversResponse,
   RiverListItem,
+  SavePlanResponse,
+  SearchResponse,
+  SearchResult,
+  ServicesResponse,
   StarredRiversResponse,
+  VesselType,
+  VesselTypesResponse,
   AlertSubscriptionEntry,
   AlertSubscriptionsResponse,
   MeProfileResponse,
@@ -150,6 +161,136 @@ export async function fetchRiverAccessPoints(
     signal,
   );
   return data.accessPoints ?? [];
+}
+
+/**
+ * Every active gauge station with its latest reading.
+ *
+ * One flat request for all of them — roughly forty rows — rather than a call
+ * per river. That is what makes a gauge map layer and gauge search affordable:
+ * the app fetches this once when the map opens and filters it locally.
+ */
+export async function fetchGauges(signal?: AbortSignal): Promise<MapGauge[]> {
+  const data = await get<GaugesResponse>('/api/gauges', signal);
+  return data.gauges ?? [];
+}
+
+/**
+ * Outfitters, campgrounds and shuttles near a river.
+ *
+ * Not every service has been geocoded, so callers plotting these must drop the
+ * ones with a null latitude rather than treating them as (0, 0).
+ */
+export async function fetchRiverServices(
+  slug: string,
+  signal?: AbortSignal,
+): Promise<RiverService[]> {
+  const data = await get<ServicesResponse>(
+    `/api/rivers/${encodeURIComponent(slug)}/services`,
+    signal,
+  );
+  return data.services ?? [];
+}
+
+/** Canoe, kayak, raft, tube — each with the speeds the float-time model uses. */
+export async function fetchVesselTypes(signal?: AbortSignal): Promise<VesselType[]> {
+  const data = await get<VesselTypesResponse>('/api/vessel-types', signal);
+  return data.vesselTypes ?? [];
+}
+
+/**
+ * The float plan: distance, time, shuttle, condition, hazards and the route.
+ *
+ * The heaviest call in the app by wall-clock — it reaches USGS for a live
+ * reading and Mapbox for the shuttle drive — so it runs once on an explicit
+ * tap, never speculatively as the user moves between access points.
+ */
+export async function fetchFloatPlan(
+  params: { riverId: string; startId: string; endId: string; vesselTypeId?: string },
+  signal?: AbortSignal,
+): Promise<FloatPlan> {
+  const query = new URLSearchParams({
+    riverId: params.riverId,
+    startId: params.startId,
+    endId: params.endId,
+  });
+  if (params.vesselTypeId) query.set('vesselTypeId', params.vesselTypeId);
+  const data = await get<PlanResponse>(`/api/plan?${query.toString()}`, signal);
+  return data.plan;
+}
+
+/**
+ * Persist a plan and get a short link back, for sharing.
+ *
+ * The snapshot is sent rather than left for the server to recompute. Without it
+ * the save endpoint re-runs the whole plan calculation — USGS and Mapbox again —
+ * just to write a row, which turns "Share" into a multi-second wait for numbers
+ * the caller is already looking at.
+ */
+export async function saveFloatPlan(plan: FloatPlan): Promise<SavePlanResponse> {
+  const response = await fetch(`${BASE_URL}/api/plan/save`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'User-Agent': USER_AGENT,
+    },
+    body: JSON.stringify({
+      riverId: plan.river.id,
+      startId: plan.putIn.id,
+      endId: plan.takeOut.id,
+      vesselTypeId: plan.vessel.id,
+      snapshot: {
+        distanceMiles: plan.distance.miles,
+        estimatedFloatMinutes: plan.floatTime?.minutes ?? null,
+        driveBackMinutes: plan.driveBack?.minutes ?? null,
+        conditionCode: plan.condition?.code ?? null,
+        gaugeHeightFt: plan.condition?.gaugeHeightFt ?? null,
+        dischargeCfs: plan.condition?.dischargeCfs ?? null,
+        gaugeName: plan.condition?.gaugeName ?? null,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new ApiError(
+      response.status === 429
+        ? 'Too many plans saved just now. Try again in a few minutes.'
+        : 'Could not save this plan.',
+      response.status,
+    );
+  }
+
+  return (await response.json()) as SavePlanResponse;
+}
+
+/**
+ * Search across rivers, gauges and access points.
+ *
+ * Returns an empty list rather than throwing on ANY failure, including a 404.
+ * The endpoint is newer than some deployed builds of the website this app talks
+ * to, and a search field that reports an error because the backend has not
+ * caught up is worse than one that quietly finds nothing — callers fall back to
+ * matching the rivers they already hold. See useSearch in src/hooks.
+ */
+export async function searchEddy(
+  query: string,
+  signal?: AbortSignal,
+): Promise<{ results: SearchResult[]; available: boolean }> {
+  try {
+    const data = await get<SearchResponse>(
+      `/api/search?q=${encodeURIComponent(query)}&limit=25`,
+      signal,
+    );
+    return { results: data.results ?? [], available: true };
+  } catch (err) {
+    // A cancelled request must not be reported as "the server has no search" —
+    // that would permanently disable it after one fast keystroke.
+    if (err instanceof ApiError && err.message === 'Request cancelled') {
+      return { results: [], available: true };
+    }
+    return { results: [], available: false };
+  }
 }
 
 /**
