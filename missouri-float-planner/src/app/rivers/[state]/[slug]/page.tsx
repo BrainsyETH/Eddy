@@ -23,6 +23,9 @@ import ShareRiverButton from './ShareRiverButton';
 import HubSectionNav from './HubSectionNav';
 import RiverDamPanel from '@/components/dam/RiverDamPanel';
 import { fetchRiverDam } from '@/lib/data/dams';
+import RiverReaches from '@/components/river/RiverReaches';
+import { fetchRiverReaches } from '@/lib/data/river-reaches';
+import type { RiverType } from '@/lib/rivers/context';
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 import SiteFooter from '@/components/ui/SiteFooter';
 import { jsonLdString } from '@/lib/json-ld';
@@ -151,7 +154,7 @@ export default async function RiverGuidePage({ params }: Props) {
   const [riverResult, guideResult] = await Promise.all([
     supabase
       .from('rivers')
-      .select('id, name, slug, state, description, length_miles, difficulty_rating, region, geom')
+      .select('id, name, slug, state, description, length_miles, difficulty_rating, region, geom, river_type')
       .eq('slug', slug)
       .single(),
     supabase
@@ -179,7 +182,7 @@ export default async function RiverGuidePage({ params }: Props) {
   }
 
   // Fetch access points + current condition in parallel (need river.id first)
-  const [{ data: accessPoints }, condRowsResult, riverDam] = await Promise.all([
+  const [{ data: accessPoints }, condRowsResult, riverDam, riverReaches] = await Promise.all([
     supabase
       .from('access_points')
       .select('id, slug, name, river_mile_downstream, image_urls, type, types')
@@ -195,6 +198,9 @@ export default async function RiverGuidePage({ params }: Props) {
     // the first paint and the section stays inside this page's ISR window.
     // Null for every river without a tailwater dam, which is most of them.
     fetchRiverDam(slug).catch(() => null),
+    // Same reasoning. Null unless the river has two or more curated reaches —
+    // today only the Black, which straddles Clearwater Dam.
+    fetchRiverReaches(river.id, (river.river_type || 'spring_fed_float') as RiverType).catch(() => null),
   ]);
 
   const conditionCode = condRowsResult?.data?.[0]?.condition_code || 'unknown';
@@ -400,6 +406,16 @@ export default async function RiverGuidePage({ params }: Props) {
             </h2>
             <RiverGaugeDetail riverSlug={slug} />
           </section>
+
+          {/* ===== Reaches — only where the river's halves differ ===== */}
+          {riverReaches && (
+            <section id="reaches" className="scroll-mt-24 pt-8">
+              <h2 className="mb-3 text-xl font-bold text-neutral-900 md:text-2xl" style={{ fontFamily: 'var(--font-display)' }}>
+                Reaches
+              </h2>
+              <RiverReaches reaches={riverReaches} />
+            </section>
+          )}
 
           {/* ===== Dam control — tailwater reaches only ===== */}
           {riverDam && (

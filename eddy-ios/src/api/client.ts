@@ -14,6 +14,8 @@ import type {
   AlertsResponse,
   AppConfigResponse,
   ConditionResponse,
+  DamSnapshot,
+  DamsResponse,
   FloatPlan,
   GaugeDetail,
   GaugeDetailResponse,
@@ -975,4 +977,46 @@ export async function unregisterDeviceToken(token: string, expoPushToken: string
     token,
     { method: 'DELETE' },
   );
+}
+
+// ── Dams ─────────────────────────────────────────────────────────────────────
+// Both routes are read-through to USACE CWMS and SWPA rather than served from a
+// table, and both cache at the CDN for 15 minutes. Neither is paywalled for
+// this app: withX402Route gates on isAiAgent(user-agent), and 'EddyiOS' is not
+// one — so no 402 branch is needed here, unlike the metered routes above.
+
+/**
+ * Every USACE project Eddy tracks, with its current state and today's schedule.
+ *
+ * Returns [] on failure rather than throwing, matching fetchHazards. A map
+ * layer that does not draw is an acceptable degradation; a thrown error here
+ * would take down the map for a layer the user may not even have enabled.
+ *
+ * Ten dams, one request. Callers that need a specific dam's tailwater link or
+ * its pin can filter this rather than asking per dam.
+ */
+export async function fetchDams(signal?: AbortSignal): Promise<DamSnapshot[]> {
+  try {
+    const data = await get<DamsResponse>('/api/dams', signal);
+    return data.dams ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * One dam, with the multi-day hourly generation schedule the index omits.
+ *
+ * SHAPE WARNING: this route answers with the snapshot BARE, not wrapped under a
+ * key. Every other detail fetch in this file unwraps one — `data.river`,
+ * `data.gauge`, `data.plan` — so the reflexive `data.dam` here silently yields
+ * undefined. The server is public and priced to agents; the asymmetry is its
+ * contract, not a bug to fix from this side.
+ *
+ * THROWS rather than returning null, for the same reason fetchAccessPointDetail
+ * does: the screen was opened from a row that named this dam, so "it does not
+ * exist" is a real failure the screen should state rather than absorb.
+ */
+export async function fetchDam(damId: string, signal?: AbortSignal): Promise<DamSnapshot> {
+  return get<DamSnapshot>(`/api/dams/${encodeURIComponent(damId)}`, signal);
 }

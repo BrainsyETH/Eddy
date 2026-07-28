@@ -17,17 +17,12 @@
 
 import { Waves, Zap, Thermometer, Droplets, Fish } from 'lucide-react';
 import type { DamSnapshot } from '@/lib/data/dams';
+// One freshness voice across the dam surfaces, and across web and iOS. See
+// shared/dam-schedule-copy.ts for why the hour arithmetic lives there.
+import { relativeAge } from '@shared/dam-schedule-copy';
 
 function formatCfs(value: number): string {
   return `${Math.round(value).toLocaleString()} cfs`;
-}
-
-function relativeAge(iso: string): string {
-  const hours = (Date.now() - new Date(iso).getTime()) / 3_600_000;
-  if (hours < 1.5) return 'in the last hour';
-  if (hours < 24) return `${Math.round(hours)} hours ago`;
-  const days = Math.round(hours / 24);
-  return days === 1 ? 'yesterday' : `${days} days ago`;
 }
 
 function Stat({
@@ -109,7 +104,7 @@ export default function DamStateCard({ dam }: { dam: DamSnapshot }) {
             value={formatCfs(release.value)}
             sub={
               release.dailyMean
-                ? `daily average, ${relativeAge(release.at)}`
+                ? ['daily average', relativeAge(release.at)].filter(Boolean).join(', ')
                 : relativeAge(release.at)
             }
             dim={release.staleness === 'stale'}

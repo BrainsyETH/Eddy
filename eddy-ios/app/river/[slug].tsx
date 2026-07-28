@@ -39,6 +39,7 @@ import type {
   RiverOutlookResponse,
   RiverService,
   RiverVisualsResponse,
+  DamSnapshot,
 } from '@eddy/types';
 import { accessPointTypes, accessTypeLabel } from '@eddy/types';
 import {
@@ -53,6 +54,7 @@ import {
   ApiError,
   fetchCondition,
   fetchGauges,
+  fetchDams,
   fetchHazards,
   fetchRiverAccessPoints,
   fetchRiverOutlook,
@@ -82,6 +84,7 @@ import {
 } from '@/lib/readingCopy';
 import { EddySymbol } from '@/components/EddySymbol';
 import { EddyTake } from '@/components/EddyTake';
+import { RiverDamPanel, damForRiver } from '@/components/dam/RiverDamPanel';
 import { GaugeChart } from '@/components/GaugeChart';
 import { OUTFITTER_SERVICE_TYPES } from '@/map/layers';
 import { Otter, otterForCondition } from '@/components/Otter';
@@ -119,6 +122,7 @@ export default function RiverDetailScreen() {
   const [visuals, setVisuals] = useState<RiverVisualsResponse | null>(null);
   const [gauges, setGauges] = useState<MapGauge[]>([]);
   const [services, setServices] = useState<RiverService[]>([]);
+  const [dam, setDam] = useState<DamSnapshot | null>(null);
   /**
    * Which gauge the reading card is showing. Null means the river's own
    * primary, which is what /api/conditions already answered with — so the card
@@ -171,7 +175,7 @@ export default function RiverDetailScreen() {
         // re-read when the picker moves — and a screen that waits for it before
         // painting anything would be waiting on three third-party services for
         // a panel that is allowed to be absent entirely.
-        const [cond, haz, access, looks, allGauges, nearby] = await Promise.all([
+        const [cond, haz, access, looks, allGauges, nearby, dams] = await Promise.all([
           fetchCondition(match.id, controller.signal).catch(() => null),
           fetchHazards(slug, controller.signal).catch(() => [] as Hazard[]),
           fetchRiverAccessPoints(slug, controller.signal).catch(() => [] as MapAccessPoint[]),
@@ -189,6 +193,12 @@ export default function RiverDetailScreen() {
           // about a river was the one place that could not tell them who rents
           // a canoe on it. Degrades like everything else here.
           fetchRiverServices(slug, controller.signal).catch(() => [] as RiverService[]),
+          // The dam controlling this reach, if one does. Ten items, CDN-cached,
+          // and already returning [] on failure — so this costs one cheap
+          // request to answer a question with no endpoint of its own, rather
+          // than adding /api/rivers/[slug]/dam for a panel that is absent on
+          // every river but one.
+          fetchDams(controller.signal),
         ]);
         setCondition(cond);
         setHazards(haz);
@@ -196,6 +206,7 @@ export default function RiverDetailScreen() {
         setVisuals(looks);
         setGauges(gaugesForRiver(allGauges, slug));
         setServices(nearby);
+        setDam(damForRiver(dams, slug));
         setError(null);
       } catch (err) {
         if (err instanceof ApiError && err.message === 'Request cancelled') return;
@@ -556,6 +567,13 @@ export default function RiverDetailScreen() {
             </View>
           ) : null}
         </View>
+
+        {/* ── The dam, when one controls this reach. Above Eddy's Take
+               because it explains the number in the card above: on a regulated
+               river the release IS the reason for the reading, and the schedule
+               is a better forecast than any rain-fed river gets. Renders
+               nothing on the other twenty-three rivers. ── */}
+        <RiverDamPanel dam={dam} />
 
         {/* ── What it means. Directly under the status card, because the card
                above says what the river IS and this says what to do about it.
