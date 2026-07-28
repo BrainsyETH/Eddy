@@ -47,40 +47,62 @@ export const RIVER_TYPE_GUIDANCE: Record<RiverType, { lowWater: string; risingWa
 };
 
 /**
+ * A reach's own character, from river_sections (migrations 00204 and 00205).
+ * Every field is independently nullable and null inherits the river's.
+ */
+export interface SectionCharacter {
+  riverType: RiverType | null;
+  lowWaterMeaning: string | null;
+  risingWaterHazards: string | null;
+}
+
+/**
  * Per-river condition semantics (region + how "low"/"rising" water should be
  * framed). Lifted out of the system prompt into the user turn so the system
  * prompt can stay static and cacheable.
  *
- * `sectionRiverType` is the reach's own hydrology from river_sections.river_type
- * (migration 00204), or null to inherit the river's.
+ * Precedence, most specific first:
+ *   1. the reach's own curated prose        (river_sections, 00205)
+ *   2. the reach's river_type guidance      (river_sections, 00204)
+ *   3. the river's curated prose            (river_characteristics)
+ *   4. the river's river_type guidance
  */
 export function buildConditionSemantics(
   riverCtx: RiverContext | null,
-  sectionRiverType: RiverType | null = null,
+  section: SectionCharacter | null = null,
 ): string {
   // A reach that declares its own hydrology outranks the river's. This is the
   // dam case: the Black is spring_fed_float, but everything below Clearwater Dam
   // is a tailwater and must not be described as rain-driven.
-  const riverType: RiverType = sectionRiverType ?? riverCtx?.riverType ?? 'spring_fed_float';
+  const riverType: RiverType = section?.riverType ?? riverCtx?.riverType ?? 'spring_fed_float';
   const guidance = RIVER_TYPE_GUIDANCE[riverType] ?? RIVER_TYPE_GUIDANCE.spring_fed_float;
 
   // SAFETY: river_characteristics prose is written about the river as a whole —
-  // on the Black, about the spring-fed float out of Lesterville. Where a reach
-  // overrides the type it is by definition the reach that prose does not
-  // describe, so the type guidance must stand alone. Letting the prose through
-  // here would silently restore spring-fed "low water means scraping" wording on
-  // a tailwater that can rise several feet on a release, with the river_type
-  // column still reading dam_tailwater. The override is only as good as this
-  // line.
-  const useRiverProse = sectionRiverType === null;
+  // on the Black, about the spring-fed float out of Lesterville, and its author
+  // said so by prefixing the section slug into the text. Where a reach overrides
+  // the type it is by definition the reach that prose does not describe, so the
+  // river's prose must not speak for it. Letting it through would restore
+  // spring-fed "low water means scraping" wording on a tailwater that can rise
+  // several feet on a release, with river_type still correctly reading
+  // dam_tailwater. The override is only as good as this line.
+  const useRiverProse = (section?.riverType ?? null) === null;
 
-  // Per-river overrides beat the type default (both are curated data).
-  const lowWater = useRiverProse && riverCtx?.characteristics?.lowWaterMeaning
-    ? `The river IS floatable unless the code is "too_low". On this river, low water means: ${riverCtx.characteristics.lowWaterMeaning} Do NOT recommend against floating when the condition code is "low"; that language is reserved for "too_low" only.`
-    : guidance.lowWater;
-  const risingWater = useRiverProse && riverCtx?.characteristics?.risingWaterHazards
-    ? `Explain what rising water means for hazards on this river: ${riverCtx.characteristics.risingWaterHazards}`
-    : guidance.risingWater;
+  // Reach prose stands alone rather than inheriting the river's "the river IS
+  // floatable" preamble: on a tailwater, "low" can genuinely mean the dam is
+  // shut, and promising floatability there would be the same category of error
+  // this whole precedence chain exists to prevent.
+  const lowWater = section?.lowWaterMeaning
+    ? `On this reach, low water means: ${section.lowWaterMeaning}`
+    : useRiverProse && riverCtx?.characteristics?.lowWaterMeaning
+      ? `The river IS floatable unless the code is "too_low". On this river, low water means: ${riverCtx.characteristics.lowWaterMeaning} Do NOT recommend against floating when the condition code is "low"; that language is reserved for "too_low" only.`
+      : guidance.lowWater;
+
+  const risingWater = section?.risingWaterHazards
+    ? `Explain what rising water means for hazards on this reach: ${section.risingWaterHazards}`
+    : useRiverProse && riverCtx?.characteristics?.risingWaterHazards
+      ? `Explain what rising water means for hazards on this river: ${riverCtx.characteristics.risingWaterHazards}`
+      : guidance.risingWater;
+
   const regionLabel = riverCtx?.region || 'Ozarks';
 
   return [

@@ -100,7 +100,14 @@ export interface UsaceDam {
    * Bluff, measured 5% apart on 2026-07-27 (3,561 released vs 3,380 gauged,
    * ~40 river miles down).
    */
-  tailwater?: { riverSlug: string; gaugeSiteId: string };
+  /**
+   * `sectionSlug` names the river_sections reach the release actually lands in
+   * (migrations 00204/00205), so a dam can point at the tailwater rather than at
+   * the whole river — on the Black, the river page opens on the spring-fed
+   * Lesterville float, which is not the water this dam controls. Optional: a
+   * tailwater that is its own river needs no reach.
+   */
+  tailwater?: { riverSlug: string; gaugeSiteId: string; sectionSlug?: string };
   /**
    * NAMEPLATE generating capacity — deliberately not SWPA's number.
    *
@@ -178,7 +185,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     // The one tailwater Eddy currently carries. Poplar Bluff (07063000) sits
     // BELOW the dam and is release-driven; Annapolis (07061500) sits above the
     // lake and is not, so it gets no dam treatment.
-    tailwater: { riverSlug: 'black', gaugeSiteId: '07063000' },
+    tailwater: { riverSlug: 'black', gaugeSiteId: '07063000', sectionSlug: 'lower-markham-hammer' },
     // Flood control only — no powerhouse, hence no SWPA code, no generation
     // flow and no tailwater temperature. Its release is steady, which is why a
     // daily forecast figure is honest here in a way it isn't for a hydro dam.

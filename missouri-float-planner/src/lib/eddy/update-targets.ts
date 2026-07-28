@@ -32,7 +32,7 @@ export async function getUpdateTargetsFromDb(): Promise<UpdateTarget[]> {
       supabase.from('rivers').select('slug, name').eq('active', true).order('name'),
       supabase
         .from('river_sections')
-        .select('section_slug, name, description, sort_order, river_type, rivers!inner(slug, name, active)')
+        .select('section_slug, name, description, sort_order, river_type, low_water_meaning, rising_water_hazards, rivers!inner(slug, name, active)')
         .eq('rivers.active', true)
         .order('sort_order'),
     ]);
@@ -53,6 +53,8 @@ export async function getUpdateTargetsFromDb(): Promise<UpdateTarget[]> {
         sectionName: null,
         sectionDescription: null,
         sectionRiverType: null,
+        sectionLowWaterMeaning: null,
+        sectionRisingWaterHazards: null,
       });
     }
 
@@ -72,6 +74,8 @@ export async function getUpdateTargetsFromDb(): Promise<UpdateTarget[]> {
           // Null on every section except a reach that genuinely differs, e.g.
           // the Black below Clearwater Dam (migration 00204).
           sectionRiverType: section.river_type ?? null,
+          sectionLowWaterMeaning: section.low_water_meaning ?? null,
+          sectionRisingWaterHazards: section.rising_water_hazards ?? null,
         });
       }
     } else if (sectionsResult.error) {
