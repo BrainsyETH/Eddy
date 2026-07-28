@@ -36,6 +36,7 @@ export const secondary = {
 } as const;
 
 export const accent = {
+  700: '#C7432E',
   600: '#E5573F',
   500: '#F07052',
   400: '#F48E76',
@@ -86,9 +87,11 @@ export interface Palette {
   text: string;
   textMuted: string;
   textSubtle: string;
-  /** Sunset Coral — primary CTA and the Eddy branding colour. */
+  /** Sunset Coral — Eddy branding and decorative emphasis. */
   accent: string;
-  accentPressed: string;
+  /** Deeper coral that supports white CTA text at AA contrast. */
+  accentFill: string;
+  accentFillPressed: string;
   /** Text and icons placed ON the accent fill. */
   onAccent: string;
   /** Links, navigation, selection indicators and utility controls. */
@@ -170,10 +173,9 @@ export const darkPalette: Palette = {
   textMuted: primary[300],
   textSubtle: neutral[400],
   accent: accent[500],
-  accentPressed: accent[600],
-  // Coral is light enough that white text only reaches 2.94:1. Deep teal clears
-  // AA and keeps the CTA feeling like one coherent piece of the brand.
-  onAccent: primary[900],
+  accentFill: accent[700],
+  accentFillPressed: '#B93825',
+  onAccent: '#FFFFFF',
   // Dark mode moves UP the teal scale. primary-600 against primary-900 is only
   // 2.21:1, so using the light-mode value here would make links disappear.
   interactive: primary[300],
@@ -210,8 +212,9 @@ export const lightPalette: Palette = {
   textMuted: neutral[600],
   textSubtle: neutral[500],
   accent: accent[500],
-  accentPressed: accent[600],
-  onAccent: primary[900],
+  accentFill: accent[700],
+  accentFillPressed: '#B93825',
+  onAccent: '#FFFFFF',
   // Primary-600 is 6.58:1 on white and 5.93:1 on selectionBg: strong enough
   // for ordinary link text, small icons and selected labels.
   interactive: primary[600],

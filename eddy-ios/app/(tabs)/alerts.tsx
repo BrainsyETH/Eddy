@@ -207,7 +207,7 @@ export default function AlertsScreen() {
         style={({ pressed }) => [
           styles.ctaButton,
           floating(),
-          { backgroundColor: colors.accent, opacity: pressed ? 0.7 : 1 },
+          { backgroundColor: colors.accentFill, opacity: pressed ? 0.7 : 1 },
         ]}
         accessibilityRole="button"
         accessibilityLabel="Add an alert"

@@ -676,7 +676,11 @@ export default function RiverDetailScreen() {
                   borderWidth: 1,
                   borderColor: colors.border,
                 }
-              : { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+              : {
+                  backgroundColor: pressed
+                    ? colors.accentFillPressed
+                    : colors.accentFill,
+                },
           ]}
           accessibilityRole="button"
           accessibilityLabel={

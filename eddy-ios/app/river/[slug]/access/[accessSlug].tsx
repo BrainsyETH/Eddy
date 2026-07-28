@@ -393,7 +393,9 @@ export default function AccessPointDetailScreen() {
             onPress={() => void Linking.openURL(driveToUrl(driveTarget(point)))}
             style={({ pressed }) => [
               styles.primaryAction,
-              { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+              {
+                backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill,
+              },
             ]}
             accessibilityRole="button"
             accessibilityLabel={`Directions to ${point.name}`}

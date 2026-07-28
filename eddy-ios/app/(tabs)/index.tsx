@@ -1090,7 +1090,9 @@ export default function MapScreen() {
                 // it; the shared elevation() helper is tuned for cards on a flat
                 // canvas and is border-only on dark.
                 floating(),
-                { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+                {
+                  backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill,
+                },
               ]}
               accessibilityRole="button"
             >

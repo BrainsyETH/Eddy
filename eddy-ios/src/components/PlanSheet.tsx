@@ -227,7 +227,11 @@ export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Pr
                     disabled={sharing}
                     style={({ pressed }) => [
                       styles.primaryButton,
-                      { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+                      {
+                        backgroundColor: pressed
+                          ? colors.accentFillPressed
+                          : colors.accentFill,
+                      },
                     ]}
                     accessibilityRole="button"
                   >

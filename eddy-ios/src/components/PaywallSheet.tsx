@@ -305,7 +305,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
                 style={({ pressed }) => [
                   pkg.recommended ? styles.primary : styles.secondary,
                   {
-                    backgroundColor: pkg.recommended ? colors.accent : 'transparent',
+                    backgroundColor: pkg.recommended ? colors.accentFill : 'transparent',
                     borderColor: colors.border,
                     opacity: pressed || busy !== null ? 0.6 : 1,
                   },

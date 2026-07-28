@@ -91,7 +91,7 @@ export function OfflineMapRow({
   // a utility action. The shared row can represent either, so its colour follows
   // the action it will actually take.
   const upgradeAction = entitled === false && !downloaded;
-  const actionFill = upgradeAction ? colors.accent : colors.interactive;
+  const actionFill = upgradeAction ? colors.accentFill : colors.interactive;
   const actionInk = upgradeAction ? colors.onAccent : colors.onInteractive;
 
   const status = busy
