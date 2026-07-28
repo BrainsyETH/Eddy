@@ -652,7 +652,7 @@ export default function ConfigureAlertScreen() {
           style={({ pressed }) => [
             styles.saveButton,
             {
-              backgroundColor: canSave ? colors.accent : colors.cardRaised,
+              backgroundColor: canSave ? colors.accentFill : colors.cardRaised,
               opacity: pressed ? 0.7 : 1,
             },
           ]}

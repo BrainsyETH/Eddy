@@ -90,7 +90,7 @@ export function PushPrimer({ visible, riverName, onAllow, onDismiss }: Props) {
             onPress={onAllow}
             style={({ pressed }) => [
               styles.primary,
-              { backgroundColor: colors.accent, opacity: pressed ? 0.85 : 1 },
+              { backgroundColor: colors.accentFill, opacity: pressed ? 0.85 : 1 },
             ]}
           >
             <Text style={[styles.primaryText, { color: colors.onAccent }]}>Turn on alerts</Text>
