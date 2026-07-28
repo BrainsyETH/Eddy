@@ -1,30 +1,41 @@
 // eddy-ios/app/(tabs)/alerts.tsx
-// Two things under one tab: the condition-change feed, and the rules you set.
+// Two things under one tab: the alerts you set, and the water running high now.
 //
-// ── Why Activity stays the default ──────────────────────────────────────────
+// ── Why My alerts leads ─────────────────────────────────────────────────────
 //
-// The obvious layout for a tab called Alerts is to open on your alerts. It is
-// the wrong default here, because this feed is FREE and needs no account: the
-// app signs you in anonymously and never makes you do more, so a large share of
-// people opening this tab have no rules and cannot have any without signing in
-// with Apple. Opening them on an empty list would replace a working screen with
-// a sales pitch.
+// A tab called Alerts opens on your alerts. That was not always the arrangement
+// here: the second segment used to be a free, account-free CHANGE FEED, and
+// leading with rules meant a large share of people met an empty list and a
+// sign-in prompt where a working screen could have been.
 //
-// ── The feed is not filtered ────────────────────────────────────────────────
+// What changed is the second segment. High Water Alerts is not an inbox and not
+// a log — it is a statewide safety readout — so it no longer competes with
+// "mine" for the same slot, and the ordering that always read correctly
+// (yours first, everyone's second) is now also the honest one. The empty state
+// on the rules list is not a dead end either: it explains what an alert is and
+// the Add alert button is right there.
 //
-// It used to carry a "My rivers / All rivers" toggle, defaulting to the former.
-// That control was answering a question nobody had: /api/alerts reads
-// river_condition_events, which is written only from river_gauges rows — the ~46
-// curated stations across ~24 rivers — and every event is debounced and
-// compare-and-swapped before it is recorded. What it filtered was two dozen
-// rivers' worth of CHANGES, which on most days is a handful of rows, and halving
-// a short list costs more attention than it saves. It also read as a second,
-// competing "mine" directly under the My alerts segment.
+// ── Why the second tab is a snapshot and not the old feed ──────────────────
 //
-// Removing it took a network call off this screen with it: the toggle was the
-// only reason the tab fetched subscriptions or read the star store at all.
+// /api/alerts is a change LOG: one row per transition, bounded to seven days.
+// It answers "what moved this week", which turns out not to be the question
+// anybody opens this tab with. A river that crossed into flood nine days ago
+// and has stayed there is absent from that log and very much present in the
+// water; a good→flowing flicker is in it and means nothing.
+//
+// So this reads /api/high-water instead — every river, gauge and dam release
+// Eddy grades that is sitting in high or flood RIGHT NOW, whether or not it
+// moved today. The endpoint filters on RUNNING_HIGH so this screen never has to
+// decide what "high" means; see shared/condition-system.ts.
+//
+// The ~14,000 national stations are absent by design. They carry no threshold
+// ladder — nobody has decided where high starts on them — and their flow
+// percentile says "wetter than usual for the date", which is a different claim.
+//
+// Free and account-free, like the feed it replaces. High water is safety
+// information; it is never behind an account or a paywall.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -36,32 +47,75 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  ALERT_FEED_WINDOW_DAYS,
-  ALERT_LATENCY_NOTE,
-  type AlertFeedEntry,
-  type AlertRule,
-} from '@eddy/types';
-import { ApiError, fetchAlerts } from '@/api/client';
+import type { AlertRule, HighWaterEntry, HighWaterKind } from '@eddy/types';
+import { ApiError, fetchHighWater } from '@/api/client';
 import { conditionBg, conditionColor, conditionInk } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { alertDetail, alertHeadline } from '@/lib/alertCopy';
+import { readingAge } from '@/lib/readingCopy';
 import { EddyScene } from '@/components/EddyScene';
 import { AlertRuleRow } from '@/components/AlertRuleRow';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useRouter } from 'expo-router';
 
-type Segment = 'activity' | 'rules';
+type Segment = 'high-water' | 'rules';
+
+/** Section headings, in the order the list renders them. */
+const KIND_LABEL: Record<HighWaterKind, string> = {
+  river: 'Rivers',
+  gauge: 'Gauges',
+  dam: 'Dams',
+};
+const KIND_ORDER: HighWaterKind[] = ['river', 'gauge', 'dam'];
+
+/** A heading or an entry — one flat list, so section headers scroll with rows. */
+type HighWaterRow =
+  | { type: 'heading'; key: string; label: string; count: number }
+  | { type: 'entry'; key: string; entry: HighWaterEntry };
+
+function toRows(entries: HighWaterEntry[]): HighWaterRow[] {
+  return KIND_ORDER.flatMap((kind) => {
+    const group = entries.filter((e) => e.kind === kind);
+    if (group.length === 0) return [];
+    return [
+      { type: 'heading' as const, key: `heading:${kind}`, label: KIND_LABEL[kind], count: group.length },
+      ...group.map((entry) => ({ type: 'entry' as const, key: entry.id, entry })),
+    ];
+  });
+}
+
+/**
+ * The reading, in the unit its ladder is defined in and no other.
+ *
+ * Null unit means the station published nothing in the unit it is graded
+ * against. That renders as no number rather than the other unit's — a cfs value
+ * printed under a ft ladder is a number compared to the wrong thresholds.
+ */
+function readingLine(entry: HighWaterEntry): string | null {
+  const parts: string[] = [];
+  if (entry.readingValue !== null && entry.readingUnit) {
+    const value =
+      entry.readingUnit === 'ft'
+        ? entry.readingValue.toFixed(2)
+        : Math.round(entry.readingValue).toLocaleString();
+    parts.push(`${value} ${entry.readingUnit}`);
+  }
+  const age = readingAge(entry.readingAgeHours);
+  if (age) parts.push(age);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
 
 /** Room left under the lists so the last row clears the pinned CTA. */
 const CTA_CLEARANCE = 84;
 
 export default function AlertsScreen() {
-  const [alerts, setAlerts] = useState<AlertFeedEntry[] | null>(null);
+  const [highWater, setHighWater] = useState<HighWaterEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [segment, setSegment] = useState<Segment>('activity');
+  // Yours, by default. See the header — the second segment is a statewide
+  // readout rather than a competing "mine", so this ordering is now both the
+  // one people expect and the honest one.
+  const [segment, setSegment] = useState<Segment>('rules');
   const [ruleError, setRuleError] = useState<string | null>(null);
   const { rules, ready: rulesReady, refresh: refreshRules, setEnabled } = useAlertRules();
   const { colors, elevation, floating } = useTheme();
@@ -70,7 +124,7 @@ export default function AlertsScreen() {
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
       setError(null);
-      setAlerts(await fetchAlerts(signal));
+      setHighWater(await fetchHighWater(signal));
     } catch (err) {
       if (err instanceof ApiError && err.message === 'Request cancelled') return;
       setError(err instanceof ApiError ? err.message : 'Something went wrong');
@@ -101,15 +155,22 @@ export default function AlertsScreen() {
     [setEnabled],
   );
 
-  if (!alerts && !error) {
+  // Headings interleaved with rows, so a section title scrolls with the group
+  // it names rather than sticking. Above the early return because it is a hook.
+  const highWaterRows = useMemo(() => toRows(highWater ?? []), [highWater]);
+
+  const showingRules = segment === 'rules';
+
+  // Only the high-water half waits on a request. Blocking the whole screen on
+  // it would put a spinner over the rules list — which is the default segment
+  // and needs no network at all.
+  if (!showingRules && !highWater && !error) {
     return (
       <SafeAreaView style={[styles.centered, { backgroundColor: colors.bg }]} edges={['top']}>
         <ActivityIndicator color={colors.interactive} />
       </SafeAreaView>
     );
   }
-
-  const showingRules = segment === 'rules';
 
   // ONBOARDING, not a permanent control. Someone who already holds an alert has
   // been through this flow and knows where it lives; a button covering the
@@ -164,22 +225,23 @@ export default function AlertsScreen() {
         </Pressable>
       </View>
 
+      {/* Yours first. */}
       <View style={styles.toggleRow}>
-        {segmentButton('activity', 'Activity')}
         {segmentButton('rules', 'My alerts')}
+        {segmentButton('high-water', 'High water')}
       </View>
 
       {/* WHOSE rows these are, said out loud.
-          Without this line the feed reads as "notifications I was sent" — a
-          fair reading of a screen titled Alerts whose rows look like a
+          Without this line the second list reads as "notifications I was sent"
+          — a fair reading of a screen titled Alerts whose rows look like a
           notification list — and the first question that follows is how to
-          delete them. There is nothing to delete: every caller sees the same
-          log, so removing a row would remove it for everyone. Saying what it is
-          costs one line and answers the question before it is asked. */}
+          delete them. There is nothing to delete: it is a readout of the state
+          of the water, identical for everyone. Saying what it is costs one line
+          and answers the question before it is asked. */}
       <Text style={[styles.caption, { color: colors.textSubtle }]}>
         {showingRules
           ? 'Alerts you have set. Only you receive these.'
-          : `Condition changes on every river Eddy tracks, from the last ${ALERT_FEED_WINDOW_DAYS} days.`}
+          : 'Every river, gauge and dam Eddy grades that is running high or in flood right now.'}
       </Text>
 
       {error && !showingRules ? (
@@ -274,73 +336,98 @@ export default function AlertsScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <FlatList
-        data={alerts ?? []}
-        keyExtractor={(item) => item.id}
+        data={highWaterRows}
+        keyExtractor={(item) => item.key}
         refreshControl={refreshControl}
         contentContainerStyle={listPadding}
         ListHeaderComponent={header}
         ListEmptyComponent={
           <View style={styles.empty}>
-            {/* Checking, not alarmed. Every string below this is a version of
-                "we looked and nothing has changed", and the catalog's
-                high-water scene would announce the opposite. */}
+            {/* Checking, not alarmed. Everything below this says "we looked and
+                the water is where it should be", and the catalog's high-water
+                scene would announce the opposite. */}
             <EddyScene name="checkingGauge" size={120} />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>No recent changes</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>Nothing running high</Text>
             <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
-              {/* Empty is now a REACHABLE state rather than a theoretical one —
-                  the feed is bounded to a week, so a quiet stretch genuinely
-                  empties it. Which is the point: a log you cannot clear and
-                  that never empties is indistinguishable from a broken inbox. */}
-              No river has changed condition in the last {ALERT_FEED_WINDOW_DAYS} days. That&apos;s
-              usually good news.
+              No river, gauge or dam release Eddy grades is above its high-water
+              mark right now. That&apos;s usually good news.
             </Text>
           </View>
         }
         ListFooterComponent={
-          (alerts?.length ?? 0) > 0 ? (
-            // The honesty line. Detection trails the real river by roughly
-            // 20–75 minutes; measured at 31 minutes on the first live events.
-            <Text style={[styles.footnote, { color: colors.textSubtle }]}>{ALERT_LATENCY_NOTE}</Text>
+          highWaterRows.length > 0 ? (
+            // The honesty line. Every row above is a stored reading, and USGS
+            // reporting lag plus the ingest cadence puts it up to about an hour
+            // behind the river itself.
+            <Text style={[styles.footnote, { color: colors.textSubtle }]}>
+              Readings can lag the river by up to about an hour. Never judge a
+              crossing from a number alone.
+            </Text>
           ) : null
         }
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() => router.push(`/river/${item.riverSlug}`)}
-            style={({ pressed }) => [
-              styles.row,
-              { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
-              elevation(1),
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={`${item.riverName} details`}
-          >
-            <View
-              style={[styles.stripe, { backgroundColor: conditionColor(item.newConditionCode) }]}
-            />
-            <View style={styles.rowBody}>
-              <Text style={[styles.riverName, { color: colors.text }]}>{item.riverName}</Text>
-              {/* ink, not `solid`. The solid is the marker/stripe colour and is
-                  not a text colour: lime-500 and yellow-500 fall below 4.5:1 on
-                  white, so a "Good" or "Low" headline was failing contrast while
-                  the icon two lines down already used ink correctly. */}
-              <Text
-                style={[styles.headline, { color: conditionInk(item.newConditionCode) }]}
-              >
-                {alertHeadline(item)}
-              </Text>
-              <Text style={[styles.detail, { color: colors.textMuted }]}>{alertDetail(item)}</Text>
-            </View>
-            <View
-              style={[styles.chip, { backgroundColor: conditionBg(item.newConditionCode) }]}
+        renderItem={({ item }) => {
+          if (item.type === 'heading') {
+            return (
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>{item.label}</Text>
+                <Text style={[styles.sectionCount, { color: colors.textSubtle }]}>{item.count}</Text>
+              </View>
+            );
+          }
+
+          const entry = item.entry;
+          const reading = readingLine(entry);
+          // A dam opens its own screen; everything else opens its river. Gauges
+          // route by river rather than by /gauge/[siteId] on purpose — a station
+          // that is high is a fact ABOUT that river, and the river screen shows
+          // the chart, the access points and the hazards alongside it.
+          const target = entry.damId
+            ? `/dam/${entry.damId}`
+            : entry.riverSlug
+              ? `/river/${entry.riverSlug}`
+              : entry.siteId
+                ? `/gauge/${entry.siteId}`
+                : null;
+
+          return (
+            <Pressable
+              onPress={target ? () => router.push(target) : undefined}
+              disabled={!target}
+              style={({ pressed }) => [
+                styles.row,
+                { backgroundColor: colors.card, opacity: pressed && target ? 0.7 : 1 },
+                elevation(1),
+              ]}
+              accessibilityRole={target ? 'button' : undefined}
+              accessibilityLabel={`${entry.name}, ${entry.conditionLabel}`}
             >
-              <Ionicons
-                name={item.kind === 'floatable' ? 'water-outline' : 'alert-circle-outline'}
-                size={16}
-                color={conditionInk(item.newConditionCode)}
-              />
-            </View>
-          </Pressable>
-        )}
+              <View style={[styles.stripe, { backgroundColor: conditionColor(entry.conditionCode) }]} />
+              <View style={styles.rowBody}>
+                <Text style={[styles.riverName, { color: colors.text }]}>{entry.name}</Text>
+                {/* ink, not `solid`. The solid is the marker/stripe colour and
+                    is not a text colour — several of the ladder's fills fall
+                    below 4.5:1 on white. */}
+                <Text style={[styles.headline, { color: conditionInk(entry.conditionCode) }]}>
+                  {entry.conditionLabel}
+                </Text>
+                <Text style={[styles.detail, { color: colors.textMuted }]}>
+                  {[entry.subtitle, reading].filter(Boolean).join(' · ')}
+                </Text>
+              </View>
+              <View style={[styles.chip, { backgroundColor: conditionBg(entry.conditionCode) }]}>
+                {/* Flood gets the warning mark, high gets the water mark. The
+                    two are different instructions — "do not float" and "know
+                    what you are doing" — and the stripe colour alone has to be
+                    read against a scale to tell them apart. */}
+                <Ionicons
+                  name={entry.conditionCode === 'dangerous' ? 'warning-outline' : 'water-outline'}
+                  size={16}
+                  color={conditionInk(entry.conditionCode)}
+                />
+              </View>
+            </Pressable>
+          );
+        }}
       />
       {cta}
     </SafeAreaView>
@@ -390,6 +477,16 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  sectionTitle: { ...t.xs, fontFamily: fonts.semibold, textTransform: 'uppercase' },
+  sectionCount: { ...t.xs },
   stripe: { width: 4, alignSelf: 'stretch' },
   rowBody: { flex: 1, padding: 14 },
   riverName: { ...t.base, fontFamily: fonts.semibold },

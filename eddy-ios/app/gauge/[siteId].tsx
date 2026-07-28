@@ -464,18 +464,24 @@ export default function GaugeDetailScreen() {
             this station has a ladder AND that ladder is in the unit being
             drawn; GaugeChart drops the shading itself otherwise rather than
             comparing feet against cfs. */}
-        <GaugeChart
-          siteId={gauge.siteId}
-          unit={unit ?? 'cfs'}
-          thresholds={rated ? link : null}
-          // Passed for BOTH tiers. A rated river gets bands from a human's
-          // judgement and these from the Weather Service, and the two are
-          // different claims that can usefully sit on one plot — the chart
-          // draws stages only on a foot axis, so nothing is compared across
-          // units to make that happen.
-          floodStages={stages}
-          title="Recent history"
-        />
+        {/* Inset by the SCREEN, not by the card. GaugeChart carries no
+            horizontal margin of its own — this ScrollView pads nothing, the
+            river screen's pads 16, and a margin inside the component was added
+            to both. */}
+        <View style={styles.inset}>
+          <GaugeChart
+            siteId={gauge.siteId}
+            unit={unit ?? 'cfs'}
+            thresholds={rated ? link : null}
+            // Passed for BOTH tiers. A rated river gets bands from a human's
+            // judgement and these from the Weather Service, and the two are
+            // different claims that can usefully sit on one plot — the chart
+            // draws stages only on a foot axis, so nothing is compared across
+            // units to make that happen.
+            floodStages={stages}
+            title="Recent history"
+          />
+        </View>
 
         {/* ── Where else to go ─────────────────────────────────── */}
         <View style={styles.actions}>
@@ -632,6 +638,8 @@ const styles = StyleSheet.create({
   name: { ...t['2xl'], fontFamily: fonts.heading, paddingHorizontal: 20, marginTop: 4 },
   meta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 20, marginTop: 2, marginBottom: 14 },
   card: { marginHorizontal: 16, marginBottom: 14, borderRadius: 18, padding: 16 },
+  /** The horizontal inset this screen's cards carry, for a card that does not. */
+  inset: { marginHorizontal: 16 },
   readingRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   readingText: { flex: 1 },
   reading: { ...t['3xl'], fontFamily: fonts.mono },

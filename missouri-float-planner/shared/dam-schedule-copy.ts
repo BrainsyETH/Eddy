@@ -64,6 +64,76 @@ export function scheduleDayLabel(iso: string): string {
 }
 
 /**
+ * SWPA's timezone, and the only one a schedule ever means.
+ *
+ * `hours[i]` is Central, `scheduleDate` is a Central calendar day, and the
+ * "hour ending" convention is Central. Every clock question below is asked in
+ * this zone and never in the viewer's — a phone in Denver reading a Table Rock
+ * schedule is asking what the water is doing at the dam, not at the phone.
+ */
+const CENTRAL_TIME_ZONE = 'America/Chicago';
+
+/**
+ * The wall clock at the dam right now, as `{ dayKey, hoursElapsed }`.
+ *
+ * `hoursElapsed` is a FRACTION of the day (13.5 = half past one in the
+ * afternoon) rather than an integer hour, because the thing it positions is a
+ * marker sliding across 24 bars, and snapping it to the hour would put it on a
+ * boundary for 59 minutes out of every 60.
+ */
+function centralClock(now: number): { dayKey: string; hoursElapsed: number } {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: CENTRAL_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(now));
+
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
+  return {
+    dayKey: `${get('year')}-${get('month')}-${get('day')}`,
+    hoursElapsed: Number(get('hour')) + Number(get('minute')) / 60,
+  };
+}
+
+/** Today's calendar date at the dam, as the `YYYY-MM-DD` a schedule is keyed by. */
+export function centralDayKey(now = Date.now()): string {
+  return centralClock(now).dayKey;
+}
+
+/**
+ * How far through `scheduleDate` the dam's clock is, or NULL when that date is
+ * not today in Central time.
+ *
+ * Null is the important half. A three-day schedule renders three identical
+ * rows, and a "now" marker drawn on tomorrow's would be a claim about a river
+ * at a time that has not happened. Only one row can ever carry it.
+ */
+export function scheduleHoursElapsed(
+  scheduleDate: string,
+  now = Date.now()
+): number | null {
+  const clock = centralClock(now);
+  return clock.dayKey === scheduleDate ? clock.hoursElapsed : null;
+}
+
+/**
+ * Which SWPA hour the dam is in right now, in their own 1-24 "hour ending"
+ * terms, so it can be matched against `ScheduledHour.hourEnding` directly.
+ *
+ * The +1 is the whole convention: at 13:30 Central the water running is the
+ * release SWPA posted as hour ending 14. Getting this backwards puts somebody
+ * in the water an hour early, which is why it is computed once, here, and not
+ * at each call site.
+ */
+export function hourEndingNow(hoursElapsed: number): number {
+  return Math.floor(hoursElapsed) + 1;
+}
+
+/**
  * How long ago an ISO timestamp was, phrased for a person.
  *
  * Coarse on purpose past a day: "31 hours ago" reads as precision the number

@@ -3,7 +3,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  CONDITION_ORDER,
   FLOATABLE_NOW,
+  RUNNING_HIGH,
   WEEKEND_FLOATABLE,
   summarizeConditionCounts,
 } from './condition-system';
@@ -48,4 +50,25 @@ test('summarizeConditionCounts handles an empty list', () => {
   assert.equal(counts.floatableNow, 0);
   assert.equal(counts.runningHigh, 0);
   assert.equal(counts.runningLow, 0);
+});
+
+test('RUNNING_HIGH is exactly the elevated pair', () => {
+  assert.deepEqual([...RUNNING_HIGH].sort(), ['dangerous', 'high']);
+});
+
+test('RUNNING_HIGH and FLOATABLE_NOW cannot both claim a code', () => {
+  // The two sets drive opposite copy — "go float it" and "there is too much
+  // water" — so a code in both would put one river under both headlines.
+  for (const code of RUNNING_HIGH) {
+    assert.equal(FLOATABLE_NOW.has(code), false, `${code} is in both buckets`);
+  }
+});
+
+test('RUNNING_HIGH agrees with the runningHigh tally', () => {
+  // Two spellings of one rule, which is exactly what this set exists to stop.
+  // If a seventh code is ever added to one, this fails rather than letting the
+  // High Water screen and the counts disagree about what "high" means.
+  const codes = [...CONDITION_ORDER];
+  const counts = summarizeConditionCounts(codes);
+  assert.equal(counts.runningHigh, codes.filter((c) => RUNNING_HIGH.has(c)).length);
 });

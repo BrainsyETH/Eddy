@@ -9,6 +9,9 @@ import {
   scheduleIsStale,
   retrievalSentence,
   SCHEDULE_STALE_AFTER_MINUTES,
+  centralDayKey,
+  scheduleHoursElapsed,
+  hourEndingNow,
 } from './dam-schedule-copy';
 
 test('hour ending names the hour the water starts moving', () => {
@@ -94,4 +97,43 @@ test('the retrieval line names Eddy as the subject, never SWPA', () => {
 
   const stale = retrievalSentence(new Date(now - 5 * 3_600_000).toISOString(), now);
   assert.equal(stale, 'Eddy last checked 5 hours ago. It may have been revised since.');
+});
+
+test('the clock is read at the DAM, not on the phone', () => {
+  // 03:30 UTC on the 29th is 22:30 Central on the 28th (CDT, UTC-5). A viewer
+  // anywhere in the world asking "what is the water doing" means at the dam, so
+  // the schedule day is the 28th and the marker sits at 22.5 hours.
+  const night = Date.parse('2026-07-29T03:30:00Z');
+  assert.equal(centralDayKey(night), '2026-07-28');
+  assert.equal(scheduleHoursElapsed('2026-07-28', night), 22.5);
+});
+
+test('only today carries a marker', () => {
+  // A three-day schedule renders three identical bar rows. A "now" line on
+  // tomorrow's would be a claim about a river at a time that has not happened.
+  const noon = Date.parse('2026-07-28T17:00:00Z'); // 12:00 Central
+  assert.equal(scheduleHoursElapsed('2026-07-28', noon), 12);
+  assert.equal(scheduleHoursElapsed('2026-07-29', noon), null, 'tomorrow gets none');
+  assert.equal(scheduleHoursElapsed('2026-07-27', noon), null, 'yesterday gets none');
+});
+
+test('the hour running now is SWPA hour-ending, not the wall-clock hour', () => {
+  // The off-by-one this whole module exists to pin. At 13:30 Central the water
+  // moving is the release posted as hour ending 14 — and hourEndingLabel(14)
+  // reads back as "1 PM", which is where the reader started.
+  assert.equal(hourEndingNow(13.5), 14);
+  assert.equal(hourEndingLabel(hourEndingNow(13.5)), '1 PM');
+
+  // Both ends of the day, where an off-by-one wraps rather than merely shifts.
+  assert.equal(hourEndingNow(0), 1, 'the first minute after midnight is hour 1');
+  assert.equal(hourEndingNow(23.99), 24, 'the last minute of the day is hour 24');
+});
+
+test('centralDayKey survives the DST boundary', () => {
+  // 06:30 UTC is 01:30 CDT (UTC-5) in July but 00:30 CST (UTC-6) in January —
+  // a fixed offset would put one of them on the wrong calendar day.
+  assert.equal(centralDayKey(Date.parse('2026-07-15T06:30:00Z')), '2026-07-15');
+  assert.equal(centralDayKey(Date.parse('2026-01-15T06:30:00Z')), '2026-01-15');
+  // 05:30 UTC in January is 23:30 CST the previous day.
+  assert.equal(centralDayKey(Date.parse('2026-01-15T05:30:00Z')), '2026-01-14');
 });

@@ -1026,6 +1026,16 @@ export interface SearchResult {
 export interface SearchResponse {
   query: string;
   results: SearchResult[];
+  /**
+   * Whether a page exists past this one. Optional because a deployed website
+   * older than the paging change does not send it, and the app ships through
+   * App Store review while the site does not — absent means "assume not", which
+   * degrades a paged list to the single page it used to be.
+   *
+   * Never infer this from `results.length === limit`: a multi-kind page is
+   * allocated across kinds and can come back short while every kind has more.
+   */
+  hasMore?: boolean;
 }
 
 // ── Alert events (the outbox the app's Alerts tab reads) ─────────
@@ -1179,6 +1189,52 @@ export interface AlertFeedEntry {
 
 export interface AlertsResponse {
   alerts: AlertFeedEntry[];
+}
+
+// ── High water right now (GET /api/high-water) ───────────────────
+//
+// A SNAPSHOT, and deliberately not the feed above. AlertFeedEntry is a
+// TRANSITION — it has an old code and a new one, and it exists because
+// something changed. A HighWaterEntry is a STATE: this river is high, as of
+// now, whether or not it moved today.
+//
+// The two are kept structurally distinct so neither can be mistaken for the
+// other. A river that has been in flood for a fortnight belongs on one and not
+// the other, and a good→flowing flicker belongs on the other and not this one.
+
+export type HighWaterKind = 'river' | 'gauge' | 'dam';
+
+export interface HighWaterEntry {
+  kind: HighWaterKind;
+  /** Prefixed by kind — a river id and a gauge id can otherwise collide. */
+  id: string;
+  name: string;
+  subtitle: string | null;
+  /**
+   * Always `high` or `dangerous`. The endpoint filters on RUNNING_HIGH, so a
+   * consumer never has to; the code is here to colour the row and to tell the
+   * two apart, which the label alone does not — `dangerous` reads "Flood".
+   */
+  conditionCode: ConditionCode;
+  conditionLabel: string;
+  /**
+   * The reading in `readingUnit`, and ONLY in that unit. Null when the station
+   * published nothing in the unit its ladder is defined in — never the other
+   * unit's number, which would be graded against the wrong thresholds.
+   */
+  readingValue: number | null;
+  readingUnit: 'ft' | 'cfs' | null;
+  readingAgeHours: number | null;
+  /** Route targets. A row opens whichever of these it has. */
+  riverSlug: string | null;
+  siteId: string | null;
+  damId: string | null;
+}
+
+export interface HighWaterResponse {
+  entries: HighWaterEntry[];
+  /** When the snapshot was taken, so a screen can say "as of". */
+  asOf: string;
 }
 
 // ── Consumer account endpoints (/api/me/*) ───────────────────────

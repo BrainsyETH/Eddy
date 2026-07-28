@@ -261,7 +261,12 @@ export default function DamDetailScreen() {
                 { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
               ]}
               accessibilityRole="button"
+              accessibilityLabel={`Call the recorded release line for ${dam.name}`}
             >
+              {/* The icon is what says this DIALS. Without it the row read as
+                  another fact about the dam sitting next to a number, rather
+                  than the one control on the screen that leaves the app. */}
+              <Ionicons name="call-outline" size={16} color={colors.text} />
               <Text style={[styles.sourceText, { color: colors.text }]}>
                 Recorded release line · {dam.infoPhone}
               </Text>

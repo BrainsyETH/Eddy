@@ -257,6 +257,9 @@ export default function FavoritesScreen() {
                 // Everything in this list is starred; the row is what unstars it.
                 starred
                 onToggleStar={() => toggleStar(item)}
+                // The reason somebody starred a dam. /api/dams already carries
+                // today's schedule, so this is a render, not a request.
+                showSchedule
               />
             );
           }

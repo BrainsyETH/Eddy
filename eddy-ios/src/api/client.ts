@@ -12,6 +12,8 @@ import type {
   AccessPointsResponse,
   AlertFeedEntry,
   AlertsResponse,
+  HighWaterEntry,
+  HighWaterResponse,
   AppConfigResponse,
   ConditionResponse,
   DamSnapshot,
@@ -609,23 +611,58 @@ export async function searchEddy(
    * rather than breaking against a backend that has not caught up.
    */
   kinds?: readonly SearchResultKind[],
-): Promise<{ results: SearchResult[]; available: boolean }> {
+  /**
+   * Which page to ask for, and how big.
+   *
+   * `offset` is applied PER KIND server-side, which is the only definition that
+   * works for a scoped caller: this screen pages one kind at a time, and an
+   * offset over the flat allocated list would skip rows in whichever kind was
+   * under-represented on the page before.
+   *
+   * An EMPTY `query` with exactly one kind is a browse rather than a search —
+   * the server lists that kind instead of matching it. That is what lets the
+   * Gauges scope scroll all 14,264 stations instead of opening on the 45
+   * curated ones, and the Access scope open with rows at all.
+   */
+  page?: { limit?: number; offset?: number },
+): Promise<{ results: SearchResult[]; available: boolean; hasMore: boolean }> {
   try {
     const scope = kinds?.length ? `&kinds=${kinds.join(',')}` : '';
+    const limit = page?.limit ?? SEARCH_PAGE_SIZE;
+    const offset = page?.offset ?? 0;
     const data = await get<SearchResponse>(
-      `/api/search?q=${encodeURIComponent(query)}&limit=25${scope}`,
+      `/api/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}${scope}`,
       signal,
     );
-    return { results: data.results ?? [], available: true };
+    const results = data.results ?? [];
+    return {
+      results,
+      available: true,
+      // A website older than the paging change sends no `hasMore`. Falling back
+      // to "a full page probably has more" keeps infinite scroll working there
+      // — the worst case is one extra request that comes back empty, which the
+      // caller already handles — while an exact flag from a current deploy is
+      // always preferred.
+      hasMore: data.hasMore ?? results.length >= limit,
+    };
   } catch (err) {
     // A cancelled request must not be reported as "the server has no search" —
     // that would permanently disable it after one fast keystroke.
     if (err instanceof ApiError && err.message === 'Request cancelled') {
-      return { results: [], available: true };
+      return { results: [], available: true, hasMore: false };
     }
-    return { results: [], available: false };
+    return { results: [], available: false, hasMore: false };
   }
 }
+
+/**
+ * Rows per page.
+ *
+ * 50, up from a hardcoded 25 that was also the whole result set. Two screenfuls
+ * on a phone: enough that most searches never page at all, small enough that
+ * the first one lands fast on a put-in's cell signal.
+ */
+export const SEARCH_PAGE_SIZE = 50;
 
 /**
  * Live conditions for one river: the reading, its age, and where today's flow
@@ -953,6 +990,26 @@ export async function fetchAppConfig(signal?: AbortSignal): Promise<AppConfigRes
 export async function fetchAlerts(signal?: AbortSignal): Promise<AlertFeedEntry[]> {
   const data = await get<AlertsResponse>('/api/alerts?limit=100', signal);
   return data.alerts ?? [];
+}
+
+/**
+ * Everything Eddy grades that is running high or in flood right now.
+ *
+ * A SNAPSHOT, not the change log /api/alerts serves. The two answer different
+ * questions and the log answers this one badly: a river that crossed into high
+ * nine days ago is absent from a seven-day window and very much present in the
+ * water.
+ *
+ * Free and account-free, like the feed it replaced on that screen. High water
+ * is safety information; it is never behind an account or a paywall.
+ *
+ * Throws on failure rather than returning an empty list — "nothing is high" is
+ * good news somebody may act on, and a failed request must never be able to say
+ * it. The screen catches and shows the error.
+ */
+export async function fetchHighWater(signal?: AbortSignal): Promise<HighWaterEntry[]> {
+  const data = await get<HighWaterResponse>('/api/high-water', signal);
+  return data.entries ?? [];
 }
 
 /**

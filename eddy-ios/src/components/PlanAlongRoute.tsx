@@ -19,7 +19,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import type { FloatPlan, MapAccessPoint } from '@eddy/types';
 import { accessTypeLabel, isCampground } from '@eddy/types';
 import { fetchRiverAccessPoints } from '@/api/client';
@@ -85,14 +84,15 @@ export function PlanAlongRoute({ plan }: { plan: FloatPlan }) {
                   .join(' · ')}
               </Text>
             </View>
+            {/* The mark says what the place IS — a campground or an access
+                point. It no longer says whether you may use it: the "Private"
+                word on the line above does that, and a padlock here made a
+                bail-out look like a locked gate rather than one that needs
+                asking. */}
             {isCampground(point) ? (
               <EddySymbol name="campground" size={17} />
             ) : (
-              <Ionicons
-                name={point.isPublic ? 'location-outline' : 'lock-closed-outline'}
-                size={15}
-                color={point.isPublic ? colors.interactive : colors.textSubtle}
-              />
+              <EddySymbol name="accessPoint" size={17} />
             )}
           </View>
         );

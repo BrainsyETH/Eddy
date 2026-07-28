@@ -56,6 +56,29 @@ eas build --profile development --platform ios
 Expo Go bundles `react-native-svg` itself, so the charts work there — but Expo
 Go cannot run the Map tab, which is why the dev client exists.
 
+### `Unimplemented component: <RNSVGSvgView>` on a build you did not just make
+
+The same failure, reached from the other direction, and the one that shipped: the
+gauge chart came back as an "Unimplemented component" box on TestFlight builds
+that were fine the day before.
+
+Nobody had broken the chart. `ios.runtimeVersion` was the string `"1.0.0"`, so
+**every** OTA update was compatible with **every** binary that had ever existed.
+Adding `react-native-svg` changed the JS bundle and not that string, and the new
+JS went out to binaries with no `RNSVGSvgView` view manager. Over-the-air updates
+carry JavaScript; they cannot carry a native module.
+
+`ios.runtimeVersion` is now `{ "policy": "fingerprint" }`, matching `android`.
+The fingerprint is computed from the native project — dependencies, config
+plugins, app config — so adding a native module mints a new runtime version and
+old binaries simply stop being offered the update. **Do not put a literal string
+back.** When the fingerprint changes, ship a build, not an update.
+
+`GaugeChart`'s `ChartBoundary` is a second net rather than the fix. It catches a
+render that *throws*, which is what the New Architecture does here; the old
+architecture renders a placeholder view instead and throws nothing, so a boundary
+can never be the whole answer. The runtime version is.
+
 ### Three ways to run this, and when each applies
 
 | Command | Needs | Use it for |

@@ -6,8 +6,7 @@ Run from anywhere:  python3 eddy-ios/scripts/build-map-icons.py
 WHY THESE ARE GENERATED AND NOT DRAWN BY HAND: they are mostly two-tone-free
 silhouettes whose whole job is to be RECOLOURED at runtime — a gauge wears its
 condition, an access point wears its layer colour — so the shape and the colour
-cannot live in the same file. The private-access lock is a separate white SDF
-laid over the recoloured pin. A hand-exported PNG would also have to be
+cannot live in the same file. A hand-exported PNG would also have to be
 re-exported at every size we ever want.
 
 WHY SDF: Mapbox recolours an icon only when the image is registered with
@@ -214,24 +213,18 @@ def route_finish(size: int = 54) -> tuple[Image.Image, tuple[int, int]]:
     return mask, (size, size)
 
 
-def private_lock(width: int = 66) -> tuple[Image.Image, tuple[int, int]]:
-    """White lock overlay aligned to the bulb of the bottom-anchored POI pin."""
-    _, size = teardrop(width, point_up=False)
-    mask = Image.new("L", (size[0] * SS, size[1] * SS), 0)
-    draw = ImageDraw.Draw(mask)
-    s = SS
-    draw.rounded_rectangle((23 * s, 29 * s, 43 * s, 46 * s), radius=3 * s, fill=255)
-    draw.arc((26 * s, 18 * s, 40 * s, 36 * s), start=180, end=360, fill=255, width=5 * s)
-    return mask, size
-
-
-def private_lock_center(size: int = 66) -> tuple[Image.Image, tuple[int, int]]:
-    """White lock overlay centred on a square category icon."""
-    mask, draw = square_mask(size)
-    s = SS
-    draw.rounded_rectangle((23 * s, 30 * s, 43 * s, 47 * s), radius=3 * s, fill=255)
-    draw.arc((26 * s, 19 * s, 40 * s, 37 * s), start=180, end=360, fill=255, width=5 * s)
-    return mask, (size, size)
+# THERE IS NO LOCK ICON HERE ANY MORE, and it is not an omission.
+#
+# `private-lock-pin` and `private-lock-center` were white padlocks stamped over
+# the recoloured pin so privacy was visible before selection. They were removed
+# because they answered the wrong question: a private access point is the same
+# kind of place as a public one, and a second glyph on some pins read as a
+# second category. Permission is a caveat about a place, not a class of place.
+#
+# It is still said, in words and in behaviour — the callout's "permission may be
+# required" line, the Private chip on the detail screen, the dimmed overview
+# circle, and the confirmation raised before one is used as a plan endpoint.
+# Do not reintroduce a glyph for it.
 
 
 def main() -> None:
@@ -256,9 +249,6 @@ def main() -> None:
         # Float endpoints communicate direction by shape as well as colour.
         "route-start": route_start(),
         "route-finish": route_finish(),
-        # Registered separately and painted white over private access pins.
-        "private-lock-pin": private_lock(),
-        "private-lock-center": private_lock_center(),
     }
 
     for name, (mask, size) in shapes.items():

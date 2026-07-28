@@ -68,6 +68,19 @@ interface Options {
    * unaffected either way.
    */
   enabled?: boolean;
+  /**
+   * Ask the server with an EMPTY field, as a browse rather than a search.
+   *
+   * Off by default, and only ever on for a scope naming exactly one kind — the
+   * server has no order in which to list rivers, put-ins and gauges together.
+   *
+   * This is what closed the two holes on the Search tab. The Gauges scope
+   * opened on the ~45 curated stations because a browse was the only thing it
+   * could show without a query, and the Access scope opened on nothing at all:
+   * "Search every access point by name", over 308 of them, none visible until
+   * you guessed one's name.
+   */
+  browse?: boolean;
 }
 
 interface SearchState {
@@ -79,6 +92,10 @@ interface SearchState {
   /** True once the query is long enough to have produced an answer. */
   active: boolean;
   clear: () => void;
+  /** True when another page exists. False while one is already loading. */
+  hasMore: boolean;
+  /** Fetch the next page and append it. A no-op unless `hasMore`. */
+  loadMore: () => void;
 }
 
 function localMatches(
@@ -176,7 +193,13 @@ function merge(server: SearchResult[], local: SearchResult[]): SearchResult[] {
   return [...server, ...local.filter((r) => !seen.has(`${r.kind}:${r.id}`))];
 }
 
-export function useEddySearch({ rivers, gauges, kinds, enabled = true }: Options): SearchState {
+export function useEddySearch({
+  rivers,
+  gauges,
+  kinds,
+  enabled = true,
+  browse = false,
+}: Options): SearchState {
   const [query, setQuery] = useState('');
   // The server's answer AND the query it answers, in one piece of state.
   // Keeping the two together is what lets render decide whether the list on
@@ -184,11 +207,18 @@ export function useEddySearch({ rivers, gauges, kinds, enabled = true }: Options
   // repaint results under a word the user has already typed past. It is state
   // rather than a ref because render reads it, and a ref read during render is
   // exactly the tearing hazard React now flags.
-  const [answer, setAnswer] = useState<{ query: string; results: SearchResult[] }>({
-    query: '',
-    results: [],
-  });
+  //
+  // `hasMore` rides along for the same reason the results do: it describes THIS
+  // query, and a flag left over from the previous one would offer a next page
+  // of a list nobody is looking at any more.
+  const [answer, setAnswer] = useState<{
+    query: string;
+    results: SearchResult[];
+    hasMore: boolean;
+  }>({ query: '', results: [], hasMore: false });
   const [searching, setSearching] = useState(false);
+  /** True only for a NEXT-page request, so the list spins its footer, not itself. */
+  const [paging, setPaging] = useState(false);
 
   /**
    * How many times in a row the server has failed to answer.
@@ -211,7 +241,15 @@ export function useEddySearch({ rivers, gauges, kinds, enabled = true }: Options
   const failures = useRef(0);
 
   const trimmed = query.trim();
-  const active = trimmed.length >= MIN_QUERY_LENGTH;
+  const typed = trimmed.length >= MIN_QUERY_LENGTH;
+  // An empty field is a legitimate request when the caller browses. One
+  // character is not, in either mode: below the floor neither this hook nor the
+  // server has run a search, and "nothing matches" would be a claim about the
+  // database rather than a report of one.
+  const askable = typed || (browse && trimmed.length === 0);
+  // `active` still means "there is something on screen to look at", which is
+  // what every consumer uses it for — a browse list counts.
+  const active = askable;
   // Stable across renders for a given scope, so it can sit in a dependency
   // array without an array literal re-running the effect on every keystroke.
   const kindKey = kinds?.length ? kinds.join(',') : '';
@@ -219,8 +257,8 @@ export function useEddySearch({ rivers, gauges, kinds, enabled = true }: Options
   const local = useMemo(() => localMatches(trimmed, rivers, gauges), [trimmed, rivers, gauges]);
 
   useEffect(() => {
-    if (!active || !enabled) {
-      setAnswer({ query: '', results: [] });
+    if (!askable || !enabled) {
+      setAnswer({ query: '', results: [], hasMore: false });
       setSearching(false);
       return;
     }
@@ -231,7 +269,7 @@ export function useEddySearch({ rivers, gauges, kinds, enabled = true }: Options
     // server that recovers is noticed on the very next query.
     const delay = DEBOUNCE_MS * Math.min(2 ** failures.current, MAX_BACKOFF_MULTIPLE);
     const timer = setTimeout(async () => {
-      const { results, available } = await searchEddy(
+      const { results, available, hasMore } = await searchEddy(
         trimmed,
         controller.signal,
         kindKey ? (kindKey.split(',') as SearchResultKind[]) : undefined,
@@ -239,10 +277,10 @@ export function useEddySearch({ rivers, gauges, kinds, enabled = true }: Options
       if (controller.signal.aborted) return;
       if (!available) {
         failures.current += 1;
-        setAnswer({ query: '', results: [] });
+        setAnswer({ query: '', results: [], hasMore: false });
       } else {
         failures.current = 0;
-        setAnswer({ query: trimmed, results });
+        setAnswer({ query: trimmed, results, hasMore });
       }
       setSearching(false);
     }, delay);
@@ -250,10 +288,51 @@ export function useEddySearch({ rivers, gauges, kinds, enabled = true }: Options
     return () => {
       clearTimeout(timer);
       controller.abort();
+      // A new query invalidates any page request still in flight for the old
+      // one. Without this the footer spinner survives into the next search.
+      setPaging(false);
     };
-  }, [trimmed, active, enabled, kindKey]);
+  }, [trimmed, askable, enabled, kindKey]);
 
   const answered = answer.query === trimmed;
+
+  /**
+   * The next page, appended.
+   *
+   * Offset is `answer.results.length` rather than a page counter, so a short
+   * page — which the server can return when a kind runs out mid-allocation —
+   * does not desynchronise the next request from what is actually on screen.
+   *
+   * Guarded on `answered`: paging a query the user has already typed past would
+   * append rows belonging to a word that is no longer in the field.
+   */
+  const loadMore = useCallback(() => {
+    if (!enabled || !answered || !answer.hasMore || paging || searching) return;
+    setPaging(true);
+    void (async () => {
+      const { results, available, hasMore } = await searchEddy(
+        trimmed,
+        undefined,
+        kindKey ? (kindKey.split(',') as SearchResultKind[]) : undefined,
+        { offset: answer.results.length },
+      );
+      setPaging(false);
+      if (!available) return;
+      setAnswer((prev) => {
+        // The field moved while this was in flight. Dropping the page is right:
+        // it answers a question nobody is asking now, and the effect above has
+        // already replaced what is on screen.
+        if (prev.query !== trimmed) return prev;
+        // Deduped on append. The database orders are total (00207 adds an id
+        // tiebreak), so this should never fire — but a row rendered twice is a
+        // React key collision, which fails loudly and for a reason nobody would
+        // connect to paging.
+        const seen = new Set(prev.results.map((r) => `${r.kind}:${r.id}`));
+        const fresh = results.filter((r) => !seen.has(`${r.kind}:${r.id}`));
+        return { query: prev.query, results: [...prev.results, ...fresh], hasMore };
+      });
+    })();
+  }, [enabled, answered, answer.hasMore, answer.results.length, paging, searching, trimmed, kindKey]);
 
   const results = useMemo(() => {
     if (!active) return [];
@@ -268,8 +347,10 @@ export function useEddySearch({ rivers, gauges, kinds, enabled = true }: Options
     query,
     setQuery,
     results,
-    searching: searching && !answered,
+    searching: (searching && !answered) || paging,
     active,
     clear,
+    hasMore: answered && answer.hasMore && !paging,
+    loadMore,
   };
 }

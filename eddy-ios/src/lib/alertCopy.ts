@@ -1,6 +1,18 @@
 // eddy-ios/src/lib/alertCopy.ts
 // Human phrasing for a condition change, plus the timestamp rule.
 //
+// ── Currently unreferenced, and kept on purpose ────────────────────────────
+// The Alerts tab's second segment used to render the /api/alerts change feed
+// and was the only caller. It now shows High Water Alerts — a snapshot of what
+// is high RIGHT NOW rather than a log of what moved this week — which needs no
+// transition phrasing, so nothing imports this today.
+//
+// It stays because /api/alerts stays: the outbox is still written, the website
+// still reads it, and the change feed is a screen this app may well want back.
+// The two rules below are the expensive part of that module, both learned from
+// production, and re-deriving them later is how a repo ends up with four
+// condition ladders. src/lib/alert-copy.test.ts in the web app mirrors them.
+//
 // Two constraints shape everything here.
 //
 // 1. TIME IS QUOTED FROM THE READING, NOT THE DETECTION. Real events measured on

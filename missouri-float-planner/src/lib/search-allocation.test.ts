@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { allocateByKind, type SearchResult, type SearchResultKind } from '@/app/api/search/route';
+import {
+  allocateByKind,
+  escapeLike,
+  type SearchResult,
+  type SearchResultKind,
+} from '@/app/api/search/route';
 
 // ── /api/search must not let one kind starve another ───────────────────
 //
@@ -112,4 +117,26 @@ test('a limit smaller than the number of kinds still returns something from the 
 
 test('no kinds at all is an empty page rather than a throw', () => {
   assert.deepEqual(allocateByKind([], 25), []);
+});
+
+// ── The access-point branch builds a PostgREST or() string by hand ──────
+//
+// `or=(name.ilike.*foo*,river_id.in.(uuid,uuid))` is parsed by PostgREST
+// itself, not by the driver, so every character with meaning in that grammar
+// has to be gone before the query reaches it. A comma splits one filter into
+// two; a paren closes the `in` list early; `*` and `%` are wildcards.
+
+test('escapeLike strips every character that means something to PostgREST', () => {
+  assert.equal(escapeLike('Cedar, Grove'), 'Cedar Grove', 'comma splits an or() filter');
+  assert.equal(escapeLike('Akers (Ferry)'), 'Akers Ferry', 'parens close an in() list');
+  assert.equal(escapeLike('a*b'), 'ab', 'star is the or() wildcard');
+  assert.equal(escapeLike('a%b_c'), 'abc', 'percent and underscore are SQL wildcards');
+  assert.equal(escapeLike('back\\slash'), 'backslash', 'backslash escapes the wildcards');
+});
+
+test('escapeLike leaves an ordinary place name alone', () => {
+  // Over-escaping is its own bug: these are real access point names.
+  assert.equal(escapeLike("Anna M. Adams"), 'Anna M. Adams');
+  assert.equal(escapeLike('Big Piney'), 'Big Piney');
+  assert.equal(escapeLike("Devil's Elbow"), "Devil's Elbow");
 });

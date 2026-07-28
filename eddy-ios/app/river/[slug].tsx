@@ -876,11 +876,11 @@ export default function RiverDetailScreen() {
                     accessibilityIgnoresInvertColors
                   />
                 ) : (
-                  <Ionicons
-                    name={point.isPublic ? 'location' : 'lock-closed-outline'}
-                    size={17}
-                    color={point.isPublic ? colors.interactive : colors.textSubtle}
-                  />
+                  // Eddy's mark, whether or not the point is public. A padlock
+                  // here swapped the brand out for a warning glyph on the one
+                  // row that most needs to look like a place you could go and
+                  // ask; `isPublic` is stated in the meta line below instead.
+                  <EddySymbol name="accessPoint" size={17} />
                 )}
                 <View style={styles.accessBody}>
                   <Text style={[styles.accessName, { color: colors.text }]}>{point.name}</Text>

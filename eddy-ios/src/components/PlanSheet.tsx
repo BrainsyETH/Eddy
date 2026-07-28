@@ -428,15 +428,14 @@ function AccessPointList({
             accessibilityRole="button"
             accessibilityState={{ selected }}
           >
-            {/* Eddy's pin for a public access point; the padlock stays an
-                Ionicon, because "you cannot get on here without permission" is
-                a different fact about the place rather than a prettier way of
-                drawing the same one, and the catalog has no mark for it. */}
-            {point.isPublic ? (
-              <EddySymbol name="accessPoint" size={17} />
-            ) : (
-              <Ionicons name="lock-closed-outline" size={17} color={colors.textSubtle} />
-            )}
+            {/* Eddy's pin, on every access point. The padlock that used to
+                stand in for a private one is gone: swapping the mark made
+                permission look like a different KIND of place rather than a
+                condition on this one, and it cost the row the brand at the same
+                time. "Private" is still on the meta line below, which is where a
+                caveat belongs — in words that can be read, not a glyph that has
+                to be decoded. */}
+            <EddySymbol name="accessPoint" size={17} />
             <View style={styles.optionBody}>
               <Text style={[styles.optionName, { color: colors.text }]} numberOfLines={1}>
                 {point.name}
