@@ -3,10 +3,11 @@
 
 Run from anywhere:  python3 eddy-ios/scripts/build-map-icons.py
 
-WHY THESE ARE GENERATED AND NOT DRAWN BY HAND: they are two-tone-free
+WHY THESE ARE GENERATED AND NOT DRAWN BY HAND: they are mostly two-tone-free
 silhouettes whose whole job is to be RECOLOURED at runtime — a gauge wears its
 condition, an access point wears its layer colour — so the shape and the colour
-cannot live in the same file. A hand-exported PNG would also have to be
+cannot live in the same file. The private-access lock is a separate white SDF
+laid over the recoloured pin. A hand-exported PNG would also have to be
 re-exported at every size we ever want.
 
 WHY SDF: Mapbox recolours an icon only when the image is registered with
@@ -146,6 +147,93 @@ def teardrop(width: int, point_up: bool) -> tuple[Image.Image, tuple[int, int]]:
     return mask, size
 
 
+def square_mask(size: int = 66) -> tuple[Image.Image, ImageDraw.ImageDraw]:
+    """A supersampled square canvas and its drawing context."""
+    mask = Image.new("L", (size * SS, size * SS), 0)
+    return mask, ImageDraw.Draw(mask)
+
+
+def hazard_triangle(size: int = 66) -> tuple[Image.Image, tuple[int, int]]:
+    """A broad warning triangle that remains distinct at 18–22pt."""
+    mask, draw = square_mask(size)
+    s = SS
+    draw.polygon([(33 * s, 4 * s), (62 * s, 58 * s), (4 * s, 58 * s)], fill=255)
+    # The two cut-outs make this read as warning, not merely direction.
+    draw.rounded_rectangle((30 * s, 21 * s, 36 * s, 41 * s), radius=2 * s, fill=0)
+    draw.ellipse((30 * s, 47 * s, 36 * s, 53 * s), fill=0)
+    return mask, (size, size)
+
+
+def tent(size: int = 66) -> tuple[Image.Image, tuple[int, int]]:
+    """A chunky tent with a negative-space doorway."""
+    mask, draw = square_mask(size)
+    s = SS
+    draw.polygon([(33 * s, 7 * s), (62 * s, 57 * s), (4 * s, 57 * s)], fill=255)
+    draw.polygon([(33 * s, 27 * s), (45 * s, 57 * s), (24 * s, 57 * s)], fill=0)
+    draw.rectangle((31 * s, 7 * s, 35 * s, 57 * s), fill=255)
+    return mask, (size, size)
+
+
+def canoe(size: int = 66) -> tuple[Image.Image, tuple[int, int]]:
+    """A compact open canoe with two seats."""
+    mask, draw = square_mask(size)
+    s = SS
+    draw.polygon([(3 * s, 18 * s), (63 * s, 18 * s), (55 * s, 50 * s), (11 * s, 50 * s)], fill=255)
+    # Open interior. The small bridges left across it are the seats and keep the
+    # silhouette from reading as a generic crescent.
+    draw.polygon([(13 * s, 26 * s), (53 * s, 26 * s), (49 * s, 34 * s), (17 * s, 34 * s)], fill=0)
+    draw.rectangle((22 * s, 24 * s, 27 * s, 37 * s), fill=255)
+    draw.rectangle((39 * s, 24 * s, 44 * s, 37 * s), fill=255)
+    return mask, (size, size)
+
+
+def dam(size: int = 66) -> tuple[Image.Image, tuple[int, int]]:
+    """A dam face with three unmistakable spillway slots."""
+    mask, draw = square_mask(size)
+    s = SS
+    draw.polygon([(7 * s, 15 * s), (59 * s, 15 * s), (54 * s, 55 * s), (12 * s, 55 * s)], fill=255)
+    draw.rectangle((4 * s, 10 * s, 62 * s, 19 * s), fill=255)
+    for left in (17, 30, 43):
+        draw.rounded_rectangle((left * s, 25 * s, (left + 6) * s, 50 * s), radius=3 * s, fill=0)
+    return mask, (size, size)
+
+
+def route_start(size: int = 54) -> tuple[Image.Image, tuple[int, int]]:
+    """A right-facing start/play marker for the float put-in."""
+    mask, draw = square_mask(size)
+    s = SS
+    draw.polygon([(10 * s, 6 * s), (48 * s, 27 * s), (10 * s, 48 * s)], fill=255)
+    return mask, (size, size)
+
+
+def route_finish(size: int = 54) -> tuple[Image.Image, tuple[int, int]]:
+    """A stop marker for the float take-out."""
+    mask, draw = square_mask(size)
+    s = SS
+    draw.rounded_rectangle((7 * s, 7 * s, 47 * s, 47 * s), radius=7 * s, fill=255)
+    return mask, (size, size)
+
+
+def private_lock(width: int = 66) -> tuple[Image.Image, tuple[int, int]]:
+    """White lock overlay aligned to the bulb of the bottom-anchored POI pin."""
+    _, size = teardrop(width, point_up=False)
+    mask = Image.new("L", (size[0] * SS, size[1] * SS), 0)
+    draw = ImageDraw.Draw(mask)
+    s = SS
+    draw.rounded_rectangle((23 * s, 29 * s, 43 * s, 46 * s), radius=3 * s, fill=255)
+    draw.arc((26 * s, 18 * s, 40 * s, 36 * s), start=180, end=360, fill=255, width=5 * s)
+    return mask, size
+
+
+def private_lock_center(size: int = 66) -> tuple[Image.Image, tuple[int, int]]:
+    """White lock overlay centred on a square category icon."""
+    mask, draw = square_mask(size)
+    s = SS
+    draw.rounded_rectangle((23 * s, 30 * s, 43 * s, 47 * s), radius=3 * s, fill=255)
+    draw.arc((26 * s, 19 * s, 40 * s, 37 * s), start=180, end=360, fill=255, width=5 * s)
+    return mask, (size, size)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
 
@@ -158,6 +246,19 @@ def main() -> None:
         # map-marker shape; anchored at its point so it indicates a spot rather
         # than covering one.
         "poi-pin": teardrop(66, point_up=False),
+        # Small, category-specific map marks. The richer Eddy illustrations stay
+        # in the layer sheet; these are deliberately simpler so they survive on
+        # a moving map at roughly 20pt.
+        "hazard-warning": hazard_triangle(),
+        "campground-tent": tent(),
+        "outfitter-canoe": canoe(),
+        "dam-spillway": dam(),
+        # Float endpoints communicate direction by shape as well as colour.
+        "route-start": route_start(),
+        "route-finish": route_finish(),
+        # Registered separately and painted white over private access pins.
+        "private-lock-pin": private_lock(),
+        "private-lock-center": private_lock_center(),
     }
 
     for name, (mask, size) in shapes.items():
@@ -170,7 +271,7 @@ def main() -> None:
         ))
         target = OUT / f"{name}.png"
         icon.save(target, optimize=True)
-        print(f"{name + '.png':16} {size[0]}x{size[1]}  {target.stat().st_size // 1024} KB")
+        print(f"{name + '.png':20} {size[0]}x{size[1]}  {target.stat().st_size // 1024} KB")
 
 
 if __name__ == "__main__":

@@ -449,8 +449,9 @@ export default function MapScreen() {
 
   const accessPointForPin = useCallback(
     (pin: MapPin | null): MapAccessPoint | null => {
-      if (!pin || pin.layer !== 'access') return null;
-      return accessPoints.find((p) => `access:${p.id}` === pin.id) ?? null;
+      if (!pin || !pin.id.startsWith('access:')) return null;
+      const accessId = pin.id.replace(/^access:/, '');
+      return accessPoints.find((p) => p.id === accessId) ?? null;
     },
     [accessPoints],
   );
@@ -847,6 +848,7 @@ export default function MapScreen() {
             planEndpoints={
               planner.plan ? { putIn: planner.plan.putIn, takeOut: planner.plan.takeOut } : null
             }
+            selectedPinId={selectedPin?.id ?? null}
             onSelectPin={setSelectedPin}
           />
         )}
