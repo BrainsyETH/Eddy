@@ -35,10 +35,13 @@ import {
   type StarKind,
 } from '@eddy/sync';
 import {
+  fetchStarredDams,
   fetchStarredGauges,
   fetchStarredRivers,
+  starDam,
   starGauge,
   starRiver,
+  unstarDam,
   unstarGauge,
   unstarRiver,
 } from '@/api/client';
@@ -160,14 +163,15 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       // endpoint, which is guaranteed to exist for as long as an App Store
       // review takes. Neither may be read as "the server has nothing", which
       // would re-push everything and prune every tombstone against an empty set.
-      const [riverServer, gaugeServer] = await Promise.all([
-        // Independently resilient: one kind failing must not cost the other its
-        // reconciliation, and neither failure may be read as "the server has
+      const [riverServer, gaugeServer, damServer] = await Promise.all([
+        // Independently resilient: one kind failing must not cost the others
+        // their reconciliation, and no failure may be read as "the server has
         // nothing" — which would re-push everything and prune every tombstone.
         fetchStarredRivers(token).catch(() => null),
         fetchStarredGauges(token),
+        fetchStarredDams(token),
       ]);
-      if (!riverServer && !gaugeServer) return;
+      if (!riverServer && !gaugeServer && !damServer) return;
 
       let merged = entriesRef.current;
       const settledIds: string[] = [];
@@ -191,6 +195,16 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
         await Promise.all([
           ...plan.toStar.map((id) => starGauge(token, id)),
           ...plan.toUnstar.map((id) => unstarGauge(token, id)),
+        ]);
+        merged = plan.merged;
+        settledIds.push(...plan.toUnstar);
+      }
+
+      if (damServer) {
+        const plan = mergeStars(merged, damServer, 'dam');
+        await Promise.all([
+          ...plan.toStar.map((id) => starDam(token, id)),
+          ...plan.toUnstar.map((id) => unstarDam(token, id)),
         ]);
         merged = plan.merged;
         settledIds.push(...plan.toUnstar);

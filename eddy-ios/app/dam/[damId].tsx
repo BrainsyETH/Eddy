@@ -39,6 +39,7 @@ import type { DamSnapshot } from '@eddy/types';
 import { fetchDam } from '@/api/client';
 import { DamStateCard } from '@/components/dam/DamStateCard';
 import { GenerationSchedule } from '@/components/dam/GenerationSchedule';
+import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -46,6 +47,7 @@ export default function DamDetailScreen() {
   const { damId } = useLocalSearchParams<{ damId: string }>();
   const router = useRouter();
   const { colors, elevation } = useTheme();
+  const { isStarred, toggleStar } = useStarredRivers();
 
   const [dam, setDam] = useState<DamSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,12 +114,45 @@ export default function DamDetailScreen() {
   const hasMetrics = Object.keys(dam.metrics).length > 0;
   const hasAnything = hasMetrics || dam.schedule.length > 0 || dam.generating !== null;
 
+  const starred = isStarred('dam', dam.id);
+
+  const onToggleStar = () => {
+    toggleStar({
+      kind: 'dam',
+      entityId: dam.id,
+      name: dam.name,
+      // The TAILWATER river, when this dam controls one — context for the
+      // favourites row, not a route. A dam opens its own screen off entityId.
+      slug: dam.tailwater?.riverSlug ?? '',
+    });
+  };
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.navRow}>
         <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.text} />
+        </Pressable>
+        {/* Same control, same place and same rules as the gauge screen's. A dam
+            is a thing you come back to — "is Table Rock generating this
+            weekend" is a question somebody asks every weekend — and until now
+            the only way back was to find it in search again.
+
+            Local-first and account-free, like every other star: see
+            useStarredRivers. The id is the USACE registry slug rather than a
+            uuid, which is why starred_dams carries no foreign key (00206). */}
+        <Pressable
+          onPress={onToggleStar}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={starred ? `Unstar ${dam.name}` : `Star ${dam.name}`}
+        >
+          <Ionicons
+            name={starred ? 'star' : 'star-outline'}
+            size={24}
+            color={starred ? colors.warm : colors.textSubtle}
+          />
         </Pressable>
       </View>
 
@@ -165,6 +200,48 @@ export default function DamDetailScreen() {
             >
               <Text style={[styles.actionText, { color: colors.onAccent }]}>
                 Open the river below this dam
+              </Text>
+            </Pressable>
+          ) : null}
+
+          {/* ── Tell me when it changes ──
+              Only where a TAILWATER STATION exists, which today means
+              Clearwater alone. That is not a placeholder for the other nine: a
+              release is only alertable because migration 00198 registered it as
+              a gauge station, so it flows through ingestion, threshold banding
+              and the alert evaluator like any other discharge. The dams without
+              one publish to CWMS and SWPA and to nothing this app can watch, so
+              they get no bell rather than a bell that cannot fire.
+
+              Routed at the GAUGE scope, not a dam scope — there is no such
+              scope, and inventing one would mean a second evaluator for a
+              number the existing one already reads. The configure screen opens
+              on "My own level" of its own accord: 00198 leaves the ladder
+              levels NULL on purpose, because calibrating a floatability ladder
+              for a dam release is a safety judgement Eddy would be held to, and
+              the screen now tests for levels rather than for the row. */}
+          {dam.tailwater?.gaugeSiteId ? (
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/alerts/configure',
+                  params: {
+                    scope: 'gauge',
+                    siteId: dam.tailwater!.gaugeSiteId,
+                    gaugeName: `${dam.name} release`,
+                  },
+                })
+              }
+              style={({ pressed }) => [
+                styles.sourceButton,
+                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Set a release alert for ${dam.name}`}
+            >
+              <Ionicons name="notifications-outline" size={16} color={colors.text} />
+              <Text style={[styles.sourceText, { color: colors.text }]}>
+                Alert me about the release
               </Text>
             </Pressable>
           ) : null}
@@ -220,10 +297,15 @@ const styles = StyleSheet.create({
   action: { paddingVertical: 13, borderRadius: 14, alignItems: 'center' },
   actionText: { ...t.base, fontFamily: fonts.semibold },
   sourceButton: {
+    // A row, so a button can carry a leading icon. With a single Text child
+    // this renders identically to the centred column it replaced.
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
     paddingVertical: 12,
     borderRadius: 14,
     borderWidth: 1,
-    alignItems: 'center',
   },
   sourceText: { ...t.sm, fontFamily: fonts.medium },
   sources: { ...t.xs, paddingHorizontal: 20, marginTop: 14 },

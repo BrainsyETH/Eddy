@@ -310,11 +310,20 @@ function progressAlong(coords: number[][]): number[] {
   const out = [0];
   let total = 0;
   for (let i = 1; i < coords.length; i++) {
-    const dx = coords[i][0] - coords[i - 1][0];
-    // Longitude degrees are shorter than latitude ones this far north; the
-    // cosine keeps a river's east-west legs from counting for more than they
-    // are. Planar is fine — this is a position along one line, not a distance.
-    const dy = (coords[i][1] - coords[i - 1][1]) / Math.cos((coords[i][1] * Math.PI) / 180);
+    // Longitude degrees are SHORTER than latitude ones this far north, so the
+    // east-west delta is the one scaled DOWN, by the cosine of the latitude it
+    // is measured at. This used to divide the latitude delta by that cosine
+    // instead, which stretched north-south legs — the opposite correction, from
+    // a comment describing the right one.
+    //
+    // Small either way: over Missouri's 36–40°N the cosine only moves between
+    // 0.81 and 0.77, and a constant factor would cancel in the normalisation
+    // below. It does not cancel, because the factor is taken per vertex.
+    //
+    // Planar is fine — this is a position along one line, not a distance.
+    const dx =
+      (coords[i][0] - coords[i - 1][0]) * Math.cos((coords[i][1] * Math.PI) / 180);
+    const dy = coords[i][1] - coords[i - 1][1];
     total += Math.hypot(dx, dy);
     out.push(total);
   }

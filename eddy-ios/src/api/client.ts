@@ -42,6 +42,7 @@ import type {
   SearchResult,
   SearchResultKind,
   ServicesResponse,
+  StarredDamsResponse,
   StarredGaugesResponse,
   StarredRiversResponse,
   AlertSubscriptionEntry,
@@ -183,6 +184,51 @@ export async function fetchStarredGauges(
     // exist yet must not be able to break one that does.
     return null;
   }
+}
+
+/**
+ * The caller's starred dams. Null when the session is not usable — OR when the
+ * backend does not have this endpoint yet.
+ *
+ * Same posture as fetchStarredGauges, for the same reason: the app ships
+ * through App Store review and the server does not, so a build that knows about
+ * dam stars will meet a deploy that does not. Returning null rather than []
+ * matters — @eddy/sync reads an empty array as "the server has nothing", which
+ * would prune every dam tombstone and re-push every dam star as if it were new.
+ */
+export async function fetchStarredDams(
+  token: string,
+  signal?: AbortSignal,
+): Promise<ServerStar[] | null> {
+  try {
+    const data = await authed<StarredDamsResponse>('/api/me/starred-dams', token, { signal });
+    if (!data) return null;
+    return data.starred.map((entry) => ({
+      kind: 'dam' as const,
+      entityId: entry.damId,
+      name: entry.damName,
+      // The tailwater river, when there is one. A dam opens its OWN screen —
+      // this is context, not a route.
+      slug: entry.riverSlug ?? '',
+      starredAt: entry.starredAt,
+    }));
+  } catch {
+    // ANY failure is null, not just a 404: the table arrives in a migration,
+    // and if the app deploys first the route answers 500 rather than 404 —
+    // which, thrown, would reject the Promise.all in sync() and abort the river
+    // and gauge reconciliations too.
+    return null;
+  }
+}
+
+export async function starDam(token: string, damId: string): Promise<void> {
+  await authed('/api/me/starred-dams', token, { method: 'POST', body: { damId } });
+}
+
+export async function unstarDam(token: string, damId: string): Promise<void> {
+  await authed(`/api/me/starred-dams?damId=${encodeURIComponent(damId)}`, token, {
+    method: 'DELETE',
+  });
 }
 
 export async function starRiver(token: string, riverId: string): Promise<void> {

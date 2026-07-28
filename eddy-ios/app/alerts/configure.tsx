@@ -49,6 +49,7 @@ import {
   type AlertMetric,
   type AlertRuleMode,
   type AlertSubscriptionKind,
+  type GaugeDetailThreshold,
 } from '@eddy/types';
 import { ApiError, createGaugeAlert, fetchCondition, fetchGaugeDetail, subscribeToRiver } from '@/api/client';
 import { AlertSignInSheet } from '@/components/AlertSignInSheet';
@@ -76,6 +77,32 @@ interface Context {
   ladderUnit: 'ft' | 'cfs' | null;
   /** False for a national-tier station: hourly refresh, so a slower alert. */
   curated: boolean;
+}
+
+/**
+ * Whether a threshold link carries an actual ladder, as against merely existing.
+ *
+ * A `river_gauges` row can have every level NULL and still be a correct,
+ * intentional row — migration 00198 wires Clearwater Dam's release to the Black
+ * exactly that way, on the stated grounds that calibrating a floatability
+ * ladder for a dam release is a safety judgement Eddy would be held to. The
+ * flood stage is deliberately NOT counted: it is the NWS's number, quoted, and
+ * it drives a warning rather than the condition ladder this gates.
+ *
+ * Any one level is enough. A partial ladder still produces a verdict — the
+ * classifier reads whichever bands are set — and demanding all six would hide
+ * Eddy's call on water it genuinely does grade.
+ */
+function hasLadderLevels(link: GaugeDetailThreshold | null): boolean {
+  if (!link) return false;
+  return [
+    link.levelTooLow,
+    link.levelLow,
+    link.levelOptimalMin,
+    link.levelOptimalMax,
+    link.levelHigh,
+    link.levelDangerous,
+  ].some((level) => level != null);
 }
 
 const COMPARATORS: { value: AlertComparator; label: string }[] = [
@@ -141,7 +168,16 @@ export default function ConfigureAlertScreen() {
             gaugeStationId: gauge?.id ?? params.gaugeId ?? null,
             gaugeHeightFt: gauge?.gaugeHeightFt ?? null,
             dischargeCfs: gauge?.dischargeCfs ?? null,
-            rated: Boolean(link),
+            // A LADDER WITH LEVELS IN IT, not merely a row.
+            //
+            // A river_gauges link can exist with every level NULL, and that is
+            // a deliberate state rather than incomplete data — migration 00198
+            // wires Clearwater Dam's release to the Black that way, because
+            // calibrating a floatability ladder for a dam release is a safety
+            // judgement Eddy would be held to. `Boolean(link)` called those
+            // stations rated, offered "Eddy's call", and let someone fill in a
+            // form the server answers with 422 no_ladder on save.
+            rated: hasLadderLevels(link),
             ladderUnit: link?.thresholdUnit ?? null,
             curated: gauge?.curated ?? false,
           });

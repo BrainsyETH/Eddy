@@ -18,7 +18,23 @@ import type { DamSnapshot } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
-function DamRowComponent({ dam, onPress }: { dam: DamSnapshot; onPress: () => void }) {
+function DamRowComponent({
+  dam,
+  onPress,
+  starred = false,
+  onToggleStar,
+}: {
+  dam: DamSnapshot;
+  onPress: () => void;
+  starred?: boolean;
+  /**
+   * Omit to render no star at all.
+   *
+   * Absent rather than disabled where a list cannot star — the same rule the
+   * map callout follows. A control that does nothing is worse than no control.
+   */
+  onToggleStar?: () => void;
+}) {
   const { colors } = useTheme();
   const release = dam.metrics.release;
 
@@ -70,6 +86,25 @@ function DamRowComponent({ dam, onPress }: { dam: DamSnapshot; onPress: () => vo
           </Text>
         ) : null}
       </View>
+
+      {/* Its OWN column, beside the state rather than inside it. The star
+          belongs to the dam; the chip and the release describe what the dam is
+          doing right now, and stacking the two would tie a standing choice to a
+          reading that changes every fifteen minutes. Same shape RiverRow uses. */}
+      {onToggleStar ? (
+        <Pressable
+          onPress={onToggleStar}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={starred ? `Unstar ${dam.name}` : `Star ${dam.name}`}
+        >
+          <Ionicons
+            name={starred ? 'star' : 'star-outline'}
+            size={19}
+            color={starred ? colors.warm : colors.textSubtle}
+          />
+        </Pressable>
+      ) : null}
     </Pressable>
   );
 }

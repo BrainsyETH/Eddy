@@ -1138,7 +1138,19 @@ export default function ReportsScreen() {
 
           if (item.kind === 'dam') {
             return (
-              <DamRow dam={item.dam} onPress={() => router.push(`/dam/${item.dam.id}`)} />
+              <DamRow
+                dam={item.dam}
+                onPress={() => router.push(`/dam/${item.dam.id}`)}
+                starred={isStarred('dam', item.dam.id)}
+                onToggleStar={() =>
+                  toggleStar({
+                    kind: 'dam',
+                    entityId: item.dam.id,
+                    name: item.dam.name,
+                    slug: item.dam.tailwater?.riverSlug ?? '',
+                  })
+                }
+              />
             );
           }
 

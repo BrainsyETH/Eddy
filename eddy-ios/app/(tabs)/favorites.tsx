@@ -36,13 +36,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import type { MapGauge, RiverListItem } from '@eddy/types';
-import { fetchGauges, fetchRivers } from '@/api/client';
+import type { DamSnapshot, MapGauge, RiverListItem } from '@eddy/types';
+import { fetchDams, fetchGauges, fetchRivers } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { FavoriteRiverCard, type GaugeThresholds } from '@/components/FavoriteRiverCard';
 import { GaugeRow } from '@/components/GaugeRow';
+import { DamRow } from '@/components/dam/DamRow';
 import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
@@ -89,6 +90,9 @@ export default function FavoritesScreen() {
 
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [gauges, setGauges] = useState<MapGauge[] | null>(null);
+  // Not nullable, unlike the two above: fetchDams already resolves to [] on
+  // failure, so there is no "not yet loaded" state to distinguish.
+  const [dams, setDams] = useState<DamSnapshot[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   // Errors are swallowed on purpose. A failed enrichment must not produce an
@@ -102,6 +106,12 @@ export default function FavoritesScreen() {
         .catch(() => {}),
       fetchGauges(signal)
         .then(setGauges)
+        .catch(() => {}),
+      // A third enrichment, on the same terms as the other two: the store holds
+      // a dam's slug and name, and this supplies what it is doing right now.
+      // Failing is fine — the row still renders from the store.
+      fetchDams(signal)
+        .then(setDams)
         .catch(() => {}),
     ]);
   }, []);
@@ -126,15 +136,18 @@ export default function FavoritesScreen() {
     () => new Map((gauges ?? []).map((gauge) => [gauge.id, gauge])),
     [gauges],
   );
+  const damById = useMemo(() => new Map(dams.map((dam) => [dam.id, dam])), [dams]);
 
   // "3 rivers · 1 gauge", and never a kind with a zero — a mixed list should
   // describe what is in it, not enumerate what is not.
   const favoritesSummary = useMemo(() => {
     const riverCount = starred.filter((s) => s.kind === 'river').length;
-    const gaugeCount = starred.length - riverCount;
+    const gaugeCount = starred.filter((s) => s.kind === 'gauge').length;
+    const damCount = starred.filter((s) => s.kind === 'dam').length;
     return [
       riverCount > 0 ? `${riverCount} river${riverCount === 1 ? '' : 's'}` : null,
       gaugeCount > 0 ? `${gaugeCount} gauge${gaugeCount === 1 ? '' : 's'}` : null,
+      damCount > 0 ? `${damCount} dam${damCount === 1 ? '' : 's'}` : null,
     ]
       .filter(Boolean)
       .join(' · ');
@@ -199,6 +212,51 @@ export default function FavoritesScreen() {
           ) : null
         }
         renderItem={({ item }) => {
+          if (item.kind === 'dam') {
+            const dam = damById.get(item.entityId);
+            // No snapshot yet — offline, or /api/dams has not landed. The row
+            // needs one to say anything about generation or release, so the
+            // store's name and lake stand in until it does rather than the row
+            // disappearing from a list the user curated.
+            if (!dam) {
+              // The same store-only fallback the river branch ends with, and
+              // for the same reason: named, tappable, honest about what is
+              // missing. A dam that only exists in the store still opens.
+              return (
+                <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>
+                  <Pressable
+                    onPress={() => router.push(`/dam/${item.entityId}`)}
+                    style={({ pressed }) => [styles.rowBody, { opacity: pressed ? 0.6 : 1 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.name} details, conditions unavailable`}
+                  >
+                    <Text style={[styles.riverName, { color: colors.text }]}>{item.name}</Text>
+                    <Text style={[styles.riverMeta, { color: colors.textSubtle }]}>
+                      Conditions unavailable — pull to refresh
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => toggleStar(item)}
+                    style={({ pressed }) => [styles.starColumn, { opacity: pressed ? 0.5 : 1 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Unstar ${item.name}`}
+                  >
+                    <Ionicons name="star" size={21} color={colors.warm} />
+                  </Pressable>
+                </View>
+              );
+            }
+            return (
+              <DamRow
+                dam={dam}
+                onPress={() => router.push(`/dam/${dam.id}`)}
+                // Everything in this list is starred; the row is what unstars it.
+                starred
+                onToggleStar={() => toggleStar(item)}
+              />
+            );
+          }
+
           if (item.kind === 'gauge') {
             const gauge = gaugeById.get(item.entityId) ?? null;
             // The gauge's own primary association names the river, so this does
