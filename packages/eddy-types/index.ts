@@ -256,6 +256,176 @@ export function accessTypeLabel(type: string): string {
   return ACCESS_POINT_TYPE_LABELS[type as AccessPointType] ?? type.replace(/_/g, ' ');
 }
 
+// ── One access point (GET /api/rivers/[slug]/access/[accessSlug]) ────────────
+// Everything the website's access page renders, which is a great deal more than
+// MapAccessPoint holds.
+//
+// MapAccessPoint is deliberately a SUBSET — "the fields the map needs, and only
+// those" — because it arrives several hundred at a time and most of it would be
+// thrown away. This is the opposite case: one place, fetched because somebody
+// tapped it, and the questions they have standing in a driveway with a boat on
+// the roof are exactly the ones the extra fields answer. Can I get down there in
+// a two-wheel-drive. Is there room to park. Is there a toilet. Who do I call for
+// a shuttle. How far to the next take-out.
+//
+// A SECOND type rather than optional fields on the first, so nothing can render
+// a list row expecting detail that the list endpoint never sends.
+
+export type RoadSurface =
+  | 'paved'
+  | 'gravel_maintained'
+  | 'gravel_unmaintained'
+  | 'dirt'
+  | 'seasonal'
+  | '4wd_required';
+
+export type ManagingAgency =
+  | 'MDC'
+  | 'NPS'
+  | 'USFS'
+  | 'COE'
+  | 'State Park'
+  | 'County'
+  | 'Municipal'
+  | 'Private';
+
+/**
+ * Free text on the wire, not a number: the column stores buckets ('roadside',
+ * 'limited', '50+') alongside plain counts, and coercing '50+' to 50 would state
+ * something the data does not.
+ */
+export type ParkingCapacity =
+  | '5' | '10' | '15' | '20' | '25' | '30' | '50+'
+  | 'roadside' | 'limited' | 'unknown';
+
+export type NearbyServiceType =
+  | 'outfitter'
+  | 'campground'
+  | 'canoe_rental'
+  | 'shuttle'
+  | 'lodging';
+
+/**
+ * An outfitter or shuttle attached to THIS access point.
+ *
+ * A different shape from RiverService, and not a duplicate of it: that one is a
+ * geocoded row in the services directory for a whole river, and this is a hand-
+ * curated note on one put-in ("2 mi", "weekends only after Labor Day"). Every
+ * field but name and type is optional because most entries carry two of them.
+ */
+export interface NearbyService {
+  name: string;
+  type: NearbyServiceType;
+  phone?: string;
+  website?: string;
+  /** Pre-composed distance text — "2 mi". Never a number to do maths on. */
+  distance?: string;
+  notes?: string;
+}
+
+/**
+ * The reading at the gauge that governs this access point.
+ *
+ * Pre-graded by the server, unlike everywhere else in this file where the app
+ * classifies a reading itself against a ladder it was sent. That is fine here
+ * because this shape carries no ladder to classify against — and it means the
+ * access page and the river page cannot disagree about the same water.
+ */
+export interface AccessPointGaugeStatus {
+  level: ConditionCode;
+  cfs: number | null;
+  heightFt: number | null;
+  label: string;
+  trend: 'rising' | 'falling' | 'steady' | null;
+  lastUpdated: string | null;
+  gaugeId: string;
+  gaugeName: string;
+  /** The site id — what /api/gauges/[siteId] and its history key off. */
+  usgsId: string;
+}
+
+/** A neighbouring put-in, for "what's the next take-out from here". */
+export interface NearbyAccessPoint {
+  id: string;
+  name: string;
+  slug: string;
+  direction: 'upstream' | 'downstream';
+  distanceMiles: number;
+  /** Pre-composed — "~1.5 hr". Null when the stretch has no float estimate. */
+  estimatedFloatTime: string | null;
+  riverMile: number;
+}
+
+/**
+ * NPS campground enrichment, narrowed hard.
+ *
+ * The web type carries operating hours, weather overviews, credits on every
+ * photo and eight separate site-count columns for a desktop table. A phone
+ * screen wants to know whether you can book it and roughly how big it is, so
+ * that is what crosses the wire here.
+ */
+export interface NpsCampgroundSummary {
+  name: string;
+  npsUrl: string | null;
+  reservationInfo: string | null;
+  reservationUrl: string | null;
+  totalSites: number;
+  sitesReservable: number;
+  sitesFirstCome: number;
+}
+
+export interface AccessPointDetail {
+  id: string;
+  riverId: string;
+  name: string;
+  slug: string;
+  riverMile: number;
+  type: AccessPointType;
+  types: AccessPointType[];
+  isPublic: boolean;
+  ownership: string | null;
+  description: string | null;
+  amenities: string[];
+  parkingInfo: string | null;
+  roadAccess: string | null;
+  facilities: string | null;
+  feeRequired: boolean;
+  feeNotes: string | null;
+  imageUrls: string[];
+  coordinates: { lng: number; lat: number };
+  roadSurface: RoadSurface[];
+  parkingCapacity: ParkingCapacity | null;
+  managingAgency: ManagingAgency | null;
+  officialSiteUrl: string | null;
+  /**
+   * HTML from the admin's rich-text editor, NOT plain text.
+   *
+   * There is no HTML renderer in the app and adding one for a single field is
+   * not worth a dependency, so consumers strip it — see stripHtml in
+   * src/lib/accessCopy.ts. Never put this in a <Text> as-is.
+   */
+  localTips: string | null;
+  nearbyServices: NearbyService[];
+  /**
+   * Where to actually DRIVE, when it differs from where the boat goes in.
+   *
+   * A gravel bar's coordinate is on the water; the parking area can be a
+   * quarter mile up a track. Directions must prefer these and fall back to
+   * `coordinates` — see driveToUrl.
+   */
+  drivingLat: number | null;
+  drivingLng: number | null;
+  river: { id: string; name: string; slug: string };
+  npsCampground: NpsCampgroundSummary | null;
+}
+
+export interface AccessPointDetailResponse {
+  accessPoint: AccessPointDetail;
+  nearbyAccessPoints: NearbyAccessPoint[];
+  /** Null when the river has no gauge, or when its reading failed to load. */
+  gaugeStatus: AccessPointGaugeStatus | null;
+}
+
 // ── Live conditions (GET /api/conditions/[riverId]) ──────────────
 // Mirrors the web app's RiverCondition, narrowed to the fields a phone shows.
 
@@ -474,6 +644,113 @@ export function hasCoordinates(point: { coordinates: { lng: number; lat: number 
   return Number.isFinite(lng) && Number.isFinite(lat) && (lng !== 0 || lat !== 0);
 }
 
+// ── One gauge (GET /api/gauges/[siteId]) ─────────────────────────────────────
+// The gauge screen's own endpoint, and the only one that answers for BOTH tiers.
+//
+// /api/gauges is curated-only (it has to be — see its header on the 414 it took
+// when it was not) and /api/gauges/map is bounded by a viewport. The gauge
+// screen is reached from a callout, a starred row, a search result and a deep
+// link, and in most of those the station is a national one that neither list
+// has ever returned. Asking for a 300-gauge viewport to render one station is
+// the shape that was worth a route.
+//
+// It is a THIRD gauge type rather than a widened MapGauge, for the same reason
+// MapGaugeLite is a second one: the two tiers are graded by different code and
+// must not be confusable. This one spans both, so it carries `curated` and a
+// nullable ladder, and a consumer has to branch on those rather than on which
+// endpoint the object came from.
+
+export interface GaugeDetailThreshold {
+  riverId: string;
+  riverName: string;
+  riverSlug: string | null;
+  isPrimary: boolean;
+  thresholdUnit: 'ft' | 'cfs';
+  levelTooLow: number | null;
+  levelLow: number | null;
+  levelOptimalMin: number | null;
+  levelOptimalMax: number | null;
+  levelHigh: number | null;
+  levelDangerous: number | null;
+  /** NWS flood stage in feet. Outranks the ladder above when reached. */
+  floodStageFt: number | null;
+}
+
+export interface GaugeDetail {
+  /** gauge_stations.id — the key stars are stored under. */
+  id: string;
+  /** The provider-native site id, and what every per-gauge route keys off. */
+  siteId: string;
+  name: string;
+  /** Registry id from the backend's flow-provider registry; 'usgs' by default. */
+  provider: string;
+  /**
+   * Eddy rates this station against at least one river.
+   *
+   * THE BRANCH. A curated gauge gets a condition verdict from the ladder below;
+   * an uncurated one gets a flow band, which is a comparison to its own history
+   * and never a verdict. Nothing may grade one as the other.
+   */
+  curated: boolean;
+  coordinates: { lng: number; lat: number };
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  readingTimestamp: string | null;
+  readingAgeHours: number | null;
+  readingSuspect: boolean;
+  qualifierNote: string | null;
+  /** 0-100 vs this site's own day-of-year history; null when none is held. */
+  flowPercentile: number | null;
+  /**
+   * Null — not an empty array — for a station Eddy has not rated, so "no ladder
+   * exists" is distinguishable from "the ladder came back empty". Primary
+   * association first, so `[0]` is the river the app should open.
+   */
+  thresholds: GaugeDetailThreshold[] | null;
+  /** The station's own public page, or null for a provider without one. */
+  publicUrl: string | null;
+}
+
+export interface GaugeDetailResponse {
+  gauge: GaugeDetail;
+}
+
+// ── Gauge history (GET /api/gauges/[siteId]/history?days=) ───────────────────
+// The hydrograph behind the chart. Served from stored readings, falling back to
+// the live provider when what is stored is sparse OR stale — which is the
+// ordinary case for every station the cron no longer polls, i.e. all ~14,000
+// national ones. Works for any station, both tiers.
+//
+// Downsampled server-side to roughly one point per hour, so a 30-day request is
+// ~720 points rather than ~2,900. Nothing here should re-sample it.
+
+export interface GaugeHistoryReading {
+  timestamp: string;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+}
+
+export interface GaugeHistoryResponse {
+  siteId: string;
+  siteName: string;
+  /** Oldest first. Can be empty; the endpoint 404s only when it has nothing. */
+  readings: GaugeHistoryReading[];
+  /**
+   * Extremes over the returned window, per unit.
+   *
+   * Null when the station publishes nothing in that unit — which is why the
+   * chart must pick its axis from the unit it is DRAWING rather than assuming
+   * both are present. A stage-only station has null discharge bounds and vice
+   * versa, and there are plenty of each.
+   */
+  stats: {
+    minDischarge: number | null;
+    maxDischarge: number | null;
+    minHeight: number | null;
+    maxHeight: number | null;
+  };
+}
+
 // ── Services (GET /api/rivers/[slug]/services) ───────────────────
 // Outfitters, campgrounds, shuttles and lodging near a river. Narrowed hard:
 // the web response carries booking platforms, fee ranges and NPS site counts
@@ -615,6 +892,30 @@ export interface CampgroundsResponse {
 
 export type SearchResultKind = 'river' | 'gauge' | 'access_point';
 
+/**
+ * The live reading a gauge result carries.
+ *
+ * NESTED, and present only on `gauge` rows. A river result has a condition that
+ * means something else entirely and an access point has no reading at all, so
+ * six nullable columns at the top of SearchResult would invite exactly the
+ * confusion between a VERDICT and a COMPARISON that the two filter bars are
+ * built to keep visible.
+ *
+ * OPTIONAL on the wire. Older deployments of the website answer /api/search
+ * without it, and the Search tab has to render those rows rather than treat a
+ * missing field as an error — same posture the whole endpoint already takes.
+ */
+export interface SearchResultGauge {
+  /** Eddy rates this station against a river; it has a condition ladder. */
+  curated: boolean;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  readingTimestamp: string | null;
+  readingAgeHours: number | null;
+  /** 0-100 vs this site's own day-of-year history; null when none is held. */
+  flowPercentile: number | null;
+}
+
 export interface SearchResult {
   kind: SearchResultKind;
   id: string;
@@ -626,6 +927,17 @@ export interface SearchResult {
   riverSlug: string | null;
   riverMile: number | null;
   coordinates: { lng: number; lat: number } | null;
+  /**
+   * The station's provider-native site id. Gauge results only.
+   *
+   * REQUIRED to open one: every per-gauge route keys off this, not off `id`,
+   * which is the gauge_stations uuid. Optional here because it is a later
+   * addition to the endpoint — a result without one cannot be navigated to and
+   * the client must fall back to selecting it rather than pushing a screen.
+   */
+  siteId?: string | null;
+  /** Gauge results only; null when the station has no stored reading. */
+  gauge?: SearchResultGauge | null;
 }
 
 export interface SearchResponse {
