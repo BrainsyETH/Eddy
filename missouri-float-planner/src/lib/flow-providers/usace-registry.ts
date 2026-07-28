@@ -17,12 +17,17 @@
 // SWPA schedule entries. Code must read an absent metric as "this dam does not
 // have one" — never as an outage, and never render it as 0 or an em-dash.
 //
-// SCALING NOTE: enumerating ids by hand is right for ten dams and wrong for a
-// hundred. Districts name the same concept six different ways (see
-// docs/WATER_REGIMES_STRATEGY.md), so national coverage should move to a
-// catalog-driven resolver — ranked candidate patterns per metric, query
-// /catalog/TIMESERIES, take the freshest match, cache the resolution. That also
-// self-heals renames, which this file can only fail on.
+// SCALING: enumerating ids by hand is right for ten dams and wrong for a
+// hundred, so src/lib/usace/resolve.ts discovers them from the CWMS catalog
+// instead. A dam needs only `office` + `cdaLocation` to work — verified
+// against Nimrod_Dam, which is not in this file and still resolves six live
+// metrics.
+//
+// The explicit ids below are kept and still WIN, because they were confirmed
+// against the API and a resolver that silently picks the wrong series is worse
+// than a hardcoded one that 404s loudly. The resolver fills gaps; it does not
+// override. Recovering automatically from a RENAMED series (rather than just a
+// missing one) is the remaining half of that idea and is not built yet.
 
 export type UsaceOffice = 'SWL' | 'MVS';
 

@@ -30,6 +30,7 @@ import {
   idleWindows,
   type ProjectSchedule,
 } from '@/lib/usace/swpa';
+import { resolveSeries, type ResolvedSeries } from '@/lib/usace/resolve';
 import {
   USACE_DAMS,
   getUsaceDam,
@@ -113,12 +114,53 @@ async function mapWithConcurrency<T, R>(
   return out;
 }
 
+/**
+ * The series to use for each wanted metric: the registry's verified id when it
+ * has one, otherwise whatever the catalog resolver discovers.
+ *
+ * Hand-written ids always win. They were confirmed live, and a resolver that
+ * silently picks the WRONG series is worse than a hardcoded one that 404s
+ * loudly. The resolver's job is the case the registry cannot cover — a dam
+ * with no entries yet — so a new project needs only an office and a CWMS
+ * location, not a transcription of eight timeseries ids.
+ */
+async function seriesFor(
+  dam: UsaceDam,
+  metrics: UsaceMetric[]
+): Promise<Partial<Record<UsaceMetric, { tsId: string; unit: string; lookbackHours?: number; dailyMean?: boolean }>>> {
+  const out: Partial<Record<UsaceMetric, { tsId: string; unit: string; lookbackHours?: number; dailyMean?: boolean }>> = {};
+  const unresolved: UsaceMetric[] = [];
+
+  for (const metric of metrics) {
+    const declared = dam.series[metric];
+    if (declared) out[metric] = declared;
+    else unresolved.push(metric);
+  }
+
+  if (unresolved.length === 0 || !dam.office || !dam.cdaLocation) return out;
+
+  const discovered: Partial<Record<UsaceMetric, ResolvedSeries>> = await resolveSeries(
+    dam.office,
+    dam.cdaLocation,
+    unresolved
+  ).catch(() => ({}));
+  for (const [metric, hit] of Object.entries(discovered)) {
+    if (!hit) continue;
+    console.info(`[USACE] resolved ${dam.id}.${metric} -> ${hit.tsId} (${hit.reason})`);
+    out[metric as UsaceMetric] = { tsId: hit.tsId, unit: hit.unit };
+  }
+  return out;
+}
+
 async function readMetrics(dam: UsaceDam): Promise<Partial<Record<UsaceMetric, DamMetricValue>>> {
-  const wanted = SNAPSHOT_METRICS.filter((m) => dam.series[m]);
-  if (wanted.length === 0 || !dam.office) return {};
+  if (!dam.office || !dam.cdaLocation) return {};
+
+  const resolved = await seriesFor(dam, SNAPSHOT_METRICS);
+  const wanted = SNAPSHOT_METRICS.filter((m) => resolved[m]);
+  if (wanted.length === 0) return {};
 
   const results = await mapWithConcurrency(wanted, FETCH_CONCURRENCY, async (metric) => {
-    const series = dam.series[metric]!;
+    const series = resolved[metric]!;
     const point = await fetchLatestValue(
       dam.office!,
       series.tsId,
