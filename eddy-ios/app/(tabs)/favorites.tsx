@@ -43,6 +43,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { FavoriteRiverCard, type GaugeThresholds } from '@/components/FavoriteRiverCard';
 import { GaugeRow } from '@/components/GaugeRow';
+import { rememberGauge, seedFromMapGauge } from '@/lib/gaugeSeed';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { useRouter } from 'expo-router';
@@ -214,9 +215,41 @@ export default function FavoritesScreen() {
                 gauge={gauge}
                 // Everything in this list is starred; the row is what unstars it.
                 starred
-                // Only when it actually rates a river. A gauge that rates none
-                // has nowhere honest to go, and a dead tap is worse than none.
-                onPress={item.slug ? () => router.push(`/river/${item.slug}`) : null}
+                // THE GAUGE, not its river. This used to require `item.slug`
+                // and open the river screen, which meant a starred station that
+                // rates nothing was a dead row — and one that does rate a river
+                // sent you to a page about whichever station is that river's
+                // PRIMARY, which is frequently not the one you starred.
+                //
+                // The seed comes from the store rather than the gauge list, so
+                // a starred national station opens with its name on screen even
+                // though /api/gauges has never returned it.
+                onPress={
+                  item.usgsSiteId
+                    ? () => {
+                        rememberGauge(
+                          gauge
+                            ? seedFromMapGauge(gauge)
+                            : {
+                                id: item.entityId,
+                                siteId: item.usgsSiteId!,
+                                name: item.name,
+                                curated: false,
+                                coordinates: null,
+                                gaugeHeightFt: null,
+                                dischargeCfs: null,
+                                readingTimestamp: null,
+                                readingAgeHours: null,
+                                readingSuspect: false,
+                                qualifierNote: null,
+                                flowPercentile: null,
+                                thresholds: null,
+                              },
+                        );
+                        router.push(`/gauge/${encodeURIComponent(item.usgsSiteId!)}`);
+                      }
+                    : null
+                }
                 onToggleStar={() => toggleStar(item)}
               />
             );

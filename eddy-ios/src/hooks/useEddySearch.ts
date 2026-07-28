@@ -97,6 +97,24 @@ function localMatches(
         riverSlug: link?.riverSlug ?? null,
         riverMile: null,
         coordinates: g.coordinates,
+        // The SAME fields the server sends on a gauge row, so a local hit and
+        // a remote one are one shape and every consumer can read either without
+        // asking which half answered. Without these a local hit would be the
+        // only row in the list that could not be opened — the gauge screen keys
+        // off siteId — which would make the fast path the broken one.
+        siteId: g.usgsSiteId,
+        gauge: {
+          // Everything in /api/gauges is rated by definition; that endpoint has
+          // been curated-only since the national tier got its own route.
+          curated: true,
+          gaugeHeightFt: g.gaugeHeightFt,
+          dischargeCfs: g.dischargeCfs,
+          readingTimestamp: g.readingTimestamp,
+          readingAgeHours: g.readingAgeHours,
+          // Not on the wire for a curated gauge — /api/gauges answers with the
+          // ladder instead, which is the stronger statement.
+          flowPercentile: null,
+        },
       };
     });
 

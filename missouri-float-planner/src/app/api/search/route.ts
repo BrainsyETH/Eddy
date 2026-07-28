@@ -79,6 +79,15 @@ export interface SearchResult {
   siteId?: string | null;
   /** Gauge results only; null when the station has no stored reading. */
   gauge?: SearchResultGauge | null;
+  /**
+   * The access point's own slug. Access-point results only.
+   *
+   * Same omission `siteId` had: the column was already selected and already
+   * spent on nothing, so a client could render an access point and not open it
+   * — its detail route is /api/rivers/[slug]/access/[accessSlug], and
+   * `riverSlug` is only half of that pair.
+   */
+  accessSlug?: string | null;
 }
 
 export interface SearchResponse {
@@ -238,6 +247,7 @@ async function _GET(request: NextRequest) {
           riverSlug: river.slug,
           riverMile: mile,
           coordinates: coordsOf(ap),
+          accessSlug: ap.slug,
         };
       })
       .filter((r): r is SearchResult => r !== null);

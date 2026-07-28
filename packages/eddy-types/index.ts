@@ -938,6 +938,15 @@ export interface SearchResult {
   siteId?: string | null;
   /** Gauge results only; null when the station has no stored reading. */
   gauge?: SearchResultGauge | null;
+  /**
+   * The access point's own slug. Access-point results only.
+   *
+   * Required to OPEN one: its detail route is
+   * /api/rivers/[slug]/access/[accessSlug], and `riverSlug` is only half of
+   * that pair. Optional here for the same reason as `siteId` — a later addition
+   * to the endpoint, so a result without one renders but cannot be navigated to.
+   */
+  accessSlug?: string | null;
 }
 
 export interface SearchResponse {
