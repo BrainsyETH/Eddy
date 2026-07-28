@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
+import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 
 interface Props {
   visible: boolean;
@@ -54,12 +55,12 @@ export function PushPrimer({ visible, riverName, onAllow, onDismiss }: Props) {
 
           <View style={styles.points}>
             <Point
-              icon="notifications-outline"
+              symbol="alertWatch"
               text="Only when the condition actually changes. Never a daily digest."
               colors={colors}
             />
             <Point
-              icon="water-outline"
+              symbol="water"
               text="Only the rivers you follow, on their own schedule."
               colors={colors}
             />
@@ -104,16 +105,22 @@ export function PushPrimer({ visible, riverName, onAllow, onDismiss }: Props) {
 
 function Point({
   icon,
+  symbol,
   text,
   colors,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon?: keyof typeof Ionicons.glyphMap;
+  symbol?: EddySymbolName;
   text: string;
   colors: { textMuted: string; accent: string };
 }) {
   return (
     <View style={styles.point}>
-      <Ionicons name={icon} size={18} color={colors.accent} />
+      {symbol ? (
+        <EddySymbol name={symbol} size={18} />
+      ) : icon ? (
+        <Ionicons name={icon} size={18} color={colors.accent} />
+      ) : null}
       <Text style={[styles.pointText, { color: colors.textMuted }]}>{text}</Text>
     </View>
   );

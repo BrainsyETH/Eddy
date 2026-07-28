@@ -28,6 +28,7 @@ import { OUTFITTER_SERVICE_TYPES } from '@/map/layers';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { milesBetween } from '@/hooks/useLocation';
+import { EddySymbol } from '@/components/EddySymbol';
 
 /** Three is a shortlist. More than that is a directory, and this is not one. */
 const MAX_SHOWN = 3;
@@ -93,7 +94,7 @@ export function PlanNearby({ plan }: { plan: FloatPlan }) {
           style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}
         >
           <View style={[styles.iconWell, { backgroundColor: colors.cardRaised }]}>
-            <Ionicons name="boat-outline" size={15} color={colors.warm} />
+            <EddySymbol name="outfitter" size={17} />
           </View>
 
           <View style={styles.body}>

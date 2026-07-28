@@ -62,6 +62,7 @@ import { driveBetweenUrl, driveToUrl, usgsGaugeUrl } from '@/lib/directions';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { PlanAlongRoute } from '@/components/PlanAlongRoute';
 import { PlanNearby } from '@/components/PlanNearby';
+import { EddySymbol } from '@/components/EddySymbol';
 
 interface Props {
   plan: FloatPlan;
@@ -171,9 +172,12 @@ export function PlanResult({ plan, actions }: Props) {
 
       {plan.hazards.length > 0 ? (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            On this stretch ({plan.hazards.length})
-          </Text>
+          <View style={styles.sectionTitleRow}>
+            <EddySymbol name="hazard" size={18} />
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              On this stretch ({plan.hazards.length})
+            </Text>
+          </View>
           {sortHazards(plan.hazards).map((hazard) => {
             const code = hazardConditionCode(hazard.severity);
             const portage = portageNote(hazard);
@@ -416,7 +420,14 @@ const styles = StyleSheet.create({
   shuttleTitle: { ...t.sm, fontFamily: fonts.semibold },
   shuttleMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
   section: { marginTop: 8, marginBottom: 10 },
-  sectionTitle: { ...t.base, fontFamily: fonts.heading, marginBottom: 8, paddingHorizontal: 2 },
+  sectionTitle: { ...t.base, fontFamily: fonts.heading },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
   hazard: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -38,6 +38,7 @@ import type { RiverDetail } from '@eddy/types';
 import { planOffline, type TileBudget } from '@eddy/offline';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { EddySymbol } from '@/components/EddySymbol';
 
 interface Props {
   river: RiverDetail | null;
@@ -104,11 +105,7 @@ export function OfflineMapRow({
         accessibilityState={{ expanded }}
         accessibilityLabel={`Offline map, ${status}`}
       >
-        <Ionicons
-          name={downloaded ? 'cloud-done-outline' : 'cloud-download-outline'}
-          size={16}
-          color={downloaded ? colors.success : colors.textSubtle}
-        />
+        <EddySymbol name="offlineMap" size={17} />
         <Text style={[styles.summaryText, { color: colors.textMuted }]} numberOfLines={1}>
           Offline map
         </Text>

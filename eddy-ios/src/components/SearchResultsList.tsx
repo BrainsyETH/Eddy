@@ -15,19 +15,20 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
 /**
- * Eddy's own mark for the two kinds that have one.
+ * Eddy's own mark for every searchable content kind.
  *
  * A row here is scanned for its KIND before its name — three results called
  * "Akers" are a river, a gauge and a ramp — and a branded droplet against a
- * branded pin separates two of those at a glance in a way that two grey
+ * branded pin and river separate them at a glance in a way that three grey
  * outline glyphs never did.
  */
 const KIND_SYMBOL: Partial<Record<SearchResultKind, EddySymbolName>> = {
+  river: 'river',
   gauge: 'gauge',
   access_point: 'accessPoint',
 };
 
-/** The fallback, for kinds the catalog has no mark for. */
+/** Kept as a defensive fallback if the shared result kind grows first. */
 const KIND_ICON: Record<SearchResultKind, React.ComponentProps<typeof Ionicons>['name']> = {
   river: 'water-outline',
   gauge: 'speedometer-outline',
