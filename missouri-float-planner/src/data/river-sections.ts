@@ -7,6 +7,10 @@
 // (seeded by migration 00146) read via src/lib/eddy/update-targets.ts. Do not
 // add rivers or sections here.
 
+// Type-only import: keeps this module free of the server-only Supabase client
+// that context.ts pulls in at runtime.
+import type { RiverType } from '@/lib/rivers/context';
+
 export interface RiverSection {
   sectionSlug: string;     // e.g. "upper-current"
   name: string;            // e.g. "Upper Current (Montauk to Akers)"
@@ -117,6 +121,13 @@ export interface UpdateTarget {
   sectionSlug: string | null;
   sectionName: string | null;
   sectionDescription: string | null;
+  /**
+   * Per-reach hydrology override from river_sections.river_type; null means
+   * inherit the river's. Set only where a reach genuinely behaves differently —
+   * a dam tailwater on an otherwise spring-fed river — because it selects the
+   * low/rising-water SAFETY wording in generate-update.ts.
+   */
+  sectionRiverType: RiverType | null;
 }
 
 export function getUpdateTargets(): UpdateTarget[] {
@@ -131,6 +142,7 @@ export function getUpdateTargets(): UpdateTarget[] {
       sectionSlug: null,
       sectionName: null,
       sectionDescription: null,
+      sectionRiverType: null,
     });
 
     // For rivers with sections, also generate per-section updates
@@ -141,6 +153,9 @@ export function getUpdateTargets(): UpdateTarget[] {
         sectionSlug: section.sectionSlug,
         sectionName: section.name,
         sectionDescription: section.description,
+        // This legacy list predates per-reach types; the DB is the only source
+        // that can carry one.
+        sectionRiverType: null,
       });
     }
   }
