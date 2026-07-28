@@ -12,13 +12,17 @@
 // screen that also has to work in Expo Go — see runtime.ts.
 //
 // ── Pin shapes ──────────────────────────────────────────────────────────────
-// Most layers are a CircleLayer in the layer's colour with a white halo, plus a
-// SymbolLayer of plain text above zoom 11. Two are not:
+// Every curated layer has a compact SDF silhouette in the layer's colour with a
+// white halo, plus a SymbolLayer of plain text above zoom 11:
 //
 //   gauges       a water droplet, filled with the gauge's own condition colour
 //   access       a map marker, anchored at its point
+//   hazards      a warning triangle
+//   campgrounds  a tent
+//   outfitters   a canoe
+//   dams         a spillway wall
 //
-// Both are SDF icons we generate and BUNDLE (assets/map, built by
+// These are SDF icons we generate and BUNDLE (assets/map, built by
 // scripts/build-map-icons.py), which is the distinction that matters. This file
 // used to argue against icons altogether, and the argument was about the
 // OUTDOORS STYLE's sprite sheet: those names are not a contract we control, and
@@ -104,10 +108,10 @@ const LABEL_INK = neutral[900];
 const LABEL_HALO = '#FFFFFF';
 
 /** Which silhouette a layer's pins are drawn with. */
-type PinShape = 'dot' | 'drop' | 'pin';
+type PinShape = 'dot' | 'drop' | 'pin' | 'hazard' | 'campground' | 'outfitter' | 'dam';
 
 /**
- * The two bundled SDF icons, and how each one sits on its coordinate.
+ * The bundled SDF icons, and how each one sits on its coordinate.
  *
  * ANCHORING IS THE POINT OF THE DISTINCTION. A droplet is a symbol for the
  * thing, so it centres on the gauge. A map marker is a POINTER — its tip is the
@@ -123,16 +127,28 @@ const PIN_ICONS: Record<PinShape, { image: string; anchor: 'center' | 'bottom'; 
   // Already sitting entirely above its point, so its label needs less room than
   // a centred icon of the same height.
   pin: { image: 'poi-pin', anchor: 'bottom', labelOffset: 0.9 },
+  hazard: { image: 'hazard-warning', anchor: 'center', labelOffset: 1.3 },
+  campground: { image: 'campground-tent', anchor: 'center', labelOffset: 1.3 },
+  outfitter: { image: 'outfitter-canoe', anchor: 'center', labelOffset: 1.3 },
+  dam: { image: 'dam-spillway', anchor: 'center', labelOffset: 1.3 },
 };
 
 const PIN_IMAGES = {
   'gauge-drop': { image: require('../../assets/map/gauge-drop.png'), sdf: true, scale: 3 },
   'poi-pin': { image: require('../../assets/map/poi-pin.png'), sdf: true, scale: 3 },
+  'private-lock-pin': { image: require('../../assets/map/private-lock-pin.png'), sdf: true, scale: 3 },
+  'private-lock-center': { image: require('../../assets/map/private-lock-center.png'), sdf: true, scale: 3 },
+  'hazard-warning': { image: require('../../assets/map/hazard-warning.png'), sdf: true, scale: 3 },
+  'campground-tent': { image: require('../../assets/map/campground-tent.png'), sdf: true, scale: 3 },
+  'outfitter-canoe': { image: require('../../assets/map/outfitter-canoe.png'), sdf: true, scale: 3 },
+  'dam-spillway': { image: require('../../assets/map/dam-spillway.png'), sdf: true, scale: 3 },
+  'route-start': { image: require('../../assets/map/route-start.png'), sdf: true, scale: 3 },
+  'route-finish': { image: require('../../assets/map/route-finish.png'), sdf: true, scale: 3 },
 };
 
 /**
  * Module scope, not an inline arrow. Mapbox.Images is a PureComponent, so a
- * fresh callback on every render makes it re-register both images against the
+ * fresh callback on every render makes it re-register every image against the
  * style on every render of this screen — which is pure work at best, and at
  * worst touches the style while layers are being updated.
  *
@@ -308,6 +324,8 @@ export interface MapPin {
    * reachable only by finding the same put-in again in the river screen's list.
    */
   detailRoute?: string | null;
+  /** True when an access location requires permission rather than being public. */
+  privateAccess?: boolean;
 }
 
 interface Props {
@@ -369,6 +387,8 @@ interface Props {
   /** The planned float, drawn over the river line. */
   planRoute?: RiverGeometry | null;
   planEndpoints?: { putIn: MapAccessPoint; takeOut: MapAccessPoint } | null;
+  /** The open callout's pin, used only to give its map mark a selected state. */
+  selectedPinId?: string | null;
   onSelectPin?: (pin: MapPin) => void;
 }
 
@@ -391,6 +411,7 @@ function featureCollection(pins: MapPin[], defaultColor: string) {
         label: pin.label ?? pin.name,
         color: pin.color ?? defaultColor,
         magnitude: pin.magnitude ?? 0,
+        privateAccess: pin.privateAccess ?? false,
       },
       geometry: {
         type: 'Point' as const,
@@ -419,6 +440,7 @@ export function RiverMap({
   showUserLocation,
   planRoute,
   planEndpoints,
+  selectedPinId,
   onSelectPin,
 }: Props) {
   const Mapbox = loadMapbox();
@@ -452,6 +474,7 @@ export function RiverMap({
       layer: 'access' as const,
       subtitle: `Mile ${p.riverMile.toFixed(1)}${p.isPublic ? '' : ' · Private'}`,
       coordinates: p.coordinates,
+      privateAccess: !p.isPublic,
       // Both already in memory — /api/rivers/[slug]/access-points has sent
       // `imageUrls` since the imagery backfill, and the map holds the whole
       // MapAccessPoint. Neither was ever read here, so the map listed put-ins
@@ -464,16 +487,27 @@ export function RiverMap({
       detailRoute: riverSlug && p.slug ? `/river/${riverSlug}/access/${p.slug}` : null,
     }));
 
-    // Campgrounds come from two places and must not be deduped away: an access
-    // point tagged `campground` is a put-in you can sleep at, and a linked
-    // service is somewhere to sleep that is not a put-in. Both matter.
+    // Campgrounds come from two places. An access point tagged `campground` is
+    // a put-in you can sleep at; a linked service is somewhere to sleep that is
+    // not a put-in. When access is already visible, the first group must NOT be
+    // emitted again: two sources at one coordinate made the campground dot sit
+    // on top of the access pin and steal its planning actions. The access
+    // callout already lists every role. If someone turns access off and leaves
+    // campgrounds on, these locations return as campground pins and still carry
+    // the access photo, route, privacy state, and planner identity.
     const campgrounds: MapPin[] = [
-      ...accessPoints.filter(isCampground).map((p) => ({
-        id: `camp-access:${p.id}`,
+      ...(!layers.includes('access') ? accessPoints.filter(isCampground) : []).map((p) => ({
+        // Keep the canonical access identity even while it is being presented
+        // through the campground layer. If the user enables Access with this
+        // callout open, the tent becomes a pin without losing selection.
+        id: `access:${p.id}`,
         name: p.name,
         layer: 'campgrounds' as const,
-        subtitle: `Camp · Mile ${p.riverMile.toFixed(1)}`,
+        subtitle: `Camp · Mile ${p.riverMile.toFixed(1)}${p.isPublic ? '' : ' · Private'}`,
         coordinates: p.coordinates,
+        imageUrl: p.imageUrls?.[0] ?? null,
+        detailRoute: riverSlug && p.slug ? `/river/${riverSlug}/access/${p.slug}` : null,
+        privateAccess: !p.isPublic,
       })),
       ...services
         .filter((s) => s.type === 'campground' && s.latitude != null && s.longitude != null)
@@ -567,7 +601,7 @@ export function RiverMap({
       }));
 
     return { access, campgrounds, gauges: gaugePins, hazards: hazardPins, outfitters: outfitterPins };
-  }, [accessPoints, gauges, hazards, services, riverSlug]);
+  }, [accessPoints, gauges, hazards, services, riverSlug, layers]);
 
   /**
    * Each pin layer's FeatureCollection, built once per change of its inputs.
@@ -781,7 +815,7 @@ export function RiverMap({
   };
 
   /**
-   * Circles plus labels for one layer. Every layer is drawn the same way.
+   * A compact silhouette plus labels for one layer. The fallback is a circle.
    *
    * A FUNCTION THAT RETURNS JSX, not a component. Declaring a component inside
    * a render gives it a new identity on every pass, so React unmounts and
@@ -844,7 +878,12 @@ export function RiverMap({
               // The white ring the circles had, kept so a pin stays legible
               // over both the forest green and the pale gravel of the basemap.
               iconHaloColor: '#FFFFFF',
-              iconHaloWidth: 1.4,
+              iconHaloWidth: selectedPinId
+                ? ['case', ['==', ['get', 'id'], selectedPinId], 3.2, 1.4]
+                : 1.4,
+              iconSize: selectedPinId
+                ? ['case', ['==', ['get', 'id'], selectedPinId], 1.18, 1]
+                : 1,
               iconAnchor: icon.anchor,
               // NOT OPTIONAL. A SymbolLayer hides colliding icons by default,
               // which on a cluster of access points would silently drop pins —
@@ -860,11 +899,32 @@ export function RiverMap({
             style={{
               circleRadius: 6,
               circleColor: ['get', 'color'],
-              circleStrokeWidth: 2,
+              circleStrokeWidth: selectedPinId
+                ? ['case', ['==', ['get', 'id'], selectedPinId], 4, 2]
+                : 2,
               circleStrokeColor: '#FFFFFF',
             }}
           />
         )}
+        {/* Privacy has to be visible before selection. It is a white lock laid
+            over the layer-coloured silhouette, rather than another colour that
+            could be mistaken for condition or severity. Two aligned canvases
+            keep it centred both on a bottom-anchored access pin and on the tent
+            used when only the campground layer is enabled. */}
+        <Mapbox.SymbolLayer
+          id={`pins-${id}-private`}
+          filter={['==', ['get', 'privateAccess'], true]}
+          minZoomLevel={minZoom}
+          style={{
+            iconImage: shape === 'pin' ? 'private-lock-pin' : 'private-lock-center',
+            iconColor: '#FFFFFF',
+            iconAnchor: icon?.anchor ?? 'center',
+            iconSize: selectedPinId
+              ? ['case', ['==', ['get', 'id'], selectedPinId], 1.18, 1]
+              : 1,
+            iconAllowOverlap: true,
+          }}
+        />
         <Mapbox.SymbolLayer
           id={`pins-${id}-label`}
           // The higher of the two floors. A label is allowed to arrive after
@@ -890,7 +950,7 @@ export function RiverMap({
   /**
    * The national tier: thousands of dots, so this one clusters.
    *
-   * A SIBLING of pinLayer, not a flag on it. pinLayer is shared by five layers
+   * A SIBLING of pinLayer, not a flag on it. pinLayer is shared by six layers
    * and clustering it would change how curated gauges, access points and
    * hazards all render — and CURATED GAUGES MUST NEVER CLUSTER. A rated pin
    * disappearing into a grey bubble would break the one promise that layer
@@ -966,7 +1026,9 @@ export function RiverMap({
           filter={['!', ['has', 'point_count']]}
           style={{
             circleColor: ['get', 'color'],
-            circleStrokeWidth: 1,
+            circleStrokeWidth: selectedPinId
+              ? ['case', ['==', ['get', 'id'], selectedPinId], 3, 1]
+              : 1,
             circleStrokeColor: '#FFFFFF',
             // Radius carries discharge, on sqrt already applied by the caller,
             // interpolated so a creek is still tappable and the Mississippi is
@@ -1069,7 +1131,7 @@ export function RiverMap({
       {/* The bundled pin shapes. Registered once for the whole map — an
           iconImage name resolves against every Images component on the view,
           so this does not belong inside pinLayer, where it would re-register
-          the same two assets for each layer that uses one. */}
+          the same assets for each layer that uses one. */}
       <Mapbox.Images images={PIN_IMAGES} onImageMissing={onPinImageMissing} />
 
       {/* Rendered only once permission exists. @rnmapbox/maps triggers the
@@ -1169,10 +1231,10 @@ export function RiverMap({
         ? pinLayer('access', 'pin')
         : null}
       {layerOn('outfitters')
-        ? pinLayer('outfitters')
+        ? pinLayer('outfitters', 'outfitter')
         : null}
       {layerOn('campgrounds')
-        ? pinLayer('campgrounds')
+        ? pinLayer('campgrounds', 'campground')
         : null}
       {/* Labelled at EVERY zoom THEY ARE DRAWN AT — the 0 is the whole of
           "names below each gauge". There are ~46 of these statewide, not thirty
@@ -1192,25 +1254,32 @@ export function RiverMap({
           an unnamed dot cannot be told from the lake it sits on. Drawn before
           hazards so the low-water-dam layer still paints on top: where both
           land in one place, the one that can kill you is the one on top. */}
-      {layerOn('dams') ? pinLayer('dams', 'drop', 0) : null}
+      {layerOn('dams') ? pinLayer('dams', 'dam', 0) : null}
 
-      {layerOn('hazards') ? pinLayer('hazards') : null}
+      {layerOn('hazards') ? pinLayer('hazards', 'hazard') : null}
 
       {endpointFeatures ? (
         <Mapbox.ShapeSource id="plan-endpoints" shape={endpointFeatures}>
-          <Mapbox.CircleLayer
-            id="plan-endpoints-circle"
+          <Mapbox.SymbolLayer
+            id="plan-endpoints-icon"
             style={{
-              circleRadius: 9,
-              circleColor: [
+              iconImage: [
+                'match',
+                ['get', 'role'],
+                'Put-in',
+                'route-start',
+                'route-finish',
+              ],
+              iconColor: [
                 'match',
                 ['get', 'role'],
                 'Put-in',
                 colors.success,
                 colors.accent,
               ],
-              circleStrokeWidth: 3,
-              circleStrokeColor: '#FFFFFF',
+              iconHaloColor: '#FFFFFF',
+              iconHaloWidth: 2.5,
+              iconAllowOverlap: true,
             }}
           />
           <Mapbox.SymbolLayer
