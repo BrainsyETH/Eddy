@@ -47,7 +47,7 @@ function ScopeSwitchComponent<K extends string>({ options, value, onChange }: Pr
           <Pressable
             key={option.key}
             onPress={() => onChange(option.key)}
-            style={[styles.segment, active && { backgroundColor: colors.card }]}
+            style={[styles.segment, active && { backgroundColor: colors.selectionBg }]}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
             accessibilityLabel={`Search ${option.label}`}
@@ -56,7 +56,7 @@ function ScopeSwitchComponent<K extends string>({ options, value, onChange }: Pr
               style={[
                 styles.label,
                 {
-                  color: active ? colors.text : colors.textMuted,
+                  color: active ? colors.selectionText : colors.textMuted,
                   fontFamily: active ? fonts.semibold : fonts.medium,
                 },
               ]}

@@ -154,7 +154,7 @@ export default function SavedFloatScreen() {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator color={colors.accent} />
+          <ActivityIndicator color={colors.interactive} />
           <Text style={[styles.centeredText, { color: colors.textMuted }]}>
             Reading the gauge and driving the shuttle…
           </Text>
@@ -166,7 +166,7 @@ export default function SavedFloatScreen() {
             {error ?? 'Could not load this float'}
           </Text>
           <Pressable onPress={() => void load()} hitSlop={10} accessibilityRole="button">
-            <Text style={[styles.link, { color: colors.accent }]}>Try again</Text>
+            <Text style={[styles.link, { color: colors.interactive }]}>Try again</Text>
           </Pressable>
         </View>
       ) : (

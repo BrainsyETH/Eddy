@@ -212,7 +212,7 @@ function GaugeFilterBarComponent({
           <Text style={[styles.statusText, { color: colors.text }]}>
             Showing {matching} {matching === 1 ? 'gauge' : 'gauges'}
           </Text>
-          <Text style={[styles.statusText, { color: colors.accent }]}>Clear ×</Text>
+          <Text style={[styles.statusText, { color: colors.interactive }]}>Clear ×</Text>
         </Pressable>
       ) : (
         // "hide", not "dim". Copied from ConditionFilterBar, where dimming is

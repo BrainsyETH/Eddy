@@ -301,7 +301,7 @@ function EndpointRow({
           {point.name}
         </Text>
       </View>
-      <Ionicons name="navigate-outline" size={17} color={colors.accent} />
+      <Ionicons name="navigate-outline" size={17} color={colors.interactive} />
     </Pressable>
   );
 }
@@ -352,7 +352,7 @@ function GaugeSourceLink({ plan }: { plan: FloatPlan }) {
       <Text style={[styles.sourceText, { color: colors.textMuted }]}>
         Reading from USGS {plan.condition.gaugeUsgsId}
       </Text>
-      <Ionicons name="open-outline" size={14} color={colors.accent} />
+      <Ionicons name="open-outline" size={14} color={colors.interactive} />
     </Pressable>
   );
 }

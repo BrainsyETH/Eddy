@@ -87,6 +87,12 @@ export function OfflineMapRow({
   if (!plan) return null;
 
   const full = budget.remaining < plan.tileCount && !downloaded;
+  // Upgrading is the primary commercial action; downloading an entitled map is
+  // a utility action. The shared row can represent either, so its colour follows
+  // the action it will actually take.
+  const upgradeAction = entitled === false && !downloaded;
+  const actionFill = upgradeAction ? colors.accent : colors.interactive;
+  const actionInk = upgradeAction ? colors.onAccent : colors.onInteractive;
 
   const status = busy
     ? `Downloading… ${progressPercent}%`
@@ -118,7 +124,7 @@ export function OfflineMapRow({
           <Ionicons name="lock-closed" size={13} color={colors.textSubtle} />
         ) : null}
         {busy ? (
-          <ActivityIndicator size="small" color={colors.accent} />
+          <ActivityIndicator size="small" color={colors.interactive} />
         ) : (
           <Ionicons
             name={expanded ? 'chevron-up' : 'chevron-down'}
@@ -149,7 +155,8 @@ export function OfflineMapRow({
                       // Clamped: a stale pack count can exceed the limit, and a
                       // >100% bar would overflow its own track.
                       width: `${Math.min(100, Math.round((budget.used / budget.limit) * 100))}%`,
-                      backgroundColor: budget.remaining === 0 ? colors.error : colors.accent,
+                      backgroundColor:
+                        budget.remaining === 0 ? colors.error : colors.interactive,
                     },
                   ]}
                 />
@@ -168,20 +175,20 @@ export function OfflineMapRow({
             style={({ pressed }) => [
               styles.action,
               {
-                borderColor: downloaded ? colors.border : colors.accent,
-                backgroundColor: downloaded ? 'transparent' : colors.accent,
+                borderColor: downloaded ? colors.border : actionFill,
+                backgroundColor: downloaded ? 'transparent' : actionFill,
                 opacity: pressed || busy || (full && !downloaded) ? 0.6 : 1,
               },
             ]}
             accessibilityRole="button"
           >
             {entitled === false && !downloaded ? (
-              <Ionicons name="lock-closed" size={15} color={colors.onAccent} />
+              <Ionicons name="lock-closed" size={15} color={actionInk} />
             ) : null}
             <Text
               style={[
                 styles.actionText,
-                { color: downloaded ? colors.textMuted : colors.onAccent },
+                { color: downloaded ? colors.textMuted : actionInk },
               ]}
             >
               {downloaded

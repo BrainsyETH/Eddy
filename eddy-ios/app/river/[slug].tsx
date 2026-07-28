@@ -385,7 +385,7 @@ export default function RiverDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]}>
-        <ActivityIndicator color={colors.accent} />
+        <ActivityIndicator color={colors.interactive} />
       </SafeAreaView>
     );
   }
@@ -396,7 +396,7 @@ export default function RiverDetailScreen() {
         <Otter mood="flag" size={110} />
         <Text style={[styles.errorTitle, { color: colors.text }]}>{error ?? 'River not found'}</Text>
         <Pressable onPress={() => router.back()} hitSlop={10}>
-          <Text style={[styles.backLink, { color: colors.accent }]}>Go back</Text>
+          <Text style={[styles.backLink, { color: colors.interactive }]}>Go back</Text>
         </Pressable>
       </SafeAreaView>
     );
@@ -601,7 +601,7 @@ export default function RiverDetailScreen() {
           // This panel is absent on plenty of rivers, so the loading state has
           // to be quiet enough that its disappearance is not a loss.
           <View style={[styles.card, styles.outlookLoading, { backgroundColor: colors.card }]}>
-            <ActivityIndicator size="small" color={colors.accent} />
+            <ActivityIndicator size="small" color={colors.interactive} />
             <Text style={[styles.outlookLoadingText, { color: colors.textMuted }]}>
               {shownGaugeName ? `Reading ${shownGaugeName}…` : 'Reading the gauge…'}
             </Text>
@@ -796,7 +796,7 @@ export default function RiverDetailScreen() {
 
             {hiddenCount > 0 && !showAllHazards ? (
               <Pressable onPress={() => setShowAllHazards(true)} style={styles.moreRow} hitSlop={8}>
-                <Text style={[styles.moreText, { color: colors.accent }]}>
+                <Text style={[styles.moreText, { color: colors.interactive }]}>
                   Show {hiddenCount} more {hiddenCount === 1 ? 'hazard' : 'hazards'}
                 </Text>
               </Pressable>
@@ -875,7 +875,7 @@ export default function RiverDetailScreen() {
                   <Ionicons
                     name={point.isPublic ? 'location' : 'lock-closed-outline'}
                     size={17}
-                    color={point.isPublic ? colors.accent : colors.textSubtle}
+                    color={point.isPublic ? colors.interactive : colors.textSubtle}
                   />
                 )}
                 <View style={styles.accessBody}>
@@ -906,10 +906,10 @@ export default function RiverDetailScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`Directions to ${point.name}`}
                   >
-                    <Ionicons name="navigate-outline" size={17} color={colors.accent} />
+                    <Ionicons name="navigate-outline" size={17} color={colors.interactive} />
                   </Pressable>
                 ) : (
-                  <Ionicons name="navigate-outline" size={16} color={colors.accent} />
+                  <Ionicons name="navigate-outline" size={16} color={colors.interactive} />
                 )}
               </Pressable>
             ))}
@@ -970,7 +970,7 @@ export default function RiverDetailScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`Call ${service.name}`}
                   >
-                    <Ionicons name="call-outline" size={19} color={colors.accent} />
+                    <Ionicons name="call-outline" size={19} color={colors.interactive} />
                   </Pressable>
                 ) : null}
                 {service.website ? (
@@ -980,7 +980,7 @@ export default function RiverDetailScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`Open ${service.name} website`}
                   >
-                    <Ionicons name="open-outline" size={19} color={colors.accent} />
+                    <Ionicons name="open-outline" size={19} color={colors.interactive} />
                   </Pressable>
                 ) : null}
               </View>

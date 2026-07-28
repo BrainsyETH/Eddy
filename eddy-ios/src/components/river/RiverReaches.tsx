@@ -80,7 +80,7 @@ export function RiverReaches({ reaches }: { reaches: RiverReach[] }) {
                 ordinary river it would be noise. */}
             {reach.differsFromRiver && (
               <View style={[styles.chip, { backgroundColor: colors.cardRaised }]}>
-                <Ionicons name="water-outline" size={11} color={colors.accent} />
+                <Ionicons name="water-outline" size={11} color={colors.interactive} />
                 <Text style={[styles.chipText, { color: colors.textMuted }]}>
                   {' '}
                   {riverTypeLabel(reach.riverType)}

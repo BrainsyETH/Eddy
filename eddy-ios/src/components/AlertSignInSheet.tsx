@@ -100,7 +100,7 @@ export function AlertSignInSheet({ visible, riverName, onSignedIn, onDismiss }: 
 
         <View style={[styles.footer, { borderTopColor: colors.border }]}>
           {busy ? (
-            <ActivityIndicator color={colors.accent} style={styles.busy} />
+            <ActivityIndicator color={colors.interactive} style={styles.busy} />
           ) : (
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
@@ -131,11 +131,11 @@ function Point({
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   text: string;
-  colors: { textMuted: string; accent: string };
+  colors: { textMuted: string; interactive: string };
 }) {
   return (
     <View style={styles.point}>
-      <Ionicons name={icon} size={18} color={colors.accent} />
+      <Ionicons name={icon} size={18} color={colors.interactive} />
       <Text style={[styles.pointText, { color: colors.textMuted }]}>{text}</Text>
     </View>
   );

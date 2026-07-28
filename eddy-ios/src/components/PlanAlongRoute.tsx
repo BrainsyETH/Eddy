@@ -91,7 +91,7 @@ export function PlanAlongRoute({ plan }: { plan: FloatPlan }) {
               <Ionicons
                 name={point.isPublic ? 'location-outline' : 'lock-closed-outline'}
                 size={15}
-                color={point.isPublic ? colors.accent : colors.textSubtle}
+                color={point.isPublic ? colors.interactive : colors.textSubtle}
               />
             )}
           </View>

@@ -389,7 +389,7 @@ function GaugeChartInner({
 
   if (!siteId) return null;
 
-  const lineColor = colors.accent;
+  const lineColor = colors.interactive;
   const hasPlot = scale !== null && domain !== null && paths.length > 0;
 
   return (
@@ -659,7 +659,7 @@ function GaugeChartInner({
         ) : (
           <View style={[styles.placeholder, { height: CHART_HEIGHT }]}>
             {loading ? (
-              <ActivityIndicator size="small" color={colors.accent} />
+              <ActivityIndicator size="small" color={colors.interactive} />
             ) : (
               <Text style={[styles.placeholderText, { color: colors.textSubtle }]}>
                 {/* Three distinct states, because two of them would be a lie as

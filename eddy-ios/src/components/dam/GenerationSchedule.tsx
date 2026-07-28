@@ -52,7 +52,7 @@ function DayBars({ day }: { day: DamScheduleDay }) {
                 styles.bar,
                 {
                   height: `${Math.max(share * 100, 12)}%`,
-                  backgroundColor: h.megawatts > 0 ? colors.accent : colors.border,
+                  backgroundColor: h.megawatts > 0 ? colors.interactive : colors.border,
                 },
               ]}
             />
@@ -147,7 +147,7 @@ export function GenerationSchedule({ schedule }: { schedule: DamScheduleDay[] })
           {retrieval ? (
             <Text
               style={{
-                color: scheduleIsStale(oldestRetrieval) ? colors.accent : colors.textSubtle,
+                color: scheduleIsStale(oldestRetrieval) ? colors.error : colors.textSubtle,
               }}
             >
               {retrieval}{' '}

@@ -58,7 +58,7 @@ export function RiverDamPanel({ dam }: { dam: DamSnapshot | null }) {
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       <View style={styles.header}>
-        <Ionicons name="water-outline" size={16} color={colors.accent} />
+        <Ionicons name="water-outline" size={16} color={colors.interactive} />
         <Text style={[styles.title, { color: colors.text }]}>{dam.name}</Text>
       </View>
 
@@ -92,7 +92,7 @@ export function RiverDamPanel({ dam }: { dam: DamSnapshot | null }) {
       ) : null}
 
       <Text
-        style={[styles.link, { color: colors.accent }]}
+        style={[styles.link, { color: colors.interactive }]}
         onPress={() => router.push(`/dam/${dam.id}`)}
         accessibilityRole="link"
       >

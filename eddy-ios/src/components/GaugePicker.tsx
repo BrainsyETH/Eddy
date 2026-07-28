@@ -83,8 +83,8 @@ export function GaugePicker({ gauges, riverSlug, selectedId, onSelect }: Props) 
               style={({ pressed }) => [
                 styles.chip,
                 {
-                  backgroundColor: selected ? colors.cardRaised : colors.card,
-                  borderColor: selected ? colors.accent : colors.border,
+                  borderColor: selected ? colors.interactive : colors.border,
+                  backgroundColor: selected ? colors.selectionBg : colors.card,
                   opacity: pressed ? 0.7 : 1,
                 },
               ]}
@@ -98,7 +98,7 @@ export function GaugePicker({ gauges, riverSlug, selectedId, onSelect }: Props) 
               <Text
                 style={[
                   styles.chipText,
-                  { color: selected ? colors.text : colors.textMuted },
+                  { color: selected ? colors.selectionText : colors.textMuted },
                 ]}
                 numberOfLines={1}
               >

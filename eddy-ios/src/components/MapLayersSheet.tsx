@@ -148,7 +148,7 @@ export function MapLayersSheet({
           <Text style={[styles.title, { color: colors.text }]}>Show on map</Text>
           {isDefaultLayers(active) ? null : (
             <Pressable onPress={onReset} hitSlop={10} accessibilityRole="button">
-              <Text style={[styles.reset, { color: colors.accent }]}>Reset</Text>
+              <Text style={[styles.reset, { color: colors.interactive }]}>Reset</Text>
             </Pressable>
           )}
         </View>
@@ -260,10 +260,10 @@ export function MapLayersSheet({
                 <View pointerEvents="none">
                   <Switch
                     value={on}
-                    trackColor={{ false: colors.border, true: colors.accent }}
+                    trackColor={{ false: colors.border, true: colors.interactive }}
                     // iOS ignores thumbColor on the default track, but Android
                     // needs it told or the thumb stays a stock grey.
-                    thumbColor={colors.onAccent}
+                    thumbColor={colors.onInteractive}
                     ios_backgroundColor={colors.border}
                   />
                 </View>
@@ -364,11 +364,13 @@ export function MapLayersSheet({
           onPress={onClose}
           style={({ pressed }) => [
             styles.done,
-            { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+            {
+              backgroundColor: pressed ? colors.interactivePressed : colors.interactive,
+            },
           ]}
           accessibilityRole="button"
         >
-          <Text style={[styles.doneText, { color: colors.onAccent }]}>Done</Text>
+          <Text style={[styles.doneText, { color: colors.onInteractive }]}>Done</Text>
         </Pressable>
       </View>
     </Modal>
@@ -401,8 +403,8 @@ export function MapLayersButton({
       accessibilityRole="button"
       accessibilityLabel="Map layers"
     >
-      <Ionicons name="layers-outline" size={19} color={colors.accent} />
-      {changed ? <View style={[styles.dot, { backgroundColor: colors.accent }]} /> : null}
+      <Ionicons name="layers-outline" size={19} color={colors.interactive} />
+      {changed ? <View style={[styles.dot, { backgroundColor: colors.interactive }]} /> : null}
     </Pressable>
   );
 }

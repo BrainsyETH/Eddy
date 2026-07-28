@@ -159,7 +159,11 @@ export default function FavoritesScreen() {
         data={starred}
         keyExtractor={(item) => `${item.kind}:${item.entityId}`}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.interactive}
+          />
         }
         ListHeaderComponent={
           <View style={styles.header}>
@@ -186,7 +190,7 @@ export default function FavoritesScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Saved floats, ${savedFloats.length}`}
               >
-                <Ionicons name="navigate-outline" size={18} color={colors.accent} />
+                <Ionicons name="navigate-outline" size={18} color={colors.interactive} />
                 <Text style={[styles.floatsText, { color: colors.text }]}>Saved floats</Text>
                 <Text style={[styles.floatsCount, { color: colors.textSubtle }]}>
                   {savedFloats.length}

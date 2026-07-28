@@ -79,20 +79,20 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
             style={[
               styles.chip,
               {
-                backgroundColor: dam.generating ? colors.accent : colors.cardRaised,
-                borderColor: dam.generating ? colors.accent : colors.border,
+                backgroundColor: dam.generating ? colors.interactive : colors.cardRaised,
+                borderColor: dam.generating ? colors.interactive : colors.border,
               },
             ]}
           >
             <Ionicons
               name={dam.generating ? 'flash' : 'flash-off-outline'}
               size={13}
-              color={dam.generating ? colors.onAccent : colors.textMuted}
+              color={dam.generating ? colors.onInteractive : colors.textMuted}
             />
             <Text
               style={[
                 styles.chipText,
-                { color: dam.generating ? colors.onAccent : colors.textMuted },
+                { color: dam.generating ? colors.onInteractive : colors.textMuted },
               ]}
             >
               {dam.generating ? 'Generating now' : 'Not generating'}

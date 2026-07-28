@@ -816,7 +816,7 @@ export default function MapScreen() {
           // one already on screen until the next lands, and a river loading over
           // an already-drawn network needs no spinner at all.
           <View style={styles.centered}>
-            <ActivityIndicator color={colors.accent} />
+            <ActivityIndicator color={colors.interactive} />
           </View>
         ) : (
           <RiverMap
@@ -858,7 +858,7 @@ export default function MapScreen() {
         {!unavailable && detail && loadingDetail && selected && drawnSlug !== selectedSlug ? (
           <View style={styles.loadingPillWrap} pointerEvents="none">
             <View style={[styles.loadingPill, floating(), { backgroundColor: colors.card }]}>
-              <ActivityIndicator size="small" color={colors.accent} />
+              <ActivityIndicator size="small" color={colors.interactive} />
               <Text style={[styles.loadingPillText, { color: colors.text }]} numberOfLines={1}>
                 {selected.name}
               </Text>
@@ -991,12 +991,12 @@ export default function MapScreen() {
               accessibilityLabel="Show my location"
             >
               {location.status === 'locating' ? (
-                <ActivityIndicator size="small" color={colors.accent} />
+                <ActivityIndicator size="small" color={colors.interactive} />
               ) : (
                 <Ionicons
                   name={location.status === 'ready' ? 'locate' : 'locate-outline'}
                   size={19}
-                  color={location.status === 'denied' ? colors.textSubtle : colors.accent}
+                  color={location.status === 'denied' ? colors.textSubtle : colors.interactive}
                 />
               )}
             </Pressable>
@@ -1203,7 +1203,10 @@ function PinCallout({
     <View style={[styles.callout, { backgroundColor: colors.card }, elevation(2)]}>
       <View style={styles.calloutHead}>
         <View
-          style={[styles.calloutDot, { backgroundColor: pin.color ?? layer?.color(colors) ?? colors.accent }]}
+          style={[
+            styles.calloutDot,
+            { backgroundColor: pin.color ?? layer?.color(colors) ?? colors.interactive },
+          ]}
         />
         <View style={styles.calloutText}>
           <Text style={[styles.calloutName, { color: colors.text }]} numberOfLines={2}>
