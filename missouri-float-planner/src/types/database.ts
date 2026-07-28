@@ -197,7 +197,9 @@ export type Database = {
           device_token_id: string
           error_code: string | null
           event_id: string
+          event_source: string
           kind: string
+          receipt_checked_at: string | null
           river_id: string | null
           sent_at: string
           status: string
@@ -208,7 +210,9 @@ export type Database = {
           device_token_id: string
           error_code?: string | null
           event_id: string
+          event_source?: string
           kind: string
+          receipt_checked_at?: string | null
           river_id?: string | null
           sent_at?: string
           status?: string
@@ -219,7 +223,9 @@ export type Database = {
           device_token_id?: string
           error_code?: string | null
           event_id?: string
+          event_source?: string
           kind?: string
+          receipt_checked_at?: string | null
           river_id?: string | null
           sent_at?: string
           status?: string
@@ -235,13 +241,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "alert_push_deliveries_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "river_condition_events"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "alert_push_deliveries_river_id_fkey"
             columns: ["river_id"]
             isOneToOne: false
@@ -253,6 +252,7 @@ export type Database = {
       alert_subscriptions: {
         Row: {
           created_at: string
+          enabled: boolean
           fired_at: string | null
           id: string
           kind: string
@@ -263,6 +263,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          enabled?: boolean
           fired_at?: string | null
           id?: string
           kind?: string
@@ -273,6 +274,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          enabled?: boolean
           fired_at?: string | null
           id?: string
           kind?: string
@@ -290,6 +292,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      app_config: {
+        Row: {
+          chat_enabled: boolean
+          id: string
+          latest_version: string
+          min_refresh_seconds: number
+          min_supported_version: string
+          notice: string | null
+          offline_downloads_enabled: boolean
+          planner_enabled: boolean
+          push_enabled: boolean
+          updated_at: string
+          upgrade_message: string | null
+        }
+        Insert: {
+          chat_enabled?: boolean
+          id?: string
+          latest_version?: string
+          min_refresh_seconds?: number
+          min_supported_version?: string
+          notice?: string | null
+          offline_downloads_enabled?: boolean
+          planner_enabled?: boolean
+          push_enabled?: boolean
+          updated_at?: string
+          upgrade_message?: string | null
+        }
+        Update: {
+          chat_enabled?: boolean
+          id?: string
+          latest_version?: string
+          min_refresh_seconds?: number
+          min_supported_version?: string
+          notice?: string | null
+          offline_downloads_enabled?: boolean
+          planner_enabled?: boolean
+          push_enabled?: boolean
+          updated_at?: string
+          upgrade_message?: string | null
+        }
+        Relationships: []
       }
       blog_posts: {
         Row: {
@@ -1152,6 +1196,225 @@ export type Database = {
           },
         ]
       }
+      gauge_alert_events: {
+        Row: {
+          condition_code: string | null
+          detected_at: string
+          gauge_station_id: string
+          id: string
+          kind: string
+          metadata: Json | null
+          push_attempts: number
+          push_delivered_at: string | null
+          reading_at: string | null
+          reading_unit: string | null
+          reading_value: number | null
+          river_id: string | null
+          subscription_id: string
+          user_id: string
+        }
+        Insert: {
+          condition_code?: string | null
+          detected_at?: string
+          gauge_station_id: string
+          id?: string
+          kind: string
+          metadata?: Json | null
+          push_attempts?: number
+          push_delivered_at?: string | null
+          reading_at?: string | null
+          reading_unit?: string | null
+          reading_value?: number | null
+          river_id?: string | null
+          subscription_id: string
+          user_id: string
+        }
+        Update: {
+          condition_code?: string | null
+          detected_at?: string
+          gauge_station_id?: string
+          id?: string
+          kind?: string
+          metadata?: Json | null
+          push_attempts?: number
+          push_delivered_at?: string | null
+          reading_at?: string | null
+          reading_unit?: string | null
+          reading_value?: number | null
+          river_id?: string | null
+          subscription_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gauge_alert_events_gauge_station_id_fkey"
+            columns: ["gauge_station_id"]
+            isOneToOne: false
+            referencedRelation: "gauge_snap_diagnostics"
+            referencedColumns: ["gauge_id"]
+          },
+          {
+            foreignKeyName: "gauge_alert_events_gauge_station_id_fkey"
+            columns: ["gauge_station_id"]
+            isOneToOne: false
+            referencedRelation: "gauge_stations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gauge_alert_events_river_id_fkey"
+            columns: ["river_id"]
+            isOneToOne: false
+            referencedRelation: "rivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gauge_alert_events_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "gauge_alert_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gauge_alert_subscriptions: {
+        Row: {
+          comparator: string | null
+          condition_kind: string | null
+          created_at: string
+          enabled: boolean
+          gauge_station_id: string
+          id: string
+          last_condition_code: string | null
+          last_evaluated_at: string | null
+          last_reading_at: string | null
+          last_state: string | null
+          last_triggered_at: string | null
+          last_value: number | null
+          metric: string | null
+          mode: string
+          one_shot: boolean
+          river_id: string | null
+          scope: string
+          threshold_value: number | null
+          threshold_value_max: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comparator?: string | null
+          condition_kind?: string | null
+          created_at?: string
+          enabled?: boolean
+          gauge_station_id: string
+          id?: string
+          last_condition_code?: string | null
+          last_evaluated_at?: string | null
+          last_reading_at?: string | null
+          last_state?: string | null
+          last_triggered_at?: string | null
+          last_value?: number | null
+          metric?: string | null
+          mode: string
+          one_shot?: boolean
+          river_id?: string | null
+          scope?: string
+          threshold_value?: number | null
+          threshold_value_max?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comparator?: string | null
+          condition_kind?: string | null
+          created_at?: string
+          enabled?: boolean
+          gauge_station_id?: string
+          id?: string
+          last_condition_code?: string | null
+          last_evaluated_at?: string | null
+          last_reading_at?: string | null
+          last_state?: string | null
+          last_triggered_at?: string | null
+          last_value?: number | null
+          metric?: string | null
+          mode?: string
+          one_shot?: boolean
+          river_id?: string | null
+          scope?: string
+          threshold_value?: number | null
+          threshold_value_max?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gauge_alert_subscriptions_gauge_station_id_fkey"
+            columns: ["gauge_station_id"]
+            isOneToOne: false
+            referencedRelation: "gauge_snap_diagnostics"
+            referencedColumns: ["gauge_id"]
+          },
+          {
+            foreignKeyName: "gauge_alert_subscriptions_gauge_station_id_fkey"
+            columns: ["gauge_station_id"]
+            isOneToOne: false
+            referencedRelation: "gauge_stations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gauge_alert_subscriptions_river_id_fkey"
+            columns: ["river_id"]
+            isOneToOne: false
+            referencedRelation: "rivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gauge_latest: {
+        Row: {
+          discharge_cfs: number | null
+          fetched_at: string
+          flow_percentile: number | null
+          gauge_height_ft: number | null
+          gauge_station_id: string
+          qualifiers: string[] | null
+          reading_timestamp: string
+        }
+        Insert: {
+          discharge_cfs?: number | null
+          fetched_at?: string
+          flow_percentile?: number | null
+          gauge_height_ft?: number | null
+          gauge_station_id: string
+          qualifiers?: string[] | null
+          reading_timestamp: string
+        }
+        Update: {
+          discharge_cfs?: number | null
+          fetched_at?: string
+          flow_percentile?: number | null
+          gauge_height_ft?: number | null
+          gauge_station_id?: string
+          qualifiers?: string[] | null
+          reading_timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gauge_latest_gauge_station_id_fkey"
+            columns: ["gauge_station_id"]
+            isOneToOne: true
+            referencedRelation: "gauge_snap_diagnostics"
+            referencedColumns: ["gauge_id"]
+          },
+          {
+            foreignKeyName: "gauge_latest_gauge_station_id_fkey"
+            columns: ["gauge_station_id"]
+            isOneToOne: true
+            referencedRelation: "gauge_stations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gauge_readings: {
         Row: {
           discharge_cfs: number | null
@@ -1197,22 +1460,6 @@ export type Database = {
           },
         ]
       }
-      // HAND-PATCHED to the live schema, against this file's own header, and
-      // said out loud rather than left for the next reader to discover.
-      //
-      // 00196_national_gauges added fourteen columns to this table and nothing
-      // regenerated afterwards, so typed code could not reference `curated` —
-      // the flag that separates the ~46 gauges Eddy rates from the ~14,000
-      // national reference stations. /api/search has to order by it (rated
-      // first, or a search for "Big" returns nine BIG CREEK NR ... stations
-      // ahead of Big River), and could not: the column did not exist as far as
-      // the compiler was concerned.
-      //
-      // The right fix is `npm run db:gen-types`, which needs a Supabase access
-      // token this environment does not have. Patched by hand from
-      // information_schema for the one table that was wrong. RE-RUN THE
-      // GENERATOR when you next have credentials; this block should survive it
-      // unchanged, and if it does not, the generator is right and this is wrong.
       gauge_stations: {
         Row: {
           active: boolean | null
@@ -1579,6 +1826,39 @@ export type Database = {
           verified_source?: string | null
           website?: string | null
           zip?: string | null
+        }
+        Relationships: []
+      }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          quiet_end_minute: number | null
+          quiet_hours_enabled: boolean
+          quiet_start_minute: number | null
+          safety_overrides_quiet: boolean
+          timezone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          quiet_end_minute?: number | null
+          quiet_hours_enabled?: boolean
+          quiet_start_minute?: number | null
+          safety_overrides_quiet?: boolean
+          timezone?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          quiet_end_minute?: number | null
+          quiet_hours_enabled?: boolean
+          quiet_start_minute?: number | null
+          safety_overrides_quiet?: boolean
+          timezone?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -2772,6 +3052,39 @@ export type Database = {
         }
         Relationships: []
       }
+      starred_gauges: {
+        Row: {
+          created_at: string
+          gauge_station_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          gauge_station_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          gauge_station_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "starred_gauges_gauge_station_id_fkey"
+            columns: ["gauge_station_id"]
+            isOneToOne: false
+            referencedRelation: "gauge_snap_diagnostics"
+            referencedColumns: ["gauge_id"]
+          },
+          {
+            foreignKeyName: "starred_gauges_gauge_station_id_fkey"
+            columns: ["gauge_station_id"]
+            isOneToOne: false
+            referencedRelation: "gauge_stations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       starred_rivers: {
         Row: {
           created_at: string
@@ -3091,6 +3404,40 @@ export type Database = {
         Args: { p_short_code: string }
         Returns: boolean
       }
+      gauge_points: {
+        Args: { p_after?: string; p_limit?: number }
+        Returns: {
+          curated: boolean
+          id: string
+          lat: number
+          lng: number
+          site_id: string
+        }[]
+      }
+      gauges_in_bbox: {
+        Args: {
+          p_curated_only?: boolean
+          p_east: number
+          p_limit?: number
+          p_north: number
+          p_south: number
+          p_west: number
+        }
+        Returns: {
+          curated: boolean
+          discharge_cfs: number
+          flow_percentile: number
+          gauge_height_ft: number
+          id: string
+          lat: number
+          lng: number
+          name: string
+          qualifiers: string[]
+          reading_timestamp: string
+          site_id: string
+          total: number
+        }[]
+      }
       generate_short_code: { Args: { length?: number }; Returns: string }
       get_active_rivers_bounds: {
         Args: { p_state?: string }
@@ -3183,6 +3530,7 @@ export type Database = {
           gauge_usgs_id: string
           reading_age_hours: number
           reading_timestamp: string
+          threshold_unit: string
         }[]
       }
       get_river_condition_segment: {
@@ -3344,6 +3692,26 @@ export type Database = {
         }[]
       }
       release_cron_lock: { Args: { job_name: string }; Returns: undefined }
+      search_gauges: {
+        Args: {
+          p_limit?: number
+          p_near_lat?: number
+          p_near_lng?: number
+          p_query: string
+        }
+        Returns: {
+          curated: boolean
+          discharge_cfs: number
+          flow_percentile: number
+          gauge_height_ft: number
+          id: string
+          lat: number
+          lng: number
+          name: string
+          reading_timestamp: string
+          site_id: string
+        }[]
+      }
       set_access_point_miles_from_geometry: {
         Args: { p_force?: boolean; p_river_id: string }
         Returns: number
