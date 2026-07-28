@@ -36,7 +36,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { ALERT_LATENCY_NOTE, type AlertFeedEntry, type AlertRule } from '@eddy/types';
+import {
+  ALERT_FEED_WINDOW_DAYS,
+  ALERT_LATENCY_NOTE,
+  type AlertFeedEntry,
+  type AlertRule,
+} from '@eddy/types';
 import { ApiError, fetchAlerts } from '@/api/client';
 import { conditionBg, conditionColor, conditionInk } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -161,6 +166,19 @@ export default function AlertsScreen() {
         {segmentButton('rules', 'My alerts')}
       </View>
 
+      {/* WHOSE rows these are, said out loud.
+          Without this line the feed reads as "notifications I was sent" — a
+          fair reading of a screen titled Alerts whose rows look like a
+          notification list — and the first question that follows is how to
+          delete them. There is nothing to delete: every caller sees the same
+          log, so removing a row would remove it for everyone. Saying what it is
+          costs one line and answers the question before it is asked. */}
+      <Text style={[styles.caption, { color: colors.textSubtle }]}>
+        {showingRules
+          ? 'Alerts you have set. Only you receive these.'
+          : `Condition changes on every river Eddy tracks, from the last ${ALERT_FEED_WINDOW_DAYS} days.`}
+      </Text>
+
       {error && !showingRules ? (
         <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
       ) : null}
@@ -266,7 +284,12 @@ export default function AlertsScreen() {
             <EddyScene name="checkingGauge" size={120} />
             <Text style={[styles.emptyTitle, { color: colors.text }]}>No recent changes</Text>
             <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
-              No rivers have changed condition recently. That&apos;s usually good news.
+              {/* Empty is now a REACHABLE state rather than a theoretical one —
+                  the feed is bounded to a week, so a quiet stretch genuinely
+                  empties it. Which is the point: a log you cannot clear and
+                  that never empties is indistinguishable from a broken inbox. */}
+              No river has changed condition in the last {ALERT_FEED_WINDOW_DAYS} days. That&apos;s
+              usually good news.
             </Text>
           </View>
         }
@@ -331,6 +354,7 @@ const styles = StyleSheet.create({
   toggleRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
   toggle: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1 },
   toggleText: { ...t.xs, fontFamily: fonts.semibold },
+  caption: { ...t.xs, fontFamily: fonts.body, marginTop: 10, lineHeight: 16 },
   errorText: { ...t.sm, fontFamily: fonts.body, marginTop: 10 },
   empty: { alignItems: 'center', paddingHorizontal: 40, paddingTop: 30 },
   emptyTitle: { ...t.lg, fontFamily: fonts.semibold, marginTop: 10 },

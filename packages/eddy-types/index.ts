@@ -1050,6 +1050,23 @@ export interface RiverConditionEvent {
  */
 export const ALERT_LATENCY_NOTE = 'Conditions are checked regularly; readings can lag the river by up to about an hour.';
 
+/**
+ * How far back the condition feed reaches.
+ *
+ * The feed is a LOG of what rivers have done, not a per-user inbox — the rows
+ * are the same for everybody, so there is nothing to mark read and nothing to
+ * delete. That only works if it ages out on its own, and it did not: /api/alerts
+ * bounded by `limit` alone, which means "the last N events ever". Six days after
+ * the outbox shipped that still looked like recent news; six months after, it
+ * would have been a screen of history with no way to clear it, which is exactly
+ * how it gets mistaken for a broken inbox.
+ *
+ * Seven days because a condition change older than that is not a plan you can
+ * act on — the river has moved since — and the river screen carries the current
+ * reading anyway.
+ */
+export const ALERT_FEED_WINDOW_DAYS = 7;
+
 // ── River outlook (GET /api/rivers/[slug]/outlook) ───────────────
 // The 72-hour picture and Eddy's interpretation, assembled server-side.
 //

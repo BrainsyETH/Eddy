@@ -509,10 +509,31 @@ async function runUpdate(request: NextRequest) {
                 `(gauge ${reading.siteId}, ${reading.gaugeHeightFt?.toFixed(1)} ft)`
               );
 
-              // `dangerous` fires on the first clean reading; `high` needs two
-              // consecutive readings. Safety warnings must not wait an hour,
-              // but a one-off spike shouldn't cry wolf either.
-              const requiredConfirmations = newCondition.code === 'high' ? 2 : 1;
+              // ── Only DANGEROUS fires on a single reading ──────────────────
+              //
+              // This used to be `code === 'high' ? 2 : 1`, which protected the
+              // one transition nobody floats on and left every other band edge
+              // undefended. The Mulberry proved it: its ladder puts the `good`
+              // floor at 1.50 ft, the gauge sat there for two days, and
+              //
+              //   1.51 good → 1.44 low → 1.52 good → 1.46 low → 1.50 good
+              //        → 1.49 low → 1.50 good → 1.46 low → 1.51 good
+              //
+              // produced FIVE "now floatable" events — four of them pushable —
+              // from water that moved eight hundredths of a foot. Ten of the
+              // eighteen events in the whole feed came from that one gauge.
+              //
+              // Requiring two consecutive readings kills it dead, because
+              // record_condition_transition clears a pending code as soon as
+              // the river returns to the stored one (migration 00189). A real
+              // rise still confirms on the next pass and emits; noise never
+              // gets a second sample in the same direction.
+              //
+              // `dangerous` keeps its single-reading path, and that asymmetry is
+              // the whole point: waiting a cycle to say "this is floatable" costs
+              // someone a slightly later notification, and waiting a cycle to say
+              // "this is flood water" costs something else entirely.
+              const requiredConfirmations = newCondition.code === 'dangerous' ? 1 : 2;
 
               // Atomic: compare-and-swap of last_condition_code + the outbox
               // event in one transaction (migration 00189). Replaces a bare
