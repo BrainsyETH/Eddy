@@ -24,12 +24,8 @@
 // snapshot, never present with a null. Absent means "this dam has no
 // powerhouse", and the UI must render nothing rather than "0 cfs" or a dash.
 
-import { fetchLatestValue, fetchTimeseries, stalenessOf, type Staleness } from '@/lib/usace/cda';
-import {
-  fetchProjectSchedule,
-  idleWindows,
-  type ProjectSchedule,
-} from '@/lib/usace/swpa';
+import { fetchLatestValue, fetchTimeseries, stalenessOf } from '@/lib/usace/cda';
+import { fetchProjectSchedule, idleWindows } from '@/lib/usace/swpa';
 import { resolveSeries, type ResolvedSeries } from '@/lib/usace/resolve';
 import {
   USACE_DAMS,
@@ -50,51 +46,20 @@ const SNAPSHOT_METRICS: UsaceMetric[] = [
 /** Parallel CDA requests across a whole page render. */
 const FETCH_CONCURRENCY = 6;
 
-export interface DamMetricValue {
-  value: number;
-  unit: string;
-  /** ISO timestamp of the observation. */
-  at: string;
-  staleness: Staleness;
-  /**
-   * True when this is a daily mean rather than a spot reading (MVS publishes
-   * release this way, about a day in arrears). The UI must label it — showing
-   * a day-old average as "releasing now" would be a correctness bug.
-   */
-  dailyMean?: boolean;
-}
-
-export interface DamScheduleDay {
-  scheduleDate: string;
-  /** 24 entries, hour-ending 1..24. */
-  hours: ProjectSchedule['hours'];
-  /** Contiguous idle stretches — the wading windows. */
-  idle: Array<{ from: number; to: number }>;
-}
-
-export interface DamSnapshot {
-  id: string;
-  name: string;
-  lakeName: string | null;
-  state: string;
-  lat: number;
-  lon: number;
-  hasTurbines: boolean;
-  /** Nameplate plant, when the dam has one. Not SWPA's scheduling capacity. */
-  nameplate?: { units: number; megawatts: number };
-  /** Declared in the registry, never inferred from a temperature reading. */
-  tailwaterFishery?: 'trout' | 'warmwater';
-  /** Recorded release line — the fallback when a feed is down. */
-  infoPhone?: string;
-  /** Present metrics only. An absent key means the dam does not publish it. */
-  metrics: Partial<Record<UsaceMetric, DamMetricValue>>;
-  /** Generating right now, or null when the dam publishes no turbine flow. */
-  generating: boolean | null;
-  /** Hourly forward schedule, today first. Empty when the dam has no SWPA code. */
-  schedule: DamScheduleDay[];
-  /** Where the numbers came from, for attribution in the UI. */
-  sources: string[];
-}
+// The wire shapes live in shared/ so eddy-ios can import the same definitions
+// rather than restating them — see that file's header for why they cannot live
+// in packages/eddy-types. Re-exported here so every existing `@/lib/data/dams`
+// import keeps working verbatim.
+export type {
+  DamMetricValue,
+  DamScheduleDay,
+  DamSnapshot,
+  DamStaleness,
+  DamTailwater,
+  DamsResponse,
+  ScheduledHour,
+} from '@shared/dam-types';
+import type { DamMetricValue, DamScheduleDay, DamSnapshot } from '@shared/dam-types';
 
 /** Run `fn` over `items`, at most `limit` at a time. */
 async function mapWithConcurrency<T, R>(
@@ -198,6 +163,7 @@ async function readSchedule(dam: UsaceDam, days: number): Promise<DamScheduleDay
     scheduleDate: s.scheduleDate,
     hours: s.hours,
     idle: idleWindows(s),
+    retrievedAt: s.retrievedAt,
   }));
 }
 
@@ -239,6 +205,11 @@ export async function fetchDamSnapshot(
     ...(dam.nameplate ? { nameplate: dam.nameplate } : {}),
     ...(dam.tailwaterFishery ? { tailwaterFishery: dam.tailwaterFishery } : {}),
     ...(dam.infoPhone ? { infoPhone: dam.infoPhone } : {}),
+    // The reach this dam controls, when Eddy carries it. On the wire so a
+    // client holding the dam list can answer "does this river have a dam above
+    // it" without a second round trip — which is what lets the iOS river screen
+    // show a dam panel with no /api/rivers/[slug]/dam route existing.
+    ...(dam.tailwater ? { tailwater: dam.tailwater } : {}),
     metrics,
     generating,
     schedule,

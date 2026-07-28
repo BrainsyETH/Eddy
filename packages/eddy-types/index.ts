@@ -538,6 +538,16 @@ export interface MapGauge {
    * `.toLowerCase()` of a USACE dam's id. Nothing may assume a string.
    */
   usgsSiteId: string | null;
+  /**
+   * Registry id from the backend's flow-provider registry; 'usgs' when the
+   * column is null. /api/gauges has always sent this — it was simply missing
+   * from this type, which is how the app came to render a USACE dam as
+   * "USGS swl-clearwater-dam" and link it to a waterdata.usgs.gov 404.
+   *
+   * Optional because the field post-dates some cached payloads; read it as
+   * `provider ?? 'usgs'` and never assume USGS without checking.
+   */
+  provider?: string;
   name: string;
   /**
    * The endpoint defaults unparseable PostGIS locations to (0, 0) rather than
@@ -761,6 +771,18 @@ export interface GaugeDetail {
   floodStages: GaugeFloodStages | null;
   /** The station's own public page, or null for a provider without one. */
   publicUrl: string | null;
+  /**
+   * What this station's reading means, in the words written for it
+   * (gauge_stations.threshold_descriptions.note).
+   *
+   * The only vocabulary left for a station with neither a ladder nor a
+   * percentile — which is precisely a USACE dam release. Migration 00198 wrote
+   * the one that matters: the Black below Clearwater runs at whatever the
+   * Corps releases, and releases can change without notice.
+   *
+   * Optional: it post-dates deployed builds of the endpoint.
+   */
+  stationNote?: string | null;
 }
 
 export interface GaugeDetailResponse {
@@ -1532,3 +1554,21 @@ export interface RiverVisualsResponse {
   currentGaugeHeightFt: number | null;
   currentDischargeCfs: number | null;
 }
+
+// ── Dams (GET /api/dams, GET /api/dams/[damId]) ──────────────────────────────
+// NOT redefined here, for the same reason ConditionCode is not: the definitions
+// live in missouri-float-planner/shared/dam-types.ts, which both this package
+// and the web app can reach, while packages/ is unreachable from a Vercel build
+// rooted at missouri-float-planner/. See that file for the per-metric contract —
+// in short, a metric the dam does not publish is ABSENT rather than null, and
+// absent must render nothing rather than "0 cfs".
+export type {
+  DamMetricValue,
+  DamScheduleDay,
+  DamSnapshot,
+  DamStaleness,
+  DamTailwater,
+  DamsResponse,
+  ScheduledHour,
+  UsaceMetric,
+} from '../../missouri-float-planner/shared/dam-types';

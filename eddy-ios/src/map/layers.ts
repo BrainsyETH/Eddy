@@ -17,7 +17,14 @@ import { flowBandColor } from '@/theme/flow';
 import type { EddySymbolName } from '@/components/EddySymbol';
 import type { Ionicons } from '@expo/vector-icons';
 
-export type LayerKey = 'access' | 'campgrounds' | 'gauges' | 'allGauges' | 'hazards' | 'outfitters';
+export type LayerKey =
+  | 'access'
+  | 'campgrounds'
+  | 'gauges'
+  | 'allGauges'
+  | 'hazards'
+  | 'outfitters'
+  | 'dams';
 
 export interface LayerDef {
   key: LayerKey;
@@ -162,6 +169,26 @@ export const MAP_LAYERS: LayerDef[] = [
     icon: 'warning-outline',
     symbol: 'hazard',
     color: () => conditionColor('dangerous'),
+  },
+  {
+    key: 'dams',
+    // "Lakes & dams", NEVER "Dams". The hazards row above already draws
+    // low-water dams, in the canonical `dangerous` red, and they are a
+    // different thing entirely: one is a Corps project with a lake and a
+    // generation schedule, the other is the leading killer in paddling. Two
+    // rows both called "Dams", one red and one teal, would be a legibility bug
+    // with a safety consequence — so the label names the lake, which is what
+    // actually distinguishes these ten.
+    label: 'Lakes & dams',
+    description: 'USACE releases, lake levels and generation',
+    icon: 'water-outline',
+    // No `symbol` yet: the catalog has no dam mark, and `icon` is the
+    // documented fallback for a layer before one is drawn for it.
+    //
+    // Instrumentation teal, from the same family as the gauge rows and
+    // explicitly NOT the hazard red — for the reason in the label note above. A
+    // step darker than `gauges` so the two are siblings rather than twins.
+    color: (c) => (c.scheme === 'dark' ? primary[200] : primary[800]),
   },
   {
     key: 'campgrounds',

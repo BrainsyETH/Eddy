@@ -139,6 +139,15 @@ export interface GaugeDetail {
   floodStages: GaugeFloodStages | null;
   /** The station's own public page, or null for a provider without one. */
   publicUrl: string | null;
+  /**
+   * gauge_stations.threshold_descriptions.note — what this station's reading
+   * means, in the words written for it.
+   *
+   * Carries the weight for a station with no ladder and no percentile, which
+   * is exactly a USACE dam release: neither vocabulary applies, so the prose
+   * is the only true thing left to say about the number.
+   */
+  stationNote: string | null;
 }
 
 export interface GaugeDetailResponse {
@@ -209,6 +218,7 @@ async function _GET(
         .from('gauge_stations')
         .select(
           `provider,
+           threshold_descriptions,
            nws_lid,
            nwps_action_stage_ft,
            nwps_flood_stage_ft,
@@ -244,6 +254,15 @@ async function _GET(
     const provider =
       ((stationResult.data as { provider?: string | null } | null)?.provider as string | null) ??
       DEFAULT_PROVIDER_ID;
+
+    // The station's own prose about what its number means. Written per station
+    // in gauge_stations.threshold_descriptions — migration 00198 put the one
+    // that matters most there, explaining that the Black below Clearwater runs
+    // at whatever the Corps releases. A station with no ladder has nothing else
+    // to say about its reading, so this is the only honest thing on that screen.
+    const stationNote =
+      ((stationResult.data as { threshold_descriptions?: { note?: string } | null } | null)
+        ?.threshold_descriptions?.note as string | undefined) ?? null;
     let qualifiers = (latestResult.data?.qualifiers as string[] | null) ?? null;
 
     let gaugeHeightFt = toNum(row.gauge_height_ft);
@@ -373,6 +392,7 @@ async function _GET(
       thresholds: thresholds.length > 0 ? thresholds : null,
       floodStages,
       publicUrl: getFlowProvider(provider)?.publicUrl(siteId) ?? null,
+      stationNote,
     };
 
     // Short CDN window: this is a live reading, and the stale path above means

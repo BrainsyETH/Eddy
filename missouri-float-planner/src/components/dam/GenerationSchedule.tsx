@@ -19,33 +19,15 @@
 
 import { Clock } from 'lucide-react';
 import type { DamScheduleDay } from '@/lib/data/dams';
-
-/** "hour ending 14" → "1 PM". The hour the water actually starts moving. */
-function hourEndingLabel(hourEnding: number): string {
-  const startHour = (hourEnding - 1) % 24;
-  const suffix = startHour < 12 ? 'AM' : 'PM';
-  const display = startHour % 12 === 0 ? 12 : startHour % 12;
-  return `${display} ${suffix}`;
-}
-
-/** A window given as hour-ending bounds → "midnight – 6 AM". */
-function windowLabel(from: number, to: number): string {
-  const start = hourEndingLabel(from);
-  const end = hourEndingLabel(to + 1);
-  return `${start === '12 AM' ? 'midnight' : start} – ${end === '12 AM' ? 'midnight' : end}`;
-}
-
-function dayLabel(iso: string): string {
-  // Parsed as a plain calendar date; SWPA schedules are Central-time days and
-  // must not be shifted by the viewer's timezone.
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
-  });
-}
+// The hour arithmetic lives in shared/ so the iOS screen cannot drift from it.
+// An off-by-one here puts an angler in the water an hour early, and two
+// implementations of that sum is two chances to get it wrong.
+import {
+  windowLabel,
+  scheduleDayLabel as dayLabel,
+  retrievalSentence,
+  scheduleIsStale,
+} from '@shared/dam-schedule-copy';
 
 function DayRow({ day }: { day: DamScheduleDay }) {
   const peak = day.hours.reduce((max, h) => (h.megawatts > max ? h.megawatts : max), 0);
@@ -122,6 +104,17 @@ function DayRow({ day }: { day: DamScheduleDay }) {
 export default function GenerationSchedule({ schedule }: { schedule: DamScheduleDay[] }) {
   if (schedule.length === 0) return null;
 
+  // The section is only as fresh as its OLDEST day. Each day comes from a
+  // different file (mon.htm, tue.htm) with its own CloudFront age, so taking
+  // the newest would overstate the block as a whole. One line for the section
+  // rather than one per day: three near-identical timestamps would invite the
+  // reader to think they differ meaningfully.
+  const oldestRetrieval = schedule.reduce<string | null>((oldest, day) => {
+    if (!day.retrievedAt) return oldest;
+    return !oldest || day.retrievedAt < oldest ? day.retrievedAt : oldest;
+  }, null);
+  const retrieval = retrievalSentence(oldestRetrieval);
+
   return (
     <section className="rounded-xl border-2 border-neutral-300 bg-white p-5">
       <div className="flex items-center gap-2">
@@ -144,7 +137,18 @@ export default function GenerationSchedule({ schedule }: { schedule: DamSchedule
         ))}
       </div>
 
+      {/* Freshness and the "subject to change" disclaimer share one block on
+          purpose: WATER_REGIMES_STRATEGY.md requires that disclaimer to travel
+          with the data everywhere it appears, and how old the data is means
+          little without it. `retrieval` is null when the retrieval time is
+          unknown, and an unknown time renders nothing rather than a guess —
+          SWPA publishes no timestamp, so this is Eddy's fetch, not their post. */}
       <p className="mt-4 border-t border-neutral-200 pt-3 text-xs text-neutral-500">
+        {retrieval && (
+          <span className={scheduleIsStale(oldestRetrieval) ? 'text-accent-700' : undefined}>
+            {retrieval}{' '}
+          </span>
+        )}
         Schedules can change without notice — power demand, transmission
         constraints, generator outages and inflow all move them. Never wade or
         anchor below a dam without checking the horn and posted warnings.

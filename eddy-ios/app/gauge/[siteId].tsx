@@ -62,6 +62,14 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading, percentileLabel, readingAge } from '@/lib/readingCopy';
 import { usgsGaugeUrl } from '@/lib/directions';
+import {
+  isDamRelease,
+  isUsgsSite,
+  looksLikeUsgsSiteId,
+  providerLabel,
+  stationCaption,
+  supportsFlowBand,
+} from '@/lib/gaugeProvider';
 import { recallGauge, rememberGauge, seedFromDetail, type GaugeSeed } from '@/lib/gaugeSeed';
 import { GaugeChart } from '@/components/GaugeChart';
 import { ReadingScale } from '@/components/ReadingScale';
@@ -191,7 +199,12 @@ export default function GaugeDetailScreen() {
               ? 'Could not reach the gauge record. Check your connection and try again.'
               : `No station is published under ${siteId}.`}
           </Text>
-          {usgsGaugeUrl(siteId) ? (
+          {/* Only offered when the id LOOKS like a USGS site number. There is no
+              record here to read a provider off — that is what "not found"
+              means — so the shape of the id is all there is to go on, and
+              guessing wrong is how a USACE dam slug became a 404 on
+              waterdata.usgs.gov. */}
+          {looksLikeUsgsSiteId(siteId) && usgsGaugeUrl(siteId) ? (
             <Pressable
               onPress={() => void Linking.openURL(usgsGaugeUrl(siteId)!)}
               style={({ pressed }) => [
@@ -254,7 +267,19 @@ export default function GaugeDetailScreen() {
   const age = readingAge(gauge.readingAgeHours);
   const percentile = percentileLabel(gauge.flowPercentile);
   const starred = gauge.id ? isStarred('gauge', gauge.id) : false;
-  const source = usgsGaugeUrl(gauge.siteId);
+  // The operator's own page. Prefer the server's answer, which knows each
+  // provider's URL scheme, and fall back to the USGS template ONLY when the
+  // record says USGS. Building that URL unconditionally is what pointed a
+  // USACE dam at waterdata.usgs.gov/monitoring-location/swl-clearwater-dam/,
+  // a 404 — see src/lib/gaugeProvider.ts.
+  const source = gauge.publicUrl ?? (isUsgsSite(gauge.provider) ? usgsGaugeUrl(gauge.siteId) : null);
+  const sourceLabel = providerLabel(gauge.provider) ?? 'USGS';
+
+  // What this station says about its own number, for the case where neither of
+  // Eddy's two vocabularies applies. Arrives with the detail fetch, so it is
+  // absent on the seeded first frame — which is fine, because what it replaces
+  // is absent then too.
+  const damNote = !supportsFlowBand(gauge.provider) ? gauge.stationNote : null;
 
   // A plain function, not a useCallback: everything above it is guarded by
   // early returns, and a hook below one of those is a hook that does not run in
@@ -301,10 +326,22 @@ export default function GaugeDetailScreen() {
 
       <ScrollView contentContainerStyle={styles.body}>
         <Text style={[styles.name, { color: colors.text }]}>{gauge.name}</Text>
+        {/* Attribution, and only where it is earned. A USGS site number is a
+            public identifier worth printing; a USACE dam's id is an Eddy slug,
+            so that station is credited by operator alone. An unknown provider
+            prints neither rather than claiming one. See src/lib/gaugeProvider.ts.
+
+            "Not rated by Eddy" is likewise withheld from a dam release: it is
+            true, but it reads as an omission when the real reason is that a
+            floatability ladder is the wrong instrument for a release rate. */}
         <Text style={[styles.meta, { color: colors.textMuted }]}>
           {[
-            `USGS ${gauge.siteId}`,
-            rated ? link?.riverName : 'Not rated by Eddy',
+            stationCaption(gauge.provider, gauge.siteId),
+            rated
+              ? link?.riverName
+              : supportsFlowBand(gauge.provider)
+                ? 'Not rated by Eddy'
+                : 'Dam release',
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -378,11 +415,20 @@ export default function GaugeDetailScreen() {
           {/* The comparison, for a station that has one. This is the reference
               tier's whole answer, so it is stated in words and not left to a
               chip colour five steps of one hue deep. */}
-          {!rated ? (
+          {!rated && supportsFlowBand(gauge.provider) ? (
             <Text style={[styles.bandSentence, { color: colors.textMuted }]}>
               {flowBandSentence(band)}
               {percentile ? ` — ${percentile}.` : '.'}
             </Text>
+          ) : !rated && damNote ? (
+            /* A dam release instead of a band. UsaceProvider declines to compute
+               a percentile at all — one on a REGULATED release describes the
+               Corps' schedule, not the river's hydrology — so the band chip here
+               was rendering a comparison against a number that is null by
+               design. The station's own prose says the true thing, and it is
+               already in the database: gauge_stations.threshold_descriptions,
+               written by migration 00198. */
+            <Text style={[styles.bandSentence, { color: colors.textMuted }]}>{damNote}</Text>
           ) : percentile ? (
             <Text style={[styles.bandSentence, { color: colors.textMuted }]}>{percentile}.</Text>
           ) : null}
@@ -433,6 +479,27 @@ export default function GaugeDetailScreen() {
 
         {/* ── Where else to go ─────────────────────────────────── */}
         <View style={styles.actions}>
+          {/* A USACE station IS a dam, and the dam screen is where the rest of
+              it lives — the pool, the generating state, the hourly schedule.
+              None of that fits gauge_stations, which models a river discharge,
+              so this reading is one number off a project with a great deal more
+              to say. The ids are the same string by construction: the registry
+              key doubles as gauge_stations.site_id_external. */}
+          {isDamRelease(gauge.provider) ? (
+            <Pressable
+              onPress={() => router.push(`/dam/${gauge.siteId}`)}
+              style={({ pressed }) => [
+                styles.action,
+                { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+              ]}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.actionText, { color: colors.onAccent }]}>
+                Lake &amp; dam detail
+              </Text>
+            </Pressable>
+          ) : null}
+
           {link?.riverSlug ? (
             <Pressable
               onPress={() => router.push(`/river/${link.riverSlug}`)}
@@ -461,7 +528,7 @@ export default function GaugeDetailScreen() {
               accessibilityRole="button"
             >
               <Text style={[styles.sourceText, { color: colors.text }]}>
-                Open on USGS
+                Open on {sourceLabel}
               </Text>
             </Pressable>
           ) : null}

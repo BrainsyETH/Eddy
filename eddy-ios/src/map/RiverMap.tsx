@@ -252,6 +252,17 @@ export interface MapPin {
    */
   siteId?: string | null;
   /**
+   * The USACE project this pin is, for the dam screen.
+   *
+   * SEPARATE from `siteId` rather than overloading it, for two reasons. That
+   * field is documented as the key every per-GAUGE route uses, and routing on
+   * it would send a dam pin to the gauge screen. And Stockton and Truman have
+   * no gauge_stations row at all — they publish nothing to CWMS and exist as
+   * SWPA schedule entries — so they have a dam id and no site id, which is
+   * exactly the pair a single field could not express.
+   */
+  damId?: string | null;
+  /**
    * When the reading under this pin was TAKEN, pre-composed.
    *
    * Its own field rather than more subtitle, and drawn in the callout's footer,
@@ -293,6 +304,12 @@ interface Props {
    * and UNDER the curated gauges — see contextGaugeLayer.
    */
   referenceGauges?: MapPin[];
+  /**
+   * The USACE projects, already converted to pins by the screen — same
+   * arrangement as referenceGauges, and for the same reason: they come from a
+   * statewide fetch this component does not own.
+   */
+  dams?: MapPin[];
   /**
    * Fired when the camera settles, so the caller can fetch the new viewport.
    *
@@ -366,6 +383,7 @@ export function RiverMap({
   accessPoints,
   gauges,
   referenceGauges,
+  dams,
   onViewportChange,
   onZoomToCluster,
   hazards,
@@ -518,8 +536,11 @@ export function RiverMap({
     // tap on a reference gauge silently did nothing. The layer drew fine, which
     // is what made it read as "these just are not clickable".
     for (const pin of referenceGauges ?? []) map.set(pin.id, pin);
+    // Dams too, for the identical reason — they are built by the screen and
+    // would otherwise draw fine and be untappable.
+    for (const pin of dams ?? []) map.set(pin.id, pin);
     return map;
-  }, [pins, referenceGauges]);
+  }, [pins, referenceGauges, dams]);
 
   // The plan's own endpoints, drawn larger and labelled, because "which end is
   // the put-in" is the one question a route line cannot answer by itself.
@@ -1072,6 +1093,12 @@ export function RiverMap({
       {layerOn('gauges')
         ? pinLayer('gauges', pins.gauges, layerColor('gauges'), 'drop', 0)
         : null}
+      {/* Ten pins statewide, so labels are on at every zoom like the gauges —
+          an unnamed dot cannot be told from the lake it sits on. Drawn before
+          hazards so the low-water-dam layer still paints on top: where both
+          land in one place, the one that can kill you is the one on top. */}
+      {layerOn('dams') ? pinLayer('dams', dams ?? [], layerColor('dams'), 'drop', 0) : null}
+
       {layerOn('hazards') ? pinLayer('hazards', pins.hazards, layerColor('hazards')) : null}
 
       {endpointFeatures ? (
