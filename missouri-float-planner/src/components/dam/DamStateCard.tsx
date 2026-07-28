@@ -15,7 +15,7 @@
 //  - Stale readings drop their emphasis rather than being hidden — a number
 //    with an honest age beats no number.
 
-import { Waves, Zap, Thermometer, Droplets } from 'lucide-react';
+import { Waves, Zap, Thermometer, Droplets, Fish } from 'lucide-react';
 import type { DamSnapshot } from '@/lib/data/dams';
 
 function formatCfs(value: number): string {
@@ -129,11 +129,36 @@ export default function DamStateCard({ dam }: { dam: DamSnapshot }) {
             icon={<Thermometer className="h-3.5 w-3.5" />}
             label="Tailwater"
             value={`${tailwaterTemp.value.toFixed(1)} °F`}
-            sub={tailwaterTemp.value < 60 ? 'cold — trout water' : null}
+            sub={tailwaterTemp.value < 60 ? 'cold release' : null}
             dim={tailwaterTemp.staleness === 'stale'}
           />
         )}
+        {/* Declared in the registry, not inferred from the temperature reading.
+            Norfork is a premier trout tailwater that publishes no water
+            temperature at all, so inferring this dropped the label on exactly
+            the fishery most worth naming — and inferring it the other way would
+            have put a trout badge on cool-but-warmwater tailwaters like the Sac
+            below Stockton. */}
+        {dam.tailwaterFishery && (
+          <Stat
+            icon={<Fish className="h-3.5 w-3.5" />}
+            label="Tailwater fishery"
+            value={dam.tailwaterFishery === 'trout' ? 'Trout' : 'Warmwater'}
+            sub={
+              dam.tailwaterFishery === 'trout'
+                ? 'cold year-round, deep release'
+                : 'bass, crappie, catfish'
+            }
+          />
+        )}
       </div>
+
+      {dam.nameplate && (
+        <p className="mt-3 text-xs text-neutral-500">
+          {dam.nameplate.units} {dam.nameplate.units === 1 ? 'unit' : 'units'} ·{' '}
+          {dam.nameplate.megawatts} MW
+        </p>
+      )}
 
       {Object.keys(metrics).length === 0 && (
         // Stockton and Truman are SWPA-only: the Kansas City district

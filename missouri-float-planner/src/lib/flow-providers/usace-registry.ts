@@ -101,6 +101,30 @@ export interface UsaceDam {
    * ~40 river miles down).
    */
   tailwater?: { riverSlug: string; gaugeSiteId: string };
+  /**
+   * NAMEPLATE generating capacity — deliberately not SWPA's number.
+   *
+   * SWPA's project table lists short-term overload/scheduling capability,
+   * which runs higher: Table Rock is 4x50 MW nameplate but SWPA schedules
+   * against 230; Beaver is 112 vs 128; Truman 160 vs 184. Both are correct for
+   * their own purpose, so describe the plant with THIS and convert megawatts
+   * to cfs with SWPA's pair (see megawattsToCfs) — the conversion needs both
+   * halves to come from the same table to stay internally consistent.
+   */
+  nameplate?: { units: number; megawatts: number };
+  /**
+   * What lives in the water below the dam.
+   *
+   * A deep-draw ("hypolimnetic") release runs cold year-round and makes a
+   * trout tailwater; a surface or gate release does not. This is a property of
+   * the project, NOT something to infer from today's temperature reading —
+   * Norfork is a premier trout tailwater that publishes no water temperature
+   * at all, so inferring it would silently drop the label on exactly the
+   * fishery most worth naming.
+   */
+  tailwaterFishery?: 'trout' | 'warmwater';
+  /** Recorded line giving current releases — the fallback when a feed is down. */
+  infoPhone?: string;
   series: Partial<Record<UsaceMetric, UsaceSeries>>;
 }
 
@@ -147,6 +171,10 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     lon: -90.7708833,
     office: 'SWL',
     cdaLocation: 'Clearwater_Dam',
+    // No hydropower at all — pure flood control. Its tailwater is walleye,
+    // paddlefish and bass water, not trout.
+    tailwaterFishery: 'warmwater' as const,
+    infoPhone: '573-223-7777',
     // The one tailwater Eddy currently carries. Poplar Bluff (07063000) sits
     // BELOW the dam and is release-driven; Annapolis (07061500) sits above the
     // lake and is not, so it gets no dam treatment.
@@ -166,6 +194,10 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     office: 'SWL',
     cdaLocation: 'Table_Rock_Dam',
     swpaCode: 'TRD',
+    nameplate: { units: 4, megawatts: 200 },
+    // Lake Taneycomo — cold hypolimnetic release, ~48F year-round.
+    tailwaterFishery: 'trout' as const,
+    infoPhone: '866-494-1993',
     generationOnCfs: 100,
     series: swlSeries('Table_Rock_Dam', { turbines: true, tailwaterTemp: true }),
   },
@@ -179,6 +211,9 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     office: 'SWL',
     cdaLocation: 'Bull_Shoals_Dam',
     swpaCode: 'BSD',
+    nameplate: { units: 8, megawatts: 380 },
+    tailwaterFishery: 'trout' as const,
+    infoPhone: '870-431-5311',
     generationOnCfs: 100,
     series: swlSeries('Bull_Shoals_Dam', { turbines: true, tailwaterTemp: true }),
   },
@@ -192,6 +227,9 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     office: 'SWL',
     cdaLocation: 'Beaver_Dam',
     swpaCode: 'BEV',
+    nameplate: { units: 2, megawatts: 112 },
+    tailwaterFishery: 'trout' as const,
+    infoPhone: '866-494-1993',
     generationOnCfs: 100,
     series: swlSeries('Beaver_Dam', { turbines: true, tailwaterTemp: true }),
   },
@@ -205,6 +243,11 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     office: 'SWL',
     cdaLocation: 'Norfork_Dam',
     swpaCode: 'NFD',
+    nameplate: { units: 2, megawatts: 80 },
+    // Publishes no tailwater temperature, yet is a premier trout tailwater —
+    // the case that proves this must be declared rather than inferred.
+    tailwaterFishery: 'trout' as const,
+    infoPhone: '870-431-5311',
     generationOnCfs: 100,
     series: swlSeries('Norfork_Dam', { turbines: true, tailwaterTemp: false }),
   },
@@ -218,6 +261,9 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     office: 'SWL',
     cdaLocation: 'GreersFerry_Dam',
     swpaCode: 'GFD',
+    nameplate: { units: 2, megawatts: 110 },
+    tailwaterFishery: 'trout' as const,
+    infoPhone: '501-362-5150',
     generationOnCfs: 100,
     series: swlSeries('GreersFerry_Dam', { turbines: true, tailwaterTemp: true }),
   },
@@ -235,6 +281,9 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     lon: -90.2837,
     office: 'MVS',
     cdaLocation: 'Wappapello Lk-St Francis',
+    // A 175 kW station-service turbine only — it powers the dam, it does not
+    // peak, so there is no generation schedule and no SWPA column.
+    tailwaterFishery: 'warmwater' as const,
     series: {
       release: {
         tsId: 'Wappapello Lk-St Francis.Flow-Out.Ave.~1Day.1Day.lakerep-rev',
@@ -263,6 +312,9 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     office: 'MVS',
     cdaLocation: 'Mark Twain Lk-Salt',
     swpaCode: 'CAN',
+    nameplate: { units: 2, megawatts: 58 },
+    tailwaterFishery: 'warmwater' as const,
+    infoPhone: '573-735-4097',
     series: {
       release: {
         tsId: 'Mark Twain Lk-Salt.Flow-Out.Ave.~1Day.1Day.lakerep-rev',
@@ -291,6 +343,9 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     lat: 37.6672,
     lon: -93.7583,
     swpaCode: 'STD',
+    nameplate: { units: 1, megawatts: 52 },
+    // Deep release runs cool, but it is a bass fishery, not a trout one.
+    tailwaterFishery: 'warmwater' as const,
     series: {},
   },
   'nwk-truman-dam': {
@@ -301,6 +356,8 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     lat: 38.2653,
     lon: -93.4054,
     swpaCode: 'HST',
+    nameplate: { units: 6, megawatts: 160 },
+    tailwaterFishery: 'warmwater' as const,
     series: {},
   },
 };

@@ -49,8 +49,12 @@ const REQUEST_TIMEOUT_MS = 8_000;
  */
 const REVALIDATE_SECONDS = 1_800;
 
-const WEEKDAY_FILES = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
-export type SwpaWeekday = (typeof WEEKDAY_FILES)[number];
+/**
+ * The seven file basenames, which are also the lowercased en-US short weekday
+ * names — that correspondence is what lets weekdayFileFor derive the file
+ * straight from an Intl format in America/Chicago.
+ */
+export type SwpaWeekday = 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat';
 
 /**
  * The PROJECT TABLE published on every schedule page, verbatim as of
@@ -233,9 +237,24 @@ export function parseSchedulePage(html: string): DaySchedule | null {
   return { scheduleDate, projects };
 }
 
-/** Which .htm file covers a given local date. */
+/**
+ * Which .htm file covers a given instant, by the CENTRAL-time weekday.
+ *
+ * Must not use date.getDay(): that reads the SERVER's timezone, and on a UTC
+ * host it rolls over to tomorrow at 7pm Central (6pm in winter). The file
+ * picker then asked for tue.htm while centralDateKey still expected Monday, so
+ * the fail-closed date check rejected a perfectly good schedule — and every
+ * generation schedule on the site went blank each evening. It looked like SWPA
+ * being slow to publish; it was this function.
+ */
 export function weekdayFileFor(date: Date): SwpaWeekday {
-  return WEEKDAY_FILES[date.getDay()];
+  const short = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    weekday: 'short',
+  })
+    .format(date)
+    .toLowerCase();
+  return short as SwpaWeekday;
 }
 
 /** YYYY-MM-DD for a date as observed in America/Chicago, where SWPA operates. */

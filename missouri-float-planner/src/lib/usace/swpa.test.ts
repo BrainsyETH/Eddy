@@ -8,6 +8,8 @@ import {
   megawattsToCfs,
   parseScheduleDate,
   parseSchedulePage,
+  weekdayFileFor,
+  centralDateKey,
   type ProjectSchedule,
 } from './swpa';
 
@@ -125,4 +127,32 @@ test('rejects a schedule whose hour rows are incomplete', () => {
   const truncated = FIXTURE.split('\n').slice(0, 12).join('\n');
   const day = parseSchedulePage(truncated);
   assert.equal(day, null, 'a partial table should not parse into a usable schedule');
+});
+
+test('the schedule file is chosen by the CENTRAL weekday, not the server\'s', () => {
+  // The bug: weekdayFileFor used date.getDay(), which reads the SERVER's
+  // timezone. On a UTC host — which is every Vercel deploy — the UTC date rolls
+  // over at 7pm Central, so from 7pm onward the file picker asked for tomorrow
+  // while centralDateKey still expected today. The fail-closed date check then
+  // rejected a perfectly good schedule, and every generation schedule on the
+  // site went blank each evening.
+  //
+  // 2026-07-28T00:42Z is 7:42pm CDT on MONDAY the 27th.
+  const mondayEvening = new Date('2026-07-28T00:42:00Z');
+  assert.equal(weekdayFileFor(mondayEvening), 'mon');
+  assert.equal(centralDateKey(mondayEvening), '2026-07-27');
+});
+
+test('the file and the expected date always agree on the same day', () => {
+  // The two must never disagree, at any hour, or the fetch is dropped. Walk a
+  // full day in 30-minute steps across a UTC-midnight boundary.
+  const order = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  for (let i = 0; i < 48; i++) {
+    const t = new Date(Date.parse('2026-07-27T12:00:00Z') + i * 30 * 60_000);
+    const key = centralDateKey(t);
+    // Reconstruct the weekday from the Central calendar date the key names.
+    const [y, m, d] = key.split('-').map(Number);
+    const expected = order[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+    assert.equal(weekdayFileFor(t), expected, `disagreement at ${t.toISOString()} (central ${key})`);
+  }
 });

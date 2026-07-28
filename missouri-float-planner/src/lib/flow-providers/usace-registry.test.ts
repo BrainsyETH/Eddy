@@ -100,3 +100,66 @@ test('lookups are total and fail soft', () => {
   // Clearwater is flood-control only — no powerhouse, so no generation series.
   assert.equal(getUsaceSeries('swl-clearwater-dam', 'generationFlow'), null);
 });
+
+test('a dam with a powerhouse is identifiable without any live fetch', () => {
+  // The bug this locks out: /dams/[damId] used `schedule.length === 0` to mean
+  // "no powerhouse". Table Rock has four units, but whenever SWPA's file for
+  // that weekday had not refreshed the fail-closed date check dropped it, and
+  // the page announced the plant did not exist — while the index card beside it
+  // read "Generating". Whether a dam HAS turbines cannot depend on a fetch.
+  const tableRock = getUsaceDam('swl-table-rock-dam');
+  assert.ok(tableRock);
+  assert.ok(tableRock.swpaCode, 'Table Rock must be recognisable as a hydro project');
+  assert.ok(tableRock.nameplate, 'Table Rock must describe its plant');
+  assert.equal(tableRock.nameplate.units, 4);
+
+  const clearwater = getUsaceDam('swl-clearwater-dam');
+  assert.ok(clearwater);
+  assert.equal(clearwater.swpaCode, undefined, 'Clearwater is flood-control only');
+  assert.equal(clearwater.nameplate, undefined);
+});
+
+test('nameplate capacity is never SWPA scheduling capacity', () => {
+  // SWPA's project table lists short-term overload capability, which runs
+  // higher than nameplate. Mixing them would overstate every plant — and the
+  // MW->CFS conversion needs BOTH halves from SWPA's table to stay consistent,
+  // so the two numbers must not be reconciled into one.
+  const mismatches: Array<[string, number, number]> = [
+    ['swl-table-rock-dam', 200, 230],
+    ['swl-beaver-dam', 112, 128],
+    ['nwk-truman-dam', 160, 184],
+  ];
+  for (const [id, nameplate, swpa] of mismatches) {
+    const dam = getUsaceDam(id)!;
+    assert.equal(dam.nameplate?.megawatts, nameplate, `${id} nameplate`);
+    assert.equal(SWPA_PROJECTS[dam.swpaCode!].capacityMw, swpa, `${id} SWPA capacity`);
+    assert.notEqual(dam.nameplate?.megawatts, SWPA_PROJECTS[dam.swpaCode!].capacityMw);
+  }
+});
+
+test('trout tailwaters are declared, not inferred from temperature', () => {
+  // Exactly five of these are cold deep-release trout fisheries. Norfork is
+  // one of them AND publishes no water temperature, which is why this cannot
+  // be derived from a reading.
+  const trout = Object.values(USACE_DAMS)
+    .filter((d) => d.tailwaterFishery === 'trout')
+    .map((d) => d.id)
+    .sort();
+  assert.deepEqual(trout, [
+    'swl-beaver-dam',
+    'swl-bull-shoals-dam',
+    'swl-greers-ferry-dam',
+    'swl-norfork-dam',
+    'swl-table-rock-dam',
+  ]);
+
+  const norfork = getUsaceDam('swl-norfork-dam')!;
+  assert.equal(norfork.tailwaterFishery, 'trout');
+  assert.equal(norfork.series.tailwaterTempF, undefined, 'Norfork publishes no water temp');
+});
+
+test('every project declares what its tailwater fishery is', () => {
+  for (const dam of Object.values(USACE_DAMS)) {
+    assert.ok(dam.tailwaterFishery, `${dam.id} has no fishery classification`);
+  }
+});

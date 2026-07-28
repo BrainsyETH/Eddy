@@ -80,6 +80,12 @@ export interface DamSnapshot {
   lat: number;
   lon: number;
   hasTurbines: boolean;
+  /** Nameplate plant, when the dam has one. Not SWPA's scheduling capacity. */
+  nameplate?: { units: number; megawatts: number };
+  /** Declared in the registry, never inferred from a temperature reading. */
+  tailwaterFishery?: 'trout' | 'warmwater';
+  /** Recorded release line — the fallback when a feed is down. */
+  infoPhone?: string;
   /** Present metrics only. An absent key means the dam does not publish it. */
   metrics: Partial<Record<UsaceMetric, DamMetricValue>>;
   /** Generating right now, or null when the dam publishes no turbine flow. */
@@ -230,6 +236,9 @@ export async function fetchDamSnapshot(
     lat: dam.lat,
     lon: dam.lon,
     hasTurbines: Boolean(dam.swpaCode),
+    ...(dam.nameplate ? { nameplate: dam.nameplate } : {}),
+    ...(dam.tailwaterFishery ? { tailwaterFishery: dam.tailwaterFishery } : {}),
+    ...(dam.infoPhone ? { infoPhone: dam.infoPhone } : {}),
     metrics,
     generating,
     schedule,
