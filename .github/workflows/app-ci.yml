@@ -112,16 +112,25 @@ jobs:
           cache: npm
           cache-dependency-path: eddy-ios/package-lock.json
 
-      # --legacy-peer-deps is mandatory here, not a workaround for a stale lock
-      # file: @expo/metro-runtime is a required expo-router peer whose own
-      # react-dom peer conflicts with the pinned React. The conflict is web-only
-      # and does not affect the iOS bundle, but a plain install fails outright.
+      # A PLAIN `npm ci`, and that is a recent fix rather than the way it always
+      # was. This step carried --legacy-peer-deps and a comment calling it
+      # mandatory: react-dom is peer-depended on as "*" by expo, expo-router,
+      # @expo/metro-runtime and @rnmapbox/maps and pinned by none of them, so npm
+      # resolved the newest one, which peer-requires a react past the 19.2.3 Expo
+      # SDK 57 pins. A plain install did fail outright.
+      #
+      # The diagnosis was right and the remedy was too broad. --legacy-peer-deps
+      # does not skip ONE bad peer, it skips peer installation entirely — so this
+      # job was building against a tree with no react-native-reanimated, no
+      # react-native-gesture-handler and no react-native-worklets in it, none of
+      # which is web-only and all of which ship in the app. The `overrides` block
+      # in package.json constrains the single offending package instead.
       #
       # This also resolves the `file:` dependencies on ../packages and
       # ../missouri-float-planner/shared, which is why the full repo checkout
       # matters — the same thing EAS relies on.
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: Typecheck
         run: npx tsc --noEmit

@@ -6,6 +6,25 @@
   "engines": {
     "node": ">=20 <23"
   },
+  "//overrides": [
+    "react-dom is never declared with a version anywhere in this tree — expo,",
+    "expo-router, @expo/metro-runtime and @rnmapbox/maps all peer-depend on it",
+    "as \"*\". npm auto-installs peers, so it resolves the NEWEST react-dom, and",
+    "every react-dom past 19.2.3 peer-requires a react past the 19.2.3 that Expo",
+    "SDK 57 pins. That is an ERESOLVE deadlock on a plain `npm install`, and it",
+    "is why this project could only be installed with --legacy-peer-deps — which",
+    "silently skips peer installation and drops react-native-reanimated,",
+    "react-native-gesture-handler and react-native-worklets out of the tree.",
+    "",
+    "$react tracks the direct react dependency rather than restating 19.2.3, so",
+    "the next Expo SDK bump moves both together and this cannot drift.",
+    "",
+    "react-dom is NOT added as a real dependency: nothing in this app renders to",
+    "the DOM. It is here only to constrain something else's peer."
+  ],
+  "overrides": {
+    "react-dom": "$react"
+  },
   "scripts": {
     "start": "expo start",
     "ios": "expo run:ios",
