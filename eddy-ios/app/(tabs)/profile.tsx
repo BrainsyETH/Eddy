@@ -49,6 +49,7 @@ import { deleteAccount } from '@/api/client';
 import { restorePurchases, subscriptionSummary } from '@/lib/purchases';
 import { usePush } from '@/hooks/usePush';
 import { notificationDetail } from '@/lib/notificationCopy';
+import { FeedbackSheet } from '@/components/FeedbackSheet';
 
 const TERMS_URL = 'https://eddy.guide/terms';
 const PRIVACY_URL = 'https://eddy.guide/privacy';
@@ -77,6 +78,7 @@ export default function ProfileScreen() {
   const { permission, registered, enable, disable } = usePush();
 
   const [busy, setBusy] = useState<null | 'apple' | 'restore' | 'delete'>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const signedIn = Boolean(session) && !isAnonymous;
 
@@ -392,6 +394,24 @@ export default function ProfileScreen() {
           </View>
         </Section>
 
+        {/* ── Telling us something is wrong ───────────────────────── */}
+        <Section title="Feedback" muted={colors.textMuted}>
+          <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
+            <Text style={[styles.rowNote, { color: colors.textMuted }]}>
+              Wrong reading, missing put-in, or something broken? The river and gauge screens each
+              have their own report button, which arrives with the thing it is about attached — use
+              those when you can. This one is for everything else.
+            </Text>
+            <Pressable
+              onPress={() => setFeedbackOpen(true)}
+              style={[styles.secondary, { borderColor: colors.border }]}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.secondaryText, { color: colors.textMuted }]}>Send feedback</Text>
+            </Pressable>
+          </View>
+        </Section>
+
         {/* ── Deleting the account ────────────────────────────────── */}
         {signedIn && (
           <Section title="Delete account" muted={colors.textMuted}>
@@ -419,6 +439,12 @@ export default function ProfileScreen() {
 
         <Text style={[styles.version, { color: colors.textSubtle }]}>Eddy {version}</Text>
       </ScrollView>
+
+      <FeedbackSheet
+        visible={feedbackOpen}
+        onDismiss={() => setFeedbackOpen(false)}
+        context={{ type: 'general' }}
+      />
     </SafeAreaView>
   );
 }

@@ -56,6 +56,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { ShareButton } from '@/components/ShareButton';
+import { FeedbackSheet } from '@/components/FeedbackSheet';
 import {
   driveToUrl,
   installedNavLinks,
@@ -288,6 +289,7 @@ export default function AccessPointDetailScreen() {
    * its coordinates.
    */
   const [navLinks, setNavLinks] = useState<NavLinkSpec[]>([]);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     if (!slug || !accessSlug) return;
@@ -690,7 +692,36 @@ export default function AccessPointDetailScreen() {
           Access details are community-maintained and can change with the season. Conditions on the
           ground win.
         </Text>
+
+        {/* "Community-maintained" is a claim the line above makes and, until
+            now, nothing on this screen made good on. A gate that is locked, a
+            road that washed out, parking that is gone — those change between
+            seasons and the only person who knows is the one who just drove
+            there. Defaults to inaccurate_data rather than recalibration: what
+            is wrong on this screen is a FACT ABOUT A PLACE, not a threshold. */}
+        <Pressable
+          onPress={() => setFeedbackOpen(true)}
+          style={({ pressed }) => [styles.reportRow, { opacity: pressed ? 0.6 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Report a problem with ${point.name}`}
+        >
+          <Ionicons name="flag-outline" size={13} color={colors.textSubtle} />
+          <Text style={[styles.reportText, { color: colors.textSubtle }]}>
+            Something here out of date?
+          </Text>
+        </Pressable>
       </ScrollView>
+
+      <FeedbackSheet
+        visible={feedbackOpen}
+        onDismiss={() => setFeedbackOpen(false)}
+        defaultType="inaccurate_data"
+        context={{
+          type: 'access_point',
+          id: point.id,
+          name: `${point.name} (${point.river.name})`,
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -712,6 +743,14 @@ const styles = StyleSheet.create({
   // The right-hand end of the nav row, now that share sits beside the river link.
   navActions: { flexDirection: 'row', alignItems: 'center', gap: 14, flexShrink: 1 },
   navRiver: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1 },
+  reportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 14,
+  },
+  reportText: { ...t.xs, fontFamily: fonts.medium },
   body: { paddingBottom: 40 },
   gallery: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },
   galleryImage: { width: 240, height: 150, borderRadius: 14 },

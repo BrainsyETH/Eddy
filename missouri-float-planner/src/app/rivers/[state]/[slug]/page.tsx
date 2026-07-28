@@ -21,6 +21,7 @@ import type { ConditionCode } from '@/types/api';
 import RiverHubMap from './RiverHubMap';
 import ShareRiverButton from './ShareRiverButton';
 import HubSectionNav from './HubSectionNav';
+import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import RiverDamPanel from '@/components/dam/RiverDamPanel';
 import { fetchRiverDam } from '@/lib/data/dams';
 import RiverReaches from '@/components/river/RiverReaches';
@@ -524,6 +525,16 @@ export default async function RiverGuidePage({ params }: Props) {
               </Link>
             </section>
           )}
+          {/* The condition above is a claim about water, and the only people who
+              can check it are on the river. Defaults to the recalibration type
+              because that is what gets disputed on a river page — not a typo. */}
+          <div className="mt-10 flex justify-center">
+            <ReportIssueButton
+              context={{ type: 'river', id: river.id, name: river.name }}
+              defaultType="gauge_recalibration"
+              label={`Something wrong with the ${river.name}?`}
+            />
+          </div>
         </main>
 
         <SiteFooter maxWidth="max-w-5xl" className="mt-12" />

@@ -21,6 +21,7 @@ import OutfittersSection from '@/components/access-point/sections/OutfittersSect
 import RiverNotesSection from '@/components/access-point/sections/RiverNotesSection';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import { eddyIconUrl } from '@/components/ui/EddyIcon';
+import ReportIssueButton from '@/components/ui/ReportIssueButton';
 
 // Detail section icons, served from public/ rather than the Vercel blob URLs
 // these used to be. The art is in the repo now (design/eddy-emoji, emitted by
@@ -127,7 +128,7 @@ export default async function AccessPointDetailPage({ params }: Props) {
         )}
 
         {/* Fallback back-link (breadcrumbs above are the primary path) */}
-        <div className="pt-2">
+        <div className="flex items-center justify-between gap-4 pt-2">
           <Link
             href={riverHref}
             className="inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 font-medium"
@@ -135,6 +136,16 @@ export default async function AccessPointDetailPage({ params }: Props) {
             <ArrowLeft className="w-4 h-4" />
             Back to {accessPoint.river.name}
           </Link>
+          {/* Below the content, not above it: this page is mostly hand-curated
+              facts about a place, and the people who can correct them are the
+              ones who have just finished reading and found something wrong. */}
+          <ReportIssueButton
+            context={{
+              type: 'access_point',
+              id: accessPoint.id,
+              name: `${accessPoint.name} (${accessPoint.river.name})`,
+            }}
+          />
         </div>
       </div>
     </div>

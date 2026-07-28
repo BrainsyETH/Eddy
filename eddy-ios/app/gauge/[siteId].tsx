@@ -75,6 +75,7 @@ import { recallGauge, rememberGauge, seedFromDetail, type GaugeSeed } from '@/li
 import { GaugeChart } from '@/components/GaugeChart';
 import { ReadingScale } from '@/components/ReadingScale';
 import { ShareButton } from '@/components/ShareButton';
+import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 
@@ -145,6 +146,7 @@ export default function GaugeDetailScreen() {
   const [gauge, setGauge] = useState<GaugeSeed | null>(() => recallGauge(siteId));
   const [loading, setLoading] = useState(!gauge);
   const [failed, setFailed] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     if (!siteId) return;
@@ -607,6 +609,31 @@ export default function GaugeDetailScreen() {
               </Text>
             </Pressable>
           ) : null}
+
+          {/* ── The report only somebody who was there can file ──
+              This screen states a number and, for a rated station, a verdict
+              drawn off a ladder a human set by hand. When that ladder is wrong
+              the only evidence is a person standing in water that did not match
+              it, and until now they had nowhere to say so.
+
+              The reading and the timestamp ride along in context_data. Without
+              them the report arrives disputing a number that has already
+              changed, and there is no way to check the complaint against what
+              Eddy was actually claiming at the time. */}
+          <Pressable
+            onPress={() => setFeedbackOpen(true)}
+            style={({ pressed }) => [
+              styles.sourceButton,
+              { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`Report a problem with ${gauge.name}`}
+          >
+            <Ionicons name="flag-outline" size={16} color={colors.textMuted} />
+            <Text style={[styles.sourceText, { color: colors.textMuted }]}>
+              This reading looks wrong
+            </Text>
+          </Pressable>
         </View>
 
         {/* Every other gauge this station rates. A physical gauge can grade two
@@ -632,6 +659,27 @@ export default function GaugeDetailScreen() {
           front of you.
         </Text>
       </ScrollView>
+
+      <FeedbackSheet
+        visible={feedbackOpen}
+        onDismiss={() => setFeedbackOpen(false)}
+        defaultType="gauge_recalibration"
+        context={{
+          type: 'gauge',
+          id: gauge.siteId,
+          name: gauge.name,
+          data: {
+            provider: gauge.provider,
+            gaugeHeightFt: gauge.gaugeHeightFt,
+            dischargeCfs: gauge.dischargeCfs,
+            readingTimestamp: gauge.readingTimestamp,
+            // The river this reading was GRADED against, when it was graded at
+            // all. A station can rate two rivers on different ladders, so
+            // "the verdict was wrong" is meaningless without saying which one.
+            ratedFor: link?.riverSlug ?? null,
+          },
+        }}
+      />
     </SafeAreaView>
   );
 }

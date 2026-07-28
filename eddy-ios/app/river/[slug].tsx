@@ -95,6 +95,7 @@ import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { GaugePicker } from '@/components/GaugePicker';
 import { RiverVisuals } from '@/components/RiverVisuals';
 import { ShareButton } from '@/components/ShareButton';
+import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { ReadingScale } from '@/components/ReadingScale';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { PushPrimer } from '@/components/PushPrimer';
@@ -155,6 +156,7 @@ export default function RiverDetailScreen() {
   const [subscribed, setSubscribed] = useState<boolean | null>(null);
   const [subscribeError, setSubscribeError] = useState<string | null>(null);
   const [showAllHazards, setShowAllHazards] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -1003,7 +1005,43 @@ export default function RiverDetailScreen() {
           Conditions come from USGS gauges and can trail the river. Always judge the water in front
           of you.
         </Text>
+
+        {/* ── Directly under the disclaimer, on purpose ──
+            The line above tells someone the reading can be wrong. This is what
+            they can do about it when it was. Quiet, and last, because it is a
+            correction to everything above rather than another thing to read —
+            and it defaults to recalibration because on a river screen the thing
+            people dispute is the verdict, not a spelling. */}
+        <Pressable
+          onPress={() => setFeedbackOpen(true)}
+          style={({ pressed }) => [styles.reportRow, { opacity: pressed ? 0.6 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Report a problem with the ${river.name}`}
+        >
+          <Ionicons name="flag-outline" size={13} color={colors.textSubtle} />
+          <Text style={[styles.reportText, { color: colors.textSubtle }]}>
+            Didn&apos;t match the river? Tell us
+          </Text>
+        </Pressable>
       </ScrollView>
+
+      <FeedbackSheet
+        visible={feedbackOpen}
+        onDismiss={() => setFeedbackOpen(false)}
+        defaultType="gauge_recalibration"
+        context={{
+          type: 'river',
+          id: river.id,
+          name: river.name,
+          data: {
+            conditionCode: condition?.code ?? null,
+            gaugeHeightFt: condition?.gaugeHeightFt ?? null,
+            dischargeCfs: condition?.dischargeCfs ?? null,
+            readingTimestamp: condition?.readingTimestamp ?? null,
+            gaugeUsgsId: condition?.gaugeUsgsId ?? null,
+          },
+        }}
+      />
 
       {/* Only Eddy's written read opens this now. The bell used to, and does
           not: nothing about being alerted is for sale. */}
@@ -1151,4 +1189,12 @@ const styles = StyleSheet.create({
   serviceName: { ...t.sm, fontFamily: fonts.semibold },
   serviceMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   footnote: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', paddingHorizontal: 24, marginTop: 6 },
+  reportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 14,
+  },
+  reportText: { ...t.xs, fontFamily: fonts.medium },
 });

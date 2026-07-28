@@ -61,6 +61,8 @@ import type {
   NotificationPreferencesResponse,
   MeProfileResponse,
   MeDeleteResponse,
+  CreateFeedbackRequest,
+  FeedbackResponse,
 } from '@eddy/types';
 import type { ServerStar } from '@eddy/sync';
 import type { StatewideReading, StatewideRiver } from '@/lib/statewideNetwork';
@@ -1172,4 +1174,41 @@ export async function fetchDams(signal?: AbortSignal): Promise<DamSnapshot[]> {
  */
 export async function fetchDam(damId: string, signal?: AbortSignal): Promise<DamSnapshot> {
   return get<DamSnapshot>(`/api/dams/${encodeURIComponent(damId)}`, signal);
+}
+
+/**
+ * Send a feedback / report-issue submission.
+ *
+ * UNAUTHENTICATED, and that is the route's design rather than an oversight on
+ * this side: /api/feedback is public and rate-limited by IP so an accountless
+ * visitor can report a wrong river mile. The app inherits that, which means
+ * nobody has to sign in to say a gauge is off — and the people best placed to
+ * say it are the ones who have not bothered making an account.
+ *
+ * THROWS with the server's own sentence on failure. The route validates the
+ * email and the message and answers with wording written for a person; a form
+ * that swallowed that and printed "something went wrong" would be hiding the
+ * one thing the user can act on.
+ */
+export async function submitFeedback(input: CreateFeedbackRequest): Promise<FeedbackResponse> {
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}/api/feedback`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': USER_AGENT,
+      },
+      body: JSON.stringify(input),
+    });
+  } catch {
+    throw new ApiError('No connection');
+  }
+
+  const data = (await response.json().catch(() => null)) as FeedbackResponse | null;
+  if (!response.ok || !data?.success) {
+    throw new ApiError(data?.error ?? `Request failed (${response.status})`, response.status);
+  }
+  return data;
 }
