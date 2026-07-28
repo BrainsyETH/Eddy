@@ -14,27 +14,36 @@
 // is the one thing here that says what to DO, and it is written against today's
 // water rather than being a label on a number.
 //
-// ── The line is the BOTTOM LINE, deliberately ───────────────────────────────
-// /outlook returns three pieces of prose, and only one of them belongs on a
-// card like this. Eddy's read is the long written report and is the single paid
-// thing in the app — see the header of PaywallSheet, and the lock in EddyTake.
-// The weather section is forward-looking and needs the 72-hour strip beside it
-// to mean anything. The bottom line is the CALL, derived from the current
-// condition alone, and it is free everywhere in the product precisely because
-// it is a safety judgement. Nothing on this card is gated, and nothing on it
-// needs to be.
+// ── The line under the reading is now the BAND TRACK, not prose ─────────────
+// It was the bottom line from /outlook — the CALL, one sentence, derived from
+// the current condition. That was a real improvement on "944 cfs, Good", and it
+// cost one HTTP request per starred river on every open of this screen, on the
+// connection this screen exists to work on.
+//
+// The track is the better answer at a fraction of the price. "Where does this
+// number sit between too low and flood" is the question a favourite is being
+// checked for, it is answered in a glance rather than in a sentence, and every
+// input is ALREADY IN MEMORY: /api/gauges is fetched by this screen anyway, and
+// each gauge carries the ladder per river it grades. So the card gained the
+// more useful line and the screen lost its whole request fan-out — from N+2
+// requests to open Favorites down to 2.
+//
+// The prose is not gone from the product. Eddy's read and the bottom line both
+// live on the river screen, one tap away, where there is room for them and
+// where the 72-hour strip is beside them to give the forward-looking half
+// something to stand on.
 //
 // ── It degrades to the row it replaced ──────────────────────────────────────
-// The report is an enrichment on an enrichment: /api/rivers gives the condition,
-// /outlook gives the call, and this screen's whole promise is that it works with
-// no signal at a put-in. A river with no report renders the condition and the
-// reading and stops — which is exactly what the old row showed, so the failure
-// mode is the previous design rather than a hole.
+// The ladder is an enrichment: /api/rivers gives the condition and the reading,
+// /api/gauges gives the bands. A river whose gauge has no ladder — or whose
+// ladder is in a unit the reading is not in — renders the condition and the
+// reading and stops, which is exactly what the old row showed. The failure mode
+// is the previous design rather than a hole.
 
 import { memo } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { RiverListItem, RiverOutlookResponse } from '@eddy/types';
+import type { MapGauge, RiverListItem } from '@eddy/types';
 import {
   conditionBg,
   conditionChipBorder,
@@ -46,7 +55,17 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter, otterForCondition } from '@/components/Otter';
+import { ReadingScale } from '@/components/ReadingScale';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
+
+/**
+ * One river's row out of a gauge's `thresholds` array.
+ *
+ * Derived from MapGauge rather than restated, so this cannot drift from what
+ * /api/gauges actually sends — and so ReadingScale, which takes the same shape,
+ * keeps type-checking against it.
+ */
+export type GaugeThresholds = NonNullable<MapGauge['thresholds']>[number];
 
 const TREND_ICON = {
   rising: 'arrow-up' as const,
@@ -56,21 +75,18 @@ const TREND_ICON = {
 
 interface Props {
   river: RiverListItem;
-  /** Today's call for this river. Null when it has none or the fetch failed. */
-  report: RiverOutlookResponse | null;
-  /** True while the report is still on its way — the card renders regardless. */
-  reportLoading?: boolean;
+  /**
+   * The ladder this river's reading is graded on, from its primary gauge.
+   *
+   * Null is ORDINARY, not a failure: a river with no gauge has none, and
+   * /api/gauges may simply not have landed yet. The card renders without it.
+   */
+  thresholds: GaugeThresholds | null;
   onPress: () => void;
   onToggleStar: () => void;
 }
 
-function FavoriteRiverCardComponent({
-  river,
-  report,
-  reportLoading = false,
-  onPress,
-  onToggleStar,
-}: Props) {
+function FavoriteRiverCardComponent({ river, thresholds, onPress, onToggleStar }: Props) {
   const { colors, elevation, isDark } = useTheme();
 
   const condition = river.currentCondition;
@@ -81,8 +97,6 @@ function FavoriteRiverCardComponent({
   const reading = condition ? primaryReading(condition) : null;
   const trend = condition?.trend ?? null;
   const age = readingAge(condition?.readingAgeHours);
-
-  const bottomLine = report?.sections?.bottomLine ?? null;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
@@ -101,7 +115,6 @@ function FavoriteRiverCardComponent({
               condition?.label ?? conditionLongLabel(code),
               reading ? formatReading(reading.value, reading.unit) : 'no gauge reading',
               trend?.label,
-              bottomLine,
             ]
               .filter(Boolean)
               .join(', ')}
@@ -179,28 +192,21 @@ function FavoriteRiverCardComponent({
           </View>
         </Pressable>
 
-        {/* ── Today's call ───────────────────────────────────────────
-            The reason this screen stopped being a list of readings. Given the
-            accent edge Eddy's bottom line wears everywhere else in the app, so
-            the same sentence is recognisably the same thing here and on the
-            river screen. */}
-        {bottomLine ? (
-          <View style={[styles.call, { borderLeftColor: colors.accent }]}>
-            <Text style={[styles.callText, { color: colors.text }]} numberOfLines={4}>
-              {bottomLine}
-            </Text>
-            {report?.gaugeName ? (
-              <Text style={[styles.callSource, { color: colors.textSubtle }]} numberOfLines={1}>
-                via {report.gaugeName}
-              </Text>
-            ) : null}
-          </View>
-        ) : reportLoading ? (
-          <View style={styles.callLoading}>
-            <ActivityIndicator size="small" color={colors.accent} />
-            <Text style={[styles.metaText, { color: colors.textSubtle }]}>
-              Reading the river…
-            </Text>
+        {/* ── Where that number sits ─────────────────────────────────
+            The reason this screen stopped being a list of readings. "944 cfs"
+            is a measurement; the marker's position between too-low and flood is
+            the answer, and it is read in the time it takes to look at it.
+
+            Rendered only when the ladder is in the SAME unit as the reading
+            above it. ReadingScale places its marker by comparing the value
+            against the raw band bounds — arithmetic that cannot tell feet from
+            cfs — so a stage reading against a cfs ladder would put a river in
+            flood at 2.85. The component guards this itself, and the guard is
+            repeated here so the card does not reserve space for a track that is
+            about to decline to draw. */}
+        {thresholds && reading && thresholds.thresholdUnit === reading.unit ? (
+          <View style={styles.scale}>
+            <ReadingScale thresholds={thresholds} value={reading.value} unit={reading.unit} />
           </View>
         ) : null}
       </View>
@@ -242,8 +248,7 @@ const styles = StyleSheet.create({
   readingValue: { ...t.xl, fontFamily: fonts.mono },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   metaText: { ...t.xs, fontFamily: fonts.body },
-  call: { borderLeftWidth: 3, paddingLeft: 10, marginTop: 12, marginRight: 8 },
-  callText: { ...t.sm, fontFamily: fonts.semibold },
-  callSource: { ...t.xs, fontFamily: fonts.body, marginTop: 4 },
-  callLoading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  // Right padding matches the reading row above so the track's flood end lines
+  // up with the number rather than running under the star column.
+  scale: { marginTop: 12, paddingRight: 8 },
 });

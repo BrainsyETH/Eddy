@@ -15,41 +15,70 @@
 //
 // ── A favourite gets the card, not the row ──────────────────────────────────
 // Starred rivers render as FavoriteRiverCard rather than the compact RiverRow
-// the Search tab uses, and the difference is Eddy's live call on each one. This
-// screen holds three or four rivers somebody chose on purpose and comes back to
-// in order to check on them; answering that with "944 cfs · Good" made them do
-// the interpreting. The header of that component has the longer argument.
+// the Search tab uses, and the difference is the band track under each reading.
+// This screen holds three or four rivers somebody chose on purpose and comes
+// back to in order to check on them; answering that with "944 cfs · Good" made
+// them do the interpreting. The header of that component has the longer argument.
 //
-// The call comes from /api/rivers/[slug]/outlook, one request per starred
-// river, and it is an enrichment on an enrichment: the card degrades to exactly
-// the row it replaced when it does not arrive. Nothing on it is gated — see
-// the note there on why the BOTTOM LINE is the piece of prose that belongs on a
-// card and Eddy's long read is not.
+// ── This screen makes TWO requests, and that is the point ───────────────────
+// It used to make N+2: /api/rivers, /api/gauges, and then one
+// /api/rivers/[slug]/outlook per starred river to put Eddy's bottom line on
+// each card. Six-at-a-time batching, an epoch counter and an answered-slug ref
+// existed solely to keep that fan-out from opening twenty sockets on one bar of
+// LTE — which is the connection this screen is designed around.
+//
+// The track replaced the prose, and every input it needs was already in the
+// /api/gauges response: each gauge carries the threshold ladder per river it
+// grades. So the fan-out and all of its machinery are gone. The prose still
+// exists on the river screen, one tap away, where there is room for it.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import type { MapGauge, RiverListItem, RiverOutlookResponse } from '@eddy/types';
-import { fetchGauges, fetchRiverOutlook, fetchRivers } from '@/api/client';
+import type { MapGauge, RiverListItem } from '@eddy/types';
+import { fetchGauges, fetchRivers } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
-import { FavoriteRiverCard } from '@/components/FavoriteRiverCard';
+import { FavoriteRiverCard, type GaugeThresholds } from '@/components/FavoriteRiverCard';
 import { GaugeRow } from '@/components/GaugeRow';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { useRouter } from 'expo-router';
 
 /**
- * How many river reports are in flight at once.
+ * The ladder a river's own reading is graded on, out of the gauge list.
  *
- * One request per starred river, and nothing caps how many rivers somebody
- * stars. Six at a time keeps a long favourites list from opening twenty-odd
- * sockets on one bar of LTE — which is the connection this screen is designed
- * around — while still filling the visible cards in the first round.
+ * ── Why it is matched on riverId and not on "the gauge's primary" ──────────
+ * One physical station can rate two rivers on different editorial ladders —
+ * 07014000 is primary for the Huzzah and also rates the Courtois — so a card
+ * that took the gauge's own primary link would show its neighbour's bands under
+ * its own number. The river is known here, so its row is the only correct one.
+ * Same rule gaugeLink() applies when a river slug is in hand.
+ *
+ * Prefers the gauge for which THIS river is the primary association, because
+ * that is the station /api/rivers computed `currentCondition` from, and the
+ * track has to be about the number printed above it.
+ *
+ * Returns null freely: no gauge, no ladder, or the list simply has not landed.
  */
-const REPORT_CONCURRENCY = 6;
+function thresholdsForRiver(
+  gauges: MapGauge[] | null,
+  riverId: string,
+): GaugeThresholds | null {
+  if (!gauges) return null;
+
+  let fallback: GaugeThresholds | null = null;
+  for (const gauge of gauges) {
+    for (const link of gauge.thresholds ?? []) {
+      if (link.riverId !== riverId) continue;
+      if (link.isPrimary) return link;
+      fallback ??= link;
+    }
+  }
+  return fallback;
+}
 
 export default function FavoritesScreen() {
   const { starred, toggleStar, ready } = useStarredRivers();
@@ -60,13 +89,6 @@ export default function FavoritesScreen() {
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [gauges, setGauges] = useState<MapGauge[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  // Keyed by slug. A slug present with a null value has been asked about and
-  // has no report; a slug that is absent has not been asked yet, which is what
-  // lets a card tell "loading" from "there is nothing to say".
-  const [reports, setReports] = useState<Record<string, RiverOutlookResponse | null>>({});
-  // Bumped by pull-to-refresh, which is the only thing that re-reads a report
-  // for a river already answered for.
-  const [reportEpoch, setReportEpoch] = useState(0);
 
   // Errors are swallowed on purpose. A failed enrichment must not produce an
   // error state on a screen whose whole promise is that it works offline.
@@ -91,72 +113,9 @@ export default function FavoritesScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setReportEpoch((epoch) => epoch + 1);
     await load();
     setRefreshing(false);
   }, [load]);
-
-  /**
-   * Which rivers need a report, as a string so the effect below has one
-   * primitive to compare rather than an array identity that changes on every
-   * render of the store.
-   */
-  const starredRiverSlugs = useMemo(
-    () =>
-      starred
-        .filter((item) => item.kind === 'river' && item.slug)
-        .map((item) => item.slug)
-        .join(','),
-    [starred],
-  );
-
-  /**
-   * Which slugs this epoch has already answered for.
-   *
-   * A ref rather than reading `reports`, which would have to be a dependency
-   * and would then restart the effect on its own result. Starring a river on
-   * another tab changes the slug list and re-runs this; without the record it
-   * would re-fetch every card to add one.
-   */
-  const answered = useRef({ epoch: 0, slugs: new Set<string>() });
-
-  // Reports, fetched per starred river and never blocking anything. Failures
-  // are recorded as "no report" rather than retried: the card without one is
-  // the row this screen used to show, which is a perfectly good answer, and a
-  // retry loop on a screen whose whole promise is working offline is a battery
-  // drain nobody asked for. Pull-to-refresh is the way back.
-  useEffect(() => {
-    if (answered.current.epoch !== reportEpoch) {
-      answered.current = { epoch: reportEpoch, slugs: new Set() };
-    }
-    const pending = (starredRiverSlugs ? starredRiverSlugs.split(',') : []).filter(
-      (slug) => !answered.current.slugs.has(slug),
-    );
-    if (pending.length === 0) return;
-
-    const controller = new AbortController();
-
-    (async () => {
-      for (let i = 0; i < pending.length; i += REPORT_CONCURRENCY) {
-        const batch = pending.slice(i, i + REPORT_CONCURRENCY);
-        const settled = await Promise.all(
-          batch.map(async (slug) => {
-            const report = await fetchRiverOutlook(slug, controller.signal).catch(() => null);
-            return [slug, report] as const;
-          }),
-        );
-        // An aborted batch is NOT recorded as answered — the next run retries
-        // it, which is what makes unstarring one river mid-load harmless.
-        if (controller.signal.aborted) return;
-        for (const [slug] of settled) answered.current.slugs.add(slug);
-        // Merged rather than replaced, so a river answered in an earlier batch
-        // keeps its card while this walks the rest.
-        setReports((prev) => ({ ...prev, ...Object.fromEntries(settled) }));
-      }
-    })();
-
-    return () => controller.abort();
-  }, [starredRiverSlugs, reportEpoch]);
 
   const byId = useMemo(
     () => new Map((rivers ?? []).map((river) => [river.id, river])),
@@ -268,11 +227,12 @@ export default function FavoritesScreen() {
             return (
               <FavoriteRiverCard
                 river={river}
-                report={reports[item.slug] ?? null}
-                // Absent from the map means "not asked yet". A slug present
-                // with a null value has been asked and has no report, and must
-                // not spin forever.
-                reportLoading={!(item.slug in reports)}
+                // From the gauge list this screen already fetches — no request
+                // of its own. Null when the river has no gauge, when none of
+                // its gauges rates IT, or simply when /api/gauges has not
+                // landed; all three are ordinary and the card renders without
+                // the track.
+                thresholds={thresholdsForRiver(gauges, river.id)}
                 onPress={() => router.push(`/river/${item.slug}`)}
                 onToggleStar={() => toggleStar(item)}
               />
