@@ -61,7 +61,12 @@ import type {
   RiverGeometry,
   RiverService,
 } from '@eddy/types';
-import { hasCoordinates, isCampground } from '@eddy/types';
+import {
+  accessPointTypes,
+  accessTypeLabel,
+  hasCoordinates,
+  isCampground,
+} from '@eddy/types';
 import { boundsForLine } from '@eddy/geo';
 import {
   hazardConditionCode,
@@ -328,6 +333,46 @@ export interface MapPin {
   privateAccess?: boolean;
 }
 
+/**
+ * One quiet type cue for an access label.
+ *
+ * A point may be six things at once, so six pin silhouettes would turn the map
+ * into a legend test. This picks the most decision-useful non-generic role and
+ * writes it into the close-zoom label instead: “Campground · Cedar Grove”. The
+ * callout still lists every role after selection.
+ */
+function accessLabel(point: MapAccessPoint): string {
+  const cueOrder = ['campground', 'boat_ramp', 'gravel_bar', 'bridge', 'park'];
+  const types = accessPointTypes(point);
+  const cue = cueOrder.find((type) => types.includes(type));
+  return cue ? `${accessTypeLabel(cue)} · ${point.name}` : point.name;
+}
+
+/**
+ * The canonical presentation object for an access point.
+ *
+ * Exported because a search result needs to open the exact callout RiverMap
+ * would create after the river-scoped access response arrives. Keeping this in
+ * one builder prevents search and tap selection from drifting apart.
+ */
+export function mapAccessPointPin(
+  point: MapAccessPoint,
+  riverSlug: string | null,
+): MapPin {
+  return {
+    id: `access:${point.id}`,
+    name: point.name,
+    label: accessLabel(point),
+    layer: 'access',
+    subtitle: `Mile ${point.riverMile.toFixed(1)}`,
+    coordinates: point.coordinates,
+    privateAccess: !point.isPublic,
+    imageUrl: point.imageUrls?.[0] ?? null,
+    detailRoute:
+      riverSlug && point.slug ? `/river/${riverSlug}/access/${point.slug}` : null,
+  };
+}
+
 interface Props {
   /**
    * The river in focus, or NULL when the map is showing the network and the
@@ -468,24 +513,7 @@ export function RiverMap({
 
   // ── Pins, one array per layer ─────────────────────────────────
   const pins = useMemo(() => {
-    const access: MapPin[] = accessPoints.map((p) => ({
-      id: `access:${p.id}`,
-      name: p.name,
-      layer: 'access' as const,
-      subtitle: `Mile ${p.riverMile.toFixed(1)}${p.isPublic ? '' : ' · Private'}`,
-      coordinates: p.coordinates,
-      privateAccess: !p.isPublic,
-      // Both already in memory — /api/rivers/[slug]/access-points has sent
-      // `imageUrls` since the imagery backfill, and the map holds the whole
-      // MapAccessPoint. Neither was ever read here, so the map listed put-ins
-      // as three lines of text while the website showed what each one looks
-      // like, and offered no way through to the screen that does.
-      imageUrl: p.imageUrls?.[0] ?? null,
-      // Needs BOTH slugs, and the route is only built when both exist. A
-      // river-less access point cannot be addressed — there is no screen for
-      // one — and a half-built path would push to a 404.
-      detailRoute: riverSlug && p.slug ? `/river/${riverSlug}/access/${p.slug}` : null,
-    }));
+    const access = accessPoints.map((point) => mapAccessPointPin(point, riverSlug));
 
     // Campgrounds come from two places. An access point tagged `campground` is
     // a put-in you can sleep at; a linked service is somewhere to sleep that is
@@ -503,7 +531,7 @@ export function RiverMap({
         id: `access:${p.id}`,
         name: p.name,
         layer: 'campgrounds' as const,
-        subtitle: `Camp · Mile ${p.riverMile.toFixed(1)}${p.isPublic ? '' : ' · Private'}`,
+        subtitle: `Camp · Mile ${p.riverMile.toFixed(1)}`,
         coordinates: p.coordinates,
         imageUrl: p.imageUrls?.[0] ?? null,
         detailRoute: riverSlug && p.slug ? `/river/${riverSlug}/access/${p.slug}` : null,
@@ -782,7 +810,7 @@ export function RiverMap({
   };
 
   /**
-   * A tap on the clustered layer is either a gauge or a bubble of them.
+   * A tap on a clusterable layer is either a place or a bubble of places.
    *
    * A cluster feature has `point_count` and no id of ours, so it zooms in
    * instead of opening a callout. Recentring at zoom + 2 rather than asking the
@@ -791,7 +819,7 @@ export function RiverMap({
    * clusterRadius 50 — the user cannot tell the difference, and the ref can
    * break silently.
    */
-  const onContextPress = (event: {
+  const onClusterablePress = (event: {
     features?: { properties?: Record<string, unknown>; geometry?: { coordinates?: number[] } }[];
     coordinates?: { latitude: number; longitude: number };
   }) => {
@@ -976,7 +1004,7 @@ export function RiverMap({
       <Mapbox.ShapeSource
         id="pins-allGauges"
         shape={featureCollection(data, layerColorFor('allGauges', colors))}
-        onPress={onContextPress}
+        onPress={onClusterablePress}
         cluster
         clusterRadius={50}
         // Past z11 the individual gauges are the point; below it they are a
@@ -1066,6 +1094,115 @@ export function RiverMap({
       </Mapbox.ShapeSource>
     );
   };
+
+  /**
+   * Access points change representation with zoom.
+   *
+   * At a whole-river view a 22pt pin for every landing hides the river and
+   * creates overlapping 44pt hitboxes whose “first” result is arbitrary. Small
+   * dots and local clusters answer “where are the access areas?” there. At z10
+   * the map is close enough to choose a bank, so every point becomes the
+   * bottom-anchored pin; names follow at z11.
+   *
+   * This is intentionally access-only. Hazards must never disappear into a
+   * count, and the statewide gauge tier has its own magnitude-aware treatment.
+   */
+  const accessLayer = () => (
+    <Mapbox.ShapeSource
+      id="pins-access"
+      shape={pinShapes.access}
+      onPress={onClusterablePress}
+      cluster
+      clusterRadius={42}
+      clusterMaxZoomLevel={9}
+    >
+      <Mapbox.CircleLayer
+        id="pins-access-cluster"
+        filter={['has', 'point_count']}
+        style={{
+          circleColor: colors.interactive,
+          circleStrokeColor: '#FFFFFF',
+          circleStrokeWidth: 1.5,
+          circleRadius: ['step', ['get', 'point_count'], 13, 5, 16, 12, 19],
+        }}
+      />
+      <Mapbox.SymbolLayer
+        id="pins-access-cluster-count"
+        filter={['has', 'point_count']}
+        style={{
+          textField: ['get', 'point_count_abbreviated'],
+          textSize: 10,
+          textColor: colors.onInteractive,
+          textAllowOverlap: true,
+          textIgnorePlacement: true,
+        }}
+      />
+      <Mapbox.CircleLayer
+        id="pins-access-overview"
+        filter={['!', ['has', 'point_count']]}
+        maxZoomLevel={10}
+        style={{
+          circleRadius: 4.5,
+          circleColor: ['get', 'color'],
+          circleOpacity: ['case', ['get', 'privateAccess'], 0.65, 1],
+          circleStrokeColor: '#FFFFFF',
+          circleStrokeWidth: selectedPinId
+            ? ['case', ['==', ['get', 'id'], selectedPinId], 3, 1.5]
+            : 1.5,
+        }}
+      />
+      <Mapbox.SymbolLayer
+        id="pins-access-icon"
+        filter={['!', ['has', 'point_count']]}
+        minZoomLevel={10}
+        style={{
+          iconImage: 'poi-pin',
+          iconColor: ['get', 'color'],
+          iconHaloColor: '#FFFFFF',
+          iconHaloWidth: selectedPinId
+            ? ['case', ['==', ['get', 'id'], selectedPinId], 3.2, 1.4]
+            : 1.4,
+          iconSize: selectedPinId
+            ? ['case', ['==', ['get', 'id'], selectedPinId], 1.18, 1]
+            : 1,
+          iconAnchor: 'bottom',
+          iconAllowOverlap: true,
+        }}
+      />
+      <Mapbox.SymbolLayer
+        id="pins-access-private"
+        filter={[
+          'all',
+          ['!', ['has', 'point_count']],
+          ['==', ['get', 'privateAccess'], true],
+        ]}
+        minZoomLevel={10}
+        style={{
+          iconImage: 'private-lock-pin',
+          iconColor: '#FFFFFF',
+          iconAnchor: 'bottom',
+          iconSize: selectedPinId
+            ? ['case', ['==', ['get', 'id'], selectedPinId], 1.18, 1]
+            : 1,
+          iconAllowOverlap: true,
+        }}
+      />
+      <Mapbox.SymbolLayer
+        id="pins-access-label"
+        filter={['!', ['has', 'point_count']]}
+        minZoomLevel={11}
+        style={{
+          textField: ['get', 'label'],
+          textSize: 11,
+          textOffset: [0, PIN_ICONS.pin?.labelOffset ?? 0.9],
+          textAnchor: 'top',
+          textColor: LABEL_INK,
+          textHaloColor: LABEL_HALO,
+          textHaloWidth: 1.5,
+        }}
+      />
+    </Mapbox.ShapeSource>
+  );
 
   return (
     <Mapbox.MapView
@@ -1220,16 +1357,7 @@ export function RiverMap({
           least to say and the most members. */}
       {layerOn('allGauges') ? contextGaugeLayer(referenceGauges ?? []) : null}
 
-      {/* 'pin', not the default dot. The bottom-anchored poi-pin is what this
-          layer has always been documented to draw (see the file header and
-          PIN_ICONS) and the SDF is bundled and registered for it — but the
-          argument was dropped in 7ecc90c, the only render-tree line that PR
-          deleted, in a change about the national gauge layer. Nothing in it
-          justified the removal; it reads as a stale-branch clobber, and the
-          effect was that the marker silently reverted to a 6pt circle. */}
-      {layerOn('access')
-        ? pinLayer('access', 'pin')
-        : null}
+      {layerOn('access') ? accessLayer() : null}
       {layerOn('outfitters')
         ? pinLayer('outfitters', 'outfitter')
         : null}
