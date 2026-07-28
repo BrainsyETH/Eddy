@@ -1,5 +1,7 @@
 # Eddy for iOS — Freemium Native App: Strategy & Product Dossier
 
+> **Status: active** (2026-07). Strategy dossier for the iOS app; early phases have shipped, the roadmap and open decisions remain the reference.
+
 > **What this is:** a self-contained strategy + implementation dossier for turning Eddy into a
 > **free-to-download / paid-to-use** native iOS app. Written to be handed to any Claude Code
 > session working on this repo — it captures every decision, the architecture, the phased

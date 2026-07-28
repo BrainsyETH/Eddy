@@ -1,6 +1,6 @@
 # Water Regimes — Dams, Tailwaters & Whitewater at Scale
 
-**Status:** strategy, not a commitment. Written July 2026 alongside the first USACE dam integration.
+**Status: active** — strategy, not a commitment. Written July 2026 alongside the first USACE dam integration.
 **Companions:** `EDDY_IOS_STRATEGY.md`, `MULTI_STATE_SCALING_PLAN.md`, `RIVER_SCALING_PLAYBOOK.md`.
 
 ---

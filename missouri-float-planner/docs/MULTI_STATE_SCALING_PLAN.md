@@ -1,5 +1,7 @@
 # eddy.guide — Multi-State Scaling Audit & Data Ingestion Plan
 
+> **Status: active** (2026-07). Operative runbook for out-of-Missouri expansion; extends RIVER_SCALING_PLAYBOOK.md, which stays authoritative in-state.
+
 > Readiness audit of the codebase against multi-state / multi-source expansion, a verified
 > data-source landscape, a ranked target shortlist, a per-river ingestion runbook, and a phased
 > roadmap. This document extends — and does not replace — `docs/RIVER_SCALING_PLAYBOOK.md`,

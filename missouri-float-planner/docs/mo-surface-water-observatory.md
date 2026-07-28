@@ -1,5 +1,7 @@
 # /river-map (né /missouri-surface-water) — Observatory build memo
 
+> **Status: historical** — design/build memo for /river-map, which has since shipped. Context for why it is built the way it is; not a change plan.
+
 Design + engineering memo for the showcase rebuild ("mission-control
 observatory for Missouri water"). Written before feature code per the
 build method: recon → scope decision → approach → phased build.

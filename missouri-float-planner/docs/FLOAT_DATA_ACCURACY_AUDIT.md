@@ -1,5 +1,7 @@
 # eddy.guide — Float Data Accuracy & Modeling Audit
 
+> **Status: historical** (2026-07). Point-in-time audit; individual findings may have been fixed since. Verify against current code before acting on one.
+
 > Correctness audit of the float-trip data model (mileage, speed, time, and gauge/CFS
 > anchoring) against hydrological reality and known ground truth. Findings trace real
 > file paths, formulas, and constants, and — where possible — are confirmed against the
