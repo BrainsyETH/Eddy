@@ -72,6 +72,18 @@ export function supportsFlowBand(provider: string | null | undefined): boolean {
   return provider !== 'usace';
 }
 
+/**
+ * Whether this station is a USACE dam release rather than a stream gauge.
+ *
+ * True means there is a whole dam behind the number — a pool, a generating
+ * state, an hourly schedule — none of which fits gauge_stations, which models a
+ * river discharge. The station id doubles as the dam id, so `/dam/${siteId}`
+ * resolves: the registry key IS gauge_stations.site_id_external.
+ */
+export function isDamRelease(provider: string | null | undefined): boolean {
+  return provider === 'usace';
+}
+
 /** Whether the station's own id can build a waterdata.usgs.gov URL. */
 export function isUsgsSite(provider: string | null | undefined): boolean {
   return provider === 'usgs';

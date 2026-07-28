@@ -1363,3 +1363,21 @@ export interface RiverVisualsResponse {
   currentGaugeHeightFt: number | null;
   currentDischargeCfs: number | null;
 }
+
+// ── Dams (GET /api/dams, GET /api/dams/[damId]) ──────────────────────────────
+// NOT redefined here, for the same reason ConditionCode is not: the definitions
+// live in missouri-float-planner/shared/dam-types.ts, which both this package
+// and the web app can reach, while packages/ is unreachable from a Vercel build
+// rooted at missouri-float-planner/. See that file for the per-metric contract —
+// in short, a metric the dam does not publish is ABSENT rather than null, and
+// absent must render nothing rather than "0 cfs".
+export type {
+  DamMetricValue,
+  DamScheduleDay,
+  DamSnapshot,
+  DamStaleness,
+  DamTailwater,
+  DamsResponse,
+  ScheduledHour,
+  UsaceMetric,
+} from '../../missouri-float-planner/shared/dam-types';

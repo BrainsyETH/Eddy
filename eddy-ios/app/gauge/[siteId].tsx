@@ -63,6 +63,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { formatReading, percentileLabel, readingAge } from '@/lib/readingCopy';
 import { usgsGaugeUrl } from '@/lib/directions';
 import {
+  isDamRelease,
   isUsgsSite,
   looksLikeUsgsSiteId,
   providerLabel,
@@ -478,6 +479,27 @@ export default function GaugeDetailScreen() {
 
         {/* ── Where else to go ─────────────────────────────────── */}
         <View style={styles.actions}>
+          {/* A USACE station IS a dam, and the dam screen is where the rest of
+              it lives — the pool, the generating state, the hourly schedule.
+              None of that fits gauge_stations, which models a river discharge,
+              so this reading is one number off a project with a great deal more
+              to say. The ids are the same string by construction: the registry
+              key doubles as gauge_stations.site_id_external. */}
+          {isDamRelease(gauge.provider) ? (
+            <Pressable
+              onPress={() => router.push(`/dam/${gauge.siteId}`)}
+              style={({ pressed }) => [
+                styles.action,
+                { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+              ]}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.actionText, { color: colors.onAccent }]}>
+                Lake &amp; dam detail
+              </Text>
+            </Pressable>
+          ) : null}
+
           {link?.riverSlug ? (
             <Pressable
               onPress={() => router.push(`/river/${link.riverSlug}`)}
