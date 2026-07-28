@@ -27,6 +27,9 @@ check-mobile: ## Mobile typecheck + lint (mirrors the mobile-app CI job, minus t
 
 bundle-mobile: ## Credential-free production iOS bundle + .easignore allowlist check
 	cd $(MOBILE) && npx expo export --platform ios --output-dir "$(EXPORT_DIR)"
+	@# Same dependency dance as CI: the fallback covers PEP 668 runners.
+	python3 -m pip install --quiet pathspec \
+		|| python3 -m pip install --quiet --break-system-packages pathspec
 	python3 $(MOBILE)/scripts/check-easignore.py
 
 check: check-web check-mobile bundle-mobile ## Everything CI gates on
