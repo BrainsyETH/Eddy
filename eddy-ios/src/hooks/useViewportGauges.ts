@@ -24,7 +24,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MapGaugeLite } from '@eddy/types';
 import { bboxContains, padBbox, quantizeBbox, type Bounds } from '@eddy/geo';
 import { fetchMapGauges } from '@/api/client';
-import { MIN_ALL_GAUGES_ZOOM } from '@/map/layers';
+import { MIN_GAUGE_ZOOM } from '@/map/layers';
 
 /** Idle already means "motion stopped"; this only collapses a burst of them. */
 const DEBOUNCE_MS = 400;
@@ -123,7 +123,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
 
     if (!viewport) return;
 
-    if (viewport.zoom < MIN_ALL_GAUGES_ZOOM) {
+    if (viewport.zoom < MIN_GAUGE_ZOOM) {
       inFlight.current?.abort();
       inFlight.current = null;
       // Drop the pins as well as the request: a continental view scattered with

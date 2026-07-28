@@ -35,6 +35,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Linking,
   Pressable,
   StyleSheet,
@@ -109,7 +110,6 @@ import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
 import { SearchResultsList } from '@/components/SearchResultsList';
 import { MapLayersButton, MapLayersSheet, isDefaultLayers } from '@/components/MapLayersSheet';
-import { ConditionFilterBar, ConditionFilterButton } from '@/components/ConditionFilterBar';
 import {
   GaugeFilterBar,
   applyGaugeFilters,
@@ -207,14 +207,16 @@ export default function MapScreen() {
   // be one `push` away from redefining what the app opens with.
   const [layers, setLayers] = useState<LayerKey[]>(() => [...DEFAULT_LAYERS]);
   const [layersOpen, setLayersOpen] = useState(false);
-  // Which conditions the network is narrowed to. Empty = everything.
+  // THERE IS NO CONDITION FILTER HERE ANY MORE, and the removal was the point
+  // rather than a casualty of one. A filter narrows a set you are reading; the
+  // network is not a list, it is a picture, and its colours already answer the
+  // question the chips asked. What the strip actually cost was the top ~100pt
+  // of the one screen that wants every pixel, plus a mode in which two thirds
+  // of the state sat at 0.16 opacity and read as broken rather than filtered.
   //
-  // NOT persisted, deliberately. "What is floatable" is a today question, and a
-  // filter restored from last week reads as rivers having gone missing.
-  const [conditionFilter, setConditionFilter] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const [filterOpen, setFilterOpen] = useState(false);
+  // If it comes back, it belongs in the layers sheet with the other switches —
+  // not as a band above the map.
+  //
   // Which gauge traits/bands the national layer is narrowed to. Empty = all.
   // Not persisted, for the same reason the condition filter is not: a filter
   // restored from last week reads as gauges having gone missing.
@@ -684,25 +686,6 @@ export default function MapScreen() {
   // Asks for permission the first time, then recentres. A denial is not
   // re-prompted — iOS would suppress the dialog anyway — so the button simply
   // goes quiet rather than becoming a trap.
-  // Multi-select union: tapping Flowing and then Good shows both, the way the
-  // website's legend chips work. Tapping a live one turns it back off.
-  const onToggleCondition = useCallback((code: string) => {
-    setConditionFilter((prev) => {
-      const next = new Set(prev);
-      if (next.has(code)) next.delete(code);
-      else next.add(code);
-      return next;
-    });
-  }, []);
-
-  const onSetConditions = useCallback((codes: string[]) => {
-    setConditionFilter(new Set(codes));
-  }, []);
-
-  const onClearConditions = useCallback(() => {
-    setConditionFilter(new Set());
-  }, []);
-
   // Tapping a river on the network selects it, which is the whole point of
   // drawing it: the map is now a way of CHOOSING a river, not just of looking
   // at one you already chose. Any open callout belongs to the old river.
@@ -801,17 +784,25 @@ export default function MapScreen() {
         />
       </View>
 
-      {/* Open on demand, gone again on the next tap. It sits ABOVE the map
-          rather than over it: a filter panel that covers the thing it filters
-          makes you close it to see what you did. */}
-      {filterOpen && !unavailable && network.collection.features.length > 0 ? (
-        <ConditionFilterBar
-          counts={network.counts}
-          active={conditionFilter}
-          onToggle={onToggleCondition}
-          onSetAll={onSetConditions}
-          onClear={onClearConditions}
-        />
+      {/* ── Why the rivers are grey ──
+          The one thing that ever occupied this strip is now the only thing
+          that earns it. Every line drawn in the `unknown` grey is normally a
+          river nobody can grade; when the readings request itself failed they
+          ALL are, and the map is presenting "we could not ask" in the same ink
+          it uses for a verdict. That state shipped silently once — a null site
+          id from a dam station 400'd the whole USGS batch and twenty-four
+          rivers went grey with no explanation anywhere — so it says so now.
+
+          Not an error banner over a working map: the geometry, the pins, the
+          plan flow and the access points are all unaffected, and the only
+          claim being withdrawn is the colour. */}
+      {network.readingsFailed && !unavailable ? (
+        <View style={[styles.readingsNotice, { backgroundColor: colors.cardRaised }]}>
+          <Ionicons name="cloud-offline-outline" size={14} color={colors.textMuted} />
+          <Text style={[styles.readingsNoticeText, { color: colors.textMuted }]}>
+            Live conditions unavailable — rivers are shown uncoloured.
+          </Text>
+        </View>
       ) : null}
 
 
@@ -831,7 +822,6 @@ export default function MapScreen() {
             river={detail}
             conditionCode={conditionCode}
             network={network.collection}
-            conditionFilter={conditionFilter}
             networkBounds={network.bounds}
             onSelectRiverSlug={onSelectNetworkRiver}
             accessPoints={accessPoints}
@@ -900,27 +890,6 @@ export default function MapScreen() {
           />
         ) : null}
 
-        {/* Condition filter, tucked under the layers button. Only offered once
-            the network has actually arrived — a filter over nothing is a
-            control that cannot do anything. */}
-        {!unavailable && !search.active && network.collection.features.length > 0 ? (
-          <View style={styles.filterButtonWrap}>
-            <ConditionFilterButton
-              onPress={() => {
-                // Clearing the pin is not tidiness. The filter bar renders
-                // ABOVE the map and shrinks it by ~100pt, while the bottom
-                // stack can reach 379pt with a worst-case gauge callout — on a
-                // small phone the plan button would then clip against
-                // mapArea's overflow:'hidden'. Selecting a network river
-                // already drops the pin for a similar reason.
-                setSelectedPin(null);
-                setFilterOpen((open) => !open);
-              }}
-              filtering={conditionFilter.size > 0}
-            />
-          </View>
-        ) : null}
-
 
         {/* ── The bottom stack ──────────────────────────────────────────
             One bottom-anchored column holding the callout and the map controls,
@@ -974,6 +943,10 @@ export default function MapScreen() {
                 }}
                 onOpenGauge={onOpenGauge}
                 onOpenDam={onOpenDam}
+                onOpenDetail={(route) => {
+                  setSelectedPin(null);
+                  router.push(route);
+                }}
                 onClose={() => {
                   setSelectedPin(null);
                   setFocus(null);
@@ -1201,6 +1174,7 @@ function PinCallout({
   onOpenRiver,
   onOpenGauge,
   onOpenDam,
+  onOpenDetail,
   onClose,
   starred = false,
   onToggleStar = null,
@@ -1213,6 +1187,8 @@ function PinCallout({
   onOpenRiver: (slug: string) => void;
   onOpenGauge: (siteId: string) => void;
   onOpenDam: (damId: string) => void;
+  /** Takes an already-built route. See MapPin.detailRoute for why it is a path. */
+  onOpenDetail: (route: string) => void;
   onClose: () => void;
   starred?: boolean;
   /** Null for anything that cannot be starred, which is everything but gauges. */
@@ -1271,6 +1247,28 @@ function PinCallout({
           that predates it still falls back to its single `type`. Rendered even
           when there is one, because "Access" is information: it is the type
           that means "somewhere to put a boat in and nothing more". */}
+      {/* ── What it looks like ──
+          One photo, best first, and only when there is one. A put-in's name is
+          not a description of it: "Cedar Grove Access" tells you nothing about
+          whether a trailer gets down to the water, and a picture of the ramp
+          does. The website has shown these for as long as the imagery backfill
+          has existed and the app has been holding them in memory unread.
+
+          Coverage is partial and always will be, so this renders nothing at all
+          rather than a placeholder — a missing photo must read as normal, not
+          as one that failed. */}
+      {pin.imageUrl ? (
+        <Image
+          source={{ uri: pin.imageUrl }}
+          style={styles.calloutImage}
+          resizeMode="cover"
+          // The name above is the identification; announcing the photo as well
+          // reads as a stutter to a screen reader.
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        />
+      ) : null}
+
       {accessPoint ? (
         <View style={styles.calloutTypes}>
           {accessPointTypes(accessPoint).map((type) => (
@@ -1343,7 +1341,7 @@ function PinCallout({
         </Text>
       ) : null}
 
-      {accessPoint || pin.link || pin.riverSlug || pin.siteId || pin.damId ? (
+      {accessPoint || pin.link || pin.riverSlug || pin.siteId || pin.damId || pin.detailRoute ? (
         <View style={styles.calloutActions}>
           {/* The dam screen, which is a different destination from the gauge
               one — Stockton and Truman have a damId and no siteId at all,
@@ -1406,6 +1404,30 @@ function PinCallout({
                 </Pressable>
               ) : null}
             </>
+          ) : null}
+
+          {/* AFTER the planner actions, before the river. Planning a float is
+              what the map is for and stays the loudest thing on an access
+              callout; this is the way OUT of the map to the full record —
+              every photo, the amenities, the fee, the directions.
+
+              Its absence was a real dead end: access points are on by default,
+              and their detail screen could only be reached by leaving the map,
+              opening the river, and finding the same put-in again in a list.
+              Labelled "Details" rather than "Open access point" because these
+              buttons are flex:1 and share a row with up to three others. */}
+          {pin.detailRoute ? (
+            <Pressable
+              onPress={() => onOpenDetail(pin.detailRoute!)}
+              style={({ pressed }) => [
+                styles.calloutAction,
+                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${pin.name}`}
+            >
+              <Text style={[styles.calloutActionText, { color: colors.text }]}>Details</Text>
+            </Pressable>
           ) : null}
 
           {pin.link ? (
@@ -1496,6 +1518,20 @@ const styles = StyleSheet.create({
   dot: { width: 9, height: 9, borderRadius: 999 },
   headerMetaText: { ...t.sm, fontFamily: fonts.body },
   searchRow: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
+  // Above the map rather than over it, and one line tall. It is displacing the
+  // map by ~30pt, not the ~100pt the filter strip used to, and only in the
+  // state where the map has less to say than usual anyway.
+  readingsNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  readingsNoticeText: { ...t.sm, fontFamily: fonts.body, flexShrink: 1 },
   mapArea: { flex: 1, overflow: 'hidden' },
   resultsOverlay: { position: 'absolute', top: 10, left: 16, right: 16 },
   // Top-centre: clear of the layers button on the right and of nothing on the
@@ -1560,6 +1596,11 @@ const styles = StyleSheet.create({
   calloutMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
   // Wraps, because six types is the ceiling and three is common. Quieter than
   // calloutChip — a condition chip is a verdict, these are labels.
+  // 16:9 and full bleed to the card's padding. Tall enough to read a ramp's
+  // gradient off, short enough that the callout still clears the plan button on
+  // a small phone — the bottom stack sizes to its content, so every pt here is
+  // a pt of map.
+  calloutImage: { width: '100%', aspectRatio: 16 / 9, borderRadius: 9, marginTop: 10 },
   calloutTypes: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
   calloutType: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
   calloutTypeText: { ...t.xs, fontFamily: fonts.medium },
@@ -1601,7 +1642,6 @@ const styles = StyleSheet.create({
   // Left of the plan button and the same height, so the two read as one row of
   // map controls rather than two unrelated floating things.
   // Directly under the layers button (44 + 16 gap + its own 16 top inset).
-  filterButtonWrap: { position: 'absolute', top: 76, right: 16 },
   locateButton: {
     width: 44,
     height: 44,

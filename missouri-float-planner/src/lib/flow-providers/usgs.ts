@@ -62,6 +62,24 @@ function validDischarge(v: number): boolean {
 function toLocationId(siteId: string): string {
   return siteId.startsWith('USGS-') ? siteId : `USGS-${siteId}`;
 }
+
+/**
+ * Drops site ids that are not site ids.
+ *
+ * A null or empty entry is not a gauge that will come back empty — it poisons
+ * the BATCH. The modern path throws on `null.startsWith`; the legacy path is
+ * worse, because `join(',')` turns it into `sites=07064533,,07067000`, which
+ * waterservices answers with a 400 for every site in the request. One such row
+ * reaching /api/usgs/mo-statewide took the condition colours off both maps.
+ *
+ * Callers still filter at their own level where they can tell WHY a station has
+ * no USGS number (see /api/gauges, which knows the provider). This is the floor
+ * under all of them: nothing that talks to USGS should be able to be handed an
+ * empty identifier.
+ */
+export function usgsSiteIds(siteIds: readonly (string | null | undefined)[]): string[] {
+  return siteIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
+}
 /**
  * 'USGS-07019000' → '07019000'.
  *
@@ -573,9 +591,10 @@ export class UsgsProvider implements FlowProvider {
   readonly id = 'usgs';
 
   async fetchLatest(
-    siteIds: string[],
+    rawSiteIds: string[],
     options?: { skipCache?: boolean }
   ): Promise<GaugeReading[]> {
+    const siteIds = usgsSiteIds(rawSiteIds);
     if (siteIds.length === 0) return [];
     const mode = apiMode();
 

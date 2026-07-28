@@ -16,6 +16,10 @@ import type { ConditionCode } from '@/types/api';
 export type ThresholdSource = 'usgs' | 'nws_ahps' | 'outfitter' | 'editorial';
 
 export interface MOGauge {
+  /**
+   * The USGS site number. Non-null — see `fetchMODataset`, which is what makes
+   * that true, and the note there for what used to arrive here instead.
+   */
   site_id: string;
   name: string;
   /** NWS AHPS location ID (e.g., 'VBNM7'). Required for forecast lookup. */
@@ -105,11 +109,57 @@ export interface MODataset {
   generated_at: string;
 }
 
+/**
+ * The dataset as the RPC actually returns it.
+ *
+ * `get_mo_surface_water_dataset()` selects `usgs_site_id` with no filter, and
+ * since migration 00198 that column is NULL for USACE dam releases registered
+ * as gauge stations (Clearwater, on the Black). So the wire shape is nullable
+ * even though nothing downstream can use a gauge without a site number.
+ */
+export type MODatasetRaw = Omit<MODataset, 'rivers'> & {
+  rivers: (Omit<MORiver, 'gauges'> & {
+    gauges: (Omit<MOGauge, 'site_id'> & { site_id: string | null })[] | null;
+  })[];
+};
+
+/**
+ * Drops gauge stations that have no USGS site number.
+ *
+ * THIS FUNCTION IS THE WHOLE REASON `MOGauge.site_id` can be declared non-null,
+ * and it is not tidiness. A null site id reaching waterservices.usgs.gov does
+ * not come back empty for that one station — it 400s the ENTIRE BATCH, which is
+ * how a single dam row took the condition colours off both the website map and
+ * the app's, for every river in the state. Roughly twenty other places index
+ * this dataset by `site_id`, and each would otherwise have needed its own
+ * guard; filtering at the source means none of them can be handed one.
+ *
+ * Nothing visible is lost. Such a station carries no ladder levels (00198
+ * leaves them NULL deliberately — calibrating them is a safety judgement), so
+ * it could never produce a verdict, and the grader already skips ungradable
+ * gauges rather than painting their reach grey. Dam releases reach the clients
+ * through /api/dams and the `usace` FlowProvider, not through here.
+ *
+ * Exported for its test; `fetchMODataset` is the only caller.
+ */
+export function withUsgsGaugesOnly(raw: MODatasetRaw): MODataset {
+  return {
+    ...raw,
+    rivers: raw.rivers.map((river) => ({
+      ...river,
+      gauges:
+        river.gauges?.filter(
+          (g): g is MOGauge => typeof g.site_id === 'string' && g.site_id.trim() !== '',
+        ) ?? null,
+    })),
+  };
+}
+
 export async function fetchMODataset(): Promise<MODataset> {
   const supabase = createAdminClient();
   const { data, error } = await supabase.rpc('get_mo_surface_water_dataset');
   if (error) throw new Error(`Supabase RPC failed: ${error.message}`);
-  return data as MODataset;
+  return withUsgsGaugesOnly(data as MODatasetRaw);
 }
 
 // ─── Theme tokens (mirrors tailwind.config.ts) ──────────────────────────

@@ -118,7 +118,7 @@ interface Props {
   onToggle: (key: GaugeFilterKey) => void;
   onClear: () => void;
   /**
-   * The camera is below MIN_ALL_GAUGES_ZOOM, so the layer draws nothing at all.
+   * The camera is below MIN_GAUGE_ZOOM, so the layer draws nothing at all.
    *
    * Surfaced because the map's own cold-start zoom (6.2) is BELOW that floor
    * (7): switching this layer on from the opening view drew nothing, reported

@@ -34,6 +34,58 @@ const MAX_LIMIT = 50;
 
 export type SearchResultKind = 'river' | 'gauge' | 'access_point';
 
+const ALL_KINDS: readonly SearchResultKind[] = ['river', 'access_point', 'gauge'];
+
+/**
+ * Parses `?kinds=gauge` / `?kinds=river,access_point`.
+ *
+ * Absent or unrecognisable means every kind, which is what every caller that
+ * predates this parameter sends. An explicit list that resolves to nothing is
+ * treated the same way rather than returning an empty search: a typo in a query
+ * string should not look like "there are no results".
+ */
+function parseKinds(raw: string | null): readonly SearchResultKind[] {
+  if (!raw) return ALL_KINDS;
+  const asked = new Set(raw.split(',').map((k) => k.trim()));
+  const kinds = ALL_KINDS.filter((k) => asked.has(k));
+  return kinds.length > 0 ? kinds : ALL_KINDS;
+}
+
+/**
+ * Fills `limit` slots from several ranked lists without letting one starve
+ * the others.
+ *
+ * THIS REPLACED A FLAT `.slice(0, limit)` OVER A CONCATENATION, and the bug it
+ * fixes was live: rivers and access points were concatenated ahead of gauges,
+ * so `?q=river&limit=25` returned nineteen rivers, six access points and ZERO
+ * gauges — while the same query at limit=100 returned fourteen. The phone's
+ * Gauges tab asks for 25, so a whole category silently vanished for exactly the
+ * common words people search with.
+ *
+ * Each kind is guaranteed an equal share of the budget first; whatever no kind
+ * claims is then handed out in the original priority order, so a query matching
+ * only rivers still fills the page with rivers. Order within a kind, and the
+ * order of the kinds themselves, are both preserved.
+ */
+export function allocateByKind(
+  groups: readonly { kind: SearchResultKind; results: SearchResult[] }[],
+  limit: number,
+): SearchResult[] {
+  const share = Math.max(1, Math.floor(limit / Math.max(1, groups.length)));
+  const taken = groups.map((g) => Math.min(g.results.length, share));
+
+  // Hand out the remainder in priority order, one pass, so a kind with more
+  // hits than its share can grow into space nobody else wanted.
+  let spare = limit - taken.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < groups.length && spare > 0; i++) {
+    const extra = Math.min(spare, groups[i].results.length - taken[i]);
+    taken[i] += extra;
+    spare -= extra;
+  }
+
+  return groups.flatMap((g, i) => g.results.slice(0, taken[i]));
+}
+
 /**
  * The live reading a gauge result carries.
  *
@@ -155,6 +207,13 @@ async function _GET(request: NextRequest) {
       Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') ?? '', 10) || DEFAULT_LIMIT),
     );
 
+    // Which kinds the caller wants back. The phone's Search tab is scoped —
+    // one segmented control, exactly one kind at a time — so asking for all
+    // three and throwing two away spent the budget on rows nobody would see.
+    // Scoping here is also what lets a single kind have the WHOLE limit.
+    const kinds = parseKinds(request.nextUrl.searchParams.get('kinds'));
+    const wants = (kind: SearchResultKind) => kinds.includes(kind);
+
     if (raw.length < MIN_QUERY_LENGTH) {
       return NextResponse.json<SearchResponse>({ query: raw, results: [] });
     }
@@ -194,7 +253,7 @@ async function _GET(request: NextRequest) {
     // ── Rivers ──────────────────────────────────────────────────
     // Filtered in memory. The list is already loaded and small, and matching
     // here lets a region ("Ozarks") hit as well as a name.
-    const riverResults: SearchResult[] = (rivers ?? [])
+    const riverResults: SearchResult[] = (wants('river') ? (rivers ?? []) : [])
       .filter(
         (r) =>
           r.name?.toLowerCase().includes(lowered) ||
@@ -214,14 +273,18 @@ async function _GET(request: NextRequest) {
       }));
 
     // ── Access points ───────────────────────────────────────────
-    const { data: accessRows, error: accessError } = await supabase
-      .from('access_points')
-      .select('id, name, slug, river_id, river_mile_downstream, type, location_orig, location_snap')
-      .eq('approved', true)
-      .in('river_id', activeRiverIds)
-      .ilike('name', pattern)
-      .order('name', { ascending: true })
-      .limit(limit);
+    const { data: accessRows, error: accessError } = wants('access_point')
+      ? await supabase
+          .from('access_points')
+          .select(
+            'id, name, slug, river_id, river_mile_downstream, type, location_orig, location_snap',
+          )
+          .eq('approved', true)
+          .in('river_id', activeRiverIds)
+          .ilike('name', pattern)
+          .order('name', { ascending: true })
+          .limit(limit)
+      : { data: null, error: null };
 
     if (accessError) console.error('Access point search failed (non-fatal):', accessError);
 
@@ -284,11 +347,12 @@ async function _GET(request: NextRequest) {
     // It also matches site ids by PREFIX rather than by substring, which is the
     // one behavioural difference: "7019000" no longer finds 07019000. A site
     // number is read left to right and nobody searches from its middle.
-    const gaugeAdmin = createAdminClient();
-    const { data: gaugeRpcRows, error: gaugeError } = await gaugeAdmin.rpc('search_gauges', {
-      p_query: needle,
-      p_limit: limit,
-    });
+    const { data: gaugeRpcRows, error: gaugeError } = wants('gauge')
+      ? await createAdminClient().rpc('search_gauges', {
+          p_query: needle,
+          p_limit: limit,
+        })
+      : { data: null, error: null };
 
     interface SearchGaugeRow {
       id: string;
@@ -388,11 +452,21 @@ async function _GET(request: NextRequest) {
     const byRelevance = (a: SearchResult, b: SearchResult) =>
       rank(a) - rank(b) || a.name.localeCompare(b.name);
 
-    const results = [
-      ...riverResults.sort(byRelevance),
-      ...accessResults.sort(byRelevance),
-      ...gaugeResults.sort(byRelevance),
-    ].slice(0, limit);
+    // Allocated per kind rather than sliced off a concatenation — see
+    // allocateByKind for the bug that change fixes. The ORDER of the groups is
+    // still rivers, then access points, then gauges: a person typing "current"
+    // wants the Current River, not Current River at Van Buren gauge. What has
+    // changed is that being third no longer means being cut.
+    const results = allocateByKind(
+      (
+        [
+          { kind: 'river', results: riverResults.sort(byRelevance) },
+          { kind: 'access_point', results: accessResults.sort(byRelevance) },
+          { kind: 'gauge', results: gaugeResults.sort(byRelevance) },
+        ] as const satisfies readonly { kind: SearchResultKind; results: SearchResult[] }[]
+      ).filter((g) => wants(g.kind)),
+      limit,
+    );
 
     return NextResponse.json<SearchResponse>(
       { query: raw, results },
