@@ -15,6 +15,13 @@
 // `info` events are excluded by default. The outbox records every transition
 // (good↔flowing jitter included) so the data is complete, but most of it is not
 // news; pass `kinds=` explicitly to see everything.
+//
+// RECENCY IS BOUNDED, and that is not merely a payload optimisation. This is a
+// LOG rather than a per-user inbox — every caller sees the same rows, so there
+// is nothing to mark read and nothing to delete. A log that only ever grew
+// therefore had no way to become empty: bounded by `limit` alone it returned
+// "the last N events ever", which reads as stale notifications nobody can clear.
+// `days` (default DEFAULT_WINDOW_DAYS) is what lets it drain by itself.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -26,6 +33,10 @@ export const dynamic = 'force-dynamic';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
+/** Mirrors ALERT_FEED_WINDOW_DAYS in packages/eddy-types — keep in step. */
+const DEFAULT_WINDOW_DAYS = 7;
+/** An explicit ceiling so `days=99999` cannot turn the bound back off. */
+const MAX_WINDOW_DAYS = 90;
 /** Kinds worth showing in a feed. `info` is recorded but not news. */
 const DEFAULT_KINDS = ['floatable', 'warning', 'easing', 'recovery'];
 const VALID_KINDS = new Set([...DEFAULT_KINDS, 'info']);
@@ -55,6 +66,15 @@ export async function GET(request: NextRequest) {
       .map((k) => k.trim())
       .filter((k) => VALID_KINDS.has(k));
 
+    const days = Math.min(
+      Math.max(
+        parseInt(params.get('days') ?? String(DEFAULT_WINDOW_DAYS), 10) || DEFAULT_WINDOW_DAYS,
+        1
+      ),
+      MAX_WINDOW_DAYS
+    );
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
     const supabase = createAdminClient();
     let query = supabase
       .from('river_condition_events')
@@ -62,6 +82,11 @@ export async function GET(request: NextRequest) {
         'id, river_id, old_condition_code, new_condition_code, kind, reading_value, reading_unit, reading_at, detected_at, rivers!inner(name, slug)'
       )
       .in('kind', kinds.length > 0 ? kinds : DEFAULT_KINDS)
+      // detected_at, not reading_at: this is the column the sort already uses,
+      // it is `not null default now()`, and reading_at is nullable — bounding on
+      // a nullable column would silently drop every event whose gauge published
+      // no timestamp, which is a data-quality case, not an old-news one.
+      .gte('detected_at', since)
       .order('detected_at', { ascending: false })
       .limit(limit);
 
