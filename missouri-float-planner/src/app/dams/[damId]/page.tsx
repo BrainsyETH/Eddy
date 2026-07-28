@@ -59,11 +59,39 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
           <GenerationSchedule schedule={dam.schedule} />
         </div>
 
+        {/* An empty schedule means one of two very different things, and
+            conflating them produced a live factual error: Table Rock has a
+            four-unit powerhouse, but whenever SWPA's file for that weekday had
+            not refreshed yet the fail-closed date check dropped it, and this
+            page then announced the plant did not exist — while the index card
+            beside it read "Generating". hasTurbines is the registry's answer
+            and does not depend on today's fetch succeeding. */}
         {dam.schedule.length === 0 && (
           <p className="mt-6 rounded-xl border-2 border-neutral-300 bg-white p-5 text-sm text-neutral-600">
-            This project has no powerhouse, so there is no generation schedule —
-            its release is set by gate operation rather than power demand, and
-            tends to hold steady for days at a time.
+            {dam.hasTurbines ? (
+              <>
+                The generation schedule for this project isn&rsquo;t available
+                right now — Southwestern Power Administration posts the next
+                day&rsquo;s each afternoon, and Eddy will only show one it can
+                confirm is current.
+                {dam.infoPhone && (
+                  <>
+                    {' '}
+                    For releases right now, call{' '}
+                    <a href={`tel:${dam.infoPhone.replace(/\D/g, '')}`} className="font-medium text-primary-700 hover:text-primary-800">
+                      {dam.infoPhone}
+                    </a>
+                    .
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                This project has no powerhouse, so there is no generation
+                schedule — its release is set by gate operation rather than
+                power demand, and tends to hold steady for days at a time.
+              </>
+            )}
           </p>
         )}
 
