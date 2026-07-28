@@ -33,7 +33,7 @@ and `eddy-ios/package.json`. CI pins Node 20 (`.github/workflows/app-ci.yml`).
 | iOS screen / component / native config | `eddy-ios/app/`, `eddy-ios/src/` | `eddy-ios/README.md` | `make check-mobile` + `make bundle-mobile` |
 | River-condition behavior | `missouri-float-planner/shared/` | comments in `.github/workflows/app-ci.yml` | `make check-web` + `make bundle-mobile` |
 | Shared types / geo / hazards / offline / sync | `packages/` | the package's source headers | `make check-web` + `make bundle-mobile` |
-| Data ingestion or correction | `missouri-float-planner/scripts/` | `scripts/ingestion/README.md` | script dry run, then `make check-web` |
+| Data ingestion or correction | `missouri-float-planner/scripts/` | `docs/data-pipeline.md` (catalog + guard levels), then `scripts/ingestion/README.md` | script dry run, then `make check-web` |
 | Database schema / seeds | `missouri-float-planner/supabase/` | existing migrations | never against production by default |
 | ClipEngine / social automation | `scripts/clipengine/`, `clipengine-local/` | `docs/clipengine-ops.md` | tool-specific dry run |
 | CI / deployment | `.github/workflows/`, `.easignore` | `.easignore` header, `app-ci.yml` comments | `make check` |
