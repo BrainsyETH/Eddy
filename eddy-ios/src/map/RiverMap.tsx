@@ -424,7 +424,10 @@ export function RiverMap({
         // full station name is a paragraph laid across the river it names.
         label: gaugePlaceLabel(g.name),
         layer: 'gauges' as const,
-        subtitle: [readingAge(g.readingAgeHours), `USGS ${g.usgsSiteId}`]
+        // The site id is dropped rather than printed when the station has none
+        // — "USGS null" under a pin is worse than a subtitle that is only an
+        // age.
+        subtitle: [readingAge(g.readingAgeHours), g.usgsSiteId ? `USGS ${g.usgsSiteId}` : null]
           .filter(Boolean)
           .join(' · '),
         coordinates: g.coordinates,
