@@ -43,6 +43,40 @@ export interface GaugeSeed {
   /** gauge_stations.id, when the source knew it. Stars are keyed on this. */
   id: string | null;
   siteId: string;
+  /**
+   * Which flow provider backs this station: 'usgs', 'nws', 'usace'.
+   *
+   * Load-bearing for anything provider-specific, and the gauge screen has three
+   * such things — the "USGS <id>" caption, the waterdata.usgs.gov link, and the
+   * flow-band vocabulary. A USACE dam release is none of those: its id is a
+   * slug, it has no USGS page, and UsaceProvider deliberately publishes no
+   * percentile because one on a regulated release would mislead.
+   *
+   * NULL means "this source did not say", not "usgs" — the same posture
+   * `curated` takes below, and for the same reason. Search and the star store
+   * carry no provider, and Clearwater Dam is reachable through both, so
+   * defaulting them to 'usgs' would flash "USGS swl-clearwater-dam" for the one
+   * frame before the detail fetch corrects it. A screen that does not know must
+   * print nothing rather than guess.
+   */
+  provider: string | null;
+  /**
+   * The station's own page on the operator's site, from the detail fetch.
+   *
+   * Null for a provider that has none — UsaceProvider returns null on purpose,
+   * because a CWMS timeseries has no public landing page. Only the detail route
+   * sends it; list seeds carry null and gain it when the fetch lands.
+   */
+  publicUrl: string | null;
+  /**
+   * The station's own prose about what its reading means, from the detail fetch
+   * (gauge_stations.threshold_descriptions.note).
+   *
+   * The only vocabulary a USACE dam release has: it gets no ladder verdict and
+   * no flow band, so without this the screen has nothing true to say about the
+   * number it is displaying.
+   */
+  stationNote: string | null;
   name: string;
   /** Eddy rates this station; it has a ladder and a condition, not a band. */
   curated: boolean;
@@ -106,6 +140,10 @@ export function seedFromMapGauge(gauge: MapGauge): GaugeSeed | null {
   return {
     id: gauge.id,
     siteId: gauge.usgsSiteId,
+    provider: gauge.provider ?? 'usgs',
+    // No list endpoint sends it; the detail fetch fills it in.
+    publicUrl: null,
+    stationNote: null,
     name: gauge.name,
     curated: true,
     coordinates: gauge.coordinates,
@@ -128,6 +166,11 @@ export function seedFromMapGaugeLite(gauge: MapGaugeLite): GaugeSeed {
   return {
     id: gauge.id,
     siteId: gauge.siteId,
+    // The national tier is USGS reference gauges by construction.
+    provider: 'usgs',
+    // No list endpoint sends it; the detail fetch fills it in.
+    publicUrl: null,
+    stationNote: null,
     name: gauge.name,
     curated: gauge.curated,
     coordinates: gauge.coordinates,
@@ -156,6 +199,12 @@ export function seedFromSearchResult(result: SearchResult): GaugeSeed | null {
   return {
     id: result.id,
     siteId: result.siteId,
+    // /api/search does not carry a provider, and a USACE dam is reachable
+    // through search — so this is genuinely unknown, not USGS.
+    provider: null,
+    // No list endpoint sends it; the detail fetch fills it in.
+    publicUrl: null,
+    stationNote: null,
     name: result.name,
     curated: reading?.curated ?? false,
     coordinates: result.coordinates,
@@ -201,6 +250,11 @@ export function seedFromStar(star: {
   return {
     id: star.entityId,
     siteId: star.usgsSiteId,
+    // The store does not record it — same posture as `curated` below.
+    provider: null,
+    // No list endpoint sends it; the detail fetch fills it in.
+    publicUrl: null,
+    stationNote: null,
     name: star.name,
     curated: false,
     coordinates: null,
@@ -221,6 +275,9 @@ export function seedFromDetail(gauge: GaugeDetail): GaugeSeed {
   return {
     id: gauge.id,
     siteId: gauge.siteId,
+    provider: gauge.provider,
+    publicUrl: gauge.publicUrl,
+    stationNote: gauge.stationNote ?? null,
     name: gauge.name,
     curated: gauge.curated,
     coordinates: gauge.coordinates,

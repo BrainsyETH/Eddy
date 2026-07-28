@@ -37,6 +37,18 @@
 // contract and no changelog. It fails CLOSED — a schedule whose date doesn't
 // match what we asked for is dropped, never rendered, because showing last
 // week's Tuesday as tomorrow would put someone in the water during generation.
+//
+// THERE IS NO PUBLICATION TIME. Verified against the live page on 2026-07-28:
+// the response carries no Last-Modified (Drupal behind Varnish and CloudFront,
+// `cache-control: max-age=600`), and the body — tags stripped — contains no
+// "posted", "updated", "as of" or clock time anywhere. SWPA says only which DAY
+// a schedule covers.
+//
+// So `retrievedAt` below is when EDDY FETCHED THE PAGE, and nothing else. It
+// must never be presented as when SWPA posted. That distinction is why the
+// field is not called `updatedAt`, and why it is null rather than Date.now()
+// when it cannot be established — the same fail-closed instinct as the date
+// check. See retrievedAtFrom().
 
 const SWPA_BASE = 'https://www.energy.gov/swpa';
 
@@ -117,17 +129,28 @@ export interface ScheduledHour {
   isRamp: boolean;
 }
 
+/**
+ * When Eddy retrieved the page this schedule came from — NOT when SWPA posted
+ * it, which the source does not publish (see the header note).
+ *
+ * Null when it could not be established. Callers must render nothing in that
+ * case rather than substituting the current time.
+ */
+export type RetrievedAt = string | null;
+
 export interface ProjectSchedule {
   projectCode: string;
   /** Local calendar date the schedule covers (America/Chicago), YYYY-MM-DD. */
   scheduleDate: string;
   hours: ScheduledHour[];
+  retrievedAt: RetrievedAt;
 }
 
 export interface DaySchedule {
   scheduleDate: string;
   /** Keyed by project code; every project on the page. */
   projects: Record<string, ProjectSchedule>;
+  retrievedAt: RetrievedAt;
 }
 
 const MONTHS: Record<string, number> = {
@@ -167,6 +190,40 @@ export function parseScheduleDate(text: string): string | null {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
+/**
+ * When the bytes we just parsed actually left SWPA's origin, from the response
+ * headers. `Date` + `Age`, both of which energy.gov sends.
+ *
+ * Why not Date.now(): fetchDaySchedule caches for REVALIDATE_SECONDS, so on a
+ * cache hit "now" is the time of THIS request, not of the fetch — a half-hour
+ * old schedule would report itself as seconds old, forever. It is also wrong in
+ * a second way: fetchAllDamSnapshots parses the same cached body once per dam,
+ * so ten dams would stamp ten different times for one retrieval.
+ *
+ * Why not `Date` alone: it is CloudFront's ORIGIN-fetch time, and the edge
+ * serves from cache for up to `max-age=600`. Measured on 2026-07-28 the header
+ * pair read `date: …02:30:04 GMT` with `age: 1529` — the Date was 25 minutes
+ * behind the moment we received the bytes. `Date + Age` is the instant the
+ * response was actually handed to us.
+ *
+ * Returns null rather than guessing when `Date` is missing or unparseable. A
+ * missing timestamp renders nothing; a wrong one is a false claim about how
+ * fresh a safety-adjacent schedule is.
+ */
+export function retrievedAtFrom(headers: Headers): RetrievedAt {
+  const date = headers.get('date');
+  if (!date) return null;
+  const originMs = Date.parse(date);
+  if (!Number.isFinite(originMs)) return null;
+
+  // Age is optional, and a malformed or negative one means "no useful offset",
+  // not "fail" — the Date on its own is still a floor on the true retrieval.
+  const ageRaw = Number(headers.get('age'));
+  const ageSeconds = Number.isFinite(ageRaw) && ageRaw > 0 ? ageRaw : 0;
+
+  return new Date(originMs + ageSeconds * 1_000).toISOString();
+}
+
 /** MW -> cfs via the page's own project table. Null for an idle hour. */
 export function megawattsToCfs(projectCode: string, megawatts: number): number | null {
   const p = SWPA_PROJECTS[projectCode];
@@ -183,8 +240,15 @@ export function megawattsToCfs(projectCode: string, megawatts: number): number |
  * Returns null when the page doesn't look like a schedule at all — a redirect,
  * an outage page, or a format change. Callers drop the schedule block rather
  * than rendering anything uncertain.
+ *
+ * `retrievedAt` is optional and defaults to NULL, never to the current time.
+ * Parsing a fixture in a test is not a retrieval, and a caller that forgets to
+ * pass it should produce an absent timestamp rather than a fabricated one.
  */
-export function parseSchedulePage(html: string): DaySchedule | null {
+export function parseSchedulePage(
+  html: string,
+  retrievedAt: RetrievedAt = null
+): DaySchedule | null {
   const text = toText(html);
   const scheduleDate = parseScheduleDate(text);
   if (!scheduleDate) return null;
@@ -230,11 +294,11 @@ export function parseSchedulePage(html: string): DaySchedule | null {
         isRamp: megawatts !== prev,
       });
     }
-    projects[code] = { projectCode: code, scheduleDate, hours };
+    projects[code] = { projectCode: code, scheduleDate, hours, retrievedAt };
   }
 
   if (Object.keys(projects).length === 0) return null;
-  return { scheduleDate, projects };
+  return { scheduleDate, projects, retrievedAt };
 }
 
 /**
@@ -285,6 +349,7 @@ export async function fetchDaySchedule(
   const url = `${SWPA_BASE}/${file}.htm`;
 
   let html: string;
+  let retrievedAt: RetrievedAt;
   try {
     const res = await fetch(url, {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -296,13 +361,17 @@ export async function fetchDaySchedule(
       console.error(`[SWPA] ${file}.htm returned ${res.status}`);
       return null;
     }
+    // Read from the headers, not the clock. Next replays cached headers along
+    // with the cached body, so this stays pinned to the real fetch across the
+    // revalidate window. See retrievedAtFrom().
+    retrievedAt = retrievedAtFrom(res.headers);
     html = await res.text();
   } catch (e) {
     console.error(`[SWPA] ${file}.htm fetch failed`, e);
     return null;
   }
 
-  const parsed = parseSchedulePage(html);
+  const parsed = parseSchedulePage(html, retrievedAt);
   if (!parsed) {
     // Format change, or the page stopped being a schedule. Loud, because this
     // is the failure mode a scraper is most likely to hit and least likely to

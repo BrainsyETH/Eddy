@@ -8,6 +8,7 @@ import {
   megawattsToCfs,
   parseScheduleDate,
   parseSchedulePage,
+  retrievedAtFrom,
   weekdayFileFor,
   centralDateKey,
   type ProjectSchedule,
@@ -127,6 +128,53 @@ test('rejects a schedule whose hour rows are incomplete', () => {
   const truncated = FIXTURE.split('\n').slice(0, 12).join('\n');
   const day = parseSchedulePage(truncated);
   assert.equal(day, null, 'a partial table should not parse into a usable schedule');
+});
+
+test('retrieval time is the origin Date plus the CDN Age', () => {
+  // energy.gov sits behind CloudFront, so `Date` is when the EDGE fetched from
+  // origin and `Age` is how long it has been sitting there. Measured live on
+  // 2026-07-28: date 02:30:04Z with age 1529, i.e. the bytes reached us at
+  // 02:55:33Z. Using Date alone would understate freshness by 25 minutes.
+  const at = retrievedAtFrom(
+    new Headers({ date: 'Tue, 28 Jul 2026 02:30:04 GMT', age: '1529' })
+  );
+  assert.equal(at, '2026-07-28T02:55:33.000Z');
+});
+
+test('a missing or unusable Age is treated as zero, not as a failure', () => {
+  // The Date on its own is still a floor on the true retrieval, so an absent
+  // Age should degrade to it rather than throwing the timestamp away.
+  const date = 'Tue, 28 Jul 2026 02:30:04 GMT';
+  const expected = '2026-07-28T02:30:04.000Z';
+  assert.equal(retrievedAtFrom(new Headers({ date })), expected);
+  assert.equal(retrievedAtFrom(new Headers({ date, age: 'soon' })), expected);
+  assert.equal(retrievedAtFrom(new Headers({ date, age: '-60' })), expected);
+});
+
+test('no usable Date yields no retrieval time', () => {
+  // Fails closed. A schedule with an unknown retrieval renders no timestamp;
+  // it must never fall back to the current time.
+  assert.equal(retrievedAtFrom(new Headers()), null);
+  assert.equal(retrievedAtFrom(new Headers({ date: 'whenever' })), null);
+});
+
+test('a parsed page carries the retrieval time onto every project', () => {
+  const at = '2026-07-28T02:55:33.000Z';
+  const day = parseSchedulePage(FIXTURE, at)!;
+  assert.equal(day.retrievedAt, at);
+  for (const code of ['TRD', 'BSD', 'STD', 'HST']) {
+    assert.equal(day.projects[code].retrievedAt, at, `${code} should carry it`);
+  }
+});
+
+test('parsing without a retrieval time leaves it NULL, never "now"', () => {
+  // The regression this whole change exists to prevent. A caller that does not
+  // know when the bytes arrived — a test fixture, a future code path — must
+  // produce an absent timestamp rather than a fabricated claim of freshness
+  // about a schedule someone may wade against.
+  const day = parseSchedulePage(FIXTURE)!;
+  assert.equal(day.retrievedAt, null);
+  assert.equal(day.projects.TRD.retrievedAt, null);
 });
 
 test('the schedule file is chosen by the CENTRAL weekday, not the server\'s', () => {

@@ -70,6 +70,13 @@ export interface DamScheduleDay {
   hours: ProjectSchedule['hours'];
   /** Contiguous idle stretches — the wading windows. */
   idle: Array<{ from: number; to: number }>;
+  /**
+   * When EDDY FETCHED this schedule — not when SWPA posted it, which the source
+   * does not publish at all (see src/lib/usace/swpa.ts). Label it accordingly:
+   * "Eddy last checked", never "last updated". Null when unknown, and a null
+   * must render nothing rather than fall back to the current time.
+   */
+  retrievedAt: ProjectSchedule['retrievedAt'];
 }
 
 export interface DamSnapshot {
@@ -198,6 +205,7 @@ async function readSchedule(dam: UsaceDam, days: number): Promise<DamScheduleDay
     scheduleDate: s.scheduleDate,
     hours: s.hours,
     idle: idleWindows(s),
+    retrievedAt: s.retrievedAt,
   }));
 }
 
