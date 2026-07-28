@@ -21,6 +21,18 @@ import { Waves } from 'lucide-react';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { riverTypeLabel, type RiverReach } from '@/lib/data/river-reaches';
 
+/** Matches EddyQuote's generated-age phrasing so the two read as one voice. */
+function formatAge(generatedAt: string): string {
+  const hours = (Date.now() - new Date(generatedAt).getTime()) / (1000 * 60 * 60);
+  if (hours < 1) {
+    const mins = Math.round(hours * 60);
+    return mins < 2 ? 'updated just now' : `updated ${mins}m ago`;
+  }
+  if (hours < 2) return 'updated 1 hr ago';
+  if (hours < 24) return `updated ${Math.round(hours)} hrs ago`;
+  return `updated ${Math.floor(hours / 24)}d ago`;
+}
+
 function milesLabel(start: number | null, end: number | null): string | null {
   if (start == null && end == null) return null;
   if (start == null) return `to mile ${end}`;
@@ -60,6 +72,18 @@ export default function RiverReaches({ reaches }: { reaches: RiverReach[] }) {
 
               {reach.description && (
                 <p className="text-sm text-neutral-600 mb-2">{reach.description}</p>
+              )}
+
+              {/* This reach's own Eddy report, read through its own gauge. */}
+              {reach.report && (
+                <blockquote className="mb-2 border-l-2 border-primary-300 pl-3">
+                  <p className="text-sm text-neutral-700 italic">
+                    &ldquo;{reach.report.summaryText || reach.report.quoteText}&rdquo;
+                  </p>
+                  <cite className="not-italic text-[11px] text-neutral-500">
+                    Eddy on this reach &middot; {formatAge(reach.report.generatedAt)}
+                  </cite>
+                </blockquote>
               )}
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500">

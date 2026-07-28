@@ -1589,3 +1589,16 @@ export type {
   ScheduledHour,
   UsaceMetric,
 } from '../../missouri-float-planner/shared/dam-types';
+
+// ── River reaches (GET /api/rivers/[slug]/reaches) ───────────────────────────
+// Same arrangement as the dam types above and for the same build reason. A
+// reach is a stretch of one river whose water behaves differently enough that
+// one condition badge for the whole river would be wrong for part of it — the
+// Black above and below Clearwater Dam. See that file for why a reach is not a
+// float segment, and why clients gate their panel on `differsFromRiver`.
+export type {
+  ReachReport,
+  ReachRiverType,
+  RiverReach,
+  RiverReachesResponse,
+} from '../../missouri-float-planner/shared/reach-types';

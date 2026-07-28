@@ -128,6 +128,13 @@ export interface UpdateTarget {
    * low/rising-water SAFETY wording in generate-update.ts.
    */
   sectionRiverType: RiverType | null;
+  /**
+   * Curated per-reach prose from river_sections (migration 00205). Null inherits
+   * river_characteristics. Outranks the type guidance above, because it is
+   * written about this water specifically.
+   */
+  sectionLowWaterMeaning: string | null;
+  sectionRisingWaterHazards: string | null;
 }
 
 export function getUpdateTargets(): UpdateTarget[] {
@@ -143,6 +150,8 @@ export function getUpdateTargets(): UpdateTarget[] {
       sectionName: null,
       sectionDescription: null,
       sectionRiverType: null,
+      sectionLowWaterMeaning: null,
+      sectionRisingWaterHazards: null,
     });
 
     // For rivers with sections, also generate per-section updates
@@ -153,9 +162,11 @@ export function getUpdateTargets(): UpdateTarget[] {
         sectionSlug: section.sectionSlug,
         sectionName: section.name,
         sectionDescription: section.description,
-        // This legacy list predates per-reach types; the DB is the only source
-        // that can carry one.
+        // This legacy list predates per-reach character; the DB is the only
+        // source that can carry it.
         sectionRiverType: null,
+        sectionLowWaterMeaning: null,
+        sectionRisingWaterHazards: null,
       });
     }
   }

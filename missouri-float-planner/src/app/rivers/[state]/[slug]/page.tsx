@@ -200,7 +200,7 @@ export default async function RiverGuidePage({ params }: Props) {
     fetchRiverDam(slug).catch(() => null),
     // Same reasoning. Null unless the river has two or more curated reaches —
     // today only the Black, which straddles Clearwater Dam.
-    fetchRiverReaches(river.id, (river.river_type || 'spring_fed_float') as RiverType).catch(() => null),
+    fetchRiverReaches(river.id, slug, (river.river_type || 'spring_fed_float') as RiverType).catch(() => null),
   ]);
 
   const conditionCode = condRowsResult?.data?.[0]?.condition_code || 'unknown';

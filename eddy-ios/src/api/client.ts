@@ -31,6 +31,8 @@ import type {
   RiverDetail,
   RiverDetailResponse,
   RiverOutlookResponse,
+  RiverReach,
+  RiverReachesResponse,
   RiverVisualsResponse,
   RiverService,
   RiversResponse,
@@ -401,6 +403,26 @@ export async function fetchGaugeHistory(
  * Not every service has been geocoded, so callers plotting these must drop the
  * ones with a null latitude rather than treating them as (0, 0).
  */
+/**
+ * The river's hydrologically distinct reaches, or [] for the rivers that have
+ * none — which is all of them but the Black today.
+ *
+ * Its own endpoint rather than a field on an existing one: no other route
+ * carries a reach's gauge, type or report, so unlike the dam panel (which rides
+ * the ten-item /api/dams) there was nothing to piggyback on. Degrades to [] like
+ * every other optional panel on the river screen.
+ */
+export async function fetchRiverReaches(
+  slug: string,
+  signal?: AbortSignal,
+): Promise<RiverReach[]> {
+  const data = await get<RiverReachesResponse>(
+    `/api/rivers/${encodeURIComponent(slug)}/reaches`,
+    signal,
+  );
+  return data.reaches ?? [];
+}
+
 export async function fetchRiverServices(
   slug: string,
   signal?: AbortSignal,

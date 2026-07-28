@@ -15,25 +15,13 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { ConditionCode } from '@/types/api';
+import type { RiverReach } from '@shared/reach-types';
 import type { RiverType } from '@/lib/rivers/context';
 
-export interface RiverReach {
-  sectionSlug: string;
-  name: string;
-  description: string | null;
-  /** Effective hydrology: the reach's own river_type, else the river's. */
-  riverType: RiverType;
-  /** True when this reach overrides the river's type — the reason to show it. */
-  differsFromRiver: boolean;
-  riverMileStart: number | null;
-  riverMileEnd: number | null;
-  /** Live condition for THIS reach, read through its own gauge. */
-  conditionCode: ConditionCode;
-  conditionLabel: string | null;
-  gaugeName: string | null;
-  gaugeHeightFt: number | null;
-  dischargeCfs: number | null;
-}
+// The wire shape lives in shared/ so eddy-ios can import the same definition
+// rather than restating it — see that file's header for why it cannot live in
+// packages/eddy-types. Re-exported here so existing imports keep working.
+export type { RiverReach, ReachReport, RiverReachesResponse } from '@shared/reach-types';
 
 /**
  * A representative mile inside a reach, for the condition lookup. Any mile in
@@ -59,6 +47,7 @@ function probeMile(start: number | null, end: number | null): number | null {
  */
 export async function fetchRiverReaches(
   riverId: string,
+  riverSlug: string,
   riverType: RiverType,
 ): Promise<RiverReach[] | null> {
   const supabase = createAdminClient();
@@ -105,6 +94,19 @@ export async function fetchRiverReaches(
           .catch(() => null);
       }
 
+      // Same shape as /api/eddy-update/[riverSlug]?section= — newest non-expired
+      // row for this section. Read here rather than client-side so it lands in
+      // the first paint, inside the page's revalidate window.
+      const { data: reportRow } = await supabase
+        .from('eddy_updates')
+        .select('quote_text, summary_text, generated_at')
+        .eq('river_slug', riverSlug)
+        .eq('section_slug', r.section_slug)
+        .gt('expires_at', new Date().toISOString())
+        .order('generated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
       return {
         sectionSlug: r.section_slug,
         name: r.name,
@@ -118,6 +120,13 @@ export async function fetchRiverReaches(
         gaugeName: cond?.gauge_name ?? null,
         gaugeHeightFt: cond?.gauge_height_ft ?? null,
         dischargeCfs: cond?.discharge_cfs ?? null,
+        report: reportRow?.quote_text
+          ? {
+              summaryText: reportRow.summary_text ?? null,
+              quoteText: reportRow.quote_text,
+              generatedAt: reportRow.generated_at,
+            }
+          : null,
       } satisfies RiverReach;
     }),
   );

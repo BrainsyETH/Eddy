@@ -10,10 +10,10 @@ import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/a
 import { fetchWeather, fetchForecast, getWeatherPointForRiver, type WeatherData, type ForecastData } from '@/lib/weather/openweather';
 import { fetchPrecipitationFromWeather, buildWeatherSummary, type PrecipitationSummary, type WeatherSummary } from '@/lib/weather/openweather';
 import { getKnowledgeForTarget } from '@/lib/eddy/knowledge';
-import { buildGaugeTrajectory, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
+import { buildGaugeTrajectoryForSite, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { RAIN_LAG, type RainLagInfo } from '@/lib/eddy/rain-lag';
 import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
-import { getRiverContext, DEFAULT_TIMEZONE, type RiverContext, type RiverType } from '@/lib/rivers/context';
+import { getRiverContext, DEFAULT_TIMEZONE, type RiverContext } from '@/lib/rivers/context';
 import { getLocalDateStrings } from '@/lib/social/local-time';
 import { parseEddyResponse, stripEddyMarkers } from '@/lib/eddy/parse-response';
 import { RIVER_TYPE_GUIDANCE, buildConditionSemantics } from '@/lib/eddy/condition-semantics';
@@ -118,7 +118,10 @@ export async function generateEddyUpdate(
   const riverCtx = await getRiverContext(target.riverSlug);
 
   // --- 1. Fetch gauge data ---
-  const gaugeResult = await getGaugeConditions(target.riverSlug);
+  // Per-reach where the reach names its own gauge; the river's primary
+  // otherwise. Without the section, a tailwater update is built from the gauge
+  // above its dam.
+  const gaugeResult = await getGaugeConditions(target.riverSlug, target.sectionSlug);
   const gaugeContext: GaugeContext | null = gaugeResult ? {
     gaugeName: gaugeResult.gaugeName,
     gaugeHeightFt: gaugeResult.gaugeHeightFt,
@@ -167,9 +170,13 @@ export async function generateEddyUpdate(
   if (localKnowledge) sourcesUsed.push('local knowledge');
 
   // --- 5. Fetch gauge trajectory (48h history + percentiles) ---
+  // Addressed by site rather than by river, so the trend belongs to the SAME
+  // gauge the readings above came from. Keyed off the river it would otherwise
+  // report the tailwater's movement from the gauge above the dam — the reading
+  // and the trend would describe two different rivers in one paragraph.
   let trajectory: GaugeTrajectory | null = null;
-  if (gaugeContext) {
-    trajectory = await buildGaugeTrajectory(target.riverSlug);
+  if (gaugeContext && gaugeResult) {
+    trajectory = await buildGaugeTrajectoryForSite(gaugeResult.usgsSiteId);
     if (trajectory) sourcesUsed.push('gauge trajectory');
   }
 
@@ -408,7 +415,13 @@ function buildPrompt(
   // system prompt so that prompt stays static and cacheable.
   lines.push('');
   lines.push('[CONDITION SEMANTICS — how to interpret conditions on THIS river]');
-  lines.push(buildConditionSemantics(riverCtx, target.sectionRiverType));
+  lines.push(
+    buildConditionSemantics(riverCtx, {
+      riverType: target.sectionRiverType,
+      lowWaterMeaning: target.sectionLowWaterMeaning,
+      risingWaterHazards: target.sectionRisingWaterHazards,
+    }),
+  );
 
   lines.push('');
   lines.push('[CURRENT GAUGE DATA]');
