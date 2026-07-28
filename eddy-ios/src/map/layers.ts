@@ -124,13 +124,13 @@ export const MAP_LAYERS: LayerDef[] = [
   {
     key: 'access',
     label: 'Access points',
-    description: 'Put-ins, take-outs and ramps',
+    description: 'Put-ins and ramps on the selected river',
     icon: 'location',
-    // The catalog's pin is drawn in the accent coral this layer already uses,
-    // so the mark and the well's border are the same colour by coincidence of
-    // both coming from the brand.
+    // A destination is map content, not an action. Teal keeps coral reserved
+    // for Plan a float and the plan endpoint the user explicitly chose.
+    // Shape still separates this pin from the gauge droplet.
     symbol: 'accessPoint',
-    color: (c) => c.accent,
+    color: (c) => c.interactive,
   },
   {
     key: 'gauges',

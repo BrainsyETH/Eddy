@@ -35,6 +35,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
   Pressable,
@@ -81,7 +82,7 @@ import {
 } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { RiverMap, type MapPin } from '@/map/RiverMap';
+import { mapAccessPointPin, RiverMap, type MapPin } from '@/map/RiverMap';
 import { mapUnavailableReason } from '@/map/runtime';
 import {
   DEFAULT_LAYERS,
@@ -226,6 +227,13 @@ export default function MapScreen() {
   // layer reads it — everything else on this screen loads a bounded set up front.
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
+  // Search results arrive before the selected river's access-point response.
+  // Keep the identity across that fetch so choosing a result can finish by
+  // opening its callout rather than merely dropping the camera nearby.
+  const pendingAccessSelection = useRef<{
+    id: string;
+    riverSlug: string;
+  } | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
 
@@ -312,6 +320,14 @@ export default function MapScreen() {
         // from two different rivers, not even for one frame.
         setDetail(river);
         setAccessPoints(points);
+        const pending = pendingAccessSelection.current;
+        if (pending?.riverSlug === selectedSlug) {
+          const point = points.find((candidate) => candidate.id === pending.id);
+          if (point) setSelectedPin(mapAccessPointPin(point, river.slug));
+          // Found or stale, this request answered it. Never let a missing row
+          // reopen unexpectedly when the person returns to the river later.
+          pendingAccessSelection.current = null;
+        }
         setError(null);
       })
       .catch((err) => {
@@ -416,6 +432,20 @@ export default function MapScreen() {
   const onSelectResult = useCallback((result: SearchResult) => {
     clearSearch();
     setSelectedPin(null);
+    if (result.kind === 'access_point' && result.riverSlug) {
+      const loadedPoint =
+        drawnSlug === result.riverSlug
+          ? accessPoints.find((candidate) => candidate.id === result.id)
+          : null;
+      if (loadedPoint) {
+        setSelectedPin(mapAccessPointPin(loadedPoint, drawnSlug));
+        pendingAccessSelection.current = null;
+      } else {
+        pendingAccessSelection.current = { id: result.id, riverSlug: result.riverSlug };
+      }
+    } else {
+      pendingAccessSelection.current = null;
+    }
 
     if (result.riverSlug) setPickedSlug(result.riverSlug);
 
@@ -439,7 +469,7 @@ export default function MapScreen() {
     } else if (result.kind === 'access_point') {
       setLayers((prev) => (prev.includes('access') ? prev : [...prev, 'access']));
     }
-  }, [clearSearch]);
+  }, [accessPoints, clearSearch, drawnSlug]);
 
   // ── Float plan ──────────────────────────────────────────────────
   // Keyed off the DRAWN river, so the plan's river id and its access points can
@@ -609,7 +639,9 @@ export default function MapScreen() {
     const placed =
       riverServices?.filter((s) => s.latitude != null && s.longitude != null) ?? null;
     return {
-      access: accessPoints.length,
+      // River-scoped. Before a river has been chosen, [] means “not loaded”,
+      // not “Missouri has no access points”.
+      access: drawnSlug ? accessPoints.length : undefined,
       gauges: gauges ? mappableGauges.length : undefined,
       // Viewport-scoped, so it moves as you pan — and `undefined` until the
       // layer has actually been switched on and fetched something, per the rule
@@ -693,6 +725,7 @@ export default function MapScreen() {
   const onSelectNetworkRiver = useCallback((slug: string) => {
     setPickedSlug(slug);
     setSelectedPin(null);
+    pendingAccessSelection.current = null;
     setFocus(null);
   }, []);
 
@@ -849,7 +882,10 @@ export default function MapScreen() {
               planner.plan ? { putIn: planner.plan.putIn, takeOut: planner.plan.takeOut } : null
             }
             selectedPinId={selectedPin?.id ?? null}
-            onSelectPin={setSelectedPin}
+            onSelectPin={(pin) => {
+              pendingAccessSelection.current = null;
+              setSelectedPin(pin);
+            }}
           />
         )}
 
@@ -1198,16 +1234,61 @@ function PinCallout({
 }) {
   const { colors, elevation, isDark } = useTheme();
   const layer = MAP_LAYERS.find((l) => l.key === pin.layer);
+  const planAsTakeOut = canSetTakeOut;
+  const planActionLabel = planAsTakeOut ? 'Use as take-out' : 'Use as put-in';
+  const performPlanAction = planAsTakeOut ? onSetTakeOut : onSetPutIn;
+
+  const onPlanAction = () => {
+    if (!accessPoint || accessPoint.isPublic) {
+      performPlanAction();
+      return;
+    }
+
+    const message = accessPoint.feeRequired
+      ? 'This location is marked private and may require both permission and a fee. Review its access details before relying on it.'
+      : 'This location is marked private and may require permission. Review its access details before relying on it.';
+    if (pin.detailRoute) {
+      Alert.alert('Private access', message, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Review details', onPress: () => onOpenDetail(pin.detailRoute!) },
+        { text: 'Use anyway', onPress: performPlanAction },
+      ]);
+      return;
+    }
+    Alert.alert('Private access', message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Use anyway', onPress: performPlanAction },
+    ]);
+  };
 
   return (
     <View style={[styles.callout, { backgroundColor: colors.card }, elevation(2)]}>
       <View style={styles.calloutHead}>
-        <View
-          style={[
-            styles.calloutDot,
-            { backgroundColor: pin.color ?? layer?.color(colors) ?? colors.interactive },
-          ]}
-        />
+        {accessPoint && pin.imageUrl ? (
+          <View style={styles.calloutThumbWrap}>
+            <Image
+              source={{ uri: pin.imageUrl }}
+              style={styles.calloutThumb}
+              resizeMode="cover"
+              accessibilityElementsHidden
+              importantForAccessibility="no"
+              accessibilityIgnoresInvertColors
+            />
+            <View
+              style={[
+                styles.calloutThumbDot,
+                { backgroundColor: pin.color ?? layer?.color(colors) ?? colors.interactive },
+              ]}
+            />
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.calloutDot,
+              { backgroundColor: pin.color ?? layer?.color(colors) ?? colors.interactive },
+            ]}
+          />
+        )}
         <View style={styles.calloutText}>
           <Text style={[styles.calloutName, { color: colors.text }]} numberOfLines={2}>
             {pin.name}
@@ -1252,28 +1333,6 @@ function PinCallout({
           that predates it still falls back to its single `type`. Rendered even
           when there is one, because "Access" is information: it is the type
           that means "somewhere to put a boat in and nothing more". */}
-      {/* ── What it looks like ──
-          One photo, best first, and only when there is one. A put-in's name is
-          not a description of it: "Cedar Grove Access" tells you nothing about
-          whether a trailer gets down to the water, and a picture of the ramp
-          does. The website has shown these for as long as the imagery backfill
-          has existed and the app has been holding them in memory unread.
-
-          Coverage is partial and always will be, so this renders nothing at all
-          rather than a placeholder — a missing photo must read as normal, not
-          as one that failed. */}
-      {pin.imageUrl ? (
-        <Image
-          source={{ uri: pin.imageUrl }}
-          style={styles.calloutImage}
-          resizeMode="cover"
-          // The name above is the identification; announcing the photo as well
-          // reads as a stutter to a screen reader.
-          accessibilityElementsHidden
-          importantForAccessibility="no"
-        />
-      ) : null}
-
       {accessPoint ? (
         <View style={styles.calloutTypes}>
           {accessPointTypes(accessPoint).map((type) => (
@@ -1286,6 +1345,20 @@ function PinCallout({
               </Text>
             </View>
           ))}
+          {accessPoint.feeRequired ? (
+            <View style={[styles.calloutType, { backgroundColor: colors.cardRaised }]}>
+              <Text style={[styles.calloutTypeText, { color: colors.textMuted }]}>Fee required</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {accessPoint && !accessPoint.isPublic ? (
+        <View style={[styles.calloutPrivate, { backgroundColor: colors.cardRaised }]}>
+          <Ionicons name="lock-closed-outline" size={14} color={colors.textMuted} />
+          <Text style={[styles.calloutPrivateText, { color: colors.textMuted }]}>
+            Private access — permission may be required
+          </Text>
         </View>
       ) : null}
 
@@ -1383,32 +1456,26 @@ function PinCallout({
           ) : null}
 
           {accessPoint ? (
-            <>
-              <Pressable
-                onPress={onSetPutIn}
-                style={({ pressed }) => [
-                  styles.calloutAction,
-                  { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
-                ]}
-                accessibilityRole="button"
-              >
-                <Text style={[styles.calloutActionText, { color: colors.text }]}>Put in here</Text>
-              </Pressable>
-              {canSetTakeOut ? (
-                <Pressable
-                  onPress={onSetTakeOut}
-                  style={({ pressed }) => [
-                    styles.calloutAction,
-                    { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
-                  ]}
-                  accessibilityRole="button"
-                >
-                  <Text style={[styles.calloutActionText, { color: colors.text }]}>
-                    Take out here
-                  </Text>
-                </Pressable>
-              ) : null}
-            </>
+            <Pressable
+              onPress={onPlanAction}
+              style={({ pressed }) => [
+                styles.calloutAction,
+                styles.calloutPlanAction,
+                {
+                  backgroundColor: pressed ? colors.accentPressed : colors.accent,
+                  borderColor: pressed ? colors.accentPressed : colors.accent,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityHint={
+                accessPoint.isPublic ? undefined : 'Private access confirmation required'
+              }
+            >
+              <Ionicons name="flag-outline" size={14} color={colors.onAccent} />
+              <Text style={[styles.calloutActionText, { color: colors.onAccent }]}>
+                {planActionLabel}
+              </Text>
+            </Pressable>
           ) : null}
 
           {/* AFTER the planner actions, before the river. Planning a float is
@@ -1426,12 +1493,22 @@ function PinCallout({
               onPress={() => onOpenDetail(pin.detailRoute!)}
               style={({ pressed }) => [
                 styles.calloutAction,
-                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+                {
+                  borderColor: accessPoint ? colors.interactive : colors.border,
+                  opacity: pressed ? 0.6 : 1,
+                },
               ]}
               accessibilityRole="button"
               accessibilityLabel={`Open ${pin.name}`}
             >
-              <Text style={[styles.calloutActionText, { color: colors.text }]}>Details</Text>
+              <Text
+                style={[
+                  styles.calloutActionText,
+                  { color: accessPoint ? colors.interactive : colors.text },
+                ]}
+              >
+                Details
+              </Text>
             </Pressable>
           ) : null}
 
@@ -1596,19 +1673,36 @@ const styles = StyleSheet.create({
   callout: { borderRadius: 14, padding: 13 },
   calloutHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   calloutDot: { width: 10, height: 10, borderRadius: 999 },
+  calloutThumbWrap: { width: 64, height: 64 },
+  calloutThumb: { width: 64, height: 64, borderRadius: 9 },
+  calloutThumbDot: {
+    position: 'absolute',
+    left: 5,
+    bottom: 5,
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
   calloutText: { flex: 1, minWidth: 0 },
   calloutName: { ...t.sm, fontFamily: fonts.semibold },
   calloutMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
   // Wraps, because six types is the ceiling and three is common. Quieter than
   // calloutChip — a condition chip is a verdict, these are labels.
-  // 16:9 and full bleed to the card's padding. Tall enough to read a ramp's
-  // gradient off, short enough that the callout still clears the plan button on
-  // a small phone — the bottom stack sizes to its content, so every pt here is
-  // a pt of map.
-  calloutImage: { width: '100%', aspectRatio: 16 / 9, borderRadius: 9, marginTop: 10 },
   calloutTypes: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
   calloutType: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
   calloutTypeText: { ...t.xs, fontFamily: fonts.medium },
+  calloutPrivate: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    borderRadius: 9,
+    marginTop: 9,
+  },
+  calloutPrivateText: { ...t.xs, fontFamily: fonts.medium, flex: 1 },
   calloutReadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9 },
   calloutReading: { ...t.lg, fontFamily: fonts.mono },
   calloutChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
@@ -1625,6 +1719,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
+  calloutPlanAction: { flex: 2, flexDirection: 'row', justifyContent: 'center', gap: 6 },
   calloutActionText: { ...t.xs, fontFamily: fonts.semibold },
   planButton: {
     flexDirection: 'row',
