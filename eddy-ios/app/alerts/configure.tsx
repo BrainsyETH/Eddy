@@ -222,7 +222,14 @@ export default function ConfigureAlertScreen() {
   const parsedMax = Number(valueMax);
   const valueValid = Number.isFinite(parsedValue) && value.trim() !== '';
   const maxValid = comparator !== 'between' || (Number.isFinite(parsedMax) && parsedMax > parsedValue);
-  const canSave = mode === 'condition' ? canUseCondition : valueValid && maxValid;
+
+  // A level needs a station to measure it at, and a river with no gauge wired
+  // has none. Without this the screen happily takes a number and the save
+  // answers 404 "Gauge not found" — a true statement about a request the user
+  // never knowingly made.
+  const hasStation = Boolean(context?.usgsSiteId || context?.gaugeStationId);
+  const canSave =
+    mode === 'condition' ? canUseCondition : hasStation && valueValid && maxValid;
 
   /** The sentence under the controls — the same one the row and push will use. */
   const preview = useMemo(
@@ -411,10 +418,18 @@ export default function ConfigureAlertScreen() {
             <Text style={chipText(mode === 'threshold')}>My own level</Text>
           </Pressable>
         </View>
-        {!canUseCondition ? (
+        {!canUseCondition && hasStation ? (
           <Text style={[styles.hint, { color: colors.textSubtle }]}>
             Eddy doesn&apos;t rate this gauge for a river, so there&apos;s no floatable verdict to
             watch — set your own level instead.
+          </Text>
+        ) : null}
+        {!hasStation ? (
+          // Said once, plainly, instead of letting the form look usable and
+          // fail on save.
+          <Text style={[styles.hint, { color: colors.textSubtle }]}>
+            There&apos;s no gauge on this river yet, so there&apos;s nothing to measure an alert
+            against. Try setting one on a nearby gauge instead.
           </Text>
         ) : null}
 

@@ -774,9 +774,17 @@ export async function updateAlertRule(
 ): Promise<void> {
   if (rule.source === 'river_condition') {
     if (!rule.riverId) throw new ApiError('Alert is missing its river', 400);
+    // `conditionKind` here, `kind` there. The two tables named the same column
+    // differently before they were ever merged into one client-facing rule, and
+    // passing the patch through untranslated is silent: the route ignores the
+    // key it does not know and answers "Nothing to update" — so switching a
+    // river alert from Everything to Safety would appear to save and change
+    // nothing at all.
+    const { conditionKind, ...rest } = patch;
     await writeJson('/api/me/alert-subscriptions', token, 'PATCH', {
       riverId: rule.riverId,
-      ...patch,
+      ...rest,
+      ...(conditionKind ? { kind: conditionKind } : {}),
     });
     return;
   }

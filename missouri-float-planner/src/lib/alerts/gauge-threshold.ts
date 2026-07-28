@@ -407,7 +407,11 @@ export function evaluateSubscription(input: EvalInput): EvalResult {
       // Never grade one unit's number against the other's thresholds.
       { strictUnit: true },
     );
-    const state: StateUpdate = { ...baseState, last_condition_code: newCode };
+    // last_value tracked here too, not just in threshold mode. It is not read
+    // by the evaluator — the verdict is — but it is what a support question
+    // ("why did this fire?") is answered from, and a column that is right for
+    // one mode and stale for the other is worse than one that is always null.
+    const state: StateUpdate = { ...baseState, last_value: gate.value, last_condition_code: newCode };
     const oldCode = sub.last_condition_code;
 
     // First look: record the verdict without announcing it. "unknown → good" is

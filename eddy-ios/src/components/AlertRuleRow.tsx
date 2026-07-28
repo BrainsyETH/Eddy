@@ -28,6 +28,10 @@ function isSpent(rule: AlertRule): boolean {
   return rule.oneShot && rule.firedAt != null;
 }
 
+function sentenceCase(text: string): string {
+  return text.length > 0 ? text[0].toUpperCase() + text.slice(1) : text;
+}
+
 function AlertRuleRowInner({ rule, onPress, onToggle }: Props) {
   const { colors, elevation } = useTheme();
 
@@ -74,9 +78,12 @@ function AlertRuleRowInner({ rule, onPress, onToggle }: Props) {
           {title}
         </Text>
         <Text style={[styles.trigger, { color: colors.textMuted }]} numberOfLines={2}>
-          {/* Capitalised here rather than in the shared helper: the push body
-              embeds the same fragment mid-sentence. */}
-          {describeAlertRule(rule).replace(/^when|^while/, (m) => m[0].toUpperCase() + m.slice(1))}
+          {/* Capitalised here rather than in the shared helper, because the push
+              body embeds the same fragment mid-sentence. First character only —
+              an earlier version matched the specific openings it expected and
+              left "on any condition change" lowercase, which is the one a
+              condition rule uses. */}
+          {sentenceCase(describeAlertRule(rule))}
         </Text>
         {subtitle ? (
           <Text style={[styles.meta, { color: colors.textSubtle }]} numberOfLines={1}>
