@@ -117,14 +117,14 @@ function Point({
   icon?: keyof typeof Ionicons.glyphMap;
   symbol?: EddySymbolName;
   text: string;
-  colors: { textMuted: string; accent: string };
+  colors: { textMuted: string; interactive: string };
 }) {
   return (
     <View style={styles.point}>
       {symbol ? (
         <EddySymbol name={symbol} size={18} />
       ) : icon ? (
-        <Ionicons name={icon} size={18} color={colors.accent} />
+        <Ionicons name={icon} size={18} color={colors.interactive} />
       ) : null}
       <Text style={[styles.pointText, { color: colors.textMuted }]}>{text}</Text>
     </View>

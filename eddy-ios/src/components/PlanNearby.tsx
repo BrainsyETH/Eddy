@@ -124,7 +124,7 @@ export function PlanNearby({ plan }: { plan: FloatPlan }) {
                 accessibilityRole="button"
                 accessibilityLabel={`Call ${service.name}`}
               >
-                <Ionicons name="call-outline" size={15} color={colors.accent} />
+                <Ionicons name="call-outline" size={15} color={colors.interactive} />
               </Pressable>
             ) : null}
             {service.website ? (
@@ -137,7 +137,7 @@ export function PlanNearby({ plan }: { plan: FloatPlan }) {
                 accessibilityRole="button"
                 accessibilityLabel={`${service.name} website`}
               >
-                <Ionicons name="globe-outline" size={15} color={colors.accent} />
+                <Ionicons name="globe-outline" size={15} color={colors.interactive} />
               </Pressable>
             ) : null}
           </View>

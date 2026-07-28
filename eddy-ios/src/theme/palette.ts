@@ -89,10 +89,19 @@ export interface Palette {
   /** Sunset Coral — primary CTA and the Eddy branding colour. */
   accent: string;
   accentPressed: string;
-  /** Active tab/nav tint. Per-scheme: coral needs lifting on dark, not on white. */
-  accentActive: string;
   /** Text and icons placed ON the accent fill. */
   onAccent: string;
+  /** Links, navigation, selection indicators and utility controls. */
+  interactive: string;
+  interactivePressed: string;
+  /** Text and icons placed ON a solid interactive fill. */
+  onInteractive: string;
+  /** Quiet selected state for filters, segments and option rows. */
+  selectionBg: string;
+  selectionText: string;
+  /** Occasional high-emphasis header or summary surface. */
+  anchorSurface: string;
+  onAnchor: string;
   success: string;
   warm: string;
   /**
@@ -162,9 +171,18 @@ export const darkPalette: Palette = {
   textSubtle: neutral[400],
   accent: accent[500],
   accentPressed: accent[600],
-  // Per DESIGN.md: "Accent 400 — active nav highlight on dark backgrounds".
-  accentActive: accent[400],
-  onAccent: '#FFFFFF',
+  // Coral is light enough that white text only reaches 2.94:1. Deep teal clears
+  // AA and keeps the CTA feeling like one coherent piece of the brand.
+  onAccent: primary[900],
+  // Dark mode moves UP the teal scale. primary-600 against primary-900 is only
+  // 2.21:1, so using the light-mode value here would make links disappear.
+  interactive: primary[300],
+  interactivePressed: primary[200],
+  onInteractive: primary[900],
+  selectionBg: primary[800],
+  selectionText: primary[100],
+  anchorSurface: primary[800],
+  onAnchor: '#FFFFFF',
   success: support[500],
   warm: secondary[500],
   // red-400. The darker red-500 used on light is muddy against near-black stone.
@@ -193,10 +211,16 @@ export const lightPalette: Palette = {
   textSubtle: neutral[500],
   accent: accent[500],
   accentPressed: accent[600],
-  // Coral 400 is too pale to carry an active state against white; the base holds
-  // its own here, which is why this field is per-scheme at all.
-  accentActive: accent[500],
-  onAccent: '#FFFFFF',
+  onAccent: primary[900],
+  // Primary-600 is 6.58:1 on white and 5.93:1 on selectionBg: strong enough
+  // for ordinary link text, small icons and selected labels.
+  interactive: primary[600],
+  interactivePressed: primary[700],
+  onInteractive: '#FFFFFF',
+  selectionBg: primary[50],
+  selectionText: primary[900],
+  anchorSurface: primary[900],
+  onAnchor: '#FFFFFF',
   // Support 700, not 500: the base green fails AA as text on white.
   success: support[700],
   warm: secondary[500],

@@ -80,7 +80,7 @@ export default function DamDetailScreen() {
     return (
       <SafeAreaView style={[styles.screen, styles.centre, { backgroundColor: colors.bg }]}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ActivityIndicator size="large" color={colors.accent} />
+        <ActivityIndicator size="large" color={colors.interactive} />
       </SafeAreaView>
     );
   }
@@ -194,11 +194,15 @@ export default function DamDetailScreen() {
               onPress={() => router.push(`/river/${dam.tailwater!.riverSlug}`)}
               style={({ pressed }) => [
                 styles.action,
-                { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+                {
+                  backgroundColor: pressed
+                    ? colors.interactivePressed
+                    : colors.interactive,
+                },
               ]}
               accessibilityRole="button"
             >
-              <Text style={[styles.actionText, { color: colors.onAccent }]}>
+              <Text style={[styles.actionText, { color: colors.onInteractive }]}>
                 Open the river below this dam
               </Text>
             </Pressable>

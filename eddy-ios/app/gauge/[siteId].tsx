@@ -176,7 +176,7 @@ export default function GaugeDetailScreen() {
     return (
       <SafeAreaView style={[styles.screen, styles.centre, { backgroundColor: colors.bg }]}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ActivityIndicator size="large" color={colors.accent} />
+        <ActivityIndicator size="large" color={colors.interactive} />
       </SafeAreaView>
     );
   }
@@ -490,11 +490,15 @@ export default function GaugeDetailScreen() {
               onPress={() => router.push(`/dam/${gauge.siteId}`)}
               style={({ pressed }) => [
                 styles.action,
-                { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+                {
+                  backgroundColor: pressed
+                    ? colors.interactivePressed
+                    : colors.interactive,
+                },
               ]}
               accessibilityRole="button"
             >
-              <Text style={[styles.actionText, { color: colors.onAccent }]}>
+              <Text style={[styles.actionText, { color: colors.onInteractive }]}>
                 Lake &amp; dam detail
               </Text>
             </Pressable>
@@ -505,11 +509,15 @@ export default function GaugeDetailScreen() {
               onPress={() => router.push(`/river/${link.riverSlug}`)}
               style={({ pressed }) => [
                 styles.action,
-                { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+                {
+                  backgroundColor: pressed
+                    ? colors.interactivePressed
+                    : colors.interactive,
+                },
               ]}
               accessibilityRole="button"
             >
-              <Text style={[styles.actionText, { color: colors.onAccent }]}>
+              <Text style={[styles.actionText, { color: colors.onInteractive }]}>
                 Open {link.riverName}
               </Text>
             </Pressable>

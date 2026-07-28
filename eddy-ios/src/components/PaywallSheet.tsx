@@ -272,7 +272,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
                 Sign in first so your subscription follows you to a new phone.
               </Text>
               {busy === 'apple' ? (
-                <ActivityIndicator color={colors.accent} style={styles.footerBusy} />
+                <ActivityIndicator color={colors.interactive} style={styles.footerBusy} />
               ) : (
                 <AppleAuthentication.AppleAuthenticationButton
                   buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
@@ -295,7 +295,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
               </Text>
             </View>
           ) : packages === null ? (
-            <ActivityIndicator color={colors.accent} style={styles.footerBusy} />
+            <ActivityIndicator color={colors.interactive} style={styles.footerBusy} />
           ) : (
             packages.map((pkg) => (
               <Pressable

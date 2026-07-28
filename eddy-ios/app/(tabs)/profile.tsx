@@ -195,11 +195,11 @@ export default function ProfileScreen() {
         {/* ── Account ─────────────────────────────────────────────── */}
         <Section title="Account" muted={colors.textMuted}>
           {!ready ? (
-            <ActivityIndicator color={colors.accent} style={styles.pad} />
+            <ActivityIndicator color={colors.interactive} style={styles.pad} />
           ) : signedIn ? (
             <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
               <View style={styles.row}>
-                <Ionicons name="person-circle-outline" size={26} color={colors.accent} />
+                <Ionicons name="person-circle-outline" size={26} color={colors.interactive} />
                 <View style={styles.rowBody}>
                   <Text style={[styles.rowTitle, { color: colors.text }]}>
                     {profile?.displayName ?? 'Signed in with Apple'}
@@ -227,7 +227,7 @@ export default function ProfileScreen() {
               {!unavailable && (
                 <View style={styles.appleWrap}>
                   {busy === 'apple' ? (
-                    <ActivityIndicator color={colors.accent} />
+                    <ActivityIndicator color={colors.interactive} />
                   ) : (
                     // Apple's own button, not a facsimile: the Human Interface
                     // Guidelines require the real control, and its style has to
@@ -262,7 +262,7 @@ export default function ProfileScreen() {
                 <Text
                   style={[
                     styles.rowNote,
-                    { color: entitlement?.billingIssue ? colors.accent : colors.textMuted },
+                    { color: entitlement?.billingIssue ? colors.error : colors.textMuted },
                   ]}
                 >
                   {loaded ? subscriptionSummary(entitlement) : 'Checking…'}
@@ -302,11 +302,11 @@ export default function ProfileScreen() {
 
             <View style={styles.legalLinks}>
               <Pressable onPress={() => void Linking.openURL(TERMS_URL)}>
-                <Text style={[styles.legalLink, { color: colors.accent }]}>Terms</Text>
+                <Text style={[styles.legalLink, { color: colors.interactive }]}>Terms</Text>
               </Pressable>
               <Text style={[styles.legal, { color: colors.textSubtle }]}>·</Text>
               <Pressable onPress={() => void Linking.openURL(PRIVACY_URL)}>
-                <Text style={[styles.legalLink, { color: colors.accent }]}>Privacy</Text>
+                <Text style={[styles.legalLink, { color: colors.interactive }]}>Privacy</Text>
               </Pressable>
             </View>
           </View>
@@ -403,9 +403,9 @@ export default function ProfileScreen() {
               <Pressable
                 onPress={handleDelete}
                 disabled={busy === 'delete'}
-                style={[styles.danger, { borderColor: colors.accent }]}
+                style={[styles.danger, { borderColor: colors.error }]}
               >
-                <Text style={[styles.dangerText, { color: colors.accent }]}>
+                <Text style={[styles.dangerText, { color: colors.error }]}>
                   {busy === 'delete' ? 'Deleting…' : 'Delete account'}
                 </Text>
               </Pressable>

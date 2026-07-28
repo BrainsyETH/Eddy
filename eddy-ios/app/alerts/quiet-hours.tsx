@@ -136,7 +136,7 @@ export default function QuietHoursScreen() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]} edges={['top']}>
-        <ActivityIndicator color={colors.accent} />
+        <ActivityIndicator color={colors.interactive} />
       </SafeAreaView>
     );
   }
@@ -189,13 +189,16 @@ export default function QuietHoursScreen() {
             style={[
               styles.hourChip,
               { borderColor: colors.border },
-              active && { backgroundColor: colors.accent, borderColor: colors.accent },
+              active && { backgroundColor: colors.selectionBg, borderColor: colors.interactive },
             ]}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
           >
             <Text
-              style={[styles.hourText, { color: active ? colors.onAccent : colors.textMuted }]}
+              style={[
+                styles.hourText,
+                { color: active ? colors.selectionText : colors.textMuted },
+              ]}
             >
               {label(minute)}
             </Text>
@@ -232,7 +235,7 @@ export default function QuietHoursScreen() {
             onValueChange={(next) =>
               void save({ ...prefs, quietHoursEnabled: next, quietStartMinute: start, quietEndMinute: end })
             }
-            trackColor={{ true: colors.accent, false: colors.border }}
+            trackColor={{ true: colors.interactive, false: colors.border }}
           />
         </Pressable>
 
@@ -277,7 +280,7 @@ export default function QuietHoursScreen() {
               <Switch
                 value={prefs.safetyOverridesQuiet}
                 onValueChange={(next) => void save({ ...prefs, safetyOverridesQuiet: next })}
-                trackColor={{ true: colors.accent, false: colors.border }}
+                trackColor={{ true: colors.interactive, false: colors.border }}
               />
             </Pressable>
 
@@ -295,7 +298,9 @@ export default function QuietHoursScreen() {
         ) : null}
 
         {error ? <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text> : null}
-        {saving ? <ActivityIndicator style={styles.savingSpinner} color={colors.accent} /> : null}
+        {saving ? (
+          <ActivityIndicator style={styles.savingSpinner} color={colors.interactive} />
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

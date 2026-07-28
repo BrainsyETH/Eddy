@@ -165,7 +165,7 @@ export default function NewAlertScreen() {
           returnKeyType="search"
           accessibilityLabel="Search rivers and gauges"
         />
-        {searching ? <ActivityIndicator size="small" color={colors.accent} /> : null}
+        {searching ? <ActivityIndicator size="small" color={colors.interactive} /> : null}
       </View>
 
       <FlatList

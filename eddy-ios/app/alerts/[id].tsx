@@ -131,7 +131,7 @@ export default function EditAlertScreen() {
   if (!ready) {
     return (
       <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]} edges={['top']}>
-        <ActivityIndicator color={colors.accent} />
+        <ActivityIndicator color={colors.interactive} />
       </SafeAreaView>
     );
   }
@@ -161,11 +161,11 @@ export default function EditAlertScreen() {
   const chip = (selected: boolean) => [
     styles.chip,
     { borderColor: colors.border },
-    selected && { backgroundColor: colors.accent, borderColor: colors.accent },
+    selected && { backgroundColor: colors.selectionBg, borderColor: colors.interactive },
   ];
   const chipText = (selected: boolean) => [
     styles.chipText,
-    { color: selected ? colors.onAccent : colors.textMuted },
+    { color: selected ? colors.selectionText : colors.textMuted },
   ];
 
   return (
@@ -212,7 +212,7 @@ export default function EditAlertScreen() {
           <Switch
             value={enabled}
             onValueChange={setEnabled}
-            trackColor={{ true: colors.accent, false: colors.border }}
+            trackColor={{ true: colors.interactive, false: colors.border }}
           />
         </Pressable>
 
@@ -239,7 +239,7 @@ export default function EditAlertScreen() {
                 <Ionicons
                   name={conditionKind === kind.value ? 'radio-button-on' : 'radio-button-off'}
                   size={20}
-                  color={conditionKind === kind.value ? colors.accent : colors.textSubtle}
+                  color={conditionKind === kind.value ? colors.interactive : colors.textSubtle}
                 />
               </Pressable>
             ))}
@@ -328,7 +328,7 @@ export default function EditAlertScreen() {
           <Switch
             value={oneShot}
             onValueChange={setOneShot}
-            trackColor={{ true: colors.accent, false: colors.border }}
+            trackColor={{ true: colors.interactive, false: colors.border }}
           />
         </Pressable>
 

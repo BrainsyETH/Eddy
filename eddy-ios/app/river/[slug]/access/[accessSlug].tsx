@@ -170,7 +170,7 @@ function ServiceRow({ service }: { service: NearbyService }) {
       <Ionicons
         name={SERVICE_ICON[service.type] ?? 'business-outline'}
         size={18}
-        color={colors.accent}
+        color={colors.interactive}
       />
       <View style={styles.serviceBody}>
         <Text style={[styles.serviceName, { color: colors.text }]} numberOfLines={1}>
@@ -191,7 +191,7 @@ function ServiceRow({ service }: { service: NearbyService }) {
           accessibilityRole="button"
           accessibilityLabel={`Call ${service.name}`}
         >
-          <Ionicons name="call-outline" size={19} color={colors.accent} />
+          <Ionicons name="call-outline" size={19} color={colors.interactive} />
         </Pressable>
       ) : null}
       {service.website ? (
@@ -201,7 +201,7 @@ function ServiceRow({ service }: { service: NearbyService }) {
           accessibilityRole="button"
           accessibilityLabel={`Open ${service.name} website`}
         >
-          <Ionicons name="open-outline" size={19} color={colors.accent} />
+          <Ionicons name="open-outline" size={19} color={colors.interactive} />
         </Pressable>
       ) : null}
     </View>
@@ -231,7 +231,7 @@ function NearbyRow({ point, onPress }: { point: NearbyAccessPoint; onPress: () =
       <Ionicons
         name={point.direction === 'upstream' ? 'arrow-up-outline' : 'arrow-down-outline'}
         size={17}
-        color={colors.accent}
+        color={colors.interactive}
       />
       <View style={styles.nearbyBody}>
         <Text style={[styles.nearbyName, { color: colors.text }]} numberOfLines={1}>
@@ -285,7 +285,7 @@ export default function AccessPointDetailScreen() {
     return (
       <SafeAreaView style={[styles.screen, styles.centre, { backgroundColor: colors.bg }]}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ActivityIndicator size="large" color={colors.accent} />
+        <ActivityIndicator size="large" color={colors.interactive} />
       </SafeAreaView>
     );
   }
@@ -332,7 +332,7 @@ export default function AccessPointDetailScreen() {
           accessibilityRole="button"
           accessibilityLabel={`Open ${point.river.name}`}
         >
-          <Text style={[styles.navRiver, { color: colors.accent }]} numberOfLines={1}>
+          <Text style={[styles.navRiver, { color: colors.interactive }]} numberOfLines={1}>
             {point.river.name}
           </Text>
         </Pressable>

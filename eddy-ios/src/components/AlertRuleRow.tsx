@@ -60,13 +60,13 @@ function AlertRuleRowInner({ rule, onPress, onToggle }: Props) {
       <View
         style={[
           styles.icon,
-          { backgroundColor: dimmed ? colors.cardRaised : colors.accent },
+          { backgroundColor: dimmed ? colors.cardRaised : colors.interactive },
         ]}
       >
         <Ionicons
           name={rule.scope === 'gauge' ? 'speedometer-outline' : 'water-outline'}
           size={16}
-          color={dimmed ? colors.textSubtle : colors.onAccent}
+          color={dimmed ? colors.textSubtle : colors.onInteractive}
         />
       </View>
 
@@ -102,7 +102,7 @@ function AlertRuleRowInner({ rule, onPress, onToggle }: Props) {
       <Switch
         value={rule.enabled}
         onValueChange={onToggle}
-        trackColor={{ true: colors.accent, false: colors.border }}
+        trackColor={{ true: colors.interactive, false: colors.border }}
         accessibilityLabel={`${rule.enabled ? 'Pause' : 'Resume'} alert for ${title}`}
       />
     </Pressable>

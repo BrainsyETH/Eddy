@@ -161,7 +161,7 @@ export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Pr
           />
         ) : calculating ? (
           <View style={styles.centered}>
-            <ActivityIndicator color={colors.accent} />
+            <ActivityIndicator color={colors.interactive} />
             <Text style={[styles.calculating, { color: colors.textMuted }]}>
               Reading the gauge and driving the shuttle…
             </Text>
@@ -173,7 +173,7 @@ export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Pr
               {error ?? 'Could not build that float plan'}
             </Text>
             <Pressable onPress={state.reset} hitSlop={10}>
-              <Text style={[styles.link, { color: colors.accent }]}>Start over</Text>
+              <Text style={[styles.link, { color: colors.interactive }]}>Start over</Text>
             </Pressable>
           </View>
         ) : (
@@ -203,7 +203,7 @@ export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Pr
                     }
                   >
                     {saving ? (
-                      <ActivityIndicator color={colors.accent} size="small" />
+                      <ActivityIndicator color={colors.interactive} size="small" />
                     ) : (
                       <Ionicons
                         name={saved ? 'star' : 'star-outline'}
@@ -304,7 +304,13 @@ function Breadcrumb({ state }: { state: FloatPlanState }) {
             <Text
               style={[
                 styles.crumbLabel,
-                { color: current ? colors.accent : reachable ? colors.textMuted : colors.textSubtle },
+                {
+                  color: current
+                    ? colors.interactive
+                    : reachable
+                      ? colors.textMuted
+                      : colors.textSubtle,
+                },
               ]}
             >
               {crumb.label}
@@ -392,7 +398,7 @@ function AccessPointList({
           <Ionicons
             name={nearestFirst ? 'navigate' : 'navigate-outline'}
             size={14}
-            color={nearestFirst ? colors.accent : colors.textMuted}
+            color={nearestFirst ? colors.interactive : colors.textMuted}
           />
           <Text
             style={[styles.sortText, { color: nearestFirst ? colors.text : colors.textMuted }]}
@@ -449,7 +455,7 @@ function AccessPointList({
                   .join(' · ')}
               </Text>
             </View>
-            {selected ? <Ionicons name="checkmark" size={18} color={colors.accent} /> : null}
+            {selected ? <Ionicons name="checkmark" size={18} color={colors.interactive} /> : null}
           </Pressable>
         );
       })}

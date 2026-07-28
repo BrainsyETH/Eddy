@@ -104,7 +104,7 @@ export default function AlertsScreen() {
   if (!alerts && !error) {
     return (
       <SafeAreaView style={[styles.centered, { backgroundColor: colors.bg }]} edges={['top']}>
-        <ActivityIndicator color={colors.accent} />
+        <ActivityIndicator color={colors.interactive} />
       </SafeAreaView>
     );
   }
@@ -127,7 +127,10 @@ export default function AlertsScreen() {
       style={[
         styles.toggle,
         { borderColor: colors.border },
-        segment === value && { backgroundColor: colors.accent, borderColor: colors.accent },
+        segment === value && {
+          backgroundColor: colors.selectionBg,
+          borderColor: colors.interactive,
+        },
       ]}
       accessibilityRole="button"
       accessibilityState={{ selected: segment === value }}
@@ -135,7 +138,7 @@ export default function AlertsScreen() {
       <Text
         style={[
           styles.toggleText,
-          { color: segment === value ? colors.onAccent : colors.textMuted },
+          { color: segment === value ? colors.selectionText : colors.textMuted },
         ]}
       >
         {label}
@@ -152,12 +155,12 @@ export default function AlertsScreen() {
           hitSlop={12}
           style={({ pressed }) => [
             styles.addButton,
-            { backgroundColor: colors.accent, opacity: pressed ? 0.7 : 1 },
+            { backgroundColor: colors.interactive, opacity: pressed ? 0.7 : 1 },
           ]}
           accessibilityRole="button"
           accessibilityLabel="Create an alert"
         >
-          <Ionicons name="add" size={22} color={colors.onAccent} />
+          <Ionicons name="add" size={22} color={colors.onInteractive} />
         </Pressable>
       </View>
 
@@ -189,7 +192,7 @@ export default function AlertsScreen() {
   );
 
   const refreshControl = (
-    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.interactive} />
   );
 
   const cta = showCta ? (
@@ -227,7 +230,7 @@ export default function AlertsScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               {!rulesReady ? (
-                <ActivityIndicator color={colors.accent} />
+                <ActivityIndicator color={colors.interactive} />
               ) : (
                 <>
                   <EddyScene name="checkingGauge" size={120} />

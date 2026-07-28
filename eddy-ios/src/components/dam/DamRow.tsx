@@ -68,12 +68,12 @@ function DamRowComponent({
             <Ionicons
               name={dam.generating ? 'flash' : 'flash-off-outline'}
               size={13}
-              color={dam.generating ? colors.accent : colors.textSubtle}
+              color={dam.generating ? colors.interactive : colors.textSubtle}
             />
             <Text
               style={[
                 styles.state,
-                { color: dam.generating ? colors.accent : colors.textSubtle },
+                { color: dam.generating ? colors.interactive : colors.textSubtle },
               ]}
             >
               {dam.generating ? 'Generating' : 'Idle'}

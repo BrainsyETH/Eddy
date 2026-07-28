@@ -824,7 +824,7 @@ export default function ReportsScreen() {
   if (!rivers && !error) {
     return (
       <SafeAreaView style={[styles.centered, { backgroundColor: colors.bg }]} edges={['top']}>
-        <ActivityIndicator color={colors.accent} />
+        <ActivityIndicator color={colors.interactive} />
       </SafeAreaView>
     );
   }
@@ -918,12 +918,12 @@ export default function ReportsScreen() {
               accessibilityLabel={`Sort: ${SORT_LABELS.find((s) => s.key === sort)?.label}`}
             >
               {location.status === 'locating' ? (
-                <ActivityIndicator size="small" color={colors.accent} />
+                <ActivityIndicator size="small" color={colors.interactive} />
               ) : (
                 <Ionicons
                   name={sort === 'nearest' ? 'navigate' : 'swap-vertical-outline'}
                   size={17}
-                  color={sort === 'condition' ? colors.textMuted : colors.accent}
+                  color={sort === 'condition' ? colors.textMuted : colors.interactive}
                 />
               )}
             </Pressable>
@@ -954,10 +954,15 @@ export default function ReportsScreen() {
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
               >
-                <Text style={[styles.sortItemText, { color: on ? colors.accent : colors.text }]}>
+                <Text
+                  style={[
+                    styles.sortItemText,
+                    { color: on ? colors.interactive : colors.text },
+                  ]}
+                >
                   {label}
                 </Text>
-                {on ? <Ionicons name="checkmark" size={16} color={colors.accent} /> : null}
+                {on ? <Ionicons name="checkmark" size={16} color={colors.interactive} /> : null}
               </Pressable>
             );
           })}
@@ -1022,7 +1027,11 @@ export default function ReportsScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.interactive}
+          />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -1035,7 +1044,7 @@ export default function ReportsScreen() {
                 Search every access point on Eddy&rsquo;s rivers by name.
               </Text>
             ) : search.searching && serverScope ? (
-              <ActivityIndicator color={colors.accent} />
+              <ActivityIndicator color={colors.interactive} />
             ) : (
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                 {error ??

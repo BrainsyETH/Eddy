@@ -34,7 +34,7 @@ export function Placeholder({
         <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
         <Text style={[styles.blurb, { color: colors.textMuted }]}>{blurb}</Text>
         <View style={[styles.pill, { backgroundColor: colors.card }, elevation(1)]}>
-          <Text style={[styles.pillText, { color: colors.accent }]}>Next: {waitingOn}</Text>
+          <Text style={[styles.pillText, { color: colors.interactive }]}>Next: {waitingOn}</Text>
         </View>
       </View>
     </SafeAreaView>

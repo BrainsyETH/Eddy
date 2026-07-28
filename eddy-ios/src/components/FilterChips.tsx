@@ -43,8 +43,8 @@ export interface FilterChip {
   symbol?: EddySymbolName;
   count?: number;
   /**
-   * Overrides the accent when active. The map uses it so a layer's chip is the
-   * colour of its own pins — a legend and a control in one object.
+   * Overrides the interaction tint when active. Flow-band filters use it so
+   * each chip remains a legend for the matching map markers.
    */
   activeColor?: string;
 }
@@ -56,6 +56,25 @@ interface Props {
   onToggle: (key: string) => void;
   /** Horizontal padding for the scroll content, matching the host screen. */
   paddingHorizontal?: number;
+}
+
+function relativeLuminance(hex: string): number | null {
+  const channels = /^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex);
+  if (!channels) return null;
+  const [red, green, blue] = channels.slice(1).map((channel) => {
+    const value = Number.parseInt(channel, 16) / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function readableInk(background: string, darkInk: string, lightInk: string): string {
+  const bg = relativeLuminance(background);
+  const dark = relativeLuminance(darkInk);
+  const light = relativeLuminance(lightInk);
+  if (bg == null || dark == null || light == null) return darkInk;
+  const contrast = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  return contrast(bg, dark) >= contrast(bg, light) ? darkInk : lightInk;
 }
 
 function FilterChipsComponent({ chips, active, onToggle, paddingHorizontal = 16 }: Props) {
@@ -74,7 +93,12 @@ function FilterChipsComponent({ chips, active, onToggle, paddingHorizontal = 16 
     >
       {chips.map((chip) => {
         const on = active.includes(chip.key);
-        const tint = chip.activeColor ?? colors.accent;
+        // A condition chip may supply its canonical status colour. Everything
+        // else uses the interaction role — selection is not a primary action.
+        const tint = chip.activeColor ?? colors.interactive;
+        const countInk = chip.activeColor
+          ? readableInk(tint, colors.onAccent, colors.onAnchor)
+          : colors.onInteractive;
         return (
           <Pressable
             key={chip.key}
@@ -82,7 +106,7 @@ function FilterChipsComponent({ chips, active, onToggle, paddingHorizontal = 16 
             style={({ pressed }) => [
               styles.chip,
               {
-                backgroundColor: on ? colors.cardRaised : colors.card,
+                backgroundColor: on ? colors.selectionBg : colors.card,
                 borderColor: on ? tint : colors.border,
                 opacity: pressed ? 0.65 : 1,
               },
@@ -98,12 +122,19 @@ function FilterChipsComponent({ chips, active, onToggle, paddingHorizontal = 16 
             ) : chip.icon ? (
               <Ionicons name={chip.icon} size={13} color={on ? tint : colors.textMuted} />
             ) : null}
-            <Text style={[styles.label, { color: on ? colors.text : colors.textMuted }]}>
+            <Text style={[styles.label, { color: on ? colors.selectionText : colors.textMuted }]}>
               {chip.label}
             </Text>
             {chip.count != null ? (
               <View style={[styles.count, { backgroundColor: on ? tint : colors.border }]}>
-                <Text style={[styles.countText, { color: on ? colors.onAccent : colors.textMuted }]}>
+                <Text
+                  style={[
+                    styles.countText,
+                    {
+                      color: on ? countInk : colors.textMuted,
+                    },
+                  ]}
+                >
                   {chip.count}
                 </Text>
               </View>
