@@ -29,6 +29,9 @@ isolated on an off-white background for easy review and future app integration.
 - `eddy-hazard.png`
 - `eddy-campground.png`
 - `eddy-outfitter.png`
+- `eddy-river.png`
+- `eddy-alert-watch.png`
+- `eddy-offline-map.png`
 
 ## Art direction
 
@@ -40,8 +43,9 @@ isolated on an off-white background for easy review and future app integration.
 - No words, watermarks, detailed scenery, or photorealistic elements
 
 The AI assistant, weather, water droplet, POI, USGS gauge, hazard, campground,
-and outfitter icons are mascot-free utility symbols that use the same palette
-and bold sticker treatment without depicting Eddy.
+outfitter, river, alert/watch, and offline-map icons are mascot-free utility
+symbols that use the same palette and bold sticker treatment without depicting
+Eddy.
 
 These are source concepts rather than final iOS asset-catalog exports. Final asset
 sizes and transparency can be derived after the preferred icons are selected.

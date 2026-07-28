@@ -548,6 +548,7 @@ export default function RiverDetailScreen() {
         {sortedHazards.length > 0 ? (
           <CollapsibleSection
             title="Hazards"
+            leading={<EddySymbol name="hazard" size={18} />}
             summary={
               criticalCount > 0
                 ? `${criticalCount} need${criticalCount === 1 ? 's' : ''} attention · ${sortedHazards.length} total`

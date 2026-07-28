@@ -53,6 +53,9 @@ SYMBOLS = (
     "eddy-hazard",
     "eddy-campground",
     "eddy-outfitter",
+    "eddy-river",
+    "eddy-alert-watch",
+    "eddy-offline-map",
 )
 
 # Four, not the ten the catalog offers, because a scene needs a hero-sized slot

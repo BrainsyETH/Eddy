@@ -25,6 +25,7 @@ import { accessTypeLabel, isCampground } from '@eddy/types';
 import { fetchRiverAccessPoints } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { EddySymbol } from '@/components/EddySymbol';
 
 /** Enough to plan a bail-out; past this it is a list of the whole river. */
 const MAX_SHOWN = 6;
@@ -85,7 +86,7 @@ export function PlanAlongRoute({ plan }: { plan: FloatPlan }) {
               </Text>
             </View>
             {isCampground(point) ? (
-              <Ionicons name="bonfire-outline" size={15} color={colors.success} />
+              <EddySymbol name="campground" size={17} />
             ) : (
               <Ionicons
                 name={point.isPublic ? 'location-outline' : 'lock-closed-outline'}
