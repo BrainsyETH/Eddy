@@ -175,6 +175,17 @@ export interface AccessPointDetail extends AccessPoint {
   drivingLat: number | null;
   drivingLng: number | null;
 
+  /**
+   * Canonical page path, e.g. /rivers/missouri/current/access/akers-ferry
+   *
+   * Served rather than composed by the consumer because the state segment is
+   * not otherwise in this payload, and the iOS route (/river/<slug>/access/...)
+   * cannot be turned into the web one without it. Anything that hands a user a
+   * link to this access point — a share sheet, a push, an embed — needs the
+   * canonical form, and only the server can build it. Mirrors RiverListItem.path.
+   */
+  path: string;
+
   // River context
   river: {
     id: string;

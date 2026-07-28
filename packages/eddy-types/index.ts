@@ -415,6 +415,23 @@ export interface AccessPointDetail {
    */
   drivingLat: number | null;
   drivingLng: number | null;
+  /**
+   * Canonical WEB path, e.g. /rivers/missouri/current/access/akers-ferry
+   *
+   * Note the shape is the WEBSITE's, not this app's — the app routes to
+   * /river/<slug>/access/<accessSlug>, with no state segment, and cannot
+   * reconstruct the web one because the state is not in this payload. It is
+   * served for exactly that reason: it is what a share sheet must hand out.
+   * Sibling of RiverListItem.path.
+   *
+   * OPTIONAL here and required in the website's own copy of this type, which is
+   * the difference between "the server always sends it" and "this build of the
+   * app can be talking to a deploy that predates it". A TestFlight build outlives
+   * the deploy it was cut against; consumers must treat its absence as "no share
+   * button" rather than shipping a link to /undefined. Same rule the gauge-detail
+   * fetch already follows.
+   */
+  path?: string;
   river: { id: string; name: string; slug: string };
   npsCampground: NpsCampgroundSummary | null;
 }

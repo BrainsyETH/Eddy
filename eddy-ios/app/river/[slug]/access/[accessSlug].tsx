@@ -54,6 +54,7 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
+import { ShareButton } from '@/components/ShareButton';
 import {
   driveToUrl,
   installedNavLinks,
@@ -354,16 +355,28 @@ export default function AccessPointDetailScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
-        <Pressable
-          onPress={() => router.push(`/river/${point.river.slug}`)}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel={`Open ${point.river.name}`}
-        >
-          <Text style={[styles.navRiver, { color: colors.interactive }]} numberOfLines={1}>
-            {point.river.name}
-          </Text>
-        </Pressable>
+        <View style={styles.navActions}>
+          <Pressable
+            onPress={() => router.push(`/river/${point.river.slug}`)}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${point.river.name}`}
+          >
+            <Text style={[styles.navRiver, { color: colors.interactive }]} numberOfLines={1}>
+              {point.river.name}
+            </Text>
+          </Pressable>
+          {/* point.path is the WEBSITE's state-segmented path, served by the
+              API precisely because this screen's route has no state in it and
+              could not build one. See src/lib/share.ts.
+
+              Absent when the deploy this build is talking to predates the
+              field — a build outlives the deploy it was cut against, and a
+              share button is not worth handing someone /undefined. */}
+          {point.path ? (
+            <ShareButton title={point.name} path={point.path} label={`Share ${point.name}`} />
+          ) : null}
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
@@ -677,6 +690,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 12,
   },
+  // The right-hand end of the nav row, now that share sits beside the river link.
+  navActions: { flexDirection: 'row', alignItems: 'center', gap: 14, flexShrink: 1 },
   navRiver: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1 },
   body: { paddingBottom: 40 },
   gallery: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },

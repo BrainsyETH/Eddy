@@ -94,6 +94,7 @@ import { Otter, otterForCondition } from '@/components/Otter';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { GaugePicker } from '@/components/GaugePicker';
 import { RiverVisuals } from '@/components/RiverVisuals';
+import { ShareButton } from '@/components/ShareButton';
 import { ReadingScale } from '@/components/ReadingScale';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { PushPrimer } from '@/components/PushPrimer';
@@ -468,18 +469,24 @@ export default function RiverDetailScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
-        <Pressable
-          onPress={() => toggleStar({ kind: 'river', entityId: river.id, name: river.name, slug: river.slug })}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel={starred ? `Unstar ${river.name}` : `Star ${river.name}`}
-        >
-          <Ionicons
-            name={starred ? 'star' : 'star-outline'}
-            size={24}
-            color={starred ? colors.warm : colors.textSubtle}
-          />
-        </Pressable>
+        <View style={styles.navActions}>
+          {/* river.path is the WEBSITE's /rivers/<state>/<slug>, served by the
+              API. This screen's own route has no state segment and cannot be
+              turned into a working link — see src/lib/share.ts. */}
+          <ShareButton title={river.name} path={river.path} label={`Share ${river.name}`} />
+          <Pressable
+            onPress={() => toggleStar({ kind: 'river', entityId: river.id, name: river.name, slug: river.slug })}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={starred ? `Unstar ${river.name}` : `Star ${river.name}`}
+          >
+            <Ionicons
+              name={starred ? 'star' : 'star-outline'}
+              size={24}
+              color={starred ? colors.warm : colors.textSubtle}
+            />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
@@ -1046,6 +1053,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 6,
   },
+  // The right-hand end of the nav row, now that share sits beside the star.
+  navActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   body: { paddingHorizontal: 16, paddingBottom: 40 },
   riverName: { ...t['3xl'], fontFamily: fonts.display, paddingHorizontal: 4, marginTop: 6 },
   riverMeta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 4, marginTop: 2, marginBottom: 16 },

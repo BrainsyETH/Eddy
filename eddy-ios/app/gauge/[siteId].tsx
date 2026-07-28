@@ -62,6 +62,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading, percentileLabel, readingAge } from '@/lib/readingCopy';
 import { usgsGaugeUrl } from '@/lib/directions';
+import { gaugeSharePath } from '@/lib/share';
 import {
   isDamRelease,
   isUsgsSite,
@@ -73,6 +74,7 @@ import {
 import { recallGauge, rememberGauge, seedFromDetail, type GaugeSeed } from '@/lib/gaugeSeed';
 import { GaugeChart } from '@/components/GaugeChart';
 import { ReadingScale } from '@/components/ReadingScale';
+import { ShareButton } from '@/components/ShareButton';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 
@@ -281,6 +283,11 @@ export default function GaugeDetailScreen() {
   // is absent then too.
   const damNote = !supportsFlowBand(gauge.provider) ? gauge.stationNote : null;
 
+  // Which website page this station has, if any. Provider-derived rather than
+  // id-shaped, because a USGS site and a USACE dam live under different
+  // segments and an NWS LID lives under neither. See src/lib/share.ts.
+  const sharePath = gaugeSharePath(gauge.provider, gauge.siteId);
+
   // A plain function, not a useCallback: everything above it is guarded by
   // early returns, and a hook below one of those is a hook that does not run in
   // the same order every render. Nothing here is memo-sensitive — it is one
@@ -306,22 +313,30 @@ export default function GaugeDetailScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
-        {/* Absent, not disabled, when the station has no id to star it by —
-            a control that cannot do anything is worse than no control. */}
-        {gauge.id ? (
-          <Pressable
-            onPress={onToggleStar}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel={starred ? `Unstar ${gauge.name}` : `Star ${gauge.name}`}
-          >
-            <Ionicons
-              name={starred ? 'star' : 'star-outline'}
-              size={24}
-              color={starred ? colors.warm : colors.textSubtle}
-            />
-          </Pressable>
-        ) : null}
+        <View style={styles.navActions}>
+          {/* Absent when the station has no page on the website — an NWS LID
+              has none, and gaugeSharePath says so rather than composing a URL
+              that redirects to nowhere. Same rule as the star beside it. */}
+          {sharePath ? (
+            <ShareButton title={gauge.name} path={sharePath} label={`Share ${gauge.name}`} />
+          ) : null}
+          {/* Absent, not disabled, when the station has no id to star it by —
+              a control that cannot do anything is worse than no control. */}
+          {gauge.id ? (
+            <Pressable
+              onPress={onToggleStar}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={starred ? `Unstar ${gauge.name}` : `Star ${gauge.name}`}
+            >
+              <Ionicons
+                name={starred ? 'star' : 'star-outline'}
+                size={24}
+                color={starred ? colors.warm : colors.textSubtle}
+              />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
@@ -634,6 +649,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
+  // The right-hand end of the nav row, now that share sits beside the star.
+  navActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   body: { paddingBottom: 40 },
   name: { ...t['2xl'], fontFamily: fonts.heading, paddingHorizontal: 20, marginTop: 4 },
   meta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 20, marginTop: 2, marginBottom: 14 },
