@@ -9,7 +9,15 @@
 //
 // Most of the per-user tables hang off auth.users with ON DELETE CASCADE, so
 // removing the auth user removes them: profiles, entitlements, starred_rivers,
-// starred_gauges, device_tokens, alert_subscriptions, alert_push_deliveries.
+// starred_gauges, device_tokens, alert_subscriptions, alert_push_deliveries,
+// and — added with per-gauge alerting — gauge_alert_subscriptions,
+// gauge_alert_events and notification_preferences.
+//
+// alert_push_deliveries is worth a second look, because migration 00203 dropped
+// its FK to river_condition_events so the ledger could serve both outboxes. Its
+// user_id FK is untouched and still cascades, so account deletion is unaffected;
+// what that migration gave up was cleanup when an EVENT is deleted, which
+// push-receipts' 24-hour prune now covers.
 //
 // float_plans does NOT. Its FK is ON DELETE SET NULL, and float_plans has this
 // RLS policy (migration 00184):

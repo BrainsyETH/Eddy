@@ -86,13 +86,23 @@ export function PushProvider({ children }: { children: ReactNode }) {
       if (handled.current.has(id)) return;
       handled.current.add(id);
 
-      const data = response.notification.request.content.data as { riverSlug?: unknown };
+      const data = response.notification.request.content.data as {
+        riverSlug?: unknown;
+        gaugeSiteId?: unknown;
+      };
       const slug = typeof data?.riverSlug === 'string' ? data.riverSlug : null;
+      const siteId = typeof data?.gaugeSiteId === 'string' ? data.gaugeSiteId : null;
 
-      // No slug means a notification we cannot route — a digest, or an older
-      // payload. Opening the app is still the right outcome; doing nothing
-      // here achieves that, since the tap already foregrounded us.
-      if (slug) router.push(`/river/${slug}`);
+      // The server sets exactly ONE of these, chosen from the rule's scope, so
+      // there is no precedence to get wrong here. An alert set on a gauge opens
+      // the gauge — routing it to the river the station happens to rate would
+      // land on a screen that never mentions the station the user picked.
+      //
+      // Neither means a notification we cannot route — a digest, or an older
+      // payload. Opening the app is still the right outcome; doing nothing here
+      // achieves that, since the tap already foregrounded us.
+      if (siteId) router.push(`/gauge/${siteId}`);
+      else if (slug) router.push(`/river/${slug}`);
     },
     [router],
   );
