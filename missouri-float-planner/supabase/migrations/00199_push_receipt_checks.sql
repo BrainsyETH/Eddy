@@ -1,4 +1,4 @@
--- 00198_push_receipt_checks.sql
+-- 00199_push_receipt_checks.sql
 -- Makes the receipts pass possible, and stops it re-asking about the same
 -- tickets forever.
 --
