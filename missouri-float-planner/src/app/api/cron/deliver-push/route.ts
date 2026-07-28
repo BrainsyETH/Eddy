@@ -23,6 +23,7 @@ import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { planDeliveries, type FanoutEvent, type FanoutSubscription, type FanoutToken } from '@/lib/alerts/fanout';
 import { planDrain } from '@/lib/alerts/drain';
 import { chunkMessages, classifyTicketError, sendExpoPush } from '@/lib/push/expo';
+import { pushDisabledReason } from '@/lib/push/kill-switch';
 import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -53,13 +54,17 @@ async function run(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const supabase = createAdminClient();
+
   // Kill switch, mirroring social_config.posting_enabled: a bad deploy must
-  // never be able to mass-push.
-  if (process.env.EXPO_PUSH_ENABLED === 'false') {
-    return NextResponse.json({ skipped: true, reason: 'EXPO_PUSH_ENABLED=false' });
+  // never be able to mass-push. Reads BOTH the env var and app_config — the
+  // latter used to be checked nowhere on this path, so the no-deploy lever
+  // 00191 added silenced the client's UI and nothing else.
+  const disabled = await pushDisabledReason(supabase);
+  if (disabled) {
+    return NextResponse.json({ skipped: true, reason: disabled });
   }
 
-  const supabase = createAdminClient();
   const gotLock = await tryCronLock(supabase, LOCK_JOB, LOCK_STALE_SECONDS);
   if (!gotLock) {
     return NextResponse.json({ skipped: true, reason: 'concurrent run' });

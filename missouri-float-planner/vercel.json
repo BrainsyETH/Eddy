@@ -46,6 +46,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/push-receipts",
+      "schedule": "8,23,38,53 * * * *"
+    },
+    {
       "path": "/api/cron/sync-usfs",
       "schedule": "0 9 * * 0"
     },

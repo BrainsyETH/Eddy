@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   EXPO_BATCH_SIZE,
+  EXPO_RECEIPT_BATCH_SIZE,
   chunkMessages,
+  chunkReceiptIds,
   classifyTicketError,
+  fetchExpoReceipts,
   isExpoPushToken,
   sendExpoPush,
   type ExpoMessage,
@@ -166,4 +169,82 @@ test('a malformed response yields error tickets', async () => {
   const tickets = await sendExpoPush(many(2), { fetchImpl: fetchImpl as typeof fetch });
   assert.equal(tickets.length, 2);
   assert.ok(tickets.every((t) => t.status === 'error'));
+});
+
+// ── receipts ─────────────────────────────────────────────────────
+//
+// The second half of a send, and previously not implemented at all. A ticket
+// only says Expo accepted the message; DeviceNotRegistered almost always
+// arrives here instead.
+
+test('receipts come back keyed by ticket id, not positionally', () => {
+  // Unlike /push/send, getReceipts answers with an OBJECT. There is no index
+  // alignment to preserve, and assuming one would mis-attribute every error.
+  const fetchImpl = async () =>
+    jsonResponse({
+      data: {
+        'ticket-b': { status: 'ok' },
+        'ticket-a': { status: 'error', details: { error: 'DeviceNotRegistered' } },
+      },
+    });
+
+  return fetchExpoReceipts(['ticket-a', 'ticket-b'], { fetchImpl, sleepImpl: noSleep }).then(
+    (receipts) => {
+      assert.equal(receipts.size, 2);
+      assert.equal(classifyTicketError(receipts.get('ticket-a')!), 'device_not_registered');
+      assert.equal(classifyTicketError(receipts.get('ticket-b')!), null);
+    }
+  );
+});
+
+test('a ticket absent from the response is not an error', async () => {
+  // Expo omits receipts that are not ready yet. Treating a gap as failure would
+  // disable working devices — the exact opposite of this pass's job.
+  const fetchImpl = async () => jsonResponse({ data: { 'ticket-a': { status: 'ok' } } });
+  const receipts = await fetchExpoReceipts(['ticket-a', 'ticket-b'], {
+    fetchImpl,
+    sleepImpl: noSleep,
+  });
+
+  assert.equal(receipts.size, 1);
+  assert.equal(receipts.has('ticket-b'), false);
+});
+
+test('a whole-request failure yields no receipts rather than throwing', async () => {
+  // The caller must leave those tickets unchecked and retry next pass, never
+  // act on an outage as though it were an answer about the devices.
+  for (const respond of [
+    async () => jsonResponse({ errors: [{ message: 'nope' }] }, 400),
+    async () => jsonResponse({}, 500),
+    async () => {
+      throw new Error('network down');
+    },
+  ]) {
+    const receipts = await fetchExpoReceipts(['ticket-a'], {
+      fetchImpl: respond as unknown as typeof fetch,
+      sleepImpl: noSleep,
+      maxRetries: 1,
+    });
+    assert.equal(receipts.size, 0);
+  }
+});
+
+test('no ids means no request at all', async () => {
+  let called = false;
+  const fetchImpl = async () => {
+    called = true;
+    return jsonResponse({ data: {} });
+  };
+  const receipts = await fetchExpoReceipts([], { fetchImpl, sleepImpl: noSleep });
+  assert.equal(receipts.size, 0);
+  assert.equal(called, false);
+});
+
+test('receipt ids chunk at Expo documented maximum', () => {
+  const ids = Array.from({ length: 2500 }, (_, i) => `t-${i}`);
+  const chunks = chunkReceiptIds(ids);
+  assert.equal(EXPO_RECEIPT_BATCH_SIZE, 1000);
+  assert.equal(chunks.length, 3);
+  assert.equal(chunks.flat().length, 2500);
+  assert.equal(chunks[2].length, 500);
 });
