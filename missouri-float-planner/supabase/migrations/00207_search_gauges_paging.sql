@@ -31,6 +31,25 @@
 -- 50 -> 100 per page. This is a name ILIKE over 14k rows with no trigram index;
 -- 100 is comfortably inside what the query planner does in single-digit
 -- milliseconds, and paging means nobody needs a bigger page anyway.
+--
+-- ── p_offset MUST NOT BE GIVEN A DEFAULT ───────────────────────────────────
+-- This is the property that keeps two overloads from colliding, and it is not
+-- a style choice. PostgREST resolves an RPC by ARGUMENT NAME, keeping a
+-- candidate only when every parameter the caller omitted has a default:
+--
+--   {p_query, p_limit}            -> the 4-arg form only; the 5-arg needs
+--                                    p_offset, so it is not a candidate
+--   {p_query, p_limit, p_offset}  -> the 5-arg form only; the 4-arg has no
+--                                    parameter by that name
+--
+-- Both are unambiguous today, which is why /api/search's paged call and
+-- /api/gauges/[siteId]'s two-argument lookup can share one function name.
+--
+-- Default p_offset to 0 and {p_query, p_limit} suddenly matches BOTH. PostgREST
+-- cannot choose, and it fails the request — taking out /api/search AND the
+-- gauge detail screen at once, the latter of which answers 500 rather than
+-- degrading. If a default ever looks tempting, add a separately named function
+-- instead.
 
 create or replace function public.search_gauges(
     p_query text,
