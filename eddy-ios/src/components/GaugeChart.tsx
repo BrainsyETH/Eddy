@@ -23,11 +23,27 @@
 // spent entirely in Good shows one band and the line inside it — which is the
 // honest picture — but if High is just above, High is on screen.
 //
+// ── NWS stages, for the gauges that have no bands ──────────────────────────
+// A rated gauge gets condition bands because a human decided where they go. An
+// unrated one got a bare line and no way to tell whether it was high — the flow
+// band on the card above says "higher than usual", which is a comparison to its
+// own record and not a threshold.
+//
+// The Weather Service publishes action/flood/moderate/major stages for ~12,700
+// forecast points, and quoting those is not the same as issuing a verdict. They
+// rule across the plot in violet — a hue in neither the condition ladder nor the
+// flow ramp, so it cannot be misread as either. See src/theme/floodStage.ts.
+//
 // ── Both units, and never a fabricated one ─────────────────────────────────
 // A station publishes stage, discharge, or both. The toggle offers only what is
-// actually on the wire, and the caller's preferred unit wins when present; there
-// is no fallback across units, here or anywhere else in this app. See
-// primaryReading() for the longer version of that rule.
+// actually on the wire, and the caller's preferred unit is the DEFAULT rather
+// than a lock; there is no fallback across units, here or anywhere else in this
+// app. See primaryReading() for the longer version of that rule.
+//
+// That toggle became load-bearing with the stages above. NWPS publishes them in
+// FEET and nothing else, and a reference station's chart opens on discharge —
+// so without a way to reach the foot axis, the gauges that most need a flood
+// line are the ones that could never show it.
 //
 // ── The scrub ──────────────────────────────────────────────────────────────
 // Touch and drag reads out the value and the time under your finger. It is a
@@ -47,10 +63,16 @@ import {
   Text,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
-import type { GaugeHistoryReading } from '@eddy/types';
+import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
+import type { GaugeFloodStages, GaugeHistoryReading } from '@eddy/types';
 import { buildZones, type ThresholdValues } from '@eddy/conditions/threshold-zones';
 import { conditionColor } from '@/theme/conditions';
+import {
+  FLOOD_STAGE_ORDER,
+  FLOOD_STAGE_SYSTEM,
+  floodStageColor,
+  type FloodStageKey,
+} from '@/theme/floodStage';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
@@ -95,8 +117,11 @@ interface Props {
   /** Null renders nothing at all — the caller has no station to chart. */
   siteId: string | null;
   /**
-   * The unit to draw. Comes from the river's ladder where there is one, so the
-   * chart and the reading above it cannot be in different units.
+   * The unit to OPEN on. Comes from the river's ladder where there is one, so
+   * the chart and the reading above it start out saying the same thing.
+   *
+   * Not a lock: see the toggle below. It is the default, and switching away
+   * from it is the user's call.
    */
   unit: 'ft' | 'cfs';
   /**
@@ -106,6 +131,16 @@ interface Props {
    * gauge and a reference one.
    */
   thresholds?: (ThresholdValues & { thresholdUnit?: 'ft' | 'cfs' }) | null;
+  /**
+   * NWS stages to rule across the plot. FEET ONLY — see the guard below.
+   *
+   * The reference tier's only piece of context. A rated gauge gets condition
+   * bands because a human decided where they go; an unrated one got a bare line
+   * and no way to tell whether it was high. These are the Weather Service's own
+   * published thresholds for the station, so drawing them makes no claim Eddy
+   * has not earned.
+   */
+  floodStages?: GaugeFloodStages | null;
   /** Section heading. Omitted when the caller draws its own. */
   title?: string;
 }
@@ -138,13 +173,31 @@ function scrubTime(ms: number): string {
   )}`;
 }
 
-export function GaugeChart({ siteId, unit, thresholds = null, title }: Props) {
+export function GaugeChart({
+  siteId,
+  unit,
+  thresholds = null,
+  floodStages = null,
+  title,
+}: Props) {
   const { colors, elevation, isDark } = useTheme();
   const [days, setDays] = useState<number>(7);
   const [width, setWidth] = useState(0);
   const [scrubX, setScrubX] = useState<number | null>(null);
+  /**
+   * The unit being drawn, once the reader has chosen one.
+   *
+   * Null means "whatever the caller passed", which is the ladder's unit on a
+   * rated river and discharge on a reference station. The override exists
+   * because flood stages are published in FEET and nothing else: a station
+   * charted in cfs cannot show them at all, so a reader looking at a creek with
+   * an official flood line needs a way to get to the axis it lives on.
+   */
+  const [unitOverride, setUnitOverride] = useState<'ft' | 'cfs' | null>(null);
 
   const { history, loading, unavailable } = useGaugeHistory(siteId, days);
+
+  const drawnUnit = unitOverride ?? unit;
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     setWidth(e.nativeEvent.layout.width);
@@ -160,21 +213,45 @@ export function GaugeChart({ siteId, unit, thresholds = null, title }: Props) {
    */
   const zones = useMemo(() => {
     if (!thresholds) return [];
-    if (thresholds.thresholdUnit && thresholds.thresholdUnit !== unit) return [];
+    if (thresholds.thresholdUnit && thresholds.thresholdUnit !== drawnUnit) return [];
     return buildZones(thresholds);
-  }, [thresholds, unit]);
+  }, [thresholds, drawnUnit]);
+
+  /**
+   * The NWS lines to rule, lowest first.
+   *
+   * EMPTY ON A CFS AXIS, unconditionally. NWPS publishes these as stages and
+   * nothing else — its category `flow` field comes back as -9999 — so a flood
+   * line drawn against discharge would put "flood" at 20 cfs on a river that
+   * floods at 20 feet. Same guard the condition bands make one block up, and
+   * the more important of the two: that one mislabels a band, this one draws a
+   * flood line in the wrong place.
+   */
+  const stageLines = useMemo(() => {
+    if (!floodStages || drawnUnit !== 'ft') return [];
+    const byKey: Record<FloodStageKey, number | null> = {
+      action: floodStages.actionFt,
+      flood: floodStages.floodFt,
+      moderate: floodStages.moderateFt,
+      major: floodStages.majorFt,
+    };
+    return FLOOD_STAGE_ORDER.flatMap((key) => {
+      const value = byKey[key];
+      return value != null && Number.isFinite(value) ? [{ key, value }] : [];
+    });
+  }, [floodStages, drawnUnit]);
 
   const points = useMemo<Point[]>(() => {
     if (!history) return [];
     const out: Point[] = [];
     for (const r of history.readings) {
-      const v = valueIn(r, unit);
+      const v = valueIn(r, drawnUnit);
       const t = new Date(r.timestamp).getTime();
       if (v === null || !Number.isFinite(t)) continue;
       out.push({ t, v });
     }
     return out;
-  }, [history, unit]);
+  }, [history, drawnUnit]);
 
   const domain = useMemo(() => {
     if (points.length === 0) return null;
@@ -188,8 +265,18 @@ export function GaugeChart({ siteId, unit, thresholds = null, title }: Props) {
 
     // A dead-flat series has zero range, which would divide by zero below and
     // draw the line along an edge. Give it a band to sit in the middle of.
-    const dataRange = maxV - minV || Math.max(Math.abs(maxV) * 0.1, unit === 'cfs' ? 10 : 0.2);
+    const dataRange =
+      maxV - minV || Math.max(Math.abs(maxV) * 0.1, drawnUnit === 'cfs' ? 10 : 0.2);
     const reach = dataRange * NEAR_THRESHOLD_FRACTION;
+
+    // Stage lines pull the axis on exactly the same terms as band edges: an
+    // official flood line just above where the week has been is the single most
+    // useful thing on this chart, and one an order of magnitude up would flatten
+    // the week into a stripe along the bottom.
+    for (const line of stageLines) {
+      if (line.value < minV && line.value > minV - reach) minV = line.value;
+      if (line.value > maxV && line.value < maxV + reach) maxV = line.value;
+    }
 
     for (const z of zones) {
       // Only the EDGES matter: a band boundary is the number someone needs to
@@ -204,7 +291,7 @@ export function GaugeChart({ siteId, unit, thresholds = null, title }: Props) {
 
     const pad = (maxV - minV || dataRange) * 0.08;
     return { min: minV - pad, max: maxV + pad, t0: points[0].t, t1: points[points.length - 1].t };
-  }, [points, zones, unit]);
+  }, [points, zones, stageLines, drawnUnit]);
 
   const plotWidth = Math.max(0, width - PAD_RIGHT);
   const plotHeight = CHART_HEIGHT - PAD_TOP - PAD_BOTTOM;
@@ -246,6 +333,21 @@ export function GaugeChart({ siteId, unit, thresholds = null, title }: Props) {
     // A lone moveto is not a line; dropping it avoids a stray dot at a gap edge.
     return out.filter((d) => d.includes('L'));
   }, [points, scale]);
+
+  /**
+   * The units this station actually reported in the loaded window.
+   *
+   * Derived from the DATA, never from the station's declared parameter codes: a
+   * site that is supposed to publish stage and has not for a week should not
+   * offer a toggle to an empty chart. A single entry means no toggle at all.
+   */
+  const availableUnits = useMemo<('ft' | 'cfs')[]>(() => {
+    if (!history) return [];
+    const out: ('ft' | 'cfs')[] = [];
+    if (history.readings.some((r) => r.gaugeHeightFt != null)) out.push('ft');
+    if (history.readings.some((r) => r.dischargeCfs != null)) out.push('cfs');
+    return out;
+  }, [history]);
 
   const scrubbed = useMemo<Point | null>(() => {
     if (scrubX === null || !scale || points.length === 0 || !domain) return null;
@@ -304,18 +406,52 @@ export function GaugeChart({ siteId, unit, thresholds = null, title }: Props) {
           {scrubbed ? (
             <Text style={[styles.scrubLine, { color: colors.textMuted }]} numberOfLines={1}>
               <Text style={[styles.scrubValue, { color: colors.text }]}>
-                {formatReading(scrubbed.v, unit)}
+                {formatReading(scrubbed.v, drawnUnit)}
               </Text>
               {'  '}
               {scrubTime(scrubbed.t)}
             </Text>
           ) : (
             <Text style={[styles.subtitle, { color: colors.textSubtle }]} numberOfLines={1}>
-              {unit === 'cfs' ? 'Discharge' : 'Gauge height'} · last{' '}
+              {drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height'} · last{' '}
               {days === 1 ? '24 hours' : `${days} days`}
             </Text>
           )}
         </View>
+
+        {/* ── Units ────────────────────────────────────────────────
+            Only when the station published BOTH in this window. One unit and
+            the control is a decision nobody has, which is the same reason the
+            range strip does not offer a window the endpoint cannot fill.
+
+            It sits before the range toggle because it changes what the chart is
+            OF, where the range only changes how much of it you see. */}
+        {availableUnits.length > 1 ? (
+          <View style={[styles.ranges, { borderColor: colors.border }]}>
+            {availableUnits.map((u) => {
+              const active = u === drawnUnit;
+              return (
+                <Pressable
+                  key={u}
+                  onPress={() => setUnitOverride(u)}
+                  style={[styles.range, active && { backgroundColor: colors.cardRaised }]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={u === 'ft' ? 'Show gauge height' : 'Show discharge'}
+                >
+                  <Text
+                    style={[
+                      styles.rangeText,
+                      { color: active ? colors.text : colors.textSubtle },
+                    ]}
+                  >
+                    {u}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
 
         <View style={[styles.ranges, { borderColor: colors.border }]}>
           {RANGES.map((r) => {
@@ -407,9 +543,52 @@ export function GaugeChart({ siteId, unit, thresholds = null, title }: Props) {
                   fontSize={10}
                   fontFamily={fonts.mono}
                 >
-                  {formatReading(v, unit).replace(` ${unit}`, '')}
+                  {formatReading(v, drawnUnit).replace(` ${drawnUnit}`, '')}
                 </SvgText>
               ))}
+
+              {/* ── The NWS stages ──
+                  Drawn OVER the bands and UNDER the line: they are somebody
+                  else's threshold laid across the picture, so they must not sit
+                  behind a condition band that would tint them, and they must not
+                  cover the reading they are context for.
+
+                  Never rendered on a cfs axis — stageLines is empty there by
+                  construction, so this cannot be got wrong by editing the JSX.
+                  The label carries "NWS" every time; a bare violet rule is an
+                  unattributed claim about danger. */}
+              {stageLines.map((line) => {
+                const y = scale.y(line.value);
+                if (y < PAD_TOP || y > PAD_TOP + plotHeight) return null;
+                const def = FLOOD_STAGE_SYSTEM[line.key];
+                return (
+                  <G key={`stage-${line.key}`}>
+                    <Line
+                      x1={0}
+                      y1={y}
+                      x2={plotWidth}
+                      y2={y}
+                      stroke={floodStageColor()}
+                      strokeWidth={1.5}
+                      strokeDasharray={def.dash}
+                      opacity={def.opacity}
+                    />
+                    <SvgText
+                      x={2}
+                      // Above its own line, and pushed below it for a stage
+                      // sitting within a label's height of the top edge —
+                      // otherwise the topmost one clips out of the viewport.
+                      y={y - 3 < PAD_TOP + 8 ? y + 11 : y - 3}
+                      fill={floodStageColor()}
+                      fontSize={9}
+                      fontFamily={fonts.medium}
+                      opacity={Math.max(def.opacity, 0.75)}
+                    >
+                      {def.label}
+                    </SvgText>
+                  </G>
+                );
+              })}
 
               {/* ── The line ── */}
               {paths.map((d, i) => (
@@ -495,8 +674,8 @@ export function GaugeChart({ siteId, unit, thresholds = null, title }: Props) {
                 {unavailable
                   ? 'No recent history published for this gauge.'
                   : points.length === 1
-                    ? `Only one ${unit === 'cfs' ? 'discharge' : 'gauge height'} reading in this window — not enough to chart.`
-                    : `No ${unit === 'cfs' ? 'discharge' : 'gauge height'} reported in this window.`}
+                    ? `Only one ${drawnUnit === 'cfs' ? 'discharge' : 'gauge height'} reading in this window — not enough to chart.`
+                    : `No ${drawnUnit === 'cfs' ? 'discharge' : 'gauge height'} reported in this window.`}
               </Text>
             )}
           </View>

@@ -33,6 +33,7 @@
 import type {
   GaugeDetail,
   GaugeDetailThreshold,
+  GaugeFloodStages,
   MapGauge,
   MapGaugeLite,
   SearchResult,
@@ -54,6 +55,16 @@ export interface GaugeSeed {
   qualifierNote: string | null;
   flowPercentile: number | null;
   thresholds: GaugeDetailThreshold[] | null;
+  /**
+   * NWS stages, which ONLY the detail fetch carries.
+   *
+   * No list endpoint sends them — not /api/gauges, not the viewport route, not
+   * search — so every seed built from a tapped pin has null here and the screen
+   * gains the flood lines a moment later when its own request lands. That is the
+   * right trade: seeding exists to put a READING on the first frame, and a
+   * threshold that appears a beat later is not a threshold anyone missed.
+   */
+  floodStages: GaugeFloodStages | null;
 }
 
 /**
@@ -108,6 +119,7 @@ export function seedFromMapGauge(gauge: MapGauge): GaugeSeed | null {
     // instead, which is the stronger statement. The detail fetch fills it.
     flowPercentile: null,
     thresholds: gauge.thresholds ?? null,
+    floodStages: null,
   };
 }
 
@@ -127,6 +139,7 @@ export function seedFromMapGaugeLite(gauge: MapGaugeLite): GaugeSeed {
     qualifierNote: null,
     flowPercentile: gauge.flowPercentile,
     thresholds: null,
+    floodStages: null,
   };
 }
 
@@ -156,6 +169,50 @@ export function seedFromSearchResult(result: SearchResult): GaugeSeed | null {
     qualifierNote: null,
     flowPercentile: reading?.flowPercentile ?? null,
     thresholds: null,
+    floodStages: null,
+  };
+}
+
+/**
+ * A starred gauge, from the local store and nothing else.
+ *
+ * The thinnest seed there is: the store keeps an id, a name, a slug and a site
+ * id, and no reading at all. It exists for the case /api/gauges cannot cover —
+ * a starred NATIONAL station, which that endpoint has never returned, so the
+ * Favorites row has no MapGauge to build from and the screen would otherwise
+ * open on a spinner with no name on it.
+ *
+ * `curated: false` is a statement about what this seed KNOWS, not about the
+ * station: the store does not record the tier. The detail fetch corrects it a
+ * moment later, and until then the screen shows the reference vocabulary, which
+ * is the one that claims less.
+ */
+export function seedFromStar(star: {
+  entityId: string;
+  name: string;
+  /**
+   * OPTIONAL as well as nullable, matching StarredItem. Stars written by builds
+   * that predate the field carry no site id at all, and those are the same
+   * "cannot be opened" case as a station that has none.
+   */
+  usgsSiteId?: string | null;
+}): GaugeSeed | null {
+  if (!star.usgsSiteId) return null;
+  return {
+    id: star.entityId,
+    siteId: star.usgsSiteId,
+    name: star.name,
+    curated: false,
+    coordinates: null,
+    gaugeHeightFt: null,
+    dischargeCfs: null,
+    readingTimestamp: null,
+    readingAgeHours: null,
+    readingSuspect: false,
+    qualifierNote: null,
+    flowPercentile: null,
+    thresholds: null,
+    floodStages: null,
   };
 }
 
@@ -175,5 +232,6 @@ export function seedFromDetail(gauge: GaugeDetail): GaugeSeed {
     qualifierNote: gauge.qualifierNote,
     flowPercentile: gauge.flowPercentile,
     thresholds: gauge.thresholds,
+    floodStages: gauge.floodStages,
   };
 }

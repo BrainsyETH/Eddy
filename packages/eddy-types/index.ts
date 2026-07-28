@@ -676,6 +676,53 @@ export interface GaugeDetailThreshold {
   floodStageFt: number | null;
 }
 
+/**
+ * Official NWS thresholds for a station, in FEET.
+ *
+ * ── Why an uncurated gauge is allowed to have these ────────────────────────
+ * Eddy issues a floatability verdict only about stretches a human has rated,
+ * and that rule is not bent here: these are the National Weather Service's
+ * numbers, for about 12,700 forecast points, quoted. Relaying somebody else's
+ * published threshold is not the same as inventing one — which is what makes
+ * this the only safety-adjacent fact the national tier gets to carry.
+ *
+ * ── FEET, and only feet ────────────────────────────────────────────────────
+ * NWPS publishes these as stages; its category `flow` field comes back as
+ * -9999 everywhere. So every one of these compares against `gaugeHeightFt` and
+ * NOTHING may compare them against discharge — a station rated in cfs whose
+ * flood stage is 20 would otherwise read as flooding at 20 cfs. Consumers guard
+ * on the unit before drawing or grading, the same way the condition ladder is
+ * guarded.
+ *
+ * Any field can be null; most stations publish two of the four and some
+ * publish none, in which case the whole object is null rather than four nulls.
+ */
+export interface GaugeFloodStages {
+  /** Where the Weather Service starts watching. Below minor flood. */
+  actionFt: number | null;
+  /** Minor flood — what "flood stage" means unqualified. */
+  floodFt: number | null;
+  moderateFt: number | null;
+  majorFt: number | null;
+  /**
+   * The NWS location id these came from, e.g. "VNBM7".
+   *
+   * Carried so the number is attributable rather than anonymous, and because it
+   * is the id the Weather Service's own page for this gauge is keyed on.
+   */
+  lid: string | null;
+  /**
+   * Where the numbers came from.
+   *
+   * 'nwps' is the station-level import, matched spatially against the NOAA
+   * gauge layer. 'curated' is river_gauges, whose stages were accepted only
+   * after the USGS id NWPS reported matched ours — a stricter check than
+   * proximity. Surfaced because the two were gathered differently and a reader
+   * comparing an Eddy river against a creek beside it deserves to know which.
+   */
+  source: 'nwps' | 'curated';
+}
+
 export interface GaugeDetail {
   /** gauge_stations.id — the key stars are stored under. */
   id: string;
@@ -707,6 +754,11 @@ export interface GaugeDetail {
    * association first, so `[0]` is the river the app should open.
    */
   thresholds: GaugeDetailThreshold[] | null;
+  /**
+   * NWS stages, from whichever source holds them for this tier. Null when the
+   * station is not an NWS forecast point, which is most of them.
+   */
+  floodStages: GaugeFloodStages | null;
   /** The station's own public page, or null for a provider without one. */
   publicUrl: string | null;
 }

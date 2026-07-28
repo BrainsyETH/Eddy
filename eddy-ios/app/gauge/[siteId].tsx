@@ -40,7 +40,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import type { GaugeDetail, GaugeDetailThreshold } from '@eddy/types';
+import type { GaugeDetail, GaugeDetailThreshold, GaugeFloodStages } from '@eddy/types';
 import { classifyReading, hasLadder } from '@eddy/conditions/condition-ladder';
 import { flowBand } from '@eddy/conditions/flow-band';
 import { fetchGaugeDetail } from '@/api/client';
@@ -52,6 +52,12 @@ import {
   conditionText,
 } from '@/theme/conditions';
 import { flowBandChip, flowBandLabel, flowBandSentence } from '@/theme/flow';
+import {
+  FLOOD_STAGE_SYSTEM,
+  floodStageColor,
+  formatStage,
+  highestStagePassed,
+} from '@/theme/floodStage';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading, percentileLabel, readingAge } from '@/lib/readingCopy';
@@ -76,9 +82,40 @@ function displayUnit(gauge: GaugeSeed, link: GaugeDetailThreshold | null): 'ft' 
     if (link.thresholdUnit === 'cfs') return gauge.dischargeCfs != null ? 'cfs' : null;
     return gauge.gaugeHeightFt != null ? 'ft' : null;
   }
+  // ── An unrated station with NWS stages leads in FEET ──────────────────────
+  // Discharge is otherwise the right default here: there is no ladder to obey,
+  // and the percentile is computed from discharge, so the number and the flow
+  // band describe the same quantity.
+  //
+  // Official stages change that. They are published in feet and nothing else,
+  // so a station charted in cfs cannot show the one threshold it actually has —
+  // and "4.1 ft, flood stage is 7 ft" is a far more useful headline than a
+  // discharge figure nobody has a reference for. The band chip below keeps
+  // describing discharge either way; it is a different claim.
+  if (gauge.floodStages && gauge.gaugeHeightFt != null) return 'ft';
   if (gauge.dischargeCfs != null) return 'cfs';
   if (gauge.gaugeHeightFt != null) return 'ft';
   return null;
+}
+
+/**
+ * "Flood stage 20 ft · action 10 ft", from whichever of the four are published.
+ *
+ * Named in the NWS's own words, never paraphrased into Eddy's — see the header
+ * of src/theme/floodStage.ts for why relaying somebody else's threshold is the
+ * one safety-adjacent thing an unrated gauge is allowed to carry.
+ */
+function stageSummary(stages: GaugeFloodStages): string {
+  return (
+    [
+      stages.floodFt != null ? `Flood stage ${formatStage(stages.floodFt)}` : null,
+      stages.actionFt != null ? `action ${formatStage(stages.actionFt)}` : null,
+      stages.moderateFt != null ? `moderate ${formatStage(stages.moderateFt)}` : null,
+      stages.majorFt != null ? `major ${formatStage(stages.majorFt)}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  );
 }
 
 function readingValue(gauge: GaugeSeed, unit: 'ft' | 'cfs' | null): number | null {
@@ -197,6 +234,22 @@ export default function GaugeDetailScreen() {
 
   const band = gauge.readingSuspect ? null : flowBand(gauge.flowPercentile);
   const bandChip = flowBandChip(band, colors);
+
+  const stages = gauge.floodStages;
+  // FEET AGAINST FEET, always. highestStagePassed takes a bare number and cannot
+  // check the unit itself, so the guard lives here: gaugeHeightFt is the only
+  // value these thresholds may be compared against.
+  const stagePassed = stages
+    ? highestStagePassed(
+        {
+          action: stages.actionFt,
+          flood: stages.floodFt,
+          moderate: stages.moderateFt,
+          major: stages.majorFt,
+        },
+        gauge.gaugeHeightFt,
+      )
+    : null;
 
   const age = readingAge(gauge.readingAgeHours);
   const percentile = percentileLabel(gauge.flowPercentile);
@@ -333,6 +386,30 @@ export default function GaugeDetailScreen() {
           ) : percentile ? (
             <Text style={[styles.bandSentence, { color: colors.textMuted }]}>{percentile}.</Text>
           ) : null}
+
+          {/* ── The NWS lines ──────────────────────────────────────
+              The only safety-adjacent fact an unrated station carries, and it is
+              carried by ATTRIBUTION: these are the Weather Service's published
+              thresholds for this gauge, quoted. Eddy is not grading anything
+              here, which is why the wording stays the NWS's own and why the
+              violet rule is a hue from neither of Eddy's two vocabularies.
+
+              A station past one of its stages says so in a line of its own,
+              above the thresholds themselves — that is the fact, and the
+              numbers behind it are the reference. */}
+          {stages ? (
+            <View style={[styles.stages, { borderTopColor: colors.border }]}>
+              {stagePassed ? (
+                <Text style={[styles.stagePassed, { color: floodStageColor() }]}>
+                  {FLOOD_STAGE_SYSTEM[stagePassed].sentence}
+                </Text>
+              ) : null}
+              <Text style={[styles.stageSummary, { color: colors.textSubtle }]}>
+                {stageSummary(stages)}
+                {stages.lid ? ` · NWS ${stages.lid}` : ''}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {/* ── How it got here ──────────────────────────────────────
@@ -345,6 +422,12 @@ export default function GaugeDetailScreen() {
           siteId={gauge.siteId}
           unit={unit ?? 'cfs'}
           thresholds={rated ? link : null}
+          // Passed for BOTH tiers. A rated river gets bands from a human's
+          // judgement and these from the Weather Service, and the two are
+          // different claims that can usefully sit on one plot — the chart
+          // draws stages only on a foot axis, so nothing is compared across
+          // units to make that happen.
+          floodStages={stages}
           title="Recent history"
         />
 
@@ -437,6 +520,9 @@ const styles = StyleSheet.create({
   caveat: { ...t.xs, fontFamily: fonts.medium, marginTop: 10 },
   scaleWrap: { marginTop: 14 },
   bandSentence: { ...t.sm, fontFamily: fonts.body, marginTop: 12 },
+  stages: { marginTop: 14, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  stagePassed: { ...t.sm, fontFamily: fonts.semibold, marginBottom: 4 },
+  stageSummary: { ...t.xs, fontFamily: fonts.body },
   actions: { paddingHorizontal: 16, gap: 10 },
   action: { paddingVertical: 13, borderRadius: 14, alignItems: 'center' },
   actionText: { ...t.base, fontFamily: fonts.semibold },

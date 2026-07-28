@@ -43,7 +43,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { FavoriteRiverCard, type GaugeThresholds } from '@/components/FavoriteRiverCard';
 import { GaugeRow } from '@/components/GaugeRow';
-import { rememberGauge, seedFromMapGauge } from '@/lib/gaugeSeed';
+import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { useRouter } from 'expo-router';
@@ -228,23 +228,7 @@ export default function FavoritesScreen() {
                   item.usgsSiteId
                     ? () => {
                         rememberGauge(
-                          gauge
-                            ? seedFromMapGauge(gauge)
-                            : {
-                                id: item.entityId,
-                                siteId: item.usgsSiteId!,
-                                name: item.name,
-                                curated: false,
-                                coordinates: null,
-                                gaugeHeightFt: null,
-                                dischargeCfs: null,
-                                readingTimestamp: null,
-                                readingAgeHours: null,
-                                readingSuspect: false,
-                                qualifierNote: null,
-                                flowPercentile: null,
-                                thresholds: null,
-                              },
+                          gauge ? seedFromMapGauge(gauge) : seedFromStar(item),
                         );
                         router.push(`/gauge/${encodeURIComponent(item.usgsSiteId!)}`);
                       }

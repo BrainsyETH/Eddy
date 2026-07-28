@@ -77,6 +77,37 @@ export interface GaugeDetailThreshold {
   floodStageFt: number | null;
 }
 
+/**
+ * Official NWS thresholds for a station, in FEET.
+ *
+ * Assembled from EITHER of the two places this project keeps them, because
+ * which one holds a given station is an artefact of how it was gathered rather
+ * than anything a client should have to know:
+ *
+ *   gauge_stations.nwps_*_stage_ft  the national import (00196 columns,
+ *                                   scripts/import-nwps-gauges.ts), matched
+ *                                   spatially against the NOAA gauge layer and
+ *                                   written only for UNCURATED stations.
+ *   river_gauges.flood_stage_ft     the curated path (00165), accepted only
+ *                                   after the USGS id NWPS reported matched
+ *                                   ours. Lives on the PAIRING because a ladder
+ *                                   does — but a flood stage is a property of
+ *                                   the station, so it is republished here.
+ *
+ * The station-level columns win where both exist. `source` says which answered.
+ *
+ * FEET ONLY. NWPS publishes stages and its category `flow` comes back as -9999
+ * everywhere, so nothing downstream may compare these against discharge.
+ */
+export interface GaugeFloodStages {
+  actionFt: number | null;
+  floodFt: number | null;
+  moderateFt: number | null;
+  majorFt: number | null;
+  lid: string | null;
+  source: 'nwps' | 'curated';
+}
+
 export interface GaugeDetail {
   /** gauge_stations.id — the key stars are stored under. */
   id: string;
@@ -104,6 +135,8 @@ export interface GaugeDetail {
    * national gauge is in the first case, and that is the ordinary case here.
    */
   thresholds: GaugeDetailThreshold[] | null;
+  /** Null when the station is not an NWS forecast point — most are not. */
+  floodStages: GaugeFloodStages | null;
   /** The station's own public page, or null for a provider without one. */
   publicUrl: string | null;
 }
@@ -174,7 +207,14 @@ async function _GET(
     const [stationResult, latestResult, linksResult] = await Promise.all([
       supabase
         .from('gauge_stations')
-        .select('provider')
+        .select(
+          `provider,
+           nws_lid,
+           nwps_action_stage_ft,
+           nwps_flood_stage_ft,
+           nwps_moderate_stage_ft,
+           nwps_major_stage_ft`
+        )
         .eq('id', row.id)
         .maybeSingle(),
       supabase
@@ -195,12 +235,15 @@ async function _GET(
            level_high,
            level_dangerous,
            flood_stage_ft,
+           action_stage_ft,
            rivers!inner ( id, name, slug, active )`
         )
         .eq('gauge_station_id', row.id),
     ]);
 
-    const provider = (stationResult.data?.provider as string | null) ?? DEFAULT_PROVIDER_ID;
+    const provider =
+      ((stationResult.data as { provider?: string | null } | null)?.provider as string | null) ??
+      DEFAULT_PROVIDER_ID;
     let qualifiers = (latestResult.data?.qualifiers as string[] | null) ?? null;
 
     let gaugeHeightFt = toNum(row.gauge_height_ft);
@@ -232,6 +275,7 @@ async function _GET(
 
     type LinkRow = {
       is_primary: boolean | null;
+      action_stage_ft: number | null;
       threshold_unit: string | null;
       level_too_low: number | null;
       level_low: number | null;
@@ -266,6 +310,50 @@ async function _GET(
       // should navigate to without re-sorting.
       .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary));
 
+    // ── The NWS stages ──────────────────────────────────────────────────────
+    // Station columns first. They are the national import and exist only on
+    // UNCURATED rows by construction, so on a curated station they are all null
+    // and the river_gauges pairing answers instead.
+    //
+    // A row with no minor-flood stage is not published as a flood-stage station
+    // at all: `action` alone is a watch threshold with no flood line under it,
+    // which is not enough to draw a flood overlay from and would leave a chart
+    // with one unexplained violet line on it.
+    const station = stationResult.data as {
+      nws_lid?: string | null;
+      nwps_action_stage_ft?: number | null;
+      nwps_flood_stage_ft?: number | null;
+      nwps_moderate_stage_ft?: number | null;
+      nwps_major_stage_ft?: number | null;
+    } | null;
+
+    const nwpsFlood = toNum(station?.nwps_flood_stage_ft);
+    const curatedLink = links.find((l) => l.is_primary) ?? links[0] ?? null;
+    const curatedFlood = toNum(curatedLink?.flood_stage_ft);
+
+    const floodStages: GaugeFloodStages | null = nwpsFlood
+      ? {
+          actionFt: toNum(station?.nwps_action_stage_ft),
+          floodFt: nwpsFlood,
+          moderateFt: toNum(station?.nwps_moderate_stage_ft),
+          majorFt: toNum(station?.nwps_major_stage_ft),
+          lid: (station?.nws_lid as string | null) ?? null,
+          source: 'nwps',
+        }
+      : curatedFlood
+        ? {
+            actionFt: toNum(curatedLink?.action_stage_ft),
+            floodFt: curatedFlood,
+            // river_gauges holds only the two stages the condition ladder needs
+            // to anchor against. Absent is absent — it is not evidence that the
+            // Weather Service publishes no moderate stage for this station.
+            moderateFt: null,
+            majorFt: null,
+            lid: (station?.nws_lid as string | null) ?? null,
+            source: 'curated',
+          }
+        : null;
+
     const gauge: GaugeDetail = {
       id: row.id,
       siteId,
@@ -283,6 +371,7 @@ async function _GET(
       qualifierNote: note,
       flowPercentile: row.flow_percentile,
       thresholds: thresholds.length > 0 ? thresholds : null,
+      floodStages,
       publicUrl: getFlowProvider(provider)?.publicUrl(siteId) ?? null,
     };
 
