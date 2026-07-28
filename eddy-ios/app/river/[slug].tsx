@@ -7,13 +7,14 @@
 //
 // Free/paid boundary:
 //   FREE  condition, reading, the gauge picker, percentile context, hazards,
-//         access points, the bottom line and the weather
-//   PAID  being told about a change before you look; Eddy's written report
+//         access points, the bottom line, the weather — and the bell
+//   PAID  Eddy's written report
 //
 // Everything that decides whether to get on the water is free, and that is a
-// rule rather than a description — see the header of PaywallSheet. The two paid
-// affordances are the bell, which gates the NOTIFICATION and never the
-// information, and the long read, which is commentary on facts shown above it.
+// rule rather than a description — see the header of PaywallSheet. The bell used
+// to be the second paid affordance and is no longer: alerting is free in its
+// entirety. It still needs an ACCOUNT, which is not a tier — a notification has
+// to have somewhere to go, and an anonymous id is replaced on reinstall.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -56,7 +57,9 @@ import {
   fetchRiverOutlook,
   fetchRiverVisuals,
   fetchRivers,
+  fetchSubscriptions,
   subscribeToRiver,
+  unsubscribeFromRiver,
 } from '@/api/client';
 import {
   conditionBg,
@@ -84,6 +87,7 @@ import { RiverVisuals } from '@/components/RiverVisuals';
 import { ReadingScale } from '@/components/ReadingScale';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { PushPrimer } from '@/components/PushPrimer';
+import { AlertSignInSheet } from '@/components/AlertSignInSheet';
 import { gaugeConditionCode, gaugeLink, gaugesForRiver } from '@/lib/gaugeCondition';
 import { driveToUrl } from '@/lib/directions';
 import { useAccount } from '@/hooks/useAccount';
@@ -120,8 +124,20 @@ export default function RiverDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [primerOpen, setPrimerOpen] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
   const { permission, enable } = usePush();
   const [subscribing, setSubscribing] = useState(false);
+  /**
+   * Whether alerts are already on for this river.
+   *
+   * Null is UNKNOWN — no session, or the lookup failed — and the bell renders
+   * its default offer in that state rather than claiming either way. Showing
+   * "alerts are on" to someone who has none is worse than showing the offer to
+   * someone who is already subscribed, since the second is a harmless no-op
+   * upsert and the first is a promise nothing will keep.
+   */
+  const [subscribed, setSubscribed] = useState<boolean | null>(null);
+  const [subscribeError, setSubscribeError] = useState<string | null>(null);
   const [showAllHazards, setShowAllHazards] = useState(false);
 
   useEffect(() => {
@@ -247,56 +263,90 @@ export default function RiverDetailScreen() {
   }, [slug, pickedGaugeId, primaryGaugeId]);
 
   /**
+   * Does this person already have alerts on for this river?
+   *
+   * Failure leaves `subscribed` at null rather than false — see the state
+   * comment. Nothing on this screen waits for the answer; the bell simply
+   * settles into its real label once it arrives.
+   */
+  useEffect(() => {
+    if (!river) return;
+    let cancelled = false;
+
+    (async () => {
+      const token = await getAccessToken();
+      if (!token || cancelled) return;
+      const subs = await fetchSubscriptions(token).catch(() => null);
+      if (!subs || cancelled) return;
+      setSubscribed(subs.some((s) => s.riverId === river.id));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [river, getAccessToken]);
+
+  /**
    * Create the alert subscription.
    *
-   * `offerOnFailure` controls what happens when the server says no. On the
-   * user's own tap that means showing the paywall — the 402 IS the trigger.
-   * Straight after a purchase it must not: they have just paid, and bouncing
-   * them back into the wall they only escaped a second ago is the worst
-   * possible moment to ask again. If it fails there the button simply stays as
-   * it was, and their next tap tries again.
+   * `kind: 'all'` and not `'floatable'`, which is the bug this whole change
+   * exists to fix. The event vocabulary and the subscription vocabulary differ
+   * on purpose (see subscriptionKindsFor in the web app's fanout.ts): a
+   * `warning` event matches only `safety` and `all`. Asking for `'floatable'`
+   * therefore made a danger alert structurally impossible to receive, while the
+   * primer two screens down promised exactly that.
+   *
+   * No paywall path any more. A missing session is an AUTH problem and gets a
+   * sign-in sheet; presenting an offer to sell something to someone whose token
+   * refresh just failed was never honest.
    */
-  const subscribe = useCallback(
-    async ({ offerOnFailure }: { offerOnFailure: boolean }) => {
-      if (!river) return;
-      setSubscribing(true);
-      try {
-        const token = await getAccessToken();
-        if (!token) {
-          // No session — anonymous sign-in is off or unreachable. Show the offer
-          // rather than an error: the user asked for something we cannot deliver
-          // yet, and the reason is ours, not theirs.
-          if (offerOnFailure) setPaywallOpen(true);
-          return;
-        }
-        const result = await subscribeToRiver(token, river.id, 'floatable');
-        if (result.paymentRequired) {
-          if (offerOnFailure) setPaywallOpen(true);
-          return;
-        }
-
-        // The subscription exists — now, and only now, is it worth spending
-        // the one-shot iOS permission prompt: there is a concrete notification
-        // waiting to be delivered, which is the strongest case this app will
-        // ever have. Asking earlier would burn it on a hypothetical.
-        if (permission === 'undetermined') setPrimerOpen(true);
-      } catch {
-        if (offerOnFailure) setPaywallOpen(true);
-      } finally {
-        setSubscribing(false);
+  const subscribe = useCallback(async () => {
+    if (!river) return;
+    setSubscribing(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        setSignInOpen(true);
+        return;
       }
-    },
-    [river, getAccessToken, permission],
-  );
+      await subscribeToRiver(token, river.id, 'all');
+      setSubscribed(true);
 
-  const onNotify = useCallback(() => subscribe({ offerOnFailure: true }), [subscribe]);
+      // The subscription exists — now, and only now, is it worth spending
+      // the one-shot iOS permission prompt: there is a concrete notification
+      // waiting to be delivered, which is the strongest case this app will
+      // ever have. Asking earlier would burn it on a hypothetical.
+      if (permission === 'undetermined') setPrimerOpen(true);
+    } catch (err) {
+      // 403 means the session is anonymous rather than permanent, which is the
+      // same remedy as no session at all.
+      if (err instanceof ApiError && err.status === 403) setSignInOpen(true);
+      else setSubscribeError('Could not turn on alerts. Try again.');
+    } finally {
+      setSubscribing(false);
+    }
+  }, [river, getAccessToken, permission]);
 
-  // Fired once the entitlement is live on the server. Finishes what the user
-  // originally tapped: they wanted to be told about THIS river, and the
-  // purchase was only the obstacle in the way of that.
-  const onPurchased = useCallback(() => {
-    void subscribe({ offerOnFailure: false });
-  }, [subscribe]);
+  /** Turn alerts off. Deliberately reachable — see Stage 3 of the alert plan. */
+  const unsubscribe = useCallback(async () => {
+    if (!river) return;
+    setSubscribing(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      await unsubscribeFromRiver(token, river.id);
+      setSubscribed(false);
+    } catch {
+      setSubscribeError('Could not turn alerts off. Try again.');
+    } finally {
+      setSubscribing(false);
+    }
+  }, [river, getAccessToken]);
+
+  const onNotify = useCallback(() => {
+    setSubscribeError(null);
+    void (subscribed ? unsubscribe() : subscribe());
+  }, [subscribed, subscribe, unsubscribe]);
 
   if (loading) {
     return (
@@ -519,25 +569,52 @@ export default function RiverDetailScreen() {
             nothing below shifts on the ones without. */}
         {visuals ? <RiverVisuals data={visuals} /> : null}
 
-        {/* ── The bell. ── */}
+        {/* ── The bell. ──
+            Two states, because a button that reads the same before and after
+            you press it cannot tell you whether it worked. The "on" state is
+            deliberately quiet — outlined rather than filled — so the screen
+            stops selling something the user has already agreed to.
+
+            The copy no longer says "when it's floatable": the subscription is
+            `kind: 'all'`, so it covers danger too, and it is standing rather
+            than one-shot. */}
         <Pressable
           onPress={onNotify}
           disabled={subscribing}
           style={({ pressed }) => [
             styles.notifyButton,
-            { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+            subscribed
+              ? {
+                  backgroundColor: pressed ? colors.cardRaised : 'transparent',
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }
+              : { backgroundColor: pressed ? colors.accentPressed : colors.accent },
           ]}
           accessibilityRole="button"
+          accessibilityLabel={
+            subscribed ? `Turn off alerts for ${river.name}` : `Alert me about ${river.name}`
+          }
         >
           {subscribing ? (
-            <ActivityIndicator color={colors.onAccent} size="small" />
+            <ActivityIndicator color={subscribed ? colors.textMuted : colors.onAccent} size="small" />
           ) : (
-            <Ionicons name="notifications-outline" size={18} color={colors.onAccent} />
+            <Ionicons
+              name={subscribed ? 'notifications' : 'notifications-outline'}
+              size={18}
+              color={subscribed ? colors.success : colors.onAccent}
+            />
           )}
-          <Text style={[styles.notifyText, { color: colors.onAccent }]}>
-            Notify me when it&apos;s floatable
+          <Text
+            style={[styles.notifyText, { color: subscribed ? colors.text : colors.onAccent }]}
+          >
+            {subscribed ? "Alerts are on — tap to turn off" : 'Alert me about this river'}
           </Text>
         </Pressable>
+
+        {subscribeError ? (
+          <Text style={[styles.notifyError, { color: colors.error }]}>{subscribeError}</Text>
+        ) : null}
 
         {/* ── Hazards. Free, and above access points on purpose. ──
             COLLAPSED, BUT NEVER SILENT. This section used to open showing the
@@ -696,11 +773,24 @@ export default function RiverDetailScreen() {
         </Text>
       </ScrollView>
 
+      {/* Only Eddy's written read opens this now. The bell used to, and does
+          not: nothing about being alerted is for sale. */}
       <PaywallSheet
         visible={paywallOpen}
         onClose={() => setPaywallOpen(false)}
         riverName={river.name}
-        onPurchased={onPurchased}
+      />
+
+      <AlertSignInSheet
+        visible={signInOpen}
+        riverName={river.name}
+        onSignedIn={() => {
+          setSignInOpen(false);
+          // Finish what they tapped. The session is live now, so this is the
+          // same call that failed a moment ago.
+          void subscribe();
+        }}
+        onDismiss={() => setSignInOpen(false)}
       />
 
       <PushPrimer
@@ -773,6 +863,7 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   notifyText: { ...t.base, fontFamily: fonts.heading },
+  notifyError: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: -14, marginBottom: 20 },
   section: { marginBottom: 18 },
   severityCues: { flexDirection: 'row', gap: 4 },
   severityCue: { width: 8, height: 8, borderRadius: 999 },

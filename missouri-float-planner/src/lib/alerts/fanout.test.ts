@@ -55,7 +55,6 @@ function plan(overrides: Partial<PlanInput> = {}) {
     events: [event('floatable')],
     subscriptions: [sub()],
     tokens: [token()],
-    entitledUserIds: new Set([USER]),
     now: NOW,
     ...overrides,
   });
@@ -96,21 +95,17 @@ test('recovery and info are never pushed', () => {
   assert.equal(result.skipped.not_pushable_kind, 2);
 });
 
-// ── entitlement policy ───────────────────────────────────────────
+// ── no entitlement policy ────────────────────────────────────────
 
-test('safety warnings reach users with no entitlement', () => {
-  // Hazard information is never paywalled.
-  const result = plan({ events: [event('warning')], entitledUserIds: new Set() });
-  assert.equal(result.messages.length, 1);
-});
-
-test('floatable and easing require an entitlement', () => {
-  const floatable = plan({ events: [event('floatable')], entitledUserIds: new Set() });
-  assert.equal(floatable.messages.length, 0);
-  assert.equal(floatable.skipped.not_entitled, 1);
-
-  const easing = plan({ events: [event('easing')], entitledUserIds: new Set() });
-  assert.equal(easing.messages.length, 0);
+test('every pushable kind reaches a subscriber, paid or not', () => {
+  // Alerting is free in its entirety. This replaces a pair of tests asserting
+  // that `floatable` and `easing` required an entitlement while `warning` did
+  // not — a split that made `warning` unreachable in practice, since the only
+  // route that could create a subscription demanded payment for all three.
+  for (const kind of ['floatable', 'warning', 'easing'] as const) {
+    const result = plan({ events: [event(kind)] });
+    assert.equal(result.messages.length, 1, `${kind} should reach the subscriber`);
+  }
 });
 
 // ── one-shot ─────────────────────────────────────────────────────

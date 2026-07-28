@@ -3,7 +3,7 @@
 // the querying and sending, this module owns every policy decision, so the
 // rules can be tested exhaustively without a database or a network.
 
-import { kindRequiresEntitlement, isPushableKind, type EventKind } from './event-kind';
+import { isPushableKind, type EventKind } from './event-kind';
 import type { ExpoMessage } from '@/lib/push/expo';
 
 /** Default: don't re-notify the same user about the same river+kind within 4h. */
@@ -59,7 +59,6 @@ export type SkipReason =
   | 'not_pushable_kind'
   | 'no_subscription'
   | 'one_shot_spent'
-  | 'not_entitled'
   | 'cooldown'
   | 'no_active_token';
 
@@ -160,8 +159,6 @@ export interface PlanInput {
   events: FanoutEvent[];
   subscriptions: FanoutSubscription[];
   tokens: FanoutToken[];
-  /** Users with an active entitlement, resolved via isEntitlementActive. */
-  entitledUserIds: Set<string>;
   recentDeliveries?: RecentDelivery[];
   now?: Date;
   cooldownMs?: number;
@@ -225,14 +222,9 @@ export function planDeliveries(input: PlanInput): FanoutPlan {
         continue;
       }
 
-      // Safety warnings are FREE. Condition information — including
-      // "dangerous" — is never paywalled; the paid product is the floatability
-      // translation, not the hazard.
-      if (kindRequiresEntitlement(event.kind) && !input.entitledUserIds.has(sub.user_id)) {
-        bump('not_entitled');
-        continue;
-      }
-
+      // No entitlement check. Alerting is free in its entirety — see the header
+      // of /api/me/alert-subscriptions for why the tier was collapsed rather
+      // than arbitrated. Holding a subscription IS the permission to be pushed.
       const cooldownKey = `${sub.user_id}|${event.river_id}|${event.kind}`;
       const previous = lastSent.get(cooldownKey);
       if (previous !== undefined && now.getTime() - previous < cooldownMs) {

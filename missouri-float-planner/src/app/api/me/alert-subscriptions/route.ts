@@ -1,21 +1,29 @@
 // src/app/api/me/alert-subscriptions/route.ts
 // GET    /api/me/alert-subscriptions            — list the caller's push subscriptions
-// POST   /api/me/alert-subscriptions            — subscribe to a curated river (Eddy Premium)
+// POST   /api/me/alert-subscriptions            — subscribe to a curated river
 // DELETE /api/me/alert-subscriptions?riverId=…  — unsubscribe
 //
-// This is the backend half of the "🔔 notify me when it's floatable" tap — the
-// contextual paywall trigger and the funnel's north-star event. Subscriptions
-// here are for CURATED Eddy Rivers (river_id → rivers), i.e. the paid
-// floatability translation. Raw-gauge threshold alerts stay free and will land
-// on their own gauge-keyed table.
+// This is the backend half of the "🔔 notify me" tap. Subscriptions here are for
+// CURATED Eddy Rivers (river_id → rivers).
 //
-// Gating asymmetry is deliberate:
-//   POST   requires an active entitlement (402 → paywall)
-//   GET    does not — a lapsed subscriber must still see what they had
-//   DELETE does not — never trap someone in notifications they can't turn off
+// ── Why nothing here is entitlement-gated ────────────────────────────────
 //
-// Entitlement is ALSO re-checked at send time by the fan-out, so a lapse
-// between subscribing and the next transition doesn't leak paid pushes.
+// POST used to require an active entitlement and answer 402, which the app
+// turned into the contextual paywall. That boundary ran straight through the
+// middle of the alert engine and the engine lost: `warning` pushes were declared
+// free on the grounds that paywalling a hazard is a liability, yet no free user
+// could hold the subscription needed to receive one, and the app — written
+// against a paid floatability product — asked for `kind: 'floatable'`, which
+// matches no warning at all. The result was an app that promised danger alerts
+// it was structurally incapable of sending.
+//
+// Alerting is free in its entirety now. The tier was collapsed rather than
+// arbitrated, so there is no longer a rule here that the fan-out has to agree
+// with. What remains paid lives elsewhere: offline downloads and the forecast.
+//
+// A PERMANENT user is still required for writes, and that is not a tier: push
+// needs a durable identity to route to, an anonymous id is replaced on
+// reinstall, and the RLS policy in migration 00183 enforces it independently.
 //
 // These limits fail OPEN (no failClosed), unlike /api/me/device-tokens. The
 // writes here are tiny idempotent upserts scoped by RLS, so unlimited access
@@ -25,8 +33,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jsonPrivate } from '@/lib/api-utils';
 import { rateLimit } from '@/lib/rate-limit';
-import { requireUser } from '@/lib/supabase/request';
-import { requireEntitlement } from '@/lib/entitlement';
+import { requirePermanentUser, requireUser } from '@/lib/supabase/request';
 import type { AlertSubscriptionsResponse } from '@/types/api';
 
 export const dynamic = 'force-dynamic';
@@ -96,9 +103,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // 401 (no token) / 403 (anonymous) / 402 (no active Eddy Premium) are all
-    // returned ready-to-send; the app maps 402 to the paywall.
-    const auth = await requireEntitlement(request);
+    // 401 (no token) and 403 (anonymous) come back ready-to-send. There is no
+    // 402 any more — see the header. The app maps 403 to a sign-in prompt, which
+    // is what the paywall was standing in for whenever the session was the thing
+    // that had actually failed.
+    const auth = await requirePermanentUser(request);
     if (auth instanceof NextResponse) return auth;
     const { supabase, user } = auth;
 

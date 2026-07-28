@@ -1,10 +1,19 @@
 // eddy-ios/app/(tabs)/alerts.tsx
 // The condition-change feed. Free to read, no account required — which is why
-// filtering to "my rivers" happens on the client from the local star store
-// rather than being asked of the server.
+// filtering to "my rivers" starts from the local star store rather than being
+// asked of the server.
 //
-// Real-time push is the paid layer on top of this; the feed itself is part of
-// the free tier.
+// ── Why "my rivers" is stars UNION subscriptions ─────────────────────────
+//
+// It used to be stars alone, and that quietly hid people's own alerts: a star is
+// a free local bookmark, a subscription is the thing that actually pushes, and
+// nothing ever made you do both. Someone who tapped the bell on a river without
+// starring it would get a notification about a change that their own feed then
+// refused to show them.
+//
+// Subscriptions need an account and a network, so they are strictly ADDITIVE
+// here. Everything on this screen still works with no session at all, which is
+// the reason the star store exists in the first place.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -19,13 +28,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ALERT_LATENCY_NOTE, type AlertFeedEntry } from '@eddy/types';
-import { ApiError, fetchAlerts } from '@/api/client';
+import { ApiError, fetchAlerts, fetchSubscriptions } from '@/api/client';
 import { conditionBg, conditionColor, conditionInk } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { alertDetail, alertHeadline } from '@/lib/alertCopy';
 import { EddyScene } from '@/components/EddyScene';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { useSession } from '@/hooks/useSession';
 import { useRouter } from 'expo-router';
 
 export default function AlertsScreen() {
@@ -33,7 +43,9 @@ export default function AlertsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [onlyStarred, setOnlyStarred] = useState(true);
+  const [subscribedRiverIds, setSubscribedRiverIds] = useState<Set<string>>(new Set());
   const { isStarred, starred } = useStarredRivers();
+  const { getAccessToken } = useSession();
   const { colors, elevation } = useTheme();
   const router = useRouter();
 
@@ -53,17 +65,30 @@ export default function AlertsScreen() {
     return () => controller.abort();
   }, [load]);
 
+  // Additive only, and silent on failure: a rejected session or no network
+  // leaves the filter exactly as it was before subscriptions existed.
+  const loadSubscriptions = useCallback(async () => {
+    const token = await getAccessToken();
+    if (!token) return;
+    const subs = await fetchSubscriptions(token).catch(() => null);
+    if (subs) setSubscribedRiverIds(new Set(subs.map((s) => s.riverId)));
+  }, [getAccessToken]);
+
+  useEffect(() => {
+    void loadSubscriptions();
+  }, [loadSubscriptions]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await load();
+    await Promise.all([load(), loadSubscriptions()]);
     setRefreshing(false);
-  }, [load]);
+  }, [load, loadSubscriptions]);
 
   const visible = useMemo(() => {
     if (!alerts) return [];
     if (!onlyStarred) return alerts;
-    return alerts.filter((a) => isStarred('river', a.riverId));
-  }, [alerts, onlyStarred, isStarred]);
+    return alerts.filter((a) => isStarred('river', a.riverId) || subscribedRiverIds.has(a.riverId));
+  }, [alerts, onlyStarred, isStarred, subscribedRiverIds]);
 
   if (!alerts && !error) {
     return (
@@ -73,7 +98,9 @@ export default function AlertsScreen() {
     );
   }
 
-  const hasStars = starred.length > 0;
+  // Subscriptions count too, or someone who only ever tapped the bell is told
+  // to go star something — advice for a problem they do not have.
+  const hasStars = starred.length > 0 || subscribedRiverIds.size > 0;
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>

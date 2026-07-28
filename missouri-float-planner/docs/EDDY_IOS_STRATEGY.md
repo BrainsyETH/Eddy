@@ -27,7 +27,7 @@ The goal: ship a **free-to-download / paid-to-use** native iOS app — a seasona
 - **Auth:** **Sign in with Apple** + **Supabase anonymous → permanent** upgrade (enables local-first favorites that sync on login).
 - **Alert transport:** **Expo push** (`expo-notifications` → APNs).
 - **IA:** **5 tabs** — Map, River Reports, Alerts, Favorites, Profile.
-- **Alerts gating:** in-app **feed is free to view**; **real-time push is paid** (condition display always free, incl. "dangerous").
+- **Alerts gating:** ⚠️ **SUPERSEDED (Jul 2026) — all alerting is now free**, feed and push alike. The original rule was "feed free to view, real-time push paid". In practice the paid boundary ran through the middle of the alert engine and the engine lost: `warning` pushes were declared free on liability grounds, but the only route that could create a subscription required an entitlement, so no free user could hold one — and the app asked for `kind: 'floatable'`, which matches no warning event at all, so no *paying* user could receive a danger alert either. The tier was collapsed rather than arbitrated. Revisit before spring 2027; taking a free feature back after launch is the expensive moment. See the header of `/api/me/alert-subscriptions`.
 - **Favorites:** local-first, sync on login.
 - **v1 scope:** **Standard** = MVP + **offline river download**. Eddy AI chat deferred to fast-follow.
 - **Mobile web** (noted, not locked): make it a teaser that funnels to the app; keep desktop web free for SEO/LLM discoverability.
@@ -45,8 +45,9 @@ The goal: ship a **free-to-download / paid-to-use** native iOS app — a seasona
 ## Feature gating
 
 - **Free:** browse curated **Eddy Rivers** + current condition (incl. "dangerous", always visible) + Eddy Says; the national **All Gauges** reference tier (search / near-me / viewport); **raw gauge alerts** — level / NWS flood-stage / user-set custom threshold (parity with free competitors); Alerts **feed view**; a small number of stars (local).
-- **Paid (Eddy Premium):** **curated floatability push** ("your stretch is floatable") + predictive window alerts; **offline** river download; unlimited stars + saved floats + **cross-device (iOS) sync**; forecasts/history charts; vessel-specific float times + shuttle; Eddy AI chat (fast-follow).
+- **Paid (Eddy Premium):** **offline** river download; unlimited stars + saved floats + **cross-device (iOS) sync**; forecasts/history charts; Eddy's written read; vessel-specific float times + shuttle; Eddy AI chat (fast-follow).
 - **The line, stated:** free = "watch any gauge like everyone else"; paid = "Eddy tells you it's floatable and plans the trip" — the translation only Eddy has, never the commodity others give away. (Supersedes the earlier flat "all push paid".)
+- ⚠️ **As of Jul 2026 the curated floatability push moved to FREE** along with all other alerting — see the Alerts gating note above. The free gauge-keyed threshold tier described in the free list is still unbuilt, so today's free tier is: the feed, plus a curated per-river subscription covering both floatable and danger. Predictive window alerts remain unbuilt. When tiering is revisited, the gauge tier is the piece that makes "watch any gauge like everyone else" true.
 
 ## Phased roadmap
 

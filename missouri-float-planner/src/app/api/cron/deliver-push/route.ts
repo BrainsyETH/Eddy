@@ -11,13 +11,17 @@
 // level: river_condition_events.push_delivered_at marks an event drained, while
 // alert_push_deliveries records who actually received it, so a pass killed
 // mid-send does not re-notify everyone on the next run.
+//
+// An event is only drained once it reached at least one device, or had nothing
+// to send at all — see the block at the end of the pass. Anything else keeps its
+// place in the outbox and burns one of MAX_ATTEMPTS.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
-import { DEFAULT_ENTITLEMENT_ID, isEntitlementActive } from '@/lib/entitlement';
 import { planDeliveries, type FanoutEvent, type FanoutSubscription, type FanoutToken } from '@/lib/alerts/fanout';
+import { planDrain } from '@/lib/alerts/drain';
 import { chunkMessages, classifyTicketError, sendExpoPush } from '@/lib/push/expo';
 import { logger } from '@/lib/logger';
 
@@ -113,6 +117,13 @@ async function run(request: NextRequest) {
       };
     });
 
+    // Kept out of FanoutEvent: how many times we've tried is delivery
+    // bookkeeping, and the fan-out policy has no business seeing it.
+    const attemptsByEvent = new Map<string, number>(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      fresh.map((r: any) => [r.id as string, (r.push_attempts as number) ?? 0])
+    );
+
     const riverIds = [...new Set(events.map((e) => e.river_id))];
 
     const { data: subsData } = await supabase
@@ -135,21 +146,10 @@ async function run(request: NextRequest) {
       .is('disabled_at', null);
     const tokens = (tokensData ?? []) as FanoutToken[];
 
-    // Entitlement is re-checked HERE, not at subscribe time: a lapse between
-    // subscribing and the transition must not leak paid push.
-    const { data: entitlementRows } = await supabase
-      .from('entitlements')
-      .select('user_id, expires_at, environment')
-      .in('user_id', userIds)
-      .eq('entitlement_id', DEFAULT_ENTITLEMENT_ID);
-    const entitledUserIds = new Set(
-      (entitlementRows ?? [])
-        .filter((row: { expires_at: string | null; environment: string | null }) =>
-          isEntitlementActive(row)
-        )
-        .map((row: { user_id: string }) => row.user_id)
-    );
-
+    // No entitlement lookup. There used to be one here, re-checking at send time
+    // so a lapse between subscribing and the transition could not leak paid
+    // push. Alerting is free now, so holding the subscription is the whole of
+    // the permission and the query is a round trip that can only return "yes".
     const since = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
     const { data: recentData } = await supabase
       .from('alert_push_deliveries')
@@ -161,23 +161,33 @@ async function run(request: NextRequest) {
       events,
       subscriptions,
       tokens,
-      entitledUserIds,
       recentDeliveries: recentData ?? [],
     });
 
     let sent = 0;
     let failed = 0;
     const failuresByToken = new Map<string, number>();
+    /**
+     * Successful sends per event, so an event is only drained once it actually
+     * reached somebody. Counting per EVENT and not in aggregate matters: a pass
+     * carrying two events where one succeeds and the other fails must retry
+     * exactly the second.
+     */
+    const successByEvent = new Map<string, number>();
 
     for (const [index, batch] of chunkMessages(plan.messages.map((m) => m.message)).entries()) {
       const offset = index * 100;
+      // Never throws — a whole-request failure comes back as one error ticket
+      // per message, index-aligned, so the tally below is always complete.
       const tickets = await sendExpoPush(batch);
 
       const ledgerRows = tickets.map((ticket, i) => {
         const planned = plan.messages[offset + i];
         const errorKind = classifyTicketError(ticket);
-        if (ticket.status === 'ok') sent++;
-        else {
+        if (ticket.status === 'ok') {
+          sent++;
+          successByEvent.set(planned.eventId, (successByEvent.get(planned.eventId) ?? 0) + 1);
+        } else {
           failed++;
           failuresByToken.set(
             planned.deviceTokenId,
@@ -247,15 +257,50 @@ async function run(request: NextRequest) {
         .in('id', plan.oneShotSubscriptionIds);
     }
 
-    await markDelivered(supabase, events.map((e) => e.id));
+    // ── Drain, or leave for the next pass ──────────────────────────────
+    //
+    // This used to mark EVERY event delivered unconditionally, which quietly
+    // undid the at-least-once guarantee in this file's header: a pass where
+    // every send failed still stamped push_delivered_at, so the alert was gone
+    // for good. `push_attempts` existed for exactly this and was never written
+    // — read as a filter, incremented nowhere, leaving MAX_ATTEMPTS dead code.
+    //
+    // The rule itself lives in lib/alerts/drain.ts so it can be tested without
+    // a database, same as the fan-out policy.
+    const plannedByEvent = new Map<string, number>();
+    for (const message of plan.messages) {
+      plannedByEvent.set(message.eventId, (plannedByEvent.get(message.eventId) ?? 0) + 1);
+    }
 
+    const { delivered, retryByNextAttempt, givenUp } = planDrain({
+      events: events.map((e) => ({ id: e.id, attempts: attemptsByEvent.get(e.id) ?? 0 })),
+      plannedByEvent,
+      successByEvent,
+      maxAttempts: MAX_ATTEMPTS,
+    });
+
+    for (const [attempts, ids] of retryByNextAttempt) {
+      await supabase.from('river_condition_events').update({ push_attempts: attempts }).in('id', ids);
+    }
+
+    await markDelivered(supabase, delivered);
+
+    const retried = events.length - delivered.length;
     const durationMs = Date.now() - startedAt;
+    if (givenUp > 0) {
+      logger.error(
+        '[deliver-push] events abandoned after MAX_ATTEMPTS',
+        new Error(`${givenUp} event(s) never reached a device`)
+      );
+    }
     logger.info('[deliver-push] pass complete', {
       events: events.length,
       expired: expired.length,
       planned: plan.messages.length,
       sent,
       failed,
+      retried,
+      givenUp,
       skipped: plan.skipped,
       durationMs,
     });
@@ -267,6 +312,8 @@ async function run(request: NextRequest) {
       planned: plan.messages.length,
       sent,
       failed,
+      retried,
+      givenUp,
       skipped: plan.skipped,
       durationMs,
     });
