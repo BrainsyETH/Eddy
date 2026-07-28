@@ -20,12 +20,17 @@ import FacilitiesSection from '@/components/access-point/sections/FacilitiesSect
 import OutfittersSection from '@/components/access-point/sections/OutfittersSection';
 import RiverNotesSection from '@/components/access-point/sections/RiverNotesSection';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { eddyIconUrl } from '@/components/ui/EddyIcon';
 
-// Detail section icon URLs from Vercel blob storage
+// Detail section icons, served from public/ rather than the Vercel blob URLs
+// these used to be. The art is in the repo now (design/eddy-emoji, emitted by
+// eddy-ios/scripts/build-eddy-icons.py), which is what lets the iOS app bundle
+// the same three marks — it cannot require() a remote URL, and a page that
+// server-renders should not depend on an untracked host for its own icons.
 const DETAIL_ICONS = {
-  road: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/road-icon.png',
-  parking: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/parking-icon.png',
-  facilities: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/restroom-icon.png',
+  road: eddyIconUrl('road'),
+  parking: eddyIconUrl('parking'),
+  facilities: eddyIconUrl('facilities'),
 };
 
 interface Props {

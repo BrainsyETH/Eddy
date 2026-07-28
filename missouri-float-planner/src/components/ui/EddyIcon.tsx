@@ -33,6 +33,20 @@ const ICONS = {
   weather: { file: 'eddy-weather', size: 18, alt: 'Weather' },
   ai: { file: 'eddy-ai-assistant', size: 18, alt: 'Eddy' },
 
+  // The access-point section marks. These three were already on that page, as
+  // hardcoded Vercel blob URLs in DETAIL_ICONS — art with no copy in this
+  // repository, which the app therefore could not bundle and which nothing
+  // regenerated. They are sources under design/eddy-emoji now, and the iOS
+  // catalog names the same three roles (see EddySymbol.tsx).
+  //
+  // `facilities` is a role, not a drawing, which is why it is not called
+  // `restroom`: the section it marks covers toilets, water and picnic tables,
+  // and the day the art stops being a pair of restroom-sign otters this map is
+  // the only edit. Same rule as `gauge` being a droplet.
+  road: { file: 'eddy-road', size: 20, alt: 'Road access' },
+  parking: { file: 'eddy-parking', size: 20, alt: 'Parking' },
+  facilities: { file: 'eddy-restroom', size: 20, alt: 'Facilities' },
+
   // Scenes — hero slots only.
   //
   // Three of the catalog's ten, because a name here has to have a file under

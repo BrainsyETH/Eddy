@@ -28,16 +28,18 @@ const NAV_APP_ICONS: Record<string, string> = {
   apple: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/Apple_Maps_Logo.png',
 };
 
-// Detail section icon URLs from Vercel blob storage.
+// Detail section icons, all four now from the Eddy catalog (public/icons, built
+// by eddy-ios/scripts/build-eddy-icons.py).
 //
-// Camping is the exception: it comes from the Eddy catalog (public/icons, built
-// by eddy-ios/scripts/build-eddy-icons.py) rather than the Blob bucket, because
-// the catalog has a campfire drawn in the brand's own style and the bucket's
-// camping-icon.png is a generic mark that predates it.
+// Camping got there first, and for a reason worth keeping: the catalog has a
+// campfire drawn in the brand's own style and the Blob bucket's camping-icon.png
+// is a generic mark that predates it. The other three followed when the iOS app
+// needed them — it cannot require() a remote URL — so their art was brought into
+// design/eddy-emoji. The bucket is no longer in this path at all.
 const DETAIL_ICONS = {
-  road: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/road-icon.png',
-  parking: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/parking-icon.png',
-  facilities: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/restroom-icon.png',
+  road: eddyIconUrl('road'),
+  parking: eddyIconUrl('parking'),
+  facilities: eddyIconUrl('facilities'),
   camping: eddyIconUrl('campfire'),
 };
 

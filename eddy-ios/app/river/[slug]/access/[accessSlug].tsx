@@ -54,6 +54,7 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
+import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { ShareButton } from '@/components/ShareButton';
 import {
   driveToUrl,
@@ -97,12 +98,30 @@ function driveTarget(point: AccessPointDetail) {
   return { name: point.name, coordinates: { lng, lat } };
 }
 
-/** A titled block that renders nothing at all when it has nothing to say. */
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+/**
+ * A titled block that renders nothing at all when it has nothing to say.
+ *
+ * `symbol` is optional and only the three sections the website also marks carry
+ * one — road, parking, facilities. Giving every heading a sticker would turn a
+ * scannable column of text into a column of noise, and it would spend the marks'
+ * only job: they exist so the eye can find "is there a toilet" without reading.
+ */
+function Section({
+  title,
+  symbol,
+  children,
+}: {
+  title: string;
+  symbol?: EddySymbolName;
+  children: React.ReactNode;
+}) {
   const { colors } = useTheme();
   return (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
+      <View style={styles.sectionHead}>
+        {symbol ? <EddySymbol name={symbol} size={20} /> : null}
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
+      </View>
       {children}
     </View>
   );
@@ -505,7 +524,7 @@ export default function AccessPointDetailScreen() {
         ) : null}
 
         {hasRoad ? (
-          <Section title="Getting in">
+          <Section title="Getting in" symbol="road">
             <View style={styles.chips}>
               {point.roadSurface.map((surface) => {
                 // The demanding surfaces wear the warm accent rather than the
@@ -543,7 +562,7 @@ export default function AccessPointDetailScreen() {
         ) : null}
 
         {hasParking ? (
-          <Section title="Parking">
+          <Section title="Parking" symbol="parking">
             {parking ? (
               <Text style={[styles.prose, { color: colors.text }]}>{parking}</Text>
             ) : null}
@@ -554,7 +573,7 @@ export default function AccessPointDetailScreen() {
         ) : null}
 
         {hasFacilities ? (
-          <Section title="Facilities">
+          <Section title="Facilities" symbol="facilities">
             {point.amenities.length > 0 ? (
               <View style={styles.chips}>
                 {point.amenities.map((amenity) => (
@@ -739,12 +758,16 @@ const styles = StyleSheet.create({
   },
   navAppText: { ...t.sm, fontFamily: fonts.medium },
   section: { marginTop: 22 },
-  sectionTitle: {
-    ...t.lg,
-    fontFamily: fonts.heading,
+  // The padding that used to sit on sectionTitle lives here now, so a mark and
+  // its heading share one baseline and one left edge with the prose below.
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 20,
     marginBottom: 10,
   },
+  sectionTitle: { ...t.lg, fontFamily: fonts.heading },
   prose: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 20, marginTop: 8, lineHeight: 21 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 20 },
   chipOutline: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 9, borderWidth: 1 },
