@@ -10,6 +10,9 @@
     "src/app/api/cron/snapshot-percentiles/route.ts": {
       "maxDuration": 300
     },
+    "src/app/api/cron/sync-gauge-latest/route.ts": {
+      "maxDuration": 300
+    },
     "src/app/api/cron/deliver-push/route.ts": {
       "maxDuration": 300
     },
@@ -25,6 +28,10 @@
     {
       "path": "/api/cron/update-gauges?highFrequency=1",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/sync-gauge-latest",
+      "schedule": "20 * * * *"
     },
     {
       "path": "/api/cron/sync-nps",

@@ -1,5 +1,5 @@
 // eddy-ios/app/floats.tsx
-// Floats you have shared, so a plan is not something you can only make once.
+// Floats you have kept, so a plan is not something you can only make once.
 //
 // The list renders from a local stub — river, both ends, distance, date — and
 // nothing else. No conditions, no float time, no gauge reading. Those are
@@ -17,7 +17,7 @@ import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { Otter } from '@/components/Otter';
+import { EddyScene } from '@/components/EddyScene';
 import { useSavedFloats, type SavedFloat } from '@/hooks/useSavedFloats';
 
 /** "3 days ago" — the precision a share history deserves and no more. */
@@ -51,8 +51,8 @@ export default function SavedFloatsScreen() {
         <Text style={[styles.title, { color: colors.text }]}>Saved floats</Text>
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>
           {floats.length === 0
-            ? 'Every float you share is kept here'
-            : `${floats.length} float${floats.length === 1 ? '' : 's'} you have shared`}
+            ? 'Star a float to keep it here'
+            : `${floats.length} float${floats.length === 1 ? '' : 's'} you have saved`}
         </Text>
       </View>
 
@@ -63,10 +63,13 @@ export default function SavedFloatsScreen() {
         ListEmptyComponent={
           ready ? (
             <View style={styles.empty}>
-              <Otter mood="yellow" size={110} />
+              {/* The empty state's whole job is to send you to the Map to plan
+                  one, so it shows Eddy planning. "yellow" was a condition mood
+                  on a screen with no river to have a condition. */}
+              <EddyScene name="routePlanning" size={110} />
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                Plan a float on the Map tab and tap Share. The link goes to whoever is coming, and
-                the float shows up here.
+                Plan a float on the Map tab and tap Save. It shows up here, re-read against the
+                river every time you open it.
               </Text>
             </View>
           ) : null

@@ -33,9 +33,25 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { EddySymbol } from '@/components/EddySymbol';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { DEFAULT_LAYERS, MAP_LAYERS, type LayerKey } from '@/map/layers';
+import {
+  DEFAULT_LAYERS,
+  MAP_LAYERS,
+  SHEET_LAYERS,
+  layerKeysFor,
+  type LayerKey,
+} from '@/map/layers';
+
+/**
+ * How far an off layer's mark fades.
+ *
+ * Opacity rather than a muted colour, because the branded marks cannot be
+ * recoloured — and it has to stay legible: an off row is still the thing you
+ * read to decide whether to switch it ON.
+ */
+const DIMMED = 0.45;
 
 interface Props {
   visible: boolean;
@@ -45,6 +61,43 @@ interface Props {
   onReset: () => void;
   /** How many of each thing we hold. Absent means "not loaded", not "none". */
   counts?: Partial<Record<LayerKey, number>>;
+  /**
+   * Refinements for a layer, rendered indented directly beneath its row.
+   *
+   * The national gauge layer needs a way to say "only the ones running high",
+   * and that lived behind a THIRD floating button on the map for one release.
+   * Three stacked 44pt buttons down the right edge is exactly the complaint
+   * this sheet was built to answer — a permanent tax on the one view that wants
+   * every pixel. Refinements belong where the layer is switched on: you turn it
+   * on here, you narrow it here, and the map keeps two buttons.
+   *
+   * Called per TIER on a row that has them, so a refinement still belongs to
+   * the layer it narrows rather than to the row that happens to contain it.
+   */
+  renderLayerDetail?: (key: LayerKey, on: boolean) => React.ReactNode;
+}
+
+/**
+ * A row's total across its live tiers, or `undefined` if any of them is unknown.
+ *
+ * `undefined` propagates deliberately. A count is only worth printing when the
+ * whole of it has arrived — "1" beside a row whose second tier is still
+ * fetching is a number that will change under the reader's eyes, and this sheet
+ * has never shown a figure it cannot stand behind. No live tiers means nothing
+ * to total, which is also `undefined` rather than a zero.
+ */
+function sumCounts(
+  keys: LayerKey[],
+  counts: Partial<Record<LayerKey, number>> | undefined,
+): number | undefined {
+  if (keys.length === 0) return undefined;
+  let total = 0;
+  for (const key of keys) {
+    const value = counts?.[key];
+    if (value == null) return undefined;
+    total += value;
+  }
+  return total;
 }
 
 /** True when the live selection is the one the app opens with. */
@@ -54,7 +107,15 @@ export function isDefaultLayers(active: LayerKey[]): boolean {
   );
 }
 
-export function MapLayersSheet({ visible, onClose, active, onToggle, onReset, counts }: Props) {
+export function MapLayersSheet({
+  visible,
+  onClose,
+  active,
+  onToggle,
+  onReset,
+  counts,
+  renderLayerDetail,
+}: Props) {
   const { colors, floating } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -93,14 +154,41 @@ export function MapLayersSheet({ visible, onClose, active, onToggle, onReset, co
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.rows}>
-          {MAP_LAYERS.map((layer) => {
-            const on = active.includes(layer.key);
+          {SHEET_LAYERS.map((layer) => {
+            const keys = layerKeysFor(layer);
+            // A row with tiers is on when ANY of them is drawing. There is no
+            // third "partly on" state to express: the strip below already says
+            // which tiers are live, and a half-lit switch would be a second,
+            // vaguer answer to a question the strip answers exactly.
+            const on = keys.some((key) => active.includes(key));
             const tint = layer.color(colors);
-            const count = counts?.[layer.key];
+            // Summed across the tiers, and `undefined` the moment ANY live tier
+            // has not answered yet — a row that adds a loaded tier to an
+            // unloaded one would print a total it cannot stand behind, which is
+            // the rule the per-layer counts already follow.
+            const count = layer.tiers
+              ? sumCounts(layer.tiers.filter((key) => active.includes(key)), counts)
+              : counts?.[layer.key];
             return (
+              <View key={layer.key}>
               <Pressable
-                key={layer.key}
-                onPress={() => onToggle(layer.key)}
+                onPress={() => {
+                  // Off → on turns on the row's OWN key only. For gauges that
+                  // is the rated tier, which is the one carrying a verdict and
+                  // the one the app opens with; asking for "gauges" and being
+                  // handed several hundred grey reference dots as well would be
+                  // answering a bigger question than the switch asked.
+                  if (!on) {
+                    onToggle(layer.key);
+                    return;
+                  }
+                  // On → off clears every tier, so the switch means what it
+                  // shows. Each call is a functional update, so several in one
+                  // handler compose rather than racing.
+                  for (const key of keys) {
+                    if (active.includes(key)) onToggle(key);
+                  }
+                }}
                 style={({ pressed }) => [
                   styles.row,
                   { backgroundColor: pressed ? colors.cardRaised : 'transparent' },
@@ -112,20 +200,42 @@ export function MapLayersSheet({ visible, onClose, active, onToggle, onReset, co
                 }
                 accessibilityHint={layer.description}
               >
+                {/* ── The well is outlined, not filled ────────────────────
+                    It used to fill with the layer tint and print a white
+                    glyph on it, and that had to change for two reasons.
+
+                    The small one: Eddy's own marks are fixed-colour art (see
+                    EddySymbol) and a coral pin on a coral chip is invisible.
+
+                    The larger one: the fill was a second answer to a question
+                    the Switch on the right already answers — the note beside
+                    it says "the switch DRAWS the state". What the well is for
+                    is the LEGEND, and an icon in the layer's own colour is a
+                    truer legend than a white silhouette, because the layer's
+                    own colour is what its pins are drawn in. On/off survives
+                    in the border, the mark's opacity, and the switch. */}
                 <View
                   style={[
                     styles.iconWell,
                     {
-                      backgroundColor: on ? tint : colors.cardRaised,
+                      backgroundColor: colors.cardRaised,
                       borderColor: on ? tint : colors.border,
                     },
                   ]}
                 >
-                  <Ionicons
-                    name={layer.icon}
-                    size={15}
-                    color={on ? colors.onAccent : colors.textSubtle}
-                  />
+                  {layer.symbol ? (
+                    <EddySymbol
+                      name={layer.symbol}
+                      size={17}
+                      style={{ opacity: on ? 1 : DIMMED }}
+                    />
+                  ) : (
+                    <Ionicons
+                      name={layer.icon}
+                      size={15}
+                      color={on ? tint : colors.textSubtle}
+                    />
+                  )}
                 </View>
 
                 <View style={styles.rowText}>
@@ -158,6 +268,94 @@ export function MapLayersSheet({ visible, onClose, active, onToggle, onReset, co
                   />
                 </View>
               </Pressable>
+
+              {/* ── The tiers ────────────────────────────────────────────
+                  Chips rather than switches, and that is the same ruling the
+                  gauge filter follows: a switch means "also draw this", a chip
+                  means "which of these". Two tiers of one thing are a which,
+                  and they are drawn in their own pin colours so the strip is
+                  the legend for what appears on the map.
+
+                  Only while the row is on. Tiers of a layer nobody is drawing
+                  are a choice with no consequence. */}
+              {on && layer.tiers ? (
+                <View style={[styles.tiers, { borderLeftColor: colors.border }]}>
+                  {layer.tiers.map((key) => {
+                    const tier = MAP_LAYERS.find((l) => l.key === key);
+                    if (!tier) return null;
+                    const tierOn = active.includes(key);
+                    const tierTint = tier.color(colors);
+                    const tierCount = counts?.[key];
+                    // `tierSymbol ?? symbol`, the same fallback `tierLabel`
+                    // uses: a tier that wants its own mark says so, and one
+                    // that is only ever a tier just sets `symbol`.
+                    const tierMark = tier.tierSymbol ?? tier.symbol;
+                    return (
+                      <Pressable
+                        key={key}
+                        onPress={() => onToggle(key)}
+                        style={({ pressed }) => [
+                          styles.tier,
+                          {
+                            backgroundColor: tierOn ? colors.cardRaised : 'transparent',
+                            borderColor: tierOn ? tierTint : colors.border,
+                            opacity: pressed ? 0.7 : 1,
+                          },
+                        ]}
+                        accessibilityRole="switch"
+                        accessibilityState={{ checked: tierOn }}
+                        accessibilityLabel={
+                          tierCount == null
+                            ? (tier.tierLabel ?? tier.label)
+                            : `${tier.tierLabel ?? tier.label}, ${tierCount}`
+                        }
+                        accessibilityHint={tier.description}
+                      >
+                        {/* The mark where there is one, the dot where there is
+                            not. Both are doing the same job — saying which
+                            tier this is — but a dot can only say it by colour,
+                            and these two tiers are told apart by whether Eddy
+                            graded them, which is a thing a colour cannot say
+                            and a face can. The tint is not lost: it is the
+                            chip's border, exactly as in the well above. */}
+                        {tierMark ? (
+                          <EddySymbol
+                            name={tierMark}
+                            size={15}
+                            style={{ opacity: tierOn ? 1 : DIMMED }}
+                          />
+                        ) : (
+                          <View style={[styles.tierDot, { backgroundColor: tierTint }]} />
+                        )}
+                        <Text
+                          style={[
+                            styles.tierText,
+                            { color: tierOn ? colors.text : colors.textMuted },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {tier.tierLabel ?? tier.label}
+                        </Text>
+                        {tierCount != null ? (
+                          <Text style={[styles.tierCount, { color: colors.textSubtle }]}>
+                            {tierCount}
+                          </Text>
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
+
+              {/* A refinement belongs to the TIER it narrows, not to the row
+                  that happens to own that tier — the flow-band chips describe
+                  the reference gauges and nothing else. */}
+              {layer.tiers
+                ? layer.tiers.map((key) => (
+                    <View key={`detail-${key}`}>{renderLayerDetail?.(key, active.includes(key))}</View>
+                  ))
+                : renderLayerDetail?.(layer.key, on)}
+              </View>
             );
           })}
         </ScrollView>
@@ -250,6 +448,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Indented under the row they belong to, on the same hairline spine the
+  // gauge filter uses — so a strip and the chips that narrow it read as one
+  // nested block rather than as two more rows.
+  tiers: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginLeft: 30,
+    paddingLeft: 10,
+    paddingBottom: 4,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+  },
+  tier: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 11,
+    // 32pt tall rather than 44: these sit inside a modal sheet with a 44pt row
+    // above them and no neighbour below to mis-hit, and a full-height chip
+    // strip would push Done off a small screen.
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  tierDot: { width: 8, height: 8, borderRadius: 999 },
+  tierText: { ...t.xs, fontFamily: fonts.semibold, flexShrink: 1 },
+  tierCount: { ...t.xs, fontFamily: fonts.mono },
   rowText: { flex: 1, minWidth: 0 },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   label: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },

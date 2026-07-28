@@ -21,7 +21,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { Otter } from '@/components/Otter';
+import { EddyScene } from '@/components/EddyScene';
 
 interface Props {
   visible: boolean;
@@ -38,7 +38,10 @@ export function PushPrimer({ visible, riverName, onAllow, onDismiss }: Props) {
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onDismiss}>
       <View style={[styles.sheet, { backgroundColor: colors.bg }]}>
         <View style={styles.body}>
-          <Otter mood="green" size={120} />
+          {/* The scene IS the offer: this sheet says "we'll watch the gauge for
+              you", and the green otter it replaced said only "things are fine",
+              which is a claim about a river we have not read yet. */}
+          <EddyScene name="checkingGauge" size={120} />
 
           <Text style={[styles.title, { color: colors.text }]}>
             {riverName ? `We'll watch the ${riverName}` : "We'll watch your rivers"}

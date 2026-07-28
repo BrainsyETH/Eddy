@@ -138,6 +138,9 @@ export const X402_ROUTES = {
   // weather + NWS forecast + gauge history, plus the interpretation on top.
   '/api/rivers/:slug/outlook': { price: '$0.02', description: '72-hour river outlook and interpretation' },
   '/api/gauges': { price: '$0.001', description: 'Gauge stations data' },
+  // Same price as /api/gauges: it is the same kind of answer (station rows and
+  // their latest reading), just bounded by a viewport instead of by curation.
+  '/api/gauges/map': { price: '$0.001', description: 'Gauges within a bounding box' },
   // Dam state composes two upstreams (CWMS levels + SWPA generation schedule)
   // and the MW→CFS conversion on top, so it prices with the composed feeds
   // rather than the raw lookups. The index is the cheaper of the two: it

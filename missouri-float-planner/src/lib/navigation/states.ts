@@ -66,6 +66,7 @@ const STATES: StateInfo[] = [
 
 const BY_CODE = new Map(STATES.map((s) => [s.code, s]));
 const BY_SLUG = new Map(STATES.map((s) => [s.slug, s]));
+const BY_NAME = new Map(STATES.map((s) => [s.name.toLowerCase(), s]));
 
 /** 'MO' → 'missouri'. Unknown codes fall back to a lowercased code. */
 export function stateSlug(code: string): string {
@@ -80,4 +81,17 @@ export function stateCodeFromSlug(slug: string): string | null {
 /** 'MO' → 'Missouri'. Unknown codes echo the code. */
 export function stateName(code: string): string {
   return BY_CODE.get(code)?.name ?? code;
+}
+
+/**
+ * 'Missouri' → 'MO', or null when it isn't a state we know.
+ *
+ * For the USGS monitoring-locations collection, which reports `state_name` as
+ * a display name and `state_code` as a FIPS number ('29') — neither of which is
+ * the postal code `rivers.state` uses. Normalizing on the way in is what lets
+ * gauge_stations.state_code and rivers.state be compared at all.
+ */
+export function stateCodeFromName(name: string | null | undefined): string | null {
+  if (!name) return null;
+  return BY_NAME.get(name.trim().toLowerCase())?.code ?? null;
 }

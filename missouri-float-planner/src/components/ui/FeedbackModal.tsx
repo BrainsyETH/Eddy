@@ -4,9 +4,10 @@
 // Modal for submitting feedback and data issue reports
 
 import { useState, useRef, useEffect } from 'react';
-import { X, Flag, Send, CheckCircle } from 'lucide-react';
+import { X, Flag, Send } from 'lucide-react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import type { FeedbackType, FeedbackContext } from '@/types/api';
+import { EddyIcon } from '@/components/ui/EddyIcon';
 
 const FEEDBACK_TYPES: { value: FeedbackType; label: string; description: string }[] = [
   { value: 'inaccurate_data', label: 'Inaccurate Data', description: 'Gauge readings, water levels, or other data seems wrong' },
@@ -159,7 +160,7 @@ export default function FeedbackModal({ isOpen, onClose, context }: FeedbackModa
 
         {success ? (
           <div className="p-8 text-center">
-            <CheckCircle size={48} className="text-support-600 mx-auto mb-4" />
+            <EddyIcon name="thumbsUp" size={80} className="mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-neutral-900 mb-2">Thank You!</h3>
             <p className="text-neutral-600">
               Your feedback has been submitted. We appreciate you helping improve Eddy!

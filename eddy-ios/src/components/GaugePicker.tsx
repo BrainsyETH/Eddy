@@ -9,16 +9,22 @@
 // no way to tell.
 //
 // ── The primary is still the river's verdict ────────────────────────────────
-// Picking a different gauge changes what the CARD reads, not what the river is
-// rated. The condition chip, the alerts, the rivers list and Eddy's take all
+// Picking a different gauge changes what this SCREEN reads, not what the river
+// is rated. The chip on the rivers list, the alerts and the statewide map all
 // stay on the primary, because "is the Current floatable" has to have one
 // answer and the primary gauge is the editorial choice of which. This is a
 // second opinion, offered where a second opinion is useful, and labelled.
+//
+// What it moves has GROWN, which is why the strip moved above the reading card
+// rather than sitting under it: the reading, its scale, the 72-hour weather and
+// Eddy's own report are all re-read for the picked station now. A control that
+// changes most of a screen should be at the top of it.
 //
 // Rendered only when there is a choice to make: one gauge, no picker.
 
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { MapGauge } from '@eddy/types';
+import { EddySymbol } from '@/components/EddySymbol';
 import { conditionColor } from '@/theme/conditions';
 import { gaugeConditionCode, gaugeLink } from '@/lib/gaugeCondition';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -57,7 +63,10 @@ export function GaugePicker({ gauges, riverSlug, selectedId, onSelect }: Props) 
 
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.label, { color: colors.textSubtle }]}>GAUGES ON THIS RIVER</Text>
+      <View style={styles.labelRow}>
+        <EddySymbol name="gauge" size={14} />
+        <Text style={[styles.label, { color: colors.textSubtle }]}>GAUGES ON THIS RIVER</Text>
+      </View>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -108,12 +117,25 @@ export function GaugePicker({ gauges, riverSlug, selectedId, onSelect }: Props) 
 }
 
 const styles = StyleSheet.create({
-  wrap: { marginTop: 14 },
-  label: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6, marginBottom: 8 },
+  // Sits ABOVE the reading card now rather than inside it, so the margins are
+  // the screen's own rather than the card's: 4pt of optical inset to line the
+  // eyebrow up with the river name and the card edge below, and a gap under it
+  // for the card the whole strip introduces.
+  wrap: { marginBottom: 12 },
+  // The mark rides with the label rather than above the row, so the eyebrow
+  // stays one object and the chips below keep their own left edge.
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  label: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6 },
   // Horizontal scroll rather than a wrap: a river can have five gauges with
-  // long place names, and a wrapping grid would push the reading card's own
-  // content off the first screen.
-  row: { flexDirection: 'row', gap: 8, paddingRight: 4 },
+  // long place names, and a wrapping grid would push the reading card itself
+  // off the first screen.
+  row: { flexDirection: 'row', gap: 8, paddingHorizontal: 4 },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',

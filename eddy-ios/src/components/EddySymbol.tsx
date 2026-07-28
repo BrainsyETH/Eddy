@@ -10,6 +10,18 @@
 // state — the README in design/eddy-emoji calls them "mascot-free utility
 // symbols" — so they are chosen by the caller and nothing decides for them.
 //
+// Keys are ROLES, not drawings — `gauge`, not `waterDroplet`. A caller asking
+// for a gauge mark should not have to know the catalog decided that is a
+// droplet, and the day it becomes something else this map is the only edit.
+//
+// NOT FOR MAP PINS. These are fixed-colour, three-tone stickers, and the map's
+// pins are registered `sdf: true` (see src/map/RiverMap.tsx) precisely so they
+// can be RECOLOURED at runtime — a gauge wears its condition, an access point
+// wears its layer. Drawing a gauge with the blue droplet paints every reading
+// blue. The layer sheet is the one map-adjacent place they DO belong, because a
+// row there is a legend rather than a reading; its well is outlined for exactly
+// that reason.
+//
 // The sources are 1254px concept art with an off-white card baked in. These are
 // derived: see eddy-ios/scripts/build-eddy-icons.py, which cuts the background
 // and downscales to 300px. Do not hand-export into assets/eddy.
@@ -19,6 +31,23 @@ import { Image, StyleSheet, type ImageStyle, type StyleProp } from 'react-native
 const SYMBOLS = {
   weather: require('../../assets/eddy/eddy-weather.png'),
   aiAssistant: require('../../assets/eddy/eddy-ai-assistant.png'),
+  gauge: require('../../assets/eddy/eddy-water-droplet.png'),
+  accessPoint: require('../../assets/eddy/eddy-poi.png'),
+  otherGauge: require('../../assets/eddy/eddy-other-usgs-gauge.png'),
+  hazard: require('../../assets/eddy/eddy-hazard.png'),
+  campground: require('../../assets/eddy/eddy-campground.png'),
+  outfitter: require('../../assets/eddy/eddy-outfitter.png'),
+
+  /**
+   * The one entry that is not mascot-free, and the one place that is right.
+   *
+   * `eddyRated` marks the tier of gauges EDDY HAS RATED, as against the rest of
+   * the USGS network beside it. The distinction between those two rows is
+   * literally "did Eddy grade this one", so his face is not decoration on that
+   * chip — it is the whole of what the chip says. Sourced from assets/otter
+   * rather than the catalog because that is where the favicon already lives.
+   */
+  eddyRated: require('../../assets/otter/favicon.png'),
 } as const;
 
 export type EddySymbolName = keyof typeof SYMBOLS;

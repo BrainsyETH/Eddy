@@ -1,6 +1,13 @@
--- 00196_usace_tailwater_stations.sql
+-- 00198_usace_tailwater_stations.sql
 -- Registers Clearwater Dam as a gauge station so its release rides the normal
 -- ingestion pipeline, and attaches it to the Black River as a secondary gauge.
+--
+-- Runs after 00196/00197 (national gauges) and must: `curated` is now
+-- load-bearing rather than descriptive. Since 00196 the update-gauges cron
+-- polls only curated and starred stations, and /api/gauges filters on it — so
+-- a station left at the default `false` is silently never ingested and never
+-- returned. Every station wired to a river is curated by definition, which is
+-- exactly what this one is.
 --
 -- Why a gauge_stations row and not a new table: the total release below a dam
 -- IS a river discharge at a point on the river. gauge_readings.discharge_cfs
@@ -35,6 +42,7 @@ insert into public.gauge_stations (
     name,
     location,
     active,
+    curated,
     threshold_descriptions
 )
 select
@@ -44,6 +52,9 @@ select
     'Black River below Clearwater Dam',
     -- geometry(POINT, 4326), not geography — matches gauge_stations.location.
     st_setsrid(st_makepoint(-90.7708833, 37.1349222), 4326),
+    true,
+    -- Curated: it is wired to a river and carries Eddy's own threshold_unit.
+    -- Without this the cron skips it and /api/gauges drops it.
     true,
     jsonb_build_object(
         'source', 'USACE Little Rock District (CWMS)',
@@ -84,8 +95,27 @@ where r.slug = 'black'
   );
 
 -- ── Invariants ─────────────────────────────────────────────────────────────
+-- Idempotency repair: an earlier run of this migration inserted the station
+-- before `curated` was load-bearing, leaving it false. Re-assert it for any
+-- usace station that is wired to a river.
+update public.gauge_stations gs
+set curated = true
+where gs.provider = 'usace'
+  and gs.curated is not true
+  and exists (select 1 from public.river_gauges rg where rg.gauge_station_id = gs.id);
+
 do $$
 begin
+    -- A curated station the cron will never poll is a silent dead end.
+    if exists (
+        select 1
+        from public.gauge_stations gs
+        join public.river_gauges rg on rg.gauge_station_id = gs.id
+        where gs.provider = 'usace' and gs.curated is not true
+    ) then
+        raise exception 'usace stations wired to a river must be curated, or update-gauges will skip them';
+    end if;
+
     -- A usace-fed river gauge graded in ft would be comparing a release rate
     -- against a stage ladder. Fail the migration rather than ship that.
     if exists (

@@ -86,6 +86,11 @@ import {
   OUTFITTER_SERVICE_TYPES,
   type LayerKey,
 } from '@/map/layers';
+import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
+import { flowBandColor, flowBandLabel } from '@/theme/flow';
+import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
+import { gaugePlaceLabel } from '@/lib/gaugeCondition';
+import { usgsGaugeUrl } from '@/lib/directions';
 import { useOfflinePacks } from '@/map/useOfflinePacks';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useEddySearch } from '@/hooks/useEddySearch';
@@ -100,6 +105,11 @@ import { SearchBar } from '@/components/SearchBar';
 import { SearchResultsList } from '@/components/SearchResultsList';
 import { MapLayersButton, MapLayersSheet, isDefaultLayers } from '@/components/MapLayersSheet';
 import { ConditionFilterBar, ConditionFilterButton } from '@/components/ConditionFilterBar';
+import {
+  GaugeFilterBar,
+  applyGaugeFilters,
+  type GaugeFilterKey,
+} from '@/components/GaugeFilterBar';
 import { PlanSheet } from '@/components/PlanSheet';
 import { OfflineMapRow } from '@/components/OfflineMapRow';
 import { PaywallSheet } from '@/components/PaywallSheet';
@@ -197,7 +207,14 @@ export default function MapScreen() {
     () => new Set(),
   );
   const [filterOpen, setFilterOpen] = useState(false);
+  // Which gauge traits/bands the national layer is narrowed to. Empty = all.
+  // Not persisted, for the same reason the condition filter is not: a filter
+  // restored from last week reads as gauges having gone missing.
+  const [gaugeFilter, setGaugeFilter] = useState<ReadonlySet<GaugeFilterKey>>(() => new Set());
   const [focus, setFocus] = useState<Focus | null>(null);
+  // The camera, as of the last time it stopped moving. Only the national gauge
+  // layer reads it — everything else on this screen loads a bounded set up front.
+  const [viewport, setViewport] = useState<Viewport | null>(null);
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -425,6 +442,81 @@ export default function MapScreen() {
   // through a filter that hides every gauge but this river's.
   const mappableGauges = useMemo(() => (gauges ?? []).filter(hasCoordinates), [gauges]);
 
+  // ── The national tier ──────────────────────────────────────────────────────
+  // Fetched by viewport, not up front, and only while its layer is on. See
+  // useViewportGauges for the debounce/containment/quantize chain that keeps a
+  // pan from being a request.
+  const referenceGauges = useViewportGauges(layers.includes('allGauges'), viewport);
+
+  /**
+   * What the "Other USGS gauges" layer actually holds.
+   *
+   * Curated gauges are dropped here rather than drawn twice: /api/gauges/map
+   * returns them too (they are gauges in the viewport), but the curated layer
+   * already paints them in their condition colour, and a second dot underneath
+   * in a flow-band colour would be the same station wearing two different
+   * verdicts a pixel apart.
+   *
+   * COMPUTED ONCE, AT THE TOP, and everything downstream reads from it — the
+   * filter, the counts, the pins. It used to happen last, after the chips had
+   * already narrowed the raw response, which made the drop silently intersect
+   * with the filter: selecting "Eddy-rated" asked for exactly the gauges the
+   * next line removed, so the map drew nothing while the strip said "Showing
+   * 12 gauges" and the layers sheet said 0. Three surfaces, three answers, one
+   * ordering mistake. Narrowing a set the layer will never draw is not a filter
+   * anyone can reason about, so the set comes first now.
+   */
+  const layerGauges = useMemo(
+    () => referenceGauges.gauges.filter((g) => !g.curated && hasCoordinates(g)),
+    [referenceGauges.gauges],
+  );
+
+  /**
+   * That set, narrowed by the chips.
+   *
+   * Applied BEFORE pins are built rather than as a Mapbox opacity expression,
+   * which is where this deliberately differs from the condition filter. That
+   * one dims because hiding a river takes its tap target with it and a map that
+   * empties reads as broken. Here the layer is thousands of interchangeable
+   * dots with no selection riding on them, the strip states the count it is
+   * showing, and dimming ~1,200 circles to 0.16 leaves a grey haze that is
+   * harder to read than an honest empty patch.
+   */
+  const visibleReferenceGauges = useMemo(
+    () => applyGaugeFilters(layerGauges, gaugeFilter),
+    [layerGauges, gaugeFilter],
+  );
+
+  const referencePins = useMemo<MapPin[]>(
+    () =>
+      visibleReferenceGauges.map((g) => {
+        const band = flowBandFor(g);
+        const usgs = usgsGaugeUrl(g.siteId);
+        return {
+          id: `refgauge:${g.id}`,
+          name: g.name,
+          // The place, for the label under the dot. A national station name is
+          // a sentence, and the map has room for a town.
+          label: gaugePlaceLabel(g.name),
+          layer: 'allGauges' as LayerKey,
+          subtitle: `USGS ${g.siteId} — not Eddy-rated`,
+          coordinates: g.coordinates,
+          color: flowBandColor(band),
+          // No `code`: that field drives a CONDITION-tinted chip in the
+          // callout, and this gauge has no condition. codeLabel carries the
+          // band's words instead, which is a comparison, not a verdict.
+          codeLabel: flowBandLabel(band),
+          value: flowReadingText(g),
+          magnitude: flowMagnitude(g),
+          // Straight to the source. This tier has no river screen to open —
+          // Eddy has not rated it — so the honest destination is the station's
+          // own USGS page, which is where the rest of its record lives.
+          link: usgs ? { label: 'Open on USGS', url: usgs } : null,
+        };
+      }),
+    [visibleReferenceGauges],
+  );
+
   /**
    * How many of each thing we hold, for the layers sheet.
    *
@@ -442,6 +534,17 @@ export default function MapScreen() {
     return {
       access: accessPoints.length,
       gauges: gauges ? mappableGauges.length : undefined,
+      // Viewport-scoped, so it moves as you pan — and `undefined` until the
+      // layer has actually been switched on and fetched something, per the rule
+      // above. Below the zoom floor it is 0 rather than undefined: we HAVE
+      // looked, and the honest answer is that this layer draws nothing here.
+      allGauges: layers.includes('allGauges')
+        ? referenceGauges.belowMinZoom
+          ? 0
+          : referenceGauges.loading && referencePins.length === 0
+            ? undefined
+            : referencePins.length
+        : undefined,
       hazards: riverHazards?.filter(hasCoordinates).length,
       campgrounds: placed
         ? accessPoints.filter(isCampground).length +
@@ -449,7 +552,18 @@ export default function MapScreen() {
         : undefined,
       outfitters: placed?.filter((s) => OUTFITTER_SERVICE_TYPES.includes(s.type)).length,
     };
-  }, [accessPoints, gauges, mappableGauges, hazards, services, drawnSlug]);
+  }, [
+    accessPoints,
+    gauges,
+    mappableGauges,
+    hazards,
+    services,
+    drawnSlug,
+    layers,
+    referenceGauges.belowMinZoom,
+    referenceGauges.loading,
+    referencePins,
+  ]);
 
   const conditionCode = drawn?.currentCondition?.code ?? 'unknown';
   const headerCode = selected?.currentCondition?.code ?? 'unknown';
@@ -587,6 +701,7 @@ export default function MapScreen() {
         />
       ) : null}
 
+
       <View style={styles.mapArea}>
         {unavailable ? (
           <MapUnavailable reason={unavailable} />
@@ -608,6 +723,17 @@ export default function MapScreen() {
             onSelectRiverSlug={onSelectNetworkRiver}
             accessPoints={accessPoints}
             gauges={mappableGauges}
+            referenceGauges={referencePins}
+            onViewportChange={setViewport}
+            onZoomToCluster={(point) =>
+              setFocus({
+                slug: null,
+                lng: point.lng,
+                lat: point.lat,
+                // Two levels in reliably splits a cluster at clusterRadius 50.
+                zoom: Math.min(16, (viewport?.zoom ?? 10) + 2),
+              })
+            }
             hazards={hazards?.items ?? []}
             services={services?.items ?? []}
             layers={layers}
@@ -680,6 +806,7 @@ export default function MapScreen() {
             />
           </View>
         ) : null}
+
 
         {/* ── The bottom stack ──────────────────────────────────────────
             One bottom-anchored column holding the callout and the map controls,
@@ -888,6 +1015,31 @@ export default function MapScreen() {
         onToggle={toggleLayer}
         onReset={resetLayers}
         counts={layerCounts}
+        // Gauge filtering lives under the layer it refines, not behind a third
+        // button on the map. Rendered only while the layer is ON, because
+        // chips that narrow a layer nobody is drawing narrow nothing.
+        renderLayerDetail={(key, on) =>
+          key === 'allGauges' && on ? (
+            <GaugeFilterBar
+              // The DRAWABLE set, not the raw response — see layerGauges. Every
+              // count in the strip is a count of pins you can actually see.
+              gauges={layerGauges}
+              active={gaugeFilter}
+              belowMinZoom={referenceGauges.belowMinZoom}
+              capped={referenceGauges.capped}
+              total={referenceGauges.total}
+              onToggle={(k) =>
+                setGaugeFilter((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(k)) next.delete(k);
+                  else next.add(k);
+                  return next;
+                })
+              }
+              onClear={() => setGaugeFilter(new Set())}
+            />
+          ) : null
+        }
       />
 
       {/* The plan flow is deliberately a sibling of the map rather than a child
@@ -1016,22 +1168,46 @@ function PinCallout({
 
       {/* The reading and its verdict on one line: a gauge's number means nothing
           without the band it sits in, and the band means less without the
-          number. Same rule the river row is built on. */}
+          number. Same rule the river row is built on.
+
+          THE CHIP NO LONGER REQUIRES A CONDITION CODE. It used to, and the one
+          layer that carries a label without a code is the national gauge tier —
+          deliberately, because a flow band is a comparison to a station's own
+          history and never a verdict about floating. So the pin that most
+          needed its label explained was the only one that never showed it, and
+          a tapped reference gauge came back as a bare number. A code still
+          buys the condition tint; without one the chip is drawn in the pin's
+          own band colour, which is what the dot on the map is wearing. */}
       {pin.value || pin.codeLabel ? (
         <View style={styles.calloutReadingRow}>
           {pin.value ? (
-            <Text style={[styles.calloutReading, { color: conditionText(pin.code ?? 'unknown', isDark) }]}>
+            <Text
+              style={[
+                styles.calloutReading,
+                { color: pin.code ? conditionText(pin.code, isDark) : colors.text },
+              ]}
+            >
               {pin.value}
             </Text>
           ) : null}
-          {pin.codeLabel && pin.code ? (
+          {pin.codeLabel ? (
             <View
               style={[
                 styles.calloutChip,
-                { backgroundColor: conditionBg(pin.code), borderColor: conditionChipBorder(pin.code) },
+                pin.code
+                  ? {
+                      backgroundColor: conditionBg(pin.code),
+                      borderColor: conditionChipBorder(pin.code),
+                    }
+                  : { backgroundColor: colors.cardRaised, borderColor: pin.color ?? colors.border },
               ]}
             >
-              <Text style={[styles.calloutChipText, { color: conditionInk(pin.code) }]}>
+              <Text
+                style={[
+                  styles.calloutChipText,
+                  { color: pin.code ? conditionInk(pin.code) : colors.textMuted },
+                ]}
+              >
                 {pin.codeLabel}
               </Text>
             </View>
@@ -1176,12 +1352,24 @@ const styles = StyleSheet.create({
   // Hard into the corner. 16/12 rather than MAP_CHROME_BOTTOM because the
   // Mapbox ornaments run along the map's bottom LEFT and end around x=149 —
   // there is nothing on the right for this to clear.
+  //
+  // ANCHORED ON BOTH EDGES, which is the fix for a truncated "Plan a float".
+  // With only `right` set this row was content-sized, and the button's
+  // `maxWidth: '55%'` then resolved a percentage against a parent whose width
+  // was itself being derived from that button — a circular measurement Yoga
+  // settles by clamping the child to far less than 55% of anything. The label
+  // came out as "Plan a f…" on a button with most of a screen beside it.
+  // A definite width gives the percentage something real to be a percentage OF;
+  // `flex-end` keeps the cluster in the corner it was already in, and
+  // box-none means the band it now spans stays transparent to touches.
   planCluster: {
     position: 'absolute',
+    left: 16,
     right: 12,
     bottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: 8,
   },
   // 44pt, same as locate: it is a destructive action and must not be a
@@ -1224,10 +1412,14 @@ const styles = StyleSheet.create({
   calloutActionText: { ...t.xs, fontFamily: fonts.semibold },
   planButton: {
     flexDirection: 'row',
-    // 55%, and the number is load-bearing rather than aesthetic. Right-aligned
-    // at bottom:16 this shares a row with the Mapbox wordmark and the (i),
-    // which together run from x=12 to about x=149. On the narrowest phone we
-    // support, 55% of the width still starts to the right of that; 62% did not.
+    // 55% OF THE CLUSTER, which is now a real width — see planCluster. Right-
+    // aligned at bottom:16 this shares a row with the Mapbox wordmark and the
+    // (i), which together run from x=12 to about x=149; on the narrowest phone
+    // we support, 55% still starts to the right of that, and 62% did not.
+    //
+    // A ceiling, not a size: the button shrinks to its content, so the plain
+    // "Plan a float" label sits well inside it and only a long distance-and-
+    // time label ever reaches the cap.
     maxWidth: '55%',
     alignItems: 'center',
     gap: 8,

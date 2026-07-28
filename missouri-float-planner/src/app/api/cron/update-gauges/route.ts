@@ -89,11 +89,35 @@ async function runUpdate(request: NextRequest) {
   }
 
   try {
-    // Get gauge stations based on poll type
+    // The polling set is bounded by what someone actually consumes, NOT by
+    // coverage. Since 00196 gauge_stations also holds ~14,000 national
+    // reference gauges, and this route writes gauge_readings history, runs
+    // condition ladders, fires alerts and regenerates Eddy prose — all of which
+    // are meaningless for a gauge Eddy has not rated. Those are refreshed by
+    // /api/cron/sync-gauge-latest into gauge_latest instead.
+    //
+    // Starred gauges are IN, curated or not: a star is someone asking to watch
+    // a gauge, and the history behind its hydrograph has to come from somewhere.
+    // That set grows with subscribers, not with the size of the country.
+    const { data: starredRows, error: starredError } = await supabase
+      .from('starred_gauges')
+      .select('gauge_station_id');
+    if (starredError) {
+      // Non-fatal: a curated-only pass is a correct pass, just a narrower one.
+      console.error('[update-gauges] starred_gauges lookup failed:', starredError.message);
+    }
+    const starredIds = Array.from(
+      new Set((starredRows ?? []).map((r) => r.gauge_station_id).filter(Boolean)),
+    );
+
     let stationsQuery = supabase
       .from('gauge_stations')
       .select('id, usgs_site_id, provider, site_id_external, high_frequency_flag')
       .eq('active', true);
+
+    stationsQuery = starredIds.length
+      ? stationsQuery.or(`curated.eq.true,id.in.(${starredIds.join(',')})`)
+      : stationsQuery.eq('curated', true);
 
     // For high-frequency polls, only fetch gauges with the flag set
     if (isHighFrequencyPoll) {

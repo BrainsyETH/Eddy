@@ -154,6 +154,20 @@ export interface MapAccessPoint {
   description?: string | null;
   amenities?: string[];
   feeRequired?: boolean;
+  /**
+   * Photographs of the place, best first.
+   *
+   * Already on the wire — /api/rivers/[slug]/access-points has sent
+   * `imageUrls` since the imagery backfill — and simply never declared here, so
+   * the app listed put-ins as three lines of text while the website showed what
+   * each one looks like. That difference matters more than it sounds: "Cedar
+   * Grove Access" is a name, and a photo of a gravel ramp with room for two
+   * cars is the thing that tells you whether you can get a trailer down it.
+   *
+   * OPTIONAL and possibly EMPTY. Coverage is partial and always will be, so
+   * every consumer has to have a no-photo layout that is not an apology.
+   */
+  imageUrls?: string[];
 }
 
 export interface AccessPointsResponse {
@@ -388,6 +402,57 @@ export interface MapGauge {
 
 export interface GaugesResponse {
   gauges: MapGauge[];
+}
+
+// ── The national tier (GET /api/gauges/map) ──────────────────────────────────
+// "All Gauges" from docs/EDDY_IOS_STRATEGY.md: ~14,000 USGS stream gauges the
+// map draws by viewport. A SEPARATE type from MapGauge rather than a widened
+// one, for two reasons:
+//
+//   1. MapGauge carries a thresholds array with twelve level columns per linked
+//      river. Repeating that shape for hundreds of gauges per pan is a payload
+//      that exists to be thrown away — a reference gauge has no ladder.
+//   2. The two are graded by different code and MUST NOT be confused.
+//      gaugeConditionCode() takes a MapGauge and answers a floatability
+//      verdict; a MapGaugeLite gets a flow band, which is a comparison to this
+//      site's own history and never a verdict. Keeping them structurally
+//      distinct is what stops the second becoming the first by accident.
+
+export interface MapGaugeLite {
+  /** gauge_stations.id — the key stars are stored under. */
+  id: string;
+  /** USGS site number, e.g. "07019000". */
+  siteId: string;
+  name: string;
+  /** Nested to match MapGauge, so hasCoordinates() applies unchanged. */
+  coordinates: { lng: number; lat: number };
+  dischargeCfs: number | null;
+  gaugeHeightFt: number | null;
+  readingTimestamp: string | null;
+  readingAgeHours: number | null;
+  /** USGS qualifier codes flag this reading as ice-affected, estimated, or bad. */
+  readingSuspect: boolean;
+  /**
+   * Eddy rates this gauge against a river. When true, the full ladder is
+   * available from /api/gauges — this payload deliberately does not carry it.
+   */
+  curated: boolean;
+  /**
+   * 0-100 against this site's own discharge on this day of the year.
+   *
+   * null means we hold no statistics for the site, which is common and is NOT
+   * an error: it renders as a neutral pin. Grade it with flowBand() from
+   * @eddy/conditions/flow-band — never with the condition ladder.
+   */
+  flowPercentile: number | null;
+}
+
+export interface MapGaugesResponse {
+  gauges: MapGaugeLite[];
+  /** True when the cap dropped lower-discharge gauges; the UI discloses it. */
+  capped: boolean;
+  /** How many matched before the cap — what lets the UI say "300 of 1,240". */
+  total: number;
 }
 
 /** Rejects null island, which /api/gauges emits for an unparseable location. */
@@ -638,6 +703,16 @@ export interface RiverOutlookResponse {
   trend: RiverReadingTrend | null;
   currentCondition: ConditionCode;
   gaugeName: string | null;
+  /**
+   * The station this whole answer describes.
+   *
+   * OPTIONAL, because an app build can outrun a deploy. When a caller asked for
+   * a specific gauge, this is how it tells whether it got one — an unknown id
+   * falls back to the river's primary rather than failing, and a screen that
+   * could not see the difference would label the primary's forecast and read
+   * with the name of a station ninety miles away.
+   */
+  gaugeStationId?: string | null;
   /**
    * The town the weather above was actually fetched at.
    *

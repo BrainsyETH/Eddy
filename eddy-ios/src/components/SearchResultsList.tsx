@@ -10,14 +10,40 @@ import { memo } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { SearchResult, SearchResultKind } from '@eddy/types';
+import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
+/**
+ * Eddy's own mark for the two kinds that have one.
+ *
+ * A row here is scanned for its KIND before its name — three results called
+ * "Akers" are a river, a gauge and a ramp — and a branded droplet against a
+ * branded pin separates two of those at a glance in a way that two grey
+ * outline glyphs never did.
+ */
+const KIND_SYMBOL: Partial<Record<SearchResultKind, EddySymbolName>> = {
+  gauge: 'gauge',
+  access_point: 'accessPoint',
+};
+
+/** The fallback, for kinds the catalog has no mark for. */
 const KIND_ICON: Record<SearchResultKind, React.ComponentProps<typeof Ionicons>['name']> = {
   river: 'water-outline',
   gauge: 'speedometer-outline',
   access_point: 'location-outline',
 };
+
+const MARK_SIZE = 17;
+
+function KindMark({ kind, color }: { kind: SearchResultKind; color: string }) {
+  const symbol = KIND_SYMBOL[kind];
+  return symbol ? (
+    <EddySymbol name={symbol} size={MARK_SIZE} />
+  ) : (
+    <Ionicons name={KIND_ICON[kind]} size={MARK_SIZE} color={color} />
+  );
+}
 
 interface Props {
   results: SearchResult[];
@@ -59,7 +85,7 @@ function SearchResultsListComponent({ results, onSelect, emptyMessage, loading }
             accessibilityRole="button"
             accessibilityLabel={[item.name, item.subtitle].filter(Boolean).join(', ')}
           >
-            <Ionicons name={KIND_ICON[item.kind]} size={17} color={colors.textMuted} />
+            <KindMark kind={item.kind} color={colors.textMuted} />
             <View style={styles.rowText}>
               <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
                 {item.name}

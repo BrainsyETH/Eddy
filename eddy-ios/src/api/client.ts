@@ -19,6 +19,7 @@ import type {
   HazardsResponse,
   MapAccessPoint,
   MapGauge,
+  MapGaugesResponse,
   PlanResponse,
   RiverConditionDetail,
   RiverDetail,
@@ -260,6 +261,40 @@ export async function fetchGauges(signal?: AbortSignal): Promise<MapGauge[]> {
 }
 
 /**
+ * Gauges inside a viewport — the national "All Gauges" tier.
+ *
+ * A DIFFERENT endpoint from fetchGauges above, not a parameter on it. That one
+ * returns the ~46 gauges Eddy has rated, with the full ladder each river grades
+ * against, and it stays exactly as it is. This one returns up to a few hundred
+ * of the ~14,000 USGS stream gauges in the country, with a reading and a
+ * percentile and no ladder at all — because there isn't one.
+ *
+ * Callers must quantize and pad the bbox first (`quantizeBbox`/`padBbox` in
+ * @eddy/geo). A raw camera bbox is a fresh URL on every pan, which is a CDN
+ * miss every time; the grid is what makes this cacheable.
+ *
+ * `capped` comes back true when the server dropped lower-discharge gauges to
+ * meet the limit — surface it rather than silently showing a third of the map.
+ * Curated gauges are ordered first server-side, so the cap can never drop one.
+ */
+export async function fetchMapGauges(
+  bbox: [number, number, number, number],
+  options?: { limit?: number; curatedOnly?: boolean },
+  signal?: AbortSignal,
+): Promise<MapGaugesResponse> {
+  const params = new URLSearchParams({ bbox: bbox.join(',') });
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.curatedOnly) params.set('curated', '1');
+
+  const data = await get<MapGaugesResponse>(`/api/gauges/map?${params.toString()}`, signal);
+  return {
+    gauges: data.gauges ?? [],
+    capped: data.capped ?? false,
+    total: data.total ?? 0,
+  };
+}
+
+/**
  * Outfitters, campgrounds and shuttles near a river.
  *
  * Not every service has been geocoded, so callers plotting these must drop the
@@ -422,6 +457,13 @@ export async function fetchCondition(
  * round trips at a put-in, where connectivity is worst and the answer matters
  * most. The server runs the same pure functions and sends the finished object.
  *
+ * `gaugeId` — a gauge_stations id, which is what /api/gauges calls MapGauge.id
+ * — asks for the outlook AT THAT STATION rather than at the river's rated one:
+ * its weather, its hydrograph, its condition and its own written report. Omit
+ * it for the river as a whole. An id the river does not rate falls back to the
+ * primary server-side, and the response names the station it used, so a caller
+ * that cares must compare `gaugeStationId` rather than assume.
+ *
  * Returns null when the river has no primary gauge or the endpoint fails — the
  * caller hides the panel rather than showing an error, because a river without
  * a forecast is an ordinary state.
@@ -429,9 +471,11 @@ export async function fetchCondition(
 export async function fetchRiverOutlook(
   slug: string,
   signal?: AbortSignal,
+  gaugeId?: string | null,
 ): Promise<RiverOutlookResponse | null> {
+  const query = gaugeId ? `?gaugeId=${encodeURIComponent(gaugeId)}` : '';
   const data = await get<RiverOutlookResponse>(
-    `/api/rivers/${encodeURIComponent(slug)}/outlook`,
+    `/api/rivers/${encodeURIComponent(slug)}/outlook${query}`,
     signal,
   );
   return data.available ? data : null;

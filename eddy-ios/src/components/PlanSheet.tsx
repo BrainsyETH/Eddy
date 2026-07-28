@@ -35,6 +35,8 @@ import { accessTypeLabel } from '@eddy/types';
 import { saveFloatPlan } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { EddyScene } from '@/components/EddyScene';
+import { EddySymbol } from '@/components/EddySymbol';
 import { Otter } from '@/components/Otter';
 import { PlanResult } from '@/components/PlanResult';
 import type { FloatPlanState } from '@/hooks/useFloatPlan';
@@ -57,8 +59,10 @@ interface Props {
 
 export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Props) {
   const { colors } = useTheme();
-  const { remember } = useSavedFloats();
+  const { remember, isSaved, forgetPlan } = useSavedFloats();
   const [sharing, setSharing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const { step, putIn, takeOut, plan, calculating, error } = state;
 
@@ -67,10 +71,11 @@ export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Pr
     setSharing(true);
     try {
       const saved = await saveFloatPlan(plan);
-      // Recorded BEFORE the share sheet opens. Whether they actually send it is
-      // between them and their group chat; the plan exists either way, and this
-      // is the only place its code is ever handed to us.
-      remember(plan, saved);
+      // NOT remembered. Sharing a float writes a row server-side — that is how
+      // the link exists at all — but it says nothing about whether the sender
+      // wants to keep it, and filing every share under Favorites made that list
+      // a log of things sent rather than a list of things chosen. The star
+      // beside this button is where keeping happens now.
       const time = plan.floatTime?.formatted ?? 'no estimate in this water';
       await Share.share({
         message: `${plan.putIn.name} → ${plan.takeOut.name} on the ${plan.river.name} · ${plan.distance.formatted} · ${time}\n${saved.url}`,
@@ -84,7 +89,39 @@ export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Pr
     } finally {
       setSharing(false);
     }
-  }, [plan, remember]);
+  }, [plan]);
+
+  const saved = plan ? isSaved(plan) : false;
+
+  /**
+   * Keep this float, or stop keeping it.
+   *
+   * ONE ROUND TRIP, and it is not optional. What Favorites stores is a stub —
+   * the river, the two ends, the date — and the plan itself is always re-read
+   * from the server when you open it, because a float kept in April and opened
+   * in July is the same stretch and completely different water. The server row
+   * is what makes that re-read possible, so keeping a float means asking for
+   * one. See the header of useSavedFloats.
+   *
+   * A failure says so and changes nothing. A star that fills in and then has
+   * nothing behind it is worse than a star that refuses.
+   */
+  const onToggleSave = useCallback(async () => {
+    if (!plan) return;
+    setSaveError(null);
+    if (saved) {
+      forgetPlan(plan);
+      return;
+    }
+    setSaving(true);
+    try {
+      remember(plan, await saveFloatPlan(plan));
+    } catch {
+      setSaveError('Could not save this float. Check your connection and try again.');
+    } finally {
+      setSaving(false);
+    }
+  }, [plan, saved, remember, forgetPlan]);
 
   return (
     <Modal
@@ -144,24 +181,73 @@ export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Pr
             plan={plan}
             actions={
               <View style={styles.actions}>
-                <Pressable
-                  onPress={() => void onShare()}
-                  disabled={sharing}
-                  style={({ pressed }) => [
-                    styles.primaryButton,
-                    { backgroundColor: pressed ? colors.accentPressed : colors.accent },
-                  ]}
-                  accessibilityRole="button"
-                >
-                  {sharing ? (
-                    <ActivityIndicator color={colors.onAccent} size="small" />
-                  ) : (
-                    <Ionicons name="share-outline" size={17} color={colors.onAccent} />
-                  )}
-                  <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>
-                    Share this float
-                  </Text>
-                </Pressable>
+                {/* Keep and Share, side by side and the same size, because they
+                    are two different intentions and neither is a side effect of
+                    the other. Share used to quietly do both. */}
+                <View style={styles.actionRow}>
+                  <Pressable
+                    onPress={() => void onToggleSave()}
+                    disabled={saving}
+                    style={({ pressed }) => [
+                      styles.saveButton,
+                      {
+                        borderColor: saved ? colors.warm : colors.border,
+                        backgroundColor: saved ? colors.cardRaised : 'transparent',
+                        opacity: pressed ? 0.6 : 1,
+                      },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: saved }}
+                    accessibilityLabel={
+                      saved ? 'Remove this float from favorites' : 'Save this float to favorites'
+                    }
+                  >
+                    {saving ? (
+                      <ActivityIndicator color={colors.accent} size="small" />
+                    ) : (
+                      <Ionicons
+                        name={saved ? 'star' : 'star-outline'}
+                        size={17}
+                        color={saved ? colors.warm : colors.textMuted}
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.saveButtonText,
+                        { color: saved ? colors.text : colors.textMuted },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {saved ? 'Saved' : 'Save'}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => void onShare()}
+                    disabled={sharing}
+                    style={({ pressed }) => [
+                      styles.primaryButton,
+                      { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+                    ]}
+                    accessibilityRole="button"
+                  >
+                    {sharing ? (
+                      <ActivityIndicator color={colors.onAccent} size="small" />
+                    ) : (
+                      <Ionicons name="share-outline" size={17} color={colors.onAccent} />
+                    )}
+                    <Text
+                      style={[styles.primaryButtonText, { color: colors.onAccent }]}
+                      numberOfLines={1}
+                    >
+                      Share
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {saveError ? (
+                  <Text style={[styles.actionError, { color: colors.error }]}>{saveError}</Text>
+                ) : null}
 
                 <Pressable
                   onPress={state.reset}
@@ -278,7 +364,11 @@ function AccessPointList({
   if (points.length === 0) {
     return (
       <View style={styles.centered}>
-        <Otter mood="yellow" size={100} />
+        {/* Both messages this renders are about picking a point — no mapped
+            access points, or nothing downstream of the put-in — so it shows
+            Eddy over a map, not a mood for a river nobody has read.
+            The error branch above keeps the canonical `flag` otter. */}
+        <EddyScene name="routePlanning" size={100} />
         <Text style={[styles.emptyText, { color: colors.textMuted }]}>{emptyMessage}</Text>
       </View>
     );
@@ -328,11 +418,15 @@ function AccessPointList({
             accessibilityRole="button"
             accessibilityState={{ selected }}
           >
-            <Ionicons
-              name={point.isPublic ? 'location' : 'lock-closed-outline'}
-              size={17}
-              color={point.isPublic ? colors.accent : colors.textSubtle}
-            />
+            {/* Eddy's pin for a public access point; the padlock stays an
+                Ionicon, because "you cannot get on here without permission" is
+                a different fact about the place rather than a prettier way of
+                drawing the same one, and the catalog has no mark for it. */}
+            {point.isPublic ? (
+              <EddySymbol name="accessPoint" size={17} />
+            ) : (
+              <Ionicons name="lock-closed-outline" size={17} color={colors.textSubtle} />
+            )}
             <View style={styles.optionBody}>
               <Text style={[styles.optionName, { color: colors.text }]} numberOfLines={1}>
                 {point.name}
@@ -409,7 +503,23 @@ const styles = StyleSheet.create({
   errorText: { ...t.base, fontFamily: fonts.semibold, textAlign: 'center' },
   link: { ...t.sm, fontFamily: fonts.semibold },
   actions: { gap: 10, marginTop: 6 },
+  actionRow: { flexDirection: 'row', gap: 10 },
+  // Both flex:1, so the two intentions carry the same weight. Share keeps the
+  // accent — it is still the thing most people do with a finished plan — and
+  // Save is outlined until it is on, when it wears the star's own warm edge.
+  saveButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  saveButtonText: { ...t.base, fontFamily: fonts.heading },
   primaryButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -418,6 +528,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   primaryButtonText: { ...t.base, fontFamily: fonts.heading },
+  actionError: { ...t.xs, fontFamily: fonts.body, textAlign: 'center' },
   secondaryButton: { alignItems: 'center', paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
   secondaryButtonText: { ...t.sm, fontFamily: fonts.semibold },
 });

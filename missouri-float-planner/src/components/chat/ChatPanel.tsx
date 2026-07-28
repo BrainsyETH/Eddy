@@ -13,6 +13,7 @@ import remarkBreaks from 'remark-breaks';
 import { Send, Loader2, AlertCircle, Trash2, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
 import { EDDY_IMAGES } from '@/constants';
+import { EddyIcon } from '@/components/ui/EddyIcon';
 
 interface ChatPanelProps {
   riverSlug?: string;
@@ -73,13 +74,11 @@ export default function ChatPanel({ riverSlug }: ChatPanelProps) {
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {showWelcome && (
           <div className="text-center py-6">
-            <Image
-              src={EDDY_IMAGES.favicon}
-              alt="Eddy"
-              width={72}
-              height={72}
-              className="mx-auto mb-3 rounded-2xl shadow-md"
-            />
+            {/* The catalog's greeting, for the one screen that is a greeting —
+                the heading under it literally reads "Hey, I'm Eddy". The 28px
+                avatar on each reply below stays the favicon: these are
+                full-body scenes and a whole otter at 28px is a smudge. */}
+            <EddyIcon name="wave" size={72} className="mx-auto mb-3" />
             <h2
               className="text-lg font-bold text-primary-800 mb-1"
               style={{ fontFamily: 'var(--font-display)' }}

@@ -136,10 +136,10 @@ test('junk entries in the local store are ignored', () => {
 // ── toggling ─────────────────────────────────────────────────────
 
 test('toggling writes a tombstone rather than deleting the entry', () => {
-  const first = toggleLocal([], { entityId: 'current', name: 'Current', slug: 'current' }, EARLY);
+  const first = toggleLocal([], { kind: 'river' as const, entityId: 'current', name: 'Current', slug: 'current' }, EARLY);
   assert.equal(first[0].starred, true);
 
-  const second = toggleLocal(first, { entityId: 'current', name: 'Current', slug: 'current' }, LATE);
+  const second = toggleLocal(first, { kind: 'river' as const, entityId: 'current', name: 'Current', slug: 'current' }, LATE);
   assert.equal(second.length, 1, 'the entry must remain, carrying starred: false');
   assert.equal(second[0].starred, false);
   assert.equal(second[0].updatedAt, LATE);
@@ -147,7 +147,7 @@ test('toggling writes a tombstone rather than deleting the entry', () => {
 
 test('toggling never duplicates a river', () => {
   let list: LocalStar[] = [];
-  const river = { entityId: 'current', name: 'Current', slug: 'current' };
+  const river = { kind: 'river' as const, entityId: 'current', name: 'Current', slug: 'current' };
   for (let i = 0; i < 5; i++) list = toggleLocal(list, river, EARLY);
   assert.equal(list.length, 1);
   assert.equal(list[0].starred, true, 'five toggles from empty should end starred');
