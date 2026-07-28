@@ -112,7 +112,10 @@ export function RiverDamPanel({ dam }: { dam: DamSnapshot | null }) {
 }
 
 const styles = StyleSheet.create({
-  card: { marginHorizontal: 16, marginBottom: 14, borderRadius: 18, padding: 16 },
+  // No marginHorizontal: this panel appears only on the river screen, whose
+  // ScrollView already pads 16, so carrying its own margin inset it to 32 while
+  // every card beside it sat at 16. Radius matches that screen's cards too.
+  card: { marginBottom: 14, borderRadius: 16, padding: 16 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   title: { ...t.lg, fontFamily: fonts.display, flexShrink: 1 },
   releaseBlock: { marginTop: 8 },

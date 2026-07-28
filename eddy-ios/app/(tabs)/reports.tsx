@@ -359,6 +359,13 @@ export default function ReportsScreen() {
     // Rivers and dams never read `results`; both match locally out of lists
     // this screen already holds.
     enabled: SCOPE_KINDS[scope] !== null,
+    // BROWSE THE SINGLE-KIND SCOPES with an empty field. Gauges used to open on
+    // the ~45 curated stations — the only list it could show without a query —
+    // and Access opened on nothing at all. Both now list from the server and
+    // page as you scroll, so "all USGS gauges" means all 14,264 of them.
+    // The All scope is excluded on purpose: rivers, put-ins and gauges have no
+    // shared order, so "browse everything" is not a question with an answer.
+    browse: SCOPE_KINDS[scope]?.length === 1,
   });
 
   // THE HOOK OWNS THE FIELD, rather than this screen holding a second copy and
@@ -502,25 +509,29 @@ export default function ReportsScreen() {
   );
 
   /**
-   * The gauge rows, from whichever source can answer.
+   * The gauge rows.
    *
-   * TYPED: the server's full-network search, ~14,300 stations.
-   * NOT TYPED: the ~46 Eddy has rated, listed straight out of /api/gauges.
+   * THE SERVER ANSWERS BOTH STATES NOW — a typed query searches all 14,264
+   * stations, an empty field browses them curated-first — so this is one source
+   * rather than two.
    *
-   * That second half is new, and it is what stops this scope opening on
-   * nothing. Rivers and Dams both render their whole list with an empty field
-   * while Gauges and Access rendered zero rows and zero on every chip — the
-   * same blank an actually-broken search produces, which is exactly how it
-   * read. A scope you cannot browse is a scope you have to already know the
-   * answer to use.
+   * It used to fall back to the ~45 curated stations from /api/gauges whenever
+   * the field was empty, which is where "the Gauges tab only shows 45" came
+   * from. It was never a filter or a slice: it was the browse list, and there
+   * was no way to ask for the forty-sixth because the endpoint took a limit and
+   * no offset. Both halves are fixed in 00207.
    *
-   * The rated set is the honest thing to browse, too: it is bounded, it is the
-   * tier that carries verdicts, and it is already in memory. Listing 14,300
-   * national stations would be a scroll, not a list.
+   * The curated list stays as a LAST RESORT for the case the server cannot
+   * answer at all — offline, or a website older than the browse change. Forty-
+   * five stations out of memory beats an empty screen, and it is the tier that
+   * carries verdicts.
    */
   const gaugeResults = useMemo(() => {
-    const typed = search.results.filter((r) => r.kind === 'gauge');
-    if (typed.length > 0 || !shortQuery) return typed;
+    const fromServer = search.results.filter((r) => r.kind === 'gauge');
+    if (fromServer.length > 0) return fromServer;
+    // Only when nothing was typed. A real query that genuinely matches no
+    // station must render "nothing found", never a list of unrelated ones.
+    if (!shortQuery) return fromServer;
     return (gauges ?? []).map(gaugeToSearchResult);
   }, [search.results, shortQuery, gauges]);
 
@@ -839,12 +850,12 @@ export default function ReportsScreen() {
    * Rivers and dams are local — both render their full list with an empty
    * field — so neither has a "type to search" state at all.
    */
-  // GAUGES IS NO LONGER ONE. It still asks the server once something is typed,
-  // but with an empty field it lists the rated stations out of memory, so it
-  // has rows to show and needs no "type to search" state — the same as rivers
-  // and dams. Access is the last scope with nothing to browse: several hundred
-  // put-ins served per river, which is the reason /api/search exists.
-  const serverScope = scope === 'access';
+  // NO SCOPE IS ONE ANY MORE. Gauges and Access both browse from the server
+  // with an empty field, so every scope on this screen opens with rows the way
+  // Rivers and Dams always did. What survives is the LOADING state: those two
+  // wait on a request where the local scopes do not, and a blank list under a
+  // scope that has not answered yet reads as "there is nothing here".
+  const awaitingServer = SCOPE_KINDS[scope] !== null && search.searching;
   // The All scope shows no chip row at all — a chip belongs to a kind, and
   // there is no filter that means the same thing to a river, a gauge, an access
   // point and a dam at once. So a query is the only thing that can be narrowing
@@ -1035,15 +1046,12 @@ export default function ReportsScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            {/* A query too short to have been ASKED must not be reported as
-                having found nothing — below two characters neither this screen
-                nor the server has run a search, and "nothing matches" would be
-                a claim about the database. */}
-            {serverScope && shortQuery && !error ? (
-              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                Search every access point on Eddy&rsquo;s rivers by name.
-              </Text>
-            ) : search.searching && serverScope ? (
+            {/* A scope still waiting on its first answer has not FOUND nothing;
+                it has not looked yet. Saying "nothing matches" here would be a
+                claim about the database made before reading it — and it is the
+                claim a blank list makes on its own, which is why the spinner
+                has to win this branch. */}
+            {awaitingServer && !error ? (
               <ActivityIndicator color={colors.interactive} />
             ) : (
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
@@ -1058,6 +1066,23 @@ export default function ReportsScreen() {
               </Text>
             )}
           </View>
+        }
+        // ── Paging ────────────────────────────────────────────────
+        // Only the scopes the server answers can page; rivers and dams are
+        // whole lists already in memory and `loadMore` is a no-op for them.
+        //
+        // 0.6 rather than the default 2: a screenful further down the list is
+        // early enough that the next page usually lands before the user reaches
+        // it, and late enough that opening a scope does not immediately fetch a
+        // second page nobody scrolled toward.
+        onEndReached={search.loadMore}
+        onEndReachedThreshold={0.6}
+        ListFooterComponent={
+          search.hasMore || (search.searching && rows.length > 0) ? (
+            <View style={styles.footer}>
+              <ActivityIndicator color={colors.interactive} />
+            </View>
+          ) : null
         }
         renderItem={({ item }) => {
           // A heading, only ever emitted by the All scope. It carries its own
@@ -1272,6 +1297,7 @@ const styles = StyleSheet.create({
   accessBody: { flex: 1 },
   accessName: { ...t.sm, fontFamily: fonts.semibold },
   accessMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  footer: { paddingVertical: 20, alignItems: 'center' },
   empty: { padding: 32, alignItems: 'center' },
   emptyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
   sectionHeader: {

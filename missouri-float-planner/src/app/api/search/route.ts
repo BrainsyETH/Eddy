@@ -30,7 +30,7 @@ export const dynamic = 'force-dynamic';
 /** Below this a query matches most of the database and helps nobody. */
 const MIN_QUERY_LENGTH = 2;
 const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 50;
+const MAX_LIMIT = 100;
 
 export type SearchResultKind = 'river' | 'gauge' | 'access_point';
 
@@ -145,18 +145,31 @@ export interface SearchResult {
 export interface SearchResponse {
   query: string;
   results: SearchResult[];
+  /**
+   * Whether another page exists past this one.
+   *
+   * Computed by asking each source for one row more than the page needs and
+   * throwing it away, which is the only way to know without a second COUNT over
+   * 14k rows. A client must not infer it from `results.length === limit` — a
+   * multi-kind page is allocated across kinds and can come back short while
+   * every kind still has more.
+   */
+  hasMore: boolean;
 }
 
 /**
  * Escapes a user string for PostgREST's `ilike` pattern syntax.
  *
- * `%` and `_` are wildcards and `\` escapes them, so a raw query containing any
- * of the three either matches far too much or errors. Commas and parentheses go
- * too: PostgREST parses the filter string itself, and an unescaped comma inside
- * an `.or()` splits it into two filters.
+ * `%`, `_` and `*` are wildcards and `\` escapes them, so a raw query
+ * containing any of them either matches far too much or errors. Commas,
+ * parentheses and dots go too: PostgREST parses the filter string itself, and
+ * an unescaped comma inside an `.or()` splits it into two filters.
+ *
+ * `*` joined the set when the access-point branch started using `.or()`, where
+ * `*` — not `%` — is the wildcard PostgREST reads.
  */
-function escapeLike(input: string): string {
-  return input.replace(/[\\%_(),]/g, '');
+export function escapeLike(input: string): string {
+  return input.replace(/[\\%_*(),]/g, '');
 }
 
 /**
@@ -206,6 +219,13 @@ async function _GET(request: NextRequest) {
       MAX_LIMIT,
       Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') ?? '', 10) || DEFAULT_LIMIT),
     );
+    // Per KIND, not across the flat result list. The phone pages one scope at a
+    // time, and a shared offset over an allocated page would skip rows in
+    // whichever kind happened to be under-represented on the page before.
+    const offset = Math.max(
+      0,
+      parseInt(request.nextUrl.searchParams.get('offset') ?? '', 10) || 0,
+    );
 
     // Which kinds the caller wants back. The phone's Search tab is scoped —
     // one segmented control, exactly one kind at a time — so asking for all
@@ -214,15 +234,37 @@ async function _GET(request: NextRequest) {
     const kinds = parseKinds(request.nextUrl.searchParams.get('kinds'));
     const wants = (kind: SearchResultKind) => kinds.includes(kind);
 
-    if (raw.length < MIN_QUERY_LENGTH) {
-      return NextResponse.json<SearchResponse>({ query: raw, results: [] });
+    /**
+     * BROWSE: an empty `q` against exactly one kind is a request to list that
+     * kind, not to search it.
+     *
+     * This is what fixed two tabs at once. The Gauges scope opened on the ~45
+     * curated stations because a list was the only thing it could show without
+     * a query, and the Access scope opened on nothing at all — "Search every
+     * access point by name", over a database of 308 of them, none of which
+     * could be seen without first guessing one's name. Neither tab was broken;
+     * neither had a way to say "just show me what there is".
+     *
+     * ONE KIND ONLY. "Browse everything" is not a question with an answer —
+     * rivers, put-ins and gauges have no shared order — and an unscoped empty
+     * query stays an empty result, which is also what every existing caller
+     * already gets for it.
+     */
+    const browse = raw.length === 0 && kinds.length === 1;
+
+    if (!browse && raw.length < MIN_QUERY_LENGTH) {
+      return NextResponse.json<SearchResponse>({ query: raw, results: [], hasMore: false });
     }
 
     const needle = escapeLike(raw);
-    if (!needle) {
-      return NextResponse.json<SearchResponse>({ query: raw, results: [] });
+    if (!browse && !needle) {
+      return NextResponse.json<SearchResponse>({ query: raw, results: [], hasMore: false });
     }
     const pattern = `%${needle}%`;
+
+    // One row past the page, discarded before it is returned. Cheaper than a
+    // COUNT and exact, which an estimate would not be.
+    const probe = limit + 1;
 
     const supabase = await createClient();
 
@@ -245,21 +287,26 @@ async function _GET(request: NextRequest) {
     const activeRiverIds = [...riverById.keys()];
 
     if (activeRiverIds.length === 0) {
-      return NextResponse.json<SearchResponse>({ query: raw, results: [] });
+      return NextResponse.json<SearchResponse>({ query: raw, results: [], hasMore: false });
     }
 
     const lowered = needle.toLowerCase();
 
+    /** Rivers the query names, for the access-point join below. */
+    const matchedRivers = (rivers ?? []).filter(
+      (r) =>
+        r.name?.toLowerCase().includes(lowered) ||
+        r.slug?.toLowerCase().includes(lowered) ||
+        r.region?.toLowerCase().includes(lowered),
+    );
+
     // ── Rivers ──────────────────────────────────────────────────
     // Filtered in memory. The list is already loaded and small, and matching
-    // here lets a region ("Ozarks") hit as well as a name.
-    const riverResults: SearchResult[] = (wants('river') ? (rivers ?? []) : [])
-      .filter(
-        (r) =>
-          r.name?.toLowerCase().includes(lowered) ||
-          r.slug?.toLowerCase().includes(lowered) ||
-          r.region?.toLowerCase().includes(lowered),
-      )
+    // here lets a region ("Ozarks") hit as well as a name. Browse returns them
+    // in the name order they were fetched in.
+    const riverResults: SearchResult[] = (
+      wants('river') ? (browse ? (rivers ?? []) : matchedRivers) : []
+    )
       .map((r) => ({
         kind: 'river' as const,
         id: r.id,
@@ -273,17 +320,46 @@ async function _GET(request: NextRequest) {
       }));
 
     // ── Access points ───────────────────────────────────────────
-    const { data: accessRows, error: accessError } = wants('access_point')
-      ? await supabase
+    //
+    // MATCHED ON THEIR RIVER AS WELL AS THEIR OWN NAME. This used to be
+    // `ilike('name', …)` alone, and the result was that `?q=current` against
+    // the access kind returned ZERO — while the Current River has dozens of
+    // approved put-ins, and while every row this endpoint returns prints its
+    // river in the subtitle. The one word a person is most likely to type was
+    // the one word that could not match, and the rows said so on their face.
+    //
+    // The river half is resolved in memory against `rivers`, which is already
+    // loaded, so it costs an `in (…)` on an indexed column rather than a join.
+    const accessRiverIds = matchedRivers.map((r) => r.id);
+    // `*`, not `%`, inside an `or()` string: PostgREST parses that filter list
+    // itself and translates `*` to the SQL wildcard, so this needs no thought
+    // about how a literal percent survives being put in a query string.
+    const accessFilter = accessRiverIds.length
+      ? `name.ilike.*${needle}*,river_id.in.(${accessRiverIds.join(',')})`
+      : null;
+
+    const accessQuery = wants('access_point')
+      ? supabase
           .from('access_points')
           .select(
             'id, name, slug, river_id, river_mile_downstream, type, location_orig, location_snap',
           )
           .eq('approved', true)
           .in('river_id', activeRiverIds)
-          .ilike('name', pattern)
+      : null;
+
+    const { data: accessRows, error: accessError } = accessQuery
+      ? await (browse
+          ? accessQuery
+          : accessFilter
+            ? accessQuery.or(accessFilter)
+            : accessQuery.ilike('name', pattern)
+        )
           .order('name', { ascending: true })
-          .limit(limit)
+          // A total order. `name` is not unique across rivers — "Boat Ramp"
+          // exists more than once — and paging an unstable tail repeats rows.
+          .order('id', { ascending: true })
+          .range(offset, offset + probe - 1)
       : { data: null, error: null };
 
     if (accessError) console.error('Access point search failed (non-fatal):', accessError);
@@ -347,12 +423,47 @@ async function _GET(request: NextRequest) {
     // It also matches site ids by PREFIX rather than by substring, which is the
     // one behavioural difference: "7019000" no longer finds 07019000. A site
     // number is read left to right and nobody searches from its middle.
-    const { data: gaugeRpcRows, error: gaugeError } = wants('gauge')
-      ? await createAdminClient().rpc('search_gauges', {
-          p_query: needle,
-          p_limit: limit,
-        })
-      : { data: null, error: null };
+    //
+    // p_offset and the empty-query browse arrived with 00207. An empty p_query
+    // means "no name filter", which is how the Gauges scope can now be scrolled
+    // through all 14,264 stations instead of opening on the 45 curated ones and
+    // stopping there.
+    //
+    // WITH A FALLBACK TO THE 00196 SIGNATURE, because code and migrations do not
+    // deploy together. Vercel ships this file the moment it merges; 00207 is
+    // applied by hand. In the window between the two, `p_offset` is an argument
+    // no function has, PostgREST answers PGRST202, and gaugeError is non-fatal —
+    // so the Gauges scope would quietly return NOTHING rather than degrading to
+    // its old behaviour. Retrying without the offset gives back exactly the
+    // first page, which is what this endpoint served before today.
+    //
+    // The same posture the river_gauges block below takes for its alt columns.
+    const admin = wants('gauge') ? createAdminClient() : null;
+    let gaugeRpcRows: unknown = null;
+    let gaugeError: { message?: string } | null = null;
+
+    if (admin) {
+      const paged = await admin.rpc('search_gauges', {
+        p_query: browse ? '' : needle,
+        p_limit: probe,
+        p_offset: offset,
+      });
+
+      if (paged.error) {
+        console.warn('[search] paged search_gauges unavailable, retrying unpaged:', paged.error.message);
+        // Browse has no unpaged equivalent — the old signature would match every
+        // station against '%%' in an order nobody chose — so it asks for nothing
+        // rather than for something arbitrary, and the client's curated fallback
+        // fills the scope until the migration lands.
+        const legacy = browse
+          ? { data: [], error: null }
+          : await admin.rpc('search_gauges', { p_query: needle, p_limit: limit });
+        gaugeRpcRows = legacy.data;
+        gaugeError = legacy.error;
+      } else {
+        gaugeRpcRows = paged.data;
+      }
+    }
 
     interface SearchGaugeRow {
       id: string;
@@ -452,24 +563,42 @@ async function _GET(request: NextRequest) {
     const byRelevance = (a: SearchResult, b: SearchResult) =>
       rank(a) - rank(b) || a.name.localeCompare(b.name);
 
+    // BROWSE DOES NOT RE-RANK. Relevance is a comparison against the query, and
+    // there is no query — sorting a browse list by how well each row matches ""
+    // would shuffle it into the order `localeCompare` happens to produce, on
+    // top of the order the database was asked for. Each source already returns
+    // browse rows sorted the way that kind should be listed.
+    const ordered = (rows: SearchResult[]) => (browse ? rows : [...rows].sort(byRelevance));
+
+    // Rivers are the one source paged in memory: the list is small, already
+    // loaded, and matched here rather than in SQL. The other two page in the
+    // database, and have had `offset` applied before they got here.
+    const pagedRivers = riverResults.slice(offset, offset + probe);
+
+    const groups = (
+      [
+        { kind: 'river', results: ordered(pagedRivers) },
+        { kind: 'access_point', results: ordered(accessResults) },
+        { kind: 'gauge', results: ordered(gaugeResults) },
+      ] as const satisfies readonly { kind: SearchResultKind; results: SearchResult[] }[]
+    ).filter((g) => wants(g.kind));
+
+    // The probe row, read and then dropped. A kind that filled its probe has at
+    // least one more row behind this page.
+    const hasMore = groups.some((g) => g.results.length > limit);
+
     // Allocated per kind rather than sliced off a concatenation — see
     // allocateByKind for the bug that change fixes. The ORDER of the groups is
     // still rivers, then access points, then gauges: a person typing "current"
     // wants the Current River, not Current River at Van Buren gauge. What has
     // changed is that being third no longer means being cut.
     const results = allocateByKind(
-      (
-        [
-          { kind: 'river', results: riverResults.sort(byRelevance) },
-          { kind: 'access_point', results: accessResults.sort(byRelevance) },
-          { kind: 'gauge', results: gaugeResults.sort(byRelevance) },
-        ] as const satisfies readonly { kind: SearchResultKind; results: SearchResult[] }[]
-      ).filter((g) => wants(g.kind)),
+      groups.map((g) => ({ kind: g.kind, results: g.results.slice(0, limit) })),
       limit,
     );
 
     return NextResponse.json<SearchResponse>(
-      { query: raw, results },
+      { query: raw, results, hasMore },
       { headers: cdnCacheHeaders(300, 3600) },
     );
   } catch (error) {

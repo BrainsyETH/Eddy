@@ -141,8 +141,6 @@ const PIN_ICONS: Record<PinShape, { image: string; anchor: 'center' | 'bottom'; 
 const PIN_IMAGES = {
   'gauge-drop': { image: require('../../assets/map/gauge-drop.png'), sdf: true, scale: 3 },
   'poi-pin': { image: require('../../assets/map/poi-pin.png'), sdf: true, scale: 3 },
-  'private-lock-pin': { image: require('../../assets/map/private-lock-pin.png'), sdf: true, scale: 3 },
-  'private-lock-center': { image: require('../../assets/map/private-lock-center.png'), sdf: true, scale: 3 },
   'hazard-warning': { image: require('../../assets/map/hazard-warning.png'), sdf: true, scale: 3 },
   'campground-tent': { image: require('../../assets/map/campground-tent.png'), sdf: true, scale: 3 },
   'outfitter-canoe': { image: require('../../assets/map/outfitter-canoe.png'), sdf: true, scale: 3 },
@@ -934,25 +932,16 @@ export function RiverMap({
             }}
           />
         )}
-        {/* Privacy has to be visible before selection. It is a white lock laid
-            over the layer-coloured silhouette, rather than another colour that
-            could be mistaken for condition or severity. Two aligned canvases
-            keep it centred both on a bottom-anchored access pin and on the tent
-            used when only the campground layer is enabled. */}
-        <Mapbox.SymbolLayer
-          id={`pins-${id}-private`}
-          filter={['==', ['get', 'privateAccess'], true]}
-          minZoomLevel={minZoom}
-          style={{
-            iconImage: shape === 'pin' ? 'private-lock-pin' : 'private-lock-center',
-            iconColor: '#FFFFFF',
-            iconAnchor: icon?.anchor ?? 'center',
-            iconSize: selectedPinId
-              ? ['case', ['==', ['get', 'id'], selectedPinId], 1.18, 1]
-              : 1,
-            iconAllowOverlap: true,
-          }}
-        />
+        {/* NO LOCK OVERLAY HERE. A white padlock stamped on the pin was tried
+            and removed: every access point on the map is the same KIND of
+            place, and a second glyph on some of them read as a second category
+            rather than as a note about permission. Eddy's mark is the mark for
+            an access point, public or not.
+            `privateAccess` stays on the feature — the overview circles dim on
+            it, the callout says "permission may be required", and tapping one
+            into a float plan still raises a confirmation. The fact is carried
+            in words and in behaviour, which is where it survives being glanced
+            at. */}
         <Mapbox.SymbolLayer
           id={`pins-${id}-label`}
           // The higher of the two floors. A label is allowed to arrive after
@@ -1169,24 +1158,9 @@ export function RiverMap({
           iconAllowOverlap: true,
         }}
       />
-      <Mapbox.SymbolLayer
-        id="pins-access-private"
-        filter={[
-          'all',
-          ['!', ['has', 'point_count']],
-          ['==', ['get', 'privateAccess'], true],
-        ]}
-        minZoomLevel={10}
-        style={{
-          iconImage: 'private-lock-pin',
-          iconColor: '#FFFFFF',
-          iconAnchor: 'bottom',
-          iconSize: selectedPinId
-            ? ['case', ['==', ['get', 'id'], selectedPinId], 1.18, 1]
-            : 1,
-          iconAllowOverlap: true,
-        }}
-      />
+      {/* No padlock overlay — see the note in the generic pin builder above.
+          The private cue at this zoom is the callout and the confirmation
+          dialog; at overview zoom it is the dimmed circle below. */}
       <Mapbox.SymbolLayer
         id="pins-access-label"
         filter={['!', ['has', 'point_count']]}

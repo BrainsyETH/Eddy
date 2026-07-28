@@ -426,6 +426,9 @@ export default function MapScreen() {
   }, [wantsServices, selectedSlug]);
 
   // ── Search ──────────────────────────────────────────────────────
+  // No `kinds`: this field is unscoped and wants all three. Naming them would
+  // be identical — parseKinds() treats an absent list as every kind — so the
+  // omission is the honest spelling of "everything".
   const search = useEddySearch({ rivers, gauges });
 
   const clearSearch = search.clear;
@@ -452,20 +455,41 @@ export default function MapScreen() {
     // A gauge or an access point is a POINT, so the camera goes to it rather
     // than refitting the whole river — otherwise choosing "Cedar Grove Access"
     // and watching the map fit ninety miles of Current River is indistinguish-
-    // able from nothing happening. Tagged with the slug so it cannot be applied
-    // to a river it does not belong to.
-    if (result.coordinates && result.riverSlug) {
-      setFocus({ slug: result.riverSlug, lng: result.coordinates.lng, lat: result.coordinates.lat });
+    // able from nothing happening.
+    //
+    // COORDINATES ARE THE ONLY REQUIREMENT. This used to demand a riverSlug as
+    // well, which silently excluded the entire national tier: an uncurated USGS
+    // station has no river_gauges row, so its slug is null — while /api/search
+    // has returned st_x/st_y for it since 00196. Choosing "Bush Kill at
+    // Shoemakers" cleared the field and moved nothing, which is indistinguish-
+    // able from a broken search box.
+    //
+    // The slug is a TAG, not a precondition: it says which river's camera rules
+    // this target belongs to, and null means "no river's" — see activeFocus,
+    // which lets an untagged focus through unconditionally.
+    if (result.coordinates) {
+      setFocus({
+        slug: result.riverSlug ?? null,
+        lng: result.coordinates.lng,
+        lat: result.coordinates.lat,
+      });
     } else {
       setFocus(null);
     }
 
     // Turn on the layer the result lives in, so what was searched for is
-    // visible when the map arrives. Both are on by default; this covers the
+    // visible when the map arrives. All are on by default; this covers the
     // person who switched one off earlier in the session and then searched for
     // exactly that kind of thing.
+    //
+    // WHICH gauge layer depends on the tier. `gauges` is the curated one;
+    // layerGauges filters the national layer down to `!curated`, so switching on
+    // `gauges` for a reference station flies the camera to a dot that layer will
+    // never draw. Unknown tier is treated as curated, which is the safe way
+    // round: the curated layer is the smaller set and drawing it costs nothing.
     if (result.kind === 'gauge') {
-      setLayers((prev) => (prev.includes('gauges') ? prev : [...prev, 'gauges']));
+      const layer: LayerKey = result.gauge?.curated === false ? 'allGauges' : 'gauges';
+      setLayers((prev) => (prev.includes(layer) ? prev : [...prev, layer]));
     } else if (result.kind === 'access_point') {
       setLayers((prev) => (prev.includes('access') ? prev : [...prev, 'access']));
     }
@@ -681,7 +705,17 @@ export default function MapScreen() {
 
   const conditionCode = drawn?.currentCondition?.code ?? 'unknown';
   const headerCode = selected?.currentCondition?.code ?? 'unknown';
-  const activeFocus = focus && focus.slug === selectedSlug ? focus : null;
+  // A focus applies when it is tagged with the river on screen, OR when it is
+  // tagged with no river at all.
+  //
+  // The tag exists so a camera target computed for one river cannot survive into
+  // the next — pick an access point on the Current, switch to the Meramec, and
+  // the stale target must not fire. An UNTAGGED focus makes no claim about a
+  // river, so there is nothing for it to be stale against: it is a coordinate
+  // somebody just chose. Requiring `null === selectedSlug` made two things
+  // no-ops the moment any river was selected — the locate button, and every
+  // national-tier gauge picked out of search.
+  const activeFocus = focus && (focus.slug === null || focus.slug === selectedSlug) ? focus : null;
 
   // ── Where the map opens ────────────────────────────────────────────────────
   // Nothing selected, so: the user's own position if location was ALREADY
@@ -1279,7 +1313,15 @@ function PinCallout({
             <View
               style={[
                 styles.calloutThumbDot,
-                { backgroundColor: pin.color ?? layer?.color(colors) ?? colors.interactive },
+                {
+                  backgroundColor: pin.color ?? layer?.color(colors) ?? colors.interactive,
+                  // White in BOTH schemes, and inline rather than in the
+                  // StyleSheet so it is a stated exception rather than a frozen
+                  // colour the theme guard has to allow. The ring separates the
+                  // dot from a PHOTOGRAPH, which is neither light nor dark —
+                  // the same reasoning as circleStrokeColor on the map layers.
+                  borderColor: '#FFFFFF',
+                },
               ]}
             />
           </View>
@@ -1355,9 +1397,13 @@ function PinCallout({
         </View>
       ) : null}
 
+      {/* The private notice, which is now the whole of the private signal at
+          this zoom — the pin itself no longer carries a padlock. Kept as a
+          NOTE rather than a lock: "permission may be required" is a thing to
+          go and ask about, and a padlock reads as a thing that is shut. */}
       {accessPoint && !accessPoint.isPublic ? (
         <View style={[styles.calloutPrivate, { backgroundColor: colors.cardRaised }]}>
-          <Ionicons name="lock-closed-outline" size={14} color={colors.textMuted} />
+          <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
           <Text style={[styles.calloutPrivateText, { color: colors.textMuted }]}>
             Private access — permission may be required
           </Text>
@@ -1464,8 +1510,15 @@ function PinCallout({
                 styles.calloutAction,
                 styles.calloutPlanAction,
                 {
-                  backgroundColor: pressed ? colors.accentPressed : colors.accent,
-                  borderColor: pressed ? colors.accentPressed : colors.accent,
+                  // accentFill, not accent: this is a SOLID CTA carrying
+                  // `onAccent` text, and onAccent is white. White on accent[500]
+                  // does not clear 4.5:1 — accentFill (accent[700]) is the fill
+                  // the white was chosen against, and is what every other coral
+                  // CTA in the app uses. (`accentPressed` was neither; it is not
+                  // a role on Palette at all, so this resolved to undefined and
+                  // the button lost its fill on touch.)
+                  backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill,
+                  borderColor: pressed ? colors.accentFillPressed : colors.accentFill,
                 },
               ]}
               accessibilityRole="button"
@@ -1677,6 +1730,9 @@ const styles = StyleSheet.create({
   calloutDot: { width: 10, height: 10, borderRadius: 999 },
   calloutThumbWrap: { width: 64, height: 64 },
   calloutThumb: { width: 64, height: 64, borderRadius: 9 },
+  // borderColor is applied INLINE at the call site, not here. StyleSheet.create
+  // runs once at import, so a colour written into it is frozen at whichever
+  // scheme the app launched with — the invariant app-theme.test.ts guards.
   calloutThumbDot: {
     position: 'absolute',
     left: 5,
@@ -1685,7 +1741,6 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 999,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
   },
   calloutText: { flex: 1, minWidth: 0 },
   calloutName: { ...t.sm, fontFamily: fonts.semibold },

@@ -252,6 +252,24 @@ export const WEEKEND_FLOATABLE: ReadonlySet<string> = new Set([
  */
 export const FLOATABLE_NOW: ReadonlySet<string> = new Set(["flowing", "good"]);
 
+/**
+ * The elevated-water bucket — high + dangerous. The mirror of FLOATABLE_NOW,
+ * and the set behind every "high water" surface: the app's High Water Alerts
+ * tab, the safety alert kinds, and the Search tab's `high` chip.
+ *
+ * It exists because that pair was being re-typed at each call site — a literal
+ * `['high','dangerous']` in eddy-ios/src/lib/alertKinds.ts, a two-armed `||` in
+ * the Search tab — while `summarizeConditionCounts` below already computed
+ * exactly this bucket as `runningHigh`. Four spellings of one rule is three
+ * chances for a seventh condition code to be added and land in some of them.
+ *
+ * DANGEROUS IS INCLUDED ON PURPOSE, and is not a separate tier here. Its label
+ * is "Flood" and its severity outranks high, but the question every consumer of
+ * this set is asking is "is there too much water", and the answer for both is
+ * yes. Anything that needs to tell them apart should read the code itself.
+ */
+export const RUNNING_HIGH: ReadonlySet<string> = new Set(["high", "dangerous"]);
+
 /** Per-code tallies plus the derived buckets every cross-river surface shares. */
 export interface ConditionCounts {
   total: number;

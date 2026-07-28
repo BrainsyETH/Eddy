@@ -763,7 +763,16 @@ export function GaugeChart(props: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: { marginHorizontal: 16, marginBottom: 14, borderRadius: 16, padding: 14 },
+  // NO marginHorizontal, deliberately. This card is rendered on two screens
+  // whose ScrollViews inset differently — the gauge screen pads nothing and
+  // margins each card, the river screen pads its content container by 16 — so a
+  // horizontal margin here was ADDED to the river screen's padding and the
+  // chart sat 32pt in while every card around it sat at 16. The narrower card
+  // shrank the plot with it, since plotWidth comes from onLayout.
+  //
+  // Horizontal placement therefore belongs to the caller. Vertical rhythm does
+  // not: the gap under a card is the same question on both screens.
+  card: { marginBottom: 14, borderRadius: 16, padding: 16 },
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
   headText: { flex: 1 },
   title: { ...t.base, fontFamily: fonts.heading },
