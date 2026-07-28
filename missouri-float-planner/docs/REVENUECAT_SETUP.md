@@ -1,5 +1,7 @@
 # Eddy Premium subscriptions via RevenueCat
 
+> **Status: active** — runbook for Eddy Premium subscriptions via RevenueCat.
+
 Everything required to take Eddy from "no consumer payments" to a working
 Apple IAP subscription, end to end. Written as a runbook — follow it top to
 bottom; each section says what it unblocks.

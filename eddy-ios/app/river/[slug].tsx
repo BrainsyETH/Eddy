@@ -7,13 +7,14 @@
 //
 // Free/paid boundary:
 //   FREE  condition, reading, the gauge picker, percentile context, hazards,
-//         access points, the bottom line and the weather
-//   PAID  being told about a change before you look; Eddy's written report
+//         access points, the bottom line, the weather — and the bell
+//   PAID  Eddy's written report
 //
 // Everything that decides whether to get on the water is free, and that is a
-// rule rather than a description — see the header of PaywallSheet. The two paid
-// affordances are the bell, which gates the NOTIFICATION and never the
-// information, and the long read, which is commentary on facts shown above it.
+// rule rather than a description — see the header of PaywallSheet. The bell used
+// to be the second paid affordance and is no longer: alerting is free in its
+// entirety. It still needs an ACCOUNT, which is not a tier — a notification has
+// to have somewhere to go, and an anonymous id is replaced on reinstall.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -36,7 +37,10 @@ import type {
   RiverConditionDetail,
   RiverListItem,
   RiverOutlookResponse,
+  RiverReach,
+  RiverService,
   RiverVisualsResponse,
+  DamSnapshot,
 } from '@eddy/types';
 import { accessPointTypes, accessTypeLabel } from '@eddy/types';
 import {
@@ -51,12 +55,17 @@ import {
   ApiError,
   fetchCondition,
   fetchGauges,
+  fetchDams,
   fetchHazards,
   fetchRiverAccessPoints,
   fetchRiverOutlook,
+  fetchRiverReaches,
+  fetchRiverServices,
   fetchRiverVisuals,
   fetchRivers,
+  fetchSubscriptions,
   subscribeToRiver,
+  unsubscribeFromRiver,
 } from '@/api/client';
 import {
   conditionBg,
@@ -77,6 +86,10 @@ import {
 } from '@/lib/readingCopy';
 import { EddySymbol } from '@/components/EddySymbol';
 import { EddyTake } from '@/components/EddyTake';
+import { RiverDamPanel, damForRiver } from '@/components/dam/RiverDamPanel';
+import { RiverReaches } from '@/components/river/RiverReaches';
+import { GaugeChart } from '@/components/GaugeChart';
+import { OUTFITTER_SERVICE_TYPES } from '@/map/layers';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { GaugePicker } from '@/components/GaugePicker';
@@ -84,6 +97,7 @@ import { RiverVisuals } from '@/components/RiverVisuals';
 import { ReadingScale } from '@/components/ReadingScale';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { PushPrimer } from '@/components/PushPrimer';
+import { AlertSignInSheet } from '@/components/AlertSignInSheet';
 import { gaugeConditionCode, gaugeLink, gaugesForRiver } from '@/lib/gaugeCondition';
 import { driveToUrl } from '@/lib/directions';
 import { useAccount } from '@/hooks/useAccount';
@@ -110,6 +124,11 @@ export default function RiverDetailScreen() {
   const [outlook, setOutlook] = useState<RiverOutlookResponse | null>(null);
   const [visuals, setVisuals] = useState<RiverVisualsResponse | null>(null);
   const [gauges, setGauges] = useState<MapGauge[]>([]);
+  const [services, setServices] = useState<RiverService[]>([]);
+  const [dam, setDam] = useState<DamSnapshot | null>(null);
+  // Reaches, for a river whose halves read differently. Empty on all but the
+  // Black, and the panel renders nothing for an empty list.
+  const [reaches, setReaches] = useState<RiverReach[]>([]);
   /**
    * Which gauge the reading card is showing. Null means the river's own
    * primary, which is what /api/conditions already answered with — so the card
@@ -120,8 +139,20 @@ export default function RiverDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [primerOpen, setPrimerOpen] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
   const { permission, enable } = usePush();
   const [subscribing, setSubscribing] = useState(false);
+  /**
+   * Whether alerts are already on for this river.
+   *
+   * Null is UNKNOWN — no session, or the lookup failed — and the bell renders
+   * its default offer in that state rather than claiming either way. Showing
+   * "alerts are on" to someone who has none is worse than showing the offer to
+   * someone who is already subscribed, since the second is a harmless no-op
+   * upsert and the first is a promise nothing will keep.
+   */
+  const [subscribed, setSubscribed] = useState<boolean | null>(null);
+  const [subscribeError, setSubscribeError] = useState<string | null>(null);
   const [showAllHazards, setShowAllHazards] = useState(false);
 
   useEffect(() => {
@@ -150,7 +181,7 @@ export default function RiverDetailScreen() {
         // re-read when the picker moves — and a screen that waits for it before
         // painting anything would be waiting on three third-party services for
         // a panel that is allowed to be absent entirely.
-        const [cond, haz, access, looks, allGauges] = await Promise.all([
+        const [cond, haz, access, looks, allGauges, nearby, dams, riverReaches] = await Promise.all([
           fetchCondition(match.id, controller.signal).catch(() => null),
           fetchHazards(slug, controller.signal).catch(() => [] as Hazard[]),
           fetchRiverAccessPoints(slug, controller.signal).catch(() => [] as MapAccessPoint[]),
@@ -163,12 +194,31 @@ export default function RiverDetailScreen() {
           // shared station against this river rather than its neighbour's.
           // Failing just means no picker; the primary reading is unaffected.
           fetchGauges(controller.signal).catch(() => [] as MapGauge[]),
+          // Outfitters and shuttles. Already fetched by the map for its pin
+          // layers; this screen never asked, so the one place someone reads
+          // about a river was the one place that could not tell them who rents
+          // a canoe on it. Degrades like everything else here.
+          fetchRiverServices(slug, controller.signal).catch(() => [] as RiverService[]),
+          // The dam controlling this reach, if one does. Ten items, CDN-cached,
+          // and already returning [] on failure — so this costs one cheap
+          // request to answer a question with no endpoint of its own, rather
+          // than adding /api/rivers/[slug]/dam for a panel that is absent on
+          // every river but one.
+          fetchDams(controller.signal),
+          // The river's hydrologically distinct reaches. Returns [] for every
+          // river without them, so this costs one cheap CDN-cached request to
+          // answer "is the water below the dam the same river?" — which on the
+          // Black it is not.
+          fetchRiverReaches(slug, controller.signal).catch(() => [] as RiverReach[]),
         ]);
         setCondition(cond);
         setHazards(haz);
         setAccessPoints(access);
         setVisuals(looks);
         setGauges(gaugesForRiver(allGauges, slug));
+        setServices(nearby);
+        setDam(damForRiver(dams, slug));
+        setReaches(riverReaches);
         setError(null);
       } catch (err) {
         if (err instanceof ApiError && err.message === 'Request cancelled') return;
@@ -247,56 +297,90 @@ export default function RiverDetailScreen() {
   }, [slug, pickedGaugeId, primaryGaugeId]);
 
   /**
+   * Does this person already have alerts on for this river?
+   *
+   * Failure leaves `subscribed` at null rather than false — see the state
+   * comment. Nothing on this screen waits for the answer; the bell simply
+   * settles into its real label once it arrives.
+   */
+  useEffect(() => {
+    if (!river) return;
+    let cancelled = false;
+
+    (async () => {
+      const token = await getAccessToken();
+      if (!token || cancelled) return;
+      const subs = await fetchSubscriptions(token).catch(() => null);
+      if (!subs || cancelled) return;
+      setSubscribed(subs.some((s) => s.riverId === river.id));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [river, getAccessToken]);
+
+  /**
    * Create the alert subscription.
    *
-   * `offerOnFailure` controls what happens when the server says no. On the
-   * user's own tap that means showing the paywall — the 402 IS the trigger.
-   * Straight after a purchase it must not: they have just paid, and bouncing
-   * them back into the wall they only escaped a second ago is the worst
-   * possible moment to ask again. If it fails there the button simply stays as
-   * it was, and their next tap tries again.
+   * `kind: 'all'` and not `'floatable'`, which is the bug this whole change
+   * exists to fix. The event vocabulary and the subscription vocabulary differ
+   * on purpose (see subscriptionKindsFor in the web app's fanout.ts): a
+   * `warning` event matches only `safety` and `all`. Asking for `'floatable'`
+   * therefore made a danger alert structurally impossible to receive, while the
+   * primer two screens down promised exactly that.
+   *
+   * No paywall path any more. A missing session is an AUTH problem and gets a
+   * sign-in sheet; presenting an offer to sell something to someone whose token
+   * refresh just failed was never honest.
    */
-  const subscribe = useCallback(
-    async ({ offerOnFailure }: { offerOnFailure: boolean }) => {
-      if (!river) return;
-      setSubscribing(true);
-      try {
-        const token = await getAccessToken();
-        if (!token) {
-          // No session — anonymous sign-in is off or unreachable. Show the offer
-          // rather than an error: the user asked for something we cannot deliver
-          // yet, and the reason is ours, not theirs.
-          if (offerOnFailure) setPaywallOpen(true);
-          return;
-        }
-        const result = await subscribeToRiver(token, river.id, 'floatable');
-        if (result.paymentRequired) {
-          if (offerOnFailure) setPaywallOpen(true);
-          return;
-        }
-
-        // The subscription exists — now, and only now, is it worth spending
-        // the one-shot iOS permission prompt: there is a concrete notification
-        // waiting to be delivered, which is the strongest case this app will
-        // ever have. Asking earlier would burn it on a hypothetical.
-        if (permission === 'undetermined') setPrimerOpen(true);
-      } catch {
-        if (offerOnFailure) setPaywallOpen(true);
-      } finally {
-        setSubscribing(false);
+  const subscribe = useCallback(async () => {
+    if (!river) return;
+    setSubscribing(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        setSignInOpen(true);
+        return;
       }
-    },
-    [river, getAccessToken, permission],
-  );
+      await subscribeToRiver(token, river.id, 'all');
+      setSubscribed(true);
 
-  const onNotify = useCallback(() => subscribe({ offerOnFailure: true }), [subscribe]);
+      // The subscription exists — now, and only now, is it worth spending
+      // the one-shot iOS permission prompt: there is a concrete notification
+      // waiting to be delivered, which is the strongest case this app will
+      // ever have. Asking earlier would burn it on a hypothetical.
+      if (permission === 'undetermined') setPrimerOpen(true);
+    } catch (err) {
+      // 403 means the session is anonymous rather than permanent, which is the
+      // same remedy as no session at all.
+      if (err instanceof ApiError && err.status === 403) setSignInOpen(true);
+      else setSubscribeError('Could not turn on alerts. Try again.');
+    } finally {
+      setSubscribing(false);
+    }
+  }, [river, getAccessToken, permission]);
 
-  // Fired once the entitlement is live on the server. Finishes what the user
-  // originally tapped: they wanted to be told about THIS river, and the
-  // purchase was only the obstacle in the way of that.
-  const onPurchased = useCallback(() => {
-    void subscribe({ offerOnFailure: false });
-  }, [subscribe]);
+  /** Turn alerts off. Deliberately reachable — see Stage 3 of the alert plan. */
+  const unsubscribe = useCallback(async () => {
+    if (!river) return;
+    setSubscribing(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      await unsubscribeFromRiver(token, river.id);
+      setSubscribed(false);
+    } catch {
+      setSubscribeError('Could not turn alerts off. Try again.');
+    } finally {
+      setSubscribing(false);
+    }
+  }, [river, getAccessToken]);
+
+  const onNotify = useCallback(() => {
+    setSubscribeError(null);
+    void (subscribed ? unsubscribe() : subscribe());
+  }, [subscribed, subscribe, unsubscribe]);
 
   if (loading) {
     return (
@@ -353,6 +437,14 @@ export default function RiverDetailScreen() {
   const scaleThresholds = pickedLink ?? condition?.thresholds ?? null;
   const readingAgeHours = pickedGauge ? pickedGauge.readingAgeHours : condition?.readingAgeHours;
   const shownGaugeName = pickedGauge ? pickedGauge.name : condition?.gaugeName;
+  // The station the chart plots, resolved the same way as the name beside it so
+  // the two can never describe different gauges. Null on a river with none.
+  const shownSiteId = pickedGauge ? pickedGauge.usgsSiteId : (condition?.gaugeUsgsId ?? null);
+
+  // Not memoised: this is a filter over a list of a few dozen that only changes
+  // when the fetch lands, and a useMemo below three early returns would be a
+  // conditional hook. Same reason the sorted hazards above are computed inline.
+  const outfitters = services.filter((s) => OUTFITTER_SERVICE_TYPES.includes(s.type));
 
   const caveat = condition && !pickedGauge ? accuracyNote(condition) : null;
   const percentileText = percentileSentence(condition?.percentile);
@@ -488,6 +580,15 @@ export default function RiverDetailScreen() {
           ) : null}
         </View>
 
+        {/* ── The dam, when one controls this reach. Above Eddy's Take
+               because it explains the number in the card above: on a regulated
+               river the release IS the reason for the reading, and the schedule
+               is a better forecast than any rain-fed river gets. Renders
+               nothing on the other twenty-three rivers. ── */}
+        <RiverReaches reaches={reaches} />
+
+        <RiverDamPanel dam={dam} />
+
         {/* ── What it means. Directly under the status card, because the card
                above says what the river IS and this says what to do about it.
                Hidden entirely when the river has no gauge or every upstream
@@ -519,23 +620,100 @@ export default function RiverDetailScreen() {
             nothing below shifts on the ones without. */}
         {visuals ? <RiverVisuals data={visuals} /> : null}
 
-        {/* ── The bell. ── */}
+        {/* ── How it got to that number ──────────────────────────
+            BELOW the photos, and that order is the argument the whole column
+            makes: the card says what the river IS, the take says what to do
+            about it, the photos say what that looks like, and this says how it
+            got there. A hydrograph above any of them is a shape with nothing
+            to interpret it.
+
+            Follows the PICKER, like everything else on this screen since the
+            outlook started to — a chart of Van Buren under a Montauk reading is
+            the exact mismatch that effect was written to end. The unit and the
+            bands come from the SAME link the reading and the scale use, so the
+            three cannot disagree; GaugeChart drops the shading itself if that
+            ladder is in a unit it is not drawing.
+
+            Absent when the river has no gauge at all. There is nothing to plot
+            and nothing to apologise for. */}
+        {shownSiteId ? (
+          <GaugeChart
+            siteId={shownSiteId}
+            unit={reading?.unit ?? scaleThresholds?.thresholdUnit ?? 'cfs'}
+            thresholds={scaleThresholds}
+            title="Recent history"
+          />
+        ) : null}
+
+        {/* ── The bell. ──
+            Two states, because a button that reads the same before and after
+            you press it cannot tell you whether it worked. The "on" state is
+            deliberately quiet — outlined rather than filled — so the screen
+            stops selling something the user has already agreed to.
+
+            The copy no longer says "when it's floatable": the subscription is
+            `kind: 'all'`, so it covers danger too, and it is standing rather
+            than one-shot. */}
         <Pressable
           onPress={onNotify}
           disabled={subscribing}
           style={({ pressed }) => [
             styles.notifyButton,
-            { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+            subscribed
+              ? {
+                  backgroundColor: pressed ? colors.cardRaised : 'transparent',
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }
+              : { backgroundColor: pressed ? colors.accentPressed : colors.accent },
           ]}
           accessibilityRole="button"
+          accessibilityLabel={
+            subscribed ? `Turn off alerts for ${river.name}` : `Alert me about ${river.name}`
+          }
         >
           {subscribing ? (
-            <ActivityIndicator color={colors.onAccent} size="small" />
+            <ActivityIndicator color={subscribed ? colors.textMuted : colors.onAccent} size="small" />
           ) : (
-            <Ionicons name="notifications-outline" size={18} color={colors.onAccent} />
+            <Ionicons
+              name={subscribed ? 'notifications' : 'notifications-outline'}
+              size={18}
+              color={subscribed ? colors.success : colors.onAccent}
+            />
           )}
-          <Text style={[styles.notifyText, { color: colors.onAccent }]}>
-            Notify me when it&apos;s floatable
+          <Text
+            style={[styles.notifyText, { color: subscribed ? colors.text : colors.onAccent }]}
+          >
+            {subscribed ? "Alerts are on — tap to turn off" : 'Alert me about this river'}
+          </Text>
+        </Pressable>
+
+        {subscribeError ? (
+          <Text style={[styles.notifyError, { color: colors.error }]}>{subscribeError}</Text>
+        ) : null}
+
+        {/* The bell stays a ONE-TAP control — it is the conversion moment and
+            an extra decision in front of it would cost more than it buys. This
+            is the door out to everything the bell deliberately does not ask:
+            floatable-only, safety-only, once, or a level of your own. */}
+        <Pressable
+          onPress={() =>
+            router.push({
+              pathname: '/alerts/configure',
+              params: {
+                scope: 'river',
+                riverId: river.id,
+                riverSlug: river.slug,
+                riverName: river.name,
+              },
+            })
+          }
+          style={({ pressed }) => [styles.customizeButton, { opacity: pressed ? 0.6 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Set a custom alert for ${river.name}`}
+        >
+          <Text style={[styles.customizeText, { color: colors.textMuted }]}>
+            {subscribed ? 'Set a different alert' : 'Or set your own level'}
           </Text>
         </Pressable>
 
@@ -622,27 +800,46 @@ export default function RiverDetailScreen() {
             leading={<EddySymbol name="accessPoint" size={18} />}
             summary={`${accessPoints.length} put-in${accessPoints.length === 1 ? '' : 's'} and take-out${accessPoints.length === 1 ? '' : 's'}`}
           >
-            {/* TAPPABLE, and to somewhere useful. These were flat rows: they
-                named a place and a river mile and then did nothing, which on a
-                list of put-ins is the one obvious question left unanswered —
-                how do I get there. Directions is the answer the whole row is
-                about, and it is the same handoff the plan screen's endpoints
-                already make, so the two behave alike.
+            {/* THE ROW NOW OPENS THE PLACE; the arrow still opens Maps.
 
-                Apple Maps by coordinate, never by name: "Akers Ferry" is
-                ambiguous to a geocoder and most Ozark access points are not in
-                one at all. See src/lib/directions.ts. */}
+                These rows went straight to Apple Maps, which answered "how do I
+                get there" and foreclosed every other question a put-in raises —
+                is the last mile gravel, is there room for a trailer, is there a
+                toilet, who runs a shuttle. All of that was already in the
+                database and on the website, and the app had no screen for it.
+
+                So the row is a destination and directions is a control ON the
+                row, rather than the row being the control. Nothing that worked
+                before stopped working: the navigate arrow to the right is the
+                same one-tap handoff, still by coordinate and never by name —
+                "Akers Ferry" is ambiguous to a geocoder and most Ozark access
+                points are not in one at all. See src/lib/directions.ts.
+
+                A point with no slug cannot be addressed, so it keeps the old
+                behaviour of opening Maps directly rather than offering a
+                destination that 404s. `slug` is optional on MapAccessPoint for
+                exactly this reason. */}
             {accessPoints.map((point) => (
               <Pressable
                 key={point.id}
-                onPress={() => void Linking.openURL(driveToUrl(point))}
+                onPress={() =>
+                  point.slug
+                    ? router.push(
+                        `/river/${slug}/access/${encodeURIComponent(point.slug)}`,
+                      )
+                    : void Linking.openURL(driveToUrl(point))
+                }
                 style={({ pressed }) => [
                   styles.accessRow,
                   { backgroundColor: colors.card, opacity: pressed ? 0.6 : 1 },
                   elevation(1),
                 ]}
                 accessibilityRole="button"
-                accessibilityLabel={`Directions to ${point.name}, mile ${point.riverMile}`}
+                accessibilityLabel={
+                  point.slug
+                    ? `${point.name}, mile ${point.riverMile}`
+                    : `Directions to ${point.name}, mile ${point.riverMile}`
+                }
               >
                 {/* WHAT IT LOOKS LIKE. A put-in's name is a label and its river
                     mile is a coordinate; neither answers the question people
@@ -685,8 +882,97 @@ export default function RiverDetailScreen() {
                       .join(' · ')}
                   </Text>
                 </View>
-                <Ionicons name="navigate-outline" size={16} color={colors.accent} />
+                {/* A SIBLING of the row's own Pressable, never a child — the
+                    same arrangement RiverRow settled on for its star, so the
+                    two touch areas cannot overlap and a tap near the arrow
+                    cannot be ambiguous about which it meant. Only drawn where
+                    the row itself goes somewhere else; on a slug-less point the
+                    whole row is already the directions handoff. */}
+                {point.slug ? (
+                  <Pressable
+                    onPress={() => void Linking.openURL(driveToUrl(point))}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Directions to ${point.name}`}
+                  >
+                    <Ionicons name="navigate-outline" size={17} color={colors.accent} />
+                  </Pressable>
+                ) : (
+                  <Ionicons name="navigate-outline" size={16} color={colors.accent} />
+                )}
               </Pressable>
+            ))}
+          </CollapsibleSection>
+        ) : null}
+
+        {/* ── Outfitters ───────────────────────────────────────
+            COLLAPSED, because this is not a safety fact and not why anyone
+            opened the screen — but present, because "who rents a canoe on this
+            river" was a question the app could answer from data it already
+            fetched for the map and simply never showed anywhere a person reads
+            about a river.
+
+            OUTFITTERS AND SHUTTLES TOGETHER, campgrounds left out. A shuttle
+            operator is what most people are actually looking for when they look
+            for an outfitter, and separating the two would put one name under two
+            headings; campgrounds are already their own map layer and their own
+            question.
+
+            The membership test is OUTFITTER_SERVICE_TYPES, the same constant
+            the map's Outfitters layer filters on, rather than a list written
+            out again here. A second definition of "what counts as an outfitter"
+            is how the layer sheet and this section end up disagreeing about a
+            business that appears on one and not the other.
+
+            Rows carry only the actions that exist. A dial button on a service
+            with no number is a control that fails when pressed. */}
+        {outfitters.length > 0 ? (
+          <CollapsibleSection
+            title="Outfitters"
+            leading={<EddySymbol name="outfitter" size={18} />}
+            summary={`${outfitters.length} nearby`}
+          >
+            {outfitters.map((service) => (
+              <View
+                key={service.id}
+                style={[styles.serviceRow, { backgroundColor: colors.card }, elevation(1)]}
+              >
+                <View style={styles.serviceBody}>
+                  <Text style={[styles.serviceName, { color: colors.text }]} numberOfLines={1}>
+                    {service.name}
+                  </Text>
+                  <Text style={[styles.serviceMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                    {[
+                      [service.city, service.state].filter(Boolean).join(', '),
+                      ...service.servicesOffered.slice(0, 2),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Text>
+                </View>
+                {service.phone ? (
+                  <Pressable
+                    onPress={() =>
+                      void Linking.openURL(`tel:${service.phone!.replace(/[^\d+]/g, '')}`)
+                    }
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Call ${service.name}`}
+                  >
+                    <Ionicons name="call-outline" size={19} color={colors.accent} />
+                  </Pressable>
+                ) : null}
+                {service.website ? (
+                  <Pressable
+                    onPress={() => void Linking.openURL(service.website!)}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${service.name} website`}
+                  >
+                    <Ionicons name="open-outline" size={19} color={colors.accent} />
+                  </Pressable>
+                ) : null}
+              </View>
             ))}
           </CollapsibleSection>
         ) : null}
@@ -697,11 +983,24 @@ export default function RiverDetailScreen() {
         </Text>
       </ScrollView>
 
+      {/* Only Eddy's written read opens this now. The bell used to, and does
+          not: nothing about being alerted is for sale. */}
       <PaywallSheet
         visible={paywallOpen}
         onClose={() => setPaywallOpen(false)}
         riverName={river.name}
-        onPurchased={onPurchased}
+      />
+
+      <AlertSignInSheet
+        visible={signInOpen}
+        riverName={river.name}
+        onSignedIn={() => {
+          setSignInOpen(false);
+          // Finish what they tapped. The session is live now, so this is the
+          // same call that failed a moment ago.
+          void subscribe();
+        }}
+        onDismiss={() => setSignInOpen(false)}
       />
 
       <PushPrimer
@@ -774,6 +1073,9 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   notifyText: { ...t.base, fontFamily: fonts.heading },
+  notifyError: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: -14, marginBottom: 20 },
+  customizeButton: { alignItems: 'center', paddingVertical: 10, marginTop: -14, marginBottom: 18 },
+  customizeText: { ...t.xs, fontFamily: fonts.semibold },
   section: { marginBottom: 18 },
   severityCues: { flexDirection: 'row', gap: 4 },
   severityCue: { width: 8, height: 8, borderRadius: 999 },
@@ -812,5 +1114,17 @@ const styles = StyleSheet.create({
   accessBody: { flex: 1 },
   accessName: { ...t.sm, fontFamily: fonts.semibold },
   accessMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  serviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 13,
+  },
+  serviceBody: { flex: 1 },
+  serviceName: { ...t.sm, fontFamily: fonts.semibold },
+  serviceMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   footnote: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', paddingHorizontal: 24, marginTop: 6 },
 });

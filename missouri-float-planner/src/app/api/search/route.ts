@@ -19,6 +19,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
@@ -33,6 +34,31 @@ const MAX_LIMIT = 50;
 
 export type SearchResultKind = 'river' | 'gauge' | 'access_point';
 
+/**
+ * The live reading a gauge result carries.
+ *
+ * NESTED rather than spread across SearchResult, and present only on `gauge`
+ * rows. A river result has a condition of its own that means something else
+ * entirely, and an access point has no reading at all; six nullable columns at
+ * the top level would invite exactly the confusion between the two vocabularies
+ * that GaugeFilterBar's header spends a paragraph guarding against.
+ *
+ * Added because the phone's Search tab now lists the national tier, and a row
+ * that can only say "USGS 07019000" is a row nobody can act on. Every field
+ * here comes back from search_gauges in the same query that found the station,
+ * so it costs no extra round trip.
+ */
+export interface SearchResultGauge {
+  /** Eddy rates this station against a river; it has a condition ladder. */
+  curated: boolean;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  readingTimestamp: string | null;
+  readingAgeHours: number | null;
+  /** 0-100 vs this site's own day-of-year history; null when none is held. */
+  flowPercentile: number | null;
+}
+
 export interface SearchResult {
   kind: SearchResultKind;
   id: string;
@@ -43,6 +69,25 @@ export interface SearchResult {
   riverSlug: string | null;
   riverMile: number | null;
   coordinates: { lng: number; lat: number } | null;
+  /**
+   * The station's provider-native site id. Gauge results only.
+   *
+   * It was always in the row and always dropped into the subtitle, which meant
+   * a client could SHOW "07019000" and not ADDRESS it — every per-gauge route
+   * (/api/gauges/:siteId, its /history) keys off this, not off `id`.
+   */
+  siteId?: string | null;
+  /** Gauge results only; null when the station has no stored reading. */
+  gauge?: SearchResultGauge | null;
+  /**
+   * The access point's own slug. Access-point results only.
+   *
+   * Same omission `siteId` had: the column was already selected and already
+   * spent on nothing, so a client could render an access point and not open it
+   * — its detail route is /api/rivers/[slug]/access/[accessSlug], and
+   * `riverSlug` is only half of that pair.
+   */
+  accessSlug?: string | null;
 }
 
 export interface SearchResponse {
@@ -202,35 +247,63 @@ async function _GET(request: NextRequest) {
           riverSlug: river.slug,
           riverMile: mile,
           coordinates: coordsOf(ap),
+          accessSlug: ap.slug,
         };
       })
       .filter((r): r is SearchResult => r !== null);
 
     // ── Gauges ──────────────────────────────────────────────────
-    // Matched on station name AND on USGS site id, because plenty of people
-    // know a gauge as "07068000" and nothing else.
+    // Matched on station name AND on site id, because plenty of people know a
+    // gauge as "07068000" and nothing else.
     //
-    // CURATED FIRST, and that ordering is now load-bearing. This query filters
-    // on `active` and nothing else, so with the national tier activated it
-    // searches ~14,300 stations rather than the 288 it was written against —
-    // and a plain alphabetical sort over that set buries every gauge Eddy rates
-    // under un-rated stations that merely sort earlier. "Big" matched Big River
-    // before; it would otherwise match nine BIG CREEK NR ... stations first.
+    // NOW THROUGH search_gauges (00196), which is what this block's previous
+    // comment said it should be doing. That RPC keeps the curated-first
+    // ordering — load-bearing since the national tier activated, or "Big"
+    // returns nine BIG CREEK NR ... stations ahead of Big River — and adds the
+    // two things a hand-rolled PostgREST query cannot get:
     //
-    // 00196 shipped a search_gauges RPC that does this ordering server-side and
-    // also returns coordinates. It is not used here because src/types/
-    // database.ts predates that migration, so an .rpc() call against the TYPED
-    // anon client does not compile — and regenerating the whole schema type
-    // does not belong in this fix. The ordering is the part that matters; see
-    // the coordinates note below for what adopting the RPC would still buy.
-    const { data: gaugeRows, error: gaugeError } = await supabase
-      .from('gauge_stations')
-      .select('id, name, usgs_site_id, curated')
-      .eq('active', true)
-      .or(`name.ilike.${pattern},usgs_site_id.ilike.${pattern}`)
-      .order('curated', { ascending: false })
-      .order('name', { ascending: true })
-      .limit(limit);
+    //   COORDINATES, via st_x/st_y in the database. The old block shipped
+    //   `coordinates: null` on every gauge with a comment explaining that a
+    //   national gauge found by search was therefore a result the map could not
+    //   fly to. It selects, and the camera stays put. That is now fixed.
+    //
+    //   THE LATEST READING, via the left join onto gauge_latest, so a gauge row
+    //   in a result list can state its number instead of its id. The phone's
+    //   Search tab lists the national tier now; a row that can only say "USGS
+    //   07019000" is a row nobody can act on.
+    //
+    // It goes through the ADMIN client, and that is the whole reason the RPC sat
+    // unused: src/types/database.ts predates 00196, so .rpc('search_gauges')
+    // against the TYPED anon client above does not compile. The admin client is
+    // deliberately untyped (see its header), which is also how /api/gauges and
+    // /api/gauges/map already read this exact table. Nothing about RLS is being
+    // worked around — gauge stations are public reference data, and the
+    // access-point query above keeps the anon client precisely because ITS rows
+    // are not.
+    //
+    // It also matches site ids by PREFIX rather than by substring, which is the
+    // one behavioural difference: "7019000" no longer finds 07019000. A site
+    // number is read left to right and nobody searches from its middle.
+    const gaugeAdmin = createAdminClient();
+    const { data: gaugeRpcRows, error: gaugeError } = await gaugeAdmin.rpc('search_gauges', {
+      p_query: needle,
+      p_limit: limit,
+    });
+
+    interface SearchGaugeRow {
+      id: string;
+      site_id: string | null;
+      name: string | null;
+      curated: boolean;
+      lng: number | null;
+      lat: number | null;
+      discharge_cfs: number | string | null;
+      gauge_height_ft: number | string | null;
+      reading_timestamp: string | null;
+      flow_percentile: number | null;
+    }
+
+    const gaugeRows = (gaugeRpcRows ?? []) as SearchGaugeRow[];
 
     if (gaugeError) console.error('Gauge search failed (non-fatal):', gaugeError);
 
@@ -257,34 +330,49 @@ async function _GET(request: NextRequest) {
       }
     }
 
+    const now = Date.now();
+
     const gaugeResults: SearchResult[] = (gaugeRows ?? []).map((g) => {
       const river = riverByGauge.get(g.id);
+      const readingTimestamp = g.reading_timestamp;
+      const parsed = readingTimestamp ? new Date(readingTimestamp).getTime() : NaN;
+      const readingAgeHours = Number.isFinite(parsed) ? (now - parsed) / 3_600_000 : null;
+      const gaugeHeightFt = toNum(g.gauge_height_ft);
+      const dischargeCfs = toNum(g.discharge_cfs);
+
       return {
         kind: 'gauge' as const,
         id: g.id,
-        name: g.name,
+        name: g.name ?? g.site_id ?? 'Gauge',
         // "USGS gauge" for anything with no river association, which is now the
         // common case rather than the exception — a national station is a real
         // answer to a search, it just is not one Eddy has rated.
-        subtitle: [river ? river.name : 'USGS gauge', g.usgs_site_id]
-          .filter(Boolean)
-          .join(' · '),
+        subtitle: [river ? river.name : 'USGS gauge', g.site_id].filter(Boolean).join(' · '),
         riverId: river?.id ?? null,
         riverName: river?.name ?? null,
         riverSlug: river?.slug ?? null,
         riverMile: null,
-        // STILL NULL, and the justification has narrowed to the curated set.
-        // The original reasoning was that the client already holds every gauge
-        // from /api/gauges and looks these up by id — true of the 46 rated
-        // stations, false of the ~14,000 national ones, which the client has
-        // never fetched. So a national gauge found by search is a result the
-        // map cannot fly to; it selects, and the camera stays put.
-        //
-        // Fixing it means coordinates on this row, and the honest way to get
-        // them is search_gauges (st_x/st_y) rather than selecting `location`
-        // and reaching for the hand-rolled EWKB parser in /api/gauges that
-        // falls back to {0,0}. That needs the regenerated types above.
-        coordinates: null,
+        // NO LONGER NULL. st_x/st_y in the RPC, so a national gauge found by
+        // search is now a result the map can fly to — which is what it always
+        // looked like it would do. A station with no location still sends null
+        // rather than null island.
+        coordinates:
+          g.lng !== null && g.lat !== null ? { lng: g.lng, lat: g.lat } : null,
+        siteId: g.site_id,
+        // Null when the station has no stored reading at all — a real state for
+        // a site that reports seasonally, and one the client must render as
+        // "no reading" rather than as a zero.
+        gauge:
+          gaugeHeightFt === null && dischargeCfs === null && readingTimestamp === null
+            ? null
+            : {
+                curated: g.curated,
+                gaugeHeightFt,
+                dischargeCfs,
+                readingTimestamp,
+                readingAgeHours,
+                flowPercentile: g.flow_percentile,
+              },
       };
     });
 

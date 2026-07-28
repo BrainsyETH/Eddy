@@ -284,7 +284,16 @@ export interface RiverCondition {
 export interface ConditionGauge {
   id: string;
   name: string | null;
+  /**
+   * The station's provider-native site id — a USGS site number, an NWS LID, or
+   * a USACE dam slug. Named `usgsSiteId` for history: it predates multi-provider
+   * support and has ~105 call sites, so renaming it to `siteId` is a separate
+   * refactor rather than a prerequisite. Pair it with `provider` before building
+   * any provider-specific URL.
+   */
   usgsSiteId: string | null;
+  /** Registry id from src/lib/flow-providers. Absent means 'usgs'. */
+  provider?: string;
   isPrimary: boolean;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
@@ -908,6 +917,104 @@ export interface AlertSubscriptionEntry {
 /** Response for GET /api/me/alert-subscriptions */
 export interface AlertSubscriptionsResponse {
   subscriptions: AlertSubscriptionEntry[];
+}
+
+// ─────────────────────────────────────────────────────────────
+// /api/me/alerts — the MERGED rule list
+// ─────────────────────────────────────────────────────────────
+//
+// Two tables stand behind this: alert_subscriptions (river condition alerts,
+// fanned out from a global outbox) and gauge_alert_subscriptions (per-rule
+// evaluation, because a user-defined level cannot be precomputed into one
+// shared event — migration 00200 makes that argument in full).
+//
+// The split is a SERVER concern. `source` exists so a client can echo it back
+// on PATCH/DELETE without having to reimplement the routing rule.
+//
+// Mirrored in packages/eddy-types/index.ts, by hand — @eddy/types is not
+// resolvable from this app's tsconfig. It is a wire format, so a change to
+// either is a change to both.
+
+export type AlertRuleSource = 'river_condition' | 'gauge';
+export type AlertRuleScope = 'river' | 'gauge';
+export type AlertRuleMode = 'condition' | 'threshold';
+/** Explicit, never inferred — a cfs number against a foot ladder is the bug. */
+export type AlertMetric = 'gauge_height_ft' | 'discharge_cfs';
+export type AlertComparator = 'above' | 'below' | 'between';
+
+export interface AlertRule {
+  id: string;
+  source: AlertRuleSource;
+  scope: AlertRuleScope;
+  mode: AlertRuleMode;
+
+  riverId: string | null;
+  riverName: string | null;
+  riverSlug: string | null;
+
+  gaugeId: string | null;
+  gaugeName: string | null;
+  usgsSiteId: string | null;
+  /** False for the national tier, which has no ladder and so no condition mode. */
+  curated: boolean;
+
+  conditionKind: AlertSubscriptionKind | null;
+
+  metric: AlertMetric | null;
+  comparator: AlertComparator | null;
+  thresholdValue: number | null;
+  thresholdValueMax: number | null;
+
+  enabled: boolean;
+  oneShot: boolean;
+  firedAt: string | null;
+  lastTriggeredAt: string | null;
+  createdAt: string;
+}
+
+/** Response for GET /api/me/alerts */
+export interface AlertRulesResponse {
+  rules: AlertRule[];
+}
+
+/**
+ * The reading a rule was seeded from, returned by POST /api/me/gauge-alerts.
+ * A new rule already knows which side of its threshold the river is on, so it
+ * fires on the next CROSSING rather than immediately; the app needs this to say
+ * so, because silently declining to fire reads like a bug.
+ */
+export interface AlertRuleSeed {
+  value: number | null;
+  unit: 'ft' | 'cfs' | null;
+  readingAt: string | null;
+  state: 'inside' | 'outside' | null;
+}
+
+export interface AlertRuleResponse {
+  rule: AlertRule;
+  seed: AlertRuleSeed | null;
+}
+
+// ─────────────────────────────────────────────────────────────
+// /api/me/notification-preferences — quiet hours
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Quiet hours SUPPRESS rather than queue — see migration 00201. deliver-push
+ * already drops events older than three hours, and a quiet window outlives
+ * that, so "hold it until morning" would deliver a stale promise or nothing.
+ */
+export interface NotificationPreferences {
+  quietHoursEnabled: boolean;
+  /** Minutes past LOCAL midnight, 0-1439. start > end is an overnight window. */
+  quietStartMinute: number | null;
+  quietEndMinute: number | null;
+  timezone: string;
+  safetyOverridesQuiet: boolean;
+}
+
+export interface NotificationPreferencesResponse {
+  preferences: NotificationPreferences;
 }
 
 // ─────────────────────────────────────────────────────────────

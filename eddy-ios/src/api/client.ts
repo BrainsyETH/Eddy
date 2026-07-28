@@ -8,12 +8,18 @@
 
 import Constants from 'expo-constants';
 import type {
+  AccessPointDetailResponse,
   AccessPointsResponse,
   AlertFeedEntry,
   AlertsResponse,
   AppConfigResponse,
   ConditionResponse,
+  DamSnapshot,
+  DamsResponse,
   FloatPlan,
+  GaugeDetail,
+  GaugeDetailResponse,
+  GaugeHistoryResponse,
   GaugesResponse,
   Hazard,
   HazardsResponse,
@@ -25,6 +31,8 @@ import type {
   RiverDetail,
   RiverDetailResponse,
   RiverOutlookResponse,
+  RiverReach,
+  RiverReachesResponse,
   RiverVisualsResponse,
   RiverService,
   RiversResponse,
@@ -36,7 +44,17 @@ import type {
   StarredGaugesResponse,
   StarredRiversResponse,
   AlertSubscriptionEntry,
+  AlertSubscriptionKind,
   AlertSubscriptionsResponse,
+  AlertComparator,
+  AlertMetric,
+  AlertRule,
+  AlertRuleMode,
+  AlertRuleResponse,
+  AlertRuleScope,
+  AlertRulesResponse,
+  NotificationPreferences,
+  NotificationPreferencesResponse,
   MeProfileResponse,
   MeDeleteResponse,
 } from '@eddy/types';
@@ -221,6 +239,29 @@ export async function fetchRiverAccessPoints(
 }
 
 /**
+ * One access point, with everything the list endpoint leaves out.
+ *
+ * The road surface, the parking, the facilities, the outfitters who serve it
+ * and what the next take-out downstream is — none of which fits in a row and
+ * all of which is the reason somebody tapped one.
+ *
+ * THROWS on 404 rather than returning null, unlike most of this file. A missing
+ * access point here is a bad route param, not an ordinary empty state: the
+ * screen was opened from a row that named it, so "this place does not exist" is
+ * a real failure and the screen says so.
+ */
+export async function fetchAccessPointDetail(
+  riverSlug: string,
+  accessSlug: string,
+  signal?: AbortSignal,
+): Promise<AccessPointDetailResponse> {
+  return get<AccessPointDetailResponse>(
+    `/api/rivers/${encodeURIComponent(riverSlug)}/access/${encodeURIComponent(accessSlug)}`,
+    signal,
+  );
+}
+
+/**
  * The statewide river network: geometry plus each gauge's editorial ladder.
  *
  * `?slim=1` drops the access points, POIs and campgrounds the Observatory
@@ -295,11 +336,93 @@ export async function fetchMapGauges(
 }
 
 /**
+ * ONE gauge, by site id, from either tier.
+ *
+ * The third gauge endpoint, and the only one that can answer for a station the
+ * app has not already fetched a list containing. fetchGauges is curated-only and
+ * fetchMapGauges is bounded by a viewport; the gauge screen is reachable from a
+ * starred row, a search result and a deep link, where neither list has been paid
+ * for and the station is usually a national one that /api/gauges never returns.
+ *
+ * Returns NULL on 404, and on any failure, rather than throwing. The gauge
+ * screen opens with whatever the tapping surface already held — a MapGauge from
+ * the curated list, a MapGaugeLite from the viewport — and this call refines it.
+ * A screen that has a reading on it must not blank because the refinement
+ * failed, and a website deployed before this route existed answers 404 to every
+ * call. Same posture as searchEddy, for the same reason.
+ */
+export async function fetchGaugeDetail(
+  siteId: string,
+  signal?: AbortSignal,
+): Promise<GaugeDetail | null> {
+  try {
+    const data = await get<GaugeDetailResponse>(
+      `/api/gauges/${encodeURIComponent(siteId)}`,
+      signal,
+    );
+    return data.gauge ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A gauge's recent hydrograph, for the chart.
+ *
+ * Works for BOTH tiers: the endpoint serves stored readings and falls back to
+ * the live provider when what it holds is sparse or stale, which is the
+ * ordinary case for every station the cron stopped polling — i.e. all ~14,000
+ * national ones. So a reference gauge gets a real chart, not an empty one.
+ *
+ * Already downsampled server-side to roughly one point an hour. Do not thin it
+ * again on the client: at 30 days that is ~720 points, which is a line, not a
+ * performance problem.
+ *
+ * Returns null rather than throwing when the station has no history at all —
+ * an ordinary state for a new or seasonal site, and the chart simply does not
+ * render. A cancelled request also returns null; the caller has already moved on.
+ */
+export async function fetchGaugeHistory(
+  siteId: string,
+  days: number,
+  signal?: AbortSignal,
+): Promise<GaugeHistoryResponse | null> {
+  try {
+    return await get<GaugeHistoryResponse>(
+      `/api/gauges/${encodeURIComponent(siteId)}/history?days=${days}`,
+      signal,
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Outfitters, campgrounds and shuttles near a river.
  *
  * Not every service has been geocoded, so callers plotting these must drop the
  * ones with a null latitude rather than treating them as (0, 0).
  */
+/**
+ * The river's hydrologically distinct reaches, or [] for the rivers that have
+ * none — which is all of them but the Black today.
+ *
+ * Its own endpoint rather than a field on an existing one: no other route
+ * carries a reach's gauge, type or report, so unlike the dam panel (which rides
+ * the ten-item /api/dams) there was nothing to piggyback on. Degrades to [] like
+ * every other optional panel on the river screen.
+ */
+export async function fetchRiverReaches(
+  slug: string,
+  signal?: AbortSignal,
+): Promise<RiverReach[]> {
+  const data = await get<RiverReachesResponse>(
+    `/api/rivers/${encodeURIComponent(slug)}/reaches`,
+    signal,
+  );
+  return data.reaches ?? [];
+}
+
 export async function fetchRiverServices(
   slug: string,
   signal?: AbortSignal,
@@ -513,12 +636,20 @@ export async function fetchHazards(slug: string, signal?: AbortSignal): Promise<
   return data.hazards ?? [];
 }
 
-/** Subscribe to condition alerts for a river. 402 means the paywall. */
+/**
+ * Subscribe to condition alerts for a river.
+ *
+ * There is no 402 branch any more — alerting is free, so the route cannot
+ * answer payment-required. 403 (an anonymous session where a permanent one is
+ * needed) throws like any other failure and the caller opens the sign-in sheet
+ * on it; the status is preserved on ApiError precisely so that check is possible
+ * without re-reading the body.
+ */
 export async function subscribeToRiver(
   token: string,
   riverId: string,
   kind: 'floatable' | 'safety' | 'all',
-): Promise<{ ok: boolean; paymentRequired: boolean }> {
+): Promise<void> {
   const response = await fetch(`${BASE_URL}/api/me/alert-subscriptions`, {
     method: 'POST',
     headers: {
@@ -530,11 +661,7 @@ export async function subscribeToRiver(
     body: JSON.stringify({ riverId, kind }),
   });
 
-  // 402 is the contextual paywall trigger, not a failure — the caller presents
-  // an offer rather than an error.
-  if (response.status === 402) return { ok: false, paymentRequired: true };
   if (!response.ok) throw new ApiError(`Request failed (${response.status})`, response.status);
-  return { ok: true, paymentRequired: false };
 }
 
 export async function unsubscribeFromRiver(token: string, riverId: string): Promise<void> {
@@ -556,6 +683,177 @@ export async function fetchSubscriptions(
     { signal },
   );
   return data ? (data.subscriptions ?? []) : null;
+}
+
+// ── Alert rules ────────────────────────────────────────────────────────────
+//
+// Two tables stand behind these — river condition subscriptions are fanned out
+// from a global outbox, per-gauge rules are evaluated one by one — and the
+// server merges them. `AlertRule.source` is the only trace of the split that
+// reaches the app, and its one job is being echoed back on writes.
+
+/**
+ * Every rule the caller has, river and gauge alike.
+ *
+ * Null when the session is unusable, following fetchSubscriptions: the manage
+ * list shows its signed-out state rather than an empty list, because "you have
+ * no alerts" and "we could not ask" must not look the same on a screen whose
+ * next control is "create one".
+ */
+export async function fetchAlertRules(
+  token: string,
+  signal?: AbortSignal,
+): Promise<AlertRule[] | null> {
+  const data = await authed<AlertRulesResponse>('/api/me/alerts', token, { signal });
+  return data ? (data.rules ?? []) : null;
+}
+
+export interface CreateGaugeAlertInput {
+  gaugeStationId?: string;
+  usgsSiteId?: string;
+  riverId?: string;
+  riverSlug?: string;
+  scope: AlertRuleScope;
+  mode: AlertRuleMode;
+  conditionKind?: AlertSubscriptionKind;
+  metric?: AlertMetric;
+  comparator?: AlertComparator;
+  thresholdValue?: number;
+  thresholdValueMax?: number;
+  oneShot?: boolean;
+}
+
+/**
+ * Raw fetch rather than authed(), exactly as subscribeToRiver does.
+ *
+ * authed() turns 401 and 403 into null, which is right for a read that can fall
+ * back to local data and wrong here: 403 means "anonymous session, sign in" and
+ * is the difference between showing the sign-in sheet and showing a generic
+ * failure. The status has to survive.
+ */
+async function writeJson<T>(
+  path: string,
+  token: string,
+  method: 'POST' | 'PATCH' | 'PUT',
+  body: unknown,
+): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}${path}`, {
+      method,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': USER_AGENT,
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError('No connection');
+  }
+
+  if (!response.ok) {
+    // The route answers 409 and 422 with a `code` and a sentence written for a
+    // person — "You already have this alert", "This gauge does not report
+    // discharge". Carried through so the screen can show that instead of
+    // inventing its own wording for a rule it cannot see.
+    const detail = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new ApiError(detail?.error ?? `Request failed (${response.status})`, response.status);
+  }
+  return (await response.json()) as T;
+}
+
+export async function createGaugeAlert(
+  token: string,
+  input: CreateGaugeAlertInput,
+): Promise<AlertRuleResponse> {
+  return writeJson<AlertRuleResponse>('/api/me/gauge-alerts', token, 'POST', input);
+}
+
+export interface UpdateAlertRuleInput {
+  enabled?: boolean;
+  oneShot?: boolean;
+  conditionKind?: AlertSubscriptionKind;
+  metric?: AlertMetric;
+  comparator?: AlertComparator;
+  thresholdValue?: number;
+  thresholdValueMax?: number;
+  /** Clear a spent one-shot so it can fire again. */
+  rearm?: boolean;
+}
+
+/**
+ * Edit one rule, whichever table it lives in.
+ *
+ * The two are addressed differently and that is not incidental: a gauge rule is
+ * keyed by its own id, while a river subscription is keyed by riverId, because
+ * the bell that edits one knows the river and nothing else. `rule.source` picks
+ * the shape, so no caller has to.
+ */
+export async function updateAlertRule(
+  token: string,
+  rule: Pick<AlertRule, 'id' | 'source' | 'riverId'>,
+  patch: UpdateAlertRuleInput,
+): Promise<void> {
+  if (rule.source === 'river_condition') {
+    if (!rule.riverId) throw new ApiError('Alert is missing its river', 400);
+    // `conditionKind` here, `kind` there. The two tables named the same column
+    // differently before they were ever merged into one client-facing rule, and
+    // passing the patch through untranslated is silent: the route ignores the
+    // key it does not know and answers "Nothing to update" — so switching a
+    // river alert from Everything to Safety would appear to save and change
+    // nothing at all.
+    const { conditionKind, ...rest } = patch;
+    await writeJson('/api/me/alert-subscriptions', token, 'PATCH', {
+      riverId: rule.riverId,
+      ...rest,
+      ...(conditionKind ? { kind: conditionKind } : {}),
+    });
+    return;
+  }
+  await writeJson(`/api/me/gauge-alerts/${encodeURIComponent(rule.id)}`, token, 'PATCH', patch);
+}
+
+/** Delete one rule. Turning an alert off never demands a fresh sign-in. */
+export async function deleteAlertRule(
+  token: string,
+  rule: Pick<AlertRule, 'id' | 'source' | 'riverId'>,
+): Promise<void> {
+  if (rule.source === 'river_condition') {
+    if (!rule.riverId) throw new ApiError('Alert is missing its river', 400);
+    await unsubscribeFromRiver(token, rule.riverId);
+    return;
+  }
+  await authed(`/api/me/gauge-alerts/${encodeURIComponent(rule.id)}`, token, {
+    method: 'DELETE',
+  });
+}
+
+/** Quiet hours. Null when the session is unusable — never assume "none set". */
+export async function fetchNotificationPreferences(
+  token: string,
+  signal?: AbortSignal,
+): Promise<NotificationPreferences | null> {
+  const data = await authed<NotificationPreferencesResponse>(
+    '/api/me/notification-preferences',
+    token,
+    { signal },
+  );
+  return data?.preferences ?? null;
+}
+
+export async function updateNotificationPreferences(
+  token: string,
+  preferences: NotificationPreferences,
+): Promise<NotificationPreferences> {
+  const data = await writeJson<NotificationPreferencesResponse>(
+    '/api/me/notification-preferences',
+    token,
+    'PUT',
+    preferences,
+  );
+  return data.preferences;
 }
 
 /**
@@ -701,4 +999,46 @@ export async function unregisterDeviceToken(token: string, expoPushToken: string
     token,
     { method: 'DELETE' },
   );
+}
+
+// ── Dams ─────────────────────────────────────────────────────────────────────
+// Both routes are read-through to USACE CWMS and SWPA rather than served from a
+// table, and both cache at the CDN for 15 minutes. Neither is paywalled for
+// this app: withX402Route gates on isAiAgent(user-agent), and 'EddyiOS' is not
+// one — so no 402 branch is needed here, unlike the metered routes above.
+
+/**
+ * Every USACE project Eddy tracks, with its current state and today's schedule.
+ *
+ * Returns [] on failure rather than throwing, matching fetchHazards. A map
+ * layer that does not draw is an acceptable degradation; a thrown error here
+ * would take down the map for a layer the user may not even have enabled.
+ *
+ * Ten dams, one request. Callers that need a specific dam's tailwater link or
+ * its pin can filter this rather than asking per dam.
+ */
+export async function fetchDams(signal?: AbortSignal): Promise<DamSnapshot[]> {
+  try {
+    const data = await get<DamsResponse>('/api/dams', signal);
+    return data.dams ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * One dam, with the multi-day hourly generation schedule the index omits.
+ *
+ * SHAPE WARNING: this route answers with the snapshot BARE, not wrapped under a
+ * key. Every other detail fetch in this file unwraps one — `data.river`,
+ * `data.gauge`, `data.plan` — so the reflexive `data.dam` here silently yields
+ * undefined. The server is public and priced to agents; the asymmetry is its
+ * contract, not a bug to fix from this side.
+ *
+ * THROWS rather than returning null, for the same reason fetchAccessPointDetail
+ * does: the screen was opened from a row that named this dam, so "it does not
+ * exist" is a real failure the screen should state rather than absorb.
+ */
+export async function fetchDam(damId: string, signal?: AbortSignal): Promise<DamSnapshot> {
+  return get<DamSnapshot>(`/api/dams/${encodeURIComponent(damId)}`, signal);
 }

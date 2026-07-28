@@ -1,5 +1,7 @@
 # Eddy — Site Review & River Scaling Playbook
 
+> **Status: active** — the operative process for onboarding Missouri rivers. For other states see MULTI_STATE_SCALING_PLAN.md.
+
 > Internal operations guide for the Eddy team. Covers site improvement priorities and a repeatable process for onboarding new Missouri rivers.
 
 ---

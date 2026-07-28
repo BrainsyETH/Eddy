@@ -16,29 +16,40 @@
 // signal, which is the state this app is designed around. Nothing on this
 // screen should ever wait on a network round trip to filter data it holds.
 //
-// ── Gauges are searchable here too ──────────────────────────────────────────
-// The tab is called Search, and until now it could only find rivers. But a
-// gauge is what half the questions are actually about — people know "Van
-// Buren" and "07067000" the way they know a river's name, and the map's own
-// search field has found gauges since it replaced the river chips. A search
-// field that finds fewer things than the one on the next tab is a search field
-// people learn not to trust.
+// ── Three scopes, because they are three different questions ────────────────
+// The tab searches rivers, gauges and access points, and a segmented control
+// picks which. That is not a tidier arrangement of one list — it is the only
+// arrangement in which the filters can be honest.
 //
-// The gauges come from the same statewide /api/gauges the map uses, fetched on
-// the first keystroke rather than on mount: it is ~40 rows nobody who only ever
-// scrolls the river list should pay for. They are matched locally like
-// everything else, and they render as GaugeRow — the same row Favorites uses,
-// so a gauge cannot read one way here and another there.
+// This screen used to append gauges under a heading below the rivers, with a
+// standing note that the chips deliberately did NOT narrow them: every chip is
+// a question about rivers ("Floatable now"), and their counts are river counts,
+// so applying them to a second kind of thing would have made those numbers
+// describe one set while filtering another. That was the right call and it left
+// gauges as second-class rows nothing could narrow.
 //
-// THE CHIPS DO NOT NARROW THEM, deliberately. Every chip is a question about
-// rivers ("All rivers", "Floatable now"), and their counts are river counts
-// computed off the whole list rather than off the query. Silently applying them
-// to a second kind of thing would make those numbers describe one set while
-// filtering another. Gauges sit under their own heading instead, which says
-// what they are and what narrowed them.
+// With a scope, each kind gets the filters that mean something for it. Rivers
+// keep the condition chips. Gauges get FLOW BANDS — a comparison to a station's
+// own history, never a verdict about floating — which could not have shared a
+// row with "Floatable now" without implying the two are the same kind of answer.
+// See src/theme/flow.ts and GaugeFilterBar for the longer version of why those
+// vocabularies stay apart.
 //
-// The filters are single-select and phrased as questions someone actually asks
-// ("what's floatable?", "what am I following?"), not as a taxonomy of every
+// ── Gauges now means ALL of them ────────────────────────────────────────────
+// It used to mean the ~46 Eddy has rated, matched locally out of /api/gauges.
+// Everything else — the ~14,000 national stations the map has drawn since the
+// reference layer shipped — was unfindable by name from the one screen called
+// Search. /api/search has covered the whole set, curated-first, the entire time;
+// this tab simply was not asking it.
+//
+// So the gauge scope goes through useEddySearch, the same hook the map's field
+// uses, which layers local hits (instant, no request) under the server's fuller
+// list. A rated station renders as GaugeRow and an unrated one as
+// ReferenceGaugeRow — two rows because they speak two vocabularies, not because
+// they come from two endpoints.
+//
+// The river filters are single-select and phrased as questions someone actually
+// asks ("what's floatable?", "what am I following?"), not as a taxonomy of every
 // condition code. A picker with seven mutually exclusive states is a database
 // query wearing a UI.
 //
@@ -62,19 +73,27 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import type { MapGauge, RiverListItem } from '@eddy/types';
+import type { DamSnapshot, MapGauge, RiverListItem, SearchResult } from '@eddy/types';
 import { hasCoordinates } from '@eddy/types';
-import { ApiError, fetchGauges, fetchRivers } from '@/api/client';
+import { FLOW_BAND_ORDER, flowBand, type FlowBand } from '@eddy/conditions/flow-band';
+import { ApiError, fetchDams, fetchGauges, fetchRivers } from '@/api/client';
 import { floatableRank, isFloatableNow } from '@/theme/conditions';
+import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { EddySymbol } from '@/components/EddySymbol';
 import { RiverRow } from '@/components/RiverRow';
 import { GaugeRow } from '@/components/GaugeRow';
+import { ReferenceGaugeRow } from '@/components/ReferenceGaugeRow';
+import { ScopeSwitch, type ScopeOption } from '@/components/ScopeSwitch';
+import { DamRow } from '@/components/dam/DamRow';
 import { SearchBar } from '@/components/SearchBar';
 import { FilterChips, type FilterChip } from '@/components/FilterChips';
+import { useEddySearch } from '@/hooks/useEddySearch';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { milesBetween, useLocation, type Coords } from '@/hooks/useLocation';
 import { gaugeLink } from '@/lib/gaugeCondition';
+import { rememberGauge, seedFromSearchResult } from '@/lib/gaugeSeed';
 import { primaryReading } from '@/lib/readingCopy';
 import { useRouter } from 'expo-router';
 
@@ -130,21 +149,10 @@ const FILTERS: Record<FilterKey, (river: RiverListItem, starred: boolean) => boo
 
 /**
  * Below this a query matches most of the network, which is not a search result.
- * Same floor the map's search uses, so the two fields behave alike.
+ * Same floor the map's search and the server both use, so nothing behaves
+ * differently depending on which half answered.
  */
 const MIN_GAUGE_QUERY = 2;
-
-/**
- * One row of the list, which now holds two kinds of thing plus the heading
- * between them.
- *
- * A tagged union rather than two lists stacked in a ScrollView: this screen
- * carries every river in the state, and it stays a FlatList.
- */
-type SearchRow =
-  | { kind: 'river'; key: string; river: RiverListItem }
-  | { kind: 'heading'; key: string; label: string }
-  | { kind: 'gauge'; key: string; gauge: MapGauge };
 
 const FILTER_LABELS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: 'All rivers' },
@@ -154,12 +162,85 @@ const FILTER_LABELS: { key: FilterKey; label: string }[] = [
   { key: 'high', label: 'High water' },
 ];
 
+/** Which kind of thing the field is searching. Exactly one at a time. */
+type ScopeKey = 'rivers' | 'gauges' | 'access' | 'dams';
+
+const SCOPES: ScopeOption<ScopeKey>[] = [
+  { key: 'rivers', label: 'Rivers' },
+  { key: 'gauges', label: 'Gauges' },
+  { key: 'access', label: 'Access' },
+  { key: 'dams', label: 'Dams' },
+];
+
+/**
+ * The dam scope's filters.
+ *
+ * NOT the condition chips and NOT the flow bands — a third kind of thing gets
+ * its own vocabulary, which is the whole argument for a scope over a chip.
+ * "Generating now" is a fact about machinery and "Trout water" is a property of
+ * the project; neither is a verdict about floating, and neither compares a
+ * reading to a station's history.
+ */
+type DamFilterKey = 'all' | 'generating' | 'trout';
+
+const DAM_FILTERS: { key: DamFilterKey; label: string }[] = [
+  { key: 'all', label: 'All dams' },
+  { key: 'generating', label: 'Generating now' },
+  { key: 'trout', label: 'Trout water' },
+];
+
+/**
+ * The gauge scope's filters.
+ *
+ * 'all' and 'starred' are questions about the SET; the five bands are a scale.
+ * Both live in one single-select row, which is honest here in a way it would not
+ * be in the river strip — the bands are mutually exclusive answers to "how does
+ * this station compare to its own history", and Following is a different cut of
+ * the same list rather than a sixth band.
+ *
+ * The vocabulary is FLOW_BAND_ORDER, not the condition ladder, and that is the
+ * whole reason this scope exists as a scope. Eddy grades ~46 stations; the rest
+ * get a comparison and never a verdict.
+ */
+type GaugeFilterKey = 'all' | 'starred' | FlowBand;
+
+/**
+ * One row of the list.
+ *
+ * A tagged union rather than several lists stacked in a ScrollView: the river
+ * scope carries every river in the state, and this stays a FlatList.
+ */
+type SearchRow =
+  | { kind: 'river'; key: string; river: RiverListItem }
+  | { kind: 'gauge'; key: string; gauge: MapGauge; result: SearchResult }
+  | { kind: 'refgauge'; key: string; result: SearchResult }
+  | { kind: 'access'; key: string; result: SearchResult }
+  | { kind: 'dam'; key: string; dam: DamSnapshot };
+
 export default function ReportsScreen() {
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [query, setQuery] = useState('');
+  const [scope, setScope] = useState<ScopeKey>('rivers');
+  const [damFilter, setDamFilter] = useState<DamFilterKey>('all');
+  const [dams, setDams] = useState<DamSnapshot[]>([]);
+
+  /**
+   * The ten dams, fetched once when the scope is first opened.
+   *
+   * Filtered LOCALLY from there, like the river scope and unlike the gauge and
+   * access ones: this screen's rule is that nothing on it should wait on a
+   * round trip to narrow data it already holds, and ten items is data it can
+   * hold. /api/search has no dam results to give it anyway.
+   */
+  const damsRequested = useRef(false);
+  useEffect(() => {
+    if (scope !== 'dams' || damsRequested.current) return;
+    damsRequested.current = true;
+    void fetchDams().then(setDams);
+  }, [scope]);
   const [filter, setFilter] = useState<FilterKey>('all');
+  const [gaugeFilter, setGaugeFilter] = useState<GaugeFilterKey>('all');
   const [sort, setSort] = useState<SortKey>('condition');
   const [sortOpen, setSortOpen] = useState(false);
   const nearest = sort === 'nearest';
@@ -205,6 +286,30 @@ export default function ReportsScreen() {
     }
     return gaugesPromise.current;
   }, []);
+
+  /**
+   * The server search, for the two scopes that need it.
+   *
+   * The SAME hook the map's field runs on, so the two fields cannot find
+   * different things — which was the state this screen was in until now: the map
+   * has searched all ~14,300 stations and every access point since /api/search
+   * shipped, and the tab actually named Search matched ~46 gauges out of local
+   * memory and no access points at all.
+   *
+   * It is fed the local lists too, so a rated station appears on the keystroke
+   * and the national tier fills in behind it. `rivers` is passed as null: the
+   * river scope below does its own local matching with its own filters and
+   * sorts, and duplicating those rows into this hook's output would put an
+   * unsorted, unfiltered copy of the river list under the gauge scope.
+   */
+  const search = useEddySearch({ rivers: null, gauges });
+
+  // THE HOOK OWNS THE FIELD, rather than this screen holding a second copy and
+  // mirroring it in. One string, so switching scope with a word already typed
+  // shows that word's results in the new scope instead of an empty list — and
+  // so nothing can render the river list against one query while the gauge
+  // scope is still answering an older one.
+  const { query, setQuery } = search;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -314,48 +419,127 @@ export default function ReportsScreen() {
   }, [sorted, filter, query, isStarred, distanceByRiver]);
 
   /**
-   * Gauges matching what is in the field.
+   * The gauge results, split by tier.
    *
-   * Name OR site id: "Van Buren" is how a person searches and "07067000" is
-   * what is printed on a bookmark, a USGS page and half the forum posts about
-   * a river. Rated stations lead — those are the ones carrying a condition
-   * Eddy stands behind, and the rest are reference — and the tie-break is the
-   * name so the order is stable between keystrokes.
+   * `curatedById` is the local /api/gauges list keyed by station id, so a rated
+   * hit can be rendered with its LADDER — GaugeRow grades from the thresholds
+   * that only that endpoint carries, and a search result has none. A hit with no
+   * local match is a reference station and renders in the band vocabulary.
+   *
+   * The tier flag is the server's `curated`, not "did we find it locally". Those
+   * agree today and would diverge the moment /api/gauges is narrowed again, and
+   * the wrong one of the two would silently start grading national stations
+   * against ladders they do not have.
    */
-  const gaugeMatches = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (needle.length < MIN_GAUGE_QUERY || !gauges) return [];
-    return gauges
-      .filter(
-        (gauge) =>
-          gauge.name.toLowerCase().includes(needle) ||
-          gauge.usgsSiteId.toLowerCase().includes(needle),
-      )
-      .sort((a, b) => {
-        const rank = (g: MapGauge) => (g.thresholds?.length ? 0 : 1);
-        return rank(a) - rank(b) || a.name.localeCompare(b.name);
-      });
-  }, [query, gauges]);
+  const curatedById = useMemo(
+    () => new Map((gauges ?? []).map((gauge) => [gauge.id, gauge])),
+    [gauges],
+  );
 
-  // Rivers, then the gauges, under a heading that says what narrowed them.
-  const rows = useMemo<SearchRow[]>(() => {
-    const out: SearchRow[] = visible.map((river) => ({
-      kind: 'river',
-      key: `river:${river.id}`,
-      river,
-    }));
-    if (gaugeMatches.length > 0) {
-      out.push({
-        kind: 'heading',
-        key: 'heading:gauges',
-        label: `${gaugeMatches.length} ${gaugeMatches.length === 1 ? 'gauge' : 'gauges'} matching “${query.trim()}”`,
-      });
-      for (const gauge of gaugeMatches) {
-        out.push({ kind: 'gauge', key: `gauge:${gauge.id}`, gauge });
-      }
+  const gaugeResults = useMemo(
+    () => search.results.filter((r) => r.kind === 'gauge'),
+    [search.results],
+  );
+
+  /**
+   * Those results, narrowed by the band chips.
+   *
+   * A rated station has no percentile on the wire — /api/gauges answers with the
+   * ladder instead — so it lands in the null band and is kept by 'all' and by
+   * 'starred' and by no band chip. That is correct rather than a gap: a band is
+   * a claim about where a reading sits in ITS OWN history, and we do not hold
+   * that history for the curated tier through this endpoint.
+   */
+  const visibleGauges = useMemo(() => {
+    if (gaugeFilter === 'all') return gaugeResults;
+    if (gaugeFilter === 'starred') {
+      return gaugeResults.filter((r) => isStarred('gauge', r.id));
     }
-    return out;
-  }, [visible, gaugeMatches, query]);
+    return gaugeResults.filter((r) => flowBand(r.gauge?.flowPercentile) === gaugeFilter);
+  }, [gaugeResults, gaugeFilter, isStarred]);
+
+  const accessResults = useMemo(
+    () => search.results.filter((r) => r.kind === 'access_point'),
+    [search.results],
+  );
+
+  /**
+   * The dams, narrowed by the field and the chips.
+   *
+   * Matched on the dam and its lake, because half of these are known by the
+   * lake's name rather than the dam's — somebody looking for Taneycomo types
+   * "Table Rock", and somebody looking for the Corps project types the lake.
+   */
+  const visibleDams = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return dams.filter((dam) => {
+      if (q && !`${dam.name} ${dam.lakeName ?? ''}`.toLowerCase().includes(q)) return false;
+      // `generating === true`, not truthy: null means the dam publishes no
+      // turbine flow, and an unknown must not be filtered in as a "yes".
+      if (damFilter === 'generating') return dam.generating === true;
+      if (damFilter === 'trout') return dam.tailwaterFishery === 'trout';
+      return true;
+    });
+  }, [dams, query, damFilter]);
+
+  const rows = useMemo<SearchRow[]>(() => {
+    if (scope === 'rivers') {
+      return visible.map((river) => ({
+        kind: 'river' as const,
+        key: `river:${river.id}`,
+        river,
+      }));
+    }
+
+    if (scope === 'gauges') {
+      return visibleGauges.map((result) => {
+        const local = curatedById.get(result.id);
+        return result.gauge?.curated && local
+          ? { kind: 'gauge' as const, key: `gauge:${result.id}`, gauge: local, result }
+          : { kind: 'refgauge' as const, key: `refgauge:${result.id}`, result };
+      });
+    }
+
+    if (scope === 'dams') {
+      return visibleDams.map((dam) => ({
+        kind: 'dam' as const,
+        key: `dam:${dam.id}`,
+        dam,
+      }));
+    }
+
+    return accessResults.map((result) => ({
+      kind: 'access' as const,
+      key: `access:${result.id}`,
+      result,
+    }));
+  }, [scope, visible, visibleGauges, curatedById, accessResults, visibleDams]);
+
+  /**
+   * Counts for the band chips, off the UNFILTERED gauge results.
+   *
+   * Same rule the river chips follow: a count computed off the filtered set
+   * would read 0 on every chip but the live one, which tells nobody anything.
+   */
+  const gaugeChips: FilterChip[] = useMemo(
+    () => [
+      { key: 'all', label: 'All gauges', count: gaugeResults.length },
+      {
+        key: 'starred',
+        label: 'Following',
+        count: gaugeResults.filter((r) => isStarred('gauge', r.id)).length,
+      },
+      ...FLOW_BAND_ORDER.map((band) => ({
+        key: band,
+        label: flowBandLabel(band),
+        // The chip wears its own band colour when live — a legend and a control
+        // in one object, the same thing the map's layer chips do.
+        activeColor: flowBandColor(band),
+        count: gaugeResults.filter((r) => flowBand(r.gauge?.flowPercentile) === band).length,
+      })),
+    ],
+    [gaugeResults, isStarred],
+  );
 
   const chips: FilterChip[] = useMemo(
     () =>
@@ -392,6 +576,26 @@ export default function ReportsScreen() {
     [nearest, location, ensureGauges],
   );
 
+  /**
+   * Counts off the UNFILTERED dam list, matching the rule the other two scopes
+   * follow: a count computed from the filtered set reads 0 on every chip but
+   * the live one, which tells nobody anything.
+   */
+  const damChips: FilterChip[] = useMemo(
+    () =>
+      DAM_FILTERS.map(({ key, label }) => ({
+        key,
+        label,
+        count:
+          key === 'all'
+            ? dams.length
+            : key === 'generating'
+              ? dams.filter((d) => d.generating === true).length
+              : dams.filter((d) => d.tailwaterFishery === 'trout').length,
+      })),
+    [dams],
+  );
+
   if (!rivers && !error) {
     return (
       <SafeAreaView style={[styles.centered, { backgroundColor: colors.bg }]} edges={['top']}>
@@ -400,7 +604,25 @@ export default function ReportsScreen() {
     );
   }
 
-  const filtering = query.trim().length > 0 || filter !== 'all';
+  const riverScope = scope === 'rivers';
+  /**
+   * Scopes whose results come from /api/search, as opposed to a list this
+   * screen already holds.
+   *
+   * The distinction drives the empty state: a server scope with too short a
+   * query has not RUN a search, so it must not report having found nothing.
+   * Rivers and dams are local — both render their full list with an empty
+   * field — so neither has a "type to search" state at all.
+   */
+  const serverScope = scope === 'gauges' || scope === 'access';
+  const filtering =
+    query.trim().length > 0 ||
+    (riverScope
+      ? filter !== 'all'
+      : scope === 'dams'
+        ? damFilter !== 'all'
+        : gaugeFilter !== 'all');
+  const shortQuery = query.trim().length < MIN_GAUGE_QUERY;
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
@@ -424,16 +646,32 @@ export default function ReportsScreen() {
         <SearchBar
           value={query}
           onChangeText={setQuery}
-          placeholder="Search rivers and gauges"
-          // Gauges are matched locally, so the list has to exist before the
-          // first keystroke rather than after it — the same reason the map's
-          // field warms it on focus.
+          // Names the live scope rather than listing all three. A field that
+          // says "rivers and gauges" while a switch above it says Gauges is two
+          // controls disagreeing about what is about to happen.
+          placeholder={
+            riverScope
+              ? 'Search rivers'
+              : scope === 'gauges'
+                ? 'Search gauges by name or site id'
+                : scope === 'dams'
+                  ? 'Search dams and lakes'
+                  : 'Search access points'
+          }
+          // Rated gauges are matched locally so they land on the keystroke, and
+          // the list has to exist before the first one — the same reason the
+          // map's field warms it on focus.
           onFocus={ensureGauges}
           trailing={
             // Inside the field rather than as a sixth filter chip: this changes
             // the ORDER, and the chips all change which rivers appear. Mixing
             // the two in one row would make "Near me" look mutually exclusive
             // with "Floatable now", which it is not — they compose.
+            // Rivers only. Every ordering here is a question about rivers —
+            // "most water" compares readings across rated units, "near me"
+            // measures to a river's own gauge — and offering them over a list
+            // of national stations would be five orderings that do nothing.
+            !riverScope ? null : (
             <Pressable
               onPress={() => setSortOpen((open) => !open)}
               disabled={location.status === 'locating'}
@@ -452,16 +690,22 @@ export default function ReportsScreen() {
                 />
               )}
             </Pressable>
+            )
           }
         />
       </View>
+
+      {/* ── Which kind of thing ──────────────────────────────────
+          Above the filters, below the field, because it governs both: the chips
+          under it change with it, and so does what the field is asking for. */}
+      <ScopeSwitch options={SCOPES} value={scope} onChange={setScope} />
 
       {/* A menu, not a chip row. Five orderings would double the width of the
           filter strip and read as ten filters; and unlike the filters, only one
           ordering is ever live, which is what a menu says and a chip row does
           not. Collapsed by default — the default order is the right one for
           most visits. */}
-      {sortOpen ? (
+      {sortOpen && riverScope ? (
         <View style={[styles.sortMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {SORT_LABELS.map(({ key, label }) => {
             const on = sort === key;
@@ -485,24 +729,55 @@ export default function ReportsScreen() {
 
       {/* Stated once, above the list, rather than repeated on every row. The
           proxy is worth admitting exactly as loudly as it deserves. */}
-      {nearest ? (
+      {nearest && riverScope ? (
         <Text style={[styles.sortNote, { color: colors.textSubtle }]}>
           Nearest first, straight-line to each river&apos;s gauge — not drive time.
         </Text>
-      ) : location.status === 'denied' ? (
+      ) : riverScope && location.status === 'denied' ? (
         <Text style={[styles.sortNote, { color: colors.textSubtle }]}>
           Location is off for Eddy. Turn it on in Settings to sort by what is closest.
         </Text>
       ) : null}
 
-      <FilterChips
-        chips={chips}
-        active={[filter]}
-        // Single-select: tapping the live chip returns to All rather than
-        // leaving the screen with nothing selected and no rivers shown.
-        onToggle={(key) => setFilter((prev) => (prev === key ? 'all' : (key as FilterKey)))}
-        paddingHorizontal={16}
-      />
+      {/* ── The filters, per scope ───────────────────────────────
+          The whole reason the switch above exists. Rivers are narrowed by a
+          floatability VERDICT and gauges by a comparison to their own history,
+          and the two vocabularies must never appear in one row implying they
+          are the same kind of answer — see src/theme/flow.ts.
+
+          Access points get no strip at all rather than a token one. Every cut
+          worth making over them (by type, by river, by public/private) is a
+          filter over a set the server returns pre-narrowed to a query, and a
+          chip row that could only ever say "All" is a control pretending to be
+          a choice. */}
+      {riverScope ? (
+        <FilterChips
+          chips={chips}
+          active={[filter]}
+          // Single-select: tapping the live chip returns to All rather than
+          // leaving the screen with nothing selected and no rivers shown.
+          onToggle={(key) => setFilter((prev) => (prev === key ? 'all' : (key as FilterKey)))}
+          paddingHorizontal={16}
+        />
+      ) : scope === 'gauges' ? (
+        <FilterChips
+          chips={gaugeChips}
+          active={[gaugeFilter]}
+          onToggle={(key) =>
+            setGaugeFilter((prev) => (prev === key ? 'all' : (key as GaugeFilterKey)))
+          }
+          paddingHorizontal={16}
+        />
+      ) : scope === 'dams' ? (
+        <FilterChips
+          chips={damChips}
+          active={[damFilter]}
+          onToggle={(key) =>
+            setDamFilter((prev) => (prev === key ? 'all' : (key as DamFilterKey)))
+          }
+          paddingHorizontal={16}
+        />
+      ) : null}
 
       <FlatList
         data={rows}
@@ -514,27 +789,39 @@ export default function ReportsScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-              {error ??
-                (filtering
-                  ? 'Nothing matches that. Try another name, a gauge, or clear the filter.'
-                  : 'No rivers found')}
-            </Text>
+            {/* A query too short to have been ASKED must not be reported as
+                having found nothing — below two characters neither this screen
+                nor the server has run a search, and "nothing matches" would be
+                a claim about the database. */}
+            {serverScope && shortQuery && !error ? (
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                {scope === 'gauges'
+                  ? 'Search every USGS gauge by station name or site id.'
+                  : 'Search every access point on Eddy\u2019s rivers by name.'}
+              </Text>
+            ) : search.searching && serverScope ? (
+              <ActivityIndicator color={colors.accent} />
+            ) : (
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                {error ??
+                  (filtering
+                    ? 'Nothing matches that. Try another name, or clear the filter.'
+                    : riverScope
+                      ? 'No rivers found'
+                      : scope === 'dams'
+                        ? 'No dams found'
+                        : 'Nothing found')}
+              </Text>
+            )}
           </View>
         }
         renderItem={({ item }) => {
-          if (item.kind === 'heading') {
-            return (
-              <Text style={[styles.rowsHeading, { color: colors.textSubtle }]}>{item.label}</Text>
-            );
-          }
-
           if (item.kind === 'gauge') {
             const gauge = item.gauge;
-            // The gauge's own primary association names the river, which is
-            // also the only river it can honestly tap through to — a station
-            // that rates nothing has nowhere to go, and GaugeRow renders a
-            // dead row rather than a dead tap.
+            // The gauge's own primary association names the river. It no longer
+            // decides whether the row goes anywhere: every gauge has a screen
+            // now, so a station that rates nothing is still a destination
+            // rather than the dead row this used to render.
             const link = gaugeLink(gauge);
             return (
               <GaugeRow
@@ -542,7 +829,14 @@ export default function ReportsScreen() {
                 riverName={link?.riverName ?? null}
                 gauge={gauge}
                 starred={isStarred('gauge', gauge.id)}
-                onPress={link?.riverSlug ? () => router.push(`/river/${link.riverSlug}`) : null}
+                onPress={
+                  gauge.usgsSiteId
+                    ? () => {
+                        rememberGauge(seedFromSearchResult(item.result));
+                        router.push(`/gauge/${encodeURIComponent(gauge.usgsSiteId!)}`);
+                      }
+                    : null
+                }
                 onToggleStar={() =>
                   toggleStar({
                     kind: 'gauge',
@@ -553,6 +847,89 @@ export default function ReportsScreen() {
                   })
                 }
               />
+            );
+          }
+
+          if (item.kind === 'refgauge') {
+            const result = item.result;
+            return (
+              <ReferenceGaugeRow
+                name={result.name}
+                siteId={result.siteId ?? null}
+                reading={result.gauge ?? null}
+                starred={isStarred('gauge', result.id)}
+                onPress={
+                  result.siteId
+                    ? () => {
+                        rememberGauge(seedFromSearchResult(result));
+                        router.push(`/gauge/${encodeURIComponent(result.siteId!)}`);
+                      }
+                    : null
+                }
+                // A reference gauge is starrable like any other — the store
+                // keys on the station id, which this row has. It then appears
+                // in Favorites with a live reading, which is the point.
+                onToggleStar={() =>
+                  toggleStar({
+                    kind: 'gauge',
+                    entityId: result.id,
+                    name: result.name,
+                    // It rates no river, so there is no slug. Empty rather than
+                    // a guess — the store treats it as "nowhere to tap through".
+                    slug: result.riverSlug ?? '',
+                    usgsSiteId: result.siteId ?? null,
+                  })
+                }
+              />
+            );
+          }
+
+          if (item.kind === 'dam') {
+            return (
+              <DamRow dam={item.dam} onPress={() => router.push(`/dam/${item.dam.id}`)} />
+            );
+          }
+
+          if (item.kind === 'access') {
+            const result = item.result;
+            const target =
+              result.riverSlug && result.accessSlug
+                ? `/river/${result.riverSlug}/access/${encodeURIComponent(result.accessSlug)}`
+                : null;
+            return (
+              <Pressable
+                onPress={
+                  // A result without both halves of its route cannot be opened.
+                  // Older deployments of /api/search send no accessSlug, and a
+                  // row that navigates nowhere is better than one that 404s.
+                  target ? () => router.push(target) : undefined
+                }
+                disabled={!target}
+                style={({ pressed }) => [
+                  styles.accessRow,
+                  { backgroundColor: colors.card, opacity: pressed && target ? 0.6 : 1 },
+                ]}
+                accessibilityRole={target ? 'button' : undefined}
+                accessibilityLabel={[result.name, result.subtitle].filter(Boolean).join(', ')}
+              >
+                <EddySymbol name="accessPoint" size={18} />
+                <View style={styles.accessBody}>
+                  <Text style={[styles.accessName, { color: colors.text }]} numberOfLines={1}>
+                    {result.name}
+                  </Text>
+                  {result.subtitle ? (
+                    <Text
+                      style={[styles.accessMeta, { color: colors.textMuted }]}
+                      numberOfLines={1}
+                    >
+                      {result.subtitle}
+                    </Text>
+                  ) : null}
+                </View>
+                {target ? (
+                  <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
+                ) : null}
+              </Pressable>
             );
           }
 
@@ -609,14 +986,19 @@ const styles = StyleSheet.create({
   listContent: { paddingTop: 4, paddingBottom: 16 },
   // Aligned with the row cards below it (16pt margin + 4pt of optical inset),
   // so the heading reads as the label on the group rather than as a stray line.
-  rowsHeading: {
-    ...t.xs,
-    fontFamily: fonts.heading,
-    letterSpacing: 0.4,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 8,
+  accessRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: 16,
+    marginBottom: 9,
+    paddingVertical: 12,
+    paddingHorizontal: 13,
+    borderRadius: 14,
   },
+  accessBody: { flex: 1 },
+  accessName: { ...t.sm, fontFamily: fonts.semibold },
+  accessMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   empty: { padding: 32, alignItems: 'center' },
   emptyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
 });

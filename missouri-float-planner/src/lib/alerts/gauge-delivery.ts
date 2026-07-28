@@ -1,0 +1,358 @@
+// src/lib/alerts/gauge-delivery.ts
+// The gauge-alert half of the push drain. Called by /api/cron/deliver-push.
+//
+// Kept out of that route rather than inlined because the two passes share only
+// their transport: the river pass has to answer "who subscribed to this river?"
+// and interleave the answer so one river's subscribers are not sent in a
+// contiguous burst, while here the recipient is written on the event itself.
+// Fan-out policy is the bulk of fanout.ts and none of it applies.
+//
+// What IS shared is deliberately shared — sendExpoPush, the ledger table, the
+// drain rule in planDrain(), and token-health — so a fix to any of them reaches
+// both paths.
+//
+// ── Quiet hours are applied HERE, not at evaluation ─────────────────────────
+//
+// The alternative is to suppress at evaluation time and never write the event,
+// which is worse in both directions: the rule's crossing state would advance
+// with nothing recorded, so the user would lose the alert AND the Alerts tab
+// would never show what happened. Recording always and suppressing at the last
+// moment keeps the feed honest — the change is visible in the morning even
+// though the phone stayed silent.
+
+import { planDrain } from './drain';
+import { buildGaugeNotification, suppressedByQuietHours, type GaugeEventKind } from './gauge-threshold';
+import { disableTokens, recordTokenFailures } from './token-health';
+import { chunkMessages, classifyTicketError, sendExpoPush, type ExpoMessage } from '@/lib/push/expo';
+import type { AlertComparator, AlertMetric, AlertSubscriptionKind, NotificationPreferences } from '@/types/api';
+import { logger } from '@/lib/logger';
+
+/**
+ * Events older than this are drained WITHOUT sending — the same rule the river
+ * pass applies. After a delivery outage, "the Meramec is above 3 ft" must never
+ * fire about water that has since dropped.
+ */
+const MAX_EVENT_AGE_HOURS = 3;
+const MAX_ATTEMPTS = 5;
+const EVENT_BATCH = 200;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+export interface GaugeDeliveryStats {
+  events: number;
+  expired: number;
+  planned: number;
+  sent: number;
+  failed: number;
+  quietSuppressed: number;
+  retried: number;
+  givenUp: number;
+}
+
+const EMPTY: GaugeDeliveryStats = {
+  events: 0,
+  expired: 0,
+  planned: 0,
+  sent: 0,
+  failed: 0,
+  quietSuppressed: 0,
+  retried: 0,
+  givenUp: 0,
+};
+
+interface PlannedGaugeMessage {
+  message: ExpoMessage;
+  eventId: string;
+  deviceTokenId: string;
+  userId: string;
+  riverId: string | null;
+  kind: GaugeEventKind;
+}
+
+/** PostgREST types a to-one embed as an array; at runtime it is one object. */
+function one<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+function toPreferences(row: {
+  quiet_hours_enabled: boolean;
+  quiet_start_minute: number | null;
+  quiet_end_minute: number | null;
+  timezone: string | null;
+  safety_overrides_quiet: boolean;
+}): NotificationPreferences {
+  return {
+    quietHoursEnabled: row.quiet_hours_enabled,
+    quietStartMinute: row.quiet_start_minute,
+    quietEndMinute: row.quiet_end_minute,
+    timezone: row.timezone ?? 'America/Chicago',
+    safetyOverridesQuiet: row.safety_overrides_quiet,
+  };
+}
+
+/**
+ * Drain gauge_alert_events to Expo.
+ *
+ * Returns stats rather than a response so the caller can fold them into its own
+ * summary. Never throws: a failure here must not abort the river pass that ran
+ * before it and already sent.
+ */
+export async function deliverGaugeAlerts(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  now: Date = new Date(),
+): Promise<GaugeDeliveryStats> {
+  try {
+    const cutoff = new Date(now.getTime() - MAX_EVENT_AGE_HOURS * 60 * 60 * 1000).toISOString();
+
+    const { data: pending, error } = await supabase
+      .from('gauge_alert_events')
+      .select(
+        'id, subscription_id, user_id, gauge_station_id, river_id, kind, reading_value, ' +
+          'reading_unit, reading_at, condition_code, detected_at, push_attempts, ' +
+          'gauge_stations!inner(name, usgs_site_id, site_id_external), ' +
+          'rivers(name, slug), ' +
+          'gauge_alert_subscriptions!inner(scope, mode, condition_kind, metric, comparator, threshold_value, threshold_value_max)',
+      )
+      .is('push_delivered_at', null)
+      .lt('push_attempts', MAX_ATTEMPTS)
+      .order('detected_at', { ascending: true })
+      .limit(EVENT_BATCH);
+
+    if (error) {
+      logger.error('[deliver-push:gauge] could not read outbox', error);
+      return EMPTY;
+    }
+
+    const rows = pending ?? [];
+    if (rows.length === 0) return EMPTY;
+
+    const expired = rows.filter((r: { detected_at: string }) => r.detected_at < cutoff);
+    if (expired.length > 0) {
+      await markDelivered(supabase, expired.map((r: { id: string }) => r.id));
+    }
+
+    const fresh = rows.filter((r: { detected_at: string }) => r.detected_at >= cutoff);
+    if (fresh.length === 0) {
+      return { ...EMPTY, events: rows.length, expired: expired.length };
+    }
+
+    const userIds = [...new Set(fresh.map((r: { user_id: string }) => r.user_id))] as string[];
+
+    const [{ data: tokensData }, { data: prefsData }] = await Promise.all([
+      supabase
+        .from('device_tokens')
+        .select('id, user_id, expo_push_token')
+        .in('user_id', userIds)
+        .is('disabled_at', null),
+      supabase
+        .from('notification_preferences')
+        .select('user_id, quiet_hours_enabled, quiet_start_minute, quiet_end_minute, timezone, safety_overrides_quiet')
+        .in('user_id', userIds),
+    ]);
+
+    const tokensByUser = new Map<string, Array<{ id: string; expo_push_token: string }>>();
+    for (const token of tokensData ?? []) {
+      const bucket = tokensByUser.get(token.user_id);
+      if (bucket) bucket.push(token);
+      else tokensByUser.set(token.user_id, [token]);
+    }
+
+    const prefsByUser = new Map<string, NotificationPreferences>();
+    for (const row of prefsData ?? []) prefsByUser.set(row.user_id, toPreferences(row));
+
+    const planned: PlannedGaugeMessage[] = [];
+    let quietSuppressed = 0;
+
+    for (const row of fresh) {
+      const kind = row.kind as GaugeEventKind;
+      const prefs = prefsByUser.get(row.user_id) ?? null;
+
+      if (suppressedByQuietHours(prefs, kind, now)) {
+        quietSuppressed++;
+        // Counted as handled, not retried. The window outlives MAX_EVENT_AGE_HOURS,
+        // so leaving it in the outbox would only burn attempts until it expired.
+        continue;
+      }
+
+      const station = one<{ name: string; usgs_site_id: string | null; site_id_external: string | null }>(
+        row.gauge_stations,
+      );
+      const river = one<{ name: string; slug: string }>(row.rivers);
+      const rule = one<{
+        scope: 'river' | 'gauge';
+        mode: 'condition' | 'threshold';
+        condition_kind: AlertSubscriptionKind | null;
+        metric: AlertMetric | null;
+        comparator: AlertComparator | null;
+        threshold_value: number | string | null;
+        threshold_value_max: number | string | null;
+      }>(row.gauge_alert_subscriptions);
+
+      if (!rule) continue;
+
+      const notification = buildGaugeNotification({
+        stationName: station?.name ?? 'Your gauge',
+        riverName: river?.name ?? null,
+        kind,
+        readingValue: row.reading_value == null ? null : Number(row.reading_value),
+        readingUnit: row.reading_unit,
+        conditionCode: row.condition_code,
+        rule: {
+          mode: rule.mode,
+          conditionKind: rule.condition_kind,
+          metric: rule.metric,
+          comparator: rule.comparator,
+          thresholdValue: rule.threshold_value == null ? null : Number(rule.threshold_value),
+          thresholdValueMax:
+            rule.threshold_value_max == null ? null : Number(rule.threshold_value_max),
+        },
+      });
+
+      // EXACTLY ONE routing key, chosen by the rule's scope. Sending both and
+      // letting the app pick would put the decision in the client, where a
+      // gauge alert on a station that happens to rate a river would open the
+      // river screen — which never mentions the station the user chose.
+      const siteId = station?.usgs_site_id ?? station?.site_id_external ?? null;
+      const routing =
+        rule.scope === 'river' && river?.slug
+          ? { riverSlug: river.slug, gaugeSiteId: null }
+          : { riverSlug: null, gaugeSiteId: siteId };
+
+      for (const token of tokensByUser.get(row.user_id) ?? []) {
+        planned.push({
+          message: {
+            to: token.expo_push_token,
+            title: notification.title,
+            body: notification.body,
+            sound: 'default',
+            priority: kind === 'warning' ? 'high' : 'default',
+            data: {
+              eventId: row.id,
+              alertId: row.subscription_id,
+              kind,
+              condition: row.condition_code,
+              ...routing,
+            },
+          },
+          eventId: row.id,
+          deviceTokenId: token.id,
+          userId: row.user_id,
+          riverId: row.river_id,
+          kind,
+        });
+      }
+    }
+
+    let sent = 0;
+    let failed = 0;
+    const failuresByToken = new Map<string, number>();
+    const successByEvent = new Map<string, number>();
+
+    for (const [index, batch] of chunkMessages(planned.map((m) => m.message)).entries()) {
+      const offset = index * 100;
+      // Never throws — a whole-request failure comes back as one error ticket
+      // per message, index-aligned, so the tally below is always complete.
+      const tickets = await sendExpoPush(batch);
+
+      const ledgerRows = tickets.map((ticket, i) => {
+        const message = planned[offset + i];
+        const errorKind = classifyTicketError(ticket);
+        if (ticket.status === 'ok') {
+          sent++;
+          successByEvent.set(message.eventId, (successByEvent.get(message.eventId) ?? 0) + 1);
+        } else {
+          failed++;
+          failuresByToken.set(
+            message.deviceTokenId,
+            (failuresByToken.get(message.deviceTokenId) ?? 0) + 1,
+          );
+        }
+        return {
+          event_id: message.eventId,
+          device_token_id: message.deviceTokenId,
+          user_id: message.userId,
+          river_id: message.riverId,
+          kind: message.kind,
+          // The one column that distinguishes these rows from the river pass's.
+          // There is no FK behind event_id any more — see migration 00203.
+          event_source: 'gauge_alert',
+          ticket_id: ticket.id ?? null,
+          status: ticket.status === 'ok' ? 'sent' : 'error',
+          error_code: errorKind,
+        };
+      });
+
+      await supabase
+        .from('alert_push_deliveries')
+        .upsert(ledgerRows, { onConflict: 'event_id,device_token_id' });
+
+      const dead = tickets
+        .map((t, i) =>
+          classifyTicketError(t) === 'device_not_registered'
+            ? planned[offset + i].deviceTokenId
+            : null,
+        )
+        .filter((id): id is string => !!id);
+      await disableTokens(supabase, dead);
+
+      if (index < planned.length / 100 - 1) await sleep(300);
+    }
+
+    await recordTokenFailures(supabase, failuresByToken);
+
+    // An event with nothing planned — quiet hours, or no active device — is
+    // drained rather than retried. Retrying it would refill the outbox every
+    // five minutes with notifications nobody can receive.
+    const plannedByEvent = new Map<string, number>();
+    for (const message of planned) {
+      plannedByEvent.set(message.eventId, (plannedByEvent.get(message.eventId) ?? 0) + 1);
+    }
+
+    const { delivered, retryByNextAttempt, givenUp } = planDrain({
+      events: fresh.map((r: { id: string; push_attempts: number | null }) => ({
+        id: r.id,
+        attempts: r.push_attempts ?? 0,
+      })),
+      plannedByEvent,
+      successByEvent,
+      maxAttempts: MAX_ATTEMPTS,
+    });
+
+    for (const [attempts, ids] of retryByNextAttempt) {
+      await supabase.from('gauge_alert_events').update({ push_attempts: attempts }).in('id', ids);
+    }
+    await markDelivered(supabase, delivered);
+
+    if (givenUp > 0) {
+      logger.error(
+        '[deliver-push:gauge] events abandoned after MAX_ATTEMPTS',
+        new Error(`${givenUp} gauge alert(s) never reached a device`),
+      );
+    }
+
+    return {
+      events: rows.length,
+      expired: expired.length,
+      planned: planned.length,
+      sent,
+      failed,
+      quietSuppressed,
+      retried: fresh.length - delivered.length,
+      givenUp,
+    };
+  } catch (error) {
+    logger.error('[deliver-push:gauge] pass failed', error);
+    return EMPTY;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function markDelivered(supabase: any, eventIds: string[]): Promise<void> {
+  if (eventIds.length === 0) return;
+  await supabase
+    .from('gauge_alert_events')
+    .update({ push_delivered_at: new Date().toISOString() })
+    .in('id', eventIds);
+}

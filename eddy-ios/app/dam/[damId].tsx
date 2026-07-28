@@ -1,0 +1,230 @@
+// eddy-ios/app/dam/[damId].tsx
+// One USACE project: what it is releasing, what the lake is doing, and when the
+// units are scheduled to run.
+//
+// ── Why a dam is its own screen and not a section on a river ───────────────
+// Because most of these dams have no Eddy river below them. Somebody fishing
+// Lake Taneycomo does not need Eddy to have onboarded Taneycomo as a float
+// river; they need to know whether Table Rock is generating and how cold the
+// tailwater is. That is a dam screen, and it needs no river content at all.
+//
+// Where a tailwater DOES exist, the relationship runs the other way too: the
+// river screen shows a dam panel, and this screen links back. `tailwater` on
+// the snapshot is what connects them.
+//
+// ── Structure follows app/gauge/[siteId].tsx ───────────────────────────────
+// Same shell — hidden header, a back chevron in a navRow, a ScrollView, an
+// explicit error body rather than a blank screen. This is a detail screen
+// reached from a pin or a row, so it behaves like the app's other one.
+//
+// ── What it must never do ──────────────────────────────────────────────────
+// Imply a release is a promise. The Corps changes schedules for power demand,
+// transmission constraints, outages and inflow, and this screen sits next to a
+// number somebody may wade into.
+
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import type { DamSnapshot } from '@eddy/types';
+import { fetchDam } from '@/api/client';
+import { DamStateCard } from '@/components/dam/DamStateCard';
+import { GenerationSchedule } from '@/components/dam/GenerationSchedule';
+import { useTheme } from '@/theme/ThemeProvider';
+import { fonts, type as t } from '@/theme/typography';
+
+export default function DamDetailScreen() {
+  const { damId } = useLocalSearchParams<{ damId: string }>();
+  const router = useRouter();
+  const { colors, elevation } = useTheme();
+
+  const [dam, setDam] = useState<DamSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!damId) return;
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const snapshot = await fetchDam(damId, controller.signal);
+        if (controller.signal.aborted) return;
+        setDam(snapshot);
+      } catch {
+        if (controller.signal.aborted) return;
+        // fetchDam throws by design: this screen is opened from a row or a pin
+        // that named the dam, so a failure here is a real one and gets said out
+        // loud rather than absorbed into an empty screen.
+        setFailed(true);
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [damId]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.screen, styles.centre, { backgroundColor: colors.bg }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ActivityIndicator size="large" color={colors.accent} />
+      </SafeAreaView>
+    );
+  }
+
+  if (!dam) {
+    return (
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.navRow}>
+          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+            <Ionicons name="chevron-back" size={26} color={colors.text} />
+          </Pressable>
+        </View>
+        <View style={[styles.centre, styles.emptyBody]}>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            {failed ? 'Dam unavailable' : 'Dam not found'}
+          </Text>
+          <Text style={[styles.emptyBodyText, { color: colors.textMuted }]}>
+            {failed
+              ? 'Could not reach the Corps’ feed. Check your connection and try again.'
+              : `No project is published under ${damId}.`}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Everything upstream is read-through and allowed to fail independently, so a
+  // dam can arrive with a schedule and no readings, or readings and no
+  // schedule. Both are ordinary; only nothing at all is worth saying.
+  const hasMetrics = Object.keys(dam.metrics).length > 0;
+  const hasAnything = hasMetrics || dam.schedule.length > 0 || dam.generating !== null;
+
+  return (
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.navRow}>
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
+        </Pressable>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.body}>
+        <Text style={[styles.name, { color: colors.text }]}>{dam.name}</Text>
+        <Text style={[styles.meta, { color: colors.textMuted }]}>
+          {[dam.lakeName, dam.state].filter(Boolean).join(' · ')}
+        </Text>
+
+        {hasAnything ? (
+          <View style={styles.section}>
+            <DamStateCard dam={dam} />
+          </View>
+        ) : (
+          // Not an error. Kansas City district publishes nothing to CWMS and
+          // SWPA may not have refreshed yet, which is a real and temporary
+          // state — saying so beats an empty screen that looks broken.
+          <View style={styles.section}>
+            <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
+              <Text style={[styles.emptyBodyText, { color: colors.textMuted }]}>
+                No readings or schedule are published for {dam.name} right now.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {dam.schedule.length > 0 ? (
+          <View style={styles.section}>
+            <GenerationSchedule schedule={dam.schedule} />
+          </View>
+        ) : null}
+
+        <View style={styles.actions}>
+          {/* The reach this dam controls, when Eddy carries it. Absent for most
+              projects, and absent is the honest state — a dam whose tailwater
+              Eddy does not carry has no river screen to offer. */}
+          {dam.tailwater ? (
+            <Pressable
+              onPress={() => router.push(`/river/${dam.tailwater!.riverSlug}`)}
+              style={({ pressed }) => [
+                styles.action,
+                { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+              ]}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.actionText, { color: colors.onAccent }]}>
+                Open the river below this dam
+              </Text>
+            </Pressable>
+          ) : null}
+
+          {/* The recorded line. Kept because it is the fallback when a feed is
+              down, which is exactly when somebody most needs the number — and
+              it is the Corps' own answer rather than Eddy's. */}
+          {dam.infoPhone ? (
+            <Pressable
+              onPress={() => void Linking.openURL(`tel:${dam.infoPhone}`)}
+              style={({ pressed }) => [
+                styles.sourceButton,
+                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+              ]}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.sourceText, { color: colors.text }]}>
+                Recorded release line · {dam.infoPhone}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {dam.sources.length > 0 ? (
+          <Text style={[styles.sources, { color: colors.textSubtle }]}>
+            Source: {dam.sources.join(' · ')}.
+          </Text>
+        ) : null}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  centre: { alignItems: 'center', justifyContent: 'center' },
+  emptyBody: { flex: 1, paddingHorizontal: 32, gap: 10 },
+  emptyTitle: { ...t.xl, fontFamily: fonts.heading, textAlign: 'center' },
+  emptyBodyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  body: { paddingBottom: 40 },
+  name: { ...t['2xl'], fontFamily: fonts.heading, paddingHorizontal: 20, marginTop: 4 },
+  meta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 20, marginTop: 2, marginBottom: 14 },
+  section: { paddingHorizontal: 16, marginBottom: 14 },
+  card: { borderRadius: 14, padding: 16 },
+  actions: { paddingHorizontal: 16, gap: 10 },
+  action: { paddingVertical: 13, borderRadius: 14, alignItems: 'center' },
+  actionText: { ...t.base, fontFamily: fonts.semibold },
+  sourceButton: {
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  sourceText: { ...t.sm, fontFamily: fonts.medium },
+  sources: { ...t.xs, paddingHorizontal: 20, marginTop: 14 },
+});

@@ -1,5 +1,7 @@
 # Inbound email (eddy.guide) via Resend
 
+> **Status: active** — runbook for inbound *@eddy.guide mail via Resend.
+
 How mail sent to `*@eddy.guide` reaches the app, and everything required to make
 it work end to end. This is inbound only — receiving mail, not sending it.
 

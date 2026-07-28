@@ -1,5 +1,7 @@
 # Plan: Post-Type Registry Refactor (Social Posting Subsystem)
 
+> **Status: historical — implemented.** The registry it proposes exists at src/lib/social/post-types.ts; read the code, not this plan, for current behavior.
+
 ## Context
 
 Social posting is assembled in **three** places that drift from each other, and each

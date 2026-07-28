@@ -256,6 +256,176 @@ export function accessTypeLabel(type: string): string {
   return ACCESS_POINT_TYPE_LABELS[type as AccessPointType] ?? type.replace(/_/g, ' ');
 }
 
+// ── One access point (GET /api/rivers/[slug]/access/[accessSlug]) ────────────
+// Everything the website's access page renders, which is a great deal more than
+// MapAccessPoint holds.
+//
+// MapAccessPoint is deliberately a SUBSET — "the fields the map needs, and only
+// those" — because it arrives several hundred at a time and most of it would be
+// thrown away. This is the opposite case: one place, fetched because somebody
+// tapped it, and the questions they have standing in a driveway with a boat on
+// the roof are exactly the ones the extra fields answer. Can I get down there in
+// a two-wheel-drive. Is there room to park. Is there a toilet. Who do I call for
+// a shuttle. How far to the next take-out.
+//
+// A SECOND type rather than optional fields on the first, so nothing can render
+// a list row expecting detail that the list endpoint never sends.
+
+export type RoadSurface =
+  | 'paved'
+  | 'gravel_maintained'
+  | 'gravel_unmaintained'
+  | 'dirt'
+  | 'seasonal'
+  | '4wd_required';
+
+export type ManagingAgency =
+  | 'MDC'
+  | 'NPS'
+  | 'USFS'
+  | 'COE'
+  | 'State Park'
+  | 'County'
+  | 'Municipal'
+  | 'Private';
+
+/**
+ * Free text on the wire, not a number: the column stores buckets ('roadside',
+ * 'limited', '50+') alongside plain counts, and coercing '50+' to 50 would state
+ * something the data does not.
+ */
+export type ParkingCapacity =
+  | '5' | '10' | '15' | '20' | '25' | '30' | '50+'
+  | 'roadside' | 'limited' | 'unknown';
+
+export type NearbyServiceType =
+  | 'outfitter'
+  | 'campground'
+  | 'canoe_rental'
+  | 'shuttle'
+  | 'lodging';
+
+/**
+ * An outfitter or shuttle attached to THIS access point.
+ *
+ * A different shape from RiverService, and not a duplicate of it: that one is a
+ * geocoded row in the services directory for a whole river, and this is a hand-
+ * curated note on one put-in ("2 mi", "weekends only after Labor Day"). Every
+ * field but name and type is optional because most entries carry two of them.
+ */
+export interface NearbyService {
+  name: string;
+  type: NearbyServiceType;
+  phone?: string;
+  website?: string;
+  /** Pre-composed distance text — "2 mi". Never a number to do maths on. */
+  distance?: string;
+  notes?: string;
+}
+
+/**
+ * The reading at the gauge that governs this access point.
+ *
+ * Pre-graded by the server, unlike everywhere else in this file where the app
+ * classifies a reading itself against a ladder it was sent. That is fine here
+ * because this shape carries no ladder to classify against — and it means the
+ * access page and the river page cannot disagree about the same water.
+ */
+export interface AccessPointGaugeStatus {
+  level: ConditionCode;
+  cfs: number | null;
+  heightFt: number | null;
+  label: string;
+  trend: 'rising' | 'falling' | 'steady' | null;
+  lastUpdated: string | null;
+  gaugeId: string;
+  gaugeName: string;
+  /** The site id — what /api/gauges/[siteId] and its history key off. */
+  usgsId: string;
+}
+
+/** A neighbouring put-in, for "what's the next take-out from here". */
+export interface NearbyAccessPoint {
+  id: string;
+  name: string;
+  slug: string;
+  direction: 'upstream' | 'downstream';
+  distanceMiles: number;
+  /** Pre-composed — "~1.5 hr". Null when the stretch has no float estimate. */
+  estimatedFloatTime: string | null;
+  riverMile: number;
+}
+
+/**
+ * NPS campground enrichment, narrowed hard.
+ *
+ * The web type carries operating hours, weather overviews, credits on every
+ * photo and eight separate site-count columns for a desktop table. A phone
+ * screen wants to know whether you can book it and roughly how big it is, so
+ * that is what crosses the wire here.
+ */
+export interface NpsCampgroundSummary {
+  name: string;
+  npsUrl: string | null;
+  reservationInfo: string | null;
+  reservationUrl: string | null;
+  totalSites: number;
+  sitesReservable: number;
+  sitesFirstCome: number;
+}
+
+export interface AccessPointDetail {
+  id: string;
+  riverId: string;
+  name: string;
+  slug: string;
+  riverMile: number;
+  type: AccessPointType;
+  types: AccessPointType[];
+  isPublic: boolean;
+  ownership: string | null;
+  description: string | null;
+  amenities: string[];
+  parkingInfo: string | null;
+  roadAccess: string | null;
+  facilities: string | null;
+  feeRequired: boolean;
+  feeNotes: string | null;
+  imageUrls: string[];
+  coordinates: { lng: number; lat: number };
+  roadSurface: RoadSurface[];
+  parkingCapacity: ParkingCapacity | null;
+  managingAgency: ManagingAgency | null;
+  officialSiteUrl: string | null;
+  /**
+   * HTML from the admin's rich-text editor, NOT plain text.
+   *
+   * There is no HTML renderer in the app and adding one for a single field is
+   * not worth a dependency, so consumers strip it — see stripHtml in
+   * src/lib/accessCopy.ts. Never put this in a <Text> as-is.
+   */
+  localTips: string | null;
+  nearbyServices: NearbyService[];
+  /**
+   * Where to actually DRIVE, when it differs from where the boat goes in.
+   *
+   * A gravel bar's coordinate is on the water; the parking area can be a
+   * quarter mile up a track. Directions must prefer these and fall back to
+   * `coordinates` — see driveToUrl.
+   */
+  drivingLat: number | null;
+  drivingLng: number | null;
+  river: { id: string; name: string; slug: string };
+  npsCampground: NpsCampgroundSummary | null;
+}
+
+export interface AccessPointDetailResponse {
+  accessPoint: AccessPointDetail;
+  nearbyAccessPoints: NearbyAccessPoint[];
+  /** Null when the river has no gauge, or when its reading failed to load. */
+  gaugeStatus: AccessPointGaugeStatus | null;
+}
+
 // ── Live conditions (GET /api/conditions/[riverId]) ──────────────
 // Mirrors the web app's RiverCondition, narrowed to the fields a phone shows.
 
@@ -354,7 +524,30 @@ export interface HazardsResponse {
 
 export interface MapGauge {
   id: string;
-  usgsSiteId: string;
+  /**
+   * The station's provider-native site id — a USGS site number, an NWS LID, or
+   * a USACE dam slug. Named `usgsSiteId` for history: it predates
+   * multi-provider support and has call sites across both apps, so renaming it
+   * to `siteId` is a separate refactor. Pair it with the station's provider
+   * before building any provider-specific URL.
+   *
+   * NULLABLE, and not hypothetically: gauge_stations keeps the id in
+   * `usgs_site_id` OR `site_id_external` depending on provider, both columns
+   * are nullable, and /api/gauges sends whichever it finds. A station carrying
+   * neither arrives here as null — which is how the Search tab crashed on
+   * `.toLowerCase()` of a USACE dam's id. Nothing may assume a string.
+   */
+  usgsSiteId: string | null;
+  /**
+   * Registry id from the backend's flow-provider registry; 'usgs' when the
+   * column is null. /api/gauges has always sent this — it was simply missing
+   * from this type, which is how the app came to render a USACE dam as
+   * "USGS swl-clearwater-dam" and link it to a waterdata.usgs.gov 404.
+   *
+   * Optional because the field post-dates some cached payloads; read it as
+   * `provider ?? 'usgs'` and never assume USGS without checking.
+   */
+  provider?: string;
   name: string;
   /**
    * The endpoint defaults unparseable PostGIS locations to (0, 0) rather than
@@ -459,6 +652,177 @@ export interface MapGaugesResponse {
 export function hasCoordinates(point: { coordinates: { lng: number; lat: number } }): boolean {
   const { lng, lat } = point.coordinates;
   return Number.isFinite(lng) && Number.isFinite(lat) && (lng !== 0 || lat !== 0);
+}
+
+// ── One gauge (GET /api/gauges/[siteId]) ─────────────────────────────────────
+// The gauge screen's own endpoint, and the only one that answers for BOTH tiers.
+//
+// /api/gauges is curated-only (it has to be — see its header on the 414 it took
+// when it was not) and /api/gauges/map is bounded by a viewport. The gauge
+// screen is reached from a callout, a starred row, a search result and a deep
+// link, and in most of those the station is a national one that neither list
+// has ever returned. Asking for a 300-gauge viewport to render one station is
+// the shape that was worth a route.
+//
+// It is a THIRD gauge type rather than a widened MapGauge, for the same reason
+// MapGaugeLite is a second one: the two tiers are graded by different code and
+// must not be confusable. This one spans both, so it carries `curated` and a
+// nullable ladder, and a consumer has to branch on those rather than on which
+// endpoint the object came from.
+
+export interface GaugeDetailThreshold {
+  riverId: string;
+  riverName: string;
+  riverSlug: string | null;
+  isPrimary: boolean;
+  thresholdUnit: 'ft' | 'cfs';
+  levelTooLow: number | null;
+  levelLow: number | null;
+  levelOptimalMin: number | null;
+  levelOptimalMax: number | null;
+  levelHigh: number | null;
+  levelDangerous: number | null;
+  /** NWS flood stage in feet. Outranks the ladder above when reached. */
+  floodStageFt: number | null;
+}
+
+/**
+ * Official NWS thresholds for a station, in FEET.
+ *
+ * ── Why an uncurated gauge is allowed to have these ────────────────────────
+ * Eddy issues a floatability verdict only about stretches a human has rated,
+ * and that rule is not bent here: these are the National Weather Service's
+ * numbers, for about 12,700 forecast points, quoted. Relaying somebody else's
+ * published threshold is not the same as inventing one — which is what makes
+ * this the only safety-adjacent fact the national tier gets to carry.
+ *
+ * ── FEET, and only feet ────────────────────────────────────────────────────
+ * NWPS publishes these as stages; its category `flow` field comes back as
+ * -9999 everywhere. So every one of these compares against `gaugeHeightFt` and
+ * NOTHING may compare them against discharge — a station rated in cfs whose
+ * flood stage is 20 would otherwise read as flooding at 20 cfs. Consumers guard
+ * on the unit before drawing or grading, the same way the condition ladder is
+ * guarded.
+ *
+ * Any field can be null; most stations publish two of the four and some
+ * publish none, in which case the whole object is null rather than four nulls.
+ */
+export interface GaugeFloodStages {
+  /** Where the Weather Service starts watching. Below minor flood. */
+  actionFt: number | null;
+  /** Minor flood — what "flood stage" means unqualified. */
+  floodFt: number | null;
+  moderateFt: number | null;
+  majorFt: number | null;
+  /**
+   * The NWS location id these came from, e.g. "VNBM7".
+   *
+   * Carried so the number is attributable rather than anonymous, and because it
+   * is the id the Weather Service's own page for this gauge is keyed on.
+   */
+  lid: string | null;
+  /**
+   * Where the numbers came from.
+   *
+   * 'nwps' is the station-level import, matched spatially against the NOAA
+   * gauge layer. 'curated' is river_gauges, whose stages were accepted only
+   * after the USGS id NWPS reported matched ours — a stricter check than
+   * proximity. Surfaced because the two were gathered differently and a reader
+   * comparing an Eddy river against a creek beside it deserves to know which.
+   */
+  source: 'nwps' | 'curated';
+}
+
+export interface GaugeDetail {
+  /** gauge_stations.id — the key stars are stored under. */
+  id: string;
+  /** The provider-native site id, and what every per-gauge route keys off. */
+  siteId: string;
+  name: string;
+  /** Registry id from the backend's flow-provider registry; 'usgs' by default. */
+  provider: string;
+  /**
+   * Eddy rates this station against at least one river.
+   *
+   * THE BRANCH. A curated gauge gets a condition verdict from the ladder below;
+   * an uncurated one gets a flow band, which is a comparison to its own history
+   * and never a verdict. Nothing may grade one as the other.
+   */
+  curated: boolean;
+  coordinates: { lng: number; lat: number };
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  readingTimestamp: string | null;
+  readingAgeHours: number | null;
+  readingSuspect: boolean;
+  qualifierNote: string | null;
+  /** 0-100 vs this site's own day-of-year history; null when none is held. */
+  flowPercentile: number | null;
+  /**
+   * Null — not an empty array — for a station Eddy has not rated, so "no ladder
+   * exists" is distinguishable from "the ladder came back empty". Primary
+   * association first, so `[0]` is the river the app should open.
+   */
+  thresholds: GaugeDetailThreshold[] | null;
+  /**
+   * NWS stages, from whichever source holds them for this tier. Null when the
+   * station is not an NWS forecast point, which is most of them.
+   */
+  floodStages: GaugeFloodStages | null;
+  /** The station's own public page, or null for a provider without one. */
+  publicUrl: string | null;
+  /**
+   * What this station's reading means, in the words written for it
+   * (gauge_stations.threshold_descriptions.note).
+   *
+   * The only vocabulary left for a station with neither a ladder nor a
+   * percentile — which is precisely a USACE dam release. Migration 00198 wrote
+   * the one that matters: the Black below Clearwater runs at whatever the
+   * Corps releases, and releases can change without notice.
+   *
+   * Optional: it post-dates deployed builds of the endpoint.
+   */
+  stationNote?: string | null;
+}
+
+export interface GaugeDetailResponse {
+  gauge: GaugeDetail;
+}
+
+// ── Gauge history (GET /api/gauges/[siteId]/history?days=) ───────────────────
+// The hydrograph behind the chart. Served from stored readings, falling back to
+// the live provider when what is stored is sparse OR stale — which is the
+// ordinary case for every station the cron no longer polls, i.e. all ~14,000
+// national ones. Works for any station, both tiers.
+//
+// Downsampled server-side to roughly one point per hour, so a 30-day request is
+// ~720 points rather than ~2,900. Nothing here should re-sample it.
+
+export interface GaugeHistoryReading {
+  timestamp: string;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+}
+
+export interface GaugeHistoryResponse {
+  siteId: string;
+  siteName: string;
+  /** Oldest first. Can be empty; the endpoint 404s only when it has nothing. */
+  readings: GaugeHistoryReading[];
+  /**
+   * Extremes over the returned window, per unit.
+   *
+   * Null when the station publishes nothing in that unit — which is why the
+   * chart must pick its axis from the unit it is DRAWING rather than assuming
+   * both are present. A stage-only station has null discharge bounds and vice
+   * versa, and there are plenty of each.
+   */
+  stats: {
+    minDischarge: number | null;
+    maxDischarge: number | null;
+    minHeight: number | null;
+    maxHeight: number | null;
+  };
 }
 
 // ── Services (GET /api/rivers/[slug]/services) ───────────────────
@@ -602,6 +966,30 @@ export interface CampgroundsResponse {
 
 export type SearchResultKind = 'river' | 'gauge' | 'access_point';
 
+/**
+ * The live reading a gauge result carries.
+ *
+ * NESTED, and present only on `gauge` rows. A river result has a condition that
+ * means something else entirely and an access point has no reading at all, so
+ * six nullable columns at the top of SearchResult would invite exactly the
+ * confusion between a VERDICT and a COMPARISON that the two filter bars are
+ * built to keep visible.
+ *
+ * OPTIONAL on the wire. Older deployments of the website answer /api/search
+ * without it, and the Search tab has to render those rows rather than treat a
+ * missing field as an error — same posture the whole endpoint already takes.
+ */
+export interface SearchResultGauge {
+  /** Eddy rates this station against a river; it has a condition ladder. */
+  curated: boolean;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  readingTimestamp: string | null;
+  readingAgeHours: number | null;
+  /** 0-100 vs this site's own day-of-year history; null when none is held. */
+  flowPercentile: number | null;
+}
+
 export interface SearchResult {
   kind: SearchResultKind;
   id: string;
@@ -613,6 +1001,26 @@ export interface SearchResult {
   riverSlug: string | null;
   riverMile: number | null;
   coordinates: { lng: number; lat: number } | null;
+  /**
+   * The station's provider-native site id. Gauge results only.
+   *
+   * REQUIRED to open one: every per-gauge route keys off this, not off `id`,
+   * which is the gauge_stations uuid. Optional here because it is a later
+   * addition to the endpoint — a result without one cannot be navigated to and
+   * the client must fall back to selecting it rather than pushing a screen.
+   */
+  siteId?: string | null;
+  /** Gauge results only; null when the station has no stored reading. */
+  gauge?: SearchResultGauge | null;
+  /**
+   * The access point's own slug. Access-point results only.
+   *
+   * Required to OPEN one: its detail route is
+   * /api/rivers/[slug]/access/[accessSlug], and `riverSlug` is only half of
+   * that pair. Optional here for the same reason as `siteId` — a later addition
+   * to the endpoint, so a result without one renders but cannot be navigated to.
+   */
+  accessSlug?: string | null;
 }
 
 export interface SearchResponse {
@@ -641,6 +1049,23 @@ export interface RiverConditionEvent {
  * "instantly", and should surface `readingAt` rather than `detectedAt`.
  */
 export const ALERT_LATENCY_NOTE = 'Conditions are checked regularly; readings can lag the river by up to about an hour.';
+
+/**
+ * How far back the condition feed reaches.
+ *
+ * The feed is a LOG of what rivers have done, not a per-user inbox — the rows
+ * are the same for everybody, so there is nothing to mark read and nothing to
+ * delete. That only works if it ages out on its own, and it did not: /api/alerts
+ * bounded by `limit` alone, which means "the last N events ever". Six days after
+ * the outbox shipped that still looked like recent news; six months after, it
+ * would have been a screen of history with no way to clear it, which is exactly
+ * how it gets mistaken for a broken inbox.
+ *
+ * Seven days because a condition change older than that is not a plan you can
+ * act on — the river has moved since — and the river screen carries the current
+ * reading anyway.
+ */
+export const ALERT_FEED_WINDOW_DAYS = 7;
 
 // ── River outlook (GET /api/rivers/[slug]/outlook) ───────────────
 // The 72-hour picture and Eddy's interpretation, assembled server-side.
@@ -838,6 +1263,197 @@ export interface AlertSubscriptionsResponse {
   subscriptions: AlertSubscriptionEntry[];
 }
 
+// ── Alert rules (GET /api/me/alerts) ─────────────────────────────
+//
+// The MERGED view of everything a user has asked to be told about. Two tables
+// stand behind it — alert_subscriptions for river condition alerts, which are
+// fanned out from a global outbox, and gauge_alert_subscriptions for per-rule
+// evaluation — because a user-defined level cannot be precomputed into one
+// shared event. See migration 00200 for that argument in full.
+//
+// The split is a SERVER concern. A client that had to know which table a rule
+// lived in would have to reimplement the routing rule every time it listed,
+// paused or deleted one, so `source` exists to be echoed back on writes and for
+// nothing else.
+
+export type AlertRuleSource = 'river_condition' | 'gauge';
+
+/** What the rule is ABOUT, which is not the same as where it is stored. */
+export type AlertRuleScope = 'river' | 'gauge';
+
+/**
+ * How the rule decides.
+ *
+ * `condition` defers to Eddy's ladder — the same verdict the river screen shows,
+ * so the alert and the app can never disagree. `threshold` is the user's own
+ * number, which is the thing the ladder cannot express: a ladder says "high",
+ * and some people want to know at 3.2 ft specifically.
+ */
+export type AlertRuleMode = 'condition' | 'threshold';
+
+/**
+ * Which series a threshold is measured against. EXPLICIT, never inferred from
+ * whichever value happens to be present — grading a cfs number against a foot
+ * threshold is exactly the cross-unit mistake the reading helpers in this
+ * codebase refuse to make.
+ */
+export type AlertMetric = 'gauge_height_ft' | 'discharge_cfs';
+
+export type AlertComparator = 'above' | 'below' | 'between';
+
+export interface AlertRule {
+  id: string;
+  /** Which table this lives in — echo it back on PATCH/DELETE. */
+  source: AlertRuleSource;
+  scope: AlertRuleScope;
+  mode: AlertRuleMode;
+
+  riverId: string | null;
+  riverName: string | null;
+  riverSlug: string | null;
+
+  /** gauge_stations uuid. Null for a river-condition rule. */
+  gaugeId: string | null;
+  gaugeName: string | null;
+  /** The provider-native site id — what /gauge/[siteId] routes on. */
+  usgsSiteId: string | null;
+  /**
+   * False when the station has no condition ladder, i.e. the national tier.
+   * Such a rule can only ever be `threshold` mode; offering the user a
+   * condition picker for one would be offering a verdict Eddy does not issue.
+   */
+  curated: boolean;
+
+  /** Condition mode only. */
+  conditionKind: AlertSubscriptionKind | null;
+
+  /** Threshold mode only. */
+  metric: AlertMetric | null;
+  comparator: AlertComparator | null;
+  thresholdValue: number | null;
+  thresholdValueMax: number | null;
+
+  enabled: boolean;
+  oneShot: boolean;
+  /** Set once a one-shot has been spent; clearing it re-arms the rule. */
+  firedAt: string | null;
+  lastTriggeredAt: string | null;
+  createdAt: string;
+}
+
+export interface AlertRulesResponse {
+  rules: AlertRule[];
+}
+
+/**
+ * The reading a rule was seeded from, returned by POST /api/me/gauge-alerts.
+ *
+ * A new rule starts already knowing which side of its threshold the river is on,
+ * so it fires on the next CROSSING rather than immediately. The app needs this
+ * value to say so — "the Meramec is at 5.2 ft now, we'll tell you the next time
+ * it comes up past 3.0 ft" — because a rule that silently declines to fire on
+ * water the user can see reads like a bug.
+ */
+export interface AlertRuleSeed {
+  value: number | null;
+  unit: 'ft' | 'cfs' | null;
+  readingAt: string | null;
+  /** 'inside' means the condition is already met at creation time. */
+  state: 'inside' | 'outside' | null;
+}
+
+export interface AlertRuleResponse {
+  rule: AlertRule;
+  seed: AlertRuleSeed | null;
+}
+
+/**
+ * The national tier refreshes ONCE AN HOUR (sync-gauge-latest runs at :20),
+ * against curated stations' 15 minutes on a rising river. Alerts on an
+ * uncurated gauge are correspondingly slower, and a screen that shows both
+ * kinds side by side has to say which one the user is looking at.
+ */
+export const GAUGE_ALERT_LATENCY_NOTE =
+  'This gauge updates about once an hour, so alerts on it can lag the river by more than that.';
+
+/** Stage to two decimals, discharge whole — the precision each is reported at. */
+export function formatAlertValue(value: number, metric: AlertMetric): string {
+  if (metric === 'gauge_height_ft') return `${value.toFixed(2)} ft`;
+  return `${Math.round(value).toLocaleString('en-US')} cfs`;
+}
+
+/**
+ * The rule's trigger, as one sentence fragment — "rises above 3.00 ft".
+ *
+ * Deliberately EXCLUDES the river or gauge name. Every caller already has the
+ * target: the manage list prints it as the row title, and the notification
+ * copy puts it in the title line. Baking it in here would produce "Huzzah Creek
+ * — Huzzah Creek rises above 3.00 ft" at both.
+ *
+ * Shared rather than written twice because the app, the push body and any
+ * future web UI must describe the same rule identically. A user who reads
+ * "above 3 ft" in the list and "over 3.0 feet" in the notification has to work
+ * out whether they are the same alert.
+ */
+export function describeAlertRule(rule: AlertRule): string {
+  if (rule.mode === 'condition') {
+    switch (rule.conditionKind) {
+      case 'floatable':
+        return 'when it becomes floatable';
+      case 'safety':
+        return 'on high and dangerous water';
+      default:
+        return 'on any condition change';
+    }
+  }
+
+  const metric = rule.metric ?? 'gauge_height_ft';
+  const low = rule.thresholdValue;
+  if (low == null) return 'when conditions change';
+
+  switch (rule.comparator) {
+    case 'below':
+      return `when it drops below ${formatAlertValue(low, metric)}`;
+    case 'between': {
+      const high = rule.thresholdValueMax;
+      // A `between` rule missing its upper bound is a shape the database
+      // rejects, so this can only be a truncated payload. Degrade to the half
+      // the rule does state rather than printing "between 3.00 ft and null".
+      if (high == null) return `when it rises above ${formatAlertValue(low, metric)}`;
+      return `while it is between ${formatAlertValue(low, metric)} and ${formatAlertValue(high, metric)}`;
+    }
+    default:
+      return `when it rises above ${formatAlertValue(low, metric)}`;
+  }
+}
+
+// ── Notification preferences (GET/PUT /api/me/notification-preferences) ──
+
+/**
+ * Quiet hours SUPPRESS rather than queue.
+ *
+ * deliver-push already drops any event older than three hours, because "your
+ * river is floatable" must never fire about water that has since dropped. A
+ * quiet window outlives that by design, so "hold it until morning" would
+ * deliver either a stale promise or, more often, nothing at all. What the user
+ * gets instead is the free Alerts feed, which is still there when they wake.
+ * Say that in the UI; do not imply a digest.
+ */
+export interface NotificationPreferences {
+  quietHoursEnabled: boolean;
+  /** Minutes past LOCAL midnight, 0-1439. start > end is an overnight window. */
+  quietStartMinute: number | null;
+  quietEndMinute: number | null;
+  /** IANA zone the two minute offsets are interpreted in. */
+  timezone: string;
+  /** High and dangerous water still arrives during the window. */
+  safetyOverridesQuiet: boolean;
+}
+
+export interface NotificationPreferencesResponse {
+  preferences: NotificationPreferences;
+}
+
 // ── Remote config / kill switches (GET /api/app-config) ──────────
 
 export interface AppFeatureFlags {
@@ -955,3 +1571,34 @@ export interface RiverVisualsResponse {
   currentGaugeHeightFt: number | null;
   currentDischargeCfs: number | null;
 }
+
+// ── Dams (GET /api/dams, GET /api/dams/[damId]) ──────────────────────────────
+// NOT redefined here, for the same reason ConditionCode is not: the definitions
+// live in missouri-float-planner/shared/dam-types.ts, which both this package
+// and the web app can reach, while packages/ is unreachable from a Vercel build
+// rooted at missouri-float-planner/. See that file for the per-metric contract —
+// in short, a metric the dam does not publish is ABSENT rather than null, and
+// absent must render nothing rather than "0 cfs".
+export type {
+  DamMetricValue,
+  DamScheduleDay,
+  DamSnapshot,
+  DamStaleness,
+  DamTailwater,
+  DamsResponse,
+  ScheduledHour,
+  UsaceMetric,
+} from '../../missouri-float-planner/shared/dam-types';
+
+// ── River reaches (GET /api/rivers/[slug]/reaches) ───────────────────────────
+// Same arrangement as the dam types above and for the same build reason. A
+// reach is a stretch of one river whose water behaves differently enough that
+// one condition badge for the whole river would be wrong for part of it — the
+// Black above and below Clearwater Dam. See that file for why a reach is not a
+// float segment, and why clients gate their panel on `differsFromRiver`.
+export type {
+  ReachReport,
+  ReachRiverType,
+  RiverReach,
+  RiverReachesResponse,
+} from '../../missouri-float-planner/shared/reach-types';

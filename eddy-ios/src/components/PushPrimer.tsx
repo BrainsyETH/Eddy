@@ -48,8 +48,13 @@ export function PushPrimer({ visible, riverName, onAllow, onDismiss }: Props) {
             {riverName ? `We'll watch the ${riverName}` : "We'll watch your rivers"}
           </Text>
 
+          {/* "a notification", not "one notification": the subscription is
+              standing, not one-shot. And the danger half of this promise is
+              only true as of the switch to `kind: 'all'` — it was written
+              against a subscription that asked for `floatable` alone, which
+              matches no warning event at all. */}
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            Turn on alerts and Eddy sends one notification when it becomes floatable — and when it
+            Turn on alerts and Eddy sends a notification when it becomes floatable — and when it
             turns dangerous.
           </Text>
 

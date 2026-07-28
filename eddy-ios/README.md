@@ -7,7 +7,7 @@ headless API.
 
 ```bash
 cd eddy-ios
-npm install --legacy-peer-deps
+npm install
 npx expo start
 ```
 
@@ -15,10 +15,18 @@ Then scan the QR code with the Camera app and open in **Expo Go**.
 
 Two things that are not optional:
 
-- **`--legacy-peer-deps` is required.** `@expo/metro-runtime` is a mandatory
-  `expo-router` peer whose own `react-dom` peer conflicts with the pinned React.
-  The conflict is web-only and does not affect the iOS bundle, but a plain
-  `npm install` fails outright.
+- **`--legacy-peer-deps` is no longer required, and must not be used.** It was,
+  and the reason was real: `react-dom` is peer-depended on as `"*"` by `expo`,
+  `expo-router`, `@expo/metro-runtime` and `@rnmapbox/maps` and pinned by none of
+  them, so npm resolved the newest one, which peer-requires a React past the
+  19.2.3 that SDK 57 pins. A plain `npm install` failed outright.
+
+  The flag was the wrong size of fix. It does not skip one bad peer — it skips
+  peer installation entirely, which quietly left `react-native-reanimated`,
+  `react-native-gesture-handler` and `react-native-worklets` out of the tree.
+  The `overrides` block in `package.json` constrains the one offending package
+  instead, and `npm install` / `npm ci` both work unflagged. Passing the flag
+  now REMOVES packages the app ships.
 - **Run commands from inside `eddy-ios/`.** There is deliberately no
   `package.json` at the repo root (see below), so `npx expo` run from the root
   will fetch the latest Expo from the registry instead of using this project's
@@ -29,6 +37,24 @@ you see `No iOS devices available`, either the runtime is missing
 (`xcodebuild -downloadPlatform iOS`) or Xcode is not the selected developer
 directory (`sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`).
 Note `Simulator.app` lives *inside* `Xcode.app`, so deleting Xcode removes it.
+
+### `react-native-svg could not be found within the project`
+
+Or any other module Metro reports missing right after pulling. It means
+`node_modules` predates the `package.json` that needs it — `npm install`.
+
+**A NATIVE module needs more than that.** `react-native-svg` is one (so are
+`@rnmapbox/maps` and `react-native-purchases`): autolinking happens when the
+native project is generated, so an installed package that is not in the binary
+you are running still fails. After installing one, rebuild the client:
+
+```bash
+npx expo run:ios          # local rebuild, or
+eas build --profile development --platform ios
+```
+
+Expo Go bundles `react-native-svg` itself, so the charts work there — but Expo
+Go cannot run the Map tab, which is why the dev client exists.
 
 ### Three ways to run this, and when each applies
 
@@ -67,7 +93,7 @@ for ".../expo-status-bar/src/StatusBar.ts"
 The fix:
 
 ```bash
-rm -rf node_modules && npm ci --legacy-peer-deps
+rm -rf node_modules && npm ci
 ```
 
 Two things make this hard to diagnose, which is why it is written down:

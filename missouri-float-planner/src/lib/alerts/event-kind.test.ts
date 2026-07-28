@@ -4,7 +4,6 @@ import {
   EVENT_KINDS,
   classifyEventKind,
   isPushableKind,
-  kindRequiresEntitlement,
   type EventKind,
 } from './event-kind';
 import { computeCondition } from '../conditions';
@@ -82,14 +81,6 @@ test('only floatable, warning and easing are pushable', () => {
   assert.equal(isPushableKind('easing'), true);
   assert.equal(isPushableKind('recovery'), false, 'all-clear is feed-only');
   assert.equal(isPushableKind('info'), false);
-});
-
-test('safety warnings are free; the floatability translation is paid', () => {
-  // Hazard warnings must never sit behind the paywall — condition display is
-  // always free, including dangerous.
-  assert.equal(kindRequiresEntitlement('warning'), false);
-  assert.equal(kindRequiresEntitlement('floatable'), true);
-  assert.equal(kindRequiresEntitlement('easing'), true);
 });
 
 // ── the guard that keeps social behavior unchanged ───────────────

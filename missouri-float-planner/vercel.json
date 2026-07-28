@@ -42,8 +42,16 @@
       "schedule": "0 10 1 * *"
     },
     {
+      "path": "/api/cron/evaluate-gauge-alerts",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/deliver-push",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/push-receipts",
+      "schedule": "8,23,38,53 * * * *"
     },
     {
       "path": "/api/cron/sync-usfs",

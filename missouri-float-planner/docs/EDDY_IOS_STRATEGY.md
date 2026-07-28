@@ -1,5 +1,7 @@
 # Eddy for iOS — Freemium Native App: Strategy & Product Dossier
 
+> **Status: active** (2026-07). Strategy dossier for the iOS app; early phases have shipped, the roadmap and open decisions remain the reference.
+
 > **What this is:** a self-contained strategy + implementation dossier for turning Eddy into a
 > **free-to-download / paid-to-use** native iOS app. Written to be handed to any Claude Code
 > session working on this repo — it captures every decision, the architecture, the phased
@@ -27,7 +29,7 @@ The goal: ship a **free-to-download / paid-to-use** native iOS app — a seasona
 - **Auth:** **Sign in with Apple** + **Supabase anonymous → permanent** upgrade (enables local-first favorites that sync on login).
 - **Alert transport:** **Expo push** (`expo-notifications` → APNs).
 - **IA:** **5 tabs** — Map, River Reports, Alerts, Favorites, Profile.
-- **Alerts gating:** in-app **feed is free to view**; **real-time push is paid** (condition display always free, incl. "dangerous").
+- **Alerts gating:** ⚠️ **SUPERSEDED (Jul 2026) — all alerting is now free**, feed and push alike. The original rule was "feed free to view, real-time push paid". In practice the paid boundary ran through the middle of the alert engine and the engine lost: `warning` pushes were declared free on liability grounds, but the only route that could create a subscription required an entitlement, so no free user could hold one — and the app asked for `kind: 'floatable'`, which matches no warning event at all, so no *paying* user could receive a danger alert either. The tier was collapsed rather than arbitrated. Revisit before spring 2027; taking a free feature back after launch is the expensive moment. See the header of `/api/me/alert-subscriptions`.
 - **Favorites:** local-first, sync on login.
 - **v1 scope:** **Standard** = MVP + **offline river download**. Eddy AI chat deferred to fast-follow.
 - **Mobile web** (noted, not locked): make it a teaser that funnels to the app; keep desktop web free for SEO/LLM discoverability.
@@ -45,8 +47,9 @@ The goal: ship a **free-to-download / paid-to-use** native iOS app — a seasona
 ## Feature gating
 
 - **Free:** browse curated **Eddy Rivers** + current condition (incl. "dangerous", always visible) + Eddy Says; the national **All Gauges** reference tier (search / near-me / viewport); **raw gauge alerts** — level / NWS flood-stage / user-set custom threshold (parity with free competitors); Alerts **feed view**; a small number of stars (local).
-- **Paid (Eddy Premium):** **curated floatability push** ("your stretch is floatable") + predictive window alerts; **offline** river download; unlimited stars + saved floats + **cross-device (iOS) sync**; forecasts/history charts; vessel-specific float times + shuttle; Eddy AI chat (fast-follow).
+- **Paid (Eddy Premium):** **offline** river download; unlimited stars + saved floats + **cross-device (iOS) sync**; forecasts/history charts; Eddy's written read; vessel-specific float times + shuttle; Eddy AI chat (fast-follow).
 - **The line, stated:** free = "watch any gauge like everyone else"; paid = "Eddy tells you it's floatable and plans the trip" — the translation only Eddy has, never the commodity others give away. (Supersedes the earlier flat "all push paid".)
+- ⚠️ **As of Jul 2026 the curated floatability push moved to FREE** along with all other alerting — see the Alerts gating note above. The free gauge-keyed threshold tier described in the free list is still unbuilt, so today's free tier is: the feed, plus a curated per-river subscription covering both floatable and danger. Predictive window alerts remain unbuilt. When tiering is revisited, the gauge tier is the piece that makes "watch any gauge like everyone else" true.
 
 ## Phased roadmap
 
@@ -138,6 +141,37 @@ Reuse the **keyless self-hosted styles** (`public/map-styles/eddy-immersive.json
 **National = cheap:** curated stays pre-ingested + cron-updated (Ozarks); raw gauges fetched **on-demand** per search/viewport (lazy, briefly cached — no 28k pre-ingest); raw-alert polling set = **union of subscribed gauges** (bounded by users, not 28k), feeding the pass-2 outbox/fan-out. **Naming:** national raw coverage argues against any state/region in the app name (not "Missouri," not over-indexing "Ozarks").
 
 **Resolved UI:** map raw-discovery = **all three** (viewport-bounded clustered layer + search + near-me pins); Reports = **segmented "Eddy Rivers | All Gauges" toggle**; tier labels = **"Eddy Rivers" (curated) / "All Gauges" (raw)**. Stitch mockups of Map + Reports + raw-gauge sheet are the natural next artifact.
+
+### Shipped, Jul 2026 — where the two tiers actually landed
+
+The "lean raw sheet" and the "segmented toggle" both shipped, and both came
+out a step further than described here. Worth recording, because the shape
+differs from the plan in one load-bearing way.
+
+- **One gauge screen, not a lean sheet and a rich one.** `app/gauge/[siteId].tsx`
+  serves both tiers. The plan assumed the tier distinction implied two
+  surfaces; it does not. The distinction is about what may be **said** — a
+  curated gauge gets a condition ladder and a verdict, a raw one gets a flow
+  band, which is a comparison to its own history and never permission to float.
+  That branch belongs inside one screen. Two layouts would have made "is this
+  station curated" something a user infers from which page they landed on.
+  Reached from every gauge tap in the app: map callouts of both tiers, starred
+  rows, search results, deep links.
+- **`GET /api/gauges/[siteId]`** is what made that possible. Nothing could
+  answer for a single national station before — `/api/gauges` is curated-only
+  and `/api/gauges/map` is viewport-bounded. It reuses the `search_gauges` RPC
+  for `st_x`/`st_y` coordinates and refreshes from the flow provider when the
+  stored reading is over six hours old, which is the ordinary case for every
+  station the cron stopped polling.
+- **Search is three scopes, not a two-tier toggle** — Rivers / Gauges / Access.
+  A two-way tier toggle would have left the filter strip lying: river chips are
+  a floatability verdict and gauge chips are flow bands, and those two
+  vocabularies cannot share a row without implying they are the same kind of
+  answer. Access points needed a scope of their own regardless; `/api/search`
+  has returned them since it shipped and the tab never asked.
+- **Still unbuilt from the raw tier's promise:** NWS/AHPS flood-stage overlay on
+  the raw gauge screen, and user-set custom thresholds ("notify above 3.2 ft").
+  The free gauge-alert tier in the gating section above still depends on both.
 
 ## Retention & seasonality design
 

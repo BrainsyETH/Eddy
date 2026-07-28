@@ -36,6 +36,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
@@ -61,6 +62,7 @@ const MANAGE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
 
 export default function ProfileScreen() {
   const { colors, elevation } = useTheme();
+  const router = useRouter();
   const {
     session,
     ready,
@@ -363,6 +365,22 @@ export default function ProfileScreen() {
               >
                 <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
                   Stop alerts on this device
+                </Text>
+              </Pressable>
+            )}
+
+            {/* Offered whatever the OS permission says. Someone whose alerts
+                are currently off may still be setting up before they turn them
+                on, and a control that appears only once you are already being
+                notified is one you find by being woken up. */}
+            {signedIn && (
+              <Pressable
+                onPress={() => router.push('/alerts/quiet-hours')}
+                style={[styles.secondary, { borderColor: colors.border }]}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
+                  Quiet hours
                 </Text>
               </Pressable>
             )}

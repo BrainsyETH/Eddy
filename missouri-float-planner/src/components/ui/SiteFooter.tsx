@@ -39,6 +39,7 @@ export default function SiteFooter({
             <ul className="space-y-1.5">
               <li><Link href="/rivers" className="text-primary-200 hover:text-white transition-colors">River Reports</Link></li>
               <li><Link href="/river-map" className="text-primary-200 hover:text-white transition-colors">River Map</Link></li>
+              <li><Link href="/dams" className="text-primary-200 hover:text-white transition-colors">Lakes &amp; Dams</Link></li>
               <li><Link href="/plan" className="text-primary-200 hover:text-white transition-colors">Plan a Float</Link></li>
             </ul>
           </div>

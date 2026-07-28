@@ -1,5 +1,7 @@
 # CFS Migration — Derived Thresholds (working data)
 
+> **Status: historical** (2026-07). Working data for the CFS flip; migration 00166 has since landed (migrations now past 00200). Kept as the record of how the bands were derived.
+
 Gathered 2026-07-12 for the CFS flip (migration 00166, pending). Do not deploy the
 CFS flip without the unit-independent flood override (both app `classifyStageFromThresholds`
 and the DB `get_river_condition*` RPC) — dangerous is anchored to the official NWS flood

@@ -10,16 +10,34 @@ import Link from 'next/link';
 
 const SECTIONS = [
   { id: 'status', label: 'Live status' },
+  // Only present on a tailwater reach — see fetchRiverDam(). Most rivers have
+  // no dam above them, and a tab that scrolls to nothing is worse than no tab.
+  { id: 'dam', label: 'Dam release' },
   { id: 'access', label: 'Access points' },
   { id: 'guide', label: 'River guide' },
 ];
 
-export default function HubSectionNav({ planUrl, hasGuide = true }: { planUrl: string; hasGuide?: boolean }) {
+/** The sections actually rendered for this river, in document order. */
+function visibleSections(hasGuide: boolean, hasDam: boolean) {
+  return SECTIONS.filter(
+    (s) => (s.id !== 'guide' || hasGuide) && (s.id !== 'dam' || hasDam)
+  );
+}
+
+export default function HubSectionNav({
+  planUrl,
+  hasGuide = true,
+  hasDam = false,
+}: {
+  planUrl: string;
+  hasGuide?: boolean;
+  hasDam?: boolean;
+}) {
   const [active, setActive] = useState('status');
-  const sections = hasGuide ? SECTIONS : SECTIONS.filter((s) => s.id !== 'guide');
+  const sections = visibleSections(hasGuide, hasDam);
 
   useEffect(() => {
-    const ids = (hasGuide ? SECTIONS : SECTIONS.filter((s) => s.id !== 'guide')).map((s) => s.id);
+    const ids = visibleSections(hasGuide, hasDam).map((s) => s.id);
     let ticking = false;
     const onScroll = () => {
       if (ticking) return;
@@ -37,7 +55,7 @@ export default function HubSectionNav({ planUrl, hasGuide = true }: { planUrl: s
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener('scroll', onScroll);
-  }, [hasGuide]);
+  }, [hasGuide, hasDam]);
 
   return (
     <div className="sticky top-14 z-40 bg-white/95 backdrop-blur-sm border-b border-neutral-200">

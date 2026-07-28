@@ -193,8 +193,9 @@ Do not skip it again.**
 
 Research per corridor (outfitter sites, Google/Yelp/TripAdvisor, chamber
 directories; NPS / State Parks / USFS / MDC / AGFC for campgrounds). The repo's
-`Data Gap Analysis` and `Business Database` PDFs are prior groundwork (75
-businesses across 6 corridors, incl. Black, Gasconade, Spring AR). Load via CSV:
+Data Gap Analysis and Business Database documents in `docs/research/` (repo
+root) are prior groundwork (75 businesses across 6 corridors, incl. Black,
+Gasconade, Spring AR). Load via CSV:
 
 ```bash
 npx tsx scripts/import-services-csv.ts <file>.csv            # dry-run / validate
@@ -207,7 +208,7 @@ website, reservation_url, booking_platform, latitude, longitude, services_offere
 (pipe-separated: `canoe_rental|shuttle|showers|…`), `tent_sites, rv_sites,
 cabin_count, fee_range, season_open_month, season_close_month`. Idempotent by
 `slug`. **Backlog:** backfill the five Wave-1 rivers (Black, Bourbeuse, Buffalo,
-Gasconade, St. Francis) from the Business Database PDF.
+Gasconade, St. Francis) from the Business Database in `docs/research/`.
 
 ### Phase 9 — Activate [human] + cold-start
 

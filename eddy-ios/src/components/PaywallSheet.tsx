@@ -2,16 +2,21 @@
 // The contextual paywall, shown when a 402 comes back from subscribing.
 //
 // WHY CONTEXTUAL AND NOT AN ONBOARDING WALL: this appears at the moment someone
-// has already chosen a river and asked to be told about it. That is the
-// north-star event in the strategy, and the ask lands far better after the
-// intent than before it.
+// has already asked for the specific thing it sells. The ask lands far better
+// after the intent than before it.
 //
 // What must NEVER appear behind this sheet:
 //   • condition colours and readings — always free
 //   • hazards — safety data behind a paywall is a liability
-//   • safety alerts — the alert engine already makes `warning` free
-// The offer below is deliberately about being told FIRST, not about being told
-// at all.
+//   • ALERTS, all of them — see the header of the alert-subscriptions route
+//
+// That last line used to read "safety alerts", carving out `warning` while the
+// floatability push stayed paid. The carve-out did not survive contact: the only
+// route that could create a subscription demanded payment for every kind, so the
+// free warning was unreachable, and the app asked for `kind: 'floatable'`, which
+// matches no warning anyway. Alerting is free in its entirety now, and the two
+// remaining triggers for this sheet are the offline download and Eddy's written
+// read — commentary and convenience, never the water.
 
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -200,11 +205,12 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
         <ScrollView contentContainerStyle={styles.body}>
           <Otter mood="green" size={120} />
 
-          <Text style={[styles.title, { color: colors.text }]}>Be first to know</Text>
+          {/* Was "Be first to know", which is now the free product. */}
+          <Text style={[styles.title, { color: colors.text }]}>More than the number</Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
             {riverName
-              ? `We'll watch the ${riverName} and tell you the moment it's worth the drive.`
-              : "We'll watch your rivers and tell you the moment they're worth the drive."}
+              ? `Eddy's full read on the ${riverName} — and a map that still works when the signal doesn't.`
+              : "Eddy's full read on your rivers — and a map that still works when the signal doesn't."}
           </Text>
 
           {BENEFITS.map((benefit) => (
@@ -222,18 +228,18 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
             </View>
           ))}
 
-          {/* The honesty line. USGS reporting lag plus our cron cadence means an
-              alert trails the real river by roughly 20-75 minutes — measured at
-              31 on the first live events. Promising "instant" here would be a
-              claim we cannot keep, and the refund would cost more than the
-              conversion. */}
+          {/* The honesty line. Everything sold above is built on the same USGS
+              readings as the free tier, and the forecast inherits their lag —
+              so the caveat belongs on the purchase screen rather than only in
+              the app. It used to describe alert latency; alerts are free now,
+              and that version of this sentence lives in PushPrimer. */}
           <Text style={[styles.honesty, { color: colors.textSubtle }]}>
-            Readings come from USGS gauges and can trail the river by up to about an hour. We tell
-            you as soon as we see it.
+            Readings come from USGS gauges and can trail the river by up to about an hour. The
+            outlook is a forecast, not a promise.
           </Text>
 
           <Text style={[styles.freeNote, { color: colors.textSubtle }]}>
-            River conditions, gauge readings and hazard information are always free.
+            River conditions, gauge readings, hazard information and alerts are always free.
           </Text>
 
           {/* Apple also requires the renewal terms themselves to be visible on
