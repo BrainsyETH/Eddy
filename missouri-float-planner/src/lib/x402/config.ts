@@ -141,6 +141,12 @@ export const X402_ROUTES = {
   // Same price as /api/gauges: it is the same kind of answer (station rows and
   // their latest reading), just bounded by a viewport instead of by curation.
   '/api/gauges/map': { price: '$0.001', description: 'Gauges within a bounding box' },
+  // Dam state composes two upstreams (CWMS levels + SWPA generation schedule)
+  // and the MW→CFS conversion on top, so it prices with the composed feeds
+  // rather than the raw lookups. The index is the cheaper of the two: it
+  // returns current state only, without the multi-day hourly schedule.
+  '/api/dams': { price: '$0.005', description: 'USACE dam levels and release state' },
+  '/api/dams/:damId': { price: '$0.01', description: 'Dam detail with hourly generation schedule' },
   // Priced with the cheap lookups rather than the composed feeds: it returns
   // names and ids, and its value is finding the row you then pay to read.
   '/api/search': { price: '$0.001', description: 'Search rivers, gauges and access points' },

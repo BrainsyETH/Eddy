@@ -27,10 +27,15 @@ const SUSPECT_QUALIFIERS: ReadonlySet<string> = new Set([
  */
 const DISCHARGE_ONLY_QUALIFIERS: ReadonlySet<string> = new Set(['ZFl', 'Ssn', 'Rat']);
 
-/** Max reading age before we refuse to act on it. NWS sites report far less often. */
+/**
+ * Max reading age before we refuse to act on it. NWS sites report far less
+ * often; USACE release series publish hourly but with enough publication lag
+ * that the 3h default would gate a normal, healthy dam.
+ */
 const MAX_AGE_MS: Record<string, number> = {
   usgs: 3 * 60 * 60 * 1000,
   nws: 6 * 60 * 60 * 1000,
+  usace: 4 * 60 * 60 * 1000,
 };
 const DEFAULT_MAX_AGE_MS = 3 * 60 * 60 * 1000;
 
@@ -145,7 +150,11 @@ export function gateReading(input: GateInput): GateResult {
   }
 
   // ── Flatline ───────────────────────────────────────────────────
-  if (isFlatlined(input.recentPrimaryValues)) {
+  // Exempt regulated releases: a dam holding 3,590 cfs for eight hours is
+  // normal operation, not a stuck sensor. On a USACE station a constant value
+  // is the expected case, so flatline detection would suppress exactly the
+  // alerts that matter.
+  if (input.provider !== 'usace' && isFlatlined(input.recentPrimaryValues)) {
     return { ok: false, reason: 'flatline' };
   }
 

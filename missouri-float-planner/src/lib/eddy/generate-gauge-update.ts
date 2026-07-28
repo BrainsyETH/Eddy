@@ -81,10 +81,16 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
       level_too_low, level_low, level_optimal_min, level_optimal_max,
       level_high, level_dangerous, threshold_unit,
       rivers!inner (id, slug, name, active),
-      gauge_stations!inner (id, name, usgs_site_id, location, active)
+      gauge_stations!inner (id, name, usgs_site_id, provider, location, active)
     `)
     .eq('rivers.active', true)
-    .eq('gauge_stations.active', true);
+    .eq('gauge_stations.active', true)
+    // USGS-provided stations only. A USACE dam row has a null usgs_site_id and
+    // would reach the Haiku prompt with no site id; more importantly, the
+    // prompt is written to interpret a river gauge, and a dam release is an
+    // operator's decision rather than something the watershed is doing.
+    // Revisit when dam context is deliberately added to the prompt.
+    .eq('gauge_stations.provider', 'usgs');
 
   if (error || !data) {
     console.error('[GaugeUpdates] Failed to fetch river_gauges:', error);

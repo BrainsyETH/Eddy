@@ -21,6 +21,8 @@ import type { ConditionCode } from '@/types/api';
 import RiverHubMap from './RiverHubMap';
 import ShareRiverButton from './ShareRiverButton';
 import HubSectionNav from './HubSectionNav';
+import RiverDamPanel from '@/components/dam/RiverDamPanel';
+import { fetchRiverDam } from '@/lib/data/dams';
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 import SiteFooter from '@/components/ui/SiteFooter';
 import { jsonLdString } from '@/lib/json-ld';
@@ -177,7 +179,7 @@ export default async function RiverGuidePage({ params }: Props) {
   }
 
   // Fetch access points + current condition in parallel (need river.id first)
-  const [{ data: accessPoints }, condRowsResult] = await Promise.all([
+  const [{ data: accessPoints }, condRowsResult, riverDam] = await Promise.all([
     supabase
       .from('access_points')
       .select('id, slug, name, river_mile_downstream, image_urls, type, types')
@@ -189,6 +191,10 @@ export default async function RiverGuidePage({ params }: Props) {
       (res: { data: Array<{ condition_code: string }> | null }) => res,
       () => ({ data: null }),
     ),
+    // Resolved here rather than in a client hook so the dam tab is present in
+    // the first paint and the section stays inside this page's ISR window.
+    // Null for every river without a tailwater dam, which is most of them.
+    fetchRiverDam(slug).catch(() => null),
   ]);
 
   const conditionCode = condRowsResult?.data?.[0]?.condition_code || 'unknown';
@@ -384,7 +390,7 @@ export default async function RiverGuidePage({ params }: Props) {
         </section>
 
         {/* ===== Sticky section nav + persistent CTA ===== */}
-        <HubSectionNav planUrl={planUrl} hasGuide={!!guidePost} />
+        <HubSectionNav planUrl={planUrl} hasGuide={!!guidePost} hasDam={!!riverDam} />
 
         <main className="max-w-5xl mx-auto px-4 pb-16">
           {/* ===== Live report ===== */}
@@ -394,6 +400,16 @@ export default async function RiverGuidePage({ params }: Props) {
             </h2>
             <RiverGaugeDetail riverSlug={slug} />
           </section>
+
+          {/* ===== Dam control — tailwater reaches only ===== */}
+          {riverDam && (
+            <section id="dam" className="scroll-mt-24 pt-8">
+              <h2 className="mb-3 text-xl font-bold text-neutral-900 md:text-2xl" style={{ fontFamily: 'var(--font-display)' }}>
+                Dam release
+              </h2>
+              <RiverDamPanel context={riverDam} />
+            </section>
+          )}
 
           {/* ===== Plan CTA band (the hinge) ===== */}
           <section

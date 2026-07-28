@@ -354,7 +354,20 @@ export interface HazardsResponse {
 
 export interface MapGauge {
   id: string;
-  usgsSiteId: string;
+  /**
+   * The station's provider-native site id — a USGS site number, an NWS LID, or
+   * a USACE dam slug. Named `usgsSiteId` for history: it predates
+   * multi-provider support and has call sites across both apps, so renaming it
+   * to `siteId` is a separate refactor. Pair it with the station's provider
+   * before building any provider-specific URL.
+   *
+   * NULLABLE, and not hypothetically: gauge_stations keeps the id in
+   * `usgs_site_id` OR `site_id_external` depending on provider, both columns
+   * are nullable, and /api/gauges sends whichever it finds. A station carrying
+   * neither arrives here as null — which is how the Search tab crashed on
+   * `.toLowerCase()` of a USACE dam's id. Nothing may assume a string.
+   */
+  usgsSiteId: string | null;
   name: string;
   /**
    * The endpoint defaults unparseable PostGIS locations to (0, 0) rather than

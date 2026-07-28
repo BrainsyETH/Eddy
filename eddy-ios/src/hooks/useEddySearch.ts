@@ -78,7 +78,10 @@ function localMatches(
     .filter(
       (g) =>
         g.name.toLowerCase().includes(needle) ||
-        g.usgsSiteId.toLowerCase().includes(needle),
+        // Nullable on the wire — a station can have neither a USGS number nor
+        // an external site id. Coalesce rather than read through it: this runs
+        // on every keystroke, and a throw here takes the screen with it.
+        (g.usgsSiteId ?? '').toLowerCase().includes(needle),
     )
     .map((g) => {
       // A station can grade more than one river; the primary association is the
