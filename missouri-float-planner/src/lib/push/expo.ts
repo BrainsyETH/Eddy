@@ -5,16 +5,21 @@
 //
 // Reference: https://docs.expo.dev/push-notifications/sending-notifications/
 //
-// KNOWN LIMITATION (v1): `DeviceNotRegistered` most often arrives in the
-// RECEIPT, not the ticket, so ticket-level pruning alone leaks dead tokens over
-// time. We prune on ticket-level DeviceNotRegistered and additionally disable a
-// token once failure_count crosses a threshold. Polling /push/getReceipts is a
-// follow-up; receipts live for 24h.
+// TWO STEPS, NOT ONE. A ticket only says Expo accepted the message for
+// delivery; whether APNs actually took it arrives later, in a RECEIPT. That is
+// where `DeviceNotRegistered` usually shows up, so ticket-level pruning alone
+// leaks dead tokens and the owner silently stops receiving alerts with nothing
+// to see anywhere. `fetchExpoReceipts` is the second half, polled by
+// /api/cron/push-receipts. Receipts live for 24h.
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+const EXPO_RECEIPTS_URL = 'https://exp.host/--/api/v2/push/getReceipts';
 
 /** Expo's documented maximum messages per request. */
 export const EXPO_BATCH_SIZE = 100;
+
+/** Expo's documented maximum receipt ids per request. */
+export const EXPO_RECEIPT_BATCH_SIZE = 1000;
 
 export interface ExpoMessage {
   to: string;
@@ -40,7 +45,14 @@ export type TicketErrorKind =
   | 'mismatched_credentials'
   | 'other';
 
-export function classifyTicketError(ticket: ExpoTicket): TicketErrorKind | null {
+/**
+ * A delivery receipt. Same shape as a ticket minus the id — deliberately typed
+ * separately so a caller cannot pass one where the other is meant, since a
+ * receipt is the answer about a ticket rather than another ticket.
+ */
+export type ExpoReceipt = Omit<ExpoTicket, 'id'>;
+
+export function classifyTicketError(ticket: ExpoTicket | ExpoReceipt): TicketErrorKind | null {
   if (ticket.status !== 'error') return null;
   switch (ticket.details?.error) {
     case 'DeviceNotRegistered':
@@ -171,4 +183,84 @@ export async function sendExpoPush(
 
 function errorTickets(messages: ExpoMessage[], message: string): ExpoTicket[] {
   return messages.map(() => ({ status: 'error' as const, message }));
+}
+
+/**
+ * Asks Expo what became of previously issued tickets.
+ *
+ * Returns a map keyed by ticket id, and — importantly — a ticket that is ABSENT
+ * from the response is not an error. Expo omits receipts that are not ready
+ * yet, and drops them entirely after 24h. Treating a missing receipt as a
+ * failure would disable working devices, which is the opposite of the job.
+ *
+ * Never throws: a whole-request failure yields an empty map, so the caller
+ * leaves those tickets unchecked and tries them again on the next pass rather
+ * than acting on an outage.
+ */
+export async function fetchExpoReceipts(
+  ticketIds: string[],
+  options: SendOptions = {}
+): Promise<Map<string, ExpoReceipt>> {
+  const out = new Map<string, ExpoReceipt>();
+  if (ticketIds.length === 0) return out;
+
+  const doFetch = options.fetchImpl ?? fetch;
+  const sleep = options.sleepImpl ?? defaultSleep;
+  const maxRetries = options.maxRetries ?? 2;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    'Accept-Encoding': 'gzip, deflate',
+  };
+  if (process.env.EXPO_ACCESS_TOKEN) {
+    headers.Authorization = `Bearer ${process.env.EXPO_ACCESS_TOKEN}`;
+  }
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await doFetch(EXPO_RECEIPTS_URL, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ids: ticketIds }),
+      });
+
+      if (response.status === 429 || response.status >= 500) {
+        if (attempt < maxRetries) {
+          await sleep(500 * Math.pow(2, attempt));
+          continue;
+        }
+        return out;
+      }
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.data || typeof payload.data !== 'object') return out;
+
+      // `data` is an object keyed by ticket id, not an array — so unlike the
+      // send path there is no index alignment to defend.
+      for (const [id, receipt] of Object.entries(payload.data as Record<string, unknown>)) {
+        if (receipt && typeof receipt === 'object' && 'status' in receipt) {
+          out.set(id, receipt as ExpoReceipt);
+        }
+      }
+      return out;
+    } catch {
+      if (attempt < maxRetries) {
+        await sleep(500 * Math.pow(2, attempt));
+        continue;
+      }
+    }
+  }
+
+  return out;
+}
+
+export function chunkReceiptIds(
+  ids: string[],
+  size: number = EXPO_RECEIPT_BATCH_SIZE
+): string[][] {
+  if (size < 1) throw new Error('chunk size must be >= 1');
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += size) chunks.push(ids.slice(i, i + size));
+  return chunks;
 }

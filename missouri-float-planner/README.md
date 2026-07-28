@@ -54,6 +54,16 @@ NEXT_PUBLIC_MAP_STYLE_URL=https://api.maptiler.com/maps/streets/style.json?key=Y
 # Cron Security
 CRON_SECRET=your_random_secret
 
+# Push notifications (iOS app)
+# Optional. Enables Expo's enhanced security so a leaked project id alone
+# cannot be used to send on our behalf. Create at expo.dev > Access Tokens.
+EXPO_ACCESS_TOKEN=your_expo_access_token
+# Emergency stop for ALL push sending, checked by /api/cron/deliver-push and
+# /api/cron/push-receipts. Only the exact string "false" disables. Needs a
+# redeploy — for a no-deploy stop, set app_config.push_enabled = false, which
+# the same check reads.
+EXPO_PUSH_ENABLED=true
+
 # Rate limiting (optional but recommended in production)
 # When set, API rate limits are enforced globally in Upstash Redis instead of
 # per-serverless-instance memory. Create a free Redis database at upstash.com.

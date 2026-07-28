@@ -62,19 +62,16 @@ export function classifyEventKind(
   return 'info';
 }
 
-/** Kinds that may generate a push. `recovery`/`info` are feed-only. */
+/**
+ * Kinds that may generate a push. `recovery`/`info` are feed-only.
+ *
+ * This is now the ONLY thing standing between an event and a notification.
+ * There was a companion `kindRequiresEntitlement()` here, gating everything but
+ * `warning` behind Eddy Premium; it is gone because alerting is free in its
+ * entirety. Splitting the alert engine along a paid boundary is what produced
+ * the state where a `warning` was nominally free yet unreachable, since the only
+ * route that could create the subscription to receive one demanded payment.
+ */
 export function isPushableKind(kind: EventKind): boolean {
   return kind === 'floatable' || kind === 'warning' || kind === 'easing';
-}
-
-/**
- * Whether a push of this kind requires an active Eddy Premium entitlement.
- *
- * Safety-adjacent warnings are FREE: the product principle is that condition
- * display is always free including "dangerous", and putting a hazard warning
- * behind a paywall is both a liability and a trust problem. The paid moat is
- * the floatability translation — "your stretch is floatable" — not the hazard.
- */
-export function kindRequiresEntitlement(kind: EventKind): boolean {
-  return kind !== 'warning';
 }

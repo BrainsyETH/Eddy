@@ -23,6 +23,7 @@ import {
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useSession } from '@/hooks/useSession';
+import { useAppConfig } from '@/hooks/useAppConfig';
 import {
   getPermissionState,
   installForegroundHandler,
@@ -62,6 +63,9 @@ installForegroundHandler();
 export function PushProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { getAccessToken, isAnonymous, session } = useSession();
+  // Defaults to true and fails open — see useAppConfig. An unreachable config
+  // must not be able to turn alerts off.
+  const { features } = useAppConfig();
   const [permission, setPermission] = useState<PermissionState>('undetermined');
   const [registered, setRegistered] = useState(false);
 
@@ -130,6 +134,18 @@ export function PushProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const enable = useCallback(async () => {
+    // The one place `features.push` can prevent real harm. Everything else the
+    // kill switch touches is recoverable — a send skipped now goes out when the
+    // switch flips back — but the iOS permission dialog shows ONCE per install,
+    // and spending it while the backend is not sending buys a "no" we can never
+    // undo. So the flag gates the prompt and nothing else; a subscription made
+    // while push is off is still worth having.
+    //
+    // The server-side lever is authoritative and lives in
+    // src/lib/push/kill-switch.ts; this is the client half of the same switch,
+    // which until now was served to the app and read by nobody.
+    if (!features.push) return getPermissionState();
+
     const state = await requestPermission();
     setPermission(state);
 
@@ -141,7 +157,7 @@ export function PushProvider({ children }: { children: ReactNode }) {
       }
     }
     return state;
-  }, [signedIn, getAccessToken]);
+  }, [signedIn, getAccessToken, features.push]);
 
   const disable = useCallback(async () => {
     const token = await getAccessToken();

@@ -513,12 +513,20 @@ export async function fetchHazards(slug: string, signal?: AbortSignal): Promise<
   return data.hazards ?? [];
 }
 
-/** Subscribe to condition alerts for a river. 402 means the paywall. */
+/**
+ * Subscribe to condition alerts for a river.
+ *
+ * There is no 402 branch any more — alerting is free, so the route cannot
+ * answer payment-required. 403 (an anonymous session where a permanent one is
+ * needed) throws like any other failure and the caller opens the sign-in sheet
+ * on it; the status is preserved on ApiError precisely so that check is possible
+ * without re-reading the body.
+ */
 export async function subscribeToRiver(
   token: string,
   riverId: string,
   kind: 'floatable' | 'safety' | 'all',
-): Promise<{ ok: boolean; paymentRequired: boolean }> {
+): Promise<void> {
   const response = await fetch(`${BASE_URL}/api/me/alert-subscriptions`, {
     method: 'POST',
     headers: {
@@ -530,11 +538,7 @@ export async function subscribeToRiver(
     body: JSON.stringify({ riverId, kind }),
   });
 
-  // 402 is the contextual paywall trigger, not a failure — the caller presents
-  // an offer rather than an error.
-  if (response.status === 402) return { ok: false, paymentRequired: true };
   if (!response.ok) throw new ApiError(`Request failed (${response.status})`, response.status);
-  return { ok: true, paymentRequired: false };
 }
 
 export async function unsubscribeFromRiver(token: string, riverId: string): Promise<void> {
