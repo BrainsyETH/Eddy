@@ -54,7 +54,12 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
-import { driveToUrl } from '@/lib/directions';
+import {
+  driveToUrl,
+  installedNavLinks,
+  openNavLink,
+  type NavLinkSpec,
+} from '@/lib/directions';
 import {
   agencyLabel,
   isDemandingSurface,
@@ -254,6 +259,15 @@ export default function AccessPointDetailScreen() {
   const [data, setData] = useState<AccessPointDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Which offroad map apps this phone actually has.
+   *
+   * Starts empty and stays empty for most people, which is the correct default:
+   * the row is drawn only for what came back, so a phone with none of them
+   * never sees it. Probed after the access point loads because the links need
+   * its coordinates.
+   */
+  const [navLinks, setNavLinks] = useState<NavLinkSpec[]>([]);
 
   useEffect(() => {
     if (!slug || !accessSlug) return;
@@ -280,6 +294,20 @@ export default function AccessPointDetailScreen() {
 
     return () => controller.abort();
   }, [slug, accessSlug]);
+
+  // Deliberately not named `point` — that name belongs to the non-optional
+  // narrowing below the early returns, which the whole render leans on.
+  const loadedPoint = data?.accessPoint;
+  useEffect(() => {
+    if (!loadedPoint) return;
+    let live = true;
+    void installedNavLinks(loadedPoint).then((links) => {
+      if (live) setNavLinks(links);
+    });
+    return () => {
+      live = false;
+    };
+  }, [loadedPoint]);
 
   if (loading) {
     return (
@@ -417,6 +445,37 @@ export default function AccessPointDetailScreen() {
             </Pressable>
           ) : null}
         </View>
+
+        {/* ── The last half mile ──────────────────────────────────
+            Apple Maps above will get you to the area. What it will not do is
+            draw the unnamed track that the final half mile to an Ozark put-in
+            usually is, or route down it. onX and Gaia will, and anyone who owns
+            them owns them for this.
+
+            Only what the phone actually has, so this row is absent for most
+            people rather than being three buttons that bounce to the App Store.
+            See installedNavLinks. */}
+        {navLinks.length > 0 ? (
+          <View style={styles.navApps}>
+            <Text style={[styles.navAppsLabel, { color: colors.textSubtle }]}>Open in</Text>
+            <View style={styles.navAppsRow}>
+              {navLinks.map((link) => (
+                <Pressable
+                  key={link.app}
+                  onPress={() => void openNavLink(link)}
+                  style={({ pressed }) => [
+                    styles.navApp,
+                    { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${point.name} in ${link.label} ${link.subtitle}`}
+                >
+                  <Text style={[styles.navAppText, { color: colors.text }]}>{link.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {/* ── The water ──────────────────────────────────────────
             Pre-graded by the server, so this access point and its river cannot
@@ -652,6 +711,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaryActionText: { ...t.sm, fontFamily: fonts.medium },
+  // Tighter to the actions above than a Section would be: these are the same
+  // question as Directions, asked of a different app, not a new topic.
+  navApps: { paddingHorizontal: 16, marginTop: 12 },
+  navAppsLabel: { ...t.xs, fontFamily: fonts.medium, marginBottom: 6 },
+  navAppsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  navApp: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  navAppText: { ...t.sm, fontFamily: fonts.medium },
   section: { marginTop: 22 },
   sectionTitle: {
     ...t.lg,

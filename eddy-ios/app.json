@@ -18,7 +18,8 @@
         "tinted": "./assets/icon-tinted.png"
       },
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": ["onxoffroad", "gaiagps", "comgooglemaps"]
       },
       "runtimeVersion": {
         "policy": "fingerprint"
