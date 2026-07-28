@@ -172,9 +172,16 @@ export default function GaugeDetailScreen() {
   }
 
   // ── The two vocabularies ──────────────────────────────────────────────────
-  // `link` is the ladder to grade against, primary first — /api/gauges/[siteId]
-  // sorts it that way so [0] is the association the app should navigate to.
-  const link = gauge.thresholds?.[0] ?? null;
+  // The ladder to grade against.
+  //
+  // FIND-PRIMARY, not [0], even though /api/gauges/[siteId] already sorts it
+  // that way. The seed does not: it can come from a MapGauge whose `thresholds`
+  // are in whatever order /api/gauges emitted them, and a station that rates two
+  // rivers would then flash the SECOND river's bands under this reading for the
+  // frame before the fetch lands. Same rule gaugeLink() applies everywhere else
+  // in the app, for the same reason.
+  const link =
+    gauge.thresholds?.find((l) => l.isPrimary) ?? gauge.thresholds?.[0] ?? null;
   const rated = Boolean(link && hasLadder(link));
 
   const unit = displayUnit(gauge, link);
@@ -382,9 +389,13 @@ export default function GaugeDetailScreen() {
             first — naming the others beats implying there is only one. */}
         {rated && (gauge.thresholds?.length ?? 0) > 1 ? (
           <Text style={[styles.footnote, { color: colors.textSubtle }]}>
+            {/* Everything EXCEPT the one being shown, filtered by identity
+                rather than sliced off the front — `link` is found, not taken
+                from index 0, so a slice would name the shown river and omit
+                whichever one happens to sort first. */}
             Also rates{' '}
             {gauge
-              .thresholds!.slice(1)
+              .thresholds!.filter((l) => l !== link)
               .map((l) => l.riverName)
               .join(', ')}
             , which grade this reading on their own levels.

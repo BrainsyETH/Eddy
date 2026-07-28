@@ -483,12 +483,20 @@ export function GaugeChart({ siteId, unit, thresholds = null, title }: Props) {
               <ActivityIndicator size="small" color={colors.accent} />
             ) : (
               <Text style={[styles.placeholderText, { color: colors.textSubtle }]}>
-                {/* Only `unavailable` may be phrased as a fact about the gauge.
-                    A failed request leaves the previous line up and never lands
-                    here; see useGaugeHistory. */}
+                {/* Three distinct states, because two of them would be a lie as
+                    the third. Only `unavailable` may be phrased as a fact about
+                    the gauge — a failed request leaves the previous line up and
+                    never lands here; see useGaugeHistory.
+
+                    The single-point case is its own sentence. A line needs two
+                    points, so one reading falls through to this branch, and
+                    saying "none reported" over a station that reported once is
+                    the app contradicting the number on the card above it. */}
                 {unavailable
                   ? 'No recent history published for this gauge.'
-                  : `No ${unit === 'cfs' ? 'discharge' : 'gauge height'} reported in this window.`}
+                  : points.length === 1
+                    ? `Only one ${unit === 'cfs' ? 'discharge' : 'gauge height'} reading in this window — not enough to chart.`
+                    : `No ${unit === 'cfs' ? 'discharge' : 'gauge height'} reported in this window.`}
               </Text>
             )}
           </View>

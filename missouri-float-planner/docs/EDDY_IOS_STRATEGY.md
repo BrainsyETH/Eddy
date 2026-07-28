@@ -140,6 +140,37 @@ Reuse the **keyless self-hosted styles** (`public/map-styles/eddy-immersive.json
 
 **Resolved UI:** map raw-discovery = **all three** (viewport-bounded clustered layer + search + near-me pins); Reports = **segmented "Eddy Rivers | All Gauges" toggle**; tier labels = **"Eddy Rivers" (curated) / "All Gauges" (raw)**. Stitch mockups of Map + Reports + raw-gauge sheet are the natural next artifact.
 
+### Shipped, Jul 2026 — where the two tiers actually landed
+
+The "lean raw sheet" and the "segmented toggle" both shipped, and both came
+out a step further than described here. Worth recording, because the shape
+differs from the plan in one load-bearing way.
+
+- **One gauge screen, not a lean sheet and a rich one.** `app/gauge/[siteId].tsx`
+  serves both tiers. The plan assumed the tier distinction implied two
+  surfaces; it does not. The distinction is about what may be **said** — a
+  curated gauge gets a condition ladder and a verdict, a raw one gets a flow
+  band, which is a comparison to its own history and never permission to float.
+  That branch belongs inside one screen. Two layouts would have made "is this
+  station curated" something a user infers from which page they landed on.
+  Reached from every gauge tap in the app: map callouts of both tiers, starred
+  rows, search results, deep links.
+- **`GET /api/gauges/[siteId]`** is what made that possible. Nothing could
+  answer for a single national station before — `/api/gauges` is curated-only
+  and `/api/gauges/map` is viewport-bounded. It reuses the `search_gauges` RPC
+  for `st_x`/`st_y` coordinates and refreshes from the flow provider when the
+  stored reading is over six hours old, which is the ordinary case for every
+  station the cron stopped polling.
+- **Search is three scopes, not a two-tier toggle** — Rivers / Gauges / Access.
+  A two-way tier toggle would have left the filter strip lying: river chips are
+  a floatability verdict and gauge chips are flow bands, and those two
+  vocabularies cannot share a row without implying they are the same kind of
+  answer. Access points needed a scope of their own regardless; `/api/search`
+  has returned them since it shipped and the tab never asked.
+- **Still unbuilt from the raw tier's promise:** NWS/AHPS flood-stage overlay on
+  the raw gauge screen, and user-set custom thresholds ("notify above 3.2 ft").
+  The free gauge-alert tier in the gating section above still depends on both.
+
 ## Retention & seasonality design
 
 **Key insight:** annual renewals **self-align to the season** (June buyer renews in June, primed to pay) — the at-risk cohorts are narrower: fall buyers (renewal lands post-season), monthly subs (rational October churn), and winter-silence forgetters. Four mechanics:

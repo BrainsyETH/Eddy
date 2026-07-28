@@ -881,14 +881,6 @@ const styles = StyleSheet.create({
   accessBody: { flex: 1 },
   accessName: { ...t.sm, fontFamily: fonts.semibold },
   accessMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  rowsHeading: {
-    ...t.xs,
-    fontFamily: fonts.heading,
-    letterSpacing: 0.4,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 8,
-  },
   empty: { padding: 32, alignItems: 'center' },
   emptyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
 });
