@@ -186,6 +186,83 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * PATCH — pause, resume, re-arm, or re-aim an existing river subscription.
+ *
+ * Added with per-gauge alerting, which gave every rule a pause switch; a river
+ * alert that could only be created or destroyed would have been the one kind
+ * you had to rebuild after a month away, losing its one_shot state with it.
+ *
+ * Deliberately keyed on riverId rather than the subscription id. That is what
+ * the app holds — the bell on the river screen knows which river it is looking
+ * at and nothing else — and the unique (user_id, river_id) makes it exact.
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const auth = await requirePermanentUser(request);
+    if (auth instanceof NextResponse) return auth;
+    const { supabase, user } = auth;
+
+    const limited = await rateLimit(`me-subs-write:${user.id}`, 60, 15 * 60 * 1000);
+    if (limited) return limited;
+
+    const body = (await request.json().catch(() => null)) as
+      | { riverId?: string; enabled?: boolean; kind?: string; oneShot?: boolean; rearm?: boolean }
+      | null;
+    if (!body?.riverId) {
+      return jsonPrivate({ error: 'riverId required' }, { status: 400 });
+    }
+
+    const update: Record<string, unknown> = {};
+    if (typeof body.enabled === 'boolean') update.enabled = body.enabled;
+    if (typeof body.oneShot === 'boolean') update.one_shot = body.oneShot;
+    if (body.kind !== undefined) {
+      if (!VALID_KINDS.includes(body.kind as SubscriptionKind)) {
+        return jsonPrivate({ error: `kind must be one of ${VALID_KINDS.join(', ')}` }, { status: 400 });
+      }
+      update.kind = body.kind;
+    }
+    // Re-arming a spent one-shot, the same way POST does by upserting fired_at
+    // back to null.
+    if (body.rearm) update.fired_at = null;
+
+    if (Object.keys(update).length === 0) {
+      return jsonPrivate({ error: 'Nothing to update' }, { status: 400 });
+    }
+
+    const { data: saved, error } = await supabase
+      .from('alert_subscriptions')
+      .update(update)
+      .eq('user_id', user.id)
+      .eq('river_id', body.riverId)
+      .select('id, river_id, kind, one_shot, enabled, fired_at, created_at')
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error updating alert subscription:', error);
+      return jsonPrivate({ error: 'Could not update subscription' }, { status: 500 });
+    }
+    if (!saved) {
+      return jsonPrivate({ error: 'Subscription not found' }, { status: 404 });
+    }
+
+    return jsonPrivate({
+      subscription: {
+        id: saved.id,
+        riverId: saved.river_id,
+        kind: saved.kind,
+        oneShot: saved.one_shot,
+        enabled: saved.enabled,
+        firedAt: saved.fired_at,
+        createdAt: saved.created_at,
+      },
+    });
+  } catch (error) {
+    console.error('Error updating alert subscription:', error);
+    return jsonPrivate({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   try {
     // Deliberately NOT entitlement-gated — see header note.

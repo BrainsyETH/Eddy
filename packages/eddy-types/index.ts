@@ -1246,6 +1246,197 @@ export interface AlertSubscriptionsResponse {
   subscriptions: AlertSubscriptionEntry[];
 }
 
+// ── Alert rules (GET /api/me/alerts) ─────────────────────────────
+//
+// The MERGED view of everything a user has asked to be told about. Two tables
+// stand behind it — alert_subscriptions for river condition alerts, which are
+// fanned out from a global outbox, and gauge_alert_subscriptions for per-rule
+// evaluation — because a user-defined level cannot be precomputed into one
+// shared event. See migration 00200 for that argument in full.
+//
+// The split is a SERVER concern. A client that had to know which table a rule
+// lived in would have to reimplement the routing rule every time it listed,
+// paused or deleted one, so `source` exists to be echoed back on writes and for
+// nothing else.
+
+export type AlertRuleSource = 'river_condition' | 'gauge';
+
+/** What the rule is ABOUT, which is not the same as where it is stored. */
+export type AlertRuleScope = 'river' | 'gauge';
+
+/**
+ * How the rule decides.
+ *
+ * `condition` defers to Eddy's ladder — the same verdict the river screen shows,
+ * so the alert and the app can never disagree. `threshold` is the user's own
+ * number, which is the thing the ladder cannot express: a ladder says "high",
+ * and some people want to know at 3.2 ft specifically.
+ */
+export type AlertRuleMode = 'condition' | 'threshold';
+
+/**
+ * Which series a threshold is measured against. EXPLICIT, never inferred from
+ * whichever value happens to be present — grading a cfs number against a foot
+ * threshold is exactly the cross-unit mistake the reading helpers in this
+ * codebase refuse to make.
+ */
+export type AlertMetric = 'gauge_height_ft' | 'discharge_cfs';
+
+export type AlertComparator = 'above' | 'below' | 'between';
+
+export interface AlertRule {
+  id: string;
+  /** Which table this lives in — echo it back on PATCH/DELETE. */
+  source: AlertRuleSource;
+  scope: AlertRuleScope;
+  mode: AlertRuleMode;
+
+  riverId: string | null;
+  riverName: string | null;
+  riverSlug: string | null;
+
+  /** gauge_stations uuid. Null for a river-condition rule. */
+  gaugeId: string | null;
+  gaugeName: string | null;
+  /** The provider-native site id — what /gauge/[siteId] routes on. */
+  usgsSiteId: string | null;
+  /**
+   * False when the station has no condition ladder, i.e. the national tier.
+   * Such a rule can only ever be `threshold` mode; offering the user a
+   * condition picker for one would be offering a verdict Eddy does not issue.
+   */
+  curated: boolean;
+
+  /** Condition mode only. */
+  conditionKind: AlertSubscriptionKind | null;
+
+  /** Threshold mode only. */
+  metric: AlertMetric | null;
+  comparator: AlertComparator | null;
+  thresholdValue: number | null;
+  thresholdValueMax: number | null;
+
+  enabled: boolean;
+  oneShot: boolean;
+  /** Set once a one-shot has been spent; clearing it re-arms the rule. */
+  firedAt: string | null;
+  lastTriggeredAt: string | null;
+  createdAt: string;
+}
+
+export interface AlertRulesResponse {
+  rules: AlertRule[];
+}
+
+/**
+ * The reading a rule was seeded from, returned by POST /api/me/gauge-alerts.
+ *
+ * A new rule starts already knowing which side of its threshold the river is on,
+ * so it fires on the next CROSSING rather than immediately. The app needs this
+ * value to say so — "the Meramec is at 5.2 ft now, we'll tell you the next time
+ * it comes up past 3.0 ft" — because a rule that silently declines to fire on
+ * water the user can see reads like a bug.
+ */
+export interface AlertRuleSeed {
+  value: number | null;
+  unit: 'ft' | 'cfs' | null;
+  readingAt: string | null;
+  /** 'inside' means the condition is already met at creation time. */
+  state: 'inside' | 'outside' | null;
+}
+
+export interface AlertRuleResponse {
+  rule: AlertRule;
+  seed: AlertRuleSeed | null;
+}
+
+/**
+ * The national tier refreshes ONCE AN HOUR (sync-gauge-latest runs at :20),
+ * against curated stations' 15 minutes on a rising river. Alerts on an
+ * uncurated gauge are correspondingly slower, and a screen that shows both
+ * kinds side by side has to say which one the user is looking at.
+ */
+export const GAUGE_ALERT_LATENCY_NOTE =
+  'This gauge updates about once an hour, so alerts on it can lag the river by more than that.';
+
+/** Stage to two decimals, discharge whole — the precision each is reported at. */
+export function formatAlertValue(value: number, metric: AlertMetric): string {
+  if (metric === 'gauge_height_ft') return `${value.toFixed(2)} ft`;
+  return `${Math.round(value).toLocaleString('en-US')} cfs`;
+}
+
+/**
+ * The rule's trigger, as one sentence fragment — "rises above 3.00 ft".
+ *
+ * Deliberately EXCLUDES the river or gauge name. Every caller already has the
+ * target: the manage list prints it as the row title, and the notification
+ * copy puts it in the title line. Baking it in here would produce "Huzzah Creek
+ * — Huzzah Creek rises above 3.00 ft" at both.
+ *
+ * Shared rather than written twice because the app, the push body and any
+ * future web UI must describe the same rule identically. A user who reads
+ * "above 3 ft" in the list and "over 3.0 feet" in the notification has to work
+ * out whether they are the same alert.
+ */
+export function describeAlertRule(rule: AlertRule): string {
+  if (rule.mode === 'condition') {
+    switch (rule.conditionKind) {
+      case 'floatable':
+        return 'when it becomes floatable';
+      case 'safety':
+        return 'on high and dangerous water';
+      default:
+        return 'on any condition change';
+    }
+  }
+
+  const metric = rule.metric ?? 'gauge_height_ft';
+  const low = rule.thresholdValue;
+  if (low == null) return 'when conditions change';
+
+  switch (rule.comparator) {
+    case 'below':
+      return `when it drops below ${formatAlertValue(low, metric)}`;
+    case 'between': {
+      const high = rule.thresholdValueMax;
+      // A `between` rule missing its upper bound is a shape the database
+      // rejects, so this can only be a truncated payload. Degrade to the half
+      // the rule does state rather than printing "between 3.00 ft and null".
+      if (high == null) return `when it rises above ${formatAlertValue(low, metric)}`;
+      return `while it is between ${formatAlertValue(low, metric)} and ${formatAlertValue(high, metric)}`;
+    }
+    default:
+      return `when it rises above ${formatAlertValue(low, metric)}`;
+  }
+}
+
+// ── Notification preferences (GET/PUT /api/me/notification-preferences) ──
+
+/**
+ * Quiet hours SUPPRESS rather than queue.
+ *
+ * deliver-push already drops any event older than three hours, because "your
+ * river is floatable" must never fire about water that has since dropped. A
+ * quiet window outlives that by design, so "hold it until morning" would
+ * deliver either a stale promise or, more often, nothing at all. What the user
+ * gets instead is the free Alerts feed, which is still there when they wake.
+ * Say that in the UI; do not imply a digest.
+ */
+export interface NotificationPreferences {
+  quietHoursEnabled: boolean;
+  /** Minutes past LOCAL midnight, 0-1439. start > end is an overnight window. */
+  quietStartMinute: number | null;
+  quietEndMinute: number | null;
+  /** IANA zone the two minute offsets are interpreted in. */
+  timezone: string;
+  /** High and dangerous water still arrives during the window. */
+  safetyOverridesQuiet: boolean;
+}
+
+export interface NotificationPreferencesResponse {
+  preferences: NotificationPreferences;
+}
+
 // ── Remote config / kill switches (GET /api/app-config) ──────────
 
 export interface AppFeatureFlags {

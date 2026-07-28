@@ -21,6 +21,7 @@ import { AppConfigProvider } from '@/hooks/useAppConfig';
 import { SessionProvider } from '@/hooks/useSession';
 import { StarredRiversProvider } from '@/hooks/useStarredRivers';
 import { SavedFloatsProvider } from '@/hooks/useSavedFloats';
+import { AlertRulesProvider } from '@/hooks/useAlertRules';
 import { PushProvider } from '@/hooks/usePush';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { UpgradeGate } from '@/components/UpgradeGate';
@@ -76,11 +77,18 @@ export default function RootLayout() {
                     history is local, works with no account, and never blocks a
                     render on disk. */}
                 <SavedFloatsProvider>
-                  {/* Inside SessionProvider: registration needs a token, and the
-                      backend only accepts one from a permanent account. */}
-                  <PushProvider>
-                    <ThemedShell />
-                  </PushProvider>
+                  {/* Server state, not a local store: an alert exists to make
+                      the backend push, so one that lived only on the phone
+                      would be one the delivery cron has never heard of. Inside
+                      SessionProvider because it has nothing to read without a
+                      token, and signing in with Apple changes the answer. */}
+                  <AlertRulesProvider>
+                    {/* Inside SessionProvider: registration needs a token, and the
+                        backend only accepts one from a permanent account. */}
+                    <PushProvider>
+                      <ThemedShell />
+                    </PushProvider>
+                  </AlertRulesProvider>
                 </SavedFloatsProvider>
               </StarredRiversProvider>
             </SessionProvider>

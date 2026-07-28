@@ -42,7 +42,17 @@ import type {
   StarredGaugesResponse,
   StarredRiversResponse,
   AlertSubscriptionEntry,
+  AlertSubscriptionKind,
   AlertSubscriptionsResponse,
+  AlertComparator,
+  AlertMetric,
+  AlertRule,
+  AlertRuleMode,
+  AlertRuleResponse,
+  AlertRuleScope,
+  AlertRulesResponse,
+  NotificationPreferences,
+  NotificationPreferencesResponse,
   MeProfileResponse,
   MeDeleteResponse,
 } from '@eddy/types';
@@ -651,6 +661,177 @@ export async function fetchSubscriptions(
     { signal },
   );
   return data ? (data.subscriptions ?? []) : null;
+}
+
+// ── Alert rules ────────────────────────────────────────────────────────────
+//
+// Two tables stand behind these — river condition subscriptions are fanned out
+// from a global outbox, per-gauge rules are evaluated one by one — and the
+// server merges them. `AlertRule.source` is the only trace of the split that
+// reaches the app, and its one job is being echoed back on writes.
+
+/**
+ * Every rule the caller has, river and gauge alike.
+ *
+ * Null when the session is unusable, following fetchSubscriptions: the manage
+ * list shows its signed-out state rather than an empty list, because "you have
+ * no alerts" and "we could not ask" must not look the same on a screen whose
+ * next control is "create one".
+ */
+export async function fetchAlertRules(
+  token: string,
+  signal?: AbortSignal,
+): Promise<AlertRule[] | null> {
+  const data = await authed<AlertRulesResponse>('/api/me/alerts', token, { signal });
+  return data ? (data.rules ?? []) : null;
+}
+
+export interface CreateGaugeAlertInput {
+  gaugeStationId?: string;
+  usgsSiteId?: string;
+  riverId?: string;
+  riverSlug?: string;
+  scope: AlertRuleScope;
+  mode: AlertRuleMode;
+  conditionKind?: AlertSubscriptionKind;
+  metric?: AlertMetric;
+  comparator?: AlertComparator;
+  thresholdValue?: number;
+  thresholdValueMax?: number;
+  oneShot?: boolean;
+}
+
+/**
+ * Raw fetch rather than authed(), exactly as subscribeToRiver does.
+ *
+ * authed() turns 401 and 403 into null, which is right for a read that can fall
+ * back to local data and wrong here: 403 means "anonymous session, sign in" and
+ * is the difference between showing the sign-in sheet and showing a generic
+ * failure. The status has to survive.
+ */
+async function writeJson<T>(
+  path: string,
+  token: string,
+  method: 'POST' | 'PATCH' | 'PUT',
+  body: unknown,
+): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}${path}`, {
+      method,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': USER_AGENT,
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError('No connection');
+  }
+
+  if (!response.ok) {
+    // The route answers 409 and 422 with a `code` and a sentence written for a
+    // person — "You already have this alert", "This gauge does not report
+    // discharge". Carried through so the screen can show that instead of
+    // inventing its own wording for a rule it cannot see.
+    const detail = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new ApiError(detail?.error ?? `Request failed (${response.status})`, response.status);
+  }
+  return (await response.json()) as T;
+}
+
+export async function createGaugeAlert(
+  token: string,
+  input: CreateGaugeAlertInput,
+): Promise<AlertRuleResponse> {
+  return writeJson<AlertRuleResponse>('/api/me/gauge-alerts', token, 'POST', input);
+}
+
+export interface UpdateAlertRuleInput {
+  enabled?: boolean;
+  oneShot?: boolean;
+  conditionKind?: AlertSubscriptionKind;
+  metric?: AlertMetric;
+  comparator?: AlertComparator;
+  thresholdValue?: number;
+  thresholdValueMax?: number;
+  /** Clear a spent one-shot so it can fire again. */
+  rearm?: boolean;
+}
+
+/**
+ * Edit one rule, whichever table it lives in.
+ *
+ * The two are addressed differently and that is not incidental: a gauge rule is
+ * keyed by its own id, while a river subscription is keyed by riverId, because
+ * the bell that edits one knows the river and nothing else. `rule.source` picks
+ * the shape, so no caller has to.
+ */
+export async function updateAlertRule(
+  token: string,
+  rule: Pick<AlertRule, 'id' | 'source' | 'riverId'>,
+  patch: UpdateAlertRuleInput,
+): Promise<void> {
+  if (rule.source === 'river_condition') {
+    if (!rule.riverId) throw new ApiError('Alert is missing its river', 400);
+    // `conditionKind` here, `kind` there. The two tables named the same column
+    // differently before they were ever merged into one client-facing rule, and
+    // passing the patch through untranslated is silent: the route ignores the
+    // key it does not know and answers "Nothing to update" — so switching a
+    // river alert from Everything to Safety would appear to save and change
+    // nothing at all.
+    const { conditionKind, ...rest } = patch;
+    await writeJson('/api/me/alert-subscriptions', token, 'PATCH', {
+      riverId: rule.riverId,
+      ...rest,
+      ...(conditionKind ? { kind: conditionKind } : {}),
+    });
+    return;
+  }
+  await writeJson(`/api/me/gauge-alerts/${encodeURIComponent(rule.id)}`, token, 'PATCH', patch);
+}
+
+/** Delete one rule. Turning an alert off never demands a fresh sign-in. */
+export async function deleteAlertRule(
+  token: string,
+  rule: Pick<AlertRule, 'id' | 'source' | 'riverId'>,
+): Promise<void> {
+  if (rule.source === 'river_condition') {
+    if (!rule.riverId) throw new ApiError('Alert is missing its river', 400);
+    await unsubscribeFromRiver(token, rule.riverId);
+    return;
+  }
+  await authed(`/api/me/gauge-alerts/${encodeURIComponent(rule.id)}`, token, {
+    method: 'DELETE',
+  });
+}
+
+/** Quiet hours. Null when the session is unusable — never assume "none set". */
+export async function fetchNotificationPreferences(
+  token: string,
+  signal?: AbortSignal,
+): Promise<NotificationPreferences | null> {
+  const data = await authed<NotificationPreferencesResponse>(
+    '/api/me/notification-preferences',
+    token,
+    { signal },
+  );
+  return data?.preferences ?? null;
+}
+
+export async function updateNotificationPreferences(
+  token: string,
+  preferences: NotificationPreferences,
+): Promise<NotificationPreferences> {
+  const data = await writeJson<NotificationPreferencesResponse>(
+    '/api/me/notification-preferences',
+    token,
+    'PUT',
+    preferences,
+  );
+  return data.preferences;
 }
 
 /**

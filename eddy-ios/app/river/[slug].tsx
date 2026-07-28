@@ -678,6 +678,31 @@ export default function RiverDetailScreen() {
           <Text style={[styles.notifyError, { color: colors.error }]}>{subscribeError}</Text>
         ) : null}
 
+        {/* The bell stays a ONE-TAP control — it is the conversion moment and
+            an extra decision in front of it would cost more than it buys. This
+            is the door out to everything the bell deliberately does not ask:
+            floatable-only, safety-only, once, or a level of your own. */}
+        <Pressable
+          onPress={() =>
+            router.push({
+              pathname: '/alerts/configure',
+              params: {
+                scope: 'river',
+                riverId: river.id,
+                riverSlug: river.slug,
+                riverName: river.name,
+              },
+            })
+          }
+          style={({ pressed }) => [styles.customizeButton, { opacity: pressed ? 0.6 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Set a custom alert for ${river.name}`}
+        >
+          <Text style={[styles.customizeText, { color: colors.textMuted }]}>
+            {subscribed ? 'Set a different alert' : 'Or set your own level'}
+          </Text>
+        </Pressable>
+
         {/* ── Hazards. Free, and above access points on purpose. ──
             COLLAPSED, BUT NEVER SILENT. This section used to open showing the
             dangerous ones, so folding it shut could hide that a river has a
@@ -1034,6 +1059,8 @@ const styles = StyleSheet.create({
   },
   notifyText: { ...t.base, fontFamily: fonts.heading },
   notifyError: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: -14, marginBottom: 20 },
+  customizeButton: { alignItems: 'center', paddingVertical: 10, marginTop: -14, marginBottom: 18 },
+  customizeText: { ...t.xs, fontFamily: fonts.semibold },
   section: { marginBottom: 18 },
   severityCues: { flexDirection: 'row', gap: 4 },
   severityCue: { width: 8, height: 8, borderRadius: 999 },
