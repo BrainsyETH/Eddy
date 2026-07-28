@@ -8,12 +8,16 @@
 
 import Constants from 'expo-constants';
 import type {
+  AccessPointDetailResponse,
   AccessPointsResponse,
   AlertFeedEntry,
   AlertsResponse,
   AppConfigResponse,
   ConditionResponse,
   FloatPlan,
+  GaugeDetail,
+  GaugeDetailResponse,
+  GaugeHistoryResponse,
   GaugesResponse,
   Hazard,
   HazardsResponse,
@@ -221,6 +225,29 @@ export async function fetchRiverAccessPoints(
 }
 
 /**
+ * One access point, with everything the list endpoint leaves out.
+ *
+ * The road surface, the parking, the facilities, the outfitters who serve it
+ * and what the next take-out downstream is — none of which fits in a row and
+ * all of which is the reason somebody tapped one.
+ *
+ * THROWS on 404 rather than returning null, unlike most of this file. A missing
+ * access point here is a bad route param, not an ordinary empty state: the
+ * screen was opened from a row that named it, so "this place does not exist" is
+ * a real failure and the screen says so.
+ */
+export async function fetchAccessPointDetail(
+  riverSlug: string,
+  accessSlug: string,
+  signal?: AbortSignal,
+): Promise<AccessPointDetailResponse> {
+  return get<AccessPointDetailResponse>(
+    `/api/rivers/${encodeURIComponent(riverSlug)}/access/${encodeURIComponent(accessSlug)}`,
+    signal,
+  );
+}
+
+/**
  * The statewide river network: geometry plus each gauge's editorial ladder.
  *
  * `?slim=1` drops the access points, POIs and campgrounds the Observatory
@@ -292,6 +319,68 @@ export async function fetchMapGauges(
     capped: data.capped ?? false,
     total: data.total ?? 0,
   };
+}
+
+/**
+ * ONE gauge, by site id, from either tier.
+ *
+ * The third gauge endpoint, and the only one that can answer for a station the
+ * app has not already fetched a list containing. fetchGauges is curated-only and
+ * fetchMapGauges is bounded by a viewport; the gauge screen is reachable from a
+ * starred row, a search result and a deep link, where neither list has been paid
+ * for and the station is usually a national one that /api/gauges never returns.
+ *
+ * Returns NULL on 404, and on any failure, rather than throwing. The gauge
+ * screen opens with whatever the tapping surface already held — a MapGauge from
+ * the curated list, a MapGaugeLite from the viewport — and this call refines it.
+ * A screen that has a reading on it must not blank because the refinement
+ * failed, and a website deployed before this route existed answers 404 to every
+ * call. Same posture as searchEddy, for the same reason.
+ */
+export async function fetchGaugeDetail(
+  siteId: string,
+  signal?: AbortSignal,
+): Promise<GaugeDetail | null> {
+  try {
+    const data = await get<GaugeDetailResponse>(
+      `/api/gauges/${encodeURIComponent(siteId)}`,
+      signal,
+    );
+    return data.gauge ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A gauge's recent hydrograph, for the chart.
+ *
+ * Works for BOTH tiers: the endpoint serves stored readings and falls back to
+ * the live provider when what it holds is sparse or stale, which is the
+ * ordinary case for every station the cron stopped polling — i.e. all ~14,000
+ * national ones. So a reference gauge gets a real chart, not an empty one.
+ *
+ * Already downsampled server-side to roughly one point an hour. Do not thin it
+ * again on the client: at 30 days that is ~720 points, which is a line, not a
+ * performance problem.
+ *
+ * Returns null rather than throwing when the station has no history at all —
+ * an ordinary state for a new or seasonal site, and the chart simply does not
+ * render. A cancelled request also returns null; the caller has already moved on.
+ */
+export async function fetchGaugeHistory(
+  siteId: string,
+  days: number,
+  signal?: AbortSignal,
+): Promise<GaugeHistoryResponse | null> {
+  try {
+    return await get<GaugeHistoryResponse>(
+      `/api/gauges/${encodeURIComponent(siteId)}/history?days=${days}`,
+      signal,
+    );
+  } catch {
+    return null;
+  }
 }
 
 /**

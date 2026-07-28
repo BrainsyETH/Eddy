@@ -242,6 +242,26 @@ export interface MapPin {
   body?: string | null;
   /** A river to open from the callout, when the pin belongs to one. */
   riverSlug?: string | null;
+  /**
+   * The station this pin is, for the gauge screen. Gauges of both tiers.
+   *
+   * The provider-native site id, NOT the gauge_stations uuid in `id` — every
+   * per-gauge route keys off the former. Null for a station carrying neither id
+   * column, which is a real case (a USACE dam) and one where no gauge screen can
+   * be opened at all.
+   */
+  siteId?: string | null;
+  /**
+   * When the reading under this pin was TAKEN, pre-composed.
+   *
+   * Its own field rather than more subtitle, and drawn in the callout's footer,
+   * because it qualifies everything above it rather than continuing the
+   * identification line. The national tier had no age anywhere — a reading with
+   * no date on it invites you to assume it is current, and for a station the
+   * hourly sync last touched at :20 that is a guess the pin was making on the
+   * reader's behalf.
+   */
+  updatedAt?: string | null;
   /** Tap-to-call or tap-to-book. Never fabricated: null when there is no number. */
   link?: { label: string; url: string } | null;
 }
@@ -425,11 +445,12 @@ export function RiverMap({
         label: gaugePlaceLabel(g.name),
         layer: 'gauges' as const,
         // The site id is dropped rather than printed when the station has none
-        // — "USGS null" under a pin is worse than a subtitle that is only an
-        // age.
-        subtitle: [readingAge(g.readingAgeHours), g.usgsSiteId ? `USGS ${g.usgsSiteId}` : null]
-          .filter(Boolean)
-          .join(' · '),
+        // — "USGS null" under a pin is worse than a subtitle that is only a
+        // name. The age moved OUT of here and into the callout footer, so a
+        // rated gauge and a reference gauge date their readings the same way
+        // instead of one burying it in an identification line and the other not
+        // stating it at all.
+        subtitle: g.usgsSiteId ? `USGS ${g.usgsSiteId}` : null,
         coordinates: g.coordinates,
         color: conditionColor(code),
         code,
@@ -439,6 +460,8 @@ export function RiverMap({
         // colourless dot with no explanation.
         body: g.qualifierNote,
         riverSlug: gaugeRiverSlug(g),
+        siteId: g.usgsSiteId,
+        updatedAt: readingAge(g.readingAgeHours),
       };
     });
 

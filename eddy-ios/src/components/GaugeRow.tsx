@@ -7,15 +7,23 @@
 // and the two rows genuinely differ — a gauge has no length, no access points
 // and no region, and it does have a station name and a site id.
 //
-// ── The row is the destination ──────────────────────────────────────────────
-// There is no gauge detail screen, and inventing one for this would be the wrong
-// order of work. Nor can a starred gauge simply open its river: a river screen
+// ── The row has a destination now ───────────────────────────────────────────
+// It did not. This header used to argue that there was no gauge detail screen
+// and that inventing one "would be the wrong order of work" — and that a
+// starred gauge could not simply open its river either, because a river screen
 // shows its PRIMARY gauge, which may not be the starred one, so tapping "Kelly
 // Crossing" and landing on a page about a different station is worse than not
-// moving at all. So the row carries what a gauge screen would put above the
-// fold — the reading, its age, the condition it grades to — and taps through to
-// the river only when it actually rates one, with that river named so the
-// destination is not a surprise.
+// moving at all. Both were true. The consequence was a row that showed a
+// number and went nowhere.
+//
+// app/gauge/[siteId].tsx is that screen, and it is about THIS station rather
+// than about whichever one its river happens to rate on. So `onPress` now
+// carries there, and the row keeps everything it put above the fold anyway —
+// the reading, its age, the condition it grades to — because a list still has
+// to be readable without tapping anything.
+//
+// It stays nullable. A station with no site id cannot be addressed, and a dead
+// tap is worse than a row that plainly does not move.
 //
 // Condition and reading come from gaugeCondition.ts, the SAME functions the map
 // pins use, so a gauge cannot read one way here and another as a dot on the map.

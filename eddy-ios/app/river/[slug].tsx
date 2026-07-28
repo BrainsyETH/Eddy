@@ -37,6 +37,7 @@ import type {
   RiverConditionDetail,
   RiverListItem,
   RiverOutlookResponse,
+  RiverService,
   RiverVisualsResponse,
 } from '@eddy/types';
 import { accessPointTypes, accessTypeLabel } from '@eddy/types';
@@ -55,6 +56,7 @@ import {
   fetchHazards,
   fetchRiverAccessPoints,
   fetchRiverOutlook,
+  fetchRiverServices,
   fetchRiverVisuals,
   fetchRivers,
   fetchSubscriptions,
@@ -80,6 +82,8 @@ import {
 } from '@/lib/readingCopy';
 import { EddySymbol } from '@/components/EddySymbol';
 import { EddyTake } from '@/components/EddyTake';
+import { GaugeChart } from '@/components/GaugeChart';
+import { OUTFITTER_SERVICE_TYPES } from '@/map/layers';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { GaugePicker } from '@/components/GaugePicker';
@@ -114,6 +118,7 @@ export default function RiverDetailScreen() {
   const [outlook, setOutlook] = useState<RiverOutlookResponse | null>(null);
   const [visuals, setVisuals] = useState<RiverVisualsResponse | null>(null);
   const [gauges, setGauges] = useState<MapGauge[]>([]);
+  const [services, setServices] = useState<RiverService[]>([]);
   /**
    * Which gauge the reading card is showing. Null means the river's own
    * primary, which is what /api/conditions already answered with — so the card
@@ -166,7 +171,7 @@ export default function RiverDetailScreen() {
         // re-read when the picker moves — and a screen that waits for it before
         // painting anything would be waiting on three third-party services for
         // a panel that is allowed to be absent entirely.
-        const [cond, haz, access, looks, allGauges] = await Promise.all([
+        const [cond, haz, access, looks, allGauges, nearby] = await Promise.all([
           fetchCondition(match.id, controller.signal).catch(() => null),
           fetchHazards(slug, controller.signal).catch(() => [] as Hazard[]),
           fetchRiverAccessPoints(slug, controller.signal).catch(() => [] as MapAccessPoint[]),
@@ -179,12 +184,18 @@ export default function RiverDetailScreen() {
           // shared station against this river rather than its neighbour's.
           // Failing just means no picker; the primary reading is unaffected.
           fetchGauges(controller.signal).catch(() => [] as MapGauge[]),
+          // Outfitters and shuttles. Already fetched by the map for its pin
+          // layers; this screen never asked, so the one place someone reads
+          // about a river was the one place that could not tell them who rents
+          // a canoe on it. Degrades like everything else here.
+          fetchRiverServices(slug, controller.signal).catch(() => [] as RiverService[]),
         ]);
         setCondition(cond);
         setHazards(haz);
         setAccessPoints(access);
         setVisuals(looks);
         setGauges(gaugesForRiver(allGauges, slug));
+        setServices(nearby);
         setError(null);
       } catch (err) {
         if (err instanceof ApiError && err.message === 'Request cancelled') return;
@@ -403,6 +414,14 @@ export default function RiverDetailScreen() {
   const scaleThresholds = pickedLink ?? condition?.thresholds ?? null;
   const readingAgeHours = pickedGauge ? pickedGauge.readingAgeHours : condition?.readingAgeHours;
   const shownGaugeName = pickedGauge ? pickedGauge.name : condition?.gaugeName;
+  // The station the chart plots, resolved the same way as the name beside it so
+  // the two can never describe different gauges. Null on a river with none.
+  const shownSiteId = pickedGauge ? pickedGauge.usgsSiteId : (condition?.gaugeUsgsId ?? null);
+
+  // Not memoised: this is a filter over a list of a few dozen that only changes
+  // when the fetch lands, and a useMemo below three early returns would be a
+  // conditional hook. Same reason the sorted hazards above are computed inline.
+  const outfitters = services.filter((s) => OUTFITTER_SERVICE_TYPES.includes(s.type));
 
   const caveat = condition && !pickedGauge ? accuracyNote(condition) : null;
   const percentileText = percentileSentence(condition?.percentile);
@@ -569,6 +588,31 @@ export default function RiverDetailScreen() {
             nothing below shifts on the ones without. */}
         {visuals ? <RiverVisuals data={visuals} /> : null}
 
+        {/* ── How it got to that number ──────────────────────────
+            BELOW the photos, and that order is the argument the whole column
+            makes: the card says what the river IS, the take says what to do
+            about it, the photos say what that looks like, and this says how it
+            got there. A hydrograph above any of them is a shape with nothing
+            to interpret it.
+
+            Follows the PICKER, like everything else on this screen since the
+            outlook started to — a chart of Van Buren under a Montauk reading is
+            the exact mismatch that effect was written to end. The unit and the
+            bands come from the SAME link the reading and the scale use, so the
+            three cannot disagree; GaugeChart drops the shading itself if that
+            ladder is in a unit it is not drawing.
+
+            Absent when the river has no gauge at all. There is nothing to plot
+            and nothing to apologise for. */}
+        {shownSiteId ? (
+          <GaugeChart
+            siteId={shownSiteId}
+            unit={reading?.unit ?? scaleThresholds?.thresholdUnit ?? 'cfs'}
+            thresholds={scaleThresholds}
+            title="Recent history"
+          />
+        ) : null}
+
         {/* ── The bell. ──
             Two states, because a button that reads the same before and after
             you press it cannot tell you whether it worked. The "on" state is
@@ -698,27 +742,46 @@ export default function RiverDetailScreen() {
             leading={<EddySymbol name="accessPoint" size={18} />}
             summary={`${accessPoints.length} put-in${accessPoints.length === 1 ? '' : 's'} and take-out${accessPoints.length === 1 ? '' : 's'}`}
           >
-            {/* TAPPABLE, and to somewhere useful. These were flat rows: they
-                named a place and a river mile and then did nothing, which on a
-                list of put-ins is the one obvious question left unanswered —
-                how do I get there. Directions is the answer the whole row is
-                about, and it is the same handoff the plan screen's endpoints
-                already make, so the two behave alike.
+            {/* THE ROW NOW OPENS THE PLACE; the arrow still opens Maps.
 
-                Apple Maps by coordinate, never by name: "Akers Ferry" is
-                ambiguous to a geocoder and most Ozark access points are not in
-                one at all. See src/lib/directions.ts. */}
+                These rows went straight to Apple Maps, which answered "how do I
+                get there" and foreclosed every other question a put-in raises —
+                is the last mile gravel, is there room for a trailer, is there a
+                toilet, who runs a shuttle. All of that was already in the
+                database and on the website, and the app had no screen for it.
+
+                So the row is a destination and directions is a control ON the
+                row, rather than the row being the control. Nothing that worked
+                before stopped working: the navigate arrow to the right is the
+                same one-tap handoff, still by coordinate and never by name —
+                "Akers Ferry" is ambiguous to a geocoder and most Ozark access
+                points are not in one at all. See src/lib/directions.ts.
+
+                A point with no slug cannot be addressed, so it keeps the old
+                behaviour of opening Maps directly rather than offering a
+                destination that 404s. `slug` is optional on MapAccessPoint for
+                exactly this reason. */}
             {accessPoints.map((point) => (
               <Pressable
                 key={point.id}
-                onPress={() => void Linking.openURL(driveToUrl(point))}
+                onPress={() =>
+                  point.slug
+                    ? router.push(
+                        `/river/${slug}/access/${encodeURIComponent(point.slug)}`,
+                      )
+                    : void Linking.openURL(driveToUrl(point))
+                }
                 style={({ pressed }) => [
                   styles.accessRow,
                   { backgroundColor: colors.card, opacity: pressed ? 0.6 : 1 },
                   elevation(1),
                 ]}
                 accessibilityRole="button"
-                accessibilityLabel={`Directions to ${point.name}, mile ${point.riverMile}`}
+                accessibilityLabel={
+                  point.slug
+                    ? `${point.name}, mile ${point.riverMile}`
+                    : `Directions to ${point.name}, mile ${point.riverMile}`
+                }
               >
                 {/* WHAT IT LOOKS LIKE. A put-in's name is a label and its river
                     mile is a coordinate; neither answers the question people
@@ -761,8 +824,97 @@ export default function RiverDetailScreen() {
                       .join(' · ')}
                   </Text>
                 </View>
-                <Ionicons name="navigate-outline" size={16} color={colors.accent} />
+                {/* A SIBLING of the row's own Pressable, never a child — the
+                    same arrangement RiverRow settled on for its star, so the
+                    two touch areas cannot overlap and a tap near the arrow
+                    cannot be ambiguous about which it meant. Only drawn where
+                    the row itself goes somewhere else; on a slug-less point the
+                    whole row is already the directions handoff. */}
+                {point.slug ? (
+                  <Pressable
+                    onPress={() => void Linking.openURL(driveToUrl(point))}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Directions to ${point.name}`}
+                  >
+                    <Ionicons name="navigate-outline" size={17} color={colors.accent} />
+                  </Pressable>
+                ) : (
+                  <Ionicons name="navigate-outline" size={16} color={colors.accent} />
+                )}
               </Pressable>
+            ))}
+          </CollapsibleSection>
+        ) : null}
+
+        {/* ── Outfitters ───────────────────────────────────────
+            COLLAPSED, because this is not a safety fact and not why anyone
+            opened the screen — but present, because "who rents a canoe on this
+            river" was a question the app could answer from data it already
+            fetched for the map and simply never showed anywhere a person reads
+            about a river.
+
+            OUTFITTERS AND SHUTTLES TOGETHER, campgrounds left out. A shuttle
+            operator is what most people are actually looking for when they look
+            for an outfitter, and separating the two would put one name under two
+            headings; campgrounds are already their own map layer and their own
+            question.
+
+            The membership test is OUTFITTER_SERVICE_TYPES, the same constant
+            the map's Outfitters layer filters on, rather than a list written
+            out again here. A second definition of "what counts as an outfitter"
+            is how the layer sheet and this section end up disagreeing about a
+            business that appears on one and not the other.
+
+            Rows carry only the actions that exist. A dial button on a service
+            with no number is a control that fails when pressed. */}
+        {outfitters.length > 0 ? (
+          <CollapsibleSection
+            title="Outfitters"
+            leading={<EddySymbol name="outfitter" size={18} />}
+            summary={`${outfitters.length} nearby`}
+          >
+            {outfitters.map((service) => (
+              <View
+                key={service.id}
+                style={[styles.serviceRow, { backgroundColor: colors.card }, elevation(1)]}
+              >
+                <View style={styles.serviceBody}>
+                  <Text style={[styles.serviceName, { color: colors.text }]} numberOfLines={1}>
+                    {service.name}
+                  </Text>
+                  <Text style={[styles.serviceMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                    {[
+                      [service.city, service.state].filter(Boolean).join(', '),
+                      ...service.servicesOffered.slice(0, 2),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Text>
+                </View>
+                {service.phone ? (
+                  <Pressable
+                    onPress={() =>
+                      void Linking.openURL(`tel:${service.phone!.replace(/[^\d+]/g, '')}`)
+                    }
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Call ${service.name}`}
+                  >
+                    <Ionicons name="call-outline" size={19} color={colors.accent} />
+                  </Pressable>
+                ) : null}
+                {service.website ? (
+                  <Pressable
+                    onPress={() => void Linking.openURL(service.website!)}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${service.name} website`}
+                  >
+                    <Ionicons name="open-outline" size={19} color={colors.accent} />
+                  </Pressable>
+                ) : null}
+              </View>
             ))}
           </CollapsibleSection>
         ) : null}
@@ -902,5 +1054,17 @@ const styles = StyleSheet.create({
   accessBody: { flex: 1 },
   accessName: { ...t.sm, fontFamily: fonts.semibold },
   accessMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  serviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 13,
+  },
+  serviceBody: { flex: 1 },
+  serviceName: { ...t.sm, fontFamily: fonts.semibold },
+  serviceMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   footnote: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', paddingHorizontal: 24, marginTop: 6 },
 });
