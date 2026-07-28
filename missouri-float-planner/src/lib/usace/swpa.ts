@@ -191,20 +191,35 @@ export function parseScheduleDate(text: string): string | null {
 }
 
 /**
- * When the bytes we just parsed actually left SWPA's origin, from the response
- * headers. `Date` + `Age`, both of which energy.gov sends.
+ * When this copy of the schedule page was produced, from the response `Date`.
  *
- * Why not Date.now(): fetchDaySchedule caches for REVALIDATE_SECONDS, so on a
- * cache hit "now" is the time of THIS request, not of the fetch — a half-hour
- * old schedule would report itself as seconds old, forever. It is also wrong in
- * a second way: fetchAllDamSnapshots parses the same cached body once per dam,
- * so ten dams would stamp ten different times for one retrieval.
+ * ── Why not Date.now() ─────────────────────────────────────────────────────
+ * fetchDaySchedule caches for REVALIDATE_SECONDS, so on a cache hit "now" is
+ * the time of THIS request rather than of the fetch — a half-hour-old schedule
+ * would report itself as seconds old, forever. Next replays the stored response
+ * headers along with the stored body (verified against the live route: the
+ * value stays pinned across repeated requests), so reading the header is what
+ * keeps this honest across the cache.
  *
- * Why not `Date` alone: it is CloudFront's ORIGIN-fetch time, and the edge
- * serves from cache for up to `max-age=600`. Measured on 2026-07-28 the header
- * pair read `date: …02:30:04 GMT` with `age: 1529` — the Date was 25 minutes
- * behind the moment we received the bytes. `Date + Age` is the instant the
- * response was actually handed to us.
+ * It is also wrong in a second way: fetchAllDamSnapshots parses one cached body
+ * once per dam, so Date.now() would stamp ten different times for a single
+ * retrieval. A header value is identical by construction — confirmed live, all
+ * nine scheduled dams reporting one timestamp.
+ *
+ * ── Why `Date` ALONE, and not `Date` + `Age` ───────────────────────────────
+ * Because the sum lands in the FUTURE. energy.gov sits behind two caches
+ * (Varnish, then CloudFront), and measured across three consecutive samples on
+ * 2026-07-28:
+ *
+ *   local == Date (±1s), age 723   -> Date+Age is 12 min ahead of now
+ *   Date 510s old,       age 1505  -> Date+Age is 16 min ahead of now
+ *   Date 516s old,       age 1510  -> Date+Age is 16 min ahead of now
+ *
+ * `Age` accumulates across BOTH layers while `Date` is rewritten by one of
+ * them, so adding them double-counts. `Date` on its own was never ahead of the
+ * clock in any sample, which is the property that matters: this figure feeds a
+ * staleness warning, and erring OLD understates freshness where erring NEW
+ * would tell someone a schedule is current when it is not.
  *
  * Returns null rather than guessing when `Date` is missing or unparseable. A
  * missing timestamp renders nothing; a wrong one is a false claim about how
@@ -213,15 +228,9 @@ export function parseScheduleDate(text: string): string | null {
 export function retrievedAtFrom(headers: Headers): RetrievedAt {
   const date = headers.get('date');
   if (!date) return null;
-  const originMs = Date.parse(date);
-  if (!Number.isFinite(originMs)) return null;
-
-  // Age is optional, and a malformed or negative one means "no useful offset",
-  // not "fail" — the Date on its own is still a floor on the true retrieval.
-  const ageRaw = Number(headers.get('age'));
-  const ageSeconds = Number.isFinite(ageRaw) && ageRaw > 0 ? ageRaw : 0;
-
-  return new Date(originMs + ageSeconds * 1_000).toISOString();
+  const ms = Date.parse(date);
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms).toISOString();
 }
 
 /** MW -> cfs via the page's own project table. Null for an idle hour. */

@@ -73,10 +73,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import type { MapGauge, RiverListItem, SearchResult } from '@eddy/types';
+import type { DamSnapshot, MapGauge, RiverListItem, SearchResult } from '@eddy/types';
 import { hasCoordinates } from '@eddy/types';
 import { FLOW_BAND_ORDER, flowBand, type FlowBand } from '@eddy/conditions/flow-band';
-import { ApiError, fetchGauges, fetchRivers } from '@/api/client';
+import { ApiError, fetchDams, fetchGauges, fetchRivers } from '@/api/client';
 import { floatableRank, isFloatableNow } from '@/theme/conditions';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -86,6 +86,7 @@ import { RiverRow } from '@/components/RiverRow';
 import { GaugeRow } from '@/components/GaugeRow';
 import { ReferenceGaugeRow } from '@/components/ReferenceGaugeRow';
 import { ScopeSwitch, type ScopeOption } from '@/components/ScopeSwitch';
+import { DamRow } from '@/components/dam/DamRow';
 import { SearchBar } from '@/components/SearchBar';
 import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { useEddySearch } from '@/hooks/useEddySearch';
@@ -162,12 +163,30 @@ const FILTER_LABELS: { key: FilterKey; label: string }[] = [
 ];
 
 /** Which kind of thing the field is searching. Exactly one at a time. */
-type ScopeKey = 'rivers' | 'gauges' | 'access';
+type ScopeKey = 'rivers' | 'gauges' | 'access' | 'dams';
 
 const SCOPES: ScopeOption<ScopeKey>[] = [
   { key: 'rivers', label: 'Rivers' },
   { key: 'gauges', label: 'Gauges' },
   { key: 'access', label: 'Access' },
+  { key: 'dams', label: 'Dams' },
+];
+
+/**
+ * The dam scope's filters.
+ *
+ * NOT the condition chips and NOT the flow bands — a third kind of thing gets
+ * its own vocabulary, which is the whole argument for a scope over a chip.
+ * "Generating now" is a fact about machinery and "Trout water" is a property of
+ * the project; neither is a verdict about floating, and neither compares a
+ * reading to a station's history.
+ */
+type DamFilterKey = 'all' | 'generating' | 'trout';
+
+const DAM_FILTERS: { key: DamFilterKey; label: string }[] = [
+  { key: 'all', label: 'All dams' },
+  { key: 'generating', label: 'Generating now' },
+  { key: 'trout', label: 'Trout water' },
 ];
 
 /**
@@ -195,13 +214,31 @@ type SearchRow =
   | { kind: 'river'; key: string; river: RiverListItem }
   | { kind: 'gauge'; key: string; gauge: MapGauge; result: SearchResult }
   | { kind: 'refgauge'; key: string; result: SearchResult }
-  | { kind: 'access'; key: string; result: SearchResult };
+  | { kind: 'access'; key: string; result: SearchResult }
+  | { kind: 'dam'; key: string; dam: DamSnapshot };
 
 export default function ReportsScreen() {
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [scope, setScope] = useState<ScopeKey>('rivers');
+  const [damFilter, setDamFilter] = useState<DamFilterKey>('all');
+  const [dams, setDams] = useState<DamSnapshot[]>([]);
+
+  /**
+   * The ten dams, fetched once when the scope is first opened.
+   *
+   * Filtered LOCALLY from there, like the river scope and unlike the gauge and
+   * access ones: this screen's rule is that nothing on it should wait on a
+   * round trip to narrow data it already holds, and ten items is data it can
+   * hold. /api/search has no dam results to give it anyway.
+   */
+  const damsRequested = useRef(false);
+  useEffect(() => {
+    if (scope !== 'dams' || damsRequested.current) return;
+    damsRequested.current = true;
+    void fetchDams().then(setDams);
+  }, [scope]);
   const [filter, setFilter] = useState<FilterKey>('all');
   const [gaugeFilter, setGaugeFilter] = useState<GaugeFilterKey>('all');
   const [sort, setSort] = useState<SortKey>('condition');
@@ -426,6 +463,25 @@ export default function ReportsScreen() {
     [search.results],
   );
 
+  /**
+   * The dams, narrowed by the field and the chips.
+   *
+   * Matched on the dam and its lake, because half of these are known by the
+   * lake's name rather than the dam's — somebody looking for Taneycomo types
+   * "Table Rock", and somebody looking for the Corps project types the lake.
+   */
+  const visibleDams = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return dams.filter((dam) => {
+      if (q && !`${dam.name} ${dam.lakeName ?? ''}`.toLowerCase().includes(q)) return false;
+      // `generating === true`, not truthy: null means the dam publishes no
+      // turbine flow, and an unknown must not be filtered in as a "yes".
+      if (damFilter === 'generating') return dam.generating === true;
+      if (damFilter === 'trout') return dam.tailwaterFishery === 'trout';
+      return true;
+    });
+  }, [dams, query, damFilter]);
+
   const rows = useMemo<SearchRow[]>(() => {
     if (scope === 'rivers') {
       return visible.map((river) => ({
@@ -444,12 +500,20 @@ export default function ReportsScreen() {
       });
     }
 
+    if (scope === 'dams') {
+      return visibleDams.map((dam) => ({
+        kind: 'dam' as const,
+        key: `dam:${dam.id}`,
+        dam,
+      }));
+    }
+
     return accessResults.map((result) => ({
       kind: 'access' as const,
       key: `access:${result.id}`,
       result,
     }));
-  }, [scope, visible, visibleGauges, curatedById, accessResults]);
+  }, [scope, visible, visibleGauges, curatedById, accessResults, visibleDams]);
 
   /**
    * Counts for the band chips, off the UNFILTERED gauge results.
@@ -512,6 +576,26 @@ export default function ReportsScreen() {
     [nearest, location, ensureGauges],
   );
 
+  /**
+   * Counts off the UNFILTERED dam list, matching the rule the other two scopes
+   * follow: a count computed from the filtered set reads 0 on every chip but
+   * the live one, which tells nobody anything.
+   */
+  const damChips: FilterChip[] = useMemo(
+    () =>
+      DAM_FILTERS.map(({ key, label }) => ({
+        key,
+        label,
+        count:
+          key === 'all'
+            ? dams.length
+            : key === 'generating'
+              ? dams.filter((d) => d.generating === true).length
+              : dams.filter((d) => d.tailwaterFishery === 'trout').length,
+      })),
+    [dams],
+  );
+
   if (!rivers && !error) {
     return (
       <SafeAreaView style={[styles.centered, { backgroundColor: colors.bg }]} edges={['top']}>
@@ -521,8 +605,23 @@ export default function ReportsScreen() {
   }
 
   const riverScope = scope === 'rivers';
+  /**
+   * Scopes whose results come from /api/search, as opposed to a list this
+   * screen already holds.
+   *
+   * The distinction drives the empty state: a server scope with too short a
+   * query has not RUN a search, so it must not report having found nothing.
+   * Rivers and dams are local — both render their full list with an empty
+   * field — so neither has a "type to search" state at all.
+   */
+  const serverScope = scope === 'gauges' || scope === 'access';
   const filtering =
-    query.trim().length > 0 || (riverScope ? filter !== 'all' : gaugeFilter !== 'all');
+    query.trim().length > 0 ||
+    (riverScope
+      ? filter !== 'all'
+      : scope === 'dams'
+        ? damFilter !== 'all'
+        : gaugeFilter !== 'all');
   const shortQuery = query.trim().length < MIN_GAUGE_QUERY;
 
   return (
@@ -555,7 +654,9 @@ export default function ReportsScreen() {
               ? 'Search rivers'
               : scope === 'gauges'
                 ? 'Search gauges by name or site id'
-                : 'Search access points'
+                : scope === 'dams'
+                  ? 'Search dams and lakes'
+                  : 'Search access points'
           }
           // Rated gauges are matched locally so they land on the keystroke, and
           // the list has to exist before the first one — the same reason the
@@ -667,6 +768,15 @@ export default function ReportsScreen() {
           }
           paddingHorizontal={16}
         />
+      ) : scope === 'dams' ? (
+        <FilterChips
+          chips={damChips}
+          active={[damFilter]}
+          onToggle={(key) =>
+            setDamFilter((prev) => (prev === key ? 'all' : (key as DamFilterKey)))
+          }
+          paddingHorizontal={16}
+        />
       ) : null}
 
       <FlatList
@@ -683,13 +793,13 @@ export default function ReportsScreen() {
                 having found nothing — below two characters neither this screen
                 nor the server has run a search, and "nothing matches" would be
                 a claim about the database. */}
-            {!riverScope && shortQuery && !error ? (
+            {serverScope && shortQuery && !error ? (
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                 {scope === 'gauges'
                   ? 'Search every USGS gauge by station name or site id.'
                   : 'Search every access point on Eddy\u2019s rivers by name.'}
               </Text>
-            ) : search.searching && !riverScope ? (
+            ) : search.searching && serverScope ? (
               <ActivityIndicator color={colors.accent} />
             ) : (
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
@@ -698,7 +808,9 @@ export default function ReportsScreen() {
                     ? 'Nothing matches that. Try another name, or clear the filter.'
                     : riverScope
                       ? 'No rivers found'
-                      : 'Nothing found')}
+                      : scope === 'dams'
+                        ? 'No dams found'
+                        : 'Nothing found')}
               </Text>
             )}
           </View>
@@ -769,6 +881,12 @@ export default function ReportsScreen() {
                   })
                 }
               />
+            );
+          }
+
+          if (item.kind === 'dam') {
+            return (
+              <DamRow dam={item.dam} onPress={() => router.push(`/dam/${item.dam.id}`)} />
             );
           }
 

@@ -130,25 +130,26 @@ test('rejects a schedule whose hour rows are incomplete', () => {
   assert.equal(day, null, 'a partial table should not parse into a usable schedule');
 });
 
-test('retrieval time is the origin Date plus the CDN Age', () => {
-  // energy.gov sits behind CloudFront, so `Date` is when the EDGE fetched from
-  // origin and `Age` is how long it has been sitting there. Measured live on
-  // 2026-07-28: date 02:30:04Z with age 1529, i.e. the bytes reached us at
-  // 02:55:33Z. Using Date alone would understate freshness by 25 minutes.
-  const at = retrievedAtFrom(
-    new Headers({ date: 'Tue, 28 Jul 2026 02:30:04 GMT', age: '1529' })
-  );
-  assert.equal(at, '2026-07-28T02:55:33.000Z');
+test('retrieval time is the response Date', () => {
+  const at = retrievedAtFrom(new Headers({ date: 'Tue, 28 Jul 2026 02:30:04 GMT' }));
+  assert.equal(at, '2026-07-28T02:30:04.000Z');
 });
 
-test('a missing or unusable Age is treated as zero, not as a failure', () => {
-  // The Date on its own is still a floor on the true retrieval, so an absent
-  // Age should degrade to it rather than throwing the timestamp away.
+test('Age is IGNORED, because adding it lands in the future', () => {
+  // energy.gov sits behind two caches (Varnish, then CloudFront). `Age`
+  // accumulates across both while `Date` is rewritten by one of them, so the
+  // sum double-counts. Measured across three consecutive live samples on
+  // 2026-07-28, Date+Age ran 12-16 MINUTES AHEAD of the clock every time,
+  // while Date alone was never ahead.
+  //
+  // That direction is the whole point: this figure feeds a staleness warning,
+  // and erring old understates freshness where erring new would tell somebody
+  // a schedule is current when it is not.
   const date = 'Tue, 28 Jul 2026 02:30:04 GMT';
   const expected = '2026-07-28T02:30:04.000Z';
+  assert.equal(retrievedAtFrom(new Headers({ date, age: '1529' })), expected);
+  assert.equal(retrievedAtFrom(new Headers({ date, age: '0' })), expected);
   assert.equal(retrievedAtFrom(new Headers({ date })), expected);
-  assert.equal(retrievedAtFrom(new Headers({ date, age: 'soon' })), expected);
-  assert.equal(retrievedAtFrom(new Headers({ date, age: '-60' })), expected);
 });
 
 test('no usable Date yields no retrieval time', () => {
