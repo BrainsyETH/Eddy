@@ -120,6 +120,12 @@ export interface GaugeStation {
    * multi-provider support and has ~105 call sites, so renaming it to `siteId`
    * is a separate refactor. Pair it with `provider` before building any
    * provider-specific URL.
+   *
+   * Filled from `usgs_site_id` OR `site_id_external` below, both nullable, so
+   * a station carrying neither sends null despite this type — which is what
+   * took down the phone's Search tab on a `.toLowerCase()`. The phone's mirror
+   * (MapGauge in packages/eddy-types) types it `string | null` for that
+   * reason; web consumers must not assume a string either.
    */
   usgsSiteId: string;
   /** Registry id from src/lib/flow-providers. Absent means 'usgs'. */

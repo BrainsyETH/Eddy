@@ -321,6 +321,11 @@ export default function ReportsScreen() {
    * a river. Rated stations lead — those are the ones carrying a condition
    * Eddy stands behind, and the rest are reference — and the tie-break is the
    * name so the order is stable between keystrokes.
+   *
+   * The site id is COALESCED before matching because it is nullable on the
+   * wire — a station whose provider gives it neither a USGS number nor an
+   * external id has none — and this ran on every keystroke, so reading through
+   * that null took the whole tab down with it rather than missing one match.
    */
   const gaugeMatches = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -329,7 +334,7 @@ export default function ReportsScreen() {
       .filter(
         (gauge) =>
           gauge.name.toLowerCase().includes(needle) ||
-          gauge.usgsSiteId.toLowerCase().includes(needle),
+          (gauge.usgsSiteId ?? '').toLowerCase().includes(needle),
       )
       .sort((a, b) => {
         const rank = (g: MapGauge) => (g.thresholds?.length ? 0 : 1);
