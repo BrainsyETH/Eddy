@@ -47,6 +47,7 @@ import type {
   FloatPlan,
   Hazard,
   MapAccessPoint,
+  DamSnapshot,
   MapGauge,
   RiverDetail,
   RiverListItem,
@@ -61,6 +62,7 @@ import {
 import {
   ApiError,
   fetchGauges,
+  fetchDams,
   fetchHazards,
   fetchRiverAccessPoints,
   fetchRiverDetail,
@@ -91,6 +93,7 @@ import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
 import { gaugePlaceLabel } from '@/lib/gaugeCondition';
 import { readingAge } from '@/lib/readingCopy';
+import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
 import { rememberGauge, seedFromMapGauge, seedFromMapGaugeLite } from '@/lib/gaugeSeed';
 import { usgsGaugeUrl } from '@/lib/directions';
 import { useOfflinePacks } from '@/map/useOfflinePacks';
@@ -192,6 +195,9 @@ export default function MapScreen() {
   // Null rather than [] until fetched, so the layers sheet can tell "this river
   // has none" from "we have not asked yet" and only claims a zero it knows.
   const [hazards, setHazards] = useState<RiverScoped<Hazard> | null>(null);
+  // Null until the layer has been switched on, so the sheet can tell "not fetched"
+  // from "none" — see layerCounts.
+  const [dams, setDams] = useState<DamSnapshot[] | null>(null);
   const [services, setServices] = useState<RiverScoped<RiverService> | null>(null);
   const [gauges, setGauges] = useState<MapGauge[] | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -352,6 +358,26 @@ export default function MapScreen() {
   useEffect(() => {
     if (wantsGauges) ensureGauges();
   }, [wantsGauges, ensureGauges]);
+
+  /**
+   * The ten USACE projects, fetched once on first enable and kept.
+   *
+   * NOT river-scoped, which is the structural difference from hazards and
+   * services below: those are "what is on THIS river" and re-fetch when the
+   * selection changes, while the dam set is fixed and statewide. Most of these
+   * dams have no Eddy river at all, so scoping them to a selection would hide
+   * the majority of the layer behind a river that does not exist.
+   *
+   * fetchDams already answers [] on failure, so there is no error branch: a
+   * layer that draws nothing is the honest outcome of a feed being down.
+   */
+  const wantsDams = layers.includes('dams');
+  const damsRequested = useRef(false);
+  useEffect(() => {
+    if (!wantsDams || damsRequested.current) return;
+    damsRequested.current = true;
+    void fetchDams().then(setDams);
+  }, [wantsDams]);
 
   const wantsHazards = layers.includes('hazards');
   useEffect(() => {
@@ -529,6 +555,43 @@ export default function MapScreen() {
   );
 
   /**
+   * The dam pins.
+   *
+   * `code`/`codeLabel` carry GENERATING or IDLE, not a condition — the callout
+   * tints that chip, and this one must not borrow the condition palette: a dam
+   * running its units is a fact about machinery, not a verdict on a river. The
+   * colour therefore comes from the layer, which is instrumentation teal.
+   *
+   * `generating` is NULL for a dam that publishes no turbine flow (Kansas City
+   * district publishes nothing to CWMS at all), and null means the chip is
+   * omitted rather than shown as "Not generating" — an observation nobody made.
+   */
+  const damPins = useMemo<MapPin[]>(
+    () =>
+      (dams ?? []).map((dam) => {
+        const release = dam.metrics.release;
+        return {
+          id: `dam:${dam.id}`,
+          name: dam.name,
+          layer: 'dams' as LayerKey,
+          subtitle: [dam.lakeName, dam.state].filter(Boolean).join(' · ') || null,
+          coordinates: { lng: dam.lon, lat: dam.lat },
+          ...(dam.generating !== null
+            ? { codeLabel: dam.generating ? 'Generating' : 'Units idle' }
+            : {}),
+          value: release
+            ? `${Math.round(release.value).toLocaleString()} cfs${release.dailyMean ? ' (daily avg)' : ''}`
+            : null,
+          updatedAt: release ? relativeAge(release.at) : null,
+          // The dam screen, never the gauge screen — see MapPin.damId.
+          damId: dam.id,
+          riverSlug: dam.tailwater?.riverSlug ?? null,
+        };
+      }),
+    [dams],
+  );
+
+  /**
    * How many of each thing we hold, for the layers sheet.
    *
    * `undefined` is load-bearing: it means the layer has never been fetched, and
@@ -556,6 +619,10 @@ export default function MapScreen() {
             ? undefined
             : referencePins.length
         : undefined,
+      // undefined until the layer has been switched on and answered, per the
+      // rule above. Statewide rather than river-scoped, so it does not move
+      // with the selection.
+      dams: dams?.length,
       hazards: riverHazards?.filter(hasCoordinates).length,
       campgrounds: placed
         ? accessPoints.filter(isCampground).length +
@@ -567,6 +634,7 @@ export default function MapScreen() {
     accessPoints,
     gauges,
     mappableGauges,
+    dams,
     hazards,
     services,
     drawnSlug,
@@ -685,6 +753,15 @@ export default function MapScreen() {
     [pinGauge, pinReferenceGauge, router],
   );
 
+  /** The dam screen. No seed to hand over — it fetches its own snapshot. */
+  const onOpenDam = useCallback(
+    (damId: string) => {
+      setSelectedPin(null);
+      router.push(`/dam/${encodeURIComponent(damId)}`);
+    },
+    [router],
+  );
+
   // FAILS OPEN, deliberately. An unreachable /api/me/profile means we do not
   // know whether this person is subscribed — and telling a paying customer on
   // one bar of signal that their offline maps are locked is a far worse outcome
@@ -760,6 +837,7 @@ export default function MapScreen() {
             accessPoints={accessPoints}
             gauges={mappableGauges}
             referenceGauges={referencePins}
+            dams={damPins}
             onViewportChange={setViewport}
             onZoomToCluster={(point) =>
               setFocus({
@@ -895,6 +973,7 @@ export default function MapScreen() {
                   router.push(`/river/${slug}`);
                 }}
                 onOpenGauge={onOpenGauge}
+                onOpenDam={onOpenDam}
                 onClose={() => {
                   setSelectedPin(null);
                   setFocus(null);
@@ -1121,6 +1200,7 @@ function PinCallout({
   onSetTakeOut,
   onOpenRiver,
   onOpenGauge,
+  onOpenDam,
   onClose,
   starred = false,
   onToggleStar = null,
@@ -1132,6 +1212,7 @@ function PinCallout({
   onSetTakeOut: () => void;
   onOpenRiver: (slug: string) => void;
   onOpenGauge: (siteId: string) => void;
+  onOpenDam: (damId: string) => void;
   onClose: () => void;
   starred?: boolean;
   /** Null for anything that cannot be starred, which is everything but gauges. */
@@ -1262,8 +1343,25 @@ function PinCallout({
         </Text>
       ) : null}
 
-      {accessPoint || pin.link || pin.riverSlug || pin.siteId ? (
+      {accessPoint || pin.link || pin.riverSlug || pin.siteId || pin.damId ? (
         <View style={styles.calloutActions}>
+          {/* The dam screen, which is a different destination from the gauge
+              one — Stockton and Truman have a damId and no siteId at all,
+              because they publish nothing to CWMS and so have no gauge row to
+              open. See MapPin.damId. */}
+          {pin.damId ? (
+            <Pressable
+              onPress={() => onOpenDam(pin.damId!)}
+              style={({ pressed }) => [
+                styles.calloutAction,
+                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+              ]}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.calloutActionText, { color: colors.text }]}>Open dam</Text>
+            </Pressable>
+          ) : null}
+
           {/* FIRST, and ahead of the river. A gauge callout is a number, and the
               question a number provokes is "how did it get there" — which is a
               chart, not a river page. The river is still one tap away below,
