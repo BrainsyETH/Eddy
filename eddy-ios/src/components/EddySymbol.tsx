@@ -37,6 +37,10 @@ const SYMBOLS = {
   hazard: require('../../assets/eddy/eddy-hazard.png'),
   campground: require('../../assets/eddy/eddy-campground.png'),
   outfitter: require('../../assets/eddy/eddy-outfitter.png'),
+  river: require('../../assets/eddy/eddy-river.png'),
+  alertWatch: require('../../assets/eddy/eddy-alert-watch.png'),
+  offlineMap: require('../../assets/eddy/eddy-offline-map.png'),
+  water: require('../../assets/eddy/eddy-water-droplet.png'),
 
   /**
    * The one entry that is not mascot-free, and the one place that is right.

@@ -35,6 +35,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
+import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { waitForEntitlement } from '@/api/client';
 import {
@@ -62,23 +63,21 @@ interface Props {
   onPurchased?: () => void;
 }
 
-// No alert benefit here any more — alerts are free, and listing one would be
-// selling something the user already has.
-const BENEFITS = [
+const BENEFITS: { symbol: EddySymbolName; title: string; body: string }[] = [
   {
-    icon: 'cloud-offline' as const,
+    symbol: 'alertWatch',
+    title: 'Know before you drive',
+    body: 'A push the moment a river you follow becomes floatable — not the evening you get home and check.',
+  },
+  {
+    symbol: 'water',
+    title: 'Every river you follow',
+    body: 'Follow as many rivers as you like. Each one watched on its own schedule.',
+  },
+  {
+    symbol: 'offlineMap',
     title: 'Maps that work with no signal',
     body: 'Download a river before you leave and keep the map, access points and hazards on the water.',
-  },
-  {
-    icon: 'newspaper' as const,
-    title: "Eddy's full read",
-    body: 'The written report on what the gauge is actually doing, and whether the level will hold.',
-  },
-  {
-    icon: 'time' as const,
-    title: 'Forecast and history',
-    body: 'The 72-hour outlook and where today sits against the years before it.',
   },
 ];
 
@@ -220,7 +219,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
               style={[styles.benefit, { backgroundColor: colors.card }, elevation(1)]}
             >
               <View style={[styles.benefitIcon, { backgroundColor: colors.cardRaised }]}>
-                <Ionicons name={benefit.icon} size={19} color={colors.accent} />
+                <EddySymbol name={benefit.symbol} size={19} />
               </View>
               <View style={styles.benefitText}>
                 <Text style={[styles.benefitTitle, { color: colors.text }]}>{benefit.title}</Text>
