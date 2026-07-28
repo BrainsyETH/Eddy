@@ -35,6 +35,16 @@ export interface MoStatewideResponse {
   generatedAt: string;
   cadenceSeconds: number;
   gauges: MoStatewideGauge[];
+  /**
+   * False when the live reading fetch failed and every gauge below carries
+   * nulls it never had a chance to fill.
+   *
+   * The distinction the clients need: "no reading" and "we could not ask" look
+   * identical in the rows, and only the second is worth telling someone about.
+   * Absent on responses from deployments that predate this field, so read it as
+   * `!== false` rather than as a required boolean.
+   */
+  readingsAvailable: boolean;
 }
 
 export async function GET() {
@@ -56,6 +66,14 @@ export async function GET() {
     const siteToRiver = new Map<string, SiteMeta>();
     for (const r of dataset.rivers) {
       for (const g of r.gauges ?? []) {
+        // fetchMODataset already drops stations with no USGS site number, so
+        // this is the second of three guards rather than the one doing the
+        // work. It stays because of what the failure costs: an empty site id
+        // posted to waterservices.usgs.gov 400s the WHOLE BATCH (the same
+        // guard, for the same reason, is in /api/gauges/route.ts), and one such
+        // row is what took every river's colour off both maps — this route
+        // 500'd and the phone graded all 24 rivers `unknown` grey.
+        if (!g.site_id) continue;
         if (!siteToRiver.has(g.site_id)) {
           siteToRiver.set(g.site_id, {
             river_id: r.id,
@@ -73,12 +91,27 @@ export async function GET() {
     }
     const siteIds = Array.from(siteToRiver.keys());
     if (!siteIds.length) {
-      return NextResponse.json(
-        { generatedAt: new Date().toISOString(), cadenceSeconds: 900, gauges: [] },
-      );
+      return NextResponse.json<MoStatewideResponse>({
+        generatedAt: new Date().toISOString(),
+        cadenceSeconds: 900,
+        gauges: [],
+        readingsAvailable: true,
+      });
     }
 
-    const readings = await fetchGaugeReadings(siteIds);
+    // A dead upstream must GREY THE LINES, not fail the request. The rest of
+    // this payload — which gauge grades which river, the flood stages, the
+    // ladders — is ours and is still true when USGS is down, and the phone
+    // draws the network from it either way. Throwing here instead cost the
+    // whole map, on both clients, for a reason neither could report.
+    let readings: GaugeReading[] = [];
+    let readingsAvailable = true;
+    try {
+      readings = await fetchGaugeReadings(siteIds);
+    } catch (e) {
+      readingsAvailable = false;
+      console.error('[usgs/mo-statewide] Live readings failed; serving metadata only:', e);
+    }
     const readingMap = new Map(readings.map((r) => [r.siteId, r]));
 
     // USGS → NWS fallback. Some gauges sit on discontinued USGS stations that
@@ -158,10 +191,14 @@ export async function GET() {
       generatedAt: new Date().toISOString(),
       cadenceSeconds: 900,
       gauges,
+      readingsAvailable,
     };
 
     return NextResponse.json(body, {
-      headers: cdnCacheHeaders(900, 3600),
+      // A degraded answer is cached for a minute rather than fifteen. Holding a
+      // reading-less payload at the edge for a full cadence would outlast the
+      // upstream blip that caused it.
+      headers: readingsAvailable ? cdnCacheHeaders(900, 3600) : cdnCacheHeaders(60, 300),
     });
   } catch (e) {
     console.error('[usgs/mo-statewide] Error:', e);

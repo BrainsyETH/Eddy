@@ -888,6 +888,34 @@ export interface StarredGaugesResponse {
   starred: StarredGaugeEntry[];
 }
 
+export interface StarredDamEntry {
+  /**
+   * The USACE registry slug, e.g. 'swl-clearwater-dam'.
+   *
+   * NOT a uuid, unlike the other two star kinds. Dams are read through from
+   * CWMS and SWPA rather than stored, so their identity lives in
+   * src/lib/flow-providers/usace-registry.ts — see migration 00206 for why
+   * starred_dams therefore has no foreign key.
+   */
+  damId: string;
+  damName: string;
+  lakeName: string | null;
+  /**
+   * The tailwater river, when this dam controls one.
+   *
+   * Only Clearwater has one today. It is carried so a synced-down star can name
+   * the water it affects before /api/dams lands, the same way a starred gauge
+   * carries the river it rates.
+   */
+  riverSlug: string | null;
+  starredAt: string;
+}
+
+/** Response for GET /api/me/starred-dams */
+export interface StarredDamsResponse {
+  starred: StarredDamEntry[];
+}
+
 export interface StarredRiverEntry {
   riverId: string;
   riverName: string;

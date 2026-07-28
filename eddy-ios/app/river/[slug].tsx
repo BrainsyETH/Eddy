@@ -580,14 +580,10 @@ export default function RiverDetailScreen() {
           ) : null}
         </View>
 
-        {/* ── The dam, when one controls this reach. Above Eddy's Take
-               because it explains the number in the card above: on a regulated
-               river the release IS the reason for the reading, and the schedule
-               is a better forecast than any rain-fed river gets. Renders
-               nothing on the other twenty-three rivers. ── */}
+        {/* The river's own stretches, each with the gauge that actually reads
+            it. Directly under the status card because a reach IS the river —
+            everything below this point interprets it. */}
         <RiverReaches reaches={reaches} />
-
-        <RiverDamPanel dam={dam} />
 
         {/* ── What it means. Directly under the status card, because the card
                above says what the river IS and this says what to do about it.
@@ -619,6 +615,21 @@ export default function RiverDetailScreen() {
             Absent on most rivers (three of twenty-four have any), which is why
             nothing below shifts on the ones without. */}
         {visuals ? <RiverVisuals data={visuals} /> : null}
+
+        {/* ── The dam, when one controls this reach. ──
+            BELOW the photos rather than above Eddy's Take, which is where it
+            used to sit. The old argument was that on a regulated river the
+            release IS the reason for the reading, so the dam belonged next to
+            the number it explains. True, and still the reason this is not
+            further down — but it put a turbine schedule between the verdict and
+            what the river looks like, which is machinery interrupting the two
+            things somebody opened the screen to read. The column now runs:
+            what the river IS, what to do about it, what that looks like, and
+            then why it is doing that.
+
+            Renders nothing on the other twenty-three rivers, so nothing below
+            shifts on any of them. */}
+        <RiverDamPanel dam={dam} />
 
         {/* ── How it got to that number ──────────────────────────
             BELOW the photos, and that order is the argument the whole column

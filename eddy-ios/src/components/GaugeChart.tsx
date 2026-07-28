@@ -53,7 +53,7 @@
 // a tap works as well as a drag, and the parent ScrollView is only blocked once
 // the finger is genuinely down on the plot.
 
-import { useCallback, useMemo, useState } from 'react';
+import { Component, useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   LayoutChangeEvent,
@@ -173,7 +173,7 @@ function scrubTime(ms: number): string {
   )}`;
 }
 
-export function GaugeChart({
+function GaugeChartInner({
   siteId,
   unit,
   thresholds = null,
@@ -682,6 +682,83 @@ export function GaugeChart({
         )}
       </View>
     </View>
+  );
+}
+
+/**
+ * Catches a chart that cannot draw and says why, instead of taking the screen.
+ *
+ * ── The failure this exists for ────────────────────────────────────────────
+ * `react-native-svg` is a NATIVE module, and it is the only one this file
+ * needs. Native modules are autolinked when the native project is generated,
+ * not when JS is bundled — so a dev client or TestFlight build produced before
+ * react-native-svg entered package.json (it arrived with this component, in
+ * dd5f2a8) runs the new JS against a binary that has never heard of
+ * RNSVGSvgView. The JS bundle updates over the air; the binary does not.
+ *
+ * React Native's answer to that is "Unimplemented component", which surfaces as
+ * a red box or a thrown render depending on the architecture — either way, a
+ * screen somebody opened to read a number instead shows a crash.
+ *
+ * ── Why a boundary rather than a capability probe ──────────────────────────
+ * The obvious alternative is asking UIManager whether the view manager is
+ * registered, the way src/map/runtime.ts asks whether Mapbox can load. It is
+ * the wrong tool here: view-manager registration is resolved differently under
+ * the New Architecture, so the probe can answer "no" for a component that draws
+ * perfectly well — and hiding a working chart is a worse outcome than the bug
+ * being guarded against. A boundary only ever fires on an actual failure.
+ *
+ * ── This is a diagnosis, not a fix ─────────────────────────────────────────
+ * The fix is `npm install` (never --legacy-peer-deps, which REMOVES packages
+ * this app ships) followed by a rebuild: `npx expo run:ios`, or
+ * `eas build --profile development --platform ios`. The copy points there
+ * rather than apologising, because "update the app" is the only action a person
+ * seeing this can take.
+ */
+class ChartBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    // Said out loud once. The symptom on its own — a chart that is not there —
+    // reads as missing data rather than as a stale binary.
+    console.warn('[chart] failed to render; native react-native-svg missing?', error);
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
+
+export function GaugeChart(props: Props) {
+  const { colors, elevation } = useTheme();
+  return (
+    <ChartBoundary
+      // Deliberately shaped like the component's own empty states rather than
+      // like an error: same card, same height, same quiet ink. What is missing
+      // is one panel, and the reading it charts is still on the screen above.
+      fallback={
+        <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
+          {props.title ? (
+            <Text style={[styles.title, { color: colors.text }]}>{props.title}</Text>
+          ) : null}
+          <View style={[styles.placeholder, { height: CHART_HEIGHT }]}>
+            <Text style={[styles.placeholderText, { color: colors.textSubtle }]}>
+              Charts need a newer version of the app. Everything else on this
+              screen is up to date.
+            </Text>
+          </View>
+        </View>
+      }
+    >
+      <GaugeChartInner {...props} />
+    </ChartBoundary>
   );
 }
 

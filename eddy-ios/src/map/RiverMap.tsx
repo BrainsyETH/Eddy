@@ -66,7 +66,7 @@ import {
   severityLabel,
 } from '@eddy/hazards';
 import { conditionColor, conditionLabel } from '@/theme/conditions';
-import { neutral, primary } from '@/theme/palette';
+import { neutral, primary, type Palette } from '@/theme/palette';
 import { useTheme } from '@/theme/ThemeProvider';
 import { readingAge } from '@/lib/readingCopy';
 import {
@@ -78,7 +78,7 @@ import {
 import type { NetworkCollection } from '@/lib/statewideNetwork';
 import { loadMapbox } from './runtime';
 import { STYLE_URL } from './useOfflinePacks';
-import { MAP_LAYERS, OUTFITTER_SERVICE_TYPES, type LayerKey } from './layers';
+import { MAP_LAYERS, MIN_GAUGE_ZOOM, OUTFITTER_SERVICE_TYPES, type LayerKey } from './layers';
 
 const SERVICE_TYPE_LABELS: Record<string, string> = {
   outfitter: 'Outfitter',
@@ -141,6 +141,17 @@ const PIN_IMAGES = {
  */
 function onPinImageMissing(name: string) {
   console.warn(`[map] Missing pin image "${name}" — pins in that layer will not draw.`);
+}
+
+/**
+ * A layer's own colour, from the single catalog every surface reads.
+ *
+ * Module scope so the pin-shape memo below can call it without taking the whole
+ * palette as a dependency through a closure — and because it is a pure lookup
+ * with no reason to be rebuilt per render.
+ */
+function layerColorFor(key: LayerKey, colors: Palette): string {
+  return MAP_LAYERS.find((l) => l.key === key)!.color(colors);
 }
 
 /** What a source draws when it has nothing to draw. See the note in the render. */
@@ -275,6 +286,28 @@ export interface MapPin {
   updatedAt?: string | null;
   /** Tap-to-call or tap-to-book. Never fabricated: null when there is no number. */
   link?: { label: string; url: string } | null;
+  /**
+   * One photograph of the place, when there is one.
+   *
+   * BEST FIRST, and only the first: a callout is an identification, not a
+   * gallery — the detail screen behind `detailRoute` holds the rest. It earns
+   * the space it takes because "Cedar Grove Access" is a name and a picture of
+   * a gravel ramp with room for two cars is the thing that tells you whether
+   * you can get a trailer down it.
+   *
+   * Coverage is partial and always will be, so every layout using this has to
+   * read as normal without it rather than as a photo that failed to load.
+   */
+  imageUrl?: string | null;
+  /**
+   * Where the callout's "open" action goes, for pins that have a screen.
+   *
+   * Distinct from `riverSlug`, which opens the RIVER a pin sits on. This is the
+   * pin itself. Access points had neither, so the map was a dead end for the
+   * one layer that is on by default: the detail screen existed and was
+   * reachable only by finding the same put-in again in the river screen's list.
+   */
+  detailRoute?: string | null;
 }
 
 interface Props {
@@ -288,12 +321,6 @@ interface Props {
   conditionCode: string;
   /** Every curated river, condition-coloured. Drawn under the selected one. */
   network?: NetworkCollection | null;
-  /**
-   * Conditions the network is narrowed to. Empty set = show everything.
-   * Out-of-filter rivers are DIMMED rather than hidden — a filtered-out river
-   * that vanishes takes its tap target with it and reads as a broken map.
-   */
-  conditionFilter?: ReadonlySet<string>;
   /** Fit this instead of a river, when nothing is selected. [w, s, e, n]. */
   networkBounds?: [number, number, number, number] | null;
   onSelectRiverSlug?: (slug: string) => void;
@@ -377,7 +404,6 @@ export function RiverMap({
   river,
   conditionCode,
   network,
-  conditionFilter,
   networkBounds,
   onSelectRiverSlug,
   accessPoints,
@@ -412,6 +438,12 @@ export function RiverMap({
     [planRoute],
   );
 
+  // Read out of the object BEFORE the memo rather than reached through it
+  // inside one. `river` is replaced wholesale on every river change while this
+  // memo only cares about the slug, and the React Compiler cannot preserve the
+  // memoization when the dependency is an optional chain.
+  const riverSlug = river?.slug ?? null;
+
   // ── Pins, one array per layer ─────────────────────────────────
   const pins = useMemo(() => {
     const access: MapPin[] = accessPoints.map((p) => ({
@@ -420,6 +452,16 @@ export function RiverMap({
       layer: 'access' as const,
       subtitle: `Mile ${p.riverMile.toFixed(1)}${p.isPublic ? '' : ' · Private'}`,
       coordinates: p.coordinates,
+      // Both already in memory — /api/rivers/[slug]/access-points has sent
+      // `imageUrls` since the imagery backfill, and the map holds the whole
+      // MapAccessPoint. Neither was ever read here, so the map listed put-ins
+      // as three lines of text while the website showed what each one looks
+      // like, and offered no way through to the screen that does.
+      imageUrl: p.imageUrls?.[0] ?? null,
+      // Needs BOTH slugs, and the route is only built when both exist. A
+      // river-less access point cannot be addressed — there is no screen for
+      // one — and a half-built path would push to a 404.
+      detailRoute: riverSlug && p.slug ? `/river/${riverSlug}/access/${p.slug}` : null,
     }));
 
     // Campgrounds come from two places and must not be deduped away: an access
@@ -525,7 +567,37 @@ export function RiverMap({
       }));
 
     return { access, campgrounds, gauges: gaugePins, hazards: hazardPins, outfitters: outfitterPins };
-  }, [accessPoints, gauges, hazards, services]);
+  }, [accessPoints, gauges, hazards, services, riverSlug]);
+
+  /**
+   * Each pin layer's FeatureCollection, built once per change of its inputs.
+   *
+   * Same argument as networkShape and detailShape above, and it was the one
+   * source group not getting it: featureCollection() was called inline inside
+   * pinLayer, so every render of this screen — a scrub, a sheet opening, a
+   * selection — handed the native ShapeSource a structurally identical object
+   * with a new identity, and the bridge re-uploaded six sets of pins.
+   *
+   * Keyed by layer so the lookup below stays a plain property read. `dams`
+   * arrives already shaped as MapPin[] rather than through the `pins` memo,
+   * which is why it is listed separately in the dependencies.
+   */
+  const pinShapes = useMemo(
+    () =>
+      ({
+        access: featureCollection(pins.access, layerColorFor('access', colors)),
+        outfitters: featureCollection(pins.outfitters, layerColorFor('outfitters', colors)),
+        campgrounds: featureCollection(pins.campgrounds, layerColorFor('campgrounds', colors)),
+        gauges: featureCollection(pins.gauges, layerColorFor('gauges', colors)),
+        hazards: featureCollection(pins.hazards, layerColorFor('hazards', colors)),
+        dams: featureCollection(dams ?? [], layerColorFor('dams', colors)),
+        // Never drawn through pinLayer — the national tier has its own
+        // clustered source. Present so the record is total.
+        allGauges: EMPTY_COLLECTION,
+      }) as Record<LayerKey, ReturnType<typeof featureCollection>>,
+    [pins, dams, colors],
+  );
+
 
   const byId = useMemo(() => {
     const map = new Map<string, MapPin>();
@@ -662,23 +734,12 @@ export function RiverMap({
           },
         };
 
-  // Dimming, expressed in the style rather than by rebuilding the source: the
-  // filter changes on every chip tap and re-uploading 24 LineStrings for each
-  // one would stutter. An empty filter means "show everything", so the whole
-  // expression collapses to a constant.
-  const networkOpacity: number | unknown[] =
-    conditionFilter && conditionFilter.size > 0
-      ? ['case', ['in', ['get', 'code'], ['literal', [...conditionFilter]]], 1, 0.16]
-      : 1;
-
   const onNetworkPress = (event: { features?: { properties?: Record<string, unknown> }[] }) => {
     const slug = event.features?.[0]?.properties?.slug;
     if (typeof slug === 'string') onSelectRiverSlug?.(slug);
   };
 
   const layerOn = (key: LayerKey) => layers.includes(key);
-  const layerColor = (key: LayerKey) =>
-    MAP_LAYERS.find((l) => l.key === key)!.color(colors);
 
   const onPress = (event: { features?: { properties?: Record<string, unknown> }[] }) => {
     const id = event.features?.[0]?.properties?.id;
@@ -728,9 +789,14 @@ export function RiverMap({
    * native source each time the parent renders, and the pins visibly flicker.
    */
   const pinLayer = (
+    /**
+     * Which layer to draw. Also selects its data — see pinShapes.
+     *
+     * The pins and the colour used to be passed in alongside it, which meant a
+     * call site could name one layer and hand it another's contents. They come
+     * from the key now, so it cannot.
+     */
     id: LayerKey,
-    data: MapPin[],
-    color: string,
     shape: PinShape = 'dot',
     /**
      * The zoom a layer's labels switch on at.
@@ -744,6 +810,16 @@ export function RiverMap({
      * turning into a wall of text.
      */
     labelMinZoom = 11,
+    /**
+     * The zoom the PINS THEMSELVES switch on at, as against their labels.
+     *
+     * Expressed on the layers rather than by withholding the data, for the same
+     * reason the note below gives: the source stays mounted and only stops
+     * drawing. Undefined for every layer whose members are bounded by the river
+     * they belong to — it is only the statewide sets that can crowd a
+     * statewide view.
+     */
+    minZoom?: number,
   ) => {
     // No early return on an empty list. Access points and gauges arrive
     // asynchronously, and a source that unmounts takes its layers out of the
@@ -753,12 +829,13 @@ export function RiverMap({
     return (
       <Mapbox.ShapeSource
         id={`pins-${id}`}
-        shape={featureCollection(data, color)}
+        shape={pinShapes[id]}
         onPress={onPress}
       >
         {icon ? (
           <Mapbox.SymbolLayer
             id={`pins-${id}-icon`}
+            minZoomLevel={minZoom}
             style={{
               iconImage: icon.image,
               // The reason these are SDFs. Data-driven, so a gauge wears its
@@ -779,6 +856,7 @@ export function RiverMap({
         ) : (
           <Mapbox.CircleLayer
             id={`pins-${id}-circle`}
+            minZoomLevel={minZoom}
             style={{
               circleRadius: 6,
               circleColor: ['get', 'color'],
@@ -789,7 +867,9 @@ export function RiverMap({
         )}
         <Mapbox.SymbolLayer
           id={`pins-${id}-label`}
-          minZoomLevel={labelMinZoom}
+          // The higher of the two floors. A label is allowed to arrive after
+          // its pin, never before it.
+          minZoomLevel={Math.max(labelMinZoom, minZoom ?? 0)}
           style={{
             // `label`, not `name`: gauges write a short place name into it and
             // everything else falls back to the name it is called.
@@ -835,7 +915,7 @@ export function RiverMap({
     return (
       <Mapbox.ShapeSource
         id="pins-allGauges"
-        shape={featureCollection(data, layerColor('allGauges'))}
+        shape={featureCollection(data, layerColorFor('allGauges', colors))}
         onPress={onContextPress}
         cluster
         clusterRadius={50}
@@ -1018,7 +1098,6 @@ export function RiverMap({
             lineWidth: networkWidths.casing,
             lineCap: 'round',
             lineJoin: 'round',
-            lineOpacity: networkOpacity,
           }}
         />
         <Mapbox.LineLayer
@@ -1030,7 +1109,6 @@ export function RiverMap({
             lineWidth: networkWidths.fill,
             lineCap: 'round',
             lineJoin: 'round',
-            lineOpacity: networkOpacity,
           }}
         />
       </Mapbox.ShapeSource>
@@ -1080,26 +1158,43 @@ export function RiverMap({
           least to say and the most members. */}
       {layerOn('allGauges') ? contextGaugeLayer(referenceGauges ?? []) : null}
 
-      {layerOn('access') ? pinLayer('access', pins.access, layerColor('access')) : null}
+      {/* 'pin', not the default dot. The bottom-anchored poi-pin is what this
+          layer has always been documented to draw (see the file header and
+          PIN_ICONS) and the SDF is bundled and registered for it — but the
+          argument was dropped in 7ecc90c, the only render-tree line that PR
+          deleted, in a change about the national gauge layer. Nothing in it
+          justified the removal; it reads as a stale-branch clobber, and the
+          effect was that the marker silently reverted to a 6pt circle. */}
+      {layerOn('access')
+        ? pinLayer('access', 'pin')
+        : null}
       {layerOn('outfitters')
-        ? pinLayer('outfitters', pins.outfitters, layerColor('outfitters'))
+        ? pinLayer('outfitters')
         : null}
       {layerOn('campgrounds')
-        ? pinLayer('campgrounds', pins.campgrounds, layerColor('campgrounds'))
+        ? pinLayer('campgrounds')
         : null}
-      {/* Labelled at EVERY zoom — the 0 is the whole of "names below each
-          gauge". There are ~46 of these statewide, not thirty per river, so
-          the argument for holding place labels back to z11 never applied. */}
+      {/* Labelled at EVERY zoom THEY ARE DRAWN AT — the 0 is the whole of
+          "names below each gauge". There are ~46 of these statewide, not thirty
+          per river, so the argument for holding place labels back to z11 never
+          applied.
+
+          The pins themselves now wait for MIN_GAUGE_ZOOM, which is the same
+          floor the national tier uses so the two can never appear apart. Forty
+          labelled drops over a statewide view competed with the question that
+          view exists to answer: which river. The lines answer that; the gauges
+          are what you read once you have chosen one. NOT clustering — see the
+          rule above contextGaugeLayer, which still holds. */}
       {layerOn('gauges')
-        ? pinLayer('gauges', pins.gauges, layerColor('gauges'), 'drop', 0)
+        ? pinLayer('gauges', 'drop', 0, MIN_GAUGE_ZOOM)
         : null}
       {/* Ten pins statewide, so labels are on at every zoom like the gauges —
           an unnamed dot cannot be told from the lake it sits on. Drawn before
           hazards so the low-water-dam layer still paints on top: where both
           land in one place, the one that can kill you is the one on top. */}
-      {layerOn('dams') ? pinLayer('dams', dams ?? [], layerColor('dams'), 'drop', 0) : null}
+      {layerOn('dams') ? pinLayer('dams', 'drop', 0) : null}
 
-      {layerOn('hazards') ? pinLayer('hazards', pins.hazards, layerColor('hazards')) : null}
+      {layerOn('hazards') ? pinLayer('hazards') : null}
 
       {endpointFeatures ? (
         <Mapbox.ShapeSource id="plan-endpoints" shape={endpointFeatures}>

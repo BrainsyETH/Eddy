@@ -19,37 +19,56 @@ import {
   type StatewideReading,
   type StatewideRiver,
 } from '@/lib/statewideNetwork';
-import { summarizeConditionCounts, type ConditionCounts } from '@eddy/conditions';
 
 export interface StatewideNetwork {
   collection: NetworkCollection;
-  /** Per-code tallies plus the floatable/running-low/running-high buckets. */
-  counts: ConditionCounts;
   /** [w, s, e, n] over every drawn river, for the opening camera. */
   bounds: [number, number, number, number] | null;
   loading: boolean;
+  /**
+   * True when the geometry arrived but the readings did not, so every line is
+   * drawn in the `unknown` grey for a reason the map can name.
+   *
+   * This exists because the silent version of this state shipped: a null site
+   * id from a dam station 400'd the whole USGS batch, /api/usgs/mo-statewide
+   * 500'd, and the app presented twenty-four grey rivers as though grey were
+   * the verdict. Grey means "we could not ask", and a map that cannot say so is
+   * lying quietly.
+   */
+  readingsFailed: boolean;
 }
 
 export function useStatewideNetwork(): StatewideNetwork {
   const [rivers, setRivers] = useState<StatewideRiver[] | null>(null);
   const [readings, setReadings] = useState<StatewideReading[] | null>(null);
+  const [readingsFailed, setReadingsFailed] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
-    // Failure here is silent ON PURPOSE. The network is context: if it does not
-    // arrive, the map still draws the selected river, its access points and its
-    // gauges, and an error banner over a working map would be noise. The one
-    // thing that must never happen is a coloured line drawn from stale or
-    // partial data, and that cannot happen — no readings means no collection.
+    // The GEOMETRY failing is still silent, and still on purpose: the map draws
+    // the selected river, its access points and its gauges without it, and an
+    // error banner over a working map would be noise.
+    //
+    // The READINGS failing is not, and used to be. The rule that has not
+    // changed is that a coloured line must never be drawn from stale or partial
+    // data — no readings still means no colours. What changed is that the map
+    // now says which of the two greys it is showing: a river nobody can grade,
+    // or a request that did not come back.
     fetchStatewideNetwork(controller.signal)
       .then(setRivers)
       .catch((err) => {
         if (err instanceof ApiError && err.message === 'Request cancelled') return;
       });
     fetchStatewideReadings(controller.signal)
-      .then(setReadings)
+      .then(({ readings: next, available }) => {
+        setReadings(next);
+        // An empty list from a server that says it could not ask is a failure;
+        // an empty list from one that could is a genuinely unread network.
+        setReadingsFailed(!available);
+      })
       .catch((err) => {
         if (err instanceof ApiError && err.message === 'Request cancelled') return;
+        setReadingsFailed(true);
       });
     return () => controller.abort();
   }, []);
@@ -59,33 +78,9 @@ export function useStatewideNetwork(): StatewideNetwork {
     [rivers, readings],
   );
 
-  /**
-   * ONE ENTRY PER RIVER, not per feature.
-   *
-   * The network is no longer one LineString per river. Since rivers began being
-   * painted by their own gauges, each one is emitted as a series of contiguous
-   * colour RUNS — a river with four gauges disagreeing becomes four features,
-   * and 24 rivers become around 155. Counting features therefore told the
-   * condition bar there were 155 rivers and offered "155 floatable", which is
-   * not a number that exists: Eddy rates 24 rivers.
-   *
-   * Every run of a river repeats that river's own verdict (see the note on
-   * NetworkFeatureProps.code — it is the RIVER's code, deliberately, so a
-   * filter cannot hide two thirds of a river), so deduping by slug loses
-   * nothing and is what makes the tally mean rivers again.
-   */
-  const counts = useMemo(() => {
-    const codeBySlug = new Map<string, string>();
-    for (const feature of collection.features) {
-      const { slug, code } = feature.properties;
-      if (!codeBySlug.has(slug)) codeBySlug.set(slug, code);
-    }
-    return summarizeConditionCounts([...codeBySlug.values()]);
-  }, [collection]);
-
   // Bounds come off geometry alone, so the camera can settle before the
   // readings land rather than jumping once they do.
   const bounds = useMemo(() => networkBounds(collection), [collection]);
 
-  return { collection, counts, bounds, loading: rivers === null };
+  return { collection, bounds, loading: rivers === null, readingsFailed };
 }

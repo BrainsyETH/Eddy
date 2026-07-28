@@ -40,7 +40,9 @@ import type {
   SavePlanResponse,
   SearchResponse,
   SearchResult,
+  SearchResultKind,
   ServicesResponse,
+  StarredDamsResponse,
   StarredGaugesResponse,
   StarredRiversResponse,
   AlertSubscriptionEntry,
@@ -184,6 +186,51 @@ export async function fetchStarredGauges(
   }
 }
 
+/**
+ * The caller's starred dams. Null when the session is not usable — OR when the
+ * backend does not have this endpoint yet.
+ *
+ * Same posture as fetchStarredGauges, for the same reason: the app ships
+ * through App Store review and the server does not, so a build that knows about
+ * dam stars will meet a deploy that does not. Returning null rather than []
+ * matters — @eddy/sync reads an empty array as "the server has nothing", which
+ * would prune every dam tombstone and re-push every dam star as if it were new.
+ */
+export async function fetchStarredDams(
+  token: string,
+  signal?: AbortSignal,
+): Promise<ServerStar[] | null> {
+  try {
+    const data = await authed<StarredDamsResponse>('/api/me/starred-dams', token, { signal });
+    if (!data) return null;
+    return data.starred.map((entry) => ({
+      kind: 'dam' as const,
+      entityId: entry.damId,
+      name: entry.damName,
+      // The tailwater river, when there is one. A dam opens its OWN screen —
+      // this is context, not a route.
+      slug: entry.riverSlug ?? '',
+      starredAt: entry.starredAt,
+    }));
+  } catch {
+    // ANY failure is null, not just a 404: the table arrives in a migration,
+    // and if the app deploys first the route answers 500 rather than 404 —
+    // which, thrown, would reject the Promise.all in sync() and abort the river
+    // and gauge reconciliations too.
+    return null;
+  }
+}
+
+export async function starDam(token: string, damId: string): Promise<void> {
+  await authed('/api/me/starred-dams', token, { method: 'POST', body: { damId } });
+}
+
+export async function unstarDam(token: string, damId: string): Promise<void> {
+  await authed(`/api/me/starred-dams?damId=${encodeURIComponent(damId)}`, token, {
+    method: 'DELETE',
+  });
+}
+
 export async function starRiver(token: string, riverId: string): Promise<void> {
   await authed('/api/me/starred-rivers', token, { method: 'POST', body: { riverId } });
 }
@@ -284,9 +331,20 @@ export async function fetchStatewideNetwork(signal?: AbortSignal): Promise<State
  * Numbers, not verdicts — the phone grades them through the same ladder the
  * server uses, the way it already does for gauge pins.
  */
-export async function fetchStatewideReadings(signal?: AbortSignal): Promise<StatewideReading[]> {
-  const data = await get<{ gauges?: StatewideReading[] }>('/api/usgs/mo-statewide', signal);
-  return data.gauges ?? [];
+export async function fetchStatewideReadings(
+  signal?: AbortSignal,
+): Promise<{ readings: StatewideReading[]; available: boolean }> {
+  const data = await get<{ gauges?: StatewideReading[]; readingsAvailable?: boolean }>(
+    '/api/usgs/mo-statewide',
+    signal,
+  );
+  return {
+    readings: data.gauges ?? [],
+    // `!== false`, not truthiness: the field is newer than some deployed builds
+    // of the website this app talks to, and a missing one means "this server
+    // does not report that", which must not read as "the readings failed".
+    available: data.readingsAvailable !== false,
+  };
 }
 
 /**
@@ -536,10 +594,26 @@ export async function saveFloatPlan(plan: FloatPlan): Promise<SavePlanResponse> 
 export async function searchEddy(
   query: string,
   signal?: AbortSignal,
+  /**
+   * Which kinds to ask for. Omit for all three.
+   *
+   * The Search tab is SCOPED — one kind at a time — and asking for all three
+   * meant the server spent a 25-row budget on rows that screen would throw
+   * away. Worse, it allocated them in a fixed order, so the Gauges scope got
+   * whatever rivers and access points had not already claimed, which for a
+   * query like "river" was nothing at all. Naming the scope is what lets a
+   * single kind have the whole page.
+   *
+   * Older deployments ignore the parameter and answer with everything, which
+   * the client already filters by kind — so this degrades to the old behaviour
+   * rather than breaking against a backend that has not caught up.
+   */
+  kinds?: readonly SearchResultKind[],
 ): Promise<{ results: SearchResult[]; available: boolean }> {
   try {
+    const scope = kinds?.length ? `&kinds=${kinds.join(',')}` : '';
     const data = await get<SearchResponse>(
-      `/api/search?q=${encodeURIComponent(query)}&limit=25`,
+      `/api/search?q=${encodeURIComponent(query)}&limit=25${scope}`,
       signal,
     );
     return { results: data.results ?? [], available: true };

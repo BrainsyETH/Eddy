@@ -15,12 +15,12 @@
 // row — which is fine, because the only thing a missing row can mean is "not
 // starred", and its timestamp is irrelevant once it's gone.
 //
-// ── Two kinds, two endpoints, ONE store ─────────────────────────────────────
-// Rivers and gauges live in one local array so Favorites can order them on one
-// clock and the tombstone rule has exactly one implementation. But they sync
-// through separate endpoints, which makes `kind` load-bearing rather than
+// ── Three kinds, three endpoints, ONE store ─────────────────────────────────
+// Rivers, gauges and dams live in one local array so Favorites can order them
+// on one clock and the tombstone rule has exactly one implementation. But they
+// sync through separate endpoints, which makes `kind` load-bearing rather than
 // descriptive: mergeStars is told which kind it is reconciling and must pass
-// every entry of the OTHER kind through untouched.
+// every entry of the OTHER kinds through untouched.
 //
 // Get that wrong and the damage is silent and total. With both kinds in one
 // array and only the rivers endpoint answered, every gauge star would be
@@ -34,19 +34,30 @@
 // correctness rule, and the app has no test runner. Imports stay relative so
 // both Metro and the web's tsx runner resolve them.
 
-/** What a star points at. */
-export type StarKind = 'river' | 'gauge';
+/**
+ * What a star points at.
+ *
+ * `dam` is the odd one and the difference is worth knowing before writing any
+ * storage for it: a river id and a gauge station id are UUIDs from tables Eddy
+ * owns, while a dam id is a SLUG from the USACE registry in the web app's
+ * source (`swl-clearwater-dam`). Nine of the ten dams have no database row of
+ * any kind — they are read through from CWMS and SWPA on request — so a star on
+ * one cannot be a foreign key the way the other two are.
+ */
+export type StarKind = 'river' | 'gauge' | 'dam';
 
 /** An entity's star state on this device, including explicit unstars. */
 export interface LocalStar {
   kind: StarKind;
-  /** A river id or a gauge station id, depending on `kind`. */
+  /** A river id, a gauge station id, or a dam's registry slug, per `kind`. */
   entityId: string;
   name: string;
   /**
    * The river route this entry opens. For a gauge that is the river it is
    * primary for, which may be absent — a gauge rating no river has nowhere to
-   * go, and an empty slug is how that is expressed.
+   * go, and an empty slug is how that is expressed. For a dam it is the
+   * tailwater river when there is one, and empty otherwise: a dam opens its own
+   * screen, keyed on `entityId`, not a river's.
    */
   slug: string;
   /** Gauges only: the USGS site behind the reading. */
@@ -238,7 +249,11 @@ export function migrateStars(raw: unknown): LocalStar[] {
           : null;
     if (!entityId) continue;
 
-    const kind: StarKind = record.kind === 'gauge' ? 'gauge' : 'river';
+    // An absent or unrecognised `kind` means the payload predates gauges — so
+    // it is a river. Listed explicitly rather than defaulted through a chain,
+    // so adding a fourth kind is one entry and not one more ternary.
+    const kind: StarKind =
+      record.kind === 'gauge' || record.kind === 'dam' ? record.kind : 'river';
 
     out.push({
       kind,

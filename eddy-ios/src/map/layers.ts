@@ -78,30 +78,47 @@ export interface LayerDef {
 }
 
 /**
- * Access points and Eddy-rated gauges are on by default.
+ * Access points and BOTH gauge tiers are on by default.
  *
  * The two questions someone opens the map with are "where can I get on this
- * river" and "is there any water in it", and those are exactly these two layers.
+ * river" and "is there any water in it", and those are exactly these layers.
  * Everything else is a follow-up question and stays off until asked — a river
  * under five layers of pins answers nothing. The choice sticks for the session.
  *
- * `allGauges` is deliberately NOT here. The curated network is the product and
- * it stays the thing the map opens on; the national tier is a reference someone
- * asks for. Adding it to the defaults would also mean every cold start fires a
- * viewport request before anyone has asked a question.
+ * `allGauges` used to be excluded, on the grounds that the national tier is a
+ * reference someone asks for and that defaulting it on would fire a viewport
+ * request at every cold start. The second half of that stopped being true when
+ * both tiers took a zoom floor: the map opens below MIN_GAUGE_ZOOM, so nothing
+ * is fetched until someone moves in on a river — and by then "which of these
+ * dots has water in it" is the question they are already asking. Leaving it off
+ * meant the answer existed and was filed behind a sheet.
  */
-export const DEFAULT_LAYERS: LayerKey[] = ['access', 'gauges'];
+export const DEFAULT_LAYERS: LayerKey[] = ['access', 'gauges', 'allGauges'];
 
 /**
- * Below this zoom the national layer draws nothing.
+ * Below this zoom NEITHER gauge tier draws.
  *
- * A continental viewport holds ~14,000 gauges; there is no payload and no
- * clustering budget that makes drawing them all useful, and the strategy doc is
- * explicit that reference gauges are FOUND, not browsed. The curated network
- * still answers the zoomed-out question the map exists for — "where can I float
- * today" — so nothing is lost by making this layer earn its request.
+ * Two separate arguments landing on one number, which is why it is one constant
+ * rather than two.
+ *
+ * The national tier has always had a floor: a continental viewport holds
+ * ~14,000 gauges, there is no payload or clustering budget that makes drawing
+ * them useful, and the strategy doc is explicit that reference gauges are
+ * FOUND, not browsed.
+ *
+ * The rated tier gained one because forty labelled pins over a statewide view
+ * compete with the thing that view is for. Choosing a river is a question the
+ * coloured lines answer on their own; the gauges are what you read once you
+ * have chosen. Note this is a zoom floor and NOT clustering — the rule that a
+ * rated gauge must never be merged into a cluster still holds, and is stated
+ * where it is enforced in RiverMap.tsx.
+ *
+ * They share the number so the two can never appear apart. Split floors would
+ * open a band where the reference dots draw alone — the tier with the least to
+ * say, unaccompanied by the one carrying verdicts.
  */
-export const MIN_ALL_GAUGES_ZOOM = 7;
+export const MIN_GAUGE_ZOOM = 8.5;
+
 
 export const MAP_LAYERS: LayerDef[] = [
   {

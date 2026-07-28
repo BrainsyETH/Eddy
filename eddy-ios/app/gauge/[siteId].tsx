@@ -515,6 +515,52 @@ export default function GaugeDetailScreen() {
             </Pressable>
           ) : null}
 
+          {/* ── Tell me when it moves ──
+              This screen is a NUMBER and a chart of how it got there, and the
+              question a number provokes once you care about it is "tell me when
+              it does that again". Gauge-scoped threshold alerts have existed
+              since /api/me/gauge-alerts shipped and this screen — the one place
+              in the app that is entirely about a single station — never linked
+              to them: the only doors in were the alerts tab and the river
+              screen, both of which make you name the station over again.
+
+              Quiet, beneath the destinations, for the same reason the star is
+              in the nav row: this is a standing choice about a station, not the
+              thing you opened the screen to read. The configure screen decides
+              between Eddy's call and your own level from the ladder — nothing
+              needs to be passed here to say which. */}
+          {gauge.siteId ? (
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/alerts/configure',
+                  params: {
+                    scope: 'gauge',
+                    siteId: gauge.siteId,
+                    gaugeId: gauge.id,
+                    gaugeName: gauge.name,
+                    // The river it rates, when it rates one. Carried so the
+                    // configure screen can offer Eddy's call — that mode needs
+                    // a river, and a station reached from here may be the only
+                    // place its association is known.
+                    ...(link?.riverSlug ? { riverSlug: link.riverSlug } : {}),
+                    ...(link?.riverId ? { riverId: link.riverId } : {}),
+                    ...(link?.riverName ? { riverName: link.riverName } : {}),
+                  },
+                })
+              }
+              style={({ pressed }) => [
+                styles.sourceButton,
+                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Set an alert for ${gauge.name}`}
+            >
+              <Ionicons name="notifications-outline" size={16} color={colors.text} />
+              <Text style={[styles.sourceText, { color: colors.text }]}>Alert me about this gauge</Text>
+            </Pressable>
+          ) : null}
+
           {/* KEPT, and deliberately. Eddy now draws this station's recent
               history itself, which is what people came for — but USGS is the
               source of record and holds the decades this chart does not. */}
@@ -594,10 +640,15 @@ const styles = StyleSheet.create({
   action: { paddingVertical: 13, borderRadius: 14, alignItems: 'center' },
   actionText: { ...t.base, fontFamily: fonts.semibold },
   sourceButton: {
+    // A row, so a button can carry a leading icon. With a single Text child
+    // this renders identically to the centred column it replaced.
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
     paddingVertical: 12,
     borderRadius: 14,
     borderWidth: 1,
-    alignItems: 'center',
   },
   sourceText: { ...t.sm, fontFamily: fonts.medium },
   footnote: {

@@ -19,6 +19,7 @@
 import { memo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -26,6 +27,20 @@ export interface FilterChip {
   key: string;
   label: string;
   icon?: React.ComponentProps<typeof Ionicons>['name'];
+  /**
+   * Eddy's own mark, where an Ionicon cannot say it.
+   *
+   * `icon` is an Ionicons NAME and so can only ever draw from that set. The
+   * Eddy-rated chip is the case that needs more: the distinction it draws is
+   * "did Eddy grade this one", and the honest mark for that is Eddy's face —
+   * which is a bundled image, not a glyph. See EddySymbol, where the symbol has
+   * existed since the icon catalog landed, waiting for this chip.
+   *
+   * Takes precedence over `icon` when both are set. Unlike `icon` it is NOT
+   * recoloured on selection: these are fixed-colour three-tone art, and tinting
+   * one would repaint the otter.
+   */
+  symbol?: EddySymbolName;
   count?: number;
   /**
    * Overrides the accent when active. The map uses it so a layer's chip is the
@@ -78,7 +93,9 @@ function FilterChipsComponent({ chips, active, onToggle, paddingHorizontal = 16 
               chip.count == null ? chip.label : `${chip.label}, ${chip.count}`
             }
           >
-            {chip.icon ? (
+            {chip.symbol ? (
+              <EddySymbol name={chip.symbol} size={15} />
+            ) : chip.icon ? (
               <Ionicons name={chip.icon} size={13} color={on ? tint : colors.textMuted} />
             ) : null}
             <Text style={[styles.label, { color: on ? colors.text : colors.textMuted }]}>
