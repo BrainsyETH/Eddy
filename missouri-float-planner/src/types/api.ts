@@ -284,7 +284,16 @@ export interface RiverCondition {
 export interface ConditionGauge {
   id: string;
   name: string | null;
+  /**
+   * The station's provider-native site id — a USGS site number, an NWS LID, or
+   * a USACE dam slug. Named `usgsSiteId` for history: it predates multi-provider
+   * support and has ~105 call sites, so renaming it to `siteId` is a separate
+   * refactor rather than a prerequisite. Pair it with `provider` before building
+   * any provider-specific URL.
+   */
   usgsSiteId: string | null;
+  /** Registry id from src/lib/flow-providers. Absent means 'usgs'. */
+  provider?: string;
   isPrimary: boolean;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;

@@ -40,6 +40,14 @@ const NAV_ITEMS: NavItem[] = [
     matches: (p) => p === '/river-map' || p.startsWith('/river-map/'),
   },
   {
+    href: '/dams',
+    label: 'Lakes & Dams',
+    // Reservoirs and tailwaters. A sibling of River Reports rather than a
+    // child: most of these projects have no Eddy river below them, so they
+    // are not reachable by browsing rivers.
+    matches: (p) => p === '/dams' || p.startsWith('/dams/'),
+  },
+  {
     href: '/blog',
     label: 'Guides',
     matches: (p) => p === '/blog' || p.startsWith('/blog/'),

@@ -9,6 +9,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ExternalLink } from 'lucide-react';
 
 import { applyFloodStageOverride, computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
+import { hasLadder } from '@shared/condition-ladder';
 import { CFS_EXPLAINER, CONDITION_COLORS } from '@/constants';
 import InfoTip from '@/components/ui/InfoTip';
 import type { ConditionCode } from '@/types/api';
@@ -219,6 +220,13 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
       levelDangerous: activeThreshold.levelDangerous,
       thresholdUnit: activeThreshold.thresholdUnit,
     };
+    // An uncalibrated ladder is 'unknown', not a verdict. Without this guard an
+    // all-null threshold row falls through classifyReading to 'too_low' and
+    // paints a perfectly healthy river brown — a gauge with no thresholds yet
+    // must show its reading and stay silent about floatability.
+    if (!hasLadder(thresholds)) {
+      return { code: 'unknown' as ConditionCode, label: 'Unknown', tailwindColor: 'bg-neutral-400' };
+    }
     const result = computeCondition(activeGauge.gaugeHeightFt, thresholds, activeGauge.dischargeCfs);
     // Same flood-stage escalation the gauge-report API applies. Without it the
     // server could withhold prose for a "dangerous" reading that this page was
@@ -234,6 +242,25 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
       tailwindColor: getConditionTailwindColor(code),
     };
   }, [activeGauge, activeThreshold]);
+
+  // Where this gauge's number actually comes from. USGS and NWS both publish a
+  // monitoring page keyed on the site id; USACE dam releases have no public
+  // per-dam page we've verified, so they get no link rather than a guessed one.
+  const sourceLink = useMemo(() => {
+    const siteId = activeGauge?.usgsSiteId;
+    if (!siteId) return null;
+    switch (activeGauge?.provider ?? 'usgs') {
+      case 'usgs':
+        return {
+          href: `https://waterdata.usgs.gov/monitoring-location/${siteId}/`,
+          label: `USGS ${siteId}`,
+        };
+      case 'nws':
+        return { href: `https://water.noaa.gov/gauges/${siteId}`, label: `NWS ${siteId}` };
+      default:
+        return null;
+    }
+  }, [activeGauge]);
 
   const eddyTakeSections = useMemo(
     () => buildEddyTakeSections({
@@ -314,15 +341,20 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             Share sits in the hero, Add Photo in the photo gallery. */}
         <div className="mb-3 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-neutral-500">
           {tabs.length <= 1 && <span className="font-medium text-neutral-600">{activeGauge.name}</span>}
+          {/* Provider-driven: a USACE dam slug is not a USGS monitoring
+              location, and linking one there is a dead end. Providers with no
+              public page (usace) render no link rather than a broken one. */}
+          {sourceLink && (
             <a
-              href={`https://waterdata.usgs.gov/monitoring-location/${activeGauge.usgsSiteId}/`}
+              href={sourceLink.href}
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary-600 hover:text-primary-700 font-mono inline-flex items-center gap-1"
             >
-              USGS {activeGauge.usgsSiteId}
+              {sourceLink.label}
               <ExternalLink className="w-3 h-3" />
             </a>
+          )}
         </div>
 
         {/* Now, next, and interpretation share one decision surface. Their data
