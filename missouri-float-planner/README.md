@@ -12,26 +12,26 @@ Your Missouri float trip assistant. Plan trips on Ozarks rivers with real-time w
 
 ## Supported Rivers
 
-1. Meramec River
-2. Current River
-3. Eleven Point River
-4. Jacks Fork River
-5. Niangua River
-6. Big Piney River
-7. Huzzah Creek
-8. Courtois Creek
+The launch set was eight Missouri rivers (Meramec, Current, Eleven Point,
+Jacks Fork, Niangua, Big Piney, Huzzah, Courtois); coverage has since grown
+well beyond it, including Arkansas rivers. The `rivers` table is the source
+of truth, and [`scripts/ingestion/README.md`](scripts/ingestion/README.md)
+documents how rivers are added.
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, MapLibre GL JS
+- **Frontend**: Next.js (App Router), TypeScript, Tailwind CSS, MapLibre GL JS
 - **Backend**: Supabase (PostgreSQL + PostGIS)
 - **APIs**: USGS Water Services, Mapbox Directions
+
+Exact versions live in [`package.json`](package.json) — this list names the
+technologies only, so it cannot drift from the manifest.
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20 (the version CI pins — see `.github/workflows/app-ci.yml`)
 - Supabase CLI (for local development)
 - A Supabase project
 
@@ -136,7 +136,7 @@ SELECT COUNT(*) FROM gauge_stations WHERE active = true;
 ### Install Dependencies
 
 ```bash
-npm install
+npm ci
 ```
 
 ### Run Development Server
@@ -183,14 +183,17 @@ eddy/
 └── public/               # Static assets
 ```
 
-## Development Phases
+## Validation
 
-- [x] **Phase 1**: Foundation - Project setup, database, basic API
-- [x] **Phase 2**: Data Pipeline - River import, gauge stations, access points
-- [ ] **Phase 3**: Core API - Float plan calculation, conditions
-- [ ] **Phase 4**: Frontend Map - Interactive map interface
-- [ ] **Phase 5**: Plan Display - Summary, sharing
-- [ ] **Phase 6**: Admin & Polish - Admin panel, final testing
+```bash
+npm run typecheck   # tsconfig.json (shippable code) + tsconfig.test.json
+npm run lint
+npm test
+```
+
+Or `make check-web` from the repository root. The test suite here also covers
+pure logic from `../eddy-ios` and `../packages` — neither has a runner of its
+own — so changes there can fail these tests by design.
 
 ## License
 

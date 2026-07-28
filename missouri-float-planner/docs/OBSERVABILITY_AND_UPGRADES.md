@@ -1,5 +1,7 @@
 # Observability & Upgrades — follow-up plan
 
+> **Status: active** (2026-07). Open follow-up plan; the logging foundation is merged, remaining steps need a running app / live Supabase.
+
 This document captures the three "bigger efforts" from the codebase audit that
 need a running app and/or live Supabase access to complete safely. The
 foundation (a centralized logger) is already merged; the remaining steps are

@@ -1,5 +1,7 @@
 # River Guide Style & Fact-Checking Runbook
 
+> **Status: active** — canonical playbook for authoring River Guide blog posts.
+
 This is the canonical playbook for authoring or revising any **River Guide** blog post (`category = 'River Guides'` in `blog_posts`). The Current River guide is the implemented template; new rivers should mirror its `guide_data` shape (defined in `src/types/blog.ts`) and the rules below.
 
 ## Voice rules

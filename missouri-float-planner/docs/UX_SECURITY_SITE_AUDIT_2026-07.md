@@ -1,5 +1,7 @@
 # Eddy.guide Senior UX, Floater, and Security Audit
 
+> **Status: historical** — point-in-time audit (July 19–20, 2026); individual findings may have been fixed since.
+
 **Audit date:** July 19–20, 2026
 
 **Audience:** Founder, product, design, engineering, data, content, and operations
