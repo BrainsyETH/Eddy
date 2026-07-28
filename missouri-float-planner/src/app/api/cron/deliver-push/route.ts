@@ -22,6 +22,8 @@ import { hasValidMachineBearer } from '@/lib/security/machine-auth';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { planDeliveries, type FanoutEvent, type FanoutSubscription, type FanoutToken } from '@/lib/alerts/fanout';
 import { planDrain } from '@/lib/alerts/drain';
+import { deliverGaugeAlerts } from '@/lib/alerts/gauge-delivery';
+import { disableTokens, recordTokenFailures } from '@/lib/alerts/token-health';
 import { chunkMessages, classifyTicketError, sendExpoPush } from '@/lib/push/expo';
 import { pushDisabledReason } from '@/lib/push/kill-switch';
 import { logger } from '@/lib/logger';
@@ -39,10 +41,14 @@ const LOCK_STALE_SECONDS = 320;
 const MAX_EVENT_AGE_HOURS = 3;
 const MAX_ATTEMPTS = 5;
 const EVENT_BATCH = 200;
-/** Disable a token after this many consecutive send failures. */
-const FAILURE_DISABLE_THRESHOLD = 5;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** What the river pass reports back, so the caller can add the gauge pass to it. */
+interface RiverPassResult {
+  body: Record<string, unknown>;
+  status: number;
+}
 
 async function run(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -72,6 +78,33 @@ async function run(request: NextRequest) {
 
   const startedAt = Date.now();
   try {
+    // The two outboxes are drained INDEPENDENTLY. They share this route because
+    // they share a cron lock, a transport and a ledger — but a river pass that
+    // finds nothing, or fails outright, must not stop gauge alerts going out.
+    // Both are inside the one lock so the two passes can never overlap and
+    // double-send to the same device.
+    let river: RiverPassResult;
+    try {
+      river = await drainRiverEvents(supabase, startedAt);
+    } catch (error) {
+      logger.error('[deliver-push] river pass failed', error);
+      river = { body: { ok: false, error: 'River pass failed' }, status: 500 };
+    }
+
+    const gauge = await deliverGaugeAlerts(supabase);
+    return NextResponse.json({ ...river.body, gauge }, { status: river.status });
+  } catch (error) {
+    logger.error('[deliver-push] pass failed', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } finally {
+    await releaseCronLock(supabase, LOCK_JOB);
+  }
+}
+
+/** The original river-condition drain, unchanged apart from how it returns. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function drainRiverEvents(supabase: any, startedAt: number): Promise<RiverPassResult> {
+  {
     const cutoff = new Date(Date.now() - MAX_EVENT_AGE_HOURS * 60 * 60 * 1000).toISOString();
 
     const { data: pending, error: eventsError } = await supabase
@@ -85,12 +118,12 @@ async function run(request: NextRequest) {
 
     if (eventsError) {
       logger.error('[deliver-push] could not read outbox', eventsError);
-      return NextResponse.json({ error: 'Could not read outbox' }, { status: 500 });
+      return { body: { error: 'Could not read outbox' }, status: 500 };
     }
 
     const rows = pending ?? [];
     if (rows.length === 0) {
-      return NextResponse.json({ ok: true, events: 0, sent: 0 });
+      return { body: { ok: true, events: 0, sent: 0 }, status: 200 };
     }
 
     // Drain anything too old to be actionable, without sending.
@@ -104,7 +137,7 @@ async function run(request: NextRequest) {
 
     const fresh = rows.filter((r: { detected_at: string }) => r.detected_at >= cutoff);
     if (fresh.length === 0) {
-      return NextResponse.json({ ok: true, events: rows.length, expired: expired.length, sent: 0 });
+      return { body: { ok: true, events: rows.length, expired: expired.length, sent: 0 }, status: 200 };
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -131,15 +164,20 @@ async function run(request: NextRequest) {
 
     const riverIds = [...new Set(events.map((e) => e.river_id))];
 
+    // enabled is filtered HERE and not in the fan-out: planDeliveries answers
+    // "who wants this?", and a paused subscription is not a policy question —
+    // it is a row that should not have been fetched. Migration 00200 defaults
+    // it true, so every pre-existing subscription still matches.
     const { data: subsData } = await supabase
       .from('alert_subscriptions')
       .select('id, user_id, river_id, kind, one_shot, fired_at')
+      .eq('enabled', true)
       .in('river_id', riverIds);
     const subscriptions = (subsData ?? []) as FanoutSubscription[];
 
     if (subscriptions.length === 0) {
       await markDelivered(supabase, events.map((e) => e.id));
-      return NextResponse.json({ ok: true, events: events.length, sent: 0, reason: 'no subscribers' });
+      return { body: { ok: true, events: events.length, sent: 0, reason: 'no subscribers' }, status: 200 };
     }
 
     const userIds = [...new Set(subscriptions.map((s) => s.user_id))];
@@ -225,12 +263,7 @@ async function run(request: NextRequest) {
           ? plan.messages[offset + i].deviceTokenId
           : null))
         .filter((id): id is string => !!id);
-      if (dead.length > 0) {
-        await supabase
-          .from('device_tokens')
-          .update({ disabled_at: new Date().toISOString() })
-          .in('id', dead);
-      }
+      await disableTokens(supabase, dead);
 
       // Jitter between batches so a fan-out doesn't become a synchronized
       // stampede back onto our own API when everyone opens the app.
@@ -238,22 +271,9 @@ async function run(request: NextRequest) {
     }
 
     // Bump failure counts for tokens that errored without a definitive
-    // DeviceNotRegistered, and disable the persistently broken ones.
-    for (const [tokenId, count] of failuresByToken) {
-      const { data: row } = await supabase
-        .from('device_tokens')
-        .select('failure_count')
-        .eq('id', tokenId)
-        .maybeSingle();
-      const next = (row?.failure_count ?? 0) + count;
-      await supabase
-        .from('device_tokens')
-        .update({
-          failure_count: next,
-          ...(next >= FAILURE_DISABLE_THRESHOLD ? { disabled_at: new Date().toISOString() } : {}),
-        })
-        .eq('id', tokenId);
-    }
+    // DeviceNotRegistered, and disable the persistently broken ones. Shared with
+    // the gauge pass so the two cannot drift on when a token is given up on.
+    await recordTokenFailures(supabase, failuresByToken);
 
     if (plan.oneShotSubscriptionIds.length > 0) {
       await supabase
@@ -310,23 +330,21 @@ async function run(request: NextRequest) {
       durationMs,
     });
 
-    return NextResponse.json({
-      ok: true,
-      events: events.length,
-      expired: expired.length,
-      planned: plan.messages.length,
-      sent,
-      failed,
-      retried,
-      givenUp,
-      skipped: plan.skipped,
-      durationMs,
-    });
-  } catch (error) {
-    logger.error('[deliver-push] pass failed', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  } finally {
-    await releaseCronLock(supabase, LOCK_JOB);
+    return {
+      body: {
+        ok: true,
+        events: events.length,
+        expired: expired.length,
+        planned: plan.messages.length,
+        sent,
+        failed,
+        retried,
+        givenUp,
+        skipped: plan.skipped,
+        durationMs,
+      },
+      status: 200,
+    };
   }
 }
 
