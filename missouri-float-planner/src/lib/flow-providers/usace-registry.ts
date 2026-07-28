@@ -81,6 +81,21 @@ export interface UsaceDam {
    * "generating" all day.
    */
   generationOnCfs?: number;
+  /**
+   * The reach below this dam, when Eddy carries it.
+   *
+   * Only a TAILWATER goes here — a river whose level IS the release. A river
+   * that merely feeds the pool (the Black at Annapolis, the St. Francis above
+   * Wappapello, the James into Table Rock) is deliberately absent: a dam
+   * matters to a floater because of the water below it, and a pool elevation
+   * is not why anyone opens this feature.
+   *
+   * Most dams have none, and that is fine — the dam page stands on its own.
+   * Today exactly one tailwater is in Eddy: Clearwater -> the Black at Poplar
+   * Bluff, measured 5% apart on 2026-07-27 (3,561 released vs 3,380 gauged,
+   * ~40 river miles down).
+   */
+  tailwater?: { riverSlug: string; gaugeSiteId: string };
   series: Partial<Record<UsaceMetric, UsaceSeries>>;
 }
 
@@ -127,6 +142,10 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     lon: -90.7708833,
     office: 'SWL',
     cdaLocation: 'Clearwater_Dam',
+    // The one tailwater Eddy currently carries. Poplar Bluff (07063000) sits
+    // BELOW the dam and is release-driven; Annapolis (07061500) sits above the
+    // lake and is not, so it gets no dam treatment.
+    tailwater: { riverSlug: 'black', gaugeSiteId: '07063000' },
     // Flood control only — no powerhouse, hence no SWPA code, no generation
     // flow and no tailwater temperature. Its release is steady, which is why a
     // daily forecast figure is honest here in a way it isn't for a hydro dam.
