@@ -32,15 +32,11 @@ import {
   type AlertComparator,
   type AlertSubscriptionKind,
 } from '@eddy/types';
+import { ConditionCodeChips } from '@/components/ConditionCodeChips';
+import { CONDITION_KINDS, codesForKind } from '@/lib/alertKinds';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-
-const CONDITION_KINDS: { value: AlertSubscriptionKind; label: string; hint: string }[] = [
-  { value: 'all', label: 'Everything', hint: 'Floatable news and safety warnings' },
-  { value: 'floatable', label: 'Floatable', hint: 'Only when it comes up to floatable' },
-  { value: 'safety', label: 'Safety', hint: 'Only high and dangerous water' },
-];
 
 const COMPARATORS: { value: AlertComparator; label: string }[] = [
   { value: 'above', label: 'Rises above' },
@@ -238,6 +234,7 @@ export default function EditAlertScreen() {
                 <View style={styles.optionBody}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>{kind.label}</Text>
                   <Text style={[styles.optionHint, { color: colors.textMuted }]}>{kind.hint}</Text>
+                  <ConditionCodeChips codes={codesForKind(kind.value)} />
                 </View>
                 <Ionicons
                   name={conditionKind === kind.value ? 'radio-button-on' : 'radio-button-off'}

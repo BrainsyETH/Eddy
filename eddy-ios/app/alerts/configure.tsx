@@ -26,7 +26,7 @@
 // it happens we say it out loud, or a rule that correctly declines to fire looks
 // like one that is broken.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -52,7 +52,10 @@ import {
 } from '@eddy/types';
 import { ApiError, createGaugeAlert, fetchCondition, fetchGaugeDetail, subscribeToRiver } from '@/api/client';
 import { AlertSignInSheet } from '@/components/AlertSignInSheet';
+import { ConditionCodeChips } from '@/components/ConditionCodeChips';
+import { Otter } from '@/components/Otter';
 import { PushPrimer } from '@/components/PushPrimer';
+import { CONDITION_KINDS, codesForKind } from '@/lib/alertKinds';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { usePush } from '@/hooks/usePush';
 import { useSession } from '@/hooks/useSession';
@@ -74,12 +77,6 @@ interface Context {
   /** False for a national-tier station: hourly refresh, so a slower alert. */
   curated: boolean;
 }
-
-const CONDITION_KINDS: { value: AlertSubscriptionKind; label: string; hint: string }[] = [
-  { value: 'all', label: 'Everything', hint: 'Floatable news and safety warnings' },
-  { value: 'floatable', label: 'Floatable', hint: 'Only when it comes up to floatable' },
-  { value: 'safety', label: 'Safety', hint: 'Only high and dangerous water' },
-];
 
 const COMPARATORS: { value: AlertComparator; label: string }[] = [
   { value: 'above', label: 'Rises above' },
@@ -209,14 +206,42 @@ export default function ConfigureAlertScreen() {
 
   const currentValue = metric === 'discharge_cfs' ? context?.dischargeCfs ?? null : context?.gaugeHeightFt ?? null;
 
-  // Seed the field with the reading, so the number on screen is anchored to the
-  // river rather than to zero. Only when empty — never overwrite typing.
+  /** The reading, formatted the way that unit is reported. */
+  const anchorFor = useCallback(
+    (value: number | null, forMetric: AlertMetric) =>
+      value == null ? '' : forMetric === 'discharge_cfs' ? String(Math.round(value)) : value.toFixed(2),
+    [],
+  );
+
+  // Which unit the number currently in the field was entered against. Without
+  // this the screen cannot tell "the user typed 3.40 feet" from "the user typed
+  // 3.40 cfs", which is the whole of the bug below.
+  const enteredMetric = useRef<AlertMetric | null>(null);
+
+  // ── Anchor the field to the river, and RE-anchor when the unit changes ────
+  //
+  // FEET AND CFS DO NOT CONVERT. Stage and discharge relate only through that
+  // station's own rating curve, which Eddy does not hold, so there is no
+  // arithmetic that turns 3.40 ft into a cfs number. This effect used to write
+  // the field only when it was empty, which meant switching the unit left the
+  // digits alone: "rises above 3.40 ft" quietly became "rises above 3.40 cfs",
+  // a threshold roughly two orders of magnitude off and one the user never
+  // typed.
+  //
+  // What it can honestly do instead is offer the gauge's live reading in the
+  // newly chosen unit — the same number the screen would have opened with had
+  // that unit been the default. Typing WITHIN a unit is still never overwritten.
   useEffect(() => {
-    if (currentValue == null) return;
-    setValue((existing) =>
-      existing === '' ? (metric === 'discharge_cfs' ? String(Math.round(currentValue)) : currentValue.toFixed(2)) : existing,
-    );
-  }, [currentValue, metric]);
+    if (!context) return;
+    if (enteredMetric.current === metric) return;
+
+    enteredMetric.current = metric;
+    setValue(anchorFor(currentValue, metric));
+    // The upper bound is cleared rather than re-anchored: both ends of a range
+    // cannot be the one current reading, and a max left over from the other
+    // unit is the same bug one field along.
+    setValueMax('');
+  }, [context, metric, currentValue, anchorFor]);
 
   const parsedValue = Number(value);
   const parsedMax = Number(valueMax);
@@ -403,10 +428,20 @@ export default function ConfigureAlertScreen() {
           <Pressable
             onPress={() => setMode('condition')}
             disabled={!canUseCondition}
-            style={[...chip(mode === 'condition'), !canUseCondition && styles.disabled]}
+            style={[
+              ...chip(mode === 'condition'),
+              styles.brandChip,
+              !canUseCondition && styles.disabled,
+            ]}
             accessibilityRole="button"
             accessibilityState={{ selected: mode === 'condition', disabled: !canUseCondition }}
           >
+            {/* The mark, not an icon. This option means "defer to Eddy's
+                judgement", and the otter is what that judgement looks like
+                everywhere else in the app — the same face the river screens
+                put beside a condition. Decorative by construction: Otter is
+                accessibilityElementsHidden, and the label already says it. */}
+            <Otter mood="favicon" size={18} style={styles.brandMark} />
             <Text style={chipText(mode === 'condition')}>Eddy&apos;s call</Text>
           </Pressable>
           <Pressable
@@ -451,6 +486,10 @@ export default function ConfigureAlertScreen() {
                 <View style={styles.optionBody}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>{kind.label}</Text>
                   <Text style={[styles.optionHint, { color: colors.textMuted }]}>{kind.hint}</Text>
+                  {/* The conditions this option will actually push about, in
+                      their own colours — "only high and dangerous water" is a
+                      sentence you have to translate; a red Flood chip is not. */}
+                  <ConditionCodeChips codes={codesForKind(kind.value)} />
                 </View>
                 <Ionicons
                   name={conditionKind === kind.value ? 'radio-button-on' : 'radio-button-off'}
@@ -658,6 +697,9 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1 },
   chipText: { ...t.xs, fontFamily: fonts.semibold },
+  brandChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 10 },
+  // Otter centres itself by default, which fights a row layout.
+  brandMark: { alignSelf: 'center' },
   disabled: { opacity: 0.4 },
   group: { marginTop: 4 },
   hint: { ...t.xs, fontFamily: fonts.body, marginTop: 8, marginHorizontal: 4 },
