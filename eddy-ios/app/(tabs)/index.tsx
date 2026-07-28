@@ -90,6 +90,8 @@ import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
 import { gaugePlaceLabel } from '@/lib/gaugeCondition';
+import { readingAge } from '@/lib/readingCopy';
+import { rememberGauge, seedFromMapGauge, seedFromMapGaugeLite } from '@/lib/gaugeSeed';
 import { usgsGaugeUrl } from '@/lib/directions';
 import { useOfflinePacks } from '@/map/useOfflinePacks';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
@@ -508,9 +510,18 @@ export default function MapScreen() {
           codeLabel: flowBandLabel(band),
           value: flowReadingText(g),
           magnitude: flowMagnitude(g),
-          // Straight to the source. This tier has no river screen to open —
-          // Eddy has not rated it — so the honest destination is the station's
-          // own USGS page, which is where the rest of its record lives.
+          siteId: g.siteId,
+          // WHEN THIS WAS MEASURED. The one thing this tier never said.
+          //
+          // Curated stations are polled continuously; everything else is
+          // refreshed by an hourly national pass, and a station that reports
+          // seasonally can be days old without anything on screen admitting it.
+          // A bare number invites you to read it as "now".
+          updatedAt: readingAge(g.readingAgeHours),
+          // STILL OFFERED, and no longer the only destination. The gauge screen
+          // below draws this station's own hydrograph, which is what people
+          // came for; USGS remains the source of record and the place the rest
+          // of the station's history lives, so the callout keeps the link.
           link: usgs ? { label: 'Open on USGS', url: usgs } : null,
         };
       }),
@@ -648,6 +659,31 @@ export default function MapScreen() {
     const id = selectedPin.id.replace(/^gauge:/, '');
     return (gauges ?? []).find((g) => g.id === id) ?? null;
   }, [selectedPin, gauges]);
+
+  /** The same, for the national tier. A different list and a different shape. */
+  const pinReferenceGauge = useMemo(() => {
+    if (!selectedPin || selectedPin.layer !== 'allGauges') return null;
+    const id = selectedPin.id.replace(/^refgauge:/, '');
+    return visibleReferenceGauges.find((g) => g.id === id) ?? null;
+  }, [selectedPin, visibleReferenceGauges]);
+
+  /**
+   * Open the gauge screen, handing over what this screen already holds.
+   *
+   * The callout is showing the reading. Pushing a screen that then spins for
+   * the same number is a loading state the app has no reason to have, so the
+   * pin's own record is seeded first and the screen paints from it while its
+   * own request runs. See src/lib/gaugeSeed.ts.
+   */
+  const onOpenGauge = useCallback(
+    (siteId: string) => {
+      if (pinGauge) rememberGauge(seedFromMapGauge(pinGauge));
+      else if (pinReferenceGauge) rememberGauge(seedFromMapGaugeLite(pinReferenceGauge));
+      setSelectedPin(null);
+      router.push(`/gauge/${encodeURIComponent(siteId)}`);
+    },
+    [pinGauge, pinReferenceGauge, router],
+  );
 
   // FAILS OPEN, deliberately. An unreachable /api/me/profile means we do not
   // know whether this person is subscribed — and telling a paying customer on
@@ -858,6 +894,7 @@ export default function MapScreen() {
                   setSelectedPin(null);
                   router.push(`/river/${slug}`);
                 }}
+                onOpenGauge={onOpenGauge}
                 onClose={() => {
                   setSelectedPin(null);
                   setFocus(null);
@@ -1083,6 +1120,7 @@ function PinCallout({
   onSetPutIn,
   onSetTakeOut,
   onOpenRiver,
+  onOpenGauge,
   onClose,
   starred = false,
   onToggleStar = null,
@@ -1093,6 +1131,7 @@ function PinCallout({
   onSetPutIn: () => void;
   onSetTakeOut: () => void;
   onOpenRiver: (slug: string) => void;
+  onOpenGauge: (siteId: string) => void;
   onClose: () => void;
   starred?: boolean;
   /** Null for anything that cannot be starred, which is everything but gauges. */
@@ -1223,8 +1262,25 @@ function PinCallout({
         </Text>
       ) : null}
 
-      {accessPoint || pin.link || pin.riverSlug ? (
+      {accessPoint || pin.link || pin.riverSlug || pin.siteId ? (
         <View style={styles.calloutActions}>
+          {/* FIRST, and ahead of the river. A gauge callout is a number, and the
+              question a number provokes is "how did it get there" — which is a
+              chart, not a river page. The river is still one tap away below,
+              and for the national tier there is no river to offer at all. */}
+          {pin.siteId ? (
+            <Pressable
+              onPress={() => onOpenGauge(pin.siteId!)}
+              style={({ pressed }) => [
+                styles.calloutAction,
+                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+              ]}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.calloutActionText, { color: colors.text }]}>Open gauge</Text>
+            </Pressable>
+          ) : null}
+
           {accessPoint ? (
             <>
               <Pressable
@@ -1284,6 +1340,21 @@ function PinCallout({
             </Pressable>
           ) : null}
         </View>
+      ) : null}
+
+      {/* ── When it was measured ────────────────────────────────────
+          LAST, under the actions, in the quietest ink on the card. It is a
+          qualifier on everything above it rather than another fact beside them,
+          and putting it in the subtitle — where the curated tier used to keep
+          it — made the identification line carry two unrelated jobs while the
+          national tier carried neither.
+
+          Absent, not "unknown", when the station never reported a timestamp.
+          A row that says "Updated: unknown" is a row about the app. */}
+      {pin.updatedAt ? (
+        <Text style={[styles.calloutUpdated, { color: colors.textSubtle }]} numberOfLines={1}>
+          {pin.updatedAt}
+        </Text>
       ) : null}
     </View>
   );
@@ -1399,6 +1470,7 @@ const styles = StyleSheet.create({
   calloutChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
   calloutChipText: { ...t.xs, fontFamily: fonts.semibold },
   calloutBody: { ...t.xs, fontFamily: fonts.body, marginTop: 9 },
+  calloutUpdated: { ...t.xs, fontFamily: fonts.body, marginTop: 10 },
   // Wraps: an outfitter can carry a call button next to a website button, and a
   // put-in inside a plan carries two of its own.
   calloutActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 11 },
