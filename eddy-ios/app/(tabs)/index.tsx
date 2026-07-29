@@ -88,6 +88,7 @@ import {
   DEFAULT_LAYERS,
   MAP_LAYERS,
   OUTFITTER_SERVICE_TYPES,
+  RADAR_ATTRIBUTION,
   type LayerKey,
 } from '@/map/layers';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
@@ -110,7 +111,12 @@ import { useRouter } from 'expo-router';
 import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
 import { SearchResultsList } from '@/components/SearchResultsList';
-import { MapLayersButton, MapLayersSheet, isDefaultLayers } from '@/components/MapLayersSheet';
+import {
+  LayerNote,
+  MapLayersButton,
+  MapLayersSheet,
+  isDefaultLayers,
+} from '@/components/MapLayersSheet';
 import {
   GaugeFilterBar,
   applyGaugeFilters,
@@ -1181,8 +1187,17 @@ export default function MapScreen() {
         // Gauge filtering lives under the layer it refines, not behind a third
         // button on the map. Rendered only while the layer is ON, because
         // chips that narrow a layer nobody is drawing narrow nothing.
-        renderLayerDetail={(key, on) =>
-          key === 'allGauges' && on ? (
+        renderLayerDetail={(key, on) => {
+          // ── The one layer a downloaded river cannot carry ──────────────
+          // Radar streams PNGs from a third party. An offline pack holds the
+          // basemap and our own geometry and nothing else, so switching this
+          // on with no signal draws precisely nothing — which reads as broken
+          // rather than as absent. Said on the row, while the switch is under
+          // the thumb that flipped it.
+          if (key === 'weatherRadar' && on) {
+            return <LayerNote text={RADAR_ATTRIBUTION + ' · needs a connection'} />;
+          }
+          return key === 'allGauges' && on ? (
             <GaugeFilterBar
               // The DRAWABLE set, not the raw response — see layerGauges. Every
               // count in the strip is a count of pins you can actually see.
@@ -1201,8 +1216,8 @@ export default function MapScreen() {
               }
               onClear={() => setGaugeFilter(new Set())}
             />
-          ) : null
-        }
+          ) : null;
+        }}
       />
 
       {/* The plan flow is deliberately a sibling of the map rather than a child

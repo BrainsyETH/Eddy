@@ -87,7 +87,16 @@ import {
 import type { NetworkCollection } from '@/lib/statewideNetwork';
 import { loadMapbox } from './runtime';
 import { STYLE_URL } from './useOfflinePacks';
-import { MAP_LAYERS, MIN_GAUGE_ZOOM, OUTFITTER_SERVICE_TYPES, type LayerKey } from './layers';
+import {
+  MAP_LAYERS,
+  MIN_GAUGE_ZOOM,
+  MIN_RADAR_ZOOM,
+  OUTFITTER_SERVICE_TYPES,
+  RADAR_OPACITY,
+  RADAR_TILE_URL,
+  type LayerKey,
+  type PinLayerKey,
+} from './layers';
 
 const SERVICE_TYPE_LABELS: Record<string, string> = {
   outfitter: 'Outfitter',
@@ -654,7 +663,7 @@ export function RiverMap({
         // Never drawn through pinLayer — the national tier has its own
         // clustered source. Present so the record is total.
         allGauges: EMPTY_COLLECTION,
-      }) as Record<LayerKey, ReturnType<typeof featureCollection>>,
+      }) as Record<PinLayerKey, ReturnType<typeof featureCollection>>,
     [pins, dams, colors],
   );
 
@@ -855,8 +864,13 @@ export function RiverMap({
      * The pins and the colour used to be passed in alongside it, which meant a
      * call site could name one layer and hand it another's contents. They come
      * from the key now, so it cannot.
+     *
+     * PinLayerKey, not LayerKey: this function draws a ShapeSource of point
+     * features, and a raster layer has none. The narrower type is what stops a
+     * future `pinLayer('weatherRadar')` from compiling into a source with an
+     * undefined shape.
      */
-    id: LayerKey,
+    id: PinLayerKey,
     shape: PinShape = 'dot',
     /**
      * The zoom a layer's labels switch on at.
@@ -1249,6 +1263,37 @@ export function RiverMap({
           system prompt itself the moment this mounts, which would spend the
           one-shot iOS dialog on merely opening the Map tab. */}
       {showUserLocation ? <Mapbox.UserLocation visible /> : null}
+
+      {/* ── Weather radar ─────────────────────────────────────────────────
+          FIRST among the data layers, so every river line and every pin draws
+          on top of it. Radar is the one layer here that is not about the
+          water: it answers "is it raining on me" and must never sit over the
+          thing the screen is actually for. Children stack in render order, so
+          position is the whole mechanism.
+
+          The first RasterSource in this app. Everything else is a ShapeSource
+          of our own GeoJSON; this streams PNGs from Iowa State (see
+          RADAR_TILE_URL for why not NOAA directly, which cannot be consumed by
+          Mapbox's iOS SDK at all).
+
+          Unmounted rather than hidden when the layer is off. A raster source
+          left mounted at zero opacity still fetches every tile in the viewport
+          on every pan — a real cost on cellular, for something invisible. */}
+      {layerOn('weatherRadar') ? (
+        <Mapbox.RasterSource
+          id="weather-radar"
+          tileUrlTemplates={[RADAR_TILE_URL]}
+          tileSize={256}
+          // The composite is national; there is nothing outside CONUS to draw
+          // and no point asking for it.
+          minZoomLevel={MIN_RADAR_ZOOM}
+        >
+          <Mapbox.RasterLayer
+            id="weather-radar-layer"
+            style={{ rasterOpacity: RADAR_OPACITY }}
+          />
+        </Mapbox.RasterSource>
+      ) : null}
 
       {/* ── The statewide network ─────────────────────────────────────────
           Every curated river, coloured by its live condition, drawn UNDER the

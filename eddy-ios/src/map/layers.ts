@@ -24,7 +24,23 @@ export type LayerKey =
   | 'allGauges'
   | 'hazards'
   | 'outfitters'
-  | 'dams';
+  | 'dams'
+  | 'weatherRadar';
+
+/**
+ * The layers that draw PINS — every key except the imagery ones.
+ *
+ * Exists because `Record<LayerKey, FeatureCollection>` stopped being true the
+ * moment a raster layer joined the union, and the honest fix is not an empty
+ * collection stapled on to keep the record total. A raster has no features and
+ * never will; a fake entry would compile, mean nothing, and be inherited by
+ * every raster layer added after it.
+ *
+ * Kept as an explicit Exclude rather than derived from the `raster` flag,
+ * because that flag is runtime data and this has to hold at compile time. Add a
+ * raster layer, add it here.
+ */
+export type PinLayerKey = Exclude<LayerKey, 'weatherRadar'>;
 
 export interface LayerDef {
   key: LayerKey;
@@ -75,6 +91,17 @@ export interface LayerDef {
   tierSymbol?: EddySymbolName;
   /** True when the layer only ever appears as a tier and never as a row. */
   nested?: boolean;
+  /**
+   * True when the layer draws IMAGERY rather than places.
+   *
+   * Two things follow from it and neither is cosmetic. A raster has no count —
+   * "37 rain" is not a sentence — so the sheet must be handed `undefined` and
+   * not 0, which it already renders differently (absent, not zero). And a
+   * raster is not in an offline pack: tiles stream from a third party and a
+   * downloaded river cannot carry live weather, so the row has to say so rather
+   * than appearing to work and drawing nothing.
+   */
+  raster?: boolean;
 }
 
 /**
@@ -208,6 +235,22 @@ export const MAP_LAYERS: LayerDef[] = [
     color: (c) => (c.scheme === 'dark' ? primary[200] : primary[800]),
   },
   {
+    key: 'weatherRadar',
+    label: 'Weather radar',
+    // Says what it IS and, by saying "live", what it is not: the one layer here
+    // that a downloaded river cannot carry.
+    description: 'Live NEXRAD rain and storms',
+    icon: 'rainy-outline',
+    // Already in the bundled catalog — this is the mark the weather panel on
+    // the river screen uses, so the two agree about what weather looks like.
+    symbol: 'weather',
+    raster: true,
+    // The rain ramp's middle step, NOT a condition colour and NOT the flow
+    // ramp. Radar says nothing about whether a river is floatable — it is
+    // sky, not water — and borrowing either vocabulary would imply it does.
+    color: (c) => c.rainLikely,
+  },
+  {
     key: 'campgrounds',
     label: 'Campgrounds',
     description: 'Places to sleep on the river',
@@ -242,3 +285,52 @@ export function layerKeysFor(layer: LayerDef): LayerKey[] {
 
 /** Service types that belong under the Outfitters row rather than Campgrounds. */
 export const OUTFITTER_SERVICE_TYPES = ['outfitter', 'canoe_rental', 'shuttle', 'lodging'];
+
+// ── Weather radar tiles ─────────────────────────────────────────────────────
+//
+// ── Why not NOAA directly ──────────────────────────────────────────────────
+// This is NEXRAD — NOAA's own radar — but it does not come from NOAA, and that
+// is a technical constraint rather than a preference. NOAA publishes radar as
+// WMS and as an ArcGIS ImageServer `exportImage` call; neither is an XYZ tile
+// service. MapLibre can paper over that with the `{bbox-epsg-3857}` token, and
+// Mapbox's iOS SDK — which is what this app runs — does not support it. There
+// is no arrangement of a NOAA endpoint that a RasterSource here can consume.
+//
+// Iowa State's Environmental Mesonet re-serves the same NEXRAD composite as
+// plain XYZ PNG, keyless and free, and has done for years. That is what this
+// is. The data is NOAA's; the tiling is theirs.
+//
+// ── The alternative, and why not it ────────────────────────────────────────
+// The website uses RainViewer, which would match it exactly. RainViewer is a
+// commercial aggregator with a free tier, and putting a rate-limited third
+// party in front of a safety-adjacent layer on a phone that may be on one bar
+// of signal is a worse trade than a university mirror of the public feed.
+export const RADAR_TILE_URL =
+  'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png';
+
+/**
+ * Required attribution, shown whenever the layer is drawing.
+ *
+ * Not optional and not decorative: IEM asks for credit, and a reader looking at
+ * rain on a map is owed the knowledge that Eddy did not measure it.
+ */
+export const RADAR_ATTRIBUTION = 'Radar: NOAA NEXRAD via Iowa State Mesonet';
+
+/**
+ * How transparent the radar sits over the map.
+ *
+ * Matches the website's `'raster-opacity': 0.6`. Light enough that the river
+ * line and its pins stay readable underneath — the radar is the answer to a
+ * question about the sky, and the river is still the subject of the screen.
+ */
+export const RADAR_OPACITY = 0.6;
+
+/**
+ * The composite is national and its tiles are cheap, but there is no point
+ * fetching them for a continent-wide view where a storm is three pixels.
+ *
+ * Lower than MIN_GAUGE_ZOOM on purpose: weather is the one thing on this map
+ * that is legible zoomed out, because a rain band is hundreds of miles across
+ * where a gauge is a point.
+ */
+export const MIN_RADAR_ZOOM = 4;
