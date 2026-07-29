@@ -10,39 +10,52 @@ environment.
 
 ---
 
-## 1. Error monitoring (Sentry) — finish wiring on top of `src/lib/logger.ts`
+## 1. Error monitoring (Sentry) — server side DONE, client side outstanding
 
-The logger (`src/lib/logger.ts`) is the single chokepoint: it already exposes
-`logger.error()` / `logger.captureException()` and a `setErrorReporter()` hook.
-Sentry just needs to register itself as that reporter. This was **not** auto-wired
-because `withSentryConfig` changes the build pipeline and a full `next build`
-can't be verified headlessly here (the build prerenders `/rivers` and
-`/sitemap.xml`, which require real Supabase credentials).
+**Status: the server half is wired.** `src/instrumentation.ts` initialises
+`@sentry/nextjs` when `SENTRY_DSN` is set and registers
+`createSentryReporter()` through the `setErrorReporter()` hook, so every
+existing `logger.error()` / `logger.captureException()` call ships, along with
+`onRequestError` route-handler captures. With no DSN the SDK is never imported
+and behaviour is unchanged, which is what made it safe to merge dark.
 
-Steps:
+Sentry takes precedence over `ERROR_WEBHOOK_URL` rather than running alongside
+it: two sinks means every incident is triaged twice and neither is
+authoritative, and the webhook has no grouping.
 
-1. Install: `npm i @sentry/nextjs`
-2. `npx @sentry/wizard@latest -i nextjs` (or create the files manually):
-   - `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`
-     each calling `Sentry.init({ dsn: process.env.NEXT_PUBLIC_SENTRY_DSN, tracesSampleRate: 0.1 })`.
-   - `src/instrumentation.ts` with `register()` importing the server/edge configs,
-     plus `onRequestError` export for route-handler capture.
-3. Register the reporter so existing `logger.error()` calls ship to Sentry — in
-   `instrumentation.ts` `register()`:
-   ```ts
-   import * as Sentry from '@sentry/nextjs';
-   import { setErrorReporter } from '@/lib/logger';
-   setErrorReporter((error, context) => Sentry.captureException(error, { extra: context }));
-   ```
-4. Wrap the config: `export default withSentryConfig(nextConfig, { silent: true })`
-   in `next.config.mjs`. Keep the existing `headers()`/CSP — add the Sentry
-   ingest/tunnel origin to `connect-src` if you enable the tunnel route.
-5. Add a `app/global-error.tsx` that calls `Sentry.captureException` (the existing
-   `app/error.tsx` only covers route segments, not the root layout).
-6. Env: set `NEXT_PUBLIC_SENTRY_DSN` (+ `SENTRY_AUTH_TOKEN` for source-map upload
-   in CI). Without a DSN the SDK is inert, so this is safe to merge dark.
-7. **Verify**: `npm run build` against real Supabase env must succeed, and a
-   thrown test error in a route handler should appear in Sentry.
+Everything leaving the process is redacted first — `sentry-reporter.ts` runs the
+message, stack and context through the same `REDACTIONS` table
+`webhook-reporter.ts` owns. That protects grouping as well as privacy: Sentry
+groups on the message, so an unredacted email mints one issue per user and
+buries the fault. `sentry-reporter.test.ts` guards it.
+
+### What is still missing
+
+**Browser errors are not captured.** `register()` returns early unless
+`NEXT_RUNTIME === 'nodejs'`, so a React render throw in a visitor's browser goes
+nowhere. Closing that gap is the part that touches the build, which is why it
+was left:
+
+1. `sentry.client.config.ts` (and `sentry.edge.config.ts`) calling
+   `Sentry.init({ dsn: process.env.NEXT_PUBLIC_SENTRY_DSN, tracesSampleRate: 0 })`.
+   Note the DSN has to be `NEXT_PUBLIC_` to reach the browser — a **second**
+   variable, not the server's `SENTRY_DSN`.
+2. `app/global-error.tsx` calling `Sentry.captureException`. The existing
+   `app/error.tsx` only covers route segments, not the root layout.
+3. `export default withSentryConfig(nextConfig, { silent: true })` in
+   `next.config.mjs`. Keep the existing `headers()`/CSP, and add the Sentry
+   ingest origin to `connect-src`.
+4. Client-side redaction. `sentry-reporter.ts` is not on the browser path, so
+   `beforeSend` in the client config needs its own `redactText` pass — the iOS
+   app does exactly this in `eddy-ios/src/lib/monitoring.ts`.
+
+**Source maps are not uploaded**, so server stack traces point at bundled
+output. Needs `SENTRY_AUTH_TOKEN` (a write credential — never `NEXT_PUBLIC_`)
+plus `withSentryConfig`, so it lands with the step above.
+
+**Verify** once those are in: `npm run build` against real Supabase env must
+succeed, and a thrown test error in both a route handler and a client component
+should appear in Sentry.
 
 Adoption of the logger across the existing ~500 `console.*` calls can then be
 done incrementally; add `no-console` (allow `warn`/`error` off) to ESLint to

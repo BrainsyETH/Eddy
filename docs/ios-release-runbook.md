@@ -90,8 +90,47 @@ variable set for only one silently does nothing in the others.
 `EXPO_PUBLIC_` — Metro inlines anything `EXPO_PUBLIC_` into the bundle, and the
 auth token can write to the Sentry org.
 
-- [ ] Sentry project created. Same org as the web app, whose own wiring is
-      specified in `missouri-float-planner/docs/OBSERVABILITY_AND_UPGRADES.md`.
+- [ ] Sentry project created. Same org as the web app.
+
+### Vercel — the server side of the same release
+
+These are **not** EAS variables and none of them are `EXPO_PUBLIC_`. They live in
+Vercel's project settings and every one of them, like the block above, fails
+silently and separately.
+
+| Variable | Missing ⇒ |
+|---|---|
+| `SENTRY_DSN` | web errors go to `ERROR_WEBHOOK_URL` if set, otherwise nowhere |
+| `APPLE_TEAM_ID` | Apple token revocation is skipped — see below |
+| `APPLE_KEY_ID` | as above |
+| `APPLE_PRIVATE_KEY` | as above |
+| `APPLE_CLIENT_ID` | as above; the value is the bundle id, `eddy.guide.app` |
+
+- [ ] All four `APPLE_*` set in **production**. Any one missing and
+      `appleCredentialsFromEnv()` returns null, so `/api/me/apple-token` answers
+      `{ stored: false, reason: 'not_configured' }` and account deletion never
+      calls Apple's revocation endpoint. **That is a Guideline 5.1.1(v)
+      rejection**, and nothing in the app looks broken: sign-in works, deletion
+      works, only Apple is never told.
+- [ ] `APPLE_PRIVATE_KEY` is the whole `.p8` including the BEGIN/END lines.
+      Vercel cannot hold real newlines, so paste it with literal `\n` — the code
+      unescapes them. A key that fails to import produces an opaque Apple `400`
+      that names neither the variable nor the cause.
+- [ ] The key is an **App Store Connect key with Sign in with Apple enabled**
+      (Certificates → Keys), not an APNs key. They look identical on disk.
+- [ ] Migration `00211_apple_refresh_tokens.sql` applied.
+
+Verify end to end, in sandbox, before submission — this path cannot be exercised
+from a checkout:
+
+- [ ] Sign in with Apple on device, then check `apple_refresh_tokens` has a row
+      for that user.
+- [ ] Delete the account in-app; the row goes and the Apple ID no longer lists
+      Eddy under Settings → Sign in with Apple.
+- [ ] Deliberately break `APPLE_TEAM_ID` and delete another account: **the
+      deletion must still succeed.** A revocation failure logs and proceeds by
+      design — a person's ability to delete their account must not depend on
+      Apple's uptime.
 
 ## 5 · Supabase
 

@@ -58,9 +58,9 @@ const PRIVACY_URL = 'https://eddy.guide/privacy';
  * lands in our own store; support is a reply channel, and App Review expects a
  * way to reach a human from inside the app.
  *
- * Note the web privacy policy still prints hello@eddy.guide. If that address is
- * dead, the policy is the one that is wrong — fix it there rather than
- * splitting support across two inboxes.
+ * The same address as eddy.guide/support and the privacy policy, deliberately.
+ * Support arriving at two inboxes is how a request goes unanswered while
+ * everyone assumes someone else has it.
  */
 const SUPPORT_EMAIL = 'eddy@eddy.guide';
 
