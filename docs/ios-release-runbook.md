@@ -222,6 +222,48 @@ eas build --profile production --platform ios  # App Store, autoIncrement
 this repo, so prebuild, autolinking, the Mapbox pod and the Sentry config plugin
 all run for the first time. That is a normal cost, not a symptom.
 
+### If the app launches to a splash screen that never lifts
+
+The hardest symptom this app has, because it names nothing. Work out WHICH
+splash you are looking at first — that alone halves the search.
+
+**`app/_layout.tsx` calls `SplashScreen.preventAutoHideAsync()` at module
+scope.** So if JS never ran, that call never happened, and the Expo splash would
+have hidden on its own. A splash that stays forever therefore means one of two
+very different things:
+
+| What you see | What it means |
+|---|---|
+| Expo splash, stuck | JS ran. Something in the tree never reached `ThemedShell`, which owns `hideAsync`. The 8s backstop in `_layout.tsx` should have lifted it — if it did not, JS did **not** run |
+| iOS launch storyboard | The React Native bridge never started. No JS of ours has executed and no JS-side fix can help |
+
+They look nearly identical, which is the trap.
+
+**If the bridge never started**, the suspect is whatever runs before it, and on
+this app that is `expo-updates` — it decides which bundle Hermes gets. Two
+settings in `app.json` are explicit for that reason rather than left to
+defaults: `fallbackToCacheTimeout: 0` (launch from the embedded bundle at once,
+fetch any update in the background for next time) and `checkAutomatically:
+"ON_LOAD"`. Neither may be raised without understanding that the launch waits.
+
+The decisive test, one build:
+
+```json
+"updates": { "enabled": false, ... }
+```
+
+Launches ⇒ it is `expo-updates`. Still hangs ⇒ the embedded bundle or Hermes,
+and `updates` is eliminated.
+
+**Bisecting with Expo Go is free and worth doing first.** `npx expo start` runs
+every screen except the Map tab. If the app is fine there, the JS is sound and
+the problem is native — which is most of the answer for the cost of two minutes.
+
+**Reading the device is definitive.** Connect the phone, open **Console.app**,
+select it in the sidebar, and — the step everyone misses — **Action → Include
+Info Messages *and* Include Debug Messages**, or `expo-updates` logs at info
+level are hidden and the window looks empty. Filter on `Eddy`, then launch.
+
 ## 8 · Field test (TestFlight, internal)
 
 - [ ] Build uploaded and installable.

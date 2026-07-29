@@ -80,6 +80,8 @@
       }
     },
     "updates": {
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD",
       "url": "https://u.expo.dev/018d7a3e-7e3c-47a9-bd02-1fe370317a7f"
     },
     "android": {
