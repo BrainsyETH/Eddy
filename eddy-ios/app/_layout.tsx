@@ -29,6 +29,7 @@ import { type as t } from '@/theme/typography';
 import { darkPalette, lightPalette } from '@/theme/palette';
 import { initMonitoring, report, warn } from '@/lib/monitoring';
 import { sweepStaleVersions } from '@/lib/riverCache';
+import { seedOfflineBundle } from '@/api/client';
 
 // FIRST, and at module scope. Sentry has to be installed before anything else
 // in this file runs, or the errors it exists to catch — a provider throwing on
@@ -46,6 +47,13 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // scope: it touches nothing any screen reads this launch, and a cache sweep
 // that could delay a render would be the tail wagging the dog.
 void sweepStaleVersions();
+
+// Seed every river's line, put-ins and hazards from one conditional request.
+// Also fire-and-forget at module scope, and for a stronger reason than the
+// sweep: the launch this runs on is by definition an online one, so nothing on
+// screen is waiting for it. The launch it pays off on is the one at the put-in
+// with no bars, where it has already finished.
+void seedOfflineBundle();
 
 /**
  * The last net. Expo Router renders this instead of the tree when a render

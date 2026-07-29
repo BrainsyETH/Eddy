@@ -44,6 +44,15 @@ const VERSIONED = `${PREFIX}.v${CACHE_VERSION}`;
 export const META_KEY = `${VERSIONED}.meta`;
 /** The /api/rivers list — the first thing every screen needs. */
 export const INDEX_KEY = `${VERSIONED}.index`;
+/**
+ * The statewide network: every river's line and gauge ladder in one value.
+ *
+ * Its own key rather than a slice of each river's entry, because the Map tab
+ * draws all of them at once and would otherwise do 25 reads to paint one
+ * screen. It is also the one payload the app already fetched on every Map
+ * open, so caching it costs nothing new on the wire.
+ */
+export const NETWORK_KEY = `${VERSIONED}.network`;
 
 const RIVER_INFIX = '.river:';
 
@@ -139,5 +148,37 @@ export function parseEnvelope<T>(
     fetchedAt: candidate.fetchedAt,
     etag: typeof candidate.etag === 'string' ? candidate.etag : null,
     payload: payload as T,
+  };
+}
+
+/**
+ * Merge one part into a river's stored entry, preserving the rest.
+ *
+ * A river's entry holds five independently-fetched parts — detail, access
+ * points, hazards, reaches, services — and each arrives from its own request
+ * at its own time. THE NAIVE WRITE IS THE ONE PLACE IN THIS DESIGN THAT LOSES
+ * DATA: `setItem(riverKey(slug), envelope({ hazards }))` when the hazards
+ * request lands would blank that river's put-ins and its line on disk, and the
+ * damage only shows up later, offline, on the screen that needed them.
+ *
+ * `fetchedAt` moves to the newest write. It describes the entry as a whole,
+ * and every consumer of it — the staleness bands especially — wants to know
+ * how old the freshest thing here is, not the oldest.
+ *
+ * Generic rather than typed to the river shape so this module stays free of
+ * app types: it is compiled by the web test suite, which has no path to
+ * @eddy/types.
+ */
+export function mergeParts<T extends object>(
+  existing: CacheEnvelope<T> | null,
+  patch: Partial<T>,
+  fetchedAt: string,
+  etag: string | null = null,
+): CacheEnvelope<T> {
+  return {
+    v: CACHE_VERSION,
+    fetchedAt,
+    etag,
+    payload: { ...(existing?.payload ?? {}), ...patch } as T,
   };
 }

@@ -10,6 +10,7 @@ import {
   parseEnvelope,
   riverKey,
   slugFromRiverKey,
+  mergeParts,
 } from '../../../eddy-ios/src/lib/offline-cache';
 
 const NOW = '2026-07-29T12:00:00.000Z';
@@ -92,4 +93,51 @@ test('the stale sweep never matches the stars or saved floats', () => {
   // cache prefix specifically.
   assert.equal(isStaleVersionKey('eddy.stars.v3'), false);
   assert.equal(isStaleVersionKey('eddy.savedFloats.v1'), false);
+});
+
+// ── merging one part into a river's entry ──────────────────────────────────
+
+interface Parts {
+  river?: { slug: string };
+  hazards?: { id: string }[];
+  accessPoints?: { id: string }[];
+}
+
+test('writing one part preserves the parts already stored', () => {
+  // THE bug this function exists to prevent. A river's entry is written five
+  // separate times from five separate requests, so a naive setItem on the
+  // hazards response would blank that river's put-ins and its own line on
+  // disk — and the damage only appears later, offline, on the screen that
+  // needed them.
+  const stored = mergeParts<Parts>(null, { river: { slug: 'current' } }, '2026-07-01T00:00:00.000Z');
+  const after = mergeParts<Parts>(stored, { hazards: [{ id: 'h1' }] }, '2026-07-02T00:00:00.000Z');
+
+  assert.deepEqual(after.payload.river, { slug: 'current' });
+  assert.deepEqual(after.payload.hazards, [{ id: 'h1' }]);
+});
+
+test('a part is replaced wholesale, not merged element by element', () => {
+  // A hazard removed upstream has to disappear from the phone. Concatenating
+  // would make the cache a growing union that never forgets a retired hazard.
+  const stored = mergeParts<Parts>(null, { hazards: [{ id: 'old' }] }, '2026-07-01T00:00:00.000Z');
+  const after = mergeParts<Parts>(stored, { hazards: [{ id: 'new' }] }, '2026-07-02T00:00:00.000Z');
+
+  assert.deepEqual(after.payload.hazards, [{ id: 'new' }]);
+});
+
+test('the entry carries the age of its newest write', () => {
+  // fetchedAt describes the entry as a whole, and the staleness bands ask how
+  // old the freshest thing here is — not the oldest.
+  const stored = mergeParts<Parts>(null, { river: { slug: 'current' } }, '2026-07-01T00:00:00.000Z');
+  const after = mergeParts<Parts>(stored, { hazards: [] }, '2026-07-02T00:00:00.000Z');
+
+  assert.equal(after.fetchedAt, '2026-07-02T00:00:00.000Z');
+});
+
+test('a merge onto an unreadable entry starts clean rather than throwing', () => {
+  // parseEnvelope answers null for a corrupt or wrong-version entry, and that
+  // null arrives here. Repair is a write, not a crash.
+  const after = mergeParts<Parts>(null, { hazards: [{ id: 'h1' }] }, '2026-07-02T00:00:00.000Z');
+  assert.deepEqual(after.payload, { hazards: [{ id: 'h1' }] });
+  assert.equal(after.v, CACHE_VERSION);
 });
