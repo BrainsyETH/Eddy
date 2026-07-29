@@ -419,9 +419,13 @@ export default function MapScreen() {
     fetchHazards(slug, controller.signal)
       .then((items) => setHazards({ slug, items }))
       .catch(() => {
-        // A cancelled request must not be recorded as "this river has no
-        // hazards" — that answer would then survive until the river changed.
-        if (!controller.signal.aborted) setHazards({ slug, items: [] });
+        // Neither a cancelled request NOR a failed one is "this river has no
+        // hazards". Leaving the state null is what the layers sheet already
+        // reads as "not asked" — see the RiverScoped docblock above, which
+        // calls publishing a count for unfetched hazards "the one thing a
+        // count must never do". Writing [] here did exactly that, and on the
+        // safety surface: a river with a low-water dam on it reported
+        // "Hazards 0" whenever the endpoint was down.
       });
     return () => controller.abort();
   }, [wantsHazards, selectedSlug]);

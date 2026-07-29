@@ -53,6 +53,16 @@ import { FeedbackSheet } from '@/components/FeedbackSheet';
 
 const TERMS_URL = 'https://eddy.guide/terms';
 const PRIVACY_URL = 'https://eddy.guide/privacy';
+/**
+ * Not the same thing as the Feedback sheet below it. Feedback is one-way and
+ * lands in our own store; support is a reply channel, and App Review expects a
+ * way to reach a human from inside the app.
+ *
+ * Note the web privacy policy still prints hello@eddy.guide. If that address is
+ * dead, the policy is the one that is wrong — fix it there rather than
+ * splitting support across two inboxes.
+ */
+const SUPPORT_EMAIL = 'eddy@eddy.guide';
 
 /**
  * Apple's own subscription-management screen. Eddy cannot cancel a subscription
@@ -409,6 +419,21 @@ export default function ProfileScreen() {
             >
               <Text style={[styles.secondaryText, { color: colors.textMuted }]}>Send feedback</Text>
             </Pressable>
+
+            {/* Feedback goes one way. This is the one that answers back. */}
+            <Pressable
+              onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+              style={[styles.secondary, { borderColor: colors.border }]}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
+                Email support
+              </Text>
+            </Pressable>
+
+            <Text style={[styles.legal, { color: colors.textSubtle }]}>
+              Or write to {SUPPORT_EMAIL} from any mail app.
+            </Text>
           </View>
         </Section>
 
