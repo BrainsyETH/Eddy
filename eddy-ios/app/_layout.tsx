@@ -28,6 +28,7 @@ import { UpgradeGate } from '@/components/UpgradeGate';
 import { type as t } from '@/theme/typography';
 import { darkPalette, lightPalette } from '@/theme/palette';
 import { initMonitoring, report, warn } from '@/lib/monitoring';
+import { sweepStaleVersions } from '@/lib/riverCache';
 
 // FIRST, and at module scope. Sentry has to be installed before anything else
 // in this file runs, or the errors it exists to catch — a provider throwing on
@@ -40,6 +41,11 @@ initMonitoring();
 // width. Failures are swallowed: a splash that will not hide is a bricked app,
 // so nothing here may throw.
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Drop cache entries from a previous CACHE_VERSION. Fire and forget at module
+// scope: it touches nothing any screen reads this launch, and a cache sweep
+// that could delay a render would be the tail wagging the dog.
+void sweepStaleVersions();
 
 /**
  * The last net. Expo Router renders this instead of the tree when a render
