@@ -7,6 +7,11 @@
 //   SENTRY_DSN         — the real error backend, shared with the iOS app
 //   ERROR_WEBHOOK_URL  — the pre-existing fallback; any JSON-accepting endpoint
 //
+// SERVER AND EDGE ONLY. Next loads this module on the server; the browser half
+// lives in src/instrumentation-client.ts and reads a SEPARATE, NEXT_PUBLIC_
+// DSN. Both are needed — for most of this subsystem's life only this one
+// existed, and browser errors went nowhere while the dashboard looked healthy.
+//
 // With neither set the logger stays a console-only wrapper and nothing is
 // reported anywhere. That is what makes both safe to merge dark.
 //
@@ -16,7 +21,18 @@
 // thousand messages.
 
 export async function register(): Promise<void> {
-  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
+  const runtime = process.env.NEXT_RUNTIME;
+
+  // Node AND edge. This used to be `!== 'nodejs'`, which was correct for the
+  // webhook sink below (it keeps per-process dedupe state that an edge isolate
+  // would fragment) and quietly wrong for Sentry: an error thrown in an edge
+  // route would have had nothing listening. There are no edge routes today,
+  // which is precisely why this is worth fixing now — the first one added would
+  // otherwise be unmonitored by default and nothing would say so.
+  //
+  // The BROWSER is not covered here and cannot be: Next loads this module on
+  // the server only. See src/instrumentation-client.ts.
+  if (runtime !== 'nodejs' && runtime !== 'edge') return;
 
   const dsn = process.env.SENTRY_DSN;
   if (dsn) {
@@ -41,6 +57,11 @@ export async function register(): Promise<void> {
     setErrorReporter(createSentryReporter(Sentry));
     return;
   }
+
+  // Node only, unlike Sentry above: the webhook reporter dedupes and rate-limits
+  // in module-level state, and an edge isolate per request turns a "one report
+  // per fingerprint per five minutes" cap into no cap at all.
+  if (runtime !== 'nodejs') return;
 
   const webhookUrl = process.env.ERROR_WEBHOOK_URL;
   if (!webhookUrl) return;

@@ -7,6 +7,7 @@
 // instrumentation.ts; nothing else changes.
 
 import type { LogContext } from '@/lib/logger';
+import { redactText } from '@/lib/monitoring/redact';
 
 // One report per fingerprint per cooldown, and a global per-minute cap, so an
 // error storm (e.g. a failing dependency on every request) cannot flood the
@@ -18,26 +19,13 @@ const VALUE_LIMIT = 500;
 
 // Redaction: the audit requires monitoring "with redaction" — strip likely
 // secrets and personal data before anything leaves the process.
-const REDACTIONS: Array<[RegExp, string]> = [
-  // email addresses
-  [/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[redacted-email]'],
-  // bearer/authorization values
-  [/(bearer\s+)[\w.~+/=-]+/gi, '$1[redacted]'],
-  // long hex blobs (tokens, HMACs, session ids)
-  [/\b[0-9a-f]{32,}\b/gi, '[redacted-hex]'],
-  // JWT-shaped triples
-  [/\beyJ[\w-]+\.[\w-]+\.[\w-]+\b/g, '[redacted-jwt]'],
-  // key=value style secrets
-  [/((?:api[_-]?key|token|secret|password|authorization)["']?\s*[:=]\s*["']?)[^\s"',}]+/gi, '$1[redacted]'],
-];
-
-export function redactText(input: string): string {
-  let out = input;
-  for (const [pattern, replacement] of REDACTIONS) {
-    out = out.replace(pattern, replacement);
-  }
-  return out;
-}
+//
+// The table itself now lives in ./redact so the browser Sentry client can share
+// it without pulling this module's sink into every page's bundle. Re-exported
+// rather than moved-and-rewired: sentry-reporter.ts and redact.test.ts both
+// import it from here, and the point of the extraction was to add a consumer,
+// not to churn the existing ones.
+export { redactText };
 
 function redactValue(value: unknown): unknown {
   if (typeof value === 'string') {

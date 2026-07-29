@@ -29,6 +29,7 @@
 
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
+import { pickEnvironment } from '@/lib/app-environment';
 import { isContextBag, redactContext, redactText, redactValue } from '@/lib/redact';
 import {
   createReportBudget,
@@ -47,8 +48,24 @@ const DSN = process.env.EXPO_PUBLIC_SENTRY_DSN ?? '';
 /** False in Expo Go, in dev, and in any build shipped without a DSN. */
 export const monitoringEnabled = Boolean(DSN);
 
-/** Subsystem tags already in use across the app's console.warn calls. */
-export type LogTag = 'fonts' | 'push' | 'map' | 'auth' | 'stars' | 'chart' | 'cache' | 'photo';
+/**
+ * Subsystem tags already in use across the app's console.warn calls.
+ *
+ * 'launch' is the exception: nothing logs under it during normal operation. It
+ * exists for src/lib/bootstrap.ts, and a report carrying it means the app never
+ * finished starting — the one failure a field tester cannot describe and cannot
+ * work around.
+ */
+export type LogTag =
+  | 'fonts'
+  | 'push'
+  | 'map'
+  | 'auth'
+  | 'stars'
+  | 'chart'
+  | 'cache'
+  | 'photo'
+  | 'launch';
 
 /**
  * Throttling state for warn(), for the life of the process.
@@ -102,15 +119,42 @@ function initSentry(): void {
     sendDefaultPii: false,
     // Distinguishes a field-test build from the App Store one in the dashboard.
     // Falls back rather than throwing: an unknown channel is worth less than a
-    // crash report, and must never cost us one.
-    environment: (Constants.expoConfig?.extra as { eas?: { channel?: string } } | undefined)?.eas
-      ?.channel ?? 'unknown',
+    // crash report, and must never cost us one. See app-environment.ts for why
+    // this stopped being an inline read of `extra.eas.channel`.
+    environment: resolveEnvironment(),
     beforeSend: (event) => scrubEvent(event),
     beforeBreadcrumb: (crumb) => {
       if (crumb.message) crumb.message = redactText(crumb.message);
       if (crumb.data) crumb.data = redactContext(crumb.data) as typeof crumb.data;
       return crumb;
     },
+  });
+}
+
+/**
+ * Read the update channel, then hand the decision to pickEnvironment().
+ *
+ * expo-updates is reached through a GUARDED REQUIRE rather than a static
+ * import, and that is not superstition: this function runs inside Sentry.init,
+ * which bootstrap.ts calls before anything else in the app. A static import
+ * would put one more native module on the path that must not fail, in service
+ * of a dashboard label. `Updates.channel` also throws outright when updates are
+ * disabled for the build, which is a normal state, not an error.
+ */
+function resolveEnvironment(): string {
+  let updatesChannel: string | null = null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    updatesChannel = (require('expo-updates') as typeof import('expo-updates')).channel ?? null;
+  } catch {
+    // Disabled, unavailable, or Expo Go. pickEnvironment handles the absence.
+  }
+
+  return pickEnvironment({
+    updatesChannel,
+    extraChannel: (Constants.expoConfig?.extra as { eas?: { channel?: string } } | undefined)?.eas
+      ?.channel,
+    isDev: __DEV__,
   });
 }
 

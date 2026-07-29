@@ -24,6 +24,7 @@ import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useSession } from '@/hooks/useSession';
 import { useAppConfig } from '@/hooks/useAppConfig';
+import { warn } from '@/lib/monitoring';
 import {
   getPermissionState,
   installForegroundHandler,
@@ -58,7 +59,25 @@ const PushContext = createContext<PushValue>({
 // The handler is process-wide, so it is installed at module scope rather than
 // in an effect — an effect would run after the first notification could
 // already have arrived on a cold start.
-installForegroundHandler();
+//
+// ── Why the try/catch, which looks like belt-and-braces and is not ─────────
+//
+// This is a NATIVE call (Notifications.setNotificationHandler) running at
+// module scope in a file that app/_layout.tsx imports. A throw here does not
+// cost the app its notification handler — it costs the app its launch. Module
+// bodies run after their imports, so _layout.tsx's own body never executes, and
+// with it goes the root ErrorBoundary and every provider. The app stops at the
+// splash screen.
+//
+// src/lib/bootstrap.ts now arms the backstop before this file is reached, so
+// that is a reported eight-second stall rather than a permanent one. This makes
+// it not happen at all: alerts are a feature, and the file header already says
+// nothing here may stop the app running for someone who declined them.
+try {
+  installForegroundHandler();
+} catch (err) {
+  warn('push', 'foreground notification handler could not be installed', err);
+}
 
 export function PushProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
