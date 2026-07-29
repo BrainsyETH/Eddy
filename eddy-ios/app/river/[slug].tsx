@@ -107,6 +107,7 @@ import { useAccount } from '@/hooks/useAccount';
 import { usePush } from '@/hooks/usePush';
 import { useSession } from '@/hooks/useSession';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { readIndex } from '@/lib/riverCache';
 
 /**
  * Settles a list fetch into its result and whether it FAILED.
@@ -243,7 +244,29 @@ export default function RiverDetailScreen() {
       try {
         // The rivers list is the only place carrying the river's id and current
         // condition code together, and it is CDN-cached, so this is cheap.
-        const rivers = await fetchRivers(controller.signal);
+        //
+        // ── Why this one falls back to disk and the rest do not ─────────────
+        // Every other call below has its own catch and degrades to a missing
+        // section. This one is awaited ALONE and outside that Promise.all, so
+        // its failure reached the outer catch and replaced the whole screen
+        // with "River not found" — losing signal did not degrade the river
+        // screen, it deleted it, and no amount of caching further down would
+        // have been reached. The index is therefore the first thing kept.
+        //
+        // A cached index is a fine answer here: it carries a name, an id and a
+        // slug, none of which move. The CONDITION it also carries is live data
+        // and is not trusted — fetchCondition below is the authority, and when
+        // that fails the screen shows no verdict rather than a stale one.
+        let rivers: RiverListItem[];
+        try {
+          rivers = await fetchRivers(controller.signal);
+        } catch (err) {
+          if (err instanceof ApiError && err.message === 'Request cancelled') return;
+          const cached = await readIndex();
+          if (!cached) throw err;
+          rivers = cached.payload;
+        }
+
         const match = rivers.find((r) => r.slug === slug) ?? null;
         if (!match) {
           setError('River not found');

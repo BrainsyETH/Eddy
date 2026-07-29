@@ -69,6 +69,7 @@ import type {
 } from '@eddy/types';
 import type { ServerStar } from '@eddy/sync';
 import type { StatewideReading, StatewideRiver } from '@/lib/statewideNetwork';
+import { writeIndex } from '@/lib/riverCache';
 
 const BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? 'https://eddy.guide';
@@ -370,7 +371,13 @@ export async function unstarGauge(token: string, gaugeId: string): Promise<void>
 /** All curated Eddy Rivers with their current condition. */
 export async function fetchRivers(signal?: AbortSignal): Promise<RiverListItem[]> {
   const data = await get<RiversResponse>('/api/rivers', signal);
-  return data.rivers ?? [];
+  const rivers = data.rivers ?? [];
+  // WRITE-THROUGH, fire and forget. This module is deliberately write-only to
+  // the cache: a fetcher that silently substituted stored data on failure would
+  // take away the caller's ability to SAY it is stored, which is the whole
+  // point of keeping it. Reading is the screen's job.
+  writeIndex(rivers);
+  return rivers;
 }
 
 /**
