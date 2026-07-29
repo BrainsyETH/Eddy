@@ -29,6 +29,15 @@ import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { toNum } from '@/lib/utils/num';
+import {
+  MIN_ZOOM,
+  normalizeAccess,
+  parseBbox,
+  parseLimit,
+  parseZoom,
+  toleranceForZoom,
+  wasCapped,
+} from '@/lib/map/public-lands-request';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,19 +103,6 @@ export interface PublicLandsResponse {
   total: number;
 }
 
-const DEFAULT_LIMIT = 400;
-const MAX_LIMIT = 1000;
-
-/**
- * Below this the layer is not drawn and not asked for.
- *
- * A parcel boundary is a line you read against a river, and at a continental
- * zoom there is no river to read it against — just a wash of fill over four
- * states. Matched by the clients' own floors so a request below it is a bug
- * rather than a normal case.
- */
-const MIN_ZOOM = 7;
-
 /** Degrade to an empty viewport at HTTP 200, never an error. */
 const EMPTY: PublicLandsResponse = {
   type: 'FeatureCollection',
@@ -115,66 +111,11 @@ const EMPTY: PublicLandsResponse = {
   total: 0,
 };
 
-/**
- * Simplification tolerance for a zoom, in degrees.
- *
- * One screen pixel at that zoom: 360° of longitude over 256·2^z pixels. Below a
- * pixel the vertices are literally invisible and paying to send them is paying
- * for nothing; above it, a boundary starts to visibly cut corners. Derived
- * server-side from the zoom rather than taken as a parameter, so there is one
- * implementation of this rule instead of one per client — the clients send the
- * zoom they are at, which they cannot get wrong.
- *
- * The RPC clamps into [0.00005, 0.05] regardless, so a nonsense zoom cannot ask
- * for a full-precision statewide query.
- *
- * ── Measured, so nobody re-derives it ─────────────────────────────────────
- * Against the 1,753 parcels in production, 2026-07-29:
- *
- *   z14, eight miles of the Current   5 parcels     3.7 kB
- *   z11, one river reach             73 parcels      34 kB
- *   z7, the whole Ozarks            398 of 1,031    337 kB
- *
- * The statewide figure is the worst case and it is NOT fixable by lowering the
- * cap: at limit 150 it is still 301 kB, because the bytes live in a handful of
- * enormous multipolygons (Mark Twain National Forest is 1.5M acres of
- * non-contiguous ground) rather than in the count. Coarsening the tolerance
- * fourfold only reaches 280 kB — ST_SimplifyPreserveTopology cannot drop a ring,
- * only its vertices — while visibly cutting corners. So the floor is real, and
- * the answers to it are the ones already in place: MIN_ZOOM stops it happening
- * at continental scale, the layer is off by default on both clients, and the
- * response is CDN-cached for an hour against a quantized bbox.
- */
-function toleranceForZoom(zoom: number): number {
-  return 360 / (256 * Math.pow(2, zoom));
-}
-
-/** Upper-case, and a missing classification is the 'UK' PAD-US already uses. */
-function normalizeAccess(raw: string | null): string {
-  const trimmed = (raw ?? '').trim().toUpperCase();
-  return trimmed || 'UK';
-}
-
-interface BboxParse {
-  bbox: [number, number, number, number] | null;
-  error: string | null;
-}
-
-function parseBbox(raw: string | null): BboxParse {
-  if (!raw) return { bbox: null, error: 'bbox is required (west,south,east,north)' };
-  const parts = raw.split(',').map((p) => Number(p.trim()));
-  if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) {
-    return { bbox: null, error: 'bbox must be four numbers: west,south,east,north' };
-  }
-  const [west, south, east, north] = parts;
-  if (south > north) return { bbox: null, error: 'bbox south must be <= north' };
-  if (south < -90 || north > 90) return { bbox: null, error: 'bbox latitudes must be within -90..90' };
-  if (west < -180 || east > 180) return { bbox: null, error: 'bbox longitudes must be within -180..180' };
-  if (west > east) {
-    return { bbox: null, error: 'bbox crossing the antimeridian must be split into two requests' };
-  }
-  return { bbox: [west, south, east, north], error: null };
-}
+// The parsing, the tolerance curve and the cap arithmetic live in
+// @/lib/map/public-lands-request, with tests. Two of them shipped wrong in a way
+// that was only observable by curling the deployed route — a missing `zoom`
+// read as zoom 0 and returned an empty layer at 200, and `capped` fired on
+// viewports that were showing everything. See that file for both.
 
 interface PublicLandInBboxRow {
   id: string;
@@ -201,9 +142,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
-  const zoom = Number(params.get('zoom'));
-  if (!Number.isFinite(zoom)) {
-    return NextResponse.json({ error: 'zoom is required (the client\'s current zoom level)' }, { status: 400 });
+  const { zoom, error: zoomError } = parseZoom(params.get('zoom'));
+  if (zoom === null) {
+    return NextResponse.json({ error: zoomError }, { status: 400 });
   }
   // Not a 400: a client that pans out past the floor should get "nothing here",
   // the same answer it gets over open ocean, rather than an error it has to
@@ -212,10 +153,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(EMPTY, { headers: cdnCacheHeaders(3600, 86400) });
   }
 
-  const limit = Math.min(
-    MAX_LIMIT,
-    Math.max(1, parseInt(params.get('limit') ?? '', 10) || DEFAULT_LIMIT),
-  );
+  const limit = parseLimit(params.get('limit'));
 
   try {
     const supabase = createAdminClient();
@@ -269,11 +207,9 @@ export async function GET(request: NextRequest) {
     const body: PublicLandsResponse = {
       type: 'FeatureCollection',
       features,
-      // Slightly conservative: the RPC also drops parcels whose clip came back
-      // empty (a polygon touching only the box edge), so this can read `true`
-      // when the cap did not actually bite. Over-disclosing "there is more here,
-      // zoom in" is the harmless direction of that error.
-      capped: total > features.length,
+      // Against the LIMIT, not the returned feature count — see wasCapped for
+      // why those are different questions and which one this is.
+      capped: wasCapped(total, limit),
       total,
     };
 
