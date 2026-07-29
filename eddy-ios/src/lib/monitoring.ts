@@ -29,7 +29,7 @@
 
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
-import { redactContext, redactText } from '@/lib/redact';
+import { isContextBag, redactContext, redactText, redactValue } from '@/lib/redact';
 
 /**
  * Build-time, deliberately.
@@ -92,17 +92,41 @@ export function initMonitoring(): void {
  * recovers from. Filing them as errors would bury a real crash under a hundred
  * "no signal at the put-in" reports.
  */
-export function warn(tag: LogTag, message: string, cause?: unknown): void {
-  console.warn(`[${tag}] ${message}`, cause ?? '');
+export function warn(tag: LogTag, message: string, detail?: unknown): void {
+  console.warn(`[${tag}] ${message}`, detail ?? '');
 
   if (!monitoringEnabled) return;
 
   Sentry.withScope((scope) => {
     scope.setTag('subsystem', tag);
     scope.setLevel('warning');
-    if (cause !== undefined) scope.setExtra('cause', String(cause));
+    attachDetail(scope, detail);
     Sentry.captureMessage(`[${tag}] ${message}`);
   });
+}
+
+/**
+ * Attach whatever the caller passed as its third argument.
+ *
+ * Two shapes arrive here and both matter. Most call sites pass a caught error;
+ * a few pass a bag of named fields (the Apple sign-in id check). Sending a bag
+ * through String() yields "[object Object]" — a report that says a thing went
+ * wrong and nothing about which thing — so a plain object is spread into named
+ * extras and everything else is stringified.
+ *
+ * Errors are deliberately NOT treated as bags: their useful fields are not
+ * enumerable, so spreading one produces `{}`.
+ */
+function attachDetail(scope: Sentry.Scope, detail: unknown): void {
+  if (detail === undefined) return;
+
+  if (isContextBag(detail)) {
+    const extra = redactContext(detail);
+    if (extra) for (const [key, value] of Object.entries(extra)) scope.setExtra(key, value);
+    return;
+  }
+
+  scope.setExtra('detail', redactValue(detail));
 }
 
 /**

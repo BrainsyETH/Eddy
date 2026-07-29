@@ -59,6 +59,24 @@ export function redactValue(value: unknown): unknown {
   return text.length > VALUE_LIMIT ? `${text.slice(0, VALUE_LIMIT)}…` : text;
 }
 
+/**
+ * Is this a bag of named fields, or a single value?
+ *
+ * Decides whether a reporter spreads something into named extras or stringifies
+ * it. Errors are deliberately NOT bags: their useful fields (`message`,
+ * `stack`) are non-enumerable, so spreading one produces `{}` — a report that
+ * says something went wrong and nothing about what. Arrays are not bags either;
+ * numeric keys make unreadable extras.
+ */
+export function isContextBag(value: unknown): value is Record<string, unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !(value instanceof Error) &&
+    !Array.isArray(value)
+  );
+}
+
 /** Redact every value in a flat context bag. Keys are left alone. */
 export function redactContext(
   context?: Record<string, unknown> | null,

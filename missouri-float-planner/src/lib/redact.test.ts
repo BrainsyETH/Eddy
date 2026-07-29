@@ -5,6 +5,7 @@ import {
   redactText as appRedact,
   redactValue,
   redactContext,
+  isContextBag,
 } from '../../../eddy-ios/src/lib/redact';
 
 // ── why this file exists ─────────────────────────────────────────
@@ -87,4 +88,21 @@ test('redactContext passes through null and undefined', () => {
   // report() is called with no context far more often than with one.
   assert.equal(redactContext(undefined), undefined);
   assert.equal(redactContext(null), undefined);
+});
+
+test('an Error is not treated as a bag of fields', () => {
+  // Spreading an Error yields {} — message and stack are non-enumerable. A
+  // reporter that got this wrong would file "something went wrong" with no
+  // indication of what, which is the failure mode this whole branch exists to
+  // avoid. Most warn() call sites pass a caught error, so this is the common path.
+  assert.equal(isContextBag(new Error('boom')), false);
+  assert.equal(isContextBag(new TypeError('boom')), false);
+});
+
+test('a plain object is a bag and an array is not', () => {
+  // Arrays would spread into numeric keys — unreadable extras.
+  assert.equal(isContextBag({ previousId: 'a', nextId: 'b' }), true);
+  assert.equal(isContextBag(['a', 'b']), false);
+  assert.equal(isContextBag(null), false);
+  assert.equal(isContextBag('a string'), false);
 });
