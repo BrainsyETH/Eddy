@@ -69,7 +69,17 @@ import type {
 } from '@eddy/types';
 import type { ServerStar } from '@eddy/sync';
 import type { StatewideReading, StatewideRiver } from '@/lib/statewideNetwork';
-import { writeIndex } from '@/lib/riverCache';
+import {
+  readMeta,
+  writeCondition,
+  writeIndex,
+  writeMeta,
+  writeNetwork,
+  writePart,
+  writeRiver,
+} from '@/lib/riverCache';
+import { CACHE_VERSION } from '@/lib/offline-cache';
+import { warn } from '@/lib/monitoring';
 
 const BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? 'https://eddy.guide';
@@ -101,6 +111,21 @@ export class ApiError extends Error {
 const REQUEST_TIMEOUT_MS = 15_000;
 
 /**
+ * The deadline for work nobody is waiting on.
+ *
+ * 15s is calibrated against a person holding a phone — short enough that the
+ * answer still feels related to the tap. The offline bundle seed has no such
+ * person: it runs at module scope on launch, nothing on screen depends on it,
+ * and the only cost of it taking a while is that it takes a while.
+ *
+ * It is also the slowest thing the app asks for. The route assembles 25 rivers
+ * on a cold edge cache, so a 15s deadline would abandon precisely the first
+ * fetch — the one on a fresh install, with nothing yet on disk, which is the
+ * install that most needs it to land.
+ */
+const BACKGROUND_TIMEOUT_MS = 60_000;
+
+/**
  * A caller's signal and our deadline, as one signal.
  *
  * Hand-rolled on purpose. `AbortSignal.timeout()` and `AbortSignal.any()` are
@@ -113,7 +138,7 @@ const REQUEST_TIMEOUT_MS = 15_000;
  * and must. `timedOut` carries that, because by the time the rejection arrives
  * the only thing either case says is `AbortError`.
  */
-function withDeadline(caller?: AbortSignal) {
+function withDeadline(caller?: AbortSignal, timeoutMs: number = REQUEST_TIMEOUT_MS) {
   const controller = new AbortController();
   const state = { timedOut: false };
 
@@ -124,7 +149,7 @@ function withDeadline(caller?: AbortSignal) {
   const timer = setTimeout(() => {
     state.timedOut = true;
     controller.abort();
-  }, REQUEST_TIMEOUT_MS);
+  }, timeoutMs);
 
   return {
     signal: controller.signal,
@@ -389,6 +414,7 @@ export async function fetchRivers(signal?: AbortSignal): Promise<RiverListItem[]
  */
 export async function fetchRiverDetail(slug: string, signal?: AbortSignal): Promise<RiverDetail> {
   const data = await get<RiverDetailResponse>(`/api/rivers/${encodeURIComponent(slug)}`, signal);
+  writePart(slug, 'river', data.river);
   return data.river;
 }
 
@@ -401,7 +427,9 @@ export async function fetchRiverAccessPoints(
     `/api/rivers/${encodeURIComponent(slug)}/access-points`,
     signal,
   );
-  return data.accessPoints ?? [];
+  const accessPoints = data.accessPoints ?? [];
+  writePart(slug, 'accessPoints', accessPoints);
+  return accessPoints;
 }
 
 /**
@@ -435,13 +463,107 @@ export async function fetchAccessPointDetail(
  * are the SAME endpoints the website's statewide map runs on, and both are
  * CDN-cached, so the app is not asking the database for anything new.
  *
- * NOT the per-river geometry from fetchRiverDetail: that one is full-resolution
- * and used to snap a float route, and still loads one river at a time. This is
- * coarser context for drawing the whole network at once.
+ * The geometry here is NOT coarser than fetchRiverDetail's, which this comment
+ * claimed for a long time and which shaped the offline plan until it was
+ * checked. Both are a bare ST_AsGeoJSON over the same rivers.geom column with
+ * no ST_Simplify anywhere (00122 line 36, and 00003's
+ * get_river_geometry_json). The difference is scope, not resolution: that one
+ * loads a river at a time, this one loads all of them.
+ *
+ * Which is why the write-through below is free. Every river's full line lands
+ * on disk from a request the Map tab already makes on every open.
  */
 export async function fetchStatewideNetwork(signal?: AbortSignal): Promise<StatewideRiver[]> {
   const data = await get<{ rivers?: StatewideRiver[] }>('/api/usgs/mo-dataset?slim=1', signal);
-  return data.rivers ?? [];
+  const rivers = data.rivers ?? [];
+  writeNetwork(rivers);
+  return rivers;
+}
+
+/**
+ * Seed the on-disk cache for EVERY river from one request.
+ *
+ * The write-throughs above only ever cache a river somebody opened, which
+ * leaves the common case broken: a person who installs Eddy at home, drives to
+ * a put-in and opens a river for the first time with no signal. This closes
+ * that — after one online launch, all 25 rivers have their line, put-ins and
+ * hazards on the phone.
+ *
+ * Runs on launch, never blocks a render, and is silent on failure: the cache is
+ * an optimisation on the good path and a courtesy on the bad one, and whatever
+ * is already stored stays stored.
+ *
+ * ── Why this is a hand-rolled fetch and not get() ──────────────────────────
+ *
+ * get() returns a parsed body, and this needs the RESPONSE — specifically the
+ * ETag header and the 304 status. That 304 is the whole point: the payload
+ * changes about monthly, so almost every launch should be a conditional
+ * request that transfers nothing.
+ */
+export async function seedOfflineBundle(): Promise<void> {
+  const deadline = withDeadline(undefined, BACKGROUND_TIMEOUT_MS);
+  try {
+    const { bundleEtag } = await readMeta();
+
+    const response = await fetch(`${BASE_URL}/api/offline/bundle`, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': USER_AGENT,
+        ...(bundleEtag ? { 'If-None-Match': bundleEtag } : {}),
+      },
+      signal: deadline.signal,
+    });
+
+    // Nothing changed since the copy on disk. The overwhelmingly common case.
+    if (response.status === 304) return;
+    if (!response.ok) return;
+
+    const body = (await response.json()) as {
+      v?: number;
+      rivers?: {
+        slug?: string;
+        river?: RiverDetail;
+        accessPoints?: MapAccessPoint[];
+        hazards?: Hazard[];
+        reaches?: RiverReach[];
+      }[];
+    };
+
+    // A version we do not know how to read is treated as absent rather than
+    // partially applied — the same rule parseEnvelope follows, and for the same
+    // reason: half-understood data on disk is worse than none.
+    if (body.v !== CACHE_VERSION) return;
+
+    const rivers = body.rivers ?? [];
+    if (rivers.length === 0) return;
+
+    const etag = response.headers.get('etag');
+    const fetchedAt = new Date().toISOString();
+
+    for (const entry of rivers) {
+      if (!entry.slug) continue;
+      // Services are absent from the bundle by design and must not be written
+      // as an empty array here — that would tell the river screen this river
+      // has no outfitters, which is the failure-as-absence bug again.
+      writeRiver(
+        entry.slug,
+        {
+          river: entry.river,
+          accessPoints: entry.accessPoints,
+          hazards: entry.hazards,
+          reaches: entry.reaches,
+        },
+        fetchedAt,
+        etag,
+      );
+    }
+
+    writeMeta({ bundleEtag: etag, bundleFetchedAt: fetchedAt });
+  } catch (err) {
+    warn('cache', 'could not seed the offline bundle', err);
+  } finally {
+    deadline.done();
+  }
 }
 
 /**
@@ -631,7 +753,9 @@ export async function fetchRiverReaches(
     `/api/rivers/${encodeURIComponent(slug)}/reaches`,
     signal,
   );
-  return data.reaches ?? [];
+  const reaches = data.reaches ?? [];
+  writePart(slug, 'reaches', reaches);
+  return reaches;
 }
 
 export async function fetchRiverServices(
@@ -642,7 +766,9 @@ export async function fetchRiverServices(
     `/api/rivers/${encodeURIComponent(slug)}/services`,
     signal,
   );
-  return data.services ?? [];
+  const services = data.services ?? [];
+  writePart(slug, 'services', services);
+  return services;
 }
 
 /**
@@ -832,7 +958,11 @@ export async function fetchCondition(
     `/api/conditions/${encodeURIComponent(riverId)}`,
     signal,
   );
-  return data.available ? (data.condition ?? null) : null;
+  const condition = data.available ? (data.condition ?? null) : null;
+  // The one piece of live water state kept on disk, and kept ONLY so it can be
+  // aged and labelled — never re-shown as current. See readingBand.
+  if (condition) writeCondition(riverId, condition);
+  return condition;
 }
 
 /**
@@ -896,7 +1026,9 @@ export async function fetchHazards(slug: string, signal?: AbortSignal): Promise<
     `/api/rivers/${encodeURIComponent(slug)}/hazards`,
     signal,
   );
-  return data.hazards ?? [];
+  const hazards = data.hazards ?? [];
+  writePart(slug, 'hazards', hazards);
+  return hazards;
 }
 
 /**
@@ -1216,6 +1348,24 @@ export async function fetchMeProfile(
 /** Persist a display name. Used once, right after Apple returns one. */
 export async function updateDisplayName(token: string, displayName: string): Promise<void> {
   await authed('/api/me/profile', token, { method: 'PATCH', body: { displayName } });
+}
+
+/**
+ * Hand Apple's authorization code to the server, which exchanges it for a
+ * refresh token and keeps it against account deletion.
+ *
+ * Guideline 5.1.1(v) — see the call site in useSession. The code is single-use
+ * and expires in about five minutes, so this is called immediately after
+ * sign-in and never retried later; there would be nothing left to redeem.
+ */
+export async function storeAppleAuthorizationCode(
+  token: string,
+  authorizationCode: string,
+): Promise<void> {
+  await authed('/api/me/apple-token', token, {
+    method: 'POST',
+    body: { authorizationCode },
+  });
 }
 
 /**

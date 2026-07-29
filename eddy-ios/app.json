@@ -11,6 +11,9 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "eddy.guide.app",
+      "associatedDomains": [
+        "applinks:eddy.guide"
+      ],
       "usesAppleSignIn": true,
       "icon": {
         "light": "./assets/icon-polished-light.png",

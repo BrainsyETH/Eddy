@@ -85,6 +85,19 @@ export function conditionLongLabel(code: string): string {
 }
 
 /**
+ * The short label — "Good", not "Good - Floatable".
+ *
+ * Used where the long form would be a lie of tense rather than of fact. The
+ * long labels are instructions ("Do Not Float", "Floatable"), and an
+ * instruction is a statement about right now; a reading recovered from disk two
+ * days later has no standing to issue one. The short label is a name, and a
+ * name survives being old.
+ */
+export function conditionShortLabel(code: string): string {
+  return CONDITION_SYSTEM[code as ConditionCode]?.label ?? CONDITION_SYSTEM.unknown.label;
+}
+
+/**
  * Is this river in the strictly positive "go float it" bucket?
  *
  * Uses FLOATABLE_NOW (flowing/good only), which is what every public "floatable

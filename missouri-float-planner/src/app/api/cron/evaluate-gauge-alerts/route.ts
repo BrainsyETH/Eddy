@@ -52,7 +52,7 @@ const WRITE_CONCURRENCY = 10;
 const SUBSCRIPTION_COLUMNS =
   'id, user_id, gauge_station_id, river_id, mode, condition_kind, metric, comparator, ' +
   'threshold_value, threshold_value_max, enabled, one_shot, last_state, last_value, ' +
-  'last_reading_at, last_triggered_at, last_condition_code';
+  'last_reading_at, last_triggered_at, one_shot_fired_at, last_condition_code';
 
 /**
  * Every enabled rule.

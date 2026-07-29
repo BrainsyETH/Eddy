@@ -20,7 +20,7 @@
 // moment keeps the feed honest — the change is visible in the morning even
 // though the phone stayed silent.
 
-import { planDrain } from './drain';
+import { planDrain, spentOneShots } from './drain';
 import { buildGaugeNotification, suppressedByQuietHours, type GaugeEventKind } from './gauge-threshold';
 import { disableTokens, recordTokenFailures } from './token-health';
 import { chunkMessages, classifyTicketError, sendExpoPush, type ExpoMessage } from '@/lib/push/expo';
@@ -63,6 +63,14 @@ const EMPTY: GaugeDeliveryStats = {
 interface PlannedGaugeMessage {
   message: ExpoMessage;
   eventId: string;
+  /**
+   * The rule this message serves.
+   *
+   * Carried so a one-shot can be spent on DELIVERY rather than on evaluation.
+   * The event-level tally is not enough: one subscription produces one message
+   * per device token, and success has to be counted per rule.
+   */
+  subscriptionId: string;
   deviceTokenId: string;
   userId: string;
   riverId: string | null;
@@ -237,6 +245,7 @@ export async function deliverGaugeAlerts(
             },
           },
           eventId: row.id,
+          subscriptionId: row.subscription_id,
           deviceTokenId: token.id,
           userId: row.user_id,
           riverId: row.river_id,
@@ -249,6 +258,12 @@ export async function deliverGaugeAlerts(
     let failed = 0;
     const failuresByToken = new Map<string, number>();
     const successByEvent = new Map<string, number>();
+    // Per RULE, not per event. A one-shot is spent by a push reaching a device,
+    // and one rule can produce several messages (one per device token) spread
+    // across non-adjacent batches by the interleave — so the tally has to be
+    // complete before anything is decided, which it is: the batch loop ends
+    // before the update below.
+    const successBySubscription = new Map<string, number>();
 
     for (const [index, batch] of chunkMessages(planned.map((m) => m.message)).entries()) {
       const offset = index * 100;
@@ -262,6 +277,10 @@ export async function deliverGaugeAlerts(
         if (ticket.status === 'ok') {
           sent++;
           successByEvent.set(message.eventId, (successByEvent.get(message.eventId) ?? 0) + 1);
+          successBySubscription.set(
+            message.subscriptionId,
+            (successBySubscription.get(message.subscriptionId) ?? 0) + 1,
+          );
         } else {
           failed++;
           failuresByToken.set(
@@ -301,6 +320,26 @@ export async function deliverGaugeAlerts(
     }
 
     await recordTokenFailures(supabase, failuresByToken);
+
+    // ── Spend the one-shots that were actually delivered ────────────────────
+    //
+    // Nothing here filters on one_shot: the WHERE clause does, which keeps the
+    // set of "which rules are one-shot" in one place instead of asking for it
+    // and then trusting the answer. `is null` makes the update idempotent, so a
+    // retried pass cannot move the timestamp of an already-spent rule.
+    //
+    // Delivered means AT LEAST ONE of the rule's messages succeeded, mirroring
+    // planDrain's partial-delivery rule — a person with two phones has been
+    // told once the first one buzzes.
+    const spent = spentOneShots([...successBySubscription.keys()], successBySubscription);
+    if (spent.length > 0) {
+      await supabase
+        .from('gauge_alert_subscriptions')
+        .update({ one_shot_fired_at: now.toISOString() })
+        .in('id', spent)
+        .eq('one_shot', true)
+        .is('one_shot_fired_at', null);
+    }
 
     // An event with nothing planned — quiet hours, or no active device — is
     // drained rather than retried. Retrying it would refill the outbox every

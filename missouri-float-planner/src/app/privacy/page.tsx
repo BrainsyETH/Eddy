@@ -211,10 +211,10 @@ export default function PrivacyPage() {
             We may update this policy as Eddy changes and will revise the date above. For privacy
             questions or an access, correction, or deletion request, email{' '}
             <a
-              href="mailto:hello@eddy.guide"
+              href="mailto:eddy@eddy.guide"
               className="text-primary-600 hover:text-primary-700 font-medium"
             >
-              hello@eddy.guide
+              eddy@eddy.guide
             </a>{' '}
             or use the feedback form available from <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">eddy.guide</Link>.
           </p>

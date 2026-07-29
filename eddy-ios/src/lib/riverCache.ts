@@ -14,8 +14,8 @@
 // That same detail decides the key layout, and it inverts the usual advice:
 // a value UNDER 1 KB is inlined in manifest.json and rewrites the whole
 // manifest on every write, while a larger one is its own file. So few large
-// values beat many small ones here, which is why conditions will be one blob
-// rather than a key per gauge.
+// values beat many small ones here, which is why every river's condition is
+// ONE blob rather than a key per gauge.
 //
 // ── What is NOT cached, and why ─────────────────────────────────────────────
 //
@@ -38,13 +38,27 @@
 //                       cracked paywall.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { RiverListItem } from '@eddy/types';
+import type {
+  Hazard,
+  RiverConditionDetail,
+  MapAccessPoint,
+  RiverDetail,
+  RiverListItem,
+  RiverReach,
+  RiverService,
+} from '@eddy/types';
+import type { StatewideRiver } from '@/lib/statewideNetwork';
 import { warn } from '@/lib/monitoring';
 import {
   INDEX_KEY,
+  CONDITIONS_KEY,
+  META_KEY,
+  NETWORK_KEY,
   envelope,
   isStaleVersionKey,
+  mergeParts,
   parseEnvelope,
+  riverKey,
   type CacheEnvelope,
 } from '@/lib/offline-cache';
 
@@ -77,6 +91,186 @@ export function writeIndex(rivers: RiverListItem[]): void {
   void AsyncStorage.setItem(
     INDEX_KEY,
     JSON.stringify(envelope(rivers, new Date().toISOString())),
+  ).catch(() => {});
+}
+
+// ── One river's stored entry ────────────────────────────────────────────────
+
+/**
+ * The five independently-fetched parts of a river.
+ *
+ * Every field optional, and that is the type doing real work: a river seeded by
+ * the bundle has four of them, a river whose services request happened to land
+ * has five, and a river nobody has opened on a build older than the bundle has
+ * one. Consumers must read this as "what we happen to have", never as a record
+ * that is either present or absent.
+ */
+export interface CachedRiver {
+  river?: RiverDetail;
+  accessPoints?: MapAccessPoint[];
+  hazards?: Hazard[];
+  reaches?: RiverReach[];
+  services?: RiverService[];
+}
+
+export async function readRiver(slug: string): Promise<CacheEnvelope<CachedRiver> | null> {
+  try {
+    return parseEnvelope<CachedRiver>(await AsyncStorage.getItem(riverKey(slug)), 'object');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Serialises writes per river slug.
+ *
+ * writePart is read-modify-write, so two parts of the same river landing at
+ * once is a LOST UPDATE: both read the entry without the other's field, both
+ * write, and the second erases the first. This is not a rare interleaving —
+ * the river screen fires its access-point and hazard requests together and
+ * they routinely resolve within a frame of each other, so the naive version
+ * would drop one of them most times a river is opened.
+ *
+ * A per-slug promise chain is enough because AsyncStorage is the only writer
+ * and this module is the only path to it. Cross-process locking is not a
+ * concern; there is one JS context.
+ */
+const writeChains = new Map<string, Promise<unknown>>();
+
+function enqueueWrite(slug: string, work: () => Promise<void>): void {
+  const previous = writeChains.get(slug) ?? Promise.resolve();
+  // Chained off settle, not off success: one failed write must not stall every
+  // later write for that river.
+  const next = previous.then(work, work).catch(() => {});
+  writeChains.set(slug, next);
+  void next.then(() => {
+    if (writeChains.get(slug) === next) writeChains.delete(slug);
+  });
+}
+
+/**
+ * Store one part of a river, preserving the other four. Fire-and-forget.
+ *
+ * Called from the client's fetchers on every success, so the cache tracks
+ * whatever the app last saw without a separate sync pass.
+ */
+export function writePart<K extends keyof CachedRiver>(
+  slug: string,
+  part: K,
+  value: CachedRiver[K],
+): void {
+  if (value === undefined) return;
+  enqueueWrite(slug, async () => {
+    const existing = await readRiver(slug);
+    const merged = mergeParts<CachedRiver>(
+      existing,
+      { [part]: value } as Partial<CachedRiver>,
+      new Date().toISOString(),
+      existing?.etag ?? null,
+    );
+    await AsyncStorage.setItem(riverKey(slug), JSON.stringify(merged));
+  });
+}
+
+/** Replace a river's entry wholesale. Used only by the bundle seed. */
+export function writeRiver(slug: string, parts: CachedRiver, fetchedAt: string, etag: string | null): void {
+  enqueueWrite(slug, async () => {
+    // Still a merge, not a replace: the bundle carries four parts and a river
+    // the user has opened may also have services on disk. Seeding must not
+    // take those away.
+    const existing = await readRiver(slug);
+    const merged = mergeParts<CachedRiver>(existing, parts, fetchedAt, etag);
+    await AsyncStorage.setItem(riverKey(slug), JSON.stringify(merged));
+  });
+}
+
+// ── The statewide network ───────────────────────────────────────────────────
+
+export async function readNetwork(): Promise<CacheEnvelope<StatewideRiver[]> | null> {
+  try {
+    return parseEnvelope<StatewideRiver[]>(await AsyncStorage.getItem(NETWORK_KEY), 'array');
+  } catch {
+    return null;
+  }
+}
+
+export function writeNetwork(rivers: StatewideRiver[]): void {
+  if (rivers.length === 0) return;
+  void AsyncStorage.setItem(
+    NETWORK_KEY,
+    JSON.stringify(envelope(rivers, new Date().toISOString())),
+  ).catch(() => {});
+}
+
+// ── The last reading for each river ─────────────────────────────────────────
+
+/**
+ * The one exception to "never cache the state of the water".
+ *
+ * Kept ONLY so it can be labelled and aged — see effectiveReadingAgeHours and
+ * readingBand. A reading is never re-shown as current: past six hours it goes
+ * grey and past forty-eight the number is withheld entirely. The value of
+ * keeping it is that "the Current was 1.4 ft when you had signal this morning"
+ * is genuinely useful at a put-in, and infinitely better than a blank card.
+ *
+ * Keyed by river id, matching what fetchCondition is called with.
+ */
+export async function readConditions(): Promise<CacheEnvelope<
+  Record<string, RiverConditionDetail>
+> | null> {
+  try {
+    return parseEnvelope<Record<string, RiverConditionDetail>>(
+      await AsyncStorage.getItem(CONDITIONS_KEY),
+      'object',
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Store one river's condition, preserving the other twenty-four.
+ *
+ * Serialised on the same chain machinery as the river entries and for the same
+ * reason: this is read-modify-write over a shared blob, and the Map tab can
+ * have several conditions land at once.
+ */
+export function writeCondition(riverId: string, condition: RiverConditionDetail): void {
+  enqueueWrite(CONDITIONS_KEY, async () => {
+    const existing = await readConditions();
+    await AsyncStorage.setItem(
+      CONDITIONS_KEY,
+      JSON.stringify(
+        envelope({ ...(existing?.payload ?? {}), [riverId]: condition }, new Date().toISOString()),
+      ),
+    );
+  });
+}
+
+// ── Bundle metadata ─────────────────────────────────────────────────────────
+
+export interface CacheMeta {
+  /** The ETag of the bundle currently on disk, replayed as If-None-Match. */
+  bundleEtag: string | null;
+  bundleFetchedAt: string | null;
+}
+
+export async function readMeta(): Promise<CacheMeta> {
+  try {
+    const stored = parseEnvelope<CacheMeta>(await AsyncStorage.getItem(META_KEY), 'object');
+    return {
+      bundleEtag: stored?.payload?.bundleEtag ?? null,
+      bundleFetchedAt: stored?.payload?.bundleFetchedAt ?? null,
+    };
+  } catch {
+    return { bundleEtag: null, bundleFetchedAt: null };
+  }
+}
+
+export function writeMeta(meta: CacheMeta): void {
+  void AsyncStorage.setItem(
+    META_KEY,
+    JSON.stringify(envelope(meta, new Date().toISOString())),
   ).catch(() => {});
 }
 

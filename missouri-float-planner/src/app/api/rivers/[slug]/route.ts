@@ -4,9 +4,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createClient } from '@/lib/supabase/server';
-import { calculateBounds } from '@/lib/utils/geo';
 import { withX402Route } from '@/lib/x402-config';
 import type { RiverDetailResponse } from '@/types/api';
+// Shared with /api/offline/bundle — see the header of shapes.ts.
+import { toRiverDetail, type RiverRow } from '@/lib/offline/shapes';
 
 // Force dynamic rendering (uses cookies for Supabase)
 export const dynamic = 'force-dynamic';
@@ -79,20 +80,8 @@ async function _GET(
       }
     }
 
-    const bounds = calculateBounds(geometry);
-
     const response: RiverDetailResponse = {
-      river: {
-        id: river.id,
-        name: river.name,
-        slug: river.slug,
-        lengthMiles: river.length_miles != null ? parseFloat(String(river.length_miles)) : 0,
-        description: river.description,
-        difficultyRating: river.difficulty_rating,
-        region: river.region,
-        geometry,
-        bounds,
-      },
+      river: toRiverDetail(river as unknown as RiverRow, geometry),
     };
 
     return NextResponse.json(response, { headers: cdnCacheHeaders(300, 3600) });

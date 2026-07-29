@@ -79,6 +79,15 @@ export interface GaugeAlertSubscription {
   last_value: number | null;
   last_reading_at: string | null;
   last_triggered_at: string | null;
+  /**
+   * Set only when a push for this rule actually reached a device.
+   *
+   * The ONLY thing that spends a one-shot. last_triggered_at cannot do this job
+   * — it is stamped here at evaluation, two crons before delivery, so reading it
+   * spent a rule whose notification failed every attempt or was dropped by quiet
+   * hours. See docs/decisions/0005-gauge-alert-one-shot-spend.md.
+   */
+  one_shot_fired_at: string | null;
   last_condition_code: string | null;
 }
 
@@ -387,7 +396,10 @@ export function evaluateSubscription(input: EvalInput): EvalResult {
   const cooledDown =
     sub.last_triggered_at != null &&
     now.getTime() - new Date(sub.last_triggered_at).getTime() < cooldownMs;
-  const oneShotSpent = sub.one_shot && sub.last_triggered_at != null;
+  // NOT last_triggered_at, which this function is about to stamp itself. A rule
+  // is spent by DELIVERY, which happens two crons after this runs and is
+  // recorded by the delivery pass.
+  const oneShotSpent = sub.one_shot && sub.one_shot_fired_at != null;
 
   const baseState: StateUpdate = {
     id: sub.id,

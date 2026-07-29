@@ -44,6 +44,29 @@ const VERSIONED = `${PREFIX}.v${CACHE_VERSION}`;
 export const META_KEY = `${VERSIONED}.meta`;
 /** The /api/rivers list — the first thing every screen needs. */
 export const INDEX_KEY = `${VERSIONED}.index`;
+/**
+ * The statewide network: every river's line and gauge ladder in one value.
+ *
+ * Its own key rather than a slice of each river's entry, because the Map tab
+ * draws all of them at once and would otherwise do 25 reads to paint one
+ * screen. It is also the one payload the app already fetched on every Map
+ * open, so caching it costs nothing new on the wire.
+ */
+export const NETWORK_KEY = `${VERSIONED}.network`;
+
+/**
+ * Every river's last condition, in ONE value rather than a key per gauge.
+ *
+ * The iOS AsyncStorage implementation inlines values under 1 KB into
+ * manifest.json and rewrites the whole manifest on each such write, so 25
+ * sub-kilobyte keys would be 25 full manifest rewrites every refresh cycle.
+ * One blob clears the threshold and becomes its own atomically-written file.
+ *
+ * Separate from the river entries because it moves on a completely different
+ * clock: readings change every 15 minutes, the shape of a river changes
+ * monthly.
+ */
+export const CONDITIONS_KEY = `${VERSIONED}.conditions`;
 
 const RIVER_INFIX = '.river:';
 
@@ -140,4 +163,104 @@ export function parseEnvelope<T>(
     etag: typeof candidate.etag === 'string' ? candidate.etag : null,
     payload: payload as T,
   };
+}
+
+/**
+ * Merge one part into a river's stored entry, preserving the rest.
+ *
+ * A river's entry holds five independently-fetched parts — detail, access
+ * points, hazards, reaches, services — and each arrives from its own request
+ * at its own time. THE NAIVE WRITE IS THE ONE PLACE IN THIS DESIGN THAT LOSES
+ * DATA: `setItem(riverKey(slug), envelope({ hazards }))` when the hazards
+ * request lands would blank that river's put-ins and its line on disk, and the
+ * damage only shows up later, offline, on the screen that needed them.
+ *
+ * `fetchedAt` moves to the newest write. It describes the entry as a whole,
+ * and every consumer of it — the staleness bands especially — wants to know
+ * how old the freshest thing here is, not the oldest.
+ *
+ * Generic rather than typed to the river shape so this module stays free of
+ * app types: it is compiled by the web test suite, which has no path to
+ * @eddy/types.
+ */
+export function mergeParts<T extends object>(
+  existing: CacheEnvelope<T> | null,
+  patch: Partial<T>,
+  fetchedAt: string,
+  etag: string | null = null,
+): CacheEnvelope<T> {
+  return {
+    v: CACHE_VERSION,
+    fetchedAt,
+    etag,
+    payload: { ...(existing?.payload ?? {}), ...patch } as T,
+  };
+}
+
+// ── Ageing a stored reading ─────────────────────────────────────────────────
+
+/**
+ * The threshold `accuracyNote` already owns (readingCopy.ts).
+ *
+ * Deliberately the same number. The caveat sentence and the greyed-out chip
+ * must not land on opposite sides of one line — a reading captioned "this gauge
+ * has not reported recently" while still wearing a confident green is the
+ * screen arguing with itself.
+ */
+export const STALE_READING_HOURS = 6;
+
+/** Past this, the number itself is withheld rather than shown with a hedge. */
+export const UNUSABLE_READING_HOURS = 48;
+
+export type ReadingBand = 'fresh' | 'stale' | 'expired';
+
+/**
+ * How old a stored reading ACTUALLY is, as opposed to how old it says it is.
+ *
+ * ── The bug this exists to prevent ────────────────────────────────────────
+ *
+ * `RiverConditionDetail.readingAgeHours` is a scalar the SERVER computed at the
+ * moment of the request. Replay it off the disk three days later and it still
+ * says "1", so the screen prints "Updated an hour ago" — a cached reading
+ * claiming to be an hour old, forever, with the claim getting more wrong the
+ * longer it sits there.
+ *
+ * The fix is to add the time elapsed since the CACHE ENTRY was written, which
+ * is why `fetchedAt` and not the reading's own timestamp is the second
+ * argument. Those two differ, and using the reading's own would under-report
+ * staleness by exactly the amount that matters.
+ *
+ * Returns null for "we cannot say", which the bands treat as the oldest case
+ * rather than the newest — an unknown age is not evidence of freshness.
+ */
+export function effectiveReadingAgeHours(
+  storedAgeHours: number | null | undefined,
+  fetchedAt: string | null | undefined,
+  now: number,
+): number | null {
+  if (typeof storedAgeHours !== 'number' || !Number.isFinite(storedAgeHours)) return null;
+  if (!isIsoDate(fetchedAt)) return null;
+
+  const elapsedMs = now - Date.parse(fetchedAt);
+  // A negative elapsed time means the device clock moved backwards between the
+  // write and the read. Trusting it would make a reading get YOUNGER on disk,
+  // so the stored age is the floor.
+  const elapsedHours = elapsedMs > 0 ? elapsedMs / 3_600_000 : 0;
+  return storedAgeHours + elapsedHours;
+}
+
+/**
+ * Which of the three presentations a reading has earned.
+ *
+ *   fresh    the ordinary condition colour, plus an offline glyph
+ *   stale    grey, and the label becomes "Last known: Good" — the SHORT label,
+ *            because the long one is an instruction and a two-day-old reading
+ *            has no business instructing anyone
+ *   expired  grey, and the number is not shown at all
+ */
+export function readingBand(effectiveAgeHours: number | null): ReadingBand {
+  if (effectiveAgeHours === null) return 'expired';
+  if (effectiveAgeHours < STALE_READING_HOURS) return 'fresh';
+  if (effectiveAgeHours < UNUSABLE_READING_HOURS) return 'stale';
+  return 'expired';
 }

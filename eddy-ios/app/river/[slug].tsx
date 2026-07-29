@@ -31,14 +31,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type {
-  Hazard,
-  MapAccessPoint,
   MapGauge,
   RiverConditionDetail,
   RiverListItem,
   RiverOutlookResponse,
-  RiverReach,
-  RiverService,
   RiverVisualsResponse,
   DamSnapshot,
 } from '@eddy/types';
@@ -56,11 +52,7 @@ import {
   fetchCondition,
   fetchGauges,
   fetchDams,
-  fetchHazards,
-  fetchRiverAccessPoints,
   fetchRiverOutlook,
-  fetchRiverReaches,
-  fetchRiverServices,
   fetchRiverVisuals,
   fetchRivers,
   fetchSubscriptions,
@@ -73,6 +65,7 @@ import {
   conditionColor,
   conditionInk,
   conditionLongLabel,
+  conditionShortLabel,
 } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -107,27 +100,10 @@ import { useAccount } from '@/hooks/useAccount';
 import { usePush } from '@/hooks/usePush';
 import { useSession } from '@/hooks/useSession';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
-import { readIndex } from '@/lib/riverCache';
+import { readConditions, readIndex } from '@/lib/riverCache';
+import { useRiverData } from '@/hooks/useRiverData';
+import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
 
-/**
- * Settles a list fetch into its result and whether it FAILED.
- *
- * A cancelled request is not a failed one — the screen is going away, or the
- * slug changed — and recording that as a failure would flash "could not be
- * loaded" on every fast back-tap. The map already draws the same distinction
- * for its layers.
- *
- * Never rejects, so the surrounding Promise.all and outer try are unchanged.
- */
-function settled<T>(promise: Promise<T[]>): Promise<{ items: T[]; failed: boolean }> {
-  return promise.then(
-    (items) => ({ items, failed: false }),
-    (err) => ({
-      items: [] as T[],
-      failed: !(err instanceof ApiError && err.message === 'Request cancelled'),
-    }),
-  );
-}
 
 /**
  * "We could not ask", said once, quietly.
@@ -166,20 +142,23 @@ export default function RiverDetailScreen() {
 
   const [river, setRiver] = useState<RiverListItem | null>(null);
   const [condition, setCondition] = useState<RiverConditionDetail | null>(null);
-  const [hazards, setHazards] = useState<Hazard[]>([]);
-  const [accessPoints, setAccessPoints] = useState<MapAccessPoint[]>([]);
   /**
-   * Whether the LOAD failed, as opposed to the river genuinely having none.
+   * Set only when the condition on screen came off the disk, and carrying the
+   * age it ACTUALLY has rather than the one it claims.
    *
-   * These two sections used to catch into [] and render only when non-empty, so
-   * a 500 on the hazards endpoint was pixel-identical to a river with nothing
-   * recorded. On the safety surface that is the wrong way round to be wrong,
-   * and the map already draws this distinction — see readingsFailed in
-   * useStatewideNetwork: "Grey means 'we could not ask', and a map that cannot
-   * say so is lying quietly."
+   * readingAgeHours is a scalar the server computed at request time, so a
+   * cached reading replayed three days later still says "1" and the screen
+   * prints "Updated an hour ago" forever. The correction is the time elapsed
+   * since the cache entry was written.
+   *
+   * Computed here in the effect rather than at render, because it needs a clock
+   * and a component that reads one during render is not idempotent — the same
+   * reading would band differently on two renders a few hours apart with no
+   * state change to explain it.
    */
-  const [hazardsFailed, setHazardsFailed] = useState(false);
-  const [accessFailed, setAccessFailed] = useState(false);
+  const [cachedReadingAgeHours, setCachedReadingAgeHours] = useState<number | null | undefined>(
+    undefined,
+  );
   /** Bumped by "Try again"; re-runs the load effect without blanking the screen. */
   const [reloadNonce, setReloadNonce] = useState(0);
   /** The last slug that finished loading, so a retry is not a first load. */
@@ -193,14 +172,26 @@ export default function RiverDetailScreen() {
    * claimed to reload only hazards would be lying about what it does.
    */
   const retry = useCallback(() => setReloadNonce((n) => n + 1), []);
+
+  /**
+   * The parts of this river that are safe to keep on the phone, each carrying
+   * where it came from.
+   *
+   * This replaced a pair of `hazardsFailed` / `accessFailed` booleans. A boolean
+   * says "we could not ask"; with a cache the honest answer has three values,
+   * because "we could not ask but we kept what we last saw" is a completely
+   * different screen from "we could not ask and have nothing" — and rendering
+   * either as an empty section is the failure-as-absence bug this screen was
+   * fixed for once already.
+   */
+  const { hazards, accessPoints, services, reaches, source } = useRiverData(
+    slug,
+    reloadNonce,
+  );
   const [outlook, setOutlook] = useState<RiverOutlookResponse | null>(null);
   const [visuals, setVisuals] = useState<RiverVisualsResponse | null>(null);
   const [gauges, setGauges] = useState<MapGauge[]>([]);
-  const [services, setServices] = useState<RiverService[]>([]);
   const [dam, setDam] = useState<DamSnapshot | null>(null);
-  // Reaches, for a river whose halves read differently. Empty on all but the
-  // Black, and the panel renders nothing for an empty list.
-  const [reaches, setReaches] = useState<RiverReach[]>([]);
   /**
    * Which gauge the reading card is showing. Null means the river's own
    * primary, which is what /api/conditions already answered with — so the card
@@ -237,8 +228,6 @@ export default function RiverDetailScreen() {
     // would throw away your scroll position and every section's open/shut state
     // — a worse screen than the one you tapped it on.
     setLoading(loadedSlug.current !== slug);
-    setHazardsFailed(false);
-    setAccessFailed(false);
 
     (async () => {
       try {
@@ -283,10 +272,25 @@ export default function RiverDetailScreen() {
         // re-read when the picker moves — and a screen that waits for it before
         // painting anything would be waiting on three third-party services for
         // a panel that is allowed to be absent entirely.
-        const [cond, haz, access, looks, allGauges, nearby, dams, riverReaches] = await Promise.all([
-          fetchCondition(match.id, controller.signal).catch(() => null),
-          settled(fetchHazards(slug, controller.signal)),
-          settled(fetchRiverAccessPoints(slug, controller.signal)),
+        // Hazards, access points, outfitters and reaches are NOT here: they are
+        // the cacheable parts, and useRiverData above owns both fetching them
+        // and saying whether what you are reading came off the network or off
+        // the disk. What is left in this Promise.all is everything that
+        // describes the STATE of the water, which is never served from cache.
+        const [cond, looks, allGauges, dams] = await Promise.all([
+          // Settled rather than caught, because the two failures are different
+          // screens. A THROWN request is "we could not ask", and the last
+          // reading we kept — aged and labelled — beats a blank card at a put-in
+          // with no signal. `available: false` is the server telling us this
+          // river has no reading right now, which is an answer, and answering it
+          // from disk would be re-showing stale water as current.
+          fetchCondition(match.id, controller.signal).then(
+            (c) => ({ condition: c, failed: false }),
+            (err) => ({
+              condition: null,
+              failed: !(err instanceof ApiError && err.message === 'Request cancelled'),
+            }),
+          ),
           // Thin coverage by nature — verified community photos exist for three
           // rivers of twenty-four — so a null here is the ordinary case and the
           // card just does not render.
@@ -296,33 +300,29 @@ export default function RiverDetailScreen() {
           // shared station against this river rather than its neighbour's.
           // Failing just means no picker; the primary reading is unaffected.
           fetchGauges(controller.signal).catch(() => [] as MapGauge[]),
-          // Outfitters and shuttles. Already fetched by the map for its pin
-          // layers; this screen never asked, so the one place someone reads
-          // about a river was the one place that could not tell them who rents
-          // a canoe on it. Degrades like everything else here.
-          fetchRiverServices(slug, controller.signal).catch(() => [] as RiverService[]),
           // The dam controlling this reach, if one does. Ten items, CDN-cached,
           // and already returning [] on failure — so this costs one cheap
           // request to answer a question with no endpoint of its own, rather
           // than adding /api/rivers/[slug]/dam for a panel that is absent on
           // every river but one.
           fetchDams(controller.signal),
-          // The river's hydrologically distinct reaches. Returns [] for every
-          // river without them, so this costs one cheap CDN-cached request to
-          // answer "is the water below the dam the same river?" — which on the
-          // Black it is not.
-          fetchRiverReaches(slug, controller.signal).catch(() => [] as RiverReach[]),
         ]);
-        setCondition(cond);
-        setHazards(haz.items);
-        setHazardsFailed(haz.failed);
-        setAccessPoints(access.items);
-        setAccessFailed(access.failed);
+        if (cond.failed) {
+          const stored = await readConditions();
+          const kept = stored?.payload?.[match.id] ?? null;
+          setCondition(kept);
+          setCachedReadingAgeHours(
+            kept
+              ? effectiveReadingAgeHours(kept.readingAgeHours, stored!.fetchedAt, Date.now())
+              : undefined,
+          );
+        } else {
+          setCondition(cond.condition);
+          setCachedReadingAgeHours(undefined);
+        }
         setVisuals(looks);
         setGauges(gaugesForRiver(allGauges, slug));
-        setServices(nearby);
         setDam(damForRiver(dams, slug));
-        setReaches(riverReaches);
         setError(null);
       } catch (err) {
         if (err instanceof ApiError && err.message === 'Request cancelled') return;
@@ -551,7 +551,26 @@ export default function RiverDetailScreen() {
         : null;
 
   const scaleThresholds = pickedLink ?? condition?.thresholds ?? null;
-  const readingAgeHours = pickedGauge ? pickedGauge.readingAgeHours : condition?.readingAgeHours;
+  const rawReadingAgeHours = pickedGauge ? pickedGauge.readingAgeHours : condition?.readingAgeHours;
+
+  /**
+   * How the reading is allowed to present itself.
+   *
+   * Only a CACHED condition earns a band; a live one keeps the behaviour it has
+   * always had, where a stale gauge is handled by accuracyNote. The picked
+   * gauge is never banded either — it comes from the live statewide fetch, not
+   * from disk.
+   *
+   *   fresh    normal colour, plus an offline glyph on the age line
+   *   stale    grey, and "Last known: Good" instead of "Good - Floatable"
+   *   expired  grey, and the age is not printed at all — past two days the
+   *            number stops being information and becomes decoration
+   */
+  const cachedReading = cachedReadingAgeHours !== undefined && !pickedGauge;
+  const readingAgeHours = cachedReading ? cachedReadingAgeHours : rawReadingAgeHours;
+  const band = cachedReading ? readingBand(cachedReadingAgeHours ?? null) : 'fresh';
+  // A grey chip over a confident label would be the screen arguing with itself.
+  const shownCode = band === 'fresh' ? code : 'unknown';
   const shownGaugeName = pickedGauge ? pickedGauge.name : condition?.gaugeName;
   // The station the chart plots, resolved the same way as the name beside it so
   // the two can never describe different gauges. Null on a river with none.
@@ -631,16 +650,25 @@ export default function RiverDetailScreen() {
         {/* ── Live status ─────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
           <View style={styles.statusHead}>
-            <Otter mood={otterForCondition(code)} size={64} />
+            <Otter mood={otterForCondition(shownCode)} size={64} />
             <View style={styles.statusHeadText}>
               <View
                 style={[
                   styles.conditionChip,
-                  { backgroundColor: conditionBg(code), borderColor: conditionChipBorder(code) },
+                  {
+                    backgroundColor: conditionBg(shownCode),
+                    borderColor: conditionChipBorder(shownCode),
+                  },
                 ]}
               >
-                <Text style={[styles.conditionChipText, { color: conditionInk(code) }]}>
-                  {conditionLongLabel(code)}
+                <Text style={[styles.conditionChipText, { color: conditionInk(shownCode) }]}>
+                  {/* The long label is an instruction — "Do Not Float",
+                      "Floatable" — and an instruction is a claim about right
+                      now. A reading recovered from disk names what was last
+                      seen and stops there. */}
+                  {band === 'fresh'
+                    ? conditionLongLabel(code)
+                    : `Last known: ${conditionShortLabel(code)}`}
                 </Text>
               </View>
               {reading ? (
@@ -672,7 +700,10 @@ export default function RiverDetailScreen() {
           {/* PRIMARY ONLY. The percentile comes from /api/conditions and is
               computed for the river's rated gauge, so printing it under another
               station's reading would attach a statistic to the wrong water. */}
-          {percentileText && !pickedGauge ? (
+          {/* LIVE ONLY, on top of primary-only. The percentile is computed
+              against TODAY's day-of-year, so a cached "lower than most years
+              for late July" read in September is wrong twice over. */}
+          {percentileText && !pickedGauge && !cachedReading ? (
             <View style={[styles.percentileRow, { borderTopColor: colors.border }]}>
               <Text style={[styles.percentileText, { color: colors.text }]}>{percentileText}</Text>
               <Text style={[styles.percentileMeta, { color: colors.textSubtle }]}>
@@ -687,11 +718,19 @@ export default function RiverDetailScreen() {
             </View>
           ) : null}
 
-          {readingAgeHours != null ? (
-            <Text style={[styles.updated, { color: colors.textSubtle }]}>
-              {readingAge(readingAgeHours)}
-              {shownGaugeName ? ` · ${shownGaugeName}` : ''}
-            </Text>
+          {/* Past forty-eight hours the age is not printed at all. "Updated 3
+              days ago" invites arithmetic against water that has rained twice
+              since; the honest form is to stop claiming an age. */}
+          {readingAgeHours != null && band !== 'expired' ? (
+            <View style={styles.updatedRow}>
+              {cachedReading ? (
+                <Ionicons name="cloud-offline-outline" size={12} color={colors.textSubtle} />
+              ) : null}
+              <Text style={[styles.updated, { color: colors.textSubtle }]}>
+                {readingAge(readingAgeHours)}
+                {shownGaugeName ? ` · ${shownGaugeName}` : ''}
+              </Text>
+            </View>
           ) : null}
 
           {caveat ? (
@@ -869,24 +908,30 @@ export default function RiverDetailScreen() {
             low-water dam on it. The header therefore carries the count and a
             dot per critical hazard in its own severity colour — the fold hides
             the detail, not the warning. */}
-        {/* Renders when the load FAILED even with nothing to show. A hidden
-            section reads as "no hazards", which is the false negative that
-            matters most on this screen — and CollapsibleSection's own header
-            already argues a section "has to say what it is hiding". */}
-        {sortedHazards.length > 0 || hazardsFailed ? (
+        {/* Renders when the load produced NOTHING AT ALL — no answer and no
+            cached copy — even though there is nothing to list. A hidden section
+            reads as "no hazards", which is the false negative that matters most
+            on this screen, and CollapsibleSection's own header already argues a
+            section "has to say what it is hiding".
+
+            Note the test is `missing`, not "not live". A river drawn from cache
+            renders as an ordinary river: a hazard we stored three weeks ago is
+            the same hazard, and hedging it would teach people to discount
+            hazard copy. Only having nothing to say earns the notice. */}
+        {sortedHazards.length > 0 || source.hazards === 'missing' ? (
           <CollapsibleSection
             title="Hazards"
-            defaultExpanded={hazardsFailed}
+            defaultExpanded={source.hazards === 'missing'}
             leading={<EddySymbol name="hazard" size={18} />}
             summary={
-              hazardsFailed
+              source.hazards === 'missing'
                 ? 'Could not be loaded'
                 : criticalCount > 0
                   ? `${criticalCount} need${criticalCount === 1 ? 's' : ''} attention · ${sortedHazards.length} total`
                   : `${sortedHazards.length} noted`
             }
             trailing={
-              hazardsFailed ? (
+              source.hazards === 'missing' ? (
                 <Ionicons name="cloud-offline-outline" size={14} color={colors.textMuted} />
               ) : (
               <View style={styles.severityCues}>
@@ -903,7 +948,7 @@ export default function RiverDetailScreen() {
               )
             }
           >
-            {hazardsFailed ? (
+            {source.hazards === 'missing' ? (
               <UnavailableNote
                 text="Hazards unavailable — this river may have hazards that are not shown."
                 onRetry={retry}
@@ -961,7 +1006,7 @@ export default function RiverDetailScreen() {
             section: a missing put-in list is an inconvenience, not a hazard,
             and expanding a section to hold one grey line is noise on an already
             dense screen. */}
-        {accessFailed && accessPoints.length === 0 ? (
+        {source.access === 'missing' ? (
           <UnavailableNote
             text="Access points unavailable — put-ins for this river are not shown."
             onRetry={retry}
@@ -1281,7 +1326,9 @@ const styles = StyleSheet.create({
   percentileRow: { marginTop: 14, paddingTop: 12, borderTopWidth: 1 },
   percentileText: { ...t.sm, fontFamily: fonts.semibold },
   percentileMeta: { ...t.xs, fontFamily: fonts.mono, marginTop: 2 },
-  updated: { ...t.xs, fontFamily: fonts.body, marginTop: 10 },
+  updatedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10 },
+  // marginTop moves to the row so the glyph and the text sit on one baseline.
+  updated: { ...t.xs, fontFamily: fonts.body },
   caveat: {
     flexDirection: 'row',
     alignItems: 'flex-start',
