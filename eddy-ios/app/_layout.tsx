@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { View } from 'react-native';
+import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -25,6 +25,14 @@ import { AlertRulesProvider } from '@/hooks/useAlertRules';
 import { PushProvider } from '@/hooks/usePush';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { UpgradeGate } from '@/components/UpgradeGate';
+import { type as t } from '@/theme/typography';
+import { darkPalette, lightPalette } from '@/theme/palette';
+import { initMonitoring, report, warn } from '@/lib/monitoring';
+
+// FIRST, and at module scope. Sentry has to be installed before anything else
+// in this file runs, or the errors it exists to catch — a provider throwing on
+// mount, a font decode failing — happen while nothing is listening.
+initMonitoring();
 
 // Hold the native splash until the fonts are ready. Without this the app renders
 // a frame in the system font and then reflows when Geist arrives — a visible
@@ -32,6 +40,57 @@ import { UpgradeGate } from '@/components/UpgradeGate';
 // width. Failures are swallowed: a splash that will not hide is a bricked app,
 // so nothing here may throw.
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+/**
+ * The last net. Expo Router renders this instead of the tree when a render
+ * throws anywhere below it.
+ *
+ * Until now the only boundary in the app was GaugeChart's ChartBoundary, so a
+ * throw anywhere else unmounted to a blank screen with no way back — the worst
+ * possible outcome on a phone at a put-in, and invisible to us besides.
+ *
+ * ── It reads the palette directly, and that is the point ────────────────────
+ * Expo Router mounts this ABOVE RootLayout, so ThemeProvider does not exist
+ * here — and must not, because a provider throwing on mount is one of the
+ * things this catches. useColorScheme comes from React Native itself and cannot
+ * fail for the same reason the tree did. Same instinct as the splash-screen
+ * calls above: nothing on this path may throw.
+ *
+ * It also cannot use the brand typeface: a font that failed to decode is
+ * another reason to be here. System font, deliberately.
+ *
+ * WHAT IT DOES NOT CATCH: async rejections, event handlers and native crashes.
+ * Those reach Sentry's own global handlers, which is the other half of the
+ * coverage and why initMonitoring() runs above.
+ */
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => Promise<void> }) {
+  const scheme = useColorScheme();
+  const colors = scheme === 'dark' ? darkPalette : lightPalette;
+
+  useEffect(() => {
+    report(error, { boundary: 'root' });
+  }, [error]);
+
+  return (
+    <View style={[boundaryStyles.screen, { backgroundColor: colors.bg }]}>
+      <Text style={[boundaryStyles.title, { color: colors.text }]}>Eddy hit a snag</Text>
+      {/* No stack, no error message. Neither is actionable by the person
+          holding the phone, and the message can carry anything the throw was
+          near — Sentry already has the detail, redacted. */}
+      <Text style={[boundaryStyles.body, { color: colors.textMuted }]}>
+        Something on this screen stopped working. Nothing you saved is affected.
+      </Text>
+      <Pressable
+        onPress={() => void retry()}
+        accessibilityRole="button"
+        style={({ pressed }) => [boundaryStyles.retry, { opacity: pressed ? 0.6 : 1 }]}
+      >
+        <Text style={[boundaryStyles.retryText, { color: colors.interactive }]}>Try again</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 
 // Remote config loads once here and wraps everything, so the version gate and
 // feature flags have a single home. Both fail open — see useAppConfig.
@@ -61,7 +120,7 @@ export default function RootLayout() {
   const ready = fontsLoaded || Boolean(fontError);
 
   useEffect(() => {
-    if (fontError) console.warn('[fonts] failed to load, falling back to system', fontError);
+    if (fontError) warn('fonts', 'failed to load, falling back to system', fontError);
   }, [fontError]);
 
   if (!ready) return null;
@@ -121,3 +180,11 @@ function ThemedShell() {
     </View>
   );
 }
+
+const boundaryStyles = StyleSheet.create({
+  screen: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+  title: { ...t.xl, fontWeight: '700', textAlign: 'center' },
+  body: { ...t.sm, textAlign: 'center', marginTop: 10 },
+  retry: { marginTop: 24, paddingVertical: 8, paddingHorizontal: 12 },
+  retryText: { ...t.base, fontWeight: '600' },
+});

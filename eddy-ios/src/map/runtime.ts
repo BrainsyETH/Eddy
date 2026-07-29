@@ -12,6 +12,7 @@
 // Everything that touches Mapbox must go through loadMapbox().
 
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { warn } from '@/lib/monitoring';
 
 /**
  * The public access token, inlined by Metro at bundle time.
@@ -74,7 +75,7 @@ export function loadMapbox(): MapboxModule | null {
     cached = Mapbox;
     return Mapbox;
   } catch (err) {
-    console.warn('[map] Mapbox failed to load', err);
+    warn('map', 'Mapbox failed to load', err);
     loadFailed = true;
     return null;
   }

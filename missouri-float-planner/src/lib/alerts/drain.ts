@@ -1,5 +1,6 @@
 // src/lib/alerts/drain.ts
-// Decides which outbox events are FINISHED and which get another pass.
+// Decides which outbox events are FINISHED and which get another pass, and
+// which one-shot subscriptions were actually spent doing it.
 //
 // Same arrangement as fanout.ts and for the same reason: the delivery cron does
 // the querying and sending, this module owns the policy, so the rules can be
@@ -77,4 +78,41 @@ export function planDrain(input: DrainInput): DrainPlan {
   }
 
   return { delivered, retryByNextAttempt, givenUp };
+}
+
+/**
+ * Which one-shot subscriptions to stamp `fired_at` on.
+ *
+ * `candidates` is fanout's `oneShotSubscriptionIds` — the one-shots this pass
+ * planned messages FOR, which is not the same as spent. The cron used to treat
+ * the two as identical and stamped every candidate regardless of outcome, and
+ * that is a worse bug than the event-level one planDrain was written to fix,
+ * because it compounds rather than merely losing a push:
+ *
+ *   1. Every send fails, but fired_at is stamped anyway.
+ *   2. planDrain does its job and schedules the event for another pass.
+ *   3. On that pass, fanout skips the subscription as `one_shot_spent`, so the
+ *      event has nothing planned — and "nothing planned" is exactly the state
+ *      planDrain reads as finished, above.
+ *
+ * The retry cancels itself, the event drains without ever reaching a device,
+ * and it does not even land in `givenUp`. A user's single notification about a
+ * river is consumed by a transient Expo error nobody can see.
+ *
+ * One success is enough, matching the partial-delivery rule above: a
+ * subscription fans out to every device its owner has registered, and reaching
+ * one of them has reached the person.
+ *
+ * There is no attempts budget here and deliberately no equivalent of `givenUp`.
+ * `alert_subscriptions` carries no attempts column, and an undelivered one-shot
+ * simply stays armed — bounded by the event's own MAX_ATTEMPTS, since once the
+ * event drains there is nothing left to match it. Staying armed is the safe
+ * direction: the cost is at worst one duplicate push, against a user who
+ * otherwise never hears about their river at all.
+ */
+export function spentOneShots(
+  candidates: readonly string[],
+  successBySubscription: Map<string, number>
+): string[] {
+  return candidates.filter((id) => (successBySubscription.get(id) ?? 0) > 0);
 }

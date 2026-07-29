@@ -26,6 +26,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { updateDisplayName } from '@/api/client';
+import { warn } from '@/lib/monitoring';
 
 interface SessionValue {
   session: Session | null;
@@ -104,7 +105,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           // Supabase dashboard, which returns 422 anonymous_provider_disabled.
           // That is a configuration state, not a bug, and the app carries on
           // local-only — so this is a warning, never a user-visible error.
-          console.warn('[auth] anonymous sign-in unavailable:', error.message);
+          warn('auth', 'anonymous sign-in unavailable', error.message);
           setUnavailable(true);
           return;
         }
@@ -112,7 +113,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         // Offline on first launch lands here. Not terminal: the next launch
         // with signal will try again.
-        console.warn('[auth] could not establish a session', err);
+        warn('auth', 'could not establish a session', err);
         setUnavailable(true);
       } finally {
         signingIn.current = false;
@@ -176,6 +177,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       throw new Error('Apple did not return a sign-in token. Please try again.');
     }
 
+    // Read the OUTGOING identity from supabase rather than from a closure —
+    // this callback has no deps and would otherwise capture a stale session.
+    const { data: before } = await supabase.auth.getSession();
+    const previousId = before.session?.user?.id ?? null;
+    const previousWasAnonymous = before.session?.user?.is_anonymous ?? null;
+
     const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'apple',
       token: credential.identityToken,
@@ -183,6 +190,34 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     if (error) throw new Error(error.message);
     if (data.session) setSession(data.session);
+
+    // ── Does the upgrade actually preserve the user id? ──────────────────
+    //
+    // The docblock above asserts it does, and three separate things are built
+    // on that assertion: the stars story here, RevenueCat's appUserID in
+    // purchases.ts, and push identity in usePush. Nothing anywhere verifies it,
+    // so this makes the assumption observable instead of assumed. It is
+    // instrumentation, not a fix — there is nothing to repair unless it fires.
+    //
+    // A MISMATCH IS NOT AUTOMATICALLY A BUG, which is why this reports rather
+    // than throws. On reinstall the app mints a fresh anonymous user, and
+    // signing in with an Apple ID that already has an account correctly returns
+    // THAT account — a different id and the right answer. The case that would
+    // matter is a FIRST conversion, where an anonymous user with accumulated
+    // state signs in and Supabase mints a new user instead of linking; the
+    // remedy there is Supabase's documented linkIdentity() flow, and it would
+    // be a P0 before any purchase ships.
+    //
+    // The two are told apart by whether the abandoned id had server-side rows,
+    // which only the backend can answer — hence both ids in the report.
+    const nextId = data.session?.user?.id ?? null;
+    if (previousId && nextId && previousId !== nextId) {
+      warn('auth', 'Apple sign-in changed the user id', {
+        previousId,
+        nextId,
+        previousWasAnonymous,
+      });
+    }
 
     // Apple sends the real name EXACTLY ONCE, on the very first authorisation
     // for this Apple ID, and never again — not on re-install, not on

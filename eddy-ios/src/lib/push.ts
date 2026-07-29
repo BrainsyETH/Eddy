@@ -23,6 +23,7 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { registerDeviceToken, unregisterDeviceToken } from '@/api/client';
+import { warn } from '@/lib/monitoring';
 
 /**
  * Show notifications while the app is FOREGROUNDED.
@@ -98,7 +99,7 @@ export async function getExpoPushToken(): Promise<string | null> {
     (Constants as { easConfig?: { projectId?: string } }).easConfig?.projectId;
 
   if (!projectId) {
-    console.warn('[push] no EAS projectId — cannot request a push token');
+    warn('push', 'no EAS projectId — cannot request a push token');
     return null;
   }
 
@@ -108,7 +109,7 @@ export async function getExpoPushToken(): Promise<string | null> {
   } catch (err) {
     // A device with no network, or APNs entitlement missing from the build.
     // Non-fatal: alerts are a feature, not a precondition for running.
-    console.warn('[push] could not obtain a token', err);
+    warn('push', 'could not obtain a token', err);
     return null;
   }
 }

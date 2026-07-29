@@ -174,6 +174,97 @@ export function riverSlugFromRegionId(id: string): string | null {
 }
 
 /**
+ * The metadata every pack carries, in one place so the writer and the reader
+ * cannot drift.
+ *
+ * `regionCount` is what makes a pack SELF-DESCRIBING: the hook that reads packs
+ * back only sees Mapbox's list and has no river geometry to re-plan from, so
+ * without this it cannot know that a river should have had ten packs and has
+ * four. Writing createPack metadata without it silently disables the whole
+ * completeness check, with no other symptom.
+ */
+export function packMetadata(
+  plan: OfflinePlan,
+  region: OfflineRegion,
+): { riverSlug: string; riverName: string; tileCount: number; regionCount: number } {
+  return {
+    riverSlug: plan.riverSlug,
+    riverName: plan.riverName,
+    tileCount: region.tileCount,
+    regionCount: plan.regions.length,
+  };
+}
+
+/**
+ * Read `regionCount` back off a pack. 0 when unknown.
+ *
+ * Coerced rather than trusted because the native bridge stringifies metadata —
+ * the same reason the caller already does `Number(...)` on `tileCount`.
+ */
+export function expectedRegionsFromMetadata(metadata: unknown): number {
+  const raw = (metadata as { regionCount?: unknown } | null | undefined)?.regionCount;
+  const n = Math.floor(Number(raw));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** What is on disk for one river, read back from Mapbox's own pack list. */
+export interface RiverPackTally {
+  riverSlug: string;
+  /** Packs found whose name parses to this river. */
+  regionCount: number;
+  /** Regions the download was planned for, from pack metadata. 0 = unknown. */
+  expectedRegions: number;
+  /** Packs whose status() answered, and answered "not finished". */
+  unfinishedRegions: number;
+  /**
+   * Completed tiles. For the BUDGET only, and deliberately over-counting.
+   * Explicitly NOT part of the completeness question — see offlineCompleteness.
+   */
+  tileCount: number;
+}
+
+export type OfflineCompleteness = 'absent' | 'partial' | 'complete';
+
+/**
+ * Is this river actually saved?
+ *
+ * ── Why this does NOT compare tile counts ───────────────────────────────────
+ * The obvious predicate is `sum(completedTileCount) >= plan.tileCount`, and it
+ * is wrong in both directions.
+ *
+ * It reads HIGH on a broken river: when `status()` throws — which it does for a
+ * region still being written — the caller substitutes `metadata.tileCount`, the
+ * PLANNED count. So a river whose regions are all half-written can sum to
+ * exactly the plan total.
+ *
+ * It reads LOW on a healthy one: `plan.tileCount` is a plain sum over corridor
+ * boxes with no dedupe of overlapping tiles, while Mapbox stores each tile once,
+ * so a genuinely complete river legitimately lands under its own estimate.
+ *
+ * Counting packs is the only signal neither failure corrupts. Downloads run one
+ * region at a time, so an interrupted one leaves a clean PREFIX — fewer packs
+ * than planned, each individually finished — which is exactly what a count sees
+ * and a percentage does not.
+ */
+export function offlineCompleteness(
+  tally: RiverPackTally | undefined,
+  plannedRegions?: number,
+): OfflineCompleteness {
+  if (!tally || tally.regionCount <= 0) return 'absent';
+
+  const expected = tally.expectedRegions || plannedRegions || 0;
+  if (expected > 0 && tally.regionCount < expected) return 'partial';
+
+  // Catches the one case counting misses: the LAST region dying mid-write, where
+  // the count is right and the data is not.
+  if (tally.unfinishedRegions > 0) return 'partial';
+
+  // No expectation to test against — an unknown must not invent a hole and nag
+  // someone to repair a river that is fine.
+  return 'complete';
+}
+
+/**
  * Progress across a multi-region download.
  *
  * Mapbox reports percentage per region, so a plain average would let a tiny

@@ -687,7 +687,7 @@ splash and tinted assets keep their alpha (the OS composites those itself).
 | Map | **live** in a dev build — search, layer filters, the float plan flow, premium-gated offline packs |
 | Search | **live** against `/api/rivers`, with local search and condition filters |
 | Alerts | **live** against `/api/alerts` |
-| Favorites | **live**, local-first via AsyncStorage; server sync pending |
+| Favorites | **live**, local-first via AsyncStorage, reconciled with the server on sign-in (`useStarredRivers`) |
 | Profile | **live** — Sign in with Apple, subscription state, Restore Purchases, account deletion |
 
 Remote config and the forced-upgrade gate are wired (`/api/app-config`), and both
