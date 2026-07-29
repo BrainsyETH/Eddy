@@ -75,6 +75,25 @@ function scrubEvent<T extends { message?: unknown; extra?: unknown }>(event: T):
  * this file a no-op, so the app behaves identically and this can merge dark.
  */
 export function initMonitoring(): void {
+  // NEVER THROWS, and that is load-bearing rather than defensive.
+  //
+  // This is called at MODULE SCOPE in app/_layout.tsx, above
+  // SplashScreen.preventAutoHideAsync(). A throw there is not an error the app
+  // recovers from and reports — it stops the module evaluating, so React never
+  // mounts, ThemedShell never lays out, hideAsync is never called, and the app
+  // sits on the splash screen forever with no way out and nothing to read.
+  //
+  // Sentry.init touches a native module, which is precisely the class of thing
+  // that fails on a fresh binary. So the crash reporter is not permitted to be
+  // the reason there are no crash reports.
+  try {
+    initSentry();
+  } catch (err) {
+    console.warn('[monitoring] Sentry failed to initialise; continuing without it', err);
+  }
+}
+
+function initSentry(): void {
   Sentry.init({
     dsn: DSN,
     enabled: monitoringEnabled,
