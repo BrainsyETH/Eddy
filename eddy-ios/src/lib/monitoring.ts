@@ -30,6 +30,11 @@
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { isContextBag, redactContext, redactText, redactValue } from '@/lib/redact';
+import {
+  createReportBudget,
+  fingerprintOf,
+  shouldReport,
+} from '@/lib/report-budget';
 
 /**
  * Build-time, deliberately.
@@ -44,6 +49,16 @@ export const monitoringEnabled = Boolean(DSN);
 
 /** Subsystem tags already in use across the app's console.warn calls. */
 export type LogTag = 'fonts' | 'push' | 'map' | 'auth' | 'stars' | 'chart' | 'cache';
+
+/**
+ * Throttling state for warn(), for the life of the process.
+ *
+ * Module-level rather than per-call because a budget that resets on every call
+ * is not a budget. It is deliberately NOT persisted: a fresh launch is a fresh
+ * five minutes, which is the behaviour you want when someone force-quits after
+ * hitting a bug and reopens to try again.
+ */
+const budget = createReportBudget();
 
 function scrubEvent<T extends { message?: unknown; extra?: unknown }>(event: T): T {
   if (typeof event.message === 'string') event.message = redactText(event.message);
@@ -93,9 +108,15 @@ export function initMonitoring(): void {
  * "no signal at the put-in" reports.
  */
 export function warn(tag: LogTag, message: string, detail?: unknown): void {
+  // The console line is NOT throttled. In development it is the only signal
+  // there is, and it costs nothing.
   console.warn(`[${tag}] ${message}`, detail ?? '');
 
   if (!monitoringEnabled) return;
+  // Every warn() call site is a repeatable condition — see report-budget.ts.
+  // Unthrottled, one misconfigured build exhausts a month of quota in a day and
+  // the real crashes are dropped by the server after that.
+  if (!shouldReport(budget, fingerprintOf(tag, message), Date.now())) return;
 
   Sentry.withScope((scope) => {
     scope.setTag('subsystem', tag);
@@ -134,6 +155,11 @@ function attachDetail(scope: Sentry.Scope, detail: unknown): void {
  *
  * Used by the root error boundary and by anything that catches something it
  * did not anticipate. Context values are redacted; keys are not.
+ *
+ * NOT THROTTLED, unlike warn(). An unhandled throw is rare, unrepeatable within
+ * a session — the boundary has already replaced the screen — and the single
+ * most valuable thing this system delivers. Budgeting it would spend the quota
+ * on the noise and drop the signal.
  */
 export function report(error: unknown, context?: Record<string, unknown>): void {
   if (!monitoringEnabled) return;
