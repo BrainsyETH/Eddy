@@ -36,6 +36,7 @@ function sub(overrides: Partial<GaugeAlertSubscription> = {}): GaugeAlertSubscri
     last_value: 2.5,
     last_reading_at: '2026-07-28T16:45:00Z',
     last_triggered_at: null,
+    one_shot_fired_at: null,
     last_condition_code: null,
     ...overrides,
   };
@@ -161,12 +162,39 @@ test('a between rule re-arms off either end, with a band sized per end', () => {
 // ── suppression ──────────────────────────────────────────────────
 
 test('a spent one-shot stays spent, but still tracks the river', () => {
-  const result = evaluate(sub({ one_shot: true, last_triggered_at: '2026-01-01T00:00:00Z' }));
+  const result = evaluate(sub({ one_shot: true, one_shot_fired_at: '2026-01-01T00:00:00Z' }));
   assert.equal(result.fired, null);
   assert.equal(result.skip, 'one_shot_spent');
   // The state must still advance. A suppressed rule that stopped tracking would
   // come out of its silence still believing the water was where it left it.
   assert.equal(result.state?.last_state, 'inside');
+});
+
+test('a one-shot whose push never landed is still armed', () => {
+  // THE regression. last_triggered_at is stamped HERE, at evaluation, two crons
+  // before anything is delivered — so reading it as the spend meant a rule was
+  // consumed by a notification that failed every attempt or was dropped by
+  // quiet hours. The user's single shot at "tell me when the Current comes
+  // down" was burned by a push they never saw, with nothing to show it had
+  // happened. Only delivery spends a one-shot now.
+  //
+  // last_triggered_at is set here to a time outside the cooldown so that this
+  // asserts the one-shot rule specifically and not the cooldown.
+  const longAgo = '2020-01-01T00:00:00Z';
+  const result = evaluate(
+    sub({ one_shot: true, last_triggered_at: longAgo, one_shot_fired_at: null }),
+  );
+  assert.equal(result.skip, null);
+  assert.ok(result.fired, 'an undelivered one-shot must be free to fire again');
+});
+
+test('evaluation still stamps last_triggered_at, because the cooldown depends on it', () => {
+  // Moving this stamp to delivery would delay the cooldown by two crons, and a
+  // gauge sitting on a threshold could re-fire before its first push landed —
+  // turning a missed notification into a duplicate storm.
+  const result = evaluate(sub({ one_shot: true }));
+  assert.ok(result.fired);
+  assert.ok(result.state?.last_triggered_at, 'the cooldown clock must start at evaluation');
 });
 
 test('the per-rule cooldown suppresses a second crossing', () => {

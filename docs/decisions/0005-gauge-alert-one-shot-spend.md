@@ -1,20 +1,21 @@
 # 0005 — When a gauge alert's one shot is spent
 
-Status: **open — decision required** · 2026-07
+Status: **accepted — implemented** · 2026-07
 
-A gauge alert rule marked one-shot is spent at **evaluation** time, two crons
-before delivery, so a rule can be consumed by an event that is never delivered.
-This records the options and their costs. It is deliberately not a code change:
-the column involved is triple-duty, and the obvious fix corrupts two of its
-three jobs.
+A gauge alert rule marked one-shot **was** spent at evaluation time, two crons
+before delivery, so a rule could be consumed by an event that was never
+delivered. **Option B below was chosen and implemented** in migration
+`00212_gauge_alert_one_shot_fired_at.sql`; this record keeps the options and
+their costs, because the two rejected ones are the shapes a future reader will
+reach for first.
 
-## The behaviour today
+## The behaviour that was wrong
 
-`gauge_alert_subscriptions.last_triggered_at` is stamped in
+`gauge_alert_subscriptions.last_triggered_at` was the sole spend, and is stamped in
 [`src/lib/alerts/gauge-threshold.ts`](../../missouri-float-planner/src/lib/alerts/gauge-threshold.ts)
 (lines 445 and 481) at the moment the rule's condition is found to be met and
 its event is written to the outbox. Delivery happens two crons later. If every
-send then fails, or the event is dropped by quiet hours, the rule is still
+send then failed, or the event was dropped by quiet hours, the rule was still
 spent — the user's one shot at "tell me when the Current comes down" is burned
 by something they never saw.
 
@@ -62,20 +63,46 @@ cooldown would not start until delivery completes, so a rule could re-evaluate
 and re-fire before its first push lands. That turns a missed notification into a
 duplicate storm, which is the worse direction to fail.
 
-## Recommendation
+## Decision: B
 
-**B**, with the new column nullable and the one-shot check reading it alone. The
-"two columns that must agree" objection is about columns that duplicate a fact;
-these record two different events, and the confusion the objection anticipates is
-addressable by naming — `last_triggered_at` is "last evaluated true",
-`one_shot_fired_at` is "delivered at least once".
+`one_shot_fired_at` is nullable and the one-shot check reads it alone.
+`last_triggered_at` keeps all three of its previous jobs except the spend, so
+the cooldown still starts at evaluation.
 
-Not scheduled. It needs a migration, a change to the fan-out skip rule at
-`fanout.ts:220`, and regression coverage in `drain.test.ts` proving a failed send
-leaves a one-shot armed.
+The "two columns that must agree" objection does not apply, because these two do
+not record the same fact and are not required to agree: `last_triggered_at` is
+"last evaluated true", `one_shot_fired_at` is "reached a device". A rule with the
+first set and the second null is not an inconsistency — it is precisely the state
+the old schema could not express, and the bug.
+
+### What changed
+
+| File | Change |
+|---|---|
+| `00212_…sql` | the column, a backfill, and a partial index |
+| `gauge-threshold.ts` | the spend check reads `one_shot_fired_at`; the `last_triggered_at` stamp is untouched |
+| `gauge-delivery.ts` | tallies success per subscription and stamps `one_shot_fired_at` for delivered one-shots, reusing `spentOneShots()` from the river path |
+| `rule-serialize.ts` | `firedAt` now means delivered, so a rule the app shows as fired is exactly a rule that will not fire again |
+| `me/gauge-alerts/[id]` | re-arm clears both columns |
+
+**The backfill is the part worth remembering.** Without it every already-spent
+one-shot re-arms on deploy and fires at the next true evaluation — a
+notification storm caused by a bug fix, aimed at the people who asked to be told
+once. Existing `last_triggered_at` values are copied across, which may spend a
+rule whose push never landed; that is the behaviour those users already have,
+and the conservative direction.
+
+### Not done
+
+`gauge_alert_events` still has no per-item attempt count, so `planDrain` is used
+for events and the two-state rule above for subscriptions. Leaving an undelivered
+one-shot armed is safe because the event-level `MAX_ATTEMPTS` already bounds the
+retry window — the same reasoning the river path uses.
 
 ## Revisit when
 
-Any of: a user reports a gauge alert that never arrived and cannot be re-armed;
-gauge alerting moves out of internal testing; or the river-alert one-shot rule in
-`spentOneShots()` is next touched, since the two should end up shaped alike.
+The river and gauge one-shot paths are next touched together. They now agree on
+the rule (delivery spends, at-least-one-success counts) but not on the mechanism
+— the river path stamps `fired_at` on `alert_subscriptions`, this one stamps a
+second column. That is fine, and worth collapsing only if a third alert source
+appears.

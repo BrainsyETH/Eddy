@@ -48,6 +48,7 @@ export interface GaugeAlertRow {
   enabled: boolean;
   one_shot: boolean;
   last_triggered_at: string | null;
+  one_shot_fired_at: string | null;
   created_at: string;
   rivers?: RiverEmbed | RiverEmbed[] | null;
   gauge_stations?: StationEmbed | StationEmbed[] | null;
@@ -56,7 +57,8 @@ export interface GaugeAlertRow {
 /** The columns every gauge-alert read needs. Keep the routes using one list. */
 export const GAUGE_ALERT_SELECT =
   'id, river_id, gauge_station_id, scope, mode, condition_kind, metric, comparator, ' +
-  'threshold_value, threshold_value_max, enabled, one_shot, last_triggered_at, created_at, ' +
+  'threshold_value, threshold_value_max, enabled, one_shot, last_triggered_at, ' +
+  'one_shot_fired_at, created_at, ' +
   'rivers(name, slug), gauge_stations!inner(name, usgs_site_id, site_id_external, curated)';
 
 export function toGaugeRule(row: GaugeAlertRow): AlertRule {
@@ -85,11 +87,15 @@ export function toGaugeRule(row: GaugeAlertRow): AlertRule {
     thresholdValueMax: num(row.threshold_value_max),
     enabled: row.enabled,
     oneShot: row.one_shot,
-    // This table has no fired_at: a spent one-shot IS one with a
-    // last_triggered_at, and carrying two columns that must agree is how they
-    // stop agreeing. The wire format keeps both so a client can treat every
-    // rule alike.
-    firedAt: row.one_shot ? row.last_triggered_at : null,
+    // firedAt means DELIVERED, which is also what spends the rule — so a rule
+    // the app shows as fired is exactly a rule that will not fire again.
+    // Reading last_triggered_at here showed "fired" for a rule whose push never
+    // landed and which was, correctly, still armed.
+    //
+    // Two columns rather than one, against this file's own earlier argument,
+    // because they record different facts: last_triggered_at is "evaluated
+    // true" and owns the cooldown, one_shot_fired_at is "reached a device".
+    firedAt: row.one_shot ? row.one_shot_fired_at : null,
     lastTriggeredAt: row.last_triggered_at,
     createdAt: row.created_at,
   };

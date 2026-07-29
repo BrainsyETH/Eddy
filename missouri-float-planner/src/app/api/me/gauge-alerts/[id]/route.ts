@@ -125,7 +125,14 @@ export async function PATCH(
     // Re-arming clears the spend, and with it the cooldown — the user has just
     // said they want this again, which outranks a timer meant to protect them
     // from a flapping gauge.
-    if (body.rearm) update.last_triggered_at = null;
+    // BOTH: one_shot_fired_at is what spends the rule, last_triggered_at is
+    // what holds the cooldown. Clearing only one leaves the rule either armed
+    // but suppressed, or spent but un-suppressed — neither is "I want this
+    // again".
+    if (body.rearm) {
+      update.last_triggered_at = null;
+      update.one_shot_fired_at = null;
+    }
 
     if (Object.keys(update).length === 0) {
       return jsonPrivate({ error: 'Nothing to update' }, { status: 400 });
