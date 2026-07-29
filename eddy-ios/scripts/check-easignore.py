@@ -49,6 +49,35 @@ REQUIRED = [
 FORBIDDEN_SUFFIXES = (".env",)
 FORBIDDEN_PARTS = ("remotion", "node_modules", ".git/")
 
+# Paths that must be DENIED by .easignore whether or not they exist here.
+#
+# This list is the one that would have caught the 1.8 GB upload. Every other
+# check in this file walks `git ls-files`, so it can only ever see TRACKED
+# paths — and the things that blow up an archive are generated and therefore
+# untracked. A machine that has never run `expo run:ios` has no eddy-ios/ios/
+# to notice, so the check passed here and the build failed on the worker.
+#
+# Testing the RULE instead of the filesystem is what makes that impossible:
+# these are hypothetical paths, matched against the patterns directly.
+MUST_BE_IGNORED = [
+    # Generated native projects. EAS runs prebuild itself and needs the config,
+    # never the output — and a stale one is preferred over the one the worker
+    # would generate, so it fails naming a Swift module rather than an upload.
+    "eddy-ios/ios/Podfile",
+    "eddy-ios/ios/Pods/boost/boost/version.hpp",
+    "eddy-ios/ios/build/ModuleCache.noindex/1FY9/SwiftShims-ABC.pcm",
+    "eddy-ios/android/gradlew",
+    "eddy-ios/android/app/build/outputs/apk/app.apk",
+    # Secrets. .gitignore is not consulted once this file exists, so these are
+    # uploaded unless denied HERE.
+    "eddy-ios/.env",
+    "eddy-ios/.env.local",
+    "missouri-float-planner/.env.local",
+    # Local Expo state.
+    "eddy-ios/.expo/devices.json",
+    "eddy-ios/dist/index.js",
+]
+
 
 def load_patterns() -> list[str]:
     text = (ROOT / ".easignore").read_text()
@@ -117,6 +146,11 @@ def main() -> None:
     for path in uploaded:
         if path.endswith(FORBIDDEN_SUFFIXES) or any(p in path for p in FORBIDDEN_PARTS):
             failures.append(f"UNEXPECTED in archive: {path}")
+
+    # The rule, not the filesystem — see MUST_BE_IGNORED.
+    for path in MUST_BE_IGNORED:
+        if not ignored(path, patterns):
+            failures.append(f"WOULD BE UPLOADED (must be denied): {path}")
 
     roots = sorted({p.split("/")[0] for p in uploaded})
     print(f"top-level entries: {', '.join(roots)}")

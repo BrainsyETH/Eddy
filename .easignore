@@ -47,3 +47,23 @@
 .env.*
 .expo/
 dist/
+
+# THE GENERATED NATIVE PROJECTS. These are gitignored (eddy-ios/.gitignore:7-8)
+# and that counts for nothing here, which is the whole trap this file's header
+# describes — and it bit for real.
+#
+# Anyone who has run `npx expo run:ios` or `expo prebuild` has an ios/ directory
+# holding Pods, DerivedData and a module cache. Uploading it took the archive
+# from 7 MB to 1.8 GB, and the build then failed on the worker with:
+#
+#     precompiled file '.../ModuleCache.noindex/...SwiftShims....pcm' was
+#     compiled with module cache path '/Users/<someone>/Eddy/eddy-ios/ios/...'
+#     but the path is currently '/Users/expo/workingdir/build/eddy-ios/ios/...'
+#     missing required module 'SwiftShims'
+#
+# EAS runs prebuild itself, so it needs the CONFIG, never the output. A stale
+# native project in the archive does not merely waste bandwidth — it is picked
+# up in preference to the one the worker would have generated, so the build
+# fails in a way that names a Swift module rather than an upload mistake.
+ios/
+android/

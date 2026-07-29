@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -42,6 +42,37 @@ initMonitoring();
 // width. Failures are swallowed: a splash that will not hide is a bricked app,
 // so nothing here may throw.
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+/**
+ * ABSOLUTE BACKSTOP against a splash screen that never lifts.
+ *
+ * ThemedShell's onLayout is the intended moment to hide it, and it is the right
+ * one — the splash lifts onto a painted, correctly-themed screen rather than a
+ * blank one. But ThemedShell sits under SEVEN providers, and any of them
+ * failing to render children means it never mounts, onLayout never fires, and
+ * hideAsync is never called. So the app's most catastrophic failure mode — a
+ * launch that goes nowhere, with nothing on screen to read and no way out — has
+ * seven separate causes, none of which announce themselves.
+ *
+ * This runs at module scope, outside React entirely, so no render failure can
+ * prevent it. The worst it can do on a healthy launch is nothing: by then the
+ * splash is long gone and hideAsync is a no-op.
+ *
+ * It turns a bricked app into a degraded one, which is the whole difference —
+ * a degraded app can show an error boundary, and it can report to Sentry.
+ */
+const SPLASH_BACKSTOP_MS = 8_000;
+setTimeout(() => {
+  SplashScreen.hideAsync().catch(() => {});
+}, SPLASH_BACKSTOP_MS);
+
+/**
+ * How long the splash may wait on the brand typeface before giving up.
+ *
+ * Generous — the fonts are bundled in the binary, so a healthy launch resolves
+ * far inside this and never sees it. It exists for the unhealthy one.
+ */
+const FONT_TIMEOUT_MS = 5_000;
 
 // Drop cache entries from a previous CACHE_VERSION. Fire and forget at module
 // scope: it touches nothing any screen reads this launch, and a cache sweep
@@ -128,14 +159,43 @@ export default function RootLayout() {
     GeistMono_500Medium,
   });
 
+  /**
+   * A floor under the font wait, because `ready` gates the ENTIRE app.
+   *
+   * useFonts settles as loaded or errored, and the line below proceeds on
+   * either — but "or neither" is a third outcome nothing was handling. If it
+   * never settles, `ready` stays false, this component returns null forever,
+   * ThemedShell never mounts, and ThemedShell is what calls hideAsync. The app
+   * sits on the splash screen with no way out.
+   *
+   * That is a hang caused by a decorative asset, which is the wrong trade in
+   * every direction. The comment below already argues the system font is a
+   * perfectly usable fallback; this makes that true when the answer never
+   * arrives, not only when it arrives as an error.
+   */
+  const [fontWaitElapsed, setFontWaitElapsed] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setFontWaitElapsed(true), FONT_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Proceed on error as well as success. A font that fails to decode should cost
   // us the brand typeface, not the whole app — the system font is a perfectly
   // usable fallback and nobody is stuck on a splash screen.
-  const ready = fontsLoaded || Boolean(fontError);
+  const ready = fontsLoaded || Boolean(fontError) || fontWaitElapsed;
 
   useEffect(() => {
     if (fontError) warn('fonts', 'failed to load, falling back to system', fontError);
   }, [fontError]);
+
+  useEffect(() => {
+    if (fontWaitElapsed && !fontsLoaded && !fontError) {
+      // Worth reporting: the fonts are bundled locally, so this should be
+      // instant. Taking the timeout means something is wrong with asset
+      // loading, and without this the only symptom is an app that looks slow.
+      warn('fonts', 'still not settled after the timeout; using the system font');
+    }
+  }, [fontWaitElapsed, fontsLoaded, fontError]);
 
   if (!ready) return null;
 

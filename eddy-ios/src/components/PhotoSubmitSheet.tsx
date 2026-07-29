@@ -45,12 +45,57 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
+import type * as ImagePicker from 'expo-image-picker';
+import type * as ImageManipulator from 'expo-image-manipulator';
 import type { MapAccessPoint } from '@eddy/types';
 import { ApiError, submitRiverVisual, uploadCommunityPhoto } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+
+/**
+ * The camera and the image compressor, behind a lazy require.
+ *
+ * THE TYPES ARE IMPORTED STATICALLY, THE MODULES ARE NOT, and the difference is
+ * the whole point: `import type` is erased at compile time, so it costs nothing
+ * at runtime, while a value import of a native module RUNS on import and throws
+ * if the native side is missing.
+ *
+ * That throw is not local to this file. This sheet is imported at module scope
+ * by app/river/[slug].tsx, and expo-router eagerly requires every route file at
+ * startup to build the navigation tree — so a missing ExponentImagePicker
+ * happened during app INITIALISATION, before React rendered anything. The
+ * symptom was an app that sat on the splash screen forever with nothing to
+ * read, which is the worst failure this app has and the hardest to attribute.
+ *
+ * Two other native modules in this app already do it this way and say why:
+ * src/map/runtime.ts for @rnmapbox/maps and src/lib/purchases.ts for
+ * react-native-purchases. Both headers make the same argument — a native module
+ * that cannot load must cost you ITS feature, never the app.
+ *
+ * Returns null rather than throwing, so the caller renders an explanation.
+ */
+function loadImagePicker(): typeof ImagePicker | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('expo-image-picker');
+  } catch {
+    return null;
+  }
+}
+
+function loadImageManipulator(): typeof ImageManipulator | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('expo-image-manipulator');
+  } catch {
+    return null;
+  }
+}
+
+/** True when this build can actually take and prepare a photo. */
+export function photoCaptureAvailable(): boolean {
+  return loadImagePicker() !== null && loadImageManipulator() !== null;
+}
 
 /**
  * Vercel rejects a request body over 4.5 MB, so anything near it is re-encoded
@@ -91,10 +136,16 @@ function exifDate(exif: Record<string, unknown> | undefined | null): string | nu
 /** Re-encode when the file is near the body limit; pass it through otherwise. */
 async function prepareUpload(asset: ImagePicker.ImagePickerAsset): Promise<string> {
   if ((asset.fileSize ?? 0) <= UPLOAD_SAFE_BYTES) return asset.uri;
-  const result = await ImageManipulator.manipulateAsync(
+
+  const manipulator = loadImageManipulator();
+  // Nothing to compress with — send the original rather than failing the
+  // upload. A large photo is a slower upload, not a broken one.
+  if (!manipulator) return asset.uri;
+
+  const result = await manipulator.manipulateAsync(
     asset.uri,
     [{ resize: { width: UPLOAD_MAX_DIMENSION } }],
-    { compress: 0.82, format: ImageManipulator.SaveFormat.JPEG },
+    { compress: 0.82, format: manipulator.SaveFormat.JPEG },
   );
   return result.uri;
 }
@@ -155,14 +206,23 @@ export function PhotoSubmitSheet({
 
   const pick = useCallback(async (source: 'camera' | 'library') => {
     setError(null);
+
+    // Resolved at the tap, not at import — see loadImagePicker. A build without
+    // the native module loses photo submission and nothing else.
+    const picker = loadImagePicker();
+    if (!picker) {
+      setError('Photo submission needs a newer version of the app.');
+      return;
+    }
+
     try {
       // Permission is requested at the moment of the tap, not on mount — the
       // iOS prompt is one-shot per install and must be spent on an action the
       // user just asked for.
       const perm =
         source === 'camera'
-          ? await ImagePicker.requestCameraPermissionsAsync()
-          : await ImagePicker.requestMediaLibraryPermissionsAsync();
+          ? await picker.requestCameraPermissionsAsync()
+          : await picker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
         setError(
           source === 'camera'
@@ -181,8 +241,8 @@ export function PhotoSubmitSheet({
       };
       const result =
         source === 'camera'
-          ? await ImagePicker.launchCameraAsync(options)
-          : await ImagePicker.launchImageLibraryAsync(options);
+          ? await picker.launchCameraAsync(options)
+          : await picker.launchImageLibraryAsync(options);
 
       // Cancelling is a decision, not a failure.
       if (result.canceled || !result.assets?.length) return;

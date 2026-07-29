@@ -90,7 +90,30 @@ variable set for only one silently does nothing in the others.
 `EXPO_PUBLIC_` — Metro inlines anything `EXPO_PUBLIC_` into the bundle, and the
 auth token can write to the Sentry org.
 
-- [ ] Sentry project created. Same org as the web app.
+**Set all three for EVERY environment you build**, not just `production`. The
+Sentry config plugin adds a source-map upload step to the Xcode build, and
+sentry-cli reads these from the environment at that moment. Setting them on
+`production` alone means a `preview` build reaches the upload step with nothing
+and fails:
+
+```
+sentry-cli - error: An organization ID or slug is required
+```
+
+`eas.json` sets `SENTRY_ALLOW_FAILURE=true` on all three profiles so that
+cannot take a build down. **This is deliberate, not a workaround:** symbolicated
+stack traces are worth having and are not worth losing a build over. A crash
+reporter that can break the thing it observes has its priorities backwards, and
+this failure mode is at its worst exactly when you are least able to absorb it —
+mid-incident, shipping a fix, with a token that expired.
+
+The cost of the flag is that a broken upload is a warning rather than an error,
+so **check for symbolication once per credential change** rather than trusting
+it silently: a crash whose stack is minified means the upload is not working
+even though the build went green.
+
+- [ ] Sentry project created. Same org as the web app, whose own wiring is
+      specified in `missouri-float-planner/docs/OBSERVABILITY_AND_UPGRADES.md`.
 
 ### Vercel — the server side of the same release
 
@@ -198,6 +221,48 @@ eas build --profile production --platform ios  # App Store, autoIncrement
 **Expect the first one to fail.** No native archive has ever been produced from
 this repo, so prebuild, autolinking, the Mapbox pod and the Sentry config plugin
 all run for the first time. That is a normal cost, not a symptom.
+
+### If the app launches to a splash screen that never lifts
+
+The hardest symptom this app has, because it names nothing. Work out WHICH
+splash you are looking at first — that alone halves the search.
+
+**`app/_layout.tsx` calls `SplashScreen.preventAutoHideAsync()` at module
+scope.** So if JS never ran, that call never happened, and the Expo splash would
+have hidden on its own. A splash that stays forever therefore means one of two
+very different things:
+
+| What you see | What it means |
+|---|---|
+| Expo splash, stuck | JS ran. Something in the tree never reached `ThemedShell`, which owns `hideAsync`. The 8s backstop in `_layout.tsx` should have lifted it — if it did not, JS did **not** run |
+| iOS launch storyboard | The React Native bridge never started. No JS of ours has executed and no JS-side fix can help |
+
+They look nearly identical, which is the trap.
+
+**If the bridge never started**, the suspect is whatever runs before it, and on
+this app that is `expo-updates` — it decides which bundle Hermes gets. Two
+settings in `app.json` are explicit for that reason rather than left to
+defaults: `fallbackToCacheTimeout: 0` (launch from the embedded bundle at once,
+fetch any update in the background for next time) and `checkAutomatically:
+"ON_LOAD"`. Neither may be raised without understanding that the launch waits.
+
+The decisive test, one build:
+
+```json
+"updates": { "enabled": false, ... }
+```
+
+Launches ⇒ it is `expo-updates`. Still hangs ⇒ the embedded bundle or Hermes,
+and `updates` is eliminated.
+
+**Bisecting with Expo Go is free and worth doing first.** `npx expo start` runs
+every screen except the Map tab. If the app is fine there, the JS is sound and
+the problem is native — which is most of the answer for the cost of two minutes.
+
+**Reading the device is definitive.** Connect the phone, open **Console.app**,
+select it in the sidebar, and — the step everyone misses — **Action → Include
+Info Messages *and* Include Debug Messages**, or `expo-updates` logs at info
+level are hidden and the window looks empty. Filter on `Eddy`, then launch.
 
 ## 8 · Field test (TestFlight, internal)
 
