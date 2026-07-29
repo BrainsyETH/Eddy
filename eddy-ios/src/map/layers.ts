@@ -11,7 +11,7 @@
 // purpose: a paddler who has learnt that red means "do not float" should read a
 // low-water dam the same way without being taught twice.
 
-import { primary, type Palette } from '@/theme/palette';
+import { neutral, primary, type Palette } from '@/theme/palette';
 import { conditionColor } from '@/theme/conditions';
 import { flowBandColor } from '@/theme/flow';
 import type { EddySymbolName } from '@/components/EddySymbol';
@@ -25,22 +25,24 @@ export type LayerKey =
   | 'hazards'
   | 'outfitters'
   | 'dams'
-  | 'weatherRadar';
+  | 'weatherRadar'
+  | 'publicLand';
 
 /**
- * The layers that draw PINS — every key except the imagery ones.
+ * The layers that draw PINS — every key except the ones that draw AREAS.
  *
  * Exists because `Record<LayerKey, FeatureCollection>` stopped being true the
  * moment a raster layer joined the union, and the honest fix is not an empty
- * collection stapled on to keep the record total. A raster has no features and
- * never will; a fake entry would compile, mean nothing, and be inherited by
- * every raster layer added after it.
+ * collection stapled on to keep the record total. A raster has no point features
+ * and never will; a fake entry would compile, mean nothing, and be inherited by
+ * every non-pin layer added after it — as `publicLand`, which draws polygons,
+ * duly was.
  *
- * Kept as an explicit Exclude rather than derived from the `raster` flag,
- * because that flag is runtime data and this has to hold at compile time. Add a
- * raster layer, add it here.
+ * Kept as an explicit Exclude rather than derived from a runtime flag, because
+ * this has to hold at compile time. Add a layer that is not made of pins, add it
+ * here.
  */
-export type PinLayerKey = Exclude<LayerKey, 'weatherRadar'>;
+export type PinLayerKey = Exclude<LayerKey, 'weatherRadar' | 'publicLand'>;
 
 export interface LayerDef {
   key: LayerKey;
@@ -251,6 +253,27 @@ export const MAP_LAYERS: LayerDef[] = [
     color: (c) => c.rainLikely,
   },
   {
+    key: 'publicLand',
+    label: 'Public land',
+    // SAYS WHAT IT IS NOT, in the one line the sheet gives it. A boundary here
+    // is ownership; it is not a right to land, camp or portage, and someone
+    // switching this on to answer "can I sleep on that gravel bar" has to meet
+    // that sentence before they meet the fill. The longer version renders under
+    // the switch (PUBLIC_LAND_OWNERSHIP_NOTE) and again in the callout.
+    description: 'Agency boundaries — ownership, not permission',
+    icon: 'map-outline',
+    // No `symbol`: the catalog has no mark for public land, and `icon` is the
+    // documented fallback for a layer before one is drawn for it.
+    //
+    // Warm stone, from the neutral scale rather than the sandbar one. Two things
+    // it must not be: a condition colour (red/amber/green already mean "do not
+    // float", "use caution" and "go" on this map, about the water, and a federal
+    // ownership class may not borrow that weight), and `warm` — which is
+    // secondary-500 and is already the Outfitters row. Per scheme because a
+    // stone dark enough to read on the light map vanishes on the dark one.
+    color: (c) => (c.scheme === 'dark' ? neutral[300] : neutral[700]),
+  },
+  {
     key: 'campgrounds',
     label: 'Campgrounds',
     description: 'Places to sleep on the river',
@@ -334,3 +357,35 @@ export const RADAR_OPACITY = 0.6;
  * where a gauge is a point.
  */
 export const MIN_RADAR_ZOOM = 4;
+
+// ── Public land (PAD-US) ────────────────────────────────────────────────────
+//
+// The layer's colours are NOT here. They are PUBLIC_LAND_ACCESS_STYLE in
+// @eddy/types, shared with the website — which draws the same federal dataset
+// with a different rendering engine, and which must not teach a reader a
+// different meaning for the same shade. (The website cannot import the package
+// at runtime, so it mirrors the table and a test in the web suite pins the two
+// together. This app can, so it does.)
+
+/**
+ * Below this the layer draws nothing and asks for nothing.
+ *
+ * A parcel boundary is a line you read AGAINST a river; at a statewide zoom
+ * there is no river to read it against, only a wash of fill over four states.
+ * Matches the floor the API enforces, which returns an empty collection below it
+ * regardless of what the client asks for.
+ *
+ * Higher than MIN_RADAR_ZOOM and below MIN_GAUGE_ZOOM on purpose: a rain band is
+ * legible from orbit, a gauge dot is not legible until you are on a river, and a
+ * national forest sits between the two.
+ */
+export const MIN_PUBLIC_LAND_ZOOM = 7;
+
+/**
+ * Required attribution, shown whenever the layer is drawing.
+ *
+ * PAD-US is public domain and USGS asks for credit rather than requiring it —
+ * which is the reason to give it, not a reason to skip it. A reader looking at
+ * an ownership boundary is owed the knowledge that Eddy did not draw it.
+ */
+export const PUBLIC_LAND_ATTRIBUTION = 'Boundaries: USGS PAD-US';

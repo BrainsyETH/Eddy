@@ -28,6 +28,7 @@ import type {
   MapAccessPoint,
   MapGauge,
   MapGaugesResponse,
+  PublicLandsResponse,
   PlanResponse,
   RiverConditionDetail,
   RiverDetail,
@@ -394,6 +395,40 @@ export async function fetchMapGauges(
   const data = await get<MapGaugesResponse>(`/api/gauges/map?${params.toString()}`, signal);
   return {
     gauges: data.gauges ?? [],
+    capped: data.capped ?? false,
+    total: data.total ?? 0,
+  };
+}
+
+/**
+ * Public land boundaries inside a viewport, from USGS PAD-US.
+ *
+ * OWNERSHIP, NOT PERMISSION. A polygon this returns says a public agency owns
+ * the ground and says nothing about whether anyone may camp on it, portage
+ * across it or step out of the boat onto it. Every consumer has to carry that —
+ * see PUBLIC_LAND_OWNERSHIP_NOTE, which is the sentence to put on screen.
+ *
+ * The geometry comes back CLIPPED to the bbox and simplified for the zoom, which
+ * is why `zoom` is a parameter and not an optimisation: Mark Twain National
+ * Forest is 59,080 vertices statewide, and a phone looking at eight miles of
+ * river needs the handful of them that are on screen. The server picks the
+ * tolerance so the two clients cannot disagree about it.
+ *
+ * Callers must quantize and pad the bbox first (`quantizeBbox`/`padBbox` in
+ * @eddy/geo), for the same reason fetchMapGauges says so: a raw camera bbox is a
+ * fresh URL on every pan, and this response is otherwise the most cacheable
+ * thing the API serves.
+ */
+export async function fetchPublicLands(
+  bbox: [number, number, number, number],
+  zoom: number,
+  signal?: AbortSignal,
+): Promise<PublicLandsResponse> {
+  const params = new URLSearchParams({ bbox: bbox.join(','), zoom: String(Math.round(zoom)) });
+  const data = await get<PublicLandsResponse>(`/api/public-lands?${params.toString()}`, signal);
+  return {
+    type: 'FeatureCollection',
+    features: data.features ?? [],
     capped: data.capped ?? false,
     total: data.total ?? 0,
   };

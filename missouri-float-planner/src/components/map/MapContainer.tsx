@@ -12,6 +12,9 @@ import { Layers, Maximize2, Minimize2 } from 'lucide-react';
 import { conditionColor, CONDITION_ORDER } from '@shared/condition-system';
 import { CONDITION_SHORT_LABELS } from '@/constants';
 import { ANCHORS, addLayerAt } from './layer-anchors';
+import { MapProvider } from './map-context';
+import PublicLandsLayer from './PublicLandsLayer';
+import { PUBLIC_LAND_OWNERSHIP_NOTE } from '@/lib/map/public-land-style';
 
 // Available map styles (all free, no API key required)
 // Immersive is first and default: satellite imagery with luminous water
@@ -263,6 +266,17 @@ export default function MapContainer({
   }, [showStylePicker, positionStylePanel]);
   const [legendExpanded, setLegendExpanded] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  // ── Public land ──────────────────────────────────────────────────────────
+  // Off by default and never persisted, unlike the base style. It answers a
+  // question you ask deliberately ("whose ground is that bluff?"), and a
+  // boundary wash restored from three weeks ago on a map somebody opened to
+  // check the water is noise over the thing they came for.
+  //
+  // Lives here rather than being passed in by the four pages that mount a map:
+  // this is basemap context switched from the map's own layers panel, the same
+  // class of thing as the radar and the terrain toggle beside it — not page
+  // data like the access points or the route.
+  const [publicLandsEnabled, setPublicLandsEnabled] = useState(false);
   const radarSourceId = 'rainviewer-radar';
   const radarLayerId = 'rainviewer-radar-layer';
 
@@ -636,7 +650,15 @@ export default function MapContainer({
       {mapLoaded && map.current && (
         // Keyed by styleEpoch: setStyle() destroys all custom layers, so a
         // style switch remounts the children and they re-add themselves.
-        <MapProvider key={styleEpoch} map={map.current}>{children}</MapProvider>
+        <MapProvider key={styleEpoch} map={map.current}>
+          {/* FIRST, so it sits under every page-supplied layer. Public land is
+              the ground the river runs through — it is context for the data,
+              never data itself. Unmounted rather than hidden when off: the
+              layer holds a viewport fetch and a moveend listener, and neither
+              should keep running for something invisible. */}
+          {publicLandsEnabled && <PublicLandsLayer />}
+          {children}
+        </MapProvider>
       )}
       {!mapLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-neutral-100/60 pointer-events-none" role="status" aria-label="Loading map">
@@ -719,6 +741,31 @@ export default function MapContainer({
                 <span className={`w-2 h-2 rounded-full ${is3D ? 'bg-primary-500' : 'bg-gray-300'}`} aria-hidden="true" />
               </button>
             </div>
+
+            {/* Public land — on EVERY breakpoint, unlike the two above.
+                Deliberately not given a dedicated desktop button: the map edge
+                already carries four, and a fifth icon for a layer nobody
+                toggles twice in a session is worse than one more row here.
+
+                The caveat renders under the switch while the layer is on. It
+                belongs on the control, not only in the popup, because the fill
+                is visible without anyone ever clicking a parcel — and what the
+                fill does not mean is the entire reason this layer is careful. */}
+            <div className="border-t border-gray-200">
+              <button
+                onClick={() => setPublicLandsEnabled((on) => !on)}
+                className="w-full px-4 py-2.5 md:py-2 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between gap-3 text-gray-700"
+                aria-pressed={publicLandsEnabled}
+              >
+                <span>Public land</span>
+                <span className={`w-2 h-2 rounded-full ${publicLandsEnabled ? 'bg-primary-500' : 'bg-gray-300'}`} aria-hidden="true" />
+              </button>
+              {publicLandsEnabled && (
+                <p className="px-4 pb-2.5 text-[11px] leading-snug text-gray-500">
+                  {PUBLIC_LAND_OWNERSHIP_NOTE}
+                </p>
+              )}
+            </div>
           </div>,
           document.body
         )}
@@ -777,10 +824,21 @@ export default function MapContainer({
         </button>
       </div>
 
-      {/* Weather Attribution */}
-      {weatherEnabled && (
-        <div className="absolute bottom-1 left-1 z-10 text-xs text-white/60 bg-black/30 px-1 rounded">
-          Radar: <a href="https://www.rainviewer.com/" target="_blank" rel="noopener noreferrer" className="underline">RainViewer</a>
+      {/* Source attribution for the two overlays that are somebody else's data.
+          Stacked in one corner rather than each claiming their own, so turning
+          both on does not put two labels on top of each other. */}
+      {(weatherEnabled || publicLandsEnabled) && (
+        <div className="absolute bottom-1 left-1 z-10 flex flex-col gap-0.5 text-xs text-white/60">
+          {weatherEnabled && (
+            <span className="bg-black/30 px-1 rounded w-fit">
+              Radar: <a href="https://www.rainviewer.com/" target="_blank" rel="noopener noreferrer" className="underline">RainViewer</a>
+            </span>
+          )}
+          {publicLandsEnabled && (
+            <span className="bg-black/30 px-1 rounded w-fit">
+              Boundaries: <a href="https://www.usgs.gov/programs/gap-analysis-project/science/pad-us-data-overview" target="_blank" rel="noopener noreferrer" className="underline">USGS PAD-US</a>
+            </span>
+          )}
         </div>
       )}
 
@@ -847,28 +905,10 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
-// Context to share map instance with child components
-import { createContext, useContext } from 'react';
-
-const MapContext = createContext<maplibregl.Map | null>(null);
-
-export function useMap() {
-  const map = useContext(MapContext);
-  if (!map) {
-    throw new Error('useMap must be used within MapContainer');
-  }
-  return map;
-}
-
-// Wrapper component that provides map context
-export function MapProvider({
-  map,
-  children,
-}: {
-  map: maplibregl.Map | null;
-  children: React.ReactNode;
-}) {
-  return (
-    <MapContext.Provider value={map}>{children}</MapContext.Provider>
-  );
-}
+// The map context moved to ./map-context so this file could render a layer
+// component of its own without the two modules importing each other. Re-exported
+// here because every layer component in this directory imports useMap from
+// './MapContainer', and a rename that touches a dozen files to move two
+// declarations is churn, not tidying.
+export { useMap } from './map-context';
+export { MapProvider };

@@ -56,7 +56,13 @@ import type {
   RiverService,
   SearchResult,
 } from '@eddy/types';
-import { accessPointTypes, accessTypeLabel, hasCoordinates, isCampground } from '@eddy/types';
+import {
+  accessPointTypes,
+  accessTypeLabel,
+  hasCoordinates,
+  isCampground,
+  PUBLIC_LAND_OWNERSHIP_NOTE,
+} from '@eddy/types';
 import {
   formatFloatTimeCeilingCompact,
   formatFloatTimeCompact,
@@ -88,10 +94,12 @@ import {
   DEFAULT_LAYERS,
   MAP_LAYERS,
   OUTFITTER_SERVICE_TYPES,
+  PUBLIC_LAND_ATTRIBUTION,
   RADAR_ATTRIBUTION,
   type LayerKey,
 } from '@/map/layers';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
+import { usePublicLands } from '@/hooks/usePublicLands';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
 import { gaugePlaceLabel } from '@/lib/gaugeCondition';
@@ -539,6 +547,12 @@ export default function MapScreen() {
   // pan from being a request.
   const referenceGauges = useViewportGauges(layers.includes('allGauges'), viewport);
 
+  // ── Public land ────────────────────────────────────────────────────────────
+  // Same arrangement, same reasons: viewport-scoped, only while its layer is on.
+  // The geometry is what costs here rather than the row count, so the hook keys
+  // its cache on the zoom as well as the box — see usePublicLands.
+  const publicLands = usePublicLands(layers.includes('publicLand'), viewport);
+
   /**
    * What the "Other USGS gauges" layer actually holds.
    *
@@ -694,6 +708,16 @@ export default function MapScreen() {
           placed.filter((s) => s.type === 'campground').length
         : undefined,
       outfitters: placed?.filter((s) => OUTFITTER_SERVICE_TYPES.includes(s.type)).length,
+      // Viewport-scoped, like allGauges above and with the same three-way
+      // meaning: undefined before the layer has answered, 0 when we HAVE looked
+      // and this view holds none, and a number otherwise.
+      publicLand: layers.includes('publicLand')
+        ? publicLands.belowMinZoom
+          ? 0
+          : publicLands.loading && publicLands.features.length === 0
+            ? undefined
+            : publicLands.features.length
+        : undefined,
     };
   }, [
     accessPoints,
@@ -707,6 +731,9 @@ export default function MapScreen() {
     referenceGauges.belowMinZoom,
     referenceGauges.loading,
     referencePins,
+    publicLands.belowMinZoom,
+    publicLands.loading,
+    publicLands.features,
   ]);
 
   const conditionCode = drawn?.currentCondition?.code ?? 'unknown';
@@ -901,6 +928,7 @@ export default function MapScreen() {
             accessPoints={accessPoints}
             gauges={mappableGauges}
             referenceGauges={referencePins}
+            publicLands={publicLands.features}
             dams={damPins}
             onViewportChange={setViewport}
             onZoomToCluster={(point) =>
@@ -1196,6 +1224,19 @@ export default function MapScreen() {
           // the thumb that flipped it.
           if (key === 'weatherRadar' && on) {
             return <LayerNote text={RADAR_ATTRIBUTION + ' · needs a connection'} />;
+          }
+          // ── The caveat, on the control ────────────────────────────────
+          // Not only in the callout, because the fill is visible without
+          // anyone ever tapping a parcel — and what the fill does NOT mean is
+          // the entire reason this layer is allowed to draw. One sentence,
+          // written once, shared with the website (@eddy/types) so the two
+          // maps cannot say different things about the same boundaries.
+          if (key === 'publicLand' && on) {
+            return (
+              <LayerNote
+                text={`${PUBLIC_LAND_OWNERSHIP_NOTE} ${PUBLIC_LAND_ATTRIBUTION}.`}
+              />
+            );
           }
           return key === 'allGauges' && on ? (
             <GaugeFilterBar
