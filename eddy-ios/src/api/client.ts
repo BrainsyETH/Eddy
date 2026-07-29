@@ -1242,3 +1242,127 @@ export async function submitFeedback(input: CreateFeedbackRequest): Promise<Feed
   }
   return data;
 }
+
+// ── Community photos ────────────────────────────────────────────────────────
+// Two calls, in this order, matching what the website's submit form does:
+//   1. POST /api/upload  → the bytes go to a PRIVATE quarantine bucket and come
+//      back as a storage path, never a URL. Nothing is publicly reachable until
+//      a moderator verifies the report it belongs to.
+//   2. POST /api/reports → the report itself, carrying that path.
+//
+// Both are public and rate-limited by IP (10 uploads and 5 reports per quarter
+// hour), so neither takes a token. That is the same call the feedback sheet
+// makes and for the same reason: the people best placed to show what a river
+// looks like are standing in it, and most of them have no account.
+
+/** What the quarantine upload answers with. A path, deliberately not a URL. */
+interface UploadResponse {
+  success?: boolean;
+  path?: string;
+  error?: string;
+}
+
+/**
+ * Send one photo to the quarantine bucket.
+ *
+ * Takes a local file URI from the picker and posts it as multipart. The
+ * Content-Type header is NOT set here on purpose — fetch has to generate it
+ * itself to include the multipart boundary, and setting it by hand produces a
+ * body the server cannot parse.
+ *
+ * The route allows JPEG, PNG and WebP up to 10 MB and checks magic bytes rather
+ * than trusting the declared type, so a mislabelled file is rejected there
+ * rather than stored.
+ */
+export async function uploadCommunityPhoto(
+  file: { uri: string; name: string; type: string },
+  signal?: AbortSignal,
+): Promise<string> {
+  const form = new FormData();
+  // The RN file shape. Cast because the DOM lib types FormData.append as
+  // accepting Blob | string, and React Native's implementation accepts this
+  // object instead — a real platform difference, not a type error to fix.
+  form.append('file', file as unknown as Blob);
+
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}/api/upload`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
+      body: form,
+      signal,
+    });
+  } catch (err) {
+    throw new ApiError(
+      err instanceof Error && err.name === 'AbortError' ? 'Request cancelled' : 'No connection',
+    );
+  }
+
+  const data = (await response.json().catch(() => null)) as UploadResponse | null;
+  if (!response.ok || !data?.path) {
+    throw new ApiError(data?.error ?? `Upload failed (${response.status})`, response.status);
+  }
+  return data.path;
+}
+
+/**
+ * What a river-visual report carries.
+ *
+ * Mirrors the website's payload field for field. `latitude`/`longitude` are
+ * REQUIRED by the route and validated against a corridor around the river —
+ * a photo pinned in the next county is rejected server-side — which is why the
+ * submit sheet requires an access point rather than letting them default.
+ */
+export interface RiverVisualSubmission {
+  riverId: string;
+  latitude: number;
+  longitude: number;
+  imagePath: string;
+  accessPointId?: string;
+  gaugeStationId?: string;
+  description?: string;
+  gaugeHeightFt?: number;
+  dischargeCfs?: number;
+  submitterName?: string;
+  /** ISO date the photo was taken, from EXIF where the picker supplied it. */
+  capturedAt?: string;
+  /** Where the reading came from, so a moderator can weigh it. */
+  readingSource?: 'live' | 'historical' | 'manual';
+}
+
+/**
+ * File the report that makes an uploaded photo real.
+ *
+ * Lands as `status: 'pending'`. Nothing appears in the gallery until a
+ * moderator verifies it, at which point the image is copied out of quarantine
+ * into the public bucket — see applyMediaTransitions on the server.
+ */
+export async function submitRiverVisual(
+  input: RiverVisualSubmission,
+  signal?: AbortSignal,
+): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}/api/reports`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': USER_AGENT,
+      },
+      body: JSON.stringify({ ...input, type: 'river_visual' }),
+      signal,
+    });
+  } catch (err) {
+    throw new ApiError(
+      err instanceof Error && err.name === 'AbortError' ? 'Request cancelled' : 'No connection',
+    );
+  }
+
+  if (!response.ok) {
+    // The route rejects a photo outside the river's corridor with a sentence
+    // written for a person. Carry it through rather than inventing one.
+    const detail = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new ApiError(detail?.error ?? `Submit failed (${response.status})`, response.status);
+  }
+}

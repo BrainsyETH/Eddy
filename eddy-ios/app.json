@@ -19,7 +19,11 @@
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "LSApplicationQueriesSchemes": ["onxoffroad", "gaiagps", "comgooglemaps"]
+        "LSApplicationQueriesSchemes": [
+          "onxoffroad",
+          "gaiagps",
+          "comgooglemaps"
+        ]
       },
       "runtimeVersion": {
         "policy": "fingerprint"
@@ -51,6 +55,13 @@
           "locationAlwaysAndWhenInUsePermission": "Eddy uses your location to show which put-ins and rivers are closest to you. It is never sent to our servers.",
           "locationWhenInUsePermission": "Eddy uses your location to show which put-ins and rivers are closest to you. It is never sent to our servers.",
           "isIosBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Eddy uses your photos so you can show other floaters what the river looked like.",
+          "cameraPermission": "Eddy uses your camera so you can show other floaters what the river looks like right now."
         }
       ]
     ],
