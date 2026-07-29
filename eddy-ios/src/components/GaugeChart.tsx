@@ -77,6 +77,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
+import { warn } from '@/lib/monitoring';
 
 /** The three questions people actually ask, and nothing else. */
 const RANGES = [
@@ -728,7 +729,7 @@ class ChartBoundary extends Component<
   componentDidCatch(error: unknown) {
     // Said out loud once. The symptom on its own — a chart that is not there —
     // reads as missing data rather than as a stale binary.
-    console.warn('[chart] failed to render; native react-native-svg missing?', error);
+    warn('chart', 'failed to render; native react-native-svg missing?', error);
   }
 
   render() {

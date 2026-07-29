@@ -26,6 +26,7 @@ import {
   type OfflinePlan,
   type TileBudget,
 } from '@eddy/offline';
+import { warn } from '@/lib/monitoring';
 
 /** Mapbox's outdoors style: contours and trails, which is what a river needs. */
 export const STYLE_URL = 'mapbox://styles/mapbox/outdoors-v12';
@@ -112,7 +113,7 @@ export function useOfflinePacks() {
       setDownloaded(byRiver);
       setBudget(tileBudget(usedTiles));
     } catch (err) {
-      console.warn('[map] could not read offline packs', err);
+      warn('map', 'could not read offline packs', err);
     } finally {
       setReady(true);
     }
@@ -237,7 +238,7 @@ export function useOfflinePacks() {
           }
         }
       } catch (err) {
-        console.warn('[map] could not delete offline packs', err);
+        warn('map', 'could not delete offline packs', err);
       }
       await refresh();
     },

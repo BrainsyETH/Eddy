@@ -26,6 +26,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { updateDisplayName } from '@/api/client';
+import { warn } from '@/lib/monitoring';
 
 interface SessionValue {
   session: Session | null;
@@ -104,7 +105,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           // Supabase dashboard, which returns 422 anonymous_provider_disabled.
           // That is a configuration state, not a bug, and the app carries on
           // local-only — so this is a warning, never a user-visible error.
-          console.warn('[auth] anonymous sign-in unavailable:', error.message);
+          warn('auth', 'anonymous sign-in unavailable', error.message);
           setUnavailable(true);
           return;
         }
@@ -112,7 +113,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         // Offline on first launch lands here. Not terminal: the next launch
         // with signal will try again.
-        console.warn('[auth] could not establish a session', err);
+        warn('auth', 'could not establish a session', err);
         setUnavailable(true);
       } finally {
         signingIn.current = false;

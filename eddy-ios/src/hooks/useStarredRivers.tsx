@@ -46,6 +46,7 @@ import {
   unstarRiver,
 } from '@/api/client';
 import { useSession } from '@/hooks/useSession';
+import { warn } from '@/lib/monitoring';
 
 // v3 carries gauges as well as rivers; v2 carried tombstones; v1 was a plain
 // list of starred rivers. Each older key is READ and left in place — a rollback
@@ -220,7 +221,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       // Offline, rate-limited, or the backend is down. The local store is
       // authoritative regardless, so this is never surfaced to the user.
-      console.warn('[stars] sync failed', err);
+      warn('stars', 'sync failed', err);
     } finally {
       setSyncing(false);
     }

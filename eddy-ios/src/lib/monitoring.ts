@@ -1,0 +1,122 @@
+// eddy-ios/src/lib/monitoring.ts
+// Crash and error reporting. The only place this app talks to Sentry.
+//
+// ── Why this is load-bearing rather than nice-to-have ──────────────────────
+//
+// This app is built to degrade quietly, and it is good at it: a missing Mapbox
+// token shows an explanatory panel, an unreachable Supabase falls back to
+// local-only, a missing APNs entitlement just fails to get a push token. Every
+// one of those paths ends in a console.warn and nothing else.
+//
+// In a TestFlight build a console.warn goes nowhere. So the exact failures a
+// field test exists to find — a build shipped without one of its four
+// EXPO_PUBLIC_ variables, an APNs key that was never uploaded — are invisible
+// to everyone, and the app looks like it is merely missing features. That is
+// what this file fixes, and it is why it lands before the first build rather
+// than after: @sentry/react-native is a native module, so it cannot be added
+// over the air later (ios.runtimeVersion is fingerprint-policy).
+//
+// ── Two deliberate restraints ──────────────────────────────────────────────
+//
+// NOTHING LEAVES UNREDACTED. See src/lib/redact.ts — beforeSend and
+// beforeBreadcrumb both run over it. Sentry's own server-side scrubbing is one
+// hop too late for a token that should never have left the phone.
+//
+// NO PERFORMANCE TRACING, NO PII. tracesSampleRate is 0 and sendDefaultPii is
+// false. We want crashes and handled errors; traces would spend the quota on
+// data nobody is going to read, and PII is the thing the paragraph above is
+// about.
+
+import * as Sentry from '@sentry/react-native';
+import Constants from 'expo-constants';
+import { redactContext, redactText } from '@/lib/redact';
+
+/**
+ * Build-time, deliberately.
+ *
+ * A DSN fetched from /api/app-config would arrive after the errors most worth
+ * catching — a bad launch is exactly when the config request is also failing.
+ */
+const DSN = process.env.EXPO_PUBLIC_SENTRY_DSN ?? '';
+
+/** False in Expo Go, in dev, and in any build shipped without a DSN. */
+export const monitoringEnabled = Boolean(DSN);
+
+/** Subsystem tags already in use across the app's console.warn calls. */
+export type LogTag = 'fonts' | 'push' | 'map' | 'auth' | 'stars' | 'chart' | 'cache';
+
+function scrubEvent<T extends { message?: unknown; extra?: unknown }>(event: T): T {
+  if (typeof event.message === 'string') event.message = redactText(event.message);
+  if (event.extra && typeof event.extra === 'object') {
+    event.extra = redactContext(event.extra as Record<string, unknown>);
+  }
+  return event;
+}
+
+/**
+ * Call once, at module scope in app/_layout.tsx, before anything renders.
+ *
+ * Safe to call with no DSN: `enabled: false` makes every other Sentry call in
+ * this file a no-op, so the app behaves identically and this can merge dark.
+ */
+export function initMonitoring(): void {
+  Sentry.init({
+    dsn: DSN,
+    enabled: monitoringEnabled,
+    // Crashes and handled errors only — see the header.
+    tracesSampleRate: 0,
+    sendDefaultPii: false,
+    // Distinguishes a field-test build from the App Store one in the dashboard.
+    // Falls back rather than throwing: an unknown channel is worth less than a
+    // crash report, and must never cost us one.
+    environment: (Constants.expoConfig?.extra as { eas?: { channel?: string } } | undefined)?.eas
+      ?.channel ?? 'unknown',
+    beforeSend: (event) => scrubEvent(event),
+    beforeBreadcrumb: (crumb) => {
+      if (crumb.message) crumb.message = redactText(crumb.message);
+      if (crumb.data) crumb.data = redactContext(crumb.data) as typeof crumb.data;
+      return crumb;
+    },
+  });
+}
+
+/**
+ * A subsystem failure that the app handled and carried on from.
+ *
+ * REPLACES the bare console.warn calls rather than sitting beside them — it
+ * still writes to the console, so nothing is lost in development, and the
+ * `[tag] message` shape is preserved exactly because that convention is what
+ * makes these greppable.
+ *
+ * Reported at 'warning', not 'error': every call site here is a path the app
+ * recovers from. Filing them as errors would bury a real crash under a hundred
+ * "no signal at the put-in" reports.
+ */
+export function warn(tag: LogTag, message: string, cause?: unknown): void {
+  console.warn(`[${tag}] ${message}`, cause ?? '');
+
+  if (!monitoringEnabled) return;
+
+  Sentry.withScope((scope) => {
+    scope.setTag('subsystem', tag);
+    scope.setLevel('warning');
+    if (cause !== undefined) scope.setExtra('cause', String(cause));
+    Sentry.captureMessage(`[${tag}] ${message}`);
+  });
+}
+
+/**
+ * An unexpected throw, with whatever context helps identify it.
+ *
+ * Used by the root error boundary and by anything that catches something it
+ * did not anticipate. Context values are redacted; keys are not.
+ */
+export function report(error: unknown, context?: Record<string, unknown>): void {
+  if (!monitoringEnabled) return;
+
+  Sentry.withScope((scope) => {
+    const extra = redactContext(context);
+    if (extra) for (const [key, value] of Object.entries(extra)) scope.setExtra(key, value);
+    Sentry.captureException(error);
+  });
+}
