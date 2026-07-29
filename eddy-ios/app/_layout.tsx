@@ -1,8 +1,18 @@
+// FIRST IMPORT, AND THE ORDER IS THE WHOLE POINT.
+//
+// Module bodies run after ALL of their imports have been evaluated, so anything
+// this file does at module scope happens after expo-notifications, Sentry and
+// Supabase have already been touched by the imports below — several of which do
+// native work on import. bootstrap.ts holds the splash, arms the backstop timer
+// and initialises Sentry, and being imported first is what makes those three
+// survive an import further down the list throwing.
+//
+// It has no static imports of its own for the same reason. See its header.
+import { completeLaunch, isLaunchStalled, subscribeToLaunchStall } from '@/lib/bootstrap';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 // Imported per WEIGHT, not from the package root. Each @expo-google-fonts
 // package's index re-exports every weight it ships, and Metro bundles whatever
@@ -27,44 +37,9 @@ import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { UpgradeGate } from '@/components/UpgradeGate';
 import { type as t } from '@/theme/typography';
 import { darkPalette, lightPalette } from '@/theme/palette';
-import { initMonitoring, report, warn } from '@/lib/monitoring';
+import { report, warn } from '@/lib/monitoring';
 import { sweepStaleVersions } from '@/lib/riverCache';
 import { seedOfflineBundle } from '@/api/client';
-
-// FIRST, and at module scope. Sentry has to be installed before anything else
-// in this file runs, or the errors it exists to catch — a provider throwing on
-// mount, a font decode failing — happen while nothing is listening.
-initMonitoring();
-
-// Hold the native splash until the fonts are ready. Without this the app renders
-// a frame in the system font and then reflows when Geist arrives — a visible
-// pop on every cold start, and worse on the screens where a heading changes
-// width. Failures are swallowed: a splash that will not hide is a bricked app,
-// so nothing here may throw.
-SplashScreen.preventAutoHideAsync().catch(() => {});
-
-/**
- * ABSOLUTE BACKSTOP against a splash screen that never lifts.
- *
- * ThemedShell's onLayout is the intended moment to hide it, and it is the right
- * one — the splash lifts onto a painted, correctly-themed screen rather than a
- * blank one. But ThemedShell sits under SEVEN providers, and any of them
- * failing to render children means it never mounts, onLayout never fires, and
- * hideAsync is never called. So the app's most catastrophic failure mode — a
- * launch that goes nowhere, with nothing on screen to read and no way out — has
- * seven separate causes, none of which announce themselves.
- *
- * This runs at module scope, outside React entirely, so no render failure can
- * prevent it. The worst it can do on a healthy launch is nothing: by then the
- * splash is long gone and hideAsync is a no-op.
- *
- * It turns a bricked app into a degraded one, which is the whole difference —
- * a degraded app can show an error boundary, and it can report to Sentry.
- */
-const SPLASH_BACKSTOP_MS = 8_000;
-setTimeout(() => {
-  SplashScreen.hideAsync().catch(() => {});
-}, SPLASH_BACKSTOP_MS);
 
 /**
  * How long the splash may wait on the brand typeface before giving up.
@@ -137,6 +112,31 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => Pro
 }
 
 
+/**
+ * What the splash lifts onto when the launch never completed.
+ *
+ * No "Try again": there is nothing to retry. React is alive — this is
+ * rendering — but the app never reached the point of painting, and the only
+ * action that resolves that is relaunching. Saying so is more useful than a
+ * button that re-runs the thing that already did not work.
+ *
+ * By the time this is on screen bootstrap.ts has already filed the report, so
+ * the text does not ask anyone to send anything.
+ */
+function LaunchStalled() {
+  const scheme = useColorScheme();
+  const colors = scheme === 'dark' ? darkPalette : lightPalette;
+
+  return (
+    <View style={[boundaryStyles.screen, { backgroundColor: colors.bg }]}>
+      <Text style={[boundaryStyles.title, { color: colors.text }]}>Eddy didn&apos;t finish starting</Text>
+      <Text style={[boundaryStyles.body, { color: colors.textMuted }]}>
+        Force-quit the app and open it again. Nothing you saved is affected.
+      </Text>
+    </View>
+  );
+}
+
 // Remote config loads once here and wraps everything, so the version gate and
 // feature flags have a single home. Both fail open — see useAppConfig.
 //
@@ -197,7 +197,24 @@ export default function RootLayout() {
     }
   }, [fontWaitElapsed, fontsLoaded, fontError]);
 
-  if (!ready) return null;
+  /**
+   * The other half of the backstop.
+   *
+   * bootstrap.ts lifting the splash is necessary and not sufficient: if `ready`
+   * is still false when it fires, this component is returning null, so the
+   * splash lifts onto a BLANK SCREEN. That is a different bricked app, not a
+   * fixed one — and it is worse to look at than the splash, because a launch
+   * image at least looks like something is happening.
+   *
+   * So the stall gets a screen. It is deliberately the same shape as
+   * ErrorBoundary below and for the same reasons: palette read directly (no
+   * ThemeProvider up here), system font (a font that never settled is one of
+   * the ways to arrive here), and nothing on the path that can throw.
+   */
+  const [stalled, setStalled] = useState(isLaunchStalled);
+  useEffect(() => subscribeToLaunchStall(() => setStalled(true)), []);
+
+  if (!ready) return stalled ? <LaunchStalled /> : null;
 
   return (
     <ThemeProvider>
@@ -241,8 +258,11 @@ export default function RootLayout() {
 function ThemedShell() {
   const { colors, isDark } = useTheme();
 
+  // Hides the splash AND disarms the backstop — see src/lib/bootstrap.ts. The
+  // two have to happen together: a backstop left armed after a healthy launch
+  // would file a stall report eight seconds into a working app.
   const onLayout = useCallback(() => {
-    SplashScreen.hideAsync().catch(() => {});
+    completeLaunch();
   }, []);
 
   return (

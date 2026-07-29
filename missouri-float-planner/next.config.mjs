@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -130,7 +132,15 @@ const nextConfig = {
       // img-src allows any HTTPS origin. This is images only; script-src,
       // connect-src, etc. remain locked to explicit allowlists above/below.
       "img-src 'self' data: blob: https:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://waterservices.usgs.gov https://tilecache.rainviewer.com https://api.rainviewer.com https://www.googletagmanager.com https://tiles.openfreemap.org https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://*.tile.openstreetmap.org",
+      // Sentry's ingest host is in this list because a browser SDK that cannot
+      // POST is indistinguishable from one that was never configured — the CSP
+      // would have blocked every event silently, and the dashboard would have
+      // stayed empty for a reason nobody would think to look for here.
+      //
+      // Wildcarded on purpose: the ingest subdomain encodes the Sentry org id
+      // (o<id>.ingest.us.sentry.io), which is not knowable from this file and
+      // would otherwise have to be duplicated wherever the DSN is set.
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://waterservices.usgs.gov https://tilecache.rainviewer.com https://api.rainviewer.com https://www.googletagmanager.com https://tiles.openfreemap.org https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://*.tile.openstreetmap.org https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
       "worker-src 'self' blob:",
       "font-src 'self' https://fonts.gstatic.com",
     ];
@@ -163,4 +173,63 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// ── withSentryConfig ────────────────────────────────────────────────────────
+//
+// Two jobs, and neither is initialising the SDK (instrumentation.ts and
+// instrumentation-client.ts do that):
+//
+//   1. SOURCE MAPS. Without them every stack trace — server and browser alike —
+//      points at minified output, which is the difference between an issue you
+//      can act on and one you can only count.
+//
+//   2. Tree-shaking the SDK's debug logging out of the production bundle.
+//
+// ── Why it is safe on a deployment with no Sentry ──────────────────────────
+//
+// Uploading needs SENTRY_AUTH_TOKEN, a WRITE credential that must never be
+// NEXT_PUBLIC_ and is not set in preview or locally. `sourcemaps.disable` is
+// keyed off its presence rather than left to fail at build time: a missing
+// token would otherwise turn every build without Sentry into a warning-noisy
+// one, and a build step that cries wolf is a build step people stop reading.
+//
+// `silent` follows the same env, so the only builds that say anything about
+// Sentry are the ones actually talking to it.
+const hasSentryUpload = Boolean(process.env.SENTRY_AUTH_TOKEN);
+
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  silent: !hasSentryUpload,
+  sourcemaps: {
+    disable: !hasSentryUpload,
+    // Upload them, then delete them from the deployed output. Leaving them
+    // served publicly would hand the whole unminified source tree to anyone who
+    // asked, which is a strictly worse trade than the readable traces are worth.
+    deleteSourcemapsAfterUpload: true,
+  },
+
+  webpack: {
+    treeshake: {
+      // Strips Sentry's own debug logging from the client bundle. (The
+      // top-level `disableLogger` that most guides still show is deprecated in
+      // v10 and warns on every build.)
+      //
+      // `removeTracing: true` is also available and would be honest here, since
+      // both SDKs run tracesSampleRate 0 — left off until someone can run a
+      // full `next build` against real env and confirm the bundle, because a
+      // tree-shaking flag is exactly the kind of thing that is fine until it
+      // is not.
+      removeDebugLogging: true,
+    },
+  },
+
+  // NOT ENABLED, deliberately: the tunnel route proxies events through this
+  // app's own origin to dodge ad blockers. It would also make every browser
+  // error a same-origin POST that bypasses the connect-src entry added above,
+  // route unbounded third-party payloads through our server, and defeat the
+  // Vercel edge cache on a path under our control. If ad blockers turn out to
+  // cost a meaningful share of events, revisit with those costs in view.
+  // tunnelRoute: '/monitoring',
+});

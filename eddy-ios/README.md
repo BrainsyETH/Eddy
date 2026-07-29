@@ -680,6 +680,58 @@ The rule that bites: **the App Store icon must have no alpha channel.** Apple
 rejects it at upload rather than at review, so `icon.png` is flattened while the
 splash and tinted assets keep their alpha (the OS composites those itself).
 
+## Launch path — read before adding anything at module scope
+
+`src/lib/bootstrap.ts` is the first module the app evaluates. It holds the
+native splash, arms an 8-second backstop that hides it no matter what, and
+initialises Sentry — in that order, and **before** anything else in the app has
+been imported. `app/_layout.tsx` imports it first, and that ordering is the
+whole mechanism.
+
+The reason it exists is worth understanding before touching it. Those three
+things used to live in `app/_layout.tsx`'s own body, with a comment arguing the
+backstop was safe because it ran "at module scope, outside React entirely, so no
+render failure can prevent it." True of render failures. **Module bodies run
+after every one of their imports** — and `_layout.tsx` imports
+`expo-notifications` (via `usePush`, which installs its foreground handler at
+module scope), `@sentry/react-native`, `expo-secure-store` and a global URL
+polyfill. Any of those throwing meant the body never ran: no React, no
+`ErrorBoundary`, no Sentry, no backstop. The app stopped at the splash screen
+and reported nothing at all — the worst failure it has, and the only invisible
+one.
+
+So:
+
+- **`bootstrap.ts` has no static imports.** Everything is a guarded `require`.
+  A floor with a hole in it is not a floor. Keep it that way.
+- **Native work at module scope needs a try/catch** if the file is anywhere in
+  `app/_layout.tsx`'s import graph. `usePush.tsx` is the worked example.
+- **`completeLaunch()` is what hides the splash**, called from `ThemedShell`'s
+  first `onLayout` so it lifts onto a painted, correctly-themed screen. It also
+  disarms the backstop — leaving it armed would file a stall report eight
+  seconds into a healthy launch.
+- If the backstop fires, the splash lifts onto a **"didn't finish starting"**
+  screen rather than a blank one, and `warn('launch', …)` has already gone to
+  Sentry.
+
+### Diagnosing a launch that stops at the splash
+
+In order, cheapest first:
+
+1. `npx expo run:ios --device --configuration Release` — the same release bundle
+   as an EAS preview build, but with a live Xcode console. A module-scope throw
+   prints here instead of vanishing.
+2. Xcode → Window → Devices and Simulators → **View Device Logs**, for a native
+   crash rather than a JS one.
+3. Sentry, filtered to `subsystem: launch`. Note that events are tagged with the
+   EAS channel (`preview`, `production`) — see `src/lib/app-environment.ts`,
+   which exists because that tag read `'unknown'` for every build until it was
+   fixed.
+
+A splash that lifts after ~8 seconds means the backstop did its job and the
+report is already filed. A splash that never lifts at all means JS never
+started — look at step 2, not step 3.
+
 ## Current state
 
 | Tab | Status |

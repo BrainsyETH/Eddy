@@ -123,7 +123,10 @@ silently and separately.
 
 | Variable | Missing ⇒ |
 |---|---|
-| `SENTRY_DSN` | web errors go to `ERROR_WEBHOOK_URL` if set, otherwise nowhere |
+| `SENTRY_DSN` | **server and edge** web errors go to `ERROR_WEBHOOK_URL` if set, otherwise nowhere |
+| `NEXT_PUBLIC_SENTRY_DSN` | **browser** errors go nowhere. A separate variable, and it must carry the prefix or it never reaches the page |
+| `SENTRY_AUTH_TOKEN` | stack traces point at minified output — source maps are not uploaded. A **write** credential: never `NEXT_PUBLIC_` |
+| `SENTRY_ORG` / `SENTRY_PROJECT` | as above; source-map upload needs all three or it is skipped |
 | `APPLE_TEAM_ID` | Apple token revocation is skipped — see below |
 | `APPLE_KEY_ID` | as above |
 | `APPLE_PRIVATE_KEY` | as above |
