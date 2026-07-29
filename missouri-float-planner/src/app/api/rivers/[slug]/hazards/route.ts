@@ -4,8 +4,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createClient } from '@/lib/supabase/server';
-import type { HazardsResponse, HazardType, HazardSeverity } from '@/types/api';
+import type { HazardsResponse } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
+// Shared with /api/offline/bundle, which seeds the same hazards into the iOS
+// cache this route later writes through to. See the header of shapes.ts.
+import { toHazard, type HazardRow } from '@/lib/offline/shapes';
 
 // Force dynamic rendering (uses cookies for Supabase)
 export const dynamic = 'force-dynamic';
@@ -48,25 +51,8 @@ async function _GET(
       );
     }
 
-    const formattedHazards = (hazards || []).map((h) => ({
-      id: h.id,
-      riverId: h.river_id ?? '',
-      name: h.name,
-      type: h.type as HazardType,
-      riverMile: h.river_mile_downstream != null ? parseFloat(String(h.river_mile_downstream)) : 0,
-      description: h.description,
-      severity: h.severity as HazardSeverity,
-      portageRequired: h.portage_required ?? false,
-      portageSide: h.portage_side as 'left' | 'right' | 'either' | null,
-      seasonalNotes: h.seasonal_notes,
-      coordinates: {
-        lng: (h.location as { coordinates?: number[] } | null)?.coordinates?.[0] || 0,
-        lat: (h.location as { coordinates?: number[] } | null)?.coordinates?.[1] || 0,
-      },
-    }));
-
     const response: HazardsResponse = {
-      hazards: formattedHazards,
+      hazards: (hazards || []).map((h) => toHazard(h as unknown as HazardRow)),
     };
 
     return NextResponse.json(response, { headers: cdnCacheHeaders(300, 3600) });
