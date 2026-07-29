@@ -18,12 +18,18 @@ import { getOfflineManager } from './runtime';
 import {
   MAX_ZOOM,
   MIN_ZOOM,
+  expectedRegionsFromMetadata,
+  fitsInBudget,
+  offlineCompleteness,
   overallProgress,
+  packMetadata,
   planOffline,
   regionPrefix,
   riverSlugFromRegionId,
   tileBudget,
+  type OfflineCompleteness,
   type OfflinePlan,
+  type RiverPackTally,
   type TileBudget,
 } from '@eddy/offline';
 import { warn } from '@/lib/monitoring';
@@ -51,6 +57,37 @@ function isComplete(status: OfflineStatus | undefined): boolean {
   return String(status.state ?? '').toLowerCase() === 'complete';
 }
 
+/**
+ * Does a pack that already exists on disk actually hold a finished region?
+ *
+ * Answers "no" for anything it cannot verify — a vanished pack, a rejecting
+ * status call — because the whole point of asking is that a name is not
+ * evidence. Claiming complete on a failed check would restore the bug this
+ * exists to close.
+ */
+async function regionIsComplete(
+  // Structural, not the SDK's type: the manager arrives through a lazy require
+  // (see runtime.ts) precisely so no Mapbox type is imported at module scope.
+  manager: { getPacks: () => Promise<OfflinePack[]> },
+  name: string,
+): Promise<boolean> {
+  try {
+    const packs = await manager.getPacks();
+    const pack = packs.find((p) => (p.name ?? '') === name);
+    if (!pack) return false;
+    return isComplete(await pack.status());
+  } catch {
+    return false;
+  }
+}
+
+/** The slice of a Mapbox offline pack this file actually touches. */
+interface OfflinePack {
+  name?: string;
+  metadata?: { tileCount?: unknown; regionCount?: unknown } | null;
+  status: () => Promise<OfflineStatus | undefined>;
+}
+
 export interface DownloadState {
   riverSlug: string;
   /** 0-100, weighted by tile count across the river's regions. */
@@ -58,14 +95,8 @@ export interface DownloadState {
   error: string | null;
 }
 
-interface DownloadedRiver {
-  slug: string;
-  regionCount: number;
-  tileCount: number;
-}
-
 export function useOfflinePacks() {
-  const [downloaded, setDownloaded] = useState<Record<string, DownloadedRiver>>({});
+  const [downloaded, setDownloaded] = useState<Record<string, RiverPackTally>>({});
   const [budget, setBudget] = useState<TileBudget>(tileBudget(0));
   const [active, setActive] = useState<DownloadState | null>(null);
   const [ready, setReady] = useState(false);
@@ -75,15 +106,22 @@ export function useOfflinePacks() {
   // each one through setState would rerender the map continuously.
   const progressRef = useRef<Record<string, number>>({});
 
-  const refresh = useCallback(async () => {
+  /**
+   * Re-read what is actually on disk.
+   *
+   * RETURNS the tally as well as setting it, so a caller that has just written
+   * packs can check its own work without waiting a render — and so the budget
+   * can be computed from a fresh number instead of a captured one.
+   */
+  const refresh = useCallback(async (): Promise<Record<string, RiverPackTally>> => {
     const manager = getOfflineManager();
     if (!manager) {
       setReady(true);
-      return;
+      return {};
     }
     try {
       const packs = await manager.getPacks();
-      const byRiver: Record<string, DownloadedRiver> = {};
+      const byRiver: Record<string, RiverPackTally> = {};
       let usedTiles = 0;
 
       for (const pack of packs) {
@@ -95,25 +133,45 @@ export function useOfflinePacks() {
         // and leave the budget reading zero. The planned tile count we stored
         // in metadata is the fallback: it over-counts a part-finished region,
         // which is the safe direction for a budget check.
+        //
+        // That same fallback is why completeness must NOT be judged on tiles —
+        // see offlineCompleteness.
         let tiles = 0;
+        let unfinished = 0;
         try {
-          tiles = (await pack.status())?.completedTileCount ?? 0;
+          const status = await pack.status();
+          tiles = status?.completedTileCount ?? 0;
+          if (!isComplete(status)) unfinished = 1;
         } catch {
+          // A rejection is not evidence of a hole — this call fails for a region
+          // still being written. Leaving `unfinished` at 0 keeps the region
+          // COUNT load-bearing and stops a flaky TileStore read marking a
+          // healthy river partial.
           tiles = Number(pack.metadata?.tileCount) || 0;
         }
+
         usedTiles += tiles;
         const existing = byRiver[slug];
         byRiver[slug] = {
-          slug,
+          riverSlug: slug,
           regionCount: (existing?.regionCount ?? 0) + 1,
+          // max, so a legacy pack written before regionCount existed (which
+          // reads 0) never wins over a real number from a sibling pack.
+          expectedRegions: Math.max(
+            existing?.expectedRegions ?? 0,
+            expectedRegionsFromMetadata(pack.metadata),
+          ),
+          unfinishedRegions: (existing?.unfinishedRegions ?? 0) + unfinished,
           tileCount: (existing?.tileCount ?? 0) + tiles,
         };
       }
 
       setDownloaded(byRiver);
       setBudget(tileBudget(usedTiles));
+      return byRiver;
     } catch (err) {
       warn('map', 'could not read offline packs', err);
+      return {};
     } finally {
       setReady(true);
     }
@@ -151,7 +209,17 @@ export function useOfflinePacks() {
 
       const plan = planOffline(river);
       if (!plan) return { ok: false, error: 'This river has no map data to download yet.' };
-      if (plan.tileCount > budget.remaining) {
+
+      // Budget from a FRESH read, not from the render that created this
+      // callback. `budget.remaining` was captured in the dep array, so a
+      // download started right after a remove — or after a failed attempt left
+      // a prefix behind — measured against a number that had already moved.
+      const before = await refresh();
+      const used = Object.values(before).reduce((n, t) => n + t.tileCount, 0);
+      // This river's own packs are already on disk and will be reused rather
+      // than fetched twice, so they must not count against the room it needs.
+      const mine = before[river.slug]?.tileCount ?? 0;
+      if (!fitsInBudget(plan, tileBudget(Math.max(0, used - mine)))) {
         return {
           ok: false,
           error: `Not enough offline space left. Remove another river first.`,
@@ -161,57 +229,80 @@ export function useOfflinePacks() {
       progressRef.current = {};
       setActive({ riverSlug: river.slug, percent: 0, error: null });
 
+      // Pulled out of the loop so the resume branch below can RE-RUN it for one
+      // region rather than duplicating forty lines of listener wiring.
+      const createRegion = (region: OfflinePlan['regions'][number]) => {
+        const [minLng, minLat, maxLng, maxLat] = region.bounds;
+        return new Promise<void>((resolve, reject) => {
+          manager
+            .createPack(
+              {
+                name: region.id,
+                styleURL: STYLE_URL,
+                // Mapbox wants [northEast, southWest] as [lng, lat] pairs —
+                // the opposite corner order to our [minLng, minLat, …].
+                bounds: [
+                  [maxLng, maxLat],
+                  [minLng, minLat],
+                ],
+                minZoom: MIN_ZOOM,
+                maxZoom: MAX_ZOOM,
+                // tileCount rides along so the budget can be rebuilt from
+                // metadata alone when a status call is unavailable, and
+                // regionCount so a pack can say how many siblings it should
+                // have had. See packMetadata.
+                metadata: packMetadata(plan, region),
+              },
+              (_pack: unknown, status: OfflineStatus | undefined) => {
+                progressRef.current[region.id] = status?.percentage ?? 0;
+                setActive((prev) =>
+                  prev && prev.riverSlug === river.slug
+                    ? { ...prev, percent: overallProgress(plan.regions, progressRef.current) }
+                    : prev,
+                );
+                if (isComplete(status)) resolve();
+              },
+              (_pack: unknown, err: { message?: string } | undefined) => {
+                reject(new Error(err?.message ?? 'Download failed'));
+              },
+            )
+            .catch(reject);
+        });
+      };
+
       try {
         for (const region of plan.regions) {
-          const [minLng, minLat, maxLng, maxLat] = region.bounds;
           try {
-            await new Promise<void>((resolve, reject) => {
-              manager
-                .createPack(
-                  {
-                    name: region.id,
-                    styleURL: STYLE_URL,
-                    // Mapbox wants [northEast, southWest] as [lng, lat] pairs —
-                    // the opposite corner order to our [minLng, minLat, …].
-                    bounds: [
-                      [maxLng, maxLat],
-                      [minLng, minLat],
-                    ],
-                    minZoom: MIN_ZOOM,
-                    maxZoom: MAX_ZOOM,
-                    // tileCount rides along so the budget can be rebuilt from
-                    // metadata alone when a status call is unavailable.
-                    metadata: {
-                      riverSlug: river.slug,
-                      riverName: river.name,
-                      tileCount: region.tileCount,
-                    },
-                  },
-                  (_pack: unknown, status: OfflineStatus | undefined) => {
-                    progressRef.current[region.id] = status?.percentage ?? 0;
-                    setActive((prev) =>
-                      prev && prev.riverSlug === river.slug
-                        ? { ...prev, percent: overallProgress(plan.regions, progressRef.current) }
-                        : prev,
-                    );
-                    if (isComplete(status)) resolve();
-                  },
-                  (_pack: unknown, err: { message?: string } | undefined) => {
-                    reject(new Error(err?.message ?? 'Download failed'));
-                  },
-                )
-                .catch(reject);
-            });
+            await createRegion(region);
           } catch (err) {
             // createPack rejects when a pack of that name already exists, which
-            // is the normal shape of resuming an interrupted download rather
-            // than an error. Count it complete and move on.
+            // is the ordinary shape of resuming an interrupted download rather
+            // than an error.
+            //
+            // But "it exists" is not "it finished". This branch used to mark the
+            // region 100% on the strength of the NAME alone, which is how a
+            // download killed halfway through came back reported as fully
+            // saved. Ask the pack what it actually holds, and if it cannot say
+            // it is complete, throw it away and fetch it again.
             const message = err instanceof Error ? err.message : String(err);
             if (!message.includes('already exists')) throw err;
-            progressRef.current[region.id] = 100;
+
+            if (await regionIsComplete(manager, region.id)) {
+              progressRef.current[region.id] = 100;
+            } else {
+              await manager.deletePack(region.id);
+              await createRegion(region);
+            }
           }
         }
-        await refresh();
+
+        // Report what is ON DISK, not what the loop believes about itself.
+        // Every failure above this line is one the loop noticed; this catches
+        // the ones it did not.
+        const after = await refresh();
+        if (offlineCompleteness(after[river.slug], plan.regions.length) !== 'complete') {
+          return { ok: false, error: 'Some of this map did not save. Try again while you have signal.' };
+        }
         return { ok: true };
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Download failed';
@@ -221,7 +312,7 @@ export function useOfflinePacks() {
         setActive(null);
       }
     },
-    [budget.remaining, refresh],
+    [refresh],
   );
 
   /** Removes every pack for a river, freeing its share of the tile budget. */
@@ -253,7 +344,14 @@ export function useOfflinePacks() {
     download,
     remove,
     refresh,
-    isDownloaded: (slug: string) => Boolean(downloaded[slug]),
+    /**
+     * Three-way, and `isDownloaded` is deliberately gone rather than left
+     * beside it. A boolean cannot express "partly saved", and the old one
+     * answered true on the strength of a single pack existing — which is the
+     * bug. Leaving a laxer twin around is how it comes back.
+     */
+    completeness: (slug: string, plannedRegions?: number): OfflineCompleteness =>
+      offlineCompleteness(downloaded[slug], plannedRegions),
   };
 }
 

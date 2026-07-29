@@ -6,13 +6,17 @@ import {
   MIN_ZOOM,
   TILE_LIMIT,
   canPlanOffline,
+  expectedRegionsFromMetadata,
   fitsInBudget,
+  offlineCompleteness,
   overallProgress,
+  packMetadata,
   planOffline,
   regionId,
   regionPrefix,
   riverSlugFromRegionId,
   tileBudget,
+  type RiverPackTally,
 } from '../../../packages/eddy-offline/index';
 import type { RiverDetail } from '../../../packages/eddy-types/index';
 
@@ -176,4 +180,94 @@ test('progress is clamped and tolerates unknown regions', () => {
 
 test('an empty region list yields zero rather than NaN', () => {
   assert.equal(overallProgress([], {}), 0);
+});
+
+// ── is a river actually saved? ───────────────────────────────────
+
+function tally(overrides: Partial<RiverPackTally> = {}): RiverPackTally {
+  return {
+    riverSlug: 'current',
+    regionCount: 10,
+    expectedRegions: 10,
+    unfinishedRegions: 0,
+    tileCount: 1237,
+    ...overrides,
+  };
+}
+
+test('a river with fewer packs than regions is not saved', () => {
+  // THE bug. A download killed after region 4 of 10 leaves four finished packs,
+  // and useOfflinePacks reported the river "Saved on this phone" on the
+  // strength of any pack existing at all — then the user drove to the river.
+  assert.equal(offlineCompleteness(tally({ regionCount: 4 })), 'partial');
+});
+
+test('a river with no packs is absent, not partial', () => {
+  // The two drive different buttons — "Download 42 MB" vs "Finish saving this
+  // map". Collapsing them offers a repair for a river never downloaded.
+  assert.equal(offlineCompleteness(undefined), 'absent');
+  assert.equal(offlineCompleteness(tally({ regionCount: 0 })), 'absent');
+});
+
+test('a pack that never finished writing keeps the river partial', () => {
+  // Region count alone misses the LAST region dying mid-write: the count is
+  // right and the data is not.
+  assert.equal(offlineCompleteness(tally({ unfinishedRegions: 1 })), 'partial');
+});
+
+test('completeness never asks about tile counts', () => {
+  // The obvious "simplification" here is `sumCompleted >= plan.tileCount`, and
+  // it is wrong in BOTH directions. It reads high on a broken river, because
+  // refresh() substitutes the PLANNED count from metadata whenever status()
+  // throws; and low on a healthy one, because plan.tileCount does not dedupe
+  // tiles shared by overlapping corridor boxes while Mapbox stores each once.
+  assert.equal(offlineCompleteness(tally({ tileCount: 1 })), 'complete');
+  assert.equal(offlineCompleteness(tally({ tileCount: 999_999 })), 'complete');
+});
+
+test('a complete river reading below its own tile estimate is still complete', () => {
+  // The concrete form of the case above, and the reason a tile predicate would
+  // have looked fine in testing and failed on a real device.
+  const plan = planOffline(river())!;
+  assert.ok(plan.tileCount > 0);
+  assert.equal(
+    offlineCompleteness(tally({ regionCount: plan.regions.length, tileCount: 1 })),
+    'complete',
+  );
+});
+
+test('pack metadata carries the region count the download was planned for', () => {
+  // Writing createPack metadata without regionCount silently disables the whole
+  // completeness check, with no other symptom — refresh() has no geometry to
+  // re-plan from, so a pack is the only thing that can say how many siblings it
+  // should have had.
+  const plan = planOffline(river())!;
+  const meta = packMetadata(plan, plan.regions[0]);
+
+  assert.equal(meta.regionCount, plan.regions.length);
+  assert.equal(expectedRegionsFromMetadata(meta), plan.regions.length);
+});
+
+test('metadata from the native bridge is coerced, not trusted', () => {
+  // The bridge stringifies metadata — the hook already does Number() on
+  // tileCount for exactly this reason.
+  assert.equal(expectedRegionsFromMetadata({ regionCount: '10' }), 10);
+  assert.equal(expectedRegionsFromMetadata({ regionCount: 'x' }), 0);
+  assert.equal(expectedRegionsFromMetadata({ regionCount: -1 }), 0);
+  assert.equal(expectedRegionsFromMetadata({}), 0);
+  assert.equal(expectedRegionsFromMetadata(null), 0);
+  assert.equal(expectedRegionsFromMetadata(undefined), 0);
+});
+
+test('a pack set written before regionCount existed falls back to the plan', () => {
+  // Every pack on an already-installed phone lacks the new field. The row
+  // supplies plan.regions.length so those installs are still checked.
+  assert.equal(offlineCompleteness(tally({ expectedRegions: 0, regionCount: 4 }), 10), 'partial');
+  assert.equal(offlineCompleteness(tally({ expectedRegions: 0, regionCount: 10 }), 10), 'complete');
+});
+
+test('an unknown expected count never invents a hole', () => {
+  // No metadata and no plan means no expectation. Reporting 'partial' there
+  // would nag every legacy install to repair a river that is fine.
+  assert.equal(offlineCompleteness(tally({ expectedRegions: 0, regionCount: 4 })), 'complete');
 });
