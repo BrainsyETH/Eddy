@@ -111,6 +111,21 @@ export class ApiError extends Error {
 const REQUEST_TIMEOUT_MS = 15_000;
 
 /**
+ * The deadline for work nobody is waiting on.
+ *
+ * 15s is calibrated against a person holding a phone — short enough that the
+ * answer still feels related to the tap. The offline bundle seed has no such
+ * person: it runs at module scope on launch, nothing on screen depends on it,
+ * and the only cost of it taking a while is that it takes a while.
+ *
+ * It is also the slowest thing the app asks for. The route assembles 25 rivers
+ * on a cold edge cache, so a 15s deadline would abandon precisely the first
+ * fetch — the one on a fresh install, with nothing yet on disk, which is the
+ * install that most needs it to land.
+ */
+const BACKGROUND_TIMEOUT_MS = 60_000;
+
+/**
  * A caller's signal and our deadline, as one signal.
  *
  * Hand-rolled on purpose. `AbortSignal.timeout()` and `AbortSignal.any()` are
@@ -123,7 +138,7 @@ const REQUEST_TIMEOUT_MS = 15_000;
  * and must. `timedOut` carries that, because by the time the rejection arrives
  * the only thing either case says is `AbortError`.
  */
-function withDeadline(caller?: AbortSignal) {
+function withDeadline(caller?: AbortSignal, timeoutMs: number = REQUEST_TIMEOUT_MS) {
   const controller = new AbortController();
   const state = { timedOut: false };
 
@@ -134,7 +149,7 @@ function withDeadline(caller?: AbortSignal) {
   const timer = setTimeout(() => {
     state.timedOut = true;
     controller.abort();
-  }, REQUEST_TIMEOUT_MS);
+  }, timeoutMs);
 
   return {
     signal: controller.signal,
@@ -486,7 +501,7 @@ export async function fetchStatewideNetwork(signal?: AbortSignal): Promise<State
  * request that transfers nothing.
  */
 export async function seedOfflineBundle(): Promise<void> {
-  const deadline = withDeadline();
+  const deadline = withDeadline(undefined, BACKGROUND_TIMEOUT_MS);
   try {
     const { bundleEtag } = await readMeta();
 
