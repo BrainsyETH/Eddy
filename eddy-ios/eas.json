@@ -8,6 +8,9 @@
       "environment": "development",
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "SENTRY_ALLOW_FAILURE": "true"
+      },
       "ios": {
         "simulator": true
       }
@@ -16,6 +19,9 @@
       "environment": "preview",
       "distribution": "internal",
       "channel": "preview",
+      "env": {
+        "SENTRY_ALLOW_FAILURE": "true"
+      },
       "ios": {
         "simulator": false
       }
@@ -24,6 +30,9 @@
       "environment": "production",
       "channel": "production",
       "autoIncrement": true,
+      "env": {
+        "SENTRY_ALLOW_FAILURE": "true"
+      },
       "ios": {
         "simulator": false
       }

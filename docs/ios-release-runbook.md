@@ -90,7 +90,30 @@ variable set for only one silently does nothing in the others.
 `EXPO_PUBLIC_` — Metro inlines anything `EXPO_PUBLIC_` into the bundle, and the
 auth token can write to the Sentry org.
 
-- [ ] Sentry project created. Same org as the web app.
+**Set all three for EVERY environment you build**, not just `production`. The
+Sentry config plugin adds a source-map upload step to the Xcode build, and
+sentry-cli reads these from the environment at that moment. Setting them on
+`production` alone means a `preview` build reaches the upload step with nothing
+and fails:
+
+```
+sentry-cli - error: An organization ID or slug is required
+```
+
+`eas.json` sets `SENTRY_ALLOW_FAILURE=true` on all three profiles so that
+cannot take a build down. **This is deliberate, not a workaround:** symbolicated
+stack traces are worth having and are not worth losing a build over. A crash
+reporter that can break the thing it observes has its priorities backwards, and
+this failure mode is at its worst exactly when you are least able to absorb it —
+mid-incident, shipping a fix, with a token that expired.
+
+The cost of the flag is that a broken upload is a warning rather than an error,
+so **check for symbolication once per credential change** rather than trusting
+it silently: a crash whose stack is minified means the upload is not working
+even though the build went green.
+
+- [ ] Sentry project created. Same org as the web app, whose own wiring is
+      specified in `missouri-float-planner/docs/OBSERVABILITY_AND_UPGRADES.md`.
 
 ### Vercel — the server side of the same release
 
