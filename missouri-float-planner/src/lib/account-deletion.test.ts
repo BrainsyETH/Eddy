@@ -8,6 +8,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { deleteAccount, EXPLICIT_DELETE_TABLES } from './account-deletion';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 const USER = '11111111-1111-1111-1111-111111111111';
 
@@ -110,4 +111,55 @@ test('reports how many rows each table gave up', async () => {
   const result = await deleteAccount(client as any, USER);
 
   assert.equal(result.deleted.float_plans, 2);
+});
+
+// ── Apple token revocation (Guideline 5.1.1(v)) ───────────────────────────
+
+test('the Apple token is revoked before the auth user is deleted', async () => {
+  // apple_refresh_tokens has ON DELETE CASCADE off auth.users, so deleting the
+  // user first destroys the very token revocation needs. Getting this order
+  // wrong leaves no error and no revoked token — the account disappears, the
+  // API returns 200, and Apple is never told.
+  const { client, calls } = fakeAdmin();
+
+  await deleteAccount(client as any, USER, {
+    revokeApple: async () => {
+      calls.push('revoke:apple');
+      return true;
+    },
+  });
+
+  assert.ok(
+    calls.indexOf('revoke:apple') < calls.indexOf('delete:auth.users'),
+    'revocation must run while the token still exists'
+  );
+});
+
+test('a failed Apple revocation does not block the deletion', async () => {
+  // A person's ability to delete their account must not depend on Apple's
+  // uptime, and a half-deleted account — owned floats already gone, auth user
+  // still present — is strictly worse than an unrevoked token.
+  const { client, calls } = fakeAdmin();
+
+  const result = await deleteAccount(client as any, USER, {
+    revokeApple: async () => {
+      throw new Error('Apple is down');
+    },
+  });
+
+  assert.ok(calls.includes('delete:auth.users'), 'the account must still be deleted');
+  assert.equal(result.appleRevoked, false);
+});
+
+test('an account with no Apple token deletes normally', async () => {
+  // Anonymous users can delete too — the route uses requireUser, not
+  // requirePermanentUser — and revocation is simply a no-op for them.
+  const { client, calls } = fakeAdmin();
+
+  const result = await deleteAccount(client as any, USER, {
+    revokeApple: async () => false,
+  });
+
+  assert.ok(calls.includes('delete:auth.users'));
+  assert.equal(result.appleRevoked, false);
 });

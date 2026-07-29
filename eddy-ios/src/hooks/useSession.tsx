@@ -25,7 +25,7 @@ import {
 import * as AppleAuthentication from 'expo-apple-authentication';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
-import { updateDisplayName } from '@/api/client';
+import { storeAppleAuthorizationCode, updateDisplayName } from '@/api/client';
 import { warn } from '@/lib/monitoring';
 
 interface SessionValue {
@@ -217,6 +217,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         nextId,
         previousWasAnonymous,
       });
+    }
+
+    // ── Hand the authorization code to the server, for revocation later ────
+    //
+    // App Store Guideline 5.1.1(v) requires an app offering Sign in with Apple
+    // AND account deletion to revoke Apple's token when the account goes. That
+    // needs a refresh token, and the only thing exchangeable for one is this
+    // authorizationCode — which was previously read off the credential by
+    // nothing at all and dropped on the floor.
+    //
+    // It has to go NOW rather than at deletion time: Apple codes expire in
+    // about five minutes, so storing one to redeem months later cannot work.
+    // The server exchanges it immediately and keeps the refresh token.
+    //
+    // Failure is non-fatal and silent to the user. A sign-in that worked must
+    // not report itself as broken because a compliance side-effect did not
+    // land; the cost is a token we cannot revoke later, which is ours to carry
+    // and not something the person signing in can act on.
+    if (credential.authorizationCode && data.session) {
+      try {
+        await storeAppleAuthorizationCode(data.session.access_token, credential.authorizationCode);
+      } catch (err) {
+        warn('auth', 'could not hand the Apple authorization code to the server', err);
+      }
     }
 
     // Apple sends the real name EXACTLY ONCE, on the very first authorisation

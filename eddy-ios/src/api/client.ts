@@ -1336,6 +1336,24 @@ export async function updateDisplayName(token: string, displayName: string): Pro
 }
 
 /**
+ * Hand Apple's authorization code to the server, which exchanges it for a
+ * refresh token and keeps it against account deletion.
+ *
+ * Guideline 5.1.1(v) — see the call site in useSession. The code is single-use
+ * and expires in about five minutes, so this is called immediately after
+ * sign-in and never retried later; there would be nothing left to redeem.
+ */
+export async function storeAppleAuthorizationCode(
+  token: string,
+  authorizationCode: string,
+): Promise<void> {
+  await authed('/api/me/apple-token', token, {
+    method: 'POST',
+    body: { authorizationCode },
+  });
+}
+
+/**
  * Delete the account and its owned data. Irreversible.
  *
  * Unlike the rest of the /api/me family this THROWS on failure rather than

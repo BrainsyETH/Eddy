@@ -34,6 +34,9 @@ const ME_ROUTES = [
   'me/starred-rivers/route.ts',
   'me/alert-subscriptions/route.ts',
   'me/device-tokens/route.ts',
+  // Holds an Apple refresh token in flight. A shared cache storing this
+  // response would be caching a credential exchange.
+  'me/apple-token/route.ts',
 ];
 
 test('no /api/me route answers with a bare NextResponse.json', () => {
