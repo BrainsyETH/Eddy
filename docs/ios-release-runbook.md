@@ -153,6 +153,36 @@ shipped version bricks every install with no recourse but a new build.
 select min_supported_version from app_config;
 ```
 
+## 6b · Universal links
+
+Shared float links (`eddy.guide/plan/<shortCode>`) open the app instead of
+Safari. Everything is in the repo — Team ID `D4U38CY2HK` is in
+`src/lib/navigation/apple-app-site-association.ts` — but the association is made
+by Apple at install time and cannot be verified from a checkout.
+
+- [ ] The web app is deployed **before** the build is distributed. iOS fetches
+      the association file when the app installs; if it 404s, the app is
+      installed WITHOUT the association and only a reinstall fixes it.
+- [ ] `curl -sI https://eddy.guide/.well-known/apple-app-site-association`
+      returns **200**, `content-type: application/json`, and **no 3xx**. Apple's
+      CDN does not follow redirects for this file.
+- [ ] `curl -s https://eddy.guide/.well-known/apple-app-site-association | jq`
+      shows `D4U38CY2HK.eddy.guide.app`.
+
+Then on a real device, with a build that has `associatedDomains`:
+
+- [ ] Send yourself an `eddy.guide/plan/<shortCode>` link in Messages or Notes
+      and **tap** it. It must open Eddy on the float screen.
+
+Two things that will otherwise waste an afternoon: universal links do **not**
+work in the simulator, and typing the URL into Safari's address bar is specified
+*not* to trigger them — it has to be a tapped link from another app. If it opens
+in Safari, pull down on the page for the "Open in Eddy" banner; if that is
+missing too, the association never happened.
+
+Apple caches the association file, so a wrong version outlives the fix. Get the
+`curl` checks green before distributing a build.
+
 ## 7 · Build
 
 ```bash

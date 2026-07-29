@@ -29,6 +29,21 @@ const nextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        // Universal links. A REWRITE, never a redirect: Apple's CDN does not
+        // follow redirects when fetching this file, and a 3xx here breaks
+        // universal links with nothing failing anywhere that anyone would see.
+        //
+        // Kept out of public/ because the path has no file extension, so a
+        // static host serves it as application/octet-stream and iOS silently
+        // ignores it. The route handler sets application/json explicitly.
+        source: '/.well-known/apple-app-site-association',
+        destination: '/api/apple-app-site-association',
+      },
+    ];
+  },
   async redirects() {
     // Old per-river share URLs (/rivers/<slug>?putIn=…&takeOut=…) point at the
     // unified planner now. permanent: true emits 308 (treated as permanent by
