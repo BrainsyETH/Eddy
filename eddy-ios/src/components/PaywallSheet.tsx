@@ -63,21 +63,33 @@ interface Props {
   onPurchased?: () => void;
 }
 
+/**
+ * ── This sheet used to sell three things, two of which were free ──────────
+ *
+ * The header above says alerting is free in its entirety and that hazards
+ * behind a paywall are a liability. The list then sold "a push when a river
+ * becomes floatable" and "follow as many rivers as you like" — both free — and
+ * promised the offline download would "keep the map, access points and hazards
+ * on the water", when the download saved Mapbox tiles and nothing else. Twenty
+ * lines below, the same sheet said conditions, readings, hazards and alerts are
+ * always free. It contradicted itself on one screen, in both directions at
+ * once.
+ *
+ * So this is now the two things Premium actually delivers. It reads as less
+ * because it was overstated, not because anything was taken away — and it
+ * finally mentions Eddy's take, which is the strongest thing behind the wall
+ * and was not on the list at all.
+ */
 const BENEFITS: { symbol: EddySymbolName; title: string; body: string }[] = [
   {
-    symbol: 'alertWatch',
-    title: 'Know before you drive',
-    body: 'A push the moment a river you follow becomes floatable — not the evening you get home and check.',
-  },
-  {
-    symbol: 'water',
-    title: 'Every river you follow',
-    body: 'Follow as many rivers as you like. Each one watched on its own schedule.',
+    symbol: 'eddyRated',
+    title: "Eddy's take on the day",
+    body: 'A written read on the last 72 hours, the weather ahead, and the bottom line — whether to get on the water at all.',
   },
   {
     symbol: 'offlineMap',
-    title: 'Maps that work with no signal',
-    body: 'Download a river before you leave and keep the map, access points and hazards on the water.',
+    title: 'The map, downloaded',
+    body: "Download a river's map to your phone. The put-ins and hazards are already saved for free — this is the map they sit on.",
   },
 ];
 
@@ -239,7 +251,8 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
           </Text>
 
           <Text style={[styles.freeNote, { color: colors.textSubtle }]}>
-            River conditions, gauge readings, hazard information and alerts are always free.
+            River conditions, gauge readings, hazard information and alerts are always free — and
+            the last ones you saw stay on your phone when the signal goes.
           </Text>
 
           {/* Apple also requires the renewal terms themselves to be visible on

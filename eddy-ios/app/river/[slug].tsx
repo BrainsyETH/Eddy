@@ -65,6 +65,7 @@ import {
   conditionColor,
   conditionInk,
   conditionLongLabel,
+  conditionShortLabel,
 } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -99,8 +100,9 @@ import { useAccount } from '@/hooks/useAccount';
 import { usePush } from '@/hooks/usePush';
 import { useSession } from '@/hooks/useSession';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
-import { readIndex } from '@/lib/riverCache';
+import { readConditions, readIndex } from '@/lib/riverCache';
 import { useRiverData } from '@/hooks/useRiverData';
+import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
 
 
 /**
@@ -140,6 +142,23 @@ export default function RiverDetailScreen() {
 
   const [river, setRiver] = useState<RiverListItem | null>(null);
   const [condition, setCondition] = useState<RiverConditionDetail | null>(null);
+  /**
+   * Set only when the condition on screen came off the disk, and carrying the
+   * age it ACTUALLY has rather than the one it claims.
+   *
+   * readingAgeHours is a scalar the server computed at request time, so a
+   * cached reading replayed three days later still says "1" and the screen
+   * prints "Updated an hour ago" forever. The correction is the time elapsed
+   * since the cache entry was written.
+   *
+   * Computed here in the effect rather than at render, because it needs a clock
+   * and a component that reads one during render is not idempotent — the same
+   * reading would band differently on two renders a few hours apart with no
+   * state change to explain it.
+   */
+  const [cachedReadingAgeHours, setCachedReadingAgeHours] = useState<number | null | undefined>(
+    undefined,
+  );
   /** Bumped by "Try again"; re-runs the load effect without blanking the screen. */
   const [reloadNonce, setReloadNonce] = useState(0);
   /** The last slug that finished loading, so a retry is not a first load. */
@@ -259,7 +278,19 @@ export default function RiverDetailScreen() {
         // the disk. What is left in this Promise.all is everything that
         // describes the STATE of the water, which is never served from cache.
         const [cond, looks, allGauges, dams] = await Promise.all([
-          fetchCondition(match.id, controller.signal).catch(() => null),
+          // Settled rather than caught, because the two failures are different
+          // screens. A THROWN request is "we could not ask", and the last
+          // reading we kept — aged and labelled — beats a blank card at a put-in
+          // with no signal. `available: false` is the server telling us this
+          // river has no reading right now, which is an answer, and answering it
+          // from disk would be re-showing stale water as current.
+          fetchCondition(match.id, controller.signal).then(
+            (c) => ({ condition: c, failed: false }),
+            (err) => ({
+              condition: null,
+              failed: !(err instanceof ApiError && err.message === 'Request cancelled'),
+            }),
+          ),
           // Thin coverage by nature — verified community photos exist for three
           // rivers of twenty-four — so a null here is the ordinary case and the
           // card just does not render.
@@ -276,7 +307,19 @@ export default function RiverDetailScreen() {
           // every river but one.
           fetchDams(controller.signal),
         ]);
-        setCondition(cond);
+        if (cond.failed) {
+          const stored = await readConditions();
+          const kept = stored?.payload?.[match.id] ?? null;
+          setCondition(kept);
+          setCachedReadingAgeHours(
+            kept
+              ? effectiveReadingAgeHours(kept.readingAgeHours, stored!.fetchedAt, Date.now())
+              : undefined,
+          );
+        } else {
+          setCondition(cond.condition);
+          setCachedReadingAgeHours(undefined);
+        }
         setVisuals(looks);
         setGauges(gaugesForRiver(allGauges, slug));
         setDam(damForRiver(dams, slug));
@@ -508,7 +551,26 @@ export default function RiverDetailScreen() {
         : null;
 
   const scaleThresholds = pickedLink ?? condition?.thresholds ?? null;
-  const readingAgeHours = pickedGauge ? pickedGauge.readingAgeHours : condition?.readingAgeHours;
+  const rawReadingAgeHours = pickedGauge ? pickedGauge.readingAgeHours : condition?.readingAgeHours;
+
+  /**
+   * How the reading is allowed to present itself.
+   *
+   * Only a CACHED condition earns a band; a live one keeps the behaviour it has
+   * always had, where a stale gauge is handled by accuracyNote. The picked
+   * gauge is never banded either — it comes from the live statewide fetch, not
+   * from disk.
+   *
+   *   fresh    normal colour, plus an offline glyph on the age line
+   *   stale    grey, and "Last known: Good" instead of "Good - Floatable"
+   *   expired  grey, and the age is not printed at all — past two days the
+   *            number stops being information and becomes decoration
+   */
+  const cachedReading = cachedReadingAgeHours !== undefined && !pickedGauge;
+  const readingAgeHours = cachedReading ? cachedReadingAgeHours : rawReadingAgeHours;
+  const band = cachedReading ? readingBand(cachedReadingAgeHours ?? null) : 'fresh';
+  // A grey chip over a confident label would be the screen arguing with itself.
+  const shownCode = band === 'fresh' ? code : 'unknown';
   const shownGaugeName = pickedGauge ? pickedGauge.name : condition?.gaugeName;
   // The station the chart plots, resolved the same way as the name beside it so
   // the two can never describe different gauges. Null on a river with none.
@@ -588,16 +650,25 @@ export default function RiverDetailScreen() {
         {/* ── Live status ─────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
           <View style={styles.statusHead}>
-            <Otter mood={otterForCondition(code)} size={64} />
+            <Otter mood={otterForCondition(shownCode)} size={64} />
             <View style={styles.statusHeadText}>
               <View
                 style={[
                   styles.conditionChip,
-                  { backgroundColor: conditionBg(code), borderColor: conditionChipBorder(code) },
+                  {
+                    backgroundColor: conditionBg(shownCode),
+                    borderColor: conditionChipBorder(shownCode),
+                  },
                 ]}
               >
-                <Text style={[styles.conditionChipText, { color: conditionInk(code) }]}>
-                  {conditionLongLabel(code)}
+                <Text style={[styles.conditionChipText, { color: conditionInk(shownCode) }]}>
+                  {/* The long label is an instruction — "Do Not Float",
+                      "Floatable" — and an instruction is a claim about right
+                      now. A reading recovered from disk names what was last
+                      seen and stops there. */}
+                  {band === 'fresh'
+                    ? conditionLongLabel(code)
+                    : `Last known: ${conditionShortLabel(code)}`}
                 </Text>
               </View>
               {reading ? (
@@ -629,7 +700,10 @@ export default function RiverDetailScreen() {
           {/* PRIMARY ONLY. The percentile comes from /api/conditions and is
               computed for the river's rated gauge, so printing it under another
               station's reading would attach a statistic to the wrong water. */}
-          {percentileText && !pickedGauge ? (
+          {/* LIVE ONLY, on top of primary-only. The percentile is computed
+              against TODAY's day-of-year, so a cached "lower than most years
+              for late July" read in September is wrong twice over. */}
+          {percentileText && !pickedGauge && !cachedReading ? (
             <View style={[styles.percentileRow, { borderTopColor: colors.border }]}>
               <Text style={[styles.percentileText, { color: colors.text }]}>{percentileText}</Text>
               <Text style={[styles.percentileMeta, { color: colors.textSubtle }]}>
@@ -644,11 +718,19 @@ export default function RiverDetailScreen() {
             </View>
           ) : null}
 
-          {readingAgeHours != null ? (
-            <Text style={[styles.updated, { color: colors.textSubtle }]}>
-              {readingAge(readingAgeHours)}
-              {shownGaugeName ? ` · ${shownGaugeName}` : ''}
-            </Text>
+          {/* Past forty-eight hours the age is not printed at all. "Updated 3
+              days ago" invites arithmetic against water that has rained twice
+              since; the honest form is to stop claiming an age. */}
+          {readingAgeHours != null && band !== 'expired' ? (
+            <View style={styles.updatedRow}>
+              {cachedReading ? (
+                <Ionicons name="cloud-offline-outline" size={12} color={colors.textSubtle} />
+              ) : null}
+              <Text style={[styles.updated, { color: colors.textSubtle }]}>
+                {readingAge(readingAgeHours)}
+                {shownGaugeName ? ` · ${shownGaugeName}` : ''}
+              </Text>
+            </View>
           ) : null}
 
           {caveat ? (
@@ -1244,7 +1326,9 @@ const styles = StyleSheet.create({
   percentileRow: { marginTop: 14, paddingTop: 12, borderTopWidth: 1 },
   percentileText: { ...t.sm, fontFamily: fonts.semibold },
   percentileMeta: { ...t.xs, fontFamily: fonts.mono, marginTop: 2 },
-  updated: { ...t.xs, fontFamily: fonts.body, marginTop: 10 },
+  updatedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10 },
+  // marginTop moves to the row so the glyph and the text sit on one baseline.
+  updated: { ...t.xs, fontFamily: fonts.body },
   caveat: {
     flexDirection: 'row',
     alignItems: 'flex-start',

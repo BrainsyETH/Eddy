@@ -71,6 +71,7 @@ import type { ServerStar } from '@eddy/sync';
 import type { StatewideReading, StatewideRiver } from '@/lib/statewideNetwork';
 import {
   readMeta,
+  writeCondition,
   writeIndex,
   writeMeta,
   writeNetwork,
@@ -942,7 +943,11 @@ export async function fetchCondition(
     `/api/conditions/${encodeURIComponent(riverId)}`,
     signal,
   );
-  return data.available ? (data.condition ?? null) : null;
+  const condition = data.available ? (data.condition ?? null) : null;
+  // The one piece of live water state kept on disk, and kept ONLY so it can be
+  // aged and labelled — never re-shown as current. See readingBand.
+  if (condition) writeCondition(riverId, condition);
+  return condition;
 }
 
 /**

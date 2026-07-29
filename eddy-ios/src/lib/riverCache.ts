@@ -14,8 +14,8 @@
 // That same detail decides the key layout, and it inverts the usual advice:
 // a value UNDER 1 KB is inlined in manifest.json and rewrites the whole
 // manifest on every write, while a larger one is its own file. So few large
-// values beat many small ones here, which is why conditions will be one blob
-// rather than a key per gauge.
+// values beat many small ones here, which is why every river's condition is
+// ONE blob rather than a key per gauge.
 //
 // ── What is NOT cached, and why ─────────────────────────────────────────────
 //
@@ -40,6 +40,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   Hazard,
+  RiverConditionDetail,
   MapAccessPoint,
   RiverDetail,
   RiverListItem,
@@ -50,6 +51,7 @@ import type { StatewideRiver } from '@/lib/statewideNetwork';
 import { warn } from '@/lib/monitoring';
 import {
   INDEX_KEY,
+  CONDITIONS_KEY,
   META_KEY,
   NETWORK_KEY,
   envelope,
@@ -198,6 +200,51 @@ export function writeNetwork(rivers: StatewideRiver[]): void {
     NETWORK_KEY,
     JSON.stringify(envelope(rivers, new Date().toISOString())),
   ).catch(() => {});
+}
+
+// ── The last reading for each river ─────────────────────────────────────────
+
+/**
+ * The one exception to "never cache the state of the water".
+ *
+ * Kept ONLY so it can be labelled and aged — see effectiveReadingAgeHours and
+ * readingBand. A reading is never re-shown as current: past six hours it goes
+ * grey and past forty-eight the number is withheld entirely. The value of
+ * keeping it is that "the Current was 1.4 ft when you had signal this morning"
+ * is genuinely useful at a put-in, and infinitely better than a blank card.
+ *
+ * Keyed by river id, matching what fetchCondition is called with.
+ */
+export async function readConditions(): Promise<CacheEnvelope<
+  Record<string, RiverConditionDetail>
+> | null> {
+  try {
+    return parseEnvelope<Record<string, RiverConditionDetail>>(
+      await AsyncStorage.getItem(CONDITIONS_KEY),
+      'object',
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Store one river's condition, preserving the other twenty-four.
+ *
+ * Serialised on the same chain machinery as the river entries and for the same
+ * reason: this is read-modify-write over a shared blob, and the Map tab can
+ * have several conditions land at once.
+ */
+export function writeCondition(riverId: string, condition: RiverConditionDetail): void {
+  enqueueWrite(CONDITIONS_KEY, async () => {
+    const existing = await readConditions();
+    await AsyncStorage.setItem(
+      CONDITIONS_KEY,
+      JSON.stringify(
+        envelope({ ...(existing?.payload ?? {}), [riverId]: condition }, new Date().toISOString()),
+      ),
+    );
+  });
 }
 
 // ── Bundle metadata ─────────────────────────────────────────────────────────

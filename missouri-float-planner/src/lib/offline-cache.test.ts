@@ -11,6 +11,8 @@ import {
   riverKey,
   slugFromRiverKey,
   mergeParts,
+  effectiveReadingAgeHours,
+  readingBand,
 } from '../../../eddy-ios/src/lib/offline-cache';
 
 const NOW = '2026-07-29T12:00:00.000Z';
@@ -140,4 +142,48 @@ test('a merge onto an unreadable entry starts clean rather than throwing', () =>
   const after = mergeParts<Parts>(null, { hazards: [{ id: 'h1' }] }, '2026-07-02T00:00:00.000Z');
   assert.deepEqual(after.payload, { hazards: [{ id: 'h1' }] });
   assert.equal(after.v, CACHE_VERSION);
+});
+
+// ── ageing a stored reading ───────────────────────────────────────────────
+
+const HOUR = 3_600_000;
+const WRITTEN = '2026-07-01T00:00:00.000Z';
+const at = (hoursLater: number) => Date.parse(WRITTEN) + hoursLater * HOUR;
+
+test("a reading's age counts from when it was cached, not from its own timestamp", () => {
+  // THE bug. readingAgeHours is a scalar the server computed at request time,
+  // so replaying it off disk three days later still prints "an hour ago" — a
+  // cached reading claiming to be an hour old forever. The two timestamps
+  // differ, and using the reading's own under-reports staleness by exactly the
+  // amount that matters.
+  assert.equal(effectiveReadingAgeHours(1, WRITTEN, at(0)), 1);
+  assert.equal(effectiveReadingAgeHours(1, WRITTEN, at(72)), 73);
+});
+
+test('a reading never gets younger when the device clock moves backwards', () => {
+  // Trusting a negative elapsed time would age a reading DOWN, which is the one
+  // direction this must never round.
+  assert.equal(effectiveReadingAgeHours(5, WRITTEN, at(-10)), 5);
+});
+
+test('an unknown age is not evidence of freshness', () => {
+  // A gauge that never reported has a null age. Treating null as 0 would paint
+  // it in a confident condition colour.
+  assert.equal(effectiveReadingAgeHours(null, WRITTEN, at(0)), null);
+  assert.equal(effectiveReadingAgeHours(undefined, WRITTEN, at(0)), null);
+  assert.equal(readingBand(null), 'expired');
+});
+
+test('an unreadable cache timestamp is not treated as just-written', () => {
+  assert.equal(effectiveReadingAgeHours(1, 'not-a-date', at(0)), null);
+  assert.equal(effectiveReadingAgeHours(1, null, at(0)), null);
+});
+
+test('the bands turn over at six and forty-eight hours', () => {
+  // Six is the same threshold accuracyNote already owns, so the caveat sentence
+  // and the greyed chip cannot land on opposite sides of one line.
+  assert.equal(readingBand(5.9), 'fresh');
+  assert.equal(readingBand(6), 'stale');
+  assert.equal(readingBand(47.9), 'stale');
+  assert.equal(readingBand(48), 'expired');
 });
