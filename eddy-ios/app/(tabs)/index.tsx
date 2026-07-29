@@ -1195,7 +1195,7 @@ export default function MapScreen() {
       {features.offlineDownloads && !unavailable ? (
         <OfflineMapRow
           river={detail}
-          downloaded={drawnSlug ? packs.isDownloaded(drawnSlug) : false}
+          tally={drawnSlug ? packs.downloaded[drawnSlug] : undefined}
           progressPercent={downloadProgress}
           budget={packs.budget}
           entitled={entitled}

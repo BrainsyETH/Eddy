@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { planDrain, type DrainInput } from './drain';
+import { planDrain, spentOneShots, type DrainInput } from './drain';
 
 const MAX = 5;
 
@@ -110,4 +110,42 @@ test('retries are grouped by the value written, not one statement per event', ()
   assert.equal(result.retryByNextAttempt.size, 2);
   assert.deepEqual(result.retryByNextAttempt.get(1), ['a', 'b']);
   assert.deepEqual(result.retryByNextAttempt.get(2), ['c']);
+});
+
+// ── one-shots: planned is not delivered ──────────────────────────
+
+test('a one-shot whose every send failed is NOT spent', () => {
+  // The regression, and the reason this function exists. The cron stamped
+  // fired_at on every one-shot the plan had merely produced messages for,
+  // without looking at a single ticket. It compounds rather than losing one
+  // push: the next pass then skips the subscription as one_shot_spent, which
+  // leaves the event with nothing planned, which planDrain above correctly
+  // reads as finished. The retry cancels itself and the alert is gone without
+  // even reaching givenUp.
+  assert.deepEqual(spentOneShots(['sub-1'], new Map()), []);
+});
+
+test('one success is enough to spend a one-shot', () => {
+  // Matches planDrain's partial-delivery rule. A subscription fans out to every
+  // device its owner registered, so reaching one of them has reached the
+  // person, and re-arming to chase a second phone would notify them twice.
+  assert.deepEqual(spentOneShots(['sub-1'], new Map([['sub-1', 1]])), ['sub-1']);
+});
+
+test('one subscription failing does not spare another that succeeded', () => {
+  // Per-subscription, not per-pass. An aggregate "did anything send" check
+  // would spend every one-shot in a pass where a single unrelated push landed.
+  const success = new Map([
+    ['ok', 2],
+    ['dead', 0],
+  ]);
+
+  assert.deepEqual(spentOneShots(['ok', 'dead'], success), ['ok']);
+});
+
+test('success on a subscription that was not a one-shot candidate spends nothing', () => {
+  // The tally counts every message in the pass, most of them from ordinary
+  // repeating subscriptions. Only fanout decides what was a one-shot candidate;
+  // this function narrows that list and must never widen it.
+  assert.deepEqual(spentOneShots([], new Map([['repeating-sub', 3]])), []);
 });

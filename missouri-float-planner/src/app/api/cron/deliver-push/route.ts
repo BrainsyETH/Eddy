@@ -21,7 +21,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { planDeliveries, type FanoutEvent, type FanoutSubscription, type FanoutToken } from '@/lib/alerts/fanout';
-import { planDrain } from '@/lib/alerts/drain';
+import { planDrain, spentOneShots } from '@/lib/alerts/drain';
 import { deliverGaugeAlerts } from '@/lib/alerts/gauge-delivery';
 import { disableTokens, recordTokenFailures } from '@/lib/alerts/token-health';
 import { chunkMessages, classifyTicketError, sendExpoPush } from '@/lib/push/expo';
@@ -216,6 +216,26 @@ async function drainRiverEvents(supabase: any, startedAt: number): Promise<River
    * exactly the second.
    */
   const successByEvent = new Map<string, number>();
+  /**
+   * Successful sends per SUBSCRIPTION, which is a different question from
+   * successByEvent and cannot be derived from it.
+   *
+   * A one-shot is the user's single chance to hear about a river, and it used
+   * to be spent on every subscription the plan merely TOUCHED — the stamp below
+   * read plan.oneShotSubscriptionIds and never looked at an outcome. That is
+   * the same bug the drain block further down was written to fix, and it was
+   * strictly worse here, because it compounds: a pass where every send failed
+   * stamped fired_at anyway, then the NEXT pass skipped the subscription as
+   * one_shot_spent, which left the event with nothing planned, which drain.ts
+   * correctly reads as "nothing to send" and drains as delivered. The retry
+   * machinery cancelled itself and the alert vanished without even reaching the
+   * givenUp log.
+   *
+   * One success is enough, matching drain.ts's partial-delivery rule — a
+   * subscription fans out to every device the user owns, and reaching one of
+   * them is reaching the user.
+   */
+  const successBySubscription = new Map<string, number>();
 
   for (const [index, batch] of chunkMessages(plan.messages.map((m) => m.message)).entries()) {
     const offset = index * 100;
@@ -229,6 +249,10 @@ async function drainRiverEvents(supabase: any, startedAt: number): Promise<River
       if (ticket.status === 'ok') {
         sent++;
         successByEvent.set(planned.eventId, (successByEvent.get(planned.eventId) ?? 0) + 1);
+        successBySubscription.set(
+          planned.subscriptionId,
+          (successBySubscription.get(planned.subscriptionId) ?? 0) + 1
+        );
       } else {
         failed++;
         failuresByToken.set(
@@ -274,11 +298,15 @@ async function drainRiverEvents(supabase: any, startedAt: number): Promise<River
   // the gauge pass so the two cannot drift on when a token is given up on.
   await recordTokenFailures(supabase, failuresByToken);
 
-  if (plan.oneShotSubscriptionIds.length > 0) {
+  // Spend a one-shot only where something actually landed. The rule lives in
+  // lib/alerts/drain.ts beside planDrain — same reason, same pass, and the two
+  // are easy to get inconsistent if they sit apart.
+  const spent = spentOneShots(plan.oneShotSubscriptionIds, successBySubscription);
+  if (spent.length > 0) {
     await supabase
       .from('alert_subscriptions')
       .update({ fired_at: new Date().toISOString() })
-      .in('id', plan.oneShotSubscriptionIds);
+      .in('id', spent);
   }
 
   // ── Drain, or leave for the next pass ──────────────────────────────

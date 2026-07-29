@@ -100,6 +100,7 @@ import {
   type LayerKey,
   type PinLayerKey,
 } from './layers';
+import { warn } from '@/lib/monitoring';
 
 const SERVICE_TYPE_LABELS: Record<string, string> = {
   outfitter: 'Outfitter',
@@ -171,7 +172,7 @@ const PIN_IMAGES = {
  * loud anyway, because the symptom is invisible pins.
  */
 function onPinImageMissing(name: string) {
-  console.warn(`[map] Missing pin image "${name}" — pins in that layer will not draw.`);
+  warn('map', `missing pin image "${name}" — pins in that layer will not draw`);
 }
 
 /**
