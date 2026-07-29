@@ -77,19 +77,111 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * How long any one request may hang before it counts as no connection.
+ *
+ * There was no deadline at all, which sounds harmless and is not: `fetch` on
+ * iOS inherits NSURLSession's 60-second default, so a request that stalls
+ * rather than fails leaves a spinner up for a full minute. That is the ordinary
+ * state of one bar of LTE at a put-in — the exact conditions this app exists
+ * for — and the screen already has good copy for it that it simply never got
+ * to show.
+ *
+ * 15s is chosen against the slowest thing the app asks for on a cold start
+ * (`/api/usgs/mo-dataset?slim=1`, ~260 KB and CDN-cached) with room to spare on
+ * a bad connection, and it is short enough that a person still believes the
+ * answer relates to the tap.
+ */
+const REQUEST_TIMEOUT_MS = 15_000;
+
+/**
+ * A caller's signal and our deadline, as one signal.
+ *
+ * Hand-rolled on purpose. `AbortSignal.timeout()` and `AbortSignal.any()` are
+ * the obvious way to write this and neither can be relied on here — Hermes is
+ * not a browser and both are recent platform additions, so this has to work
+ * with nothing but AbortController and setTimeout.
+ *
+ * The two reasons for aborting must stay distinguishable: a screen unmounting
+ * is not a failure and must never surface, while a timeout is "no connection"
+ * and must. `timedOut` carries that, because by the time the rejection arrives
+ * the only thing either case says is `AbortError`.
+ */
+function withDeadline(caller?: AbortSignal) {
+  const controller = new AbortController();
+  const state = { timedOut: false };
+
+  if (caller?.aborted) controller.abort();
+  const onCallerAbort = () => controller.abort();
+  caller?.addEventListener('abort', onCallerAbort);
+
+  const timer = setTimeout(() => {
+    state.timedOut = true;
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
+
+  return {
+    signal: controller.signal,
+    get timedOut() {
+      return state.timedOut;
+    },
+    /**
+     * Must run on every path, including the successful one. A pending timer
+     * holds a reference to its controller and would fire minutes later against
+     * a request that finished — harmless to the response, but it keeps the
+     * closure alive and, on a screen that polls, accumulates.
+     */
+    done() {
+      clearTimeout(timer);
+      caller?.removeEventListener('abort', onCallerAbort);
+    },
+  };
+}
+
+/**
+ * One fetch under a deadline, for the handful of one-off calls that build their
+ * request inline rather than going through get()/authed()/writeJson().
+ *
+ * Exists so the deadline cannot be half-applied. Attaching the signal and
+ * forgetting done() leaves a live timer holding its controller for the full
+ * timeout after the request already finished, which is exactly the mistake this
+ * shape makes unavailable.
+ */
+async function fetchOnce(
+  url: string,
+  deadline: ReturnType<typeof withDeadline>,
+  init: RequestInit,
+): Promise<Response> {
+  try {
+    return await fetch(url, { ...init, signal: deadline.signal });
+  } catch (err) {
+    const aborted = err instanceof Error && err.name === 'AbortError';
+    throw new ApiError(aborted && !deadline.timedOut ? 'Request cancelled' : 'No connection');
+  } finally {
+    deadline.done();
+  }
+}
+
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const deadline = withDeadline(signal);
   let response: Response;
   try {
     response = await fetch(`${BASE_URL}${path}`, {
       headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
-      signal,
+      signal: deadline.signal,
     });
   } catch (err) {
     // Offline is the expected case on a river, not an exceptional one — give
     // the UI something it can phrase kindly.
-    throw new ApiError(
-      err instanceof Error && err.name === 'AbortError' ? 'Request cancelled' : 'No connection',
-    );
+    //
+    // A timeout is NOT a cancellation, even though both arrive as AbortError.
+    // Screens drop 'Request cancelled' on the floor by design, so reporting a
+    // stalled request that way would replace a minute-long spinner with a
+    // silent one that never resolves.
+    const aborted = err instanceof Error && err.name === 'AbortError';
+    throw new ApiError(aborted && !deadline.timedOut ? 'Request cancelled' : 'No connection');
+  } finally {
+    deadline.done();
   }
 
   if (!response.ok) {
@@ -111,17 +203,30 @@ async function authed<T>(
   token: string,
   init?: { method?: string; body?: unknown; signal?: AbortSignal },
 ): Promise<T | null> {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    method: init?.method ?? 'GET',
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': USER_AGENT,
-      Authorization: `Bearer ${token}`,
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-    },
-    body: init?.body ? JSON.stringify(init.body) : undefined,
-    signal: init?.signal,
-  });
+  const deadline = withDeadline(init?.signal);
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}${path}`, {
+      method: init?.method ?? 'GET',
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': USER_AGENT,
+        Authorization: `Bearer ${token}`,
+        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: init?.body ? JSON.stringify(init.body) : undefined,
+      signal: deadline.signal,
+    });
+  } catch (err) {
+    // Same shape as get(). This path used to let a raw TypeError out of a
+    // module whose whole error surface is ApiError, so a caller narrowing on
+    // ApiError — which several do, to tell 'Request cancelled' from a real
+    // failure — saw a network drop as something unrecognised.
+    const aborted = err instanceof Error && err.name === 'AbortError';
+    throw new ApiError(aborted && !deadline.timedOut ? 'Request cancelled' : 'No connection');
+  } finally {
+    deadline.done();
+  }
 
   if (response.status === 401 || response.status === 403) return null;
   if (!response.ok) {
@@ -548,7 +653,8 @@ export async function fetchSavedPlan(
  * the caller is already looking at.
  */
 export async function saveFloatPlan(plan: FloatPlan): Promise<SavePlanResponse> {
-  const response = await fetch(`${BASE_URL}/api/plan/save`, {
+  const deadline = withDeadline();
+  const response = await fetchOnce(`${BASE_URL}/api/plan/save`, deadline, {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -761,7 +867,8 @@ export async function subscribeToRiver(
   riverId: string,
   kind: 'floatable' | 'safety' | 'all',
 ): Promise<void> {
-  const response = await fetch(`${BASE_URL}/api/me/alert-subscriptions`, {
+  const deadline = withDeadline();
+  const response = await fetchOnce(`${BASE_URL}/api/me/alert-subscriptions`, deadline, {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -848,6 +955,7 @@ async function writeJson<T>(
   method: 'POST' | 'PATCH' | 'PUT',
   body: unknown,
 ): Promise<T> {
+  const deadline = withDeadline();
   let response: Response;
   try {
     response = await fetch(`${BASE_URL}${path}`, {
@@ -859,9 +967,14 @@ async function writeJson<T>(
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(body),
+      signal: deadline.signal,
     });
   } catch {
+    // No caller signal to distinguish here — every abort on this path is our
+    // own deadline, and these are taps with a spinner attached.
     throw new ApiError('No connection');
+  } finally {
+    deadline.done();
   }
 
   if (!response.ok) {
@@ -1040,7 +1153,8 @@ export async function updateDisplayName(token: string, displayName: string): Pro
  * an account was deleted when it still exists.
  */
 export async function deleteAccount(token: string): Promise<MeDeleteResponse> {
-  const response = await fetch(`${BASE_URL}/api/me`, {
+  const deadline = withDeadline();
+  const response = await fetchOnce(`${BASE_URL}/api/me`, deadline, {
     method: 'DELETE',
     headers: {
       Accept: 'application/json',

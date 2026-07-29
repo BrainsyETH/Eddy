@@ -64,7 +64,17 @@ export type SkipReason =
 
 export interface FanoutPlan {
   messages: PlannedMessage[];
-  /** Subscription ids whose one_shot was consumed — stamp fired_at on success. */
+  /**
+   * One-shot subscriptions this plan produced messages FOR — candidates to
+   * spend, not a record that anything was spent.
+   *
+   * The distinction is the whole point and it was read the wrong way once:
+   * planning is not delivering, so the caller must intersect this with its own
+   * per-subscription success tally before stamping fired_at. Spending a
+   * one-shot on a send that failed burns the user's single notification about a
+   * river AND, because the next pass then skips the subscription, strands the
+   * event itself.
+   */
   oneShotSubscriptionIds: string[];
   skipped: Partial<Record<SkipReason, number>>;
 }
