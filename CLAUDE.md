@@ -37,6 +37,7 @@ and `eddy-ios/package.json`. CI pins Node 20 (`.github/workflows/app-ci.yml`).
 | Database schema / seeds | `missouri-float-planner/supabase/` | existing migrations | never against production by default |
 | ClipEngine / social automation | `scripts/clipengine/`, `clipengine-local/` | `docs/clipengine-ops.md` | tool-specific dry run |
 | CI / deployment | `.github/workflows/`, `.easignore` | `.easignore` header, `app-ci.yml` comments | `make check` |
+| iOS build, TestFlight, App Store submission | EAS + Apple/RevenueCat dashboards | `docs/ios-release-runbook.md` | the checklists in that runbook |
 
 Web tests intentionally cover iOS-app and `packages/` logic (neither has its
 own runner), so a mobile or package change can fail `make check-web` — that is
