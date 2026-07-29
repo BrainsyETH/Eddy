@@ -56,7 +56,10 @@ import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { ShareButton } from '@/components/ShareButton';
-import { PhotoSubmitSheet } from '@/components/PhotoSubmitSheet';
+// Lazy — see the header of PhotoSubmitSheetLazy. Its native expo-image-picker
+// import used to run while THIS file loaded, so a stale binary lost the whole
+// access-point screen rather than just the photo button.
+import { PhotoSubmitSheetLazy } from '@/components/PhotoSubmitSheetLazy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import {
   driveToUrl,
@@ -742,7 +745,7 @@ export default function AccessPointDetailScreen() {
       {/* One access point, already chosen — the sheet's picker collapses to a
           single selected chip rather than asking a question this screen has
           already answered. */}
-      <PhotoSubmitSheet
+      <PhotoSubmitSheetLazy
         visible={photoOpen}
         onDismiss={() => setPhotoOpen(false)}
         riverId={point.riverId}

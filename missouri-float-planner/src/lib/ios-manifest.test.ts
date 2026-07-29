@@ -12,7 +12,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const IOS_ROOT = join(process.cwd(), '..', 'eddy-ios');
@@ -73,5 +73,42 @@ test('eddy-ios does not carry a legacy-peer-deps .npmrc', () => {
     [],
     'eddy-ios/.npmrc must not enable legacy-peer-deps — it silently removes ' +
       'shipped native packages. Use the overrides block instead.',
+  );
+});
+
+// ── Native modules must not be imported at screen module scope ─────────────
+
+/** Every .tsx under eddy-ios/app, recursively. */
+function screenFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((entry) => {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) return screenFiles(full);
+    return full.endsWith('.tsx') ? [full] : [];
+  });
+}
+
+test('no screen imports PhotoSubmitSheet directly', () => {
+  // PhotoSubmitSheet imports expo-image-picker at module scope. Both are NATIVE
+  // modules, so on a binary built before they existed the import throws
+  // `Cannot find native module 'ExponentImagePicker'` — and it throws while the
+  // IMPORTING SCREEN is loading, not when the sheet opens. That killed the
+  // whole river screen: no hazards, no put-ins, no reading, over a feature
+  // nobody had touched.
+  //
+  // A React error boundary cannot catch it, because it happens during module
+  // evaluation rather than during render. The only fix is to not evaluate the
+  // module until someone opens the sheet, which is what PhotoSubmitSheetLazy
+  // does — so screens must go through the wrapper.
+  //
+  // Re-importing the real sheet is the obvious thing to do while editing a
+  // screen, and nothing else would notice until someone ran a stale binary.
+  const offenders = screenFiles(join(IOS_ROOT, 'app')).filter((file) =>
+    /from '@\/components\/PhotoSubmitSheet'/.test(readFileSync(file, 'utf8')),
+  );
+
+  assert.deepEqual(
+    offenders.map((f) => f.slice(IOS_ROOT.length + 1)),
+    [],
+    'screens must import PhotoSubmitSheetLazy, not PhotoSubmitSheet',
   );
 });
