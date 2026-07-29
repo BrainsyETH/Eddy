@@ -35,10 +35,14 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { RiverDetail } from '@eddy/types';
-import { planOffline, type TileBudget } from '@eddy/offline';
+import {
+  offlineCompleteness,
+  planOffline,
+  type RiverPackTally,
+  type TileBudget,
+} from '@eddy/offline';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { offlineCompleteness, type RiverPackTally } from '@eddy/offline';
 import { EddySymbol } from '@/components/EddySymbol';
 
 interface Props {

@@ -108,6 +108,49 @@ import { usePush } from '@/hooks/usePush';
 import { useSession } from '@/hooks/useSession';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 
+/**
+ * Settles a list fetch into its result and whether it FAILED.
+ *
+ * A cancelled request is not a failed one — the screen is going away, or the
+ * slug changed — and recording that as a failure would flash "could not be
+ * loaded" on every fast back-tap. The map already draws the same distinction
+ * for its layers.
+ *
+ * Never rejects, so the surrounding Promise.all and outer try are unchanged.
+ */
+function settled<T>(promise: Promise<T[]>): Promise<{ items: T[]; failed: boolean }> {
+  return promise.then(
+    (items) => ({ items, failed: false }),
+    (err) => ({
+      items: [] as T[],
+      failed: !(err instanceof ApiError && err.message === 'Request cancelled'),
+    }),
+  );
+}
+
+/**
+ * "We could not ask", said once, quietly.
+ *
+ * Matches the map's readingsNotice exactly — same glyph, same cardRaised
+ * ground, same shape of sentence: what is missing, then what the screen is
+ * therefore doing. It is deliberately not an error banner: the rest of the
+ * screen is working, and only one claim is being withdrawn.
+ *
+ * Local to this screen rather than extracted — one file, two uses.
+ */
+function UnavailableNote({ text, onRetry }: { text: string; onRetry: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.notice, { backgroundColor: colors.cardRaised }]}>
+      <Ionicons name="cloud-offline-outline" size={14} color={colors.textMuted} />
+      <Text style={[styles.noticeText, { color: colors.textMuted }]}>{text}</Text>
+      <Pressable onPress={onRetry} hitSlop={8} accessibilityRole="button">
+        <Text style={[styles.retryLink, { color: colors.interactive }]}>Try again</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function RiverDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
@@ -124,6 +167,31 @@ export default function RiverDetailScreen() {
   const [condition, setCondition] = useState<RiverConditionDetail | null>(null);
   const [hazards, setHazards] = useState<Hazard[]>([]);
   const [accessPoints, setAccessPoints] = useState<MapAccessPoint[]>([]);
+  /**
+   * Whether the LOAD failed, as opposed to the river genuinely having none.
+   *
+   * These two sections used to catch into [] and render only when non-empty, so
+   * a 500 on the hazards endpoint was pixel-identical to a river with nothing
+   * recorded. On the safety surface that is the wrong way round to be wrong,
+   * and the map already draws this distinction — see readingsFailed in
+   * useStatewideNetwork: "Grey means 'we could not ask', and a map that cannot
+   * say so is lying quietly."
+   */
+  const [hazardsFailed, setHazardsFailed] = useState(false);
+  const [accessFailed, setAccessFailed] = useState(false);
+  /** Bumped by "Try again"; re-runs the load effect without blanking the screen. */
+  const [reloadNonce, setReloadNonce] = useState(0);
+  /** The last slug that finished loading, so a retry is not a first load. */
+  const loadedSlug = useRef<string | null>(null);
+
+  /**
+   * Re-runs the whole load effect.
+   *
+   * Screen-scoped in mechanism even though it is offered per section, because
+   * both fetches share one effect and one AbortController — a retry that
+   * claimed to reload only hazards would be lying about what it does.
+   */
+  const retry = useCallback(() => setReloadNonce((n) => n + 1), []);
   const [outlook, setOutlook] = useState<RiverOutlookResponse | null>(null);
   const [visuals, setVisuals] = useState<RiverVisualsResponse | null>(null);
   const [gauges, setGauges] = useState<MapGauge[]>([]);
@@ -163,7 +231,13 @@ export default function RiverDetailScreen() {
   useEffect(() => {
     if (!slug) return;
     const controller = new AbortController();
-    setLoading(true);
+    // Only the FIRST load of a river blanks the screen. `loading` swaps the
+    // whole screen for a spinner, so a retry tapped inside the Hazards section
+    // would throw away your scroll position and every section's open/shut state
+    // — a worse screen than the one you tapped it on.
+    setLoading(loadedSlug.current !== slug);
+    setHazardsFailed(false);
+    setAccessFailed(false);
 
     (async () => {
       try {
@@ -188,8 +262,8 @@ export default function RiverDetailScreen() {
         // a panel that is allowed to be absent entirely.
         const [cond, haz, access, looks, allGauges, nearby, dams, riverReaches] = await Promise.all([
           fetchCondition(match.id, controller.signal).catch(() => null),
-          fetchHazards(slug, controller.signal).catch(() => [] as Hazard[]),
-          fetchRiverAccessPoints(slug, controller.signal).catch(() => [] as MapAccessPoint[]),
+          settled(fetchHazards(slug, controller.signal)),
+          settled(fetchRiverAccessPoints(slug, controller.signal)),
           // Thin coverage by nature — verified community photos exist for three
           // rivers of twenty-four — so a null here is the ordinary case and the
           // card just does not render.
@@ -217,8 +291,10 @@ export default function RiverDetailScreen() {
           fetchRiverReaches(slug, controller.signal).catch(() => [] as RiverReach[]),
         ]);
         setCondition(cond);
-        setHazards(haz);
-        setAccessPoints(access);
+        setHazards(haz.items);
+        setHazardsFailed(haz.failed);
+        setAccessPoints(access.items);
+        setAccessFailed(access.failed);
         setVisuals(looks);
         setGauges(gaugesForRiver(allGauges, slug));
         setServices(nearby);
@@ -229,12 +305,13 @@ export default function RiverDetailScreen() {
         if (err instanceof ApiError && err.message === 'Request cancelled') return;
         setError(err instanceof ApiError ? err.message : 'Could not load this river');
       } finally {
+        loadedSlug.current = slug;
         setLoading(false);
       }
     })();
 
     return () => controller.abort();
-  }, [slug]);
+  }, [slug, reloadNonce]);
 
   /**
    * The outlook, for whichever gauge the picker is on.
@@ -289,11 +366,22 @@ export default function RiverDetailScreen() {
     // Any failure is "no outlook", never an error on the screen: the reading,
     // the hazards and the access points below it are the parts that decide
     // whether to get on the water, and none of them depend on this.
+    //
+    // ONLY A SUCCESS IS CACHED, and the ordering is the whole fix. The catch
+    // used to run first, so a failure resolved to null and was written to the
+    // cache like any other answer — and since a hit is tested with
+    // `cached !== undefined`, that null was a HIT. One transient 500 pinned "no
+    // outlook" on that gauge for the life of the screen, and re-picking it
+    // could never retry. Staying silent about a failure is the right product
+    // call; remembering it is not.
     fetchRiverOutlook(slug, controller.signal, askedFor)
+      .then((data) => {
+        outlookCache.current.set(key, data);
+        return data;
+      })
       .catch(() => null)
       .then((data) => {
         if (controller.signal.aborted) return;
-        outlookCache.current.set(key, data);
         setOutlook(data);
         setOutlookLoading(false);
       });
@@ -758,16 +846,26 @@ export default function RiverDetailScreen() {
             low-water dam on it. The header therefore carries the count and a
             dot per critical hazard in its own severity colour — the fold hides
             the detail, not the warning. */}
-        {sortedHazards.length > 0 ? (
+        {/* Renders when the load FAILED even with nothing to show. A hidden
+            section reads as "no hazards", which is the false negative that
+            matters most on this screen — and CollapsibleSection's own header
+            already argues a section "has to say what it is hiding". */}
+        {sortedHazards.length > 0 || hazardsFailed ? (
           <CollapsibleSection
             title="Hazards"
+            defaultExpanded={hazardsFailed}
             leading={<EddySymbol name="hazard" size={18} />}
             summary={
-              criticalCount > 0
-                ? `${criticalCount} need${criticalCount === 1 ? 's' : ''} attention · ${sortedHazards.length} total`
-                : `${sortedHazards.length} noted`
+              hazardsFailed
+                ? 'Could not be loaded'
+                : criticalCount > 0
+                  ? `${criticalCount} need${criticalCount === 1 ? 's' : ''} attention · ${sortedHazards.length} total`
+                  : `${sortedHazards.length} noted`
             }
             trailing={
+              hazardsFailed ? (
+                <Ionicons name="cloud-offline-outline" size={14} color={colors.textMuted} />
+              ) : (
               <View style={styles.severityCues}>
                 {sortedHazards
                   .filter((h) => hazardConditionCode(h.severity) === 'dangerous')
@@ -779,8 +877,15 @@ export default function RiverDetailScreen() {
                     />
                   ))}
               </View>
+              )
             }
           >
+            {hazardsFailed ? (
+              <UnavailableNote
+                text="Hazards unavailable — this river may have hazards that are not shown."
+                onRetry={retry}
+              />
+            ) : null}
             {shownHazards.map((hazard) => {
               const hazardCode = hazardConditionCode(hazard.severity);
               const portage = portageNote(hazard);
@@ -829,6 +934,17 @@ export default function RiverDetailScreen() {
         ) : null}
 
         {/* ── Access points ───────────────────────────────────── */}
+        {/* Access points get a plain inline notice rather than an opened
+            section: a missing put-in list is an inconvenience, not a hazard,
+            and expanding a section to hold one grey line is noise on an already
+            dense screen. */}
+        {accessFailed && accessPoints.length === 0 ? (
+          <UnavailableNote
+            text="Access points unavailable — put-ins for this river are not shown."
+            onRetry={retry}
+          />
+        ) : null}
+
         {accessPoints.length > 0 ? (
           <CollapsibleSection
             title="Access points"
@@ -1099,6 +1215,17 @@ export default function RiverDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  noticeText: { ...t.sm, fontFamily: fonts.body, flexShrink: 1 },
+  retryLink: { ...t.sm, fontFamily: fonts.semibold },
   screen: { flex: 1 },
   centered: { alignItems: 'center', justifyContent: 'center', padding: 32, gap: 10 },
   errorTitle: { ...t.lg, fontFamily: fonts.semibold },
