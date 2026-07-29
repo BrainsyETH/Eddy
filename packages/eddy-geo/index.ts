@@ -1,5 +1,7 @@
 // packages/eddy-geo/index.ts
-// Web Mercator tile maths for offline map packs.
+// Map geometry both apps need: Web Mercator tile maths for offline packs,
+// viewport quantisation for the national gauge layer, and the coordinate →
+// navigation-app URL builders.
 //
 // WHY THIS IS SHARED: the app needs it to tell a user how big a download will be
 // before they commit, and the backend may want to expose the same number through
@@ -215,4 +217,144 @@ export function bboxContains(outer: Bounds, inner: Bounds): boolean {
   return (
     outer[0] <= inner[0] && outer[1] <= inner[1] && outer[2] >= inner[2] && outer[3] >= inner[3]
   );
+}
+
+// ── Navigation hand-off (onX, Gaia, Google, Apple) ──────────────────────────
+//
+// An access point is a place you DRIVE to, and the last mile of that drive is
+// frequently an unnamed gravel track. That is the ground onX and Gaia are built
+// for and consumer road maps are not, which is why they belong beside the two
+// obvious choices rather than as an afterthought.
+//
+// WHY THE URLS LIVE HERE. The web app has had these since the access-point page
+// shipped (src/lib/navigation/deepLinks.ts) and the phone had only Apple Maps.
+// Moving the pure half here lets the app share it — and, more to the point, lets
+// it be TESTED: eddy-ios has no runner of its own, so logic that lives only
+// there cannot be covered. Same argument as the viewport helpers above.
+//
+// Vercel installs only missouri-float-planner/, so the web app CANNOT import
+// this module and deliberately keeps its own copy. The web test suite reaches
+// across and asserts the two agree — see navigation-deep-links.test.ts. Change
+// a URL template here and you must change it there in the same commit.
+//
+// COORDINATES, NEVER NAMES. "Akers Ferry" is ambiguous to a geocoder and an
+// Ozark access point is frequently not in one at all.
+
+export type NavApp = 'onx' | 'gaia' | 'google' | 'apple';
+
+export interface NavigationCoords {
+  lat: number;
+  lng: number;
+  label?: string;
+}
+
+export interface NavLinkSpec {
+  app: NavApp;
+  label: string;
+  subtitle: string;
+  /**
+   * The app's URL scheme, without the `://`.
+   *
+   * Present so a native client can ask `canOpenURL` whether the app is even
+   * installed before drawing a button for it. The web app derives installedness
+   * from a navigation timeout instead and has no use for this field, which is
+   * why it is the one key the drift test does not compare.
+   */
+  scheme: string;
+  /** Opens the app directly. */
+  deepLink: string;
+  /** The same place on the open web, for desktop or a missing app. */
+  webFallback: string;
+  storeUrl: { ios: string; android: string };
+}
+
+/**
+ * Navigation links for one coordinate, in the order they should be offered.
+ *
+ * `directionsOverride` is an admin-entered Google Maps URL for the access points
+ * whose real driving approach a coordinate cannot express — it replaces BOTH of
+ * Google's URLs and is ignored by the other three, which have no way to consume
+ * someone else's route.
+ */
+export function navLinksFor(
+  coords: NavigationCoords,
+  directionsOverride?: string | null
+): NavLinkSpec[] {
+  const { lat, lng, label } = coords;
+  const encodedLabel = encodeURIComponent(label || 'Access Point');
+
+  return [
+    {
+      app: 'onx',
+      label: 'Onx',
+      subtitle: 'Offroad',
+      scheme: 'onxoffroad',
+      deepLink: `onxoffroad://map?lat=${lat}&lon=${lng}&zoom=15`,
+      webFallback: `https://webmap.onxmaps.com/?lat=${lat}&lon=${lng}&zoom=15`,
+      storeUrl: {
+        ios: 'https://apps.apple.com/app/onx-offroad/id1326549302',
+        android: 'https://play.google.com/store/apps/details?id=com.onxmaps.offroad',
+      },
+    },
+    {
+      app: 'gaia',
+      label: 'Gaia',
+      subtitle: 'GPS',
+      scheme: 'gaiagps',
+      deepLink: `gaiagps://map?lat=${lat}&lon=${lng}&zoom=15`,
+      webFallback: `https://www.gaiagps.com/map/?lat=${lat}&lon=${lng}&zoom=15`,
+      storeUrl: {
+        ios: 'https://apps.apple.com/app/gaia-gps-offroad-hiking-maps/id329127297',
+        android: 'https://play.google.com/store/apps/details?id=com.trailbehind.android.gaiagps.pro',
+      },
+    },
+    {
+      app: 'google',
+      label: 'Google',
+      subtitle: 'Maps',
+      scheme: 'comgooglemaps',
+      deepLink: directionsOverride || `comgooglemaps://?q=${lat},${lng}&label=${encodedLabel}`,
+      webFallback: directionsOverride || `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+      storeUrl: {
+        ios: 'https://apps.apple.com/app/google-maps/id585027354',
+        android: 'https://play.google.com/store/apps/details?id=com.google.android.apps.maps',
+      },
+    },
+    {
+      app: 'apple',
+      label: 'Apple',
+      subtitle: 'Maps',
+      scheme: 'maps',
+      deepLink: `maps://?q=${encodedLabel}&ll=${lat},${lng}`,
+      webFallback: `https://maps.apple.com/?q=${encodedLabel}&ll=${lat},${lng}`,
+      storeUrl: {
+        ios: 'https://apps.apple.com/app/apple-maps/id915056765',
+        android: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+      },
+    },
+  ];
+}
+
+/**
+ * Where to actually drive to, given an access point.
+ *
+ * A gravel bar's coordinate sits on the water; its parking can be a quarter
+ * mile up a track. `drivingLat`/`drivingLng` is that parking when an admin has
+ * entered it, and it is what navigation must prefer — routing someone to the
+ * waterline hands them a destination with no road to it.
+ */
+export function navCoordinatesFor(accessPoint: {
+  drivingLat?: number | null;
+  drivingLng?: number | null;
+  coordinates: { lat: number; lng: number };
+  name: string;
+}): NavigationCoords {
+  if (accessPoint.drivingLat != null && accessPoint.drivingLng != null) {
+    return { lat: accessPoint.drivingLat, lng: accessPoint.drivingLng, label: accessPoint.name };
+  }
+  return {
+    lat: accessPoint.coordinates.lat,
+    lng: accessPoint.coordinates.lng,
+    label: accessPoint.name,
+  };
 }

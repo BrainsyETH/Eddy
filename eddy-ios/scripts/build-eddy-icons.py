@@ -56,7 +56,32 @@ SYMBOLS = (
     "eddy-river",
     "eddy-alert-watch",
     "eddy-offline-map",
+    # The access-point section marks. See PRE_CUT below for why these three are
+    # not like the rest of this list.
+    "eddy-road",
+    "eddy-parking",
+    "eddy-restroom",
 )
+
+# Sources that arrive with a real alpha channel and must NOT be flood-filled.
+#
+# The rest of design/eddy-emoji is 1254px RGB concept art with an off-white card
+# baked in, and cut_background exists to remove it. These three came from the
+# website, which had been serving them from Vercel blob storage as hardcoded
+# URLs — already cut, already small, and not in this repository at all. Pulling
+# them in is what lets the app bundle them and stops the website depending on an
+# untracked URL for three icons on a page it server-renders.
+#
+# They still go through the rest of derive(): crop, scale to the same longest
+# edge, quantise. That tail is what makes a new mark the same optical weight as
+# the others, and it is the reason these did not simply get hand-exported into
+# assets/ — which is the drift this whole script exists to prevent.
+#
+# Flood-filling them WOULD mostly work, since a fully transparent pixel converts
+# to black and the corners are black. "Mostly" is the problem: any dark pixel in
+# the mark that touches the edge would be eaten, silently, and nobody reviews a
+# PNG diff. Declaring the difference is cheaper than trusting it.
+PRE_CUT = frozenset({"eddy-road", "eddy-parking", "eddy-restroom"})
 
 # Four, not the ten the catalog offers, because a scene needs a hero-sized slot
 # to live in and the app has six of them. The rest of the catalog's scenes are
@@ -88,6 +113,11 @@ WEB_ICONS = (
     "eddy-campfire-chill",
     "eddy-wave",
     "eddy-thumbs-up",
+    # The access-point section marks, so the website stops pointing <Image> at
+    # a Vercel blob URL for art that now lives in this repo.
+    "eddy-road",
+    "eddy-parking",
+    "eddy-restroom",
 )
 
 # Longest edge of the exported PNG. Matches assets/otter.
@@ -135,7 +165,8 @@ def derive(name: str) -> Image.Image:
     if not source.exists():
         raise SystemExit(f"missing source: {source}")
 
-    art = cut_background(Image.open(source))
+    opened = Image.open(source)
+    art = opened.convert("RGBA") if name in PRE_CUT else cut_background(opened)
 
     box = art.getchannel("A").getbbox()
     if box is None:

@@ -10,6 +10,7 @@ import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import { X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Flag, Lightbulb, Store, Tent, Droplets, Flame } from 'lucide-react';
 import type { AccessPoint, NearbyService } from '@/types/api';
 import { ACCESS_POINT_TYPE_ORDER } from '@/constants';
+import { eddyIconUrl } from '@/components/ui/EddyIcon';
 import {
   generateNavLinks,
   handleNavClick,
@@ -25,11 +26,19 @@ const NAV_APP_ICONS: Record<string, string> = {
   apple: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/Apple_Maps_Logo.png',
 };
 
+// From the Eddy catalog (public/icons), not the Blob bucket these used to point
+// at — the art lives in design/eddy-emoji now so the iOS app can bundle it too.
+//
+// `camping` resolves to the CAMPFIRE, which is the same call FloatPlanCard made
+// and states its reason for: the catalog's campfire is drawn in the brand's own
+// style and the bucket's camping-icon.png is a generic mark that predates it.
+// This card was still on the old one, so the two plan surfaces disagreed about
+// what a campsite looks like.
 const DETAIL_ICONS = {
-  road: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/road-icon.png',
-  parking: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/parking-icon.png',
-  facilities: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/restroom-icon.png',
-  camping: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons/camping-icon.png',
+  road: eddyIconUrl('road'),
+  parking: eddyIconUrl('parking'),
+  facilities: eddyIconUrl('facilities'),
+  camping: eddyIconUrl('campfire'),
 };
 
 function formatRoadSurface(surface: string): string {

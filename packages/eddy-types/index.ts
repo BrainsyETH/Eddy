@@ -415,6 +415,23 @@ export interface AccessPointDetail {
    */
   drivingLat: number | null;
   drivingLng: number | null;
+  /**
+   * Canonical WEB path, e.g. /rivers/missouri/current/access/akers-ferry
+   *
+   * Note the shape is the WEBSITE's, not this app's — the app routes to
+   * /river/<slug>/access/<accessSlug>, with no state segment, and cannot
+   * reconstruct the web one because the state is not in this payload. It is
+   * served for exactly that reason: it is what a share sheet must hand out.
+   * Sibling of RiverListItem.path.
+   *
+   * OPTIONAL here and required in the website's own copy of this type, which is
+   * the difference between "the server always sends it" and "this build of the
+   * app can be talking to a deploy that predates it". A TestFlight build outlives
+   * the deploy it was cut against; consumers must treat its absence as "no share
+   * button" rather than shipping a link to /undefined. Same rule the gauge-detail
+   * fetch already follows.
+   */
+  path?: string;
   river: { id: string; name: string; slug: string };
   npsCampground: NpsCampgroundSummary | null;
 }
@@ -1679,3 +1696,129 @@ export type {
   RiverReach,
   RiverReachesResponse,
 } from '../../missouri-float-planner/shared/reach-types';
+
+// ── Feedback (POST /api/feedback) ────────────────────────────────────────────
+// Mirrors the website's own copy in src/types/api.ts by hand, the same
+// arrangement everything else in this file uses — Vercel installs only
+// missouri-float-planner/, so that app cannot import this package.
+//
+// The route is PUBLIC and rate-limited by IP; there is no token in this flow.
+// That is deliberate on the website (an accountless visitor must be able to
+// report a wrong river mile) and it is what lets the app offer the same thing
+// without making somebody sign in to say a gauge is off.
+
+/**
+ * `gauge_recalibration` is "the ladder is wrong" — the water did not match the
+ * verdict — and is fixed by moving a threshold. `inaccurate_data` is a
+ * correction to a field somebody typed. They read alike and are triaged
+ * differently, which is why they are two types. See migration 00208.
+ *
+ * `partner` is a website-only flow (the embed workbench) and has no app surface.
+ */
+export type FeedbackType =
+  | 'inaccurate_data'
+  | 'missing_access_point'
+  | 'suggestion'
+  | 'bug_report'
+  | 'other'
+  | 'partner'
+  | 'gauge_recalibration';
+
+export type FeedbackContextType = 'gauge' | 'access_point' | 'river' | 'general';
+
+/** What the report is ABOUT, so a triager does not have to read prose to find out. */
+export interface FeedbackContext {
+  type: FeedbackContextType;
+  id?: string;
+  name?: string;
+  /**
+   * Anything the surface knew at the moment of the report. On a gauge that
+   * means the reading and the condition code: without them a row arrives
+   * disputing a number that has since changed, and the complaint cannot be
+   * checked against what Eddy was actually claiming.
+   */
+  data?: Record<string, unknown>;
+}
+
+export interface CreateFeedbackRequest {
+  feedbackType: FeedbackType;
+  userName?: string;
+  /** Required by the route. Validated server-side as well as in the form. */
+  userEmail: string;
+  message: string;
+  imageUrl?: string;
+  context?: FeedbackContext;
+}
+
+export interface FeedbackResponse {
+  success: boolean;
+  id?: string;
+  error?: string;
+}
+
+// ── River alerts (GET /api/river-alerts) ─────────────────────────────────────
+// Closures and weather warnings for a river, from the two agencies that publish
+// them. Hand-mirrored into the website's src/types/api.ts, like everything else
+// in this file.
+//
+// ── Why this is not a HighWaterEntry ────────────────────────────────────────
+// That type carries a `conditionCode`, documented as always `high` or
+// `dangerous`, and every row of it is the output of a threshold ladder a human
+// set. A park closure is not a reading and has no ladder; a Flood Warning is
+// somebody else's verdict, not Eddy's. Folding either into that shape would mean
+// inventing a condition code for a thing nobody graded, which is the exact rule
+// /api/high-water's header exists to state. Separate feed, separate type.
+
+/**
+ * Who said it. Load-bearing: it decides the wording, the icon and how much
+ * weight a reader should give the row, and it must never be inferred from text.
+ */
+export type RiverAlertSource = 'nws' | 'nps';
+
+/**
+ * How loud the row should be.
+ *
+ * Deliberately three values and not the NWS's five or the NPS's four. Both
+ * vocabularies are mapped INTO this one at the edge, because a screen showing
+ * "Severe" beside "Caution" invites a comparison neither agency intended — they
+ * do not share a scale. Unknown input maps to `notice`, never upward: inventing
+ * urgency from a string we do not recognise is how a park newsletter becomes a
+ * hazard warning.
+ */
+export type RiverAlertSeverity = 'warning' | 'watch' | 'notice';
+
+export interface RiverAlert {
+  /** Stable across refetches, and prefixed by source — the two id spaces differ. */
+  id: string;
+  source: RiverAlertSource;
+  severity: RiverAlertSeverity;
+  /** Which river this was matched to. One upstream alert can produce several. */
+  riverSlug: string;
+  riverName: string;
+  /** One line. The NWS headline, or the NPS alert title. */
+  title: string;
+  /** The body, already truncated upstream. May be empty. */
+  body: string;
+  /** The agency's own name for it — "Flood Warning", "Closure". Shown verbatim. */
+  category: string;
+  /** ISO. Null when the agency published none, which the NPS routinely does. */
+  startsAt: string | null;
+  endsAt: string | null;
+  /** The agency's page for this alert, when there is one. */
+  url: string | null;
+}
+
+export interface RiverAlertsResponse {
+  alerts: RiverAlert[];
+  /** When this was assembled — both feeds are cached, so it is not "now". */
+  asOf: string;
+}
+
+/**
+ * Why an alerts list can be empty and still be doing its job.
+ *
+ * Shown wherever the section renders nothing, because "no alerts" and "we could
+ * not reach the agencies" look identical to a reader and mean opposite things.
+ */
+export const RIVER_ALERT_SOURCE_NOTE =
+  'Closures come from the National Park Service and weather warnings from the National Weather Service. Neither covers every river, and neither replaces checking locally.';

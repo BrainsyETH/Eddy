@@ -12,7 +12,14 @@ import type { CSSProperties } from 'react';
 
 export type EmbedTileIconKey = 'gauge' | 'flow' | 'optimal' | 'weather';
 
-// Same bucket/folder that backs the access-point cards (road-icon.png, …).
+// The Blob bucket, and the last thing in the app still reading from it — the
+// access-point and plan cards moved to the local catalog (public/icons) when
+// their art was brought into design/eddy-emoji so iOS could bundle it.
+//
+// This one stays remote on purpose. These tiles render inside embeds and OG
+// images, which are drawn by Satori in a worker with no request context; a
+// root-relative /icons/… path has no host to resolve against there. An absolute
+// URL is the requirement, not a leftover.
 export const DETAIL_ICONS_BASE =
   'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/detail-icons';
 

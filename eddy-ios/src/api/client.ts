@@ -61,6 +61,10 @@ import type {
   NotificationPreferencesResponse,
   MeProfileResponse,
   MeDeleteResponse,
+  CreateFeedbackRequest,
+  FeedbackResponse,
+  RiverAlert,
+  RiverAlertsResponse,
 } from '@eddy/types';
 import type { ServerStar } from '@eddy/sync';
 import type { StatewideReading, StatewideRiver } from '@/lib/statewideNetwork';
@@ -1013,6 +1017,34 @@ export async function fetchHighWater(signal?: AbortSignal): Promise<HighWaterEnt
 }
 
 /**
+ * Closures and weather warnings for Eddy's rivers, from the NPS and the NWS.
+ *
+ * NOT a sibling of fetchHighWater despite sitting next to it on screen. That
+ * one carries Eddy's own verdicts, every row the output of a threshold ladder a
+ * human set. Everything here is somebody else's — the Park Service's, the
+ * Weather Service's — quoted rather than computed. See the note on RiverAlert
+ * in @eddy/types for why the two are different types.
+ *
+ * Pass `riverSlug` to narrow it to one river; the server does the narrowing
+ * before it fans out upstream, so a river screen does not pay for parks it has
+ * nothing to do with.
+ *
+ * THROWS, for the same reason fetchHighWater does: an empty list means "the
+ * agencies have published nothing", which a failed request must never be able
+ * to claim on their behalf.
+ */
+export async function fetchRiverAlerts(
+  riverSlug?: string,
+  signal?: AbortSignal,
+): Promise<RiverAlert[]> {
+  const path = riverSlug
+    ? `/api/river-alerts?riverSlug=${encodeURIComponent(riverSlug)}`
+    : '/api/river-alerts';
+  const data = await get<RiverAlertsResponse>(path, signal);
+  return data.alerts ?? [];
+}
+
+/**
  * The caller's profile and entitlement snapshot.
  *
  * `isActive` on the entitlement is computed SERVER-side from `expires_at` — a
@@ -1172,4 +1204,41 @@ export async function fetchDams(signal?: AbortSignal): Promise<DamSnapshot[]> {
  */
 export async function fetchDam(damId: string, signal?: AbortSignal): Promise<DamSnapshot> {
   return get<DamSnapshot>(`/api/dams/${encodeURIComponent(damId)}`, signal);
+}
+
+/**
+ * Send a feedback / report-issue submission.
+ *
+ * UNAUTHENTICATED, and that is the route's design rather than an oversight on
+ * this side: /api/feedback is public and rate-limited by IP so an accountless
+ * visitor can report a wrong river mile. The app inherits that, which means
+ * nobody has to sign in to say a gauge is off — and the people best placed to
+ * say it are the ones who have not bothered making an account.
+ *
+ * THROWS with the server's own sentence on failure. The route validates the
+ * email and the message and answers with wording written for a person; a form
+ * that swallowed that and printed "something went wrong" would be hiding the
+ * one thing the user can act on.
+ */
+export async function submitFeedback(input: CreateFeedbackRequest): Promise<FeedbackResponse> {
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}/api/feedback`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': USER_AGENT,
+      },
+      body: JSON.stringify(input),
+    });
+  } catch {
+    throw new ApiError('No connection');
+  }
+
+  const data = (await response.json().catch(() => null)) as FeedbackResponse | null;
+  if (!response.ok || !data?.success) {
+    throw new ApiError(data?.error ?? `Request failed (${response.status})`, response.status);
+  }
+  return data;
 }

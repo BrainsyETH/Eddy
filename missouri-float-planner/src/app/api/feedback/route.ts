@@ -68,7 +68,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validTypes = ['inaccurate_data', 'missing_access_point', 'suggestion', 'bug_report', 'other', 'partner'];
+    // Must stay in step with the CHECK constraint (migration 00208) and the
+    // FeedbackType union in src/types/api.ts — a type this list allows but the
+    // constraint does not is a 500 where the user should have got a 400.
+    const validTypes = [
+      'inaccurate_data',
+      'missing_access_point',
+      'suggestion',
+      'bug_report',
+      'other',
+      'partner',
+      'gauge_recalibration',
+    ];
     if (!validTypes.includes(feedbackType)) {
       return NextResponse.json(
         { success: false, error: 'Invalid feedback type' } as FeedbackResponse,

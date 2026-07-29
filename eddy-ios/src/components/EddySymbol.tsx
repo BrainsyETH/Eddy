@@ -42,6 +42,15 @@ const SYMBOLS = {
   offlineMap: require('../../assets/eddy/eddy-offline-map.png'),
   water: require('../../assets/eddy/eddy-water-droplet.png'),
 
+  // The access-point section marks, matching the website's own headings on that
+  // page. `facilities` is a ROLE and not a drawing — the section covers toilets,
+  // water and picnic tables, and the art happening to be a pair of restroom-sign
+  // otters is this map's business rather than the caller's. Web names the same
+  // three (see EddyIcon.tsx); the two catalogs must not drift on them.
+  road: require('../../assets/eddy/eddy-road.png'),
+  parking: require('../../assets/eddy/eddy-parking.png'),
+  facilities: require('../../assets/eddy/eddy-restroom.png'),
+
   /**
    * The one entry that is not mascot-free, and the one place that is right.
    *
