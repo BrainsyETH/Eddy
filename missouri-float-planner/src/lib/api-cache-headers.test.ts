@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { cdnCacheHeaders, privateNoStore } from './api-utils';
+import { cdnCacheHeaders, parseRowLimit, privateNoStore } from './api-utils';
 
 const API = join(process.cwd(), 'src/app/api');
 const read = (p: string) => readFileSync(join(API, p), 'utf8');
@@ -121,6 +121,50 @@ test('USGS proxies go through the shared helper', () => {
     assert.ok(
       !/'Cache-Control':\s*'s-maxage/.test(src),
       `${route} still hand-rolls a Cache-Control string`,
+    );
+  }
+});
+
+// ── parseRowLimit ──────────────────────────────────────────────────────────
+// Same story as the header helper above: one expression, copied into every
+// route that pages, wrong in one case in all of them.
+
+test('a negative limit means "no limit given", not one row', () => {
+  // THE BUG. `Math.min(MAX, Math.max(1, parseInt(raw) || DEFAULT))` reads as
+  // "junk falls back to the default", and for a missing or unparseable value it
+  // does — parseInt('') is NaN, which is falsy. But parseInt('-5') is -5, which
+  // is TRUTHY, so the fallback never ran and Math.max(1, -5) clamped to 1.
+  //
+  // Both routes using this order by size — gauges by discharge, public land by
+  // acreage — so `?limit=-5` drew the single largest feature in the viewport
+  // and reported `capped: true` over a total in the thousands.
+  assert.equal(parseRowLimit('-5', 300, 1000), 300);
+  assert.equal(parseRowLimit('0', 300, 1000), 300);
+  assert.equal(parseRowLimit('-1', 400, 1000), 400);
+});
+
+test('an absent or unparseable limit falls back to the default', () => {
+  for (const raw of [null, undefined, '', '   ', 'lots', 'NaN']) {
+    assert.equal(parseRowLimit(raw, 300, 1000), 300, `parseRowLimit(${JSON.stringify(raw)})`);
+  }
+});
+
+test('a real limit is honoured and clamped to the ceiling', () => {
+  assert.equal(parseRowLimit('50', 300, 1000), 50);
+  assert.equal(parseRowLimit('1000', 300, 1000), 1000);
+  // The ceiling is what stops a caller pulling a whole table through the API.
+  assert.equal(parseRowLimit('99999', 300, 1000), 1000);
+});
+
+test('the viewport routes use the shared helper rather than the old expression', () => {
+  // Both are public, both page, and both had the hole. Written as a source
+  // check for the same reason the cdnCacheHeaders tests above are: the
+  // regression is someone hand-rolling it again in the next route.
+  for (const route of ['gauges/map/route.ts', 'public-lands/route.ts']) {
+    const src = read(route);
+    assert.ok(
+      !/Math\.max\(1,\s*parseInt/.test(src),
+      `${route} still hand-rolls the limit clamp that mishandles a negative value`,
     );
   }
 });

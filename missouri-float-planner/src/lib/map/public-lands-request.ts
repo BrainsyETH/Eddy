@@ -19,6 +19,8 @@
 // shown them — `Number(null) === 0` and `parseInt('-5') || d` are both perfectly
 // ordinary-looking JavaScript that mean something other than they appear to.
 
+import { parseRowLimit } from '@/lib/api-utils';
+
 /** Below this the layer is not drawn and not asked for. Matched by both clients. */
 export const MIN_ZOOM = 7;
 
@@ -123,26 +125,16 @@ export function parseZoom(raw: string | null): ZoomParse {
 }
 
 /**
- * The row cap, clamped. A junk `limit` falls back to the default rather than
- * 400ing — a caller's typo in an optional tuning parameter is not a reason to
- * blank a map layer.
+ * The row cap for this route, clamped.
  *
- * ── Why this is not the one-liner it replaced ──────────────────────────────
- * It was `Math.min(MAX, Math.max(1, parseInt(raw) || DEFAULT))`, which is the
- * expression /api/gauges/map uses, and it has a hole this file's own tests
- * found: `parseInt('-5')` is -5, which is TRUTHY, so the `|| DEFAULT` never
- * runs and `Math.max(1, -5)` clamps to **1**. `?limit=-5` returned exactly one
- * parcel — the largest, since the RPC orders by acreage — which on a map reads
- * as "there is one national forest here and nothing else".
- *
- * Third defect of the same shape as the two above, and the reason the pattern
- * is worth naming: every one of them answered a malformed request with a
- * plausible-looking success. A negative limit should mean the same as no limit.
+ * A thin wrapper over the shared parseRowLimit rather than its own arithmetic:
+ * the expression it replaced (`Math.max(1, parseInt(raw) || DEFAULT)`) clamped a
+ * negative limit to 1 instead of falling back, and it was copied here from
+ * /api/gauges/map. Fixing it in one place is what stops the next route to page
+ * inheriting it a third time. This exists only to bind the two constants.
  */
 export function parseLimit(raw: string | null): number {
-  const parsed = parseInt(raw ?? '', 10);
-  if (!Number.isFinite(parsed) || parsed < 1) return DEFAULT_LIMIT;
-  return Math.min(MAX_LIMIT, parsed);
+  return parseRowLimit(raw, DEFAULT_LIMIT, MAX_LIMIT);
 }
 
 /**

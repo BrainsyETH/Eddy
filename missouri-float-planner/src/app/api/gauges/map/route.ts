@@ -24,7 +24,7 @@
 // produce gaps at the seams.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cdnCacheHeaders } from '@/lib/api-utils';
+import { cdnCacheHeaders, parseRowLimit } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { classifyQualifiers } from '@/lib/usgs/gauges';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
@@ -120,10 +120,12 @@ async function _GET(request: NextRequest) {
     return NextResponse.json({ error }, { status: 400 });
   }
 
-  const limit = Math.min(
-    MAX_LIMIT,
-    Math.max(1, parseInt(params.get('limit') ?? '', 10) || DEFAULT_LIMIT),
-  );
+  // Shared rather than inline: the expression that used to be here clamped a
+  // NEGATIVE limit to 1 instead of falling back to the default, so `?limit=-5`
+  // returned a single gauge — and since this route orders by discharge, that
+  // one gauge was the biggest river in the viewport, reported as `capped: true`
+  // over a total of 1,240. See parseRowLimit.
+  const limit = parseRowLimit(params.get('limit'), DEFAULT_LIMIT, MAX_LIMIT);
   const curatedOnly = params.get('curated') === '1';
 
   try {

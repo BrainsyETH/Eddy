@@ -104,3 +104,38 @@ export function getCoordinates(geom: unknown): { lng: number; lat: number } | nu
   }
   return null;
 }
+
+/**
+ * A `?limit=` row cap from a query string, clamped.
+ *
+ * ── The hole this closes ───────────────────────────────────────────────────
+ * The expression this replaces was written once and copied into every route
+ * that pages:
+ *
+ *     Math.min(MAX, Math.max(1, parseInt(raw ?? '', 10) || DEFAULT))
+ *
+ * It reads as "a junk limit falls back to the default", and for a missing or
+ * unparseable value it does — `parseInt('')` is NaN, which is falsy, so the
+ * `|| DEFAULT` runs. But a NEGATIVE limit parses to a negative NUMBER, which is
+ * truthy, so the fallback never runs and `Math.max(1, -5)` clamps it to **1**.
+ *
+ * `?limit=-5` therefore returned exactly one row. Both routes using this order
+ * their results by size — gauges by discharge, public land by acreage — so the
+ * one row is the largest thing in the viewport, and the map draws a single
+ * enormous feature and calls it the answer. It also sets `capped: true`, so the
+ * response cheerfully reports 1 of 1,240.
+ *
+ * Found in /api/public-lands by a test, and it was there because the expression
+ * came from /api/gauges/map. Fixed in one place so the next route to page
+ * cannot inherit it a third time: a limit that is absent, unparseable, zero or
+ * negative all mean the same thing, which is "no limit given".
+ *
+ * @param raw       the raw query-string value, or null when absent
+ * @param fallback  used when nothing usable was given
+ * @param max       hard ceiling, so no caller can pull a whole table
+ */
+export function parseRowLimit(raw: string | null | undefined, fallback: number, max: number): number {
+  const parsed = parseInt(raw ?? '', 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+  return Math.min(max, parsed);
+}
