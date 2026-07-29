@@ -54,7 +54,15 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
-import { driveToUrl } from '@/lib/directions';
+import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
+import { ShareButton } from '@/components/ShareButton';
+import { FeedbackSheet } from '@/components/FeedbackSheet';
+import {
+  driveToUrl,
+  installedNavLinks,
+  openNavLink,
+  type NavLinkSpec,
+} from '@/lib/directions';
 import {
   agencyLabel,
   isDemandingSurface,
@@ -91,12 +99,30 @@ function driveTarget(point: AccessPointDetail) {
   return { name: point.name, coordinates: { lng, lat } };
 }
 
-/** A titled block that renders nothing at all when it has nothing to say. */
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+/**
+ * A titled block that renders nothing at all when it has nothing to say.
+ *
+ * `symbol` is optional and only the three sections the website also marks carry
+ * one — road, parking, facilities. Giving every heading a sticker would turn a
+ * scannable column of text into a column of noise, and it would spend the marks'
+ * only job: they exist so the eye can find "is there a toilet" without reading.
+ */
+function Section({
+  title,
+  symbol,
+  children,
+}: {
+  title: string;
+  symbol?: EddySymbolName;
+  children: React.ReactNode;
+}) {
   const { colors } = useTheme();
   return (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
+      <View style={styles.sectionHead}>
+        {symbol ? <EddySymbol name={symbol} size={20} /> : null}
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
+      </View>
       {children}
     </View>
   );
@@ -254,6 +280,16 @@ export default function AccessPointDetailScreen() {
   const [data, setData] = useState<AccessPointDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Which offroad map apps this phone actually has.
+   *
+   * Starts empty and stays empty for most people, which is the correct default:
+   * the row is drawn only for what came back, so a phone with none of them
+   * never sees it. Probed after the access point loads because the links need
+   * its coordinates.
+   */
+  const [navLinks, setNavLinks] = useState<NavLinkSpec[]>([]);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     if (!slug || !accessSlug) return;
@@ -280,6 +316,20 @@ export default function AccessPointDetailScreen() {
 
     return () => controller.abort();
   }, [slug, accessSlug]);
+
+  // Deliberately not named `point` — that name belongs to the non-optional
+  // narrowing below the early returns, which the whole render leans on.
+  const loadedPoint = data?.accessPoint;
+  useEffect(() => {
+    if (!loadedPoint) return;
+    let live = true;
+    void installedNavLinks(loadedPoint).then((links) => {
+      if (live) setNavLinks(links);
+    });
+    return () => {
+      live = false;
+    };
+  }, [loadedPoint]);
 
   if (loading) {
     return (
@@ -326,16 +376,28 @@ export default function AccessPointDetailScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
-        <Pressable
-          onPress={() => router.push(`/river/${point.river.slug}`)}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel={`Open ${point.river.name}`}
-        >
-          <Text style={[styles.navRiver, { color: colors.interactive }]} numberOfLines={1}>
-            {point.river.name}
-          </Text>
-        </Pressable>
+        <View style={styles.navActions}>
+          <Pressable
+            onPress={() => router.push(`/river/${point.river.slug}`)}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${point.river.name}`}
+          >
+            <Text style={[styles.navRiver, { color: colors.interactive }]} numberOfLines={1}>
+              {point.river.name}
+            </Text>
+          </Pressable>
+          {/* point.path is the WEBSITE's state-segmented path, served by the
+              API precisely because this screen's route has no state in it and
+              could not build one. See src/lib/share.ts.
+
+              Absent when the deploy this build is talking to predates the
+              field — a build outlives the deploy it was cut against, and a
+              share button is not worth handing someone /undefined. */}
+          {point.path ? (
+            <ShareButton title={point.name} path={point.path} label={`Share ${point.name}`} />
+          ) : null}
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
@@ -418,6 +480,37 @@ export default function AccessPointDetailScreen() {
           ) : null}
         </View>
 
+        {/* ── The last half mile ──────────────────────────────────
+            Apple Maps above will get you to the area. What it will not do is
+            draw the unnamed track that the final half mile to an Ozark put-in
+            usually is, or route down it. onX and Gaia will, and anyone who owns
+            them owns them for this.
+
+            Only what the phone actually has, so this row is absent for most
+            people rather than being three buttons that bounce to the App Store.
+            See installedNavLinks. */}
+        {navLinks.length > 0 ? (
+          <View style={styles.navApps}>
+            <Text style={[styles.navAppsLabel, { color: colors.textSubtle }]}>Open in</Text>
+            <View style={styles.navAppsRow}>
+              {navLinks.map((link) => (
+                <Pressable
+                  key={link.app}
+                  onPress={() => void openNavLink(link)}
+                  style={({ pressed }) => [
+                    styles.navApp,
+                    { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${point.name} in ${link.label} ${link.subtitle}`}
+                >
+                  <Text style={[styles.navAppText, { color: colors.text }]}>{link.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         {/* ── The water ──────────────────────────────────────────
             Pre-graded by the server, so this access point and its river cannot
             disagree about the same water. Taps through to the gauge itself. */}
@@ -433,7 +526,7 @@ export default function AccessPointDetailScreen() {
         ) : null}
 
         {hasRoad ? (
-          <Section title="Getting in">
+          <Section title="Getting in" symbol="road">
             <View style={styles.chips}>
               {point.roadSurface.map((surface) => {
                 // The demanding surfaces wear the warm accent rather than the
@@ -471,7 +564,7 @@ export default function AccessPointDetailScreen() {
         ) : null}
 
         {hasParking ? (
-          <Section title="Parking">
+          <Section title="Parking" symbol="parking">
             {parking ? (
               <Text style={[styles.prose, { color: colors.text }]}>{parking}</Text>
             ) : null}
@@ -482,7 +575,7 @@ export default function AccessPointDetailScreen() {
         ) : null}
 
         {hasFacilities ? (
-          <Section title="Facilities">
+          <Section title="Facilities" symbol="facilities">
             {point.amenities.length > 0 ? (
               <View style={styles.chips}>
                 {point.amenities.map((amenity) => (
@@ -599,7 +692,36 @@ export default function AccessPointDetailScreen() {
           Access details are community-maintained and can change with the season. Conditions on the
           ground win.
         </Text>
+
+        {/* "Community-maintained" is a claim the line above makes and, until
+            now, nothing on this screen made good on. A gate that is locked, a
+            road that washed out, parking that is gone — those change between
+            seasons and the only person who knows is the one who just drove
+            there. Defaults to inaccurate_data rather than recalibration: what
+            is wrong on this screen is a FACT ABOUT A PLACE, not a threshold. */}
+        <Pressable
+          onPress={() => setFeedbackOpen(true)}
+          style={({ pressed }) => [styles.reportRow, { opacity: pressed ? 0.6 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Report a problem with ${point.name}`}
+        >
+          <Ionicons name="flag-outline" size={13} color={colors.textSubtle} />
+          <Text style={[styles.reportText, { color: colors.textSubtle }]}>
+            Something here out of date?
+          </Text>
+        </Pressable>
       </ScrollView>
+
+      <FeedbackSheet
+        visible={feedbackOpen}
+        onDismiss={() => setFeedbackOpen(false)}
+        defaultType="inaccurate_data"
+        context={{
+          type: 'access_point',
+          id: point.id,
+          name: `${point.name} (${point.river.name})`,
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -618,7 +740,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 12,
   },
+  // The right-hand end of the nav row, now that share sits beside the river link.
+  navActions: { flexDirection: 'row', alignItems: 'center', gap: 14, flexShrink: 1 },
   navRiver: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1 },
+  reportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 14,
+  },
+  reportText: { ...t.xs, fontFamily: fonts.medium },
   body: { paddingBottom: 40 },
   gallery: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },
   galleryImage: { width: 240, height: 150, borderRadius: 14 },
@@ -652,13 +784,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaryActionText: { ...t.sm, fontFamily: fonts.medium },
+  // Tighter to the actions above than a Section would be: these are the same
+  // question as Directions, asked of a different app, not a new topic.
+  navApps: { paddingHorizontal: 16, marginTop: 12 },
+  navAppsLabel: { ...t.xs, fontFamily: fonts.medium, marginBottom: 6 },
+  navAppsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  navApp: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  navAppText: { ...t.sm, fontFamily: fonts.medium },
   section: { marginTop: 22 },
-  sectionTitle: {
-    ...t.lg,
-    fontFamily: fonts.heading,
+  // The padding that used to sit on sectionTitle lives here now, so a mark and
+  // its heading share one baseline and one left edge with the prose below.
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 20,
     marginBottom: 10,
   },
+  sectionTitle: { ...t.lg, fontFamily: fonts.heading },
   prose: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 20, marginTop: 8, lineHeight: 21 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 20 },
   chipOutline: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 9, borderWidth: 1 },

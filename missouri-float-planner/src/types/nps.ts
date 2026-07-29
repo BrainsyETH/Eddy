@@ -71,6 +71,31 @@ export interface NPSPlaceRaw {
   relevanceScore: number;
 }
 
+/**
+ * One entry from /alerts — a closure, a caution, a danger or an info notice.
+ *
+ * The field that matters most is `category`, and it is a free string rather than
+ * a union because the NPS documents four values and ships others. Consumers must
+ * treat an unrecognised category as the mildest reading, never the most severe:
+ * inventing "Danger" from a string we do not know is how a park newsletter ends
+ * up rendered as a hazard.
+ *
+ * `url` is often empty. It points at the park's own page for the alert when it
+ * is there, which is the only place a reader can get the full text — the NPS
+ * truncates nothing but also promises nothing about length.
+ */
+export interface NPSAlertRaw {
+  id: string;
+  url: string;
+  title: string;
+  parkCode: string;
+  description: string;
+  /** "Danger" | "Closure" | "Caution" | "Information", and occasionally others. */
+  category: string;
+  /** ISO date the alert was last edited. NOT an expiry — the NPS publishes none. */
+  lastIndexedDate?: string;
+}
+
 // ─────────────────────────────────────────────────────────────
 // NPS Sub-types
 // ─────────────────────────────────────────────────────────────

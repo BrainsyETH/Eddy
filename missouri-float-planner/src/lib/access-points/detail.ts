@@ -6,6 +6,7 @@
 
 import type { createClient } from '@/lib/supabase/server';
 import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
+import { riverAccessPath } from '@/lib/navigation/river-path';
 import type {
   AccessPointDetail,
   AccessPointType,
@@ -36,9 +37,11 @@ export async function getAccessPointDetail(
   accessSlug: string,
 ): Promise<AccessPointDetailResult> {
   // Get river info
+  // `state` is selected only to build the canonical path below — the /rivers
+  // hierarchy is state-segmented and nothing else in this payload carries it.
   const { data: river, error: riverError } = await supabase
     .from('rivers')
-    .select('id, name, slug')
+    .select('id, name, slug, state')
     .eq('slug', riverSlug)
     .single();
 
@@ -179,6 +182,10 @@ export async function getAccessPointDetail(
     nearbyServices: (ap.nearby_services as unknown as NearbyService[]) || [],
     drivingLat: ap.driving_lat != null ? parseFloat(String(ap.driving_lat)) : null,
     drivingLng: ap.driving_lng != null ? parseFloat(String(ap.driving_lng)) : null,
+    // 'MO' is the same fallback getRivers uses for a row with no state, so a
+    // river missing one still gets a path that resolves rather than a broken
+    // /rivers/undefined/... link.
+    path: riverAccessPath(river.state || 'MO', river.slug, ap.slug),
     river: {
       id: river.id,
       name: river.name,

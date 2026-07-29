@@ -1,5 +1,16 @@
 // src/lib/navigation/deepLinks.ts
 // Deep link generation for navigation apps (Onx, Gaia, Google Maps, Apple Maps)
+//
+// The URL builders here are DUPLICATED in packages/eddy-geo as navLinksFor /
+// navCoordinatesFor, because the iOS app offers the same four apps and Vercel
+// installs only missouri-float-planner/ — @eddy/geo is not resolvable from
+// shippable web code. src/types/api.ts mirrors @eddy/types for the same reason.
+//
+// deep-links-parity.test.ts asserts the two copies emit identical URLs. Change a
+// template here and change it there in the same commit.
+//
+// The rest of this file — detectPlatform, handleNavClick, attemptDeepLink — is
+// DOM-bound and web-only; the app probes with Linking.canOpenURL instead.
 
 export interface NavigationCoords {
   lat: number;
@@ -235,8 +246,10 @@ export function getNavCoordinates(accessPoint: {
   coordinates: { lat: number; lng: number };
   name: string;
 }): NavigationCoords {
-  // Prefer driving coordinates if available
-  if (accessPoint.drivingLat && accessPoint.drivingLng) {
+  // Prefer driving coordinates if available. Explicit null checks rather than
+  // truthiness: 0 is a valid coordinate, and this must stay identical to
+  // navCoordinatesFor in @eddy/geo (see deep-links-parity.test.ts).
+  if (accessPoint.drivingLat != null && accessPoint.drivingLng != null) {
     return {
       lat: accessPoint.drivingLat,
       lng: accessPoint.drivingLng,

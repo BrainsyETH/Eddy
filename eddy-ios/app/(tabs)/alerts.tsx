@@ -1,5 +1,6 @@
 // eddy-ios/app/(tabs)/alerts.tsx
-// Two things under one tab: the alerts you set, and the water running high now.
+// Three things under one tab: the alerts you set, the water running high now,
+// and what the agencies have posted about the places you would put in.
 //
 // ── Why My alerts leads ─────────────────────────────────────────────────────
 //
@@ -34,11 +35,24 @@
 //
 // Free and account-free, like the feed it replaces. High water is safety
 // information; it is never behind an account or a paywall.
+//
+// ── Why there is a third segment ───────────────────────────────────────────
+//
+// High water is what EDDY says about the water. Notices is what everybody else
+// says about the place: the Park Service closing a campground, the Weather
+// Service issuing a flood warning. Those are not gradations of the same thing
+// and they must not share a list — a row Eddy graded and a row Eddy is merely
+// relaying carry different authority, and merging them would put Eddy's name on
+// somebody else's call. Hence a segment rather than a section.
+//
+// It is also the half that answers a question the other two cannot: a river can
+// be running perfectly and the access still be shut.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Linking,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -47,18 +61,68 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import type { AlertRule, HighWaterEntry, HighWaterKind } from '@eddy/types';
-import { ApiError, fetchHighWater } from '@/api/client';
+import type {
+  AlertRule,
+  HighWaterEntry,
+  HighWaterKind,
+  RiverAlert,
+  RiverAlertSeverity,
+} from '@eddy/types';
+import { ApiError, fetchHighWater, fetchRiverAlerts } from '@/api/client';
 import { conditionBg, conditionColor, conditionInk } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import type { Palette } from '@/theme/palette';
 import { readingAge } from '@/lib/readingCopy';
 import { EddyScene } from '@/components/EddyScene';
 import { AlertRuleRow } from '@/components/AlertRuleRow';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useRouter } from 'expo-router';
 
-type Segment = 'high-water' | 'rules';
+type Segment = 'high-water' | 'rules' | 'notices';
+
+/** Section headings for the notices list, loudest first. */
+const SEVERITY_LABEL: Record<RiverAlertSeverity, string> = {
+  warning: 'Warnings',
+  watch: 'Closures and cautions',
+  notice: 'Notices',
+};
+const SEVERITY_ORDER: RiverAlertSeverity[] = ['warning', 'watch', 'notice'];
+
+/**
+ * Grouped by SEVERITY, not by agency.
+ *
+ * Sorting by source would file a park closure under "NPS" and a flood warning
+ * under "NWS", which is an org chart, not an answer. What a reader needs first
+ * is how much it matters; who said it belongs on the row, where it is drawn as
+ * a caption.
+ */
+type NoticeRow =
+  | { type: 'heading'; key: string; label: string; count: number }
+  | { type: 'entry'; key: string; alert: RiverAlert };
+
+function toNoticeRows(alerts: RiverAlert[]): NoticeRow[] {
+  return SEVERITY_ORDER.flatMap((severity) => {
+    const group = alerts.filter((a) => a.severity === severity);
+    if (group.length === 0) return [];
+    return [
+      {
+        type: 'heading' as const,
+        key: `heading:${severity}`,
+        label: SEVERITY_LABEL[severity],
+        count: group.length,
+      },
+      ...group.map((alert) => ({ type: 'entry' as const, key: alert.id, alert })),
+    ];
+  });
+}
+
+/** Warnings borrow the canonical danger red; nothing below them does. */
+function noticeTint(severity: RiverAlertSeverity, colors: Palette): string {
+  if (severity === 'warning') return conditionColor('dangerous');
+  if (severity === 'watch') return colors.warm;
+  return colors.textSubtle;
+}
 
 /** Section headings, in the order the list renders them. */
 const KIND_LABEL: Record<HighWaterKind, string> = {
@@ -105,6 +169,23 @@ function readingLine(entry: HighWaterEntry): string | null {
   return parts.length > 0 ? parts.join(' · ') : null;
 }
 
+/**
+ * WHOSE rows these are, said out loud, per segment.
+ *
+ * Without this line the lists read as "notifications I was sent" — a fair
+ * reading of a screen titled Alerts whose rows look like a notification list —
+ * and the first question that follows is how to delete them. There is nothing
+ * to delete: two of the three are readouts, identical for everyone. Saying what
+ * each is costs one line and answers the question before it is asked.
+ */
+const CAPTION: Record<Segment, string> = {
+  rules: 'Alerts you have set. Only you receive these.',
+  'high-water':
+    'Every river, gauge and dam Eddy grades that is running high or in flood right now.',
+  notices:
+    'Closures from the National Park Service and warnings from the National Weather Service. Not Eddy\u2019s call \u2014 theirs.',
+};
+
 /** Room left under the lists so the last row clears the pinned CTA. */
 const CTA_CLEARANCE = 84;
 
@@ -117,6 +198,8 @@ export default function AlertsScreen() {
   // one people expect and the honest one.
   const [segment, setSegment] = useState<Segment>('rules');
   const [ruleError, setRuleError] = useState<string | null>(null);
+  const [notices, setNotices] = useState<RiverAlert[] | null>(null);
+  const [noticeError, setNoticeError] = useState<string | null>(null);
   const { rules, ready: rulesReady, refresh: refreshRules, setEnabled } = useAlertRules();
   const { colors, elevation, floating } = useTheme();
   const router = useRouter();
@@ -131,17 +214,32 @@ export default function AlertsScreen() {
     }
   }, []);
 
+  // Separate from load(), not folded into it: these are two agencies and one
+  // being unreachable says nothing about the other. A single try/catch would
+  // let an NPS outage blank the high-water list, which is the failure mode the
+  // route itself is built to avoid.
+  const loadNotices = useCallback(async (signal?: AbortSignal) => {
+    try {
+      setNoticeError(null);
+      setNotices(await fetchRiverAlerts(undefined, signal));
+    } catch (err) {
+      if (err instanceof ApiError && err.message === 'Request cancelled') return;
+      setNoticeError(err instanceof ApiError ? err.message : 'Something went wrong');
+    }
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     load(controller.signal);
+    loadNotices(controller.signal);
     return () => controller.abort();
-  }, [load]);
+  }, [load, loadNotices]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([load(), refreshRules()]);
+    await Promise.all([load(), loadNotices(), refreshRules()]);
     setRefreshing(false);
-  }, [load, refreshRules]);
+  }, [load, loadNotices, refreshRules]);
 
   const onToggleRule = useCallback(
     (rule: AlertRule, enabled: boolean) => {
@@ -158,13 +256,26 @@ export default function AlertsScreen() {
   // Headings interleaved with rows, so a section title scrolls with the group
   // it names rather than sticking. Above the early return because it is a hook.
   const highWaterRows = useMemo(() => toRows(highWater ?? []), [highWater]);
+  const noticeRows = useMemo(() => toNoticeRows(notices ?? []), [notices]);
 
   const showingRules = segment === 'rules';
+  const showingNotices = segment === 'notices';
 
   // Only the high-water half waits on a request. Blocking the whole screen on
   // it would put a spinner over the rules list — which is the default segment
   // and needs no network at all.
-  if (!showingRules && !highWater && !error) {
+  // Each network-backed segment blocks only on ITS OWN request. Without the
+  // per-segment guard a spinner would sit over whichever list the user is
+  // actually looking at while a different one loads.
+  if (showingNotices && !notices && !noticeError) {
+    return (
+      <SafeAreaView style={[styles.centered, { backgroundColor: colors.bg }]} edges={['top']}>
+        <ActivityIndicator color={colors.interactive} />
+      </SafeAreaView>
+    );
+  }
+
+  if (!showingRules && !showingNotices && !highWater && !error) {
     return (
       <SafeAreaView style={[styles.centered, { backgroundColor: colors.bg }]} edges={['top']}>
         <ActivityIndicator color={colors.interactive} />
@@ -225,30 +336,25 @@ export default function AlertsScreen() {
         </Pressable>
       </View>
 
-      {/* Yours first. */}
+      {/* Yours first, then what Eddy says, then what everyone else says. */}
       <View style={styles.toggleRow}>
         {segmentButton('rules', 'My alerts')}
         {segmentButton('high-water', 'High water')}
+        {segmentButton('notices', 'Notices')}
       </View>
 
-      {/* WHOSE rows these are, said out loud.
-          Without this line the second list reads as "notifications I was sent"
-          — a fair reading of a screen titled Alerts whose rows look like a
-          notification list — and the first question that follows is how to
-          delete them. There is nothing to delete: it is a readout of the state
-          of the water, identical for everyone. Saying what it is costs one line
-          and answers the question before it is asked. */}
-      <Text style={[styles.caption, { color: colors.textSubtle }]}>
-        {showingRules
-          ? 'Alerts you have set. Only you receive these.'
-          : 'Every river, gauge and dam Eddy grades that is running high or in flood right now.'}
-      </Text>
+      {/* See CAPTION for why this line exists. A lookup rather than a ternary,
+          now that there are three segments. */}
+      <Text style={[styles.caption, { color: colors.textSubtle }]}>{CAPTION[segment]}</Text>
 
-      {error && !showingRules ? (
+      {error && segment === 'high-water' ? (
         <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
       ) : null}
       {ruleError && showingRules ? (
         <Text style={[styles.errorText, { color: colors.error }]}>{ruleError}</Text>
+      ) : null}
+      {noticeError && showingNotices ? (
+        <Text style={[styles.errorText, { color: colors.error }]}>{noticeError}</Text>
       ) : null}
     </View>
   );
@@ -327,6 +433,89 @@ export default function AlertsScreen() {
               onToggle={(enabled) => onToggleRule(item, enabled)}
             />
           )}
+        />
+        {cta}
+      </SafeAreaView>
+    );
+  }
+
+  if (showingNotices) {
+    return (
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
+        <FlatList
+          data={noticeRows}
+          keyExtractor={(item) => item.key}
+          refreshControl={refreshControl}
+          contentContainerStyle={listPadding}
+          ListHeaderComponent={header}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <EddyScene name="checkingGauge" size={120} />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>Nothing posted</Text>
+              {/* Says what an empty list DOES NOT mean. "No closures" and "we
+                  could not reach the agencies" look identical to a reader and
+                  mean opposite things, and only one of them is safe to act on.
+                  The Park Service also covers three of Eddy's rivers and no
+                  others, which nobody would guess from a blank screen. */}
+              <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
+                No closures or weather warnings are posted for Eddy&apos;s rivers right now. Park
+                closures only cover rivers inside a national park, and neither agency posts
+                everything — check locally before you drive out.
+              </Text>
+            </View>
+          }
+          renderItem={({ item }) => {
+            if (item.type === 'heading') {
+              return (
+                <View style={styles.sectionHeader}>
+                  <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
+                    {item.label}
+                  </Text>
+                  <Text style={[styles.sectionCount, { color: colors.textSubtle }]}>
+                    {item.count}
+                  </Text>
+                </View>
+              );
+            }
+
+            const alert = item.alert;
+            const tint = noticeTint(alert.severity, colors);
+            return (
+              <Pressable
+                onPress={
+                  alert.url ? () => void Linking.openURL(alert.url as string) : undefined
+                }
+                disabled={!alert.url}
+                style={({ pressed }) => [
+                  styles.row,
+                  { backgroundColor: colors.card, opacity: pressed && alert.url ? 0.7 : 1 },
+                  elevation(1),
+                ]}
+                accessibilityRole={alert.url ? 'button' : undefined}
+                accessibilityLabel={`${alert.category}, ${alert.riverName}, ${alert.title}`}
+              >
+                <View style={[styles.stripe, { backgroundColor: tint }]} />
+                <View style={styles.rowBody}>
+                  {/* The RIVER leads, not the headline. This list spans every
+                      river, and "which of mine is this about" is the first
+                      question — the agencies write headlines that name counties. */}
+                  <Text style={[styles.riverName, { color: colors.text }]}>{alert.riverName}</Text>
+                  <Text style={[styles.headline, { color: tint }]} numberOfLines={2}>
+                    {alert.title}
+                  </Text>
+                  {/* WHO SAID IT, always. A closure Eddy is relaying and a
+                      condition Eddy graded must never be mistakable, and this
+                      caption is the only thing on the row that says which. */}
+                  <Text style={[styles.detail, { color: colors.textMuted }]}>
+                    {alert.category} · {alert.source === 'nps' ? 'National Park Service' : 'National Weather Service'}
+                  </Text>
+                </View>
+                {alert.url ? (
+                  <Ionicons name="open-outline" size={16} color={colors.textSubtle} />
+                ) : null}
+              </Pressable>
+            );
+          }}
         />
         {cta}
       </SafeAreaView>

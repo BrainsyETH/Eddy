@@ -22,6 +22,7 @@ import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import ThresholdTable from '@/components/gauge/ThresholdTable';
 import { buildZones } from '@/lib/gauge/threshold-zones';
 import SiteFooter from '@/components/ui/SiteFooter';
+import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 
 interface GaugeDetailViewProps {
@@ -486,6 +487,29 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
             />
           </div>
         )}
+
+        {/* The report that only somebody who was there can file. Carries the
+            reading and its timestamp in context_data so a triager can see what
+            Eddy was claiming at the moment the user disagreed with it —
+            otherwise the row arrives saying "it was wrong" about a number that
+            has since changed. */}
+        <div className="mt-10 flex justify-center">
+          <ReportIssueButton
+            context={{
+              type: 'gauge',
+              id: siteId,
+              name: gauge.name || `USGS ${siteId}`,
+              data: {
+                gaugeHeightFt: gauge.gaugeHeightFt,
+                dischargeCfs: gauge.dischargeCfs,
+                conditionCode: condition.code,
+                reportedAt: new Date().toISOString(),
+              },
+            }}
+            defaultType="gauge_recalibration"
+            label="This reading looks wrong"
+          />
+        </div>
       </div>
 
       <SiteFooter maxWidth="max-w-5xl" className="mt-8" />

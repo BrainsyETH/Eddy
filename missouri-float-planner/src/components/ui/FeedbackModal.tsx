@@ -10,7 +10,13 @@ import type { FeedbackType, FeedbackContext } from '@/types/api';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 
 const FEEDBACK_TYPES: { value: FeedbackType; label: string; description: string }[] = [
-  { value: 'inaccurate_data', label: 'Inaccurate Data', description: 'Gauge readings, water levels, or other data seems wrong' },
+  // "Gauge Reading Is Off" leads, and is separate from Inaccurate Data below.
+  // The two read alike and are not: this one says the ladder is wrong — the
+  // water did not match the verdict — and is fixed by moving a threshold, not
+  // by editing a field. It is also the report only someone who was actually
+  // there can make, which is why it is first. See migration 00208.
+  { value: 'gauge_recalibration', label: 'Gauge Reading Is Off', description: 'The river didn\'t match what Eddy said — too high, too low, or not floatable' },
+  { value: 'inaccurate_data', label: 'Inaccurate Data', description: 'A name, river mile, phone number or other detail is wrong' },
   { value: 'missing_access_point', label: 'Missing Access Point', description: 'Know of an access point that\'s not listed?' },
   { value: 'suggestion', label: 'Suggestion', description: 'Ideas to improve Eddy' },
   { value: 'bug_report', label: 'Bug Report', description: 'Something isn\'t working correctly' },
@@ -21,10 +27,26 @@ interface FeedbackModalProps {
   isOpen: boolean;
   onClose: () => void;
   context?: FeedbackContext;
+  /**
+   * Which type the form opens on.
+   *
+   * Set by the surface that opened it, because the surface knows more than the
+   * form does: a "Gauge reading is off" button on a gauge screen has already
+   * told us the type, and making the user re-pick it from a list of six is
+   * asking a question they just answered. Still a select rather than a locked
+   * field — someone who opened the wrong one should be able to say so without
+   * closing and starting again.
+   */
+  defaultType?: FeedbackType;
 }
 
-export default function FeedbackModal({ isOpen, onClose, context }: FeedbackModalProps) {
-  const [feedbackType, setFeedbackType] = useState<FeedbackType>('inaccurate_data');
+export default function FeedbackModal({
+  isOpen,
+  onClose,
+  context,
+  defaultType = 'inaccurate_data',
+}: FeedbackModalProps) {
+  const [feedbackType, setFeedbackType] = useState<FeedbackType>(defaultType);
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [message, setMessage] = useState('');
@@ -98,7 +120,7 @@ export default function FeedbackModal({ isOpen, onClose, context }: FeedbackModa
 
   const handleClose = () => {
     // Reset state
-    setFeedbackType('inaccurate_data');
+    setFeedbackType(defaultType);
     setUserName('');
     setUserEmail('');
     setMessage('');
