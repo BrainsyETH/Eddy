@@ -1755,3 +1755,70 @@ export interface FeedbackResponse {
   id?: string;
   error?: string;
 }
+
+// ── River alerts (GET /api/river-alerts) ─────────────────────────────────────
+// Closures and weather warnings for a river, from the two agencies that publish
+// them. Hand-mirrored into the website's src/types/api.ts, like everything else
+// in this file.
+//
+// ── Why this is not a HighWaterEntry ────────────────────────────────────────
+// That type carries a `conditionCode`, documented as always `high` or
+// `dangerous`, and every row of it is the output of a threshold ladder a human
+// set. A park closure is not a reading and has no ladder; a Flood Warning is
+// somebody else's verdict, not Eddy's. Folding either into that shape would mean
+// inventing a condition code for a thing nobody graded, which is the exact rule
+// /api/high-water's header exists to state. Separate feed, separate type.
+
+/**
+ * Who said it. Load-bearing: it decides the wording, the icon and how much
+ * weight a reader should give the row, and it must never be inferred from text.
+ */
+export type RiverAlertSource = 'nws' | 'nps';
+
+/**
+ * How loud the row should be.
+ *
+ * Deliberately three values and not the NWS's five or the NPS's four. Both
+ * vocabularies are mapped INTO this one at the edge, because a screen showing
+ * "Severe" beside "Caution" invites a comparison neither agency intended — they
+ * do not share a scale. Unknown input maps to `notice`, never upward: inventing
+ * urgency from a string we do not recognise is how a park newsletter becomes a
+ * hazard warning.
+ */
+export type RiverAlertSeverity = 'warning' | 'watch' | 'notice';
+
+export interface RiverAlert {
+  /** Stable across refetches, and prefixed by source — the two id spaces differ. */
+  id: string;
+  source: RiverAlertSource;
+  severity: RiverAlertSeverity;
+  /** Which river this was matched to. One upstream alert can produce several. */
+  riverSlug: string;
+  riverName: string;
+  /** One line. The NWS headline, or the NPS alert title. */
+  title: string;
+  /** The body, already truncated upstream. May be empty. */
+  body: string;
+  /** The agency's own name for it — "Flood Warning", "Closure". Shown verbatim. */
+  category: string;
+  /** ISO. Null when the agency published none, which the NPS routinely does. */
+  startsAt: string | null;
+  endsAt: string | null;
+  /** The agency's page for this alert, when there is one. */
+  url: string | null;
+}
+
+export interface RiverAlertsResponse {
+  alerts: RiverAlert[];
+  /** When this was assembled — both feeds are cached, so it is not "now". */
+  asOf: string;
+}
+
+/**
+ * Why an alerts list can be empty and still be doing its job.
+ *
+ * Shown wherever the section renders nothing, because "no alerts" and "we could
+ * not reach the agencies" look identical to a reader and mean opposite things.
+ */
+export const RIVER_ALERT_SOURCE_NOTE =
+  'Closures come from the National Park Service and weather warnings from the National Weather Service. Neither covers every river, and neither replaces checking locally.';

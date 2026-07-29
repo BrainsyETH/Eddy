@@ -1120,3 +1120,42 @@ export interface AlertFeedEntry {
 export interface AlertsResponse {
   alerts: AlertFeedEntry[];
 }
+
+// ── River alerts (GET /api/river-alerts) ─────────────────────────────────────
+// Mirrored by hand from packages/eddy-types/index.ts, which carries the full
+// rationale. @eddy/types is not resolvable from shippable web code — Vercel
+// installs only missouri-float-planner/ — so the two copies are kept in step by
+// review, exactly as the rest of this file is.
+//
+// Deliberately NOT folded into HighWaterEntry: that type's conditionCode is
+// always the output of a threshold ladder a human set, and neither a park
+// closure nor a Weather Service warning has one.
+
+export type RiverAlertSource = 'nws' | 'nps';
+
+/**
+ * Three levels, not the NWS's five or the NPS's four. Both agency vocabularies
+ * map INTO this at the edge; unknown values floor at 'notice' and never
+ * promote, so an unrecognised category cannot become a hazard warning.
+ */
+export type RiverAlertSeverity = 'warning' | 'watch' | 'notice';
+
+export interface RiverAlert {
+  id: string;
+  source: RiverAlertSource;
+  severity: RiverAlertSeverity;
+  riverSlug: string;
+  riverName: string;
+  title: string;
+  body: string;
+  /** The agency's own name for it — "Flood Warning", "Closure". Shown verbatim. */
+  category: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  url: string | null;
+}
+
+export interface RiverAlertsResponse {
+  alerts: RiverAlert[];
+  asOf: string;
+}

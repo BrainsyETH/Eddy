@@ -2,6 +2,7 @@
 // NPS API client for fetching campground and places data
 
 import type {
+  NPSAlertRaw,
   NPSApiResponse,
   NPSCampgroundRaw,
   NPSPlaceRaw,
@@ -20,7 +21,24 @@ function getApiKey(): string {
   return key;
 }
 
-async function fetchNPS<T>(endpoint: string, params: Record<string, string> = {}): Promise<NPSApiResponse<T>> {
+interface FetchOptions {
+  /**
+   * Seconds to cache the response for, when this is called from a REQUEST
+   * rather than from cron.
+   *
+   * The default stays `cache: 'no-store'` because the two sync wrappers below
+   * run once a week and want the freshest possible answer. A user-facing route
+   * wants the opposite: without this, every visitor to a river page would spend
+   * an upstream NPS call, and the NPS rate-limits per key.
+   */
+  revalidateSeconds?: number;
+}
+
+async function fetchNPS<T>(
+  endpoint: string,
+  params: Record<string, string> = {},
+  options: FetchOptions = {},
+): Promise<NPSApiResponse<T>> {
   const apiKey = getApiKey();
   const url = new URL(`${NPS_API_BASE}/${endpoint}`);
 
@@ -38,8 +56,10 @@ async function fetchNPS<T>(endpoint: string, params: Record<string, string> = {}
     headers: {
       'Accept': 'application/json',
     },
-    // No caching — this is called from cron, not user requests
-    cache: 'no-store',
+    ...(options.revalidateSeconds
+      ? { next: { revalidate: options.revalidateSeconds } }
+      : // No caching — the default caller is cron, not a user request.
+        { cache: 'no-store' as const }),
   });
 
   if (!response.ok) {
@@ -75,4 +95,39 @@ export async function fetchNPSPlaces(
     limit: '50',
   });
   return response.data;
+}
+
+/**
+ * Active alerts for one NPS unit — closures, cautions, dangers, notices.
+ *
+ * Unlike the two wrappers above, this one is called from a REQUEST path, and
+ * that changes two things.
+ *
+ * It is CACHED (15 minutes, matching the NWS alert fetch it sits beside). A park
+ * alert is not a weekly-sync kind of fact — a low-water bridge closing is the
+ * thing a paddler needs before they drive out — but neither is it worth an
+ * upstream call per visitor.
+ *
+ * It RETURNS [] INSTEAD OF THROWING. `getApiKey()` throws when NPS_API_KEY is
+ * unset and `fetchNPS` throws on any non-2xx, which is correct for a cron job
+ * that should fail loudly and get retried. On a page, the same throw would take
+ * down the weather alerts sitting next to these and replace a river's whole
+ * alerts section with an error — over a missing key for a park most rivers do
+ * not even have. Failing to reach the NPS means we cannot say whether the park
+ * is closed; the surface says nothing rather than pretending it is open.
+ */
+export async function fetchNPSAlerts(
+  parkCode: string = DEFAULT_PARK_CODE
+): Promise<NPSAlertRaw[]> {
+  try {
+    const response = await fetchNPS<NPSAlertRaw>(
+      'alerts',
+      { parkCode, limit: '50' },
+      { revalidateSeconds: 900 },
+    );
+    return response.data ?? [];
+  } catch (err) {
+    console.warn(`[NPS] Alert fetch failed for ${parkCode}:`, err);
+    return [];
+  }
 }

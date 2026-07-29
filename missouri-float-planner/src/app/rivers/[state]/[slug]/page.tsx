@@ -21,9 +21,11 @@ import type { ConditionCode } from '@/types/api';
 import RiverHubMap from './RiverHubMap';
 import ShareRiverButton from './ShareRiverButton';
 import HubSectionNav from './HubSectionNav';
+import RiverAlertsPanel from '@/components/river/RiverAlertsPanel';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import RiverDamPanel from '@/components/dam/RiverDamPanel';
 import { fetchRiverDam } from '@/lib/data/dams';
+import { getRiverAlerts } from '@/lib/alerts/river-alerts';
 import RiverReaches from '@/components/river/RiverReaches';
 import { fetchRiverReaches } from '@/lib/data/river-reaches';
 import type { RiverType } from '@/lib/rivers/context';
@@ -183,7 +185,7 @@ export default async function RiverGuidePage({ params }: Props) {
   }
 
   // Fetch access points + current condition in parallel (need river.id first)
-  const [{ data: accessPoints }, condRowsResult, riverDam, riverReaches] = await Promise.all([
+  const [{ data: accessPoints }, condRowsResult, riverDam, riverReaches, riverAlerts] = await Promise.all([
     supabase
       .from('access_points')
       .select('id, slug, name, river_mile_downstream, image_urls, type, types')
@@ -202,6 +204,11 @@ export default async function RiverGuidePage({ params }: Props) {
     // Same reasoning. Null unless the river has two or more curated reaches —
     // today only the Black, which straddles Clearwater Dam.
     fetchRiverReaches(river.id, slug, (river.river_type || 'spring_fed_float') as RiverType).catch(() => null),
+    // Closures and weather warnings, server-side for the same reason the dam is:
+    // a closure is the last thing that should wait on hydration, and the section
+    // has to exist before HubSectionNav can decide whether to offer the tab.
+    // The lib never throws; the catch is belt-and-braces on the Promise.all.
+    getRiverAlerts(slug).catch(() => []),
   ]);
 
   const conditionCode = condRowsResult?.data?.[0]?.condition_code || 'unknown';
@@ -397,9 +404,28 @@ export default async function RiverGuidePage({ params }: Props) {
         </section>
 
         {/* ===== Sticky section nav + persistent CTA ===== */}
-        <HubSectionNav planUrl={planUrl} hasGuide={!!guidePost} hasDam={!!riverDam} />
+        <HubSectionNav
+          planUrl={planUrl}
+          hasGuide={!!guidePost}
+          hasDam={!!riverDam}
+          hasAlerts={riverAlerts.length > 0}
+        />
 
         <main className="max-w-5xl mx-auto px-4 pb-16">
+          {/* ===== Alerts — above the live report, deliberately =====
+              A closure or a flood warning decides whether the trip happens at
+              all, which outranks what the gauge reads. Absent entirely when
+              nothing is posted: an empty "Alerts" heading reads as an all-clear,
+              and this section cannot tell an all-clear from an agency outage. */}
+          {riverAlerts.length > 0 && (
+            <section id="alerts" className="scroll-mt-24 pt-4 md:pt-5">
+              <h2 className="mb-3 text-xl font-bold text-neutral-900 md:text-2xl" style={{ fontFamily: 'var(--font-display)' }}>
+                Alerts
+              </h2>
+              <RiverAlertsPanel alerts={riverAlerts} />
+            </section>
+          )}
+
           {/* ===== Live report ===== */}
           <section id="status" className="scroll-mt-24 pt-4 md:pt-5">
             <h2 className="mb-3 text-xl font-bold text-neutral-900 md:text-2xl" style={{ fontFamily: 'var(--font-display)' }}>

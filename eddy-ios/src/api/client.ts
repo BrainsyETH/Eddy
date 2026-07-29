@@ -63,6 +63,8 @@ import type {
   MeDeleteResponse,
   CreateFeedbackRequest,
   FeedbackResponse,
+  RiverAlert,
+  RiverAlertsResponse,
 } from '@eddy/types';
 import type { ServerStar } from '@eddy/sync';
 import type { StatewideReading, StatewideRiver } from '@/lib/statewideNetwork';
@@ -1012,6 +1014,34 @@ export async function fetchAlerts(signal?: AbortSignal): Promise<AlertFeedEntry[
 export async function fetchHighWater(signal?: AbortSignal): Promise<HighWaterEntry[]> {
   const data = await get<HighWaterResponse>('/api/high-water', signal);
   return data.entries ?? [];
+}
+
+/**
+ * Closures and weather warnings for Eddy's rivers, from the NPS and the NWS.
+ *
+ * NOT a sibling of fetchHighWater despite sitting next to it on screen. That
+ * one carries Eddy's own verdicts, every row the output of a threshold ladder a
+ * human set. Everything here is somebody else's — the Park Service's, the
+ * Weather Service's — quoted rather than computed. See the note on RiverAlert
+ * in @eddy/types for why the two are different types.
+ *
+ * Pass `riverSlug` to narrow it to one river; the server does the narrowing
+ * before it fans out upstream, so a river screen does not pay for parks it has
+ * nothing to do with.
+ *
+ * THROWS, for the same reason fetchHighWater does: an empty list means "the
+ * agencies have published nothing", which a failed request must never be able
+ * to claim on their behalf.
+ */
+export async function fetchRiverAlerts(
+  riverSlug?: string,
+  signal?: AbortSignal,
+): Promise<RiverAlert[]> {
+  const path = riverSlug
+    ? `/api/river-alerts?riverSlug=${encodeURIComponent(riverSlug)}`
+    : '/api/river-alerts';
+  const data = await get<RiverAlertsResponse>(path, signal);
+  return data.alerts ?? [];
 }
 
 /**
