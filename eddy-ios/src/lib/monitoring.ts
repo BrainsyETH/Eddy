@@ -48,7 +48,7 @@ const DSN = process.env.EXPO_PUBLIC_SENTRY_DSN ?? '';
 export const monitoringEnabled = Boolean(DSN);
 
 /** Subsystem tags already in use across the app's console.warn calls. */
-export type LogTag = 'fonts' | 'push' | 'map' | 'auth' | 'stars' | 'chart' | 'cache';
+export type LogTag = 'fonts' | 'push' | 'map' | 'auth' | 'stars' | 'chart' | 'cache' | 'photo';
 
 /**
  * Throttling state for warn(), for the life of the process.

@@ -87,7 +87,11 @@ import { Otter, otterForCondition } from '@/components/Otter';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { GaugePicker } from '@/components/GaugePicker';
 import { RiverVisuals } from '@/components/RiverVisuals';
-import { PhotoSubmitSheet } from '@/components/PhotoSubmitSheet';
+// Lazy, and NOT for bundle size. PhotoSubmitSheet imports expo-image-picker at
+// module scope, so on a binary built before that native module existed this
+// import threw while THIS file was still loading — killing the whole river
+// screen over a feature nobody had touched. See PhotoSubmitSheetLazy's header.
+import { PhotoSubmitSheetLazy } from '@/components/PhotoSubmitSheetLazy';
 import { ShareButton } from '@/components/ShareButton';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { ReadingScale } from '@/components/ReadingScale';
@@ -1220,7 +1224,7 @@ export default function RiverDetailScreen() {
         </Pressable>
       </ScrollView>
 
-      <PhotoSubmitSheet
+      <PhotoSubmitSheetLazy
         visible={photoOpen}
         onDismiss={() => setPhotoOpen(false)}
         riverId={river.id}
