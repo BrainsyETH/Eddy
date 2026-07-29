@@ -57,6 +57,8 @@ import type {
   Hazard,
   MapAccessPoint,
   MapGauge,
+  PublicLandAccess,
+  PublicLandFeature,
   RiverDetail,
   RiverGeometry,
   RiverService,
@@ -66,6 +68,7 @@ import {
   accessTypeLabel,
   hasCoordinates,
   isCampground,
+  PUBLIC_LAND_ACCESS_STYLE,
 } from '@eddy/types';
 import { boundsForLine } from '@eddy/geo';
 import {
@@ -87,7 +90,16 @@ import {
 import type { NetworkCollection } from '@/lib/statewideNetwork';
 import { loadMapbox } from './runtime';
 import { STYLE_URL } from './useOfflinePacks';
-import { MAP_LAYERS, MIN_GAUGE_ZOOM, OUTFITTER_SERVICE_TYPES, type LayerKey } from './layers';
+import {
+  MAP_LAYERS,
+  MIN_GAUGE_ZOOM,
+  MIN_RADAR_ZOOM,
+  OUTFITTER_SERVICE_TYPES,
+  RADAR_OPACITY,
+  RADAR_TILE_URL,
+  type LayerKey,
+  type PinLayerKey,
+} from './layers';
 import { warn } from '@/lib/monitoring';
 
 const SERVICE_TYPE_LABELS: Record<string, string> = {
@@ -176,6 +188,27 @@ function layerColorFor(key: LayerKey, colors: Palette): string {
 
 /** What a source draws when it has nothing to draw. See the note in the render. */
 const EMPTY_COLLECTION = { type: 'FeatureCollection' as const, features: [] };
+
+// ── Public land paint ───────────────────────────────────────────────────────
+//
+// The table itself is PUBLIC_LAND_ACCESS_STYLE in @eddy/types, shared with the
+// website so the same federal dataset cannot mean two different things on the
+// two maps. What is local is the EXPRESSION shape, because Mapbox's native
+// dialect and MapLibre's are written separately even where they agree.
+//
+// `['get', 'access']` bare: the API normalises the field — upper-case, never
+// null, 'UK' when the agency did not classify it — so neither client needs a
+// coalesce or an upcase, and neither can get one subtly wrong.
+const PUBLIC_LAND_ACCESS_ORDER: PublicLandAccess[] = ['OA', 'RA', 'XA', 'UK'];
+
+/** A `match` over the access classes, defaulting to the unknown treatment. */
+function accessMatch(pick: (code: PublicLandAccess) => string): unknown[] {
+  const arms: string[] = [];
+  for (const code of PUBLIC_LAND_ACCESS_ORDER) arms.push(code, pick(code));
+  // The default arm is not a nicety: PAD-US gains codes without asking us, and
+  // an unrecognised one has to draw as "unknown" — never as open.
+  return ['match', ['get', 'access'], ...arms, pick('UK')];
+}
 
 /**
  * Cluster fill for the national gauge layer.
@@ -400,6 +433,15 @@ interface Props {
    */
   dams?: MapPin[];
   /**
+   * PAD-US parcels for the current viewport, fetched by the screen.
+   *
+   * OWNERSHIP, NOT PERMISSION. A polygon here says a public agency owns the
+   * ground and says nothing about a right to land, camp or portage; the layer
+   * sheet carries the sentence and the callout repeats it. Nothing in this
+   * component may treat one as an access grant.
+   */
+  publicLands?: PublicLandFeature[];
+  /**
    * Fired when the camera settles, so the caller can fetch the new viewport.
    *
    * onMapIdle rather than onCameraChanged: idle fires once when motion stops
@@ -475,6 +517,7 @@ export function RiverMap({
   gauges,
   referenceGauges,
   dams,
+  publicLands,
   onViewportChange,
   onZoomToCluster,
   hazards,
@@ -655,7 +698,7 @@ export function RiverMap({
         // Never drawn through pinLayer — the national tier has its own
         // clustered source. Present so the record is total.
         allGauges: EMPTY_COLLECTION,
-      }) as Record<LayerKey, ReturnType<typeof featureCollection>>,
+      }) as Record<PinLayerKey, ReturnType<typeof featureCollection>>,
     [pins, dams, colors],
   );
 
@@ -728,6 +771,24 @@ export function RiverMap({
   const networkShape = useMemo(
     () => network ?? EMPTY_COLLECTION,
     [network],
+  );
+
+  /**
+   * The public-land parcels, or nothing.
+   *
+   * Empty rather than unmounted when the layer is off, for the reason stated
+   * directly above: a ShapeSource that stops rendering takes its layers out of
+   * the style, and the surviving React layer components then update against a
+   * style they are no longer in. The radar can unmount because a RasterSource
+   * owns no ShapeSource layers and because leaving it mounted costs tile
+   * fetches; an empty FeatureCollection costs nothing.
+   */
+  const publicLandShape = useMemo(
+    () => ({
+      type: 'FeatureCollection' as const,
+      features: layers.includes('publicLand') ? (publicLands ?? []) : [],
+    }),
+    [layers, publicLands],
   );
 
   /**
@@ -856,8 +917,13 @@ export function RiverMap({
      * The pins and the colour used to be passed in alongside it, which meant a
      * call site could name one layer and hand it another's contents. They come
      * from the key now, so it cannot.
+     *
+     * PinLayerKey, not LayerKey: this function draws a ShapeSource of point
+     * features, and a raster layer has none. The narrower type is what stops a
+     * future `pinLayer('weatherRadar')` from compiling into a source with an
+     * undefined shape.
      */
-    id: LayerKey,
+    id: PinLayerKey,
     shape: PinShape = 'dot',
     /**
      * The zoom a layer's labels switch on at.
@@ -1250,6 +1316,95 @@ export function RiverMap({
           system prompt itself the moment this mounts, which would spend the
           one-shot iOS dialog on merely opening the Map tab. */}
       {showUserLocation ? <Mapbox.UserLocation visible /> : null}
+
+      {/* ── Public land ───────────────────────────────────────────────────
+          FIRST of everything, under the radar and under every river line and
+          pin. This is the GROUND the river runs through: it is context for the
+          data on top of it and must never compete with it. Rain sits above it
+          for the obvious reason.
+
+          OWNERSHIP, NOT PERMISSION. The fill says a public agency owns this;
+          it does not say anyone may land, camp or portage. The layer sheet
+          carries that sentence under the switch and the callout repeats it —
+          it is not left to the colour to imply.
+
+          THE ENCODING IS WEIGHT, NOT HUE. One earth-tone family, with how
+          present a parcel looks standing for how much the agency will commit
+          to: open is solid and most filled, unknown is faintest and dashed.
+          None of the four colours appears in CONDITION_SYSTEM or the flow ramp,
+          and that is a hard rule — red, amber and green on this map already
+          mean "do not float", "use caution" and "go", about the water, from a
+          reading Eddy stands behind. A federal ownership class may not borrow
+          that weight, least of all when 296 of the 1,753 parcels loaded say the
+          agency does not know.
+
+          The source is mounted unconditionally and empties when the layer is
+          off — see publicLandShape for why that is not the same choice the
+          radar makes. */}
+      <Mapbox.ShapeSource id="public-lands" shape={publicLandShape}>
+        <Mapbox.FillLayer
+          id="public-lands-fill"
+          // Alpha is baked into the colour rather than set as fillOpacity: one
+          // data-driven property instead of two that have to agree.
+          style={{ fillColor: accessMatch((c) => PUBLIC_LAND_ACCESS_STYLE[c].fill) as never }}
+        />
+        {/* TWO line layers rather than one, because lineDasharray is not a
+            data-driven property in either renderer. Colour and width are
+            expressions; the solid/dashed split has to be a filter. */}
+        <Mapbox.LineLayer
+          id="public-lands-line-open"
+          filter={['==', ['get', 'access'], 'OA'] as never}
+          style={{
+            lineColor: PUBLIC_LAND_ACCESS_STYLE.OA.line,
+            lineWidth: 1.4,
+            lineOpacity: 0.9,
+          }}
+        />
+        <Mapbox.LineLayer
+          id="public-lands-line-restricted"
+          filter={['!=', ['get', 'access'], 'OA'] as never}
+          style={{
+            lineColor: accessMatch((c) => PUBLIC_LAND_ACCESS_STYLE[c].line) as never,
+            lineWidth: 1.1,
+            lineOpacity: 0.85,
+            // Short dashes read as "provisional" at every zoom this layer draws
+            // at; longer ones start to look solid on a small parcel, which is
+            // the one thing this line must not say.
+            lineDasharray: [2, 1.5],
+          }}
+        />
+      </Mapbox.ShapeSource>
+
+      {/* ── Weather radar ─────────────────────────────────────────────────
+          FIRST among the data layers, so every river line and every pin draws
+          on top of it. Radar is the one layer here that is not about the
+          water: it answers "is it raining on me" and must never sit over the
+          thing the screen is actually for. Children stack in render order, so
+          position is the whole mechanism.
+
+          The first RasterSource in this app. Everything else is a ShapeSource
+          of our own GeoJSON; this streams PNGs from Iowa State (see
+          RADAR_TILE_URL for why not NOAA directly, which cannot be consumed by
+          Mapbox's iOS SDK at all).
+
+          Unmounted rather than hidden when the layer is off. A raster source
+          left mounted at zero opacity still fetches every tile in the viewport
+          on every pan — a real cost on cellular, for something invisible. */}
+      {layerOn('weatherRadar') ? (
+        <Mapbox.RasterSource
+          id="weather-radar"
+          tileUrlTemplates={[RADAR_TILE_URL]}
+          tileSize={256}
+          // The composite is national; there is nothing outside CONUS to draw
+          // and no point asking for it.
+          minZoomLevel={MIN_RADAR_ZOOM}
+        >
+          <Mapbox.RasterLayer
+            id="weather-radar-layer"
+            style={{ rasterOpacity: RADAR_OPACITY }}
+          />
+        </Mapbox.RasterSource>
+      ) : null}
 
       {/* ── The statewide network ─────────────────────────────────────────
           Every curated river, coloured by its live condition, drawn UNDER the

@@ -94,6 +94,7 @@ import { Otter, otterForCondition } from '@/components/Otter';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { GaugePicker } from '@/components/GaugePicker';
 import { RiverVisuals } from '@/components/RiverVisuals';
+import { PhotoSubmitSheet } from '@/components/PhotoSubmitSheet';
 import { ShareButton } from '@/components/ShareButton';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { ReadingScale } from '@/components/ReadingScale';
@@ -157,6 +158,7 @@ export default function RiverDetailScreen() {
   const [subscribeError, setSubscribeError] = useState<string | null>(null);
   const [showAllHazards, setShowAllHazards] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -623,7 +625,16 @@ export default function RiverDetailScreen() {
             anything on the screen had told them what brown water meant here.
             Absent on most rivers (three of twenty-four have any), which is why
             nothing below shifts on the ones without. */}
-        {visuals ? <RiverVisuals data={visuals} /> : null}
+        {visuals ? (
+          <RiverVisuals
+            data={visuals}
+            // Only offered once there is somewhere to file a photo. The sheet
+            // requires an access point with a coordinate — the route validates
+            // the position against a corridor around the river — so before the
+            // access points land there is nothing the sheet could complete.
+            onAddPhoto={accessPoints.length > 0 ? () => setPhotoOpen(true) : undefined}
+          />
+        ) : null}
 
         {/* ── The dam, when one controls this reach. ──
             BELOW the photos rather than above Eddy's Take, which is where it
@@ -1024,6 +1035,14 @@ export default function RiverDetailScreen() {
           </Text>
         </Pressable>
       </ScrollView>
+
+      <PhotoSubmitSheet
+        visible={photoOpen}
+        onDismiss={() => setPhotoOpen(false)}
+        riverId={river.id}
+        riverName={river.name}
+        accessPoints={accessPoints}
+      />
 
       <FeedbackSheet
         visible={feedbackOpen}

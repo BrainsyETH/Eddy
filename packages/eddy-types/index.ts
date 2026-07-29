@@ -1822,3 +1822,151 @@ export interface RiverAlertsResponse {
  */
 export const RIVER_ALERT_SOURCE_NOTE =
   'Closures come from the National Park Service and weather warnings from the National Weather Service. Neither covers every river, and neither replaces checking locally.';
+
+// ── Public land (GET /api/public-lands) ──────────────────────────────────────
+// USGS PAD-US protected-area boundaries, clipped to the requested viewport and
+// simplified for the requested zoom by the server.
+//
+// OWNERSHIP, NOT PERMISSION. This is the one thing every consumer of these
+// types has to carry, and it is why `access` is a passthrough string rather
+// than anything Eddy computed: a polygon says a public agency owns the ground
+// and says nothing about whether a paddler may camp on it, portage across it or
+// tie up to it. See the 00209 migration header for the long version, and
+// PUBLIC_LAND_OWNERSHIP_NOTE below for the sentence to put on screen.
+
+/**
+ * PAD-US `Pub_Access`, verbatim: OA open · RA restricted · XA closed · UK
+ * unknown.
+ *
+ * NEVER collapse to a boolean. 'RA' covers permit-only, daylight-only, seasonal
+ * and hunting-only, and flattening those into "open" or "closed" would be
+ * inventing a fact about somewhere a person might drive to.
+ */
+export type PublicLandAccess = 'OA' | 'RA' | 'XA' | 'UK';
+
+export interface PublicLandProperties {
+  id: string;
+  /** The agency's unit name: "Mark Twain National Forest", "Current River CA". */
+  name: string;
+  /** Managing agency, verbatim ('USFS', 'NPS', 'UNK'). */
+  manager: string | null;
+  managerType: string | null;
+  /** 'NF', 'WSR', 'SCA'… what actually tells a reader what they are looking at. */
+  designation: string | null;
+  /**
+   * One of PublicLandAccess — typed as `string` on the wire on purpose.
+   *
+   * NEVER null and always upper-case: the server normalises it, so a renderer
+   * can key a `match` expression straight off this field without a coalesce and
+   * an upcase in map-expression dialect. An unrecognised code (PAD-US is a
+   * federal dataset that gains them without asking us) arrives VERBATIM and must
+   * render as unknown — which is what publicLandAccessStyle does, and why this
+   * is a string rather than the union above.
+   */
+  access: string;
+  acres: number | null;
+}
+
+export interface PublicLandFeature {
+  type: 'Feature';
+  properties: PublicLandProperties;
+  /** GeoJSON MultiPolygon/Polygon, already clipped and simplified server-side. */
+  geometry: unknown;
+}
+
+/**
+ * A GeoJSON FeatureCollection carrying two foreign members.
+ *
+ * Foreign members are legal (RFC 7946 §6.1) and are what let both clients hand
+ * this straight to a map source — MapLibre and Mapbox each ignore what they do
+ * not recognise — instead of unwrapping an envelope at every call site.
+ */
+export interface PublicLandsResponse {
+  type: 'FeatureCollection';
+  features: PublicLandFeature[];
+  /** True when the server dropped the smallest parcels to meet the cap. */
+  capped: boolean;
+  /** How many were in the viewport before the cap. */
+  total: number;
+}
+
+/**
+ * What a public-land boundary does not mean, in one sentence.
+ *
+ * Shown wherever the layer is switched on. Exported rather than written twice
+ * because the web layer panel and the iOS layer sheet must not be able to
+ * disagree about it — and because a caveat that lives in two files is a caveat
+ * that gets edited in one.
+ */
+export const PUBLIC_LAND_OWNERSHIP_NOTE =
+  'Ownership, not permission. Boundaries are the agency’s own and do not imply a right to land, camp or portage — check the managing agency before you count on it.';
+
+/** How PAD-US labels its own access classes, for a callout or a legend. */
+export const PUBLIC_LAND_ACCESS_LABELS: Record<PublicLandAccess, string> = {
+  OA: 'Open access',
+  RA: 'Restricted access',
+  XA: 'Closed to the public',
+  UK: 'Access unknown',
+};
+
+/**
+ * How each access class is painted, on BOTH maps.
+ *
+ * A colour table in a types package is unusual and is here for one reason: the
+ * website and the phone draw this layer with two different rendering engines
+ * off one dataset, and a reader who learns what a shade means on one must not
+ * be taught something else by the other. The web app cannot import this at
+ * runtime (Vercel installs only missouri-float-planner/), so it mirrors the
+ * table and a test in the web suite asserts the two are identical — the same
+ * arrangement the nav-link builders use.
+ *
+ * ── Why this is not a traffic light ────────────────────────────────────────
+ * Every value is an earth tone from the brand's sandbar/stone families, and
+ * NONE of them appears in CONDITION_SYSTEM or the flow ramp. That is a hard
+ * rule, not a preference. Red, amber and green on this map already mean "do not
+ * float", "use caution" and "go" — about the water, from a gauge reading Eddy
+ * stands behind. Reusing them for a federal ownership classification would be
+ * making a safety-shaped promise about somewhere a person might drive to, from
+ * a field that is 'UK' on 296 of the 1,753 parcels loaded.
+ *
+ * So the encoding is: one family for "this is public ground", with WEIGHT
+ * carrying confidence — open is the most solid, unknown the faintest — and the
+ * words in the callout carrying the actual classification.
+ */
+export interface PublicLandAccessStyle {
+  /** Interior, with alpha baked in: the fill is data-driven by colour. */
+  fill: string;
+  /** Boundary. Opaque — an edge is what makes a parcel readable at all. */
+  line: string;
+  /** False for every class but OA, which is the only one drawn solid. */
+  solid: boolean;
+}
+
+export const PUBLIC_LAND_ACCESS_STYLE: Record<PublicLandAccess, PublicLandAccessStyle> = {
+  // Sandbar-800 on sandbar-700 at 26%: the most present treatment, because this
+  // is the only class where the agency itself says the public may be here.
+  OA: { fill: 'rgba(122,104,75,0.26)', line: '#5C4E38', solid: true },
+  // Same hue, half the fill, dashed edge. "Public, but ask first" — which is
+  // what 'RA' means and why it cannot share OA's solid boundary.
+  RA: { fill: 'rgba(122,104,75,0.13)', line: '#7A684B', solid: false },
+  // The darkest edge in the family. Closed ground should read as a wall, and it
+  // is the one class where walking in gets someone turned around.
+  XA: { fill: 'rgba(61,52,37,0.16)', line: '#3D3425', solid: false },
+  // Warm stone rather than sandbar, and the faintest of the four: it is the
+  // absence of an answer, and it should look like one.
+  UK: { fill: 'rgba(164,156,142,0.09)', line: '#A49C8E', solid: false },
+};
+
+/** The style for an access code, tolerating a code PAD-US added after us. */
+export function publicLandAccessStyle(access: string | null | undefined): PublicLandAccessStyle {
+  const key = (access ?? '').toUpperCase();
+  return (
+    PUBLIC_LAND_ACCESS_STYLE[key as PublicLandAccess] ?? PUBLIC_LAND_ACCESS_STYLE.UK
+  );
+}
+
+/** The label for an access code, tolerating a code PAD-US added after us. */
+export function publicLandAccessLabel(access: string | null | undefined): string {
+  const key = (access ?? '').toUpperCase();
+  return PUBLIC_LAND_ACCESS_LABELS[key as PublicLandAccess] ?? PUBLIC_LAND_ACCESS_LABELS.UK;
+}

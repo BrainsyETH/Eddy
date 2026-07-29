@@ -378,6 +378,24 @@ export function MapLayersSheet({
 }
 
 /**
+ * A line of explanation indented under a layer row.
+ *
+ * The sibling of the tier chips and the gauge filter bar — same slot, same
+ * indent, same hairline spine — for a layer whose refinement is a SENTENCE
+ * rather than a control. Radar is the case that needed it: it has no count to
+ * print and one thing that must be said (it needs a connection), and the
+ * alternative was leaving a switch that appears to do nothing when offline.
+ */
+export function LayerNote({ text }: { text: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.noteWrap, { borderLeftColor: colors.border }]}>
+      <Text style={[styles.noteText, { color: colors.textSubtle }]}>{text}</Text>
+    </View>
+  );
+}
+
+/**
  * The button that opens the sheet, floated over the map.
  *
  * Carries a dot rather than a number when the selection is not the default. The
@@ -474,6 +492,15 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
   },
+  // Same indent and spine as the tier strip above, so a note and a chip row
+  // read as the same kind of thing hanging off the same row.
+  noteWrap: {
+    marginLeft: 30,
+    paddingLeft: 10,
+    paddingBottom: 6,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+  },
+  noteText: { ...t.xs, fontFamily: fonts.body, lineHeight: 15 },
   tierDot: { width: 8, height: 8, borderRadius: 999 },
   tierText: { ...t.xs, fontFamily: fonts.semibold, flexShrink: 1 },
   tierCount: { ...t.xs, fontFamily: fonts.mono },

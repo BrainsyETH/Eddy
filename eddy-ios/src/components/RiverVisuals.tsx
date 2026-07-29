@@ -15,14 +15,23 @@
 // photo of a different level presented as today's water would be worse than no
 // photo at all.
 //
-// ── It disappears rather than empties ───────────────────────────────────────
+// ── It disappears rather than empties, and now it can ask ──────────────────
 // Photos come from verified community submissions, so coverage is thin and
-// uneven — three rivers of twenty-four today. There is no empty state, no
-// "no photos yet" placeholder and no upload prompt: a card that exists only to
-// apologise for itself is worse than a screen that is simply shorter.
+// uneven — three rivers of twenty-four today. This card used to have no empty
+// state and no upload prompt at all, on the grounds that a card existing only
+// to apologise for itself is worse than a shorter screen. That was right about
+// the apology and wrong about the prompt, and the difference is what the card
+// can now DO: asking someone standing on a gravel bar for the photo is not an
+// apology, it is the only way coverage ever stops being thin.
+//
+// So: still no apology, and no card at all when there is nothing to show AND no
+// way to add one. But a river with an `onAddPhoto` gets an invitation instead of
+// silence — which is also the only route by which a river with zero photos ever
+// gets its first.
 
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { ConditionCode, RiverVisual, RiverVisualsResponse } from '@eddy/types';
 import { CONDITION_ORDER } from '@eddy/conditions';
 import { conditionBg, conditionChipBorder, conditionInk, conditionLabel } from '@/theme/conditions';
@@ -73,13 +82,68 @@ function visualReading(visual: RiverVisual): string | null {
   return null;
 }
 
-export function RiverVisuals({ data }: { data: RiverVisualsResponse }) {
+/**
+ * The invitation, drawn the same in both states.
+ *
+ * Outlined rather than filled, and never the coral accent: the primary action
+ * on a river screen is planning a float, and a photo request must not compete
+ * with it. This is an offer, not a call to action.
+ */
+function AddPhotoButton({ onPress }: { onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.addButton,
+        { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel="Add a photo of this river"
+    >
+      <Ionicons name="camera-outline" size={16} color={colors.interactive} />
+      <Text style={[styles.addText, { color: colors.interactive }]}>Add a photo</Text>
+    </Pressable>
+  );
+}
+
+export function RiverVisuals({
+  data,
+  onAddPhoto,
+}: {
+  data: RiverVisualsResponse;
+  /**
+   * Absent when there is nowhere to file a photo — a river whose access points
+   * have not loaded, or have no coordinates. The CTA is hidden rather than
+   * disabled in that case: a button that opens a sheet you cannot complete is
+   * worse than no button.
+   */
+  onAddPhoto?: () => void;
+}) {
   const { colors, elevation } = useTheme();
   const [level, setLevel] = useState<ConditionCode | null>(() => pickLevel(data));
 
   const bands = data.byLevel.filter((g) => g.visuals.length > 0);
   const active = bands.find((g) => g.code === level) ?? bands[0];
-  if (!active) return null;
+
+  // Nothing to show and no way to add: the card has nothing to be. Nothing to
+  // show but a way to add: that is the whole point — see the header.
+  if (!active) {
+    if (!onAddPhoto) return null;
+    return (
+      <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
+        <View style={styles.head}>
+          <Text style={[styles.title, { color: colors.text }]}>What it looks like</Text>
+          <Text style={[styles.sub, { color: colors.textSubtle }]}>Nobody has shown this one yet</Text>
+        </View>
+        <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
+          A number tells you the river is at 900 cfs. A photo tells you what that looks like from
+          the gravel bar.
+        </Text>
+        <AddPhotoButton onPress={onAddPhoto} />
+      </View>
+    );
+  }
 
   const isToday = active.code === data.currentCondition;
 
@@ -160,6 +224,8 @@ export function RiverVisuals({ data }: { data: RiverVisualsResponse }) {
           );
         })}
       </ScrollView>
+
+      {onAddPhoto ? <AddPhotoButton onPress={onAddPhoto} /> : null}
     </View>
   );
 }
@@ -178,4 +244,17 @@ const styles = StyleSheet.create({
   image: { width: 220, height: 150, borderRadius: 12 },
   reading: { ...t.sm, fontFamily: fonts.mono, marginTop: 7 },
   caption: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
+  emptyBody: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 14, marginTop: 8, lineHeight: 20 },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginHorizontal: 14,
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  addText: { ...t.sm, fontFamily: fonts.semibold },
 });

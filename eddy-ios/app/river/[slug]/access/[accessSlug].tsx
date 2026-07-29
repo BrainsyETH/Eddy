@@ -56,6 +56,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { ShareButton } from '@/components/ShareButton';
+import { PhotoSubmitSheet } from '@/components/PhotoSubmitSheet';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import {
   driveToUrl,
@@ -290,6 +291,7 @@ export default function AccessPointDetailScreen() {
    */
   const [navLinks, setNavLinks] = useState<NavLinkSpec[]>([]);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
 
   useEffect(() => {
     if (!slug || !accessSlug) return;
@@ -405,7 +407,11 @@ export default function AccessPointDetailScreen() {
             A horizontal strip rather than one hero: several photos of a put-in
             answer more than one does — the ramp, the parking, the water — and
             coverage is partial enough that a fixed-height hero would be an
-            empty grey box on most points. Absent entirely when there are none. */}
+            empty grey box on most points. Absent entirely when there are none.
+
+            These are CURATED images of the place, not community river photos —
+            a different set from the ones the Add a photo button below feeds,
+            which are banded by water level and live on the river screen. */}
         {point.imageUrls.length > 0 ? (
           <ScrollView
             horizontal
@@ -699,6 +705,27 @@ export default function AccessPointDetailScreen() {
             seasons and the only person who knows is the one who just drove
             there. Defaults to inaccurate_data rather than recalibration: what
             is wrong on this screen is a FACT ABOUT A PLACE, not a threshold. */}
+        {/* ── The photo, asked for where the photographer is standing ──
+            The river screen's gallery is the other end of this: it shows what
+            the water looks like at a level, and it is fed from here. Someone
+            reading an access-point screen is either at the put-in or about to
+            be, which is the only moment the photo can actually be taken. */}
+        <Pressable
+          onPress={() => setPhotoOpen(true)}
+          style={({ pressed }) => [
+            styles.secondaryAction,
+            styles.photoCta,
+            { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={`Add a photo of ${point.name}`}
+        >
+          <Ionicons name="camera-outline" size={16} color={colors.interactive} />
+          <Text style={[styles.secondaryActionText, { color: colors.interactive }]}>
+            Add a photo of the river here
+          </Text>
+        </Pressable>
+
         <Pressable
           onPress={() => setFeedbackOpen(true)}
           style={({ pressed }) => [styles.reportRow, { opacity: pressed ? 0.6 : 1 }]}
@@ -711,6 +738,18 @@ export default function AccessPointDetailScreen() {
           </Text>
         </Pressable>
       </ScrollView>
+
+      {/* One access point, already chosen — the sheet's picker collapses to a
+          single selected chip rather than asking a question this screen has
+          already answered. */}
+      <PhotoSubmitSheet
+        visible={photoOpen}
+        onDismiss={() => setPhotoOpen(false)}
+        riverId={point.riverId}
+        riverName={point.river.name}
+        accessPoints={[point]}
+        initialAccessPointId={point.id}
+      />
 
       <FeedbackSheet
         visible={feedbackOpen}
@@ -743,6 +782,13 @@ const styles = StyleSheet.create({
   // The right-hand end of the nav row, now that share sits beside the river link.
   navActions: { flexDirection: 'row', alignItems: 'center', gap: 14, flexShrink: 1 },
   navRiver: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1 },
+  // Centred and full-width under the content, above the quieter report link.
+  photoCta: {
+    flexDirection: 'row',
+    gap: 7,
+    marginHorizontal: 16,
+    marginTop: 22,
+  },
   reportRow: {
     flexDirection: 'row',
     alignItems: 'center',
