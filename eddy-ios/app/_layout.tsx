@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 // Imported per WEIGHT, not from the package root. Each @expo-google-fonts
 // package's index re-exports every weight it ships, and Metro bundles whatever
 // is reachable — importing the root pulled all 40-odd faces across the three
@@ -218,7 +218,31 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <SafeAreaProvider>
+      {/*
+        initialMetrics IS LOAD-BEARING. It is not a startup optimisation.
+
+        SafeAreaProvider renders `insets != null ? children : null`, and without
+        initialMetrics `insets` starts null and stays null until the native view
+        fires onInsetsChange. Everything below here — every provider, and
+        ThemedShell, which is the thing that HIDES THE SPLASH — is gated on that
+        one asynchronous native event arriving.
+
+        So a splash that never lifts had an eighth cause on top of the seven the
+        comment below counts, and it is the only one where NOTHING GOES WRONG.
+        No throw, no crash, nothing for the error boundary to catch and nothing
+        for Sentry to report: the provider is simply still waiting, and a tree
+        that never mounts looks exactly like a tree that never painted.
+
+        initialWindowMetrics is read from native at startup, synchronously, so
+        insets are non-null on the FIRST render and there is no event to wait
+        for. The async path stops being load-bearing rather than being made more
+        reliable, which is the only kind of fix that holds here.
+
+        It can be null if the native module is unavailable, in which case
+        behaviour is exactly as before — and bootstrap.ts's backstop now turns
+        that into a reported eight-second stall instead of a silent forever.
+      */}
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <AppConfigProvider>
           <UpgradeGate>
             <SessionProvider>
