@@ -160,6 +160,15 @@ from a checkout:
 
 ## 5 · Supabase
 
+- [ ] From `missouri-float-planner/`, `npm run db:check-migrations` passes.
+
+This is a release gate, not a PR gate: a PR that introduces a migration is
+supposed to be ahead of production until deployment. The command uses the
+repository-pinned Supabase CLI, preserves the documented legacy baseline, and
+fails if either side has a newer migration missing from the other. New
+migrations use timestamp identifiers. On a new checkout, link it once with
+`npx supabase link --project-ref <project-ref>`.
+
 - [ ] **Anonymous sign-ins enabled** (Authentication → Providers).
 
 Without it the client gets `422 anonymous_provider_disabled`, silently stays

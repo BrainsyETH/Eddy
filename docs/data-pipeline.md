@@ -121,3 +121,11 @@ lives at the repo root (`scripts/`, `clipengine-local/`) and is documented in
 [`clipengine-ops.md`](clipengine-ops.md). The iOS `.easignore` checker is
 `eddy-ios/scripts/check-easignore.py` (see
 [ADR 0004](decisions/0004-easignore-is-an-allowlist.md)).
+
+Before a release, run `npm run db:check-migrations` from
+`missouri-float-planner/`. It freezes the repository's known legacy
+manual-migration split and fails on either local-only or remote-only migrations
+created after that baseline. New migrations must use timestamp identifiers.
+Link a new checkout once with
+`npx supabase link --project-ref <project-ref>`; credentials remain in the
+operator's local Supabase profile and must not be committed.
