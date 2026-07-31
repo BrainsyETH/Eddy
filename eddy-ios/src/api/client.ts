@@ -1515,11 +1515,8 @@ export async function fetchDam(damId: string, signal?: AbortSignal): Promise<Dam
 /**
  * Send a feedback / report-issue submission.
  *
- * UNAUTHENTICATED, and that is the route's design rather than an oversight on
- * this side: /api/feedback is public and rate-limited by IP so an accountless
- * visitor can report a wrong river mile. The app inherits that, which means
- * nobody has to sign in to say a gauge is off — and the people best placed to
- * say it are the ones who have not bothered making an account.
+ * Every client uses /api/feedback so its contact validation, feedback-type
+ * allowlist and IP rate limit run before the report is written.
  *
  * THROWS with the server's own sentence on failure. The route validates the
  * email and the message and answers with wording written for a person; a form
@@ -1556,10 +1553,7 @@ export async function submitFeedback(input: CreateFeedbackRequest): Promise<Feed
 //      a moderator verifies the report it belongs to.
 //   2. POST /api/reports → the report itself, carrying that path.
 //
-// Both are public and rate-limited by IP (10 uploads and 5 reports per quarter
-// hour), so neither takes a token. That is the same call the feedback sheet
-// makes and for the same reason: the people best placed to show what a river
-// looks like are standing in it, and most of them have no account.
+// Both are rate-limited by IP (10 uploads and 5 reports per quarter hour).
 
 /** What the quarantine upload answers with. A path, deliberately not a URL. */
 interface UploadResponse {

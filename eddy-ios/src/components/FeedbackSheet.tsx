@@ -8,12 +8,10 @@
 // phone, not sitting at a desk with the website open. Every report Eddy has ever
 // received about water came from someone who had already got home.
 //
-// ── No account, deliberately ───────────────────────────────────────────────
-// POST /api/feedback is public and rate-limited by IP, so this sheet asks
-// nobody to sign in. Making a correction require an account would filter for
-// the users who least need to make one. The email field is the route's own
-// requirement — it is how a reply gets back — and it is prefilled from the
-// session when there IS one, which is the only thing being signed in buys here.
+// ── Submission path ────────────────────────────────────────────────────────
+// Every report goes through POST /api/feedback, where rate limiting, contact
+// validation and the feedback-type allowlist run before the service-role write.
+// The email field is prefilled from the current session when one is available.
 //
 // ── The type list is shorter than the website's ────────────────────────────
 // `partner` is a website flow (the embed workbench) with no app surface, and
