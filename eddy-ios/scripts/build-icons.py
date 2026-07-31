@@ -28,7 +28,7 @@ Three iOS-specific rules are encoded here:
 
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "missouri-float-planner/remotion/public/eddy/eddy-favicon.png"
@@ -85,26 +85,35 @@ def tinted(art: Image.Image) -> Image.Image:
 
 
 def polished_splash() -> Image.Image:
-    """Remove only the edge-connected white card from the polished icon."""
+    """Remove the polished icon's white matte without leaving a light halo.
+
+    The source is an opaque render on white, including a soft grey shadow around
+    Eddy. A narrow flood-fill only removes the flat card and leaves that shadow
+    behind as a conspicuous white outline on the dark launch screen. Absorb the
+    complete edge-connected matte, then contract its boundary by one pixel so
+    no white-contaminated antialiasing survives. The tiny blur restores a smooth
+    edge at the 220pt size used by the splash screen.
+    """
     source = Image.open(POLISHED_LIGHT).convert("RGB")
     filled = source.copy()
     sentinel = (255, 0, 255)
     edge = filled.width - 1
     for corner in ((0, 0), (edge, 0), (0, edge), (edge, edge)):
         if filled.getpixel(corner) != sentinel:
-            ImageDraw.floodfill(filled, corner, sentinel, thresh=12)
+            ImageDraw.floodfill(filled, corner, sentinel, thresh=100)
 
     hits = None
     for channel, value in zip(filled.split(), sentinel):
         match = channel.point(lambda pixel, wanted=value: 255 if pixel == wanted else 0)
         hits = match if hits is None else ImageChops.multiply(hits, match)
 
+    alpha = ImageChops.invert(hits)
+    alpha = alpha.filter(ImageFilter.MinFilter(3))
+    alpha = alpha.filter(ImageFilter.GaussianBlur(0.35))
+
     result = source.convert("RGBA")
-    result.putalpha(ImageChops.invert(hits))
-    # The splash renders at 220pt; keeping a million-colour 1024px gradient is
-    # a megabyte of bundle for detail the screen cannot display. FASTOCTREE
-    # preserves the alpha channel while reducing the asset to a compact palette.
-    return result.quantize(colors=255, method=Image.FASTOCTREE)
+    result.putalpha(alpha)
+    return result
 
 
 def main() -> None:
