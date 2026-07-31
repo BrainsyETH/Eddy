@@ -93,6 +93,7 @@ import { STYLE_URL } from './useOfflinePacks';
 import {
   MAP_LAYERS,
   MIN_GAUGE_ZOOM,
+  MAX_RADAR_ZOOM,
   MIN_RADAR_ZOOM,
   OUTFITTER_SERVICE_TYPES,
   RADAR_OPACITY,
@@ -1398,6 +1399,7 @@ export function RiverMap({
           // The composite is national; there is nothing outside CONUS to draw
           // and no point asking for it.
           minZoomLevel={MIN_RADAR_ZOOM}
+          maxZoomLevel={MAX_RADAR_ZOOM}
         >
           <Mapbox.RasterLayer
             id="weather-radar-layer"

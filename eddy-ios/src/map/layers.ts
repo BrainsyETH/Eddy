@@ -358,6 +358,15 @@ export const RADAR_OPACITY = 0.6;
  */
 export const MIN_RADAR_ZOOM = 4;
 
+/**
+ * The highest native zoom published by IEM's NEXRAD composite.
+ *
+ * Requests above z9 return blank PNGs rather than an overzoomed radar tile.
+ * Giving Mapbox the real source ceiling makes it reuse and upscale z9 at the
+ * river-scale zooms where the app normally runs.
+ */
+export const MAX_RADAR_ZOOM = 9;
+
 // ── Public land (PAD-US) ────────────────────────────────────────────────────
 //
 // The layer's colours are NOT here. They are PUBLIC_LAND_ACCESS_STYLE in
