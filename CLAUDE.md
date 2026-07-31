@@ -53,9 +53,18 @@ scripts and mirror CI exactly:
 - `make check-mobile` — iOS typecheck + lint
 - `make bundle-mobile` — credential-free production iOS bundle + `.easignore` allowlist check (the step that catches Metro/EAS breakage invisible in dev)
 - `make check` — all of the above
+- `make dev` — run the app locally on a simulator
+- `make build-ios` / `make testflight` — EAS builds. The native-artifact cleanup and the `.easignore` check are **prerequisites**, not remembered steps
+- `make check-eas-env` — compare EAS variable *names* across `preview` and `production`
 
 Or run the underlying `npm` scripts from inside `missouri-float-planner/` or
 `eddy-ios/` — the manifests remain the source of truth.
+
+Every target depends on `guard-node`, which **fails** unless the running Node
+matches `.nvmrc` (20). npm only *warns* on an engines mismatch and buries it in
+install output; installing on the wrong Node resolves a different dependency
+graph than CI, which is how a lockfile stops matching and a native build starts
+failing for reasons that name anything but Node.
 
 ## Hard constraints
 

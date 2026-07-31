@@ -14,11 +14,21 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
   const [accepted, setAccepted] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // The .catch() is load-bearing, not defensive habit. Everything below this
+  // component renders only once `accepted` stops being null, so a rejection with
+  // no catch does not surface an error — it renders the blank fallback forever,
+  // in a colour identical to the splash. hasAcceptedTerms() already fails closed
+  // to `false`; this is the second belt, for anything it cannot catch.
   useEffect(() => {
     let active = true;
-    void hasAcceptedTerms().then((value) => {
-      if (active) setAccepted(value);
-    });
+    void hasAcceptedTerms()
+      .catch((error) => {
+        report(error, { operation: 'onboarding.hasAcceptedTerms' });
+        return false;
+      })
+      .then((value) => {
+        if (active) setAccepted(value);
+      });
     return () => {
       active = false;
     };

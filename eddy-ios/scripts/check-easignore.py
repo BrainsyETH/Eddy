@@ -99,7 +99,20 @@ def ignored(path: str, patterns: list[str]) -> bool:
         # pathspec.patterns — that alias is deprecated and warns on every call.
         from pathspec.patterns.gitwildmatch import GitIgnoreSpecPattern as GitWildMatchPattern
     except ImportError:
-        print("pip install pathspec", file=sys.stderr)
+        # Exit 2, loudly. This used to print `pip install pathspec` and nothing
+        # else, which reads as a suggestion rather than a failure — and when the
+        # allowlist is what stands between a build and uploading .env files,
+        # "the check did not run" must never be mistakable for "the check
+        # passed". `make bundle-mobile` installs this dependency for you; the
+        # message is for anyone invoking the script directly.
+        print(
+            "\n  check-easignore did NOT run: the pathspec package is missing.\n"
+            "\n  This check is the only thing verifying that .easignore still"
+            "\n  denies what it must. It has NOT verified anything.\n"
+            "\n    python3 -m pip install --user pathspec\n"
+            "\n  or run it through `make bundle-mobile`, which installs it.\n",
+            file=sys.stderr,
+        )
         raise SystemExit(2)
 
     result = False
