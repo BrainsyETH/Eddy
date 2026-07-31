@@ -421,6 +421,7 @@ export default async function RiverGuidePage({ params }: Props) {
               all-clear from an agency outage. */}
           {riverAlerts.length > 0 && (
             <section id="alerts" className="scroll-mt-24 pt-4 md:pt-5">
+              <h2 className="sr-only">Alerts</h2>
               <RiverAlertsPanel alerts={riverAlerts} />
             </section>
           )}

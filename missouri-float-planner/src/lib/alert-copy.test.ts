@@ -75,3 +75,8 @@ test('alert surfaces state their real latency instead of a generic caveat', () =
   assert.match(primer, /roughly 20–75\s*minutes/i);
   assert.match(tab, /up to about an hour/i);
 });
+
+test('the collapsed web alerts region keeps an accessible section heading', () => {
+  const page = readFileSync('src/app/rivers/[state]/[slug]/page.tsx', 'utf8');
+  assert.match(page, /<section id="alerts"[\s\S]*<h2 className="sr-only">Alerts<\/h2>/);
+});
