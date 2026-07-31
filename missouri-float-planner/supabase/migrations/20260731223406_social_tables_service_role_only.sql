@@ -1,3 +1,9 @@
+-- APPLIED to production 2026-07-31 as 20260731223406. The filename carries that
+-- exact version because the drift gate compares local filenames against
+-- supabase_migrations.schema_migrations — a file named for the timestamp it was
+-- authored at, rather than the one it was recorded under, reads as two separate
+-- migrations and reports permanent drift.
+--
 -- social_config, social_custom_content and social_posts were writable with the
 -- publishable anon key.
 --
