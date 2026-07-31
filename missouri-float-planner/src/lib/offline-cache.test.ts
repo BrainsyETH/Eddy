@@ -12,6 +12,8 @@ import {
   slugFromRiverKey,
   mergeParts,
   effectiveReadingAgeHours,
+  gaugeKey,
+  mayPaintCachedCondition,
   readingBand,
 } from '../../../eddy-ios/src/lib/offline-cache';
 
@@ -79,6 +81,11 @@ test('the index, meta and river keys are told apart', () => {
   assert.equal(isRiverKey(INDEX_KEY), false);
   assert.equal(isRiverKey(META_KEY), false);
   assert.equal(slugFromRiverKey(INDEX_KEY), null);
+});
+
+test('a gauge key is versioned and safely encodes provider ids', () => {
+  assert.match(gaugeKey('SWL/clearwater dam'), /^eddy\.cache\.v\d+\.gauge:/);
+  assert.equal(gaugeKey('SWL/clearwater dam').includes('/'), false);
 });
 
 test('the stale sweep matches a previous version and never the current one', () => {
@@ -186,4 +193,10 @@ test('the bands turn over at six and forty-eight hours', () => {
   assert.equal(readingBand(6), 'stale');
   assert.equal(readingBand(47.9), 'stale');
   assert.equal(readingBand(48), 'expired');
+});
+
+test('a gauge cache keeps its verdict for under six hours only', () => {
+  assert.equal(mayPaintCachedCondition(1, WRITTEN, at(4.9)), true);
+  assert.equal(mayPaintCachedCondition(1, WRITTEN, at(5)), false);
+  assert.equal(mayPaintCachedCondition(null, WRITTEN, at(0)), false);
 });

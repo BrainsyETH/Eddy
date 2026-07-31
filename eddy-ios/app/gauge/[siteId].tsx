@@ -73,6 +73,7 @@ import {
   supportsFlowBand,
 } from '@/lib/gaugeProvider';
 import { recallGauge, rememberGauge, seedFromDetail, type GaugeSeed } from '@/lib/gaugeSeed';
+import { readGauge, writeGauge } from '@/lib/gaugeCache';
 import { GaugeChart } from '@/components/GaugeChart';
 import { ReadingScale } from '@/components/ReadingScale';
 import { ShareButton } from '@/components/ShareButton';
@@ -153,6 +154,16 @@ export default function GaugeDetailScreen() {
     if (!siteId) return;
     const controller = new AbortController();
 
+    // Disk and network race independently. A deep link can paint the station
+    // name and last-known number from disk without delaying a fresh response.
+    if (!recallGauge(siteId)) {
+      void readGauge(siteId).then((cached) => {
+        if (!cached || controller.signal.aborted) return;
+        setGauge((current) => current ?? cached);
+        setLoading(false);
+      });
+    }
+
     void (async () => {
       const detail: GaugeDetail | null = await fetchGaugeDetail(siteId, controller.signal);
       if (controller.signal.aborted) return;
@@ -163,6 +174,7 @@ export default function GaugeDetailScreen() {
         // Cache the fuller record so coming back within the session opens on
         // the ladder rather than on the pin's thinner copy.
         rememberGauge(seed);
+        writeGauge(seed);
       } else {
         // NOT an error when we already have a seed. The endpoint is newer than
         // some deployed builds of the website this app talks to, and a screen
