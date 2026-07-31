@@ -84,6 +84,15 @@ variable set for only one silently does nothing in the others.
 
 - [ ] `eas env:list --environment preview` shows all five.
 - [ ] Same for `production`.
+- [ ] `make check-eas-env` green.
+
+**The failure mode is asymmetry, not absence, and `env:list` cannot show it.**
+It prints one environment at a time, so a variable set for `production` and
+forgotten for `preview` looks correct from either screen. That is not
+hypothetical: `SENTRY_ORG` and `SENTRY_PROJECT` were present on `production`
+only while every build ran `--profile preview`, so the source-map step executed
+with no org — and the build failed inside Xcode, naming a build phase and never
+the variable. `make check-eas-env` diffs the *names* across both.
 
 **Source maps are a different, secret credential.** `SENTRY_ORG`,
 `SENTRY_PROJECT` and `SENTRY_AUTH_TOKEN` go in as EAS **secrets**, never as
@@ -232,15 +241,80 @@ Apple caches the association file, so a wrong version outlives the fix. Get the
 
 ## 7 · Build
 
+**Use the make targets.** They exist because three of the failure modes below
+are caused by commands you are *supposed* to run, and are not something to
+remember:
+
+```bash
+make build-ios     # internal distribution, for device testing
+make testflight    # production build, auto-submitted
+```
+
+Each one first deletes `eddy-ios/ios` and `eddy-ios/android`, then runs the
+`.easignore` allowlist check, then builds. The raw commands still work if you
+need them, but you own the cleanup:
+
 ```bash
 cd eddy-ios
 eas build --profile preview --platform ios     # internal distribution
 eas build --profile production --platform ios  # App Store, autoIncrement
 ```
 
+- [ ] Running Node matches `.nvmrc` (`nvm use`). Every make target enforces
+      this; the raw commands do not.
 - [ ] `make check` green at the repo root first — the bundle step there is what
       catches Metro/EAS breakage that is invisible in dev.
+- [ ] `make check-eas-env` green. It compares variable *names* across `preview`
+      and `production`, which `eas env:list` cannot do — see §4.
 - [ ] Build succeeds.
+
+### The archive trap, and why it is not a checklist item
+
+`expo prebuild` and `expo run:ios` **generate** `eddy-ios/ios/`. Precompiled
+Swift modules under `ios/build/` record the absolute path of the machine that
+built them, so if that directory reaches the worker the build fails with:
+
+```
+missing required module 'SwiftShims'
+… was compiled with module cache path '/Users/<someone>/Eddy/eddy-ios/ios/build/…'
+```
+
+naming a Swift module and a stranger's home directory rather than the cause.
+`.easignore` denies `ios/`, and `check-easignore.py` asserts that rule — but the
+script needs the `pathspec` package, and without it the check does not run at
+all. That is why the deletion is a make prerequisite rather than a line in this
+list.
+
+To see exactly what would be uploaded, rather than reasoning about gitignore
+semantics:
+
+```bash
+cd eddy-ios
+npx eas-cli@latest build:inspect --platform ios --stage archive --output-dir /tmp/eas-archive
+```
+
+### Local builds and code signing
+
+A simulator build is signed ad-hoc and needs no certificate. A **local device**
+build does — and any signing configured in Xcode lives in `ios/`, which the next
+`prebuild --clean` deletes. That is why the certificate error keeps coming back.
+
+| Need | Use | Signing |
+|---|---|---|
+| JS iteration, most screens | `make dev` → simulator | none |
+| Push, StoreKit sandbox, universal links | `make build-ios` → install internally | EAS holds credentials |
+
+Known issue: on Xcode 26.6 with Expo CLI 57.0.10, `expo run:ios` has resolved a
+signing certificate even for a **simulator** destination, failing with
+`No code signing certificates are available to use`. Bypass with xcodebuild,
+which cannot require signing for a simulator:
+
+```bash
+cd eddy-ios/ios
+xcodebuild -workspace *.xcworkspace -scheme Eddy -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
+  CODE_SIGNING_ALLOWED=NO build
+```
 
 **Expect the first one to fail.** No native archive has ever been produced from
 this repo, so prebuild, autolinking, the Mapbox pod and the Sentry config plugin
