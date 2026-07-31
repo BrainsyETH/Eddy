@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
-import { globSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { SAFETY_DISCLAIMER } from '../../../eddy-ios/src/lib/safetyCopy';
 
 test('uses the approved safety disclaimer verbatim', () => {
@@ -12,7 +12,15 @@ test('uses the approved safety disclaimer verbatim', () => {
 });
 
 test('retired general-purpose safety copy does not return', () => {
-  const files = globSync('../eddy-ios/{app,src}/**/*.{ts,tsx}');
+  const walk = (directory: string): string[] =>
+    readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) return walk(path);
+      return /\.tsx?$/.test(entry.name) ? [path] : [];
+    });
+  // Manual recursion keeps this test on the Node 20 floor used by CI;
+  // node:fs globSync was added later.
+  const files = [...walk('../eddy-ios/app'), ...walk('../eddy-ios/src')];
   const offenders = files.filter((file) =>
     /always judge the water in front of you/i.test(readFileSync(file, 'utf8')),
   );
