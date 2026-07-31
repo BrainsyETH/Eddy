@@ -21,10 +21,12 @@ import {
   type ReactNode,
 } from 'react';
 import * as Notifications from 'expo-notifications';
+import { AppState } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSession } from '@/hooks/useSession';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { warn } from '@/lib/monitoring';
+import { isDeviceOptedOut, setDeviceOptedOut } from '@/lib/pushOptOut';
 import {
   getPermissionState,
   installForegroundHandler,
@@ -36,6 +38,7 @@ import {
 
 interface PushValue {
   permission: PermissionState;
+  optedOut: boolean;
   /** True once this device's token is known to the backend. */
   registered: boolean;
   /**
@@ -50,6 +53,7 @@ interface PushValue {
 
 const PushContext = createContext<PushValue>({
   permission: 'undetermined',
+  optedOut: false,
   registered: false,
   enable: async () => 'undetermined',
   disable: async () => {},
@@ -87,6 +91,7 @@ export function PushProvider({ children }: { children: ReactNode }) {
   const { features } = useAppConfig();
   const [permission, setPermission] = useState<PermissionState>('undetermined');
   const [registered, setRegistered] = useState(false);
+  const [optedOut, setOptedOut] = useState(false);
 
   const userId = session?.user?.id ?? null;
   const signedIn = Boolean(userId) && !isAnonymous;
@@ -96,6 +101,7 @@ export function PushProvider({ children }: { children: ReactNode }) {
   // stack. Identifiers are remembered rather than a single "handled" flag
   // because the app may legitimately receive several taps in a session.
   const handled = useRef(new Set<string>());
+  const hasBackgrounded = useRef(false);
 
   const openFromNotification = useCallback(
     (response: Notifications.NotificationResponse | null) => {
@@ -148,6 +154,13 @@ export function PushProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const deviceOptedOut = await isDeviceOptedOut();
+    setOptedOut(deviceOptedOut);
+    if (deviceOptedOut) {
+      setRegistered(false);
+      return;
+    }
+
     const token = await getAccessToken();
     if (!token) return;
 
@@ -160,6 +173,20 @@ export function PushProvider({ children }: { children: ReactNode }) {
   // receiving alerts with nothing to see anywhere.
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') {
+        hasBackgrounded.current = true;
+        return;
+      }
+      if (hasBackgrounded.current) {
+        hasBackgrounded.current = false;
+        void refresh();
+      }
+    });
+    return () => subscription.remove();
   }, [refresh]);
 
   const enable = useCallback(async () => {
@@ -179,6 +206,8 @@ export function PushProvider({ children }: { children: ReactNode }) {
     setPermission(state);
 
     if (state === 'granted' && signedIn) {
+      await setDeviceOptedOut(false);
+      setOptedOut(false);
       const token = await getAccessToken();
       if (token) {
         const result = await syncRegistration(token);
@@ -189,14 +218,16 @@ export function PushProvider({ children }: { children: ReactNode }) {
   }, [signedIn, getAccessToken, features.push]);
 
   const disable = useCallback(async () => {
+    await setDeviceOptedOut(true);
+    setOptedOut(true);
     const token = await getAccessToken();
     if (token) await unregisterThisDevice(token);
     setRegistered(false);
   }, [getAccessToken]);
 
   const value = useMemo<PushValue>(
-    () => ({ permission, registered, enable, disable, refresh }),
-    [permission, registered, enable, disable, refresh],
+    () => ({ permission, optedOut, registered, enable, disable, refresh }),
+    [permission, optedOut, registered, enable, disable, refresh],
   );
 
   return <PushContext.Provider value={value}>{children}</PushContext.Provider>;

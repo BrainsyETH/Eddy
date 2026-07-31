@@ -85,7 +85,7 @@ export default function ProfileScreen() {
     forgetSession,
   } = useSession();
   const { profile, entitlement, loaded, error, refresh } = useAccount();
-  const { permission, registered, enable, disable } = usePush();
+  const { permission, optedOut, registered, enable, disable } = usePush();
 
   const [busy, setBusy] = useState<null | 'apple' | 'restore' | 'delete'>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -338,14 +338,15 @@ export default function ProfileScreen() {
                   {permission === 'granted' ? 'Alerts are on' : 'Alerts are off'}
                 </Text>
                 <Text style={[styles.rowNote, { color: colors.textMuted }]}>
-                  {notificationDetail({ permission, registered, signedIn })}
+                  {notificationDetail({ permission, optedOut, registered, signedIn })}
                 </Text>
               </View>
             </View>
 
             {/* Three different states, three different actions — and only one
                 of them is a prompt we are still allowed to show. */}
-            {permission === 'undetermined' && signedIn && (
+            {((permission === 'undetermined' && signedIn) ||
+              (permission === 'granted' && optedOut)) && (
               <Pressable
                 onPress={() => void enable()}
                 style={[styles.secondary, { borderColor: colors.border }]}
@@ -356,7 +357,7 @@ export default function ProfileScreen() {
               </Pressable>
             )}
 
-            {permission === 'denied' && (
+            {(permission === 'denied' || permission === 'unsupported') && (
               // iOS will not show its dialog again, so Settings is the only
               // route left. Saying "turn on alerts" here would be a button
               // that cannot do what it says.
