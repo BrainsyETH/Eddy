@@ -414,14 +414,13 @@ export default async function RiverGuidePage({ params }: Props) {
         <main className="max-w-5xl mx-auto px-4 pb-16">
           {/* ===== Alerts — above the live report, deliberately =====
               A closure or a flood warning decides whether the trip happens at
-              all, which outranks what the gauge reads. Absent entirely when
-              nothing is posted: an empty "Alerts" heading reads as an all-clear,
-              and this section cannot tell an all-clear from an agency outage. */}
+              all, which outranks what the gauge reads. Notices and watches are
+              collapsed so the live report stays above the fold; warnings open
+              themselves. Absent entirely when nothing is posted: an empty
+              summary reads as an all-clear, and this section cannot tell an
+              all-clear from an agency outage. */}
           {riverAlerts.length > 0 && (
             <section id="alerts" className="scroll-mt-24 pt-4 md:pt-5">
-              <h2 className="mb-3 text-xl font-bold text-neutral-900 md:text-2xl" style={{ fontFamily: 'var(--font-display)' }}>
-                Alerts
-              </h2>
               <RiverAlertsPanel alerts={riverAlerts} />
             </section>
           )}
