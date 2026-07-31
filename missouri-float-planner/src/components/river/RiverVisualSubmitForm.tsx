@@ -10,6 +10,10 @@ import ConditionBadge from '@/components/ui/ConditionBadge';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import type { AccessPoint } from '@/types/api';
 import { EddyIcon } from '@/components/ui/EddyIcon';
+import {
+  COMMUNITY_UPLOAD_INPUT_MAX_BYTES,
+  COMMUNITY_UPLOAD_MAX_BYTES,
+} from '@/lib/uploads/upload-limits';
 
 /** Local YYYY-MM-DD for a native <input type="date">. */
 function toDateInputValue(d: Date): string {
@@ -27,7 +31,6 @@ function withinMissouri(lat: number, lng: number): boolean {
 // 10 MB field cap) failed at the platform — the browser then surfaced the
 // non-JSON error page as a cryptic "string did not match the expected pattern".
 // Downscale anything over the safe threshold to a JPEG that comfortably fits.
-const UPLOAD_SAFE_BYTES = 4 * 1024 * 1024;
 const UPLOAD_MAX_DIMENSION = 2400; // mirrors the server-side normalize step
 
 /**
@@ -38,7 +41,7 @@ const UPLOAD_MAX_DIMENSION = 2400; // mirrors the server-side normalize step
  * failure we fall back to the original file untouched.
  */
 async function prepareUpload(file: File): Promise<Blob> {
-  if (file.size <= UPLOAD_SAFE_BYTES) return file;
+  if (file.size <= COMMUNITY_UPLOAD_MAX_BYTES) return file;
   try {
     const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
     try {
@@ -52,18 +55,24 @@ async function prepareUpload(file: File): Promise<Blob> {
         ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
         return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
       };
-      let blob = await encodeAt(UPLOAD_MAX_DIMENSION, 0.82);
-      if (!blob || blob.size > UPLOAD_SAFE_BYTES) {
-        blob = (await encodeAt(1800, 0.7)) ?? blob;
+      for (const [maxDim, quality] of [
+        [UPLOAD_MAX_DIMENSION, 0.82],
+        [1800, 0.7],
+        [1400, 0.62],
+        [1200, 0.55],
+      ] as const) {
+        const blob = await encodeAt(maxDim, quality);
+        if (blob && blob.size > 0 && blob.size <= COMMUNITY_UPLOAD_MAX_BYTES) return blob;
       }
-      if (blob && blob.size > 0) return blob;
     } finally {
       bitmap.close?.();
     }
   } catch {
-    // Fall through to the original file; the server and error handling cope.
+    // The friendly size error below covers decode, canvas and encode failures.
   }
-  return file;
+  throw new Error(
+    'That photo could not be compressed below 3.5MB. Try cropping it or choosing another one.',
+  );
 }
 
 /**
@@ -263,7 +272,7 @@ export default function RiverVisualSubmitForm({
       setError('Please select a JPEG, PNG, or WebP image.');
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > COMMUNITY_UPLOAD_INPUT_MAX_BYTES) {
       setError('Image must be under 10MB.');
       return;
     }
@@ -589,7 +598,9 @@ export default function RiverVisualSubmitForm({
                   />
                 </label>
               </div>
-              <span className="text-xs text-neutral-400">JPEG, PNG, or WebP (max 10MB)</span>
+              <span className="text-xs text-neutral-400">
+                JPEG, PNG, or WebP up to 10MB; large photos are compressed
+              </span>
             </div>
           )}
         </div>

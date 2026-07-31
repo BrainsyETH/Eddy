@@ -251,17 +251,29 @@ export default function RiverDetailScreen() {
         // slug, none of which move. The CONDITION it also carries is live data
         // and is not trusted — fetchCondition below is the authority, and when
         // that fails the screen shows no verdict rather than a stale one.
-        let rivers: RiverListItem[];
-        try {
-          rivers = await fetchRivers(controller.signal);
-        } catch (err) {
-          if (err instanceof ApiError && err.message === 'Request cancelled') return;
-          const cached = await readIndex();
-          if (!cached) throw err;
-          rivers = cached.payload;
-        }
+        // Start the network refresh immediately, but read disk first. On a
+        // cache hit the identity needed by every request below is available
+        // without a network round-trip; fetchRivers still refreshes the cache
+        // alongside the screen.
+        const networkIndex = fetchRivers(controller.signal).then(
+          (value) => value,
+          (err) => {
+            if (err instanceof ApiError && err.message === 'Request cancelled') return null;
+            return null;
+          },
+        );
+        const cached = await readIndex();
+        let rivers: RiverListItem[] | null = cached?.payload ?? null;
+        if (!rivers) rivers = await networkIndex;
+        if (!rivers) throw new ApiError('Could not load rivers');
 
-        const match = rivers.find((r) => r.slug === slug) ?? null;
+        let match = rivers.find((r) => r.slug === slug) ?? null;
+        // A newly-added river will not be in an older disk index. Give the
+        // in-flight network index one chance before declaring it missing.
+        if (!match && cached) {
+          const refreshed = await networkIndex;
+          match = refreshed?.find((r) => r.slug === slug) ?? null;
+        }
         if (!match) {
           setError('River not found');
           return;
@@ -280,54 +292,70 @@ export default function RiverDetailScreen() {
         // Hazards, access points, outfitters and reaches are NOT here: they are
         // the cacheable parts, and useRiverData above owns both fetching them
         // and saying whether what you are reading came off the network or off
-        // the disk. What is left in this Promise.all is everything that
-        // describes the STATE of the water, which is never served from cache.
-        const [cond, looks, allGauges, dams] = await Promise.all([
+        // the disk. These remaining requests describe the STATE of the water.
+        // They settle independently so the primary condition never waits for
+        // the statewide gauge list, photos, or dam metadata.
+        void fetchCondition(match.id, controller.signal).then(
           // Settled rather than caught, because the two failures are different
           // screens. A THROWN request is "we could not ask", and the last
           // reading we kept — aged and labelled — beats a blank card at a put-in
           // with no signal. `available: false` is the server telling us this
           // river has no reading right now, which is an answer, and answering it
           // from disk would be re-showing stale water as current.
-          fetchCondition(match.id, controller.signal).then(
-            (c) => ({ condition: c, failed: false }),
-            (err) => ({
-              condition: null,
-              failed: !(err instanceof ApiError && err.message === 'Request cancelled'),
-            }),
-          ),
-          // Thin coverage by nature — verified community photos exist for three
-          // rivers of twenty-four — so a null here is the ordinary case and the
-          // card just does not render.
-          fetchRiverVisuals(slug, controller.signal).catch(() => null),
-          // Statewide and CDN-cached, and the only place carrying every gauge's
-          // ladder PER RIVER — which is what lets the picker below grade a
-          // shared station against this river rather than its neighbour's.
-          // Failing just means no picker; the primary reading is unaffected.
-          fetchGauges(controller.signal).catch(() => [] as MapGauge[]),
-          // The dam controlling this reach, if one does. Ten items, CDN-cached,
-          // and already returning [] on failure — so this costs one cheap
-          // request to answer a question with no endpoint of its own, rather
-          // than adding /api/rivers/[slug]/dam for a panel that is absent on
-          // every river but one.
-          fetchDams(controller.signal),
-        ]);
-        if (cond.failed) {
-          const stored = await readConditions();
-          const kept = stored?.payload?.[match.id] ?? null;
-          setCondition(kept);
-          setCachedReadingAgeHours(
-            kept
-              ? effectiveReadingAgeHours(kept.readingAgeHours, stored!.fetchedAt, Date.now())
-              : undefined,
-          );
-        } else {
-          setCondition(cond.condition);
-          setCachedReadingAgeHours(undefined);
-        }
-        setVisuals(looks);
-        setGauges(gaugesForRiver(allGauges, slug));
-        setDam(damForRiver(dams, slug));
+          (condition) => {
+            if (controller.signal.aborted) return;
+            setCondition(condition);
+            setCachedReadingAgeHours(undefined);
+          },
+          async (err) => {
+            if (err instanceof ApiError && err.message === 'Request cancelled') return;
+            const stored = await readConditions();
+            if (controller.signal.aborted) return;
+            const kept = stored?.payload?.[match.id] ?? null;
+            setCondition(kept);
+            setCachedReadingAgeHours(
+              kept
+                ? effectiveReadingAgeHours(kept.readingAgeHours, stored!.fetchedAt, Date.now())
+                : undefined,
+            );
+          },
+        );
+        // Thin coverage by nature — verified community photos exist for three
+        // rivers of twenty-four — so a null here is the ordinary case and the
+        // card just does not render.
+        void fetchRiverVisuals(slug, controller.signal).then(
+          (looks) => {
+            if (!controller.signal.aborted) setVisuals(looks);
+          },
+          () => {
+            if (!controller.signal.aborted) setVisuals(null);
+          },
+        );
+        // Statewide and CDN-cached, and the only place carrying every gauge's
+        // ladder PER RIVER — which is what lets the picker below grade a
+        // shared station against this river rather than its neighbour's.
+        // Failing just means no picker; the primary reading is unaffected.
+        void fetchGauges(controller.signal).then(
+          (allGauges) => {
+            if (!controller.signal.aborted) setGauges(gaugesForRiver(allGauges, slug));
+          },
+          () => {
+            if (!controller.signal.aborted) setGauges([]);
+          },
+        );
+        // The dam controlling this reach, if one does. Ten items, CDN-cached,
+        // and already returning [] on failure — so this costs one cheap
+        // request to answer a question with no endpoint of its own, rather
+        // than adding /api/rivers/[slug]/dam for a panel that is absent on
+        // every river but one.
+        void fetchDams(controller.signal).then(
+          (dams) => {
+            if (!controller.signal.aborted) setDam(damForRiver(dams, slug));
+          },
+          () => {
+            if (!controller.signal.aborted) setDam(null);
+          },
+        );
         setError(null);
       } catch (err) {
         if (err instanceof ApiError && err.message === 'Request cancelled') return;

@@ -115,7 +115,7 @@ import { useAccount } from '@/hooks/useAccount';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
 import { SearchResultsList } from '@/components/SearchResultsList';
@@ -203,6 +203,13 @@ function planButtonLabel(plan: FloatPlan): string {
 }
 
 export default function MapScreen() {
+  const [isFocused, setIsFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      return () => setIsFocused(false);
+    }, []),
+  );
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [pickedSlug, setPickedSlug] = useState<string | null>(null);
   const [detail, setDetail] = useState<RiverDetail | null>(null);
@@ -947,7 +954,7 @@ export default function MapScreen() {
             services={services?.items ?? []}
             layers={layers}
             focus={activeFocus ?? openingFocus}
-            showUserLocation={location.status === 'ready'}
+            showUserLocation={location.status === 'ready' && isFocused}
             planRoute={planner.plan?.route?.geometry ?? null}
             planEndpoints={
               planner.plan ? { putIn: planner.plan.putIn, takeOut: planner.plan.takeOut } : null

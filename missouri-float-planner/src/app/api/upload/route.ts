@@ -10,12 +10,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { normalizeCommunityImage } from '@/lib/uploads/community-image';
 import { QUARANTINE_BUCKET } from '@/lib/uploads/visual-moderation';
+import { COMMUNITY_UPLOAD_MAX_BYTES } from '@/lib/uploads/upload-limits';
 import { randomUUID } from 'node:crypto';
 
 export const dynamic = 'force-dynamic';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 function json(body: { error?: string; success?: boolean; path?: string }, status = 200) {
   return NextResponse.json(body, {
@@ -52,8 +52,8 @@ export async function POST(request: NextRequest) {
       return json({ error: 'Invalid file type. Allowed: JPEG, PNG, WebP' }, 400);
     }
 
-    if (file.size > MAX_SIZE) {
-      return json({ error: 'File too large. Maximum size is 10MB' }, 400);
+    if (file.size > COMMUNITY_UPLOAD_MAX_BYTES) {
+      return json({ error: 'File too large. Maximum size is 3.5MB' }, 413);
     }
 
     const arrayBuffer = await file.arrayBuffer();

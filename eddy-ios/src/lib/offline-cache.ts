@@ -69,9 +69,14 @@ export const NETWORK_KEY = `${VERSIONED}.network`;
 export const CONDITIONS_KEY = `${VERSIONED}.conditions`;
 
 const RIVER_INFIX = '.river:';
+const GAUGE_INFIX = '.gauge:';
 
 export function riverKey(slug: string): string {
   return `${VERSIONED}${RIVER_INFIX}${slug}`;
+}
+
+export function gaugeKey(siteId: string): string {
+  return `${VERSIONED}${GAUGE_INFIX}${encodeURIComponent(siteId)}`;
 }
 
 export function isRiverKey(key: string): boolean {
@@ -263,4 +268,14 @@ export function readingBand(effectiveAgeHours: number | null): ReadingBand {
   if (effectiveAgeHours < STALE_READING_HOURS) return 'fresh';
   if (effectiveAgeHours < UNUSABLE_READING_HOURS) return 'stale';
   return 'expired';
+}
+
+/** A cached gauge may keep its number, but not an old interpretation of it. */
+export function mayPaintCachedCondition(
+  storedAgeHours: number | null | undefined,
+  fetchedAt: string | null | undefined,
+  now: number,
+): boolean {
+  const age = effectiveReadingAgeHours(storedAgeHours, fetchedAt, now);
+  return age !== null && age < STALE_READING_HOURS;
 }

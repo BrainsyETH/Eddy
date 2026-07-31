@@ -43,14 +43,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type * as ImagePicker from 'expo-image-picker';
 import type * as ImageManipulator from 'expo-image-manipulator';
+import type * as ExpoFileSystem from 'expo-file-system';
 import type { MapAccessPoint } from '@eddy/types';
 import { ApiError, submitRiverVisual, uploadCommunityPhoto } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { UPLOAD_SAFE_BYTES, uploadPreparation } from '@/lib/uploadPrep';
 
 /**
  * The camera and the image compressor, behind a lazy require.
@@ -92,9 +93,33 @@ function loadImageManipulator(): typeof ImageManipulator | null {
   }
 }
 
+function loadFileSystem(): typeof ExpoFileSystem | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('expo-file-system') as typeof ExpoFileSystem;
+  } catch {
+    return null;
+  }
+}
+
+function localFileSize(uri: string): number | null {
+  const fileSystem = loadFileSystem();
+  if (!fileSystem) return null;
+  try {
+    const size = new fileSystem.File(uri).size;
+    return typeof size === 'number' && Number.isFinite(size) ? size : null;
+  } catch {
+    return null;
+  }
+}
+
 /** True when this build can actually take and prepare a photo. */
 export function photoCaptureAvailable(): boolean {
-  return loadImagePicker() !== null && loadImageManipulator() !== null;
+  return (
+    loadImagePicker() !== null &&
+    loadImageManipulator() !== null &&
+    loadFileSystem() !== null
+  );
 }
 
 /**
@@ -102,11 +127,12 @@ export function photoCaptureAvailable(): boolean {
  * before it leaves the phone. The server downscales again to 2400px and strips
  * metadata — this is about getting the bytes there, not about final quality.
  */
-const UPLOAD_SAFE_BYTES = 4 * 1024 * 1024;
 const UPLOAD_MAX_DIMENSION = 2400;
 
 interface Prepared {
   uri: string;
+  name: string;
+  type: 'image/jpeg' | 'image/png' | 'image/webp';
   /** ISO, from EXIF. Null when the picker gave us none — most screenshots. */
   capturedAt: string | null;
 }
@@ -134,20 +160,32 @@ function exifDate(exif: Record<string, unknown> | undefined | null): string | nu
 }
 
 /** Re-encode when the file is near the body limit; pass it through otherwise. */
-async function prepareUpload(asset: ImagePicker.ImagePickerAsset): Promise<string> {
-  if ((asset.fileSize ?? 0) <= UPLOAD_SAFE_BYTES) return asset.uri;
+async function prepareUpload(asset: ImagePicker.ImagePickerAsset): Promise<Prepared> {
+  const decision = uploadPreparation(asset);
+  const capturedAt = exifDate(asset.exif as Record<string, unknown> | undefined);
+  if (!decision.reencode) return { uri: asset.uri, capturedAt, ...decision };
 
   const manipulator = loadImageManipulator();
-  // Nothing to compress with — send the original rather than failing the
-  // upload. A large photo is a slower upload, not a broken one.
-  if (!manipulator) return asset.uri;
+  if (!manipulator) throw new Error('Image preparation is unavailable');
 
-  const result = await manipulator.manipulateAsync(
-    asset.uri,
-    [{ resize: { width: UPLOAD_MAX_DIMENSION } }],
-    { compress: 0.82, format: manipulator.SaveFormat.JPEG },
-  );
-  return result.uri;
+  for (const [width, compress] of [
+    [UPLOAD_MAX_DIMENSION, 0.82],
+    [1800, 0.7],
+    [1400, 0.62],
+    [1200, 0.55],
+  ] as const) {
+    const result = await manipulator.manipulateAsync(
+      asset.uri,
+      [{ resize: { width } }],
+      { compress, format: manipulator.SaveFormat.JPEG },
+    );
+    const size = localFileSize(result.uri);
+    if (size !== null && size <= UPLOAD_SAFE_BYTES) {
+      return { uri: result.uri, capturedAt, ...decision };
+    }
+  }
+
+  throw new Error('Prepared image remains above the upload limit');
 }
 
 interface Props {
@@ -172,8 +210,7 @@ export function PhotoSubmitSheet({
   initialAccessPointId,
   onSubmitted,
 }: Props) {
-  const { colors, floating } = useTheme();
-  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
 
   const [photo, setPhoto] = useState<Prepared | null>(null);
   const [accessPointId, setAccessPointId] = useState<string | null>(
@@ -248,10 +285,7 @@ export function PhotoSubmitSheet({
       if (result.canceled || !result.assets?.length) return;
 
       const asset = result.assets[0];
-      setPhoto({
-        uri: await prepareUpload(asset),
-        capturedAt: exifDate(asset.exif as Record<string, unknown> | undefined),
-      });
+      setPhoto(await prepareUpload(asset));
     } catch {
       setError('Could not read that photo. Try another one.');
     }
@@ -273,8 +307,8 @@ export function PhotoSubmitSheet({
     try {
       const imagePath = await uploadCommunityPhoto({
         uri: photo.uri,
-        name: 'river-photo.jpg',
-        type: 'image/jpeg',
+        name: photo.name,
+        type: photo.type,
       });
 
       await submitRiverVisual({
@@ -300,27 +334,18 @@ export function PhotoSubmitSheet({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={dismiss}>
-      <Pressable
-        style={[styles.backdrop, { backgroundColor: colors.scrim }]}
-        onPress={dismiss}
-        accessibilityLabel="Close"
-      />
+    <Modal
+      visible={visible}
+      transparent={false}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={dismiss}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.lift}
-        pointerEvents="box-none"
       >
-        <View
-          style={[
-            styles.sheet,
-            floating(),
-            { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 },
-          ]}
-        >
-          <View style={styles.grabberRow}>
-            <View style={[styles.grabber, { backgroundColor: colors.border }]} />
-          </View>
+        <View style={[styles.sheet, { backgroundColor: colors.card }]}>
 
           {sent ? (
             <View style={styles.done}>
@@ -490,16 +515,8 @@ export function PhotoSubmitSheet({
 }
 
 const styles = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFill },
-  lift: { flex: 1, justifyContent: 'flex-end' },
-  sheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 16,
-    maxHeight: '92%',
-  },
-  grabberRow: { alignItems: 'center', paddingTop: 8 },
-  grabber: { width: 36, height: 4, borderRadius: 999 },
+  lift: { flex: 1 },
+  sheet: { flex: 1, paddingHorizontal: 16 },
   form: { paddingTop: 10, paddingBottom: 8, gap: 10 },
   title: { ...t.xl, fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: -4 },

@@ -78,6 +78,17 @@ test('granted but unregistered says it will retry rather than blaming the user',
   assert.match(detail, /retry/i);
 });
 
+test('an explicit device opt-out outranks transient registration state', () => {
+  const detail = notificationDetail({
+    permission: 'granted',
+    registered: false,
+    signedIn: true,
+    optedOut: true,
+  });
+  assert.match(detail, /stopped on this device/i);
+  assert.doesNotMatch(detail, /retry/i);
+});
+
 test('every combination produces a non-empty sentence', () => {
   const permissions = ['granted', 'denied', 'undetermined', 'unsupported'] as const;
   for (const permission of permissions) {

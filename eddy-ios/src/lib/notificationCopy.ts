@@ -19,10 +19,12 @@ export function notificationDetail({
   permission,
   registered,
   signedIn,
+  optedOut = false,
 }: {
   permission: NotificationPermission;
   registered: boolean;
   signedIn: boolean;
+  optedOut?: boolean;
 }): string {
   if (permission === 'unsupported') {
     // A simulator has no APNs connection, so no token can ever be issued. Not
@@ -34,6 +36,9 @@ export function notificationDetail({
   }
   if (!signedIn) {
     return 'Sign in to get alerts on this device. The Alerts tab works without an account.';
+  }
+  if (optedOut) {
+    return 'Alerts are stopped on this device. Turn them on when you want to resume notifications.';
   }
   if (permission === 'undetermined') {
     return 'Get a push the moment a river you follow becomes floatable, or turns dangerous.';
