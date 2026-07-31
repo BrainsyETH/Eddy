@@ -50,6 +50,7 @@ import { restorePurchases, subscriptionSummary } from '@/lib/purchases';
 import { usePush } from '@/hooks/usePush';
 import { notificationDetail } from '@/lib/notificationCopy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
+import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 
 const TERMS_URL = 'https://eddy.guide/terms';
 const PRIVACY_URL = 'https://eddy.guide/privacy';
@@ -397,9 +398,9 @@ export default function ProfileScreen() {
               </Pressable>
             )}
 
+            <SafetyDisclaimer compact />
             <Text style={[styles.legal, { color: colors.textSubtle }]}>
-              Readings come from USGS gauges and can trail the river by up to about an hour. Alerts
-              are a planning aid — always judge the water in front of you.
+              Readings come from USGS gauges and can trail the river by up to about an hour.
             </Text>
           </View>
         </Section>

@@ -36,12 +36,14 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
+import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { waitForEntitlement } from '@/api/client';
 import {
   fetchOfferings,
   identifyUser,
   packageCta,
+  PREMIUM_UNAVAILABLE_COPY,
   purchasePackage,
   purchasesUnavailableReason,
   restorePurchases,
@@ -124,7 +126,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
       const result = await fetchOfferings();
       if (cancelled) return;
       setPackages(result.packages);
-      setLoadError(result.error);
+      setLoadError(result.status === 'unavailable' ? PREMIUM_UNAVAILABLE_COPY : null);
     })();
 
     return () => {
@@ -245,10 +247,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
               so the caveat belongs on the purchase screen rather than only in
               the app. It used to describe alert latency; alerts are free now,
               and that version of this sentence lives in PushPrimer. */}
-          <Text style={[styles.honesty, { color: colors.textSubtle }]}>
-            Readings come from USGS gauges and can trail the river by up to about an hour. The
-            outlook is a forecast, not a promise.
-          </Text>
+          <SafetyDisclaimer compact />
 
           <Text style={[styles.freeNote, { color: colors.textSubtle }]}>
             River conditions, gauge readings, hazard information and alerts are always free — and
@@ -304,7 +303,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
             <View style={[styles.pending, { backgroundColor: colors.cardRaised }]}>
               <Ionicons name="time-outline" size={16} color={colors.textMuted} />
               <Text style={[styles.pendingText, { color: colors.textMuted }]}>
-                {loadError ?? 'Subscriptions are not available in this build.'}
+                {loadError ?? PREMIUM_UNAVAILABLE_COPY}
               </Text>
             </View>
           ) : packages === null ? (

@@ -59,6 +59,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type {
@@ -548,10 +549,7 @@ export default function AlertsScreen() {
             // The honesty line. Every row above is a stored reading, and USGS
             // reporting lag plus the ingest cadence puts it up to about an hour
             // behind the river itself.
-            <Text style={[styles.footnote, { color: colors.textSubtle }]}>
-              Readings can lag the river by up to about an hour. Never judge a
-              crossing from a number alone.
-            </Text>
+            <SafetyDisclaimer compact />
           ) : null
         }
         renderItem={({ item }) => {

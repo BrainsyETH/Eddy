@@ -72,6 +72,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   DamSnapshot,
@@ -1078,11 +1079,14 @@ export default function ReportsScreen() {
         onEndReached={search.loadMore}
         onEndReachedThreshold={0.6}
         ListFooterComponent={
-          search.hasMore || (search.searching && rows.length > 0) ? (
-            <View style={styles.footer}>
-              <ActivityIndicator color={colors.interactive} />
-            </View>
-          ) : null
+          <View>
+            {search.hasMore || (search.searching && rows.length > 0) ? (
+              <View style={styles.footer}>
+                <ActivityIndicator color={colors.interactive} />
+              </View>
+            ) : null}
+            <SafetyDisclaimer compact />
+          </View>
         }
         renderItem={({ item }) => {
           // A heading, only ever emitted by the All scope. It carries its own

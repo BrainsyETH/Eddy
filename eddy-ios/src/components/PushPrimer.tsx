@@ -23,6 +23,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
+import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 
 interface Props {
   visible: boolean;
@@ -80,9 +81,7 @@ export function PushPrimer({ visible, riverName, onAllow, onDismiss }: Props) {
               than buried in Settings. USGS reporting lag plus our cron cadence
               means an alert trails the river by roughly 20-75 minutes, and
               "instant" is a claim we cannot keep. */}
-          <Text style={[styles.honesty, { color: colors.textSubtle }]}>
-            Readings come from USGS gauges and can trail the river by up to about an hour.
-          </Text>
+          <SafetyDisclaimer compact />
         </View>
 
         <View style={[styles.footer, { borderTopColor: colors.border }]}>

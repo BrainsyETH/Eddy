@@ -14,8 +14,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   packageCta,
+  PREMIUM_UNAVAILABLE_COPY,
   subscriptionSummary,
   trialDaysFromIntroPrice,
+  unavailableOfferings,
   type PurchasePackage,
 } from '../../../eddy-ios/src/lib/purchases';
 
@@ -51,6 +53,12 @@ test('a missing price never renders as an empty or bare button', () => {
   // "Yearly · " would be worse than one that simply names the plan.
   assert.equal(packageCta(pkg({ priceString: '' })), 'Yearly');
   assert.equal(packageCta(pkg({ priceString: '', trialDays: 7 })), 'Yearly');
+});
+
+test('empty offerings produce a safe customer-facing unavailable state', () => {
+  assert.deepEqual(unavailableOfferings(), { status: 'unavailable', packages: [] });
+  assert.equal(PREMIUM_UNAVAILABLE_COPY, "Premium isn't available right now.");
+  assert.doesNotMatch(PREMIUM_UNAVAILABLE_COPY, /configuration|sdk|revenuecat|storekit/i);
 });
 
 test('the localised price string is passed through untouched', () => {
