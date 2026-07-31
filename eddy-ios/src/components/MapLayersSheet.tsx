@@ -386,11 +386,14 @@ export function MapLayersSheet({
  * print and one thing that must be said (it needs a connection), and the
  * alternative was leaving a switch that appears to do nothing when offline.
  */
-export function LayerNote({ text }: { text: string }) {
+export function LayerNote({ text, attribution }: { text: string; attribution?: string }) {
   const { colors } = useTheme();
   return (
     <View style={[styles.noteWrap, { borderLeftColor: colors.border }]}>
       <Text style={[styles.noteText, { color: colors.textSubtle }]}>{text}</Text>
+      {attribution ? (
+        <Text style={[styles.noteAttribution, { color: colors.textSubtle }]}>{attribution}</Text>
+      ) : null}
     </View>
   );
 }
@@ -501,6 +504,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: StyleSheet.hairlineWidth,
   },
   noteText: { ...t.xs, fontFamily: fonts.body, lineHeight: 15 },
+  noteAttribution: { ...t.xs, fontFamily: fonts.body, marginTop: 3, opacity: 0.7 },
   tierDot: { width: 8, height: 8, borderRadius: 999 },
   tierText: { ...t.xs, fontFamily: fonts.semibold, flexShrink: 1 },
   tierCount: { ...t.xs, fontFamily: fonts.mono },

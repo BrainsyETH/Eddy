@@ -33,6 +33,7 @@ import { conditionColor, conditionLabel, conditionText } from '@/theme/condition
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { allReadings, formatReading, primaryReading } from '@/lib/readingCopy';
+import { KindMark } from '@/components/KindMark';
 
 /** Compact age for a row — the detail screen owns the long-form phrasing. */
 function shortAge(hours: number | null | undefined): string | null {
@@ -123,6 +124,9 @@ function RiverRowComponent({
           .filter(Boolean)
           .join(', ')}
       >
+        <View style={styles.kindMark}>
+          <KindMark kind="river" color={colors.textMuted} />
+        </View>
         <View style={styles.titleLine}>
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
             {river.name}
@@ -240,7 +244,8 @@ const styles = StyleSheet.create({
   },
   gaugeItem: { flexDirection: 'row', alignItems: 'baseline', gap: 5 },
   gaugeValue: { ...t.xs, fontFamily: fonts.mono },
-  main: { flex: 1, minWidth: 0, paddingVertical: 12, paddingLeft: 12, paddingRight: 4 },
+  main: { flex: 1, minWidth: 0, paddingVertical: 12, paddingLeft: 41, paddingRight: 4 },
+  kindMark: { position: 'absolute', left: 12, top: 14 },
   titleLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   name: { ...t.base, fontFamily: fonts.semibold, flexShrink: 1 },
   conditionWord: { ...t.xs, fontFamily: fonts.semibold, flexShrink: 0 },

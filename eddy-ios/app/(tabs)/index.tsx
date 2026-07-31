@@ -1233,7 +1233,12 @@ export default function MapScreen() {
           // rather than as absent. Said on the row, while the switch is under
           // the thumb that flipped it.
           if (key === 'weatherRadar' && on) {
-            return <LayerNote text={RADAR_ATTRIBUTION + ' · needs a connection'} />;
+            return (
+              <LayerNote
+                text="Where it is raining now · needs a connection"
+                attribution={RADAR_ATTRIBUTION}
+              />
+            );
           }
           // ── The caveat, on the control ────────────────────────────────
           // Not only in the callout, because the fill is visible without

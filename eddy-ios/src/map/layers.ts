@@ -238,10 +238,10 @@ export const MAP_LAYERS: LayerDef[] = [
   },
   {
     key: 'weatherRadar',
-    label: 'Weather radar',
+    label: 'Rain',
     // Says what it IS and, by saying "live", what it is not: the one layer here
     // that a downloaded river cannot carry.
-    description: 'Live NEXRAD rain and storms',
+    description: 'Where it is raining now',
     icon: 'rainy-outline',
     // Already in the bundled catalog — this is the mark the weather panel on
     // the river screen uses, so the two agree about what weather looks like.
@@ -332,7 +332,8 @@ export const RADAR_TILE_URL =
   'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png';
 
 /**
- * Required attribution, shown whenever the layer is drawing.
+ * Required attribution, shown on its own muted line under the Rain switch
+ * whenever the layer is drawing.
  *
  * Not optional and not decorative: IEM asks for credit, and a reader looking at
  * rain on a map is owed the knowledge that Eddy did not measure it.

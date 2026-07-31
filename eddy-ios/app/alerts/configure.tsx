@@ -140,7 +140,7 @@ export default function ConfigureAlertScreen() {
   const [primerOpen, setPrimerOpen] = useState(false);
 
   const [mode, setMode] = useState<AlertRuleMode>('condition');
-  const [conditionKind, setConditionKind] = useState<AlertSubscriptionKind>('all');
+  const [conditionKind, setConditionKind] = useState<AlertSubscriptionKind>('safety');
   const [metric, setMetric] = useState<AlertMetric>('gauge_height_ft');
   const [comparator, setComparator] = useState<AlertComparator>('above');
   const [value, setValue] = useState('');
