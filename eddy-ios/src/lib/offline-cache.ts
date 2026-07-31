@@ -67,9 +67,12 @@ export const NETWORK_KEY = `${VERSIONED}.network`;
  * monthly.
  */
 export const CONDITIONS_KEY = `${VERSIONED}.conditions`;
+/** Small index for the individually stored national-gauge viewport payloads. */
+export const VIEWPORT_GAUGES_INDEX_KEY = `${VERSIONED}.viewport-gauges`;
 
 const RIVER_INFIX = '.river:';
 const GAUGE_INFIX = '.gauge:';
+const VIEWPORT_GAUGE_INFIX = '.viewport-gauge:';
 
 export function riverKey(slug: string): string {
   return `${VERSIONED}${RIVER_INFIX}${slug}`;
@@ -77,6 +80,10 @@ export function riverKey(slug: string): string {
 
 export function gaugeKey(siteId: string): string {
   return `${VERSIONED}${GAUGE_INFIX}${encodeURIComponent(siteId)}`;
+}
+
+export function viewportGaugeKey(requestKey: string): string {
+  return `${VERSIONED}${VIEWPORT_GAUGE_INFIX}${encodeURIComponent(requestKey)}`;
 }
 
 export function isRiverKey(key: string): boolean {
@@ -213,6 +220,64 @@ export function mergeParts<T extends object>(
  * screen arguing with itself.
  */
 export const STALE_READING_HOURS = 6;
+
+/**
+ * A persisted national-gauge viewport is a stale-first shortcut, not an
+ * offline archive. Match the point where a reading loses its interpretation:
+ * after six hours a network refresh is more honest than painting old values
+ * merely to avoid a short load.
+ */
+export const VIEWPORT_GAUGE_CACHE_HOURS = STALE_READING_HOURS;
+
+export interface ViewportGaugeIndexRecord {
+  key: string;
+  bbox: [number, number, number, number];
+  limit: number;
+  fetchedAt: string;
+}
+
+export function viewportGaugeEntryIsFresh(
+  entry: Pick<ViewportGaugeIndexRecord, 'fetchedAt'>,
+  now: number,
+): boolean {
+  const fetched = Date.parse(entry.fetchedAt);
+  return (
+    Number.isFinite(fetched) &&
+    now >= fetched &&
+    now - fetched < VIEWPORT_GAUGE_CACHE_HOURS * 60 * 60 * 1000
+  );
+}
+
+export function newestContainingViewportGaugeEntry(
+  entries: ViewportGaugeIndexRecord[],
+  bounds: [number, number, number, number],
+  limit: number,
+): ViewportGaugeIndexRecord | null {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+    if (entry.limit !== limit) continue;
+    const [west, south, east, north] = entry.bbox;
+    if (
+      west <= bounds[0] &&
+      south <= bounds[1] &&
+      east >= bounds[2] &&
+      north >= bounds[3]
+    ) {
+      return entry;
+    }
+  }
+  return null;
+}
+
+/** Move one actually used disk cell to the newest end of the LRU index. */
+export function touchViewportGaugeIndex(
+  entries: ViewportGaugeIndexRecord[],
+  key: string,
+): ViewportGaugeIndexRecord[] {
+  const hit = entries.find((entry) => entry.key === key);
+  if (!hit || entries[entries.length - 1]?.key === key) return entries;
+  return [...entries.filter((entry) => entry.key !== key), hit];
+}
 
 /** Past this, the number itself is withheld rather than shown with a hedge. */
 export const UNUSABLE_READING_HOURS = 48;

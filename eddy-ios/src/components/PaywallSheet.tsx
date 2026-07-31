@@ -81,21 +81,22 @@ interface Props {
  * decisions the written read answers instead of collapsing them into one vague
  * promise.
  */
-const BENEFITS: { symbol: EddySymbolName; title: string; body: string }[] = [
+const BENEFITS: { symbol: EddySymbolName; symbolSize?: number; title: string; body: string }[] = [
   {
     symbol: 'eddyRated',
     title: 'A bottom line for today',
     body: "Eddy's written call on whether the current reading supports getting on the water.",
   },
   {
-    symbol: 'water',
-    title: 'The last 72 hours, interpreted',
-    body: 'See whether the river is rising, falling, or holding in context — not just one number.',
+    symbol: 'weather',
+    title: 'The last 72 hours and weather ahead',
+    body: 'See whether the river is rising, falling, or holding — and what forecast rain may change before launch.',
   },
   {
-    symbol: 'weather',
-    title: 'Weather ahead, connected to the river',
-    body: 'Understand what forecast rain may change and what to watch before launch.',
+    symbol: 'heart',
+    symbolSize: 30,
+    title: 'Thank you for supporting Eddy',
+    body: 'Eddy is built by one person. Your subscription keeps the gauges, maps, and alerts running.',
   },
   {
     symbol: 'offlineMap',
@@ -227,7 +228,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
           <Otter mood="green" size={120} />
 
           {/* Was "Be first to know", which is now the free product. */}
-          <Text style={[styles.title, { color: colors.text }]}>More than the number</Text>
+          <Text style={[styles.title, { color: colors.text }]}>More than a number</Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
             {riverName
               ? `Eddy's full read on the ${riverName} — and a map that still works when the signal doesn't.`
@@ -240,7 +241,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
               style={[styles.benefit, { backgroundColor: colors.card }, elevation(1)]}
             >
               <View style={[styles.benefitIcon, { backgroundColor: colors.cardRaised }]}>
-                <EddySymbol name={benefit.symbol} size={19} />
+                <EddySymbol name={benefit.symbol} size={benefit.symbolSize ?? 19} />
               </View>
               <View style={styles.benefitText}>
                 <Text style={[styles.benefitTitle, { color: colors.text }]}>{benefit.title}</Text>
@@ -253,11 +254,6 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
               the outlook. A general river disclaimer does not say this. */}
           <Text style={[styles.forecastCaveat, { color: colors.error }]}>
             The outlook is a forecast, not a promise. Conditions can change before your trip.
-          </Text>
-
-          <Text style={[styles.gratitude, { color: colors.textMuted }]}>
-            Thank you. Eddy is built by one person, and a subscription is what keeps the gauges,
-            the maps and the alerts running.
           </Text>
 
           <Text style={[styles.freeNote, { color: colors.textSubtle }]}>
@@ -411,7 +407,6 @@ const styles = StyleSheet.create({
   benefitTitle: { ...t.sm, fontFamily: fonts.semibold },
   benefitBody: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
   forecastCaveat: { ...t.xs, fontFamily: fonts.semibold, alignSelf: 'stretch', marginTop: 14 },
-  gratitude: { ...t.xs, fontFamily: fonts.body, alignSelf: 'stretch', marginTop: 14 },
   freeNote: { ...t.xs, fontFamily: fonts.medium, alignSelf: 'stretch', marginTop: 10 },
   legal: { ...t.xs, fontFamily: fonts.body, alignSelf: 'stretch', marginTop: 14 },
   legalLinks: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },

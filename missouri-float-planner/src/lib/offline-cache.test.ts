@@ -15,6 +15,13 @@ import {
   gaugeKey,
   mayPaintCachedCondition,
   readingBand,
+  VIEWPORT_GAUGES_INDEX_KEY,
+  VIEWPORT_GAUGE_CACHE_HOURS,
+  newestContainingViewportGaugeEntry,
+  touchViewportGaugeIndex,
+  viewportGaugeEntryIsFresh,
+  viewportGaugeKey,
+  type ViewportGaugeIndexRecord,
 } from '../../../eddy-ios/src/lib/offline-cache';
 
 const NOW = '2026-07-29T12:00:00.000Z';
@@ -72,6 +79,51 @@ test('a river key round-trips a hyphenated slug', () => {
   for (const slug of ['current', 'north-fork-white', 'big-piney']) {
     assert.equal(slugFromRiverKey(riverKey(slug)), slug);
   }
+});
+
+test('viewport gauge payloads use versioned, collision-safe keys', () => {
+  const request = '1000:-109.1,36.9,-102,41.1';
+  assert.notEqual(viewportGaugeKey(request), VIEWPORT_GAUGES_INDEX_KEY);
+  assert.match(viewportGaugeKey(request), /viewport-gauge:/);
+  assert.equal(viewportGaugeKey(request), viewportGaugeKey(request));
+});
+
+test('viewport gauge disk entries expire with the shared six-hour reading policy', () => {
+  const fetchedAt = '2026-07-31T12:00:00.000Z';
+  const entry = { fetchedAt };
+  assert.equal(VIEWPORT_GAUGE_CACHE_HOURS, 6);
+  assert.equal(viewportGaugeEntryIsFresh(entry, Date.parse(fetchedAt) + 5.9 * 3_600_000), true);
+  assert.equal(viewportGaugeEntryIsFresh(entry, Date.parse(fetchedAt) + 6 * 3_600_000), false);
+  assert.equal(viewportGaugeEntryIsFresh(entry, Date.parse(fetchedAt) - 1), false);
+});
+
+test('the newest containing viewport wins without crossing result limits', () => {
+  const entries: ViewportGaugeIndexRecord[] = [
+    { key: 'old', bbox: [-110, 36, -101, 42], limit: 1000, fetchedAt: NOW },
+    { key: 'detail', bbox: [-110, 36, -101, 42], limit: 300, fetchedAt: NOW },
+    { key: 'new', bbox: [-109, 37, -102, 41], limit: 1000, fetchedAt: NOW },
+  ];
+  assert.equal(
+    newestContainingViewportGaugeEntry(entries, [-108, 38, -103, 40], 1000)?.key,
+    'new',
+  );
+  assert.equal(
+    newestContainingViewportGaugeEntry(entries, [-108, 38, -103, 40], 300)?.key,
+    'detail',
+  );
+  assert.equal(newestContainingViewportGaugeEntry(entries, [-100, 38, -99, 40], 1000), null);
+});
+
+test('touching a disk viewport moves only that entry to the LRU tail', () => {
+  const entries: ViewportGaugeIndexRecord[] = ['a', 'b', 'c'].map((key) => ({
+    key,
+    bbox: [-100, 35, -90, 40],
+    limit: 1000,
+    fetchedAt: NOW,
+  }));
+  assert.deepEqual(touchViewportGaugeIndex(entries, 'a').map((entry) => entry.key), ['b', 'c', 'a']);
+  assert.equal(touchViewportGaugeIndex(entries, 'c'), entries);
+  assert.equal(touchViewportGaugeIndex(entries, 'missing'), entries);
 });
 
 test('the index, meta and river keys are told apart', () => {

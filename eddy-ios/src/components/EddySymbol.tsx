@@ -42,6 +42,7 @@ const SYMBOLS = {
   alertWatch: require('../../assets/eddy/eddy-alert-watch.png'),
   offlineMap: require('../../assets/eddy/eddy-offline-map.png'),
   water: require('../../assets/eddy/eddy-water-droplet.png'),
+  heart: require('../../assets/eddy/eddy-heart.png'),
 
   // The access-point section marks, matching the website's own headings on that
   // page. `facilities` is a ROLE and not a drawing — the section covers toilets,
