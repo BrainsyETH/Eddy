@@ -58,6 +58,15 @@ export async function PATCH(
     if (!existing) return jsonPrivate({ error: 'Alert not found' }, { status: 404 });
 
     const update: Record<string, unknown> = {};
+    /**
+     * The reseed, when one happened, so the response can say so.
+     *
+     * This route used to return `seed: null` unconditionally while doing the
+     * reseed below — the one signal that tells a user "you are already past the
+     * number you just typed, so this will not fire until it comes back down"
+     * was computed and dropped on the floor.
+     */
+    let seed: Awaited<ReturnType<typeof seedCrossingState>> | null = null;
     if (typeof body.enabled === 'boolean') update.enabled = body.enabled;
     if (typeof body.oneShot === 'boolean') update.one_shot = body.oneShot;
 
@@ -107,7 +116,7 @@ export async function PATCH(
       // the old number and means nothing against the new one — a rule edited
       // from "above 3" to "above 6" while the river sat at 4 would still read
       // `inside` and could never fire again until the water dropped past 6.
-      const seed = await seedCrossingState(supabase, {
+      seed = await seedCrossingState(supabase, {
         gaugeStationId: existing.gauge_station_id,
         riverId: existing.river_id,
         mode: 'threshold',
@@ -154,7 +163,12 @@ export async function PATCH(
       return jsonPrivate({ error: 'Could not update alert' }, { status: 500 });
     }
 
-    return jsonPrivate({ rule: toGaugeRule(saved as unknown as GaugeAlertRow), seed: null });
+    return jsonPrivate({
+      rule: toGaugeRule(saved as unknown as GaugeAlertRow),
+      seed: seed
+        ? { value: seed.value, unit: seed.unit, readingAt: seed.readingAt, state: seed.state }
+        : null,
+    });
   } catch (error) {
     console.error('Error updating gauge alert:', error);
     return jsonPrivate({ error: 'Internal server error' }, { status: 500 });

@@ -29,7 +29,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   describeAlertRule,
+  formatAlertValue,
   type AlertComparator,
+  type AlertRuleSeed,
   type AlertSubscriptionKind,
 } from '@eddy/types';
 import { ConditionCodeChips } from '@/components/ConditionCodeChips';
@@ -64,6 +66,16 @@ export default function EditAlertScreen() {
   const [enabled, setEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * What the server re-seeded this rule to on the last save.
+   *
+   * `inside` means the water is ALREADY past the number just typed. The rule is
+   * edge-triggered, so it will not fire until the river leaves and comes back —
+   * and with nothing on screen saying so, that is indistinguishable from an
+   * alert that simply does not work. Setting a level one step above a reading
+   * the gauge screen was showing an hour late is the exact way to land here.
+   */
+  const [seed, setSeed] = useState<AlertRuleSeed | null>(null);
 
   // Seeded from the rule once it resolves. Keyed on rule.id so a different rule
   // reloads the form, but typing is never overwritten by an unrelated refresh.
@@ -89,7 +101,7 @@ export default function EditAlertScreen() {
     setError(null);
     setSaving(true);
     try {
-      await update(rule, {
+      const result = await update(rule, {
         enabled,
         oneShot,
         ...(rule.mode === 'condition' ? { conditionKind } : {}),
@@ -105,6 +117,14 @@ export default function EditAlertScreen() {
         // it — the edit IS the request to have it work again.
         ...(spent ? { rearm: true } : {}),
       });
+
+      // STAY ON THE SCREEN when the rule saved into a state it cannot fire
+      // from. Popping back would hide the one explanation of why nothing is
+      // going to happen, and the fix — a different number — is on this screen.
+      if (result?.state === 'inside') {
+        setSeed(result);
+        return;
+      }
       router.back();
     } catch {
       setError('Could not save that change. Try again.');
@@ -112,6 +132,19 @@ export default function EditAlertScreen() {
       setSaving(false);
     }
   }, [rule, update, enabled, oneShot, conditionKind, isThreshold, comparator, parsedValue, parsedMax, spent, router]);
+
+  /**
+   * Editing the trigger clears the last verdict — the user is answering it.
+   *
+   * Done in the change handlers rather than an effect on [comparator, value]:
+   * the effect form calls setState during render-commit for a value the same
+   * interaction already set, which is the cascading-render pattern React now
+   * flags, and it would also wipe the notice on the re-render that shows it.
+   */
+  const editTrigger = useCallback(<T,>(set: (next: T) => void) => (next: T) => {
+    setSeed(null);
+    set(next);
+  }, []);
 
   const onDelete = useCallback(() => {
     if (!rule) return;
@@ -252,7 +285,7 @@ export default function EditAlertScreen() {
               {COMPARATORS.map((option) => (
                 <Pressable
                   key={option.value}
-                  onPress={() => setComparator(option.value)}
+                  onPress={() => editTrigger(setComparator)(option.value)}
                   style={chip(comparator === option.value)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: comparator === option.value }}
@@ -265,7 +298,7 @@ export default function EditAlertScreen() {
             <View style={styles.valueRow}>
               <TextInput
                 value={value}
-                onChangeText={setValue}
+                onChangeText={editTrigger(setValue)}
                 keyboardType="decimal-pad"
                 placeholder="0"
                 placeholderTextColor={colors.textSubtle}
@@ -280,7 +313,7 @@ export default function EditAlertScreen() {
                   <Text style={[styles.andText, { color: colors.textMuted }]}>and</Text>
                   <TextInput
                     value={valueMax}
-                    onChangeText={setValueMax}
+                    onChangeText={editTrigger(setValueMax)}
                     keyboardType="decimal-pad"
                     placeholder="0"
                     placeholderTextColor={colors.textSubtle}
@@ -307,6 +340,16 @@ export default function EditAlertScreen() {
                   could never fire again. */}
               Changing the level starts the alert fresh from the latest reading.
             </Text>
+            {seed?.state === 'inside' ? (
+              <View style={[styles.seedNotice, { backgroundColor: colors.card }, elevation(1)]}>
+                <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
+                <Text style={[styles.seedText, { color: colors.text }]}>
+                  {seed.value != null
+                    ? `${targetName} is already at ${formatAlertValue(seed.value, rule.metric ?? 'gauge_height_ft')}, which is inside this alert. Saved — but it stays quiet until the water leaves that range and comes back.`
+                    : `${targetName} is already inside this alert. Saved — but it stays quiet until the water leaves that range and comes back.`}
+                </Text>
+              </View>
+            ) : null}
           </>
         )}
 
@@ -422,6 +465,15 @@ const styles = StyleSheet.create({
   andText: { ...t.sm, fontFamily: fonts.body },
   unitText: { ...t.base, fontFamily: fonts.semibold },
   hint: { ...t.xs, fontFamily: fonts.body, marginTop: 8, marginHorizontal: 4 },
+  seedNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+    marginTop: 12,
+    borderRadius: 14,
+    padding: 13,
+  },
+  seedText: { ...t.xs, fontFamily: fonts.body, flex: 1, lineHeight: 17 },
   errorText: { ...t.sm, fontFamily: fonts.body, marginTop: 12 },
   saveButton: { marginTop: 24, paddingVertical: 15, borderRadius: 999, alignItems: 'center' },
   saveText: { ...t.base, fontFamily: fonts.semibold },

@@ -29,7 +29,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { AlertRule } from '@eddy/types';
+import type { AlertRule, AlertRuleSeed } from '@eddy/types';
 import {
   ApiError,
   deleteAlertRule,
@@ -49,7 +49,12 @@ interface AlertRulesValue {
   /** Insert a rule the create screen just made, without a round trip. */
   add: (rule: AlertRule) => void;
   setEnabled: (rule: AlertRule, enabled: boolean) => Promise<void>;
-  update: (rule: AlertRule, patch: UpdateAlertRuleInput) => Promise<void>;
+  /**
+   * Edit a rule. Resolves with the re-seeded crossing state when the threshold
+   * moved, so the edit screen can tell the user their rule starts out on the
+   * far side of its own number instead of leaving it silently unable to fire.
+   */
+  update: (rule: AlertRule, patch: UpdateAlertRuleInput) => Promise<AlertRuleSeed | null>;
   remove: (rule: AlertRule) => Promise<void>;
   /** Is there already a rule on this river or gauge? Drives the bell's label. */
   rulesFor: (scope: 'river' | 'gauge', entityId: string) => AlertRule[];
@@ -62,7 +67,7 @@ const AlertRulesContext = createContext<AlertRulesValue>({
   refresh: async () => {},
   add: () => {},
   setEnabled: async () => {},
-  update: async () => {},
+  update: async () => null,
   remove: async () => {},
   rulesFor: () => [],
 });
@@ -129,13 +134,20 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
     setRules((current) => [rule, ...(current ?? []).filter((r) => r.id !== rule.id)]);
   }, []);
 
-  /** Apply a local change, run the write, and put the list back if it fails. */
+  /**
+   * Apply a local change, run the write, and put the list back if it fails.
+   *
+   * Generic over the write's result so a caller can read what the server said.
+   * It used to swallow it, which is how PATCH's re-seed — the one thing that
+   * knows a freshly edited rule is already past its own threshold — never
+   * reached a screen.
+   */
   const mutate = useCallback(
-    async (
+    async <T,>(
       rule: AlertRule,
       optimistic: (rules: AlertRule[]) => AlertRule[],
-      write: (token: string) => Promise<void>,
-    ) => {
+      write: (token: string) => Promise<T>,
+    ): Promise<T> => {
       const before = rulesRef.current;
       if (before) setRules(optimistic(before));
 
@@ -146,7 +158,7 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        await write(token);
+        return await write(token);
       } catch (err) {
         if (before) setRules(before);
         throw err;
@@ -155,13 +167,17 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
     [getAccessToken],
   );
 
+  // Discards the seed on purpose: pausing or resuming a rule never moves its
+  // threshold, so there is no reseed to report and nothing for a caller to do
+  // with one.
   const setEnabled = useCallback(
-    (rule: AlertRule, enabled: boolean) =>
-      mutate(
+    async (rule: AlertRule, enabled: boolean): Promise<void> => {
+      await mutate(
         rule,
         (current) => current.map((r) => (r.id === rule.id ? { ...r, enabled } : r)),
         (token) => updateAlertRule(token, rule, { enabled }),
-      ),
+      );
+    },
     [mutate],
   );
 

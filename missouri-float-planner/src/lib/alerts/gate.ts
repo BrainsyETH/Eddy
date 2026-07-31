@@ -39,6 +39,19 @@ const MAX_AGE_MS: Record<string, number> = {
 };
 const DEFAULT_MAX_AGE_MS = 3 * 60 * 60 * 1000;
 
+/**
+ * The same limit, in hours, for the read path.
+ *
+ * Exported so a screen cannot confidently display a reading this module has
+ * already stopped acting on. /api/gauges/[siteId] used its own 6, which left a
+ * three-hour window where the gauge screen showed a number with a condition
+ * chip on it while every alert against that station was being skipped as
+ * `gated` — invisibly, since no skip reason reaches a client.
+ */
+export function maxReadingAgeHours(provider?: string | null): number {
+  return (MAX_AGE_MS[provider ?? 'usgs'] ?? DEFAULT_MAX_AGE_MS) / 3_600_000;
+}
+
 /** Tolerance for clock skew before a future timestamp is treated as bad data. */
 const MAX_FUTURE_SKEW_MS = 10 * 60 * 1000;
 

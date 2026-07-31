@@ -1,5 +1,19 @@
-// src/lib/alerts/gauge-readings.ts
+// src/lib/gauges/latest-readings.ts
 // The newest reading per station, across BOTH gauge tiers.
+//
+// ── Why this is not under lib/alerts any more ───────────────────────────────
+//
+// It used to be, and that was the bug. The alert engine merged both tiers while
+// every READ path picked one: /api/gauges answered from gauge_readings, and
+// /api/gauges/[siteId] and search_gauges answered from gauge_latest. So one
+// station could read 87 cfs on a search row and 80 cfs on its own detail screen
+// in the same minute, and — because the alert configure screen anchors its
+// threshold field to the detail number while seedCrossingState seeds from the
+// merge — a rule typed one unit above what the screen showed was born already
+// on the far side of its own threshold and could never fire.
+//
+// "Newest across both tiers" is the only defensible answer to "what is this
+// gauge reading right now", so it is now one module that every path uses.
 //
 // ── Why two sources ─────────────────────────────────────────────────────────
 //
@@ -19,7 +33,7 @@
 // The merge itself is pure and exported, so the tie-breaking is testable
 // without a database.
 
-import type { StationReading } from './gauge-threshold';
+import type { StationReading } from '@/lib/alerts/gauge-threshold';
 
 /** A gauge_latest row, or the newest gauge_readings row, as PostgREST returns it. */
 export interface RawReadingRow {
@@ -145,5 +159,82 @@ export async function loadLatestReadings(
     if (data?.[0]) historyRows.push(data[0] as RawReadingRow);
   }
 
+  return mergeReadingRows(latestRows, historyRows, providerByStation);
+}
+
+/**
+ * How many curated history rows one read-path merge will look at.
+ *
+ * PostgREST caps a page at 1,000 regardless, and this is a request somebody is
+ * waiting on rather than a cron, so the history query is a SINGLE ordered query
+ * instead of loadLatestReadings' one-per-station loop. Newest-first across the
+ * whole curated set means the first row seen for a station is that station's
+ * newest, and the curated tier writes hourly (15 minutes on a rising river), so
+ * 1,000 rows covers every curated station many times over.
+ */
+const HISTORY_SCAN = 1000;
+
+/**
+ * The newest reading per station for a READ path — the same merge the alert
+ * engine performs, at a latency a screen can wait for.
+ *
+ * Degrades to gauge_latest rather than to nothing: if the history scan does not
+ * reach a station (a curated set far larger than today's, or a station whose
+ * history is genuinely empty), that station keeps its gauge_latest row. An
+ * hour-stale number is the old behaviour, so the floor here is exactly what
+ * these endpoints already returned.
+ */
+export async function loadCurrentReadings(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  stationIds: string[],
+): Promise<Map<string, StationReading>> {
+  if (stationIds.length === 0) return new Map();
+
+  const providerByStation = new Map<string, string | null>();
+  const curated: string[] = [];
+
+  for (const ids of chunk(stationIds)) {
+    const { data } = await supabase
+      .from('gauge_stations')
+      .select('id, provider, curated')
+      .in('id', ids);
+    for (const row of data ?? []) {
+      providerByStation.set(row.id, row.provider ?? 'usgs');
+      if (row.curated) curated.push(row.id);
+    }
+  }
+
+  const latestRows: RawReadingRow[] = [];
+  const historyRows: RawReadingRow[] = [];
+
+  await Promise.all([
+    (async () => {
+      for (const ids of chunk(stationIds)) {
+        const { data } = await supabase
+          .from('gauge_latest')
+          .select('gauge_station_id, reading_timestamp, gauge_height_ft, discharge_cfs, qualifiers')
+          .in('gauge_station_id', ids);
+        latestRows.push(...((data ?? []) as RawReadingRow[]));
+      }
+    })(),
+    (async () => {
+      // gauge_readings holds ONLY curated history, so asking for the national
+      // tier here would scan for rows that cannot exist.
+      if (curated.length === 0) return;
+      for (const ids of chunk(curated)) {
+        const { data } = await supabase
+          .from('gauge_readings')
+          .select('gauge_station_id, reading_timestamp, gauge_height_ft, discharge_cfs, qualifiers')
+          .in('gauge_station_id', ids)
+          .order('reading_timestamp', { ascending: false })
+          .limit(HISTORY_SCAN);
+        historyRows.push(...((data ?? []) as RawReadingRow[]));
+      }
+    })(),
+  ]);
+
+  // mergeReadingRows folds with pickNewerReading, so the ordering of the scan
+  // does not matter — the newest timestamp wins whichever tier it came from.
   return mergeReadingRows(latestRows, historyRows, providerByStation);
 }

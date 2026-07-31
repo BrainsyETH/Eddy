@@ -20,6 +20,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { loadCurrentReadings } from '@/lib/gauges/latest-readings';
 import { createClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
@@ -507,13 +508,27 @@ async function _GET(request: NextRequest) {
 
     const now = Date.now();
 
+    // search_gauges joins gauge_latest, which is the OLDER tier for a curated
+    // station — rewritten hourly at :20, while update-gauges appends to
+    // gauge_readings hourly and every 15 minutes on a rising river. Without this
+    // a curated row here disagreed with the same station's detail screen, its
+    // map pin, and the number the alert engine seeds from. Only curated rows
+    // have a second tier to consult, and admin is already open for the RPC.
+    const currentReadings = admin
+      ? await loadCurrentReadings(
+          admin,
+          (gaugeRows ?? []).filter((g) => g.curated).map((g) => g.id),
+        )
+      : new Map();
+
     const gaugeResults: SearchResult[] = (gaugeRows ?? []).map((g) => {
       const river = riverByGauge.get(g.id);
-      const readingTimestamp = g.reading_timestamp;
+      const current = currentReadings.get(g.id) ?? null;
+      const readingTimestamp = current ? current.reading_at : g.reading_timestamp;
       const parsed = readingTimestamp ? new Date(readingTimestamp).getTime() : NaN;
       const readingAgeHours = Number.isFinite(parsed) ? (now - parsed) / 3_600_000 : null;
-      const gaugeHeightFt = toNum(g.gauge_height_ft);
-      const dischargeCfs = toNum(g.discharge_cfs);
+      const gaugeHeightFt = current ? current.gauge_height_ft : toNum(g.gauge_height_ft);
+      const dischargeCfs = current ? current.discharge_cfs : toNum(g.discharge_cfs);
 
       return {
         kind: 'gauge' as const,
