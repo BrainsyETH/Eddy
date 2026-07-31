@@ -7,6 +7,7 @@ const KIND_SYMBOL: Partial<Record<KindMarkKind, EddySymbolName>> = {
   river: 'river',
   gauge: 'gauge',
   access_point: 'accessPoint',
+  dam: 'dam',
 };
 
 const KIND_ICON: Record<KindMarkKind, React.ComponentProps<typeof Ionicons>['name']> = {

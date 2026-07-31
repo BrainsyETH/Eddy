@@ -86,8 +86,8 @@ export interface LayerDef {
    *
    * A row and its first tier are one definition here — `gauges` is both the
    * "Gauges" row and the "Eddy-rated" chip under it — and the two want
-   * different marks. The row asks "show me gauges", which is the droplet. The
-   * chip asks "the ones Eddy graded, or the rest", which is Eddy's own face
+   * different marks. The row asks "show me gauges", which is the staff gauge.
+   * The chip asks "the ones Eddy graded, or the rest", which is Eddy's own face
    * against the plain USGS staff. One field could not say both.
    */
   tierSymbol?: EddySymbolName;
@@ -228,9 +228,9 @@ export const MAP_LAYERS: LayerDef[] = [
     label: 'Lakes & dams',
     description: 'USACE releases, lake levels and generation',
     icon: 'water-outline',
-    // No `symbol` yet: the catalog has no dam mark, and `icon` is the
-    // documented fallback for a layer before one is drawn for it.
-    //
+    // A dedicated spillway mark, separate from both the gauge instrument and
+    // the dangerous low-water-dam hazard mark above.
+    symbol: 'dam',
     // Instrumentation teal, from the same family as the gauge rows and
     // explicitly NOT the hazard red — for the reason in the label note above. A
     // step darker than `gauges` so the two are siblings rather than twins.

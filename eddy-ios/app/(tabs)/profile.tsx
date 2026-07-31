@@ -177,8 +177,8 @@ export default function ProfileScreen() {
     Alert.alert(
       'Delete your account?',
       entitlement?.isActive
-        ? 'This permanently deletes your account, saved floats and starred rivers.\n\nIt does NOT cancel your subscription — only you can do that, in your Apple ID settings. Cancel there first, or you will keep being billed.'
-        : 'This permanently deletes your account, saved floats and starred rivers. It cannot be undone.',
+        ? 'This permanently deletes your account, saved floats and favorites.\n\nIt does NOT cancel your subscription — only you can do that, in your Apple ID settings. Cancel there first, or you will keep being billed.'
+        : 'This permanently deletes your account, saved floats and favorites. It cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -195,7 +195,7 @@ export default function ProfileScreen() {
   }, [entitlement, runDelete]);
 
   const handleSignOut = useCallback(() => {
-    Alert.alert('Sign out?', 'Your stars stay on this device.', [
+    Alert.alert('Sign out?', 'Your favorites stay on this device.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign out',
@@ -233,7 +233,7 @@ export default function ProfileScreen() {
                     {profile?.displayName ?? 'Signed in with Apple'}
                   </Text>
                   <Text style={[styles.rowNote, { color: colors.textMuted }]}>
-                    Your stars and floats sync across your iOS devices.
+                    Your favorites and floats sync across your iOS devices.
                   </Text>
                 </View>
               </View>
@@ -248,8 +248,8 @@ export default function ProfileScreen() {
               </Text>
               <Text style={[styles.rowNote, { color: colors.textMuted }]}>
                 {unavailable
-                  ? 'Everything still works — your stars are kept on this device.'
-                  : 'Eddy works without an account. Sign in to sync your stars across devices, and to subscribe.'}
+                  ? 'Everything still works — your favorites are kept on this device.'
+                  : 'Eddy works without an account. Sign in to sync your favorites across devices, and to subscribe.'}
               </Text>
 
               {!unavailable && (
@@ -459,7 +459,7 @@ export default function ProfileScreen() {
           <Section title="Delete account" muted={colors.textMuted}>
             <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
               <Text style={[styles.rowNote, { color: colors.textMuted }]}>
-                Deleting your account removes your profile, starred rivers and saved floats. This
+                Deleting your account removes your profile, favorites and saved floats. This
                 cannot be undone.
               </Text>
               <Pressable
