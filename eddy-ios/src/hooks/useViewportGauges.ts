@@ -28,10 +28,17 @@ import { fetchMapGauges } from '@/api/client';
 import { GAUGE_DETAIL_ZOOM, MIN_GAUGE_ZOOM } from '@/map/layers';
 import { warn } from '@/lib/monitoring';
 import {
-  readViewportGaugeCache,
+  readContainingViewportGauge,
+  readViewportGaugeIndex,
+  touchViewportGaugeCache,
   VIEWPORT_GAUGE_CACHE_SIZE,
   writeViewportGaugeCache,
 } from '@/lib/viewportGaugeCache';
+import {
+  newestContainingViewportGaugeEntry,
+  touchViewportGaugeIndex,
+  type ViewportGaugeIndexRecord,
+} from '@/lib/offline-cache';
 
 /** Idle already means "motion stopped"; this only collapses a burst of them. */
 const DEBOUNCE_MS = 100;
@@ -97,6 +104,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
   const [diskReady, setDiskReady] = useState(false);
 
   const cache = useRef(new Map<string, CacheEntry>());
+  const diskIndex = useRef<ViewportGaugeIndexRecord[]>([]);
   const drawnKey = useRef<string | null>(null);
   const lastRequested = useRef<Bounds | null>(null);
   const hasRequested = useRef(false);
@@ -164,6 +172,10 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
         const oldest = cache.current.keys().next().value;
         if (oldest !== undefined) cache.current.delete(oldest);
       }
+      diskIndex.current = [
+        ...diskIndex.current.filter((item) => item.key !== key),
+        { key, bbox, limit, fetchedAt: entry.fetchedAt },
+      ].slice(-VIEWPORT_GAUGE_CACHE_SIZE);
       writeViewportGaugeCache(entry);
 
       lastRequested.current = bbox;
@@ -182,16 +194,13 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
     }
   }, []);
 
-  // Hydrate before the first camera idle normally arrives. Persistent entries
-  // paint immediately, then the effect below revalidates them in the background.
+  // Only the small metadata index loads up front. Reading all twelve payloads
+  // here would parse megabytes before the first camera request could begin.
   useEffect(() => {
     let live = true;
-    void readViewportGaugeCache().then((entries) => {
+    void readViewportGaugeIndex().then((entries) => {
       if (!live) return;
-      for (const entry of entries) {
-        if (cache.current.has(entry.key)) continue;
-        cache.current.set(entry.key, { ...entry, source: 'disk' });
-      }
+      diskIndex.current = entries;
       setDiskReady(true);
     });
     return () => {
@@ -230,6 +239,11 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
     if (covering) {
       cache.current.delete(covering.key);
       cache.current.set(covering.key, covering);
+      const touched = touchViewportGaugeIndex(diskIndex.current, covering.key);
+      if (touched !== diskIndex.current) {
+        diskIndex.current = touched;
+        touchViewportGaugeCache(covering.key);
+      }
       lastRequested.current = covering.bbox;
       if (drawnKey.current !== covering.key) {
         drawnKey.current = covering.key;
@@ -249,21 +263,66 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
     const target = quantizeBbox(padBbox(viewport.bounds, 0.2), viewport.zoom);
     inFlight.current?.abort();
     inFlight.current = null;
+    let live = true;
 
     // onMapIdle already means the opening camera has stopped. Delaying its first
     // request made an intentionally enabled default layer feel lazy. Later idle
     // bursts are still collapsed while panning.
-    if (!hasRequested.current) {
-      hasRequested.current = true;
-      void load(target, limit, covering?.source === 'disk');
+    const startLoad = (revalidate: boolean) => {
+      if (!live) return;
+      if (!hasRequested.current) {
+        hasRequested.current = true;
+        void load(target, limit, revalidate);
+      } else {
+        timer.current = setTimeout(() => void load(target, limit, revalidate), DEBOUNCE_MS);
+      }
+    };
+
+    if (covering?.source === 'disk') {
+      startLoad(true);
     } else {
-      timer.current = setTimeout(
-        () => void load(target, limit, covering?.source === 'disk'),
-        DEBOUNCE_MS,
+      const candidate = newestContainingViewportGaugeEntry(
+        diskIndex.current,
+        viewport.bounds,
+        limit,
       );
+      if (!candidate) {
+        startLoad(false);
+      } else {
+        // One disk payload, only after the camera says which one it needs.
+        void readContainingViewportGauge(diskIndex.current, viewport.bounds, limit).then(
+          (stored) => {
+            if (!live) return;
+            if (!stored) {
+              diskIndex.current = diskIndex.current.filter((item) => item.key !== candidate.key);
+              startLoad(false);
+              return;
+            }
+
+            const diskEntry: CacheEntry = { ...stored, source: 'disk' };
+            cache.current.delete(stored.key);
+            cache.current.set(stored.key, diskEntry);
+            if (cache.current.size > VIEWPORT_GAUGE_CACHE_SIZE) {
+              const oldest = cache.current.keys().next().value;
+              if (oldest !== undefined) cache.current.delete(oldest);
+            }
+            lastRequested.current = stored.bbox;
+            drawnKey.current = stored.key;
+            setState({ ...stored.payload, loading: false, belowMinZoom: false });
+
+            const touched = touchViewportGaugeIndex(diskIndex.current, stored.key);
+            if (touched !== diskIndex.current) {
+              diskIndex.current = touched;
+              touchViewportGaugeCache(stored.key);
+            }
+            startLoad(true);
+          },
+        );
+      }
     }
 
     return () => {
+      live = false;
       if (timer.current) clearTimeout(timer.current);
     };
   }, [enabled, viewport, diskReady, load]);
