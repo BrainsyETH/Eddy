@@ -96,6 +96,7 @@ test('public read routes the app depends on are shared-cacheable', () => {
     'alerts/route.ts',
     'app-config/route.ts',
     'gauge-thresholds/route.ts',
+    'gauges/count/route.ts',
     'plan/campgrounds/route.ts',
   ];
   for (const route of PUBLIC) {
@@ -104,6 +105,14 @@ test('public read routes the app depends on are shared-cacheable', () => {
       `${route} serves public data with no CDN caching`,
     );
   }
+});
+
+test('the gauge corpus count caches success but never caches a failure', () => {
+  const src = read('gauges/count/route.ts');
+  assert.ok(src.includes('count: null'));
+  assert.ok(src.includes('cdnCacheHeaders(3600, 86400)'));
+  assert.ok(src.includes('privateNoStore()'));
+  assert.ok(!src.includes('status: 500'));
 });
 
 test('USGS proxies go through the shared helper', () => {

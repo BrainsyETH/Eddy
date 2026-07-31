@@ -82,7 +82,7 @@ import type {
 } from '@eddy/types';
 import { hasCoordinates } from '@eddy/types';
 import { FLOW_BAND_ORDER, flowBand, type FlowBand } from '@eddy/conditions/flow-band';
-import { ApiError, fetchDams, fetchGauges, fetchRivers } from '@/api/client';
+import { ApiError, fetchDams, fetchGaugeCount, fetchGauges, fetchRivers } from '@/api/client';
 import { floatableRank, isFloatableNow } from '@/theme/conditions';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -95,6 +95,7 @@ import { ScopeSwitch, type ScopeOption } from '@/components/ScopeSwitch';
 import { DamRow } from '@/components/dam/DamRow';
 import { SearchBar } from '@/components/SearchBar';
 import { FilterChips, type FilterChip } from '@/components/FilterChips';
+import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { gaugeToSearchResult, useEddySearch } from '@/hooks/useEddySearch';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { milesBetween, useLocation, type Coords } from '@/hooks/useLocation';
@@ -241,6 +242,11 @@ const DAM_FILTERS: { key: DamFilterKey; label: string }[] = [
  */
 type GaugeFilterKey = 'all' | 'eddy' | 'starred' | FlowBand;
 
+function gaugeCorpusLabel(count: number): string {
+  if (count < 1000) return `${count.toLocaleString()} gauges`;
+  return `${(Math.floor(count / 1000) * 1000).toLocaleString()}+ gauges`;
+}
+
 /**
  * One row of the list.
  *
@@ -262,6 +268,8 @@ export default function ReportsScreen() {
   const [scope, setScope] = useState<ScopeKey>('all');
   const [damFilter, setDamFilter] = useState<DamFilterKey>('all');
   const [dams, setDams] = useState<DamSnapshot[]>([]);
+  const [gaugeCount, setGaugeCount] = useState<number | null>(null);
+  const [riverRequestOpen, setRiverRequestOpen] = useState(false);
 
   /**
    * The ten dams, fetched once when the scope is first opened.
@@ -332,6 +340,13 @@ export default function ReportsScreen() {
   useEffect(() => {
     if (scope === 'gauges' || scope === 'all') void ensureGauges();
   }, [scope, ensureGauges]);
+
+  useEffect(() => {
+    if (scope !== 'gauges' || gaugeCount !== null) return;
+    const controller = new AbortController();
+    void fetchGaugeCount(controller.signal).then(setGaugeCount).catch(() => {});
+    return () => controller.abort();
+  }, [scope, gaugeCount]);
 
   /**
    * The server search, for the two scopes that need it.
@@ -948,6 +963,22 @@ export default function ReportsScreen() {
           under it change with it, and so does what the field is asking for. */}
       <ScopeSwitch options={SCOPES} value={scope} onChange={setScope} />
 
+      {riverScope ? (
+        <View style={styles.trustRow}>
+          <Text style={[styles.trustText, { color: colors.textMuted }]}>
+            Every river here is researched by hand — put-ins walked, hazards logged, gauges
+            rated. New ones go out regularly. Missing yours?
+          </Text>
+          <Pressable
+            onPress={() => setRiverRequestOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Request a river"
+          >
+            <Text style={[styles.requestRiver, { color: colors.interactive }]}>Request a river</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {/* A menu, not a chip row. Five orderings would double the width of the
           filter strip and read as ten filters; and unlike the filters, only one
           ordering is ever live, which is what a menu says and a chip row does
@@ -1013,14 +1044,21 @@ export default function ReportsScreen() {
           paddingHorizontal={16}
         />
       ) : scope === 'gauges' ? (
-        <FilterChips
-          chips={gaugeChips}
-          active={[gaugeFilter]}
-          onToggle={(key) =>
-            setGaugeFilter((prev) => (prev === key ? 'all' : (key as GaugeFilterKey)))
-          }
-          paddingHorizontal={16}
-        />
+        <View>
+          {gaugeCount !== null ? (
+            <Text style={[styles.corpusCount, { color: colors.textMuted }]}>
+              {gaugeCorpusLabel(gaugeCount)}
+            </Text>
+          ) : null}
+          <FilterChips
+            chips={gaugeChips}
+            active={[gaugeFilter]}
+            onToggle={(key) =>
+              setGaugeFilter((prev) => (prev === key ? 'all' : (key as GaugeFilterKey)))
+            }
+            paddingHorizontal={16}
+          />
+        </View>
       ) : scope === 'dams' ? (
         <FilterChips
           chips={damChips}
@@ -1252,6 +1290,17 @@ export default function ReportsScreen() {
           );
         }}
       />
+
+      <FeedbackSheet
+        visible={riverRequestOpen}
+        onDismiss={() => setRiverRequestOpen(false)}
+        defaultType="suggestion"
+        context={{
+          type: 'river',
+          name: query.trim() || 'River request',
+          data: { query: query.trim() || null, source: 'search_rivers_scope' },
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -1283,6 +1332,10 @@ const styles = StyleSheet.create({
   },
   sortItemText: { ...t.sm, fontFamily: fonts.medium },
   sortNote: { ...t.xs, fontFamily: fonts.body, paddingHorizontal: 20, paddingTop: 8 },
+  trustRow: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4, gap: 3 },
+  trustText: { ...t.xs, fontFamily: fonts.body },
+  requestRiver: { ...t.xs, fontFamily: fonts.semibold },
+  corpusCount: { ...t.xs, fontFamily: fonts.mono, paddingHorizontal: 20, paddingTop: 8 },
   listContent: { paddingTop: 4, paddingBottom: 16 },
   // Aligned with the row cards below it (16pt margin + 4pt of optical inset),
   // so the heading reads as the label on the group rather than as a stray line.
