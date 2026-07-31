@@ -119,11 +119,9 @@ interface Props {
   onClear: () => void;
   /**
    * The camera is below MIN_GAUGE_ZOOM, so the layer draws nothing at all.
-   *
-   * Surfaced because the map's own cold-start zoom (6.2) is BELOW that floor
-   * (7): switching this layer on from the opening view drew nothing, reported
-   * 0, and gave no reason — indistinguishable from a layer that is broken or a
-   * country with no gauges in it.
+   * This now occurs only after someone deliberately zooms farther out than the
+   * statewide opening view, but it still needs an explanation rather than a
+   * silent zero.
    */
   belowMinZoom?: boolean;
   /** The server dropped low-flow gauges to meet its cap. */
@@ -178,7 +176,7 @@ function GaugeFilterBarComponent({
     return (
       <View style={[styles.bar, { borderLeftColor: colors.border }]}>
         <Text style={[styles.hint, { color: colors.textSubtle }]}>
-          Zoom in to see USGS gauges — there are too many to draw from this far out.
+          Zoom in slightly to see USGS gauges.
         </Text>
       </View>
     );
@@ -226,12 +224,11 @@ function GaugeFilterBarComponent({
         </Text>
       )}
 
-      {/* THE CAP, SAID OUT LOUD. The server returns at most 300 gauges per
-          viewport and drops the lowest-discharge ones to get there — a rated
-          gauge can never be dropped, they are ordered first. `capped` and
-          `total` have come back on every response since this layer shipped and
-          nothing rendered them, so a viewport holding 1,240 gauges quietly drew
-          300 and looked complete. */}
+      {/* THE CAP, SAID OUT LOUD. The server drops the lowest-discharge gauges
+          when the request's row budget is exceeded — a rated gauge can never
+          be dropped, because they are ordered first. The opening overview asks
+          for the server's larger budget, while close views use the smaller one;
+          either can still cap on a deliberately broad viewport. */}
       {capped ? (
         <Text style={[styles.hint, { color: colors.textSubtle }]}>
           {total.toLocaleString()} gauges here — more than fit. Zoom in to see them all.

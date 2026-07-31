@@ -6,15 +6,16 @@
 // those sets are small and bounded. The national tier is ~14,000 gauges and
 // cannot work that way, so this hook exists to make panning cheap:
 //
-//   1. ZOOM FLOOR       — below z7 it draws nothing and asks for nothing.
-//   2. DEBOUNCE         — a fling emits several idle events; only the last one
-//                         should cost a request.
-//   3. CONTAINMENT      — if the new viewport is inside what we already hold,
+//   1. ZOOM FLOOR       — below the statewide overview it asks for nothing.
+//   2. FIRST LOAD NOW   — opening-map idle requests immediately; no fake pause.
+//   3. DEBOUNCE         — after that, a fling can emit several idle events and
+//                         only the last one should cost a request.
+//   4. CONTAINMENT      — if the new viewport is inside what we already hold,
 //                         there is no request at all. This is what makes small
 //                         pans free.
-//   4. QUANTIZE + PAD   — snap to a grid so the URL is CDN-cacheable, and ask
-//                         for more than the screen so step 3 hits more often.
-//   5. LRU              — panning back is instant.
+//   5. QUANTIZE + PAD   — snap to a grid so the URL is CDN-cacheable, and ask
+//                         for more than the screen so step 4 hits more often.
+//   6. LRU              — panning back is instant.
 //
 // Failure keeps the previous payload. Panning into a dead cell must not erase
 // the pins you were already looking at, and the curated layer must be untouched
@@ -24,13 +25,24 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MapGaugeLite } from '@eddy/types';
 import { bboxContains, padBbox, quantizeBbox, type Bounds } from '@eddy/geo';
 import { fetchMapGauges } from '@/api/client';
-import { MIN_GAUGE_ZOOM } from '@/map/layers';
+import { GAUGE_DETAIL_ZOOM, MIN_GAUGE_ZOOM } from '@/map/layers';
+import { warn } from '@/lib/monitoring';
 
 /** Idle already means "motion stopped"; this only collapses a burst of them. */
-const DEBOUNCE_MS = 400;
+const DEBOUNCE_MS = 300;
 
-/** Matches the server default. Kept here so the disclosure below is honest. */
-const LIMIT = 300;
+/** Normal close-view payload. */
+const DETAIL_LIMIT = 300;
+
+/**
+ * The server's existing maximum, used only for the opening overview.
+ *
+ * A Missouri-sized view often contains more than the normal 300-row budget.
+ * Asking for the full supported page keeps "all gauges" honest there; close
+ * views retain the smaller response. The server still reports `capped` if a
+ * deliberately broader view contains more than this.
+ */
+const OVERVIEW_LIMIT = 1000;
 
 /** Panning back through a few screens should never re-fetch. */
 const CACHE_SIZE = 12;
@@ -64,11 +76,12 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
 
   const cache = useRef(new Map<string, { gauges: MapGaugeLite[]; capped: boolean; total: number }>());
   const lastRequested = useRef<Bounds | null>(null);
+  const hasRequested = useRef(false);
   const inFlight = useRef<AbortController | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async (bbox: Bounds) => {
-    const key = bbox.join(',');
+  const load = useCallback(async (bbox: Bounds, limit: number) => {
+    const key = `${limit}:${bbox.join(',')}`;
     const hit = cache.current.get(key);
     if (hit) {
       lastRequested.current = bbox;
@@ -85,8 +98,29 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
     setState((prev) => ({ ...prev, loading: true, belowMinZoom: false }));
 
     try {
-      const result = await fetchMapGauges(bbox, { limit: LIMIT }, controller.signal);
+      const startedAt = Date.now();
+      const result = await fetchMapGauges(bbox, { limit }, controller.signal);
       if (controller.signal.aborted) return;
+
+      const durationMs = Date.now() - startedAt;
+      if (__DEV__) {
+        console.info('[map] viewport gauges loaded', {
+          durationMs,
+          returned: result.gauges.length,
+          total: result.total,
+          capped: result.capped,
+          limit,
+        });
+      }
+      if (durationMs >= 2000) {
+        warn('map', 'viewport gauge load was slow', {
+          durationMs,
+          returned: result.gauges.length,
+          total: result.total,
+          capped: result.capped,
+          limit,
+        });
+      }
 
       cache.current.set(key, result);
       // Map preserves insertion order, so the first key is the oldest.
@@ -117,6 +151,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       inFlight.current?.abort();
       inFlight.current = null;
       lastRequested.current = null;
+      hasRequested.current = false;
       setState(EMPTY);
       return;
     }
@@ -139,7 +174,17 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
     }
 
     const target = quantizeBbox(padBbox(viewport.bounds, 0.2), viewport.zoom);
-    timer.current = setTimeout(() => void load(target), DEBOUNCE_MS);
+    const limit = viewport.zoom < GAUGE_DETAIL_ZOOM ? OVERVIEW_LIMIT : DETAIL_LIMIT;
+
+    // onMapIdle already means the opening camera has stopped. Delaying its first
+    // request made an intentionally enabled default layer feel lazy. Later idle
+    // bursts are still collapsed while panning.
+    if (!hasRequested.current) {
+      hasRequested.current = true;
+      void load(target, limit);
+    } else {
+      timer.current = setTimeout(() => void load(target, limit), DEBOUNCE_MS);
+    }
 
     return () => {
       if (timer.current) clearTimeout(timer.current);

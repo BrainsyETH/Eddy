@@ -116,37 +116,32 @@ export interface LayerDef {
  *
  * `allGauges` used to be excluded, on the grounds that the national tier is a
  * reference someone asks for and that defaulting it on would fire a viewport
- * request at every cold start. The second half of that stopped being true when
- * both tiers took a zoom floor: the map opens below MIN_GAUGE_ZOOM, so nothing
- * is fetched until someone moves in on a river — and by then "which of these
- * dots has water in it" is the question they are already asking. Leaving it off
- * meant the answer existed and was filed behind a sheet.
+ * request at every cold start. That made the map wait for a river selection
+ * before it felt useful. Both tiers now answer the opening statewide view:
+ * curated gauges as compact condition dots and the national tier as clusters.
+ * The full station marks and labels arrive only when the camera is closer.
  */
 export const DEFAULT_LAYERS: LayerKey[] = ['access', 'gauges', 'allGauges'];
 
 /**
- * Below this zoom NEITHER gauge tier draws.
+ * Below this zoom NEITHER gauge tier draws or fetches.
  *
- * Two separate arguments landing on one number, which is why it is one constant
- * rather than two.
- *
- * The national tier has always had a floor: a continental viewport holds
- * ~14,000 gauges, there is no payload or clustering budget that makes drawing
- * them useful, and the strategy doc is explicit that reference gauges are
- * FOUND, not browsed.
- *
- * The rated tier gained one because forty labelled pins over a statewide view
- * compete with the thing that view is for. Choosing a river is a question the
- * coloured lines answer on their own; the gauges are what you read once you
- * have chosen. Note this is a zoom floor and NOT clustering — the rule that a
- * rated gauge must never be merged into a cluster still holds, and is stated
- * where it is enforced in RiverMap.tsx.
- *
- * They share the number so the two can never appear apart. Split floors would
- * open a band where the reference dots draw alone — the tier with the least to
- * say, unaccompanied by the one carrying verdicts.
+ * Kept just below the phone's statewide opening view. It prevents a continental
+ * request when somebody deliberately zooms far out without recreating the old
+ * click-a-river-first flow. Both tiers share it so reference clusters never
+ * appear without the curated condition dots that carry Eddy's verdicts.
  */
-export const MIN_GAUGE_ZOOM = 8.5;
+export const MIN_GAUGE_ZOOM = 5.5;
+
+/**
+ * Where curated gauges change from overview dots to full staff marks + labels.
+ *
+ * Forty full symbols and place names obscure a statewide phone map; forty small
+ * coloured dots do not. Keeping representation separate from visibility is the
+ * important distinction: the readings are present and tappable immediately,
+ * then gain detail as the camera moves closer.
+ */
+export const GAUGE_DETAIL_ZOOM = 8.5;
 
 
 export const MAP_LAYERS: LayerDef[] = [
@@ -353,9 +348,8 @@ export const RADAR_OPACITY = 0.6;
  * The composite is national and its tiles are cheap, but there is no point
  * fetching them for a continent-wide view where a storm is three pixels.
  *
- * Lower than MIN_GAUGE_ZOOM on purpose: weather is the one thing on this map
- * that is legible zoomed out, because a rain band is hundreds of miles across
- * where a gauge is a point.
+ * Lower than MIN_GAUGE_ZOOM on purpose: weather remains legible even farther
+ * out because a rain band is hundreds of miles across where a gauge is a point.
  */
 export const MIN_RADAR_ZOOM = 4;
 
@@ -385,9 +379,9 @@ export const MAX_RADAR_ZOOM = 9;
  * Matches the floor the API enforces, which returns an empty collection below it
  * regardless of what the client asks for.
  *
- * Higher than MIN_RADAR_ZOOM and below MIN_GAUGE_ZOOM on purpose: a rain band is
- * legible from orbit, a gauge dot is not legible until you are on a river, and a
- * national forest sits between the two.
+ * Higher than the gauge overview and below GAUGE_DETAIL_ZOOM on purpose: small
+ * gauge dots can describe a state before parcel boundaries become useful, while
+ * a national forest still becomes legible before individual gauge labels do.
  */
 export const MIN_PUBLIC_LAND_ZOOM = 7;
 

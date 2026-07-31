@@ -13,7 +13,7 @@
 //
 // ── Pin shapes ──────────────────────────────────────────────────────────────
 // Every curated layer has a compact SDF silhouette in the layer's colour with a
-// white halo, plus a SymbolLayer of plain text above zoom 11:
+// white halo, plus a SymbolLayer of plain text when the camera has room:
 //
 //   gauges       a water droplet, filled with the gauge's own condition colour
 //   access       a map marker, anchored at its point
@@ -91,6 +91,7 @@ import type { NetworkCollection } from '@/lib/statewideNetwork';
 import { loadMapbox } from './runtime';
 import { STYLE_URL } from './useOfflinePacks';
 import {
+  GAUGE_DETAIL_ZOOM,
   MAP_LAYERS,
   MIN_GAUGE_ZOOM,
   MAX_RADAR_ZOOM,
@@ -948,6 +949,12 @@ export function RiverMap({
      * statewide view.
      */
     minZoom?: number,
+    /**
+     * Render an overview dot below this zoom, then the requested silhouette.
+     * Gauges use it so the statewide view is informative without becoming a
+     * wall of full-size staff marks and labels.
+     */
+    compactUntilZoom?: number,
   ) => {
     // No early return on an empty list. Access points and gauges arrive
     // asynchronously, and a source that unmounts takes its layers out of the
@@ -960,10 +967,27 @@ export function RiverMap({
         shape={pinShapes[id]}
         onPress={onPress}
       >
+        {icon && compactUntilZoom !== undefined ? (
+          <Mapbox.CircleLayer
+            id={`pins-${id}-overview`}
+            minZoomLevel={minZoom}
+            maxZoomLevel={compactUntilZoom}
+            style={{
+              circleRadius: selectedPinId
+                ? ['case', ['==', ['get', 'id'], selectedPinId], 7, 5]
+                : 5,
+              circleColor: ['get', 'color'],
+              circleStrokeWidth: selectedPinId
+                ? ['case', ['==', ['get', 'id'], selectedPinId], 3, 1.5]
+                : 1.5,
+              circleStrokeColor: '#FFFFFF',
+            }}
+          />
+        ) : null}
         {icon ? (
           <Mapbox.SymbolLayer
             id={`pins-${id}-icon`}
-            minZoomLevel={minZoom}
+            minZoomLevel={compactUntilZoom ?? minZoom}
             style={{
               iconImage: icon.image,
               // The reason these are SDFs. Data-driven, so a gauge wears its
@@ -1014,7 +1038,7 @@ export function RiverMap({
           id={`pins-${id}-label`}
           // The higher of the two floors. A label is allowed to arrive after
           // its pin, never before it.
-          minZoomLevel={Math.max(labelMinZoom, minZoom ?? 0)}
+          minZoomLevel={Math.max(labelMinZoom, compactUntilZoom ?? minZoom ?? 0)}
           style={{
             // `label`, not `name`: gauges write a short place name into it and
             // everything else falls back to the name it is called.
@@ -1496,19 +1520,13 @@ export function RiverMap({
       {layerOn('campgrounds')
         ? pinLayer('campgrounds', 'campground')
         : null}
-      {/* Labelled at EVERY zoom THEY ARE DRAWN AT — the 0 is the whole of
-          "names below each gauge". There are ~46 of these statewide, not thirty
-          per river, so the argument for holding place labels back to z11 never
-          applied.
-
-          The pins themselves now wait for MIN_GAUGE_ZOOM, which is the same
-          floor the national tier uses so the two can never appear apart. Forty
-          labelled drops over a statewide view competed with the question that
-          view exists to answer: which river. The lines answer that; the gauges
-          are what you read once you have chosen one. NOT clustering — see the
-          rule above contextGaugeLayer, which still holds. */}
+      {/* Present from the opening statewide view, without making that view pay
+          for forty full-size symbols and labels. Compact condition dots answer
+          "where is the water?" immediately; the staff marks and place names
+          arrive at GAUGE_DETAIL_ZOOM. Rated gauges never cluster because each
+          colour is Eddy's verdict and must remain individually visible. */}
       {layerOn('gauges')
-        ? pinLayer('gauges', 'drop', 0, MIN_GAUGE_ZOOM)
+        ? pinLayer('gauges', 'drop', GAUGE_DETAIL_ZOOM, MIN_GAUGE_ZOOM, GAUGE_DETAIL_ZOOM)
         : null}
       {/* Ten pins statewide, so labels are on at every zoom like the gauges —
           an unnamed dot cannot be told from the lake it sits on. Drawn before
