@@ -108,7 +108,12 @@ async function drainRiverEvents(supabase: any, startedAt: number): Promise<River
 
   const { data: pending, error: eventsError } = await supabase
     .from('river_condition_events')
-    .select('id, river_id, kind, old_condition_code, new_condition_code, reading_at, detected_at, push_attempts, rivers!inner(name, slug)')
+    // river_gauges is joined WITHOUT !inner, unlike rivers. The gauge is
+    // enrichment — it makes the notification say which reading moved — and an
+    // event whose pairing was deleted must still be delivered without it. An
+    // inner join here would silently drop those alerts, which on a warning is
+    // the worst possible way to save a line of copy.
+    .select('id, river_id, kind, old_condition_code, new_condition_code, reading_at, reading_value, reading_unit, detected_at, push_attempts, rivers!inner(name, slug), river_gauges(gauge_stations(name))')
     .is('push_delivered_at', null)
     .lt('push_attempts', MAX_ATTEMPTS)
     .in('kind', ['floatable', 'warning', 'easing'])
@@ -142,6 +147,13 @@ async function drainRiverEvents(supabase: any, startedAt: number): Promise<River
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const events: FanoutEvent[] = fresh.map((r: any) => {
     const river = Array.isArray(r.rivers) ? r.rivers[0] : r.rivers;
+    // PostgREST returns an embedded row as an object or a one-element array
+    // depending on the relationship it inferred; both shapes appear here, and
+    // the river unwrap above has the same guard for the same reason.
+    const pairing = Array.isArray(r.river_gauges) ? r.river_gauges[0] : r.river_gauges;
+    const station = Array.isArray(pairing?.gauge_stations)
+      ? pairing.gauge_stations[0]
+      : pairing?.gauge_stations;
     return {
       id: r.id,
       river_id: r.river_id,
@@ -151,6 +163,9 @@ async function drainRiverEvents(supabase: any, startedAt: number): Promise<River
       river_name: river?.name ?? null,
       river_slug: river?.slug ?? null,
       reading_at: r.reading_at,
+      gauge_name: station?.name ?? null,
+      reading_value: r.reading_value ?? null,
+      reading_unit: r.reading_unit ?? null,
     };
   });
 

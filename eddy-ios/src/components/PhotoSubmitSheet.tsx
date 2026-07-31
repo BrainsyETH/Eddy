@@ -52,6 +52,7 @@ import { ApiError, submitRiverVisual, uploadCommunityPhoto } from '@/api/client'
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { UPLOAD_SAFE_BYTES, uploadPreparation } from '@/lib/uploadPrep';
+import { warn } from '@/lib/monitoring';
 
 /**
  * The camera and the image compressor, behind a lazy require.
@@ -180,7 +181,20 @@ async function prepareUpload(asset: ImagePicker.ImagePickerAsset): Promise<Prepa
       { compress, format: manipulator.SaveFormat.JPEG },
     );
     const size = localFileSize(result.uri);
-    if (size !== null && size <= UPLOAD_SAFE_BYTES) {
+
+    // UNMEASURABLE IS NOT OVERSIZE. localFileSize returns null when
+    // expo-file-system will not load or cannot stat the URI, and the original
+    // loop treated that the same as "still too big" — so every rung failed, the
+    // throw below fired, and a perfectly small photo was rejected for a reason
+    // that had nothing to do with its size. Let the server arbitrate instead:
+    // it enforces the same limit and answers 413, which the client renders as
+    // "That photo is too large."
+    if (size === null) {
+      warn('photo', 'could not measure the encoded file; uploading anyway', { width });
+      return { uri: result.uri, capturedAt, ...decision };
+    }
+
+    if (size <= UPLOAD_SAFE_BYTES) {
       return { uri: result.uri, capturedAt, ...decision };
     }
   }

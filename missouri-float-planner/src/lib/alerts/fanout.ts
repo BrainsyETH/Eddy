@@ -18,6 +18,23 @@ export interface FanoutEvent {
   river_name?: string | null;
   river_slug?: string | null;
   reading_at?: string | null;
+  /**
+   * WHICH GAUGE MOVED, and what it said.
+   *
+   * river_condition_events has carried river_gauge_id, reading_value and
+   * reading_unit since it was created; nothing read them out, so an alert could
+   * only ever say "the Current River is running high" and leave the recipient
+   * with no way to check the claim. A river can have half a dozen pairings
+   * reading very differently — see the Jacks Fork, floatable at one gauge and
+   * too low at another — so "which one" is not a detail.
+   *
+   * All three are optional and independently nullable. The gauge is enrichment,
+   * never a precondition for delivering a safety notification: `readingSuffix`
+   * below emits nothing rather than a partial sentence.
+   */
+  gauge_name?: string | null;
+  reading_value?: number | null;
+  reading_unit?: string | null;
 }
 
 export interface FanoutSubscription {
@@ -110,30 +127,53 @@ function conditionPhrase(code: string): string {
   }
 }
 
+/**
+ * " Reading 3,100 cfs at Black River at Poplar Bluff." or an empty string.
+ *
+ * ALL OR NOTHING, on purpose. A gauge with no reading ("at Poplar Bluff" alone)
+ * invites the recipient to assume a number we did not send; a reading with no
+ * gauge is the ambiguity this was added to remove. Either the sentence can name
+ * both, or it says nothing and the notification reads exactly as it did before.
+ */
+function readingSuffix(event: FanoutEvent): string {
+  const { gauge_name: gauge, reading_value: value, reading_unit: unit } = event;
+  if (!gauge || value == null || !Number.isFinite(value) || !unit) return '';
+
+  // Whole numbers for cfs, one decimal for feet — the precision each is read at
+  // on the gauge screen, so the notification and the screen agree.
+  const isFeet = unit === 'ft';
+  const reading = isFeet
+    ? `${value.toFixed(1)} ft`
+    : `${Math.round(value).toLocaleString('en-US')} ${unit}`;
+
+  return ` Reading ${reading} at ${gauge}.`;
+}
+
 export function buildNotification(event: FanoutEvent): { title: string; body: string } {
   const river = event.river_name ?? 'Your river';
+  const reading = readingSuffix(event);
   switch (event.kind) {
     case 'floatable':
       return {
         title: `${river} is floatable`,
         // Never promise instant: USGS lag plus the cron cadence means alerts
         // land roughly 20-75 minutes behind the real transition.
-        body: `Conditions just came up to ${conditionPhrase(event.new_condition_code)}. Check the latest reading before you go.`,
+        body: `Conditions just came up to ${conditionPhrase(event.new_condition_code)}.${reading} Check the latest reading before you go.`,
       };
     case 'warning':
       return {
         title: event.new_condition_code === 'dangerous'
           ? `${river}: dangerous water`
           : `${river}: high water`,
-        body: `Conditions changed to ${conditionPhrase(event.new_condition_code)}. Planning aid only — verify locally before floating.`,
+        body: `Conditions changed to ${conditionPhrase(event.new_condition_code)}.${reading} Planning aid only — verify locally before floating.`,
       };
     case 'easing':
       return {
         title: `${river} is easing`,
-        body: `Dropped from dangerous to ${conditionPhrase(event.new_condition_code)}. Still elevated — verify locally.`,
+        body: `Dropped from dangerous to ${conditionPhrase(event.new_condition_code)}.${reading} Still elevated — verify locally.`,
       };
     default:
-      return { title: river, body: `Conditions changed to ${conditionPhrase(event.new_condition_code)}.` };
+      return { title: river, body: `Conditions changed to ${conditionPhrase(event.new_condition_code)}.${reading}` };
   }
 }
 

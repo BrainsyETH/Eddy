@@ -80,7 +80,7 @@ import {
   writeRiver,
 } from '@/lib/riverCache';
 import { CACHE_VERSION } from '@/lib/offline-cache';
-import { warn } from '@/lib/monitoring';
+import { report, warn } from '@/lib/monitoring';
 
 const BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? 'https://eddy.guide';
@@ -1615,6 +1615,29 @@ export async function uploadCommunityPhoto(
     const aborted = err instanceof Error && err.name === 'AbortError';
     if (aborted && !deadline.timedOut) throw new ApiError('Request cancelled');
     if (aborted && deadline.timedOut) throw new ApiError('Upload timed out. Try again on a stronger connection.');
+    // REPORT BEFORE REPLACING. Everything that is not an abort lands here, and
+    // "No connection" is a guess about which of them happened — a genuinely
+    // unreachable network looks identical to a file URI fetch cannot read, a
+    // body the platform rejected before the function ran, or a multipart shape
+    // the runtime would not build. Swallowing the original left the one string
+    // that names the cause nowhere at all: the route answers 200 to the same
+    // payload from curl, so the interesting failures are all on this side.
+    //
+    // warn() AS WELL AS report(), and the order matters. report() returns early
+    // when monitoring is disabled — which is Expo Go, dev, and any build
+    // without a DSN, i.e. exactly where someone is standing when they try to
+    // reproduce this. warn() console.warns first and unconditionally, so the
+    // underlying error reaches the Metro log of the session that hit it.
+    warn('photo', 'upload failed before a response', {
+      error: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
+      uriScheme: file.uri.split(':')[0] ?? 'unknown',
+      declaredType: file.type,
+    });
+    report(err, {
+      operation: 'upload.communityPhoto',
+      uriScheme: file.uri.split(':')[0] ?? 'unknown',
+      declaredType: file.type,
+    });
     throw new ApiError('No connection. Check your signal and try again.');
   } finally {
     deadline.done();

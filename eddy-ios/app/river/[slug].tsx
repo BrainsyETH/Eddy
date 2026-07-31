@@ -103,6 +103,7 @@ import { gaugeConditionCode, gaugeLink, gaugesForRiver } from '@/lib/gaugeCondit
 import { driveToUrl } from '@/lib/directions';
 import { useAccount } from '@/hooks/useAccount';
 import { usePush } from '@/hooks/usePush';
+import { useAlertRules } from '@/hooks/useAlertRules';
 import { useSession } from '@/hooks/useSession';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { readConditions, readIndex } from '@/lib/riverCache';
@@ -209,6 +210,14 @@ export default function RiverDetailScreen() {
   const [primerOpen, setPrimerOpen] = useState(false);
   const [signInOpen, setSignInOpen] = useState(false);
   const { permission, enable } = usePush();
+
+  // This screen owns the BELL, but the Alerts tab owns the LIST, and they read
+  // different things: the bell from its own fetchSubscriptions call below, the
+  // list from AlertRulesProvider. /api/me/alerts already merges river
+  // subscriptions and gauge rules server-side, so the data was never the
+  // problem — the provider's copy simply went stale the moment the bell wrote
+  // through it. Turning alerts off here left them listed as on over there.
+  const { refresh: refreshAlertRules } = useAlertRules();
   const [subscribing, setSubscribing] = useState(false);
   /**
    * Whether alerts are already on for this river.
@@ -491,6 +500,11 @@ export default function RiverDetailScreen() {
       }
       await subscribeToRiver(token, river.id, 'safety');
       setSubscribed(true);
+      // Local state first so the bell answers immediately; the provider catches
+      // up in the background. Not awaited — a slow list must not make the tap
+      // feel slow, and a failed refresh leaves a stale list rather than a
+      // subscription that did not happen.
+      void refreshAlertRules();
 
       // The subscription exists — now, and only now, is it worth spending
       // the one-shot iOS permission prompt: there is a concrete notification
@@ -505,7 +519,7 @@ export default function RiverDetailScreen() {
     } finally {
       setSubscribing(false);
     }
-  }, [river, getAccessToken, permission]);
+  }, [river, getAccessToken, permission, refreshAlertRules]);
 
   /** Turn alerts off. Deliberately reachable — see Stage 3 of the alert plan. */
   const unsubscribe = useCallback(async () => {
@@ -516,12 +530,16 @@ export default function RiverDetailScreen() {
       if (!token) return;
       await unsubscribeFromRiver(token, river.id);
       setSubscribed(false);
+      // The direction that actually got reported: alerts turned off here still
+      // showed as on in the Alerts tab, which reads as "the off switch does
+      // nothing" on a feature whose whole promise is that it stops.
+      void refreshAlertRules();
     } catch {
       setSubscribeError('Could not turn alerts off. Try again.');
     } finally {
       setSubscribing(false);
     }
-  }, [river, getAccessToken]);
+  }, [river, getAccessToken, refreshAlertRules]);
 
   const onNotify = useCallback(() => {
     setSubscribeError(null);
@@ -619,11 +637,23 @@ export default function RiverDetailScreen() {
   const shownHazards = showAllHazards ? sortedHazards : criticalHazards(hazards);
   const hiddenCount = sortedHazards.length - shownHazards.length;
 
-  // FAILS OPEN, same as the map's offline row. An unreachable /api/me/profile
-  // means we do not KNOW whether this person subscribed, and locking a paying
-  // customer's read on a river bank with one bar is a worse outcome by far than
-  // letting an unsubscribed one read it. Null is "unknown"; only false locks.
-  const entitled = accountLoaded && !accountError ? Boolean(entitlement?.isActive) : null;
+  // THREE states, because "we failed to find out" and "we have not found out
+  // yet" call for opposite defaults.
+  //
+  // FAILS OPEN on error, same as the map's offline row: an unreachable
+  // /api/me/profile means we do not KNOW whether this person subscribed, and
+  // locking a paying customer's read on a river bank with one bar is a worse
+  // outcome by far than letting an unsubscribed one read it. Null is that case.
+  //
+  // WAITS while loading. This used to collapse into the same null, so every
+  // cold open painted the full paid report until the profile call returned —
+  // the report leaked to non-subscribers on every launch, and subscribers saw
+  // it flash out and back. 'pending' renders a skeleton instead.
+  const entitled = !accountLoaded
+    ? ('pending' as const)
+    : accountError
+      ? null
+      : Boolean(entitlement?.isActive);
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
