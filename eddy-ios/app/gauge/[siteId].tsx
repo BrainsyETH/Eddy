@@ -60,6 +60,7 @@ import {
 } from '@/theme/floodStage';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { formatReading, percentileLabel, readingAge } from '@/lib/readingCopy';
 import { usgsGaugeUrl } from '@/lib/directions';
 import { gaugeSharePath } from '@/lib/share';
@@ -654,10 +655,7 @@ export default function GaugeDetailScreen() {
           </Text>
         ) : null}
 
-        <Text style={[styles.footnote, { color: colors.textSubtle }]}>
-          Readings come from the gauge operator and can trail the river. Always judge the water in
-          front of you.
-        </Text>
+        <SafetyDisclaimer />
       </ScrollView>
 
       <FeedbackSheet

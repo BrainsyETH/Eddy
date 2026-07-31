@@ -1702,10 +1702,8 @@ export type {
 // arrangement everything else in this file uses — Vercel installs only
 // missouri-float-planner/, so that app cannot import this package.
 //
-// The route is PUBLIC and rate-limited by IP; there is no token in this flow.
-// That is deliberate on the website (an accountless visitor must be able to
-// report a wrong river mile) and it is what lets the app offer the same thing
-// without making somebody sign in to say a gauge is off.
+// Every client submits through the rate-limited API route. Direct database
+// inserts are denied by RLS so callers cannot bypass its validation.
 
 /**
  * `gauge_recalibration` is "the ladder is wrong" — the water did not match the
@@ -1715,14 +1713,16 @@ export type {
  *
  * `partner` is a website-only flow (the embed workbench) and has no app surface.
  */
-export type FeedbackType =
-  | 'inaccurate_data'
-  | 'missing_access_point'
-  | 'suggestion'
-  | 'bug_report'
-  | 'other'
-  | 'partner'
-  | 'gauge_recalibration';
+export const FEEDBACK_TYPES = [
+  'inaccurate_data',
+  'missing_access_point',
+  'suggestion',
+  'bug_report',
+  'other',
+  'partner',
+  'gauge_recalibration',
+] as const;
+export type FeedbackType = (typeof FEEDBACK_TYPES)[number];
 
 export type FeedbackContextType = 'gauge' | 'access_point' | 'river' | 'general';
 

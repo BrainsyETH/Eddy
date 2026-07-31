@@ -3,11 +3,16 @@
 // GET /api/feedback - List feedback (admin only)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth } from '@/lib/admin-auth';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
-import type { CreateFeedbackRequest, FeedbackResponse, Feedback, FeedbackListResponse } from '@/types/api';
+import {
+  FEEDBACK_TYPES,
+  type CreateFeedbackRequest,
+  type FeedbackResponse,
+  type Feedback,
+  type FeedbackListResponse,
+} from '@/types/api';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -68,26 +73,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Must stay in step with the CHECK constraint (migration 00208) and the
-    // FeedbackType union in src/types/api.ts — a type this list allows but the
-    // constraint does not is a 500 where the user should have got a 400.
-    const validTypes = [
-      'inaccurate_data',
-      'missing_access_point',
-      'suggestion',
-      'bug_report',
-      'other',
-      'partner',
-      'gauge_recalibration',
-    ];
-    if (!validTypes.includes(feedbackType)) {
+    // Must stay in step with the CHECK constraint (migration 00208). The test
+    // suite compares this shared contract with the latest constraint so a new
+    // client type cannot turn into a production 500 again.
+    if (!FEEDBACK_TYPES.includes(feedbackType)) {
       return NextResponse.json(
         { success: false, error: 'Invalid feedback type' } as FeedbackResponse,
         { status: 400 }
       );
     }
 
-    const supabase = await createClient();
+    // All clients submit through this rate-limited, validated route.
+    // Using the anon client here made INSERT ... RETURNING fail its SELECT RLS
+    // policy even after the insert itself was accepted.
+    const supabase = createAdminClient();
 
     // Insert feedback
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

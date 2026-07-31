@@ -35,6 +35,7 @@ import { AlertRulesProvider } from '@/hooks/useAlertRules';
 import { PushProvider } from '@/hooks/usePush';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { UpgradeGate } from '@/components/UpgradeGate';
+import { OnboardingGate } from '@/components/OnboardingGate';
 import { type as t } from '@/theme/typography';
 import { darkPalette, lightPalette } from '@/theme/palette';
 import { report, warn } from '@/lib/monitoring';
@@ -294,7 +295,9 @@ function ThemedShell() {
       {/* Follows the scheme rather than being pinned light — on the light theme
           white status-bar text would be invisible against the off-white canvas. */}
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false }} />
+      <OnboardingGate>
+        <Stack screenOptions={{ headerShown: false }} />
+      </OnboardingGate>
     </View>
   );
 }

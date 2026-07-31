@@ -63,6 +63,7 @@ import { Otter, otterForCondition } from '@/components/Otter';
 import { PlanAlongRoute } from '@/components/PlanAlongRoute';
 import { PlanNearby } from '@/components/PlanNearby';
 import { EddySymbol } from '@/components/EddySymbol';
+import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 
 interface Props {
   plan: FloatPlan;
@@ -204,6 +205,8 @@ export function PlanResult({ plan, actions }: Props) {
       <PlanAlongRoute plan={plan} />
 
       <PlanNearby plan={plan} />
+
+      <SafetyDisclaimer />
 
       {actions}
     </ScrollView>

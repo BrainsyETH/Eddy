@@ -42,11 +42,13 @@ import {
   fetchOfferings,
   identifyUser,
   packageCta,
+  PREMIUM_UNAVAILABLE_COPY,
   purchasePackage,
   purchasesUnavailableReason,
   restorePurchases,
   type PurchasePackage,
 } from '@/lib/purchases';
+import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
 
 interface Props {
   visible: boolean;
@@ -96,8 +98,6 @@ const BENEFITS: { symbol: EddySymbolName; title: string; body: string }[] = [
 // App Store review requires a subscription screen to link to both the terms
 // (EULA) and the privacy policy. These are not optional decoration — a paywall
 // without them is a rejection.
-const TERMS_URL = 'https://eddy.guide/terms';
-const PRIVACY_URL = 'https://eddy.guide/privacy';
 
 export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props) {
   const { colors, elevation } = useTheme();
@@ -124,7 +124,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
       const result = await fetchOfferings();
       if (cancelled) return;
       setPackages(result.packages);
-      setLoadError(result.error);
+      setLoadError(result.status === 'unavailable' ? PREMIUM_UNAVAILABLE_COPY : null);
     })();
 
     return () => {
@@ -240,14 +240,10 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
             </View>
           ))}
 
-          {/* The honesty line. Everything sold above is built on the same USGS
-              readings as the free tier, and the forecast inherits their lag —
-              so the caveat belongs on the purchase screen rather than only in
-              the app. It used to describe alert latency; alerts are free now,
-              and that version of this sentence lives in PushPrimer. */}
-          <Text style={[styles.honesty, { color: colors.textSubtle }]}>
-            Readings come from USGS gauges and can trail the river by up to about an hour. The
-            outlook is a forecast, not a promise.
+          {/* Forecast uncertainty belongs on the screen that takes money for
+              the outlook. A general river disclaimer does not say this. */}
+          <Text style={[styles.forecastCaveat, { color: colors.error }]}>
+            The outlook is a forecast, not a promise. Conditions can change before your trip.
           </Text>
 
           <Text style={[styles.freeNote, { color: colors.textSubtle }]}>
@@ -304,7 +300,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
             <View style={[styles.pending, { backgroundColor: colors.cardRaised }]}>
               <Ionicons name="time-outline" size={16} color={colors.textMuted} />
               <Text style={[styles.pendingText, { color: colors.textMuted }]}>
-                {loadError ?? 'Subscriptions are not available in this build.'}
+                {loadError ?? PREMIUM_UNAVAILABLE_COPY}
               </Text>
             </View>
           ) : packages === null ? (
@@ -398,7 +394,7 @@ const styles = StyleSheet.create({
   benefitText: { flex: 1 },
   benefitTitle: { ...t.sm, fontFamily: fonts.semibold },
   benefitBody: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
-  honesty: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: 14 },
+  forecastCaveat: { ...t.xs, fontFamily: fonts.semibold, textAlign: 'center', marginTop: 14 },
   freeNote: { ...t.xs, fontFamily: fonts.medium, textAlign: 'center', marginTop: 10 },
   legal: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: 14 },
   legalLinks: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },

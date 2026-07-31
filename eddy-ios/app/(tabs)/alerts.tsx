@@ -545,12 +545,11 @@ export default function AlertsScreen() {
         }
         ListFooterComponent={
           highWaterRows.length > 0 ? (
-            // The honesty line. Every row above is a stored reading, and USGS
-            // reporting lag plus the ingest cadence puts it up to about an hour
-            // behind the river itself.
-            <Text style={[styles.footnote, { color: colors.textSubtle }]}>
-              Readings can lag the river by up to about an hour. Never judge a
-              crossing from a number alone.
+            // Every row above is a stored reading. State the actual limitation
+            // instead of substituting a generic safety disclaimer.
+            <Text style={[styles.lagNote, { color: colors.textMuted }]}>
+              Gauge readings can trail the river by up to about an hour. Check again before
+              getting on the water.
             </Text>
           ) : null
         }
@@ -682,7 +681,7 @@ const styles = StyleSheet.create({
   headline: { ...t.sm, fontFamily: fonts.semibold, marginTop: 3 },
   detail: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
   chip: { padding: 8, borderRadius: 999, marginRight: 14 },
-  footnote: {
+  lagNote: {
     ...t.xs,
     fontFamily: fonts.body,
     textAlign: 'center',

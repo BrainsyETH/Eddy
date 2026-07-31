@@ -1078,11 +1078,13 @@ export default function ReportsScreen() {
         onEndReached={search.loadMore}
         onEndReachedThreshold={0.6}
         ListFooterComponent={
-          search.hasMore || (search.searching && rows.length > 0) ? (
-            <View style={styles.footer}>
-              <ActivityIndicator color={colors.interactive} />
-            </View>
-          ) : null
+          <View>
+            {search.hasMore || (search.searching && rows.length > 0) ? (
+              <View style={styles.footer}>
+                <ActivityIndicator color={colors.interactive} />
+              </View>
+            ) : null}
+          </View>
         }
         renderItem={({ item }) => {
           // A heading, only ever emitted by the All scope. It carries its own

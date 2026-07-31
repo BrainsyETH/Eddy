@@ -50,6 +50,26 @@ let cached: PurchasesModule | null = null;
 let configuredFor: string | null = null;
 
 /**
+ * Purchases is imported by the web test harness, where Sentry's native module
+ * is intentionally absent. Resolve diagnostics only when a real failure needs
+ * reporting so this file keeps its native-safe import contract.
+ */
+interface PurchaseDiagnostics {
+  report(error: unknown, context?: Record<string, unknown>): void;
+  warn(tag: 'purchase', message: string, detail?: unknown): void;
+}
+
+function purchaseDiagnostics(): PurchaseDiagnostics | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { report, warn } = require('./monitoring') as PurchaseDiagnostics;
+    return { report, warn };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The native module, or null in Expo Go.
  *
  * Required lazily so that merely importing this file cannot break the JS
@@ -193,10 +213,14 @@ export function packageCta(pkg: PurchasePackage): string {
   return pkg.title;
 }
 
-export interface OfferingsResult {
-  packages: PurchasePackage[];
-  /** Set when nothing can be offered; the paywall explains rather than hanging. */
-  error: string | null;
+export type OfferingsResult =
+  | { status: 'ok'; packages: PurchasePackage[] }
+  | { status: 'unavailable'; packages: [] };
+
+export const PREMIUM_UNAVAILABLE_COPY = "Premium isn't available right now.";
+
+export function unavailableOfferings(): OfferingsResult {
+  return { status: 'unavailable', packages: [] };
 }
 
 /**
@@ -209,7 +233,7 @@ export interface OfferingsResult {
 export async function fetchOfferings(): Promise<OfferingsResult> {
   const Purchases = loadPurchases();
   if (!Purchases) {
-    return { packages: [], error: 'Subscriptions are unavailable in this build.' };
+    return unavailableOfferings();
   }
 
   try {
@@ -221,7 +245,11 @@ export async function fetchOfferings(): Promise<OfferingsResult> {
       // Almost always configuration rather than code: no offering marked
       // current in RevenueCat, or products not yet approved in App Store
       // Connect. Say something a person can act on instead of showing nothing.
-      return { packages: [], error: 'No subscription options are available right now.' };
+      purchaseDiagnostics()?.warn(
+        'purchase',
+        'RevenueCat returned no packages for the current offering',
+      );
+      return unavailableOfferings();
     }
 
     const mapped: PurchasePackage[] = available.map((pkg) => {
@@ -239,10 +267,12 @@ export async function fetchOfferings(): Promise<OfferingsResult> {
     });
 
     mapped.sort((a, b) => Number(b.recommended) - Number(a.recommended));
-    return { packages: mapped, error: null };
-  } catch (err) {
-    const message = (err as { message?: string })?.message;
-    return { packages: [], error: message ?? 'Could not load subscription options.' };
+    return { status: 'ok', packages: mapped };
+  } catch (error) {
+    // RevenueCat's errors describe dashboard and StoreKit configuration. They
+    // belong in diagnostics, never verbatim on a customer-facing paywall.
+    purchaseDiagnostics()?.report(error, { operation: 'revenuecat.fetchOfferings' });
+    return unavailableOfferings();
   }
 }
 

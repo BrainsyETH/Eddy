@@ -699,14 +699,16 @@ export interface UpdateAccessPointRequest extends Partial<CreateAccessPointReque
  * It is deliberately separate from `inaccurate_data`, which collects
  * corrections to rows somebody typed; see migration 00208.
  */
-export type FeedbackType =
-  | 'inaccurate_data'
-  | 'missing_access_point'
-  | 'suggestion'
-  | 'bug_report'
-  | 'other'
-  | 'partner'
-  | 'gauge_recalibration';
+export const FEEDBACK_TYPES = [
+  'inaccurate_data',
+  'missing_access_point',
+  'suggestion',
+  'bug_report',
+  'other',
+  'partner',
+  'gauge_recalibration',
+] as const;
+export type FeedbackType = (typeof FEEDBACK_TYPES)[number];
 export type FeedbackContextType = 'gauge' | 'access_point' | 'river' | 'general';
 export type FeedbackStatus = 'pending' | 'reviewed' | 'resolved' | 'dismissed';
 

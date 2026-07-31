@@ -65,6 +65,7 @@ export type LogTag =
   | 'chart'
   | 'cache'
   | 'photo'
+  | 'purchase'
   | 'launch';
 
 /**

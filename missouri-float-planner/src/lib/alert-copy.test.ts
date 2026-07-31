@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 
 // Mirrors eddy-ios/src/lib/alertCopy.ts. The app has no test runner yet, so the
 // pure logic is covered here — the timestamp rule below is a correctness claim
@@ -57,4 +58,11 @@ test('detection lag on the first live events sat inside the stated window', () =
       new Date('2026-07-26T08:30:00.000Z').getTime()) /
     60000;
   assert.ok(lagMinutes >= 20 && lagMinutes <= 75, `lag was ${lagMinutes} min`);
+});
+
+test('alert surfaces state their real latency instead of a generic caveat', () => {
+  const primer = readFileSync('../eddy-ios/src/components/PushPrimer.tsx', 'utf8');
+  const tab = readFileSync('../eddy-ios/app/(tabs)/alerts.tsx', 'utf8');
+  assert.match(primer, /roughly 20–75\s*minutes/i);
+  assert.match(tab, /up to about an hour/i);
 });

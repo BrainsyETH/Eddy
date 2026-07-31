@@ -78,6 +78,7 @@ import {
   readingAge,
 } from '@/lib/readingCopy';
 import { EddySymbol } from '@/components/EddySymbol';
+import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { EddyTake } from '@/components/EddyTake';
 import { RiverDamPanel, damForRiver } from '@/components/dam/RiverDamPanel';
 import { RiverReaches } from '@/components/river/RiverReaches';
@@ -1200,10 +1201,7 @@ export default function RiverDetailScreen() {
           </CollapsibleSection>
         ) : null}
 
-        <Text style={[styles.footnote, { color: colors.textSubtle }]}>
-          Conditions come from USGS gauges and can trail the river. Always judge the water in front
-          of you.
-        </Text>
+        <SafetyDisclaimer />
 
         {/* ── Directly under the disclaimer, on purpose ──
             The line above tells someone the reading can be wrong. This is what

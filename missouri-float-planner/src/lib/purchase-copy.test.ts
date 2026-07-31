@@ -12,10 +12,13 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import {
   packageCta,
+  PREMIUM_UNAVAILABLE_COPY,
   subscriptionSummary,
   trialDaysFromIntroPrice,
+  unavailableOfferings,
   type PurchasePackage,
 } from '../../../eddy-ios/src/lib/purchases';
 
@@ -51,6 +54,24 @@ test('a missing price never renders as an empty or bare button', () => {
   // "Yearly · " would be worse than one that simply names the plan.
   assert.equal(packageCta(pkg({ priceString: '' })), 'Yearly');
   assert.equal(packageCta(pkg({ priceString: '', trialDays: 7 })), 'Yearly');
+});
+
+test('empty offerings produce a safe customer-facing unavailable state', () => {
+  assert.deepEqual(unavailableOfferings(), { status: 'unavailable', packages: [] });
+  assert.equal(PREMIUM_UNAVAILABLE_COPY, "Premium isn't available right now.");
+  assert.doesNotMatch(PREMIUM_UNAVAILABLE_COPY, /configuration|sdk|revenuecat|storekit/i);
+});
+
+test('offering failures stay customer-safe and reach diagnostics lazily', () => {
+  const purchases = readFileSync('../eddy-ios/src/lib/purchases.ts', 'utf8');
+  assert.match(purchases, /require\(['"]\.\/monitoring['"]\)/);
+  assert.match(purchases, /report\(error, \{ operation: 'revenuecat\.fetchOfferings' \}\)/);
+  assert.match(purchases, /warn\([\s\S]*'purchase'[\s\S]*no packages/);
+});
+
+test('the paywall states forecast uncertainty explicitly', () => {
+  const paywall = readFileSync('../eddy-ios/src/components/PaywallSheet.tsx', 'utf8');
+  assert.match(paywall, /outlook is a forecast, not a promise/i);
 });
 
 test('the localised price string is passed through untouched', () => {

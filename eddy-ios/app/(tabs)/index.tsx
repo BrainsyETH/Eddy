@@ -910,7 +910,6 @@ export default function MapScreen() {
         </View>
       ) : null}
 
-
       <View style={styles.mapArea}>
         {unavailable ? (
           <MapUnavailable reason={unavailable} />
