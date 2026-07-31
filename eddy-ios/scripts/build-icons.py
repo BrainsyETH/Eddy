@@ -28,11 +28,12 @@ Three iOS-specific rules are encoded here:
 
 from pathlib import Path
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageOps
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "missouri-float-planner/remotion/public/eddy/eddy-favicon.png"
 OUT = ROOT / "eddy-ios/assets"
+POLISHED_LIGHT = OUT / "icon-polished-light.png"
 
 SIZE = 1024
 
@@ -83,6 +84,29 @@ def tinted(art: Image.Image) -> Image.Image:
     return centred(out, ICON_FILL, None)
 
 
+def polished_splash() -> Image.Image:
+    """Remove only the edge-connected white card from the polished icon."""
+    source = Image.open(POLISHED_LIGHT).convert("RGB")
+    filled = source.copy()
+    sentinel = (255, 0, 255)
+    edge = filled.width - 1
+    for corner in ((0, 0), (edge, 0), (0, edge), (edge, edge)):
+        if filled.getpixel(corner) != sentinel:
+            ImageDraw.floodfill(filled, corner, sentinel, thresh=12)
+
+    hits = None
+    for channel, value in zip(filled.split(), sentinel):
+        match = channel.point(lambda pixel, wanted=value: 255 if pixel == wanted else 0)
+        hits = match if hits is None else ImageChops.multiply(hits, match)
+
+    result = source.convert("RGBA")
+    result.putalpha(ImageChops.invert(hits))
+    # The splash renders at 220pt; keeping a million-colour 1024px gradient is
+    # a megabyte of bundle for detail the screen cannot display. FASTOCTREE
+    # preserves the alpha channel while reducing the asset to a compact palette.
+    return result.quantize(colors=255, method=Image.FASTOCTREE)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     art = artwork()
@@ -101,7 +125,12 @@ def main() -> None:
     # one asset serves both light and dark.
     centred(art, 1.0, None).save(OUT / "splash-icon.png")
 
-    for name in ("icon", "icon-dark", "icon-tinted", "splash-icon"):
+    # The App Store icon is the newer polished rendering, but it is opaque by
+    # requirement. Cut only its edge-connected white card so one polished RGBA
+    # asset can sit on both splash backgrounds without a white square.
+    polished_splash().save(OUT / "splash-icon-polished.png", optimize=True)
+
+    for name in ("icon", "icon-dark", "icon-tinted", "splash-icon", "splash-icon-polished"):
         im = Image.open(OUT / f"{name}.png")
         print(f"{name + '.png':20} {im.size[0]}x{im.size[1]}  {im.mode}")
 

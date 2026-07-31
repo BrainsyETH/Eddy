@@ -77,16 +77,25 @@ interface Props {
  * always free. It contradicted itself on one screen, in both directions at
  * once.
  *
- * So this is now the two things Premium actually delivers. It reads as less
- * because it was overstated, not because anything was taken away — and it
- * finally mentions Eddy's take, which is the strongest thing behind the wall
- * and was not on the list at all.
+ * The entries below stay within the two actual gates, but name the concrete
+ * decisions the written read answers instead of collapsing them into one vague
+ * promise.
  */
 const BENEFITS: { symbol: EddySymbolName; title: string; body: string }[] = [
   {
     symbol: 'eddyRated',
-    title: "Eddy's take on the day",
-    body: 'A written read on the last 72 hours, the weather ahead, and the bottom line — whether to get on the water at all.',
+    title: 'A bottom line for today',
+    body: "Eddy's written call on whether the current reading supports getting on the water.",
+  },
+  {
+    symbol: 'water',
+    title: 'The last 72 hours, interpreted',
+    body: 'See whether the river is rising, falling, or holding in context — not just one number.',
+  },
+  {
+    symbol: 'weather',
+    title: 'Weather ahead, connected to the river',
+    body: 'Understand what forecast rain may change and what to watch before launch.',
   },
   {
     symbol: 'offlineMap',
@@ -246,6 +255,11 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
             The outlook is a forecast, not a promise. Conditions can change before your trip.
           </Text>
 
+          <Text style={[styles.gratitude, { color: colors.textMuted }]}>
+            Thank you. Eddy is built by one person, and a subscription is what keeps the gauges,
+            the maps and the alerts running.
+          </Text>
+
           <Text style={[styles.freeNote, { color: colors.textSubtle }]}>
             River conditions, gauge readings, hazard information and alerts are always free — and
             the last ones you saw stay on your phone when the signal goes.
@@ -378,6 +392,7 @@ const styles = StyleSheet.create({
   },
   benefit: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     alignSelf: 'stretch',
     gap: 13,
     padding: 14,
@@ -390,13 +405,15 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 1,
   },
   benefitText: { flex: 1 },
   benefitTitle: { ...t.sm, fontFamily: fonts.semibold },
   benefitBody: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
-  forecastCaveat: { ...t.xs, fontFamily: fonts.semibold, textAlign: 'center', marginTop: 14 },
-  freeNote: { ...t.xs, fontFamily: fonts.medium, textAlign: 'center', marginTop: 10 },
-  legal: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: 14 },
+  forecastCaveat: { ...t.xs, fontFamily: fonts.semibold, alignSelf: 'stretch', marginTop: 14 },
+  gratitude: { ...t.xs, fontFamily: fonts.body, alignSelf: 'stretch', marginTop: 14 },
+  freeNote: { ...t.xs, fontFamily: fonts.medium, alignSelf: 'stretch', marginTop: 10 },
+  legal: { ...t.xs, fontFamily: fonts.body, alignSelf: 'stretch', marginTop: 14 },
   legalLinks: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
   legalLink: { ...t.xs, fontFamily: fonts.semibold, textDecorationLine: 'underline' },
   footer: { paddingHorizontal: 24, paddingTop: 14, paddingBottom: 28, borderTopWidth: 1, gap: 10 },

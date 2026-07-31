@@ -14,7 +14,7 @@
 // initial HTML: a closure is exactly the thing that should not wait on
 // hydration, and it is the thing a crawler should see.
 
-import { AlertTriangle, ExternalLink, Info, Ban } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Info, Ban, ChevronDown } from 'lucide-react';
 import type { RiverAlert, RiverAlertSeverity } from '@/types/api';
 
 /**
@@ -59,8 +59,31 @@ export default function RiverAlertsPanel({ alerts }: { alerts: RiverAlert[] }) {
   // position to make, since it cannot tell an all-clear from an outage.
   if (alerts.length === 0) return null;
 
+  const warningCount = alerts.filter((alert) => alert.severity === 'warning').length;
+  const summarySeverity: RiverAlertSeverity = warningCount
+    ? 'warning'
+    : alerts.some((alert) => alert.severity === 'watch')
+      ? 'watch'
+      : 'notice';
+  const summaryStyle = STYLES[summarySeverity];
+  const SummaryIcon = summaryStyle.icon;
+  const summary = `${alerts.length} ${alerts.length === 1 ? 'alert' : 'alerts'}${
+    warningCount ? ` · ${warningCount} ${warningCount === 1 ? 'warning' : 'warnings'}` : ''
+  }`;
+
   return (
-    <div className="space-y-2">
+    <details className="group" open={warningCount > 0}>
+      <summary
+        className={`flex cursor-pointer list-none items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-bold [&::-webkit-details-marker]:hidden ${summaryStyle.wrap}`}
+      >
+        <SummaryIcon className={`h-4 w-4 ${summaryStyle.iconClass}`} aria-hidden="true" />
+        <span className="flex-1">{summary}</span>
+        <ChevronDown
+          className="h-4 w-4 transition-transform group-open:rotate-180"
+          aria-hidden="true"
+        />
+      </summary>
+      <div className="mt-2 space-y-2">
       {alerts.map((alert) => {
         const style = STYLES[alert.severity];
         const Icon = style.icon;
@@ -102,6 +125,7 @@ export default function RiverAlertsPanel({ alerts }: { alerts: RiverAlert[] }) {
           </div>
         );
       })}
-    </div>
+      </div>
+    </details>
   );
 }

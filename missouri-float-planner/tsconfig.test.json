@@ -10,8 +10,8 @@
     "there and broke the deploy. The web production build has no business",
     "type-checking tests, and now does not.",
     "",
-    "WHY THE PATH ALIAS IS HERE: it lets these tests resolve @eddy/types",
-    "from the package source directly, so CI does not need the Expo app",
+    "WHY THE PATH ALIASES ARE HERE: they let these tests resolve the shared",
+    "Eddy packages from source directly, so CI does not need the Expo app",
     "installed to check them.",
     "",
     "It is a SUPERSET of the build config rather than tests-only: replacing",
@@ -30,6 +30,12 @@
       ],
       "@eddy/types": [
         "../packages/eddy-types/index.ts"
+      ],
+      "@eddy/conditions": [
+        "./shared/condition-system.ts"
+      ],
+      "@eddy/conditions/*": [
+        "./shared/*"
       ]
     }
   },

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import { CONDITION_KINDS } from '../../../eddy-ios/src/lib/alertKinds';
 
 // Mirrors eddy-ios/src/lib/alertCopy.ts. The app has no test runner yet, so the
 // pure logic is covered here — the timestamp rule below is a correctness claim
@@ -20,6 +21,14 @@ function relativeTime(iso: string | null, now: Date): string {
 }
 
 const NOW = new Date('2026-07-26T12:00:00.000Z');
+
+test('new alert flows present Safety as the default choice', () => {
+  assert.equal(CONDITION_KINDS[0]?.value, 'safety');
+  assert.deepEqual(
+    CONDITION_KINDS.map((kind) => kind.value),
+    ['safety', 'floatable', 'all'],
+  );
+});
 
 test('formats recent times compactly', () => {
   assert.equal(relativeTime('2026-07-26T11:59:30.000Z', NOW), 'just now');
@@ -65,4 +74,9 @@ test('alert surfaces state their real latency instead of a generic caveat', () =
   const tab = readFileSync('../eddy-ios/app/(tabs)/alerts.tsx', 'utf8');
   assert.match(primer, /roughly 20–75\s*minutes/i);
   assert.match(tab, /up to about an hour/i);
+});
+
+test('the collapsed web alerts region keeps an accessible section heading', () => {
+  const page = readFileSync('src/app/rivers/[state]/[slug]/page.tsx', 'utf8');
+  assert.match(page, /<section id="alerts"[\s\S]*<h2 className="sr-only">Alerts<\/h2>/);
 });

@@ -19,6 +19,7 @@ import { idleWindowSentence } from '@eddy/conditions/dam-schedule-copy';
 import { DayBars } from '@/components/dam/DayBars';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { KindMark } from '@/components/KindMark';
 
 function DamRowComponent({
   dam,
@@ -68,6 +69,7 @@ function DamRowComponent({
       accessibilityRole="button"
     >
       <View style={styles.topRow}>
+        <KindMark kind="dam" color={colors.textMuted} />
         <View style={styles.main}>
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
             {dam.name}

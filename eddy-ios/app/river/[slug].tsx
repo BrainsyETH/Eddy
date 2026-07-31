@@ -80,7 +80,7 @@ import {
 import { EddySymbol } from '@/components/EddySymbol';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { EddyTake } from '@/components/EddyTake';
-import { RiverDamPanel, damForRiver } from '@/components/dam/RiverDamPanel';
+import { damForRiver } from '@/components/dam/RiverDamPanel';
 import { RiverReaches } from '@/components/river/RiverReaches';
 import { GaugeChart } from '@/components/GaugeChart';
 import { OUTFITTER_SERVICE_TYPES } from '@/map/layers';
@@ -472,12 +472,9 @@ export default function RiverDetailScreen() {
   /**
    * Create the alert subscription.
    *
-   * `kind: 'all'` and not `'floatable'`, which is the bug this whole change
-   * exists to fix. The event vocabulary and the subscription vocabulary differ
-   * on purpose (see subscriptionKindsFor in the web app's fanout.ts): a
-   * `warning` event matches only `safety` and `all`. Asking for `'floatable'`
-   * therefore made a danger alert structurally impossible to receive, while the
-   * primer two screens down promised exactly that.
+   * Safety is the one-tap default. It covers high and dangerous transitions
+   * without also opting someone into routine floatability news; the full alert
+   * editor still offers both broader choices.
    *
    * No paywall path any more. A missing session is an AUTH problem and gets a
    * sign-in sheet; presenting an offer to sell something to someone whose token
@@ -492,7 +489,7 @@ export default function RiverDetailScreen() {
         setSignInOpen(true);
         return;
       }
-      await subscribeToRiver(token, river.id, 'all');
+      await subscribeToRiver(token, river.id, 'safety');
       setSubscribed(true);
 
       // The subscription exists — now, and only now, is it worth spending
@@ -819,21 +816,6 @@ export default function RiverDetailScreen() {
           />
         ) : null}
 
-        {/* ── The dam, when one controls this reach. ──
-            BELOW the photos rather than above Eddy's Take, which is where it
-            used to sit. The old argument was that on a regulated river the
-            release IS the reason for the reading, so the dam belonged next to
-            the number it explains. True, and still the reason this is not
-            further down — but it put a turbine schedule between the verdict and
-            what the river looks like, which is machinery interrupting the two
-            things somebody opened the screen to read. The column now runs:
-            what the river IS, what to do about it, what that looks like, and
-            then why it is doing that.
-
-            Renders nothing on the other twenty-three rivers, so nothing below
-            shifts on any of them. */}
-        <RiverDamPanel dam={dam} />
-
         {/* ── How it got to that number ──────────────────────────
             BELOW the photos, and that order is the argument the whole column
             makes: the card says what the river IS, the take says what to do
@@ -865,9 +847,8 @@ export default function RiverDetailScreen() {
             deliberately quiet — outlined rather than filled — so the screen
             stops selling something the user has already agreed to.
 
-            The copy no longer says "when it's floatable": the subscription is
-            `kind: 'all'`, so it covers danger too, and it is standing rather
-            than one-shot. */}
+            The one-tap subscription is safety-first and standing rather than
+            one-shot. */}
         <Pressable
           onPress={onNotify}
           disabled={subscribing}
@@ -1229,6 +1210,21 @@ export default function RiverDetailScreen() {
           </CollapsibleSection>
         ) : null}
 
+        {dam ? (
+          <Pressable
+            onPress={() => router.push(`/dam/${dam.id}`)}
+            style={({ pressed }) => [styles.damLink, { opacity: pressed ? 0.6 : 1 }]}
+            accessibilityRole="button"
+            accessibilityLabel={`${dam.name} controls this reach`}
+          >
+            <Ionicons name="water-outline" size={16} color={colors.interactive} />
+            <Text style={[styles.damLinkText, { color: colors.textMuted }]}>
+              {dam.name} controls this reach
+            </Text>
+            <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
+          </Pressable>
+        ) : null}
+
         <SafetyDisclaimer />
 
         {/* ── Directly under the disclaimer, on purpose ──
@@ -1431,6 +1427,13 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 13,
   },
+  damLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+  },
+  damLinkText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
   serviceBody: { flex: 1 },
   serviceName: { ...t.sm, fontFamily: fonts.semibold },
   serviceMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },

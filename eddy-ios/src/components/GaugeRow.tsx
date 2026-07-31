@@ -37,6 +37,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { gaugeConditionCode, gaugeReadingText } from '@/lib/gaugeCondition';
 import { readingAge } from '@/lib/readingCopy';
+import { KindMark } from '@/components/KindMark';
 
 interface Props {
   /** Name from the local store, so the row renders before /api/gauges lands. */
@@ -88,6 +89,9 @@ function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleS
           .filter(Boolean)
           .join(', ')}
       >
+        <View style={styles.kindMark}>
+          <KindMark kind="gauge" color={colors.textMuted} />
+        </View>
         <View style={styles.titleLine}>
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
             {name}
@@ -144,7 +148,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   stripe: { width: 4 },
-  main: { flex: 1, paddingVertical: 11, paddingLeft: 12, paddingRight: 4 },
+  main: { flex: 1, paddingVertical: 11, paddingLeft: 41, paddingRight: 4 },
+  kindMark: { position: 'absolute', left: 12, top: 14 },
   titleLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   name: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
   conditionWord: { ...t.xs, fontFamily: fonts.semibold },

@@ -55,7 +55,8 @@ export default function EditAlertScreen() {
     [rules, id, source],
   );
 
-  const [conditionKind, setConditionKind] = useState<AlertSubscriptionKind>('all');
+  // Placeholder only. Once the requested rule resolves, its stored kind wins.
+  const [conditionKind, setConditionKind] = useState<AlertSubscriptionKind>('safety');
   const [comparator, setComparator] = useState<AlertComparator>('above');
   const [value, setValue] = useState('');
   const [valueMax, setValueMax] = useState('');

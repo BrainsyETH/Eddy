@@ -28,6 +28,12 @@
       ],
       "@shared/*": [
         "./shared/*"
+      ],
+      "@eddy/conditions": [
+        "./shared/condition-system.ts"
+      ],
+      "@eddy/conditions/*": [
+        "./shared/*"
       ]
     }
   },

@@ -9,42 +9,10 @@
 import { memo } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { SearchResult, SearchResultKind } from '@eddy/types';
-import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
+import type { SearchResult } from '@eddy/types';
+import { KindMark } from '@/components/KindMark';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-
-/**
- * Eddy's own mark for every searchable content kind.
- *
- * A row here is scanned for its KIND before its name — three results called
- * "Akers" are a river, a gauge and a ramp — and a branded droplet against a
- * branded pin and river separate them at a glance in a way that three grey
- * outline glyphs never did.
- */
-const KIND_SYMBOL: Partial<Record<SearchResultKind, EddySymbolName>> = {
-  river: 'river',
-  gauge: 'gauge',
-  access_point: 'accessPoint',
-};
-
-/** Kept as a defensive fallback if the shared result kind grows first. */
-const KIND_ICON: Record<SearchResultKind, React.ComponentProps<typeof Ionicons>['name']> = {
-  river: 'water-outline',
-  gauge: 'speedometer-outline',
-  access_point: 'location-outline',
-};
-
-const MARK_SIZE = 17;
-
-function KindMark({ kind, color }: { kind: SearchResultKind; color: string }) {
-  const symbol = KIND_SYMBOL[kind];
-  return symbol ? (
-    <EddySymbol name={symbol} size={MARK_SIZE} />
-  ) : (
-    <Ionicons name={KIND_ICON[kind]} size={MARK_SIZE} color={color} />
-  );
-}
 
 interface Props {
   results: SearchResult[];

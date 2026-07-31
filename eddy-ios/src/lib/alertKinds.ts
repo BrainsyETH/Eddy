@@ -56,11 +56,11 @@ export interface AlertKindOption {
 }
 
 /**
- * Ordered widest-first, so the default sits at the top where it is chosen
- * without reading the other two.
+ * Ordered default-first, so the safest useful choice is visible before the
+ * broader and noisier options.
  */
 export const CONDITION_KINDS: AlertKindOption[] = [
-  { value: 'all', label: 'Everything', hint: 'Floatable news and safety warnings' },
-  { value: 'floatable', label: 'Floatable', hint: 'Only when it comes up to floatable' },
   { value: 'safety', label: 'Safety', hint: 'Only high and dangerous water' },
+  { value: 'floatable', label: 'Floatable', hint: 'Only when it comes up to floatable' },
+  { value: 'all', label: 'Everything', hint: 'Floatable news and safety warnings' },
 ];
