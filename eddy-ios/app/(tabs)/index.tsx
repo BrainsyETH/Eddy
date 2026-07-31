@@ -23,10 +23,10 @@
 // Geometry loads per river, and this screen used to blank the map to a spinner
 // while the next one arrived — which on a fast tap reads as the app restarting.
 // The previously loaded river therefore keeps drawing until the new one lands,
-// and the only signal is a small pill over the map. Everything downstream of the
-// map (the planner, the offline row, the line colour) is keyed off the river
-// actually being DRAWN rather than the one selected, so nothing is ever a
-// half-second out of step with what is on screen.
+// and the only signal is a small pill over the map. Map-only UI (the offline
+// row and line colour) follows the river actually being DRAWN. The planner is
+// intentionally different: it follows the selected river and reads its cached
+// access points, so it never waits for full-resolution geometry.
 //
 // ── Mapbox may be absent ────────────────────────────────────────────────────
 // The native module cannot run in Expo Go, so instead of a red screen the tab
@@ -104,6 +104,7 @@ import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
 import { gaugePlaceLabel } from '@/lib/gaugeCondition';
 import { readingAge } from '@/lib/readingCopy';
+import { readRiver } from '@/lib/riverCache';
 import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
 import { rememberGauge, seedFromMapGauge, seedFromMapGaugeLite } from '@/lib/gaugeSeed';
 import { usgsGaugeUrl } from '@/lib/directions';
@@ -113,7 +114,7 @@ import { useEddySearch } from '@/hooks/useEddySearch';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { useAccount } from '@/hooks/useAccount';
 import { useAppConfig } from '@/hooks/useAppConfig';
-import { useLocation } from '@/hooks/useLocation';
+import { milesBetween, useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
 import { warn } from '@/lib/monitoring';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -215,6 +216,10 @@ export default function MapScreen() {
   const [pickedSlug, setPickedSlug] = useState<string | null>(null);
   const [detail, setDetail] = useState<RiverDetail | null>(null);
   const [accessPoints, setAccessPoints] = useState<MapAccessPoint[]>([]);
+  // Planner data is tagged separately from what the map is drawing. The map
+  // deliberately keeps the previous river visible during a switch; the planner
+  // must never pair that river's access points with the newly selected river.
+  const [plannerAccess, setPlannerAccess] = useState<RiverScoped<MapAccessPoint> | null>(null);
   // Null rather than [] until fetched, so the layers sheet can tell "this river
   // has none" from "we have not asked yet" and only claims a zero it knows.
   const [hazards, setHazards] = useState<RiverScoped<Hazard> | null>(null);
@@ -321,7 +326,10 @@ export default function MapScreen() {
   // never eagerly for all thirteen.
   useEffect(() => {
     if (!selectedSlug) return;
+    const slug = selectedSlug;
     const controller = new AbortController();
+    let live = true;
+    let liveAccessLanded = false;
     setLoadingDetail(true);
     // NOTHING is cleared here, deliberately. Blanking `detail` and
     // `accessPoints` is what made switching rivers look like a page reload: the
@@ -330,20 +338,37 @@ export default function MapScreen() {
     // drawing until the new one is ready to replace it in one frame.
     setSelectedPin(null);
 
-    Promise.all([
-      fetchRiverDetail(selectedSlug, controller.signal),
-      // Access points are a nice-to-have for the MAP and a hard requirement for
-      // the planner, but an empty list still leaves a usable map, so a failure
-      // here must not blank the river.
-      fetchRiverAccessPoints(selectedSlug, controller.signal).catch(() => []),
-    ])
+    // The app seeds every river's static data on launch. Read that first so the
+    // planner can show put-ins without waiting for geometry or another network
+    // round trip, then replace it with the live response when it lands.
+    const cachedAccess = readRiver(slug).then((stored) => {
+      const points = stored?.payload.accessPoints;
+      if (live && !liveAccessLanded && points) setPlannerAccess({ slug, items: points });
+      return points;
+    });
+
+    const liveAccess = fetchRiverAccessPoints(slug, controller.signal)
+      .then((points) => {
+        if (live) {
+          liveAccessLanded = true;
+          setPlannerAccess({ slug, items: points });
+        }
+        return points;
+      })
+      .catch(async () => {
+        const points = (await cachedAccess) ?? [];
+        if (live) setPlannerAccess({ slug, items: points });
+        return points;
+      });
+
+    Promise.all([fetchRiverDetail(slug, controller.signal), liveAccess])
       .then(([river, points]) => {
         // Swapped together: the geometry and the pins drawn on it must never be
         // from two different rivers, not even for one frame.
         setDetail(river);
         setAccessPoints(points);
         const pending = pendingAccessSelection.current;
-        if (pending?.riverSlug === selectedSlug) {
+        if (pending?.riverSlug === slug) {
           const point = points.find((candidate) => candidate.id === pending.id);
           if (point) setSelectedPin(mapAccessPointPin(point, river.slug));
           // Found or stale, this request answered it. Never let a missing row
@@ -360,7 +385,10 @@ export default function MapScreen() {
         if (!controller.signal.aborted) setLoadingDetail(false);
       });
 
-    return () => controller.abort();
+    return () => {
+      live = false;
+      controller.abort();
+    };
   }, [selectedSlug]);
 
   /**
@@ -538,10 +566,44 @@ export default function MapScreen() {
   }, [accessPoints, clearSearch, drawnSlug]);
 
   // ── Float plan ──────────────────────────────────────────────────
-  // Keyed off the DRAWN river, so the plan's river id and its access points can
-  // never come from two different rivers while one is still loading — the two are
-  // swapped in together, and an access point belongs to exactly one river.
-  const planner = useFloatPlan(detail?.id ?? null, accessPoints);
+  const plannerAccessPoints =
+    plannerAccess?.slug === selectedSlug ? plannerAccess.items : [];
+  // Planning needs a river ID and ordered access points, not the river's heavy
+  // full-resolution geometry. RiverListItem already carries that ID, so the
+  // planner becomes usable as soon as cached access points arrive.
+  const planner = useFloatPlan(selected?.id ?? null, plannerAccessPoints);
+
+  const plannerDistances = useMemo(() => {
+    if (!location.coords) return null;
+    const bySlug = new Map<string, number>();
+    for (const feature of network.collection.features) {
+      const coordinates = feature.geometry.coordinates;
+      const stride = Math.max(1, Math.floor(coordinates.length / 30));
+      for (let index = 0; index < coordinates.length; index += stride) {
+        const coordinate = coordinates[index];
+        const miles = milesBetween(location.coords, { lng: coordinate[0], lat: coordinate[1] });
+        const current = bySlug.get(feature.properties.slug) ?? Infinity;
+        if (miles < current) bySlug.set(feature.properties.slug, miles);
+      }
+    }
+    return bySlug;
+  }, [location.coords, network.collection.features]);
+
+  const plannerRivers = useMemo(() => {
+    if (!plannerDistances) return ordered;
+    return [...ordered].sort((a, b) => {
+      const favorite = Number(isStarred('river', b.id)) - Number(isStarred('river', a.id));
+      if (favorite !== 0) return favorite;
+      const distance =
+        (plannerDistances.get(a.slug) ?? Infinity) -
+        (plannerDistances.get(b.slug) ?? Infinity);
+      if (distance !== 0) return distance;
+      return (
+        floatableRank(a.currentCondition?.code ?? 'unknown') -
+        floatableRank(b.currentCondition?.code ?? 'unknown')
+      );
+    });
+  }, [ordered, plannerDistances, isStarred]);
 
   const accessPointForPin = useCallback(
     (pin: MapPin | null): MapAccessPoint | null => {
@@ -1176,7 +1238,7 @@ export default function MapScreen() {
           {/* The screen's one primary action, floated over the map so the map
               keeps every pixel it can. It changes label rather than multiplying:
               once a plan exists this is how you get back to it. */}
-          {!unavailable && detail && !search.active ? (
+          {!unavailable && !search.active ? (
             <Pressable
               onPress={() => setPlanOpen(true)}
               style={({ pressed }) => [
@@ -1299,7 +1361,20 @@ export default function MapScreen() {
       <PlanSheet
         visible={planOpen}
         onClose={() => setPlanOpen(false)}
-        riverName={detail?.name ?? 'this river'}
+        rivers={plannerRivers}
+        river={selected}
+        riverDistances={plannerDistances}
+        onSelectRiver={(river) => {
+          setSelectedPin(null);
+          setPickedSlug(river.slug);
+        }}
+        onClearRiver={() => {
+          planner.reset();
+          setPickedSlug(null);
+          setPlannerAccess(null);
+          setSelectedPin(null);
+        }}
+        riverLoading={Boolean(selectedSlug) && plannerAccess?.slug !== selectedSlug}
         state={planner}
         // Passed, never requested from inside the sheet. The locate button on
         // the map is the one place that spends the permission prompt.

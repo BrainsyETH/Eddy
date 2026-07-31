@@ -12,28 +12,22 @@
 // screen that also has to work in Expo Go — see runtime.ts.
 //
 // ── Pin shapes ──────────────────────────────────────────────────────────────
-// Every curated layer has a compact SDF silhouette in the layer's colour with a
-// white halo, plus a SymbolLayer of plain text when the camera has room:
+// Every curated layer uses a compact, full-colour Eddy utility mark, plus a
+// SymbolLayer of plain text when the camera has room. Condition-sensitive marks
+// sit over a data-coloured badge:
 //
-//   gauges       a water droplet, filled with the gauge's own condition colour
+//   gauges       a staff gauge, backed by the gauge's own condition colour
 //   access       a map marker, anchored at its point
 //   hazards      a warning triangle
 //   campgrounds  a tent
-//   outfitters   a canoe
+//   outfitters   a life jacket and paddles
 //   dams         a spillway wall
 //
-// These are SDF icons we generate and BUNDLE (assets/map, built by
-// scripts/build-map-icons.py), which is the distinction that matters. This file
-// used to argue against icons altogether, and the argument was about the
-// OUTDOORS STYLE's sprite sheet: those names are not a contract we control, and
-// a missing sprite renders as nothing at all — an invisible hazard being a worse
-// failure than a plain dot. An image Metro bundles and we register by name
-// cannot go missing that way. onImageMissing below still says so out loud if it
-// ever does.
-//
-// SDF rather than plain PNGs because the colour is the information. A gauge's
-// droplet has to BE its condition, so the asset is a signed distance field —
-// shape only — and iconColor supplies the rest.
+// These are generated and BUNDLED (assets/map, built by build-map-icons.py),
+// rather than names borrowed from the outdoors style's sprite sheet. The
+// full-colour mark says WHAT a point is; the circle beneath it retains the
+// condition/severity colour that a sticker alone cannot carry. The route
+// endpoints remain SDF because their solid action colour is their whole job.
 //
 // Colour comes from src/map/layers.ts so a filter chip is literally the colour
 // of the pins it toggles.
@@ -127,11 +121,11 @@ function serviceTypeLabel(type: string): string {
 const LABEL_INK = neutral[900];
 const LABEL_HALO = '#FFFFFF';
 
-/** Which silhouette a layer's pins are drawn with. */
+/** Which Eddy mark a layer's pins are drawn with. */
 type PinShape = 'dot' | 'drop' | 'pin' | 'hazard' | 'campground' | 'outfitter' | 'dam';
 
 /**
- * The bundled SDF icons, and how each one sits on its coordinate.
+ * The bundled map icons, and how each one sits on its coordinate.
  *
  * ANCHORING IS THE POINT OF THE DISTINCTION. A droplet is a symbol for the
  * thing, so it centres on the gauge. A map marker is a POINTER — its tip is the
@@ -141,25 +135,25 @@ type PinShape = 'dot' | 'drop' | 'pin' | 'hazard' | 'campground' | 'outfitter' |
  *
  * `scale: 3` is what makes a 66px asset draw at 22pt rather than 66.
  */
-const PIN_ICONS: Record<PinShape, { image: string; anchor: 'center' | 'bottom'; labelOffset: number } | null> = {
+const PIN_ICONS: Record<PinShape, { image: string; anchor: 'center' | 'bottom'; labelOffset: number; themed: boolean } | null> = {
   dot: null,
-  drop: { image: 'gauge-drop', anchor: 'center', labelOffset: 1.4 },
+  drop: { image: 'eddy-gauge-map', anchor: 'center', labelOffset: 1.45, themed: true },
   // Already sitting entirely above its point, so its label needs less room than
   // a centred icon of the same height.
-  pin: { image: 'poi-pin', anchor: 'bottom', labelOffset: 0.9 },
-  hazard: { image: 'hazard-warning', anchor: 'center', labelOffset: 1.3 },
-  campground: { image: 'campground-tent', anchor: 'center', labelOffset: 1.3 },
-  outfitter: { image: 'outfitter-canoe', anchor: 'center', labelOffset: 1.3 },
-  dam: { image: 'dam-spillway', anchor: 'center', labelOffset: 1.3 },
+  pin: { image: 'eddy-access-map', anchor: 'bottom', labelOffset: 1.05, themed: true },
+  hazard: { image: 'eddy-hazard-map', anchor: 'center', labelOffset: 1.4, themed: true },
+  campground: { image: 'eddy-campground-map', anchor: 'center', labelOffset: 1.4, themed: true },
+  outfitter: { image: 'eddy-outfitter-map', anchor: 'center', labelOffset: 1.4, themed: true },
+  dam: { image: 'eddy-dam-map', anchor: 'center', labelOffset: 1.4, themed: true },
 };
 
 const PIN_IMAGES = {
-  'gauge-drop': { image: require('../../assets/map/gauge-drop.png'), sdf: true, scale: 3 },
-  'poi-pin': { image: require('../../assets/map/poi-pin.png'), sdf: true, scale: 3 },
-  'hazard-warning': { image: require('../../assets/map/hazard-warning.png'), sdf: true, scale: 3 },
-  'campground-tent': { image: require('../../assets/map/campground-tent.png'), sdf: true, scale: 3 },
-  'outfitter-canoe': { image: require('../../assets/map/outfitter-canoe.png'), sdf: true, scale: 3 },
-  'dam-spillway': { image: require('../../assets/map/dam-spillway.png'), sdf: true, scale: 3 },
+  'eddy-gauge-map': { image: require('../../assets/map/eddy-gauge.png'), sdf: false, scale: 3 },
+  'eddy-access-map': { image: require('../../assets/map/eddy-access.png'), sdf: false, scale: 3 },
+  'eddy-hazard-map': { image: require('../../assets/map/eddy-hazard.png'), sdf: false, scale: 3 },
+  'eddy-campground-map': { image: require('../../assets/map/eddy-campground.png'), sdf: false, scale: 3 },
+  'eddy-outfitter-map': { image: require('../../assets/map/eddy-outfitter.png'), sdf: false, scale: 3 },
+  'eddy-dam-map': { image: require('../../assets/map/eddy-dam.png'), sdf: false, scale: 3 },
   'route-start': { image: require('../../assets/map/route-start.png'), sdf: true, scale: 3 },
   'route-finish': { image: require('../../assets/map/route-finish.png'), sdf: true, scale: 3 },
 };
@@ -905,7 +899,7 @@ export function RiverMap({
   };
 
   /**
-   * A compact silhouette plus labels for one layer. The fallback is a circle.
+   * A compact Eddy mark plus labels for one layer. The fallback is a circle.
    *
    * A FUNCTION THAT RETURNS JSX, not a component. Declaring a component inside
    * a render gives it a new identity on every pass, so React unmounts and
@@ -950,7 +944,7 @@ export function RiverMap({
      */
     minZoom?: number,
     /**
-     * Render an overview dot below this zoom, then the requested silhouette.
+     * Render an overview dot below this zoom, then the requested Eddy mark.
      * Gauges use it so the statewide view is informative without becoming a
      * wall of full-size staff marks and labels.
      */
@@ -984,21 +978,28 @@ export function RiverMap({
             }}
           />
         ) : null}
+        {icon?.themed ? (
+          <Mapbox.CircleLayer
+            id={`pins-${id}-badge`}
+            minZoomLevel={compactUntilZoom ?? minZoom}
+            style={{
+              circleRadius: selectedPinId
+                ? ['case', ['==', ['get', 'id'], selectedPinId], 15, 13]
+                : 13,
+              circleColor: ['get', 'color'],
+              circleStrokeWidth: selectedPinId
+                ? ['case', ['==', ['get', 'id'], selectedPinId], 3.5, 2]
+                : 2,
+              circleStrokeColor: '#FFFFFF',
+            }}
+          />
+        ) : null}
         {icon ? (
           <Mapbox.SymbolLayer
             id={`pins-${id}-icon`}
             minZoomLevel={compactUntilZoom ?? minZoom}
             style={{
               iconImage: icon.image,
-              // The reason these are SDFs. Data-driven, so a gauge wears its
-              // condition while every other layer gets its single colour.
-              iconColor: ['get', 'color'],
-              // The white ring the circles had, kept so a pin stays legible
-              // over both the forest green and the pale gravel of the basemap.
-              iconHaloColor: '#FFFFFF',
-              iconHaloWidth: selectedPinId
-                ? ['case', ['==', ['get', 'id'], selectedPinId], 3.2, 1.4]
-                : 1.4,
               iconSize: selectedPinId
                 ? ['case', ['==', ['get', 'id'], selectedPinId], 1.18, 1]
                 : 1,
@@ -1237,12 +1238,7 @@ export function RiverMap({
         filter={['!', ['has', 'point_count']]}
         minZoomLevel={10}
         style={{
-          iconImage: 'poi-pin',
-          iconColor: ['get', 'color'],
-          iconHaloColor: '#FFFFFF',
-          iconHaloWidth: selectedPinId
-            ? ['case', ['==', ['get', 'id'], selectedPinId], 3.2, 1.4]
-            : 1.4,
+          iconImage: PIN_ICONS.pin?.image ?? 'eddy-access-map',
           iconSize: selectedPinId
             ? ['case', ['==', ['get', 'id'], selectedPinId], 1.18, 1]
             : 1,

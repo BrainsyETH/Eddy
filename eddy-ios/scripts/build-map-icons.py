@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""Generate the map's SDF pin icons.
+"""Generate the map's lightweight icon atlas.
 
 Run from anywhere:  python3 eddy-ios/scripts/build-map-icons.py
 
-WHY THESE ARE GENERATED AND NOT DRAWN BY HAND: they are mostly two-tone-free
-silhouettes whose whole job is to be RECOLOURED at runtime — a gauge wears its
-condition, an access point wears its layer colour — so the shape and the colour
-cannot live in the same file. A hand-exported PNG would also have to be
-re-exported at every size we ever want.
+The atlas has two kinds of asset: compact SDF route marks Mapbox recolours at
+runtime, and full-colour Eddy utility illustrations for the place layers. The
+utility illustrations are normalized here to the same 66px canvas rather than
+being resized independently in six call sites.
 
 WHY SDF: Mapbox recolours an icon only when the image is registered with
 `sdf: true`, and only an actual signed distance field survives that cleanly.
@@ -29,6 +28,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 OUT = Path(__file__).resolve().parents[1] / "assets/map"
+EDDY = Path(__file__).resolve().parents[1] / "assets/eddy"
 
 # Supersample factor for the mask before the distance transform. The shapes have
 # curved edges and a 1x mask would quantise the SDF into visible steps.
@@ -213,6 +213,29 @@ def route_finish(size: int = 54) -> tuple[Image.Image, tuple[int, int]]:
     return mask, (size, size)
 
 
+def themed_icon(source_name: str, size: int = 66) -> Image.Image:
+    """Fit one transparent Eddy utility mark into a map-sized square."""
+    source = EDDY / f"{source_name}.png"
+    if not source.exists():
+        raise SystemExit(f"missing Eddy symbol: {source}")
+
+    opened = Image.open(source).convert("RGBA")
+    box = opened.getchannel("A").getbbox()
+    if box is None:
+        raise SystemExit(f"empty Eddy symbol: {source}")
+
+    art = opened.crop(box)
+    available = size - 4
+    scale = available / max(art.size)
+    art = art.resize(
+        (max(1, round(art.width * scale)), max(1, round(art.height * scale))),
+        Image.LANCZOS,
+    )
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    canvas.alpha_composite(art, ((size - art.width) // 2, (size - art.height) // 2))
+    return canvas
+
+
 # THERE IS NO LOCK ICON HERE ANY MORE, and it is not an omission.
 #
 # `private-lock-pin` and `private-lock-center` were white padlocks stamped over
@@ -239,9 +262,9 @@ def main() -> None:
         # map-marker shape; anchored at its point so it indicates a spot rather
         # than covering one.
         "poi-pin": teardrop(66, point_up=False),
-        # Small, category-specific map marks. The richer Eddy illustrations stay
-        # in the layer sheet; these are deliberately simpler so they survive on
-        # a moving map at roughly 20pt.
+        # Legacy SDF category marks are retained for backwards-compatible builds
+        # and snapshots. Current place layers use the full-colour Eddy marks
+        # generated below; route endpoints still use SDF at runtime.
         "hazard-warning": hazard_triangle(),
         "campground-tent": tent(),
         "outfitter-canoe": canoe(),
@@ -262,6 +285,25 @@ def main() -> None:
         target = OUT / f"{name}.png"
         icon.save(target, optimize=True)
         print(f"{name + '.png':20} {size[0]}x{size[1]}  {target.stat().st_size // 1024} KB")
+
+    # Full-colour map variants of Eddy's utility catalog. These are registered
+    # once and reused by every feature, so a map with hundreds of points does
+    # not decode hundreds of images. A data-coloured badge remains underneath
+    # each one in RiverMap: the art says WHAT it is, the badge says condition or
+    # severity.
+    themed = {
+        "eddy-gauge": "eddy-other-usgs-gauge",
+        "eddy-access": "eddy-poi",
+        "eddy-hazard": "eddy-hazard",
+        "eddy-campground": "eddy-campground",
+        "eddy-outfitter": "eddy-outfitter",
+        "eddy-dam": "eddy-dam",
+    }
+    for name, source_name in themed.items():
+        icon = themed_icon(source_name)
+        target = OUT / f"{name}.png"
+        icon.save(target, optimize=True)
+        print(f"{name + '.png':20} {icon.width}x{icon.height}  {target.stat().st_size // 1024} KB")
 
 
 if __name__ == "__main__":

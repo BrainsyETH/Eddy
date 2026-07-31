@@ -35,7 +35,7 @@
 // when someone asks for a plan, never speculatively as they move between
 // access points.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FloatPlan, MapAccessPoint } from '@eddy/types';
 import { ApiError, fetchFloatPlan } from '@/api/client';
 
@@ -65,15 +65,21 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
   const [plan, setPlan] = useState<FloatPlan | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The request cannot currently be cancelled at the API boundary, so a small
+  // generation guard prevents an old river's late response from becoming the
+  // new river's plan.
+  const calculationId = useRef(0);
 
   // Changing river invalidates everything: an access point belongs to exactly
   // one river, and a half-built plan carried across would pair two rivers'
   // points into a segment the server cannot resolve.
   useEffect(() => {
+    calculationId.current += 1;
     setStep('put-in');
     setPutIn(null);
     setTakeOut(null);
     setPlan(null);
+    setCalculating(false);
     setError(null);
   }, [riverId]);
 
@@ -90,13 +96,15 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
   const calculate = useCallback(
     async (start: MapAccessPoint, end: MapAccessPoint) => {
       if (!riverId) return;
+      const requestId = ++calculationId.current;
       setCalculating(true);
       setError(null);
       setStep('result');
       try {
         const result = await fetchFloatPlan({ riverId, startId: start.id, endId: end.id });
-        setPlan(result);
+        if (calculationId.current === requestId) setPlan(result);
       } catch (err) {
+        if (calculationId.current !== requestId) return;
         setPlan(null);
         setError(
           err instanceof ApiError
@@ -109,7 +117,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
             : 'Could not build that float plan',
         );
       } finally {
-        setCalculating(false);
+        if (calculationId.current === requestId) setCalculating(false);
       }
     },
     [riverId],
@@ -136,6 +144,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
   );
 
   const reset = useCallback(() => {
+    calculationId.current += 1;
     setStep('put-in');
     setPutIn(null);
     setTakeOut(null);
