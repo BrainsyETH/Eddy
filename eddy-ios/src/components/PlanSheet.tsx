@@ -30,7 +30,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { MapAccessPoint } from '@eddy/types';
+import type { MapAccessPoint, RiverListItem } from '@eddy/types';
 import { accessTypeLabel } from '@eddy/types';
 import { saveFloatPlan } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -42,11 +42,17 @@ import { PlanResult } from '@/components/PlanResult';
 import type { FloatPlanState } from '@/hooks/useFloatPlan';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { milesBetween, type Coords } from '@/hooks/useLocation';
+import { conditionColor } from '@/theme/conditions';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
-  riverName: string;
+  rivers: RiverListItem[];
+  river: RiverListItem | null;
+  riverDistances: ReadonlyMap<string, number> | null;
+  onSelectRiver: (river: RiverListItem) => void;
+  onClearRiver: () => void;
+  riverLoading: boolean;
   state: FloatPlanState;
   /**
    * Where the user is, if they have already granted it on the map. Never
@@ -57,7 +63,18 @@ interface Props {
   userCoords?: Coords | null;
 }
 
-export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Props) {
+export function PlanSheet({
+  visible,
+  onClose,
+  rivers,
+  river,
+  riverDistances,
+  onSelectRiver,
+  onClearRiver,
+  riverLoading,
+  state,
+  userCoords,
+}: Props) {
   const { colors } = useTheme();
   const { remember, isSaved, forgetPlan } = useSavedFloats();
   const [sharing, setSharing] = useState(false);
@@ -134,16 +151,31 @@ export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Pr
         <View style={styles.head}>
           <View style={styles.headText}>
             <Text style={[styles.title, { color: colors.text }]}>Plan a float</Text>
-            <Text style={[styles.subtitle, { color: colors.textMuted }]}>{riverName}</Text>
+            <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+              {river?.name ?? 'Choose a river'}
+            </Text>
           </View>
           <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
             <Ionicons name="close" size={26} color={colors.textMuted} />
           </Pressable>
         </View>
 
-        <Breadcrumb state={state} />
+        {!river ? (
+          <RiverList
+            rivers={rivers}
+            distances={riverDistances}
+            onSelect={onSelectRiver}
+          />
+        ) : (
+          <Breadcrumb state={state} riverName={river.name} onChooseRiver={onClearRiver} />
+        )}
 
-        {step === 'put-in' ? (
+        {!river ? null : riverLoading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator color={colors.interactive} />
+            <Text style={[styles.calculating, { color: colors.textMuted }]}>Loading put-ins…</Text>
+          </View>
+        ) : step === 'put-in' ? (
           <AccessPointList
             points={state.putInOptions}
             emptyMessage="This river has no mapped access points yet."
@@ -281,9 +313,18 @@ export function PlanSheet({ visible, onClose, riverName, state, userCoords }: Pr
  * single most common correction in a planner, and making it a back-out-and-
  * start-again is what makes people give up on one.
  */
-function Breadcrumb({ state }: { state: FloatPlanState }) {
+function Breadcrumb({
+  state,
+  riverName,
+  onChooseRiver,
+}: {
+  state: FloatPlanState;
+  riverName: string;
+  onChooseRiver: () => void;
+}) {
   const { colors } = useTheme();
-  const crumbs: { step: 'put-in' | 'take-out'; label: string; value?: string }[] = [
+  const crumbs: { step: 'river' | 'put-in' | 'take-out'; label: string; value?: string }[] = [
+    { step: 'river', label: 'River', value: riverName },
     { step: 'put-in', label: 'Put-in', value: state.putIn?.name },
     { step: 'take-out', label: 'Take-out', value: state.takeOut?.name },
   ];
@@ -291,16 +332,18 @@ function Breadcrumb({ state }: { state: FloatPlanState }) {
   return (
     <View style={[styles.breadcrumb, { borderBottomColor: colors.border }]}>
       {crumbs.map((crumb, index) => {
-        const current = state.step === crumb.step;
+        const current = crumb.step !== 'river' && state.step === crumb.step;
         // A step is reachable once the one before it has an answer. Nothing
         // below can be tapped into out of order, so the machine cannot be put
         // into a state where a take-out exists without a put-in.
-        const reachable = index === 0 || Boolean(crumbs[index - 1].value);
+        const reachable = index < 2 || Boolean(crumbs[index - 1].value);
         return (
           <Pressable
             key={crumb.step}
             disabled={!reachable}
-            onPress={() => state.goToStep(crumb.step)}
+            onPress={() =>
+              crumb.step === 'river' ? onChooseRiver() : state.goToStep(crumb.step)
+            }
             style={styles.crumb}
             accessibilityRole="button"
             accessibilityState={{ selected: current, disabled: !reachable }}
@@ -329,6 +372,72 @@ function Breadcrumb({ state }: { state: FloatPlanState }) {
         );
       })}
     </View>
+  );
+}
+
+function RiverList({
+  rivers,
+  distances,
+  onSelect,
+}: {
+  rivers: RiverListItem[];
+  distances: ReadonlyMap<string, number> | null;
+  onSelect: (river: RiverListItem) => void;
+}) {
+  const { colors, elevation } = useTheme();
+
+  if (rivers.length === 0) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={colors.interactive} />
+        <Text style={[styles.calculating, { color: colors.textMuted }]}>Loading rivers…</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.list}>
+      <Text style={[styles.pickerIntro, { color: colors.textMuted }]}>Where do you want to float?</Text>
+      {rivers.map((river) => {
+        const distance = distances?.get(river.slug) ?? null;
+        const code = river.currentCondition?.code ?? 'unknown';
+        return (
+          <Pressable
+            key={river.id}
+            onPress={() => onSelect(river)}
+            style={({ pressed }) => [
+              styles.option,
+              { backgroundColor: colors.card, opacity: pressed ? 0.65 : 1 },
+              elevation(1),
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`Plan a float on ${river.name}`}
+          >
+            <EddySymbol name="river" size={20} />
+            <View style={styles.optionBody}>
+              <Text style={[styles.optionName, { color: colors.text }]} numberOfLines={1}>
+                {river.name}
+              </Text>
+              <View style={styles.riverMetaRow}>
+                <View style={[styles.conditionDot, { backgroundColor: conditionColor(code) }]} />
+                <Text style={[styles.optionMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                  {[
+                    river.currentCondition?.label ?? 'Condition unknown',
+                    river.region,
+                    distance != null
+                      ? `${distance < 10 ? distance.toFixed(1) : distance.toFixed(0)} mi away`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={17} color={colors.textSubtle} />
+          </Pressable>
+        );
+      })}
+    </ScrollView>
   );
 }
 
@@ -494,6 +603,9 @@ const styles = StyleSheet.create({
   optionBody: { flex: 1, minWidth: 0 },
   optionName: { ...t.sm, fontFamily: fonts.semibold },
   optionMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  pickerIntro: { ...t.sm, fontFamily: fonts.body, marginBottom: 4 },
+  riverMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  conditionDot: { width: 8, height: 8, borderRadius: 4 },
   sortRow: {
     flexDirection: 'row',
     alignItems: 'center',
