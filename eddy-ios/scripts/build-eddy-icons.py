@@ -123,6 +123,12 @@ WEB_ICONS = (
 # Longest edge of the exported PNG. Matches assets/otter.
 SIZE = 300
 
+# Utility marks that are born as geometry rather than concept art. Keeping the
+# drawing here makes them just as reproducible as the derived catalog: there is
+# still one source of truth, and nobody has to remember the crop/export settings
+# used by a one-off design file.
+GENERATED_SYMBOLS = ("eddy-dam",)
+
 # How far a pixel may sit from the corner it is being compared against and still
 # count as background. The card is nearly flat (250,249,250 to 252,251,251 across
 # the four corners) so this only has to absorb JPEG-ish noise; large enough to
@@ -193,6 +199,71 @@ def derive(name: str) -> Image.Image:
     return art.quantize(colors=255, method=Image.FASTOCTREE)
 
 
+def draw_dam() -> Image.Image:
+    """Draw the compact three-tone spillway used for lakes and dams."""
+    scale = 4
+    canvas = Image.new("RGBA", (SIZE * scale, SIZE * scale), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(canvas)
+
+    teal = "#073F4C"
+    blue = "#2099C8"
+    coral = "#F26649"
+    light = "#FAF8F2"
+
+    # Reservoir line behind the wall. The raised ends keep the silhouette from
+    # reading as a generic building when the mark is rendered at 17–18 points.
+    reservoir = [
+        (125, 415),
+        (245, 350),
+        (360, 405),
+        (490, 335),
+        (620, 405),
+        (755, 345),
+        (915, 415),
+    ]
+    draw.line(reservoir, fill=teal, width=64, joint="curve")
+    draw.line(reservoir, fill=blue, width=34, joint="curve")
+
+    # Coral concrete face with Eddy's dark teal outline. A shallow trapezoid is
+    # the familiar dam profile while retaining enough interior room for gates.
+    wall = [(190, 395), (1010, 395), (905, 800), (295, 800)]
+    draw.polygon(wall, fill=coral)
+    draw.line(wall + [wall[0]], fill=teal, width=52, joint="curve")
+
+    # Three blue spillway gates make this unmistakably a dam, not a bridge.
+    for left in (335, 510, 685):
+        draw.rounded_rectangle((left, 500, left + 130, 825), radius=58, fill=teal)
+        draw.rounded_rectangle((left + 28, 530, left + 102, 835), radius=34, fill=blue)
+
+    # A pale cap gives the same small highlight used throughout the sticker set.
+    draw.rounded_rectangle((265, 430, 935, 485), radius=24, fill=light)
+
+    # Foreground water hides the squared gate bottoms and provides a strong blue
+    # base at tiny sizes. Dark outline preserves it in both light and dark mode.
+    wave = [
+        (135, 835),
+        (270, 775),
+        (400, 845),
+        (535, 780),
+        (665, 845),
+        (800, 775),
+        (1065, 835),
+    ]
+    draw.line(wave, fill=teal, width=90, joint="curve")
+    draw.line(wave, fill=blue, width=48, joint="curve")
+
+    box = canvas.getchannel("A").getbbox()
+    assert box is not None
+    art = canvas.crop(box).resize((SIZE, SIZE), Image.LANCZOS)
+    return art.quantize(colors=255, method=Image.FASTOCTREE)
+
+
+def generate(name: str) -> Image.Image:
+    if name == "eddy-dam":
+        return draw_dam()
+    raise SystemExit(f"unknown generated symbol: {name}")
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     WEB_OUT.mkdir(parents=True, exist_ok=True)
@@ -216,8 +287,16 @@ def main() -> None:
         size = targets[0].stat().st_size // 1024
         print(f"{name + '.png':28} {art.size[0]}x{art.size[1]:<5} {size:>4} KB  {where}")
 
-    bundled = sum((OUT / f"{n}.png").stat().st_size for n in ICONS)
-    print(f"\nbundled into the app: {len(ICONS)} files, {bundled // 1024} KB")
+    for name in GENERATED_SYMBOLS:
+        art = generate(name)
+        target = OUT / f"{name}.png"
+        art.save(target, optimize=True)
+        size = target.stat().st_size // 1024
+        print(f"{name + '.png':28} {art.size[0]}x{art.size[1]:<5} {size:>4} KB  ios")
+
+    bundled_names = ICONS + GENERATED_SYMBOLS
+    bundled = sum((OUT / f"{n}.png").stat().st_size for n in bundled_names)
+    print(f"\nbundled into the app: {len(bundled_names)} files, {bundled // 1024} KB")
 
 
 if __name__ == "__main__":

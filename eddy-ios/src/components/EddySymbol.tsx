@@ -11,16 +11,16 @@
 // symbols" — so they are chosen by the caller and nothing decides for them.
 //
 // Keys are ROLES, not drawings — `gauge`, not `waterDroplet`. A caller asking
-// for a gauge mark should not have to know the catalog decided that is a
-// droplet, and the day it becomes something else this map is the only edit.
+// for a gauge mark should not have to know which drawing the catalog selected,
+// and the day it becomes something else this map is the only edit.
 //
 // NOT FOR MAP PINS. These are fixed-colour, three-tone stickers, and the map's
 // pins are registered `sdf: true` (see src/map/RiverMap.tsx) precisely so they
 // can be RECOLOURED at runtime — a gauge wears its condition, an access point
-// wears its layer. Drawing a gauge with the blue droplet paints every reading
-// blue. The layer sheet is the one map-adjacent place they DO belong, because a
-// row there is a legend rather than a reading; its well is outlined for exactly
-// that reason.
+// wears its layer. Drawing a fixed-colour gauge on the map would paint every
+// reading the same colour. The layer sheet is the one map-adjacent place they
+// DO belong, because a row there is a legend rather than a reading; its well is
+// outlined for exactly that reason.
 //
 // The sources are 1254px concept art with an off-white card baked in. These are
 // derived: see eddy-ios/scripts/build-eddy-icons.py, which cuts the background
@@ -31,7 +31,8 @@ import { Image, StyleSheet, type ImageStyle, type StyleProp } from 'react-native
 const SYMBOLS = {
   weather: require('../../assets/eddy/eddy-weather.png'),
   aiAssistant: require('../../assets/eddy/eddy-ai-assistant.png'),
-  gauge: require('../../assets/eddy/eddy-water-droplet.png'),
+  gauge: require('../../assets/eddy/eddy-other-usgs-gauge.png'),
+  dam: require('../../assets/eddy/eddy-dam.png'),
   accessPoint: require('../../assets/eddy/eddy-poi.png'),
   otherGauge: require('../../assets/eddy/eddy-other-usgs-gauge.png'),
   hazard: require('../../assets/eddy/eddy-hazard.png'),
