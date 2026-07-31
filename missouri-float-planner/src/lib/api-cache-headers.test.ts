@@ -107,10 +107,11 @@ test('public read routes the app depends on are shared-cacheable', () => {
   }
 });
 
-test('the gauge corpus count fails open and keeps its long cache window', () => {
+test('the gauge corpus count caches success but never caches a failure', () => {
   const src = read('gauges/count/route.ts');
   assert.ok(src.includes('count: null'));
   assert.ok(src.includes('cdnCacheHeaders(3600, 86400)'));
+  assert.ok(src.includes('privateNoStore()'));
   assert.ok(!src.includes('status: 500'));
 });
 
