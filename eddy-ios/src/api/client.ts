@@ -600,6 +600,11 @@ export async function fetchGauges(signal?: AbortSignal): Promise<MapGauge[]> {
   return data.gauges ?? [];
 }
 
+export async function fetchGaugeCount(signal?: AbortSignal): Promise<number | null> {
+  const data = await get<{ count: number | null }>('/api/gauges/count', signal);
+  return typeof data.count === 'number' && Number.isFinite(data.count) ? data.count : null;
+}
+
 /**
  * Gauges inside a viewport — the national "All Gauges" tier.
  *
