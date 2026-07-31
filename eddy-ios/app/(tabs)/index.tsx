@@ -115,6 +115,7 @@ import { useAccount } from '@/hooks/useAccount';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
+import { warn } from '@/lib/monitoring';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
@@ -389,8 +390,24 @@ export default function MapScreen() {
     // Deliberately un-aborted and un-erroring: this is a background enrichment
     // for search and a map layer, and a failure means "no gauges", not a
     // message. Retrying is one more tap in the layers sheet.
+    const startedAt = Date.now();
     fetchGauges()
-      .then(setGauges)
+      .then((loaded) => {
+        const durationMs = Date.now() - startedAt;
+        if (__DEV__) {
+          console.info('[map] curated gauges loaded', {
+            durationMs,
+            returned: loaded.length,
+          });
+        }
+        if (durationMs >= 2000) {
+          warn('map', 'curated gauge load was slow', {
+            durationMs,
+            returned: loaded.length,
+          });
+        }
+        setGauges(loaded);
+      })
       .catch(() => setGauges([]));
   }, []);
 
