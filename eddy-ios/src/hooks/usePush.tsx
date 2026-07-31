@@ -47,7 +47,8 @@ interface PushValue {
    */
   enable: () => Promise<PermissionState>;
   /** Stop this device receiving. Used by sign-out and account deletion. */
-  disable: () => Promise<void>;
+  /** Returns false when the device was unregistered but the preference was not persisted. */
+  disable: () => Promise<boolean>;
   refresh: () => Promise<void>;
 }
 
@@ -56,7 +57,7 @@ const PushContext = createContext<PushValue>({
   optedOut: false,
   registered: false,
   enable: async () => 'undetermined',
-  disable: async () => {},
+  disable: async () => false,
   refresh: async () => {},
 });
 
@@ -206,7 +207,12 @@ export function PushProvider({ children }: { children: ReactNode }) {
     setPermission(state);
 
     if (state === 'granted' && signedIn) {
-      await setDeviceOptedOut(false);
+      try {
+        await setDeviceOptedOut(false);
+      } catch (error) {
+        warn('push', 'Could not persist enabling push on this device', error);
+        return state;
+      }
       setOptedOut(false);
       const token = await getAccessToken();
       if (token) {
@@ -218,11 +224,18 @@ export function PushProvider({ children }: { children: ReactNode }) {
   }, [signedIn, getAccessToken, features.push]);
 
   const disable = useCallback(async () => {
-    await setDeviceOptedOut(true);
-    setOptedOut(true);
+    let persisted = true;
+    try {
+      await setDeviceOptedOut(true);
+    } catch (error) {
+      persisted = false;
+      warn('push', 'Could not persist this device push opt-out', error);
+    }
     const token = await getAccessToken();
     if (token) await unregisterThisDevice(token);
+    if (persisted) setOptedOut(true);
     setRegistered(false);
+    return persisted;
   }, [getAccessToken]);
 
   const value = useMemo<PushValue>(

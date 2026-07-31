@@ -46,11 +46,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import type * as ImagePicker from 'expo-image-picker';
 import type * as ImageManipulator from 'expo-image-manipulator';
+import type * as ExpoFileSystem from 'expo-file-system';
 import type { MapAccessPoint } from '@eddy/types';
 import { ApiError, submitRiverVisual, uploadCommunityPhoto } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { uploadPreparation } from '@/lib/uploadPrep';
+import { UPLOAD_SAFE_BYTES, uploadPreparation } from '@/lib/uploadPrep';
 
 /**
  * The camera and the image compressor, behind a lazy require.
@@ -92,9 +93,33 @@ function loadImageManipulator(): typeof ImageManipulator | null {
   }
 }
 
+function loadFileSystem(): typeof ExpoFileSystem | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('expo-file-system') as typeof ExpoFileSystem;
+  } catch {
+    return null;
+  }
+}
+
+function localFileSize(uri: string): number | null {
+  const fileSystem = loadFileSystem();
+  if (!fileSystem) return null;
+  try {
+    const size = new fileSystem.File(uri).size;
+    return typeof size === 'number' && Number.isFinite(size) ? size : null;
+  } catch {
+    return null;
+  }
+}
+
 /** True when this build can actually take and prepare a photo. */
 export function photoCaptureAvailable(): boolean {
-  return loadImagePicker() !== null && loadImageManipulator() !== null;
+  return (
+    loadImagePicker() !== null &&
+    loadImageManipulator() !== null &&
+    loadFileSystem() !== null
+  );
 }
 
 /**
@@ -143,12 +168,24 @@ async function prepareUpload(asset: ImagePicker.ImagePickerAsset): Promise<Prepa
   const manipulator = loadImageManipulator();
   if (!manipulator) throw new Error('Image preparation is unavailable');
 
-  const result = await manipulator.manipulateAsync(
-    asset.uri,
-    [{ resize: { width: UPLOAD_MAX_DIMENSION } }],
-    { compress: 0.82, format: manipulator.SaveFormat.JPEG },
-  );
-  return { uri: result.uri, capturedAt, ...decision };
+  for (const [width, compress] of [
+    [UPLOAD_MAX_DIMENSION, 0.82],
+    [1800, 0.7],
+    [1400, 0.62],
+    [1200, 0.55],
+  ] as const) {
+    const result = await manipulator.manipulateAsync(
+      asset.uri,
+      [{ resize: { width } }],
+      { compress, format: manipulator.SaveFormat.JPEG },
+    );
+    const size = localFileSize(result.uri);
+    if (size !== null && size <= UPLOAD_SAFE_BYTES) {
+      return { uri: result.uri, capturedAt, ...decision };
+    }
+  }
+
+  throw new Error('Prepared image remains above the upload limit');
 }
 
 interface Props {

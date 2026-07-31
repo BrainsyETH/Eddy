@@ -122,6 +122,22 @@ export default function ProfileScreen() {
     }
   }, [refresh]);
 
+  const handleDisableAlerts = useCallback(async () => {
+    try {
+      const persisted = await disable();
+      if (persisted) return;
+      Alert.alert(
+        'Alerts stopped for now',
+        'Eddy could not save that preference on this device, so alerts may turn back on after the next launch. Please try again.',
+      );
+    } catch (error) {
+      Alert.alert(
+        'Could not stop alerts',
+        error instanceof Error ? error.message : 'Please try again.',
+      );
+    }
+  }, [disable]);
+
   const runDelete = useCallback(async () => {
     setBusy('delete');
     try {
@@ -373,7 +389,7 @@ export default function ProfileScreen() {
 
             {permission === 'granted' && registered && (
               <Pressable
-                onPress={() => void disable()}
+                onPress={() => void handleDisableAlerts()}
                 style={[styles.secondary, { borderColor: colors.border }]}
               >
                 <Text style={[styles.secondaryText, { color: colors.textMuted }]}>

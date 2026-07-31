@@ -23,12 +23,12 @@ test('a device opt-out survives refreshes until explicitly cleared', async () =>
   assert.equal(await isDeviceOptedOut(storage), false);
 });
 
-test('storage failures fail open so push setup remains recoverable', async () => {
+test('storage write failures are observable so the UI cannot claim persistence', async () => {
   const storage: PushOptOutStorage = {
     async getItem() { throw new Error('unavailable'); },
     async setItem() { throw new Error('unavailable'); },
     async removeItem() { throw new Error('unavailable'); },
   };
   assert.equal(await isDeviceOptedOut(storage), false);
-  await assert.doesNotReject(setDeviceOptedOut(true, storage));
+  await assert.rejects(setDeviceOptedOut(true, storage), /unavailable/);
 });

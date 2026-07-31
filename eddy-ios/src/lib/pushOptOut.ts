@@ -23,10 +23,6 @@ export async function setDeviceOptedOut(
   optedOut: boolean,
   storage: PushOptOutStorage = deviceStorage(),
 ): Promise<void> {
-  try {
-    if (optedOut) await storage.setItem(PUSH_OPT_OUT_KEY, 'true');
-    else await storage.removeItem(PUSH_OPT_OUT_KEY);
-  } catch {
-    // Registration remains non-fatal; the server unregister can still run.
-  }
+  if (optedOut) await storage.setItem(PUSH_OPT_OUT_KEY, 'true');
+  else await storage.removeItem(PUSH_OPT_OUT_KEY);
 }
