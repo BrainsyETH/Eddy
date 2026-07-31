@@ -56,6 +56,7 @@ import type {
   AlertRule,
   AlertRuleMode,
   AlertRuleResponse,
+  AlertRuleSeed,
   AlertRuleScope,
   AlertRulesResponse,
   NotificationPreferences,
@@ -1202,7 +1203,7 @@ export async function updateAlertRule(
   token: string,
   rule: Pick<AlertRule, 'id' | 'source' | 'riverId'>,
   patch: UpdateAlertRuleInput,
-): Promise<void> {
+): Promise<AlertRuleSeed | null> {
   if (rule.source === 'river_condition') {
     if (!rule.riverId) throw new ApiError('Alert is missing its river', 400);
     // `conditionKind` here, `kind` there. The two tables named the same column
@@ -1217,9 +1218,21 @@ export async function updateAlertRule(
       ...rest,
       ...(conditionKind ? { kind: conditionKind } : {}),
     });
-    return;
+    // A river condition subscription has no user-set level, so it has no
+    // crossing state to re-seed and nothing to report.
+    return null;
   }
-  await writeJson(`/api/me/gauge-alerts/${encodeURIComponent(rule.id)}`, token, 'PATCH', patch);
+  // The seed comes back whenever the threshold moved. Moving it re-arms the
+  // rule from the CURRENT reading, and if the river is already past the new
+  // number the rule will sit silent until it comes back — which the caller has
+  // to be able to say out loud.
+  const response = await writeJson<AlertRuleResponse>(
+    `/api/me/gauge-alerts/${encodeURIComponent(rule.id)}`,
+    token,
+    'PATCH',
+    patch,
+  );
+  return response.seed;
 }
 
 /** Delete one rule. Turning an alert off never demands a fresh sign-in. */

@@ -94,23 +94,24 @@ should at minimum be reported back (finding 3).
 > Seeding here closes both, and returning the seed lets the app SAY so instead of
 > looking broken.
 
-The plumbing is half-built:
+The plumbing is built on the **create** path and missing on the **edit** path:
 
-- The route returns `seed: { value, unit, readingAt, state }` (`route.ts:314`).
-- `AlertRuleSeed` and `AlertRuleResponse.seed` exist in `src/types/api.ts:1034`.
-- **The iOS app never reads it.** There is no reference to `seed` anywhere in
-  `configure.tsx`, `alerts/[id].tsx`, `useAlertRules.tsx`, or `api/client.ts`.
-- **`PATCH` hardcodes `seed: null`** (`[id]/route.ts:157`) even on the branch that
+- `POST` returns `seed: { value, unit, readingAt, state }` (`route.ts:314`), and
+  `configure.tsx` renders it — an `inside` seed raises an "Alert saved" dialog
+  saying the water is already past the level. That path works.
+- **`PATCH` hardcodes `seed: null`** (`[id]/route.ts:157`) on the very branch that
   just re-seeded the rule and computed a `seed.state`.
+- `updateAlertRule` was typed `Promise<void>` and `useAlertRules.mutate` discarded
+  its result, so even a corrected response had nowhere to go.
 
-So the one signal that would have told the user "you're already above 81 — this
-won't fire until it drops below ~79" is generated on the server, serialized on
-the create path, discarded on the edit path, and ignored on both.
+So editing a threshold — the operation whose own hint text promises it "starts
+the alert fresh from the latest reading" — is the one that silently drops the
+verdict. Given a stale anchor (findings 1 and 2), edit is exactly where a user
+lands on a number the river has already passed.
 
-**Fix direction:** return the real seed from PATCH, and render `state === 'inside'`
-on both screens as a plain sentence under the field ("Huzzah Creek is already at
-87 cfs. This alert will fire the next time it comes back up past 81."). Cheap,
-and it converts a silent rule into an informed choice.
+**Fix direction:** return the real seed from PATCH, thread the response through
+`mutate`, and render `state === 'inside'` on the edit screen the way the create
+screen already does.
 
 ---
 

@@ -27,7 +27,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
-import { loadLatestReadings } from '@/lib/alerts/gauge-readings';
+import { loadLatestReadings } from '@/lib/gauges/latest-readings';
 import {
   ladderKey,
   planGaugeAlerts,

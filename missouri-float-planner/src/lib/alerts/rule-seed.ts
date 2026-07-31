@@ -13,7 +13,7 @@
 // reason someone cannot create an alert on it.
 
 import { classifyReading, hasLadder } from '@shared/condition-ladder';
-import { loadLatestReadings } from './gauge-readings';
+import { loadLatestReadings } from '@/lib/gauges/latest-readings';
 import { metricUnit, thresholdState, type CrossingState } from './gauge-threshold';
 import { toNum } from '@/lib/utils/num';
 import type { AlertComparator, AlertMetric } from '@/types/api';

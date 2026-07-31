@@ -39,6 +39,8 @@ import { cdnCacheHeaders } from '@/lib/api-utils';
 import { DEFAULT_PROVIDER_ID, getFlowProvider } from '@/lib/flow-providers';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { loadCurrentReadings } from '@/lib/gauges/latest-readings';
+import { maxReadingAgeHours } from '@/lib/alerts/gate';
 import { classifyQualifiers } from '@/lib/usgs/gauges';
 import { toNum } from '@/lib/utils/num';
 import { withX402Route } from '@/lib/x402-config';
@@ -46,18 +48,23 @@ import { withX402Route } from '@/lib/x402-config';
 export const dynamic = 'force-dynamic';
 
 /**
- * A stored reading older than this is refreshed from the provider before the
- * response goes out.
+ * A stored reading older than the gate's own limit is refreshed from the
+ * provider before the response goes out.
  *
- * Same threshold, and the same reasoning, as MAX_DB_AGE_HOURS in the history
- * route next door: since 00196 the update-gauges cron polls only curated and
- * starred stations, and sync-gauge-latest runs hourly over the rest. A station
- * that is neither can sit with a reading from last week, which is fine on a map
- * pin and not fine on the screen whose entire job is to state that number.
+ * Since 00196 the update-gauges cron polls only curated and starred stations,
+ * and sync-gauge-latest runs hourly over the rest. A station that is neither can
+ * sit with a reading from last week, which is fine on a map pin and not fine on
+ * the screen whose entire job is to state that number.
+ *
+ * NOW THE GATE'S THRESHOLD rather than a local 6. This route is what the alert
+ * configure screen reads to anchor a threshold field, so a reading it is willing
+ * to display is a reading someone will set an alert against — and the gate
+ * refuses to act on a USGS reading past three hours. Serving one this endpoint
+ * knew was beyond that, without even trying the provider, is how the two halves
+ * came to disagree about what "now" means.
  *
  * The live call is ONE site, not a batch, and it only fires on the stale path.
  */
-const MAX_STORED_AGE_HOURS = 6;
 
 /** search_gauges caps at 50; a site-id prefix cannot plausibly need more. */
 const LOOKUP_LIMIT = 50;
@@ -213,7 +220,7 @@ async function _GET(
 
     // Everything else keys off the station uuid and is independent, so it goes
     // out together rather than in a waterfall.
-    const [stationResult, latestResult, linksResult] = await Promise.all([
+    const [stationResult, currentReadings, linksResult] = await Promise.all([
       supabase
         .from('gauge_stations')
         .select(
@@ -227,11 +234,14 @@ async function _GET(
         )
         .eq('id', row.id)
         .maybeSingle(),
-      supabase
-        .from('gauge_latest')
-        .select('qualifiers')
-        .eq('gauge_station_id', row.id)
-        .maybeSingle(),
+      // NOT a bare gauge_latest read any more. search_gauges above joins
+      // gauge_latest, which for a CURATED station is the older of the two tiers
+      // — it is rewritten once an hour at :20, while update-gauges appends to
+      // gauge_readings hourly and every 15 minutes on a rising river. Reading
+      // only gauge_latest is why this screen showed 80 cfs while a search row
+      // for the same station showed 87 in the same minute, and why an alert
+      // typed against this screen seeded from a number the user never saw.
+      loadCurrentReadings(supabase, [row.id]),
       supabase
         .from('river_gauges')
         .select(
@@ -263,18 +273,23 @@ async function _GET(
     const stationNote =
       ((stationResult.data as { threshold_descriptions?: { note?: string } | null } | null)
         ?.threshold_descriptions?.note as string | undefined) ?? null;
-    let qualifiers = (latestResult.data?.qualifiers as string[] | null) ?? null;
+    // The merged reading wins over the RPC's gauge_latest join whenever it has
+    // one; it IS that row for any station whose curated history is older or
+    // absent, so this is never a downgrade.
+    const current = currentReadings.get(row.id) ?? null;
 
-    let gaugeHeightFt = toNum(row.gauge_height_ft);
-    let dischargeCfs = toNum(row.discharge_cfs);
-    let readingTimestamp = row.reading_timestamp;
+    let qualifiers = current?.qualifiers ?? null;
+
+    let gaugeHeightFt = current ? current.gauge_height_ft : toNum(row.gauge_height_ft);
+    let dischargeCfs = current ? current.discharge_cfs : toNum(row.discharge_cfs);
+    let readingTimestamp = current ? current.reading_at : row.reading_timestamp;
 
     // ── The stale path ──────────────────────────────────────────────────────
     // Never fatal: a failed refresh leaves the stored reading in place, and the
     // response still states its age honestly. An old number the client can see
     // is old beats an error on a screen someone opened to read a number.
     const storedAge = ageHoursOf(readingTimestamp);
-    if (storedAge === null || storedAge > MAX_STORED_AGE_HOURS) {
+    if (storedAge === null || storedAge > maxReadingAgeHours(provider)) {
       try {
         const flowProvider = getFlowProvider(provider);
         const live = flowProvider ? await flowProvider.fetchLatest([siteId]) : [];

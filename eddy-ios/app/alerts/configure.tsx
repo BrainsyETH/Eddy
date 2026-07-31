@@ -57,6 +57,7 @@ import { ConditionCodeChips } from '@/components/ConditionCodeChips';
 import { Otter } from '@/components/Otter';
 import { PushPrimer } from '@/components/PushPrimer';
 import { CONDITION_KINDS, codesForKind } from '@/lib/alertKinds';
+import { readingAge } from '@/lib/readingCopy';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { usePush } from '@/hooks/usePush';
 import { useSession } from '@/hooks/useSession';
@@ -77,6 +78,15 @@ interface Context {
   ladderUnit: 'ft' | 'cfs' | null;
   /** False for a national-tier station: hourly refresh, so a slower alert. */
   curated: boolean;
+  /**
+   * How old the number below the "Right now" label actually is.
+   *
+   * This card sets the anchor for the threshold field, so an unlabelled reading
+   * is an invitation to type a level one step above a number that has already
+   * moved. The gauge screen has always shown this; the screen where it decides
+   * something did not.
+   */
+  readingAgeHours: number | null;
 }
 
 /**
@@ -180,6 +190,7 @@ export default function ConfigureAlertScreen() {
             rated: hasLadderLevels(link),
             ladderUnit: link?.thresholdUnit ?? null,
             curated: gauge?.curated ?? false,
+            readingAgeHours: gauge?.readingAgeHours ?? null,
           });
         } else if (riverId) {
           const condition = await fetchCondition(riverId, controller.signal);
@@ -195,6 +206,7 @@ export default function ConfigureAlertScreen() {
             // A river is wired to a station, and everything wired is curated
             // by definition (migration 00196).
             curated: true,
+            readingAgeHours: condition?.readingAgeHours ?? null,
           });
         }
       } catch {
@@ -449,6 +461,15 @@ export default function ConfigureAlertScreen() {
           {context?.gaugeName ? (
             <Text style={[styles.cardMeta, { color: colors.textMuted }]} numberOfLines={2}>
               {context.gaugeName}
+            </Text>
+          ) : null}
+          {/* The age, in the same words the gauge screen uses. "Right now" over
+              an unlabelled number invites a threshold set one step above a
+              reading that has already moved — which is precisely how a rule
+              gets created already on the far side of its own level. */}
+          {currentValue != null && readingAge(context?.readingAgeHours) ? (
+            <Text style={[styles.cardMeta, { color: colors.textSubtle }]}>
+              {readingAge(context?.readingAgeHours)}
             </Text>
           ) : null}
           {context && !context.curated ? (
