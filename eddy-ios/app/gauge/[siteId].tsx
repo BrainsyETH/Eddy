@@ -78,8 +78,11 @@ import { GaugeChart } from '@/components/GaugeChart';
 import { ReadingScale } from '@/components/ReadingScale';
 import { ShareButton } from '@/components/ShareButton';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
+import { PaywallSheet } from '@/components/PaywallSheet';
+import { EddySymbol } from '@/components/EddySymbol';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { useAccount } from '@/hooks/useAccount';
 
 /**
  * The unit to lead with, and to draw the chart in.
@@ -142,6 +145,12 @@ export default function GaugeDetailScreen() {
   const router = useRouter();
   const { colors, elevation, isDark } = useTheme();
   const { isStarred, toggleStar } = useStarredRivers();
+  const {
+    entitlement,
+    loaded: accountLoaded,
+    error: accountError,
+    refresh: refreshAccount,
+  } = useAccount();
 
   // Seeded synchronously from whatever opened this screen, so the first frame
   // has the reading on it. Null on a deep link, which is the loading path.
@@ -149,6 +158,7 @@ export default function GaugeDetailScreen() {
   const [loading, setLoading] = useState(!gauge);
   const [failed, setFailed] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [paywallOpen, setPaywallOpen] = useState(false);
 
   useEffect(() => {
     if (!siteId) return;
@@ -513,6 +523,36 @@ export default function GaugeDetailScreen() {
           />
         </View>
 
+        {/* A gauge is where "what does this number mean next?" is most likely
+            to arise. Offer the paid interpretation here, but only when the
+            account answered definitively that it is inactive; an offline or
+            still-loading entitlement must never advertise to a subscriber. */}
+        {accountLoaded && !accountError && !entitlement?.isActive ? (
+          <Pressable
+            onPress={() => setPaywallOpen(true)}
+            style={({ pressed }) => [
+              styles.premiumCard,
+              { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
+              elevation(1),
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Learn about Eddy Premium"
+          >
+            <View style={[styles.premiumIcon, { backgroundColor: colors.cardRaised }]}>
+              <EddySymbol name="aiAssistant" size={29} />
+            </View>
+            <View style={styles.premiumText}>
+              <Text style={[styles.premiumTitle, { color: colors.text }]}>Eddy Premium</Text>
+              <Text style={[styles.premiumBody, { color: colors.textMuted }]}>
+                {link?.riverName
+                  ? `Get Eddy's full read on ${link.riverName}, including its 72-hour trend and weather outlook.`
+                  : "Unlock Eddy's daily river reads, 72-hour trends, weather outlooks and offline maps."}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={17} color={colors.textSubtle} />
+          </Pressable>
+        ) : null}
+
         {/* ── Where else to go ─────────────────────────────────── */}
         <View style={styles.actions}>
           {/* A USACE station IS a dam, and the dam screen is where the rest of
@@ -690,6 +730,13 @@ export default function GaugeDetailScreen() {
           },
         }}
       />
+
+      <PaywallSheet
+        visible={paywallOpen}
+        onClose={() => setPaywallOpen(false)}
+        riverName={link?.riverName}
+        onPurchased={() => void refreshAccount()}
+      />
     </SafeAreaView>
   );
 }
@@ -715,6 +762,26 @@ const styles = StyleSheet.create({
   card: { marginHorizontal: 16, marginBottom: 14, borderRadius: 18, padding: 16 },
   /** The horizontal inset this screen's cards carry, for a card that does not. */
   inset: { marginHorizontal: 16 },
+  premiumCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 14,
+    borderRadius: 16,
+    padding: 14,
+  },
+  premiumIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  premiumText: { flex: 1 },
+  premiumTitle: { ...t.sm, fontFamily: fonts.semibold },
+  premiumBody: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   readingRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   readingText: { flex: 1 },
   reading: { ...t['3xl'], fontFamily: fonts.mono },

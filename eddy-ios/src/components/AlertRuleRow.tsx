@@ -12,10 +12,10 @@
 
 import { memo } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { describeAlertRule, type AlertRule } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { EddySymbol } from '@/components/EddySymbol';
 
 interface Props {
   rule: AlertRule;
@@ -60,14 +60,10 @@ function AlertRuleRowInner({ rule, onPress, onToggle }: Props) {
       <View
         style={[
           styles.icon,
-          { backgroundColor: dimmed ? colors.cardRaised : colors.interactive },
+          { backgroundColor: colors.cardRaised, opacity: dimmed ? 0.48 : 1 },
         ]}
       >
-        <Ionicons
-          name={rule.scope === 'gauge' ? 'speedometer-outline' : 'water-outline'}
-          size={16}
-          color={dimmed ? colors.textSubtle : colors.onInteractive}
-        />
+        <EddySymbol name={rule.scope === 'gauge' ? 'gauge' : 'alertWatch'} size={25} />
       </View>
 
       <View style={styles.body}>

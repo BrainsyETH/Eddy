@@ -15,7 +15,7 @@
 //                         pans free.
 //   5. QUANTIZE + PAD   — snap to a grid so the URL is CDN-cacheable, and ask
 //                         for more than the screen so step 4 hits more often.
-//   6. LRU              — panning back is instant.
+//   6. MEMORY + DISK LRU — panning back is instant, including after relaunch.
 //
 // Failure keeps the previous payload. Panning into a dead cell must not erase
 // the pins you were already looking at, and the curated layer must be untouched
@@ -27,9 +27,14 @@ import { bboxContains, padBbox, quantizeBbox, type Bounds } from '@eddy/geo';
 import { fetchMapGauges } from '@/api/client';
 import { GAUGE_DETAIL_ZOOM, MIN_GAUGE_ZOOM } from '@/map/layers';
 import { warn } from '@/lib/monitoring';
+import {
+  readViewportGaugeCache,
+  VIEWPORT_GAUGE_CACHE_SIZE,
+  writeViewportGaugeCache,
+} from '@/lib/viewportGaugeCache';
 
 /** Idle already means "motion stopped"; this only collapses a burst of them. */
-const DEBOUNCE_MS = 300;
+const DEBOUNCE_MS = 100;
 
 /** Normal close-view payload. */
 const DETAIL_LIMIT = 300;
@@ -43,9 +48,6 @@ const DETAIL_LIMIT = 300;
  * deliberately broader view contains more than this.
  */
 const OVERVIEW_LIMIT = 1000;
-
-/** Panning back through a few screens should never re-fetch. */
-const CACHE_SIZE = 12;
 
 export interface Viewport {
   bounds: Bounds;
@@ -71,21 +73,46 @@ const EMPTY: ViewportGaugesState = {
   belowMinZoom: false,
 };
 
+interface CacheEntry {
+  key: string;
+  bbox: Bounds;
+  limit: number;
+  fetchedAt: string;
+  payload: Pick<ViewportGaugesState, 'gauges' | 'capped' | 'total'>;
+  source: 'disk' | 'network';
+}
+
+/** Most-recent containing cell, not merely an exact quantized-key hit. */
+function containingEntry(
+  entries: Map<string, CacheEntry>,
+  bounds: Bounds,
+  limit: number,
+): CacheEntry | null {
+  const newestFirst = [...entries.values()].reverse();
+  return newestFirst.find((entry) => entry.limit === limit && bboxContains(entry.bbox, bounds)) ?? null;
+}
+
 export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
   const [state, setState] = useState<ViewportGaugesState>(EMPTY);
+  const [diskReady, setDiskReady] = useState(false);
 
-  const cache = useRef(new Map<string, { gauges: MapGaugeLite[]; capped: boolean; total: number }>());
+  const cache = useRef(new Map<string, CacheEntry>());
+  const drawnKey = useRef<string | null>(null);
   const lastRequested = useRef<Bounds | null>(null);
   const hasRequested = useRef(false);
   const inFlight = useRef<AbortController | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async (bbox: Bounds, limit: number) => {
+  const load = useCallback(async (bbox: Bounds, limit: number, revalidate = false) => {
     const key = `${limit}:${bbox.join(',')}`;
     const hit = cache.current.get(key);
-    if (hit) {
+    if (hit && (!revalidate || hit.source === 'network')) {
+      // Touch on read: this is a real LRU rather than insertion-order FIFO.
+      cache.current.delete(key);
+      cache.current.set(key, hit);
       lastRequested.current = bbox;
-      setState({ ...hit, loading: false, belowMinZoom: false });
+      drawnKey.current = key;
+      setState({ ...hit.payload, loading: false, belowMinZoom: false });
       return;
     }
 
@@ -122,14 +149,25 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
         });
       }
 
-      cache.current.set(key, result);
+      const entry: CacheEntry = {
+        key,
+        bbox,
+        limit,
+        fetchedAt: new Date().toISOString(),
+        payload: result,
+        source: 'network',
+      };
+      cache.current.delete(key);
+      cache.current.set(key, entry);
       // Map preserves insertion order, so the first key is the oldest.
-      if (cache.current.size > CACHE_SIZE) {
+      if (cache.current.size > VIEWPORT_GAUGE_CACHE_SIZE) {
         const oldest = cache.current.keys().next().value;
         if (oldest !== undefined) cache.current.delete(oldest);
       }
+      writeViewportGaugeCache(entry);
 
       lastRequested.current = bbox;
+      drawnKey.current = key;
       setState({ ...result, loading: false, belowMinZoom: false });
     } catch (err) {
       if (controller.signal.aborted) return;
@@ -144,6 +182,23 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
     }
   }, []);
 
+  // Hydrate before the first camera idle normally arrives. Persistent entries
+  // paint immediately, then the effect below revalidates them in the background.
+  useEffect(() => {
+    let live = true;
+    void readViewportGaugeCache().then((entries) => {
+      if (!live) return;
+      for (const entry of entries) {
+        if (cache.current.has(entry.key)) continue;
+        cache.current.set(entry.key, { ...entry, source: 'disk' });
+      }
+      setDiskReady(true);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
 
@@ -152,11 +207,12 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       inFlight.current = null;
       lastRequested.current = null;
       hasRequested.current = false;
+      drawnKey.current = null;
       setState(EMPTY);
       return;
     }
 
-    if (!viewport) return;
+    if (!viewport || !diskReady) return;
 
     if (viewport.zoom < MIN_GAUGE_ZOOM) {
       inFlight.current?.abort();
@@ -164,32 +220,53 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       // Drop the pins as well as the request: a continental view scattered with
       // whatever happened to be in the last valley is worse than an empty one.
       lastRequested.current = null;
+      drawnKey.current = null;
       setState({ ...EMPTY, belowMinZoom: true });
       return;
     }
 
-    // Already covered by what we hold — no request, no state change, no flicker.
-    if (lastRequested.current && bboxContains(lastRequested.current, viewport.bounds)) {
+    const limit = viewport.zoom < GAUGE_DETAIL_ZOOM ? OVERVIEW_LIMIT : DETAIL_LIMIT;
+    const covering = containingEntry(cache.current, viewport.bounds, limit);
+    if (covering) {
+      cache.current.delete(covering.key);
+      cache.current.set(covering.key, covering);
+      lastRequested.current = covering.bbox;
+      if (drawnKey.current !== covering.key) {
+        drawnKey.current = covering.key;
+        setState({ ...covering.payload, loading: false, belowMinZoom: false });
+      }
+      if (covering.source === 'network') {
+        inFlight.current?.abort();
+        inFlight.current = null;
+        return;
+      }
+      // Disk is stale-first, never cache-only. It earns an immediate frame but
+      // the live request below still replaces it.
+    } else if (lastRequested.current && bboxContains(lastRequested.current, viewport.bounds)) {
       return;
     }
 
     const target = quantizeBbox(padBbox(viewport.bounds, 0.2), viewport.zoom);
-    const limit = viewport.zoom < GAUGE_DETAIL_ZOOM ? OVERVIEW_LIMIT : DETAIL_LIMIT;
+    inFlight.current?.abort();
+    inFlight.current = null;
 
     // onMapIdle already means the opening camera has stopped. Delaying its first
     // request made an intentionally enabled default layer feel lazy. Later idle
     // bursts are still collapsed while panning.
     if (!hasRequested.current) {
       hasRequested.current = true;
-      void load(target, limit);
+      void load(target, limit, covering?.source === 'disk');
     } else {
-      timer.current = setTimeout(() => void load(target, limit), DEBOUNCE_MS);
+      timer.current = setTimeout(
+        () => void load(target, limit, covering?.source === 'disk'),
+        DEBOUNCE_MS,
+      );
     }
 
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [enabled, viewport, load]);
+  }, [enabled, viewport, diskReady, load]);
 
   // Abort on unmount so a backgrounded map is not still fetching.
   useEffect(() => () => inFlight.current?.abort(), []);

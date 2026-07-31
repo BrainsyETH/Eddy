@@ -15,6 +15,8 @@ import {
   gaugeKey,
   mayPaintCachedCondition,
   readingBand,
+  VIEWPORT_GAUGES_INDEX_KEY,
+  viewportGaugeKey,
 } from '../../../eddy-ios/src/lib/offline-cache';
 
 const NOW = '2026-07-29T12:00:00.000Z';
@@ -72,6 +74,13 @@ test('a river key round-trips a hyphenated slug', () => {
   for (const slug of ['current', 'north-fork-white', 'big-piney']) {
     assert.equal(slugFromRiverKey(riverKey(slug)), slug);
   }
+});
+
+test('viewport gauge payloads use versioned, collision-safe keys', () => {
+  const request = '1000:-109.1,36.9,-102,41.1';
+  assert.notEqual(viewportGaugeKey(request), VIEWPORT_GAUGES_INDEX_KEY);
+  assert.match(viewportGaugeKey(request), /viewport-gauge:/);
+  assert.equal(viewportGaugeKey(request), viewportGaugeKey(request));
 });
 
 test('the index, meta and river keys are told apart', () => {

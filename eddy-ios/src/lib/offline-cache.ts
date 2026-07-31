@@ -67,9 +67,12 @@ export const NETWORK_KEY = `${VERSIONED}.network`;
  * monthly.
  */
 export const CONDITIONS_KEY = `${VERSIONED}.conditions`;
+/** Small index for the individually stored national-gauge viewport payloads. */
+export const VIEWPORT_GAUGES_INDEX_KEY = `${VERSIONED}.viewport-gauges`;
 
 const RIVER_INFIX = '.river:';
 const GAUGE_INFIX = '.gauge:';
+const VIEWPORT_GAUGE_INFIX = '.viewport-gauge:';
 
 export function riverKey(slug: string): string {
   return `${VERSIONED}${RIVER_INFIX}${slug}`;
@@ -77,6 +80,10 @@ export function riverKey(slug: string): string {
 
 export function gaugeKey(siteId: string): string {
   return `${VERSIONED}${GAUGE_INFIX}${encodeURIComponent(siteId)}`;
+}
+
+export function viewportGaugeKey(requestKey: string): string {
+  return `${VERSIONED}${VIEWPORT_GAUGE_INFIX}${encodeURIComponent(requestKey)}`;
 }
 
 export function isRiverKey(key: string): boolean {
