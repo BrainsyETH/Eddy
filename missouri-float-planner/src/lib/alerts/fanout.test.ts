@@ -235,3 +235,58 @@ test('floatable copy avoids promising real-time accuracy', () => {
   const [planned] = plan().messages;
   assert.match(planned.message.body ?? '', /check the latest reading/i);
 });
+
+// ── Naming the gauge that moved ─────────────────────────────────────────────
+//
+// river_condition_events has always stored river_gauge_id, reading_value and
+// reading_unit; nothing read them, so an alert said "the Current River is
+// running high" and gave the recipient no way to check it. On a river whose
+// pairings disagree — the Jacks Fork reads floatable at one gauge and too low
+// at another — "which one" decides whether the alert is actionable.
+
+test('a river alert names the gauge and the reading that moved', () => {
+  const [planned] = plan({
+    events: [
+      event('warning', {
+        gauge_name: 'Black River at Poplar Bluff',
+        reading_value: 3100.4,
+        reading_unit: 'cfs',
+      }),
+    ],
+  }).messages;
+  assert.match(planned.message.body ?? '', /3,100 cfs at Black River at Poplar Bluff/);
+  // The safety caveat is not displaced by the enrichment.
+  assert.match(planned.message.body ?? '', /verify locally/i);
+});
+
+test('feet keep one decimal, cfs is whole and thousands-separated', () => {
+  const [feet] = plan({
+    events: [event('warning', { gauge_name: 'G', reading_value: 7.82, reading_unit: 'ft' })],
+  }).messages;
+  assert.match(feet.message.body ?? '', /7\.8 ft at G/);
+
+  const [cfs] = plan({
+    events: [event('warning', { gauge_name: 'G', reading_value: 14293.6, reading_unit: 'cfs' })],
+  }).messages;
+  assert.match(cfs.message.body ?? '', /14,294 cfs at G/);
+});
+
+test('a partial reading is omitted entirely rather than half-stated', () => {
+  // A gauge with no number invites the reader to assume one; a number with no
+  // gauge is the ambiguity this was added to remove. Neither ships.
+  for (const partial of [
+    { gauge_name: 'G', reading_value: null, reading_unit: 'cfs' },
+    { gauge_name: null, reading_value: 900, reading_unit: 'cfs' },
+    { gauge_name: 'G', reading_value: 900, reading_unit: null },
+  ]) {
+    const [planned] = plan({ events: [event('warning', partial)] }).messages;
+    assert.doesNotMatch(planned.message.body ?? '', / at /);
+  }
+});
+
+test('an event with no gauge is still delivered', () => {
+  // The gauge is enrichment. Dropping a dangerous-water push for want of a
+  // pairing would be the worst possible way to save a line of copy.
+  const planned = plan({ events: [event('warning')] });
+  assert.equal(planned.messages.length, 1);
+});

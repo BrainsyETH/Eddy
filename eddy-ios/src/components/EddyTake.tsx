@@ -68,8 +68,15 @@ interface EddyTakeProps {
    * Only `false` locks anything. An unreachable /api/me/profile must not lock a
    * paying customer out on one bar of signal, so unknown fails open. Same
    * contract as OfflineMapRow; see the note where it is computed on the map.
+   *
+   * `'pending'` is a THIRD state and is not the same as null. Null means the
+   * answer failed and we chose to be generous; 'pending' means the answer is
+   * still in flight. Collapsing them made every cold open of a river screen
+   * paint the full paid report for as long as /api/me/profile took, and then
+   * yank it away — the report leaked to non-subscribers by default, and the
+   * flash looked like a bug to everyone else. Loading renders a skeleton.
    */
-  entitled?: boolean | null;
+  entitled?: boolean | null | 'pending';
   /** Opens the paywall. Only ever called from the locked read. */
   onUpgrade?: () => void;
 }
@@ -89,6 +96,7 @@ export function EddyTake({
   // null here is an ANSWER, and must not be worked around.
   const read = outlook.fullRead || sections?.eddyRead || '';
   const locked = entitled === false;
+  const resolving = entitled === 'pending';
 
   return (
     <View style={styles.wrapper}>
@@ -258,8 +266,25 @@ export function EddyTake({
                 river this morning. Nobody is stranded for want of it.
 
                 `locked` is entitled === false, never a falsy check: unknown
-                entitlement shows the read. See the prop's comment. */}
-            {locked ? (
+                entitlement shows the read. See the prop's comment.
+
+                The skeleton comes FIRST because it is the only branch that is
+                safe while the answer is unknown-but-coming. Showing the read
+                and retracting it leaks the paid thing; showing the lock and
+                retracting it accuses a subscriber of not paying. */}
+            {resolving ? (
+              <View accessibilityLabel="Loading Eddy's read">
+                {[0.92, 1, 0.84].map((width, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.skeletonLine,
+                      { backgroundColor: colors.cardRaised, width: `${width * 100}%` },
+                    ]}
+                  />
+                ))}
+              </View>
+            ) : locked ? (
               <Pressable
                 onPress={onUpgrade}
                 disabled={!onUpgrade}
@@ -354,6 +379,10 @@ const styles = StyleSheet.create({
   bottomLineOtter: { marginLeft: -2 },
   bottomLineText: { ...t.base, fontFamily: fonts.semibold, marginTop: 4 },
   section: { marginTop: 14, paddingTop: 12, borderTopWidth: 1 },
+  // Sized to the read it stands in for, so the card does not resize when the
+  // real answer lands — a skeleton that changes the layout is just a slower
+  // version of the flash it was added to prevent.
+  skeletonLine: { height: 11, borderRadius: 5, marginTop: 9 },
   lock: {
     flexDirection: 'row',
     alignItems: 'center',

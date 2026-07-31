@@ -752,7 +752,12 @@ export default function ReportsScreen() {
    */
   const gaugeChips: FilterChip[] = useMemo(
     () => [
-      { key: 'all', label: 'All gauges', count: gaugeResults.length },
+      // NO COUNT, deliberately. `gaugeResults` is the current page of server
+      // results — around 50 — not the corpus, and this chip now sits beside a
+      // line naming the real total. "All gauges 50" next to "14,000+ gauges"
+      // does not read as a page size; it reads as a contradiction, and the
+      // number that looks authoritative is the wrong one.
+      { key: 'all', label: 'All gauges' },
       /**
        * The tier chip, wearing Eddy's own face.
        *

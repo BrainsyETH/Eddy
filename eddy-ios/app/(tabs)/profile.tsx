@@ -50,6 +50,7 @@ import { restorePurchases, subscriptionSummary } from '@/lib/purchases';
 import { usePush } from '@/hooks/usePush';
 import { notificationDetail } from '@/lib/notificationCopy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
+import { PaywallSheet } from '@/components/PaywallSheet';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
 
@@ -89,6 +90,7 @@ export default function ProfileScreen() {
 
   const [busy, setBusy] = useState<null | 'apple' | 'restore' | 'delete'>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [paywallOpen, setPaywallOpen] = useState(false);
 
   const signedIn = Boolean(session) && !isAnonymous;
 
@@ -298,6 +300,24 @@ export default function ProfileScreen() {
               </View>
             </View>
 
+            {/* The way IN, which this card had no version of.
+                Everywhere else the paywall is reached from the thing it gates
+                — the offline download, Eddy's take on a river — so someone who
+                simply wants to subscribe, or who dismissed an offer earlier and
+                came back for it, arrived at a card that could only restore a
+                purchase they had never made. `loaded` gates it so the button
+                does not flash up under someone who is already subscribed. */}
+            {loaded && !entitlement?.isActive && (
+              <Pressable
+                onPress={() => setPaywallOpen(true)}
+                style={[styles.primary, { backgroundColor: colors.accentFill }]}
+              >
+                <Text style={[styles.primaryText, { color: colors.onAccent }]}>
+                  Get Eddy Premium
+                </Text>
+              </Pressable>
+            )}
+
             {entitlement?.isActive && (
               <Pressable
                 onPress={() => void Linking.openURL(MANAGE_SUBSCRIPTIONS_URL)}
@@ -487,6 +507,19 @@ export default function ProfileScreen() {
         onDismiss={() => setFeedbackOpen(false)}
         context={{ type: 'general' }}
       />
+
+      {/* onPurchased re-reads the profile so the card above flips to active
+          without a relaunch. The sheet waits for the SERVER to confirm the
+          entitlement, not merely for StoreKit, so by the time this fires
+          /api/me/profile has the row. */}
+      <PaywallSheet
+        visible={paywallOpen}
+        onClose={() => setPaywallOpen(false)}
+        onPurchased={() => {
+          setPaywallOpen(false);
+          void refresh();
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -521,6 +554,8 @@ const styles = StyleSheet.create({
   rowNote: { ...t.sm, fontFamily: fonts.body },
   appleWrap: { minHeight: 46, justifyContent: 'center' },
   appleButton: { height: 46, width: '100%' },
+  primary: { borderRadius: 10, paddingVertical: 13, alignItems: 'center' },
+  primaryText: { ...t.base, fontFamily: fonts.semibold },
   secondary: { borderWidth: 1, borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
   secondaryText: { ...t.sm, fontFamily: fonts.medium },
   danger: { borderWidth: 1, borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
