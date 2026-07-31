@@ -50,6 +50,26 @@ let cached: PurchasesModule | null = null;
 let configuredFor: string | null = null;
 
 /**
+ * Purchases is imported by the web test harness, where Sentry's native module
+ * is intentionally absent. Resolve diagnostics only when a real failure needs
+ * reporting so this file keeps its native-safe import contract.
+ */
+interface PurchaseDiagnostics {
+  report(error: unknown, context?: Record<string, unknown>): void;
+  warn(tag: 'purchase', message: string, detail?: unknown): void;
+}
+
+function purchaseDiagnostics(): PurchaseDiagnostics | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { report, warn } = require('./monitoring') as PurchaseDiagnostics;
+    return { report, warn };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The native module, or null in Expo Go.
  *
  * Required lazily so that merely importing this file cannot break the JS
@@ -225,6 +245,10 @@ export async function fetchOfferings(): Promise<OfferingsResult> {
       // Almost always configuration rather than code: no offering marked
       // current in RevenueCat, or products not yet approved in App Store
       // Connect. Say something a person can act on instead of showing nothing.
+      purchaseDiagnostics()?.warn(
+        'purchase',
+        'RevenueCat returned no packages for the current offering',
+      );
       return unavailableOfferings();
     }
 
@@ -244,9 +268,10 @@ export async function fetchOfferings(): Promise<OfferingsResult> {
 
     mapped.sort((a, b) => Number(b.recommended) - Number(a.recommended));
     return { status: 'ok', packages: mapped };
-  } catch {
+  } catch (error) {
     // RevenueCat's errors describe dashboard and StoreKit configuration. They
     // belong in diagnostics, never verbatim on a customer-facing paywall.
+    purchaseDiagnostics()?.report(error, { operation: 'revenuecat.fetchOfferings' });
     return unavailableOfferings();
   }
 }

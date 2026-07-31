@@ -160,14 +160,26 @@ from a checkout:
 
 ## 5 · Supabase
 
+- [ ] Deploy server code required by a restrictive migration before applying it.
+- [ ] Smoke-test the newly deployed server path while the old policy still exists.
+- [ ] Run `supabase db push --dry-run`, review the exact statements, then apply them.
+- [ ] Smoke-test both the public operation and its admin operation after migration.
 - [ ] From `missouri-float-planner/`, `npm run db:check-migrations` passes.
+
+For `20260731010000_feedback_api_only.sql`, this order is mandatory. The
+predecessor feedback POST uses the session client and depends on the public
+INSERT policy; applying the migration before deploying its service-role
+replacement would break feedback submissions. Deploy the route first, verify a
+submission, apply the migration, then verify submission and admin triage again.
 
 This is a release gate, not a PR gate: a PR that introduces a migration is
 supposed to be ahead of production until deployment. The command uses the
-repository-pinned Supabase CLI, preserves the documented legacy baseline, and
-fails if either side has a newer migration missing from the other. New
-migrations use timestamp identifiers. On a new checkout, link it once with
-`npx supabase link --project-ref <project-ref>`.
+repository-pinned Supabase CLI and fails if either side has a newer migration
+missing from the other. It is deliberately forward-only: the frozen legacy
+baseline is not evidence that historical RLS policies or CHECK constraints are
+correct. Use the separate legacy schema-security audit before relying on those
+objects. New migrations use timestamp identifiers. On a new checkout, link it
+once with `npx supabase link --project-ref <project-ref>`.
 
 - [ ] **Anonymous sign-ins enabled** (Authentication → Providers).
 

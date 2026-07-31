@@ -7,10 +7,7 @@ export function SafetyDisclaimer({ compact = false }: { compact?: boolean }) {
   const { colors } = useTheme();
 
   return (
-    <Text
-      accessibilityRole="alert"
-      style={[compact ? styles.compact : styles.standard, { color: colors.error }]}
-    >
+    <Text style={[compact ? styles.compact : styles.standard, { color: colors.error }]}>
       {SAFETY_DISCLAIMER}
     </Text>
   );

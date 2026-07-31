@@ -51,9 +51,8 @@ import { usePush } from '@/hooks/usePush';
 import { notificationDetail } from '@/lib/notificationCopy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
+import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
 
-const TERMS_URL = 'https://eddy.guide/terms';
-const PRIVACY_URL = 'https://eddy.guide/privacy';
 /**
  * Not the same thing as the Feedback sheet below it. Feedback is one-way and
  * lands in our own store; support is a reply channel, and App Review expects a

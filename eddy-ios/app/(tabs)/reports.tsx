@@ -72,7 +72,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   DamSnapshot,
@@ -1085,7 +1084,6 @@ export default function ReportsScreen() {
                 <ActivityIndicator color={colors.interactive} />
               </View>
             ) : null}
-            <SafetyDisclaimer compact />
           </View>
         }
         renderItem={({ item }) => {

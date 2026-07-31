@@ -4,11 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Otter } from '@/components/Otter';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { acceptTerms, hasAcceptedTerms } from '@/lib/onboarding';
+import { report } from '@/lib/monitoring';
+import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-
-const TERMS_URL = 'https://eddy.guide/terms';
-const PRIVACY_URL = 'https://eddy.guide/privacy';
 
 export function OnboardingGate({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
@@ -33,8 +32,12 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
     setSaving(true);
     try {
       await acceptTerms();
-      setAccepted(true);
+    } catch (error) {
+      // The acknowledgement happened even if persistence did not. Let this
+      // session continue, report the storage failure, and re-prompt next launch.
+      report(error, { operation: 'onboarding.acceptTerms' });
     } finally {
+      setAccepted(true);
       setSaving(false);
     }
   };

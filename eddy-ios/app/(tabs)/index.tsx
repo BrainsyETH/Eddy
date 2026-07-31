@@ -44,7 +44,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   FloatPlan,
@@ -910,9 +909,6 @@ export default function MapScreen() {
           </Text>
         </View>
       ) : null}
-
-      <SafetyDisclaimer compact />
-
 
       <View style={styles.mapArea}>
         {unavailable ? (

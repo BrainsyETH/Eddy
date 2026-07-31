@@ -36,7 +36,6 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
-import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { waitForEntitlement } from '@/api/client';
 import {
@@ -49,6 +48,7 @@ import {
   restorePurchases,
   type PurchasePackage,
 } from '@/lib/purchases';
+import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
 
 interface Props {
   visible: boolean;
@@ -98,8 +98,6 @@ const BENEFITS: { symbol: EddySymbolName; title: string; body: string }[] = [
 // App Store review requires a subscription screen to link to both the terms
 // (EULA) and the privacy policy. These are not optional decoration — a paywall
 // without them is a rejection.
-const TERMS_URL = 'https://eddy.guide/terms';
-const PRIVACY_URL = 'https://eddy.guide/privacy';
 
 export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props) {
   const { colors, elevation } = useTheme();
@@ -242,12 +240,11 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
             </View>
           ))}
 
-          {/* The honesty line. Everything sold above is built on the same USGS
-              readings as the free tier, and the forecast inherits their lag —
-              so the caveat belongs on the purchase screen rather than only in
-              the app. It used to describe alert latency; alerts are free now,
-              and that version of this sentence lives in PushPrimer. */}
-          <SafetyDisclaimer compact />
+          {/* Forecast uncertainty belongs on the screen that takes money for
+              the outlook. A general river disclaimer does not say this. */}
+          <Text style={[styles.forecastCaveat, { color: colors.error }]}>
+            The outlook is a forecast, not a promise. Conditions can change before your trip.
+          </Text>
 
           <Text style={[styles.freeNote, { color: colors.textSubtle }]}>
             River conditions, gauge readings, hazard information and alerts are always free — and
@@ -397,7 +394,7 @@ const styles = StyleSheet.create({
   benefitText: { flex: 1 },
   benefitTitle: { ...t.sm, fontFamily: fonts.semibold },
   benefitBody: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
-  honesty: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: 14 },
+  forecastCaveat: { ...t.xs, fontFamily: fonts.semibold, textAlign: 'center', marginTop: 14 },
   freeNote: { ...t.xs, fontFamily: fonts.medium, textAlign: 'center', marginTop: 10 },
   legal: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: 14 },
   legalLinks: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },

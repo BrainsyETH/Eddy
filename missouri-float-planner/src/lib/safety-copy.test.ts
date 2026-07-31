@@ -26,3 +26,8 @@ test('retired general-purpose safety copy does not return', () => {
   );
   assert.deepEqual(offenders, []);
 });
+
+test('static safety copy is not announced as a live alert', () => {
+  const component = readFileSync('../eddy-ios/src/components/SafetyDisclaimer.tsx', 'utf8');
+  assert.doesNotMatch(component, /accessibilityRole=["']alert["']/);
+});

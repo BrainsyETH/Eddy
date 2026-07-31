@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import {
   acceptTerms,
   hasAcceptedTerms,
@@ -34,4 +35,9 @@ test('storage read failures fail closed', async () => {
     async setItem() {},
   };
   assert.equal(await hasAcceptedTerms(storage), false);
+});
+
+test('an acceptance write failure cannot trap the current session', () => {
+  const gate = readFileSync('../eddy-ios/src/components/OnboardingGate.tsx', 'utf8');
+  assert.match(gate, /catch \(error\)[\s\S]*report\(error,[\s\S]*setAccepted\(true\)/);
 });

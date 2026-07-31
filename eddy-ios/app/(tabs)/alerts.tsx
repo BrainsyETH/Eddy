@@ -59,7 +59,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type {
@@ -546,10 +545,12 @@ export default function AlertsScreen() {
         }
         ListFooterComponent={
           highWaterRows.length > 0 ? (
-            // The honesty line. Every row above is a stored reading, and USGS
-            // reporting lag plus the ingest cadence puts it up to about an hour
-            // behind the river itself.
-            <SafetyDisclaimer compact />
+            // Every row above is a stored reading. State the actual limitation
+            // instead of substituting a generic safety disclaimer.
+            <Text style={[styles.lagNote, { color: colors.textMuted }]}>
+              Gauge readings can trail the river by up to about an hour. Check again before
+              getting on the water.
+            </Text>
           ) : null
         }
         renderItem={({ item }) => {
@@ -680,7 +681,7 @@ const styles = StyleSheet.create({
   headline: { ...t.sm, fontFamily: fonts.semibold, marginTop: 3 },
   detail: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
   chip: { padding: 8, borderRadius: 999, marginRight: 14 },
-  footnote: {
+  lagNote: {
     ...t.xs,
     fontFamily: fonts.body,
     textAlign: 'center',

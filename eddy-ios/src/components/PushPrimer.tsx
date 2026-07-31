@@ -23,7 +23,6 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
-import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 
 interface Props {
   visible: boolean;
@@ -79,9 +78,11 @@ export function PushPrimer({ visible, riverName, onAllow, onDismiss }: Props) {
 
           {/* The honest caveat, on the screen that makes the promise rather
               than buried in Settings. USGS reporting lag plus our cron cadence
-              means an alert trails the river by roughly 20-75 minutes, and
-              "instant" is a claim we cannot keep. */}
-          <SafetyDisclaimer compact />
+              means "instant" is a claim we cannot keep. */}
+          <Text style={[styles.latency, { color: colors.textMuted }]}>
+            Gauge reporting and processing mean alerts can trail the river by roughly 20–75
+            minutes. Check conditions again before getting on the water.
+          </Text>
         </View>
 
         <View style={[styles.footer, { borderTopColor: colors.border }]}>
@@ -138,7 +139,7 @@ const styles = StyleSheet.create({
   points: { alignSelf: 'stretch', gap: 14, marginTop: 26 },
   point: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   pointText: { ...t.sm, fontFamily: fonts.body, flex: 1 },
-  honesty: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: 24 },
+  latency: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: 24 },
   footer: { padding: 20, borderTopWidth: 1, gap: 10 },
   primary: { borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
   primaryText: { ...t.base, fontFamily: fonts.semibold },

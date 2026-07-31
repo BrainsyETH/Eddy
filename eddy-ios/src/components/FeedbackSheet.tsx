@@ -11,7 +11,9 @@
 // ── Submission path ────────────────────────────────────────────────────────
 // Every report goes through POST /api/feedback, where rate limiting, contact
 // validation and the feedback-type allowlist run before the service-role write.
-// The email field is prefilled from the current session when one is available.
+// It remains available before sign-in because corrections are most useful at
+// the river and an identity step would add friction at exactly that moment. A
+// contact email is still required and is prefilled from the current session.
 //
 // ── The type list is shorter than the website's ────────────────────────────
 // `partner` is a website flow (the embed workbench) with no app surface, and

@@ -43,7 +43,6 @@ import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { FavoriteRiverCard, type GaugeThresholds } from '@/components/FavoriteRiverCard';
 import { GaugeRow } from '@/components/GaugeRow';
-import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { DamRow } from '@/components/dam/DamRow';
 import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
@@ -216,7 +215,6 @@ export default function FavoritesScreen() {
             </View>
           ) : null
         }
-        ListFooterComponent={starred.length > 0 ? <SafetyDisclaimer /> : null}
         renderItem={({ item }) => {
           if (item.kind === 'dam') {
             const dam = damById.get(item.entityId);
