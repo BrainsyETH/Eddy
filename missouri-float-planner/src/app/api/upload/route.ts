@@ -15,7 +15,7 @@ import { randomUUID } from 'node:crypto';
 export const dynamic = 'force-dynamic';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_SIZE = Math.floor(3.5 * 1024 * 1024);
 
 function json(body: { error?: string; success?: boolean; path?: string }, status = 200) {
   return NextResponse.json(body, {
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (file.size > MAX_SIZE) {
-      return json({ error: 'File too large. Maximum size is 10MB' }, 400);
+      return json({ error: 'File too large. Maximum size is 3.5MB' }, 413);
     }
 
     const arrayBuffer = await file.arrayBuffer();

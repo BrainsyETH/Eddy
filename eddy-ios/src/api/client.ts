@@ -1570,7 +1570,7 @@ interface UploadResponse {
  * itself to include the multipart boundary, and setting it by hand produces a
  * body the server cannot parse.
  *
- * The route allows JPEG, PNG and WebP up to 10 MB and checks magic bytes rather
+ * The route allows JPEG, PNG and WebP up to 3.5 MB and checks magic bytes rather
  * than trusting the declared type, so a mislabelled file is rejected there
  * rather than stored.
  */
@@ -1584,23 +1584,30 @@ export async function uploadCommunityPhoto(
   // object instead — a real platform difference, not a type error to fix.
   form.append('file', file as unknown as Blob);
 
+  const deadline = withDeadline(signal, BACKGROUND_TIMEOUT_MS);
   let response: Response;
   try {
     response = await fetch(`${BASE_URL}/api/upload`, {
       method: 'POST',
       headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
       body: form,
-      signal,
+      signal: deadline.signal,
     });
   } catch (err) {
-    throw new ApiError(
-      err instanceof Error && err.name === 'AbortError' ? 'Request cancelled' : 'No connection',
-    );
+    const aborted = err instanceof Error && err.name === 'AbortError';
+    if (aborted && !deadline.timedOut) throw new ApiError('Request cancelled');
+    if (aborted && deadline.timedOut) throw new ApiError('Upload timed out. Try again on a stronger connection.');
+    throw new ApiError('No connection. Check your signal and try again.');
+  } finally {
+    deadline.done();
   }
 
   const data = (await response.json().catch(() => null)) as UploadResponse | null;
   if (!response.ok || !data?.path) {
-    throw new ApiError(data?.error ?? `Upload failed (${response.status})`, response.status);
+    throw new ApiError(
+      response.status === 413 ? 'That photo is too large.' : (data?.error ?? `Upload failed (${response.status})`),
+      response.status,
+    );
   }
   return data.path;
 }

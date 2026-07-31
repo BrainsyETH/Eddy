@@ -34,7 +34,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { FeedbackContext, FeedbackType } from '@eddy/types';
 import { ApiError, submitFeedback } from '@/api/client';
@@ -68,8 +67,7 @@ interface Props {
 }
 
 export function FeedbackSheet({ visible, onDismiss, context, defaultType = 'other' }: Props) {
-  const { colors, floating } = useTheme();
-  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const { session } = useSession();
 
   const [type, setType] = useState<FeedbackType>(defaultType);
@@ -147,27 +145,18 @@ export function FeedbackSheet({ visible, onDismiss, context, defaultType = 'othe
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={dismiss}>
-      <Pressable
-        style={[styles.backdrop, { backgroundColor: colors.scrim }]}
-        onPress={dismiss}
-        accessibilityLabel="Close"
-      />
+    <Modal
+      visible={visible}
+      transparent={false}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={dismiss}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.lift}
-        pointerEvents="box-none"
       >
-        <View
-          style={[
-            styles.sheet,
-            floating(),
-            { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 },
-          ]}
-        >
-          <View style={styles.grabberRow}>
-            <View style={[styles.grabber, { backgroundColor: colors.border }]} />
-          </View>
+        <View style={[styles.sheet, { backgroundColor: colors.card }]}>
 
           {sent ? (
             // No auto-dismiss. The website's modal closes itself after two
@@ -296,16 +285,8 @@ export function FeedbackSheet({ visible, onDismiss, context, defaultType = 'othe
 }
 
 const styles = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFill },
-  lift: { flex: 1, justifyContent: 'flex-end' },
-  sheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 16,
-    maxHeight: '92%',
-  },
-  grabberRow: { alignItems: 'center', paddingTop: 8 },
-  grabber: { width: 36, height: 4, borderRadius: 999 },
+  lift: { flex: 1 },
+  sheet: { flex: 1, paddingHorizontal: 16 },
   form: { paddingTop: 10, paddingBottom: 8, gap: 10 },
   title: { ...t.xl, fontFamily: fonts.display },
   about: { ...t.sm, fontFamily: fonts.body, marginTop: -4 },
