@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           >
             Privacy Policy
           </h1>
-          <p className="text-white/80">Last updated: July 26, 2026</p>
+          <p className="text-white/80">Last updated: August 1, 2026</p>
         </div>
       </section>
 
@@ -158,7 +158,12 @@ export default function PrivacyPage() {
             <li><strong>Google Analytics/Tag Manager</strong> for usage measurement when configured.</li>
             <li><strong>Resend</strong> for subscription, inbound email, and reply delivery.</li>
             <li><strong>USGS and weather providers</strong> for river and forecast data. Gauge requests are generally made server-side.</li>
-            <li><strong>Map, routing, and navigation providers</strong> for tiles, shuttle estimates, and links you choose to open.</li>
+            <li><strong>Mapbox</strong> for map tiles and offline map packs. Loading a map sends Mapbox your IP address and the area of the map you are looking at, which approximates your location even when you have not granted location access.</li>
+            <li><strong>Sentry</strong> for crash and error reporting from the website and the iOS app. Reports carry device model, operating system, app version, and a stack trace. Access tokens, email addresses, and coordinates are stripped before sending.</li>
+            <li><strong>RevenueCat</strong> for subscription purchases and their status. RevenueCat receives your Eddy account identifier and the purchase records Apple returns. Eddy never receives your payment details — those stay with Apple.</li>
+            <li><strong>Expo</strong> for delivering push notifications to the iOS app. Expo receives a device push token and the contents of each notification, which name the river and its condition.</li>
+            <li><strong>Apple</strong> for Sign in with Apple and for all subscription billing.</li>
+            <li><strong>Routing and navigation providers</strong> for shuttle estimates and links you choose to open.</li>
           </ul>
           <p className={`${body} mt-3`}>
             External navigation, outfitter, campground, and source links take you to third-party

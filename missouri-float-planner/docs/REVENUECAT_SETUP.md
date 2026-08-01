@@ -326,16 +326,35 @@ Vercel → project → **Settings → Environment Variables**:
 | Variable | Value | Environments |
 |---|---|---|
 | `REVENUECAT_WEBHOOK_SECRET` | the secret from step 6 | **Production + Preview** |
-| `ALLOW_SANDBOX_ENTITLEMENTS` | `true` | **Preview only — never Production** |
+| `DENY_SANDBOX_ENTITLEMENTS` | *unset* | — see below |
 
 `REVENUECAT_WEBHOOK_SECRET` is mandatory: without it the route returns 500 by
 design (fail-closed) rather than accepting unverified events.
 
-`ALLOW_SANDBOX_ENTITLEMENTS` is the safety interlock for running one Supabase
-project across web and iOS. Sandbox/TestFlight purchases write rows tagged
-`environment='SANDBOX'`; those rows are ignored at read time unless this flag is
-set. **Setting it in Production would let anyone with a sandbox Apple ID unlock
-Eddy Premium for free.** Redeploy after changing it — env vars are read at build time.
+### Sandbox entitlements are honoured, and that is deliberate
+
+`ALLOW_SANDBOX_ENTITLEMENTS` used to be required before a `environment='SANDBOX'`
+row would unlock anything, and it was documented as "Preview only — never
+Production".
+
+**That would have failed App Review, silently.** App Review purchases through the
+StoreKit sandbox. The reviewer signs in, buys, RevenueCat sends
+`environment='SANDBOX'`, the webhook writes the row correctly — and
+`isEntitlementActive()` then answered false, so `/api/me/profile` reported
+`isActive:false` and Premium stayed locked behind a purchase that had just
+succeeded. Nothing in the app, the RevenueCat dashboard or the database would
+have pointed at the cause.
+
+The exposure the old default guarded against is narrower than it reads. A
+sandbox receipt cannot be minted by the public — sandbox tester credentials come
+from this App Store Connect account, TestFlight membership is invited, and
+RevenueCat validates the receipt with Apple before the webhook fires. The set of
+people who can hold a SANDBOX entitlement is exactly {App Review, invited
+testers}, and both should have the paid features while testing them.
+
+`DENY_SANDBOX_ENTITLEMENTS=true` restores the old strict behaviour if it is ever
+wanted. Nothing sets it. Redeploy after changing it — env vars are read at build
+time.
 
 ---
 
@@ -374,9 +393,14 @@ from entitlements order by updated_at desc limit 5;
 
 - one row, `entitlement_id = 'eddy_premium'`, `environment = 'SANDBOX'`
 - `user_id` equals the Supabase user id of the signed-in account
-- `GET /api/me/profile` on a **preview** deploy reports `isActive: true`
-- the same call in **production** reports `isActive: false` ← this is correct
-  and is the interlock working
+- `GET /api/me/profile` reports `isActive: true` — on **preview and production
+  alike**, and in the app Premium unlocks
+
+That last point used to read the other way: production was expected to report
+`isActive: false`, and that was described as the interlock working. It was not.
+It was the bug that would have failed App Review — see §8. If production reports
+`false` after a successful sandbox purchase, something set
+`DENY_SANDBOX_ENTITLEMENTS`.
 
 ### 9c. Hard-to-reproduce paths
 

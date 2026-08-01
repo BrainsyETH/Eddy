@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isEntitlementActive } from './entitlement';
+import { isEntitlementActive, sandboxEntitlementsAllowed } from './entitlement';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const FUTURE = '2027-01-01T00:00:00.000Z';
@@ -55,4 +55,65 @@ test('an expired sandbox entitlement is inactive even when sandbox is allowed', 
     isEntitlementActive({ expires_at: PAST, environment: 'SANDBOX' }, { now: NOW, allowSandbox: true }),
     false
   );
+});
+
+// ── The default, which is what App Review actually exercises ────────────────
+//
+// Every test above passes allowSandbox explicitly, so none of them covered the
+// value used in production. That gap is the whole reason the old default
+// survived: a sandbox purchase unlocking nothing was the documented, tested
+// behaviour of the flag, and untested behaviour of the app.
+
+test('sandbox entitlements are honoured unless explicitly denied', () => {
+  const prior = process.env.DENY_SANDBOX_ENTITLEMENTS;
+  try {
+    delete process.env.DENY_SANDBOX_ENTITLEMENTS;
+    assert.equal(sandboxEntitlementsAllowed(), true);
+
+    // Not opt-in any more: absence of the old ALLOW flag must not deny.
+    delete process.env.ALLOW_SANDBOX_ENTITLEMENTS;
+    assert.equal(sandboxEntitlementsAllowed(), true);
+
+    process.env.DENY_SANDBOX_ENTITLEMENTS = 'true';
+    assert.equal(sandboxEntitlementsAllowed(), false);
+
+    // Only the exact string denies; a stray value must not silently lock the
+    // paid product for everyone who bought it.
+    process.env.DENY_SANDBOX_ENTITLEMENTS = 'false';
+    assert.equal(sandboxEntitlementsAllowed(), true);
+    process.env.DENY_SANDBOX_ENTITLEMENTS = '1';
+    assert.equal(sandboxEntitlementsAllowed(), true);
+  } finally {
+    if (prior === undefined) delete process.env.DENY_SANDBOX_ENTITLEMENTS;
+    else process.env.DENY_SANDBOX_ENTITLEMENTS = prior;
+  }
+});
+
+test("a reviewer's sandbox purchase unlocks with no flag set", () => {
+  const prior = process.env.DENY_SANDBOX_ENTITLEMENTS;
+  try {
+    delete process.env.DENY_SANDBOX_ENTITLEMENTS;
+    // No allowSandbox override — exactly what /api/me/profile does in production.
+    assert.equal(
+      isEntitlementActive({ expires_at: FUTURE, environment: 'SANDBOX' }, { now: NOW }),
+      true,
+    );
+  } finally {
+    if (prior === undefined) delete process.env.DENY_SANDBOX_ENTITLEMENTS;
+    else process.env.DENY_SANDBOX_ENTITLEMENTS = prior;
+  }
+});
+
+test('an expired sandbox entitlement is still expired', () => {
+  const prior = process.env.DENY_SANDBOX_ENTITLEMENTS;
+  try {
+    delete process.env.DENY_SANDBOX_ENTITLEMENTS;
+    assert.equal(
+      isEntitlementActive({ expires_at: PAST, environment: 'SANDBOX' }, { now: NOW }),
+      false,
+    );
+  } finally {
+    if (prior === undefined) delete process.env.DENY_SANDBOX_ENTITLEMENTS;
+    else process.env.DENY_SANDBOX_ENTITLEMENTS = prior;
+  }
 });
