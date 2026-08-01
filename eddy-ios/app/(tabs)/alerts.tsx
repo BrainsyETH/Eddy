@@ -78,6 +78,7 @@ import { EddyScene } from '@/components/EddyScene';
 import { AlertRuleRow } from '@/components/AlertRuleRow';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useRouter } from 'expo-router';
+import { asHref } from '@/lib/href';
 
 type Segment = 'high-water' | 'rules' | 'notices';
 
@@ -579,7 +580,7 @@ export default function AlertsScreen() {
 
           return (
             <Pressable
-              onPress={target ? () => router.push(target) : undefined}
+              onPress={target ? () => router.push(asHref(target)) : undefined}
               disabled={!target}
               style={({ pressed }) => [
                 styles.row,
