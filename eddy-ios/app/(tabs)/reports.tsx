@@ -103,6 +103,7 @@ import { gaugeLink } from '@/lib/gaugeCondition';
 import { rememberGauge, seedFromSearchResult } from '@/lib/gaugeSeed';
 import { primaryReading } from '@/lib/readingCopy';
 import { useRouter } from 'expo-router';
+import { asHref } from '@/lib/href';
 
 type FilterKey = 'all' | 'floatable' | 'starred' | 'low' | 'high';
 
@@ -1245,7 +1246,7 @@ export default function ReportsScreen() {
                   // A result without both halves of its route cannot be opened.
                   // Older deployments of /api/search send no accessSlug, and a
                   // row that navigates nowhere is better than one that 404s.
-                  target ? () => router.push(target) : undefined
+                  target ? () => router.push(asHref(target)) : undefined
                 }
                 disabled={!target}
                 style={({ pressed }) => [

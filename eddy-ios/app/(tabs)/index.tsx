@@ -118,6 +118,7 @@ import { milesBetween, useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
 import { warn } from '@/lib/monitoring';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { asHref } from '@/lib/href';
 import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
 import { SearchResultsList } from '@/components/SearchResultsList';
@@ -1140,7 +1141,7 @@ export default function MapScreen() {
                 onOpenDam={onOpenDam}
                 onOpenDetail={(route) => {
                   setSelectedPin(null);
-                  router.push(route);
+                  router.push(asHref(route));
                 }}
                 onClose={() => {
                   setSelectedPin(null);
