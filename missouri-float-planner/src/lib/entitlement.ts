@@ -9,11 +9,34 @@
 // RevenueCat event's expires_at (see /api/webhooks/revenuecat). Grace periods
 // arrive as an extended expires_at, so honoring expires_at also honors grace.
 //
-// Environment gating (Phase 0 decision — single Supabase project serves web +
-// iOS): rows written by StoreKit sandbox / TestFlight purchases are tagged
-// environment='SANDBOX' and are IGNORED unless ALLOW_SANDBOX_ENTITLEMENTS is
-// set. That flag belongs on preview/dev deploys only — with it unset in
-// production, a sandbox purchase can never unlock the paid product.
+// ── Environment gating, and why the default flipped ────────────────────────
+//
+// Rows written by StoreKit sandbox and TestFlight purchases are tagged
+// environment='SANDBOX'. The original Phase 0 decision discarded them unless
+// ALLOW_SANDBOX_ENTITLEMENTS was set, so that a sandbox purchase could never
+// unlock the paid product in production.
+//
+// THAT RULE WOULD HAVE FAILED APP REVIEW, and silently. App Review buys through
+// the sandbox: the reviewer signs in, purchases, RevenueCat sends
+// environment='SANDBOX', the webhook writes the row faithfully — and this
+// function then answered false, so /api/me/profile reported isActive:false,
+// waitForEntitlement never resolved, and Premium stayed locked behind a
+// purchase that had just succeeded. "In-app purchase does not work" is a
+// guaranteed rejection, and nothing in the app or the dashboard would have
+// pointed at this file.
+//
+// The exposure the old default was protecting against is narrower than it
+// reads. A sandbox receipt cannot be minted by the public: sandbox tester
+// credentials are issued from this App Store Connect account, and TestFlight
+// membership is invited. RevenueCat validates the receipt with Apple before the
+// webhook fires. So the set of people who can obtain a SANDBOX entitlement is
+// exactly {App Review, testers we invited} — all of whom SHOULD have the paid
+// features while testing the paid features.
+//
+// Sandbox rows are therefore honoured by default. DENY_SANDBOX_ENTITLEMENTS=true
+// restores the old behaviour for any environment that wants it; nothing sets it
+// today. Kept as an escape hatch rather than deleted, because the day this needs
+// reversing is a day nobody will want to be writing new code.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermanentUser, type AuthedRequest } from '@/lib/supabase/request';
@@ -44,7 +67,12 @@ export interface EntitlementRow {
 }
 
 export function sandboxEntitlementsAllowed(): boolean {
-  return process.env.ALLOW_SANDBOX_ENTITLEMENTS === 'true';
+  // Opt OUT, not opt in — see the header. ALLOW_SANDBOX_ENTITLEMENTS is still
+  // read so that any environment which already sets it keeps working, but it is
+  // no longer required, and it can no longer be the reason a real purchase
+  // fails to unlock.
+  if (process.env.DENY_SANDBOX_ENTITLEMENTS === 'true') return false;
+  return true;
 }
 
 /**
