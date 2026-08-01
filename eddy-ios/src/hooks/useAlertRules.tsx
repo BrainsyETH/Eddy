@@ -172,10 +172,25 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
   // with one.
   const setEnabled = useCallback(
     async (rule: AlertRule, enabled: boolean): Promise<void> => {
+      /**
+       * Switching a SPENT one-shot back on re-arms it.
+       *
+       * Delivery now pauses a one-shot when it fires, which makes this switch
+       * the re-arm control wherever a rule is listed. Sending `enabled: true`
+       * alone would clear the pause and leave one_shot_fired_at set — a rule
+       * that reads as live on every screen and cannot fire, which is the exact
+       * confusion switching it off was meant to end.
+       */
+      const rearm = enabled && rule.oneShot && rule.firedAt != null;
       await mutate(
         rule,
-        (current) => current.map((r) => (r.id === rule.id ? { ...r, enabled } : r)),
-        (token) => updateAlertRule(token, rule, { enabled }),
+        (current) =>
+          current.map((r) =>
+            r.id === rule.id
+              ? { ...r, enabled, ...(rearm ? { firedAt: null, lastTriggeredAt: null } : {}) }
+              : r,
+          ),
+        (token) => updateAlertRule(token, rule, { enabled, ...(rearm ? { rearm: true } : {}) }),
       );
     },
     [mutate],
@@ -202,8 +217,14 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
                     ? { thresholdValueMax: patch.thresholdValueMax }
                     : {}),
                   // Re-arming clears the spend, which is what greys out a
-                  // "fired" badge the moment the user taps it.
-                  ...(patch.rearm ? { firedAt: null, lastTriggeredAt: null } : {}),
+                  // "fired" badge the moment the user taps it — and un-pauses
+                  // the rule, mirroring the server's rearm default now that a
+                  // delivered one-shot switches itself off. Without the
+                  // `enabled` half the row would sit there armed and showing
+                  // OFF until the next refetch corrected it.
+                  ...(patch.rearm
+                    ? { firedAt: null, lastTriggeredAt: null, enabled: patch.enabled ?? true }
+                    : {}),
                 }
               : r,
           ),

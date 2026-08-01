@@ -141,6 +141,14 @@ export async function PATCH(
     if (body.rearm) {
       update.last_triggered_at = null;
       update.one_shot_fired_at = null;
+      // Delivery now PAUSES a spent one-shot as well as stamping it (see
+      // lib/alerts/gauge-delivery.ts), so clearing the spend without clearing
+      // the pause would hand back a rule that is armed, switched off, and
+      // silent — the same invisible dead end re-arming exists to escape.
+      //
+      // An explicit `enabled` in the same request still wins: someone who
+      // re-armed and paused in one save meant to pause it.
+      if (typeof body.enabled !== 'boolean') update.enabled = true;
     }
 
     if (Object.keys(update).length === 0) {

@@ -22,7 +22,7 @@ import {
 } from 'react';
 import * as Notifications from 'expo-notifications';
 import { AppState } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRootNavigationState, useRouter } from 'expo-router';
 import { useSession } from '@/hooks/useSession';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { warn } from '@/lib/monitoring';
@@ -104,14 +104,38 @@ export function PushProvider({ children }: { children: ReactNode }) {
   const handled = useRef(new Set<string>());
   const hasBackgrounded = useRef(false);
 
-  const openFromNotification = useCallback(
-    (response: Notifications.NotificationResponse | null) => {
-      if (!response) return;
+  /**
+   * THE COLD-START TAP RACE, and why a tapped notification stranded the app.
+   *
+   * `<Stack>` is not mounted for the first frames of every launch — it sits
+   * below OnboardingGate, which renders a bare View until hasAcceptedTerms()
+   * comes back from storage. Navigating in that window throws "Attempted to
+   * navigate before mounting the Root Layout component".
+   *
+   * Launching FROM a tap loses that race essentially every time:
+   * getLastNotificationResponseAsync() resolves with a response the OS already
+   * handed us, while the gate is still waiting on disk. And the throw landed in
+   * the .catch() below, so it was swallowed — no navigation, no Sentry event,
+   * and a blank gate fallback that is the same colour as the splash in both
+   * themes (#F7F6F3 / #1A1814). Indistinguishable from a hung launch.
+   *
+   * useRootNavigationState() is undefined until the root navigator mounts, so
+   * it is the readiness signal. A response that arrives early is parked and
+   * replayed by the effect below rather than dropped.
+   */
+  const navigationState = useRootNavigationState();
+  const navigatorReady = Boolean(navigationState?.key);
+  // Mirrored into a ref so openFromNotification can read readiness without
+  // taking it as a dependency — the notification listener is registered once
+  // and must not be torn down and re-added the moment the navigator mounts.
+  const navigatorReadyRef = useRef(navigatorReady);
+  useEffect(() => {
+    navigatorReadyRef.current = navigatorReady;
+  }, [navigatorReady]);
+  const pendingResponse = useRef<Notifications.NotificationResponse | null>(null);
 
-      const id = response.notification.request.identifier;
-      if (handled.current.has(id)) return;
-      handled.current.add(id);
-
+  const routeTo = useCallback(
+    (response: Notifications.NotificationResponse) => {
       const data = response.notification.request.content.data as {
         riverSlug?: unknown;
         gaugeSiteId?: unknown;
@@ -133,12 +157,46 @@ export function PushProvider({ children }: { children: ReactNode }) {
     [router],
   );
 
+  const openFromNotification = useCallback(
+    (response: Notifications.NotificationResponse | null) => {
+      if (!response) return;
+
+      // Deduped BEFORE the readiness check, so the cold-start response cannot
+      // be parked here and delivered again by the listener — that would put two
+      // copies of the same river on the stack once the navigator mounts.
+      const id = response.notification.request.identifier;
+      if (handled.current.has(id)) return;
+      handled.current.add(id);
+
+      if (!navigatorReadyRef.current) {
+        pendingResponse.current = response;
+        return;
+      }
+      routeTo(response);
+    },
+    [routeTo],
+  );
+
+  // Replay whatever arrived before the navigator existed. Runs on the render
+  // that flips navigatorReady, which is the first moment router.push can work.
+  useEffect(() => {
+    if (!navigatorReady) return;
+    const queued = pendingResponse.current;
+    if (!queued) return;
+    pendingResponse.current = null;
+    routeTo(queued);
+  }, [navigatorReady, routeTo]);
+
   useEffect(() => {
     // Cold start: the tap that launched the app is not delivered to the
     // listener below, only to this.
     Notifications.getLastNotificationResponseAsync()
       .then(openFromNotification)
-      .catch(() => {});
+      // Reported, not swallowed. This catch hid the navigate-before-mount throw
+      // that made a tapped notification look like a hung launch, and a silent
+      // failure on the one path nobody can reproduce on demand is the worst
+      // place in the app to save a log line.
+      .catch((err) => warn('push', 'could not open the tapped notification', err));
 
     const subscription = Notifications.addNotificationResponseReceivedListener(
       openFromNotification,

@@ -68,7 +68,22 @@ async function run(request: NextRequest) {
   // 00191 added silenced the client's UI and nothing else.
   const disabled = await pushDisabledReason(supabase);
   if (disabled) {
-    return NextResponse.json({ skipped: true, reason: disabled });
+    const pending = await countPendingOutbox(supabase);
+    // LOUD when the switch is holding real notifications back.
+    //
+    // This return used to be silent, which made a six-day outage — every alert
+    // detected, recorded, and never sent because EXPO_PUSH_ENABLED was false in
+    // production — indistinguishable from an empty outbox. Nothing in the logs,
+    // nothing in the ledger, and the evaluation cron cheerfully writing events
+    // nobody would ever receive. A kill switch that cannot be seen from the
+    // outside is a kill switch nobody remembers is on.
+    if (pending > 0) {
+      logger.error(
+        '[deliver-push] push is disabled while the outbox has undelivered events',
+        new Error(`${disabled}; ${pending} event(s) waiting`),
+      );
+    }
+    return NextResponse.json({ skipped: true, reason: disabled, pending });
   }
 
   const gotLock = await tryCronLock(supabase, LOCK_JOB, LOCK_STALE_SECONDS);
@@ -98,6 +113,35 @@ async function run(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
     await releaseCronLock(supabase, LOCK_JOB);
+  }
+}
+
+/**
+ * How many events both outboxes are holding, for the kill-switch warning.
+ *
+ * `head: true` so this costs a count and no rows. Never throws and answers 0 on
+ * failure: this exists to make a suppressed run visible, and it must not be the
+ * reason a run fails.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function countPendingOutbox(supabase: any): Promise<number> {
+  try {
+    const [river, gauge] = await Promise.all([
+      supabase
+        .from('river_condition_events')
+        .select('id', { count: 'exact', head: true })
+        .is('push_delivered_at', null)
+        .lt('push_attempts', MAX_ATTEMPTS)
+        .in('kind', ['floatable', 'warning', 'easing']),
+      supabase
+        .from('gauge_alert_events')
+        .select('id', { count: 'exact', head: true })
+        .is('push_delivered_at', null)
+        .lt('push_attempts', MAX_ATTEMPTS),
+    ]);
+    return (river.count ?? 0) + (gauge.count ?? 0);
+  } catch {
+    return 0;
   }
 }
 
@@ -316,11 +360,16 @@ async function drainRiverEvents(supabase: any, startedAt: number): Promise<River
   // Spend a one-shot only where something actually landed. The rule lives in
   // lib/alerts/drain.ts beside planDrain — same reason, same pass, and the two
   // are easy to get inconsistent if they sit apart.
+  //
+  // enabled:false alongside fired_at, matching the gauge pass — a spent
+  // one-shot is off, and says so on every screen that reads `enabled`. The
+  // reasoning is in gauge-delivery.ts; the two must not diverge, because the
+  // manage list renders both kinds of rule through one component.
   const spent = spentOneShots(plan.oneShotSubscriptionIds, successBySubscription);
   if (spent.length > 0) {
     await supabase
       .from('alert_subscriptions')
-      .update({ fired_at: new Date().toISOString() })
+      .update({ fired_at: new Date().toISOString(), enabled: false })
       .in('id', spent);
   }
 
