@@ -16,39 +16,51 @@
 #
 # Names only. Values are never printed: some are secrets the API will not return
 # anyway, and the rest belong in the dashboard rather than in terminal scrollback.
+#
+# ── WRITTEN FOR BASH 3.2, DELIBERATELY ─────────────────────────────────────
+#
+# macOS ships bash 3.2 as /bin/bash and always will — 4.0 went GPLv3 and Apple
+# will not ship it. This script's first version used `declare -A`, which is a
+# bash 4 feature, so it worked on Linux and died on the only platform that runs
+# it: `declare: -A: invalid option`. `bash -n` does not catch that, because the
+# syntax is valid — the builtin simply lacks the flag at runtime.
+#
+# So: no associative arrays, no `${x^^}`, no `mapfile`. Sorted temp files and
+# `comm` do the same job and run anywhere. If you extend this, check it against
+# /bin/bash on a Mac, not just the bash on your PATH.
 
 set -euo pipefail
 
-ENVIRONMENTS=(preview production)
+ENVIRONMENTS="preview production"
 
 # What a build needs to be complete. EXPO_PUBLIC_* are inlined into the bundle
 # by Metro and are public by construction; the Sentry three are build-time only,
 # and SENTRY_AUTH_TOKEN is a write credential that must never take the prefix.
-REQUIRED=(
-  EXPO_PUBLIC_MAPBOX_TOKEN
-  EXPO_PUBLIC_SUPABASE_URL
-  EXPO_PUBLIC_SUPABASE_ANON_KEY
-  EXPO_PUBLIC_REVENUECAT_IOS_KEY
-  EXPO_PUBLIC_SENTRY_DSN
-  SENTRY_ORG
-  SENTRY_PROJECT
-  SENTRY_AUTH_TOKEN
-)
+REQUIRED="
+EXPO_PUBLIC_MAPBOX_TOKEN
+EXPO_PUBLIC_SUPABASE_URL
+EXPO_PUBLIC_SUPABASE_ANON_KEY
+EXPO_PUBLIC_REVENUECAT_IOS_KEY
+EXPO_PUBLIC_SENTRY_DSN
+SENTRY_ORG
+SENTRY_PROJECT
+SENTRY_AUTH_TOKEN
+"
 
 cd "$(dirname "$0")/.."
 
-names_for() {
-  npx eas-cli@latest env:list --environment "$1" 2>/dev/null |
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+# One sorted file of variable NAMES per environment.
+for env in $ENVIRONMENTS; do
+  echo "==> reading $env"
+  npx eas-cli@latest env:list --environment "$env" 2>/dev/null |
     grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' |
     tr -d '=' |
-    sort -u
-}
+    sort -u > "$work/$env" || true
 
-declare -A NAMES
-for env in "${ENVIRONMENTS[@]}"; do
-  echo "==> reading $env"
-  NAMES[$env]="$(names_for "$env" || true)"
-  if [ -z "${NAMES[$env]}" ]; then
+  if [ ! -s "$work/$env" ]; then
     echo ""
     echo "  Could not read any variables for '$env'."
     echo "  Check you are logged in:  npx eas-cli@latest whoami"
@@ -60,10 +72,11 @@ done
 status=0
 
 # 1. Asymmetry — the bug this script was written for.
-for env in "${ENVIRONMENTS[@]}"; do
-  for other in "${ENVIRONMENTS[@]}"; do
+for env in $ENVIRONMENTS; do
+  for other in $ENVIRONMENTS; do
     [ "$env" = "$other" ] && continue
-    missing="$(comm -13 <(echo "${NAMES[$env]}") <(echo "${NAMES[$other]}") || true)"
+    # Lines in $other that are absent from $env.
+    missing="$(comm -13 "$work/$env" "$work/$other")"
     if [ -n "$missing" ]; then
       echo ""
       echo "  Set in '$other' but MISSING from '$env':"
@@ -74,9 +87,9 @@ for env in "${ENVIRONMENTS[@]}"; do
 done
 
 # 2. Absence — a variable missing everywhere is invisible to the check above.
-for env in "${ENVIRONMENTS[@]}"; do
-  for want in "${REQUIRED[@]}"; do
-    if ! echo "${NAMES[$env]}" | grep -qx "$want"; then
+for env in $ENVIRONMENTS; do
+  for want in $REQUIRED; do
+    if ! grep -qx "$want" "$work/$env"; then
       echo ""
       echo "  '$env' is missing a required variable: $want"
       status=1
@@ -96,4 +109,4 @@ if [ "$status" -ne 0 ]; then
 fi
 
 echo ""
-echo "EAS variables agree across: ${ENVIRONMENTS[*]}"
+echo "EAS variables agree across: $ENVIRONMENTS"
