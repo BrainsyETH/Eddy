@@ -7,6 +7,9 @@
 // the free path (see src/lib/x402/ in the web app).
 
 import Constants from 'expo-constants';
+// Types only — erased at compile time. The MODULE is required lazily in
+// uploadCommunityPhoto, so a build without the native side still starts.
+import type * as ExpoFileSystem from 'expo-file-system';
 import type {
   AccessPointDetailResponse,
   AccessPointsResponse,
@@ -1592,29 +1595,74 @@ interface UploadResponse {
  * than trusting the declared type, so a mislabelled file is rejected there
  * rather than stored.
  */
+/**
+ * expo-file-system, lazily. Same posture as every other native module in this
+ * app: a module that cannot load must cost you ITS feature, never the app. The
+ * photo sheet's own photoCaptureAvailable() already gates on this, so reaching
+ * here without it means the sheet opened when it should not have.
+ */
+function loadFileSystem(): typeof ExpoFileSystem | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('expo-file-system') as typeof ExpoFileSystem;
+  } catch {
+    return null;
+  }
+}
+
 export async function uploadCommunityPhoto(
   file: { uri: string; name: string; type: string },
   signal?: AbortSignal,
 ): Promise<string> {
-  const form = new FormData();
-  // The RN file shape. Cast because the DOM lib types FormData.append as
-  // accepting Blob | string, and React Native's implementation accepts this
-  // object instead — a real platform difference, not a type error to fix.
-  form.append('file', file as unknown as Blob);
+  // ── WHY THIS IS NOT fetch + FormData ANY MORE ────────────────────────────
+  //
+  // It was, and it threw `Unsupported FormDataPart implementation` on every
+  // attempt — which is why no photo submitted from the app has ever reached
+  // the server, while the same multipart payload from curl answers 200.
+  //
+  // The old code appended React Native's `{uri, name, type}` file shape and
+  // cast it to Blob, with a comment explaining that RN's FormData accepts that
+  // object even though the DOM types do not. That WAS true. It stopped being
+  // true in this RN version, whose networking layer rejects any part that is
+  // not a string or a Blob it recognises — and it rejects it inside fetch, so
+  // the failure surfaced as a thrown TypeError indistinguishable from being
+  // offline. Hence "No connection", on a working connection.
+  //
+  // expo-file-system's upload task builds the multipart body natively from the
+  // file URI, so there is no FormData part to be unsupported. It is also the
+  // module the size check already depends on, so this adds no new dependency.
+  const fs = loadFileSystem();
+  if (!fs) throw new ApiError('Photo upload is unavailable in this build.');
 
-  const deadline = withDeadline(signal, BACKGROUND_TIMEOUT_MS);
-  let response: Response;
+  const task = new fs.File(file.uri).createUploadTask(`${BASE_URL}/api/upload`, {
+    httpMethod: 'POST',
+    uploadType: fs.UploadType.MULTIPART,
+    // The route reads formData.get('file') and validates the part's own
+    // content-type against JPEG/PNG/WebP before checking magic bytes. It never
+    // reads the filename, so mimeType is the field that has to be right.
+    fieldName: 'file',
+    mimeType: file.type,
+    headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
+  });
+
+  // withDeadline cannot be used here — it works by aborting a fetch signal, and
+  // there is no fetch. The task has its own cancel(), so the deadline is a timer
+  // that calls it, and the two abort reasons stay distinguishable the same way.
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    task.cancel();
+  }, BACKGROUND_TIMEOUT_MS);
+  const onCallerAbort = () => task.cancel();
+  signal?.addEventListener('abort', onCallerAbort);
+
+  let result: ExpoFileSystem.UploadResult;
   try {
-    response = await fetch(`${BASE_URL}/api/upload`, {
-      method: 'POST',
-      headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
-      body: form,
-      signal: deadline.signal,
-    });
+    result = await task.uploadAsync();
   } catch (err) {
-    const aborted = err instanceof Error && err.name === 'AbortError';
-    if (aborted && !deadline.timedOut) throw new ApiError('Request cancelled');
-    if (aborted && deadline.timedOut) throw new ApiError('Upload timed out. Try again on a stronger connection.');
+    // The task rejects on cancel too, so which cancel it was decides the copy.
+    if (timedOut) throw new ApiError('Upload timed out. Try again on a stronger connection.');
+    if (signal?.aborted) throw new ApiError('Request cancelled');
     // REPORT BEFORE REPLACING. Everything that is not an abort lands here, and
     // "No connection" is a guess about which of them happened — a genuinely
     // unreachable network looks identical to a file URI fetch cannot read, a
@@ -1640,14 +1688,24 @@ export async function uploadCommunityPhoto(
     });
     throw new ApiError('No connection. Check your signal and try again.');
   } finally {
-    deadline.done();
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', onCallerAbort);
   }
 
-  const data = (await response.json().catch(() => null)) as UploadResponse | null;
-  if (!response.ok || !data?.path) {
+  // UploadResult.body is the raw response string, not a parsed object — the
+  // native task has no idea the endpoint speaks JSON.
+  let data: UploadResponse | null = null;
+  try {
+    data = JSON.parse(result.body) as UploadResponse;
+  } catch {
+    // Left null: a non-JSON body is a platform error page, not an answer, and
+    // the status below says more about it than a parse failure would.
+  }
+
+  if (result.status < 200 || result.status >= 300 || !data?.path) {
     throw new ApiError(
-      response.status === 413 ? 'That photo is too large.' : (data?.error ?? `Upload failed (${response.status})`),
-      response.status,
+      result.status === 413 ? 'That photo is too large.' : (data?.error ?? `Upload failed (${result.status})`),
+      result.status,
     );
   }
   return data.path;
