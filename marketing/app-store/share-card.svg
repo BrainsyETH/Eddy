@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <style>
+      @font-face { font-family: Fredoka; src: url("assets/Fredoka-Variable.ttf"); }
+      @font-face { font-family: Geist; src: url("assets/GeistVF.woff"); }
+      @font-face { font-family: Geist Mono; src: url("assets/GeistMonoVF.woff"); }
+      .display { font-family: Fredoka, "Arial Rounded MT Bold", sans-serif; font-weight: 650; }
+      .body { font-family: Geist, Arial, sans-serif; }
+      .mono { font-family: "Geist Mono", Menlo, monospace; }
+    </style>
+    <clipPath id="cardClip"><rect x="18" y="18" width="1164" height="594" rx="24" /></clipPath>
+    <clipPath id="phoneClip"><rect x="824" y="161" width="304" height="658" rx="35" /></clipPath>
+  </defs>
+
+  <rect width="1200" height="630" fill="#E7E1D4" />
+  <g clip-path="url(#cardClip)">
+    <rect x="18" y="18" width="1164" height="594" rx="24" fill="#F4EFE7" />
+
+    <g fill="none" stroke="#E2D7C2" stroke-width="5" stroke-linecap="round">
+      <path d="M-80 175C99 25 293 45 423 161s316 132 487 5 319-52 374 75" />
+      <path d="M-89 215C91 65 280 89 410 201s318 129 493 4 322-46 375 81" />
+      <path d="M-98 257C83 109 268 132 397 243s320 126 499 3 325-39 376 87" />
+      <path d="M-85 545c196-131 368-100 467 35s297 166 499 62 318 14 331 135" />
+      <path d="M-102 582c202-130 371-95 466 41s294 165 499 63 321 19 334 141" />
+    </g>
+
+    <g transform="translate(68 52)">
+      <rect x="5" y="5" width="58" height="58" rx="15" fill="#2D2A24" />
+      <rect width="58" height="58" rx="15" fill="#1D525F" stroke="#2D2A24" stroke-width="4" />
+      <image href="assets/eddy-favicon.png" x="0" y="0" width="58" height="58" />
+      <text x="78" y="44" class="display" font-size="38" fill="#2D2A24">Eddy</text>
+    </g>
+
+    <text x="70" y="192" class="mono" font-size="19" font-weight="700" letter-spacing="2.2" fill="#1D525F">LIVE RIVER CONDITIONS</text>
+
+    <g class="display" font-size="67" letter-spacing="-2">
+      <text x="75" y="267" fill="#2D2A24">Find floatable</text>
+      <text x="75" y="337" fill="#2D2A24">water</text>
+      <text x="70" y="262" fill="#F07052">Find floatable</text>
+      <text x="70" y="332" fill="#F07052">water</text>
+    </g>
+
+    <text x="70" y="389" class="body" font-size="25" font-weight="560" fill="#6B6459">
+      <tspan x="70" dy="0">Know what’s running well before</tspan>
+      <tspan x="70" dy="34">you make the drive.</tspan>
+    </text>
+
+    <g transform="translate(70 484)">
+      <rect x="6" y="6" width="540" height="59" rx="18" fill="#2D2A24" />
+      <rect width="540" height="59" rx="18" fill="#1D525F" stroke="#2D2A24" stroke-width="4" />
+      <text x="28" y="38" class="mono" font-size="17" font-weight="700" letter-spacing="1.1" fill="#F4EFE7">REAL-TIME READINGS • FLOAT PLANS • ALERTS</text>
+    </g>
+
+    <g>
+      <rect x="807" y="144" width="338" height="735" rx="47" fill="#2D2A24" />
+      <rect x="794" y="131" width="338" height="735" rx="47" fill="#1D525F" stroke="#2D2A24" stroke-width="7" />
+      <g clip-path="url(#phoneClip)">
+        <image href="captures/native/07.png" x="824" y="161" width="304" height="659" preserveAspectRatio="xMidYMin slice" />
+      </g>
+    </g>
+
+    <image href="assets/eddy-canoe.png" x="671" y="10" width="416" height="277" preserveAspectRatio="xMidYMid meet" />
+
+    <rect x="52" y="582" width="1096" height="14" rx="7" fill="#1D525F" stroke="#2D2A24" stroke-width="4" />
+  </g>
+  <rect x="18" y="18" width="1164" height="594" rx="24" fill="none" stroke="#2D2A24" stroke-width="7" />
+</svg>
