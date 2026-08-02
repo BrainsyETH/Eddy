@@ -41,7 +41,13 @@ const FETCH_CONCURRENCY = 4;
 
 /**
  * Hard wall for a whole fetchLatest fan-out. Partial results beat a killed
- * cron: 10 dams at concurrency 4 is three waves, comfortably inside this.
+ * cron: 8 sites at concurrency 4 is two waves, comfortably inside this.
+ *
+ * That 8 is USACE_RELEASE_SITE_IDS, not the registry size, and the difference
+ * matters — the registry holds 20 dams but only the ones declaring a release
+ * series can back a gauge_stations row. The ten SWPA projects added for the
+ * Tulsa district resolve their release at request time for display and are
+ * deliberately absent here, so this budget did not move when they landed.
  */
 const LATEST_BUDGET_MS = 15_000;
 

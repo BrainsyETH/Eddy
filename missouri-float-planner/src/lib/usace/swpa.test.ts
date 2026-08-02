@@ -9,6 +9,7 @@ import {
   parseScheduleDate,
   parseSchedulePage,
   retrievedAtFrom,
+  swpaCodeCandidates,
   weekdayFileFor,
   centralDateKey,
   type ProjectSchedule,
@@ -25,6 +26,44 @@ const FIXTURE = readFileSync(
   join(process.cwd(), 'src/lib/usace/__fixtures__/swpa-mon-2026-07-27.txt'),
   'utf8'
 );
+
+test('Ozark resolves whichever way SWPA spells it that day', () => {
+  // SWPA prints two different codes for one project ON THE SAME PAGE: the
+  // column header says OZK (fixture line 6), the project table says OZD
+  // (fixture line 52). Schedules are keyed on the column, so a dam wired to the
+  // table's spelling would report "no schedule" forever — a silent failure
+  // indistinguishable from the feed being down.
+  const day = parseSchedulePage(FIXTURE);
+  assert.ok(day, 'fixture must parse');
+
+  // The parsed columns carry OZK, not OZD — this is the asymmetry itself.
+  assert.ok(day.projects.OZK, 'fixture column header spells it OZK');
+  assert.equal(day.projects.OZD, undefined, 'the table spelling is not a column');
+
+  // Both spellings must lead a caller to the same place.
+  assert.deepEqual(swpaCodeCandidates('OZD'), ['OZD', 'OZK']);
+  assert.deepEqual(swpaCodeCandidates('OZK'), ['OZK', 'OZD']);
+  for (const code of ['OZD', 'OZK']) {
+    // Annotated for the same reason as below: assert.ok narrows, so inferring
+    // this from a value it narrows is circular (TS7022).
+    const found: string | undefined = swpaCodeCandidates(code).find((c) => day.projects[c]);
+    assert.ok(found, `${code} must resolve to a parsed column`);
+  }
+
+  // A code with no alias resolves to just itself.
+  assert.deepEqual(swpaCodeCandidates('BSD'), ['BSD']);
+});
+
+test('every project SWPA schedules is one the parser knows', () => {
+  // The 18 columns are the set that decides how many dams Eddy can have.
+  const day = parseSchedulePage(FIXTURE);
+  assert.ok(day);
+  const columns = Object.keys(day.projects);
+  assert.equal(columns.length, 18, 'SWPA schedules 18 projects');
+  for (const code of columns) {
+    assert.ok(SWPA_PROJECTS[code], `column ${code} has no SWPA_PROJECTS entry`);
+  }
+});
 
 test('parses the schedule date from the body, not the title', () => {
   // Load-bearing: on the day this fixture was captured, tue.htm was TITLED

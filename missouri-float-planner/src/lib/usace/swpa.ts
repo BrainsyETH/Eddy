@@ -398,6 +398,26 @@ export async function fetchDaySchedule(
 }
 
 /**
+ * Codes SWPA spells more than one way for the same project, best first.
+ *
+ * Ozark L&D is printed `OZK` in the schedule's column header and `OZD` in the
+ * project table on the same page — see the checked-in fixture, lines 6 and 52.
+ * Schedules are keyed on the COLUMN, so a dam wired to the table's spelling
+ * finds nothing and reports "no schedule" forever, which is indistinguishable
+ * from a fetch failure. Trying both spellings makes the page's inconsistency
+ * something this module absorbs rather than something a reader discovers.
+ */
+export const SWPA_CODE_ALIASES: Record<string, string[]> = {
+  OZD: ['OZD', 'OZK'],
+  OZK: ['OZK', 'OZD'],
+};
+
+/** Every spelling to try for a project code, preferred first. */
+export function swpaCodeCandidates(projectCode: string): string[] {
+  return SWPA_CODE_ALIASES[projectCode] ?? [projectCode];
+}
+
+/**
  * Schedules for one project across the next `days` days, today first.
  * Days that fail or haven't been refreshed are simply absent.
  */
@@ -417,9 +437,18 @@ export async function fetchProjectSchedule(
     wanted.map((d) => fetchDaySchedule(d, options))
   );
 
+  const codes = swpaCodeCandidates(projectCode);
+
   return results
     .map((r) => (r.status === 'fulfilled' ? r.value : null))
-    .map((day) => day?.projects[projectCode] ?? null)
+    .map((day) => {
+      if (!day) return null;
+      for (const code of codes) {
+        const hit = day.projects[code];
+        if (hit) return hit;
+      }
+      return null;
+    })
     .filter((s): s is ProjectSchedule => s !== null);
 }
 

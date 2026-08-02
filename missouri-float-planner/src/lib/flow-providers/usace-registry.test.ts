@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  UNWIRED_SWPA_PROJECTS,
   USACE_DAMS,
   USACE_RELEASE_SITE_IDS,
   getUsaceDam,
   getUsaceSeries,
 } from './usace-registry';
-import { SWPA_PROJECTS } from '@/lib/usace/swpa';
+import { SWPA_PROJECTS, swpaCodeCandidates } from '@/lib/usace/swpa';
 
 // Structural invariants only — no network. Every timeseries id here was
 // confirmed live once; what this file guards is the wiring around them, which
@@ -49,12 +50,103 @@ test('every SWPA code resolves to a project with a MW→CFS key', () => {
 test('a dam with turbines declares when it counts as generating', () => {
   // Table Rock idles around 20 cfs with the units off, so a bare `> 0` test
   // would read "generating" all day. Any dam with a powerhouse needs a floor.
+  //
+  // The condition is deliberately NOT `series.generationFlow` alone: a dam that
+  // relies on the catalog resolver declares no series at all, yet still resolves
+  // turbine flow at request time and so still needs a floor. Every Tulsa project
+  // is in that shape, and checking only declared series would have let all eight
+  // ship with `generating` permanently null.
+  //
+  // Whether turbine flow is resolvable is a property of the DISTRICT, measured
+  // 2026-08-02: SWL publishes `Flow-Plant`, SWT publishes `Flow-Power`, and MVS
+  // publishes neither for either of its projects — which is why Mark Twain has a
+  // powerhouse, a SWPA column and a CWMS location but legitimately no floor.
+  const OFFICES_PUBLISHING_TURBINE_FLOW = new Set(['SWL', 'SWT']);
+
   for (const dam of Object.values(USACE_DAMS)) {
-    if (!dam.series.generationFlow) continue;
+    const resolvesTurbineFlow = Boolean(
+      dam.swpaCode && dam.cdaLocation && dam.office && OFFICES_PUBLISHING_TURBINE_FLOW.has(dam.office)
+    );
+    if (!dam.series.generationFlow && !resolvesTurbineFlow) continue;
     assert.ok(
       typeof dam.generationOnCfs === 'number' && dam.generationOnCfs > 0,
-      `${dam.id} reports turbine flow but declares no generationOnCfs floor`
+      `${dam.id} can report turbine flow but declares no generationOnCfs floor`
     );
+  }
+
+  // Mark Twain pins the exception, so a future district audit has to confront it
+  // rather than quietly "fixing" it with an invented number.
+  const markTwain = getUsaceDam('mvs-mark-twain')!;
+  assert.ok(markTwain.swpaCode, 'Mark Twain has a powerhouse');
+  assert.equal(markTwain.generationOnCfs, undefined, 'MVS publishes no turbine flow to floor');
+});
+
+test('generation floors clear the leakage each plant actually idles at', () => {
+  // Measured on 2026-08-01/02: most Tulsa plants read exactly 0 cfs with the
+  // units off, but Denison idles at 19, Keystone at 200 and Eufaula at 230. The
+  // uniform 100 the White River dams use would have read "generating" all night
+  // at the last two, so floors scale with plant size (~2% of full-power
+  // discharge) instead of being copied.
+  const observedIdleCfs: Record<string, number> = {
+    'swt-denison-dam': 19,
+    'swt-keystone-dam': 200,
+    'swt-eufaula-dam': 230,
+  };
+  for (const [id, idle] of Object.entries(observedIdleCfs)) {
+    const dam = getUsaceDam(id)!;
+    assert.ok(
+      dam.generationOnCfs! > idle,
+      `${id} floor ${dam.generationOnCfs} does not clear its observed ${idle} cfs idle flow`
+    );
+  }
+
+  // And a floor must stay well under full power, or real generation reads idle.
+  for (const dam of Object.values(USACE_DAMS)) {
+    if (dam.generationOnCfs === undefined || !dam.swpaCode) continue;
+    const fullPower = SWPA_PROJECTS[dam.swpaCode].fullPowerCfs;
+    assert.ok(
+      dam.generationOnCfs < fullPower * 0.05,
+      `${dam.id} floor is more than 5% of full power — real generation would read idle`
+    );
+  }
+});
+
+test('no two dams claim the same SWPA schedule column', () => {
+  // Schedules are keyed on the column code, so two dams sharing one would
+  // render the same schedule and which dam "owns" it would be arbitrary. Ozark
+  // makes this a live hazard: SWPA prints both OZK and OZD for it.
+  const claimed = new Map<string, string>();
+  for (const dam of Object.values(USACE_DAMS)) {
+    if (!dam.swpaCode) continue;
+    for (const code of swpaCodeCandidates(dam.swpaCode)) {
+      const prior = claimed.get(code);
+      assert.ok(!prior, `${dam.id} and ${prior} both claim SWPA code ${code}`);
+      claimed.set(code, dam.id);
+    }
+  }
+});
+
+test('every SWPA project is either wired to a dam or listed as unwired', () => {
+  // The gap this locks out: SWPA's schedule carries 18 projects and the parser
+  // read all of them, but only 8 were wired to a dam — so ten hourly generation
+  // schedules were parsed and discarded, with nothing anywhere recording that as
+  // a decision. An unwired project now has to be argued for in writing.
+  const wired = new Set<string>();
+  for (const dam of Object.values(USACE_DAMS)) {
+    if (!dam.swpaCode) continue;
+    for (const code of swpaCodeCandidates(dam.swpaCode)) wired.add(code);
+  }
+  const excused = new Set(UNWIRED_SWPA_PROJECTS.map((p) => p.code));
+
+  for (const code of Object.keys(SWPA_PROJECTS)) {
+    assert.ok(
+      wired.has(code) || excused.has(code),
+      `SWPA project ${code} is parsed but neither wired to a dam nor listed in UNWIRED_SWPA_PROJECTS`
+    );
+  }
+  for (const entry of UNWIRED_SWPA_PROJECTS) {
+    assert.ok(SWPA_PROJECTS[entry.code], `UNWIRED_SWPA_PROJECTS names unknown code ${entry.code}`);
+    assert.ok(entry.reason.length > 0, `${entry.code} is excused without a reason`);
   }
 });
 
@@ -138,9 +230,10 @@ test('nameplate capacity is never SWPA scheduling capacity', () => {
 });
 
 test('trout tailwaters are declared, not inferred from temperature', () => {
-  // Exactly five of these are cold deep-release trout fisheries. Norfork is
-  // one of them AND publishes no water temperature, which is why this cannot
-  // be derived from a reading.
+  // Exactly seven of these are cold deep-release trout fisheries: the five
+  // White River system dams, plus Oklahoma's two — Broken Bow (Lower Mountain
+  // Fork) and Tenkiller Ferry (Lower Illinois). The list is exact on purpose.
+  // Adding a dam should force a decision about its fishery, not inherit one.
   const trout = Object.values(USACE_DAMS)
     .filter((d) => d.tailwaterFishery === 'trout')
     .map((d) => d.id)
@@ -151,11 +244,22 @@ test('trout tailwaters are declared, not inferred from temperature', () => {
     'swl-greers-ferry-dam',
     'swl-norfork-dam',
     'swl-table-rock-dam',
+    'swt-broken-bow-dam',
+    'swt-tenkiller-dam',
   ]);
 
   const norfork = getUsaceDam('swl-norfork-dam')!;
   assert.equal(norfork.tailwaterFishery, 'trout');
   assert.equal(norfork.series.tailwaterTempF, undefined, 'Norfork publishes no water temp');
+
+  // The Tulsa district publishes no water temperature at any project, so both
+  // Oklahoma trout tailwaters would be unlabelled if this were inferred — the
+  // same trap Norfork sets, twice over.
+  for (const id of ['swt-broken-bow-dam', 'swt-tenkiller-dam']) {
+    const dam = getUsaceDam(id)!;
+    assert.equal(dam.office, 'SWT');
+    assert.equal(dam.series.tailwaterTempF, undefined);
+  }
 });
 
 test('every project declares what its tailwater fishery is', () => {

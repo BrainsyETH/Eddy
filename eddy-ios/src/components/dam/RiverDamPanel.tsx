@@ -14,8 +14,8 @@
 //
 // ── No round trip ──────────────────────────────────────────────────────────
 // There is no /api/rivers/[slug]/dam route, and this does not need one. The dam
-// list is ten items and the river screen already holds it; `tailwater` on the
-// snapshot names the reach, so the lookup is a filter rather than a fetch.
+// list is short — ~20 items — and the river screen already holds it; `tailwater`
+// on the snapshot names the reach, so the lookup is a filter rather than a fetch.
 //
 // ── What it must never do ──────────────────────────────────────────────────
 // Imply the release is a promise. The Corps changes schedules for power demand,

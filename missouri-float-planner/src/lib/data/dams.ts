@@ -24,7 +24,12 @@
 // snapshot, never present with a null. Absent means "this dam has no
 // powerhouse", and the UI must render nothing rather than "0 cfs" or a dash.
 
-import { fetchLatestValue, fetchTimeseries, stalenessOf } from '@/lib/usace/cda';
+import {
+  fetchLatestValue,
+  fetchTimeseries,
+  stalenessOf,
+  type TimeseriesPoint,
+} from '@/lib/usace/cda';
 import { fetchProjectSchedule, idleWindows } from '@/lib/usace/swpa';
 import { resolveSeries, type ResolvedSeries } from '@/lib/usace/resolve';
 import {
@@ -86,6 +91,22 @@ async function mapWithConcurrency<T, R>(
 }
 
 /**
+ * A series to read, plus the value already read for it if resolution confirmed
+ * one. `probed` exists so a discovered series costs the same number of requests
+ * as a declared one: the resolver has to read a value to know the series is
+ * live at all (the CWMS catalog's timestamps are unreliable — see
+ * src/lib/usace/resolve.ts), and throwing that value away to fetch it again a
+ * moment later would double the fan-out for every resolver-backed dam.
+ */
+interface MetricSource {
+  tsId: string;
+  unit: string;
+  lookbackHours?: number;
+  dailyMean?: boolean;
+  probed?: TimeseriesPoint;
+}
+
+/**
  * The series to use for each wanted metric: the registry's verified id when it
  * has one, otherwise whatever the catalog resolver discovers.
  *
@@ -98,8 +119,8 @@ async function mapWithConcurrency<T, R>(
 async function seriesFor(
   dam: UsaceDam,
   metrics: UsaceMetric[]
-): Promise<Partial<Record<UsaceMetric, { tsId: string; unit: string; lookbackHours?: number; dailyMean?: boolean }>>> {
-  const out: Partial<Record<UsaceMetric, { tsId: string; unit: string; lookbackHours?: number; dailyMean?: boolean }>> = {};
+): Promise<Partial<Record<UsaceMetric, MetricSource>>> {
+  const out: Partial<Record<UsaceMetric, MetricSource>> = {};
   const unresolved: UsaceMetric[] = [];
 
   for (const metric of metrics) {
@@ -118,29 +139,75 @@ async function seriesFor(
   for (const [metric, hit] of Object.entries(discovered)) {
     if (!hit) continue;
     console.info(`[USACE] resolved ${dam.id}.${metric} -> ${hit.tsId} (${hit.reason})`);
-    out[metric as UsaceMetric] = { tsId: hit.tsId, unit: hit.unit };
+    out[metric as UsaceMetric] = {
+      tsId: hit.tsId,
+      unit: hit.unit,
+      ...(hit.probed ? { probed: hit.probed } : {}),
+    };
   }
   return out;
+}
+
+/**
+ * Anything below this rounds to "-0%", so it is a rounding artefact rather than
+ * a fact about the lake. Clamped up to zero instead of dropped, because a metric
+ * that vanishes and reappears as a lake drifts either side of its conservation
+ * pool is worse than one that reads 0%.
+ */
+const FLOOD_POOL_ZERO_BAND = -0.5;
+
+/**
+ * The value to publish for a metric at this dam, or null to omit it entirely.
+ *
+ * Three rules, all about `%-Flood Pool`, which is the one metric whose meaning
+ * is local rather than universal:
+ *
+ * - Per-dam suppression from the registry: a navigation pool reads 90-94% of
+ *   flood pool as its ordinary state. See UsaceDam.suppressMetrics.
+ * - A percentage inside the rounding band clamps to 0. Tenkiller measured
+ *   -0.39% and +2.29% hours apart on 2026-08-02, and both surfaces render this
+ *   as `${value.toFixed(0)}% flood pool` — so the raw number would have shipped
+ *   "-0% flood pool" and made the row flicker as the lake drifted.
+ * - A meaningfully NEGATIVE percentage omits the metric. Broken Bow read -7.52%:
+ *   the lake is drawn down below the flood pool entirely, which is the ordinary
+ *   summer state but is not something "% flood pool" can express. The honest
+ *   rendering is the one the UI already gives an absent metric — nothing.
+ */
+export function publishableValue(
+  dam: Pick<UsaceDam, 'suppressMetrics'>,
+  metric: UsaceMetric,
+  value: number
+): number | null {
+  if (dam.suppressMetrics?.includes(metric)) return null;
+  if (metric !== 'pctFloodPool') return value;
+  if (value >= 0) return value;
+  return value >= FLOOD_POOL_ZERO_BAND ? 0 : null;
 }
 
 async function readMetrics(dam: UsaceDam): Promise<Partial<Record<UsaceMetric, DamMetricValue>>> {
   if (!dam.office || !dam.cdaLocation) return {};
 
-  const resolved = await seriesFor(dam, SNAPSHOT_METRICS);
-  const wanted = SNAPSHOT_METRICS.filter((m) => resolved[m]);
+  const asked = SNAPSHOT_METRICS.filter((m) => !dam.suppressMetrics?.includes(m));
+  const resolved = await seriesFor(dam, asked);
+  const wanted = asked.filter((m) => resolved[m]);
   if (wanted.length === 0) return {};
 
   const results = await mapWithConcurrency(wanted, FETCH_CONCURRENCY, async (metric) => {
     const series = resolved[metric]!;
-    const point = await fetchLatestValue(
-      dam.office!,
-      series.tsId,
-      series.unit,
-      series.lookbackHours ?? 8
-    );
+    // A resolved series arrives with its value already read — see MetricSource.
+    const point =
+      series.probed ??
+      (await fetchLatestValue(
+        dam.office!,
+        series.tsId,
+        series.unit,
+        series.lookbackHours ?? 8
+      ));
     if (!point) return null;
+    const published = publishableValue(dam, metric, point.value);
+    if (published === null) return null;
     const value: DamMetricValue = {
-      value: point.value,
+      value: published,
       unit: series.unit,
       at: new Date(point.timestamp).toISOString(),
       staleness: stalenessOf(point.timestamp),

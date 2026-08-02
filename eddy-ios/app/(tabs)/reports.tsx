@@ -306,12 +306,14 @@ export default function ReportsScreen() {
   const [riverRequestOpen, setRiverRequestOpen] = useState(false);
 
   /**
-   * The ten dams, fetched once when the scope is first opened.
+   * Every dam, fetched once when the scope is first opened.
    *
    * Filtered LOCALLY from there, like the river scope and unlike the gauge and
    * access ones: this screen's rule is that nothing on it should wait on a
-   * round trip to narrow data it already holds, and ten items is data it can
-   * hold. /api/search has no dam results to give it anyway.
+   * round trip to narrow data it already holds. The list is ~20 items now that
+   * the Tulsa district projects are wired, and still small enough to hold; if it
+   * ever reaches the low hundreds this becomes a server-side filter instead.
+   * /api/search has no dam results to give it anyway.
    */
   const damsRequested = useRef(false);
   useEffect(() => {
