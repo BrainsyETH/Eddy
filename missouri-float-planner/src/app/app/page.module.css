@@ -1,0 +1,450 @@
+.page {
+  background: #f7f6f3;
+  color: #2d2a24;
+}
+
+.hero {
+  position: relative;
+  min-height: calc(100vh - 3.5rem);
+  overflow: hidden;
+  border-bottom: 4px solid #2d2a24;
+  background: #f4efe7;
+}
+
+.contours {
+  position: absolute;
+  inset: 0;
+  opacity: 0.72;
+  background:
+    radial-gradient(ellipse 58% 34% at 12% 18%, transparent 57%, #e2d7c2 58% 59%, transparent 60%),
+    radial-gradient(ellipse 64% 40% at 16% 23%, transparent 61%, #e2d7c2 62% 63%, transparent 64%),
+    radial-gradient(ellipse 70% 46% at 88% 80%, transparent 60%, #e2d7c2 61% 62%, transparent 63%),
+    radial-gradient(ellipse 64% 40% at 84% 76%, transparent 56%, #e2d7c2 57% 58%, transparent 59%);
+  pointer-events: none;
+}
+
+.heroInner {
+  position: relative;
+  z-index: 1;
+  width: min(1180px, calc(100% - 40px));
+  min-height: calc(100vh - 3.5rem);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(430px, 0.92fr);
+  align-items: center;
+  gap: 52px;
+  padding: 76px 0 64px;
+}
+
+.copy {
+  max-width: 650px;
+}
+
+.eyebrow {
+  margin: 0 0 16px;
+  color: #1d525f;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+}
+
+.copy h1,
+.sectionHeading h2,
+.bottomCta h2 {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 680;
+  letter-spacing: -0.045em;
+}
+
+.copy h1 {
+  max-width: 620px;
+  margin: 0;
+  color: #f07052;
+  font-size: clamp(4rem, 7.5vw, 7rem);
+  line-height: 0.91;
+  text-shadow: 5px 5px 0 #2d2a24;
+}
+
+.lede {
+  max-width: 590px;
+  margin: 34px 0 0;
+  color: #524d43;
+  font-size: clamp(1.08rem, 1.8vw, 1.35rem);
+  font-weight: 520;
+  line-height: 1.55;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 15px;
+  margin-top: 34px;
+}
+
+.appStoreBadge,
+.bottomBadge,
+.secondaryButton,
+.bottomLink {
+  text-decoration: none;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.appStoreBadge,
+.bottomBadge {
+  display: inline-flex;
+  line-height: 0;
+}
+
+.appStoreBadge:hover,
+.bottomBadge:hover {
+  transform: translateY(-2px);
+}
+
+.appStoreBadge:focus-visible,
+.bottomBadge:focus-visible {
+  outline: 3px solid #1d525f;
+  outline-offset: 5px;
+}
+
+.storeButton {
+  min-width: 205px;
+  min-height: 64px;
+  padding: 9px 22px 10px;
+  border: 3px solid #2d2a24;
+  border-radius: 16px;
+  background: #163f4a;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  box-shadow: 6px 7px 0 #2d2a24;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.23rem;
+  font-weight: 630;
+  line-height: 1;
+}
+
+.storeButton svg {
+  width: 29px;
+  height: 29px;
+}
+
+.storeButton span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.storeButton small {
+  font-family: var(--font-body), sans-serif;
+  font-size: 0.66rem;
+  font-weight: 540;
+  letter-spacing: 0.03em;
+}
+
+.secondaryButton:hover,
+.bottomLink:hover {
+  transform: translate(-2px, -2px);
+}
+
+.storeButtonPending {
+  cursor: default;
+  opacity: 0.82;
+}
+
+.qrPrompt {
+  width: fit-content;
+  margin-top: 26px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #6b6459;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.qrPrompt > span:last-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.qrPrompt strong {
+  color: #2d2a24;
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.qrFrame {
+  padding: 5px;
+  border: 2px solid #2d2a24;
+  border-radius: 10px;
+  background: #f4efe7;
+  box-shadow: 3px 4px 0 #2d2a24;
+  line-height: 0;
+}
+
+.secondaryButton {
+  min-height: 58px;
+  padding: 0 20px;
+  border: 3px solid #2d2a24;
+  border-radius: 15px;
+  background: white;
+  color: #2d2a24;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  box-shadow: 5px 6px 0 #c2baac;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.secondaryButton svg,
+.bottomLink svg {
+  width: 18px;
+  height: 18px;
+}
+
+.microcopy {
+  margin: 23px 0 0;
+  color: #6b6459;
+  font-size: 0.82rem;
+}
+
+.preview {
+  position: relative;
+  min-height: 690px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.phoneShot {
+  position: absolute;
+  height: auto;
+  border: 3px solid #2d2a24;
+  border-radius: 20px;
+  background: #f4efe7;
+  box-shadow: 10px 12px 0 #2d2a24;
+}
+
+.phoneShotFront {
+  z-index: 3;
+  width: 315px;
+}
+
+.phoneShotBackLeft,
+.phoneShotBackRight {
+  z-index: 1;
+  width: 246px;
+  filter: saturate(0.94);
+}
+
+.phoneShotBackLeft {
+  left: 0;
+  transform: rotate(-7deg) translateY(18px);
+}
+
+.phoneShotBackRight {
+  right: 0;
+  transform: rotate(7deg) translateY(22px);
+}
+
+.features {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 88px 0 96px;
+}
+
+.sectionHeading {
+  max-width: 710px;
+}
+
+.sectionHeading h2,
+.bottomCta h2 {
+  margin: 0;
+  font-size: clamp(2.4rem, 5vw, 4.2rem);
+  line-height: 1.02;
+}
+
+.featureGrid {
+  margin-top: 46px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.featureCard {
+  min-height: 250px;
+  padding: 27px;
+  border: 3px solid #2d2a24;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 7px 8px 0 #c2baac;
+}
+
+.featureIcon {
+  width: 50px;
+  height: 50px;
+  border: 3px solid #2d2a24;
+  border-radius: 15px;
+  background: #d4eaef;
+  color: #1d525f;
+  display: grid;
+  place-items: center;
+  box-shadow: 4px 4px 0 #2d2a24;
+}
+
+.featureIcon svg {
+  width: 25px;
+  height: 25px;
+}
+
+.featureCard h3 {
+  margin: 26px 0 10px;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.45rem;
+  font-weight: 650;
+}
+
+.featureCard p {
+  margin: 0;
+  color: #6b6459;
+  line-height: 1.58;
+}
+
+.bottomCta {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto 90px;
+  padding: 46px 50px;
+  border: 4px solid #2d2a24;
+  border-radius: 24px;
+  background: #e7e1d4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 34px;
+  box-shadow: 9px 10px 0 #2d2a24;
+}
+
+.bottomCta h2 {
+  max-width: 720px;
+  font-size: clamp(2rem, 4vw, 3.45rem);
+}
+
+.bottomLink {
+  flex: 0 0 auto;
+  min-height: 54px;
+  padding: 0 19px;
+  border: 3px solid #2d2a24;
+  border-radius: 14px;
+  background: #f07052;
+  color: #2d2a24;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  box-shadow: 5px 6px 0 #2d2a24;
+  font-weight: 750;
+}
+
+@media (max-width: 960px) {
+  .heroInner {
+    grid-template-columns: 1fr;
+    gap: 30px;
+    padding-top: 64px;
+  }
+
+  .copy {
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .qrPrompt {
+    margin-right: auto;
+    margin-left: auto;
+    text-align: left;
+  }
+
+  .lede {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .actions {
+    justify-content: center;
+  }
+
+  .preview {
+    min-height: 610px;
+    max-width: 620px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .phoneShotFront { width: 278px; }
+  .phoneShotBackLeft,
+  .phoneShotBackRight { width: 218px; }
+
+  .featureGrid { grid-template-columns: 1fr; }
+  .featureCard { min-height: 0; }
+  .bottomCta { align-items: flex-start; flex-direction: column; }
+}
+
+@media (max-width: 620px) {
+  .heroInner,
+  .features,
+  .bottomCta {
+    width: min(100% - 28px, 1180px);
+  }
+
+  .heroInner { padding-top: 50px; }
+  .copy h1 { font-size: clamp(3.7rem, 19vw, 5.2rem); }
+  .lede { font-size: 1.02rem; }
+
+  .actions {
+    align-items: center;
+    flex-direction: column;
+  }
+
+  .storeButton,
+  .secondaryButton {
+    width: 100%;
+  }
+
+  .preview {
+    min-height: 560px;
+    overflow: hidden;
+  }
+
+  .phoneShotFront { width: min(72vw, 265px); }
+  .phoneShotBackLeft,
+  .phoneShotBackRight { width: min(54vw, 198px); }
+  .phoneShotBackLeft { left: -40px; }
+  .phoneShotBackRight { right: -40px; }
+
+  .features { padding: 66px 0 72px; }
+  .featureGrid { margin-top: 34px; }
+
+  .bottomCta {
+    margin-bottom: 68px;
+    padding: 32px 26px;
+  }
+
+  .bottomLink {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appStoreBadge,
+  .bottomBadge,
+  .storeButton,
+  .secondaryButton,
+  .bottomLink {
+    transition: none;
+  }
+}

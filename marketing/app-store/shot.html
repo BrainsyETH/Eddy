@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1320, initial-scale=1" />
+    <title>Eddy App Store Screenshot</title>
+    <link rel="stylesheet" href="./shot.css" />
+  </head>
+  <body>
+    <main class="artboard" aria-label="Eddy App Store screenshot">
+      <svg class="topography" viewBox="0 0 1320 2868" aria-hidden="true">
+        <g>
+          <path d="M-110 275C95 82 333 67 498 215s389 161 598-1 375-61 414 92" />
+          <path d="M-126 339C83 146 315 133 475 274s387 160 602 2 377-53 415 97" />
+          <path d="M-143 405C64 217 295 203 451 338s384 156 604 1 380-47 420 103" />
+          <path d="M-121 2140c245-173 458-143 591 21s371 216 616 79 382-10 391 139" />
+          <path d="M-146 2207c252-172 461-138 590 28s367 214 616 80 386-5 395 145" />
+          <path d="M-169 2277c258-171 465-133 589 35s364 211 617 81 389 2 398 151" />
+        </g>
+      </svg>
+
+      <header class="story">
+        <div class="brand-lockup">
+          <span class="brand-mark"><img src="./assets/eddy-favicon.png" alt="" /></span>
+          <span>Eddy</span>
+        </div>
+        <img class="eddy-social" id="eddy-art" src="./assets/eddy-canoe.png" alt="Eddy artwork" />
+        <div class="eyebrow" id="eyebrow"></div>
+        <h1 id="headline"></h1>
+        <p class="lede" id="lede"></p>
+      </header>
+
+      <section class="device" aria-label="Real Eddy iOS screenshot">
+        <img class="native-screen" id="native-screen" alt="Eddy iOS app" />
+      </section>
+
+      <div class="accent-bar" aria-hidden="true"></div>
+    </main>
+
+    <script>
+      const shots = {
+        "01": {
+          eyebrow: "LIVE RIVER CONDITIONS",
+          headline: "Find floatable<br>water",
+          lede: "Know what’s running well before you make the drive.",
+          image: "07.png",
+          art: "eddy-canoe.png",
+        },
+        "02": {
+          eyebrow: "THE WHOLE RIVER",
+          headline: "See the whole<br>river",
+          lede: "Live conditions, access points, and the route between them.",
+          image: "10.png",
+          art: "eddy-offline-map.png",
+        },
+        "03": {
+          eyebrow: "FLOAT PLANNING",
+          headline: "Plan put-in<br>to take-out",
+          lede: "Compare access points, distance, and estimated float time.",
+          image: "12.png",
+          art: "eddy-route-planning.png",
+        },
+        "04": {
+          eyebrow: "GAUGES, EXPLAINED",
+          headline: "Know what the<br>gauge means",
+          lede: "Live readings, recent trends, and an Eddy rating in one view.",
+          image: "14.png",
+          art: "eddy-checking-gauge.png",
+        },
+        "05": {
+          eyebrow: "FIELD-READY DETAILS",
+          headline: "Find the right<br>access point",
+          lede: "Put-ins, take-outs, parking, fees, and directions.",
+          image: "16.png",
+          art: "eddy-poi.png",
+          compact: true,
+        },
+        "06": {
+          eyebrow: "CONDITION ALERTS",
+          headline: "Watch the water<br>for you",
+          lede: "Set river alerts for the conditions that matter to you.",
+          image: "01.png",
+          art: "eddy-alert-watch.png",
+          compact: true,
+        },
+        "07": {
+          eyebrow: "DAM RELEASES",
+          headline: "Plan around<br>dam releases",
+          lede: "See generation schedules before you head downstream.",
+          image: "15.png",
+          art: "eddy-dam.png",
+        },
+      };
+
+      const key = new URLSearchParams(window.location.search).get("shot") || "01";
+      const shot = shots[key] || shots["01"];
+      document.documentElement.dataset.shot = key;
+      if (shot.compact) document.body.classList.add("compact-headline");
+      document.getElementById("eyebrow").textContent = shot.eyebrow;
+      document.getElementById("headline").innerHTML = shot.headline;
+      document.getElementById("lede").textContent = shot.lede;
+      document.getElementById("native-screen").src = `./captures/native/${shot.image}`;
+      document.getElementById("eddy-art").src = `./assets/${shot.art}`;
+      document.title = `Eddy App Store — ${shot.headline.replace("<br>", " ")}`;
+    </script>
+  </body>
+</html>
