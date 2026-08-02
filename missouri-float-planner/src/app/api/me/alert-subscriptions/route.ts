@@ -148,6 +148,12 @@ export async function POST(request: NextRequest) {
 
     // Re-subscribing updates the kind rather than erroring, and clears
     // fired_at so a spent one-shot can be re-armed.
+    //
+    // enabled:true for the same reason the PATCH rearm sets it: a spent
+    // one-shot is now switched off, and tapping the bell again on the river
+    // screen is the plainest possible statement that the user wants it back. An
+    // upsert that left `enabled` alone would answer that tap with a
+    // subscription that exists and does nothing.
     const { data: saved, error } = await supabase
       .from('alert_subscriptions')
       .upsert(
@@ -157,6 +163,7 @@ export async function POST(request: NextRequest) {
           kind,
           one_shot: body.oneShot ?? false,
           fired_at: null,
+          enabled: true,
         },
         { onConflict: 'user_id,river_id' }
       )
@@ -223,8 +230,14 @@ export async function PATCH(request: NextRequest) {
       update.kind = body.kind;
     }
     // Re-arming a spent one-shot, the same way POST does by upserting fired_at
-    // back to null.
-    if (body.rearm) update.fired_at = null;
+    // back to null — and un-pausing it, because delivery now switches a spent
+    // one-shot off (see the spend block in /api/cron/deliver-push). Clearing
+    // only fired_at would leave it armed and paused. An explicit `enabled` in
+    // the same request still wins.
+    if (body.rearm) {
+      update.fired_at = null;
+      if (typeof body.enabled !== 'boolean') update.enabled = true;
+    }
 
     if (Object.keys(update).length === 0) {
       return jsonPrivate({ error: 'Nothing to update' }, { status: 400 });

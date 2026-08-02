@@ -50,7 +50,7 @@ export default function EditAlertScreen() {
   const { id, source } = useLocalSearchParams<{ id?: string; source?: string }>();
   const router = useRouter();
   const { colors, elevation } = useTheme();
-  const { rules, ready, update, remove } = useAlertRules();
+  const { rules, ready, update, remove, setEnabled: setRuleEnabled } = useAlertRules();
 
   const rule = useMemo(
     () => (rules ?? []).find((r) => r.id === id && (!source || r.source === source)) ?? null,
@@ -63,9 +63,12 @@ export default function EditAlertScreen() {
   const [value, setValue] = useState('');
   const [valueMax, setValueMax] = useState('');
   const [oneShot, setOneShot] = useState(false);
-  const [enabled, setEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Separate from `error`: the Active switch saves on its own, so it fails on
+   *  its own too, and a pause that did not stick must not look like a failed
+   *  Save of the trigger the user never touched. */
+  const [enabledError, setEnabledError] = useState<string | null>(null);
   /**
    * What the server re-seeded this rule to on the last save.
    *
@@ -86,7 +89,10 @@ export default function EditAlertScreen() {
     setValue(rule.thresholdValue != null ? String(rule.thresholdValue) : '');
     setValueMax(rule.thresholdValueMax != null ? String(rule.thresholdValueMax) : '');
     setOneShot(rule.oneShot);
-    setEnabled(rule.enabled);
+    // `enabled` is deliberately NOT seeded into local state — see the Active
+    // row below. It is the one control here that is not part of the trigger
+    // being drafted, so it writes through immediately instead of waiting on
+    // Save, and therefore renders straight from the rule.
   }, [rule?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const parsedValue = Number(value);
@@ -102,7 +108,9 @@ export default function EditAlertScreen() {
     setSaving(true);
     try {
       const result = await update(rule, {
-        enabled,
+        // No `enabled` here: the Active switch already persisted itself. Sending
+        // it again would also override the server's rearm default below, which
+        // is what turns a spent one-shot back on.
         oneShot,
         ...(rule.mode === 'condition' ? { conditionKind } : {}),
         ...(isThreshold
@@ -131,7 +139,27 @@ export default function EditAlertScreen() {
     } finally {
       setSaving(false);
     }
-  }, [rule, update, enabled, oneShot, conditionKind, isThreshold, comparator, parsedValue, parsedMax, spent, router]);
+  }, [rule, update, oneShot, conditionKind, isThreshold, comparator, parsedValue, parsedMax, spent, router]);
+
+  /**
+   * Active writes through on tap, matching the identical switch in the manage
+   * list.
+   *
+   * It used to be local state that only persisted on Save, so the same control
+   * in two places meant two different things and flipping it here then backing
+   * out silently discarded the change. Everything else on this screen is a
+   * DRAFT of the trigger — pausing is not a draft, it is an instruction.
+   */
+  const onToggleActive = useCallback(
+    (next: boolean) => {
+      if (!rule) return;
+      setEnabledError(null);
+      void setRuleEnabled(rule, next).catch(() =>
+        setEnabledError(next ? 'Could not resume that alert.' : 'Could not pause that alert.'),
+      );
+    },
+    [rule, setRuleEnabled],
+  );
 
   /**
    * Editing the trigger clears the last verdict — the user is answering it.
@@ -230,7 +258,7 @@ export default function EditAlertScreen() {
         ) : null}
 
         <Pressable
-          onPress={() => setEnabled((v) => !v)}
+          onPress={() => onToggleActive(!rule.enabled)}
           style={({ pressed }) => [
             styles.optionRow,
             { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
@@ -240,15 +268,22 @@ export default function EditAlertScreen() {
           <View style={styles.optionBody}>
             <Text style={[styles.optionTitle, { color: colors.text }]}>Active</Text>
             <Text style={[styles.optionHint, { color: colors.textMuted }]}>
-              {enabled ? 'Watching for changes.' : 'Paused — nothing will be sent.'}
+              {rule.enabled
+                ? 'Watching for changes.'
+                : spent
+                  ? 'Already sent — switch on to watch again.'
+                  : 'Paused — nothing will be sent.'}
             </Text>
           </View>
           <Switch
-            value={enabled}
-            onValueChange={setEnabled}
+            value={rule.enabled}
+            onValueChange={onToggleActive}
             trackColor={{ true: colors.interactive, false: colors.border }}
           />
         </Pressable>
+        {enabledError ? (
+          <Text style={[styles.errorText, { color: colors.error }]}>{enabledError}</Text>
+        ) : null}
 
         {rule.mode === 'condition' ? (
           <>

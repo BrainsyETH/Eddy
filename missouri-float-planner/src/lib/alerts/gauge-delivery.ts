@@ -331,11 +331,23 @@ export async function deliverGaugeAlerts(
     // Delivered means AT LEAST ONE of the rule's messages succeeded, mirroring
     // planDrain's partial-delivery rule — a person with two phones has been
     // told once the first one buzzes.
+    //
+    // ── enabled:false is not bookkeeping, it is the promise being kept ──────
+    //
+    // The app has always said "We'll tell you the first time, then switch this
+    // alert off", and nothing switched it off. The spend was recorded only in
+    // one_shot_fired_at, so the rule's own Active switch stayed on for something
+    // that could never fire again — every surface that reads `enabled` was
+    // telling the user the opposite of the truth.
+    //
+    // Every path that clears one_shot_fired_at must therefore set enabled back
+    // to true, or re-arming would leave a rule that is armed and paused. See the
+    // rearm blocks in the two PATCH routes.
     const spent = spentOneShots([...successBySubscription.keys()], successBySubscription);
     if (spent.length > 0) {
       await supabase
         .from('gauge_alert_subscriptions')
-        .update({ one_shot_fired_at: now.toISOString() })
+        .update({ one_shot_fired_at: now.toISOString(), enabled: false })
         .in('id', spent)
         .eq('one_shot', true)
         .is('one_shot_fired_at', null);

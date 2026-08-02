@@ -78,7 +78,7 @@ import { EddyScene } from '@/components/EddyScene';
 import { AlertRuleRow } from '@/components/AlertRuleRow';
 import { QuietHoursRow } from '@/components/QuietHoursRow';
 import { useAlertRules } from '@/hooks/useAlertRules';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
 
 type Segment = 'high-water' | 'rules' | 'notices';
@@ -234,6 +234,25 @@ export default function AlertsScreen() {
     loadNotices(controller.signal);
     return () => controller.abort();
   }, [load, loadNotices]);
+
+  /**
+   * Re-read the rules every time this tab comes forward.
+   *
+   * The provider fetches on mount and on a change of user, and nothing else —
+   * so a rule the SERVER changed was invisible until a pull-to-refresh or a
+   * relaunch. That is not a rare case now that a delivered one-shot switches
+   * itself off: the alert fires, the phone buzzes, the user opens the app to
+   * look, and the row still says the rule is on.
+   *
+   * Only the rules. High water and notices are already refetched on mount and
+   * change on the hour, so putting them on focus would be two wasted requests
+   * every time somebody flicks between tabs.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      void refreshRules();
+    }, [refreshRules]),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
