@@ -16,6 +16,16 @@
 // a populated p90, and is not going away in Q1 2027. The `source` column
 // records which produced a row, so a mixed table stays legible.
 //
+// FEB 29 CARRIES A QUARTER OF THE SAMPLE, AND SOMETIMES NO UPPER LADDER
+// Measured on the production backfill (44 curated gauges, Aug 2026): of 15,372
+// modern rows, 17 have a null p90 — and 14 of those are day_of_year 60. USGS
+// suppresses the upper percentiles when the leap-day sample is too thin
+// (4–8 years against 105 for an ordinary day), and on those rows p95 and p80
+// are null too, so upperAnchor() finds nothing and the percentile comes back
+// null. That renders as "no comparison available", which is the correct answer
+// and already has its own colour (FLOW_BAND_UNKNOWN_SOLID) — not a bug to fix,
+// but do not be surprised by it on February 29.
+//
 // LEAP-YEAR NORMALIZATION
 // Rows are keyed by day_of_year computed as if every year were a leap year
 // (Feb 29 = 60, Mar 1 = 61 — always). USGS reports month/day, so normalizing
