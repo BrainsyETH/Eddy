@@ -129,12 +129,18 @@ export default function StorageScreen() {
           </Text>
         </View>
 
-        {/* Said here because it is the question this screen invites, and because
-            the app used to have an answer that no longer exists. Someone who
-            downloaded a river before will come looking for it. */}
+        {/* ── WHAT THE MAP NEEDS, said without the history ──────────────
+            This used to open "Eddy no longer downloads map backgrounds",
+            addressed to someone who remembered a feature that had just been
+            removed. That audience shrinks to nothing while the sentence stays
+            on the screen forever, and to everybody else it announces a loss
+            they never had — the one line here about maps spent on an apology.
+
+            What is left is the fact the screen still owes: which half of a
+            river needs signal and which half does not. */}
         <Info muted={colors.textMuted} subtle={colors.textSubtle}>
-          Eddy no longer downloads map backgrounds. Maps need a connection to draw, but everything
-          else on a river — put-ins, hazards, the line and the last reading — works without one.
+          Map backgrounds need a connection to draw. Everything else on a river — put-ins, hazards,
+          the line and the last reading — works without one.
         </Info>
       </ScrollView>
     </SafeAreaView>
