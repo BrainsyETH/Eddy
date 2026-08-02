@@ -15,8 +15,15 @@
 // route that could create a subscription demanded payment for every kind, so the
 // free warning was unreachable, and the app asked for `kind: 'floatable'`, which
 // matches no warning anyway. Alerting is free in its entirety now, and the two
-// remaining triggers for this sheet are the offline download and Eddy's written
-// read — commentary and convenience, never the water.
+// remaining triggers for this sheet are the offline download and Eddy's take —
+// commentary and convenience, never the water.
+//
+// EDDY'S TAKE IS NOW GATED WHOLE — the written read, the weather paragraph and
+// the bottom line together, where the first of the three used to be sold alone.
+// The list above is unchanged by that and is what makes it defensible: the
+// condition band, the reading, the trend, the hazards, the agency notices and
+// every alert are facts about the river and stay free. What is sold is Eddy's
+// writing about them. See the header of EddyTake.
 
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -82,26 +89,20 @@ interface Props {
  * promise.
  */
 const BENEFITS: { symbol: EddySymbolName; symbolSize?: number; title: string; body: string }[] = [
-  // NAMES THE PAID HALF, not the free one. This entry used to read "A bottom
-  // line for today" — which is the one line on the river screen that is NEVER
-  // gated (see EddyTake: Bottom line and Weather are safety calls and stay
-  // free). Selling it was the paywall advertising something the reader already
-  // has, and quietly implying the free thing would be taken away.
-  //
-  // What is actually behind the gate is Eddy's read: the long written report a
-  // model writes about this river every morning. So the entry says that, and
-  // says the bottom line stays free, because a subscription page that is
-  // straight about what is free is the only kind worth trusting about what is
-  // not.
+  // NAMES THE PAID HALF, not the free one, and the paid half is now the whole
+  // of Eddy's take — the written read, what the weather does to it, and the
+  // bottom line. Bottom line and Weather used to be carved out as free safety
+  // calls; that carve-out is withdrawn. See the header of EddyTake for the
+  // argument, and for the list of facts that stay free and make it defensible.
   {
     symbol: 'eddyRated',
-    title: "Eddy's daily take",
-    body: "The full written report on the river — what the water is doing and why — rewritten every morning. The bottom line stays free.",
+    title: "Eddy's take on every river",
+    body: "The full written report — what the water is doing, what the weather is about to do to it, and Eddy's bottom line. Rewritten every morning.",
   },
   {
     symbol: 'weather',
-    title: 'The last 72 hours and weather ahead',
-    body: 'See whether the river is rising, falling, or holding — and what forecast rain may change before launch.',
+    title: 'What the forecast means for the water',
+    body: 'Not a weather app — the rain, the heat and the river trend read together into one call on whether it holds.',
   },
   {
     symbol: 'heart',

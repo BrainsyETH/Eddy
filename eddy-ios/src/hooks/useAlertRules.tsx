@@ -37,6 +37,7 @@ import {
   updateAlertRule,
   type UpdateAlertRuleInput,
 } from '@/api/client';
+import { alertRuleKey } from '@/lib/alertGroups';
 import { useSession } from '@/hooks/useSession';
 
 interface AlertRulesValue {
@@ -55,9 +56,23 @@ interface AlertRulesValue {
    * far side of its own number instead of leaving it silently unable to fire.
    */
   update: (rule: AlertRule, patch: UpdateAlertRuleInput) => Promise<AlertRuleSeed | null>;
-  remove: (rule: AlertRule) => Promise<void>;
+  /**
+   * Delete a rule.
+   *
+   * `cascaded` names rows the SERVER will delete along with it — the gauge
+   * alerts parented to a river subscription, via the foreign key's on-delete
+   * cascade. They are removed from the list here and restored with it if the
+   * write fails, but no request is made for them: issuing one would race the
+   * cascade and 404 on whichever lost.
+   */
+  remove: (rule: AlertRule, cascaded?: AlertRule[]) => Promise<void>;
   /** Is there already a rule on this river or gauge? Drives the bell's label. */
   rulesFor: (scope: 'river' | 'gauge', entityId: string) => AlertRule[];
+}
+
+/** A resume that also has to clear a spent one-shot. See setEnabled. */
+function needsRearm(rule: AlertRule, enabled: boolean): boolean {
+  return enabled && rule.oneShot && rule.firedAt != null;
 }
 
 const AlertRulesContext = createContext<AlertRulesValue>({
@@ -181,7 +196,7 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
        * that reads as live on every screen and cannot fire, which is the exact
        * confusion switching it off was meant to end.
        */
-      const rearm = enabled && rule.oneShot && rule.firedAt != null;
+      const rearm = needsRearm(rule, enabled);
       await mutate(
         rule,
         (current) =>
@@ -234,12 +249,18 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
   );
 
   const remove = useCallback(
-    (rule: AlertRule) =>
-      mutate(
+    (rule: AlertRule, cascaded: AlertRule[] = []) => {
+      // The cascade is a foreign key, not a loop of requests: deleting a river
+      // subscription removes the gauge alerts parented to it, server-side. All
+      // this has to do is take them off the list at the same moment, so the
+      // group does not sit there half-deleted until the next refetch.
+      const gone = new Set([rule, ...cascaded].map(alertRuleKey));
+      return mutate(
         rule,
-        (current) => current.filter((r) => r.id !== rule.id),
+        (current) => current.filter((r) => !gone.has(alertRuleKey(r))),
         (token) => deleteAlertRule(token, rule),
-      ),
+      );
+    },
     [mutate],
   );
 
@@ -252,7 +273,17 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ rules, ready, refreshing, refresh, add, setEnabled, update, remove, rulesFor }),
+    () => ({
+      rules,
+      ready,
+      refreshing,
+      refresh,
+      add,
+      setEnabled,
+      update,
+      remove,
+      rulesFor,
+    }),
     [rules, ready, refreshing, refresh, add, setEnabled, update, remove, rulesFor],
   );
 

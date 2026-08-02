@@ -89,6 +89,16 @@ export interface GaugeAlertSubscription {
    */
   one_shot_fired_at: string | null;
   last_condition_code: string | null;
+  /**
+   * The river alert this rule was created from, when it was created from one.
+   *
+   * NOT read by the planner. It is read by the evaluator BEFORE the planner —
+   * a rule whose parent is paused is filtered out of the pass entirely, so
+   * anything reaching planGaugeAlerts is already known to be live. Declared
+   * here because the row carries it and a shape that omitted it would make the
+   * cast at the load site a lie. See src/lib/alerts/gating.ts.
+   */
+  parent_subscription_id?: string | null;
 }
 
 /** The newest reading for one station, from either tier. */

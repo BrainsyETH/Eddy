@@ -6,9 +6,10 @@
 // is the design system of record, not this file.
 //
 // The families and their roles, per the doc:
-//   Primary   — Deep River Teal   (surfaces, headers, links, focus)
+//   Primary   — Deep River Teal   (surfaces, headers, links, focus, and — see
+//                                  accentFill below — the primary CTA)
 //   Secondary — Sandbar Tan       (warm supporting accent)
-//   Accent    — Sunset Coral      (primary CTA, Eddy branding)
+//   Accent    — Sunset Coral      (Eddy branding and decorative emphasis)
 //   Support   — Trail Green       (success, optimal conditions)
 //   Neutral   — Warm Stone        (text and dark-mode surfaces)
 //
@@ -87,9 +88,41 @@ export interface Palette {
   text: string;
   textMuted: string;
   textSubtle: string;
-  /** Sunset Coral — Eddy branding and decorative emphasis. */
+  /** Sunset Coral — Eddy branding and decorative emphasis. NEVER a CTA fill. */
   accent: string;
-  /** Deeper coral that supports white CTA text at AA contrast. */
+  /**
+   * THE PRIMARY CTA FILL — Deep River Teal, not coral.
+   *
+   * ── Why it stopped being coral ──────────────────────────────────────────
+   *
+   * It was accent-700 (#C7432E), a burnt brick red. Two problems, one of them
+   * structural:
+   *
+   *   1. IT COLLIDED WITH THE CONDITION LADDER. CONDITION_SYSTEM paints
+   *      `dangerous` red-500 and `high` orange-500. In an app whose entire
+   *      job is telling you whether the water is safe, the loudest red-orange
+   *      object on the screen was a button asking for money — the one thing on
+   *      it that is not a warning. Every other hue on the ladder is spoken for
+   *      too: yellow is `low`, lime is `flowing`, emerald is `good`, stone is
+   *      `too_low`. Blue-teal is the only family left that carries no verdict.
+   *   2. There is no hue that "converts best" in the abstract. What the
+   *      evidence actually supports is contrast, isolation, and the absence of
+   *      a conflicting meaning — and a CTA that reads as a flood warning fails
+   *      the third outright. Deep teal clears all three: it is the brand's own
+   *      primary family, it is darker than anything else on either canvas, and
+   *      nothing else in the app is a solid fill of it.
+   *
+   * Coral is NOT retired. It stays `accent` — the otter, the bottom-line rule,
+   * the lock glyph — everywhere Eddy is being Eddy rather than asking for a
+   * tap. What changed is that it no longer wears the shape of a button.
+   *
+   * Deliberately a step deeper than `interactive`, which is the same family:
+   * `interactive` is link text and utility chrome, this is the one filled pill
+   * on a screen. Form separates them; hue no longer has to.
+   *
+   * White on light's primary-700 is 8.5:1 and on dark's primary-500 is 5.1:1,
+   * so `onAccent` stays white in both.
+   */
   accentFill: string;
   accentFillPressed: string;
   /** Text and icons placed ON the accent fill. */
@@ -173,8 +206,11 @@ export const darkPalette: Palette = {
   textMuted: primary[300],
   textSubtle: neutral[400],
   accent: accent[500],
-  accentFill: accent[700],
-  accentFillPressed: '#B93825',
+  // Dark moves UP the scale here for the same reason `interactive` does: a
+  // primary-700 pill against a primary-900 card is very nearly the card. 500 is
+  // the lightest step that still clears AA with white on it (5.06:1).
+  accentFill: primary[500],
+  accentFillPressed: primary[600],
   onAccent: '#FFFFFF',
   // Dark mode moves UP the teal scale. primary-600 against primary-900 is only
   // 2.21:1, so using the light-mode value here would make links disappear.
@@ -212,8 +248,10 @@ export const lightPalette: Palette = {
   textMuted: neutral[600],
   textSubtle: neutral[500],
   accent: accent[500],
-  accentFill: accent[700],
-  accentFillPressed: '#B93825',
+  // Primary-700, a step below `interactive`: the CTA is the darkest object on
+  // a warm off-white page, which is what makes it the one you see first.
+  accentFill: primary[700],
+  accentFillPressed: primary[800],
   onAccent: '#FFFFFF',
   // Primary-600 is 6.58:1 on white and 5.93:1 on selectionBg: strong enough
   // for ordinary link text, small icons and selected labels.

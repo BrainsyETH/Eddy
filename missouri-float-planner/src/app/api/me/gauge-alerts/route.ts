@@ -99,6 +99,15 @@ interface CreateBody {
   thresholdValue?: number;
   thresholdValueMax?: number;
   oneShot?: boolean;
+  /**
+   * The river alert this rule is being created from.
+   *
+   * Sent only by the section inside a river alert's edit screen. A rule created
+   * anywhere else — the gauge screen, a custom level — deliberately omits it and
+   * stands on its own. See the validation below for what accepting it commits
+   * the server to.
+   */
+  parentSubscriptionId?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -298,6 +307,46 @@ export async function POST(request: NextRequest) {
           { status: 409 }
         );
       }
+    }
+
+    // ── The parent river alert, if this rule belongs to one ────────────────
+    //
+    // Accepting this is a commitment: the parent's switch will gate this rule
+    // and deleting the parent will delete it. Both are silent from the rule's
+    // own point of view — its `enabled` stays true while it is gated — so a
+    // wrong parent produces an alert that is off for a reason nothing on any
+    // screen can explain.
+    //
+    // Hence three checks, not one. Ownership, because a rule pointed at someone
+    // else's subscription would be governed by a switch its owner cannot see.
+    // The river, because the whole meaning of the link is "this gauge is part of
+    // watching that river". And existence, because a 400 here is far better than
+    // a foreign-key violation surfacing as a 500.
+    //
+    // The database enforces the same rule independently — see the
+    // gauge_alert_parent_is_same_river trigger — so a bad backfill or a psql
+    // session cannot do what this refuses.
+    if (body.parentSubscriptionId) {
+      if (!riverId) {
+        return jsonPrivate(
+          { error: 'A rule with a parent alert needs the river that alert is on' },
+          { status: 400 },
+        );
+      }
+      const { data: parent } = await supabase
+        .from('alert_subscriptions')
+        .select('id')
+        .eq('id', body.parentSubscriptionId)
+        .eq('user_id', user.id)
+        .eq('river_id', riverId)
+        .maybeSingle();
+      if (!parent) {
+        return jsonPrivate(
+          { error: 'That river alert does not exist on this river.', code: 'bad_parent' },
+          { status: 400 },
+        );
+      }
+      insert.parent_subscription_id = parent.id;
     }
 
     // ── Seed, then insert ──────────────────────────────────────────────────

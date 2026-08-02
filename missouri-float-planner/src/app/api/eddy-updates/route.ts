@@ -58,6 +58,40 @@ async function _GET() {
       latestBySlug.set(slug, row);
     }
 
+    /**
+     * What each river's condition was AS THE STATEWIDE SUMMARY SAW IT.
+     *
+     * The statewide gate below needs to know whether a river that is in flood
+     * right now was already in flood when the summary was written. Nothing in
+     * the summary's own row records that — it has no river — but its inputs do:
+     * generateGlobalUpdate reads the per-river eddy_updates rows, and the cron
+     * writes the statewide row immediately after them in the same pass.
+     *
+     * So the answer is the newest per-river row generated AT OR BEFORE the
+     * statewide one. The `<=` is the load-bearing half. An event-driven regen
+     * fires when a river changes condition, so a river that flooded at noon has
+     * a newer row saying "dangerous" — and reading that one would tell the gate
+     * the 6:10am summary knew about a flood that had not happened yet, which is
+     * precisely the case the gate exists to catch. A river with no qualifying
+     * row is absent here and reaches the gate as null, which fails closed.
+     *
+     * `data` is ordered generated_at desc, so the first qualifying row per slug
+     * is the newest one; rows that are too new are skipped without claiming the
+     * slug, leaving the older ones behind them eligible.
+     */
+    const conditionsWhenGlobalWritten = new Map<string, string>();
+    const globalWrittenAt = latestBySlug.get('global')?.generated_at;
+    const globalWrittenMs = globalWrittenAt ? Date.parse(globalWrittenAt) : Number.NaN;
+    if (Number.isFinite(globalWrittenMs)) {
+      for (const row of (data || []) as EddyUpdateRow[]) {
+        const slug = row.river_slug;
+        if (!slug || slug === 'global' || conditionsWhenGlobalWritten.has(slug)) continue;
+        const rowMs = row.generated_at ? Date.parse(row.generated_at) : Number.NaN;
+        if (!Number.isFinite(rowMs) || rowMs > globalWrittenMs) continue;
+        conditionsWhenGlobalWritten.set(slug, row.condition_code ?? 'unknown');
+      }
+    }
+
     // Built ONCE and shared, because two things need it: the per-river overlay
     // below, and the statewide gate under it. Two reads would also let the two
     // disagree across the gap between them.
@@ -116,9 +150,9 @@ async function _GET() {
     if (updates.global) {
       const verdict = gateGlobalProse({
         generatedAt: updates.global.generatedAt,
-        live: Array.from(liveConditions.values()).map((c) => ({
+        live: Array.from(liveConditions.entries()).map(([slug, c]) => ({
           conditionCode: c.condition_code,
-          readingTimestamp: c.reading_timestamp,
+          conditionWhenWritten: conditionsWhenGlobalWritten.get(slug) ?? null,
         })),
       });
       if (!verdict.show) {

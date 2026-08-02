@@ -94,6 +94,18 @@ export default function ProfileScreen() {
 
   const signedIn = Boolean(session) && !isAnonymous;
 
+  /**
+   * Will a push actually arrive on this phone?
+   *
+   * Every one of these has to be true, which is why the headline could not be
+   * `permission === 'granted'` alone: iOS can allow notifications for an app
+   * that has unregistered its token, and an account is what a notification is
+   * addressed to. `registered` is deliberately not in here — it lags a launch
+   * and a device that has not re-registered yet is going to, which the detail
+   * sentence says in its own words.
+   */
+  const receiving = permission === 'granted' && !optedOut && signedIn;
+
   const handleSignIn = useCallback(async () => {
     setBusy('apple');
     try {
@@ -364,14 +376,28 @@ export default function ProfileScreen() {
         <Section title="Notifications" muted={colors.textMuted}>
           <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
             <View style={styles.row}>
+              {/* ── "Alerts are on" next to a button reading "Turn on alerts" ──
+                  The headline reported the OS PERMISSION and nothing else, so
+                  stopping alerts on this device left the card saying they were
+                  on — beside a button offering to turn them on, and a sentence
+                  underneath saying they were stopped. Three controls, three
+                  answers, and the one in the largest type was the wrong one.
+                  It read as a preference that had not saved. It had: the
+                  opt-out is what makes the button and the sentence change.
+
+                  iOS permission is a PRECONDITION, not the state. This device
+                  receives alerts when the permission is granted AND the device
+                  has not opted out, and that conjunction is what the line says
+                  now. `notificationDetail` below already ordered its cases this
+                  way; the headline simply never agreed with it. */}
               <Ionicons
-                name={permission === 'granted' ? 'notifications' : 'notifications-off-outline'}
+                name={receiving ? 'notifications' : 'notifications-off-outline'}
                 size={22}
-                color={permission === 'granted' ? colors.success : colors.textMuted}
+                color={receiving ? colors.success : colors.textMuted}
               />
               <View style={styles.rowBody}>
                 <Text style={[styles.rowTitle, { color: colors.text }]}>
-                  {permission === 'granted' ? 'Alerts are on' : 'Alerts are off'}
+                  {receiving ? 'Alerts are on' : 'Alerts are off'}
                 </Text>
                 <Text style={[styles.rowNote, { color: colors.textMuted }]}>
                   {notificationDetail({ permission, optedOut, registered, signedIn })}
