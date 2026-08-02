@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { AlertRule } from '@eddy/types';
-import { groupAlertRules, rulesInGroup } from '../../../eddy-ios/src/lib/alertGroups';
+import {
+  alertRuleKey,
+  childrenAlreadyPaused,
+  groupAlertRules,
+  rulesInGroup,
+  rulesToPause,
+  rulesToResume,
+} from '../../../eddy-ios/src/lib/alertGroups';
 
 // The Expo app has no test runner, so its pure logic is covered here — the same
 // arrangement as alert-copy.test.ts.
@@ -165,4 +172,100 @@ test('keys are unique across the two id spaces', () => {
   });
   const keys = groupAlertRules([currentRiver, collide]).map((g) => g.key);
   assert.deepEqual(keys, ['river_condition:sub-current', 'gauge:sub-current']);
+});
+
+// ── The master-switch contract ──────────────────────────────────────────────
+//
+// A nested switch is expected to GATE its children, not overwrite them: iOS
+// Settings hands every sub-toggle back exactly as it was when the master comes
+// back on. Eddy cannot gate — nothing server-side links a gauge rule to the
+// river subscription above it, so a "gated" child would go on firing at 4am —
+// so the pause is real writes and the state gating would have preserved is
+// recorded instead. These are the two halves of putting it back.
+
+const group = {
+  key: alertRuleKey(currentRiver),
+  rule: currentRiver,
+  children: [currentAkers, { ...currentVanBuren, enabled: false }],
+};
+
+test('pausing writes only what is actually on', () => {
+  // Van Buren is already off. Writing it again is a wasted round trip, and the
+  // set that is NOT written is exactly what resuming has to leave alone.
+  assert.deepEqual(
+    rulesToPause(group).map((r) => r.id),
+    ['sub-current', 'gauge-akers'],
+  );
+});
+
+test('pausing records the children that were already off', () => {
+  assert.deepEqual(childrenAlreadyPaused(group), ['gauge:gauge-van-buren']);
+  // The parent is never recorded — it is the thing being paused, and it is on.
+  assert.ok(!childrenAlreadyPaused(group).includes(alertRuleKey(currentRiver)));
+});
+
+test('resuming leaves a deliberately paused gauge paused', () => {
+  // THE POINT. Van Buren was switched off by hand before the river was paused,
+  // so resuming the river must not sweep it back on.
+  const paused = {
+    ...group,
+    rule: { ...currentRiver, enabled: false },
+    children: group.children.map((c) => ({ ...c, enabled: false })),
+  };
+  assert.deepEqual(
+    rulesToResume(paused, new Set(['gauge:gauge-van-buren'])).map((r) => r.id),
+    ['sub-current', 'gauge-akers'],
+  );
+});
+
+test('no record resumes everything, which is the honest degradation', () => {
+  // A reinstall, a cleared store, or a group paused before this existed. Better
+  // to over-resume — every rule is visible with its own switch — than to leave
+  // alerts silently off with nothing saying why.
+  const paused = {
+    ...group,
+    rule: { ...currentRiver, enabled: false },
+    children: group.children.map((c) => ({ ...c, enabled: false })),
+  };
+  assert.deepEqual(
+    rulesToResume(paused, new Set()).map((r) => r.id),
+    ['sub-current', 'gauge-akers', 'gauge-van-buren'],
+  );
+});
+
+test('resuming never rewrites a child the user turned back on by hand', () => {
+  // Akers was resumed individually while the river stayed paused. It is already
+  // on, so the river's switch has nothing to do to it — and must not issue a
+  // write that would look like the group claiming credit for it.
+  const paused = {
+    ...group,
+    rule: { ...currentRiver, enabled: false },
+    children: [currentAkers, { ...currentVanBuren, enabled: false }],
+  };
+  assert.deepEqual(
+    rulesToResume(paused, new Set()).map((r) => r.id),
+    ['sub-current', 'gauge-van-buren'],
+  );
+});
+
+test('pause and resume round-trip to the original enabled states', () => {
+  // The whole contract in one assertion: whatever a group looked like before
+  // its switch went off, that is what it looks like after the switch comes back.
+  const before = new Map(rulesInGroup(group).map((r) => [alertRuleKey(r), r.enabled]));
+  const remembered = new Set(childrenAlreadyPaused(group));
+  const pausedKeys = new Set(rulesToPause(group).map(alertRuleKey));
+
+  const paused = {
+    ...group,
+    rule: { ...group.rule, enabled: false },
+    children: group.children.map((c) =>
+      pausedKeys.has(alertRuleKey(c)) ? { ...c, enabled: false } : c,
+    ),
+  };
+
+  const resumedKeys = new Set(rulesToResume(paused, remembered).map(alertRuleKey));
+  for (const rule of rulesInGroup(paused)) {
+    const key = alertRuleKey(rule);
+    assert.equal(resumedKeys.has(key) || rule.enabled, before.get(key), `${key} round-tripped`);
+  }
 });

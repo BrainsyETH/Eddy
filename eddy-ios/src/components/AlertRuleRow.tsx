@@ -138,12 +138,17 @@ function AlertRuleRowInner({ rule, onPress, onToggle, nested = false, childCount
         ) : null}
         {/* THE SWITCH'S REACH, said before it is flicked. A parent whose toggle
             silently pauses three other rules is a control that does more than
-            it looks like it does, which is the one thing a switch may never
-            be. */}
+            it looks like it does, which is the one thing a switch may never be.
+
+            "Pausing this pauses them" and not "the switch covers all", because
+            the two directions are no longer symmetrical: resuming restores each
+            gauge to what it was rather than switching everything on. Claiming
+            the symmetry would be promising to undo a choice the switch actually
+            preserves. */}
         {childCount > 0 ? (
           <Text style={[styles.meta, { color: colors.textSubtle }]}>
-            {childCount} more {childCount === 1 ? 'gauge' : 'gauges'} on this river · the
-            switch covers {childCount === 1 ? 'both' : 'all'}
+            {childCount} {childCount === 1 ? 'gauge' : 'gauges'} on this river · pausing this
+            pauses {childCount === 1 ? 'it' : 'them'} too
           </Text>
         ) : null}
         {spent ? (
@@ -166,7 +171,9 @@ function AlertRuleRowInner({ rule, onPress, onToggle, nested = false, childCount
         trackColor={{ true: colors.interactive, false: colors.border }}
         accessibilityLabel={
           childCount > 0
-            ? `${rule.enabled ? 'Pause' : 'Resume'} the alert for ${title} and its ${childCount} gauge alerts`
+            ? rule.enabled
+              ? `Pause the alert for ${title} and its ${childCount} gauge alerts`
+              : `Resume the alert for ${title} and the gauge alerts it paused`
             : `${rule.enabled ? 'Pause' : 'Resume'} alert for ${title}`
         }
       />

@@ -37,6 +37,7 @@ import {
   updateAlertRule,
   type UpdateAlertRuleInput,
 } from '@/api/client';
+import { alertRuleKey } from '@/lib/alertGroups';
 import { useSession } from '@/hooks/useSession';
 
 interface AlertRulesValue {
@@ -79,19 +80,6 @@ interface AlertRulesValue {
   removeMany: (rules: AlertRule[]) => Promise<AlertRule[]>;
   /** Is there already a rule on this river or gauge? Drives the bell's label. */
   rulesFor: (scope: 'river' | 'gauge', entityId: string) => AlertRule[];
-}
-
-/**
- * A rule's identity across BOTH tables.
- *
- * `id` alone is not unique: a gauge rule and a river subscription are rows in
- * different tables and may carry the same uuid. The single-rule mutations
- * predate this and match on `id`, which is safe for them because they only ever
- * hold one rule; a batch matching on `id` could flip somebody's Meramec
- * subscription while pausing a Current River gauge.
- */
-function ruleKey(rule: AlertRule): string {
-  return `${rule.source}:${rule.id}`;
 }
 
 /** A resume that also has to clear a spent one-shot. See setEnabled. */
@@ -232,7 +220,7 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
     ): Promise<AlertRule[]> => {
       if (targets.length === 0) return [];
       const before = rulesRef.current;
-      if (before) setRules(apply(before, new Set(targets.map(ruleKey))));
+      if (before) setRules(apply(before, new Set(targets.map(alertRuleKey))));
 
       const token = await getAccessToken();
       if (!token) {
@@ -244,7 +232,7 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
       const failed = targets.filter((_, index) => results[index].status === 'rejected');
       if (failed.length > 0 && before) {
         const landed = new Set(
-          targets.filter((_, index) => results[index].status === 'fulfilled').map(ruleKey),
+          targets.filter((_, index) => results[index].status === 'fulfilled').map(alertRuleKey),
         );
         setRules(apply(before, landed));
       }
@@ -288,7 +276,7 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
         targets,
         (current, keys) =>
           current.map((r) =>
-            keys.has(ruleKey(r))
+            keys.has(alertRuleKey(r))
               ? {
                   ...r,
                   enabled,
@@ -356,7 +344,7 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
     (targets: AlertRule[]) =>
       mutateMany(
         targets,
-        (current, keys) => current.filter((r) => !keys.has(ruleKey(r))),
+        (current, keys) => current.filter((r) => !keys.has(alertRuleKey(r))),
         (token, rule) => deleteAlertRule(token, rule),
       ),
     [mutateMany],

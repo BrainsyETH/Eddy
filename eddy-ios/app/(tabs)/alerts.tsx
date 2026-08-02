@@ -87,7 +87,20 @@ import { EddyScene } from '@/components/EddyScene';
 import { AlertRuleRow } from '@/components/AlertRuleRow';
 import { QuietHoursRow } from '@/components/QuietHoursRow';
 import { SwipeRow } from '@/components/SwipeRow';
-import { groupAlertRules, rulesInGroup, type AlertRuleGroup } from '@/lib/alertGroups';
+import {
+  alertRuleKey,
+  childrenAlreadyPaused,
+  groupAlertRules,
+  rulesInGroup,
+  rulesToPause,
+  rulesToResume,
+  type AlertRuleGroup,
+} from '@/lib/alertGroups';
+import {
+  noteChildToggledWhilePaused,
+  pausedBeforeGroup,
+  rememberPausedBeforeGroup,
+} from '@/lib/alertPauseMemory';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
@@ -278,18 +291,6 @@ export default function AlertsScreen() {
     setRefreshing(false);
   }, [load, loadNotices, refreshRules]);
 
-  const onToggleRule = useCallback(
-    (rule: AlertRule, enabled: boolean) => {
-      setRuleError(null);
-      // The hook reverts its own optimistic update on failure; all this has to
-      // do is say so, or the switch would spring back with no explanation.
-      void setEnabled(rule, enabled).catch(() =>
-        setRuleError(enabled ? 'Could not resume that alert.' : 'Could not pause that alert.'),
-      );
-    },
-    [setEnabled],
-  );
-
   /**
    * The parent's switch, which governs the whole group.
    *
@@ -303,12 +304,17 @@ export default function AlertsScreen() {
    * — and a paused river alert whose four stations keep pushing at 4am is a
    * worse outcome than the flat list this replaced.
    *
-   * RESUMING RESTORES THE WHOLE GROUP TOO, which is the one place this is
-   * blunter than it could be: a child paused individually and then swept back
-   * on by its parent has lost that choice. The alternative — remembering
-   * per-child state across a parent toggle — needs somewhere to remember it,
-   * and inventing a client-side shadow of server state to make a switch feel
-   * cleverer is how the two fall out of step. One tap puts it back.
+   * RESUMING PUTS THE GROUP BACK AS IT WAS, which is the behaviour every
+   * nested switch on the phone already has: a master switch gates its children
+   * and hands them back unchanged, rather than overwriting them. A gauge
+   * deliberately switched off stays off when its river is resumed.
+   *
+   * Eddy cannot gate — no parent column exists on the wire, so a gated child
+   * would keep firing under a paused parent — so the pause is real writes, and
+   * the information gating would have preserved is recorded instead. See
+   * src/lib/alertPauseMemory.ts, which is a log of what THIS SWITCH did rather
+   * than a copy of anything the server holds, and rulesToResume for the
+   * degradation when it is missing.
    *
    * ONE CALL, NOT N. `setEnabledMany` exists because a loop over `setEnabled`
    * has every iteration derive its optimistic list from the same pre-batch
@@ -322,18 +328,65 @@ export default function AlertsScreen() {
   const onToggleGroup = useCallback(
     (group: AlertRuleGroup, enabled: boolean) => {
       setRuleError(null);
-      void setEnabledMany(rulesInGroup(group), enabled)
-        .then((failed) => {
-          if (failed.length === 0) return;
-          setRuleError(
-            enabled ? 'Could not resume every alert here.' : 'Could not pause every alert here.',
-          );
-        })
-        .catch(() =>
-          setRuleError(enabled ? 'Could not resume that alert.' : 'Could not pause that alert.'),
-        );
+      void (async () => {
+        try {
+          const parentKey = alertRuleKey(group.rule);
+          let targets;
+          if (enabled) {
+            // Read BEFORE writing, and clear only once the writes are away: the
+            // record is what decides which rules are in `targets`, so dropping
+            // it first would resume the children it exists to protect.
+            targets = rulesToResume(group, await pausedBeforeGroup(parentKey));
+          } else {
+            // Written BEFORE the pause, while the children still carry the
+            // states being recorded. After the optimistic update they are all
+            // off and there is nothing left to tell apart.
+            await rememberPausedBeforeGroup(parentKey, childrenAlreadyPaused(group));
+            targets = rulesToPause(group);
+          }
+
+          const failed = await setEnabledMany(targets, enabled);
+          if (failed.length > 0) {
+            setRuleError(
+              enabled ? 'Could not resume every alert here.' : 'Could not pause every alert here.',
+            );
+            return;
+          }
+          // Only a clean resume forgets. A partial one leaves the record in
+          // place so the next attempt still knows what to skip.
+          if (enabled) await rememberPausedBeforeGroup(parentKey, null);
+        } catch {
+          setRuleError(enabled ? 'Could not resume that alert.' : 'Could not pause that alert.');
+        }
+      })();
     },
     [setEnabledMany],
+  );
+
+  /**
+   * A nested gauge's own switch.
+   *
+   * Separate from onToggleRule only to keep the group's record honest: toggling
+   * a child while its river alert is already paused is a decision about that
+   * child which the parent's switch must respect the next time it is resumed.
+   * A child toggled under a LIVE parent is nobody's business but its own and is
+   * deliberately not recorded.
+   */
+  const onToggleChild = useCallback(
+    (group: AlertRuleGroup, child: AlertRule, enabled: boolean) => {
+      setRuleError(null);
+      if (!group.rule.enabled) {
+        void noteChildToggledWhilePaused(
+          alertRuleKey(group.rule),
+          alertRuleKey(child),
+          enabled,
+        );
+      }
+      void setEnabled(child, enabled).catch(() =>
+        setRuleError(enabled ? 'Could not resume that alert.' : 'Could not pause that alert.'),
+      );
+    },
+    [setEnabled],
   );
 
   /**
@@ -353,8 +406,15 @@ export default function AlertsScreen() {
     (group: AlertRuleGroup) => {
       setRuleError(null);
       return removeMany(rulesInGroup(group))
-        .then((failed) => {
-          if (failed.length > 0) setRuleError('Could not delete every alert here.');
+        .then(async (failed) => {
+          if (failed.length > 0) {
+            setRuleError('Could not delete every alert here.');
+            return;
+          }
+          // The group is gone, so its pause record is about nothing. Left
+          // behind it would be handed to whatever rule id the server issues
+          // next — and the store is bounded only because entries are cleared.
+          await rememberPausedBeforeGroup(alertRuleKey(group.rule), null);
         })
         .catch(() => setRuleError('Could not delete that alert.'));
     },
@@ -631,7 +691,7 @@ export default function AlertsScreen() {
                           params: { id: child.id, source: child.source },
                         })
                       }
-                      onToggle={(enabled) => onToggleRule(child, enabled)}
+                      onToggle={(enabled) => onToggleChild(item, child, enabled)}
                     />
                   ))}
                 </View>
