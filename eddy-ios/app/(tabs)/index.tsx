@@ -97,7 +97,6 @@ import { fonts, type as t } from '@/theme/typography';
 import { mapAccessPointPin, RiverMap, type MapPin } from '@/map/RiverMap';
 import { mapUnavailableReason } from '@/map/runtime';
 import {
-  DEFAULT_LAYERS,
   MAP_LAYERS,
   OUTFITTER_SERVICE_TYPES,
   PUBLIC_LAND_ATTRIBUTION,
@@ -115,12 +114,9 @@ import { readRiver } from '@/lib/riverCache';
 import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
 import { rememberGauge, seedFromMapGauge, seedFromMapGaugeLite } from '@/lib/gaugeSeed';
 import { driveToUrl, usgsGaugeUrl } from '@/lib/directions';
-import { useOfflinePacks } from '@/map/useOfflinePacks';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useEddySearch } from '@/hooks/useEddySearch';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
-import { useAccount } from '@/hooks/useAccount';
-import { useAppConfig } from '@/hooks/useAppConfig';
 import { milesBetween, useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
 import { riverBounds } from '@/lib/statewideNetwork';
@@ -137,14 +133,13 @@ import {
   MapLayersSheet,
   isDefaultLayers,
 } from '@/components/MapLayersSheet';
+import { defaultMapLayers, readMapLayers, writeMapLayers } from '@/lib/mapPreferences';
 import {
   GaugeFilterBar,
   applyGaugeFilters,
   type GaugeFilterKey,
 } from '@/components/GaugeFilterBar';
 import { PlanSheet } from '@/components/PlanSheet';
-import { OfflineMapRow } from '@/components/OfflineMapRow';
-import { PaywallSheet } from '@/components/PaywallSheet';
 
 /**
  * How far above the map's bottom edge everything floating has to sit.
@@ -248,22 +243,49 @@ export default function MapScreen() {
   const [services, setServices] = useState<RiverService[] | null>(null);
   const [gauges, setGauges] = useState<MapGauge[] | null>(null);
   /**
-   * TWO messages, one slot, because they are about two different things.
+   * The river list's own failure. Retried and retracted by the list.
    *
-   * They were one `error` string, which is how a failed download and a failed
-   * river list came to share a variable — and therefore how clearing one
-   * cleared the other. A download failure answers a button somebody pressed; a
-   * list failure describes the screen's own state. Keeping them apart is what
-   * lets the list's message be retried and retracted without silently
-   * discarding the other.
+   * It used to share this slot with a download failure, which is how clearing
+   * one cleared the other; the offline download is gone and this is the only
+   * message left, so the slot is single again.
    */
   const [riversError, setRiversError] = useState<string | null>(null);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   // Copied, not aliased: DEFAULT_LAYERS is a module constant and nothing should
-  // be one `push` away from redefining what the app opens with.
-  const [layers, setLayers] = useState<LayerKey[]>(() => [...DEFAULT_LAYERS]);
+  // be one `push` away from redefining what the app opens with. Replaced by
+  // whatever this device last chose, once that comes back off disk — see below.
+  const [layers, setLayers] = useState<LayerKey[]>(defaultMapLayers);
   const [layersOpen, setLayersOpen] = useState(false);
+
+  /**
+   * Restore the layer set this phone was last using.
+   *
+   * ── Why the flag, which looks redundant and is not ───────────────────────
+   *
+   * Restoring is asynchronous and toggling is not, so a tap that lands in the
+   * ~50ms before AsyncStorage answers would be overwritten by the answer —
+   * rare, unreproducible on demand, and it looks exactly like the bug this
+   * whole change exists to fix. `restored` closes that window: once a real
+   * choice has been made or the read has landed, the read cannot apply again.
+   *
+   * Defaults stay on screen for that window rather than a spinner. The map is
+   * the slowest screen in the app to become useful and it must not also wait
+   * on a key-value read to draw anything.
+   */
+  const layersRestored = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    void readMapLayers().then((stored) => {
+      if (cancelled || layersRestored.current) return;
+      layersRestored.current = true;
+      // Null means this device has never chosen. An EMPTY ARRAY is a choice —
+      // somebody switched everything off — and is restored as one.
+      if (stored) setLayers(stored);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   // THERE IS NO CONDITION FILTER HERE ANY MORE, and the removal was the point
   // rather than a casualty of one. A filter narrows a set you are reading; the
   // network is not a list, it is a picture, and its colours already answer the
@@ -291,7 +313,6 @@ export default function MapScreen() {
     riverSlug: string;
   } | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
-  const [paywallOpen, setPaywallOpen] = useState(false);
 
   const network = useStatewideNetwork();
   // Every river's put-ins and hazards, off the launch bundle already on disk.
@@ -299,11 +320,8 @@ export default function MapScreen() {
   // dangerous here" before a river is picked.
   const networkPlaces = useNetworkPlaces();
   const { isStarred, toggleStar } = useStarredRivers();
-  const packs = useOfflinePacks();
   const unavailable = mapUnavailableReason();
   const { colors, floating } = useTheme();
-  const { features } = useAppConfig();
-  const { entitlement, loaded: accountLoaded, error: accountError } = useAccount();
   const location = useLocation();
   const router = useRouter();
 
@@ -801,11 +819,39 @@ export default function MapScreen() {
     [drawnAccessPoints],
   );
 
-  const toggleLayer = useCallback((key: LayerKey) => {
-    setLayers((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  /**
+   * Write-through on every change, including the reset.
+   *
+   * Inside the updater rather than in an effect on `layers`: an effect would
+   * also fire for the restore itself, writing back what it had just read, and
+   * would race the restore's own guard. Here the only writes are the ones a
+   * person caused.
+   *
+   * Fire and forget — writeMapLayers never rejects, and a map that draws
+   * correctly and forgets is a smaller failure than one that stalls on a
+   * key-value write. Reset persists too: "put it back how it was" is a choice
+   * like any other, and one that did not survive a relaunch would be the same
+   * bug from the other direction.
+   */
+  const commitLayers = useCallback((next: LayerKey[]) => {
+    layersRestored.current = true;
+    void writeMapLayers(next);
+    return next;
   }, []);
 
-  const resetLayers = useCallback(() => setLayers([...DEFAULT_LAYERS]), []);
+  const toggleLayer = useCallback(
+    (key: LayerKey) => {
+      setLayers((prev) =>
+        commitLayers(prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]),
+      );
+    },
+    [commitLayers],
+  );
+
+  const resetLayers = useCallback(
+    () => setLayers(commitLayers(defaultMapLayers())),
+    [commitLayers],
+  );
 
   // /api/gauges is statewide, and the map now draws all of it.
   //
@@ -1054,24 +1100,6 @@ export default function MapScreen() {
           zoom: 8.5,
         }
       : null;
-  const downloadProgress =
-    packs.active && packs.active.riverSlug === drawnSlug ? packs.active.percent : null;
-
-  const onDownload = useCallback(async () => {
-    if (!mapRiver) return;
-    // Cleared on the way IN, for the same reason the river list clears its own
-    // message on success: a failure that has since been retried should not
-    // still be on screen. Without this, one refused download left a red line up
-    // for the rest of the session however many times it later worked.
-    setDownloadError(null);
-    const result = await packs.download(mapRiver);
-    if (!result.ok && result.error) setDownloadError(result.error);
-  }, [mapRiver, packs]);
-
-  const onRemove = useCallback(async () => {
-    if (!drawnSlug) return;
-    await packs.remove(drawnSlug);
-  }, [packs, drawnSlug]);
 
   // Asks for permission the first time, then recentres. A denial is not
   // re-prompted — iOS would suppress the dialog anyway — so the button simply
@@ -1188,13 +1216,11 @@ export default function MapScreen() {
     [router],
   );
 
-  // FAILS OPEN, deliberately. An unreachable /api/me/profile means we do not
-  // know whether this person is subscribed — and telling a paying customer on
-  // one bar of signal that their offline maps are locked is a far worse outcome
-  // than letting an unsubscribed one press a button that needs a connection
-  // anyway. Null means "unknown"; the row shows no lock and no upsell.
-  const entitled = accountLoaded && !accountError ? Boolean(entitlement?.isActive) : null;
-
+  // NOTHING ON THIS SCREEN IS GATED. The offline download was the Map tab's
+  // only paid feature and its only reason to know about entitlement, so the
+  // account read, the `entitled` computation and the paywall sheet all left
+  // with it. Everything the map shows — the network, put-ins, hazards, gauges,
+  // conditions — is free and always has been.
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={styles.header}>
@@ -1532,29 +1558,10 @@ export default function MapScreen() {
         </View>
       </View>
 
-      {/* The download's message wins when both are up: it answers a button the
-          user just pressed, and the list's line will still be there behind it
-          if the list is still failing. */}
-      {downloadError ?? riversError ? (
+      {riversError ? (
         <Text style={[styles.errorText, { color: colors.error }]} numberOfLines={2}>
-          {downloadError ?? riversError}
+          {riversError}
         </Text>
-      ) : null}
-
-      {/* Quiet by design — see the note at the top of OfflineMapRow for why this
-          stopped being a button. Hidden entirely when the server has switched
-          offline downloads off, or when there is no native map to download. */}
-      {features.offlineDownloads && !unavailable ? (
-        <OfflineMapRow
-          river={mapRiver}
-          tally={drawnSlug ? packs.downloaded[drawnSlug] : undefined}
-          progressPercent={downloadProgress}
-          budget={packs.budget}
-          entitled={entitled}
-          onDownload={() => void onDownload()}
-          onRemove={() => void onRemove()}
-          onUpgrade={() => setPaywallOpen(true)}
-        />
       ) : null}
 
       <MapLayersSheet
@@ -1644,16 +1651,6 @@ export default function MapScreen() {
         userCoords={location.coords}
       />
 
-      <PaywallSheet
-        visible={paywallOpen}
-        onClose={() => setPaywallOpen(false)}
-        riverName={mapRiver?.name}
-        onPurchased={() => {
-          // They paid to get this river onto the phone. Finish the thing they
-          // asked for rather than making them find the row again.
-          void onDownload();
-        }}
-      />
     </SafeAreaView>
   );
 }

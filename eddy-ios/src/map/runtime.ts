@@ -26,6 +26,16 @@ import { warn } from '@/lib/monitoring';
 export const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 
 /**
+ * Mapbox's outdoors style: contours and trails, which is what a river needs.
+ *
+ * Lives here rather than beside the map component because this file is the
+ * Mapbox boundary, and because its previous home was the offline-pack hook —
+ * so the one constant the live map cannot render without was owned by a feature
+ * that could be switched off.
+ */
+export const STYLE_URL = 'mapbox://styles/mapbox/outdoors-v12';
+
+/**
  * True when running inside Expo Go, where no native module is available.
  *
  * Checked via executionEnvironment rather than __DEV__: a development *build*
@@ -48,7 +58,7 @@ export function mapUnavailableReason(): MapUnavailableReason | null {
 // `any` on purpose. The module is only ever reached through a runtime `require`,
 // so importing its types here would defeat the point of the lazy load. The
 // typed surface is the components in RiverMap.tsx and the calls in
-// useOfflinePacks.ts, which is where a wrong shape would actually show up.
+// packSweep.ts, which is where a wrong shape would actually show up.
 type MapboxModule = any;
 
 let cached: MapboxModule | null = null;

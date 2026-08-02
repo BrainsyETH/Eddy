@@ -9,12 +9,14 @@
 //
 // ── What this is for ────────────────────────────────────────────────────────
 //
-// The offline download saves Mapbox TILES and nothing else, so with no signal a
-// "downloaded" river had no put-ins, no hazards, no conditions and not even its
-// own line — /api/rivers/[slug] is a network call like everything else. Worse,
-// the river screen awaits the rivers INDEX before any of that, outside the
-// Promise.all where each other call has its own catch, so losing signal did not
-// degrade the screen; it replaced it with "River not found".
+// THIS is what makes Eddy work with no signal, and it is free and automatic for
+// every river. It is not the offline map download, which saved Mapbox tiles and
+// nothing else and has since been removed — a "downloaded" river still had no
+// put-ins, no hazards, no conditions and not even its own line, because
+// /api/rivers/[slug] is a network call like everything else. Worse, the river
+// screen awaits the rivers INDEX before any of that, outside the Promise.all
+// where each other call has its own catch, so losing signal did not degrade the
+// screen; it replaced it with "River not found".
 //
 // That is why the index is the first thing cached and not the last. Cache every
 // per-river payload and the screen still dies before reading any of them.
@@ -94,8 +96,8 @@ export function isRiverKey(key: string): boolean {
  * The slug a river key names, or null.
  *
  * Deliberately not a split on ':' — every Eddy slug is hyphenated and some
- * carry punctuation, and a naive split is exactly why riverSlugFromRegionId in
- * @eddy/offline had to grow a regex.
+ * carry punctuation, and a naive split is exactly why the offline pack names
+ * needed a regex rather than a split (see packSweep.ts, which inherited it).
  */
 export function slugFromRiverKey(key: string): string | null {
   if (!isRiverKey(key)) return null;
@@ -112,6 +114,24 @@ export function slugFromRiverKey(key: string): string | null {
  */
 export function isStaleVersionKey(key: string): boolean {
   return key.startsWith(`${PREFIX}.v`) && !key.startsWith(`${VERSIONED}`);
+}
+
+/**
+ * Is this a cache key of ANY version — the set "clear saved river data" clears?
+ *
+ * Broader than isStaleVersionKey, which spares the current version because its
+ * job is tidying up after a bump. This one is the user pressing a button, so it
+ * takes what the app is using too.
+ *
+ * Anchored on `eddy.cache.` for the reason above and one more: the neighbouring
+ * namespaces are `eddy.stars`, `eddy.savedFloats`, `eddy.onboarding`,
+ * `eddy.location` and `eddy.push`. Every one of them is a user decision rather
+ * than a copy of something the server can send again, so a clear that reached
+ * them would turn "free up some space" into "lose your favourites" — and would
+ * re-show the safety onboarding to someone who had already accepted it.
+ */
+export function isCacheKey(key: string): boolean {
+  return key.startsWith(`${PREFIX}.`);
 }
 
 export interface CacheEnvelope<T> {

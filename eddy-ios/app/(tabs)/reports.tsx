@@ -518,13 +518,44 @@ export default function ReportsScreen() {
     return map;
   }, [nearest, location.coords, gauges]);
 
+  /**
+   * The field is engaged: focused, or holding a query.
+   *
+   * This is what separates the two jobs the screen does. At rest it answers
+   * "what can I float today" and is a river list; engaged, it is a search
+   * across four kinds. The scope switch belongs only to the second — see where
+   * it renders.
+   */
+  const searching = searchFocused || query.trim().length > 0;
+
+  /**
+   * The river controls — chips, ordering, the trust footer — belong to the
+   * resting screen as well as to the Rivers segment.
+   *
+   * ── The bug this hoist fixes ────────────────────────────────────────────
+   *
+   * THE FILTER PILLS DID NOTHING ON LAUNCH. The tab opens on the All scope, and
+   * `riverScope` is what decides the chips are drawn — All-at-rest IS the river
+   * list, so they were. The predicate below tested `scope === 'rivers'`. So on
+   * every launch the chips rendered, highlighted on tap, recomputed their
+   * counts, and narrowed nothing: the one condition that gates the filter was
+   * false on the only scope most people ever see it from. It looked like a dead
+   * control because it was one.
+   *
+   * Same expression governs both now, so a visible chip is by construction a
+   * chip that filters. It has to be computed HERE, above the memo that reads
+   * it, rather than beside the render where it used to live.
+   */
+  const riverScope = scope === 'rivers' || (scope === 'all' && !searching);
+
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const matched = sorted.filter((river) => {
-      // The condition chips belong to the RIVER scope and are only shown
-      // there. Applying a filter whose control is off screen would silently
-      // narrow the All scope by a choice made on a different tab.
-      if (scope === 'rivers' && !FILTERS[filter](river, isStarred('river', river.id))) return false;
+      // Only while the chips are on screen. Applying a filter whose control is
+      // hidden — the All scope mid-search, where the row is replaced by section
+      // headings — would silently narrow results by a choice made before the
+      // question.
+      if (riverScope && !FILTERS[filter](river, isStarred('river', river.id))) return false;
       if (!needle) return true;
       // Region and gauge label are matched as well as the name: people search
       // for "Ozark" and for the condition word they can see on the row.
@@ -544,7 +575,7 @@ export default function ReportsScreen() {
       (a, b) =>
         (distanceByRiver.get(a.id) ?? Infinity) - (distanceByRiver.get(b.id) ?? Infinity),
     );
-  }, [sorted, scope, filter, query, isStarred, distanceByRiver]);
+  }, [sorted, riverScope, filter, query, isStarred, distanceByRiver]);
 
   /**
    * The gauge results, split by tier.
@@ -921,27 +952,6 @@ export default function ReportsScreen() {
     );
   }
 
-  /**
-   * The field is engaged: focused, or holding a query.
-   *
-   * This is what separates the two jobs the screen does. At rest it answers
-   * "what can I float today" and is a river list; engaged, it is a search
-   * across four kinds. The scope switch belongs only to the second — see where
-   * it renders.
-   */
-  const searching = searchFocused || query.trim().length > 0;
-
-  /**
-   * The river controls — chips, ordering, the trust footer — belong to the
-   * resting screen as well as to the Rivers segment.
-   *
-   * `rows` above already makes this true of the DATA: the All scope with
-   * nothing typed returns the river list, unsectioned, because that is what
-   * the tab opens on. The controls did not follow it, so the default scope
-   * rendered rivers with no count, no ordering and no way to ask for one — the
-   * screen's own answer, with every affordance for reading it removed.
-   */
-  const riverScope = scope === 'rivers' || (scope === 'all' && !searching);
   const sortLabel = SORT_LABELS.find((s) => s.key === sort)?.label ?? 'Floatable first';
   /**
    * Scopes whose results come from /api/search, as opposed to a list this

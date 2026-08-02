@@ -17,7 +17,6 @@ import { fetchAppConfig } from '@/api/client';
 
 const DEFAULT_FEATURES: AppFeatureFlags = {
   push: true,
-  offlineDownloads: true,
   planner: true,
   chat: false,
 };

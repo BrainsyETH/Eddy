@@ -42,7 +42,7 @@ const repoRoot = path.resolve(projectRoot, '..');
 const config = getDefaultConfig(projectRoot);
 
 config.watchFolders = [
-  // @eddy/types, @eddy/geo, @eddy/offline, @eddy/sync, @eddy/hazards
+  // @eddy/types, @eddy/geo, @eddy/sync, @eddy/hazards
   path.resolve(repoRoot, 'packages'),
   // @eddy/conditions — the CANONICAL condition system, which lives in the web
   // app because 38 files there import it. It is the single source of truth for

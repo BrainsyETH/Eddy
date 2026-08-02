@@ -36,7 +36,6 @@
     "@eddy/conditions": "file:../missouri-float-planner/shared",
     "@eddy/geo": "file:../packages/eddy-geo",
     "@eddy/hazards": "file:../packages/eddy-hazards",
-    "@eddy/offline": "file:../packages/eddy-offline",
     "@eddy/sync": "file:../packages/eddy-sync",
     "@eddy/types": "file:../packages/eddy-types",
     "@expo-google-fonts/fredoka": "^0.4.1",

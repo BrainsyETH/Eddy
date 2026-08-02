@@ -325,6 +325,10 @@ export default function ConfigureAlertScreen() {
         oneShot,
         firedAt: null,
         lastTriggeredAt: null,
+        // This screen never creates a child. A rule made here stands on its own,
+        // by design — the only surface that parents one to a river alert is the
+        // section inside that alert's own edit screen. See RiverGaugeAlerts.
+        parentId: null,
         createdAt: '',
       }),
     [

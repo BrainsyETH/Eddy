@@ -1231,6 +1231,16 @@ export interface CreateGaugeAlertInput {
   thresholdValue?: number;
   thresholdValueMax?: number;
   oneShot?: boolean;
+  /**
+   * The river alert this rule is part of.
+   *
+   * Sent ONLY by RiverGaugeAlerts, which lives inside a river alert's edit
+   * screen. It makes the new rule a child: the parent's switch gates it, and
+   * deleting the parent deletes it. A rule created anywhere else omits this and
+   * stands on its own, which is what keeps a custom level set from the gauge
+   * screen from being silenced by a river alert it has nothing to do with.
+   */
+  parentSubscriptionId?: string;
 }
 
 /**

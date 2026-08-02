@@ -16,6 +16,20 @@
 // on the rules list is not a dead end either: it explains what an alert is, and
 // the + in the header is right there.
 //
+// ── The rules list is a TREE, not a list ────────────────────────────────────
+//
+// A river alert and the gauge alerts set on that river's other stations render
+// as one card with the gauges indented under it. They used to be four
+// top-level cards all titled "Current River", which is what a flat list makes
+// of one alert plus three refinements to it.
+//
+// The nesting is a real relationship rather than a drawing: a child names its
+// parent on the wire, the evaluator skips a child whose parent is paused, and
+// deleting the parent cascades. So this screen writes ONE row for a group
+// switch and issues ONE delete for a group, and a gated child is drawn
+// unavailable because that is what it is. src/lib/alertGroups.ts has the
+// argument and names the migration.
+//
 // ── Why the second tab is a snapshot and not the old feed ──────────────────
 //
 // /api/alerts is a change LOG: one row per transition, bounded to seven days.
@@ -78,6 +92,7 @@ import { EddyScene } from '@/components/EddyScene';
 import { AlertRuleRow } from '@/components/AlertRuleRow';
 import { QuietHoursRow } from '@/components/QuietHoursRow';
 import { SwipeRow } from '@/components/SwipeRow';
+import { groupAlertRules, isGatedByParent, type AlertRuleGroup } from '@/lib/alertGroups';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
@@ -267,6 +282,22 @@ export default function AlertsScreen() {
     setRefreshing(false);
   }, [load, loadNotices, refreshRules]);
 
+  /**
+   * A rule's switch — a river alert's, a gauge alert's, either.
+   *
+   * ── One write, including for a group ────────────────────────────────────
+   *
+   * A river alert's switch pauses its gauge alerts and touches none of them.
+   * `gauge_alert_subscriptions.parent_subscription_id` names the parent, and the
+   * evaluator skips a child whose parent is off — so pausing is one row, and
+   * resuming hands every child back exactly as it was because nothing ever
+   * changed them. See src/lib/alertGroups.ts and the migration it names.
+   *
+   * This screen used to cascade the pause across every rule in the group and
+   * keep a local record of which children had already been off, so that
+   * resuming could avoid sweeping them on. All of it existed to stand in for a
+   * column that did not exist. The column exists; the workaround is gone.
+   */
   const onToggleRule = useCallback(
     (rule: AlertRule, enabled: boolean) => {
       setRuleError(null);
@@ -286,11 +317,23 @@ export default function AlertsScreen() {
    * puts it back if the write fails, so the only thing left here is to say
    * why it reappeared. Returns the promise so SwipeRow can close itself once
    * the round trip has settled rather than the instant the button is tapped.
+   *
+   * Deletes the CHILDREN with the parent, for the same reason the switch
+   * cascades — and the confirmation names them, because a swipe that quietly
+   * removes four alerts when the row says one is the exact failure this
+   * grouping would otherwise introduce.
    */
-  const removeRule = useCallback(
-    (rule: AlertRule) => {
+  const removeGroup = useCallback(
+    (group: AlertRuleGroup) => {
       setRuleError(null);
-      return remove(rule).catch(() => setRuleError('Could not delete that alert.'));
+      // ONE request. The foreign key cascades, so deleting a river alert takes
+      // its gauge alerts with it server-side — which is also what closes the
+      // orphan this screen used to create: before the parent column, deleting a
+      // river alert left its gauge rules firing about a river the user believed
+      // they had stopped following.
+      return remove(group.rule, group.children).catch(() =>
+        setRuleError('Could not delete that alert.'),
+      );
     },
     [remove],
   );
@@ -299,6 +342,9 @@ export default function AlertsScreen() {
   // it names rather than sticking. Above the early return because it is a hook.
   const highWaterRows = useMemo(() => toRows(highWater ?? []), [highWater]);
   const noticeRows = useMemo(() => toNoticeRows(notices ?? []), [notices]);
+  // A river and the gauges on it are ONE row now — see src/lib/alertGroups.ts
+  // for what was wrong with four cards all called "Current River".
+  const ruleGroups = useMemo(() => groupAlertRules(rules ?? []), [rules]);
 
   const showingRules = segment === 'rules';
   const showingNotices = segment === 'notices';
@@ -457,8 +503,8 @@ export default function AlertsScreen() {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <FlatList
-          data={rules ?? []}
-          keyExtractor={(item) => `${item.source}:${item.id}`}
+          data={ruleGroups}
+          keyExtractor={(item) => item.key}
           refreshControl={refreshControl}
           ListHeaderComponent={
             // ABOVE the rules, and only on this segment. Quiet hours govern
@@ -493,38 +539,88 @@ export default function AlertsScreen() {
               )}
             </View>
           }
-          renderItem={({ item }) => (
-            // Swipe left to delete. The row's switch PAUSES an alert and the
-            // screen behind it edits one; neither is how somebody gets rid of a
-            // rule they no longer want, and until now that took three screens.
-            // The confirmation is not ceremony — the rule is a server-side row
-            // and re-creating it means finding the water and setting the
-            // trigger again.
-            <SwipeRow
-              onAction={() => removeRule(item)}
-              actionLabel="Delete"
-              accessibilityActionLabel={`Delete the alert for ${item.riverName ?? item.gaugeName ?? 'this water'}`}
-              confirm={{
-                title: `Delete this alert?`,
-                message: 'You will stop being notified about it. This cannot be undone.',
-              }}
-            >
-              <AlertRuleRow
-                rule={item}
-                // `source` rides along because the two tables are addressed
-                // differently on write — a gauge rule by its own id, a river
-                // subscription by riverId — and the edit screen must not have to
-                // guess which one it is holding.
-                onPress={() =>
-                  router.push({
-                    pathname: '/alerts/[id]',
-                    params: { id: item.id, source: item.source },
-                  })
+          renderItem={({ item }) => {
+            const parent = item.rule;
+            const name = parent.riverName ?? parent.gaugeName ?? 'this water';
+            const count = item.children.length;
+            const gated = isGatedByParent(item);
+            return (
+              // Swipe left to delete. The row's switch PAUSES an alert and the
+              // screen behind it edits one; neither is how somebody gets rid of a
+              // rule they no longer want, and until now that took three screens.
+              // The confirmation is not ceremony — the rule is a server-side row
+              // and re-creating it means finding the water and setting the
+              // trigger again.
+              //
+              // The swipe acts on the GROUP, and the message counts what goes
+              // with it. See removeGroup.
+              <SwipeRow
+                onAction={() => removeGroup(item)}
+                actionLabel="Delete"
+                // The red has to end exactly where the group does. A parent
+                // alone ends on AlertRuleRow's 10pt bottom margin; a group ends
+                // on its last CHILD's 8pt one, and the default would leave two
+                // points of canvas showing under the action.
+                bottomInset={count > 0 ? 8 : 10}
+                accessibilityActionLabel={
+                  count > 0
+                    ? `Delete the alert for ${name} and its ${count} gauge alerts`
+                    : `Delete the alert for ${name}`
                 }
-                onToggle={(enabled) => onToggleRule(item, enabled)}
-              />
-            </SwipeRow>
-          )}
+                confirm={{
+                  title: count > 0 ? `Delete this alert and ${count} more?` : 'Delete this alert?',
+                  message:
+                    count > 0
+                      ? `The ${count} gauge ${count === 1 ? 'alert' : 'alerts'} set on ${name} go with it. This cannot be undone.`
+                      : 'You will stop being notified about it. This cannot be undone.',
+                }}
+              >
+                <View>
+                  <AlertRuleRow
+                    rule={parent}
+                    childCount={count}
+                    // `source` rides along because the two tables are addressed
+                    // differently on write — a gauge rule by its own id, a river
+                    // subscription by riverId — and the edit screen must not have
+                    // to guess which one it is holding.
+                    onPress={() =>
+                      router.push({
+                        pathname: '/alerts/[id]',
+                        params: { id: parent.id, source: parent.source },
+                      })
+                    }
+                    onToggle={(enabled) => onToggleRule(parent, enabled)}
+                  />
+
+                  {/* The gauges, under the river they are on. Each keeps its own
+                      switch and its own edit screen — they are still separate
+                      rules, and a stretch somebody added deliberately has to be
+                      removable without touching the river. What they lost is the
+                      right to sit at the top level pretending to be a fifth
+                      unrelated alert on the same water. */}
+                  {item.children.map((child) => (
+                    <AlertRuleRow
+                      key={`${child.source}:${child.id}`}
+                      rule={child}
+                      nested
+                      // Held off by the river alert above, with its own switch
+                      // still reading on — because it IS on, and the gate is
+                      // what stops it. Nothing else on the row could explain
+                      // that, so the row says it.
+                      gated={gated}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/alerts/[id]',
+                          params: { id: child.id, source: child.source },
+                        })
+                      }
+                      onToggle={(enabled) => onToggleRule(child, enabled)}
+                    />
+                  ))}
+                </View>
+              </SwipeRow>
+            );
+          }}
         />
       </SafeAreaView>
     );

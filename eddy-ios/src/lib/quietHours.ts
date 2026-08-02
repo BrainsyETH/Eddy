@@ -43,12 +43,67 @@ export function deviceTimezone(): string {
   }
 }
 
-/** Whole hours in, whole hours out. See the header on why this is not minutes. */
+/**
+ * A whole hour, written the way THIS PHONE writes hours.
+ *
+ * ── Why this stopped being hand-rolled ──────────────────────────────────────
+ *
+ * It used to build "10pm" from arithmetic, which bakes in the US 12-hour clock.
+ * A phone set to a 24-hour locale — or set to English with "24-Hour Time" on in
+ * iOS Settings, which is a switch plenty of people flip — got a window rendered
+ * in a format it does not use anywhere else on the device, and had to translate
+ * "10pm" into 22:00 to check it against the clock in its own status bar.
+ *
+ * Intl decides instead. Hermes ships full ICU (the same reason deviceTimezone
+ * reads from Intl rather than adding expo-localization), so `hour: 'numeric'`
+ * on the default locale yields "10 PM" or "22" as that locale requires, and
+ * hourCycle is left unset ON PURPOSE so the user's own 12/24 preference wins.
+ *
+ * Formatted at a FIXED UTC instant with timeZone: 'UTC', not at "today at this
+ * hour" — a local Date would be shifted by the device's own offset and by DST,
+ * which is exactly the class of bug this function is meant to be too small to
+ * have. The minute-of-day is the hour; nothing here converts between zones.
+ *
+ * Falls back to the old arithmetic if Intl throws, because a settings screen
+ * that cannot render an hour is worse than one that renders it in en-US.
+ */
 export function hourLabel(minute: number): string {
   const hour = Math.floor(minute / 60) % 24;
-  const suffix = hour < 12 ? 'am' : 'pm';
-  const display = hour % 12 === 0 ? 12 : hour % 12;
-  return `${display}${suffix}`;
+  try {
+    // 1970-01-01, so only the hour field can vary.
+    return new Intl.DateTimeFormat(undefined, {
+      hour: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date(Date.UTC(1970, 0, 1, hour)));
+  } catch {
+    const suffix = hour < 12 ? 'am' : 'pm';
+    const display = hour % 12 === 0 ? 12 : hour % 12;
+    return `${display}${suffix}`;
+  }
+}
+
+/**
+ * A timezone id as a person would say it — "Central Time", not
+ * "America/Chicago".
+ *
+ * The screen has to name the zone the window is stored in, because quiet hours
+ * live on the ACCOUNT and the server's default is Missouri's. Printing the IANA
+ * id with the underscores swapped out was the previous answer and it reads as a
+ * file path; `timeZoneName: 'long'` gives the name the OS itself uses.
+ *
+ * Returns the id unchanged when Intl cannot resolve it — an unfamiliar zone
+ * spelled oddly still beats no answer about when the phone will stay silent.
+ */
+export function timezoneLabel(timezone: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat(undefined, {
+      timeZone: timezone,
+      timeZoneName: 'long',
+    }).formatToParts(new Date());
+    return parts.find((part) => part.type === 'timeZoneName')?.value ?? timezone;
+  } catch {
+    return timezone.replace(/_/g, ' ');
+  }
 }
 
 /** A minute-of-day the server will accept. Mirrors validMinute() on the route. */

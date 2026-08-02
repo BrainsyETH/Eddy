@@ -208,13 +208,21 @@ export function PushProvider({ children }: { children: ReactNode }) {
     const state = await getPermissionState();
     setPermission(state);
 
+    // READ FIRST, AND ALWAYS. The opt-out is a fact about this DEVICE, written
+    // to disk by disable() and true regardless of who is signed in or what iOS
+    // currently allows. It used to be read only on the path where permission
+    // was granted and a user was present, so between launch and the session
+    // resolving — and permanently for anyone signed out — the app held
+    // `optedOut: false` for a device that had opted out. Every surface reading
+    // it then described alerts as on.
+    const deviceOptedOut = await isDeviceOptedOut();
+    setOptedOut(deviceOptedOut);
+
     if (state !== 'granted' || !signedIn) {
       setRegistered(false);
       return;
     }
 
-    const deviceOptedOut = await isDeviceOptedOut();
-    setOptedOut(deviceOptedOut);
     if (deviceOptedOut) {
       setRegistered(false);
       return;

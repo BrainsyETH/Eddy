@@ -55,7 +55,6 @@ SYMBOLS = (
     "eddy-outfitter",
     "eddy-river",
     "eddy-alert-watch",
-    "eddy-offline-map",
     # The access-point section marks. See PRE_CUT below for why these three are
     # not like the rest of this list.
     "eddy-road",

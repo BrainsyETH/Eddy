@@ -30,7 +30,6 @@ REQUIRED = [
     "eddy-ios/package-lock.json",
     "packages/eddy-types/index.ts",
     "packages/eddy-geo/index.ts",
-    "packages/eddy-offline/index.ts",
     "packages/eddy-sync/index.ts",
     "packages/eddy-hazards/index.ts",
     "missouri-float-planner/shared/condition-system.ts",
@@ -39,7 +38,6 @@ REQUIRED = [
     # ever runs.
     "packages/eddy-types/package.json",
     "packages/eddy-geo/package.json",
-    "packages/eddy-offline/package.json",
     "packages/eddy-sync/package.json",
     "packages/eddy-hazards/package.json",
     "missouri-float-planner/shared/package.json",
