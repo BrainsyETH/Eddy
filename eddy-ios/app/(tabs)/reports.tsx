@@ -86,6 +86,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   DamSnapshot,
+  EddyUpdateEntry,
   MapGauge,
   RiverListItem,
   SearchResult,
@@ -93,8 +94,15 @@ import type {
 } from '@eddy/types';
 import { hasCoordinates } from '@eddy/types';
 import { FLOW_BAND_ORDER, flowBand, type FlowBand } from '@eddy/conditions/flow-band';
-import { READING_LAG_NOTE, floatableHeadline } from '@eddy/conditions/floatable-headline';
-import { ApiError, fetchDams, fetchGaugeCount, fetchGauges, fetchRivers } from '@/api/client';
+import { floatableHeadline } from '@eddy/conditions/floatable-headline';
+import {
+  ApiError,
+  fetchDams,
+  fetchEddyUpdates,
+  fetchGaugeCount,
+  fetchGauges,
+  fetchRivers,
+} from '@/api/client';
 import { floatableRank, isFloatableNow } from '@/theme/conditions';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -106,6 +114,7 @@ import { ReferenceGaugeRow } from '@/components/ReferenceGaugeRow';
 import { ScopeSwitch, type ScopeOption } from '@/components/ScopeSwitch';
 import { DamRow } from '@/components/dam/DamRow';
 import { SearchBar } from '@/components/SearchBar';
+import { TodaySummary } from '@/components/TodaySummary';
 import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { gaugeToSearchResult, useEddySearch } from '@/hooks/useEddySearch';
@@ -280,6 +289,17 @@ export default function ReportsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [scope, setScope] = useState<ScopeKey>('all');
   const [searchFocused, setSearchFocused] = useState(false);
+  /**
+   * Eddy's written summary of the water generally, or null.
+   *
+   * Null covers "not loaded", "the request failed" and "the server withheld
+   * it because a river has flooded since it was written" — and the card does
+   * the same thing in all three, because the count above it is the answer and
+   * this is the colour. Never cached across launches for the same reason: a
+   * stored paragraph about yesterday's water is precisely what the server's
+   * gate exists to stop us showing.
+   */
+  const [summary, setSummary] = useState<EddyUpdateEntry | null>(null);
   const [damFilter, setDamFilter] = useState<DamFilterKey>('all');
   const [dams, setDams] = useState<DamSnapshot[]>([]);
   const [gaugeCount, setGaugeCount] = useState<number | null>(null);
@@ -311,6 +331,11 @@ export default function ReportsScreen() {
   const router = useRouter();
 
   const load = useCallback(async (signal?: AbortSignal) => {
+    // Not awaited with the rivers, and its failure is not this screen's error:
+    // the list is the screen, and a missing paragraph is a missing paragraph.
+    void fetchEddyUpdates(signal)
+      .then((updates) => setSummary(updates.global ?? null))
+      .catch(() => setSummary(null));
     try {
       setError(null);
       setRivers(await fetchRivers(signal));
@@ -960,14 +985,13 @@ export default function ReportsScreen() {
             do. Collapses to nothing when there is neither. */}
         {error ? (
           <Text style={[styles.subtitle, { color: colors.error }]}>{error}</Text>
-        ) : headline ? (
-          <>
-            <Text style={[styles.subtitle, { color: colors.text }]}>{headline}</Text>
-            <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
-              {READING_LAG_NOTE}
-            </Text>
-          </>
-        ) : null}
+        ) : (
+          <TodaySummary
+            headline={headline}
+            prose={summary?.quoteText ?? null}
+            generatedAt={summary?.generatedAt ?? null}
+          />
+        )}
       </View>
 
       {/* Header and controls sit OUTSIDE the FlatList rather than in
@@ -1443,9 +1467,6 @@ const styles = StyleSheet.create({
   // screen a user actually spends time on.
   title: { ...t['3xl'], fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
-  // The caveat sits under the count in the quietest ink on the screen. It is
-  // not a disclaimer to be got past; it is the precision the number carries.
-  headlineNote: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   searchRow: { paddingHorizontal: 16, paddingTop: 12 },
   sortRow: { paddingHorizontal: 16, paddingTop: 10 },
   sortTrigger: {

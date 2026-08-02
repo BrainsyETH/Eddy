@@ -185,6 +185,17 @@ export interface OverlayOptions {
   proseStaleHours?: number;
   /** Optional tag for the diagnostic log line (e.g. 'eddy-updates'). */
   logLabel?: string;
+  /**
+   * A live map the caller has already built, used instead of querying again.
+   *
+   * For callers that need the live conditions for something ELSE as well —
+   * /api/eddy-updates gates the statewide summary on whether any river has
+   * flooded since the summary was written, which is the same data this
+   * overlay reads. Without this they would issue the identical query twice
+   * per cache miss and, worse, could disagree with each other across the gap
+   * between the two reads.
+   */
+  liveConditions?: Map<string, LiveCondition>;
 }
 
 /**
@@ -236,8 +247,9 @@ export async function overlayLiveConditions<
     clearProseOnConditionChange = true,
     proseStaleHours = STALE_READING_HOURS,
     logLabel,
+    liveConditions,
   } = options;
-  const liveMap = await buildLiveConditionsMap(supabase);
+  const liveMap = liveConditions ?? (await buildLiveConditionsMap(supabase));
   if (liveMap.size === 0) return updates.map((u) => ({
     ...u,
     discharge_cfs: u.discharge_cfs ?? null,

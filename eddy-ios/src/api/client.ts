@@ -42,6 +42,8 @@ import type {
   RiverVisualsResponse,
   RiverService,
   RiversResponse,
+  EddyUpdateEntry,
+  EddyUpdatesResponse,
   RiverListItem,
   SavePlanResponse,
   SearchResponse,
@@ -395,6 +397,26 @@ export async function unstarGauge(token: string, gaugeId: string): Promise<void>
     token,
     { method: 'DELETE' },
   );
+}
+
+/**
+ * Eddy's written conditions prose, every river plus the statewide summary.
+ *
+ * ONE batched, CDN-cached, unauthenticated request — the same one the website
+ * makes. Nothing here is the paywalled per-river read; that is the outlook
+ * endpoint and a different artifact.
+ *
+ * The statewide entry is keyed "global" and is simply ABSENT when the server
+ * has decided it can no longer stand behind it — a river has flooded since it
+ * was written, or it has aged out. Callers must treat the missing key as "say
+ * nothing" and never fall back to a previously fetched one; see
+ * missouri-float-planner/src/lib/eddy/global-prose-gate.ts.
+ */
+export async function fetchEddyUpdates(
+  signal?: AbortSignal,
+): Promise<Record<string, EddyUpdateEntry>> {
+  const data = await get<EddyUpdatesResponse>('/api/eddy-updates', signal);
+  return data.updates ?? {};
 }
 
 /** All curated Eddy Rivers with their current condition. */

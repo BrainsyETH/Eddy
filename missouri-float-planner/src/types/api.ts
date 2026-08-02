@@ -1161,3 +1161,25 @@ export interface RiverAlertsResponse {
   alerts: RiverAlert[];
   asOf: string;
 }
+
+// ── Eddy's written conditions prose (GET /api/eddy-updates) ──────────────
+// Mirrors packages/eddy-types/index.ts, which is what the Expo app imports.
+// Kept in both because Vercel installs only missouri-float-planner/ and so
+// cannot resolve the package. See the note at the top of eddy-types.
+
+export interface EddyUpdateEntry {
+  quoteText: string;
+  summaryText: string | null;
+  conditionCode: string;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  readingTimestamp: string | null;
+  snapshotId: string | null;
+  /** When the prose was WRITTEN — see the eddy-types copy for why it matters. */
+  generatedAt: string;
+}
+
+export interface EddyUpdatesResponse {
+  /** Keyed by river slug; the statewide summary is under "global". */
+  updates: Record<string, EddyUpdateEntry>;
+}
