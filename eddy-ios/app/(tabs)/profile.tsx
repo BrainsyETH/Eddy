@@ -301,12 +301,12 @@ export default function ProfileScreen() {
             </View>
 
             {/* The way IN, which this card had no version of.
-                Everywhere else the paywall is reached from the thing it gates
-                — the offline download, Eddy's take on a river — so someone who
-                simply wants to subscribe, or who dismissed an offer earlier and
-                came back for it, arrived at a card that could only restore a
-                purchase they had never made. `loaded` gates it so the button
-                does not flash up under someone who is already subscribed. */}
+                The only other route to the paywall is Eddy's read on a river,
+                the one thing a subscription gates — so someone who simply wants
+                to subscribe, or who dismissed an offer earlier and came back for
+                it, arrived at a card that could only restore a purchase they had
+                never made. `loaded` gates it so the button does not flash up
+                under someone who is already subscribed. */}
             {loaded && !entitlement?.isActive && (
               <Pressable
                 onPress={() => setPaywallOpen(true)}
@@ -438,6 +438,34 @@ export default function ProfileScreen() {
             <Text style={[styles.legal, { color: colors.textSubtle }]}>
               Readings come from USGS gauges and can trail the river by up to about an hour.
             </Text>
+          </View>
+        </Section>
+
+        {/* ── Storage ─────────────────────────────────────────────── */}
+        {/* Here because this is where someone goes looking, and because "what
+            is this app keeping on my phone" had no in-app answer at all — a
+            question App Review and privacy-minded users both ask directly. */}
+        <Section title="Storage" muted={colors.textMuted}>
+          <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
+            <View style={styles.row}>
+              <Ionicons name="phone-portrait-outline" size={22} color={colors.textMuted} />
+              <View style={styles.rowBody}>
+                <Text style={[styles.rowTitle, { color: colors.text }]}>On this phone</Text>
+                <Text style={[styles.rowNote, { color: colors.textMuted }]}>
+                  Eddy keeps every river&apos;s put-ins, hazards and last reading here so they
+                  work with no signal.
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => router.push('/storage')}
+              style={[styles.secondary, { borderColor: colors.border }]}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
+                Manage storage
+              </Text>
+            </Pressable>
           </View>
         </Section>
 
