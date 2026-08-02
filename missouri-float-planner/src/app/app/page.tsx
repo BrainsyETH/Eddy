@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Apple, ArrowRight, BellRing, MapPin, Waves } from 'lucide-react';
+import { Apple, ArrowRight, BellRing, MapPin, Signal, Waves } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 import styles from './page.module.css';
 
@@ -91,6 +91,15 @@ const features = [
     icon: BellRing,
     title: 'Let the river tell you',
     copy: 'Create alerts for the conditions you care about and keep your favorite water one tap away.',
+  },
+  // The landing page had no answer to "does this work where I am going", which
+  // is the question an Ozark float raises before any other. It is also the one
+  // thing here that is easy to overpromise, so it says exactly what survives
+  // losing signal and what does not.
+  {
+    icon: Signal,
+    title: 'Works where the bars run out',
+    copy: 'Access points, hazards, and the river\u2019s course stay on your phone, so a put-in with no signal still tells you where you are and what is downstream.',
   },
 ] as const;
 
