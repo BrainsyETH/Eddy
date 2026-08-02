@@ -216,7 +216,8 @@ export default function AlertsScreen() {
     ready: rulesReady,
     refresh: refreshRules,
     setEnabled,
-    remove,
+    setEnabledMany,
+    removeMany,
   } = useAlertRules();
   const { colors, elevation } = useTheme();
   const router = useRouter();
@@ -309,22 +310,30 @@ export default function AlertsScreen() {
    * and inventing a client-side shadow of server state to make a switch feel
    * cleverer is how the two fall out of step. One tap puts it back.
    *
-   * Failures are per-rule and reported once: the hook reverts each rule it
-   * could not write, so a partial failure leaves the list honest about which
-   * half moved.
+   * ONE CALL, NOT N. `setEnabledMany` exists because a loop over `setEnabled`
+   * has every iteration derive its optimistic list from the same pre-batch
+   * snapshot and the last one win — three of four switches springing back after
+   * being written. See its comment in useAlertRules.
+   *
+   * A partial failure keeps whatever landed and says so, rather than reverting
+   * the whole group and leaving the list describing a server state that is no
+   * longer true.
    */
   const onToggleGroup = useCallback(
     (group: AlertRuleGroup, enabled: boolean) => {
       setRuleError(null);
-      const rules = rulesInGroup(group);
-      void Promise.allSettled(rules.map((rule) => setEnabled(rule, enabled))).then((results) => {
-        if (results.every((result) => result.status === 'fulfilled')) return;
-        setRuleError(
-          enabled ? 'Could not resume every alert here.' : 'Could not pause every alert here.',
+      void setEnabledMany(rulesInGroup(group), enabled)
+        .then((failed) => {
+          if (failed.length === 0) return;
+          setRuleError(
+            enabled ? 'Could not resume every alert here.' : 'Could not pause every alert here.',
+          );
+        })
+        .catch(() =>
+          setRuleError(enabled ? 'Could not resume that alert.' : 'Could not pause that alert.'),
         );
-      });
     },
-    [setEnabled],
+    [setEnabledMany],
   );
 
   /**
@@ -343,15 +352,13 @@ export default function AlertsScreen() {
   const removeGroup = useCallback(
     (group: AlertRuleGroup) => {
       setRuleError(null);
-      return Promise.allSettled(rulesInGroup(group).map((rule) => remove(rule))).then(
-        (results) => {
-          if (results.some((result) => result.status === 'rejected')) {
-            setRuleError('Could not delete every alert here.');
-          }
-        },
-      );
+      return removeMany(rulesInGroup(group))
+        .then((failed) => {
+          if (failed.length > 0) setRuleError('Could not delete every alert here.');
+        })
+        .catch(() => setRuleError('Could not delete that alert.'));
     },
-    [remove],
+    [removeMany],
   );
 
   // Headings interleaved with rows, so a section title scrolls with the group

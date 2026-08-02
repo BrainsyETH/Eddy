@@ -50,14 +50,53 @@ interface AlertRulesValue {
   add: (rule: AlertRule) => void;
   setEnabled: (rule: AlertRule, enabled: boolean) => Promise<void>;
   /**
+   * Pause or resume SEVERAL rules as one change, resolving with the ones that
+   * did not land.
+   *
+   * ── Why this is not a loop over setEnabled ──────────────────────────────
+   *
+   * Every mutation snapshots `rulesRef.current` and derives its optimistic list
+   * from that snapshot. The ref is written in an effect, so it is only current
+   * once React has committed and flushed — which has not happened between two
+   * calls made in the same tick. Firing four `setEnabled`s at once therefore has
+   * all four read the SAME list, each produce a copy with only its own rule
+   * flipped, and the last `setRules` win: three of the four switches spring
+   * back, having actually been written.
+   *
+   * That is exactly the shape of the bug the Alerts tab's grouped switch would
+   * have had, on the screen where a switch springing back is the app's most
+   * expensive lie. One snapshot, one optimistic list, one reconciliation.
+   */
+  setEnabledMany: (rules: AlertRule[], enabled: boolean) => Promise<AlertRule[]>;
+  /**
    * Edit a rule. Resolves with the re-seeded crossing state when the threshold
    * moved, so the edit screen can tell the user their rule starts out on the
    * far side of its own number instead of leaving it silently unable to fire.
    */
   update: (rule: AlertRule, patch: UpdateAlertRuleInput) => Promise<AlertRuleSeed | null>;
   remove: (rule: AlertRule) => Promise<void>;
+  /** Delete several as one change. Same contract as setEnabledMany. */
+  removeMany: (rules: AlertRule[]) => Promise<AlertRule[]>;
   /** Is there already a rule on this river or gauge? Drives the bell's label. */
   rulesFor: (scope: 'river' | 'gauge', entityId: string) => AlertRule[];
+}
+
+/**
+ * A rule's identity across BOTH tables.
+ *
+ * `id` alone is not unique: a gauge rule and a river subscription are rows in
+ * different tables and may carry the same uuid. The single-rule mutations
+ * predate this and match on `id`, which is safe for them because they only ever
+ * hold one rule; a batch matching on `id` could flip somebody's Meramec
+ * subscription while pausing a Current River gauge.
+ */
+function ruleKey(rule: AlertRule): string {
+  return `${rule.source}:${rule.id}`;
+}
+
+/** A resume that also has to clear a spent one-shot. See setEnabled. */
+function needsRearm(rule: AlertRule, enabled: boolean): boolean {
+  return enabled && rule.oneShot && rule.firedAt != null;
 }
 
 const AlertRulesContext = createContext<AlertRulesValue>({
@@ -67,8 +106,10 @@ const AlertRulesContext = createContext<AlertRulesValue>({
   refresh: async () => {},
   add: () => {},
   setEnabled: async () => {},
+  setEnabledMany: async () => [],
   update: async () => null,
   remove: async () => {},
+  removeMany: async () => [],
   rulesFor: () => [],
 });
 
@@ -167,6 +208,51 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
     [getAccessToken],
   );
 
+  /**
+   * The batch counterpart of `mutate`: one snapshot, one optimistic list, and a
+   * reconciliation that keeps whatever landed.
+   *
+   * `apply` is called TWICE with the same snapshot and different key sets —
+   * once with every target, to paint the change immediately, and once with only
+   * the writes that succeeded, should any fail. Deriving the recovery from the
+   * snapshot rather than patching the live list is what makes a partial failure
+   * describe the server instead of reverting three good writes; it is also why
+   * `apply` has to be a pure function of (rules, keys) rather than a closure
+   * over the current state.
+   *
+   * Resolves with the rules that failed, never rejects on a write — a caller
+   * showing "could not pause every alert here" needs the count, not a throw
+   * that also discards the successes.
+   */
+  const mutateMany = useCallback(
+    async (
+      targets: AlertRule[],
+      apply: (rules: AlertRule[], keys: ReadonlySet<string>) => AlertRule[],
+      write: (token: string, rule: AlertRule) => Promise<unknown>,
+    ): Promise<AlertRule[]> => {
+      if (targets.length === 0) return [];
+      const before = rulesRef.current;
+      if (before) setRules(apply(before, new Set(targets.map(ruleKey))));
+
+      const token = await getAccessToken();
+      if (!token) {
+        if (before) setRules(before);
+        throw new ApiError('Sign in to change alerts', 401);
+      }
+
+      const results = await Promise.allSettled(targets.map((rule) => write(token, rule)));
+      const failed = targets.filter((_, index) => results[index].status === 'rejected');
+      if (failed.length > 0 && before) {
+        const landed = new Set(
+          targets.filter((_, index) => results[index].status === 'fulfilled').map(ruleKey),
+        );
+        setRules(apply(before, landed));
+      }
+      return failed;
+    },
+    [getAccessToken],
+  );
+
   // Discards the seed on purpose: pausing or resuming a rule never moves its
   // threshold, so there is no reseed to report and nothing for a caller to do
   // with one.
@@ -181,7 +267,7 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
        * that reads as live on every screen and cannot fire, which is the exact
        * confusion switching it off was meant to end.
        */
-      const rearm = enabled && rule.oneShot && rule.firedAt != null;
+      const rearm = needsRearm(rule, enabled);
       await mutate(
         rule,
         (current) =>
@@ -194,6 +280,29 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
       );
     },
     [mutate],
+  );
+
+  const setEnabledMany = useCallback(
+    (targets: AlertRule[], enabled: boolean) =>
+      mutateMany(
+        targets,
+        (current, keys) =>
+          current.map((r) =>
+            keys.has(ruleKey(r))
+              ? {
+                  ...r,
+                  enabled,
+                  ...(needsRearm(r, enabled) ? { firedAt: null, lastTriggeredAt: null } : {}),
+                }
+              : r,
+          ),
+        (token, rule) =>
+          updateAlertRule(token, rule, {
+            enabled,
+            ...(needsRearm(rule, enabled) ? { rearm: true } : {}),
+          }),
+      ),
+    [mutateMany],
   );
 
   const update = useCallback(
@@ -243,6 +352,16 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
     [mutate],
   );
 
+  const removeMany = useCallback(
+    (targets: AlertRule[]) =>
+      mutateMany(
+        targets,
+        (current, keys) => current.filter((r) => !keys.has(ruleKey(r))),
+        (token, rule) => deleteAlertRule(token, rule),
+      ),
+    [mutateMany],
+  );
+
   const rulesFor = useCallback(
     (scope: 'river' | 'gauge', entityId: string) =>
       (rules ?? []).filter((rule) =>
@@ -252,8 +371,32 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ rules, ready, refreshing, refresh, add, setEnabled, update, remove, rulesFor }),
-    [rules, ready, refreshing, refresh, add, setEnabled, update, remove, rulesFor],
+    () => ({
+      rules,
+      ready,
+      refreshing,
+      refresh,
+      add,
+      setEnabled,
+      setEnabledMany,
+      update,
+      remove,
+      removeMany,
+      rulesFor,
+    }),
+    [
+      rules,
+      ready,
+      refreshing,
+      refresh,
+      add,
+      setEnabled,
+      setEnabledMany,
+      update,
+      remove,
+      removeMany,
+      rulesFor,
+    ],
   );
 
   return <AlertRulesContext.Provider value={value}>{children}</AlertRulesContext.Provider>;
