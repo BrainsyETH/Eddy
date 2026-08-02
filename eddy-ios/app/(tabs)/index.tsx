@@ -615,13 +615,15 @@ export default function MapScreen() {
   }, [wantsGauges, ensureGauges]);
 
   /**
-   * The ten USACE projects, fetched once on first enable and kept.
+   * Every USACE project, fetched once on first enable and kept.
    *
    * NOT river-scoped, which is the structural difference from services below:
    * those are "what is on THIS river" and re-fetch when the selection changes,
-   * while the dam set is fixed and statewide. Most of these dams have no Eddy
-   * river at all, so scoping them to a selection would hide the majority of the
-   * layer behind a river that does not exist.
+   * while the dam set is fixed and regional. Most of these dams have no Eddy
+   * river at all — more so since the Tulsa district projects were added, which
+   * put dams in Oklahoma and Texas where Eddy carries no rivers at all — so
+   * scoping them to a selection would hide the majority of the layer behind a
+   * river that does not exist.
    *
    * fetchDams already answers [] on failure, so there is no error branch: a
    * layer that draws nothing is the honest outcome of a feed being down.

@@ -23,7 +23,24 @@
 // us. A resolver that silently picks the WRONG series is worse than a hardcoded
 // one that 404s loudly, so the scoring below is deliberately conservative and
 // returns null rather than guessing.
+//
+// THE CATALOG IS NOT A FRESHNESS ORACLE. Measured 2026-08-02: every
+// `latest-time` and `last-update` in /catalog/TIMESERIES was stamped
+// 2026-07-27 — six days stale — while /timeseries returned live values for the
+// same ids (Bull Shoals release 730 cfs at 15:00Z that day). The original 36h
+// age gate therefore disqualified every live hourly series, and `~1Month`
+// aggregates survived on a technicality: their bucket stamp is dated to the
+// START of a future month, so a monthly mean looked 30 hours old. Bull Shoals
+// resolved 4 of 8 metrics, all monthly averages; Tenkiller resolved nothing.
+// It stayed invisible because hardcoded ids win for every shipped dam.
+//
+// So freshness now comes from READING A VALUE (see probeSeries) and the
+// catalog timestamp is demoted to a liveness FLOOR that only buries corpses —
+// series a district abandoned years ago and left listed. Interval is an
+// ALLOWLIST rather than a ranking, so no aggregate can represent "right now"
+// however fresh its metadata claims to be.
 
+import { fetchLatestValue, fetchTimeseries, type TimeseriesPoint } from '@/lib/usace/cda';
 import type { UsaceMetric } from '@/lib/flow-providers/usace-registry';
 
 const CDA_BASE = 'https://cwms-data.usace.army.mil/cwms-data';
@@ -34,20 +51,34 @@ const REQUEST_TIMEOUT_MS = 10_000;
 const REVALIDATE_SECONDS = 86_400;
 
 /**
- * A series older than this is not a live feed, whatever it is named.
+ * Liveness floor, NOT a freshness measure — see the header.
  *
- * Scaled by interval, because "stale" means different things at different
- * cadences: MVS publishes observed release as a DAILY average roughly a day in
- * arrears, so a single 36h gate rejected the correct series outright. Caught by
- * running the resolver against the live catalog — Wappapello and Mark Twain
- * resolved to nothing while all six SWL dams resolved fine.
+ * Deliberately generous: it has to survive a catalog whose metadata is frozen
+ * for an unknown stretch, while still rejecting what it exists to reject —
+ * `Bull_Shoals_Dam.Flow-Res Out.Ave.1Hour.1Hour.CCP-Comp` last carried data in
+ * February 2020 and is still listed beside the live `Regi-Comp` series.
  */
-const DEFAULT_MAX_AGE_HOURS = 36;
-const DAILY_MAX_AGE_HOURS = 96;
+const CATALOG_MAX_AGE_DAYS = 30;
 
-function maxAgeForInterval(interval: string, fallback: number): number {
-  return /(^|~)1?Day/i.test(interval) ? Math.max(fallback, DAILY_MAX_AGE_HOURS) : fallback;
-}
+/**
+ * Candidates probed per metric before giving up. Bounds the added fan-out: the
+ * first candidate is right almost always, so this is the cost of being wrong,
+ * not the cost of being right.
+ */
+const MAX_PROBES_PER_METRIC = 3;
+
+/** Lookback for the liveness probe. Covers MVS's daily mean, ~a day in arrears. */
+const PROBE_LOOKBACK_HOURS = 96;
+
+/** How far ahead to look when confirming a forecast series actually forecasts. */
+const FORECAST_HORIZON_DAYS = 14;
+
+/**
+ * Intervals that summarise a PERIOD rather than sample a moment. Rejected for
+ * every metric, so the "what does this number mean" failure cannot recur even
+ * if someone adds `~1Month` to a spec's interval list by hand.
+ */
+const AGGREGATE_INTERVAL = /^~?1(Week|Month|Year|Decade)$/i;
 
 export interface CatalogEntry {
   name: string;
@@ -80,16 +111,32 @@ export function parseTsId(name: string): ParsedTsId | null {
   };
 }
 
+/**
+ * One acceptable way a district spells a metric: a parameter name AND the
+ * sub-location it must sit on. `subLocation: ''` means the bare project.
+ *
+ * These are PAIRS rather than two independent lists because the cross-product
+ * admits combinations that do not exist and are dangerous. Tulsa publishes
+ * tailwater elevation as `TENK.Elev-Tailwater` — on the BARE location, where
+ * SWL uses `..._Dam-Tailwater.Elev-Downstream`. Reaching it with a
+ * `subLocations: ['-Tailwater', '']` list would also admit bare `TENK.Elev`,
+ * which is the POOL: measured 2026-08-02, `TENK.Elev` = 632.94 ft and
+ * `TENK.Elev-Tailwater` = 482.86 ft. A 150-foot error, silently.
+ */
+interface ParamPair {
+  parameter: string;
+  subLocation: string;
+}
+
 interface MetricSpec {
-  /** Accepted CWMS parameter names, best first. */
-  parameters: string[];
+  /** Accepted parameter/sub-location pairs, best first. */
+  pairs: ParamPair[];
   /**
-   * Location suffixes to accept, best first. '' means the bare project.
-   * Pool elevation lives on `-Headwater` at SWL but on the bare location at
-   * MVS, and water temperature only ever lives on `-Tailwater`.
+   * Intervals ALLOWED, best first. Anything not listed is disqualified — not
+   * merely ranked last. The old code scored an unlisted interval
+   * `(len - len) * 10 = 0`, i.e. no penalty at all, which is how a monthly mean
+   * came to represent "release right now".
    */
-  subLocations: string[];
-  /** Intervals preferred, best first. Anything else scores last but is allowed. */
   intervals: string[];
   /** Unit to request; CDA converts server-side. */
   unit: 'cfs' | 'ft' | 'F' | '%';
@@ -97,60 +144,84 @@ interface MetricSpec {
   forecast: boolean;
 }
 
+/** `Flow-Res Out` (SWL/SWT/SPK) and `Flow-Out` (MVS/NAB/SAM) on the project. */
+const RELEASE_PAIRS: ParamPair[] = [
+  { parameter: 'Flow-Res Out', subLocation: '' },
+  { parameter: 'Flow-Out', subLocation: '' },
+];
+
 const SPECS: Partial<Record<UsaceMetric, MetricSpec>> = {
   release: {
-    parameters: ['Flow-Res Out', 'Flow-Out'],
-    subLocations: [''],
-    intervals: ['1Hour', '30Minutes', '~1Day'],
+    pairs: RELEASE_PAIRS,
+    intervals: ['1Hour', '30Minutes', '15Minutes', '~1Day'],
     unit: 'cfs',
     forecast: false,
   },
   releaseForecast: {
-    parameters: ['Flow-Res Out', 'Flow-Out'],
-    subLocations: [''],
-    intervals: ['1Hour', '~1Day'],
+    pairs: RELEASE_PAIRS,
+    intervals: ['1Hour', '15Minutes', '~1Day'],
     unit: 'cfs',
     forecast: true,
   },
   poolElevation: {
-    parameters: ['Elev'],
-    subLocations: ['-Headwater', ''],
-    intervals: ['1Hour', '30Minutes'],
+    // SWL hangs pool elevation off `-Headwater`; MVS and SWT use the bare
+    // project. `~1Hour` is SWT's interlaced series.
+    pairs: [
+      { parameter: 'Elev', subLocation: '-Headwater' },
+      { parameter: 'Elev', subLocation: '' },
+    ],
+    intervals: ['1Hour', '30Minutes', '15Minutes', '~1Hour'],
     unit: 'ft',
     forecast: false,
   },
   pctFloodPool: {
-    parameters: ['%-Flood Pool'],
-    subLocations: ['-Headwater', ''],
-    intervals: ['1Hour', '~1Day'],
+    // SWT spells it `%-Flood Pool Full` on the bare project. Exact-match
+    // scoring meant the SWL name could never reach it.
+    pairs: [
+      { parameter: '%-Flood Pool', subLocation: '-Headwater' },
+      { parameter: '%-Flood Pool', subLocation: '' },
+      { parameter: '%-Flood Pool Full', subLocation: '' },
+    ],
+    intervals: ['1Hour', '30Minutes', '~1Day'],
     unit: '%',
     forecast: false,
   },
   inflow: {
-    parameters: ['Flow-Res In', 'Flow-In'],
-    subLocations: [''],
-    intervals: ['1Hour', '~1Day'],
+    pairs: [
+      { parameter: 'Flow-Res In', subLocation: '' },
+      { parameter: 'Flow-In', subLocation: '' },
+    ],
+    intervals: ['1Hour', '~6Hours', '~1Day'],
     unit: 'cfs',
     forecast: false,
   },
   generationFlow: {
-    parameters: ['Flow-Plant'],
-    subLocations: [''],
-    intervals: ['1Hour'],
+    // SWL calls turbine discharge `Flow-Plant`; SWT calls it `Flow-Power`.
+    // Verified 2026-08-02: TENK.Flow-Power read 0 cfs while total release was
+    // 330 cfs — units idle with a low-flow release running, which is exactly
+    // the distinction generationOnCfs exists to make.
+    pairs: [
+      { parameter: 'Flow-Plant', subLocation: '' },
+      { parameter: 'Flow-Power', subLocation: '' },
+    ],
+    intervals: ['1Hour', '15Minutes'],
     unit: 'cfs',
     forecast: false,
   },
   tailwaterElevation: {
-    parameters: ['Elev-Downstream', 'Elev'],
-    subLocations: ['-Tailwater'],
-    intervals: ['1Hour', '30Minutes'],
+    // Bare `Elev` is deliberately ABSENT — that is the pool. See ParamPair.
+    pairs: [
+      { parameter: 'Elev-Downstream', subLocation: '-Tailwater' },
+      { parameter: 'Elev', subLocation: '-Tailwater' },
+      { parameter: 'Elev-Tailwater', subLocation: '' },
+    ],
+    intervals: ['1Hour', '30Minutes', '15Minutes'],
     unit: 'ft',
     forecast: false,
   },
   tailwaterTempF: {
-    parameters: ['Temp-Water'],
-    subLocations: ['-Tailwater'],
-    intervals: ['1Hour', '30Minutes'],
+    pairs: [{ parameter: 'Temp-Water', subLocation: '-Tailwater' }],
+    intervals: ['1Hour', '30Minutes', '15Minutes'],
     unit: 'F',
     forecast: false,
   },
@@ -166,60 +237,56 @@ export interface ResolvedSeries {
   unit: MetricSpec['unit'];
   /** Why this one won, for logging when a resolution looks wrong. */
   reason: string;
+  /**
+   * The point the liveness probe actually read. Callers reuse it rather than
+   * re-fetching the same window a second time — see resolveSeries.
+   */
+  probed?: TimeseriesPoint;
 }
 
 /**
  * Score a candidate. Higher wins; null means disqualified.
  *
- * Freshness is a GATE rather than a term: a beautifully-named series that
- * stopped updating in 2019 is not the answer, and letting a name outrank
- * staleness is how a resolver quietly serves dead data.
+ * Disqualification does the real work here, and every `return null` below is a
+ * failure this resolver actually produced against the live catalog. Ranking
+ * only breaks ties between series that are all legitimate answers.
  */
 function score(
   entry: CatalogEntry,
   spec: MetricSpec,
   location: string,
   now: number,
-  maxAgeHours: number
+  maxAgeDays: number
 ): { points: number; reason: string } | null {
   const parsed = parseTsId(entry.name);
   if (!parsed) return null;
 
-  const subIndex = spec.subLocations.findIndex(
-    (suffix) => parsed.location === `${location}${suffix}`
+  const pairIndex = spec.pairs.findIndex(
+    (pair) =>
+      parsed.parameter === pair.parameter &&
+      parsed.location === `${location}${pair.subLocation}`
   );
-  if (subIndex === -1) return null;
-
-  const paramIndex = spec.parameters.indexOf(parsed.parameter);
-  if (paramIndex === -1) return null;
+  if (pairIndex === -1) return null;
 
   const isForecast = FORECAST_VERSION.test(parsed.version);
   if (isForecast !== spec.forecast) return null;
 
+  // An interval the spec did not ask for is not an answer to this metric.
+  if (AGGREGATE_INTERVAL.test(parsed.interval)) return null;
+  const intervalIndex = spec.intervals.indexOf(parsed.interval);
+  if (intervalIndex === -1) return null;
+
+  // Liveness floor only. A series the catalog has never seen a value for, or
+  // one abandoned years ago, is not a candidate; anything more recent goes to
+  // the probe, because the catalog's own clock cannot be trusted (see header).
   if (!entry.latestTime) return null;
   const latest = new Date(entry.latestTime).getTime();
   if (!Number.isFinite(latest)) return null;
-
-  if (spec.forecast) {
-    // A LIVE forecast extends into the future — that is what makes it a
-    // forecast. Districts leave retired forecast series in the catalog with
-    // perfectly plausible names: MVS still lists CWMS-Forecast-16dQPF, whose
-    // last value is from 2019 and which returns ZERO future points, right
-    // beside CWMS-Forecast-NoQPF, which runs 11 days ahead. Without this check
-    // the dead one scored just as well as the live one.
-    if (latest <= now) return null;
-  } else {
-    const ageHours = (now - latest) / 3_600_000;
-    if (ageHours > maxAgeForInterval(parsed.interval, maxAgeHours)) return null;
-  }
-
-  const intervalIndex = spec.intervals.indexOf(parsed.interval);
-  const intervalRank = intervalIndex === -1 ? spec.intervals.length : intervalIndex;
+  if ((now - latest) / 86_400_000 > maxAgeDays) return null;
 
   let points = 0;
-  points += (spec.subLocations.length - subIndex) * 1000;
-  points += (spec.parameters.length - paramIndex) * 100;
-  points += (spec.intervals.length - intervalRank) * 10;
+  points += (spec.pairs.length - pairIndex) * 100;
+  points += (spec.intervals.length - intervalIndex) * 10;
   if (REVIEWED_VERSION.test(parsed.version)) points += 5;
   if (RAW_VERSION.test(parsed.version)) points -= 3;
 
@@ -229,28 +296,57 @@ function score(
   };
 }
 
-/** Pick the best series for a metric from a catalog listing. Pure. */
+/**
+ * Every acceptable series for a metric, best first. Pure.
+ *
+ * A ranked list rather than one winner because the catalog cannot tell us which
+ * candidate is live — only reading a value can, and that has to be able to fall
+ * through to the runner-up.
+ */
+export function rankSeries(
+  entries: CatalogEntry[],
+  metric: UsaceMetric,
+  location: string,
+  options?: { now?: number; maxAgeDays?: number }
+): ResolvedSeries[] {
+  const spec = SPECS[metric];
+  if (!spec) return [];
+
+  const now = options?.now ?? Date.now();
+  const maxAgeDays = options?.maxAgeDays ?? CATALOG_MAX_AGE_DAYS;
+
+  return entries
+    .map((entry) => {
+      const s = score(entry, spec, location, now, maxAgeDays);
+      return s ? { entry, ...s } : null;
+    })
+    .filter((c): c is { entry: CatalogEntry; points: number; reason: string } => c !== null)
+    .sort((a, b) => b.points - a.points || a.entry.name.localeCompare(b.entry.name))
+    .map((c) => ({ tsId: c.entry.name, unit: spec.unit, reason: c.reason }));
+}
+
+/** The single best series for a metric, or null. Pure. */
 export function pickSeries(
   entries: CatalogEntry[],
   metric: UsaceMetric,
   location: string,
-  options?: { now?: number; maxAgeHours?: number }
+  options?: { now?: number; maxAgeDays?: number }
 ): ResolvedSeries | null {
-  const spec = SPECS[metric];
-  if (!spec) return null;
+  return rankSeries(entries, metric, location, options)[0] ?? null;
+}
 
-  const now = options?.now ?? Date.now();
-  const maxAgeHours = options?.maxAgeHours ?? DEFAULT_MAX_AGE_HOURS;
-
-  let best: { entry: CatalogEntry; points: number; reason: string } | null = null;
-  for (const entry of entries) {
-    const s = score(entry, spec, location, now, maxAgeHours);
-    if (!s) continue;
-    if (!best || s.points > best.points) best = { entry, ...s };
-  }
-
-  if (!best) return null;
-  return { tsId: best.entry.name, unit: spec.unit, reason: best.reason };
+/**
+ * Whether a series carries points beyond `now` — what actually makes a
+ * forecast a forecast.
+ *
+ * This replaces a catalog-metadata check that the frozen catalog broke: MVS
+ * lists CWMS-Forecast-16dQPF (dead since 2019, zero future points) beside
+ * CWMS-Forecast-NoQPF (11 days out), and both look equally plausible by name.
+ * Asking the data is the only test that separates them and keeps working when
+ * the catalog's clock stops.
+ */
+export function hasFuturePoint(points: TimeseriesPoint[], now = Date.now()): boolean {
+  return points.some((p) => p.timestamp > now);
 }
 
 interface CdaCatalogResponse {
@@ -302,20 +398,79 @@ export async function fetchCatalog(
   }
 }
 
-/** Resolve several metrics from a single catalog fetch. */
+/**
+ * Confirm a candidate is live by reading it, returning the point on success.
+ *
+ * This is the resolver's freshness test. Returning the POINT rather than a
+ * boolean matters: the caller wants that value anyway, so a confirmed
+ * resolution costs one request instead of two.
+ */
+export type SeriesProbe = (
+  office: string,
+  series: { tsId: string; unit: string; forecast: boolean }
+) => Promise<TimeseriesPoint | null>;
+
+const defaultProbe: SeriesProbe = async (office, { tsId, unit, forecast }) => {
+  if (!forecast) return fetchLatestValue(office, tsId, unit, PROBE_LOOKBACK_HOURS);
+
+  const now = Date.now();
+  const result = await fetchTimeseries(
+    office,
+    tsId,
+    unit,
+    new Date(now - 6 * 3_600_000),
+    new Date(now + FORECAST_HORIZON_DAYS * 86_400_000)
+  );
+  const points = result?.points ?? [];
+  if (!hasFuturePoint(points, now)) return null;
+  // The furthest-out point, so a caller can see the horizon it bought.
+  return points.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
+};
+
+/**
+ * Resolve several metrics from a single catalog fetch, confirming each by
+ * reading a value.
+ *
+ * Metrics resolve concurrently but candidates within a metric are tried in
+ * order — the runner-up only costs a request when the favourite is dead.
+ */
 export async function resolveSeries(
   office: string,
   location: string,
-  metrics: UsaceMetric[]
+  metrics: UsaceMetric[],
+  options?: { probe?: SeriesProbe; now?: number }
 ): Promise<Partial<Record<UsaceMetric, ResolvedSeries>>> {
   const entries = await fetchCatalog(office, location);
   if (!entries) return {};
 
+  const probe = options?.probe ?? defaultProbe;
   const out: Partial<Record<UsaceMetric, ResolvedSeries>> = {};
-  for (const metric of metrics) {
-    const hit = pickSeries(entries, metric, location);
-    if (hit) out[metric] = hit;
-  }
+
+  await Promise.all(
+    metrics.map(async (metric) => {
+      const spec = SPECS[metric];
+      if (!spec) return;
+      const candidates = rankSeries(entries, metric, location, {
+        now: options?.now,
+      }).slice(0, MAX_PROBES_PER_METRIC);
+
+      for (const candidate of candidates) {
+        const point = await probe(office, {
+          tsId: candidate.tsId,
+          unit: candidate.unit,
+          forecast: spec.forecast,
+        }).catch(() => null);
+        if (point) {
+          out[metric] = { ...candidate, probed: point };
+          return;
+        }
+        console.info(
+          `[CDA resolve] ${office}/${location}.${metric}: ${candidate.tsId} returned no value, trying next`
+        );
+      }
+    })
+  );
+
   return out;
 }
 
