@@ -3,13 +3,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/typography';
 
-// Five tabs: Search, Map, Alerts, Favorites, Profile.
+// Five tabs: Today, Map, Alerts, Favorites, Profile.
 //
 // The first tab's route file is still `reports.tsx` — only its labels changed.
 // Renaming the file would mean chasing `initialRouteName` below, every
 // router.push('/reports'), and any deep link already in the wild, for nothing.
 //
-// SEARCH LAUNCHES, NOT MAP. The app opens on the screen that answers the
+// "TODAY", NOT "SEARCH". The tab was named after its mechanism rather than its
+// job. Nobody opens Eddy in order to search; they open it to find out what the
+// water is doing, and searching is one of the things they do once they are
+// here. The field below the title still says what it accepts, so nothing about
+// searching became less discoverable — the icon is still a magnifying glass.
+//
+// TODAY LAUNCHES, NOT MAP. The app opens on the screen that answers the
 // question people came with — "what can I float today?" — rather than on the
 // one screen that cannot render at all in Expo Go (Mapbox is a native module;
 // see src/map/runtime.ts) and that answers it least directly. Map is still one
@@ -43,7 +49,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="reports"
         options={{
-          title: 'Search',
+          title: 'Today',
           tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} />,
         }}
       />

@@ -103,11 +103,11 @@ import { usePublicLands } from '@/hooks/usePublicLands';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
 import { gaugePlaceLabel } from '@/lib/gaugeCondition';
-import { readingAge } from '@/lib/readingCopy';
+import { formatReading, readingAge } from '@/lib/readingCopy';
 import { readRiver } from '@/lib/riverCache';
 import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
 import { rememberGauge, seedFromMapGauge, seedFromMapGaugeLite } from '@/lib/gaugeSeed';
-import { usgsGaugeUrl } from '@/lib/directions';
+import { driveToUrl, usgsGaugeUrl } from '@/lib/directions';
 import { useOfflinePacks } from '@/map/useOfflinePacks';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useEddySearch } from '@/hooks/useEddySearch';
@@ -122,6 +122,8 @@ import { asHref } from '@/lib/href';
 import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
 import { SearchResultsList } from '@/components/SearchResultsList';
+import { MapConditionLegend } from '@/components/MapConditionLegend';
+import { useAccessGaugeStatus } from '@/hooks/useAccessGaugeStatus';
 import {
   LayerNote,
   MapLayersButton,
@@ -151,6 +153,13 @@ import { PaywallSheet } from '@/components/PaywallSheet';
  * attribution button outright whenever a pin was selected — and attribution you
  * have covered up is attribution you have not given.
  */
+/**
+ * Layers whose pins are somewhere you get in a car and go.
+ *
+ * The exclusions are the point — see the Directions button in PinCallout.
+ */
+const DRIVEABLE_LAYERS = new Set<LayerKey>(['access', 'campgrounds', 'outfitters']);
+
 const MAP_CHROME_BOTTOM = 62;
 
 /**
@@ -1196,6 +1205,16 @@ export default function MapScreen() {
             </Pressable>
           ) : null}
 
+          {/* ── The legend ───────────────────────────────────────────
+              In the control row rather than free-floating, so it inherits
+              MAP_CHROME_BOTTOM and can never land on the Mapbox wordmark or
+              the (i) — the ornaments this row already exists to clear. It
+              grows UPWARD from the same baseline as Locate, which pushes the
+              callout up rather than covering it, because the stack is a column
+              with no `top`. Hidden while searching, like every other control
+              here: a results list has no map under it to explain. */}
+          {!unavailable && !search.active ? <MapConditionLegend /> : null}
+
           </View>
         </View>
 
@@ -1434,6 +1453,16 @@ function PinCallout({
 }) {
   const { colors, elevation, isDark } = useTheme();
   const layer = MAP_LAYERS.find((l) => l.key === pin.layer);
+  // Access points only, and only ones with a detail route — the hook returns
+  // null for everything else, so no guard is needed here.
+  const accessGauge = useAccessGaugeStatus(accessPoint ? pin.detailRoute : null);
+  const accessGaugeReading = accessGauge
+    ? accessGauge.cfs != null
+      ? formatReading(accessGauge.cfs, 'cfs')
+      : accessGauge.heightFt != null
+        ? formatReading(accessGauge.heightFt, 'ft')
+        : null
+    : null;
   const planAsTakeOut = canSetTakeOut;
   const planActionLabel = planAsTakeOut ? 'Use as take-out' : 'Use as put-in';
   const performPlanAction = planAsTakeOut ? onSetTakeOut : onSetPutIn;
@@ -1623,6 +1652,53 @@ function PinCallout({
         </View>
       ) : null}
 
+      {/* ── The water at this put-in ────────────────────────────────
+          Arrives after the callout is already open — see useAccessGaugeStatus
+          for why it is late and why it never blocks the buttons below.
+
+          Drawn in the SAME row a gauge pin uses, because it is the same kind
+          of fact and must not look like a different one. What it adds is the
+          station's name: this is the river's nearest at-or-upstream gauge
+          applied to the reach, not a sensor at this ramp, and naming it is the
+          difference between a reading and a measurement taken here. */}
+      {accessGauge ? (
+        <Pressable
+          onPress={() => onOpenGauge(accessGauge.usgsId)}
+          style={({ pressed }) => [styles.calloutAccessGauge, { opacity: pressed ? 0.6 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel={`${accessGauge.gaugeName}, ${accessGauge.label}. Open the gauge`}
+        >
+          <View style={styles.calloutReadingRow}>
+            {accessGaugeReading ? (
+              <Text
+                style={[
+                  styles.calloutReading,
+                  { color: conditionText(accessGauge.level, isDark) },
+                ]}
+              >
+                {accessGaugeReading}
+              </Text>
+            ) : null}
+            <View
+              style={[
+                styles.calloutChip,
+                {
+                  backgroundColor: conditionBg(accessGauge.level),
+                  borderColor: conditionChipBorder(accessGauge.level),
+                },
+              ]}
+            >
+              <Text style={[styles.calloutChipText, { color: conditionInk(accessGauge.level) }]}>
+                {accessGauge.label}
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.calloutMeta, { color: colors.textMuted }]} numberOfLines={1}>
+            at {accessGauge.gaugeName}
+          </Text>
+        </Pressable>
+      ) : null}
+
       {pin.body ? (
         // Capped at four lines. A callout that grows to a hazard's full seasonal
         // notes covers the river it is describing; the river screen has room.
@@ -1631,7 +1707,13 @@ function PinCallout({
         </Text>
       ) : null}
 
-      {accessPoint || pin.link || pin.riverSlug || pin.siteId || pin.damId || pin.detailRoute ? (
+      {accessPoint ||
+      pin.link ||
+      pin.riverSlug ||
+      pin.siteId ||
+      pin.damId ||
+      pin.detailRoute ||
+      DRIVEABLE_LAYERS.has(pin.layer) ? (
         <View style={styles.calloutActions}>
           {/* The dam screen, which is a different destination from the gauge
               one — Stockton and Truman have a damId and no siteId at all,
@@ -1664,6 +1746,37 @@ function PinCallout({
               accessibilityRole="button"
             >
               <Text style={[styles.calloutActionText, { color: colors.text }]}>Open gauge</Text>
+            </Pressable>
+          ) : null}
+
+          {/* ── Drive there ─────────────────────────────────────────
+              Beside "Use as put-in", because those are the two things anybody
+              does after tapping a place on a map: go to it, or float from it.
+              Until now the callout could do the second and not the first —
+              directions existed on the river screen, on the access-point
+              detail screen and inside a finished plan, and were absent from
+              the surface where you are literally looking at where the thing is.
+
+              PLACES YOU DRIVE TO, and nothing else. Access points, campgrounds
+              and outfitters are destinations. A hazard is emphatically not one
+              — "Directions" under a strainer is an invitation — and a gauge is
+              a sensor on a bridge rail whose callout is already the busiest on
+              the screen. Neither gets the button.
+
+              Coordinates, never the name: see src/lib/directions.ts. */}
+          {DRIVEABLE_LAYERS.has(pin.layer) ? (
+            <Pressable
+              onPress={() =>
+                void Linking.openURL(driveToUrl({ name: pin.name, coordinates: pin.coordinates }))
+              }
+              style={({ pressed }) => [
+                styles.calloutAction,
+                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Directions to ${pin.name}`}
+            >
+              <Text style={[styles.calloutActionText, { color: colors.text }]}>Directions</Text>
             </Pressable>
           ) : null}
 
@@ -1773,7 +1886,7 @@ function PinCallout({
           Absent, not "unknown", when the station never reported a timestamp.
           A row that says "Updated: unknown" is a row about the app. */}
       {pin.updatedAt ? (
-        <Text style={[styles.calloutUpdated, { color: colors.textSubtle }]} numberOfLines={1}>
+        <Text style={[styles.calloutUpdated, { color: colors.textMuted }]} numberOfLines={1}>
           {pin.updatedAt}
         </Text>
       ) : null}
@@ -1811,6 +1924,18 @@ function MapUnavailable({ reason }: { reason: 'expo-go' | 'missing-token' | 'loa
   );
 }
 
+// ── 14pt is the floor on this screen ────────────────────────────────────────
+//
+// Everything the callout and the map chrome say used to be 12 (`t.xs`), which
+// is the badges-and-timestamps size and is correct almost everywhere else in
+// the app. It is not correct here. This is the one screen read outdoors, at
+// arm's length, through glass at 0.95 opacity sitting over a bright hillshade,
+// often by somebody who has just put their reading glasses in a dry bag.
+//
+// So the callout's text runs at `t.sm` and hierarchy is carried by WEIGHT and
+// INK instead of size — the type chips are still quiet, they are quiet at 14.
+// The scale has no 13; adding one for a single screen would fork the type
+// system away from DESIGN.md §3, which is a worse trade than one step up.
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 12 },
@@ -1847,14 +1972,23 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     maxWidth: '70%',
   },
-  loadingPillText: { ...t.xs, fontFamily: fonts.semibold },
+  loadingPillText: { ...t.sm, fontFamily: fonts.semibold },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
   unavailableTitle: { ...t.lg, fontFamily: fonts.semibold, marginTop: 10 },
   unavailableBody: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },
   // Bottom-anchored column. MAP_CHROME_BOTTOM clears the Mapbox ornaments,
   // which are a legal obligation and now sit at the map's bottom edge.
   bottomStack: { position: 'absolute', left: 0, right: 0, bottom: MAP_CHROME_BOTTOM, gap: 12 },
-  controlRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
+  // flex-end, not center: the legend beside Locate grows upward when it is
+  // open, and centring would push the 44pt button down off its baseline every
+  // time somebody expanded it.
+  controlRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    gap: 12,
+  },
   // Hard into the corner. 16/12 rather than MAP_CHROME_BOTTOM because the
   // Mapbox ornaments run along the map's bottom LEFT and end around x=149 —
   // there is nothing on the right for this to clear.
@@ -1908,12 +2042,12 @@ const styles = StyleSheet.create({
   },
   calloutText: { flex: 1, minWidth: 0 },
   calloutName: { ...t.sm, fontFamily: fonts.semibold },
-  calloutMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
+  calloutMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 1 },
   // Wraps, because six types is the ceiling and three is common. Quieter than
   // calloutChip — a condition chip is a verdict, these are labels.
   calloutTypes: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
   calloutType: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
-  calloutTypeText: { ...t.xs, fontFamily: fonts.medium },
+  calloutTypeText: { ...t.sm, fontFamily: fonts.medium },
   calloutPrivate: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1923,13 +2057,17 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     marginTop: 9,
   },
-  calloutPrivateText: { ...t.xs, fontFamily: fonts.medium, flex: 1 },
+  calloutPrivateText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
   calloutReadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9 },
+  // The access-point reading is one tap target covering the number, the chip
+  // and the station name, because all three are the same fact and they all
+  // lead to the same screen.
+  calloutAccessGauge: { marginTop: 0 },
   calloutReading: { ...t.lg, fontFamily: fonts.mono },
   calloutChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
-  calloutChipText: { ...t.xs, fontFamily: fonts.semibold },
-  calloutBody: { ...t.xs, fontFamily: fonts.body, marginTop: 9 },
-  calloutUpdated: { ...t.xs, fontFamily: fonts.body, marginTop: 10 },
+  calloutChipText: { ...t.sm, fontFamily: fonts.semibold },
+  calloutBody: { ...t.sm, fontFamily: fonts.body, marginTop: 9 },
+  calloutUpdated: { ...t.sm, fontFamily: fonts.body, marginTop: 10 },
   // Wraps: an outfitter can carry a call button next to a website button, and a
   // put-in inside a plan carries two of its own.
   calloutActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 11 },
@@ -1941,7 +2079,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   calloutPlanAction: { flex: 2, flexDirection: 'row', justifyContent: 'center', gap: 6 },
-  calloutActionText: { ...t.xs, fontFamily: fonts.semibold },
+  calloutActionText: { ...t.sm, fontFamily: fonts.semibold },
   planButton: {
     flexDirection: 'row',
     // 55% OF THE CLUSTER, which is now a real width — see planCluster. Right-
@@ -1970,5 +2108,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  errorText: { ...t.xs, fontFamily: fonts.body, paddingHorizontal: 20, paddingTop: 8 },
+  errorText: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 20, paddingTop: 8 },
 });

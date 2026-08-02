@@ -15,6 +15,7 @@ import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { describeAlertRule, type AlertRule } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { lastSentNote } from '@/lib/alertCopy';
 import { EddySymbol } from '@/components/EddySymbol';
 
 interface Props {
@@ -45,6 +46,7 @@ function AlertRuleRowInner({ rule, onPress, onToggle }: Props) {
 
   const spent = isSpent(rule);
   const dimmed = !rule.enabled || spent;
+  const sentNote = lastSentNote(rule);
 
   return (
     <Pressable
@@ -88,10 +90,15 @@ function AlertRuleRowInner({ rule, onPress, onToggle }: Props) {
         ) : null}
         {spent ? (
           // A one-shot that has fired looks identical to a live one otherwise,
-          // and the difference is the whole point of a one-shot.
+          // and the difference is the whole point of a one-shot. This wins the
+          // slot over lastSentNote because it says the same thing plus what to
+          // do about it — "Last sent 2d ago" on a rule that will never fire
+          // again is true and useless.
           <Text style={[styles.meta, { color: colors.textSubtle }]}>
             Already sent — tap to set it again
           </Text>
+        ) : sentNote ? (
+          <Text style={[styles.meta, { color: colors.textSubtle }]}>{sentNote}</Text>
         ) : null}
       </View>
 

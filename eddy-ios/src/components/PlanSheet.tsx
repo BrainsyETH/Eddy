@@ -337,6 +337,14 @@ function Breadcrumb({
         // below can be tapped into out of order, so the machine cannot be put
         // into a state where a take-out exists without a put-in.
         const reachable = index < 2 || Boolean(crumbs[index - 1].value);
+        // Answered AND not the step being edited. A crumb you are standing in
+        // is not done, however much data it holds.
+        const done = Boolean(crumb.value) && !current;
+        const ink = current
+          ? colors.interactive
+          : reachable
+            ? colors.text
+            : colors.textSubtle;
         return (
           <Pressable
             key={crumb.step}
@@ -344,29 +352,37 @@ function Breadcrumb({
             onPress={() =>
               crumb.step === 'river' ? onChooseRiver() : state.goToStep(crumb.step)
             }
-            style={styles.crumb}
+            /* ── A chip, not three columns of grey text ──────────────
+               Changing the put-in is the single most common correction anybody
+               makes in this flow, and the control for it was three stacked
+               12pt labels whose only signal that they could be tapped was a
+               colour change — which is to say, no signal at all for anyone not
+               comparing two of them side by side, and none whatsoever for
+               anyone who cannot distinguish the two greys.
+
+               A bordered chip reads as a control at a glance, and the
+               checkmark says "answered, and you can go back" without a legend.
+               It also gets the state off colour alone, which is the
+               accessibility half of the same fix. */
+            style={({ pressed }) => [
+              styles.crumb,
+              {
+                borderColor: current
+                  ? colors.interactive
+                  : reachable
+                    ? colors.border
+                    : 'transparent',
+                backgroundColor: current ? colors.selectionBg : 'transparent',
+                opacity: pressed && reachable ? 0.6 : 1,
+              },
+            ]}
             accessibilityRole="button"
+            accessibilityLabel={`${crumb.label}${crumb.value ? `: ${crumb.value}` : ', not chosen yet'}`}
             accessibilityState={{ selected: current, disabled: !reachable }}
           >
-            <Text
-              style={[
-                styles.crumbLabel,
-                {
-                  color: current
-                    ? colors.interactive
-                    : reachable
-                      ? colors.textMuted
-                      : colors.textSubtle,
-                },
-              ]}
-            >
-              {crumb.label}
-            </Text>
-            <Text
-              style={[styles.crumbValue, { color: crumb.value ? colors.text : colors.textSubtle }]}
-              numberOfLines={1}
-            >
-              {crumb.value ?? '—'}
+            {done ? <Ionicons name="checkmark" size={13} color={colors.textMuted} /> : null}
+            <Text style={[styles.crumbValue, { color: ink }]} numberOfLines={1}>
+              {crumb.value ?? crumb.label}
             </Text>
           </Pressable>
         );
@@ -595,9 +611,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     gap: 12,
   },
-  crumb: { flex: 1, minWidth: 0 },
-  crumbLabel: { ...t.xs, fontFamily: fonts.semibold },
-  crumbValue: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  crumb: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    // 30 + the row's own padding clears 44 with the sheet's grab area; a
+    // taller chip would push the first picker row off a small screen.
+    minHeight: 30,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  // The label is gone as a separate line: an answered crumb says "Akers", and
+  // an unanswered one says "Put-in". Printing both stacked was the thing that
+  // forced 12pt and two rows of height on a control with three columns.
+  crumbValue: { ...t.sm, fontFamily: fonts.medium },
   list: { padding: 16, gap: 8 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 13, borderRadius: 12 },
   optionBody: { flex: 1, minWidth: 0 },
