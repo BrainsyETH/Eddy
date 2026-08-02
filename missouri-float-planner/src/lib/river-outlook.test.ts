@@ -118,7 +118,12 @@ test('builds a decision-led Bottom line, Eddy read, and Watch from the selected-
   assert.equal(sections.bottomLine, 'Floatable today. Levels are about as good as this gauge gets.');
   assert.match(sections.eddyRead, /holding steady/i);
   assert.doesNotMatch(sections.eddyRead, /no official river forecast/i);
-  assert.match(sections.watchFor, /recheck the gauge before launch/i);
+  // The Weather section describes the weather — the fixture's 84° high and its
+  // dry forecast — and then closes on the gauge. It used to do only the last of
+  // those, in a panel labelled WEATHER.
+  assert.match(sections.watchFor, /dry/i);
+  assert.match(sections.watchFor, /84°/);
+  assert.match(sections.watchFor, /read the gauge again/i);
   assert.match(buildDeterministicEddyReport(sections), /^Bottom line: .* Eddy’s read: .* Watch for:/);
 });
 
@@ -132,7 +137,7 @@ test('uses a valid generated Eddy read without changing live Bottom line or Watc
 
   assert.equal(sections.bottomLine, 'Floatable today. Levels are about as good as this gauge gets.');
   assert.equal(sections.eddyRead, 'Spring influence makes this reach less reactive than nearby rain-fed creeks.');
-  assert.match(sections.watchFor, /recheck/i);
+  assert.match(sections.watchFor, /read the gauge again/i);
 });
 
 test('matches all requested weather dates before choosing the three-day outlook', () => {
@@ -175,7 +180,10 @@ test('three-part summary stays honest when readings and weather are unavailable'
   });
   assert.match(sections.bottomLine, /not enough current river data/i);
   assert.match(sections.eddyRead, /condition is unavailable/i);
-  assert.match(sections.watchFor, /guidance is unavailable/i);
+  assert.match(sections.watchFor, /nothing to look ahead at/i);
+  // No sky described, because none came back. The composed Weather section must
+  // never reach for a "dry" or a temperature it does not hold.
+  assert.doesNotMatch(sections.watchFor, /dry|rain|hot|highs/i);
   assert.doesNotMatch(buildDeterministicEddyReport(sections), /holding|no rain/i);
 });
 
@@ -196,9 +204,63 @@ test('Watch for prioritizes forecast rain without inventing a river response', (
     ],
   });
   const sections = buildEddyTakeSections({ outlook, currentCondition: 'good' });
-  assert.match(sections.watchFor, /forecast rain/i);
-  assert.match(sections.watchFor, /recheck/i);
-  assert.doesNotMatch(sections.watchFor, /will rise|holding/i);
+  assert.match(sections.watchFor, /rain is likely tomorrow/i);
+  assert.match(sections.watchFor, /look at the gauge again/i);
+  // THE INVARIANT, and the reason the rain branch talks about when to look
+  // rather than about the water: a precipitation percentage is not a promise
+  // about a gauge, and this section may never turn one into the other.
+  assert.doesNotMatch(sections.watchFor, /will rise|will come up|expect the river/i);
+});
+
+test('Weather names the days the way a person would, not the way the strip does', () => {
+  // The strip above this is a table with seven characters of column; this is a
+  // sentence. Nobody standing on a gravel bar on Wednesday says "Wed".
+  const outlook = buildRiverOutlookState({
+    ...baseOutlookInput,
+    weatherDays: [
+      { ...baseOutlookInput.weatherDays[0], precipitation: 80 },
+      { ...baseOutlookInput.weatherDays[0], date: '2026-07-23', dayOfWeek: 'Thu', precipitation: 80 },
+      { ...baseOutlookInput.weatherDays[0], date: '2026-07-24', dayOfWeek: 'Fri', precipitation: 80 },
+    ],
+  });
+  const sections = buildEddyTakeSections({ outlook, currentCondition: 'good' });
+  assert.match(sections.watchFor, /today, tomorrow and Friday/);
+  assert.doesNotMatch(sections.watchFor, /\bWed\b|\bThu\b/);
+});
+
+test('Weather reports the heat, which is what actually ends a summer float', () => {
+  // The old copy had no way to say this at all: six canned sentences, none of
+  // which mentioned a temperature, on the one screen a Missouri paddler opens
+  // in July.
+  const outlook = buildRiverOutlookState({
+    ...baseOutlookInput,
+    weatherDays: [
+      { ...baseOutlookInput.weatherDays[0], tempHigh: 97, precipitation: 0 },
+      { ...baseOutlookInput.weatherDays[0], date: '2026-07-23', dayOfWeek: 'Thu', tempHigh: 99, precipitation: 0 },
+    ],
+  });
+  const sections = buildEddyTakeSections({ outlook, currentCondition: 'good' });
+  assert.match(sections.watchFor, /hot today and tomorrow/i);
+  assert.match(sections.watchFor, /99°/);
+  assert.match(sections.watchFor, /put in early/i);
+  // The peak owns the numbers on a heat day; the sky sentence must not print a
+  // second, overlapping range beside it.
+  assert.doesNotMatch(sections.watchFor, /highs/i);
+});
+
+test('Weather still mentions rain that is possible without being likely', () => {
+  // A 45% chance changes what you pack. The old ladder only counted 70%+ as a
+  // signal, so this forecast came out as "no major change signal appears".
+  const outlook = buildRiverOutlookState({
+    ...baseOutlookInput,
+    weatherDays: [
+      { ...baseOutlookInput.weatherDays[0], precipitation: 10 },
+      { ...baseOutlookInput.weatherDays[0], date: '2026-07-23', dayOfWeek: 'Thu', precipitation: 45 },
+    ],
+  });
+  const sections = buildEddyTakeSections({ outlook, currentCondition: 'good' });
+  assert.match(sections.watchFor, /rain is possible tomorrow/i);
+  assert.doesNotMatch(sections.watchFor, /likely/i);
 });
 
 test('Watch for ignores condition jitter inside the floatable band', () => {
@@ -225,7 +287,7 @@ test('Watch for still flags a forecast crossing into a different safety class', 
     ],
   });
   const sections = buildEddyTakeSections({ outlook, currentCondition: 'flowing' });
-  assert.match(sections.watchFor, /Thu.*reaches High/i);
+  assert.match(sections.watchFor, /NWS has this gauge reaching High by tomorrow/i);
 });
 
 test('Eddy read interprets the present and never repeats the Watch for forecast', () => {
