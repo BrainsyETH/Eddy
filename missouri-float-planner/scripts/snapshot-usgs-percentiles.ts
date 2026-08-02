@@ -3,11 +3,14 @@
  * Snapshot USGS day-of-year discharge percentiles into usgs_daily_percentiles.
  *
  * WHY: the percentile ladder behind "× normal" framing and the CFS condition
- * ladders comes from the USGS LEGACY statistics service, which has no modern
- * OGC equivalent and is scheduled for decommission in early 2027 (degradation
- * possible sooner). The statistics describe decades of record and effectively
- * never change, so we capture them now and read from our own table when the
- * live service stops answering. See src/lib/usgs/percentile-snapshot.ts.
+ * ladders is fetched per site from the USGS Statistics API. The statistics
+ * describe decades of record and effectively never change, so we capture them
+ * into our own table and read from it whenever the live call fails — and
+ * always, for the national gauges no cron polls. See
+ * src/lib/usgs/percentile-snapshot.ts.
+ *
+ * Rows written before the Q1 2027 WaterServices migration carry
+ * source='usgs_legacy_stat_service'; re-running this replaces them in place.
  *
  * Usage:
  *   npx tsx scripts/snapshot-usgs-percentiles.ts
@@ -89,8 +92,11 @@ async function main() {
     const label = `[${index + 1}/${siteIds.length}] ${siteId}`;
     try {
       if (dryRun) {
-        const { fetchAllDailyStatistics } = await import('../src/lib/flow-providers/usgs');
-        const rows = await fetchAllDailyStatistics(siteId);
+        // Must be the SAME fetcher snapshotSite() uses, or a dry run previews
+        // one service while the write hits another — which is exactly what this
+        // branch did through the WaterServices migration.
+        const { fetchDailyStatisticsRows } = await import('../src/lib/flow-providers/usgs-statistics');
+        const rows = await fetchDailyStatisticsRows(siteId);
         console.log(`${label}: would write ${rows.length} row(s)`);
         if (rows.length) ok++;
         else empty++;

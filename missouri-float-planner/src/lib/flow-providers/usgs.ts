@@ -11,12 +11,17 @@
 // (emergency rollback) or USGS_FLOW_API=modern-only to disable the fallback
 // once the modern path is verified in production.
 //
-// Daily statistics (day-of-year percentiles) have no confirmed modern
-// equivalent yet and remain on the legacy statistics service; swap the
-// implementation of fetchDailyStatistics here when USGS ships one.
+// Day-of-year percentiles come from the USGS Statistics API, which is a
+// SEPARATE service from this one — different host path, different envelope,
+// not an OGC collection. It lives in ./usgs-statistics.ts. (This header used to
+// say percentiles had no modern equivalent. They do; that claim outlived the
+// fact by long enough to reach three other files.)
 
+import { LEGACY_IV_URL, LEGACY_STAT_URL } from './usgs-legacy';
+import { fetchDailyStatisticsRows } from './usgs-statistics';
 import type {
   DailyStatistics,
+  DailyStatisticsRow,
   FlowProvider,
   GaugeReading,
   HistoricalData,
@@ -27,8 +32,6 @@ import type {
 // by bbox rather than by site id, and a second copy of these constants is how
 // the two paths would end up pointed at different API generations.
 export const MODERN_BASE = 'https://api.waterdata.usgs.gov/ogcapi/v0/collections';
-const LEGACY_IV_URL = 'https://waterservices.usgs.gov/nwis/iv/';
-const LEGACY_STAT_URL = 'https://waterservices.usgs.gov/nwis/stat/';
 
 // USGS parameter codes: 00065 = gage height (ft), 00060 = discharge (cfs)
 export const PARAM_GAGE_HEIGHT = '00065';
@@ -50,11 +53,17 @@ export function modernHeaders(): HeadersInit {
   return headers;
 }
 
-/** Sanity filters shared by both API generations (USGS uses -999999 for errors). */
-function validHeight(v: number): boolean {
+/**
+ * Sanity filters shared by both API generations (USGS uses -999999 for errors).
+ *
+ * Exported because usgs-historical.ts reads the SAME collections for a
+ * point-in-time lookup and used to keep its own copies. Two definitions of
+ * "is this a real gauge height" is how one path starts accepting a sentinel.
+ */
+export function validHeight(v: number): boolean {
   return !isNaN(v) && v > -100 && v < 500;
 }
-function validDischarge(v: number): boolean {
+export function validDischarge(v: number): boolean {
   return !isNaN(v) && v >= 0 && v < 1000000;
 }
 
@@ -121,9 +130,14 @@ interface OgcFeatureCollection {
   features?: OgcFeature[];
 }
 
-function parseOgcValue(raw: number | string | null | undefined): number {
+export function parseOgcValue(raw: number | string | null | undefined): number {
   if (raw === null || raw === undefined) return NaN;
   return typeof raw === 'number' ? raw : parseFloat(raw);
+}
+
+/** 'USGS-07019000' or '07019000' → 'USGS-07019000'. Shared with the historical path. */
+export function toMonitoringLocationId(siteId: string): string {
+  return toLocationId(siteId);
 }
 
 /**
@@ -444,24 +458,9 @@ function assembleHistory(
 /** Every percentile the service publishes, plus the mean. */
 const STAT_TYPES = 'p05,p10,p20,p25,p50,p75,p80,p90,p95,mean';
 
-/** One day-of-year row of discharge statistics, straight from the service. */
-export interface DailyStatisticsRow {
-  month: number;
-  day: number;
-  p05: number | null;
-  p10: number | null;
-  p20: number | null;
-  p25: number | null;
-  p50: number | null;
-  p75: number | null;
-  p80: number | null;
-  p90: number | null;
-  p95: number | null;
-  mean: number | null;
-  countYears: number | null;
-  beginYear: number | null;
-  endYear: number | null;
-}
+// The row shape moved to ./types when the modern Statistics API became a second
+// producer of it. Re-exported so existing importers keep working.
+export type { DailyStatisticsRow };
 
 /** USGS uses -999999 as a no-data sentinel; treat it as null, not a flow. */
 function parseStatVal(val?: string): number | null {
@@ -568,12 +567,15 @@ export function toDailyStatistics(siteId: string, row: DailyStatisticsRow): Dail
   };
 }
 
-async function fetchDailyStatisticsLegacy(siteId: string, date?: Date): Promise<DailyStatistics | null> {
+function pickDay(
+  siteId: string,
+  rows: DailyStatisticsRow[],
+  date?: Date
+): DailyStatistics | null {
   const targetDate = date || new Date();
   const month = targetDate.getMonth() + 1;
   const day = targetDate.getDate();
 
-  const rows = await fetchAllDailyStatistics(siteId);
   const dayStats = rows.find((row) => row.month === month && row.day === day);
   if (!dayStats) {
     console.warn(`No statistics for ${month}/${day} at site ${siteId}`);
@@ -581,6 +583,14 @@ async function fetchDailyStatisticsLegacy(siteId: string, date?: Date): Promise<
   }
 
   return toDailyStatistics(siteId, dayStats);
+}
+
+async function fetchDailyStatisticsLegacy(siteId: string, date?: Date): Promise<DailyStatistics | null> {
+  return pickDay(siteId, await fetchAllDailyStatistics(siteId), date);
+}
+
+async function fetchDailyStatisticsModern(siteId: string, date?: Date): Promise<DailyStatistics | null> {
+  return pickDay(siteId, await fetchDailyStatisticsRows(siteId, PARAM_DISCHARGE), date);
 }
 
 // ---------------------------------------------------------------------------
@@ -634,12 +644,25 @@ export class UsgsProvider implements FlowProvider {
   }
 
   async fetchDailyStatistics(siteId: string, date?: Date): Promise<DailyStatistics | null> {
-    try {
-      return await fetchDailyStatisticsLegacy(siteId, date);
-    } catch (error) {
-      console.error(`Error fetching USGS statistics for site ${siteId}:`, error);
-      return null;
+    const mode = apiMode();
+    if (mode === 'legacy') {
+      return safeStatistics(() => fetchDailyStatisticsLegacy(siteId, date), siteId);
     }
+    try {
+      const stats = await fetchDailyStatisticsModern(siteId, date);
+      // A site with no published normals is normal (too short a record), so an
+      // empty result is NOT a reason to re-ask the legacy service — unlike
+      // fetchLatest, where empty usually means a malformed query.
+      if (stats || mode === 'modern-only') return stats;
+      return null;
+    } catch (error) {
+      if (mode === 'modern-only') {
+        console.error(`Error fetching USGS statistics for site ${siteId}:`, error);
+        return null;
+      }
+      console.warn(`[USGS] Modern statistics failed for ${siteId}; falling back to legacy:`, error);
+    }
+    return safeStatistics(() => fetchDailyStatisticsLegacy(siteId, date), siteId);
   }
 
   publicUrl(siteId: string): string {
@@ -655,6 +678,18 @@ async function safeHistory(
     return await fn();
   } catch (error) {
     console.error(`Error fetching USGS historical data for site ${siteId}:`, error);
+    return null;
+  }
+}
+
+async function safeStatistics(
+  fn: () => Promise<DailyStatistics | null>,
+  siteId: string
+): Promise<DailyStatistics | null> {
+  try {
+    return await fn();
+  } catch (error) {
+    console.error(`Error fetching USGS statistics for site ${siteId}:`, error);
     return null;
   }
 }

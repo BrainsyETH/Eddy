@@ -2,10 +2,13 @@
 // GET/POST /api/cron/snapshot-percentiles — refresh the USGS percentile snapshot.
 //
 // Runs monthly. The underlying statistics describe decades of record and
-// barely move year to year, so this is not a freshness job — it is insurance.
-// The USGS legacy statistics service has no modern OGC equivalent and is
-// scheduled for decommission in early 2027 (degradation possible sooner);
-// keeping a local copy current means percentile framing survives the shutdown.
+// barely move year to year, so this is not a freshness job — it is the local
+// copy every read falls back to, and the ONLY source for the ~14,000 national
+// gauges no cron polls live.
+//
+// The source is now the USGS Statistics API (src/lib/flow-providers/
+// usgs-statistics.ts), not the decommissioned legacy statistics service. This
+// header used to say percentiles had no modern equivalent; they do.
 // See src/lib/usgs/percentile-snapshot.ts and docs/OBSERVABILITY_AND_UPGRADES.md.
 //
 // Sites with too short a record simply have no published statistics — that is

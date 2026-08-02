@@ -13,7 +13,11 @@
 // vendor-specific state filters; results are re-filtered to Missouri's
 // polygon client-side before rendering.
 
-const MODERN_BASE = 'https://api.waterdata.usgs.gov/ogcapi/v0/collections';
+// Imported, not re-declared: flow-providers/usgs.ts exports MODERN_BASE
+// precisely so the by-bbox path here and the by-site path there cannot drift
+// onto different API generations. This file used to keep its own copy.
+import { MODERN_BASE } from '@/lib/flow-providers/usgs';
+
 const PARAM_DISCHARGE = '00060';
 // Missouri + Arkansas bbox with a slim margin. South edge drops to ~33.0
 // to cover Arkansas; the in-region polygon test in MOMap re-filters to the

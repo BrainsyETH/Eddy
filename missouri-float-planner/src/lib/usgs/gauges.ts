@@ -70,11 +70,10 @@ export async function fetchGaugeReading(siteId: string): Promise<GaugeReading | 
 /**
  * Fetches daily discharge statistics (day-of-year percentiles) for a site.
  *
- * These come from the USGS LEGACY statistics service, which has no modern OGC
- * equivalent and is scheduled for decommission (see
- * src/lib/usgs/percentile-snapshot.ts). When the live call comes back empty or
- * throws, fall back to our own snapshot of the same numbers so percentile
- * framing keeps working after the service degrades or disappears.
+ * These come from the USGS Statistics API
+ * (src/lib/flow-providers/usgs-statistics.ts). When the live call comes back
+ * empty or throws, fall back to our own snapshot of the same numbers — which
+ * is also the only source for the ~14,000 national gauges no cron polls live.
  *
  * The fallback is deliberately here rather than in the flow provider: the
  * provider stays a pure HTTP client with no database dependency.
@@ -132,11 +131,27 @@ export async function fetchHistoricalReadings(
 /**
  * The upper anchor for the top of the interpolation.
  *
- * USGS stopped publishing p90 in the daily-statistics service — it comes back
- * empty for every site/day we've checked, while p80 and p95 still have values.
- * Requiring p90 therefore killed this whole calculation. Fall back to the
- * nearest published percentile instead, carrying its true label so the math
- * interpolates against a real number rather than an invented p90.
+ * HISTORY, because the fallback order looks arbitrary without it. The LEGACY
+ * statistics service returned p90 empty for every site/day, while still
+ * publishing p80 and p95 — so requiring p90 killed this calculation outright,
+ * and the fallback exists to interpolate against a real number rather than an
+ * invented p90. The modern Statistics API POPULATES p90
+ * (src/lib/flow-providers/usgs-statistics.ts), so the first branch is now the
+ * one that normally runs.
+ *
+ * ⚠️ That change is user-visible and was measured, not assumed. With p90 null
+ * the curve ran p75 → p95 across percentiles 75–95; with a real p90 it runs
+ * p75 → p90 across 75–90, and since p90 < p95 an upper-middle flow now scores
+ * ~10 percentiles higher. Across five curated gauges, 4.5% of probed readings
+ * changed flow band, and 95% of those were one transition: "Higher than usual"
+ * → "Much higher than usual". Reproduce with
+ * scripts/compare-usgs-percentiles.ts (only possible while the legacy service
+ * still answers).
+ *
+ * The new reading is the more accurate one — interpolating to a published p90
+ * beats assuming linearity over a 20-percentile span — and it errs toward
+ * caution on a safety-adjacent product. Kept deliberately. Preferring p95 here
+ * would restore the old numbers by ignoring better data.
  */
 function upperAnchor(stats: DailyStatistics): { value: number; percentile: number } | null {
   if (stats.p90 !== null && stats.p90 !== undefined) return { value: stats.p90, percentile: 90 };

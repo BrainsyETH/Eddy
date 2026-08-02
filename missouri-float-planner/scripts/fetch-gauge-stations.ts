@@ -10,6 +10,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { MODERN_BASE, modernHeaders } from '../src/lib/flow-providers/usgs';
 
 // Known USGS gauge stations for Missouri float rivers
 // Researched from: https://waterdata.usgs.gov/mo/nwis/rt
@@ -185,41 +186,27 @@ const GAUGE_STATIONS = [
   },
 ];
 
-interface USGSSite {
-  sourceInfo: {
-    siteName: string;
-    siteCode: { value: string }[];
-    geoLocation: {
-      geogLocation: {
-        latitude: number;
-        longitude: number;
-      };
-    };
-  };
-}
-
-interface USGSResponse {
-  value: {
-    timeSeries: USGSSite[];
-  };
-}
-
 /**
- * Validates gauge stations are active on USGS
+ * Validates a gauge station is currently reporting on USGS.
+ *
+ * Was `nwis/iv/?siteStatus=active` (decommissioned Q1 2027). latest-continuous
+ * is the modern spine for "is this station reporting": it holds one row per
+ * site × parameter and a site with no row is not reporting, which is the same
+ * question `siteStatus=active` was standing in for.
  */
 async function validateGaugeStation(siteId: string): Promise<boolean> {
-  const url = new URL('https://waterservices.usgs.gov/nwis/iv/');
-  url.searchParams.set('format', 'json');
-  url.searchParams.set('sites', siteId);
-  url.searchParams.set('parameterCd', '00065'); // Gauge height
-  url.searchParams.set('siteStatus', 'active');
+  const url = new URL(`${MODERN_BASE}/latest-continuous/items`);
+  url.searchParams.set('f', 'json');
+  url.searchParams.set('monitoring_location_id', siteId.startsWith('USGS-') ? siteId : `USGS-${siteId}`);
+  url.searchParams.set('parameter_code', '00065'); // Gauge height
+  url.searchParams.set('limit', '1');
 
   try {
-    const response = await fetch(url.toString());
+    const response = await fetch(url.toString(), { headers: modernHeaders() });
     if (!response.ok) return false;
 
-    const data = await response.json() as USGSResponse;
-    return data.value?.timeSeries?.length > 0;
+    const data = (await response.json()) as { features?: unknown[] };
+    return (data.features?.length ?? 0) > 0;
   } catch {
     return false;
   }
