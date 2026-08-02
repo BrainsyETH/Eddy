@@ -79,6 +79,7 @@ import { ReadingScale } from '@/components/ReadingScale';
 import { ShareButton } from '@/components/ShareButton';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { PaywallSheet } from '@/components/PaywallSheet';
+import { premiumPitch } from '@/lib/premiumCopy';
 import { EddySymbol } from '@/components/EddySymbol';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
@@ -543,10 +544,12 @@ export default function GaugeDetailScreen() {
             </View>
             <View style={styles.premiumText}>
               <Text style={[styles.premiumTitle, { color: colors.text }]}>Eddy Premium</Text>
+              {/* From premiumCopy.ts, with the sheet this opens. These two
+                  drifted apart for months — this one still listed offline maps
+                  after they were removed, and 72-hour trends which were never
+                  gated at all. One source is what stops that recurring. */}
               <Text style={[styles.premiumBody, { color: colors.textMuted }]}>
-                {link?.riverName
-                  ? `Get Eddy's full read on ${link.riverName}, including its 72-hour trend and weather outlook.`
-                  : "Unlock Eddy's daily river reads, 72-hour trends, weather outlooks and offline maps."}
+                {premiumPitch(link?.riverName)}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={17} color={colors.textSubtle} />

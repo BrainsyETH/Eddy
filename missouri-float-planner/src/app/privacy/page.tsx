@@ -88,9 +88,10 @@ export default function PrivacyPage() {
               you can revoke the permission at any time in iOS Settings.
             </li>
             <li>
-              <strong>Downloaded maps and on-device storage.</strong> Offline map downloads,
-              saved rivers, and app preferences are stored on your device. Map tiles are
-              downloaded from the map provider and cached locally. Deleting the app removes them.
+              <strong>On-device storage.</strong> River data (access points, hazards, courses,
+              and last known readings), saved rivers, and app preferences are stored on your
+              device so the app works without a signal. You can clear the river data at any time
+              from Profile &rsaquo; Storage, and deleting the app removes everything.
             </li>
             <li>
               <strong>Feedback and correspondence.</strong> Email address, optional name,
@@ -158,7 +159,7 @@ export default function PrivacyPage() {
             <li><strong>Google Analytics/Tag Manager</strong> for usage measurement when configured.</li>
             <li><strong>Resend</strong> for subscription, inbound email, and reply delivery.</li>
             <li><strong>USGS and weather providers</strong> for river and forecast data. Gauge requests are generally made server-side.</li>
-            <li><strong>Mapbox</strong> for map tiles and offline map packs. Loading a map sends Mapbox your IP address and the area of the map you are looking at, which approximates your location even when you have not granted location access.</li>
+            <li><strong>Mapbox</strong> for map tiles. Loading a map sends Mapbox your IP address and the area of the map you are looking at, which approximates your location even when you have not granted location access.</li>
             <li><strong>Sentry</strong> for crash and error reporting from the website and the iOS app. Reports carry device model, operating system, app version, and a stack trace. Access tokens, email addresses, and coordinates are stripped before sending.</li>
             <li><strong>RevenueCat</strong> for subscription purchases and their status. RevenueCat receives your Eddy account identifier and the purchase records Apple returns. Eddy never receives your payment details — those stay with Apple.</li>
             <li><strong>Expo</strong> for delivering push notifications to the iOS app. Expo receives a device push token and the contents of each notification, which name the river and its condition.</li>

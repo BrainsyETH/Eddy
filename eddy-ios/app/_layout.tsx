@@ -40,6 +40,7 @@ import { type as t } from '@/theme/typography';
 import { darkPalette, lightPalette } from '@/theme/palette';
 import { report, warn } from '@/lib/monitoring';
 import { sweepStaleVersions } from '@/lib/riverCache';
+import { sweepOfflinePacks } from '@/map/packSweep';
 import { seedOfflineBundle } from '@/api/client';
 
 /**
@@ -54,6 +55,12 @@ const FONT_TIMEOUT_MS = 5_000;
 // scope: it touches nothing any screen reads this launch, and a cache sweep
 // that could delay a render would be the tail wagging the dog.
 void sweepStaleVersions();
+
+// Reclaim the basemap tiles left behind by the removed offline download. Once
+// per install, same fire-and-forget posture, and deliberately shipped in the
+// release BEFORE the download UI goes — so no build ever exists in which those
+// packs sit on a phone with nothing able to delete them.
+void sweepOfflinePacks();
 
 // Seed every river's line, put-ins and hazards from one conditional request.
 // Also fire-and-forget at module scope, and for a stronger reason than the

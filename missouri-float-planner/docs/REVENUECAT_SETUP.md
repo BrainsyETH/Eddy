@@ -246,7 +246,7 @@ identifier is load-bearing, and that one is `eddy_premium`.
 Product Catalog → **Entitlements** → **+ New**:
 
 - Identifier: **`eddy_premium`** ← must match exactly; see gotcha #3
-- Description: `Eddy Premium — push alerts, offline rivers, sync`
+- Description: `Eddy Premium — Eddy's daily written read on a river`
 - **Attach both products** to it.
 
 Changing it later means changing `DEFAULT_ENTITLEMENT_ID` in

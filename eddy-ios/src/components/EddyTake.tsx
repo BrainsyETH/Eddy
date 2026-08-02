@@ -85,8 +85,9 @@ interface EddyTakeProps {
    * Whether this person is subscribed — `null` meaning UNKNOWN, not "no".
    *
    * Only `false` locks anything. An unreachable /api/me/profile must not lock a
-   * paying customer out on one bar of signal, so unknown fails open. Same
-   * contract as OfflineMapRow; see the note where it is computed on the map.
+   * paying customer out on one bar of signal, so unknown fails open. This is
+   * now the app's ONLY entitlement gate — the offline download was the other,
+   * and it is gone.
    *
    * `'pending'` is a THIRD state and is not the same as null. Null means the
    * answer failed and we chose to be generous; 'pending' means the answer is

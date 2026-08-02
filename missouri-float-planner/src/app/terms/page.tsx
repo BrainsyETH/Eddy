@@ -51,11 +51,11 @@ export default function TermsPage() {
             authorities.
           </p>
           <p className="text-neutral-700 leading-relaxed mt-3">
-            Viewing river conditions, gauge readings, hazard information, and access points is
-            free and always will be. Eddy also offers an optional paid subscription
-            (&ldquo;Eddy Premium&rdquo;) which adds convenience features such as push notifications when
-            a river changes condition and downloadable offline maps. A paid subscription never
-            unlocks safety information that free users cannot see.
+            Viewing river conditions, gauge readings, hazard information, access points, float
+            plans, and condition alerts is free and always will be. Eddy also offers an optional
+            paid subscription (&ldquo;Eddy Premium&rdquo;) which adds Eddy&rsquo;s daily written
+            report on a river &mdash; commentary on what the water is doing and why. A paid
+            subscription never unlocks safety information that free users cannot see.
           </p>
         </section>
 
@@ -186,7 +186,8 @@ export default function TermsPage() {
             </p>
             <p>
               If your subscription lapses, you keep full access to river conditions, readings,
-              hazards, and access points. You lose only the paid convenience features.
+              hazards, access points, float plans, and alerts. You lose only Eddy&rsquo;s written
+              daily report.
             </p>
           </div>
         </section>
@@ -216,14 +217,15 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-neutral-900 mb-3">Offline Maps</h2>
+          <h2 className="text-2xl font-bold text-neutral-900 mb-3">Working Without a Connection</h2>
           <p className="text-neutral-700 leading-relaxed">
-            Downloaded maps are stored on your device and reflect the map data and river
-            information available at the time of download. They do <strong>not</strong> update
-            themselves, and they do not contain live conditions. A downloaded map may become
-            inaccurate as access points, hazards, or river channels change. Storage limits are
-            imposed by the map provider and by your device; Eddy may decline a download or ask
-            you to remove another river to stay within them.
+            The iOS app keeps each river&rsquo;s access points, hazards, course, and last known
+            reading on your device so they remain readable without a signal. This data reflects
+            what was available the last time the app had a connection. It does{' '}
+            <strong>not</strong> update itself and does not contain live conditions; a stored
+            reading is labelled with its age and withheld once it is too old to be meaningful.
+            Map backgrounds require a connection to draw. Eddy no longer offers downloadable
+            offline maps.
           </p>
         </section>
 

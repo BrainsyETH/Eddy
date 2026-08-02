@@ -83,7 +83,7 @@ import {
 } from '@/lib/gaugeCondition';
 import type { NetworkCollection } from '@/lib/statewideNetwork';
 import { loadMapbox } from './runtime';
-import { STYLE_URL } from './useOfflinePacks';
+import { STYLE_URL } from './runtime';
 import {
   GAUGE_DETAIL_ZOOM,
   MAP_LAYERS,

@@ -114,12 +114,9 @@ import { readRiver } from '@/lib/riverCache';
 import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
 import { rememberGauge, seedFromMapGauge, seedFromMapGaugeLite } from '@/lib/gaugeSeed';
 import { driveToUrl, usgsGaugeUrl } from '@/lib/directions';
-import { useOfflinePacks } from '@/map/useOfflinePacks';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useEddySearch } from '@/hooks/useEddySearch';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
-import { useAccount } from '@/hooks/useAccount';
-import { useAppConfig } from '@/hooks/useAppConfig';
 import { milesBetween, useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
 import { riverBounds } from '@/lib/statewideNetwork';
@@ -143,8 +140,6 @@ import {
   type GaugeFilterKey,
 } from '@/components/GaugeFilterBar';
 import { PlanSheet } from '@/components/PlanSheet';
-import { OfflineMapRow } from '@/components/OfflineMapRow';
-import { PaywallSheet } from '@/components/PaywallSheet';
 
 /**
  * How far above the map's bottom edge everything floating has to sit.
@@ -248,17 +243,13 @@ export default function MapScreen() {
   const [services, setServices] = useState<RiverService[] | null>(null);
   const [gauges, setGauges] = useState<MapGauge[] | null>(null);
   /**
-   * TWO messages, one slot, because they are about two different things.
+   * The river list's own failure. Retried and retracted by the list.
    *
-   * They were one `error` string, which is how a failed download and a failed
-   * river list came to share a variable — and therefore how clearing one
-   * cleared the other. A download failure answers a button somebody pressed; a
-   * list failure describes the screen's own state. Keeping them apart is what
-   * lets the list's message be retried and retracted without silently
-   * discarding the other.
+   * It used to share this slot with a download failure, which is how clearing
+   * one cleared the other; the offline download is gone and this is the only
+   * message left, so the slot is single again.
    */
   const [riversError, setRiversError] = useState<string | null>(null);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   // Copied, not aliased: DEFAULT_LAYERS is a module constant and nothing should
   // be one `push` away from redefining what the app opens with. Replaced by
@@ -322,7 +313,6 @@ export default function MapScreen() {
     riverSlug: string;
   } | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
-  const [paywallOpen, setPaywallOpen] = useState(false);
 
   const network = useStatewideNetwork();
   // Every river's put-ins and hazards, off the launch bundle already on disk.
@@ -330,11 +320,8 @@ export default function MapScreen() {
   // dangerous here" before a river is picked.
   const networkPlaces = useNetworkPlaces();
   const { isStarred, toggleStar } = useStarredRivers();
-  const packs = useOfflinePacks();
   const unavailable = mapUnavailableReason();
   const { colors, floating } = useTheme();
-  const { features } = useAppConfig();
-  const { entitlement, loaded: accountLoaded, error: accountError } = useAccount();
   const location = useLocation();
   const router = useRouter();
 
@@ -1111,24 +1098,6 @@ export default function MapScreen() {
           zoom: 8.5,
         }
       : null;
-  const downloadProgress =
-    packs.active && packs.active.riverSlug === drawnSlug ? packs.active.percent : null;
-
-  const onDownload = useCallback(async () => {
-    if (!mapRiver) return;
-    // Cleared on the way IN, for the same reason the river list clears its own
-    // message on success: a failure that has since been retried should not
-    // still be on screen. Without this, one refused download left a red line up
-    // for the rest of the session however many times it later worked.
-    setDownloadError(null);
-    const result = await packs.download(mapRiver);
-    if (!result.ok && result.error) setDownloadError(result.error);
-  }, [mapRiver, packs]);
-
-  const onRemove = useCallback(async () => {
-    if (!drawnSlug) return;
-    await packs.remove(drawnSlug);
-  }, [packs, drawnSlug]);
 
   // Asks for permission the first time, then recentres. A denial is not
   // re-prompted — iOS would suppress the dialog anyway — so the button simply
@@ -1245,13 +1214,11 @@ export default function MapScreen() {
     [router],
   );
 
-  // FAILS OPEN, deliberately. An unreachable /api/me/profile means we do not
-  // know whether this person is subscribed — and telling a paying customer on
-  // one bar of signal that their offline maps are locked is a far worse outcome
-  // than letting an unsubscribed one press a button that needs a connection
-  // anyway. Null means "unknown"; the row shows no lock and no upsell.
-  const entitled = accountLoaded && !accountError ? Boolean(entitlement?.isActive) : null;
-
+  // NOTHING ON THIS SCREEN IS GATED. The offline download was the Map tab's
+  // only paid feature and its only reason to know about entitlement, so the
+  // account read, the `entitled` computation and the paywall sheet all left
+  // with it. Everything the map shows — the network, put-ins, hazards, gauges,
+  // conditions — is free and always has been.
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={styles.header}>
@@ -1589,29 +1556,10 @@ export default function MapScreen() {
         </View>
       </View>
 
-      {/* The download's message wins when both are up: it answers a button the
-          user just pressed, and the list's line will still be there behind it
-          if the list is still failing. */}
-      {downloadError ?? riversError ? (
+      {riversError ? (
         <Text style={[styles.errorText, { color: colors.error }]} numberOfLines={2}>
-          {downloadError ?? riversError}
+          {riversError}
         </Text>
-      ) : null}
-
-      {/* Quiet by design — see the note at the top of OfflineMapRow for why this
-          stopped being a button. Hidden entirely when the server has switched
-          offline downloads off, or when there is no native map to download. */}
-      {features.offlineDownloads && !unavailable ? (
-        <OfflineMapRow
-          river={mapRiver}
-          tally={drawnSlug ? packs.downloaded[drawnSlug] : undefined}
-          progressPercent={downloadProgress}
-          budget={packs.budget}
-          entitled={entitled}
-          onDownload={() => void onDownload()}
-          onRemove={() => void onRemove()}
-          onUpgrade={() => setPaywallOpen(true)}
-        />
       ) : null}
 
       <MapLayersSheet
@@ -1701,16 +1649,6 @@ export default function MapScreen() {
         userCoords={location.coords}
       />
 
-      <PaywallSheet
-        visible={paywallOpen}
-        onClose={() => setPaywallOpen(false)}
-        riverName={mapRiver?.name}
-        onPurchased={() => {
-          // They paid to get this river onto the phone. Finish the thing they
-          // asked for rather than making them find the row again.
-          void onDownload();
-        }}
-      />
     </SafeAreaView>
   );
 }
