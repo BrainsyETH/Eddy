@@ -13,7 +13,7 @@
 // when someone is out of signal and relying on it.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getOfflineManager } from './runtime';
+import { STYLE_URL, getOfflineManager } from './runtime';
 import {
   MAX_ZOOM,
   MIN_ZOOM,
@@ -33,9 +33,6 @@ import {
   type TileBudget,
 } from '@eddy/offline';
 import { warn } from '@/lib/monitoring';
-
-/** Mapbox's outdoors style: contours and trails, which is what a river needs. */
-export const STYLE_URL = 'mapbox://styles/mapbox/outdoors-v12';
 
 interface OfflineStatus {
   percentage?: number;
