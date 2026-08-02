@@ -153,6 +153,10 @@ async function _GET() {
         live: Array.from(liveConditions.entries()).map(([slug, c]) => ({
           conditionCode: c.condition_code,
           conditionWhenWritten: conditionsWhenGlobalWritten.get(slug) ?? null,
+          // Passed through rather than dropped here, so the rule about what a
+          // dead gauge may claim lives with the rest of the gate's reasoning
+          // and has a test naming it. See global-prose-gate.ts.
+          stale: c.stale,
         })),
       });
       if (!verdict.show) {

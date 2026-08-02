@@ -55,6 +55,29 @@
 // counts against the prose. Same for prose we cannot date: it cannot be stamped
 // "as of" honestly, and an undated claim about today's water is the thing this
 // module exists to prevent.
+//
+// ── The second way this suppressed almost always ────────────────────────────
+//
+// Failing closed on a dangerous river is only sound when "dangerous" is a claim
+// about water somebody measured recently. It was not. The live map is built
+// over every primary gauge with no floor on how old its newest reading is, so a
+// DEAD gauge kept computing a condition forever — and one of them, on a river
+// retired from the app months earlier, had lost its stage sensor while still
+// reporting discharge. Its ladder is rated in feet, its stage was null, and the
+// display-side cross-unit fallback graded 1,720 cfs against a 6-foot flood line
+// and returned 'dangerous'. Every day. From a reading taken in April.
+//
+// That river has no eddy_updates row of its own, so conditionWhenWritten was
+// null, so the rule above fired — and the statewide summary was withheld from
+// every client, permanently, over a gauge nobody could see reporting a flood
+// that was not happening.
+//
+// Hence `stale`. A reading too old to be live is not evidence of a flood that
+// arrived since the summary was written; it is not evidence of anything now.
+// The gate skips those rivers rather than counting them, which is narrower than
+// it sounds — readings refresh hourly, so a river with a working gauge is never
+// stale, and the case this spares is exactly the case that has no business
+// speaking: a gauge that stopped reporting.
 
 /** Hours after which the statewide summary is too old to show regardless. */
 export const GLOBAL_PROSE_STALE_HOURS = 24;
@@ -82,6 +105,17 @@ export interface GlobalProseGateInput {
      * the summary knew about is one the summary is suppressed for.
      */
     conditionWhenWritten: string | null;
+    /**
+     * Whether the reading `conditionCode` was computed from is itself too old
+     * to be called live (LiveCondition.stale — see live-conditions.ts).
+     *
+     * Stale rivers are SKIPPED, not failed closed. See the header: a condition
+     * derived from a months-old reading is not a flood the summary missed, and
+     * treating it as one is what withheld the statewide report indefinitely
+     * over a single retired gauge. Optional and defaulting to fresh so a caller
+     * that cannot answer keeps the old behaviour.
+     */
+    stale?: boolean;
   }>;
   now?: Date;
   staleHours?: number;
@@ -104,6 +138,10 @@ export function gateGlobalProse({
 
   for (const river of live) {
     if (river.conditionCode !== 'dangerous') continue;
+    // A dead gauge cannot report a flood. Checked BEFORE the two clauses below
+    // because both of them treat 'dangerous' as a fact about the water right
+    // now, and a stale reading is not one — see the header.
+    if (river.stale) continue;
     // Already in flood when the summary was written, so the generator saw it
     // and was instructed to lead with safety. This is the long-high-water case
     // the gate must NOT fire on.

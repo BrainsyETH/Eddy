@@ -1068,7 +1068,30 @@ export default function MapScreen() {
   ]);
 
   const conditionCode = drawn?.currentCondition?.code ?? 'unknown';
-  const headerCode = selected?.currentCondition?.code ?? 'unknown';
+
+  /**
+   * The header line's river, WHICH IS NOT ALWAYS THE RIVER LIST'S.
+   *
+   * `selected` is a lookup into /api/rivers, and that request is the one thing
+   * on this screen with nothing on disk behind it. Open the app with no signal,
+   * tap a river on the map, and the line goes heavy and the camera fits to it
+   * while `selected` stays null — so a header gated on `selected` disappeared
+   * exactly when a selection was hardest to undo, taking the only way out of it
+   * with it.
+   *
+   * The statewide network is the fallback because it is the same source the map
+   * is DRAWING from: it comes off disk, it holds every river's name, and its
+   * per-river verdict is the colour already under the finger that tapped. Where
+   * both exist the river list wins, so the header cannot disagree with the
+   * Today tab over a river both can see.
+   */
+  const networkRiver = selectedSlug ? network.bySlug.get(selectedSlug) : undefined;
+  const headerName = selected?.name ?? networkRiver?.name ?? null;
+  const headerCode =
+    selected?.currentCondition?.code ??
+    network.collection.features.find((feature) => feature.properties.slug === selectedSlug)
+      ?.properties.code ??
+    'unknown';
   // A focus applies when it is tagged with the river on screen, OR when it is
   // tagged with no river at all.
   //
@@ -1109,6 +1132,25 @@ export default function MapScreen() {
   // at one you already chose. Any open callout belongs to the old river.
   const onSelectNetworkRiver = useCallback((slug: string) => {
     setPickedSlug(slug);
+    setSelectedPin(null);
+    pendingAccessSelection.current = null;
+    setFocus(null);
+  }, []);
+
+  /**
+   * Put the selected river down and go back to the whole network.
+   *
+   * Everything river-scoped follows from `pickedSlug` being null, so this is
+   * mostly one line: the camera falls back through RiverMap's own narrowest-
+   * frame-first chain to the network bounds, the heavier line stops being drawn
+   * and the planner resets itself off the riverId change (see useFloatPlan's
+   * first effect). What does NOT follow is the callout and the camera override,
+   * which belong to a pin on the river being put down — clearing the selection
+   * and leaving its put-in's callout open would be the same half-exit the map
+   * had before.
+   */
+  const clearRiver = useCallback(() => {
+    setPickedSlug(null);
     setSelectedPin(null);
     pendingAccessSelection.current = null;
     setFocus(null);
@@ -1225,20 +1267,46 @@ export default function MapScreen() {
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Map</Text>
-        {selected ? (
-          <Pressable
-            onPress={() => router.push(`/river/${selected.slug}`)}
-            style={styles.headerMeta}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={`${selected.name} details`}
-          >
-            <View style={[styles.dot, { backgroundColor: conditionColor(headerCode) }]} />
-            <Text style={[styles.headerMetaText, { color: colors.textMuted }]}>
-              {selected.name} · {conditionLabel(headerCode)}
-            </Text>
-            <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
-          </Pressable>
+        {/* ── The selected river, and the way back out of it ────────────
+            Selecting a river is one tap — a line, a put-in, a search result —
+            and until now there was NO gesture that undid it. The map fits to
+            that river's extent, its line is drawn heavier, the planner is
+            scoped to it, and the only exits anyone found were killing the app
+            or picking a different river, which is not the same thing as asking
+            for the whole network back.
+
+            So the header line is two controls rather than one: the name opens
+            the river, the × puts it down. Split rather than made a toggle
+            because they are opposite intentions and a single target that
+            sometimes navigates and sometimes clears is a target nobody can
+            aim. */}
+        {selectedSlug && headerName ? (
+          <View style={styles.headerMeta}>
+            <Pressable
+              onPress={() => router.push(`/river/${selectedSlug}`)}
+              style={styles.headerMetaMain}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`${headerName} details`}
+            >
+              <View style={[styles.dot, { backgroundColor: conditionColor(headerCode) }]} />
+              <Text style={[styles.headerMetaText, { color: colors.textMuted }]} numberOfLines={1}>
+                {headerName} · {conditionLabel(headerCode)}
+              </Text>
+              <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+            </Pressable>
+            <Pressable
+              onPress={clearRiver}
+              // hitSlop rather than padding: this row is one line tall by
+              // design and a 44pt box would push the map down by the height of
+              // the thing it is clearing.
+              hitSlop={14}
+              accessibilityRole="button"
+              accessibilityLabel={`Clear ${headerName} and show every river`}
+            >
+              <Ionicons name="close-circle" size={19} color={colors.textSubtle} />
+            </Pressable>
+          </View>
         ) : null}
       </View>
 
@@ -2242,9 +2310,22 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 12 },
   title: { ...t['3xl'], fontFamily: fonts.display },
-  headerMeta: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 },
+  // The name and the clear button, as one line. `space-between` rather than a
+  // gap so the × sits at the right margin instead of trailing the name, which
+  // is what keeps it in the same place on "Big River" and "North Fork of the
+  // White River" alike.
+  headerMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 4,
+  },
+  // flexShrink, so a long river name gives way to the × rather than pushing it
+  // off the right edge — the one control on this row that must always be there.
+  headerMetaMain: { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 1 },
   dot: { width: 9, height: 9, borderRadius: 999 },
-  headerMetaText: { ...t.sm, fontFamily: fonts.body },
+  headerMetaText: { ...t.sm, fontFamily: fonts.body, flexShrink: 1 },
   searchRow: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
   // Above the map rather than over it, and one line tall. It is displacing the
   // map by ~30pt, not the ~100pt the filter strip used to, and only in the
