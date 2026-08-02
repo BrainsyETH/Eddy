@@ -1,7 +1,9 @@
 #!/usr/bin/env npx tsx
 /**
- * Populate gauge_stations.drainage_area_sqmi from the USGS Site Web Service
- * (`drain_area_va`, in sq mi). Feeds drainage-area flow transfer (audit F11).
+ * Populate gauge_stations.drainage_area_sqmi from the USGS monitoring-locations
+ * collection (`drainage_area`, in sq mi). Feeds drainage-area flow transfer
+ * (audit F11). Was the legacy Site Web Service (`drain_area_va`) until that
+ * service's Q1 2027 decommission forced the move.
  *
  * DRY-RUN by default; pass --write to persist.
  *   npx tsx scripts/fetch-drainage-areas.ts            # preview
@@ -11,6 +13,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
+import { MODERN_BASE, modernHeaders } from '../src/lib/flow-providers/usgs';
 
 // Load env from .env.local (authoritative for this script — overrides the shell so a
 // stale placeholder export can't win), falling back to process.env. No external deps.
@@ -43,23 +46,31 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-/** Fetches drainage area (sq mi) for a USGS site from the RDB site service. */
+/**
+ * Fetches drainage area (sq mi) for a USGS site from the modern
+ * monitoring-locations collection.
+ *
+ * Was the legacy RDB site service (`nwis/site/?siteOutput=expanded`, column
+ * `drain_area_va`), which is decommissioned in Q1 2027. The modern collection
+ * exposes the same figure as the `drainage_area` property.
+ *
+ * ⚠️ The identifier property here is `id` ('USGS-07068000'), NOT
+ * `monitoring_location_id` — that name belongs to the observation collections
+ * and returns InvalidQuery on this one.
+ */
 async function fetchDrainageArea(siteId: string): Promise<number | null> {
-  const url =
-    `https://waterservices.usgs.gov/nwis/site/?format=rdb&sites=${siteId}` +
-    `&siteOutput=expanded&siteStatus=all`;
+  const url = new URL(`${MODERN_BASE}/monitoring-locations/items`);
+  url.searchParams.set('f', 'json');
+  url.searchParams.set('id', siteId.startsWith('USGS-') ? siteId : `USGS-${siteId}`);
+  url.searchParams.set('limit', '1');
   try {
-    const res = await fetch(url);
+    const res = await fetch(url.toString(), { headers: modernHeaders() });
     if (!res.ok) return null;
-    const text = await res.text();
-    const lines = text.split('\n').filter((l) => l && !l.startsWith('#'));
-    if (lines.length < 3) return null;
-    const header = lines[0].split('\t');
-    const idx = header.indexOf('drain_area_va');
-    if (idx < 0) return null;
-    // lines[1] is the format row (e.g. "5s"), data starts at lines[2].
-    const cols = lines[2].split('\t');
-    const val = parseFloat(cols[idx]);
+    const data = (await res.json()) as {
+      features?: Array<{ properties?: { drainage_area?: number | string | null } | null }>;
+    };
+    const raw = data.features?.[0]?.properties?.drainage_area;
+    const val = typeof raw === 'number' ? raw : parseFloat(String(raw ?? ''));
     return Number.isFinite(val) && val > 0 ? val : null;
   } catch {
     return null;

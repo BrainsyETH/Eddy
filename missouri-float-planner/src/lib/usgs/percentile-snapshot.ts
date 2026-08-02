@@ -3,16 +3,18 @@
 //
 // WHY THIS EXISTS
 // The percentile ladder (p10/p25/p50/p75/p90) behind "× normal" framing and
-// the CFS condition ladders comes from the USGS LEGACY statistics service
-// (waterservices.usgs.gov/nwis/stat/). Unlike instantaneous values and daily
-// history, it has NO confirmed modern OGC equivalent — see the header of
-// src/lib/flow-providers/usgs.ts — and the legacy service is scheduled for
-// decommission in early 2027, with possible degradation well before that.
+// the CFS condition ladders is fetched per site. These statistics describe
+// decades of record and are effectively static, so we snapshot them into our
+// own table and fall back to it when the live call fails — and, for the
+// ~14,000 national gauges the crons no longer poll, read from it exclusively.
 //
-// These statistics describe decades of record; they are effectively static.
-// So we snapshot them into our own table while the service still answers, and
-// fall back to the snapshot when the live call fails. If the service vanishes
-// tomorrow, conditions keep working.
+// SOURCE, AND WHY THIS COMMENT USED TO SAY OTHERWISE
+// This originally read from the LEGACY statistics service
+// (waterservices.usgs.gov/nwis/stat/) and recorded that percentiles had no
+// modern equivalent. They do: the USGS Statistics API
+// (src/lib/flow-providers/usgs-statistics.ts) publishes the same ladder, adds
+// a populated p90, and is not going away in Q1 2027. The `source` column
+// records which produced a row, so a mixed table stays legible.
 //
 // LEAP-YEAR NORMALIZATION
 // Rows are keyed by day_of_year computed as if every year were a leap year
@@ -23,9 +25,16 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DailyStatistics } from '@/lib/flow-providers/types';
-import { fetchAllDailyStatistics } from '@/lib/flow-providers/usgs';
+import { fetchDailyStatisticsRows } from '@/lib/flow-providers/usgs-statistics';
 
 const PARAM_DISCHARGE = '00060';
+
+/**
+ * Written to usgs_daily_percentiles.source. Rows predating the migration carry
+ * 'usgs_legacy_stat_service'; the column exists so the two are distinguishable
+ * without guessing from snapshotted_at.
+ */
+export const PERCENTILE_SOURCE = 'usgs_statistics_api_v0';
 
 /** Cumulative days before each month IN A LEAP YEAR. */
 const LEAP_MONTH_OFFSETS = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
@@ -55,7 +64,7 @@ export async function snapshotSite(
   supabase: SupabaseClient<any>,
   siteId: string
 ): Promise<number> {
-  const rows = await fetchAllDailyStatistics(siteId);
+  const rows = await fetchDailyStatisticsRows(siteId, PARAM_DISCHARGE);
   if (!rows.length) return 0;
 
   const payload = rows.flatMap((row) => {
@@ -78,7 +87,7 @@ export async function snapshotSite(
     count_years: row.countYears,
     begin_year: row.beginYear,
     end_year: row.endYear,
-    source: 'usgs_legacy_stat_service',
+    source: PERCENTILE_SOURCE,
     snapshotted_at: new Date().toISOString(),
     }];
   });
