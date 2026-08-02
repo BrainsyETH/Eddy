@@ -13,20 +13,23 @@ import Link from 'next/link';
 import SiteFooter from '@/components/ui/SiteFooter';
 import DamStateCard from '@/components/dam/DamStateCard';
 import { fetchAllDamSnapshots } from '@/lib/data/dams';
+import { groupDamsForIndex } from '@/lib/data/dam-grouping';
 
 export const revalidate = 300; // ISR every 5 minutes
 
 export const metadata: Metadata = {
   title: 'Lake Levels & Dam Releases',
+  // Deliberately not a list of dam names. The previous description enumerated
+  // all nine and was already wrong the moment a tenth was added; a description
+  // that cannot go stale beats one that has to be maintained in step with the
+  // registry.
   description:
-    'Live USACE lake levels, dam releases and hourly generation schedules for Table Rock, Bull Shoals, Beaver, Norfork, Greers Ferry, Clearwater, Wappapello, Stockton and Truman.',
+    'Live USACE lake levels, dam releases and hourly generation schedules for federal hydropower and flood-control projects across Missouri, Arkansas, Oklahoma and Texas.',
 };
 
 export default async function DamsPage() {
   const dams = await fetchAllDamSnapshots();
-
-  const missouri = dams.filter((d) => d.state === 'MO');
-  const arkansas = dams.filter((d) => d.state === 'AR');
+  const groups = groupDamsForIndex(dams);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
@@ -57,32 +60,27 @@ export default async function DamsPage() {
           </p>
         ) : (
           <>
-            {[
-              { label: 'Missouri', list: missouri },
-              { label: 'Arkansas', list: arkansas },
-            ]
-              .filter((g) => g.list.length > 0)
-              .map((group) => (
-                <section key={group.label} className="mb-10">
-                  <h2
-                    className="mb-3 text-2xl font-bold text-neutral-900"
-                    style={{ fontFamily: 'var(--font-display)' }}
-                  >
-                    {group.label}
-                  </h2>
-                  <div className="space-y-4">
-                    {group.list.map((dam) => (
-                      <Link
-                        key={dam.id}
-                        href={`/dams/${dam.id}`}
-                        className="block transition-transform hover:-translate-y-0.5"
-                      >
-                        <DamStateCard dam={dam} />
-                      </Link>
-                    ))}
-                  </div>
-                </section>
-              ))}
+            {groups.map((group) => (
+              <section key={group.label} className="mb-10">
+                <h2
+                  className="mb-3 text-2xl font-bold text-neutral-900"
+                  style={{ fontFamily: 'var(--font-display)' }}
+                >
+                  {group.label}
+                </h2>
+                <div className="space-y-4">
+                  {group.dams.map((dam) => (
+                    <Link
+                      key={dam.id}
+                      href={`/dams/${dam.id}`}
+                      className="block transition-transform hover:-translate-y-0.5"
+                    >
+                      <DamStateCard dam={dam} />
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            ))}
           </>
         )}
 

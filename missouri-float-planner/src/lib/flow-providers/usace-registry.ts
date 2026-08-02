@@ -19,9 +19,17 @@
 //
 // SCALING: enumerating ids by hand is right for ten dams and wrong for a
 // hundred, so src/lib/usace/resolve.ts discovers them from the CWMS catalog
-// instead. A dam needs only `office` + `cdaLocation` to work — verified
-// against Nimrod_Dam, which is not in this file and still resolves six live
-// metrics.
+// instead. A dam needs only `office` + `cdaLocation` to work — the eight Tulsa
+// projects below carry no series at all and resolve their metrics live.
+//
+// That claim was FALSE for a stretch and the failure is worth remembering. On
+// 2026-08-02 the resolver returned monthly averages instead of hourly readings
+// for every dam it was asked about, because CWMS had frozen its catalog's
+// timestamps six days back and the resolver gated freshness on them. It was
+// invisible precisely because the ids below always win, so no shipped dam ever
+// exercised the broken path. If you add a dam that relies on resolution, run
+// `npx tsx scripts/check-usace-resolver.ts` and believe the output over this
+// comment.
 //
 // The explicit ids below are kept and still WIN, because they were confirmed
 // against the API and a resolver that silently picks the wrong series is worse
@@ -29,7 +37,10 @@
 // override. Recovering automatically from a RENAMED series (rather than just a
 // missing one) is the remaining half of that idea and is not built yet.
 
-export type UsaceOffice = 'SWL' | 'MVS';
+// Grows one district at a time, deliberately: `office` goes straight into a CDA
+// query parameter, so a typo is a silent 404 rather than a type error, and this
+// union is the only thing that catches it.
+export type UsaceOffice = 'SWL' | 'MVS' | 'SWT';
 
 export type UsaceMetric =
   | 'release'
@@ -71,7 +82,13 @@ export interface UsaceDam {
   id: string;
   name: string;
   lakeName: string | null;
-  state: 'MO' | 'AR';
+  /**
+   * Kept a union rather than `string` for the same reason as UsaceOffice: it is
+   * a display key that groups the index, and a typo would silently create a
+   * one-dam group nobody notices. `DamSnapshot.state` on the wire is already
+   * `string`, so widening this costs nothing downstream.
+   */
+  state: 'MO' | 'AR' | 'OK' | 'TX';
   lat: number;
   lon: number;
   /** CWMS office, when this dam publishes to CDA at all. */
@@ -132,6 +149,21 @@ export interface UsaceDam {
   tailwaterFishery?: 'trout' | 'warmwater';
   /** Recorded line giving current releases — the fallback when a feed is down. */
   infoPhone?: string;
+  /**
+   * Metrics this project publishes but which do not MEAN here what they mean
+   * elsewhere, so they must not be rendered.
+   *
+   * The case this exists for: `%-Flood Pool Full` on a run-of-river navigation
+   * dam. Robert S. Kerr and Webbers Falls hold a constant navigation pool, and
+   * both read ~91% of flood pool as their ordinary summer state (measured
+   * 2026-08-02) — a true number that tells a reader the opposite of the truth
+   * beside Table Rock's 0%. Those two publish `%-Navigation Pool Full` for the
+   * quantity that actually describes them, which Eddy has no concept for yet.
+   *
+   * Suppression is deliberately per-dam and explicit rather than inferred from
+   * the value, because the number is not wrong — its meaning is local.
+   */
+  suppressMetrics?: UsaceMetric[];
   series: Partial<Record<UsaceMetric, UsaceSeries>>;
 }
 
@@ -367,6 +399,201 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     tailwaterFishery: 'warmwater' as const,
     series: {},
   },
+
+  // Tulsa district. SWPA has always carried these ten projects in the same
+  // schedule file Eddy already downloads — the parser read all 18 columns while
+  // only 8 were wired to a dam, so the schedules were being parsed and thrown
+  // away. Verified against the live feed 2026-08-02: all ten are peaking
+  // projects with 16-22 idle hours a day, which is the whole point of the
+  // schedule for anyone standing in the tailwater.
+  //
+  // Three things differ from Little Rock and all three are load-bearing:
+  //
+  // 1. LOCATION IDS ARE OPAQUE. Tulsa keys projects on four-letter codes, so
+  //    `cdaLocation` cannot be derived from a name the way `Table_Rock_Dam`
+  //    can. The mapping below was read off /locations?office=SWT, along with
+  //    every coordinate and state — take corrections from CWMS, not a gazetteer,
+  //    because scripts/check-usace-resolver.ts re-checks against CWMS.
+  // 2. DIFFERENT SPELLINGS. Turbine flow is `Flow-Power`, not `Flow-Plant`;
+  //    flood pool is `%-Flood Pool Full` on the bare project, not `%-Flood Pool`
+  //    on `-Headwater`; tailwater elevation is `Elev-Tailwater` on the bare
+  //    project, not `Elev-Downstream` on `-Tailwater`. resolve.ts carries all
+  //    three variants, which is why these carry no `series` of their own.
+  // 3. NO TAILWATER TEMPERATURE anywhere in the district, so no fishery can be
+  //    inferred from a reading here even in principle.
+  //
+  // `generationOnCfs` is ~2% of SWPA's full-power discharge, rounded to
+  // something legible. Calibrated rather than guessed: reading Flow-Power over
+  // 2026-08-01/02, most of these sit at exactly 0 with the units off, Denison
+  // idles at 19 cfs, Keystone at 200 and Eufaula at 230 — so a flat 100 would
+  // have read "generating" all night at the two biggest offenders, and scaling
+  // by plant size clears every observed idle value.
+  'swt-tenkiller-dam': {
+    id: 'swt-tenkiller-dam',
+    name: 'Tenkiller Ferry Dam',
+    lakeName: 'Tenkiller Ferry Lake',
+    state: 'OK',
+    lat: 35.59667,
+    lon: -95.04917,
+    office: 'SWT',
+    cdaLocation: 'TENK',
+    swpaCode: 'TKD',
+    // The Lower Illinois below the dam is a deep-release, year-round designated
+    // trout fishery — Oklahoma's other one besides Mountain Fork. Declared, not
+    // inferred: SWT publishes no water temperature at all.
+    tailwaterFishery: 'trout' as const,
+    generationOnCfs: 100,
+    series: {},
+  },
+  'swt-fort-gibson-dam': {
+    id: 'swt-fort-gibson-dam',
+    name: 'Fort Gibson Dam',
+    lakeName: 'Fort Gibson Lake',
+    state: 'OK',
+    lat: 35.87111,
+    lon: -95.22861,
+    office: 'SWT',
+    cdaLocation: 'FGIB',
+    swpaCode: 'FGD',
+    tailwaterFishery: 'warmwater' as const,
+    generationOnCfs: 200,
+    series: {},
+  },
+  'swt-broken-bow-dam': {
+    id: 'swt-broken-bow-dam',
+    name: 'Broken Bow Dam',
+    lakeName: 'Broken Bow Lake',
+    state: 'OK',
+    lat: 34.14306,
+    lon: -94.69444,
+    office: 'SWT',
+    cdaLocation: 'BROK',
+    swpaCode: 'BBD',
+    // Lower Mountain Fork — cold hypolimnetic release, Oklahoma's premier
+    // year-round trout tailwater. The strongest candidate if Eddy ever carries
+    // an Oklahoma river.
+    tailwaterFishery: 'trout' as const,
+    generationOnCfs: 150,
+    series: {},
+  },
+  'swt-eufaula-dam': {
+    id: 'swt-eufaula-dam',
+    name: 'Eufaula Dam',
+    lakeName: 'Eufaula Lake',
+    state: 'OK',
+    lat: 35.30694,
+    lon: -95.3625,
+    office: 'SWT',
+    cdaLocation: 'EUFA',
+    swpaCode: 'EUF',
+    tailwaterFishery: 'warmwater' as const,
+    generationOnCfs: 300,
+    series: {},
+  },
+  'swt-keystone-dam': {
+    id: 'swt-keystone-dam',
+    name: 'Keystone Dam',
+    lakeName: 'Keystone Lake',
+    state: 'OK',
+    lat: 36.15167,
+    lon: -96.25167,
+    office: 'SWT',
+    cdaLocation: 'KEYS',
+    swpaCode: 'KEY',
+    tailwaterFishery: 'warmwater' as const,
+    generationOnCfs: 250,
+    series: {},
+  },
+  'swt-denison-dam': {
+    id: 'swt-denison-dam',
+    name: 'Denison Dam',
+    lakeName: 'Lake Texoma',
+    // CWMS files the project in TX; SWPA's table says "OK-TX" and the nearest
+    // town is Colbert, OK. The dam is on the state line. CWMS wins because it
+    // is the source the smoke script re-checks — do not "fix" this to OK.
+    state: 'TX',
+    lat: 33.81806,
+    lon: -96.57222,
+    office: 'SWT',
+    cdaLocation: 'DENI',
+    swpaCode: 'DEN',
+    tailwaterFishery: 'warmwater' as const,
+    generationOnCfs: 200,
+    series: {},
+  },
+
+  // The four Arkansas River navigation locks & dams. These are run-of-river
+  // barge pools rather than float destinations, so they are grouped apart on
+  // the index — but their generation schedule is as real as any other, and
+  // Dardanelle and Ozark are big plants (148 and 115 MW scheduled).
+  'swt-robert-s-kerr-dam': {
+    id: 'swt-robert-s-kerr-dam',
+    name: 'Robert S. Kerr Lock & Dam',
+    lakeName: 'Robert S. Kerr Reservoir',
+    state: 'OK',
+    lat: 35.34791,
+    lon: -94.77846,
+    office: 'SWT',
+    cdaLocation: 'ROBE',
+    swpaCode: 'RSK',
+    tailwaterFishery: 'warmwater' as const,
+    generationOnCfs: 900,
+    suppressMetrics: ['pctFloodPool'],
+    series: {},
+  },
+  'swt-webbers-falls-dam': {
+    id: 'swt-webbers-falls-dam',
+    name: 'Webbers Falls Lock & Dam',
+    lakeName: 'Webbers Falls Reservoir',
+    state: 'OK',
+    lat: 35.55445,
+    lon: -95.16773,
+    office: 'SWT',
+    cdaLocation: 'WEBB',
+    swpaCode: 'WFD',
+    tailwaterFishery: 'warmwater' as const,
+    generationOnCfs: 700,
+    suppressMetrics: ['pctFloodPool'],
+    series: {},
+  },
+  // Ozark and Dardanelle are LITTLE ROCK projects, not Tulsa ones, and Little
+  // Rock files them under yet another scheme: `LD12_Ozark`, `LD10_Dardanelle`.
+  // They do not fit swlSeries() — release is `Flow-Res Out.Inst.1Hour.0.CCP-Comp`
+  // and generation is `Flow-Plant.Ave.1Hour.1Hour.Decodes-rev`, neither of which
+  // matches the six reservoir dams — so they resolve rather than transcribe.
+  // Neither publishes % flood pool.
+  'swl-ozark-dam': {
+    id: 'swl-ozark-dam',
+    name: 'Ozark Lock & Dam',
+    lakeName: 'Ozark Lake',
+    state: 'AR',
+    lat: 35.47333,
+    lon: -93.81,
+    office: 'SWL',
+    cdaLocation: 'LD12_Ozark',
+    // SWPA is internally inconsistent about this project's code — its schedule
+    // header says OZK and its project table says OZD. `OZK` is what the column
+    // is keyed on, which is the spelling that has to be here; SWPA_CODE_ALIASES
+    // in swpa.ts covers the day they swap.
+    swpaCode: 'OZK',
+    tailwaterFishery: 'warmwater' as const,
+    generationOnCfs: 1_500,
+    series: {},
+  },
+  'swl-dardanelle-dam': {
+    id: 'swl-dardanelle-dam',
+    name: 'Dardanelle Lock & Dam',
+    lakeName: 'Lake Dardanelle',
+    state: 'AR',
+    lat: 35.24731,
+    lon: -93.17323,
+    office: 'SWL',
+    cdaLocation: 'LD10_Dardanelle',
+    swpaCode: 'DAD',
+    tailwaterFishery: 'warmwater' as const,
+    generationOnCfs: 1_000,
+    series: {},
+  },
 };
 
 export type UsaceDamId = keyof typeof USACE_DAMS;
@@ -396,3 +623,18 @@ export function getUsaceSeries(id: string, metric: UsaceMetric): UsaceSeries | n
 export const KNOWN_UNPUBLISHED = [
   { name: 'Pomme de Terre Dam', river: 'Pomme de Terre River', reason: 'no CWMS timeseries, no SWPA turbines' },
 ] as const;
+
+/**
+ * SWPA project codes deliberately NOT wired to a dam, with the reason.
+ *
+ * This list exists because its absence caused a real gap: SWPA's schedule
+ * carries 18 projects and the parser read all of them, but only 8 had a dam, so
+ * ten schedules were parsed and discarded for months with nothing anywhere
+ * saying that was a choice. A test asserts every SWPA_PROJECTS key is either
+ * claimed by a dam or named here, so the next gap has to be argued for rather
+ * than merely happening.
+ *
+ * Empty today: all 18 projects are wired. `OZD` is the duplicate spelling of
+ * `OZK` and resolves through SWPA_CODE_ALIASES, so it needs no entry.
+ */
+export const UNWIRED_SWPA_PROJECTS: ReadonlyArray<{ code: string; reason: string }> = [];
