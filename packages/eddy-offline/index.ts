@@ -124,12 +124,26 @@ export interface OfflinePlan {
   naiveTileCount: number;
 }
 
+/**
+ * The four fields a download actually needs.
+ *
+ * Narrower than RiverDetail on purpose. The iOS map stopped fetching
+ * /api/rivers/{slug} — the heaviest call it makes, for a line it never drew —
+ * and now takes a river's shape from the statewide dataset it already holds,
+ * which is the same geometry at the same resolution. That source has a slug, a
+ * name, a line and an extent, and none of RiverDetail's other thirty fields.
+ *
+ * RiverDetail satisfies this structurally, so every existing caller is
+ * unchanged.
+ */
+export type OfflineRiver = Pick<RiverDetail, 'slug' | 'name' | 'geometry' | 'bounds'>;
+
 /** A river whose geometry never loaded cannot be downloaded — say so, don't guess. */
 export function canPlanOffline(river: Pick<RiverDetail, 'geometry'>): boolean {
   return (river.geometry?.coordinates?.length ?? 0) >= 2;
 }
 
-export function planOffline(river: RiverDetail): OfflinePlan | null {
+export function planOffline(river: OfflineRiver): OfflinePlan | null {
   if (!canPlanOffline(river)) return null;
 
   const boxes = corridorBoxes(river.geometry.coordinates, CHUNK_SIZE, BUFFER_KM);

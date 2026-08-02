@@ -53,7 +53,6 @@ import type {
   MapGauge,
   PublicLandAccess,
   PublicLandFeature,
-  RiverDetail,
   RiverGeometry,
   RiverService,
 } from '@eddy/types';
@@ -91,6 +90,7 @@ import {
   MIN_GAUGE_ZOOM,
   MAX_RADAR_ZOOM,
   MIN_RADAR_ZOOM,
+  ZOOM,
   OUTFITTER_SERVICE_TYPES,
   RADAR_OPACITY,
   RADAR_TILE_URL,
@@ -423,6 +423,23 @@ function accessLabel(point: MapAccessPoint): string {
 }
 
 /**
+ * The selected river, as this component uses it.
+ *
+ * `geometry` is optional and usually unnecessary: the statewide network already
+ * carries every curated river's line, painted per reach by the gauge that
+ * watches it, and drawing a second full-resolution copy over the top would
+ * flatten that back to one colour. It is here for the river the network does
+ * not have — which is a data gap, not a normal state.
+ */
+export interface MapRiver {
+  slug: string;
+  name?: string;
+  geometry?: RiverGeometry | null;
+  /** [w, s, e, n], for the camera. */
+  bounds?: [number, number, number, number];
+}
+
+/**
  * An access point and the river it belongs to.
  *
  * MapAccessPoint itself carries no river — the endpoint that serves it is
@@ -465,8 +482,14 @@ interface Props {
    * The river in focus, or NULL when the map is showing the network and the
    * user has not picked one yet. Null is the opening state now, not an error:
    * everything river-scoped below simply does not render.
+   *
+   * FOUR FIELDS, not a RiverDetail. The screen no longer fetches
+   * /api/rivers/{slug} on selection — it reads the river out of the statewide
+   * dataset already in memory — and this component only ever wanted a slug to
+   * match on, an extent to frame, and a line for the rare case the network is
+   * missing that river.
    */
-  river: RiverDetail | null;
+  river: MapRiver | null;
   /** Live condition code, used only for the line colour. */
   conditionCode: string;
   /** Every curated river, condition-coloured. Drawn under the selected one. */
@@ -622,7 +645,27 @@ export function RiverMap({
   const riverSlug = river?.slug ?? null;
 
   // ── Pins, one array per layer ─────────────────────────────────
-  const pins = useMemo(() => {
+  /**
+   * Whether the access layer is drawing, as a boolean the memos below can
+   * depend on without depending on the whole `layers` array.
+   */
+  const accessLayerOn = layers.includes('access');
+
+  /**
+   * ── ONE MEMO PER LAYER, not one for all six ───────────────────────────────
+   *
+   * These were a single memo returning all five arrays, keyed on every input
+   * any of them used. So a change to ONE layer rebuilt the features for all of
+   * them — and every rebuilt array is a new object identity, which is a fresh
+   * upload of that layer's pins across the bridge. Selecting a river re-sent
+   * 313 access-point features that had not changed; a gauge refresh re-sent
+   * every hazard.
+   *
+   * Split, each layer's features survive a change to any other layer's data.
+   * The combined object below is reassembled from the five and stays cheap: it
+   * holds references, not features.
+   */
+  const accessPins = useMemo(() => {
     // Each point carries its OWN river, because this layer is no longer one
     // river's put-ins — it is every river's, drawn before anything is selected.
     // Using the drawn river's slug for all of them, which is what this did when
@@ -630,10 +673,18 @@ export function RiverMap({
     // landing to /river/current-river/access/... — a 404 dressed as a detail
     // screen. `riverSlug` remains the fallback for a point with no river of its
     // own, which is what a live per-river response still produces.
-    const access = accessPoints.map(({ point, riverSlug: pointSlug }) =>
+    return accessPoints.map(({ point, riverSlug: pointSlug }) =>
       mapAccessPointPin(point, pointSlug ?? riverSlug),
     );
+  }, [accessPoints, riverSlug]);
 
+  /**
+   * Campgrounds, from the two places they come from.
+   *
+   * `accessLayerOn` rather than `layers`, so toggling the radar or the public
+   * land overlay does not rebuild this.
+   */
+  const campgroundPins = useMemo(() => {
     // Campgrounds come from two places. An access point tagged `campground` is
     // a put-in you can sleep at; a linked service is somewhere to sleep that is
     // not a put-in. When access is already visible, the first group must NOT be
@@ -643,7 +694,7 @@ export function RiverMap({
     // campgrounds on, these locations return as campground pins and still carry
     // the access photo, route, privacy state, and planner identity.
     const campgrounds: MapPin[] = [
-      ...(!layers.includes('access')
+      ...(!accessLayerOn
         ? accessPoints.filter((entry) => isCampground(entry.point))
         : []
       ).map(({ point: p, riverSlug: pointSlug }) => ({
@@ -674,13 +725,15 @@ export function RiverMap({
           link: serviceLink(s),
         })),
     ];
+    return campgrounds;
+  }, [accessPoints, services, riverSlug, accessLayerOn]);
 
-    // A gauge wears its OWN condition, graded on the phone from the ladder that
+  // A gauge wears its OWN condition, graded on the phone from the ladder that
     // came down with the reading. That is the difference between a layer of
-    // labels and a layer that answers "where is the water good right now" —
-    // and the colours are the canonical ones, so a green dot here means what a
-    // green row means in River Reports.
-    const gaugePins: MapPin[] = gauges.filter(hasCoordinates).map((g) => {
+  // labels and a layer that answers "where is the water good right now" —
+  // and the colours are the canonical ones, so a green dot here means what a
+  // green row means in River Reports.
+  const gaugePins: MapPin[] = useMemo(() => gauges.filter(hasCoordinates).map((g) => {
       const code = gaugeConditionCode(g);
       const reading = gaugeReadingText(g);
       return {
@@ -710,9 +763,9 @@ export function RiverMap({
         siteId: g.usgsSiteId,
         updatedAt: readingAge(g.readingAgeHours),
       };
-    });
+    }), [gauges]);
 
-    const hazardPins: MapPin[] = hazards
+  const hazardPins: MapPin[] = useMemo(() => hazards
       .filter((h) => hasCoordinates(h))
       .map((h) => {
         const code = hazardConditionCode(h.severity);
@@ -734,9 +787,9 @@ export function RiverMap({
           // is an instruction rather than a description.
           body: [portage, h.description, h.seasonalNotes].filter(Boolean).join('\n\n') || null,
         };
-      });
+      }), [hazards]);
 
-    const outfitterPins: MapPin[] = services
+  const outfitterPins: MapPin[] = useMemo(() => services
       .filter(
         (s) =>
           OUTFITTER_SERVICE_TYPES.includes(s.type) && s.latitude != null && s.longitude != null,
@@ -751,10 +804,19 @@ export function RiverMap({
         coordinates: { lng: s.longitude as number, lat: s.latitude as number },
         body: s.description,
         link: serviceLink(s),
-      }));
+      })), [services]);
 
-    return { access, campgrounds, gauges: gaugePins, hazards: hazardPins, outfitters: outfitterPins };
-  }, [accessPoints, gauges, hazards, services, riverSlug, layers]);
+  /** The five, as one object. References only — nothing is rebuilt here. */
+  const pins = useMemo(
+    () => ({
+      access: accessPins,
+      campgrounds: campgroundPins,
+      gauges: gaugePins,
+      hazards: hazardPins,
+      outfitters: outfitterPins,
+    }),
+    [accessPins, campgroundPins, gaugePins, hazardPins, outfitterPins],
+  );
 
   /**
    * Each pin layer's FeatureCollection, built once per change of its inputs.
@@ -769,20 +831,49 @@ export function RiverMap({
    * arrives already shaped as MapPin[] rather than through the `pins` memo,
    * which is why it is listed separately in the dependencies.
    */
+  // ONE MEMO PER COLLECTION, for the reason the pin memos above were split: a
+  // single memo over all six meant any one layer's data landing rebuilt the
+  // other five, and a rebuilt collection is a re-upload of that layer's pins
+  // whether or not a feature in it changed.
+  const accessShape = useMemo(
+    () => featureCollection(accessPins, layerColorFor('access', colors)),
+    [accessPins, colors],
+  );
+  const outfitterShape = useMemo(
+    () => featureCollection(outfitterPins, layerColorFor('outfitters', colors)),
+    [outfitterPins, colors],
+  );
+  const campgroundShape = useMemo(
+    () => featureCollection(campgroundPins, layerColorFor('campgrounds', colors)),
+    [campgroundPins, colors],
+  );
+  const gaugeShape = useMemo(
+    () => featureCollection(gaugePins, layerColorFor('gauges', colors)),
+    [gaugePins, colors],
+  );
+  const hazardShape = useMemo(
+    () => featureCollection(hazardPins, layerColorFor('hazards', colors)),
+    [hazardPins, colors],
+  );
+  const damShape = useMemo(
+    () => featureCollection(dams ?? [], layerColorFor('dams', colors)),
+    [dams, colors],
+  );
+
   const pinShapes = useMemo(
     () =>
       ({
-        access: featureCollection(pins.access, layerColorFor('access', colors)),
-        outfitters: featureCollection(pins.outfitters, layerColorFor('outfitters', colors)),
-        campgrounds: featureCollection(pins.campgrounds, layerColorFor('campgrounds', colors)),
-        gauges: featureCollection(pins.gauges, layerColorFor('gauges', colors)),
-        hazards: featureCollection(pins.hazards, layerColorFor('hazards', colors)),
-        dams: featureCollection(dams ?? [], layerColorFor('dams', colors)),
+        access: accessShape,
+        outfitters: outfitterShape,
+        campgrounds: campgroundShape,
+        gauges: gaugeShape,
+        hazards: hazardShape,
+        dams: damShape,
         // Never drawn through pinLayer — the national tier has its own
         // clustered source. Present so the record is total.
         allGauges: EMPTY_COLLECTION,
       }) as Record<PinLayerKey, ReturnType<typeof featureCollection>>,
-    [pins, dams, colors],
+    [accessShape, outfitterShape, campgroundShape, gaugeShape, hazardShape, damShape],
   );
 
 
@@ -1019,7 +1110,7 @@ export function RiverMap({
      * that would overlap, so the statewide view thins itself rather than
      * turning into a wall of text.
      */
-    labelMinZoom = 11,
+    labelMinZoom: number = ZOOM.names,
     /**
      * The zoom the PINS THEMSELVES switch on at, as against their labels.
      *
@@ -1248,10 +1339,10 @@ export function RiverMap({
         onPress={onClusterablePress}
         cluster
         clusterRadius={50}
-        // Past z11 the individual gauges are the point; below it they are a
-        // count. Matches where the curated labels switch on, so the map changes
-        // character once rather than twice.
-        clusterMaxZoomLevel={11}
+        // ZOOM.cluster, like every other clustered layer. It was 11 — three
+        // rungs later than the access points beside it — so panning in turned
+        // one layer into pins while the other was still bubbles.
+        clusterMaxZoomLevel={ZOOM.cluster}
       >
         <Mapbox.CircleLayer
           id="pins-allGauges-cluster"
@@ -1316,12 +1407,11 @@ export function RiverMap({
         <Mapbox.SymbolLayer
           id="pins-allGauges-label"
           filter={['!', ['has', 'point_count']]}
-          // From the moment this tier stops being bubbles and starts being
-          // gauges — clusterMaxZoomLevel above — every dot is named. It used to
-          // wait two more levels because a raw USGS station name is a sentence
-          // ("WILLOW CREEK BL TEX CREEK NR RIRIE ID"); the caller now sends the
-          // place instead, which is what made that restraint unnecessary.
-          minZoomLevel={11}
+          // ZOOM.names, with every other label on the map. This tier used to
+          // name its dots the moment they stopped being bubbles, which put
+          // fourteen thousand place names on screen two rungs before anything
+          // else was labelled.
+          minZoomLevel={ZOOM.names}
           style={{
             textField: ['get', 'label'],
             textSize: 10,
@@ -1355,7 +1445,7 @@ export function RiverMap({
       onPress={onClusterablePress}
       cluster
       clusterRadius={42}
-      clusterMaxZoomLevel={9}
+      clusterMaxZoomLevel={ZOOM.cluster}
     >
       <Mapbox.CircleLayer
         id="pins-access-cluster"
@@ -1381,7 +1471,7 @@ export function RiverMap({
       <Mapbox.CircleLayer
         id="pins-access-overview"
         filter={['!', ['has', 'point_count']]}
-        maxZoomLevel={10}
+        maxZoomLevel={ZOOM.places}
         style={{
           circleRadius: 4.5,
           circleColor: ['get', 'color'],
@@ -1395,7 +1485,7 @@ export function RiverMap({
       <Mapbox.SymbolLayer
         id="pins-access-icon"
         filter={['!', ['has', 'point_count']]}
-        minZoomLevel={10}
+        minZoomLevel={ZOOM.places}
         style={{
           iconImage: PIN_ICONS.pin?.image ?? 'eddy-access-map',
           iconSize: selectedPinId
@@ -1411,7 +1501,7 @@ export function RiverMap({
       <Mapbox.SymbolLayer
         id="pins-access-label"
         filter={['!', ['has', 'point_count']]}
-        minZoomLevel={11}
+        minZoomLevel={ZOOM.names}
         style={{
           textField: ['get', 'label'],
           textSize: 11,
@@ -1689,14 +1779,13 @@ export function RiverMap({
           coloured counts instead of forty overlapping dots, and a river in
           flood is redder for it, not quieter.
 
-          The ceiling is MIN_GAUGE_ZOOM + 2.5, which lands just under
-          GAUGE_DETAIL_ZOOM: bubbles for the overview, individual dots from the
-          moment the map is close enough for them to be distinguishable, full
-          marks and names a beat later. */}
+          It collapses on the same rung as everything else — ZOOM.cluster — so
+          the map changes character once as you pan in rather than six times.
+          See the ladder in map/layers.ts. */}
       {layerOn('gauges')
         ? pinLayer('gauges', 'drop', GAUGE_DETAIL_ZOOM, MIN_GAUGE_ZOOM, GAUGE_DETAIL_ZOOM, {
             radius: 40,
-            maxZoom: 8,
+            maxZoom: ZOOM.cluster,
           })
         : null}
       {/* Ten pins statewide, so labels are on at every zoom like the gauges —

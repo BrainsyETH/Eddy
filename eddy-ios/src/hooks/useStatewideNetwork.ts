@@ -12,6 +12,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ApiError, fetchStatewideNetwork, fetchStatewideReadings } from '@/api/client';
+import { readNetwork } from '@/lib/riverCache';
 import {
   buildNetwork,
   networkBounds,
@@ -24,6 +25,16 @@ export interface StatewideNetwork {
   collection: NetworkCollection;
   /** [w, s, e, n] over every drawn river, for the opening camera. */
   bounds: [number, number, number, number] | null;
+  /**
+   * The RAW rivers, by slug — geometry as it came down, unsplit.
+   *
+   * The Map tab reads a selected river's line and extent out of here instead of
+   * fetching /api/rivers/{slug} for them. `collection` cannot serve that: it
+   * splits a multi-gauge river into one feature per reach so each can be
+   * painted by the gauge that watches it, and the offline planner needs the
+   * whole line in order.
+   */
+  bySlug: ReadonlyMap<string, StatewideRiver>;
   loading: boolean;
   /**
    * True when the geometry arrived but the readings did not, so every line is
@@ -45,6 +56,23 @@ export function useStatewideNetwork(): StatewideNetwork {
 
   useEffect(() => {
     const controller = new AbortController();
+
+    // ── Disk first, network over the top ──────────────────────────────────
+    //
+    // The geometry is written through to disk on every successful fetch and,
+    // until now, was never read back — so an app opened with no signal drew no
+    // rivers at all, having a perfectly good copy of all 25 on the phone. That
+    // mattered more once the Map tab started taking the selected river's line
+    // and extent from here rather than from its own endpoint: this is the only
+    // source of a river's shape now, and it has to survive a dead connection.
+    //
+    // Never overwrites a live response — `current ?? stored` — because the read
+    // can land after the fetch on a fast connection.
+    void readNetwork().then((stored) => {
+      if (controller.signal.aborted || !stored?.payload?.length) return;
+      setRivers((current) => current ?? stored.payload);
+    });
+
     // The GEOMETRY failing is still silent, and still on purpose: the map draws
     // the selected river, its access points and its gauges without it, and an
     // error banner over a working map would be noise.
@@ -82,5 +110,10 @@ export function useStatewideNetwork(): StatewideNetwork {
   // readings land rather than jumping once they do.
   const bounds = useMemo(() => networkBounds(collection), [collection]);
 
-  return { collection, bounds, loading: rivers === null, readingsFailed };
+  const bySlug = useMemo(
+    () => new Map((rivers ?? []).map((river) => [river.slug, river])),
+    [rivers],
+  );
+
+  return { collection, bounds, bySlug, loading: rivers === null, readingsFailed };
 }
