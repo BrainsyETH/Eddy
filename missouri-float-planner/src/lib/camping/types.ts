@@ -54,6 +54,17 @@ export interface FacilityLink {
    * park that renumbers its loops needs no migration.
    */
   sourceFacilityId: string;
+  /**
+   * One loop inside a shared payload, or null for a whole facility.
+   *
+   * Ozark backcountry permits put up to eight separately named campgrounds
+   * behind a single recreation.gov id, tagging each campsite with the
+   * campground it belongs to. Set this and the adapter reports that loop's own
+   * inventory instead of the district's — which is the difference between
+   * "5 of 8 sites open" at Powder Mill and a district-wide 52 that describes
+   * gravel bars twenty river miles away.
+   */
+  sourceLoop: string | null;
   displayName: string;
   kind: FacilityKind;
 }

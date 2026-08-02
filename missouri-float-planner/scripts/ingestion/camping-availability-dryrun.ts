@@ -17,6 +17,7 @@ import { createLimiter } from '../../src/lib/camping/limiter';
 import { resolveWeekend } from '../../src/lib/camping/window';
 import { summarizeWindow, type CampingSource, type FacilityLink } from '../../src/lib/camping/types';
 import * as recgov from '../../src/lib/camping/recgov';
+import type { MonthCache } from '../../src/lib/camping/recgov';
 import * as usedirect from '../../src/lib/camping/usedirect';
 
 const FAST = process.argv.includes('--fast');
@@ -40,7 +41,7 @@ async function main() {
 
   const { data, error } = await supabase
     .from('campsite_facilities')
-    .select('id, source, source_facility_id, display_name, kind')
+    .select('id, source, source_facility_id, source_loop, display_name, kind')
     .eq('enabled', true)
     .order('source')
     .order('display_name');
@@ -62,6 +63,8 @@ async function main() {
     });
 
     const rows = (data ?? []).filter((r) => r.source === source);
+    // Mirrors the cron: loops behind one district id share a single fetch.
+    const cache: MonthCache = new Map();
     console.log(`── ${source} (${rows.length} facilities, ${FAST ? 'fast' : `${config.spacing / 1000}s`} spacing)`);
     const startedAt = Date.now();
 
@@ -70,12 +73,13 @@ async function main() {
         id: row.id,
         source: row.source as CampingSource,
         sourceFacilityId: row.source_facility_id,
+        sourceLoop: row.source_loop,
         displayName: row.display_name,
         kind: row.kind as FacilityLink['kind'],
       };
 
       try {
-        const nights = await config.fetch(facility, window, limiter);
+        const nights = await config.fetch(facility, window, limiter, cache);
         const summary = summarizeWindow(nights);
         const detail = nights
           .map((n) => `${n.date.slice(5)} ${n.sitesOpen}/${n.sitesReservable} ${n.status}`)

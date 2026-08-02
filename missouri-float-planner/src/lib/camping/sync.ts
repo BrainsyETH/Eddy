@@ -19,6 +19,7 @@ import { createLimiter, type Limiter } from './limiter';
 import { resolveWeekend, type CampingWindow } from './window';
 import type { CampingSource, DailyAggregate, FacilityLink } from './types';
 import * as recgov from './recgov';
+import type { MonthCache } from './recgov';
 import * as usedirect from './usedirect';
 
 interface SourceConfig {
@@ -30,6 +31,7 @@ interface SourceConfig {
     facility: FacilityLink,
     window: CampingWindow,
     limiter: Limiter,
+    cache?: MonthCache,
   ) => Promise<DailyAggregate[]>;
 }
 
@@ -73,6 +75,7 @@ interface FacilityRow {
   id: string;
   source: string;
   source_facility_id: string;
+  source_loop: string | null;
   display_name: string;
   kind: string;
 }
@@ -82,6 +85,7 @@ function toLink(row: FacilityRow): FacilityLink {
     id: row.id,
     source: row.source as CampingSource,
     sourceFacilityId: row.source_facility_id,
+    sourceLoop: row.source_loop,
     displayName: row.display_name,
     kind: row.kind as FacilityLink['kind'],
   };
@@ -113,7 +117,7 @@ export async function syncSource(
 
   const { data, error } = await supabase
     .from('campsite_facilities')
-    .select('id, source, source_facility_id, display_name, kind')
+    .select('id, source, source_facility_id, source_loop, display_name, kind')
     .eq('source', source)
     .eq('enabled', true)
     // Least-recently-synced first: this ordering IS the cursor.
@@ -122,6 +126,9 @@ export async function syncSource(
   if (error) throw new Error(`campsite_facilities: ${error.message}`);
 
   const facilities = (data ?? []) as FacilityRow[];
+  // Shared across the whole run: eighteen Ozark campgrounds sit behind three
+  // district ids, and without this each loop would re-fetch the same payload.
+  const monthCache: MonthCache = new Map();
   const errors: string[] = [];
   let synced = 0;
   let failed = 0;
@@ -136,7 +143,7 @@ export async function syncSource(
     let nights: DailyAggregate[];
 
     try {
-      nights = await config.fetchWindow(facility, window, limiter);
+      nights = await config.fetchWindow(facility, window, limiter, monthCache);
     } catch (err) {
       failed++;
       const message = err instanceof Error ? err.message : String(err);

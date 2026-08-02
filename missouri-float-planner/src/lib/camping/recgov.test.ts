@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { fetchWindow, foldNight, parseMonth } from './recgov';
+import { fetchWindow, foldNight, parseMonth, type MonthCache } from './recgov';
 import { summarizeWindow, type FacilityLink } from './types';
 import { createLimiter } from './limiter';
 import { resolveWeekend } from './window';
@@ -155,6 +155,7 @@ test('a 404 yields no data without counting against the failure budget', async (
       id: 'x',
       source: 'recreation_gov',
       sourceFacilityId: '10174182',
+      sourceLoop: null,
       displayName: 'Alley Spring (stale id)',
       kind: 'campground',
     } satisfies FacilityLink;
@@ -189,6 +190,7 @@ test('a 500 does still count as a failure', async () => {
       id: 'x',
       source: 'recreation_gov',
       sourceFacilityId: '232391',
+      sourceLoop: null,
       displayName: 'Red Bluff',
       kind: 'campground',
     } satisfies FacilityLink;
@@ -196,6 +198,131 @@ test('a 500 does still count as a failure', async () => {
 
     await assert.rejects(fetchWindow(facility, window, limiter));
     assert.equal(limiter.stats().failures, 1);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+// ── District permits split by loop ─────────────────────────────────────────
+
+test('a loop filter reports only that campground, not the whole district', () => {
+  // Powder Mill has 8 sites inside a permit covering 52 across eight
+  // campgrounds spread over twenty river miles. Reporting the district total
+  // under Powder Mill would be a confident, wrong number.
+  const payload = {
+    campsites: Object.fromEntries([
+      ...Array.from({ length: 8 }, (_, i) => [
+        `pm${i}`,
+        {
+          campsite_id: `pm${i}`,
+          loop: 'Powder Mill Campground',
+          availabilities: { '2026-08-07T00:00:00Z': i < 5 ? 'Available' : 'Reserved' },
+        },
+      ]),
+      ...Array.from({ length: 14 }, (_, i) => [
+        `ly${i}`,
+        {
+          campsite_id: `ly${i}`,
+          loop: 'Log Yard Campground',
+          availabilities: { '2026-08-07T00:00:00Z': 'Available' },
+        },
+      ]),
+    ]),
+  };
+
+  assert.deepEqual(parseMonth(payload, 'Powder Mill Campground').get('2026-08-07'), {
+    sitesOpen: 5,
+    sitesReservable: 8,
+    status: 'open',
+  });
+  assert.deepEqual(parseMonth(payload, 'Log Yard Campground').get('2026-08-07'), {
+    sitesOpen: 14,
+    sitesReservable: 14,
+    status: 'open',
+  });
+  // Unfiltered is still the whole district, for a genuine district-level row.
+  assert.equal(parseMonth(payload).get('2026-08-07')?.sitesReservable, 22);
+});
+
+test('an unknown loop reports nothing rather than the whole district', () => {
+  const payload = {
+    campsites: {
+      a: {
+        campsite_id: 'a',
+        loop: 'Powder Mill Campground',
+        availabilities: { '2026-08-07T00:00:00Z': 'Available' },
+      },
+    },
+  };
+  // If a district renames a loop, the safe failure is silence. Falling back to
+  // the district total would put twenty river miles of gravel bars under one
+  // campground's name without anything looking wrong.
+  assert.equal(parseMonth(payload, 'Renamed Campground').size, 0);
+});
+
+test('loops sharing a district cost one request, not one each', async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls++;
+    return new Response(
+      JSON.stringify({
+        campsites: {
+          a: {
+            campsite_id: 'a',
+            loop: 'Powder Mill Campground',
+            availabilities: {
+              '2026-08-07T00:00:00Z': 'Available',
+              '2026-08-08T00:00:00Z': 'Available',
+            },
+          },
+          b: {
+            campsite_id: 'b',
+            loop: 'Log Yard Campground',
+            availabilities: {
+              '2026-08-07T00:00:00Z': 'Reserved',
+              '2026-08-08T00:00:00Z': 'Reserved',
+            },
+          },
+        },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  }) as typeof globalThis.fetch;
+
+  try {
+    const limiter = createLimiter({
+      name: 'test',
+      minSpacingMs: 0,
+      maxRequests: 10,
+      sleep: async () => undefined,
+    });
+    const cache: MonthCache = new Map();
+    const window = resolveWeekend(new Date('2026-08-03T17:00:00Z'));
+    const base = {
+      id: 'x',
+      source: 'recreation_gov',
+      sourceFacilityId: '10344874',
+      kind: 'campground',
+    } as const;
+
+    const powderMill = await fetchWindow(
+      { ...base, sourceLoop: 'Powder Mill Campground', displayName: 'Powder Mill' },
+      window,
+      limiter,
+      cache,
+    );
+    const logYard = await fetchWindow(
+      { ...base, sourceLoop: 'Log Yard Campground', displayName: 'Log Yard' },
+      window,
+      limiter,
+      cache,
+    );
+
+    assert.equal(calls, 1, 'the second loop must be served from the cache');
+    assert.equal(limiter.stats().attempts, 1);
+    assert.equal(powderMill[0].status, 'open');
+    assert.equal(logYard[0].status, 'full');
   } finally {
     globalThis.fetch = original;
   }

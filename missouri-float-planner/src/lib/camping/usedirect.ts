@@ -43,6 +43,20 @@ interface PlaceResponse {
   };
 }
 
+/**
+ * The only facility category that holds campsites.
+ *
+ * Parks mix camping with day-use inventory in the same place response, and
+ * both are bookable, so counting everything overstates the campground. Meramec
+ * returns three picnic shelters (`day use`) and three group-tenting pitches
+ * (`Group Camping`) alongside its 197 campsites — reporting 203 sites, all six
+ * extras of which are the wrong kind of thing, and the three free shelters
+ * inflating the open count too. Group camping is excluded for the same reason
+ * a group site is priced separately: it is not what "8 sites open" means to
+ * somebody looking for a place to pitch a tent.
+ */
+const CAMPGROUND_CATEGORY = 'Campgrounds';
+
 interface RawFacility {
   /**
    * The real, global id — and the single sharpest edge in this integration.
@@ -57,6 +71,8 @@ interface RawFacility {
   FacilityId?: number;
   Name?: string;
   InSeason?: boolean;
+  /** `Campgrounds`, `day use`, `Group Camping`, … — see CAMPGROUND_CATEGORY. */
+  Category?: string;
 }
 
 interface GridResponse {
@@ -86,11 +102,23 @@ function dateOf(key: string): string {
   return key.slice(0, 10);
 }
 
-/** Loops that can actually be booked, with their global ids. */
+/**
+ * Camping loops, in season or not.
+ *
+ * Separate from `bookableLoops` so the caller can tell "this park has no
+ * campground" from "this park's campground is shut" — a day-use-only place
+ * must report nothing, while a closed campground must report closed.
+ */
+export function campgroundLoops(payload: PlaceResponse): RawFacility[] {
+  return Object.values(payload.SelectedPlace?.Facilities ?? {}).filter(
+    (f) => f.Category === CAMPGROUND_CATEGORY && typeof f.FacilityId === 'number',
+  );
+}
+
+/** In-season camping loops, with their global ids. */
 export function bookableLoops(payload: PlaceResponse): number[] {
-  const facilities = payload.SelectedPlace?.Facilities ?? {};
-  return Object.values(facilities)
-    .filter((f) => f.InSeason !== false && typeof f.FacilityId === 'number')
+  return campgroundLoops(payload)
+    .filter((f) => f.InSeason !== false)
     .map((f) => f.FacilityId!);
 }
 
@@ -145,12 +173,14 @@ export async function fetchWindow(
     limiter,
   );
 
-  const facilityCount = Object.keys(place.SelectedPlace?.Facilities ?? {}).length;
+  const campgrounds = campgroundLoops(place);
   const loops = bookableLoops(place);
 
-  // No loops at all means the park does not camp (Current River SP is day-use);
-  // loops that are all out of season mean it camps, but not now.
-  if (facilityCount === 0) return [];
+  // No camping facilities means the park does not camp — Current River SP has
+  // a place id and no campground, and a park listing only picnic shelters is
+  // the same thing. Camping facilities that are all out of season mean it
+  // camps, but not now, which is a different sentence.
+  if (campgrounds.length === 0) return [];
   if (loops.length === 0) {
     return window.nights.map((date) => ({
       date,
