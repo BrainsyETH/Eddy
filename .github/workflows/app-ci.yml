@@ -132,11 +132,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # `npm run typecheck`, not `npx tsc --noEmit`, and the difference is a
+      # whole error class. app.json sets experiments.typedRoutes, so route
+      # errors are only visible to tsc when .expo/types/router.d.ts exists —
+      # and it is gitignored, so a fresh checkout has none. This job typechecked
+      # without one for the life of the repo, which means `Href` degraded to
+      # something permissive here and a push to a route that does not exist
+      # COULD NOT FAIL. Three sat green for a week.
+      #
+      # The typecheck script now generates the declaration first, so this is the
+      # first version of this job that can see them. See eddy-ios/package.json.
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Lint
-        run: npx expo lint
+        run: npm run lint
 
       # THE STEP THAT EARNS THIS JOB. Typecheck and lint both passed throughout
       # the SDK 57 upgrade while every production bundle was broken: Expo's

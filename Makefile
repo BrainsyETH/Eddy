@@ -59,8 +59,12 @@ setup-mobile: guard-node ## Install mobile dependencies (plain npm ci — never 
 check-web: guard-node ## Web typecheck + lint + tests (mirrors the lint-and-typecheck CI job)
 	cd $(WEB) && npm run typecheck && npm run lint && npm test
 
+# Package scripts rather than the bare binaries, because `typecheck` now
+# regenerates the typed-route declaration before running tsc (eddy-ios's
+# package.json says why). Calling `npx tsc --noEmit` here would skip that and
+# quietly reintroduce the stale-declaration failure this target exists to catch.
 check-mobile: guard-node ## Mobile typecheck + lint (mirrors the mobile-app CI job, minus the bundle)
-	cd $(MOBILE) && npx tsc --noEmit && npx expo lint
+	cd $(MOBILE) && npm run typecheck && npm run lint
 
 bundle-mobile: guard-node ## Credential-free production iOS bundle + .easignore allowlist check
 	cd $(MOBILE) && npx expo export --platform ios --output-dir "$(EXPORT_DIR)"
