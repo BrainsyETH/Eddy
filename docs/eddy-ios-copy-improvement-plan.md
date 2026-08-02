@@ -1,172 +1,128 @@
 # Eddy iOS Copy Improvement Plan
 
+## Review baseline
+
+This plan was reviewed against `origin/main` at commit `0302df0a` on August 2, 2026.
+
+The local feature checkout used for the first audit was substantially behind `main`. Current `main` has since:
+
+- centralized Premium messaging in `eddy-ios/src/lib/premiumCopy.ts`;
+- removed paid offline map downloads;
+- added automatic offline caching for river lines, put-ins, hazards, and the last reported reading;
+- redesigned the Alerts tab around high-water conditions and official agency notices;
+- added storage, onboarding, feedback, and photo-submission surfaces.
+
+This document supersedes the earlier audit. It does not recommend restoring removed offline-map behavior or rewriting the paywall around alerts, since current `main` already treats alerts as free and no longer sells offline map downloads.
+
 ## Objective
 
-Make Eddy's interface copy sound clear, professional, and human while ensuring every product, privacy, freshness, and safety claim matches what the app can actually support.
+Make Eddy's interface copy clear, professional, and human while ensuring every product, privacy, freshness, moderation, and safety statement matches current behavior.
 
-This work covers user-visible text in `eddy-ios/app`, `eddy-ios/src/components`, `eddy-ios/src/lib`, and `eddy-ios/src/map`. Developer comments and logs are out of scope unless they produce visible text.
+The implementation pass should cover user-visible text in:
+
+- `eddy-ios/app`
+- `eddy-ios/src/components`
+- `eddy-ios/src/lib`
+- `eddy-ios/src/map`
+- shared packages that export copy consumed by the iOS app
+
+Developer comments and logs are out of scope unless they produce visible text.
 
 ## Editorial principles
 
-1. Prefer precise statements over absolute claims.
-2. Describe reported data as reported data, not as the river itself.
-3. Do not imply instant delivery, complete coverage, guaranteed freshness, or guaranteed safety.
-4. Keep safety guidance direct and calm. Avoid marketing language in warnings.
-5. Use short sentences instead of em dashes.
-6. Use U.S. English throughout the app, including “color” rather than “colour.”
-7. Reserve en dashes for numeric ranges. Do not use them as sentence punctuation.
-8. Use “latest reported” or a visible timestamp instead of “live,” “now,” or “right now” when data may be delayed.
-9. Avoid “everything,” “always,” “never,” “any,” “every,” “the moment,” and similar absolutes unless the behavior is enforced and tested.
-10. Explain the user consequence first. Avoid internal terms such as module, registration, build, feed, and entitlement in production-facing copy.
+1. Describe a measurement as a measurement, not as the river itself.
+2. Prefer “latest reported” and a visible timestamp over “live,” “now,” or “right now.”
+3. Do not imply instant delivery, complete coverage, guaranteed freshness, guaranteed moderation response, or guaranteed safety.
+4. Avoid absolutes such as “always,” “never,” “every,” “everything,” “any,” and “the moment” unless the behavior is enforced and tested.
+5. Keep safety guidance direct and calm. Avoid promotional language in warnings.
+6. Use short sentences instead of em dashes.
+7. Reserve en dashes for ranges such as `20–75 minutes`.
+8. Use U.S. English throughout the product, including “color” rather than “colour.”
+9. State what remains available instead of saying “everything else still works.”
+10. Use internal terms such as feed, module, build, registration, and entitlement only on development-only screens.
 
-## Phase 1: Correct product and entitlement promises
+## Priority 1: Correct claims that affect decisions
 
-### 1.1 Rebuild the Premium benefit list
-
-**Files:**
-
-- `eddy-ios/src/components/PaywallSheet.tsx`
-- `eddy-ios/src/components/OfflineMapRow.tsx`
-- `eddy-ios/src/map/useOfflinePacks.ts`
-
-The current paywall sells alerts as a Premium benefit and later says alerts are free. It also promises offline access points and hazards, while the current download path stores Mapbox tiles only.
-
-Replace the benefit list with features the app currently delivers:
-
-| Current copy | Recommended direction |
-| --- | --- |
-| Know before you drive | Remove from the Premium list because alerts are free. |
-| Every river you follow | Remove unless Premium actually changes the follow limit. |
-| Maps that work with no signal | Offline river maps |
-| Keep the map, access points and hazards on the water | Download river maps for use with limited or no service. |
-| More than the number | Plan with more context |
-| Eddy's full read on your rivers and a map that still works when the signal doesn't | Get Eddy's detailed river outlook and download river maps for use with limited service. |
-
-Add a second benefit focused on the paid written outlook:
-
-- **Title:** Detailed river outlooks
-- **Body:** Read Eddy's full written outlook for supported rivers.
-
-Do not restore the access-point or hazard promise until those records are persisted, restored after launch, and verified without a network connection.
-
-### 1.2 Replace permanent pricing promises with current-state language
-
-**File:** `eddy-ios/src/components/PaywallSheet.tsx`
-
-Replace:
-
-> River conditions, gauge readings, hazard information and alerts are always free.
-
-With:
-
-> River conditions, gauge readings, hazards, and alerts are available without Premium.
-
-This states the current entitlement boundary without making a permanent business promise.
-
-### 1.3 Remove unsupported update-frequency claims
-
-**File:** `eddy-ios/src/components/EddyTake.tsx`
-
-Replace:
-
-> The full written report on this river, updated daily.
-
-With:
-
-> A detailed written outlook for this river.
-
-Only restore a frequency claim if there is a monitored publishing schedule and a defined stale state in the interface.
-
-## Phase 2: Correct alert descriptions
-
-### 2.1 Rename condition-alert choices
+### 1.1 Rename condition-alert choices
 
 **File:** `eddy-ios/src/lib/alertKinds.ts`
 
-The implementation sends alerts for floatable, high, and dangerous conditions. It does not send alerts when a river becomes low or too low. The labels “Everything” and “Safety” imply broader coverage than the implementation provides.
+The alert engine sends floatable, high, and dangerous events. It does not notify when a river becomes low or too low. The labels “Everything” and “Safety” imply broader coverage than the implementation provides.
 
-Use these labels:
+| Value | Current | Recommended label | Recommended hint |
+| --- | --- | --- | --- |
+| `all` | Everything | Floatable and high water | Floatable updates plus high-water warnings |
+| `floatable` | Floatable | Floatable | When the river reaches a floatable condition |
+| `safety` | Safety | High water | High and dangerous conditions |
 
-| Value | New label | New hint |
-| --- | --- | --- |
-| `all` | Floatable and high water | Floatable updates plus high-water warnings |
-| `floatable` | Floatable | When the river reaches a floatable condition |
-| `safety` | High water | High and dangerous conditions |
+Keep the stored values unchanged unless alert behavior is also being redesigned.
 
-Keep the underlying values unchanged unless the alert behavior itself is being redesigned.
-
-### 2.2 Describe notification timing honestly
+### 1.2 Replace current-state claims with reported-state language
 
 **Files:**
 
-- `eddy-ios/src/components/PushPrimer.tsx`
-- `eddy-ios/src/lib/notificationCopy.ts`
-- `eddy-ios/src/components/AlertSignInSheet.tsx`
-- `eddy-ios/src/components/PaywallSheet.tsx`
+- `eddy-ios/src/components/dam/DamStateCard.tsx`
+- `eddy-ios/src/components/dam/DayBars.tsx`
+- `eddy-ios/src/components/dam/RiverDamPanel.tsx`
+- `eddy-ios/app/(tabs)/alerts.tsx`
+- `eddy-ios/app/river/[slug]/access/[accessSlug].tsx`
+- `eddy-ios/app/alerts/configure.tsx`
+- `eddy-ios/src/map/layers.ts`
 
-Replace “the moment” and other immediate-delivery language with:
+Current readings may be delayed or replayed from the offline cache. Copy should not present them as a direct observation of the water at this moment.
 
-> Eddy sends a notification after it detects a reported condition change.
+| Current | Recommended direction |
+| --- | --- |
+| Generating now | Reported generating |
+| Not generating | No generation reported |
+| Water off now | No generation reported for this hour |
+| Releasing / releasing now | Reported release |
+| River right now | Latest gauge reading |
+| Right now | Latest reported reading |
+| Live USGS readings on the water | Recent USGS gauge readings |
+| Live conditions unavailable | Gauge readings are unavailable |
 
-Replace “Only when the condition actually changes” with:
+Always display the reading or retrieval age when available. A stale dam reading should never retain a “now” label.
 
-> Sent for detected condition changes, not as a daily digest.
-
-Replace “Only the rivers you follow, on their own schedule” with:
-
-> Notifications are limited to rivers you follow.
-
-### 2.3 Make saved-alert status distinct from delivery status
+### 1.3 Standardize latency and safety caveats
 
 **Files:**
 
-- `eddy-ios/app/river/[slug].tsx`
+- `eddy-ios/app/(tabs)/alerts.tsx`
 - `eddy-ios/app/(tabs)/profile.tsx`
+- `eddy-ios/app/river/[slug].tsx`
+- `eddy-ios/app/gauge/[siteId].tsx`
+- `eddy-ios/src/components/PushPrimer.tsx`
+- `eddy-ios/src/lib/safetyCopy.ts`
 
-“Alerts are on” can be inaccurate when a rule is saved but notifications are denied, the device is unregistered, or the user is signed out.
+Current screens use several conflicting descriptions:
 
-Use separate language:
+- “up to about an hour”;
+- “roughly 20–75 minutes”;
+- “can trail the river”;
+- “conditions are estimated.”
 
-- Saved rule: “River alert saved. Tap to remove it.”
-- iOS permission granted and device registered: “Notifications are ready on this device.”
-- Permission granted but not registered: “Notifications are allowed. Eddy will retry setup the next time the app opens.”
-- Permission denied: “Notifications are off in iOS Settings.”
+Choose one evidence-backed latency statement. If the `20–75 minute` range is operationally measured and monitored, use it consistently. Otherwise avoid a maximum and use:
 
-### 2.4 Remove completeness claims from the Activity feed
+> Gauge readings and alerts may be delayed. Conditions can differ between gauges. Check current conditions before entering the water.
+
+Do not use “trail the river,” which is vivid but imprecise.
+
+### 1.4 Remove reassurance from high-water empty states
 
 **File:** `eddy-ios/app/(tabs)/alerts.tsx`
 
 Replace:
 
-> Condition changes on every river Eddy tracks, from the last 7 days.
+> No river, gauge or dam release Eddy grades is above its high-water mark right now. That's usually good news.
 
 With:
 
-> Recent recorded condition changes across Eddy-tracked rivers.
+> No high-water conditions appear in the latest available readings.
 
-Replace:
+The absence of a high-water row does not establish that the water is safe, current, or complete.
 
-> No river has changed condition in the last 7 days. That's usually good news.
-
-With:
-
-> No condition changes were recorded in the last 7 days.
-
-The empty state should not imply that unchanged water is safe.
-
-### 2.5 Correct quiet-hours expectations
-
-**File:** `eddy-ios/app/alerts/quiet-hours.tsx`
-
-Replace the current paragraph with:
-
-> Notifications detected during quiet hours are skipped and are not delivered later. Recorded river changes may still appear in Activity.
-
-Use “your signed-in devices” instead of “every device” when explaining where quiet hours apply.
-
-## Phase 3: Improve privacy, freshness, and safety language
-
-### 3.1 Use Apple's actual privacy choice
+### 1.5 Correct the Sign in with Apple privacy statement
 
 **File:** `eddy-ios/src/components/AlertSignInSheet.tsx`
 
@@ -178,161 +134,327 @@ With:
 
 > Sign in with Apple lets you share your email or use a private relay address.
 
-### 3.2 Standardize the gauge-data caveat
+This follows Apple's actual choice without making an absolute privacy promise on Apple's behalf.
+
+### 1.6 Remove broad field-research claims
+
+**File:** `eddy-ios/app/(tabs)/reports.tsx`
+
+Current copy says:
+
+> Every river here is researched by hand. Put-ins walked, hazards logged, gauges rated.
+
+Keep this only if every supported river and put-in has actually received that field process and the claim is documented. A safer replacement is:
+
+> Eddy combines reviewed access information, documented hazards, and river-specific gauge ratings. Coverage continues to grow.
+
+Do not imply that every put-in has been physically visited unless that coverage is tracked.
+
+## Priority 2: Make Premium copy precise
+
+### 2.1 Preserve the corrected entitlement boundary
+
+**Files:**
+
+- `eddy-ios/src/lib/premiumCopy.ts`
+- `eddy-ios/src/components/PaywallSheet.tsx`
+- `eddy-ios/src/components/EddyTake.tsx`
+
+Current `main` correctly sells only Eddy's written interpretation. Alerts, readings, trends, hazards, forecasts, float plans, and automatic offline river data remain outside the gate. Preserve this architecture.
+
+Do not reintroduce alerts or offline maps as Premium benefits.
+
+### 2.2 Remove em dashes and deterministic forecast language
+
+The current Premium benefits contain several em dashes and phrases such as “what the weather is about to do to it” and “one call on whether it holds.” These sound confident beyond what a forecast supports.
+
+Recommended direction:
+
+| Current | Recommended |
+| --- | --- |
+| Eddy's take on every river | Eddy's detailed river outlook |
+| What the water is doing, what the weather is about to do to it, and Eddy's bottom line | A written interpretation of the latest reading, river trend, and weather forecast |
+| What the forecast means for the water | River and weather context together |
+| One call on whether it holds | Practical context for planning your trip |
+
+### 2.3 Verify “rewritten every morning” before retaining it
+
+**Files:**
+
+- `eddy-ios/src/lib/premiumCopy.ts`
+- `eddy-ios/src/components/EddyTake.tsx`
+
+“Rewritten every morning” appears repeatedly and is a subscription promise. Keep it only if:
+
+1. a scheduled generation job covers every supported river;
+2. failures are monitored;
+3. the app can identify and withhold a missed or stale report;
+4. the time zone behind “morning” is defined.
+
+If those conditions are not met, use:
+
+> A detailed written outlook based on the latest available river and weather data.
+
+### 2.4 Replace the permanent “always free” pledge
+
+**File:** `eddy-ios/src/lib/premiumCopy.ts`
+
+Replace:
+
+> River conditions, gauge readings, the trend, hazard information, alerts and float plans are always free.
+
+With:
+
+> River conditions, gauge readings, trends, hazards, alerts, and float plans are available without Premium.
+
+This communicates the current entitlement boundary without making a permanent pricing commitment.
+
+## Priority 3: Correct coverage and offline wording
+
+### 3.1 Update the offline section for current architecture
+
+**Files:**
+
+- `eddy-ios/app/storage.tsx`
+- `eddy-ios/app/(tabs)/profile.tsx`
+- `eddy-ios/src/lib/offline-cache.ts`
+- `eddy-ios/src/lib/riverCache.ts`
+
+Current `main` automatically caches river lines, put-ins, hazards, and the last reading. Map backgrounds still require a connection. This is materially different from the removed paid map-download feature.
+
+Retain the new automatic-cache model, but avoid “everything else” and “every river” claims when a cache write, initial download, or individual payload can fail.
+
+Replace:
+
+> Map backgrounds need a connection to draw. Everything else on a river works without one.
+
+With:
+
+> Map backgrounds require a connection. Previously loaded river lines, put-ins, hazards, and recent readings remain available offline.
+
+Replace:
+
+> Eddy keeps every river's put-ins, hazards, line and last reading here.
+
+With:
+
+> Eddy stores recently loaded river lines, put-ins, hazards, and readings on this phone for offline use.
+
+Confirm that “previously loaded” matches the bundle-prefetch behavior before finalizing the exact wording.
+
+### 3.2 Avoid complete-network claims
+
+**Files:**
+
+- `eddy-ios/src/map/layers.ts`
+- `eddy-ios/app/alerts/new.tsx`
+- `eddy-ios/src/components/GaugeFilterBar.tsx`
+
+Replace:
+
+- “The rest of the USGS network” with “Additional USGS gauges”
+- “reading only” with “Readings only. Not Eddy-rated.”
+- “Search for any river or USGS gauge” with “Search rivers and supported USGS gauges, including gauges outside Missouri.”
+- “Zoom in to see them all” with “Zoom in to load a smaller area.”
+
+These surfaces use viewport limits, supported providers, and bounded results. Their copy should describe what is shown rather than imply complete national coverage.
+
+### 3.3 Make unavailable-state copy specific
 
 **Files:**
 
 - `eddy-ios/app/(tabs)/profile.tsx`
-- `eddy-ios/app/river/[slug].tsx`
-- `eddy-ios/app/gauge/[siteId].tsx`
-- `eddy-ios/src/components/PushPrimer.tsx`
-- `eddy-ios/src/components/PaywallSheet.tsx`
+- `eddy-ios/app/(tabs)/index.tsx`
+- `eddy-ios/src/components/GaugeChart.tsx`
+- `eddy-ios/src/components/PhotoSubmitSheetLazy.tsx`
 
-Replace variations of “readings can trail the river by up to about an hour” with one reusable message:
+Replace “Everything still works” and “Everything else is up to date” with the actual unaffected features.
 
-> Gauge readings may be delayed and may not reflect conditions between gauges. Check current conditions before entering the water.
+Example:
 
-If a measured latency range is important, expose the actual reading time and detection time instead of promising a general maximum.
+> Your favorites remain on this device. Account sync and subscriptions are temporarily unavailable.
 
-### 3.3 Replace “live” and “right now” labels
+For a chart failure:
 
-| Location | Current | Replacement |
-| --- | --- | --- |
-| Map layers | Live USGS readings on the water | Recent USGS gauge readings |
-| Map failure notice | Live conditions unavailable | Gauge readings are unavailable |
-| Access detail section | River right now | Latest gauge reading |
-| Alert configuration card | Right now | Latest reported reading |
-| Saved float detail | Re-read against the river right now | Updated with the latest available reading |
+> The current reading is still available, but this chart requires a newer version of Eddy.
 
-### 3.4 Make dam status timestamp-safe
+## Priority 4: Clarify alert and moderation expectations
+
+### 4.1 Describe notification delivery without immediacy
 
 **Files:**
 
-- `eddy-ios/src/components/dam/DamStateCard.tsx`
-- `eddy-ios/src/components/dam/RiverDamPanel.tsx`
-- `eddy-ios/src/components/dam/GenerationSchedule.tsx`
+- `eddy-ios/src/components/PushPrimer.tsx`
+- `eddy-ios/src/lib/notificationCopy.ts`
+- `eddy-ios/src/components/AlertSignInSheet.tsx`
+
+Replace “the moment” and “only when the condition actually changes” with:
+
+> Eddy sends a notification after it detects a reported condition change.
+
+> Sent for detected condition changes, not as a daily digest.
+
+Replace “Only the rivers you follow, on their own schedule” with:
+
+> Notifications are limited to rivers you follow.
+
+### 4.2 Distinguish a saved rule from device delivery readiness
+
+**Files:**
+
+- `eddy-ios/app/river/[slug].tsx`
+- `eddy-ios/app/(tabs)/profile.tsx`
+- `eddy-ios/src/lib/notificationCopy.ts`
+
+“Alerts are on” can be inaccurate when a rule is saved but iOS notifications are denied or device registration has failed.
+
+Use:
+
+- “River alert saved. Tap to remove it.” for the saved rule;
+- “Notifications are ready on this device.” only after permission and registration succeed;
+- “Notifications are allowed. Eddy will retry setup the next time the app opens.” while registration is pending;
+- “Notifications are off in iOS Settings.” when denied.
+
+### 4.3 Correct quiet-hours expectations
+
+**Files:**
+
+- `eddy-ios/app/alerts/quiet-hours.tsx`
+- `eddy-ios/src/components/QuietHoursRow.tsx`
 
 Replace:
 
-- “Generating now” with “Reported generating”
-- “Not generating” with “No generation reported”
-- “Releasing” and “releasing now” with “Reported release”
-- “reading is lagging” with an actual age when available, or “Delayed reading” otherwise
-
-Replace “check the horn” with:
-
-> Heed warning horns and posted safety notices. Do not wade or anchor below a dam when generation may begin.
-
-### 3.5 Clarify access information
-
-**File:** `eddy-ios/app/river/[slug]/access/[accessSlug].tsx`
-
-Replace:
-
-> Access details are community-maintained and can change with the season. Conditions on the ground win.
+> You will still see every change in the Alerts feed.
 
 With:
 
-> Access, fees, and closures can change. Confirm current information before your trip.
+> Recorded river changes may still appear in Alerts.
 
-Only retain “community-maintained” if users can actually submit or maintain these records.
+Use “your signed-in devices” instead of “every device.”
 
-## Phase 4: Humanize and simplify the remaining interface copy
+### 4.4 Avoid unverified service-response promises
 
-### 4.1 Remove em dashes from user-visible prose
+**Files:**
 
-Run a focused inventory across `eddy-ios/app` and `eddy-ios/src`, then review each result manually. Do not blindly replace punctuation inside comments, numeric ranges, or accessibility placeholders.
+- `eddy-ios/src/components/FeedbackSheet.tsx`
+- `eddy-ios/src/components/PhotoSubmitSheet.tsx`
+
+Current copy promises that a person reads every report, checks every photo, and may reply. Confirm the operational workflow before keeping those commitments.
+
+Safer wording:
+
+- “Reports are reviewed.”
+- “Photos are reviewed before publication.”
+- Remove “We'll reply if we need more” unless a reply channel and response process are reliable.
+
+## Priority 5: App-wide punctuation and tone pass
+
+### 5.1 Remove user-visible em dashes
+
+Current `main` contains more than 50 user-visible em-dash constructions across Premium, alerts, profile, storage, map, gauge, dam, access, and photo-submission copy.
+
+Review each occurrence manually. Do not blindly change:
+
+- developer comments;
+- legitimate en-dash ranges;
+- data-derived prose from an external agency;
+- placeholder glyphs without first checking accessibility behavior.
 
 Common transformations:
 
-- Two complete ideas: replace the em dash with a period.
-- Explanation: use a colon.
-- Short aside: rewrite the sentence or use parentheses sparingly.
-- Missing value shown as “—”: use “Unavailable” visually or add an explicit accessibility label.
+- Two complete ideas: use a period.
+- An explanation: use a colon.
+- A short interruption: rewrite the sentence.
+- A missing value shown as `—`: use “Unavailable” visually or provide a clear accessibility label.
 
 Examples:
 
-| Current | Replacement |
+| Current | Recommended |
 | --- | --- |
 | Live conditions unavailable — rivers are shown uncoloured. | Gauge readings are unavailable. Rivers are shown without condition colors. |
-| Everything still works — your stars are kept on this device. | Your favorites remain on this device. Account sync is temporarily unavailable. |
+| Everything still works — your favorites are kept on this device. | Your favorites remain on this device. Account sync is temporarily unavailable. |
 | Alerts are on — tap to turn off | River alert saved. Tap to remove it. |
 | Forecast is river stage in feet — this river is rated in cfs. | The forecast uses river stage in feet. This river's condition rating uses cfs. |
-| Offline storage is full — remove a river to save another. | Offline storage is full. Remove a river before downloading another. |
+| Conditions unavailable — pull to refresh | Conditions are unavailable. Pull to refresh. |
 
-### 4.2 Replace internal or mechanical phrasing
+### 5.2 Replace mechanical phrasing
 
-| Current | Replacement |
+| Current | Recommended |
 | --- | --- |
 | Reading the gauge and driving the shuttle… | Checking conditions and calculating the shuttle route… |
-| It shows up here, re-read against the river every time you open it. | Saved floats appear here and refresh with the latest available river reading when opened. |
-| The rest of the USGS network | Additional USGS gauges |
-| reading only | Readings only. Not Eddy-rated. |
-| Everything else still works. | Name the specific features that remain available. |
-| River conditions change fast. An outdated app could show you the wrong water. | This version no longer supports current condition data. Update Eddy before using it to plan a trip. |
+| Re-read against the river right now | Updated with the latest available gauge reading |
+| It shows up here, re-read against the river every time you open it. | Saved floats appear here and refresh with the latest available reading when opened. |
+| Conditions on the ground win. | Confirm access, fees, and closures before your trip. |
+| An outdated app could show you the wrong water. | This version no longer supports current condition data. Update Eddy before planning a trip. |
 
-### 4.3 Standardize terminology
+### 5.3 Standardize terminology
 
 Use these terms consistently:
 
-- “Favorites,” not a mixture of favorites, stars, and followed items in explanatory prose
+- “Favorites” in explanatory text; reserve “star” for the icon or direct action
 - “Save” and “Remove,” not “Keep,” “Forget,” and “Unstar” in visible text
 - “Gauge reading,” not “the river right now”
-- “Condition rating,” not verdict, call, opinion, or grade unless deliberately branded
-- “cfs” and “ft” for units, with lowercase display styling
+- “Condition rating,” not verdict, call, opinion, or grade unless the brand voice deliberately requires it
+- `cfs` and `ft` for units
 - “Site ID,” not “site id”
-- “iOS Settings” when the action opens app settings
-- “Apple ID settings” only when referring to subscription management
+- “iOS Settings” for app notification permission
+- “Apple ID settings” only for subscription management
 
-## Phase 5: Verification
+## Verification
 
 ### Automated checks
 
-1. Add a copy-lint script or test that flags user-visible em dashes in `.ts` and `.tsx` files.
+1. Add a copy-lint test that flags em dashes in user-visible string and JSX nodes.
 2. Flag high-risk words for manual review: `always`, `never`, `every`, `everything`, `any`, `instant`, `moment`, `live`, `right now`, `accurate`, `safe`, and `guarantee`.
-3. Exclude developer comments, logs, imports, and legitimate numeric ranges from enforcement.
-4. Update existing string assertions and snapshots.
-5. Run `make check-mobile` from the repository root.
-6. Run `make bundle-mobile` from the repository root.
+3. Exclude developer comments, logs, imports, external agency text, and legitimate numeric ranges.
+4. Update existing copy assertions in the web test suite, which also covers iOS pure logic.
+5. Run `make check-mobile`.
+6. Run `make check-web` when shared copy or cross-app tests change.
+7. Run `make bundle-mobile`.
 
 ### Manual review
 
 Review these flows on a physical iPhone in light and dark mode:
 
-1. Premium paywall before and after sign-in
-2. River alert setup, including all three alert kinds
+1. Premium paywall and locked Eddy's Take
+2. River and gauge alert creation, including all condition kinds
 3. Notification permission denied, allowed, and registration-pending states
 4. Quiet hours
-5. Empty and populated Activity feed
-6. Stale gauge and stale dam readings
-7. Offline map download, airplane-mode relaunch, and removal
-8. Saved float refresh and failure states
-9. Access-point details
-10. Forced-upgrade screen
+5. High-water and official-agency Alerts tabs
+6. Fresh, stale, expired, cached, and unavailable readings
+7. Dam generation and release states with old data
+8. Airplane-mode launch after a successful cache refresh
+9. Storage details and clearing saved river data
+10. Saved float refresh and failure states
+11. Access-point details
+12. Feedback and photo submission
+13. Forced-update and native-feature fallback screens
 
-Check for truncation at the largest Dynamic Type setting and confirm that VoiceOver labels do not preserve removed claims.
+Check truncation at the largest Dynamic Type setting. Confirm that VoiceOver labels do not preserve removed claims.
 
 ## Acceptance criteria
 
-- The Premium screen lists only currently paid, currently implemented features.
-- Alerts are not presented as both free and paid.
-- Offline copy does not promise access points or hazards until they work after an offline relaunch.
-- Alert labels match the condition codes that can trigger them.
-- No visible copy promises instant delivery, complete coverage, or guaranteed freshness.
-- Stale readings are never described as happening “now.”
-- Safety copy distinguishes a gauge measurement from conditions across the river.
+- Alert-kind labels match the condition codes that can trigger them.
+- No reading or dam status is described as happening “now” unless freshness is enforced at render time.
+- Premium copy names only the written interpretation that is actually gated.
+- Premium copy does not guarantee a daily rewrite without monitored delivery and stale-content handling.
+- Offline copy reflects automatic cached river data and does not imply offline map backgrounds.
+- Copy does not claim complete USGS, river, hazard, or field-research coverage without evidence.
 - Privacy copy matches Sign in with Apple behavior.
+- Moderation copy does not promise a human response that operations cannot guarantee.
+- Safety copy distinguishes a gauge measurement from conditions across the river.
 - User-visible prose contains no em dashes.
 - U.S. English spelling and terminology are consistent.
-- Mobile checks and the production bundle complete successfully.
+- Mobile, shared, and production-bundle checks pass.
 
 ## Suggested implementation order
 
-1. Paywall and Premium entitlements
-2. Alert-kind labels and alert delivery language
-3. Gauge and dam freshness language
-4. Privacy and safety disclaimers
-5. Activity and quiet-hours claims
-6. App-wide em-dash and tone pass
-7. Accessibility and Dynamic Type review
-8. Automated copy guardrails and final validation
+1. Alert-kind labels and high-water empty states
+2. Gauge and dam freshness language
+3. Sign in with Apple privacy wording
+4. Premium forecast and update-frequency claims
+5. Coverage, offline-cache, and field-research claims
+6. Notification, quiet-hours, and moderation expectations
+7. App-wide em-dash and tone pass
+8. Accessibility and Dynamic Type review
+9. Automated copy guardrails and final validation
