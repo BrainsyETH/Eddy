@@ -247,7 +247,18 @@ export default function MapScreen() {
   // asked" from "none" — see layerCounts.
   const [services, setServices] = useState<RiverService[] | null>(null);
   const [gauges, setGauges] = useState<MapGauge[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  /**
+   * TWO messages, one slot, because they are about two different things.
+   *
+   * They were one `error` string, which is how a failed download and a failed
+   * river list came to share a variable — and therefore how clearing one
+   * cleared the other. A download failure answers a button somebody pressed; a
+   * list failure describes the screen's own state. Keeping them apart is what
+   * lets the list's message be retried and retracted without silently
+   * discarding the other.
+   */
+  const [riversError, setRiversError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   // Copied, not aliased: DEFAULT_LAYERS is a module constant and nothing should
   // be one `push` away from redefining what the app opens with.
@@ -296,16 +307,68 @@ export default function MapScreen() {
   const location = useLocation();
   const router = useRouter();
 
+  /**
+   * The river list, with a retry — and a message that takes itself back down.
+   *
+   * ── The state this fixes ──────────────────────────────────────────────────
+   *
+   * This request is fired once, on mount. Open the app somewhere with no signal
+   * and it fails, which puts a red line under the map. The map itself keeps
+   * working — the network, the put-ins and the hazards are all on disk — so
+   * what the line describes is one failed request rather than a broken screen.
+   *
+   * Then the signal comes back, and the line stays. Nothing on this screen ever
+   * cleared it. It used to be cleared as a SIDE EFFECT of selecting a river,
+   * which was wrong in the other direction — a successful geometry fetch says
+   * nothing about whether the river list is working — and that fetch is gone
+   * anyway.
+   *
+   * So: clear it when the thing it is about succeeds, and try again when the
+   * tab comes forward, which is the moment somebody is looking at the message
+   * and wondering why it is still there.
+   */
+  // A promise chain rather than an async function, so both writes are plainly
+  // inside a callback. An `await` in the body reads to react-hooks as a
+  // setState in the effect that calls it, and this is not one — the response
+  // has to come back first.
+  const loadRivers = useCallback(
+    (signal?: AbortSignal) =>
+      fetchRivers(signal)
+        .then((loaded) => {
+          setRivers(loaded);
+          // The line means "this is not working RIGHT NOW", which it can only
+          // mean if success takes it down.
+          setRiversError(null);
+        })
+        .catch((err: unknown) => {
+          if (err instanceof ApiError && err.message === 'Request cancelled') return;
+          setRiversError(err instanceof ApiError ? err.message : 'Something went wrong');
+        }),
+    [],
+  );
+
   useEffect(() => {
     const controller = new AbortController();
-    fetchRivers(controller.signal)
-      .then(setRivers)
-      .catch((err) => {
-        if (err instanceof ApiError && err.message === 'Request cancelled') return;
-        setError(err instanceof ApiError ? err.message : 'Something went wrong');
-      });
+    void loadRivers(controller.signal);
     return () => controller.abort();
-  }, []);
+  }, [loadRivers]);
+
+  /**
+   * Retry on focus, and ONLY while it is still broken.
+   *
+   * Gated on the error rather than on `rivers === null`, which is also true for
+   * the moment before the first response lands — and the first focus happens
+   * inside that moment, so an unguarded retry would double every cold start's
+   * request. An error showing means the mount fetch has already settled, badly.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (!riversError) return;
+      const controller = new AbortController();
+      void loadRivers(controller.signal);
+      return () => controller.abort();
+    }, [riversError, loadRivers]),
+  );
 
   // Ordered the way someone actually chooses: their starred rivers first, then
   // floatable-first within the rest. floatableRank uses WEEKEND_SEVERITY, the
@@ -994,8 +1057,13 @@ export default function MapScreen() {
 
   const onDownload = useCallback(async () => {
     if (!mapRiver) return;
+    // Cleared on the way IN, for the same reason the river list clears its own
+    // message on success: a failure that has since been retried should not
+    // still be on screen. Without this, one refused download left a red line up
+    // for the rest of the session however many times it later worked.
+    setDownloadError(null);
     const result = await packs.download(mapRiver);
-    if (!result.ok && result.error) setError(result.error);
+    if (!result.ok && result.error) setDownloadError(result.error);
   }, [mapRiver, packs]);
 
   const onRemove = useCallback(async () => {
@@ -1462,9 +1530,12 @@ export default function MapScreen() {
         </View>
       </View>
 
-      {error ? (
+      {/* The download's message wins when both are up: it answers a button the
+          user just pressed, and the list's line will still be there behind it
+          if the list is still failing. */}
+      {downloadError ?? riversError ? (
         <Text style={[styles.errorText, { color: colors.error }]} numberOfLines={2}>
-          {error}
+          {downloadError ?? riversError}
         </Text>
       ) : null}
 
