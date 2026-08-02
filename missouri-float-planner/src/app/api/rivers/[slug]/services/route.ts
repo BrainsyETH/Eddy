@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
 import { parseNpsImages, parseJsonish } from '@/lib/services/npsCampground';
+import { loadAvailability } from '@/lib/camping/read';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,6 +67,11 @@ async function _GET(
       );
     }
 
+    // One read for the whole page. Cached rows only — a river page render never
+    // reaches an upstream booking system, which is what keeps Eddy's outbound
+    // traffic bounded by the nightly cron rather than by its own popularity.
+    const availability = await loadAvailability(supabase);
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const services = (links || [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -114,6 +120,7 @@ async function _GET(
           details: s.details || {},
           isPrimary: link.is_primary,
           sectionDescription: link.section_description,
+          availability: availability.byNearbyServiceId.get(s.id) ?? null,
         };
       });
 
@@ -191,6 +198,7 @@ async function _GET(
           },
           isPrimary: false,
           sectionDescription: null,
+          availability: availability.byNpsCampgroundId.get(cg.id) ?? null,
           isNpsCampground: true,
           totalSites: cg.total_sites,
           sitesReservable: cg.sites_reservable,

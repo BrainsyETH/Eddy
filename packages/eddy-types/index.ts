@@ -364,6 +364,33 @@ export interface NearbyAccessPoint {
  * screen wants to know whether you can book it and roughly how big it is, so
  * that is what crosses the wire here.
  */
+/**
+ * Live availability for the coming weekend, when the server has it.
+ *
+ * OPTIONAL here and required in the website's own copy of this type, for the
+ * same reason `AccessPointDetail.path` is: a TestFlight build outlives the
+ * deploy it was cut against, and a build predating this field must render the
+ * campground block unchanged rather than crash on it.
+ *
+ * Null is the common case — most campgrounds are not linked to a booking
+ * system Eddy can read, and every private outfitter has none at all. Render
+ * nothing when it is absent. A blank slot reads as "not applicable"; the word
+ * "unknown" reads as a broken app.
+ */
+export interface CampsiteAvailabilitySummary {
+  /** Resolved server-side so app and website always describe one weekend. */
+  window: { startDate: string; endDate: string; label: string };
+  /** Sites free for every night of the window, not just the best night. */
+  sitesOpen: number;
+  /** Sites bookable at all. Excludes walk-up inventory. */
+  sitesReservable: number;
+  /** `closed` is seasonal and must not be worded as "fully booked". */
+  status: 'open' | 'full' | 'closed' | 'not_yet_released';
+  kind: 'campground' | 'backcountry_district';
+  source: 'recreation_gov' | 'mo_state_parks';
+  fetchedAt: string;
+}
+
 export interface NpsCampgroundSummary {
   name: string;
   npsUrl: string | null;
@@ -372,6 +399,46 @@ export interface NpsCampgroundSummary {
   totalSites: number;
   sitesReservable: number;
   sitesFirstCome: number;
+  availability?: CampsiteAvailabilitySummary | null;
+}
+
+/**
+ * The sentence an availability line says, or null when it should not appear.
+ *
+ * Duplicated in the website's AvailabilityChip for the reason given in
+ * public-land-style.ts — Vercel installs only missouri-float-planner/, so
+ * shippable web code cannot import this package. A parity test in the web
+ * suite is the guard on that duplication.
+ *
+ * The wording distinctions are the substance. "Closed for the season" and
+ * "fully booked" describe opposite situations to somebody deciding whether to
+ * keep checking for a cancellation, and several Ozark campgrounds close loops
+ * mid-season, so the two really do both occur.
+ */
+export function campsiteAvailabilityLine(
+  availability: CampsiteAvailabilitySummary | null | undefined,
+  name?: string,
+): string | null {
+  if (!availability) return null;
+
+  const { status, sitesOpen, sitesReservable, window, kind } = availability;
+
+  switch (status) {
+    case 'closed':
+      return 'Closed for the season';
+    case 'not_yet_released':
+      return `Not yet bookable · ${window.label}`;
+    case 'full':
+      return `Fully booked · ${window.label}`;
+    case 'open':
+      if (kind === 'backcountry_district') {
+        const where = name ? ` · ${name}` : '';
+        return `${sitesOpen} backcountry ${sitesOpen === 1 ? 'site' : 'sites'} open${where}`;
+      }
+      return `${sitesOpen} of ${sitesReservable} sites open · ${window.label}`;
+    default:
+      return null;
+  }
 }
 
 export interface AccessPointDetail {

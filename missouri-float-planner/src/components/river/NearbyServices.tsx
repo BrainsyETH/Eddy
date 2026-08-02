@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { Phone, Globe, Mail, ShieldCheck, ExternalLink, Tent, ChevronLeft, ChevronRight } from 'lucide-react';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import AvailabilityChip from '@/components/ui/AvailabilityChip';
 import { useNearbyServices } from '@/hooks/useNearbyServices';
 import { EDDY_IMAGES } from '@/constants';
 import { OFFERING_LABELS } from '@/lib/services/offerings';
@@ -151,21 +152,32 @@ function CampgroundCard({ service }: { service: NearbyServiceDirectory }) {
           )}
         </div>
 
-        {/* Site info */}
-        <div className="flex items-center gap-1.5 mt-2 text-xs text-neutral-600">
-          {totalSites > 0 && (
-            <>
-              <Tent className="w-3 h-3 text-neutral-400" />
-              <span>{totalSites} sites</span>
-            </>
-          )}
-          {service.feeRange && (
-            <>
-              {totalSites > 0 && <span className="text-neutral-300">·</span>}
-              <span>{service.feeRange}</span>
-            </>
-          )}
-        </div>
+        {/* Live availability replaces the static count when Eddy has it — the
+            static "62 sites" is inventory, which is a weaker thing to know than
+            how much of it is free this weekend. */}
+        {service.availability ? (
+          <div className="mt-2 space-y-1">
+            <AvailabilityChip availability={service.availability} name={service.name} />
+            {service.feeRange && (
+              <p className="text-xs text-neutral-600">{service.feeRange}</p>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 mt-2 text-xs text-neutral-600">
+            {totalSites > 0 && (
+              <>
+                <Tent className="w-3 h-3 text-neutral-400" />
+                <span>{totalSites} sites</span>
+              </>
+            )}
+            {service.feeRange && (
+              <>
+                {totalSites > 0 && <span className="text-neutral-300">·</span>}
+                <span>{service.feeRange}</span>
+              </>
+            )}
+          </div>
+        )}
 
         {service.seasonalNotes && (
           <p className="text-[10px] text-neutral-500 italic mt-1.5 line-clamp-1">{service.seasonalNotes}</p>
