@@ -343,25 +343,29 @@ Do not pin `RNMapboxMapsVersion` unless you have a reason. `@rnmapbox/maps` 10.3
 pins Mapbox iOS `~> 11.23.1` in its own `package.json`, and overriding it with a
 lower version silently builds against an SDK the library is not tested on.
 
-### Why downloads follow the river instead of its bounding box
+### Adding a screen, and the generated route types
 
-A river's bounding box is a rectangle; a river is a line. Measured against the
-real Current River geometry (632 points):
+`app.json` sets `experiments.typedRoutes`, so expo-router generates the union of
+every route into `.expo/types/router.d.ts` and `router.push()` accepts only
+members of it. That file is **gitignored and generated per machine** — written
+only when the dev server or an export runs.
 
-| Zoom | Plain bounding box | Corridor (10 boxes) |
-|---|---|---|
-| z8–12 | 286 tiles (~10 MB) | 187 (~6 MB) |
-| z8–14 | 3,919 (~134 MB) | 1,237 (~42 MB) |
-| z8–15 | 15,511 (~530 MB) | 4,079 (~139 MB) |
+So a brand-new route can look broken when it is fine:
 
-So the shipped setting is **z8–14 along the corridor, ~42 MB per river**.
+```
+error TS2345: Argument of type '"/storage"' is not assignable to parameter of
+type '"/" | ... | "/floats" | ... 68 more ...'
+```
 
-Two hard limits shape that. Mapbox's default ceiling is **6,000 offline tiles per
-device**, and `setTileCountLimit`'s own documentation says the Mapbox Terms of
-Service prohibit raising it without permission. At z14 that is roughly four
-rivers stored at once, which the UI has to handle by asking someone to remove a
-river. At z15 a *single* river would consume two thirds of the entire device
-allowance — which is the second, decisive reason `MAX_ZOOM` is 14.
+That is a stale declaration, not a bad route. **`make check-mobile` regenerates
+it** whenever a file under `app/` has changed, so run that rather than a bare
+`npx tsc --noEmit`. CI bundles before it typechecks for the same reason — for a
+while the two disagreed in opposite directions, and `src/lib/href.ts` has the
+history.
+
+Reach for `asHref()` only when a path is genuinely assembled at runtime. A
+template literal written inline — ``router.push(`/river/${slug}`)`` — is checked
+properly and needs nothing.
 
 ## Search, layers, and the float plan
 

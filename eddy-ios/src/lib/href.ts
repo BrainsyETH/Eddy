@@ -1,6 +1,6 @@
 // Narrowing a runtime-built path to the type expo-router's typed routes want.
 //
-// ── WHY THIS EXISTS, AND WHY CI NEVER CAUGHT THE ERRORS IT FIXES ──────────
+// ── WHY THIS EXISTS ───────────────────────────────────────────────────────
 //
 // app.json sets `experiments.typedRoutes: true`, so expo-router GENERATES a
 // union of every real route into .expo/types/router.d.ts, and router.push()
@@ -13,12 +13,24 @@
 // could also test it for null, or because the path arrived as a prop) and
 // pushed the variable.
 //
+// ── THE GAP THAT HID THEM, NOW CLOSED ─────────────────────────────────────
+//
 // .expo/ is gitignored and the declaration is only written when the dev server
-// or an export runs. CI installs and typechecks WITHOUT ever generating it, so
-// `Href` degrades to something permissive and the errors do not appear — while
-// any machine that has run `expo start` sees them. Three of these sat green in
-// CI for a week. Ordering the mobile job's bundle step before its typecheck
-// step would close that gap; until then, local is stricter than CI.
+// or an export runs. CI used to install and typecheck WITHOUT ever generating
+// it, so `Href` degraded to something permissive and these errors could not
+// fire — while any machine that had run `expo start` saw them. Three sat green
+// in CI for a week, and later a valid push to a newly added screen failed on a
+// developer's Mac against a declaration generated before that screen existed.
+// The same missing step, failing in both directions.
+//
+// Both are fixed. The mobile CI job now bundles BEFORE it typechecks, and
+// `make check-mobile` regenerates the declaration when a route file changes
+// (see the Makefile's mobile-types target). CI and a laptop now answer the same
+// question with the same inputs.
+//
+// So a TS2345 on router.push is a real error again, in either place. If one
+// looks wrong, regenerate first — `make check-mobile` does it — before reaching
+// for the cast below.
 //
 // ── Why not `Href` ────────────────────────────────────────────────────────
 //
