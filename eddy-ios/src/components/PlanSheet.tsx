@@ -36,7 +36,7 @@ import { saveFloatPlan } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
-import { EddySymbol } from '@/components/EddySymbol';
+import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { Otter } from '@/components/Otter';
 import { PlanResult } from '@/components/PlanResult';
 import type { FloatPlanState } from '@/hooks/useFloatPlan';
@@ -323,10 +323,24 @@ function Breadcrumb({
   onChooseRiver: () => void;
 }) {
   const { colors } = useTheme();
-  const crumbs: { step: 'river' | 'put-in' | 'take-out'; label: string; value?: string }[] = [
-    { step: 'river', label: 'River', value: riverName },
-    { step: 'put-in', label: 'Put-in', value: state.putIn?.name },
-    { step: 'take-out', label: 'Take-out', value: state.takeOut?.name },
+  /**
+   * Each step wears Eddy's own mark for the thing it is asking about.
+   *
+   * A river is Eddy's river; both ends of the float are Eddy's access-point
+   * mark, and they are deliberately THE SAME mark — a put-in and a take-out are
+   * one kind of place, and inventing two drawings would claim a distinction the
+   * data does not make. What separates them is the crumb's own text, which is
+   * either the step's name or the place chosen for it.
+   */
+  const crumbs: {
+    step: 'river' | 'put-in' | 'take-out';
+    label: string;
+    symbol: EddySymbolName;
+    value?: string;
+  }[] = [
+    { step: 'river', label: 'River', symbol: 'river', value: riverName },
+    { step: 'put-in', label: 'Put-in', symbol: 'accessPoint', value: state.putIn?.name },
+    { step: 'take-out', label: 'Take-out', symbol: 'accessPoint', value: state.takeOut?.name },
   ];
 
   return (
@@ -360,10 +374,16 @@ function Breadcrumb({
                comparing two of them side by side, and none whatsoever for
                anyone who cannot distinguish the two greys.
 
-               A bordered chip reads as a control at a glance, and the
-               checkmark says "answered, and you can go back" without a legend.
-               It also gets the state off colour alone, which is the
-               accessibility half of the same fix. */
+               A bordered chip reads as a control at a glance.
+
+               ── The mark took the checkmark's slot ──────────────────
+               A checkmark used to lead an answered crumb, and it cannot share
+               the leading position with the symbol: a third of a phone's width
+               minus a 15pt mark, a 13pt tick and two gaps leaves about eight
+               characters for a place called Meramec State Park. The state is
+               still carried without colour — an answered crumb reads the place
+               and an unanswered one reads the step, which is a stronger signal
+               than a tick was, and its mark is dimmed until it has an answer. */
             style={({ pressed }) => [
               styles.crumb,
               {
@@ -380,7 +400,11 @@ function Breadcrumb({
             accessibilityLabel={`${crumb.label}${crumb.value ? `: ${crumb.value}` : ', not chosen yet'}`}
             accessibilityState={{ selected: current, disabled: !reachable }}
           >
-            {done ? <Ionicons name="checkmark" size={13} color={colors.textMuted} /> : null}
+            <EddySymbol
+              name={crumb.symbol}
+              size={15}
+              style={{ opacity: done || current ? 1 : 0.45 }}
+            />
             <Text style={[styles.crumbValue, { color: ink }]} numberOfLines={1}>
               {crumb.value ?? crumb.label}
             </Text>

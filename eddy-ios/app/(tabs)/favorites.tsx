@@ -44,6 +44,7 @@ import { EddyScene } from '@/components/EddyScene';
 import { FavoriteRiverCard, type GaugeThresholds } from '@/components/FavoriteRiverCard';
 import { GaugeRow } from '@/components/GaugeRow';
 import { DamRow } from '@/components/dam/DamRow';
+import { SwipeRow } from '@/components/SwipeRow';
 import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
@@ -215,140 +216,161 @@ export default function FavoritesScreen() {
             </View>
           ) : null
         }
-        renderItem={({ item }) => {
-          if (item.kind === 'dam') {
-            const dam = damById.get(item.entityId);
-            // No snapshot yet — offline, or /api/dams has not landed. The row
-            // needs one to say anything about generation or release, so the
-            // store's name and lake stand in until it does rather than the row
-            // disappearing from a list the user curated.
-            if (!dam) {
-              // The same store-only fallback the river branch ends with, and
-              // for the same reason: named, tappable, honest about what is
-              // missing. A dam that only exists in the store still opens.
-              return (
-                <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>
-                  <Pressable
-                    onPress={() => router.push(`/dam/${item.entityId}`)}
-                    style={({ pressed }) => [styles.rowBody, { opacity: pressed ? 0.6 : 1 }]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${item.name} details, conditions unavailable`}
-                  >
-                    <Text style={[styles.riverName, { color: colors.text }]}>{item.name}</Text>
-                    <Text style={[styles.riverMeta, { color: colors.textSubtle }]}>
-                      Conditions unavailable — pull to refresh
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => toggleStar(item)}
-                    style={({ pressed }) => [styles.starColumn, { opacity: pressed ? 0.5 : 1 }]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Unstar ${item.name}`}
-                  >
-                    <Ionicons name="star" size={21} color={colors.warm} />
-                  </Pressable>
-                </View>
-              );
-            }
-            return (
-              <DamRow
-                dam={dam}
-                onPress={() => router.push(`/dam/${dam.id}`)}
-                // Everything in this list is starred; the row is what unstars it.
-                starred
-                onToggleStar={() => toggleStar(item)}
-                // The reason somebody starred a dam. /api/dams already carries
-                // today's schedule, so this is a render, not a request.
-                showSchedule
-              />
-            );
-          }
+        renderItem={({ item }) => (
+          /* ── Swipe left to unstar ──────────────────────────────────────
+             The star inside each row already does this, and it is the third
+             control on a card whose first two are "open it" and "open its
+             gauge" — findable, but not the gesture anyone reaches for on a
+             list of saved things. No confirmation: a favourite is local, and
+             putting it back is one tap on the same star.
 
-          if (item.kind === 'gauge') {
-            const gauge = gaugeById.get(item.entityId) ?? null;
-            // The gauge's own primary association names the river, so this does
-            // not depend on the river list having loaded. Falls back to the
-            // river list by slug, and then to nothing.
-            const riverName =
-              gauge?.thresholds?.find((link) => link.isPrimary)?.riverName ??
-              (rivers ?? []).find((r) => r.slug === item.slug)?.name ??
-              null;
-            return (
-              <GaugeRow
-                name={item.name}
-                riverName={riverName}
-                gauge={gauge}
-                // Everything in this list is starred; the row is what unstars it.
-                starred
-                // THE GAUGE, not its river. This used to require `item.slug`
-                // and open the river screen, which meant a starred station that
-                // rates nothing was a dead row — and one that does rate a river
-                // sent you to a page about whichever station is that river's
-                // PRIMARY, which is frequently not the one you starred.
-                //
-                // The seed comes from the store rather than the gauge list, so
-                // a starred national station opens with its name on screen even
-                // though /api/gauges has never returned it.
-                onPress={
-                  item.usgsSiteId
-                    ? () => {
-                        rememberGauge(
-                          gauge ? seedFromMapGauge(gauge) : seedFromStar(item),
-                        );
-                        router.push(`/gauge/${encodeURIComponent(item.usgsSiteId!)}`);
-                      }
-                    : null
-                }
-                onToggleStar={() => toggleStar(item)}
-              />
-            );
-          }
-
-          const river = byId.get(item.entityId);
-          if (river) {
-            return (
-              <FavoriteRiverCard
-                river={river}
-                // From the gauge list this screen already fetches — no request
-                // of its own. Null when the river has no gauge, when none of
-                // its gauges rates IT, or simply when /api/gauges has not
-                // landed; all three are ordinary and the card renders without
-                // the track.
-                thresholds={thresholdsForRiver(gauges, river.id)}
-                onPress={() => router.push(`/river/${item.slug}`)}
-                onToggleStar={() => toggleStar(item)}
-              />
-            );
-          }
-
-          // Store-only fallback: named, tappable, honest about what's missing.
-          return (
-            <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>
-              <Pressable
-                onPress={() => router.push(`/river/${item.slug}`)}
-                style={({ pressed }) => [styles.rowBody, { opacity: pressed ? 0.6 : 1 }]}
-                accessibilityRole="button"
-                accessibilityLabel={`${item.name} details, conditions unavailable`}
-              >
-                <Text style={[styles.riverName, { color: colors.text }]}>{item.name}</Text>
-                <Text style={[styles.riverMeta, { color: colors.textSubtle }]}>
-                  Conditions unavailable — pull to refresh
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => toggleStar(item)}
-                style={({ pressed }) => [styles.starColumn, { opacity: pressed ? 0.5 : 1 }]}
-                accessibilityRole="button"
-                accessibilityLabel={`Unstar ${item.name}`}
-              >
-                <Ionicons name="star" size={21} color={colors.warm} />
-              </Pressable>
-            </View>
-          );
-        }}
+             bottomInset per kind, because the three row components do not
+             share a bottom margin (8, 9 and 10) and the red must end exactly
+             where the row does rather than two points short of it. */
+          <SwipeRow
+            onAction={() => toggleStar(item)}
+            actionLabel="Remove"
+            accessibilityActionLabel={`Remove ${item.name} from favorites`}
+            bottomInset={item.kind === 'dam' ? 8 : item.kind === 'gauge' ? 9 : 10}
+          >
+            {favoriteRow(item)}
+          </SwipeRow>
+        )}
       />
     </SafeAreaView>
   );
+
+  function favoriteRow(item: (typeof starred)[number]) {
+    if (item.kind === 'dam') {
+      const dam = damById.get(item.entityId);
+      // No snapshot yet — offline, or /api/dams has not landed. The row
+      // needs one to say anything about generation or release, so the
+      // store's name and lake stand in until it does rather than the row
+      // disappearing from a list the user curated.
+      if (!dam) {
+        // The same store-only fallback the river branch ends with, and
+        // for the same reason: named, tappable, honest about what is
+        // missing. A dam that only exists in the store still opens.
+        return (
+          <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>
+            <Pressable
+              onPress={() => router.push(`/dam/${item.entityId}`)}
+              style={({ pressed }) => [styles.rowBody, { opacity: pressed ? 0.6 : 1 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.name} details, conditions unavailable`}
+            >
+              <Text style={[styles.riverName, { color: colors.text }]}>{item.name}</Text>
+              <Text style={[styles.riverMeta, { color: colors.textSubtle }]}>
+                Conditions unavailable — pull to refresh
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => toggleStar(item)}
+              style={({ pressed }) => [styles.starColumn, { opacity: pressed ? 0.5 : 1 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Unstar ${item.name}`}
+            >
+              <Ionicons name="star" size={21} color={colors.warm} />
+            </Pressable>
+          </View>
+        );
+      }
+      return (
+        <DamRow
+          dam={dam}
+          onPress={() => router.push(`/dam/${dam.id}`)}
+          // Everything in this list is starred; the row is what unstars it.
+          starred
+          onToggleStar={() => toggleStar(item)}
+          // The reason somebody starred a dam. /api/dams already carries
+          // today's schedule, so this is a render, not a request.
+          showSchedule
+        />
+      );
+    }
+
+    if (item.kind === 'gauge') {
+      const gauge = gaugeById.get(item.entityId) ?? null;
+      // The gauge's own primary association names the river, so this does
+      // not depend on the river list having loaded. Falls back to the
+      // river list by slug, and then to nothing.
+      const riverName =
+        gauge?.thresholds?.find((link) => link.isPrimary)?.riverName ??
+        (rivers ?? []).find((r) => r.slug === item.slug)?.name ??
+        null;
+      return (
+        <GaugeRow
+          name={item.name}
+          riverName={riverName}
+          gauge={gauge}
+          // Everything in this list is starred; the row is what unstars it.
+          starred
+          // THE GAUGE, not its river. This used to require `item.slug`
+          // and open the river screen, which meant a starred station that
+          // rates nothing was a dead row — and one that does rate a river
+          // sent you to a page about whichever station is that river's
+          // PRIMARY, which is frequently not the one you starred.
+          //
+          // The seed comes from the store rather than the gauge list, so
+          // a starred national station opens with its name on screen even
+          // though /api/gauges has never returned it.
+          onPress={
+            item.usgsSiteId
+              ? () => {
+                  rememberGauge(
+                    gauge ? seedFromMapGauge(gauge) : seedFromStar(item),
+                  );
+                  router.push(`/gauge/${encodeURIComponent(item.usgsSiteId!)}`);
+                }
+              : null
+          }
+          onToggleStar={() => toggleStar(item)}
+        />
+      );
+    }
+
+    const river = byId.get(item.entityId);
+    if (river) {
+      return (
+        <FavoriteRiverCard
+          river={river}
+          // From the gauge list this screen already fetches — no request
+          // of its own. Null when the river has no gauge, when none of
+          // its gauges rates IT, or simply when /api/gauges has not
+          // landed; all three are ordinary and the card renders without
+          // the track.
+          thresholds={thresholdsForRiver(gauges, river.id)}
+          onPress={() => router.push(`/river/${item.slug}`)}
+          onToggleStar={() => toggleStar(item)}
+        />
+      );
+    }
+
+    // Store-only fallback: named, tappable, honest about what's missing.
+    return (
+      <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>
+        <Pressable
+          onPress={() => router.push(`/river/${item.slug}`)}
+          style={({ pressed }) => [styles.rowBody, { opacity: pressed ? 0.6 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.name} details, conditions unavailable`}
+        >
+          <Text style={[styles.riverName, { color: colors.text }]}>{item.name}</Text>
+          <Text style={[styles.riverMeta, { color: colors.textSubtle }]}>
+            Conditions unavailable — pull to refresh
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => toggleStar(item)}
+          style={({ pressed }) => [styles.starColumn, { opacity: pressed ? 0.5 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Unstar ${item.name}`}
+        >
+          <Ionicons name="star" size={21} color={colors.warm} />
+        </Pressable>
+      </View>
+    );
+  }
 }
 
 const styles = StyleSheet.create({

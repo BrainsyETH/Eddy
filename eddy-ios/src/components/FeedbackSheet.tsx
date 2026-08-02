@@ -188,6 +188,23 @@ export function FeedbackSheet({ visible, onDismiss, context, defaultType = 'othe
                 </Text>
               ) : null}
 
+              {/* ── Why this line is HERE and not on a tab ────────────────
+                  It is a promise about what happens to a report, so it belongs
+                  in front of the person deciding whether to file one — and this
+                  sheet is the only surface every report goes through, from the
+                  river screen, the gauge screen, an access point, River Reports
+                  and Profile alike. Putting it on any one of those would show
+                  it to a fraction of the people it is addressed to, and putting
+                  it on all of them would be the same sentence five times.
+
+                  It also has to be small. A paragraph about the company on a
+                  form is a form people close; one line above the type chips is
+                  read on the way past. */}
+              <Text style={[styles.nimble, { color: colors.textMuted }]}>
+                We&apos;re new, but nimble. If you see anything worth calling out please let us
+                know and we&apos;ll get it fixed.
+              </Text>
+
               <View style={styles.chips}>
                 {TYPES.map((option) => {
                   const on = option.value === type;
@@ -290,6 +307,9 @@ const styles = StyleSheet.create({
   form: { paddingTop: 10, paddingBottom: 8, gap: 10 },
   title: { ...t.xl, fontFamily: fonts.display },
   about: { ...t.sm, fontFamily: fonts.body, marginTop: -4 },
+  // Sits between the heading and the type chips, so it is read once on the way
+  // into the form rather than sitting over it.
+  nimble: { ...t.xs, fontFamily: fonts.body, lineHeight: 17, marginTop: -2 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1 },
   chipText: { ...t.xs, fontFamily: fonts.medium },

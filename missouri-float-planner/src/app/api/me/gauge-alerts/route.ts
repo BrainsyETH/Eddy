@@ -164,6 +164,15 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Mode-specific validation ───────────────────────────────────────────
+    /**
+     * Is this station the one the RIVER's own verdict is computed from?
+     *
+     * Set while resolving the ladder below and read by the duplicate check
+     * further down, which used to refuse every condition rule on a river the
+     * caller already subscribes to. Only the primary station is genuinely a
+     * duplicate of that subscription — see the check for the full argument.
+     */
+    let pairingIsPrimary = false;
     const insert: Record<string, unknown> = {
       user_id: user.id,
       gauge_station_id: stationId,
@@ -186,7 +195,7 @@ export async function POST(request: NextRequest) {
       // verdict on — so it is a 422 about the gauge, not a 400 about the body.
       const { data: pairing } = await supabase
         .from('river_gauges')
-        .select('id')
+        .select('id, is_primary')
         .eq('river_id', riverId)
         .eq('gauge_station_id', stationId)
         .maybeSingle();
@@ -196,6 +205,8 @@ export async function POST(request: NextRequest) {
           { status: 422 }
         );
       }
+      // Carried down to the duplicate check below, which turns on it.
+      pairingIsPrimary = pairing.is_primary === true;
       insert.condition_kind = kind;
     } else {
       const metric = (body.metric ?? 'gauge_height_ft') as AlertMetric;
@@ -255,10 +266,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // A condition rule on a river the user already has a river alert for would
-    // notify twice about the same transition. Refused rather than silently
-    // deduplicated at send time: the user should know they already have it.
-    if (mode === 'condition' && riverId) {
+    // ── Only the PRIMARY station duplicates a river subscription ───────────
+    //
+    // A river alert is one fact fanned out of the global outbox: the river's
+    // condition, which is computed from its primary gauge alone. A condition
+    // rule on THAT station therefore says exactly what the subscription already
+    // says, and creating both would notify twice about one transition — still
+    // refused, and still refused loudly rather than deduplicated at send time,
+    // because the user should know they already have it.
+    //
+    // A condition rule on any OTHER station the river rates is a different
+    // signal entirely. The Meramec runs 108 miles and is gauged four times;
+    // "Eddy's call at Steelville" and "Eddy's call at Eureka" are different
+    // answers to different questions, and the evaluator already grades each
+    // rule against its own river_gauges ladder (see ladderKey in
+    // gauge-threshold.ts), so nothing downstream needed changing to support it.
+    //
+    // This check used to refuse all of them, which meant the only way to be
+    // told about a second gauge on a river you already watch was to delete the
+    // river alert. That is what made per-gauge alerting impossible in the app.
+    if (mode === 'condition' && riverId && pairingIsPrimary) {
       const { data: existing } = await supabase
         .from('alert_subscriptions')
         .select('id')

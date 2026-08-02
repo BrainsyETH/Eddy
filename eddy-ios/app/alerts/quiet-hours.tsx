@@ -33,38 +33,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import type { NotificationPreferences } from '@eddy/types';
 import { fetchNotificationPreferences, updateNotificationPreferences } from '@/api/client';
+import {
+  DEFAULT_END_MINUTE as DEFAULT_END,
+  DEFAULT_START_MINUTE as DEFAULT_START,
+  deviceTimezone,
+  hourLabel as label,
+  withUsableWindow,
+} from '@/lib/quietHours';
 import { useSession } from '@/hooks/useSession';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
-const DEFAULT_START = 22 * 60;
-const DEFAULT_END = 7 * 60;
-
-function label(minute: number): string {
-  const hour = Math.floor(minute / 60) % 24;
-  const suffix = hour < 12 ? 'am' : 'pm';
-  const display = hour % 12 === 0 ? 12 : hour % 12;
-  return `${display}${suffix}`;
-}
-
 /** 24 whole hours. See the header on why this is not a minute picker. */
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour * 60);
-
-/**
- * The phone's own zone.
- *
- * Read from Intl rather than expo-localization: this is the one fact we need
- * from that module, Hermes ships full ICU, and a new native dependency would
- * cost a rebuild for a one-line lookup. Falls back to the server's default,
- * which is also what an account with no row gets.
- */
-function deviceTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Chicago';
-  } catch {
-    return 'America/Chicago';
-  }
-}
 
 export default function QuietHoursScreen() {
   const router = useRouter();
@@ -111,8 +92,14 @@ export default function QuietHoursScreen() {
   }, [getAccessToken]);
 
   const save = useCallback(
-    async (next: NotificationPreferences) => {
+    async (draft: NotificationPreferences) => {
       const previous = prefs;
+      // The last guard before the wire, and a no-op on a payload that is
+      // already legal — which every one built below is. It exists so that a
+      // future caller here cannot reintroduce the bug the Alerts-tab row had:
+      // enabling the window while its bounds are still null, and taking a 400
+      // that reads on screen as a switch which will not stay on.
+      const next = withUsableWindow(draft, draft.quietHoursEnabled);
       setPrefs(next);
       setError(null);
       setSaving(true);

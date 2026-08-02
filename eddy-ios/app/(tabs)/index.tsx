@@ -99,6 +99,7 @@ import {
   type LayerKey,
 } from '@/map/layers';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
+import { useNetworkAccessPoints } from '@/hooks/useNetworkAccessPoints';
 import { usePublicLands } from '@/hooks/usePublicLands';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
@@ -122,7 +123,6 @@ import { asHref } from '@/lib/href';
 import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
 import { SearchResultsList } from '@/components/SearchResultsList';
-import { MapConditionLegend } from '@/components/MapConditionLegend';
 import { useAccessGaugeStatus } from '@/hooks/useAccessGaugeStatus';
 import {
   LayerNote,
@@ -275,6 +275,9 @@ export default function MapScreen() {
   const [paywallOpen, setPaywallOpen] = useState(false);
 
   const network = useStatewideNetwork();
+  // Every river's put-ins, off the launch bundle already on disk. This is what
+  // lets the opening map answer "where do I get on" before a river is picked.
+  const networkAccess = useNetworkAccessPoints();
   const { isStarred, toggleStar } = useStarredRivers();
   const packs = useOfflinePacks();
   const unavailable = mapUnavailableReason();
@@ -346,7 +349,13 @@ export default function MapScreen() {
     // map unmounts, Mapbox tears down its view, and a spinner replaces a
     // perfectly good river for as long as the network takes. The old river keeps
     // drawing until the new one is ready to replace it in one frame.
-    setSelectedPin(null);
+    //
+    // The callout is dropped with the river it belonged to — EXCEPT when this
+    // selection was caused by tapping a put-in on that very river. Clearing it
+    // there would blink the callout out for the length of a geometry fetch and
+    // then put back the same one, which reads as the tap having failed and been
+    // retried by itself.
+    if (pendingAccessSelection.current?.riverSlug !== slug) setSelectedPin(null);
 
     // The app seeds every river's static data on launch. Read that first so the
     // planner can show put-ins without waiting for geometry or another network
@@ -414,6 +423,25 @@ export default function MapScreen() {
     () => ordered.find((r) => r.slug === drawnSlug) ?? null,
     [ordered, drawnSlug],
   );
+
+  /**
+   * Every river's put-ins, with the drawn river's LIVE list laid over the top.
+   *
+   * The cached half comes off disk and is a monthly-ish snapshot; the live half
+   * is this session's response for the river currently selected. Where both
+   * hold a point, the live one wins — it is the only one of the two that can
+   * reflect a landing added or closed this week.
+   *
+   * Keyed by id rather than concatenated, or every point on the selected river
+   * would be drawn twice: two pins at one coordinate, overlapping 44pt hitboxes
+   * and an arbitrary winner on tap.
+   */
+  const drawnAccessPoints = useMemo(() => {
+    const byId = new Map<string, { point: MapAccessPoint; riverSlug?: string | null }>();
+    for (const entry of networkAccess) byId.set(entry.point.id, entry);
+    for (const point of accessPoints) byId.set(point.id, { point, riverSlug: drawnSlug });
+    return [...byId.values()];
+  }, [networkAccess, accessPoints, drawnSlug]);
 
   // ── Layer data, fetched on demand ───────────────────────────────
   // Nothing below is requested until its layer is on. Hazards and services are
@@ -516,16 +544,23 @@ export default function MapScreen() {
     clearSearch();
     setSelectedPin(null);
     if (result.kind === 'access_point' && result.riverSlug) {
-      const loadedPoint =
-        drawnSlug === result.riverSlug
-          ? accessPoints.find((candidate) => candidate.id === result.id)
-          : null;
-      if (loadedPoint) {
-        setSelectedPin(mapAccessPointPin(loadedPoint, drawnSlug));
-        pendingAccessSelection.current = null;
-      } else {
-        pendingAccessSelection.current = { id: result.id, riverSlug: result.riverSlug };
+      // The whole network's put-ins are on the map now, so this no longer has
+      // to wait for the chosen river's response to open a callout — the point
+      // is almost always already in hand, whichever river it is on. The pending
+      // reference stays for the case it is not: a landing added since the last
+      // bundle, on a river this session has not opened.
+      const known = drawnAccessPoints.find((entry) => entry.point.id === result.id);
+      if (known) {
+        setSelectedPin(mapAccessPointPin(known.point, known.riverSlug ?? result.riverSlug));
       }
+      // Set in BOTH cases, and that is load-bearing. Choosing a result switches
+      // the river below, and the selection effect drops the open callout on a
+      // river change unless this says the callout is the reason for it. Without
+      // it the pin we just set would be cleared one render later — which is the
+      // shape of the bug the statewide layer would otherwise have introduced
+      // into search. When the point was not already held, this is also what
+      // opens it once the river's own response lands.
+      pendingAccessSelection.current = { id: result.id, riverSlug: result.riverSlug };
     } else {
       pendingAccessSelection.current = null;
     }
@@ -573,7 +608,7 @@ export default function MapScreen() {
     } else if (result.kind === 'access_point') {
       setLayers((prev) => (prev.includes('access') ? prev : [...prev, 'access']));
     }
-  }, [accessPoints, clearSearch, drawnSlug]);
+  }, [drawnAccessPoints, clearSearch]);
 
   // ── Float plan ──────────────────────────────────────────────────
   const plannerAccessPoints =
@@ -615,13 +650,21 @@ export default function MapScreen() {
     });
   }, [ordered, plannerDistances, isStarred]);
 
+  /**
+   * The access point behind a pin, and which river it is on.
+   *
+   * Searches the DRAWN set rather than the selected river's response, because
+   * the layer now holds every river's put-ins and a tap on one of the other
+   * twenty-four would otherwise open a callout with no place behind it — no
+   * mile, no photo, no Directions, no "use as put-in".
+   */
   const accessPointForPin = useCallback(
-    (pin: MapPin | null): MapAccessPoint | null => {
+    (pin: MapPin | null): { point: MapAccessPoint; riverSlug?: string | null } | null => {
       if (!pin || !pin.id.startsWith('access:')) return null;
       const accessId = pin.id.replace(/^access:/, '');
-      return accessPoints.find((p) => p.id === accessId) ?? null;
+      return drawnAccessPoints.find((entry) => entry.point.id === accessId) ?? null;
     },
-    [accessPoints],
+    [drawnAccessPoints],
   );
 
   const toggleLayer = useCallback((key: LayerKey) => {
@@ -783,9 +826,13 @@ export default function MapScreen() {
     const placed =
       riverServices?.filter((s) => s.latitude != null && s.longitude != null) ?? null;
     return {
-      // River-scoped. Before a river has been chosen, [] means “not loaded”,
-      // not “Missouri has no access points”.
-      access: drawnSlug ? accessPoints.length : undefined,
+      // Statewide now, and counted from what is actually drawn. It used to be
+      // river-scoped and `undefined` until a river was chosen, which was the
+      // honest reading of a layer that genuinely held nothing until then; the
+      // layer holds every river's put-ins from launch, so the sheet can report
+      // a real number on the opening screen. Still `undefined` while empty —
+      // that is the bundle not having landed, not a state with no landings.
+      access: drawnAccessPoints.length > 0 ? drawnAccessPoints.length : undefined,
       gauges: gauges ? mappableGauges.length : undefined,
       // Viewport-scoped, so it moves as you pan — and `undefined` until the
       // layer has actually been switched on and fetched something, per the rule
@@ -803,8 +850,11 @@ export default function MapScreen() {
       // with the selection.
       dams: dams?.length,
       hazards: riverHazards?.filter(hasCoordinates).length,
+      // The access half counts every drawn put-in tagged `campground`, matching
+      // what the layer emits — see the campgrounds branch in RiverMap's pin
+      // builder, which draws them from the same statewide set.
       campgrounds: placed
-        ? accessPoints.filter(isCampground).length +
+        ? drawnAccessPoints.filter((entry) => isCampground(entry.point)).length +
           placed.filter((s) => s.type === 'campground').length
         : undefined,
       outfitters: placed?.filter((s) => OUTFITTER_SERVICE_TYPES.includes(s.type)).length,
@@ -820,7 +870,7 @@ export default function MapScreen() {
         : undefined,
     };
   }, [
-    accessPoints,
+    drawnAccessPoints,
     gauges,
     mappableGauges,
     dams,
@@ -897,11 +947,45 @@ export default function MapScreen() {
   }, []);
 
   const onLocate = useCallback(async () => {
-    const coords = await location.request();
+    // Falls back to whatever position the hook already holds — which after a
+    // lapsed "Allow Once" grant is the fix remembered from the last session.
+    // Declining the dialog then still recentres the map roughly where you are,
+    // instead of the button doing visibly nothing.
+    const coords = (await location.request()) ?? location.coords;
     if (coords) setFocus({ slug: selectedSlug, lng: coords.lng, lat: coords.lat });
   }, [location, selectedSlug]);
 
-  const pinAccessPoint = accessPointForPin(selectedPin);
+  const pinAccess = accessPointForPin(selectedPin);
+  const pinAccessPoint = pinAccess?.point ?? null;
+
+  /**
+   * Tapping a put-in selects the river it is on.
+   *
+   * The access layer is statewide now, so a tap can land on a river nobody has
+   * chosen — and everything downstream of a put-in is river-scoped: the
+   * planner's put-in and take-out options, the geometry a float is snapped to,
+   * the offline row, the header. Selecting the river is what keeps them
+   * coherent, and it is also what somebody tapping a landing on the Jacks Fork
+   * plainly meant.
+   *
+   * The callout is set in the same breath rather than waiting for the river to
+   * load, and the pending reference is what carries it across the selection
+   * effect's reset — see the effect, which now spares a pin it is about to
+   * re-select anyway.
+   */
+  const onSelectPin = useCallback(
+    (pin: MapPin) => {
+      const entry = accessPointForPin(pin);
+      if (entry?.riverSlug && entry.riverSlug !== selectedSlug) {
+        pendingAccessSelection.current = { id: entry.point.id, riverSlug: entry.riverSlug };
+        setPickedSlug(entry.riverSlug);
+      } else {
+        pendingAccessSelection.current = null;
+      }
+      setSelectedPin(pin);
+    },
+    [accessPointForPin, selectedSlug],
+  );
 
   // The gauge behind a tapped gauge pin. Looked up rather than carried on
   // MapPin, which is a presentation struct — growing it a per-layer field for
@@ -931,7 +1015,7 @@ export default function MapScreen() {
     (siteId: string) => {
       if (pinGauge) rememberGauge(seedFromMapGauge(pinGauge));
       else if (pinReferenceGauge) rememberGauge(seedFromMapGaugeLite(pinReferenceGauge));
-      setSelectedPin(null);
+      // The pin stays selected across the push — see the note above PinCallout.
       router.push(`/gauge/${encodeURIComponent(siteId)}`);
     },
     [pinGauge, pinReferenceGauge, router],
@@ -939,10 +1023,7 @@ export default function MapScreen() {
 
   /** The dam screen. No seed to hand over — it fetches its own snapshot. */
   const onOpenDam = useCallback(
-    (damId: string) => {
-      setSelectedPin(null);
-      router.push(`/dam/${encodeURIComponent(damId)}`);
-    },
+    (damId: string) => router.push(`/dam/${encodeURIComponent(damId)}`),
     [router],
   );
 
@@ -1024,7 +1105,7 @@ export default function MapScreen() {
             network={network.collection}
             networkBounds={network.bounds}
             onSelectRiverSlug={onSelectNetworkRiver}
-            accessPoints={accessPoints}
+            accessPoints={drawnAccessPoints}
             gauges={mappableGauges}
             referenceGauges={referencePins}
             publicLands={publicLands.features}
@@ -1049,10 +1130,7 @@ export default function MapScreen() {
               planner.plan ? { putIn: planner.plan.putIn, takeOut: planner.plan.takeOut } : null
             }
             selectedPinId={selectedPin?.id ?? null}
-            onSelectPin={(pin) => {
-              pendingAccessSelection.current = null;
-              setSelectedPin(pin);
-            }}
+            onSelectPin={onSelectPin}
           />
         )}
 
@@ -1122,6 +1200,19 @@ export default function MapScreen() {
         <View style={styles.bottomStack} pointerEvents="box-none">
           {selectedPin && !search.active ? (
             <View style={styles.calloutWrap} pointerEvents="box-none">
+              {/* ── Going to look at something does not deselect it ──────────
+                  onOpenRiver, onOpenGauge, onOpenDam and onOpenDetail below all
+                  used to clear the pin on the way out, so tapping a put-in,
+                  reading its screen and pressing Back landed you on a map with
+                  nothing selected — the callout gone, the pin no longer ringed,
+                  and no way to carry on with it but to find it among its
+                  neighbours and tap it again. That is a round trip the app
+                  asked for and then discarded the state of.
+
+                  A selection is a place the user is standing. Only the two
+                  things that genuinely leave it put it down: the close button,
+                  and handing an access point to the planner, which replaces the
+                  callout with the plan sheet. */}
               <PinCallout
                 pin={selectedPin}
                 accessPoint={pinAccessPoint}
@@ -1142,16 +1233,10 @@ export default function MapScreen() {
                   setSelectedPin(null);
                   setPlanOpen(true);
                 }}
-                onOpenRiver={(slug) => {
-                  setSelectedPin(null);
-                  router.push(`/river/${slug}`);
-                }}
+                onOpenRiver={(slug) => router.push(`/river/${slug}`)}
                 onOpenGauge={onOpenGauge}
                 onOpenDam={onOpenDam}
-                onOpenDetail={(route) => {
-                  setSelectedPin(null);
-                  router.push(asHref(route));
-                }}
+                onOpenDetail={(route) => router.push(asHref(route))}
                 onClose={() => {
                   setSelectedPin(null);
                   setFocus(null);
@@ -1205,16 +1290,17 @@ export default function MapScreen() {
             </Pressable>
           ) : null}
 
-          {/* ── The legend ───────────────────────────────────────────
-              In the control row rather than free-floating, so it inherits
-              MAP_CHROME_BOTTOM and can never land on the Mapbox wordmark or
-              the (i) — the ornaments this row already exists to clear. It
-              grows UPWARD from the same baseline as Locate, which pushes the
-              callout up rather than covering it, because the stack is a column
-              with no `top`. Hidden while searching, like every other control
-              here: a results list has no map under it to explain. */}
-          {!unavailable && !search.active ? <MapConditionLegend /> : null}
-
+          {/* ── THERE IS NO CONDITION LEGEND HERE ANY MORE ───────────
+              It sat in this row, open by default, on the argument that the map
+              is the one screen where colour works alone and therefore the one
+              screen that owes the reader a key. The argument was sound and the
+              placement was not: a six-row card anchored over the water covered
+              the thing it was explaining, on the surface with the least room to
+              spare, permanently, for a ladder that is paired with its word on
+              every other screen in the app — the Today list, a river screen, an
+              alert, and the callout that opens the moment you tap any pin here.
+              Removed rather than moved: the map has no spare corner, and the
+              layers sheet already carries the marks it toggles. */}
           </View>
         </View>
 
@@ -1979,9 +2065,10 @@ const styles = StyleSheet.create({
   // Bottom-anchored column. MAP_CHROME_BOTTOM clears the Mapbox ornaments,
   // which are a legal obligation and now sit at the map's bottom edge.
   bottomStack: { position: 'absolute', left: 0, right: 0, bottom: MAP_CHROME_BOTTOM, gap: 12 },
-  // flex-end, not center: the legend beside Locate grows upward when it is
-  // open, and centring would push the 44pt button down off its baseline every
-  // time somebody expanded it.
+  // flex-end, not center. Locate is alone in this row now, but the row is still
+  // the bottom edge of a column that grows upward from MAP_CHROME_BOTTOM, and
+  // anything added beside the button must sit on the same baseline rather than
+  // pushing it off one.
   controlRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',

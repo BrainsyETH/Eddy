@@ -20,23 +20,21 @@
 // an unreachable server has not told us the window is off, and a row reading
 // "Alerts can arrive at any time" would be a claim we cannot support.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { NotificationPreferences } from '@eddy/types';
 import { fetchNotificationPreferences, updateNotificationPreferences } from '@/api/client';
+import {
+  DEFAULT_END_MINUTE,
+  DEFAULT_START_MINUTE,
+  hourLabel as label,
+  withUsableWindow,
+} from '@/lib/quietHours';
 import { useSession } from '@/hooks/useSession';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-
-/** Whole hours in, whole hours out — mirrors the picker on the settings screen. */
-function label(minute: number): string {
-  const hour = Math.floor(minute / 60) % 24;
-  const suffix = hour < 12 ? 'am' : 'pm';
-  const display = hour % 12 === 0 ? 12 : hour % 12;
-  return `${display}${suffix}`;
-}
 
 /**
  * The window in one line, including the exception that matters most.
@@ -49,7 +47,7 @@ function label(minute: number): string {
  */
 function summary(prefs: NotificationPreferences): string {
   if (!prefs.quietHoursEnabled) return 'Alerts can arrive at any time';
-  const window = `${label(prefs.quietStartMinute ?? 22 * 60)} – ${label(prefs.quietEndMinute ?? 7 * 60)}`;
+  const window = `${label(prefs.quietStartMinute ?? DEFAULT_START_MINUTE)} – ${label(prefs.quietEndMinute ?? DEFAULT_END_MINUTE)}`;
   return prefs.safetyOverridesQuiet
     ? `Silent ${window}. Safety warnings still come through.`
     : `Silent ${window}`;
@@ -61,6 +59,25 @@ export function QuietHoursRow() {
   const router = useRouter();
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   const [saving, setSaving] = useState(false);
+  /**
+   * Said out loud, because the alternative shipped.
+   *
+   * A failed save reverts the switch, and a switch that springs back with no
+   * word for it is indistinguishable from one that does not work — which is
+   * exactly how this row was experienced. One line under the summary.
+   */
+  const [error, setError] = useState<string | null>(null);
+
+  /**
+   * True while a write is in flight, readable from the focus effect.
+   *
+   * The row refetches whenever the tab comes forward, and returning from the
+   * settings screen does that at the same moment a save started there may still
+   * be in the air. Without this guard the response to a stale GET lands on top
+   * of the state the user just chose and the switch appears to undo itself —
+   * the same symptom as the 400 below, from the other direction.
+   */
+  const writing = useRef(false);
 
   /**
    * Re-read every time the tab comes forward.
@@ -77,7 +94,7 @@ export function QuietHoursRow() {
           const token = await getAccessToken();
           if (!token || controller.signal.aborted) return;
           const next = await fetchNotificationPreferences(token, controller.signal);
-          if (!controller.signal.aborted) setPrefs(next);
+          if (!controller.signal.aborted && !writing.current) setPrefs(next);
         } catch {
           // Silent by design — see the header. The row stays as it was, or
           // stays absent, and the Alerts list behind it is unaffected.
@@ -91,17 +108,33 @@ export function QuietHoursRow() {
     async (next: boolean) => {
       if (!prefs || saving) return;
       const previous = prefs;
+      /**
+       * THE WINDOW IS FILLED IN HERE, and this is the whole of the bug.
+       *
+       * The server refuses `enabled: true` without two differing bounds, and an
+       * account that has never opened the settings screen has none — so this
+       * row used to send `{...prefs, quietHoursEnabled: true}` with two nulls
+       * in it, take a 400, and revert. Silently. See src/lib/quietHours.ts,
+       * which both surfaces now build their payload through.
+       */
+      const payload = withUsableWindow(previous, next);
       // Optimistic, then reverted on failure: a switch that hangs for a round
       // trip reads as broken, and a switch that lies reads as worse.
-      setPrefs({ ...prefs, quietHoursEnabled: next });
+      setPrefs(payload);
+      setError(null);
       setSaving(true);
+      writing.current = true;
       try {
         const token = await getAccessToken();
         if (!token) throw new Error('no session');
-        setPrefs(await updateNotificationPreferences(token, { ...previous, quietHoursEnabled: next }));
+        setPrefs(await updateNotificationPreferences(token, payload));
       } catch {
         setPrefs(previous);
+        setError(
+          next ? 'Could not turn quiet hours on. Try again.' : 'Could not turn quiet hours off.',
+        );
       } finally {
+        writing.current = false;
         setSaving(false);
       }
     },
@@ -125,6 +158,7 @@ export function QuietHoursRow() {
       <View style={styles.body}>
         <Text style={[styles.title, { color: colors.text }]}>Quiet hours</Text>
         <Text style={[styles.hint, { color: colors.textMuted }]}>{summary(prefs)}</Text>
+        {error ? <Text style={[styles.hint, { color: colors.error }]}>{error}</Text> : null}
       </View>
       <Switch
         value={prefs.quietHoursEnabled}

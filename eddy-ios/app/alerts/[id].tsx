@@ -35,6 +35,7 @@ import {
   type AlertSubscriptionKind,
 } from '@eddy/types';
 import { ConditionCodeChips } from '@/components/ConditionCodeChips';
+import { RiverGaugeAlerts } from '@/components/RiverGaugeAlerts';
 import { CONDITION_KINDS, codesForKind } from '@/lib/alertKinds';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -387,6 +388,13 @@ export default function EditAlertScreen() {
             ) : null}
           </>
         )}
+
+        {/* Which gauges on this river, for a river alert. Renders nothing on a
+            gauge rule, and nothing on a river with one gauge — see the
+            component, which is also where the argument for it lives. It sits
+            under the trigger because it answers a different question: the
+            controls above say WHEN, this says WHERE. */}
+        {rule.scope === 'river' ? <RiverGaugeAlerts rule={rule} /> : null}
 
         <Pressable
           onPress={() => setOneShot((v) => !v)}

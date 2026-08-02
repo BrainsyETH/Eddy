@@ -563,11 +563,60 @@ export async function seedOfflineBundle(): Promise<void> {
     }
 
     writeMeta({ bundleEtag: etag, bundleFetchedAt: fetchedAt });
+    // The access points ride out to whoever is drawing them — see the note on
+    // the listener set below. Straight from the payload, not re-read from disk:
+    // writeRiver enqueues, so the disk is behind us by a frame or two here.
+    notifyBundleSeeded(
+      rivers.flatMap((entry) =>
+        entry.slug && entry.accessPoints
+          ? [{ riverSlug: entry.slug, accessPoints: entry.accessPoints }]
+          : [],
+      ),
+    );
   } catch (err) {
     warn('cache', 'could not seed the offline bundle', err);
   } finally {
     deadline.done();
   }
+}
+
+/**
+ * Told when the launch bundle brings in a river's static data.
+ *
+ * ── The one case this exists for ───────────────────────────────────────────
+ *
+ * The Map tab draws every river's access points out of the on-disk cache, which
+ * is instant on the second launch and EMPTY on the first — the bundle is still
+ * in flight while the map paints. Without a signal the map would sit with no
+ * put-ins on it until something else happened to re-render it, which on the
+ * opening screen is nothing at all.
+ *
+ * A listener set rather than a state library because this app has no state
+ * library, and one module-scope Set is a smaller thing to own than a
+ * subscription abstraction with one publisher and one subscriber.
+ */
+type BundleSeededPayload = { riverSlug: string; accessPoints: MapAccessPoint[] }[];
+const bundleListeners = new Set<(payload: BundleSeededPayload) => void>();
+
+function notifyBundleSeeded(payload: BundleSeededPayload): void {
+  if (payload.length === 0) return;
+  for (const listener of bundleListeners) {
+    // One bad listener must not stop the rest, and must never take down a
+    // background seed that has already done its real work.
+    try {
+      listener(payload);
+    } catch (err) {
+      warn('cache', 'a bundle listener threw', err);
+    }
+  }
+}
+
+/** Subscribe. Returns the unsubscribe, for an effect cleanup. */
+export function onOfflineBundleSeeded(
+  listener: (payload: BundleSeededPayload) => void,
+): () => void {
+  bundleListeners.add(listener);
+  return () => bundleListeners.delete(listener);
 }
 
 /**
