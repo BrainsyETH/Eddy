@@ -345,31 +345,40 @@ lower version silently builds against an SDK the library is not tested on.
 
 ### Adding a screen, and the generated route types
 
-Add the file under `app/` and push to it. Then **run `make dev` once**, and the
-reason is worth knowing.
+Add the file under `app/` and push to it. There is no second step — but the
+history is worth knowing, because this used to fail and the failure was
+convincing.
 
 `app.json` sets `experiments.typedRoutes`, so expo-router generates the union of
 every route into `.expo/types/router.d.ts` and `router.push()` accepts only
-members of it. That file is **gitignored and written only by the dev server**.
-Not by `expo export` — that was tried, in both the Makefile and CI, and it
-generates nothing.
-
-So a brand-new route looks broken when it is fine:
+members of it. That file is **gitignored**, and for a long time the **dev
+server** was the only thing that wrote one. So a brand-new route looked broken
+when it was fine:
 
 ```
 error TS2345: Argument of type '"/storage"' is not assignable to parameter of
 type '"/" | ... | "/floats" | ... 68 more ...'
 ```
 
-That is a declaration written before your screen existed. `make dev`, then quit
-it, and the error goes. Do **not** reach for `asHref()` here — it would launder
-a stale artifact into a permanent cast.
+That was a declaration written before your screen existed. The same gap ran the
+other way in CI, which had no declaration at all — so route errors could not
+fire there and never had.
 
-The same gap runs the other way in CI, which has no declaration at all, so
-route errors cannot fire there and never have. What covers both is a plain test
-— `missouri-float-planner/src/lib/ios-routes.test.ts` — which reads the files
-under `app/` and asserts every route the app pushes resolves to one. No Expo, no
-dev server, same answer everywhere. `src/lib/href.ts` has the full history.
+`npm run typecheck` now regenerates the declaration before running `tsc`, via
+`npm run typegen` (`expo customize tsconfig.json` — the supported way into
+Expo's type generation without a dev server; **not** `expo export`, which was
+tried in both the Makefile and CI and generates nothing). It costs about two
+seconds, picks up added *and* deleted routes, and `make check-mobile` and CI
+both go through it. `eddy-ios/package.json` has the detail.
+
+So a TS2345 naming a route is now a real answer: the route is misspelled,
+renamed, or not there. Do **not** reach for `asHref()` to silence it.
+
+Second, independent coverage that owes nothing to Expo:
+`missouri-float-planner/src/lib/ios-routes.test.ts` reads the files under `app/`
+and asserts every route the app pushes resolves to one. It stays, because if
+typed-route generation ever breaks or is turned off the check should not vanish
+with it. `src/lib/href.ts` has the full history.
 
 Reach for `asHref()` only when a path is genuinely assembled at runtime. A
 template literal written inline — ``router.push(`/river/${slug}`)`` — is checked

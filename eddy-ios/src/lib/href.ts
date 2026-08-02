@@ -13,35 +13,38 @@
 // could also test it for null, or because the path arrived as a prop) and
 // pushed the variable.
 //
-// ── THE GAP, AND WHY IT CANNOT BE CLOSED WHERE YOU WOULD EXPECT ───────────
+// ── THE GAP THIS USED TO HAVE, AND WHAT CLOSED IT ─────────────────────────
 //
-// .expo/ is gitignored and the declaration is written ONLY BY THE DEV SERVER.
-// `expo export` does not write it — that was tried, and is the correction to an
-// earlier version of this comment which asserted that ordering the CI job's
-// bundle step before its typecheck step would close the gap. It does not,
-// because there is nothing to order: no step in a fresh checkout ever produces
-// the file.
+// .expo/ is gitignored, so the declaration has no committed copy, and for a
+// long time the DEV SERVER was the only thing that wrote one. The two
+// environments therefore disagreed in opposite directions:
 //
-// So the two environments disagree, in opposite directions, and neither is
-// fixable from CI:
+//   CI       had no declaration at all, so `Href` degraded to something
+//            permissive and route errors COULD NOT FIRE. Three sat green for
+//            a week.
+//   A laptop had whatever its last `expo start` wrote, so a route added since
+//            read as invalid — a correct push to a new screen failing a check
+//            nobody could reproduce.
 //
-//   CI       has no declaration at all, so `Href` degrades to something
-//            permissive and route errors CANNOT FIRE. Three sat green for a
-//            week.
-//   A laptop has whatever its last `expo start` wrote, so a route added since
-//            reads as invalid — a correct push to a new screen failing a check
-//            nobody can reproduce.
+// `npm run typecheck` now regenerates the declaration first, in both places,
+// so both answer the same question about the app/ directory as it is right
+// now. eddy-ios/package.json carries the how and the why. Two dead ends are
+// worth not repeating: `expo export` does not write the file (tried, in the
+// Makefile and in CI, and reverted), and reordering the CI bundle step ahead
+// of the typecheck orders nothing, because no step in a fresh checkout was
+// producing the file at all.
 //
-// The practical consequence: after adding a route, run `make dev` once. A
-// TS2345 naming a route you just created is a stale declaration, not a bad
-// route, and casting it with asHref would be laundering the wrong problem.
+// A TS2345 naming a route is therefore now a real answer, not a stale
+// artifact — the route is misspelled, renamed, or not there. Fix the push or
+// add the screen. Do NOT reach for asHref(): it would launder a genuine
+// failure into a permanent cast.
 //
-// WHAT ACTUALLY COVERS THIS EVERYWHERE is a plain test —
-// missouri-float-planner/src/lib/ios-routes.test.ts — which reads the route
-// files under app/ and asserts every route pushed in the app resolves to one.
-// It needs no Expo, no dev server and no generated artifact, so it gives the
-// same answer in CI as on a laptop. That is the check to trust; typed routes
-// are a local convenience layered on top.
+// SECOND, INDEPENDENT COVERAGE, and the one that owes nothing to Expo:
+// missouri-float-planner/src/lib/ios-routes.test.ts reads the route files
+// under app/ and asserts every route pushed in the app resolves to one. No
+// Expo, no dev server, no generated artifact. It stays because it answers the
+// same question a different way — if typed-route generation ever breaks or is
+// turned off, the check does not vanish with it.
 //
 // ── Why not `Href` ────────────────────────────────────────────────────────
 //

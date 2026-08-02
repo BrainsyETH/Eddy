@@ -25,11 +25,36 @@
   "overrides": {
     "react-dom": "19.2.3"
   },
+  "//typegen": [
+    "app.json sets experiments.typedRoutes, so expo-router generates the union",
+    "of every route into .expo/types/router.d.ts, and tsconfig.json includes it.",
+    ".expo/ is gitignored, so that declaration is a BUILD ARTIFACT with no",
+    "committed copy — and until this script existed, nothing but the dev server",
+    "ever wrote one. That made the two environments disagree in opposite",
+    "directions: a laptop typechecked against whatever its last `expo start`",
+    "left behind, so a route added since read as invalid; CI had no declaration",
+    "at all, so Href degraded to something permissive and route errors could not",
+    "fire there. Running it before tsc gives both the same, current answer.",
+    "",
+    "`expo customize tsconfig.json` looks unrelated and is not. It is the",
+    "supported entry point into the CLI's type generation without a dev server",
+    "or Metro (@expo/cli's own comment in start/server/type-generation/routes.ts",
+    "names this command as the case that reaches it), and it regenerates the",
+    "declaration from the current contents of app/ — additions and deletions",
+    "both. `expo export` does NOT, which is what an earlier attempt at this",
+    "assumed and why it was reverted.",
+    "",
+    "It also rewrites tsconfig.json and expo-env.d.ts to what Expo wants. That",
+    "is the same side effect `expo start` already has, and both are idempotent",
+    "here, so it leaves the tree clean — but a tsconfig diff after a typecheck",
+    "is this, not you."
+  ],
   "scripts": {
     "start": "expo start",
     "ios": "expo run:ios",
     "android": "expo run:android",
-    "typecheck": "tsc --noEmit",
+    "typegen": "expo customize tsconfig.json",
+    "typecheck": "npm run typegen && tsc --noEmit",
     "lint": "expo lint"
   },
   "dependencies": {
