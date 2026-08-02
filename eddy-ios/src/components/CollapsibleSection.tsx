@@ -1,8 +1,8 @@
 // eddy-ios/src/components/CollapsibleSection.tsx
 // A titled section that can be folded away.
 //
-// Extracted from OfflineMapRow, which was the app's only disclosure control and
-// had already settled every question this raises: a pressable summary row, a
+// Extracted from the since-removed offline map row, which was the app's only
+// disclosure control and had already settled every question this raises: a pressable summary row, a
 // chevron that flips, `accessibilityState={{ expanded }}` rather than a hand-
 // written label, and a CONDITIONAL RENDER rather than a height animation — an
 // animated collapse on a list of unknown length is a frame-rate problem for no

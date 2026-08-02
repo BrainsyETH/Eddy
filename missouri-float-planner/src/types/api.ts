@@ -1076,7 +1076,6 @@ export interface NotificationPreferencesResponse {
 
 export interface AppFeatureFlags {
   push: boolean;
-  offlineDownloads: boolean;
   planner: boolean;
   chat: boolean;
 }

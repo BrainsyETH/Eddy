@@ -76,7 +76,7 @@ test('a good envelope round-trips with its payload and timestamp intact', () => 
 
 test('a river key round-trips a hyphenated slug', () => {
   // Every Eddy slug is hyphenated. A colon-delimited key with a naive split is
-  // exactly why riverSlugFromRegionId in @eddy/offline had to grow a regex.
+  // exactly why the offline pack names needed a regex rather than a split.
   for (const slug of ['current', 'north-fork-white', 'big-piney']) {
     assert.equal(slugFromRiverKey(riverKey(slug)), slug);
   }

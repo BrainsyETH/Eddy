@@ -40,7 +40,6 @@ const FALLBACK: AppConfigResponse = {
   upgradeMessage: null,
   features: {
     push: true,
-    offlineDownloads: true,
     planner: true,
     chat: false,
   },
@@ -58,7 +57,11 @@ export async function GET() {
     const { data, error } = await supabase
       .from('app_config')
       .select(
-        'min_supported_version, latest_version, upgrade_message, push_enabled, offline_downloads_enabled, planner_enabled, chat_enabled, min_refresh_seconds, notice'
+        // `offline_downloads_enabled` is deliberately absent: the offline map
+        // download was removed, so the flag has no reader. The COLUMN is left
+        // in place — dropping it needs a migration for no benefit, and a
+        // rollback would want it back.
+        'min_supported_version, latest_version, upgrade_message, push_enabled, planner_enabled, chat_enabled, min_refresh_seconds, notice'
       )
       .maybeSingle();
 
@@ -74,7 +77,6 @@ export async function GET() {
       upgradeMessage: data.upgrade_message,
       features: {
         push: data.push_enabled,
-        offlineDownloads: data.offline_downloads_enabled,
         planner: data.planner_enabled,
         chat: data.chat_enabled,
       },

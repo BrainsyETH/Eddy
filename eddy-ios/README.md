@@ -160,8 +160,7 @@ any other package and Vercel never sees them:
 | Package | Points at | Holds |
 |---|---|---|
 | `@eddy/types` | `../packages/eddy-types` | API contracts shared with the backend |
-| `@eddy/geo` | `../packages/eddy-geo` | Web Mercator tile maths for offline packs |
-| `@eddy/offline` | `../packages/eddy-offline` | offline download planning and budget policy |
+| `@eddy/geo` | `../packages/eddy-geo` | viewport quantisation and navigation-app links |
 | `@eddy/sync` | `../packages/eddy-sync` | favourites reconciliation |
 | `@eddy/hazards` | `../packages/eddy-hazards` | hazard classification |
 | `@eddy/conditions` | `../missouri-float-planner/shared` | the canonical condition system |
@@ -171,13 +170,12 @@ any other package and Vercel never sees them:
 alias. Adding a `package.json` beside it lets this app consume the same file
 without moving it or touching those imports.
 
-`eddy-geo` and `eddy-offline` are shared rather than app-local for a specific
-reason: they are pure, they hold the download-size *policy*, and they need tests.
-The app has no test runner yet, so the alternative was re-implementing them
-inside a web test — the duplicate-then-drift pattern this repo has already been
-bitten by. They are covered by `src/lib/geo-tiles.test.ts` and
-`src/lib/offline-plan.test.ts` in the web app, which imports them by relative
-path. Their own imports are relative for the same reason: both Metro and the
+`eddy-geo` is shared rather than app-local for a specific reason: it is pure and
+it needs tests. The app has no test runner yet, so the alternative was
+re-implementing it inside a web test — the duplicate-then-drift pattern this repo
+has already been bitten by. It is covered by `src/lib/geo-tiles.test.ts` and
+`src/lib/geo-viewport.test.ts` in the web app, which import it by relative
+path. Its own imports are relative for the same reason: both Metro and the
 web's plain `tsx` runner have to resolve them.
 
 ### These used to be path aliases. Do not put them back.
@@ -599,31 +597,32 @@ CDN-cached endpoint the website depends on, the gauge is used as a point known
 to be on the river. Both surfaces say "≈" and "away", never a drive time — an
 Ozark river forty miles off can be ninety minutes of two-lane.
 
-### Offline downloads are the paid line
+### There is no offline map download
 
-The download control is a quiet row (`src/components/OfflineMapRow.tsx`), not a
-CTA. It used to be a full-width coral button pinned under the map, which made
-"download 12 MB of tiles" the loudest thing on a screen whose job is showing
-where the river is — shouted at every person on wifi at home, days from needing
-it.
+Eddy used to sell a per-river Mapbox tile download as its Premium feature. It
+was removed, and the reasoning is worth keeping because it is the kind of thing
+that gets proposed again.
 
-The expanded description names the three things that survive losing signal — the
-map, the put-ins, the hazards — and stops. It used to also explain how much of
-the Ozarks has no cell coverage, and that the pack follows the river corridor
-rather than a bounding box: the first is something anyone who floats here already
-knows, and the second is an engineering decision whose outcome the size label
-already reports. The storage bar reads as a percentage for the same reason —
-nobody outside this codebase knows how many map tiles is a lot.
+The download saved basemap tiles and **nothing else**. Everything that actually
+makes a river readable with no signal — put-ins, hazards, the river line, the
+last reading — is seeded free for all 25 rivers on every launch with a
+connection (`seedOfflineBundle`, see `src/lib/riverCache.ts`). So the paid
+feature sold the least valuable half, and the giveaway test showed it: download
+a river, switch on airplane mode, relaunch, and everything still worked. The
+button looked like it had done nothing because almost nothing was what it did.
 
-The lock is shown **before** the tap, and the entitlement check **fails open**:
-an unreachable `/api/me/profile` means "unknown", not "not subscribed". Telling
-a paying customer on one bar of signal that their offline maps are locked is a
-worse outcome than letting an unsubscribed one press a button that needs a
-connection anyway.
+The stronger version — computing a float time on the phone from the cached river
+mile and last reading — is genuinely feasible and was scoped. It was not worth
+the maintenance surface for one person, so the feature went instead of growing.
+
+What this leaves: the basemap is blank with no signal, and every other part of a
+river screen still renders. `src/map/packSweep.ts` deletes the tile packs left
+on phones that downloaded one, once per install.
 
 What stays free, online or off: conditions, gauge readings, hazards, and the
-float plan itself. See `PaywallSheet` for the same list and why safety data can
-never sit behind a wall.
+float plan itself. Eddy's written read is now the **only** entitlement gate in
+the app — see `PaywallSheet` for the list and why safety data can never sit
+behind a wall.
 
 ## Builds (EAS)
 

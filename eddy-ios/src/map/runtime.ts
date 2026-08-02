@@ -58,7 +58,7 @@ export function mapUnavailableReason(): MapUnavailableReason | null {
 // `any` on purpose. The module is only ever reached through a runtime `require`,
 // so importing its types here would defeat the point of the lazy load. The
 // typed surface is the components in RiverMap.tsx and the calls in
-// useOfflinePacks.ts, which is where a wrong shape would actually show up.
+// packSweep.ts, which is where a wrong shape would actually show up.
 type MapboxModule = any;
 
 let cached: MapboxModule | null = null;
