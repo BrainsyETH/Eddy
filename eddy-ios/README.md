@@ -345,23 +345,31 @@ lower version silently builds against an SDK the library is not tested on.
 
 ### Adding a screen, and the generated route types
 
+Add the file under `app/` and push to it. Then **run `make dev` once**, and the
+reason is worth knowing.
+
 `app.json` sets `experiments.typedRoutes`, so expo-router generates the union of
 every route into `.expo/types/router.d.ts` and `router.push()` accepts only
-members of it. That file is **gitignored and generated per machine** — written
-only when the dev server or an export runs.
+members of it. That file is **gitignored and written only by the dev server**.
+Not by `expo export` — that was tried, in both the Makefile and CI, and it
+generates nothing.
 
-So a brand-new route can look broken when it is fine:
+So a brand-new route looks broken when it is fine:
 
 ```
 error TS2345: Argument of type '"/storage"' is not assignable to parameter of
 type '"/" | ... | "/floats" | ... 68 more ...'
 ```
 
-That is a stale declaration, not a bad route. **`make check-mobile` regenerates
-it** whenever a file under `app/` has changed, so run that rather than a bare
-`npx tsc --noEmit`. CI bundles before it typechecks for the same reason — for a
-while the two disagreed in opposite directions, and `src/lib/href.ts` has the
-history.
+That is a declaration written before your screen existed. `make dev`, then quit
+it, and the error goes. Do **not** reach for `asHref()` here — it would launder
+a stale artifact into a permanent cast.
+
+The same gap runs the other way in CI, which has no declaration at all, so
+route errors cannot fire there and never have. What covers both is a plain test
+— `missouri-float-planner/src/lib/ios-routes.test.ts` — which reads the files
+under `app/` and asserts every route the app pushes resolves to one. No Expo, no
+dev server, same answer everywhere. `src/lib/href.ts` has the full history.
 
 Reach for `asHref()` only when a path is genuinely assembled at runtime. A
 template literal written inline — ``router.push(`/river/${slug}`)`` — is checked

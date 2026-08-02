@@ -13,24 +13,35 @@
 // could also test it for null, or because the path arrived as a prop) and
 // pushed the variable.
 //
-// ── THE GAP THAT HID THEM, NOW CLOSED ─────────────────────────────────────
+// ── THE GAP, AND WHY IT CANNOT BE CLOSED WHERE YOU WOULD EXPECT ───────────
 //
-// .expo/ is gitignored and the declaration is only written when the dev server
-// or an export runs. CI used to install and typecheck WITHOUT ever generating
-// it, so `Href` degraded to something permissive and these errors could not
-// fire — while any machine that had run `expo start` saw them. Three sat green
-// in CI for a week, and later a valid push to a newly added screen failed on a
-// developer's Mac against a declaration generated before that screen existed.
-// The same missing step, failing in both directions.
+// .expo/ is gitignored and the declaration is written ONLY BY THE DEV SERVER.
+// `expo export` does not write it — that was tried, and is the correction to an
+// earlier version of this comment which asserted that ordering the CI job's
+// bundle step before its typecheck step would close the gap. It does not,
+// because there is nothing to order: no step in a fresh checkout ever produces
+// the file.
 //
-// Both are fixed. The mobile CI job now bundles BEFORE it typechecks, and
-// `make check-mobile` regenerates the declaration when a route file changes
-// (see the Makefile's mobile-types target). CI and a laptop now answer the same
-// question with the same inputs.
+// So the two environments disagree, in opposite directions, and neither is
+// fixable from CI:
 //
-// So a TS2345 on router.push is a real error again, in either place. If one
-// looks wrong, regenerate first — `make check-mobile` does it — before reaching
-// for the cast below.
+//   CI       has no declaration at all, so `Href` degrades to something
+//            permissive and route errors CANNOT FIRE. Three sat green for a
+//            week.
+//   A laptop has whatever its last `expo start` wrote, so a route added since
+//            reads as invalid — a correct push to a new screen failing a check
+//            nobody can reproduce.
+//
+// The practical consequence: after adding a route, run `make dev` once. A
+// TS2345 naming a route you just created is a stale declaration, not a bad
+// route, and casting it with asHref would be laundering the wrong problem.
+//
+// WHAT ACTUALLY COVERS THIS EVERYWHERE is a plain test —
+// missouri-float-planner/src/lib/ios-routes.test.ts — which reads the route
+// files under app/ and asserts every route pushed in the app resolves to one.
+// It needs no Expo, no dev server and no generated artifact, so it gives the
+// same answer in CI as on a laptop. That is the check to trust; typed routes
+// are a local convenience layered on top.
 //
 // ── Why not `Href` ────────────────────────────────────────────────────────
 //
