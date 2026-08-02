@@ -17,16 +17,18 @@
 // ── The rule this file enforces ─────────────────────────────────────────────
 //
 // NAME ONLY WHAT IS ACTUALLY GATED. Grep the app for entitlement checks and
-// there is exactly one: EddyTake, the written read on a river. That is the
-// list. It is not a stylistic preference — a subscription page that advertises
+// there is exactly one: EddyTake — and since Aug 2026 it gates the whole card,
+// the written read, the weather paragraph and the bottom line together. That is
+// the list. It is not a stylistic preference — a subscription page that advertises
 // something the reader already has is both a lie and a bad trade, and this
 // paywall has made that mistake twice:
 //
 //   * It sold "a push when a river becomes floatable" and "follow as many
 //     rivers as you like" when both were free.
-//   * It sold "the last 72 hours and weather ahead" when GaugeChart has no
-//     entitlement check at all and EddyTake's own header says the Bottom line
-//     and Weather are safety calls that stay free.
+//   * It sold "the last 72 hours and weather ahead" when the 72-hour strip has
+//     never had an entitlement check and is rendered before the gate on
+//     purpose. What IS sold is Eddy's writing about the forecast, which is a
+//     different thing and has to be worded as one.
 //   * It sold the offline map download, which no longer exists.
 //
 // premium-copy.test.ts asserts no entry here mentions a free capability, so the
@@ -34,8 +36,11 @@
 //
 // ── What is never gated ─────────────────────────────────────────────────────
 //
-// Conditions, gauge readings, hazards, alerts, and the float plan. Safety data
-// behind a paywall is a liability, and the free tier is the whole funnel.
+// Conditions, gauge readings, the trend, hazards, agency notices, the 72-hour
+// forecast strip, alerts, and the float plan. Safety data behind a paywall is a
+// liability, and the free tier is the whole funnel. Note the split the weather
+// bullet below has to respect: the forecast NUMBERS are free, Eddy's reading of
+// them is not.
 
 export interface PremiumBenefit {
   /** An EddySymbol name — see src/components/EddySymbol.tsx. */
@@ -48,15 +53,20 @@ export interface PremiumBenefit {
 /**
  * The one thing a subscription buys, plus the thanks.
  *
- * Two entries, and the shortness is the point. A list padded to four with
- * things that are free reads as generous and is the opposite; a list of one
- * real thing is a trade someone can actually evaluate.
+ * The whole of Eddy's take, in the two halves a reader would name separately,
+ * plus the thanks. The shortness is the point: a list padded out with things
+ * that are free reads as generous and is the opposite.
  */
 export const PREMIUM_BENEFITS: PremiumBenefit[] = [
   {
     symbol: 'eddyRated',
-    title: "Eddy's daily take",
-    body: "The full written report on the river — what the water is doing and why — rewritten every morning. The bottom line stays free.",
+    title: "Eddy's take on every river",
+    body: "The full written report — what the water is doing, what the weather is about to do to it, and Eddy's bottom line. Rewritten every morning.",
+  },
+  {
+    symbol: 'weather',
+    title: 'What the forecast means for the water',
+    body: 'Not a weather app — the rain, the heat and the river trend read together into one call on whether it holds.',
   },
   {
     symbol: 'heart',
@@ -106,7 +116,7 @@ export function premiumPitch(riverName?: string | null): string {
  * worth trusting about what is not.
  */
 export const PREMIUM_FREE_NOTE =
-  'River conditions, gauge readings, hazard information, alerts and float plans are always free — and the last ones you saw stay on your phone when the signal goes.';
+  'River conditions, gauge readings, the trend, hazard information, alerts and float plans are always free — and the last ones you saw stay on your phone when the signal goes.';
 
 /**
  * Forecast uncertainty, on the screen that takes money for the outlook.
