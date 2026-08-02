@@ -16,10 +16,17 @@
 // free warning was unreachable, and the app asked for `kind: 'floatable'`, which
 // matches no warning anyway. Alerting is free in its entirety now.
 //
-// So is the offline map download, in the sense that it no longer exists — it
-// was removed rather than kept as a thin paid line. That leaves exactly ONE
-// entitlement gate in the app: EddyTake, Eddy's written read on a river.
-// Commentary, never the water.
+// EDDY'S TAKE IS NOW GATED WHOLE — the written read, the weather paragraph and
+// the bottom line together, where the first of the three used to be sold alone.
+// The list above is unchanged by that and is what makes it defensible: the
+// condition band, the reading, the trend, the hazards, the agency notices, the
+// 72-hour strip and every alert are facts about the river and stay free. What
+// is sold is Eddy's writing about them. See the header of EddyTake.
+//
+// AND IT IS NOW THE ONLY GATE. The offline map download was this sheet's other
+// trigger; it was removed rather than kept as a thin paid line, because it sold
+// basemap tiles while the half that makes a river readable without a signal
+// shipped free to everyone. One gate, one thing sold.
 //
 // EVERY STRING ON THIS SHEET COMES FROM src/lib/premiumCopy.ts. It is not
 // centralised for tidiness: the gauge screen carried a second, contradictory

@@ -35,6 +35,7 @@ import {
   type LadderRow,
   type StateUpdate,
 } from '@/lib/alerts/gauge-threshold';
+import { isRuleLive, parentIdsOf } from '@/lib/alerts/gating';
 import { toNum } from '@/lib/utils/num';
 import { logger } from '@/lib/logger';
 
@@ -46,13 +47,16 @@ const LOCK_STALE_SECONDS = 90;
 
 /** PostgREST caps a page at 1,000 rows; paging is not optional above that. */
 const PAGE = 1000;
+/** Parent ids per `in` filter, bounded by the request line's length. */
+const PARENT_CHUNK = 200;
 /** State writes run in small parallel batches rather than one at a time. */
 const WRITE_CONCURRENCY = 10;
 
 const SUBSCRIPTION_COLUMNS =
   'id, user_id, gauge_station_id, river_id, mode, condition_kind, metric, comparator, ' +
   'threshold_value, threshold_value_max, enabled, one_shot, last_state, last_value, ' +
-  'last_reading_at, last_triggered_at, one_shot_fired_at, last_condition_code';
+  'last_reading_at, last_triggered_at, one_shot_fired_at, last_condition_code, ' +
+  'parent_subscription_id';
 
 /**
  * Every enabled rule.
@@ -89,6 +93,51 @@ async function loadSubscriptions(
     }
     if (rows.length < PAGE) return out;
   }
+}
+
+/**
+ * Which parent river alerts are paused.
+ *
+ * A SEPARATE QUERY rather than an embed. The embed reads better and would fold
+ * into the paged select above, but it would also make every page of this pass
+ * depend on PostgREST resolving a foreign key through its schema cache — and
+ * this is the query that decides whether somebody's flood alert is evaluated.
+ * A plain `in` on ids the previous query already returned has no such failure
+ * mode, and it is skipped entirely when nothing is parented, which is the
+ * common case.
+ *
+ * The PAUSED set, not the live one, so an id this cannot resolve is absent and
+ * therefore ungating. See isRuleLive on why failing open is right here.
+ */
+async function loadPausedParents(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  subscriptions: GaugeAlertSubscription[],
+): Promise<Set<string>> {
+  const ids = parentIdsOf(subscriptions);
+  const paused = new Set<string>();
+  if (ids.length === 0) return paused;
+
+  // Chunked against the URL-length ceiling PostgREST inherits from the request
+  // line: `in` becomes a query parameter, and a few hundred uuids is already a
+  // long one.
+  for (let from = 0; from < ids.length; from += PARENT_CHUNK) {
+    const { data, error } = await supabase
+      .from('alert_subscriptions')
+      .select('id')
+      .in('id', ids.slice(from, from + PARENT_CHUNK))
+      .eq('enabled', false);
+
+    // Logged, not thrown. A failure here must not take the whole pass down —
+    // every rule it would have gated is one the user asked for, and the worst
+    // outcome of proceeding is a notification somebody muted arriving anyway.
+    if (error) {
+      logger.error('[evaluate-gauge-alerts] could not read parent alerts', error);
+      return paused;
+    }
+    for (const row of data ?? []) paused.add(row.id as string);
+  }
+  return paused;
 }
 
 /**
@@ -185,9 +234,32 @@ async function run(request: NextRequest) {
 
   const startedAt = Date.now();
   try {
-    const subscriptions = await loadSubscriptions(supabase);
-    if (subscriptions.length === 0) {
+    const loaded = await loadSubscriptions(supabase);
+    if (loaded.length === 0) {
       return NextResponse.json({ ok: true, subscriptions: 0, fired: 0 });
+    }
+
+    /**
+     * The parent gate, applied BEFORE anything else reads this list.
+     *
+     * A gauge alert created from a river alert's edit screen belongs to it, and
+     * pausing that alert has to stop this one — without writing to it. Writing
+     * is what the app used to do, and it destroyed the very states the user
+     * would want back on resume; the gate leaves every child's `enabled`
+     * untouched, so resuming the parent restores the group exactly as it was
+     * with nothing remembered anywhere.
+     *
+     * Gated rules are dropped here rather than passed to the planner with a
+     * flag, so a gated child behaves EXACTLY like one the user paused itself,
+     * down to its crossing state freezing. Two flavours of "paused" would be a
+     * second concept to hold, and the freeze is a property of pausing rather
+     * than of this mechanism — see the header of gating.ts.
+     */
+    const pausedParents = await loadPausedParents(supabase, loaded);
+    const subscriptions = loaded.filter((s) => isRuleLive(s, pausedParents));
+    const gated = loaded.length - subscriptions.length;
+    if (subscriptions.length === 0) {
+      return NextResponse.json({ ok: true, subscriptions: 0, gated, fired: 0 });
     }
 
     const stationIds = [...new Set(subscriptions.map((s) => s.gauge_station_id))];
@@ -225,6 +297,9 @@ async function run(request: NextRequest) {
     const summary = {
       ok: true,
       subscriptions: subscriptions.length,
+      // Reported so a "my alert stopped" can be answered from the logs rather
+      // than from the database.
+      gated,
       stations: stationIds.length,
       readings: readings.size,
       fired: plan.fired.length,

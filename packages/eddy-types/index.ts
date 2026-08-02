@@ -1418,6 +1418,27 @@ export interface AlertRule {
    */
   curated: boolean;
 
+  /**
+   * The river alert this rule was created from, when it was created from one.
+   *
+   * ── What it changes for a client ─────────────────────────────────────────
+   *
+   * A parented rule is GATED by its parent: pausing the river alert stops this
+   * one from firing, without touching its own `enabled`. So a list that draws
+   * children under their parent must draw a child of a paused parent as
+   * unavailable rather than as on — its switch is true and it will not fire,
+   * and only this field explains why. Deleting the parent deletes it too, by
+   * cascade.
+   *
+   * Null is the ordinary case: a rule set from the gauge screen, a custom level,
+   * anything on the national tier. Those stand alone and are governed by nothing
+   * but themselves.
+   *
+   * Always null on a river_condition rule — a river alert has no parent, and it
+   * is the thing other rules point AT.
+   */
+  parentId: string | null;
+
   /** Condition mode only. */
   conditionKind: AlertSubscriptionKind | null;
 

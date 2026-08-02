@@ -155,6 +155,16 @@ export function RiverGaugeAlerts({ rule }: Props) {
           // this is that alert extended to another station — not a new
           // decision. It is editable afterwards like any other rule.
           conditionKind: (rule.conditionKind ?? 'all') as AlertSubscriptionKind,
+          // WHAT MAKES IT A CHILD, and the reason this screen can promise the
+          // river alert governs it. Sent only from here: the same rule created
+          // on the gauge screen is somebody's own alert and must not be
+          // silenced by a river subscription it has nothing to do with.
+          //
+          // Guarded on `source` because this section is only ever rendered
+          // inside a river-condition alert, and a gauge rule's id would name a
+          // row in the wrong table — which the server and the database would
+          // both refuse, but as a 400 rather than as a thing we never sent.
+          parentSubscriptionId: rule.source === 'river_condition' ? rule.id : undefined,
         });
         // Straight into the list, so the switch stays on without a refetch and
         // the new rule is immediately visible on the Alerts tab.
@@ -168,7 +178,17 @@ export function RiverGaugeAlerts({ rule }: Props) {
         setBusyId(null);
       }
     },
-    [riverId, ruleFor, remove, getAccessToken, rule.riverSlug, rule.conditionKind, add],
+    [
+      riverId,
+      ruleFor,
+      remove,
+      getAccessToken,
+      rule.riverSlug,
+      rule.conditionKind,
+      rule.source,
+      rule.id,
+      add,
+    ],
   );
 
   // Nothing to say on a river with one gauge: the alert above IS that gauge,
@@ -179,11 +199,15 @@ export function RiverGaugeAlerts({ rule }: Props) {
     <>
       <Text style={[styles.sectionLabel, { color: colors.textSubtle }]}>Gauges on this river</Text>
       <Text style={[styles.intro, { color: colors.textMuted }]}>
-        {/* Says what the river alert actually watches. Without this the extra
-            switches read as optional detail rather than as the answer to
-            "which part of the river is this about". */}
+        {/* Says what the river alert actually watches, and — since the Alerts
+            tab started nesting these under their river — where the switch you
+            are about to flick shows up. Without the first sentence the extra
+            switches read as optional detail rather than as the answer to "which
+            part of the river is this about"; without the second, switching one
+            on looked like it had done nothing. */}
         This alert follows {rule.riverName ?? 'the river'}&apos;s main gauge. Switch on any other
-        one to be told about its stretch too, graded on its own levels.
+        one to be told about its stretch too, graded on its own levels — it appears under this
+        alert on the Alerts tab.
       </Text>
 
       {gauges === null ? (

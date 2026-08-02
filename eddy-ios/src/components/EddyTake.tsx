@@ -18,6 +18,25 @@
 //                the condition chip above already shows the band in full colour,
 //                so restating it would spend the loudest line on a repeat.
 //
+// ── ALL THREE ARE PAID NOW, and it is one gate rather than three ────────────
+//
+// Weather and Bottom line used to be free, on the reasoning that they are
+// safety calls. That carve-out is withdrawn: the whole card is Eddy's
+// commentary, and selling a third of it while giving away the two thirds that
+// summarise the same water made the offer incoherent — the paywall was
+// advertising a report whose conclusion the reader already had.
+//
+// WHAT KEEPS THIS HONEST is what is NOT in this card. Every fact a decision
+// actually needs is above it and stays free forever: the condition band in full
+// colour, the reading and its age, the trend, the hazard list, the NWS and NPS
+// notices on the Alerts tab, and every alert. The 72-hour strip below — rain,
+// temperature and the official forecast stage — is also free, deliberately, and
+// is rendered before the gate for that reason. Nobody is short of information
+// about the water; what is sold is Eddy's writing about it.
+//
+// One lock, not three. Three lock rows over three consecutive sections is the
+// same wall drawn three times, and it reads as nagging rather than as an offer.
+//
 // BOTTOM LINE CLOSES rather than opens. It used to lead, on the reasoning that
 // the answer should come first — but the reading card directly above this
 // already gives the answer in colour, and leading with it here meant the card
@@ -78,7 +97,7 @@ interface EddyTakeProps {
    * flash looked like a bug to everyone else. Loading renders a skeleton.
    */
   entitled?: boolean | null | 'pending';
-  /** Opens the paywall. Only ever called from the locked read. */
+  /** Opens the paywall. Only ever called from the locked take. */
   onUpgrade?: () => void;
 }
 
@@ -250,100 +269,112 @@ export function EddyTake({
         <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
           <Text style={[styles.takeHeading, { color: colors.textMuted }]}>EDDY&apos;S TAKE</Text>
 
-          {/* No top rule: this is the first section in the card, and the two
-              below separate themselves from what precedes them. */}
-          <View>
-            <View style={styles.sectionHead}>
-              <EddySymbol name="aiAssistant" size={17} />
-              <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>EDDY&apos;S READ</Text>
+          {/* THE WHOLE CARD IS THE GATE — see the header for what stays free
+              and why that is enough to make this defensible.
+
+              `locked` is entitled === false, never a falsy check: unknown
+              entitlement shows the take. See the prop's comment.
+
+              The skeleton comes FIRST because it is the only branch that is
+              safe while the answer is unknown-but-coming. Showing the take and
+              retracting it leaks the paid thing; showing the lock and
+              retracting it accuses a subscriber of not paying. */}
+          {resolving ? (
+            <View accessibilityLabel="Loading Eddy's take">
+              {[0.92, 1, 0.84, 0.66].map((width, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.skeletonLine,
+                    { backgroundColor: colors.cardRaised, width: `${width * 100}%` },
+                  ]}
+                />
+              ))}
             </View>
-
-            {/* THE ONE PAID THING ON THIS SCREEN, and deliberately the only one.
-                PaywallSheet's own header lists what must never sit behind it —
-                condition colours and readings, hazards, safety alerts — and
-                Bottom line and Weather below are safety calls, so they stay
-                free no matter what this returns. What is sold here is the long
-                written report: several paragraphs a model wrote about this
-                river this morning. Nobody is stranded for want of it.
-
-                `locked` is entitled === false, never a falsy check: unknown
-                entitlement shows the read. See the prop's comment.
-
-                The skeleton comes FIRST because it is the only branch that is
-                safe while the answer is unknown-but-coming. Showing the read
-                and retracting it leaks the paid thing; showing the lock and
-                retracting it accuses a subscriber of not paying. */}
-            {resolving ? (
-              <View accessibilityLabel="Loading Eddy's read">
-                {[0.92, 1, 0.84].map((width, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.skeletonLine,
-                      { backgroundColor: colors.cardRaised, width: `${width * 100}%` },
-                    ]}
-                  />
-                ))}
+          ) : locked ? (
+            <Pressable
+              onPress={onUpgrade}
+              disabled={!onUpgrade}
+              style={({ pressed }) => [
+                styles.lock,
+                { backgroundColor: colors.cardRaised, opacity: pressed ? 0.7 : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Unlock Eddy's take"
+            >
+              <Ionicons name="lock-closed" size={15} color={colors.accent} />
+              <View style={styles.lockText}>
+                <Text style={[styles.lockTitle, { color: colors.text }]}>
+                  Unlock Eddy&apos;s take
+                </Text>
+                {/* NAMES THE THREE SECTIONS, because the card no longer draws
+                    their headings and a lock over an unlabelled space sells
+                    nothing. */}
+                <Text style={[styles.lockBody, { color: colors.textMuted }]}>
+                  The full written report on this river, what the weather is about
+                  to do to it, and Eddy&apos;s bottom line — rewritten every morning.
+                </Text>
+                {/* Says what is NOT behind it, on the screen where that claim can
+                    be checked by looking up. A paywall straight about the free
+                    half is the only kind worth trusting about the paid one. */}
+                <Text style={[styles.lockFree, { color: colors.textSubtle }]}>
+                  The condition, the reading, hazards and alerts stay free.
+                </Text>
               </View>
-            ) : locked ? (
-              <Pressable
-                onPress={onUpgrade}
-                disabled={!onUpgrade}
-                style={({ pressed }) => [
-                  styles.lock,
-                  { backgroundColor: colors.cardRaised, opacity: pressed ? 0.7 : 1 },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Unlock Eddy's read"
-              >
-                <Ionicons name="lock-closed" size={15} color={colors.accent} />
-                <View style={styles.lockText}>
-                  <Text style={[styles.lockTitle, { color: colors.text }]}>
-                    Unlock Eddy&apos;s read
-                  </Text>
-                  <Text style={[styles.lockBody, { color: colors.textMuted }]}>
-                    The full written report on this river, updated daily.
+              <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
+            </Pressable>
+          ) : (
+            <>
+              {/* No top rule: this is the first section in the card, and the two
+                  below separate themselves from what precedes them. */}
+              <View>
+                <View style={styles.sectionHead}>
+                  <EddySymbol name="aiAssistant" size={17} />
+                  <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+                    EDDY&apos;S READ
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
-              </Pressable>
-            ) : read ? (
-              <Text style={[styles.sectionText, { color: colors.textMuted }]}>{read}</Text>
-            ) : null}
-          </View>
-
-          <View style={[styles.section, { borderTopColor: colors.border }]}>
-            <View style={styles.sectionHead}>
-              <EddySymbol name="weather" size={17} />
-              <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>WEATHER</Text>
-            </View>
-            <Text style={[styles.sectionText, { color: colors.textMuted }]}>
-              {sections.watchFor}
-            </Text>
-            {outlook.isGuidance ? (
-              <Text style={[styles.caveat, { color: colors.textSubtle }]}>
-                Weather outlook; future river levels are not predicted.
-              </Text>
-            ) : null}
-          </View>
-
-          <View style={[styles.section, { borderTopColor: colors.border }]}>
-            <View style={[styles.bottomLine, { borderLeftColor: colors.accent }]}>
-              <View style={styles.sectionHead}>
-                <Otter mood="favicon" size={18} style={styles.bottomLineOtter} />
-                <Text style={[styles.sectionLabel, { color: colors.accent }]}>BOTTOM LINE</Text>
+                {read ? (
+                  <Text style={[styles.sectionText, { color: colors.textMuted }]}>{read}</Text>
+                ) : null}
               </View>
-              <Text style={[styles.bottomLineText, { color: colors.text }]}>
-                {sections.bottomLine}
-              </Text>
-            </View>
-          </View>
 
-          {outlook.gaugeName ? (
-            <Text style={[styles.attribution, { color: colors.textSubtle }]}>
-              via {outlook.gaugeName}
-            </Text>
-          ) : null}
+              <View style={[styles.section, { borderTopColor: colors.border }]}>
+                <View style={styles.sectionHead}>
+                  <EddySymbol name="weather" size={17} />
+                  <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>WEATHER</Text>
+                </View>
+                <Text style={[styles.sectionText, { color: colors.textMuted }]}>
+                  {sections.watchFor}
+                </Text>
+                {outlook.isGuidance ? (
+                  <Text style={[styles.caveat, { color: colors.textSubtle }]}>
+                    Weather outlook; future river levels are not predicted.
+                  </Text>
+                ) : null}
+              </View>
+
+              <View style={[styles.section, { borderTopColor: colors.border }]}>
+                <View style={[styles.bottomLine, { borderLeftColor: colors.accent }]}>
+                  <View style={styles.sectionHead}>
+                    <Otter mood="favicon" size={18} style={styles.bottomLineOtter} />
+                    <Text style={[styles.sectionLabel, { color: colors.accent }]}>
+                      BOTTOM LINE
+                    </Text>
+                  </View>
+                  <Text style={[styles.bottomLineText, { color: colors.text }]}>
+                    {sections.bottomLine}
+                  </Text>
+                </View>
+              </View>
+
+              {outlook.gaugeName ? (
+                <Text style={[styles.attribution, { color: colors.textSubtle }]}>
+                  via {outlook.gaugeName}
+                </Text>
+              ) : null}
+            </>
+          )}
         </View>
       ) : null}
     </View>
@@ -394,7 +425,8 @@ const styles = StyleSheet.create({
   },
   lockText: { flex: 1, minWidth: 0 },
   lockTitle: { ...t.sm, fontFamily: fonts.semibold },
-  lockBody: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  lockBody: { ...t.xs, fontFamily: fonts.body, marginTop: 2, lineHeight: 17 },
+  lockFree: { ...t.xs, fontFamily: fonts.medium, marginTop: 5 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   sectionLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6 },
   sectionText: { ...t.sm, fontFamily: fonts.body, marginTop: 5 },

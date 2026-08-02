@@ -12,3 +12,4 @@ successor), `historical` (context only), `open` (recorded but not yet decided).
 | [0003](0003-conditions-package-lives-in-web-tree.md) | Canonical conditions package lives at `missouri-float-planner/shared/` | active |
 | [0004](0004-easignore-is-an-allowlist.md) | `.easignore` is an allowlist and a security boundary | active |
 | [0005](0005-gauge-alert-one-shot-spend.md) | A gauge alert's one shot is spent by delivery, not evaluation | active |
+| [0006](0006-gauge-alerts-belong-to-a-river-alert.md) | A gauge alert can name the river alert it was created from, and is gated by it | active |

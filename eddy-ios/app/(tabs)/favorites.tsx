@@ -41,6 +41,7 @@ import { fetchDams, fetchGauges, fetchRivers } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
+import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { FavoriteRiverCard, type GaugeThresholds } from '@/components/FavoriteRiverCard';
 import { GaugeRow } from '@/components/GaugeRow';
 import { DamRow } from '@/components/dam/DamRow';
@@ -66,22 +67,52 @@ import { useRouter } from 'expo-router';
  *
  * Returns null freely: no gauge, no ladder, or the list simply has not landed.
  */
-function thresholdsForRiver(
+function gaugeForRiver(
   gauges: MapGauge[] | null,
   riverId: string,
-): GaugeThresholds | null {
+): { gauge: MapGauge; link: GaugeThresholds } | null {
   if (!gauges) return null;
 
-  let fallback: GaugeThresholds | null = null;
+  let fallback: { gauge: MapGauge; link: GaugeThresholds } | null = null;
   for (const gauge of gauges) {
     for (const link of gauge.thresholds ?? []) {
       if (link.riverId !== riverId) continue;
-      if (link.isPrimary) return link;
-      fallback ??= link;
+      if (link.isPrimary) return { gauge, link };
+      fallback ??= { gauge, link };
     }
   }
   return fallback;
 }
+
+/**
+ * Which kinds a favourite list can be narrowed to.
+ *
+ * ── Why a filter at all, and why THIS one ───────────────────────────────────
+ *
+ * Favorites is the one list in the app the user built by hand, and it is
+ * heterogeneous by design: rivers, individual stations and dam releases sit in
+ * one scroll because they are all "things I check". Past a dozen that becomes a
+ * scroll rather than a dashboard, and the cut people actually want is by kind —
+ * "just show me my gauges" — because the three kinds answer different questions
+ * and are read at different sizes.
+ *
+ * Not a condition filter. Two of the three kinds have no condition at all (a
+ * national gauge has a percentile, a dam has a schedule), so a chip row of
+ * floatability verdicts would narrow one third of the list and silently drop
+ * the rest — the same mistake the Today tab's scopes exist to avoid. See the
+ * header of app/(tabs)/reports.tsx on why vocabularies must not be mixed.
+ *
+ * The row hides itself below two kinds: a filter offering one real choice is a
+ * control pretending to be a decision, and this screen is small by nature.
+ */
+type FavoriteKind = 'river' | 'gauge' | 'dam';
+type FavoriteFilter = 'all' | FavoriteKind;
+
+const FAVORITE_FILTERS: { key: FavoriteKind; label: string }[] = [
+  { key: 'river', label: 'Rivers' },
+  { key: 'gauge', label: 'Gauges' },
+  { key: 'dam', label: 'Dams' },
+];
 
 export default function FavoritesScreen() {
   const { starred, toggleStar, ready } = useStarredRivers();
@@ -95,6 +126,7 @@ export default function FavoritesScreen() {
   // failure, so there is no "not yet loaded" state to distinguish.
   const [dams, setDams] = useState<DamSnapshot[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState<FavoriteFilter>('all');
 
   // Errors are swallowed on purpose. A failed enrichment must not produce an
   // error state on a screen whose whole promise is that it works offline.
@@ -154,10 +186,37 @@ export default function FavoritesScreen() {
       .join(' · ');
   }, [starred]);
 
+  /**
+   * The chips, and only the kinds actually held.
+   *
+   * Counts off the WHOLE starred list rather than the filtered one — the rule
+   * every chip row in this app follows, because a count computed after
+   * filtering reads 0 on every chip but the live one. See FilterChips.
+   *
+   * A kind with nothing in it gets no chip at all: on a screen the user
+   * assembled themselves, "Dams 0" is the app telling somebody about a feature
+   * rather than about their own list.
+   */
+  const kindChips: FilterChip[] = useMemo(() => {
+    const present = FAVORITE_FILTERS.map(({ key, label }) => ({
+      key,
+      label,
+      icon: undefined,
+      count: starred.filter((s) => s.kind === key).length,
+    })).filter((chip) => chip.count > 0);
+    if (present.length < 2) return [];
+    return [{ key: 'all', label: 'All', count: starred.length }, ...present];
+  }, [starred]);
+
+  const visible = useMemo(
+    () => (filter === 'all' ? starred : starred.filter((s) => s.kind === filter)),
+    [starred, filter],
+  );
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <FlatList
-        data={starred}
+        data={visible}
         keyExtractor={(item) => `${item.kind}:${item.entityId}`}
         refreshControl={
           <RefreshControl
@@ -199,6 +258,25 @@ export default function FavoritesScreen() {
                 <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
               </Pressable>
             ) : null}
+
+            {/* Full-bleed rather than inside the header's 20pt gutter: the chip
+                row scrolls horizontally and has to be able to run to the screen
+                edge, which is why it takes its own padding. */}
+            {kindChips.length > 0 ? (
+              <View style={styles.chipRow}>
+                <FilterChips
+                  chips={kindChips}
+                  active={[filter]}
+                  // Single-select, and tapping the live chip returns to All —
+                  // the same contract the Today tab's chips have, so the two
+                  // rows do not behave differently for looking identical.
+                  onToggle={(key) =>
+                    setFilter((prev) => (prev === key ? 'all' : (key as FavoriteFilter)))
+                  }
+                  paddingHorizontal={20}
+                />
+              </View>
+            ) : null}
           </View>
         }
         ListEmptyComponent={
@@ -207,11 +285,12 @@ export default function FavoritesScreen() {
               {/* "No favorite rivers yet?" — the heart is the screen. */}
               <EddyScene name="heart" size={128} />
               <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                No favorite rivers yet?
+                {starred.length > 0 ? 'Nothing of that kind' : 'No favorite rivers yet?'}
               </Text>
               <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
-                Tap the star on any river or gauge to save it to your favorites. No account
-                needed — favorites are kept on this device and will sync when you sign in.
+                {starred.length > 0
+                  ? 'Tap the live chip again to see everything you have saved.'
+                  : 'Tap the star on any river or gauge to save it to your favorites. No account needed — favorites are kept on this device and will sync when you sign in.'}
               </Text>
             </View>
           ) : null
@@ -331,15 +410,17 @@ export default function FavoritesScreen() {
 
     const river = byId.get(item.entityId);
     if (river) {
+      // From the gauge list this screen already fetches — no request of its
+      // own. Null when the river has no gauge, when none of its gauges rates
+      // IT, or simply when /api/gauges has not landed; all three are ordinary
+      // and the card renders without the track or the station name.
+      const rated = gaugeForRiver(gauges, river.id);
       return (
         <FavoriteRiverCard
           river={river}
-          // From the gauge list this screen already fetches — no request
-          // of its own. Null when the river has no gauge, when none of
-          // its gauges rates IT, or simply when /api/gauges has not
-          // landed; all three are ordinary and the card renders without
-          // the track.
-          thresholds={thresholdsForRiver(gauges, river.id)}
+          thresholds={rated?.link ?? null}
+          // WHICH STATION THE NUMBER CAME FROM. See the card.
+          gaugeName={rated?.gauge.name ?? null}
           onPress={() => router.push(`/river/${item.slug}`)}
           onToggleStar={() => toggleStar(item)}
         />
@@ -389,6 +470,9 @@ const styles = StyleSheet.create({
   },
   floatsText: { ...t.sm, fontFamily: fonts.semibold, flex: 1 },
   floatsCount: { ...t.sm, fontFamily: fonts.mono },
+  // Cancels the header's own 20pt gutter so the scrolling chip row is
+  // full-bleed; FilterChips re-applies the same 20 as content padding.
+  chipRow: { marginHorizontal: -20, marginTop: 6, marginBottom: -6 },
   empty: { alignItems: 'center', paddingHorizontal: 40, paddingTop: 40 },
   emptyTitle: { ...t.lg, fontFamily: fonts.semibold, marginTop: 10 },
   emptyBody: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },

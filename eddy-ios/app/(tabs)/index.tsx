@@ -97,7 +97,6 @@ import { fonts, type as t } from '@/theme/typography';
 import { mapAccessPointPin, RiverMap, type MapPin } from '@/map/RiverMap';
 import { mapUnavailableReason } from '@/map/runtime';
 import {
-  DEFAULT_LAYERS,
   MAP_LAYERS,
   OUTFITTER_SERVICE_TYPES,
   PUBLIC_LAND_ATTRIBUTION,
@@ -134,6 +133,7 @@ import {
   MapLayersSheet,
   isDefaultLayers,
 } from '@/components/MapLayersSheet';
+import { defaultMapLayers, readMapLayers, writeMapLayers } from '@/lib/mapPreferences';
 import {
   GaugeFilterBar,
   applyGaugeFilters,
@@ -252,9 +252,40 @@ export default function MapScreen() {
   const [riversError, setRiversError] = useState<string | null>(null);
 
   // Copied, not aliased: DEFAULT_LAYERS is a module constant and nothing should
-  // be one `push` away from redefining what the app opens with.
-  const [layers, setLayers] = useState<LayerKey[]>(() => [...DEFAULT_LAYERS]);
+  // be one `push` away from redefining what the app opens with. Replaced by
+  // whatever this device last chose, once that comes back off disk — see below.
+  const [layers, setLayers] = useState<LayerKey[]>(defaultMapLayers);
   const [layersOpen, setLayersOpen] = useState(false);
+
+  /**
+   * Restore the layer set this phone was last using.
+   *
+   * ── Why the flag, which looks redundant and is not ───────────────────────
+   *
+   * Restoring is asynchronous and toggling is not, so a tap that lands in the
+   * ~50ms before AsyncStorage answers would be overwritten by the answer —
+   * rare, unreproducible on demand, and it looks exactly like the bug this
+   * whole change exists to fix. `restored` closes that window: once a real
+   * choice has been made or the read has landed, the read cannot apply again.
+   *
+   * Defaults stay on screen for that window rather than a spinner. The map is
+   * the slowest screen in the app to become useful and it must not also wait
+   * on a key-value read to draw anything.
+   */
+  const layersRestored = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    void readMapLayers().then((stored) => {
+      if (cancelled || layersRestored.current) return;
+      layersRestored.current = true;
+      // Null means this device has never chosen. An EMPTY ARRAY is a choice —
+      // somebody switched everything off — and is restored as one.
+      if (stored) setLayers(stored);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   // THERE IS NO CONDITION FILTER HERE ANY MORE, and the removal was the point
   // rather than a casualty of one. A filter narrows a set you are reading; the
   // network is not a list, it is a picture, and its colours already answer the
@@ -786,11 +817,39 @@ export default function MapScreen() {
     [drawnAccessPoints],
   );
 
-  const toggleLayer = useCallback((key: LayerKey) => {
-    setLayers((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  /**
+   * Write-through on every change, including the reset.
+   *
+   * Inside the updater rather than in an effect on `layers`: an effect would
+   * also fire for the restore itself, writing back what it had just read, and
+   * would race the restore's own guard. Here the only writes are the ones a
+   * person caused.
+   *
+   * Fire and forget — writeMapLayers never rejects, and a map that draws
+   * correctly and forgets is a smaller failure than one that stalls on a
+   * key-value write. Reset persists too: "put it back how it was" is a choice
+   * like any other, and one that did not survive a relaunch would be the same
+   * bug from the other direction.
+   */
+  const commitLayers = useCallback((next: LayerKey[]) => {
+    layersRestored.current = true;
+    void writeMapLayers(next);
+    return next;
   }, []);
 
-  const resetLayers = useCallback(() => setLayers([...DEFAULT_LAYERS]), []);
+  const toggleLayer = useCallback(
+    (key: LayerKey) => {
+      setLayers((prev) =>
+        commitLayers(prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]),
+      );
+    },
+    [commitLayers],
+  );
+
+  const resetLayers = useCallback(
+    () => setLayers(commitLayers(defaultMapLayers())),
+    [commitLayers],
+  );
 
   // /api/gauges is statewide, and the map now draws all of it.
   //
