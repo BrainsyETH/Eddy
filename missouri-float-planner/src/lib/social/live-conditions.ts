@@ -143,7 +143,35 @@ export async function buildLiveConditionsMap(
     const ageHours = reading?.reading_timestamp
       ? (Date.now() - new Date(reading.reading_timestamp).getTime()) / (1000 * 60 * 60)
       : null;
-    const live = computeCondition(heightFt, thresholds, dischargeCfs);
+    // ── strictUnit: a dead sensor may not be graded against the other unit ──
+    //
+    // computeCondition's default is a CROSS-UNIT FALLBACK — a gauge with no
+    // value in its rated unit is graded against whatever number it does carry.
+    // That is a reasonable default for a display call site, which wants to show
+    // something. This is not one. What comes out of here decides whether a
+    // river's prose is still true and whether the statewide summary is served,
+    // and for those "we cannot say" is an answer while a number compared to the
+    // wrong ladder is a lie.
+    //
+    // It has already told one. The Elk River is rated in feet, its stage sensor
+    // returned USGS's -999999 no-data sentinel on 27 April and has published
+    // nothing since, and the fallback graded its last estimated discharge —
+    // 1,720 cfs — against a 6-FOOT flood line and returned 'dangerous'. Every
+    // request, for months. That verdict is what withheld the statewide summary
+    // from the app's launch screen until the gate learned to ignore stale
+    // readings; this stops it being manufactured in the first place.
+    //
+    // SAME RULE, SAME WORDS as elevatedGauges in /api/high-water, which is the
+    // other place a bad grade here becomes a safety claim. The two must not
+    // disagree about what a dead sensor means.
+    //
+    // The river stays IN the map with an 'unknown' verdict rather than being
+    // dropped from it, which matters: overlayLiveConditions passes an unmatched
+    // row through UNCHANGED, so removing a river here would serve its prose with
+    // no live reconciliation at all. 'unknown' is a wildcard for the class
+    // comparison and the reading is still aged, so a dead gauge's prose is
+    // blanked by proseTooStale exactly as it was.
+    const live = computeCondition(heightFt, thresholds, dischargeCfs, { strictUnit: true });
     result.set(slug, {
       condition_code: live.code,
       gauge_height_ft: toNum(heightFt),
