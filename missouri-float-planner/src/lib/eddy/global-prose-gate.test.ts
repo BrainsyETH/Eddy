@@ -113,6 +113,35 @@ test('an unknown prose-time condition counts against it too', () => {
   assert.deepEqual(verdict, { show: false, reason: 'flood-since-generation' });
 });
 
+test('a dangerous river whose reading is stale is not counted against it', () => {
+  // The second shipped bug, stated as a test. A retired river's gauge lost its
+  // stage sensor in April; the display-side cross-unit fallback graded its
+  // discharge against a flood line in feet and called it dangerous every day
+  // after, and because that river has no Eddy update of its own the clause
+  // above fired. The statewide summary went missing from the app's launch
+  // screen indefinitely, over water nobody had measured in three months.
+  const verdict = gateGlobalProse({
+    generatedAt: WRITTEN,
+    live: [
+      { conditionCode: 'flowing', conditionWhenWritten: 'flowing' },
+      { conditionCode: 'dangerous', conditionWhenWritten: null, stale: true },
+    ],
+    now: NOW,
+  });
+  assert.deepEqual(verdict, { show: true });
+});
+
+test('a stale flag does not excuse a river that is actually flooding', () => {
+  // The narrowness of the rule above: `stale` is about the READING, and a
+  // fresh reading in flood still hides prose written before it.
+  const verdict = gateGlobalProse({
+    generatedAt: WRITTEN,
+    live: [{ conditionCode: 'dangerous', conditionWhenWritten: 'high', stale: false }],
+    now: NOW,
+  });
+  assert.deepEqual(verdict, { show: false, reason: 'flood-since-generation' });
+});
+
 test('stale prose is hidden even with nothing wrong on the water', () => {
   const verdict = gateGlobalProse({
     generatedAt: WRITTEN,

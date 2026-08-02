@@ -163,10 +163,164 @@ function buildBottomLine(condition: ConditionCode): string {
   }
 }
 
-function significantRainDays(outlook: RiverOutlookState): OutlookWeatherDay[] {
-  return outlook.days
-    .map((day) => day.weather)
-    .filter((day): day is OutlookWeatherDay => day != null && day.precipitation >= SIGNIFICANT_RAIN_CHANCE);
+// ── The Weather section, written the way somebody would say it ──────────────
+//
+// This used to be one canned sentence out of six, and five of the six ended
+// "recheck the gauge before launch" — so the panel labelled WEATHER read as a
+// disclaimer with a variable in it. Worse, it never once mentioned the weather:
+// no temperature, no heat, and a 60% chance of rain was silently rounded to
+// "no major change signal" because only 70%-and-up counted as a signal at all.
+// On a Missouri river in July the forecast high is the single most consequential
+// number on the screen, and this section was the only place it could have gone.
+//
+// So the section is composed rather than selected: the sky, then the heat when
+// there is any, then what any of it means for the water. Each part is present
+// only when it has something to say, and the closing advice is phrased by the
+// branch that earned it instead of being stapled to all six.
+//
+// STILL DETERMINISTIC, and still refusing to invent a river response. Rain is
+// reported as rain — the one thing this must never do is turn a precipitation
+// percentage into a promise about a gauge, which is why the rain branch talks
+// about when to LOOK rather than about what the river will do. The only
+// forward-looking claim about water anywhere in here is the NWS's own published
+// hydrograph, attributed to the NWS.
+
+const FULL_WEEKDAY: Record<string, string> = {
+  Sun: 'Sunday',
+  Mon: 'Monday',
+  Tue: 'Tuesday',
+  Wed: 'Wednesday',
+  Thu: 'Thursday',
+  Fri: 'Friday',
+  Sat: 'Saturday',
+};
+
+/**
+ * How a person names a day out loud.
+ *
+ * The two nearest ones by their relation to now — nobody standing on a gravel
+ * bar on Wednesday says "Wed" when they mean today — and everything past that
+ * by its full name rather than the three-letter form the strip above uses. The
+ * strip is a table with seven characters of width per column; this is a
+ * sentence.
+ */
+function spokenDay(index: number, dayOfWeek: string | null | undefined): string {
+  if (index === 0) return 'today';
+  if (index === 1) return 'tomorrow';
+  if (!dayOfWeek) return 'later this week';
+  return FULL_WEEKDAY[dayOfWeek] ?? dayOfWeek;
+}
+
+/** "today", "today and Thursday", "today, Thursday and Friday". */
+function listDays(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? '';
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/** "highs around 88°" / "highs 84–91°". Null when no day carries a forecast. */
+function highsClause(days: OutlookWeatherDay[]): string | null {
+  if (days.length === 0) return null;
+  const highs = days.map((day) => day.tempHigh);
+  const low = Math.min(...highs);
+  const high = Math.max(...highs);
+  return low === high ? `highs around ${low}°` : `highs ${low}–${high}°`;
+}
+
+interface DatedDay {
+  name: string;
+  weather: OutlookWeatherDay | null;
+  conditionCode: ConditionCode | null;
+}
+
+/**
+ * The Weather section: the sky, the heat, and what either does to the plan.
+ *
+ * Assembled as up to three sentences. Callers reach this only once the outlook
+ * has settled and has something ahead of it to describe — 'checking' and
+ * `futureUnavailable` are answered before it, because neither is weather.
+ */
+function buildWeatherWatch(outlook: RiverOutlookState, currentCondition: ConditionCode): string {
+  const dated: DatedDay[] = outlook.days.map((day, index) => ({
+    name: spokenDay(index, day.weather?.dayOfWeek),
+    weather: day.weather,
+    conditionCode: day.river.conditionCode,
+  }));
+  const withWeather = dated.filter((day) => day.weather != null);
+
+  const rain = withWeather.filter((day) => day.weather!.precipitation >= SIGNIFICANT_RAIN_CHANCE);
+  // The band the old copy dropped on the floor: enough of a chance to change
+  // what you pack, not enough to claim it is going to happen.
+  const maybeRain = withWeather.filter(
+    (day) =>
+      day.weather!.precipitation >= LOW_RAIN_CHANCE &&
+      day.weather!.precipitation < SIGNIFICANT_RAIN_CHANCE,
+  );
+  const hot = withWeather.filter((day) => day.weather!.tempHigh >= HEAT_ADVISORY_TEMP_F);
+
+  // Compare safety classes, not raw labels. Day one's forecast value is the
+  // day's maximum stage, so a raw comparison flagged "watch today" whenever the
+  // peak nudged Flowing into Good — a warning about nothing.
+  const changed = dated.find(
+    (day) =>
+      day.conditionCode != null && hasMaterialConditionChange(currentCondition, day.conditionCode),
+  );
+
+  const sentences: string[] = [];
+
+  // ── The sky ───────────────────────────────────────────────────────────────
+  // The temperature rides along here EXCEPT on a heat day, where the sentence
+  // below owns the numbers and printing them twice would read as a stutter.
+  const highs = hot.length > 0 ? null : highsClause(withWeather.map((day) => day.weather!));
+  const withHighs = (lead: string) => (highs ? `${lead}, ${highs}.` : `${lead}.`);
+  if (rain.length > 0) {
+    sentences.push(withHighs(`Rain is likely ${listDays(rain.map((day) => day.name))}`));
+  } else if (maybeRain.length > 0) {
+    sentences.push(
+      withHighs(
+        `Rain is possible ${listDays(maybeRain.map((day) => day.name))} without being a sure thing`,
+      ),
+    );
+  } else if (withWeather.length > 1) {
+    sentences.push(withHighs(`Dry through ${withWeather[withWeather.length - 1].name}`));
+  } else if (withWeather.length === 1) {
+    sentences.push(withHighs('Dry today'));
+  }
+
+  // ── The heat ──────────────────────────────────────────────────────────────
+  // The one part of a forecast that changes a float day on its own, and the one
+  // the old copy had no way to say. Advice rather than a number, because 97° is
+  // a fact and "put in early" is what to do about it.
+  if (hot.length > 0) {
+    const peak = Math.max(...hot.map((day) => day.weather!.tempHigh));
+    sentences.push(
+      `Hot ${listDays(hot.map((day) => day.name))} — around ${peak}° at the peak, so put in early and carry more water than you think you need.`,
+    );
+  }
+
+  // ── What any of it means for the water ────────────────────────────────────
+  if (changed) {
+    sentences.push(
+      `The NWS has this gauge reaching ${getConditionShortLabel(changed.conditionCode!)} by ${changed.name}, which is the thing to watch — read it again the morning you go.`,
+    );
+  } else if (rain.length > 0 || maybeRain.length > 0) {
+    // Deliberately says nothing about what the river will do. Rain upstream of
+    // a gauge is a reason to look again; it is not a forecast, and this section
+    // has never been allowed to turn one into the other.
+    sentences.push(
+      'Rain upstream is what would change this river, so look at the gauge again once it has moved through — and once more before you put in.',
+    );
+  } else if (outlook.trend?.direction === 'rising') {
+    sentences.push(
+      `The gauge is already ${outlook.trend.label.toLowerCase()}, which matters more here than anything in the sky. Read it again right before you launch.`,
+    );
+  } else {
+    sentences.push(
+      'Nothing in the outlook is set to move this river much, but read the gauge again the morning you go.',
+    );
+  }
+
+  return sentences.join(' ');
 }
 
 /** Build the live decision hierarchy shown in the compact and fallback report. */
@@ -176,8 +330,6 @@ export function buildEddyTakeSections({
   generatedEddyRead,
 }: BuildEddyTakeSectionsInput): EddyTakeSections {
   const conditionLabel = currentCondition === 'unknown' ? null : getConditionShortLabel(currentCondition);
-  const forecastDays = outlook.days.filter((day) => day.river.conditionCode != null);
-  const rainDays = significantRainDays(outlook);
 
   // "Eddy's read" interprets the river as it stands right now; "Watch for"
   // owns everything forward-looking. Keeping that split is what stops the two
@@ -193,28 +345,15 @@ export function buildEddyTakeSections({
     liveGuidance = `${conditionLabel} is verified now. A recent measured trend is unavailable.`;
   }
 
+  // The two states that are not weather at all are answered here; everything
+  // that genuinely has a sky to describe goes through buildWeatherWatch.
   let watchFor: string;
   if (outlook.sourceKind === 'checking') {
-    watchFor = 'Wait for the 72-hour outlook, then recheck the gauge before launch.';
+    watchFor = 'The 72-hour outlook is still coming in. Read the gauge again before you load the boats either way.';
   } else if (outlook.futureUnavailable) {
-    watchFor = 'Future river and weather guidance is unavailable; recheck the gauge before launch.';
+    watchFor = 'No weather or river forecast came back, so there is nothing to look ahead at here. Read the gauge again right before you launch and treat the rest as unknown.';
   } else {
-    // Compare safety classes, not raw labels. Day one's forecast value is the
-    // day's maximum stage, so a raw comparison flagged "watch today" whenever
-    // the peak nudged Flowing into Good — a warning about nothing.
-    const changedDay = forecastDays.find((day) =>
-      hasMaterialConditionChange(currentCondition, day.river.conditionCode!),
-    );
-    if (changedDay) {
-      watchFor = `Watch ${formatOutlookDay(changedDay.date, false)}, when the NWS outlook reaches ${getConditionShortLabel(changedDay.river.conditionCode!)}; recheck before launch.`;
-    } else if (rainDays.length > 0) {
-      const names = rainDays.map((day) => day.dayOfWeek).join(' and ');
-      watchFor = `Forecast rain ${names} is the main swing factor; recheck before launch and after the rain.`;
-    } else if (outlook.trend?.direction === 'rising') {
-      watchFor = `${outlook.trend.label} is the main change signal; recheck immediately before launch.`;
-    } else {
-      watchFor = 'No major change signal appears in the available outlook; still recheck the gauge before launch.';
-    }
+    watchFor = buildWeatherWatch(outlook, currentCondition);
   }
 
   return {

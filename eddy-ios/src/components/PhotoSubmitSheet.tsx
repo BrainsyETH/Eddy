@@ -568,13 +568,18 @@ export function PhotoSubmitSheet({
                 </Text>
                 <Ionicons name="chevron-down" size={16} color={colors.textSubtle} />
               </Pressable>
-              {/* Says what the choice DOES, once, under the control. It is the
-                  photo's coordinate — not a label — and it is the reason the
-                  sheet cannot be sent without one. */}
-              <Text style={[styles.hint, { color: colors.textSubtle }]}>
-                This is the location filed with the photo. Eddy does not read your phone&apos;s
-                location or the picture&apos;s.
-              </Text>
+              {/* THERE IS NO EXPLANATORY LINE UNDER THIS CONTROL. It read
+                  "This is the location filed with the photo. Eddy does not read
+                  your phone's location or the picture's" — two sentences
+                  answering a question the label above already answers ("Where
+                  was it taken?") and then denying an accusation nobody in the
+                  middle of uploading a photo had made. A privacy denial printed
+                  beside a control is the one place it reads as a confession.
+
+                  The claim itself is still true and still documented — see the
+                  header, and `exif: true` in pick(), which takes the capture
+                  TIME and no coordinate. Where it belongs is the privacy policy,
+                  not under a dropdown. */}
 
               {/* Required, and says so where it is asked rather than after the
                   upload. See send(). */}
