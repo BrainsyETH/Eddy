@@ -1970,3 +1970,42 @@ export function publicLandAccessLabel(access: string | null | undefined): string
   const key = (access ?? '').toUpperCase();
   return PUBLIC_LAND_ACCESS_LABELS[key as PublicLandAccess] ?? PUBLIC_LAND_ACCESS_LABELS.UK;
 }
+
+// ── Eddy's written conditions prose (GET /api/eddy-updates) ──────────────
+//
+// One batched, CDN-cached request carrying the latest non-expired update for
+// every river PLUS a statewide entry under the key "global". Public and
+// unauthenticated: this is not the per-river written read sold behind the
+// paywall, which comes from /api/rivers/[slug]/outlook and is a different
+// artifact entirely.
+//
+// Mirrored in missouri-float-planner/src/types/api.ts, which is what the web
+// app imports — Vercel installs only that directory and never sees this file.
+
+export interface EddyUpdateEntry {
+  quoteText: string;
+  summaryText: string | null;
+  conditionCode: string;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  readingTimestamp: string | null;
+  snapshotId: string | null;
+  /**
+   * When the prose was written, NOT when the reading was taken.
+   *
+   * Load-bearing, and the reason it must be shown: this text is generated
+   * once a day at 6:10am Central. Anything rendering it has to say so, and
+   * the server withholds the statewide entry outright once it can no longer
+   * stand behind it. See src/lib/eddy/global-prose-gate.ts.
+   */
+  generatedAt: string;
+}
+
+export interface EddyUpdatesResponse {
+  /**
+   * Keyed by river slug. The statewide summary is under "global", and is
+   * ABSENT rather than stale when the server has withheld it — a missing key
+   * is the signal, so never fall back to a previous one.
+   */
+  updates: Record<string, EddyUpdateEntry>;
+}

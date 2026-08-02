@@ -7,27 +7,22 @@
 
 import { NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
+import type { EddyUpdateEntry, EddyUpdatesResponse } from '@/types/api';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
-import { overlayLiveConditions, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
+import {
+  buildLiveConditionsMap,
+  overlayLiveConditions,
+  WEBSITE_PROSE_STALE_HOURS,
+} from '@/lib/social/live-conditions';
+import { gateGlobalProse } from '@/lib/eddy/global-prose-gate';
 
 export const dynamic = 'force-dynamic';
 
-export interface EddyUpdateEntry {
-  quoteText: string;
-  summaryText: string | null;
-  conditionCode: string;
-  gaugeHeightFt: number | null;
-  dischargeCfs: number | null;
-  readingTimestamp: string | null;
-  snapshotId: string | null;
-  generatedAt: string;
-}
-
-export interface EddyUpdatesResponse {
-  /** Keyed by river_slug (includes the "global" statewide entry). */
-  updates: Record<string, EddyUpdateEntry>;
-}
+// Declared in src/types/api.ts now rather than inline here, so the Expo app's
+// copy in packages/eddy-types has a counterpart to be checked against. Still
+// re-exported from this module: useEddyUpdates imports them from the route.
+export type { EddyUpdateEntry, EddyUpdatesResponse } from '@/types/api';
 
 interface EddyUpdateRow {
   river_slug: string | null;
@@ -63,8 +58,14 @@ async function _GET() {
       latestBySlug.set(slug, row);
     }
 
+    // Built ONCE and shared, because two things need it: the per-river overlay
+    // below, and the statewide gate under it. Two reads would also let the two
+    // disagree across the gap between them.
+    const liveConditions = await buildLiveConditionsMap(supabase);
+
     // Reconcile AI prose with live conditions. 'global' has no live match and
-    // falls through unchanged.
+    // falls through here unchanged — see the gate below, which is what covers
+    // it instead.
     const overlaid = await overlayLiveConditions(
       supabase,
       Array.from(latestBySlug.values()).map((r) => ({
@@ -77,7 +78,7 @@ async function _GET() {
         generated_at: r.generated_at ?? new Date().toISOString(),
       })),
       // Website prose is valid only for the current, non-stale snapshot.
-      { proseStaleHours: WEBSITE_PROSE_STALE_HOURS, logLabel: 'eddy-updates' },
+      { proseStaleHours: WEBSITE_PROSE_STALE_HOURS, logLabel: 'eddy-updates', liveConditions },
     );
 
     const updates: Record<string, EddyUpdateEntry> = {};
@@ -96,6 +97,34 @@ async function _GET() {
         snapshotId: u.snapshot_id ?? null,
         generatedAt: u.generated_at,
       };
+    }
+
+    /**
+     * The statewide summary, held to the same standard as everything else.
+     *
+     * It is the only row the overlay cannot check, because it has no river and
+     * therefore no live reading to be checked against. Left alone it was
+     * guarded by nothing but a 25-hour expires_at — which is how a 6:10am
+     * "warm and steady across the eastern Ozarks" survives into an afternoon
+     * the basin spent in flood.
+     *
+     * Dropped rather than annotated. A summary is two or three sentences of
+     * prose; there is no way to caveat one into being true about water it was
+     * written before. The count and the live list below it still answer the
+     * question, which is why removing this costs the screen nothing.
+     */
+    if (updates.global) {
+      const verdict = gateGlobalProse({
+        generatedAt: updates.global.generatedAt,
+        live: Array.from(liveConditions.values()).map((c) => ({
+          conditionCode: c.condition_code,
+          readingTimestamp: c.reading_timestamp,
+        })),
+      });
+      if (!verdict.show) {
+        console.warn(`[EddyUpdates] statewide summary withheld: ${verdict.reason}`);
+        delete updates.global;
+      }
     }
 
     return NextResponse.json<EddyUpdatesResponse>({ updates }, { headers: cdnCacheHeaders(300, 1800) });
