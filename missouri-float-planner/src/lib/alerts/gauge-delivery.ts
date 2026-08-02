@@ -21,6 +21,7 @@
 // though the phone stayed silent.
 
 import { planDrain, spentOneShots } from './drain';
+import { isRuleLive, parentIdsOf, type GatedRule } from './gating';
 import { buildGaugeNotification, suppressedByQuietHours, type GaugeEventKind } from './gauge-threshold';
 import { disableTokens, recordTokenFailures } from './token-health';
 import { chunkMessages, classifyTicketError, sendExpoPush, type ExpoMessage } from '@/lib/push/expo';
@@ -45,6 +46,8 @@ export interface GaugeDeliveryStats {
   sent: number;
   failed: number;
   quietSuppressed: number;
+  /** Events dropped because the rule, or its river alert, was paused since. */
+  gated: number;
   retried: number;
   givenUp: number;
 }
@@ -56,6 +59,7 @@ const EMPTY: GaugeDeliveryStats = {
   sent: 0,
   failed: 0,
   quietSuppressed: 0,
+  gated: 0,
   retried: 0,
   givenUp: 0,
 };
@@ -100,6 +104,43 @@ function toPreferences(row: {
 }
 
 /**
+ * Which parent river alerts are paused, for the rules in this batch.
+ *
+ * The same two-step the evaluator uses — collect the ids the rows already
+ * carry, then ask once which of them are off — rather than a second level of
+ * PostgREST embedding. Skipped entirely when nothing in the batch is parented,
+ * which is the common case.
+ *
+ * Returns an empty set on failure. Failing OPEN is deliberate: see isRuleLive.
+ */
+async function loadPausedParents(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rows: any[],
+): Promise<Set<string>> {
+  const rules = rows
+    .map((row) => one<GatedRule>(row.gauge_alert_subscriptions))
+    .filter((rule): rule is GatedRule => rule !== null);
+  const ids = parentIdsOf(rules);
+  const paused = new Set<string>();
+  if (ids.length === 0) return paused;
+
+  const { data, error } = await supabase
+    .from('alert_subscriptions')
+    .select('id')
+    .in('id', ids)
+    .eq('enabled', false);
+
+  if (error) {
+    logger.error('[deliver-push:gauge] could not read parent alerts', error);
+    return paused;
+  }
+  for (const row of data ?? []) paused.add(row.id as string);
+  return paused;
+}
+
+/**
  * Drain gauge_alert_events to Expo.
  *
  * Returns stats rather than a response so the caller can fold them into its own
@@ -121,7 +162,7 @@ export async function deliverGaugeAlerts(
           'reading_unit, reading_at, condition_code, detected_at, push_attempts, ' +
           'gauge_stations!inner(name, usgs_site_id, site_id_external), ' +
           'rivers(name, slug), ' +
-          'gauge_alert_subscriptions!inner(scope, mode, condition_kind, metric, comparator, threshold_value, threshold_value_max)',
+          'gauge_alert_subscriptions!inner(scope, mode, condition_kind, metric, comparator, threshold_value, threshold_value_max, enabled, parent_subscription_id)',
       )
       .is('push_delivered_at', null)
       .lt('push_attempts', MAX_ATTEMPTS)
@@ -172,6 +213,22 @@ export async function deliverGaugeAlerts(
 
     const planned: PlannedGaugeMessage[] = [];
     let quietSuppressed = 0;
+    let gated = 0;
+
+    /**
+     * ── The gate, re-checked at SEND ────────────────────────────────────────
+     *
+     * Evaluation and delivery are separate crons on separate schedules, so an
+     * outbox row can be up to five minutes old by the time it is read. Pausing
+     * an alert and then being buzzed by it is the single most confusing thing
+     * alerting can do — it reads as the switch not working, which is the
+     * conclusion the user is least able to disprove.
+     *
+     * Both halves are checked here, the rule's own `enabled` and its parent's,
+     * through the same predicate the evaluator used. `enabled` in particular
+     * was never checked at this point: a rule paused in the gap still sent.
+     */
+    const pausedParents = await loadPausedParents(supabase, fresh);
 
     for (const row of fresh) {
       const kind = row.kind as GaugeEventKind;
@@ -196,9 +253,20 @@ export async function deliverGaugeAlerts(
         comparator: AlertComparator | null;
         threshold_value: number | string | null;
         threshold_value_max: number | string | null;
+        enabled: boolean;
+        parent_subscription_id: string | null;
       }>(row.gauge_alert_subscriptions);
 
       if (!rule) continue;
+
+      // Paused since this event was written. Counted as handled rather than
+      // retried: the rule is off, and leaving the row in the outbox would only
+      // burn attempts until it expired — the same reasoning quiet hours uses
+      // a few lines above.
+      if (!isRuleLive(rule, pausedParents)) {
+        gated++;
+        continue;
+      }
 
       const notification = buildGaugeNotification({
         stationName: station?.name ?? 'Your gauge',
@@ -390,6 +458,7 @@ export async function deliverGaugeAlerts(
       sent,
       failed,
       quietSuppressed,
+      gated,
       retried: fresh.length - delivered.length,
       givenUp,
     };

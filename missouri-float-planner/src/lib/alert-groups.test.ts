@@ -3,21 +3,19 @@ import test from 'node:test';
 import type { AlertRule } from '@eddy/types';
 import {
   alertRuleKey,
-  childrenAlreadyPaused,
   groupAlertRules,
+  isGatedByParent,
   rulesInGroup,
-  rulesToPause,
-  rulesToResume,
 } from '../../../eddy-ios/src/lib/alertGroups';
 
 // The Expo app has no test runner, so its pure logic is covered here — the same
 // arrangement as alert-copy.test.ts.
 //
-// What this protects is a CLAIM MADE TO THE USER. The Alerts tab draws a river
-// alert's gauge alerts inside it and cascades the parent's switch and swipe over
-// them, so anything this function adopts is something a single tap can pause or
-// delete. Adopting a rule that does not belong to that river would mean a swipe
-// on the Meramec deleting somebody's Current River alert.
+// What this protects is a CLAIM MADE TO THE USER, and the claim got stronger
+// when the parent link became a real column: a rule this function adopts is
+// drawn inside another rule's card, gated by that rule's switch server-side, and
+// deleted with it by cascade. Adopting something that is not a child means
+// silencing an alert somebody set deliberately.
 
 function rule(over: Partial<AlertRule> & Pick<AlertRule, 'id' | 'source' | 'scope'>): AlertRule {
   return {
@@ -38,6 +36,7 @@ function rule(over: Partial<AlertRule> & Pick<AlertRule, 'id' | 'source' | 'scop
     oneShot: false,
     firedAt: null,
     lastTriggeredAt: null,
+    parentId: null,
     createdAt: '2026-08-01T00:00:00.000Z',
     ...over,
   } as AlertRule;
@@ -58,6 +57,7 @@ const currentAkers = rule({
   riverName: 'Current River',
   gaugeId: 'st-akers',
   gaugeName: 'Current River at Akers',
+  parentId: 'sub-current',
 });
 const currentVanBuren = rule({
   id: 'gauge-van-buren',
@@ -67,9 +67,10 @@ const currentVanBuren = rule({
   riverName: 'Current River',
   gaugeId: 'st-van-buren',
   gaugeName: 'Current River at Van Buren',
+  parentId: 'sub-current',
 });
 
-test('a river alert adopts the gauge alerts set on that river', () => {
+test('a river alert adopts the gauge alerts created from it', () => {
   // The case the change exists for: four cards all titled "Current River"
   // become one card with two gauges under it.
   const groups = groupAlertRules([currentRiver, currentAkers, currentVanBuren]);
@@ -82,25 +83,54 @@ test('a river alert adopts the gauge alerts set on that river', () => {
 });
 
 test('every rule survives grouping exactly once', () => {
-  // The parent's switch and swipe act on rulesInGroup(), so a rule that is both
-  // adopted and left top-level would be written twice, and one that is neither
-  // would vanish from a screen that is meant to list every alert.
+  // A rule that is both adopted and left top-level would render twice; one that
+  // is neither would vanish from a screen meant to list every alert — and an
+  // alert you cannot see is one you cannot pause, edit or delete.
   const input = [currentRiver, currentAkers, currentVanBuren];
-  const seen = groupAlertRules(input).flatMap(rulesInGroup).map((r) => `${r.source}:${r.id}`);
-  assert.deepEqual(seen.sort(), input.map((r) => `${r.source}:${r.id}`).sort());
+  const seen = groupAlertRules(input).flatMap(rulesInGroup).map(alertRuleKey);
+  assert.deepEqual(seen.sort(), input.map(alertRuleKey).sort());
 });
 
-test('a gauge alert on a river with no subscription stays top-level', () => {
-  // Somebody who follows one station and not the river. This IS their alert,
-  // not a refinement of anything, and indenting it under a parent it does not
-  // have would bury it.
-  const groups = groupAlertRules([currentAkers]);
-  assert.equal(groups.length, 1);
-  assert.equal(groups[0].rule.id, 'gauge-akers');
+test('SAME RIVER IS NOT ENOUGH — only a declared parent adopts', () => {
+  // THE POINT of the column. A custom level set from the gauge screen on a
+  // river you also follow is the whole of what that person asked for. Adopting
+  // it would put it under a switch they never pointed at it, and the switch
+  // genuinely gates now, so it would silence a real alert.
+  const standalone = rule({
+    id: 'gauge-standalone',
+    source: 'gauge',
+    scope: 'gauge',
+    mode: 'threshold',
+    riverId: 'river-current',
+    riverName: 'Current River',
+    gaugeId: 'st-akers',
+    gaugeName: 'Current River at Akers',
+    metric: 'gauge_height_ft',
+    comparator: 'above',
+    thresholdValue: 3,
+    conditionKind: null,
+    parentId: null,
+  });
+  const groups = groupAlertRules([currentRiver, standalone]);
+  assert.deepEqual(
+    groups.map((g) => g.rule.id),
+    ['sub-current', 'gauge-standalone'],
+  );
   assert.deepEqual(groups[0].children, []);
 });
 
-test('a gauge alert never crosses to another river', () => {
+test('a gauge alert whose parent is not in the list stays top-level', () => {
+  // A partial response, or a row deleted between two reads. Better a row in the
+  // wrong place than a row nowhere: the user can still reach it.
+  const orphan = { ...currentAkers, parentId: 'sub-gone' };
+  const groups = groupAlertRules([orphan]);
+  assert.deepEqual(
+    groups.map((g) => g.rule.id),
+    ['gauge-akers'],
+  );
+});
+
+test('a parent id can never point at another river alert’s children', () => {
   const meramec = rule({
     id: 'sub-meramec',
     source: 'river_condition',
@@ -108,15 +138,15 @@ test('a gauge alert never crosses to another river', () => {
     riverId: 'river-meramec',
     riverName: 'Meramec River',
   });
-  const groups = groupAlertRules([meramec, currentAkers]);
-  assert.equal(groups.length, 2);
-  assert.deepEqual(groups[0].children, []);
-  assert.equal(groups[1].rule.id, 'gauge-akers');
+  const groups = groupAlertRules([meramec, currentRiver, currentAkers]);
+  assert.deepEqual(groups.find((g) => g.rule.id === 'sub-meramec')?.children, []);
+  assert.deepEqual(
+    groups.find((g) => g.rule.id === 'sub-current')?.children.map((c) => c.id),
+    ['gauge-akers'],
+  );
 });
 
 test('a national-tier threshold rule with no river is its own group', () => {
-  // No riverId at all — the uncurated tier. Nothing can adopt it and it must
-  // not be dropped.
   const national = rule({
     id: 'gauge-national',
     source: 'gauge',
@@ -128,17 +158,17 @@ test('a national-tier threshold rule with no river is its own group', () => {
     metric: 'gauge_height_ft',
     comparator: 'above',
     thresholdValue: 3,
+    conditionKind: null,
   });
-  const groups = groupAlertRules([national]);
   assert.deepEqual(
-    groups.map((g) => g.rule.id),
+    groupAlertRules([national]).map((g) => g.rule.id),
     ['gauge-national'],
   );
 });
 
 test('order follows the server, parents in place', () => {
-  // The list is sorted server-side and the grouping must not reshuffle it —
-  // a row that moves when an unrelated alert is added reads as a bug.
+  // The list is sorted server-side and grouping must not reshuffle it — a row
+  // that moves when an unrelated alert is added reads as a bug.
   const meramec = rule({
     id: 'sub-meramec',
     source: 'river_condition',
@@ -170,102 +200,39 @@ test('keys are unique across the two id spaces', () => {
     gaugeId: 'st-other',
     gaugeName: 'Elsewhere',
   });
-  const keys = groupAlertRules([currentRiver, collide]).map((g) => g.key);
-  assert.deepEqual(keys, ['river_condition:sub-current', 'gauge:sub-current']);
+  assert.deepEqual(groupAlertRules([currentRiver, collide]).map((g) => g.key), [
+    'river_condition:sub-current',
+    'gauge:sub-current',
+  ]);
 });
 
-// ── The master-switch contract ──────────────────────────────────────────────
+// ── The gate, from the row's point of view ──────────────────────────────────
 //
-// A nested switch is expected to GATE its children, not overwrite them: iOS
-// Settings hands every sub-toggle back exactly as it was when the master comes
-// back on. Eddy cannot gate — nothing server-side links a gauge rule to the
-// river subscription above it, so a "gated" child would go on firing at 4am —
-// so the pause is real writes and the state gating would have preserved is
-// recorded instead. These are the two halves of putting it back.
+// A gated child's own `enabled` is still true and nothing has written to it —
+// that is what lets resuming the parent hand every child back untouched. So the
+// row is the only thing that can explain a switch reading on beside an alert
+// that will not fire, and it needs a straight answer to ask.
 
-const group = {
-  key: alertRuleKey(currentRiver),
-  rule: currentRiver,
-  children: [currentAkers, { ...currentVanBuren, enabled: false }],
-};
+test('children are gated exactly when the parent is paused', () => {
+  const live = groupAlertRules([currentRiver, currentAkers])[0];
+  assert.equal(isGatedByParent(live), false);
 
-test('pausing writes only what is actually on', () => {
-  // Van Buren is already off. Writing it again is a wasted round trip, and the
-  // set that is NOT written is exactly what resuming has to leave alone.
+  const paused = groupAlertRules([{ ...currentRiver, enabled: false }, currentAkers])[0];
+  assert.equal(isGatedByParent(paused), true);
+  // The child is untouched. Nothing wrote to it, which is the whole mechanism.
+  assert.equal(paused.children[0].enabled, true);
+});
+
+test('a child paused by hand stays paused when the parent is resumed', () => {
+  // No memory anywhere, on the client or the server: the child's own column
+  // never moved, so there is nothing to restore.
+  const off = { ...currentVanBuren, enabled: false };
+  const group = groupAlertRules([currentRiver, currentAkers, off])[0];
   assert.deepEqual(
-    rulesToPause(group).map((r) => r.id),
-    ['sub-current', 'gauge-akers'],
+    group.children.map((c) => [c.id, c.enabled]),
+    [
+      ['gauge-akers', true],
+      ['gauge-van-buren', false],
+    ],
   );
-});
-
-test('pausing records the children that were already off', () => {
-  assert.deepEqual(childrenAlreadyPaused(group), ['gauge:gauge-van-buren']);
-  // The parent is never recorded — it is the thing being paused, and it is on.
-  assert.ok(!childrenAlreadyPaused(group).includes(alertRuleKey(currentRiver)));
-});
-
-test('resuming leaves a deliberately paused gauge paused', () => {
-  // THE POINT. Van Buren was switched off by hand before the river was paused,
-  // so resuming the river must not sweep it back on.
-  const paused = {
-    ...group,
-    rule: { ...currentRiver, enabled: false },
-    children: group.children.map((c) => ({ ...c, enabled: false })),
-  };
-  assert.deepEqual(
-    rulesToResume(paused, new Set(['gauge:gauge-van-buren'])).map((r) => r.id),
-    ['sub-current', 'gauge-akers'],
-  );
-});
-
-test('no record resumes everything, which is the honest degradation', () => {
-  // A reinstall, a cleared store, or a group paused before this existed. Better
-  // to over-resume — every rule is visible with its own switch — than to leave
-  // alerts silently off with nothing saying why.
-  const paused = {
-    ...group,
-    rule: { ...currentRiver, enabled: false },
-    children: group.children.map((c) => ({ ...c, enabled: false })),
-  };
-  assert.deepEqual(
-    rulesToResume(paused, new Set()).map((r) => r.id),
-    ['sub-current', 'gauge-akers', 'gauge-van-buren'],
-  );
-});
-
-test('resuming never rewrites a child the user turned back on by hand', () => {
-  // Akers was resumed individually while the river stayed paused. It is already
-  // on, so the river's switch has nothing to do to it — and must not issue a
-  // write that would look like the group claiming credit for it.
-  const paused = {
-    ...group,
-    rule: { ...currentRiver, enabled: false },
-    children: [currentAkers, { ...currentVanBuren, enabled: false }],
-  };
-  assert.deepEqual(
-    rulesToResume(paused, new Set()).map((r) => r.id),
-    ['sub-current', 'gauge-van-buren'],
-  );
-});
-
-test('pause and resume round-trip to the original enabled states', () => {
-  // The whole contract in one assertion: whatever a group looked like before
-  // its switch went off, that is what it looks like after the switch comes back.
-  const before = new Map(rulesInGroup(group).map((r) => [alertRuleKey(r), r.enabled]));
-  const remembered = new Set(childrenAlreadyPaused(group));
-  const pausedKeys = new Set(rulesToPause(group).map(alertRuleKey));
-
-  const paused = {
-    ...group,
-    rule: { ...group.rule, enabled: false },
-    children: group.children.map((c) =>
-      pausedKeys.has(alertRuleKey(c)) ? { ...c, enabled: false } : c,
-    ),
-  };
-
-  const resumedKeys = new Set(rulesToResume(paused, remembered).map(alertRuleKey));
-  for (const rule of rulesInGroup(paused)) {
-    const key = alertRuleKey(rule);
-    assert.equal(resumedKeys.has(key) || rule.enabled, before.get(key), `${key} round-tripped`);
-  }
 });

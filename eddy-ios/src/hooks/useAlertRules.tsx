@@ -51,33 +51,21 @@ interface AlertRulesValue {
   add: (rule: AlertRule) => void;
   setEnabled: (rule: AlertRule, enabled: boolean) => Promise<void>;
   /**
-   * Pause or resume SEVERAL rules as one change, resolving with the ones that
-   * did not land.
-   *
-   * ── Why this is not a loop over setEnabled ──────────────────────────────
-   *
-   * Every mutation snapshots `rulesRef.current` and derives its optimistic list
-   * from that snapshot. The ref is written in an effect, so it is only current
-   * once React has committed and flushed — which has not happened between two
-   * calls made in the same tick. Firing four `setEnabled`s at once therefore has
-   * all four read the SAME list, each produce a copy with only its own rule
-   * flipped, and the last `setRules` win: three of the four switches spring
-   * back, having actually been written.
-   *
-   * That is exactly the shape of the bug the Alerts tab's grouped switch would
-   * have had, on the screen where a switch springing back is the app's most
-   * expensive lie. One snapshot, one optimistic list, one reconciliation.
-   */
-  setEnabledMany: (rules: AlertRule[], enabled: boolean) => Promise<AlertRule[]>;
-  /**
    * Edit a rule. Resolves with the re-seeded crossing state when the threshold
    * moved, so the edit screen can tell the user their rule starts out on the
    * far side of its own number instead of leaving it silently unable to fire.
    */
   update: (rule: AlertRule, patch: UpdateAlertRuleInput) => Promise<AlertRuleSeed | null>;
-  remove: (rule: AlertRule) => Promise<void>;
-  /** Delete several as one change. Same contract as setEnabledMany. */
-  removeMany: (rules: AlertRule[]) => Promise<AlertRule[]>;
+  /**
+   * Delete a rule.
+   *
+   * `cascaded` names rows the SERVER will delete along with it — the gauge
+   * alerts parented to a river subscription, via the foreign key's on-delete
+   * cascade. They are removed from the list here and restored with it if the
+   * write fails, but no request is made for them: issuing one would race the
+   * cascade and 404 on whichever lost.
+   */
+  remove: (rule: AlertRule, cascaded?: AlertRule[]) => Promise<void>;
   /** Is there already a rule on this river or gauge? Drives the bell's label. */
   rulesFor: (scope: 'river' | 'gauge', entityId: string) => AlertRule[];
 }
@@ -94,10 +82,8 @@ const AlertRulesContext = createContext<AlertRulesValue>({
   refresh: async () => {},
   add: () => {},
   setEnabled: async () => {},
-  setEnabledMany: async () => [],
   update: async () => null,
   remove: async () => {},
-  removeMany: async () => [],
   rulesFor: () => [],
 });
 
@@ -196,51 +182,6 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
     [getAccessToken],
   );
 
-  /**
-   * The batch counterpart of `mutate`: one snapshot, one optimistic list, and a
-   * reconciliation that keeps whatever landed.
-   *
-   * `apply` is called TWICE with the same snapshot and different key sets —
-   * once with every target, to paint the change immediately, and once with only
-   * the writes that succeeded, should any fail. Deriving the recovery from the
-   * snapshot rather than patching the live list is what makes a partial failure
-   * describe the server instead of reverting three good writes; it is also why
-   * `apply` has to be a pure function of (rules, keys) rather than a closure
-   * over the current state.
-   *
-   * Resolves with the rules that failed, never rejects on a write — a caller
-   * showing "could not pause every alert here" needs the count, not a throw
-   * that also discards the successes.
-   */
-  const mutateMany = useCallback(
-    async (
-      targets: AlertRule[],
-      apply: (rules: AlertRule[], keys: ReadonlySet<string>) => AlertRule[],
-      write: (token: string, rule: AlertRule) => Promise<unknown>,
-    ): Promise<AlertRule[]> => {
-      if (targets.length === 0) return [];
-      const before = rulesRef.current;
-      if (before) setRules(apply(before, new Set(targets.map(alertRuleKey))));
-
-      const token = await getAccessToken();
-      if (!token) {
-        if (before) setRules(before);
-        throw new ApiError('Sign in to change alerts', 401);
-      }
-
-      const results = await Promise.allSettled(targets.map((rule) => write(token, rule)));
-      const failed = targets.filter((_, index) => results[index].status === 'rejected');
-      if (failed.length > 0 && before) {
-        const landed = new Set(
-          targets.filter((_, index) => results[index].status === 'fulfilled').map(alertRuleKey),
-        );
-        setRules(apply(before, landed));
-      }
-      return failed;
-    },
-    [getAccessToken],
-  );
-
   // Discards the seed on purpose: pausing or resuming a rule never moves its
   // threshold, so there is no reseed to report and nothing for a caller to do
   // with one.
@@ -268,29 +209,6 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
       );
     },
     [mutate],
-  );
-
-  const setEnabledMany = useCallback(
-    (targets: AlertRule[], enabled: boolean) =>
-      mutateMany(
-        targets,
-        (current, keys) =>
-          current.map((r) =>
-            keys.has(alertRuleKey(r))
-              ? {
-                  ...r,
-                  enabled,
-                  ...(needsRearm(r, enabled) ? { firedAt: null, lastTriggeredAt: null } : {}),
-                }
-              : r,
-          ),
-        (token, rule) =>
-          updateAlertRule(token, rule, {
-            enabled,
-            ...(needsRearm(rule, enabled) ? { rearm: true } : {}),
-          }),
-      ),
-    [mutateMany],
   );
 
   const update = useCallback(
@@ -331,23 +249,19 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
   );
 
   const remove = useCallback(
-    (rule: AlertRule) =>
-      mutate(
+    (rule: AlertRule, cascaded: AlertRule[] = []) => {
+      // The cascade is a foreign key, not a loop of requests: deleting a river
+      // subscription removes the gauge alerts parented to it, server-side. All
+      // this has to do is take them off the list at the same moment, so the
+      // group does not sit there half-deleted until the next refetch.
+      const gone = new Set([rule, ...cascaded].map(alertRuleKey));
+      return mutate(
         rule,
-        (current) => current.filter((r) => r.id !== rule.id),
+        (current) => current.filter((r) => !gone.has(alertRuleKey(r))),
         (token) => deleteAlertRule(token, rule),
-      ),
+      );
+    },
     [mutate],
-  );
-
-  const removeMany = useCallback(
-    (targets: AlertRule[]) =>
-      mutateMany(
-        targets,
-        (current, keys) => current.filter((r) => !keys.has(alertRuleKey(r))),
-        (token, rule) => deleteAlertRule(token, rule),
-      ),
-    [mutateMany],
   );
 
   const rulesFor = useCallback(
@@ -366,25 +280,11 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
       refresh,
       add,
       setEnabled,
-      setEnabledMany,
       update,
       remove,
-      removeMany,
       rulesFor,
     }),
-    [
-      rules,
-      ready,
-      refreshing,
-      refresh,
-      add,
-      setEnabled,
-      setEnabledMany,
-      update,
-      remove,
-      removeMany,
-      rulesFor,
-    ],
+    [rules, ready, refreshing, refresh, add, setEnabled, update, remove, rulesFor],
   );
 
   return <AlertRulesContext.Provider value={value}>{children}</AlertRulesContext.Provider>;

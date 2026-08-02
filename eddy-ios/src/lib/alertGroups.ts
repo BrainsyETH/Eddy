@@ -19,27 +19,31 @@
 //
 // So the river is the row and its gauges hang off it.
 //
-// ── This groups the VIEW, and nothing else ──────────────────────────────────
+// ── The parent link is real, and this only reads it ────────────────────────
 //
-// There is no parent column on the wire and this does not invent one. The two
-// kinds live in different tables and the delivery evaluator grades each on its
-// own; a gauge rule whose river subscription is deleted keeps firing, because
-// nothing server-side ever linked them.
+// gauge_alert_subscriptions.parent_subscription_id records which river alert a
+// gauge rule was created from — see migration
+// 20260802143000_gauge_alert_parent_subscription.sql. That column is what makes
+// the nesting more than a drawing:
 //
-// That is the constraint the Alerts screen has to respect rather than paper
-// over: nesting a row inside another row PROMISES that the outer one governs
-// it, so the screen has to make that true with writes of its own — cascading
-// the pause, and naming the children in the delete confirmation. See
-// app/(tabs)/alerts.tsx, which is the only caller. Grouping here without that
-// there would be a lie the first time somebody deleted a river alert.
+//   * The EVALUATOR skips a child whose parent is paused, so the parent's
+//     switch is a genuine gate. It writes nothing to the children, so resuming
+//     restores each of them to whatever it was, with nothing remembered
+//     anywhere on the client.
+//   * DELETING the parent cascades. The children go with it, server-side.
 //
-// ── A gauge rule is only ever a child of a river the user SUBSCRIBES to ─────
+// This function therefore has no policy left to invent. It reads `parentId` and
+// arranges rows; everything the arrangement promises is enforced by the
+// database and the two cron passes.
 //
-// Somebody can set an alert on a single station and no river at all — from the
-// gauge screen, on a national station Eddy does not rate, or on one river's
-// gauge without following the river. Those are not orphans and must not be
-// indented under anything: they are the whole of what that person asked for,
-// and burying them would be worse than the duplication this fixes.
+// ── A rule is a child only if it SAYS it is ────────────────────────────────
+//
+// Not "same river". Somebody can set an alert on a single station and no river
+// at all — from the gauge screen, on a national station Eddy does not rate, or
+// on one river's gauge without following the river. A custom level set that way
+// is the whole of what that person asked for; adopting it because they happen to
+// follow the same river would put it under a switch they never pointed at it,
+// and gating is now real, so that would silence a real alert.
 
 import type { AlertRule } from '@eddy/types';
 
@@ -61,10 +65,9 @@ export interface AlertRuleGroup {
  * A rule's identity across BOTH tables.
  *
  * `id` alone is not unique — a gauge rule and a river subscription are rows in
- * different tables and may carry the same uuid — so anything that matches rules
- * by identity has to use this. One definition, imported by the batch mutations
- * in useAlertRules and by the pause memory, because three copies of a key
- * function is three chances for two of them to disagree.
+ * different tables and may carry the same uuid — so anything keyed on a rule has
+ * to use this. One definition, so the list keys and any future matcher cannot
+ * disagree.
  */
 export function alertRuleKey(rule: AlertRule): string {
   return `${rule.source}:${rule.id}`;
@@ -73,38 +76,33 @@ export function alertRuleKey(rule: AlertRule): string {
 /**
  * Rules as parents and children, preserving the server's ordering.
  *
- * A river-condition rule adopts every `gauge`-scoped rule carrying the same
- * riverId. Everything else — a gauge rule on a river with no subscription, a
- * national-tier threshold rule, a river rule with nothing under it — comes back
- * as a group of one, so the caller renders one list and never two.
+ * A gauge rule nests under the river alert named by its `parentId`, and under
+ * nothing else. Everything without one — a rule set from the gauge screen, a
+ * custom level, anything on the national tier, and every river alert — comes
+ * back as a group of one, so the caller renders a single list rather than two.
  *
- * Pure and separate from the screen so it can be tested: the adoption rule is
- * the kind of thing that looks obviously right and is wrong for the one person
- * who follows two rivers that share a gauge.
+ * Pure and separate from the screen so it can be tested. What it must never do
+ * is adopt a rule the server does not consider a child: the parent's switch
+ * gates its children for real now, so a wrong adoption is an alert the user
+ * silences without meaning to.
  */
 export function groupAlertRules(rules: AlertRule[]): AlertRuleGroup[] {
-  // Which rivers actually have a subscription. Built first because a gauge rule
-  // has to know whether a parent exists before the pass below reaches it.
-  const parentByRiver = new Map<string, AlertRule>();
-  for (const rule of rules) {
-    if (rule.source !== 'river_condition' || !rule.riverId) continue;
-    // FIRST WINS, not last. Duplicate river subscriptions should not exist —
-    // the route refuses them — but if one ever does, adopting into the row the
-    // user sees first is the only choice that cannot orphan children below a
-    // row that has scrolled past.
-    if (!parentByRiver.has(rule.riverId)) parentByRiver.set(rule.riverId, rule);
-  }
+  // Only real parents adopt. A `parentId` naming a rule that is not in this
+  // list — a partial response, or a row deleted between two reads — leaves its
+  // child top-level rather than dropping it, because a rule that renders
+  // nowhere is a rule the user cannot pause, edit or delete.
+  const parents = new Set(
+    rules.filter((rule) => rule.source === 'river_condition').map((rule) => rule.id),
+  );
 
   const childrenByParent = new Map<string, AlertRule[]>();
   const adopted = new Set<string>();
   for (const rule of rules) {
-    if (rule.source === 'river_condition') continue;
-    if (rule.scope !== 'gauge' || !rule.riverId) continue;
-    const parent = parentByRiver.get(rule.riverId);
-    if (!parent) continue;
-    const list = childrenByParent.get(parent.id);
+    const parentId = rule.parentId;
+    if (!parentId || rule.source === 'river_condition' || !parents.has(parentId)) continue;
+    const list = childrenByParent.get(parentId);
     if (list) list.push(rule);
-    else childrenByParent.set(parent.id, [rule]);
+    else childrenByParent.set(parentId, [rule]);
     adopted.add(alertRuleKey(rule));
   }
 
@@ -124,65 +122,22 @@ export function groupAlertRules(rules: AlertRule[]): AlertRuleGroup[] {
 /**
  * Every rule a group covers, parent first.
  *
- * The unit the screen actually acts on: pausing a group is N writes, and
- * deleting one has to say N in the confirmation.
+ * Used for what the screen has to SAY about a group — the child count in the
+ * delete confirmation — rather than for what it has to write. Deleting a group
+ * is one DELETE, because the parent cascades.
  */
 export function rulesInGroup(group: AlertRuleGroup): AlertRule[] {
   return [group.rule, ...group.children];
 }
 
 /**
- * What a group's switch has to write to PAUSE it.
+ * Is this child currently held off by its parent?
  *
- * Only what is currently on. A child the user had already switched off needs no
- * round trip — and, more importantly, the set returned here is the complement of
- * what the screen remembers as "was already off", which is what makes resuming
- * able to put things back exactly as they were.
+ * The child's own `enabled` is untouched and still true — that is the whole
+ * point of a gate — so this is the only thing that can explain why its switch
+ * reads on and it will not fire. The row draws itself unavailable on the
+ * strength of it.
  */
-export function rulesToPause(group: AlertRuleGroup): AlertRule[] {
-  return rulesInGroup(group).filter((rule) => rule.enabled);
-}
-
-/**
- * What a group's switch has to write to RESUME it.
- *
- * ── The master-switch contract, and why it needs an argument ────────────────
- *
- * Nesting a row inside another row makes the outer switch a master switch, and
- * the behaviour everybody already knows from iOS Settings is that a master
- * switch GATES its children rather than overwriting them: turn it off, the
- * children grey out; turn it back on, they return to what each of them was.
- *
- * Eddy cannot gate. Nothing server-side links a gauge rule to the river
- * subscription it was created from, so a "gated" child would go on firing at
- * 4am under a paused parent. The pause is therefore real writes — and the cost
- * of real writes is that resuming has to know which children the switch put
- * down and which were already down before it.
- *
- * `keepPaused` is that answer, recorded when the group was paused. It is not a
- * copy of server state: it is a record of what THIS SWITCH did, which is a fact
- * only the client can hold. An empty set — never paused through the group
- * switch, or a reinstall since — resumes everything, which is the honest
- * degradation and what the group did before this existed.
- *
- * Also skips anything already on, so a child the user resumed by hand while the
- * parent was paused is left exactly alone rather than rewritten.
- */
-export function rulesToResume(
-  group: AlertRuleGroup,
-  keepPaused: ReadonlySet<string>,
-): AlertRule[] {
-  return rulesInGroup(group).filter(
-    (rule) => !rule.enabled && !keepPaused.has(alertRuleKey(rule)),
-  );
-}
-
-/**
- * The children to remember as "leave these alone on resume", at pause time.
- *
- * The parent is never in here — it is the thing being paused, and it is always
- * on at the moment its switch is flicked off.
- */
-export function childrenAlreadyPaused(group: AlertRuleGroup): string[] {
-  return group.children.filter((child) => !child.enabled).map(alertRuleKey);
+export function isGatedByParent(group: AlertRuleGroup): boolean {
+  return !group.rule.enabled;
 }

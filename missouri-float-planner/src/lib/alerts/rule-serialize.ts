@@ -49,6 +49,7 @@ export interface GaugeAlertRow {
   one_shot: boolean;
   last_triggered_at: string | null;
   one_shot_fired_at: string | null;
+  parent_subscription_id: string | null;
   created_at: string;
   rivers?: RiverEmbed | RiverEmbed[] | null;
   gauge_stations?: StationEmbed | StationEmbed[] | null;
@@ -58,7 +59,7 @@ export interface GaugeAlertRow {
 export const GAUGE_ALERT_SELECT =
   'id, river_id, gauge_station_id, scope, mode, condition_kind, metric, comparator, ' +
   'threshold_value, threshold_value_max, enabled, one_shot, last_triggered_at, ' +
-  'one_shot_fired_at, created_at, ' +
+  'one_shot_fired_at, parent_subscription_id, created_at, ' +
   'rivers(name, slug), gauge_stations!inner(name, usgs_site_id, site_id_external, curated)';
 
 export function toGaugeRule(row: GaugeAlertRow): AlertRule {
@@ -97,6 +98,12 @@ export function toGaugeRule(row: GaugeAlertRow): AlertRule {
     // true" and owns the cooldown, one_shot_fired_at is "reached a device".
     firedAt: row.one_shot ? row.one_shot_fired_at : null,
     lastTriggeredAt: row.last_triggered_at,
+    // The river alert this belongs to, when it was made from one. The app draws
+    // it nested under that alert and greys it out while the parent is paused —
+    // which is the only honest thing to draw, because `enabled` above is still
+    // true and the rule still will not fire. See migration
+    // 20260802143000_gauge_alert_parent_subscription.sql.
+    parentId: row.parent_subscription_id ?? null,
     createdAt: row.created_at,
   };
 }
@@ -146,6 +153,8 @@ export function toRiverRule(row: RiverAlertRow): AlertRule {
     oneShot: row.one_shot,
     firedAt: row.fired_at,
     lastTriggeredAt: row.fired_at,
+    // A river alert is what other rules are parented TO. It never has one.
+    parentId: null,
     createdAt: row.created_at,
   };
 }

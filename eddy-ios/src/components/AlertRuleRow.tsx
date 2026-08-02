@@ -45,6 +45,20 @@ interface Props {
    * larger than the row it sits on has to say so before it is flicked.
    */
   childCount?: number;
+  /**
+   * Held off by the river alert above it.
+   *
+   * The rule's own `enabled` is still true and nothing has written to it — the
+   * server gates a child whose parent is paused rather than pausing it, which
+   * is what lets resuming the parent hand every child back untouched. So this
+   * row is the ONLY place that can explain a switch reading on beside an alert
+   * that will not fire, and it draws itself unavailable and says why.
+   *
+   * The switch is disabled rather than shown off. Off would be a lie about
+   * stored state, and a live switch would offer to change something that
+   * changes nothing.
+   */
+  gated?: boolean;
 }
 
 /** A spent one-shot: it has already fired and will not fire again unarmed. */
@@ -56,7 +70,14 @@ function sentenceCase(text: string): string {
   return text.length > 0 ? text[0].toUpperCase() + text.slice(1) : text;
 }
 
-function AlertRuleRowInner({ rule, onPress, onToggle, nested = false, childCount = 0 }: Props) {
+function AlertRuleRowInner({
+  rule,
+  onPress,
+  onToggle,
+  nested = false,
+  childCount = 0,
+  gated = false,
+}: Props) {
   const { colors, elevation } = useTheme();
 
   // NESTED ROWS ARE ABOUT THE STATION, not the river. The parent above already
@@ -74,7 +95,7 @@ function AlertRuleRowInner({ rule, onPress, onToggle, nested = false, childCount
       : null;
 
   const spent = isSpent(rule);
-  const dimmed = !rule.enabled || spent;
+  const dimmed = !rule.enabled || spent || gated;
   const sentNote = lastSentNote(rule);
 
   return (
@@ -141,17 +162,23 @@ function AlertRuleRowInner({ rule, onPress, onToggle, nested = false, childCount
             it looks like it does, which is the one thing a switch may never be.
 
             "Pausing this pauses them" and not "the switch covers all", because
-            the two directions are no longer symmetrical: resuming restores each
-            gauge to what it was rather than switching everything on. Claiming
-            the symmetry would be promising to undo a choice the switch actually
-            preserves. */}
+            the switch does not overwrite them: the server GATES a child whose
+            parent is paused, so each one comes back exactly as it was. Claiming
+            symmetry would be promising to undo a choice the gate preserves. */}
         {childCount > 0 ? (
           <Text style={[styles.meta, { color: colors.textSubtle }]}>
             {childCount} {childCount === 1 ? 'gauge' : 'gauges'} on this river · pausing this
             pauses {childCount === 1 ? 'it' : 'them'} too
           </Text>
         ) : null}
-        {spent ? (
+        {gated ? (
+          // Wins the slot over lastSentNote for the same reason `spent` does:
+          // it says the same thing plus what to do about it. "Last sent 2d ago"
+          // on a rule that cannot currently fire is true and useless.
+          <Text style={[styles.meta, { color: colors.textSubtle }]}>
+            Paused with the river alert above
+          </Text>
+        ) : spent ? (
           // A one-shot that has fired looks identical to a live one otherwise,
           // and the difference is the whole point of a one-shot. This wins the
           // slot over lastSentNote because it says the same thing plus what to
@@ -168,13 +195,16 @@ function AlertRuleRowInner({ rule, onPress, onToggle, nested = false, childCount
       <Switch
         value={rule.enabled}
         onValueChange={onToggle}
+        disabled={gated}
         trackColor={{ true: colors.interactive, false: colors.border }}
         accessibilityLabel={
-          childCount > 0
-            ? rule.enabled
-              ? `Pause the alert for ${title} and its ${childCount} gauge alerts`
-              : `Resume the alert for ${title} and the gauge alerts it paused`
-            : `${rule.enabled ? 'Pause' : 'Resume'} alert for ${title}`
+          gated
+            ? `${title} is paused with the river alert above it`
+            : childCount > 0
+              ? rule.enabled
+                ? `Pause the alert for ${title} and its ${childCount} gauge alerts`
+                : `Resume the alert for ${title} and its ${childCount} gauge alerts`
+              : `${rule.enabled ? 'Pause' : 'Resume'} alert for ${title}`
         }
       />
     </Pressable>

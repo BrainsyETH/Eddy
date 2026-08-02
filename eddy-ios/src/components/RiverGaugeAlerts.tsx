@@ -155,6 +155,16 @@ export function RiverGaugeAlerts({ rule }: Props) {
           // this is that alert extended to another station — not a new
           // decision. It is editable afterwards like any other rule.
           conditionKind: (rule.conditionKind ?? 'all') as AlertSubscriptionKind,
+          // WHAT MAKES IT A CHILD, and the reason this screen can promise the
+          // river alert governs it. Sent only from here: the same rule created
+          // on the gauge screen is somebody's own alert and must not be
+          // silenced by a river subscription it has nothing to do with.
+          //
+          // Guarded on `source` because this section is only ever rendered
+          // inside a river-condition alert, and a gauge rule's id would name a
+          // row in the wrong table — which the server and the database would
+          // both refuse, but as a 400 rather than as a thing we never sent.
+          parentSubscriptionId: rule.source === 'river_condition' ? rule.id : undefined,
         });
         // Straight into the list, so the switch stays on without a refetch and
         // the new rule is immediately visible on the Alerts tab.
@@ -168,7 +178,17 @@ export function RiverGaugeAlerts({ rule }: Props) {
         setBusyId(null);
       }
     },
-    [riverId, ruleFor, remove, getAccessToken, rule.riverSlug, rule.conditionKind, add],
+    [
+      riverId,
+      ruleFor,
+      remove,
+      getAccessToken,
+      rule.riverSlug,
+      rule.conditionKind,
+      rule.source,
+      rule.id,
+      add,
+    ],
   );
 
   // Nothing to say on a river with one gauge: the alert above IS that gauge,

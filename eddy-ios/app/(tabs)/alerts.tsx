@@ -21,9 +21,14 @@
 // A river alert and the gauge alerts set on that river's other stations render
 // as one card with the gauges indented under it. They used to be four
 // top-level cards all titled "Current River", which is what a flat list makes
-// of one alert plus three refinements to it. src/lib/alertGroups.ts has the
-// argument; onToggleGroup and removeGroup below have the writes that make the
-// parent row's switch and swipe mean what nesting implies they mean.
+// of one alert plus three refinements to it.
+//
+// The nesting is a real relationship rather than a drawing: a child names its
+// parent on the wire, the evaluator skips a child whose parent is paused, and
+// deleting the parent cascades. So this screen writes ONE row for a group
+// switch and issues ONE delete for a group, and a gated child is drawn
+// unavailable because that is what it is. src/lib/alertGroups.ts has the
+// argument and names the migration.
 //
 // ── Why the second tab is a snapshot and not the old feed ──────────────────
 //
@@ -87,20 +92,7 @@ import { EddyScene } from '@/components/EddyScene';
 import { AlertRuleRow } from '@/components/AlertRuleRow';
 import { QuietHoursRow } from '@/components/QuietHoursRow';
 import { SwipeRow } from '@/components/SwipeRow';
-import {
-  alertRuleKey,
-  childrenAlreadyPaused,
-  groupAlertRules,
-  rulesInGroup,
-  rulesToPause,
-  rulesToResume,
-  type AlertRuleGroup,
-} from '@/lib/alertGroups';
-import {
-  noteChildToggledWhilePaused,
-  pausedBeforeGroup,
-  rememberPausedBeforeGroup,
-} from '@/lib/alertPauseMemory';
+import { groupAlertRules, isGatedByParent, type AlertRuleGroup } from '@/lib/alertGroups';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
@@ -229,8 +221,7 @@ export default function AlertsScreen() {
     ready: rulesReady,
     refresh: refreshRules,
     setEnabled,
-    setEnabledMany,
-    removeMany,
+    remove,
   } = useAlertRules();
   const { colors, elevation } = useTheme();
   const router = useRouter();
@@ -292,97 +283,27 @@ export default function AlertsScreen() {
   }, [load, loadNotices, refreshRules]);
 
   /**
-   * The parent's switch, which governs the whole group.
+   * A rule's switch — a river alert's, a gauge alert's, either.
    *
-   * ── Why this writes N rules and not one ─────────────────────────────────
+   * ── One write, including for a group ────────────────────────────────────
    *
-   * Nothing server-side links a gauge rule to the river subscription it was
-   * created from — two tables, two evaluators, no parent column. Drawing the
-   * gauge rules INSIDE the river row nonetheless promises that the outer switch
-   * silences them, because that is what a nested control means everywhere else
-   * on the phone. The promise is kept here, in writes, or it is not kept at all
-   * — and a paused river alert whose four stations keep pushing at 4am is a
-   * worse outcome than the flat list this replaced.
+   * A river alert's switch pauses its gauge alerts and touches none of them.
+   * `gauge_alert_subscriptions.parent_subscription_id` names the parent, and the
+   * evaluator skips a child whose parent is off — so pausing is one row, and
+   * resuming hands every child back exactly as it was because nothing ever
+   * changed them. See src/lib/alertGroups.ts and the migration it names.
    *
-   * RESUMING PUTS THE GROUP BACK AS IT WAS, which is the behaviour every
-   * nested switch on the phone already has: a master switch gates its children
-   * and hands them back unchanged, rather than overwriting them. A gauge
-   * deliberately switched off stays off when its river is resumed.
-   *
-   * Eddy cannot gate — no parent column exists on the wire, so a gated child
-   * would keep firing under a paused parent — so the pause is real writes, and
-   * the information gating would have preserved is recorded instead. See
-   * src/lib/alertPauseMemory.ts, which is a log of what THIS SWITCH did rather
-   * than a copy of anything the server holds, and rulesToResume for the
-   * degradation when it is missing.
-   *
-   * ONE CALL, NOT N. `setEnabledMany` exists because a loop over `setEnabled`
-   * has every iteration derive its optimistic list from the same pre-batch
-   * snapshot and the last one win — three of four switches springing back after
-   * being written. See its comment in useAlertRules.
-   *
-   * A partial failure keeps whatever landed and says so, rather than reverting
-   * the whole group and leaving the list describing a server state that is no
-   * longer true.
+   * This screen used to cascade the pause across every rule in the group and
+   * keep a local record of which children had already been off, so that
+   * resuming could avoid sweeping them on. All of it existed to stand in for a
+   * column that did not exist. The column exists; the workaround is gone.
    */
-  const onToggleGroup = useCallback(
-    (group: AlertRuleGroup, enabled: boolean) => {
+  const onToggleRule = useCallback(
+    (rule: AlertRule, enabled: boolean) => {
       setRuleError(null);
-      void (async () => {
-        try {
-          const parentKey = alertRuleKey(group.rule);
-          let targets;
-          if (enabled) {
-            // Read BEFORE writing, and clear only once the writes are away: the
-            // record is what decides which rules are in `targets`, so dropping
-            // it first would resume the children it exists to protect.
-            targets = rulesToResume(group, await pausedBeforeGroup(parentKey));
-          } else {
-            // Written BEFORE the pause, while the children still carry the
-            // states being recorded. After the optimistic update they are all
-            // off and there is nothing left to tell apart.
-            await rememberPausedBeforeGroup(parentKey, childrenAlreadyPaused(group));
-            targets = rulesToPause(group);
-          }
-
-          const failed = await setEnabledMany(targets, enabled);
-          if (failed.length > 0) {
-            setRuleError(
-              enabled ? 'Could not resume every alert here.' : 'Could not pause every alert here.',
-            );
-            return;
-          }
-          // Only a clean resume forgets. A partial one leaves the record in
-          // place so the next attempt still knows what to skip.
-          if (enabled) await rememberPausedBeforeGroup(parentKey, null);
-        } catch {
-          setRuleError(enabled ? 'Could not resume that alert.' : 'Could not pause that alert.');
-        }
-      })();
-    },
-    [setEnabledMany],
-  );
-
-  /**
-   * A nested gauge's own switch.
-   *
-   * Separate from onToggleRule only to keep the group's record honest: toggling
-   * a child while its river alert is already paused is a decision about that
-   * child which the parent's switch must respect the next time it is resumed.
-   * A child toggled under a LIVE parent is nobody's business but its own and is
-   * deliberately not recorded.
-   */
-  const onToggleChild = useCallback(
-    (group: AlertRuleGroup, child: AlertRule, enabled: boolean) => {
-      setRuleError(null);
-      if (!group.rule.enabled) {
-        void noteChildToggledWhilePaused(
-          alertRuleKey(group.rule),
-          alertRuleKey(child),
-          enabled,
-        );
-      }
-      void setEnabled(child, enabled).catch(() =>
+      // The hook reverts its own optimistic update on failure; all this has to
+      // do is say so, or the switch would spring back with no explanation.
+      void setEnabled(rule, enabled).catch(() =>
         setRuleError(enabled ? 'Could not resume that alert.' : 'Could not pause that alert.'),
       );
     },
@@ -405,20 +326,16 @@ export default function AlertsScreen() {
   const removeGroup = useCallback(
     (group: AlertRuleGroup) => {
       setRuleError(null);
-      return removeMany(rulesInGroup(group))
-        .then(async (failed) => {
-          if (failed.length > 0) {
-            setRuleError('Could not delete every alert here.');
-            return;
-          }
-          // The group is gone, so its pause record is about nothing. Left
-          // behind it would be handed to whatever rule id the server issues
-          // next — and the store is bounded only because entries are cleared.
-          await rememberPausedBeforeGroup(alertRuleKey(group.rule), null);
-        })
-        .catch(() => setRuleError('Could not delete that alert.'));
+      // ONE request. The foreign key cascades, so deleting a river alert takes
+      // its gauge alerts with it server-side — which is also what closes the
+      // orphan this screen used to create: before the parent column, deleting a
+      // river alert left its gauge rules firing about a river the user believed
+      // they had stopped following.
+      return remove(group.rule, group.children).catch(() =>
+        setRuleError('Could not delete that alert.'),
+      );
     },
-    [removeMany],
+    [remove],
   );
 
   // Headings interleaved with rows, so a section title scrolls with the group
@@ -626,6 +543,7 @@ export default function AlertsScreen() {
             const parent = item.rule;
             const name = parent.riverName ?? parent.gaugeName ?? 'this water';
             const count = item.children.length;
+            const gated = isGatedByParent(item);
             return (
               // Swipe left to delete. The row's switch PAUSES an alert and the
               // screen behind it edits one; neither is how somebody gets rid of a
@@ -671,7 +589,7 @@ export default function AlertsScreen() {
                         params: { id: parent.id, source: parent.source },
                       })
                     }
-                    onToggle={(enabled) => onToggleGroup(item, enabled)}
+                    onToggle={(enabled) => onToggleRule(parent, enabled)}
                   />
 
                   {/* The gauges, under the river they are on. Each keeps its own
@@ -685,13 +603,18 @@ export default function AlertsScreen() {
                       key={`${child.source}:${child.id}`}
                       rule={child}
                       nested
+                      // Held off by the river alert above, with its own switch
+                      // still reading on — because it IS on, and the gate is
+                      // what stops it. Nothing else on the row could explain
+                      // that, so the row says it.
+                      gated={gated}
                       onPress={() =>
                         router.push({
                           pathname: '/alerts/[id]',
                           params: { id: child.id, source: child.source },
                         })
                       }
-                      onToggle={(enabled) => onToggleChild(item, child, enabled)}
+                      onToggle={(enabled) => onToggleRule(child, enabled)}
                     />
                   ))}
                 </View>
