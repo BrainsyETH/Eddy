@@ -114,6 +114,24 @@ export function isStaleVersionKey(key: string): boolean {
   return key.startsWith(`${PREFIX}.v`) && !key.startsWith(`${VERSIONED}`);
 }
 
+/**
+ * Is this a cache key of ANY version — the set "clear saved river data" clears?
+ *
+ * Broader than isStaleVersionKey, which spares the current version because its
+ * job is tidying up after a bump. This one is the user pressing a button, so it
+ * takes what the app is using too.
+ *
+ * Anchored on `eddy.cache.` for the reason above and one more: the neighbouring
+ * namespaces are `eddy.stars`, `eddy.savedFloats`, `eddy.onboarding`,
+ * `eddy.location` and `eddy.push`. Every one of them is a user decision rather
+ * than a copy of something the server can send again, so a clear that reached
+ * them would turn "free up some space" into "lose your favourites" — and would
+ * re-show the safety onboarding to someone who had already accepted it.
+ */
+export function isCacheKey(key: string): boolean {
+  return key.startsWith(`${PREFIX}.`);
+}
+
 export interface CacheEnvelope<T> {
   /** Payload schema version. A mismatch is a MISS, never a partial hit. */
   v: number;

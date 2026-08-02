@@ -55,6 +55,7 @@ import {
   META_KEY,
   NETWORK_KEY,
   envelope,
+  isCacheKey,
   isRiverKey,
   isStaleVersionKey,
   mergeParts,
@@ -359,5 +360,63 @@ export async function sweepStaleVersions(): Promise<void> {
   } catch (err) {
     // Not worth surfacing: the only cost of a failed sweep is disk.
     warn('cache', 'could not sweep stale cache versions', err);
+  }
+}
+
+// ── Telling a user what is on their phone ───────────────────────────────────
+
+export interface CacheFootprint {
+  /** Cache entries stored, across every version. */
+  entries: number;
+  /**
+   * Bytes of JSON, measured by reading it.
+   *
+   * UTF-16 code units, not bytes on disk: `String.length` is what JavaScript can
+   * see, AsyncStorage adds its own per-file overhead, and the values here are
+   * overwhelmingly ASCII so the two land within a rounding error of each other
+   * at the precision this is ever displayed at. Precision beyond "about 2 MB"
+   * would be false anyway.
+   */
+  bytes: number;
+}
+
+/**
+ * How much room the river cache is taking.
+ *
+ * Reads every value, which is the only way to know — AsyncStorage has no size
+ * API. That is a few hundred kilobytes of JSON off disk, so it belongs on a
+ * screen somebody opened deliberately and nowhere near a render path.
+ */
+export async function cacheFootprint(): Promise<CacheFootprint> {
+  try {
+    const keys = (await AsyncStorage.getAllKeys()).filter(isCacheKey);
+    if (keys.length === 0) return { entries: 0, bytes: 0 };
+    const entries = await AsyncStorage.multiGet(keys);
+    let bytes = 0;
+    for (const [key, value] of entries) bytes += key.length + (value?.length ?? 0);
+    return { entries: keys.length, bytes };
+  } catch (err) {
+    warn('cache', 'could not measure the cache', err);
+    return { entries: 0, bytes: 0 };
+  }
+}
+
+/**
+ * Delete every cached river payload. Favourites, saved floats and settings stay.
+ *
+ * Safe by construction rather than by care: `isCacheKey` is anchored on the
+ * cache's own prefix, so the blast radius is a set of things the server can send
+ * again — see its note for the five neighbouring namespaces this must not touch.
+ *
+ * The cost of pressing this is real and worth being honest about in the copy:
+ * until the next online launch re-seeds the bundle, no river has its put-ins or
+ * hazards on the phone.
+ */
+export async function clearCache(): Promise<void> {
+  try {
+    const keys = (await AsyncStorage.getAllKeys()).filter(isCacheKey);
+    if (keys.length > 0) await AsyncStorage.multiRemove(keys);
+  } catch (err) {
+    warn('cache', 'could not clear the cache', err);
   }
 }

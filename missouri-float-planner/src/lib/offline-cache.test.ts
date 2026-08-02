@@ -5,6 +5,7 @@ import {
   INDEX_KEY,
   META_KEY,
   envelope,
+  isCacheKey,
   isRiverKey,
   isStaleVersionKey,
   parseEnvelope,
@@ -251,4 +252,36 @@ test('a gauge cache keeps its verdict for under six hours only', () => {
   assert.equal(mayPaintCachedCondition(1, WRITTEN, at(4.9)), true);
   assert.equal(mayPaintCachedCondition(1, WRITTEN, at(5)), false);
   assert.equal(mayPaintCachedCondition(null, WRITTEN, at(0)), false);
+});
+
+// ── what "clear saved river data" is allowed to delete ───────────
+
+test('clearing the cache reaches every version of every cache key', () => {
+  // Unlike the stale sweep, this one takes the CURRENT version too — the point
+  // of the button is to remove what the app is using, not only what it left
+  // behind.
+  assert.equal(isCacheKey(INDEX_KEY), true);
+  assert.equal(isCacheKey(META_KEY), true);
+  assert.equal(isCacheKey(riverKey('huzzah-creek')), true);
+  assert.equal(isCacheKey(gaugeKey('07067000')), true);
+  assert.equal(isCacheKey(VIEWPORT_GAUGES_INDEX_KEY), true);
+  assert.equal(isCacheKey(viewportGaugeKey('a|b')), true);
+  assert.equal(isCacheKey(`eddy.cache.v${CACHE_VERSION - 1}.index`), true);
+});
+
+test('clearing the cache cannot reach anything a user chose', () => {
+  // THE thing this guard is for. Every namespace below is a decision the
+  // server cannot send again: clearing them would turn "free up some space"
+  // into losing favourites and being re-shown the safety onboarding.
+  assert.equal(isCacheKey('eddy.stars.v3'), false);
+  assert.equal(isCacheKey('eddy.starredRivers.v1'), false);
+  assert.equal(isCacheKey('eddy.savedFloats.v1'), false);
+  assert.equal(isCacheKey('eddy.onboarding.accepted.v1'), false);
+  assert.equal(isCacheKey('eddy.location.lastFix.v1'), false);
+  assert.equal(isCacheKey('eddy.push.device-opt-out.v1'), false);
+  // Nor anything belonging to another library sharing the store.
+  assert.equal(isCacheKey('rn-async-storage-flipper'), false);
+  assert.equal(isCacheKey(''), false);
+  // The dot matters: a future `eddy.caches.*` would not be ours.
+  assert.equal(isCacheKey('eddy.cachedThing'), false);
 });
