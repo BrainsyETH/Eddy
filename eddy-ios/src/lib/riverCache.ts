@@ -192,17 +192,33 @@ export interface CachedAccessPoint {
   riverSlug: string;
 }
 
+/** What the map draws before any river is selected. */
+export interface CachedPlaces {
+  accessPoints: CachedAccessPoint[];
+  /**
+   * Untagged, unlike the access points above: a hazard pin carries no river
+   * link and opens no river-scoped route, so there is nothing for a slug to do
+   * on one.
+   */
+  hazards: Hazard[];
+}
+
 /**
- * Every access point on disk, from every river, in one read.
+ * Every put-in and every hazard on disk, from every river, in one read.
  *
  * ── Why the Map tab wants this ─────────────────────────────────────────────
  *
- * Put-ins used to be fetched per river, on selection, which meant the map
- * opened with none of them — the answer to "where can I get on the water" was
- * behind picking a river first, and picking a river is the thing people open
- * the map to decide. Every one of these is already on the phone: the launch
- * bundle seeds all 25 rivers (see seedOfflineBundle), and this is one
- * AsyncStorage batch over what it wrote.
+ * Both used to be fetched per river, on selection, which meant the map opened
+ * with neither — the answers to "where can I get on the water" and "what will
+ * kill me on it" were both behind picking a river first, and picking a river is
+ * the thing people open the map to decide. Hazards are the starker case: 19 of
+ * them exist statewide, on 11 of 25 rivers, and a low-water dam is a reason to
+ * choose a different river rather than a detail you read after choosing.
+ *
+ * Every one of these is already on the phone. The launch bundle seeds all 25
+ * rivers with their put-ins AND their hazards (see seedOfflineBundle, and the
+ * bundle's own header on why hazards are in it and services are not), so this
+ * is one AsyncStorage batch over what it already wrote.
  *
  * NO NETWORK, deliberately. The alternative was the full /api/usgs/mo-dataset,
  * which carries access points, POIs and campgrounds for every river — the app
@@ -213,26 +229,28 @@ export interface CachedAccessPoint {
  * Keys come from getAllKeys rather than from the rivers index, so a river the
  * bundle seeded is included whether or not /api/rivers has landed this session.
  */
-export async function readAllAccessPoints(): Promise<CachedAccessPoint[]> {
+export async function readAllPlaces(): Promise<CachedPlaces> {
   try {
     const keys = (await AsyncStorage.getAllKeys()).filter(isRiverKey);
-    if (keys.length === 0) return [];
+    if (keys.length === 0) return { accessPoints: [], hazards: [] };
 
     const entries = await AsyncStorage.multiGet(keys);
-    const out: CachedAccessPoint[] = [];
+    const accessPoints: CachedAccessPoint[] = [];
+    const hazards: Hazard[] = [];
     for (const [key, raw] of entries) {
       const riverSlug = slugFromRiverKey(key);
       if (!riverSlug) continue;
       const stored = parseEnvelope<CachedRiver>(raw, 'object');
       for (const point of stored?.payload?.accessPoints ?? []) {
-        out.push({ point, riverSlug });
+        accessPoints.push({ point, riverSlug });
       }
+      hazards.push(...(stored?.payload?.hazards ?? []));
     }
-    return out;
+    return { accessPoints, hazards };
   } catch {
-    // An empty map layer, never a failed screen. Same posture as every other
+    // Empty map layers, never a failed screen. Same posture as every other
     // read in this file.
-    return [];
+    return { accessPoints: [], hazards: [] };
   }
 }
 

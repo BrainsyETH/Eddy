@@ -10,23 +10,31 @@
 // three questions people actually arrive with — which river, which gauge, which
 // access point. See src/hooks/useEddySearch.ts for why half of it is local.
 //
-// ── Everything else is layers ───────────────────────────────────────────────
+// ── Everything else is layers, and NONE of them wait for a river ───────────
 // Access points, campgrounds, gauges, hazards and outfitters are independent
-// toggles rather than a single "show detail" switch, and each one's data is
-// fetched only once it is switched on. Two of them — access points and gauges —
-// are on when the app opens, because "where do I get on" and "is there water in
-// it" are the two questions the map exists to answer. The rest are one tap away
-// in the layers sheet; see src/components/MapLayersSheet.tsx for why that stopped
-// being a row of chips above the map.
+// toggles rather than a single "show detail" switch. Four of them — access
+// points, hazards and both gauge tiers — are on when the app opens, because
+// "where do I get on", "is there water in it" and "what will hurt me" are the
+// questions the map exists to answer, and none of them can be answered by a
+// map that is waiting to be told which river you meant. The rest are one tap
+// away in the layers sheet; see src/components/MapLayersSheet.tsx for why that
+// stopped being a row of chips above the map.
 //
-// ── Changing river does not reload the screen ──────────────────────────────
-// Geometry loads per river, and this screen used to blank the map to a spinner
-// while the next one arrived — which on a fast tap reads as the app restarting.
-// The previously loaded river therefore keeps drawing until the new one lands,
-// and the only signal is a small pill over the map. Map-only UI (the offline
-// row and line colour) follows the river actually being DRAWN. The planner is
-// intentionally different: it follows the selected river and reads its cached
-// access points, so it never waits for full-resolution geometry.
+// Every one of those sets is statewide. Put-ins and hazards come off the launch
+// bundle already on disk (useNetworkPlaces), gauges and services are one flat
+// request each, and the national gauge tier loads by viewport. What remains
+// river-scoped is only what is genuinely about one river: the live top-up of
+// its put-ins and hazards, and the planner.
+//
+// ── Selecting a river costs nothing now ────────────────────────────────────
+// It used to fetch /api/rivers/{slug} — the heaviest response the app makes —
+// for a bounding box and a line that was never drawn, and the screen carried a
+// whole apparatus for the wait: a "drawn" river distinct from the selected one,
+// so the old line stayed up until the new geometry landed, and a pill naming
+// the river in flight. The statewide dataset the map already holds carries the
+// same geometry at the same resolution, so all of that is gone. Selection is
+// now a synchronous change of which line is drawn heavier, which is what makes
+// it safe for tapping a put-in to select the river it sits on.
 //
 // ── Mapbox may be absent ────────────────────────────────────────────────────
 // The native module cannot run in Expo Go, so instead of a red screen the tab
@@ -51,7 +59,6 @@ import type {
   MapAccessPoint,
   DamSnapshot,
   MapGauge,
-  RiverDetail,
   RiverListItem,
   RiverService,
   SearchResult,
@@ -73,8 +80,7 @@ import {
   fetchDams,
   fetchHazards,
   fetchRiverAccessPoints,
-  fetchRiverDetail,
-  fetchRiverServices,
+  fetchServices,
   fetchRivers,
 } from '@/api/client';
 import {
@@ -99,7 +105,7 @@ import {
   type LayerKey,
 } from '@/map/layers';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
-import { useNetworkAccessPoints } from '@/hooks/useNetworkAccessPoints';
+import { useNetworkPlaces } from '@/hooks/useNetworkPlaces';
 import { usePublicLands } from '@/hooks/usePublicLands';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
@@ -117,6 +123,7 @@ import { useAccount } from '@/hooks/useAccount';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { milesBetween, useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
+import { riverBounds } from '@/lib/statewideNetwork';
 import { warn } from '@/lib/monitoring';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
@@ -224,7 +231,6 @@ export default function MapScreen() {
   );
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [pickedSlug, setPickedSlug] = useState<string | null>(null);
-  const [detail, setDetail] = useState<RiverDetail | null>(null);
   const [accessPoints, setAccessPoints] = useState<MapAccessPoint[]>([]);
   // Planner data is tagged separately from what the map is drawing. The map
   // deliberately keeps the previous river visible during a switch; the planner
@@ -236,9 +242,11 @@ export default function MapScreen() {
   // Null until the layer has been switched on, so the sheet can tell "not fetched"
   // from "none" — see layerCounts.
   const [dams, setDams] = useState<DamSnapshot[] | null>(null);
-  const [services, setServices] = useState<RiverScoped<RiverService> | null>(null);
+  // Statewide and unscoped, unlike hazards above: every service Eddy can place
+  // on a map, fetched once. Null until then, so the layers sheet can tell "not
+  // asked" from "none" — see layerCounts.
+  const [services, setServices] = useState<RiverService[] | null>(null);
   const [gauges, setGauges] = useState<MapGauge[] | null>(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Copied, not aliased: DEFAULT_LAYERS is a module constant and nothing should
@@ -275,9 +283,10 @@ export default function MapScreen() {
   const [paywallOpen, setPaywallOpen] = useState(false);
 
   const network = useStatewideNetwork();
-  // Every river's put-ins, off the launch bundle already on disk. This is what
-  // lets the opening map answer "where do I get on" before a river is picked.
-  const networkAccess = useNetworkAccessPoints();
+  // Every river's put-ins and hazards, off the launch bundle already on disk.
+  // This is what lets the opening map answer "where do I get on" and "what is
+  // dangerous here" before a river is picked.
+  const networkPlaces = useNetworkPlaces();
   const { isStarred, toggleStar } = useStarredRivers();
   const packs = useOfflinePacks();
   const unavailable = mapUnavailableReason();
@@ -334,74 +343,81 @@ export default function MapScreen() {
     [ordered, selectedSlug],
   );
 
-  // Geometry is the heaviest response the app fetches — the Current River alone
-  // is a 632-point LineString — so it loads one river at a time, on selection,
-  // never eagerly for all thirteen.
+  /**
+   * ── SELECTING A RIVER NO LONGER FETCHES ITS GEOMETRY ──────────────────────
+   *
+   * /api/rivers/{slug} is the heaviest response the app makes — a 632-point
+   * LineString for the Current River — and this screen used to pull it on every
+   * selection to get two things out of it: a bounding box for the camera, and a
+   * line it then did not draw. The line is not drawn because the statewide
+   * network already carries that river, at the SAME resolution (both are a bare
+   * ST_AsGeoJSON over rivers.geom, no simplification on either — see
+   * fetchStatewideNetwork), so `detailShape` in RiverMap has been rendering an
+   * empty collection for every curated river.
+   *
+   * It cost little when a selection was a deliberate act. Then access points
+   * went statewide and tapping any put-in on the map began selecting its river,
+   * which made the app's most expensive request the response to its most casual
+   * gesture. Both remaining consumers are served without it: the camera reads
+   * the extent out of the network, and the offline download — the one caller
+   * that genuinely needs a full river — takes the same line from the same
+   * place. See `mapRiver` below.
+   *
+   * What is still fetched here is the river's ACCESS POINTS, which is a small
+   * response and the one that can have changed since the launch bundle.
+   */
   useEffect(() => {
     if (!selectedSlug) return;
     const slug = selectedSlug;
     const controller = new AbortController();
     let live = true;
     let liveAccessLanded = false;
-    setLoadingDetail(true);
-    // NOTHING is cleared here, deliberately. Blanking `detail` and
-    // `accessPoints` is what made switching rivers look like a page reload: the
-    // map unmounts, Mapbox tears down its view, and a spinner replaces a
-    // perfectly good river for as long as the network takes. The old river keeps
-    // drawing until the new one is ready to replace it in one frame.
-    //
     // The callout is dropped with the river it belonged to — EXCEPT when this
     // selection was caused by tapping a put-in on that very river. Clearing it
-    // there would blink the callout out for the length of a geometry fetch and
-    // then put back the same one, which reads as the tap having failed and been
-    // retried by itself.
+    // there would blink the callout out and then put back the same one, which
+    // reads as the tap having failed and been retried by itself.
     if (pendingAccessSelection.current?.riverSlug !== slug) setSelectedPin(null);
 
     // The app seeds every river's static data on launch. Read that first so the
-    // planner can show put-ins without waiting for geometry or another network
-    // round trip, then replace it with the live response when it lands.
+    // planner can show put-ins without waiting for a network round trip, then
+    // replace it with the live response when it lands.
     const cachedAccess = readRiver(slug).then((stored) => {
       const points = stored?.payload.accessPoints;
       if (live && !liveAccessLanded && points) setPlannerAccess({ slug, items: points });
       return points;
     });
 
-    const liveAccess = fetchRiverAccessPoints(slug, controller.signal)
+    fetchRiverAccessPoints(slug, controller.signal)
       .then((points) => {
-        if (live) {
-          liveAccessLanded = true;
-          setPlannerAccess({ slug, items: points });
-        }
+        if (!live) return points;
+        liveAccessLanded = true;
+        setPlannerAccess({ slug, items: points });
         return points;
       })
-      .catch(async () => {
+      .catch(async (err) => {
+        if (err instanceof ApiError && err.message === 'Request cancelled') throw err;
+        // The cached copy is the answer offline, and it is usually complete —
+        // put-ins change monthly. No error surfaces for the same reason the
+        // network's own geometry failure does not: the map is still working.
         const points = (await cachedAccess) ?? [];
         if (live) setPlannerAccess({ slug, items: points });
         return points;
-      });
-
-    Promise.all([fetchRiverDetail(slug, controller.signal), liveAccess])
-      .then(([river, points]) => {
-        // Swapped together: the geometry and the pins drawn on it must never be
-        // from two different rivers, not even for one frame.
-        setDetail(river);
+      })
+      .then((points) => {
+        if (!live || !points) return;
         setAccessPoints(points);
         const pending = pendingAccessSelection.current;
         if (pending?.riverSlug === slug) {
           const point = points.find((candidate) => candidate.id === pending.id);
-          if (point) setSelectedPin(mapAccessPointPin(point, river.slug));
+          if (point) setSelectedPin(mapAccessPointPin(point, slug));
           // Found or stale, this request answered it. Never let a missing row
           // reopen unexpectedly when the person returns to the river later.
           pendingAccessSelection.current = null;
         }
-        setError(null);
       })
-      .catch((err) => {
-        if (err instanceof ApiError && err.message === 'Request cancelled') return;
-        setError(err instanceof ApiError ? err.message : 'Could not load this river');
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoadingDetail(false);
+      .catch(() => {
+        // Only a cancellation reaches here — every other failure was already
+        // answered from the cache above.
       });
 
     return () => {
@@ -411,18 +427,38 @@ export default function MapScreen() {
   }, [selectedSlug]);
 
   /**
-   * The river actually on screen, which is not always the one just tapped.
+   * ── "DRAWN" AND "SELECTED" ARE THE SAME RIVER AGAIN ───────────────────────
    *
-   * Everything that describes what is being drawn — the line colour, the
-   * planner, the offline row — reads from here rather than from `selected`, so a
-   * river mid-load cannot lend its condition colour or its download state to the
-   * river still visible underneath.
+   * They were two things because a selection took a network round trip to
+   * become visible: the map kept the previous river drawn until the next one's
+   * geometry landed, so the line colour, the planner and the offline row all
+   * had to follow what was on SCREEN rather than what had been tapped. Every
+   * part of that is gone with the fetch — the river's shape is already in
+   * memory when it is selected — so `drawnSlug` is now just the selection, and
+   * the loading pill it existed to explain has nothing left to say.
    */
-  const drawnSlug = detail?.slug ?? null;
-  const drawn = useMemo(
-    () => ordered.find((r) => r.slug === drawnSlug) ?? null,
-    [ordered, drawnSlug],
-  );
+  const drawnSlug = selectedSlug;
+  const drawn = selected;
+
+  /**
+   * The selected river as the map and the offline planner need it.
+   *
+   * Straight out of the statewide dataset: slug, name, the line, and an extent
+   * computed from that line. `bySlug` holds the RAW rivers rather than the
+   * split-by-reach collection, because a download walks consecutive points and
+   * a river reassembled from its reaches could bridge two of them with one very
+   * large box.
+   */
+  const mapRiver = useMemo(() => {
+    if (!selectedSlug) return null;
+    const river = network.bySlug.get(selectedSlug);
+    const bounds = river ? riverBounds(river) : null;
+    // A river with no line has no extent to frame and nothing to download, and
+    // both consumers already handle null — the camera falls back to the whole
+    // network, and the offline row says the map data has not arrived.
+    if (!river?.geometry || !bounds) return null;
+    return { slug: river.slug, name: river.name, geometry: river.geometry, bounds };
+  }, [network.bySlug, selectedSlug]);
 
   /**
    * Every river's put-ins, with the drawn river's LIVE list laid over the top.
@@ -438,10 +474,26 @@ export default function MapScreen() {
    */
   const drawnAccessPoints = useMemo(() => {
     const byId = new Map<string, { point: MapAccessPoint; riverSlug?: string | null }>();
-    for (const entry of networkAccess) byId.set(entry.point.id, entry);
+    for (const entry of networkPlaces.accessPoints) byId.set(entry.point.id, entry);
     for (const point of accessPoints) byId.set(point.id, { point, riverSlug: drawnSlug });
     return [...byId.values()];
-  }, [networkAccess, accessPoints, drawnSlug]);
+  }, [networkPlaces.accessPoints, accessPoints, drawnSlug]);
+
+  /**
+   * Every hazard Eddy has, with the selected river's live list over the top.
+   *
+   * Same merge as the put-ins above and the same reason for it — but the stakes
+   * differ, which is why this one is not gated on a river having been chosen.
+   * There are 19 hazards statewide across 11 of 25 rivers; a low-water dam is a
+   * reason to pick a different river, and it can only be that if it is visible
+   * before the river is picked.
+   */
+  const drawnHazards = useMemo(() => {
+    const byId = new Map<string, Hazard>();
+    for (const hazard of networkPlaces.hazards) byId.set(hazard.id, hazard);
+    for (const hazard of hazards?.items ?? []) byId.set(hazard.id, hazard);
+    return [...byId.values()];
+  }, [networkPlaces.hazards, hazards]);
 
   // ── Layer data, fetched on demand ───────────────────────────────
   // Nothing below is requested until its layer is on. Hazards and services are
@@ -484,11 +536,11 @@ export default function MapScreen() {
   /**
    * The ten USACE projects, fetched once on first enable and kept.
    *
-   * NOT river-scoped, which is the structural difference from hazards and
-   * services below: those are "what is on THIS river" and re-fetch when the
-   * selection changes, while the dam set is fixed and statewide. Most of these
-   * dams have no Eddy river at all, so scoping them to a selection would hide
-   * the majority of the layer behind a river that does not exist.
+   * NOT river-scoped, which is the structural difference from services below:
+   * those are "what is on THIS river" and re-fetch when the selection changes,
+   * while the dam set is fixed and statewide. Most of these dams have no Eddy
+   * river at all, so scoping them to a selection would hide the majority of the
+   * layer behind a river that does not exist.
    *
    * fetchDams already answers [] on failure, so there is no error branch: a
    * layer that draws nothing is the honest outcome of a feed being down.
@@ -501,6 +553,15 @@ export default function MapScreen() {
     void fetchDams().then(setDams);
   }, [wantsDams]);
 
+  /**
+   * The selected river's hazards, LIVE, over the statewide set from disk.
+   *
+   * The layer no longer depends on this — every hazard Eddy has is already
+   * drawn from the launch bundle — so what this adds is freshness for the one
+   * river somebody is looking at. Kept rather than dropped because it is a
+   * safety layer: a hazard added since the last bundle should not wait for a
+   * relaunch on the river being planned right now.
+   */
   const wantsHazards = layers.includes('hazards');
   useEffect(() => {
     if (!wantsHazards || !selectedSlug) return;
@@ -520,18 +581,26 @@ export default function MapScreen() {
     return () => controller.abort();
   }, [wantsHazards, selectedSlug]);
 
+  /**
+   * Every placed service in the state, fetched once when a layer wants them.
+   *
+   * Was per-river and re-fetched on every selection, which made both layers
+   * empty until a river was chosen and then two or three pins deep. One
+   * statewide request draws all of them — 25 in total, because 129 of the 154
+   * services on file have no coordinates and cannot be drawn by anyone. See
+   * /api/services, which says the same thing from the other end.
+   *
+   * A ref rather than a slug guard: the set is fixed and statewide, so once it
+   * has been asked for there is nothing a change of selection could add.
+   * fetchServices already answers [] on failure, so there is no error branch.
+   */
   const wantsServices = layers.includes('campgrounds') || layers.includes('outfitters');
+  const servicesRequested = useRef(false);
   useEffect(() => {
-    if (!wantsServices || !selectedSlug) return;
-    const slug = selectedSlug;
-    const controller = new AbortController();
-    fetchRiverServices(slug, controller.signal)
-      .then((items) => setServices({ slug, items }))
-      .catch(() => {
-        if (!controller.signal.aborted) setServices({ slug, items: [] });
-      });
-    return () => controller.abort();
-  }, [wantsServices, selectedSlug]);
+    if (!wantsServices || servicesRequested.current) return;
+    servicesRequested.current = true;
+    void fetchServices().then(setServices);
+  }, [wantsServices]);
 
   // ── Search ──────────────────────────────────────────────────────
   // No `kinds`: this field is unscoped and wants all three. Naming them would
@@ -821,10 +890,10 @@ export default function MapScreen() {
    * map cannot draw is a count that makes the map look broken.
    */
   const layerCounts = useMemo<Partial<Record<LayerKey, number>>>(() => {
-    const riverHazards = hazards?.slug === drawnSlug ? hazards.items : null;
-    const riverServices = services?.slug === drawnSlug ? services.items : null;
-    const placed =
-      riverServices?.filter((s) => s.latitude != null && s.longitude != null) ?? null;
+    // The endpoint already drops services with no geocode, and this filters
+    // again rather than trusting it: a count that includes pins the map cannot
+    // draw is a count that makes the map look broken.
+    const placed = services?.filter((s) => s.latitude != null && s.longitude != null) ?? null;
     return {
       // Statewide now, and counted from what is actually drawn. It used to be
       // river-scoped and `undefined` until a river was chosen, which was the
@@ -849,7 +918,9 @@ export default function MapScreen() {
       // rule above. Statewide rather than river-scoped, so it does not move
       // with the selection.
       dams: dams?.length,
-      hazards: riverHazards?.filter(hasCoordinates).length,
+      // Statewide, like access above: the count is what the layer draws, and
+      // what it draws is every hazard Eddy has rather than one river's.
+      hazards: drawnHazards.length > 0 ? drawnHazards.filter(hasCoordinates).length : undefined,
       // The access half counts every drawn put-in tagged `campground`, matching
       // what the layer emits — see the campgrounds branch in RiverMap's pin
       // builder, which draws them from the same statewide set.
@@ -871,12 +942,11 @@ export default function MapScreen() {
     };
   }, [
     drawnAccessPoints,
+    drawnHazards,
     gauges,
     mappableGauges,
     dams,
-    hazards,
     services,
-    drawnSlug,
     layers,
     referenceGauges.belowMinZoom,
     referenceGauges.loading,
@@ -923,10 +993,10 @@ export default function MapScreen() {
     packs.active && packs.active.riverSlug === drawnSlug ? packs.active.percent : null;
 
   const onDownload = useCallback(async () => {
-    if (!detail) return;
-    const result = await packs.download(detail);
+    if (!mapRiver) return;
+    const result = await packs.download(mapRiver);
     if (!result.ok && result.error) setError(result.error);
-  }, [detail, packs]);
+  }, [mapRiver, packs]);
 
   const onRemove = useCallback(async () => {
     if (!drawnSlug) return;
@@ -972,6 +1042,19 @@ export default function MapScreen() {
    * load, and the pending reference is what carries it across the selection
    * effect's reset — see the effect, which now spares a pin it is about to
    * re-select anyway.
+   *
+   * ── The camera has to be pinned, or the tap throws you across the state ───
+   *
+   * With no focus set the camera fits the SELECTED river's bounds, which is
+   * exactly right when you chose that river by tapping its line and exactly
+   * wrong here: tap a landing on the Jacks Fork from the statewide view and the
+   * map would snap — animationMode 'none' — to a hundred miles of river, with
+   * the callout still open about a pin that had become a speck.
+   *
+   * So a pin tap sets its own focus: the tapped point, at whatever zoom the
+   * camera is already on. That is a gentle recentre rather than a jump, and
+   * centring is useful in its own right because the callout occupies the bottom
+   * of the screen and a pin selected near it ends up underneath.
    */
   const onSelectPin = useCallback(
     (pin: MapPin) => {
@@ -979,12 +1062,20 @@ export default function MapScreen() {
       if (entry?.riverSlug && entry.riverSlug !== selectedSlug) {
         pendingAccessSelection.current = { id: entry.point.id, riverSlug: entry.riverSlug };
         setPickedSlug(entry.riverSlug);
+        setFocus({
+          slug: entry.riverSlug,
+          lng: pin.coordinates.lng,
+          lat: pin.coordinates.lat,
+          // Hold the zoom. Falling through to the focus default of 13 would fly
+          // in from a statewide view for somebody who only asked what a dot was.
+          zoom: viewport?.zoom,
+        });
       } else {
         pendingAccessSelection.current = null;
       }
       setSelectedPin(pin);
     },
-    [accessPointForPin, selectedSlug],
+    [accessPointForPin, selectedSlug, viewport?.zoom],
   );
 
   // The gauge behind a tapped gauge pin. Looked up rather than carried on
@@ -1090,7 +1181,7 @@ export default function MapScreen() {
       <View style={styles.mapArea}>
         {unavailable ? (
           <MapUnavailable reason={unavailable} />
-        ) : !detail && !network.collection.features.length ? (
+        ) : !network.collection.features.length ? (
           // The spinner is for a COLD map — neither the network nor a river has
           // arrived. Once either has, the map draws: switching rivers keeps the
           // one already on screen until the next lands, and a river loading over
@@ -1100,7 +1191,7 @@ export default function MapScreen() {
           </View>
         ) : (
           <RiverMap
-            river={detail}
+            river={mapRiver}
             conditionCode={conditionCode}
             network={network.collection}
             networkBounds={network.bounds}
@@ -1120,8 +1211,8 @@ export default function MapScreen() {
                 zoom: Math.min(16, (viewport?.zoom ?? 10) + 2),
               })
             }
-            hazards={hazards?.items ?? []}
-            services={services?.items ?? []}
+            hazards={drawnHazards}
+            services={services ?? []}
             layers={layers}
             focus={activeFocus ?? openingFocus}
             showUserLocation={location.status === 'ready' && isFocused}
@@ -1134,18 +1225,11 @@ export default function MapScreen() {
           />
         )}
 
-        {/* The whole signal that a different river is on its way. A pill over a
-            live map, rather than a spinner where the map used to be. */}
-        {!unavailable && detail && loadingDetail && selected && drawnSlug !== selectedSlug ? (
-          <View style={styles.loadingPillWrap} pointerEvents="none">
-            <View style={[styles.loadingPill, floating(), { backgroundColor: colors.card }]}>
-              <ActivityIndicator size="small" color={colors.interactive} />
-              <Text style={[styles.loadingPillText, { color: colors.text }]} numberOfLines={1}>
-                {selected.name}
-              </Text>
-            </View>
-          </View>
-        ) : null}
+        {/* THERE IS NO LOADING PILL ANY MORE. It existed to name the river whose
+            geometry was in flight while the previous one stayed on screen, and
+            nothing is in flight: a selected river's line is already in memory,
+            from the statewide dataset the map opened with. A pill that could
+            only ever appear for one frame is a flicker, not a signal. */}
 
         {/* Results overlay the map rather than pushing it down, so the map keeps
             its size and the list can be dismissed by clearing the field. */}
@@ -1389,7 +1473,7 @@ export default function MapScreen() {
           offline downloads off, or when there is no native map to download. */}
       {features.offlineDownloads && !unavailable ? (
         <OfflineMapRow
-          river={detail}
+          river={mapRiver}
           tally={drawnSlug ? packs.downloaded[drawnSlug] : undefined}
           progressPercent={downloadProgress}
           budget={packs.budget}
@@ -1490,7 +1574,7 @@ export default function MapScreen() {
       <PaywallSheet
         visible={paywallOpen}
         onClose={() => setPaywallOpen(false)}
-        riverName={detail?.name}
+        riverName={mapRiver?.name}
         onPurchased={() => {
           // They paid to get this river onto the phone. Finish the thing they
           // asked for rather than making them find the row again.

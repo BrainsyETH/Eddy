@@ -34,10 +34,10 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { RiverDetail } from '@eddy/types';
 import {
   offlineCompleteness,
   planOffline,
+  type OfflineRiver,
   type RiverPackTally,
   type TileBudget,
 } from '@eddy/offline';
@@ -46,7 +46,13 @@ import { fonts, type as t } from '@/theme/typography';
 import { EddySymbol } from '@/components/EddySymbol';
 
 interface Props {
-  river: RiverDetail | null;
+  /**
+   * The river to download, or null when the network has not landed.
+   *
+   * OfflineRiver rather than RiverDetail: this row is fed from the statewide
+   * dataset the map already holds, not from a per-river fetch. See the type.
+   */
+  river: OfflineRiver | null;
   /**
    * What is on disk for this river, or undefined for nothing.
    *

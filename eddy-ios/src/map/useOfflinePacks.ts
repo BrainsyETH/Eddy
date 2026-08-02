@@ -13,7 +13,6 @@
 // when someone is out of signal and relying on it.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { RiverDetail } from '@eddy/types';
 import { getOfflineManager } from './runtime';
 import {
   MAX_ZOOM,
@@ -29,6 +28,7 @@ import {
   tileBudget,
   type OfflineCompleteness,
   type OfflinePlan,
+  type OfflineRiver,
   type RiverPackTally,
   type TileBudget,
 } from '@eddy/offline';
@@ -203,7 +203,10 @@ export function useOfflinePacks() {
    * maps exist for. Failures surface through the error listener instead.
    */
   const download = useCallback(
-    async (river: RiverDetail): Promise<{ ok: boolean; error?: string }> => {
+    // OfflineRiver, not RiverDetail: the caller now hands over a river taken
+    // from the statewide dataset rather than from a per-river fetch, and a
+    // download only ever needed the slug, the name, the line and the extent.
+    async (river: OfflineRiver): Promise<{ ok: boolean; error?: string }> => {
       const manager = getOfflineManager();
       if (!manager) return { ok: false, error: 'Offline maps need a full build of the app.' };
 

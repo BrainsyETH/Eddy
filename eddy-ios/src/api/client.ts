@@ -568,8 +568,14 @@ export async function seedOfflineBundle(): Promise<void> {
     // writeRiver enqueues, so the disk is behind us by a frame or two here.
     notifyBundleSeeded(
       rivers.flatMap((entry) =>
-        entry.slug && entry.accessPoints
-          ? [{ riverSlug: entry.slug, accessPoints: entry.accessPoints }]
+        entry.slug
+          ? [
+              {
+                riverSlug: entry.slug,
+                accessPoints: entry.accessPoints ?? [],
+                hazards: entry.hazards ?? [],
+              },
+            ]
           : [],
       ),
     );
@@ -585,17 +591,21 @@ export async function seedOfflineBundle(): Promise<void> {
  *
  * ── The one case this exists for ───────────────────────────────────────────
  *
- * The Map tab draws every river's access points out of the on-disk cache, which
- * is instant on the second launch and EMPTY on the first — the bundle is still
- * in flight while the map paints. Without a signal the map would sit with no
- * put-ins on it until something else happened to re-render it, which on the
- * opening screen is nothing at all.
+ * The Map tab draws every river's put-ins and hazards out of the on-disk cache,
+ * which is instant on the second launch and EMPTY on the first — the bundle is
+ * still in flight while the map paints. Without a signal the map would sit with
+ * no put-ins and no hazards on it until something else happened to re-render
+ * it, which on the opening screen is nothing at all.
  *
  * A listener set rather than a state library because this app has no state
  * library, and one module-scope Set is a smaller thing to own than a
  * subscription abstraction with one publisher and one subscriber.
  */
-type BundleSeededPayload = { riverSlug: string; accessPoints: MapAccessPoint[] }[];
+type BundleSeededPayload = {
+  riverSlug: string;
+  accessPoints: MapAccessPoint[];
+  hazards: Hazard[];
+}[];
 const bundleListeners = new Set<(payload: BundleSeededPayload) => void>();
 
 function notifyBundleSeeded(payload: BundleSeededPayload): void {
@@ -814,6 +824,30 @@ export async function fetchRiverReaches(
   const reaches = data.reaches ?? [];
   writePart(slug, 'reaches', reaches);
   return reaches;
+}
+
+/**
+ * Every service that can be drawn on a map, statewide.
+ *
+ * The map's campground and outfitter layers used to be built from the per-river
+ * directory, which meant they held nothing until a river was chosen and then
+ * held that river's two or three. This is one request for all of them.
+ *
+ * NOT a replacement for fetchRiverServices — the river screen wants the full
+ * directory record for one river, including services with no geocode, which a
+ * map layer has no way to draw and no reason to hold.
+ *
+ * Answers [] on failure rather than throwing: an outfitter layer that draws
+ * nothing is a fair outcome of a request that did not come back, and it must
+ * not take the map down with it.
+ */
+export async function fetchServices(signal?: AbortSignal): Promise<RiverService[]> {
+  try {
+    const data = await get<ServicesResponse>('/api/services', signal);
+    return data.services ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchRiverServices(

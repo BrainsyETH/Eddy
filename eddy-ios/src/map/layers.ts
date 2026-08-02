@@ -107,12 +107,23 @@ export interface LayerDef {
 }
 
 /**
- * Access points and BOTH gauge tiers are on by default.
+ * Access points, hazards and BOTH gauge tiers are on by default.
  *
- * The two questions someone opens the map with are "where can I get on this
- * river" and "is there any water in it", and those are exactly these layers.
- * Everything else is a follow-up question and stays off until asked — a river
- * under five layers of pins answers nothing. The choice sticks for the session.
+ * The questions someone opens the map with are "where can I get on this river",
+ * "is there any water in it" and "is any of it going to kill me", and those are
+ * exactly these layers. Everything else is a follow-up question and stays off
+ * until asked — a river under five layers of pins answers nothing. The choice
+ * sticks for the session.
+ *
+ * ── Hazards joined this list when they stopped being river-scoped ──────────
+ *
+ * They were off by default for a defensible reason: the layer held nothing
+ * until a river had been chosen, so switching it on before that did visibly
+ * nothing. Now it draws all 19 hazards Eddy has, across 11 of 25 rivers, from
+ * the launch bundle. Nineteen pins is not clutter, and a layer that answers
+ * "which of these rivers has a low-water dam on it" belongs ON while somebody
+ * is still deciding which river to drive to. Defaulting safety data off is a
+ * hard thing to defend once the data is actually there.
  *
  * `allGauges` used to be excluded, on the grounds that the national tier is a
  * reference someone asks for and that defaulting it on would fire a viewport
@@ -121,7 +132,40 @@ export interface LayerDef {
  * curated gauges as compact condition dots and the national tier as clusters.
  * The full station marks and labels arrive only when the camera is closer.
  */
-export const DEFAULT_LAYERS: LayerKey[] = ['access', 'gauges', 'allGauges'];
+export const DEFAULT_LAYERS: LayerKey[] = ['access', 'hazards', 'gauges', 'allGauges'];
+
+/**
+ * ── THE ZOOM LADDER ─────────────────────────────────────────────────────────
+ *
+ * One table, because every layer on this map is statewide now and the map is
+ * only legible if they all change character together. These numbers were set
+ * one layer at a time as each was written — access clustered to 9, the national
+ * gauge tier to 11, access icons appeared at 10, its labels at 11, curated
+ * gauges swapped representation at 8.5 — so panning in crossed six different
+ * thresholds at six different moments and the map reorganised itself the whole
+ * way. Rungs, not opinions per layer.
+ *
+ *   OFF      below 5.5   Lines only. Nothing statewide draws or fetches; a
+ *                        continental view asks for nothing.
+ *   COUNTS   5.5 – 8     Clusters and small coloured dots. "Where is there
+ *                        water, and where can I get on it" at a glance.
+ *   PLACES   8 – 10.5    Individual pins, no names. Enough to see arrangement.
+ *   NAMES    10.5+       Labels. The camera is close enough for text to land
+ *                        beside the thing it names rather than across it.
+ *
+ * A layer may sit out a rung — hazards never cluster, and the raster has its own
+ * pair — but nothing invents a rung of its own.
+ */
+export const ZOOM = {
+  /** Below this, statewide layers neither draw nor fetch. */
+  min: 5.5,
+  /** Clusters collapse into individual pins at this zoom. */
+  cluster: 8,
+  /** Pins gain their full mark, and dots give way to symbols. */
+  places: 10.5,
+  /** Labels switch on. */
+  names: 10.5,
+} as const;
 
 /**
  * Below this zoom NEITHER gauge tier draws or fetches.
@@ -130,8 +174,13 @@ export const DEFAULT_LAYERS: LayerKey[] = ['access', 'gauges', 'allGauges'];
  * request when somebody deliberately zooms far out without recreating the old
  * click-a-river-first flow. Both tiers share it so reference clusters never
  * appear without the curated condition dots that carry Eddy's verdicts.
+ *
+ * An alias for the ladder's floor. It keeps its own name because the two
+ * VIEWPORT hooks read it as a fetch gate rather than as a paint threshold —
+ * useViewportGauges and usePublicLands ask for nothing below it — and that is a
+ * different claim from "do not draw".
  */
-export const MIN_GAUGE_ZOOM = 5.5;
+export const MIN_GAUGE_ZOOM = ZOOM.min;
 
 /**
  * Where curated gauges change from overview dots to full staff marks + labels.
@@ -141,14 +190,14 @@ export const MIN_GAUGE_ZOOM = 5.5;
  * important distinction: the readings are present and tappable immediately,
  * then gain detail as the camera moves closer.
  */
-export const GAUGE_DETAIL_ZOOM = 8.5;
+export const GAUGE_DETAIL_ZOOM = ZOOM.places;
 
 
 export const MAP_LAYERS: LayerDef[] = [
   {
     key: 'access',
     label: 'Access points',
-    description: 'Put-ins and ramps on the selected river',
+    description: 'Put-ins and ramps on every river',
     icon: 'location',
     // A destination is map content, not an action. Teal keeps coral reserved
     // for Plan a float and the plan endpoint the user explicitly chose.

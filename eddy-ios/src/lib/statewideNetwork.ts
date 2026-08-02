@@ -36,7 +36,16 @@ import { conditionColor } from '@/theme/conditions';
 // a cheaper price than a build that breaks for a reason nobody can see.
 interface LineString {
   type: 'LineString';
-  coordinates: number[][];
+  /**
+   * Positions as [lng, lat] PAIRS, matching how RiverGeometry declares the same
+   * wire data in @eddy/types.
+   *
+   * It was `number[][]` here, which is the same claim made loosely, and the
+   * looseness stopped being free when the Map tab began handing these lines to
+   * the offline planner instead of the ones from /api/rivers/{slug}. Two types
+   * for one payload meant a cast at that boundary; one type means none.
+   */
+  coordinates: [number, number][];
 }
 
 interface Feature<P> {
@@ -438,13 +447,36 @@ export function buildNetwork(
 
 /** Bounding box [west, south, east, north] over the whole network. */
 export function networkBounds(collection: NetworkCollection): [number, number, number, number] | null {
+  return boundsOf(collection.features.map((f) => f.geometry.coordinates));
+}
+
+/**
+ * The extent of one river's line.
+ *
+ * Exists because the Map tab stopped fetching /api/rivers/{slug} to find this
+ * out. That endpoint is the heaviest call the app makes and the only things the
+ * map wanted from it were a bounding box and a line it never drew — the network
+ * already carries the same geometry at the same resolution (both are a bare
+ * ST_AsGeoJSON over rivers.geom; see fetchStatewideNetwork).
+ *
+ * Takes the RAW river rather than a collection feature, because buildNetwork
+ * splits a multi-gauge river into one feature per reach. Concatenating those
+ * back together would work for a bounding box and quietly not work for the
+ * offline corridor, which walks consecutive points and would bridge two reaches
+ * with one very large box.
+ */
+export function riverBounds(river: StatewideRiver): [number, number, number, number] | null {
+  return river.geometry ? boundsOf([river.geometry.coordinates]) : null;
+}
+
+function boundsOf(lines: number[][][]): [number, number, number, number] | null {
   let west = Infinity;
   let south = Infinity;
   let east = -Infinity;
   let north = -Infinity;
 
-  for (const f of collection.features) {
-    for (const [lng, lat] of f.geometry.coordinates) {
+  for (const coordinates of lines) {
+    for (const [lng, lat] of coordinates) {
       if (lng < west) west = lng;
       if (lng > east) east = lng;
       if (lat < south) south = lat;
