@@ -132,39 +132,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # THE STEP THAT EARNS THIS JOB, AND IT RUNS FIRST FOR A SECOND REASON.
-      #
-      # Typecheck and lint both passed throughout the SDK 57 upgrade while every
-      # production bundle was broken: Expo's tsconfig-paths emulation stopped
-      # matching exact aliases, and Metro's file map stopped indexing files
-      # outside the project root — but only during `expo export`, so
-      # `expo start` kept working. A bug class that is invisible in development
-      # and fatal in every EAS build needs a production bundle in CI to catch
-      # it. Nothing here needs credentials: this compiles the JS bundle, it does
-      # not build the app.
-      #
-      # THE SECOND REASON — WHY IT MOVED ABOVE THE TYPECHECK:
-      #
-      # app.json sets experiments.typedRoutes, so expo-router emits the union of
-      # every route to .expo/types/router.d.ts, which tsconfig.json includes.
-      # That file is gitignored and written only by the dev server or an export.
-      # With the typecheck first, it never existed here — `Href` degraded to
-      # something permissive and route errors COULD NOT FIRE. Three sat green in
-      # this job for a week while failing on every machine that had run
-      # `expo start` (see eddy-ios/src/lib/href.ts, and commit afc1638, which
-      # named this reorder as the fix and deferred it).
-      #
-      # The cost is that a type error now surfaces after a bundle rather than
-      # before one. That is the right way round: a slower red beats a green that
-      # cannot see the error class it was added to catch.
-      - name: Bundle for iOS
-        run: npx expo export --platform ios --output-dir "$RUNNER_TEMP/expo-export"
-
       - name: Typecheck
         run: npx tsc --noEmit
 
       - name: Lint
         run: npx expo lint
+
+      # THE STEP THAT EARNS THIS JOB. Typecheck and lint both passed throughout
+      # the SDK 57 upgrade while every production bundle was broken: Expo's
+      # tsconfig-paths emulation stopped matching exact aliases, and Metro's
+      # file map stopped indexing files outside the project root — but only
+      # during `expo export`, so `expo start` kept working.
+      #
+      # A bug class that is invisible in development and fatal in every EAS
+      # build needs a production bundle in CI to catch it. Nothing here needs
+      # credentials: this compiles the JS bundle, it does not build the app.
+      - name: Bundle for iOS
+        run: npx expo export --platform ios --output-dir "$RUNNER_TEMP/expo-export"
 
       # .easignore is an allowlist, and an allowlist that silently stops
       # matching looks fine until an EAS build fails on the worker. It also
