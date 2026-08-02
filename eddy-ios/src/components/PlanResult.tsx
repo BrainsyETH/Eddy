@@ -61,6 +61,7 @@ import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import { driveBetweenUrl, driveToUrl, usgsGaugeUrl } from '@/lib/directions';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { PlanAlongRoute } from '@/components/PlanAlongRoute';
+import { PlanRoutePreview } from '@/components/PlanRoutePreview';
 import { PlanNearby } from '@/components/PlanNearby';
 import { EddySymbol } from '@/components/EddySymbol';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
@@ -99,7 +100,17 @@ export function PlanResult({ plan, actions }: Props) {
         </View>
       ) : null}
 
+      {/* ── The stretch ─────────────────────────────────────────────
+          ABOVE the numbers, inside the same card, because it is what the
+          numbers are about. It renders itself away when the plan came back
+          without usable geometry — see PlanRoutePreview, which never draws a
+          route it had to invent.
+
+          Saved floats get it for free: this component is the whole of what
+          both screens render, which is the reason it exists. */}
       <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
+        <PlanRoutePreview geometry={plan.route?.geometry} />
+
         <View style={styles.segmentRow}>
           <Text style={[styles.segment, { color: colors.textMuted }]} numberOfLines={2}>
             {plan.putIn.name} → {plan.takeOut.name}
@@ -133,8 +144,14 @@ export function PlanResult({ plan, actions }: Props) {
             <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
               {/* NOT "no stops". The long end is moving time x1.6 — a relaxed
                   pace that stops on gravel bars — so "no stops" would describe
-                  the SHORT end while printing the long one. */}
-              {floatTimeCeilingBasisNote()}
+                  the SHORT end while printing the long one.
+
+                  The vessel is named here because nothing else names it. The
+                  boat picker is gone from this flow and the server defaults to
+                  a canoe, which the header of this file has claimed the
+                  estimate "still says" for a while without it being true
+                  anywhere on screen. See floatTimeCeilingBasisNote. */}
+              {floatTimeCeilingBasisNote(plan.vessel?.name)}
             </Text>
           </>
         ) : (

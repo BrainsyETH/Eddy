@@ -127,7 +127,25 @@ export function formatFloatTimeCeilingCompact(maxMinutes: number): string {
  * Written as one plain sentence rather than the app's usual dot-separated
  * fragments, because it is a sentence: it says what the number assumed, and
  * "Estimated · relaxed pace, some stops" made a reader assemble that themselves.
+ *
+ * ── The boat ────────────────────────────────────────────────────────────────
+ *
+ * `vesselName` names the hull the speed model used. The iOS app dropped the
+ * boat picker — one required tap that moved the answer less than the wind does
+ * — and the server defaults to a canoe when the client sends no vessel. That
+ * default was then never stated anywhere, so a party of tubers read a canoe's
+ * number as theirs. A tube is a third slower than a canoe in the same water;
+ * on a seven-mile stretch that is well over an hour, in the direction that
+ * ends in the dark.
+ *
+ * Naming it is also what makes the number DISCOUNTABLE, which is the whole
+ * job of a basis line: somebody in a kayak can read "canoe" and know to knock
+ * time off, and nobody can do that from an unattributed estimate.
+ *
+ * Omitted rather than guessed when the caller has no vessel — the sentence is
+ * still true without it.
  */
-export function floatTimeCeilingBasisNote(): string {
-  return 'Estimated at a relaxed pace with stops';
+export function floatTimeCeilingBasisNote(vesselName?: string | null): string {
+  const base = 'Estimated at a relaxed pace with stops';
+  return vesselName ? `${vesselName} at today's level, ${base.toLowerCase()}` : base;
 }

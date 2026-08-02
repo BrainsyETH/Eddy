@@ -1,9 +1,19 @@
 // eddy-ios/app/(tabs)/reports.tsx
-// Search — the list view: every curated river ranked by how floatable it is
+// Today — the list view: every curated river ranked by how floatable it is
 // right now. This is the tab that answers "what can I float today?".
 //
-// The file keeps its `reports` route name; only the labels say "Search". See
-// app/(tabs)/_layout.tsx for why the filename was left alone.
+// The file keeps its `reports` route name; only the labels say "Today". See
+// app/(tabs)/_layout.tsx for why the filename was left alone, and for why the
+// tab stopped being named after searching.
+//
+// ── At rest and engaged are two screens ─────────────────────────────────────
+// Resting, this is the answer: a headline count, the condition chips, an
+// ordering, and the river list. Engaged — the field focused, or holding a
+// query — it is a search across four kinds, and the scope switch appears to
+// say which. The switch is meaningless before there is a query to scope, and
+// showing it at rest cost four rows of chrome above the first river while
+// suppressing every river control, because those were all gated on the Rivers
+// segment that nobody had selected.
 //
 // Ordering and the floatable count both come from the canonical condition
 // system rather than local logic, so the app's headline number always matches
@@ -65,6 +75,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Linking,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -82,6 +93,7 @@ import type {
 } from '@eddy/types';
 import { hasCoordinates } from '@eddy/types';
 import { FLOW_BAND_ORDER, flowBand, type FlowBand } from '@eddy/conditions/flow-band';
+import { READING_LAG_NOTE, floatableHeadline } from '@eddy/conditions/floatable-headline';
 import { ApiError, fetchDams, fetchGaugeCount, fetchGauges, fetchRivers } from '@/api/client';
 import { floatableRank, isFloatableNow } from '@/theme/conditions';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
@@ -267,6 +279,7 @@ export default function ReportsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [scope, setScope] = useState<ScopeKey>('all');
+  const [searchFocused, setSearchFocused] = useState(false);
   const [damFilter, setDamFilter] = useState<DamFilterKey>('all');
   const [dams, setDams] = useState<DamSnapshot[]>([]);
   const [gaugeCount, setGaugeCount] = useState<number | null>(null);
@@ -811,6 +824,18 @@ export default function ReportsScreen() {
     [sorted, isStarred],
   );
 
+  /**
+   * The headline count, off the WHOLE catalog rather than the filtered set.
+   *
+   * Same reason the chips carry unfiltered counts: this sentence describes the
+   * Ozarks, not the list currently on screen. Tapping "Low water" must not
+   * rewrite it to "0 of 4 rivers are floatable right now".
+   */
+  const headline = useMemo(
+    () => floatableHeadline((rivers ?? []).map((river) => river.currentCondition?.code)),
+    [rivers],
+  );
+
   // Two things have to arrive before this list can be sorted: permission, and
   // the gauge coordinates to measure against. Both are fetched here, on the
   // tap, and never on mount — see useLocation for why the prompt is never spent
@@ -861,7 +886,28 @@ export default function ReportsScreen() {
     );
   }
 
-  const riverScope = scope === 'rivers';
+  /**
+   * The field is engaged: focused, or holding a query.
+   *
+   * This is what separates the two jobs the screen does. At rest it answers
+   * "what can I float today" and is a river list; engaged, it is a search
+   * across four kinds. The scope switch belongs only to the second — see where
+   * it renders.
+   */
+  const searching = searchFocused || query.trim().length > 0;
+
+  /**
+   * The river controls — chips, ordering, the trust footer — belong to the
+   * resting screen as well as to the Rivers segment.
+   *
+   * `rows` above already makes this true of the DATA: the All scope with
+   * nothing typed returns the river list, unsectioned, because that is what
+   * the tab opens on. The controls did not follow it, so the default scope
+   * rendered rivers with no count, no ordering and no way to ask for one — the
+   * screen's own answer, with every affordance for reading it removed.
+   */
+  const riverScope = scope === 'rivers' || (scope === 'all' && !searching);
+  const sortLabel = SORT_LABELS.find((s) => s.key === sort)?.label ?? 'Floatable first';
   /**
    * Scopes whose results come from /api/search, as opposed to a list this
    * screen already holds.
@@ -877,16 +923,17 @@ export default function ReportsScreen() {
   // wait on a request where the local scopes do not, and a blank list under a
   // scope that has not answered yet reads as "there is nothing here".
   const awaitingServer = SCOPE_KINDS[scope] !== null && search.searching;
-  // The All scope shows no chip row at all — a chip belongs to a kind, and
-  // there is no filter that means the same thing to a river, a gauge, an access
-  // point and a dam at once. So a query is the only thing that can be narrowing
-  // it, which is what this reports.
+  // A SEARCHING All scope shows no chip row at all — a chip belongs to a kind,
+  // and there is no filter that means the same thing to a river, a gauge, an
+  // access point and a dam at once. So a query is the only thing that can be
+  // narrowing it, which is what this reports. At rest the scope is the river
+  // list and its chips apply, which is why riverScope is tested first.
   const filtering =
     query.trim().length > 0 ||
-    (scope === 'all'
-      ? false
-      : riverScope
-        ? filter !== 'all'
+    (riverScope
+      ? filter !== 'all'
+      : scope === 'all'
+        ? false
         : scope === 'dams'
           ? damFilter !== 'all'
           : gaugeFilter !== 'all');
@@ -894,15 +941,32 @@ export default function ReportsScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Search</Text>
-        {/* ERROR ONLY. This slot used to fall back to "N of 24 rivers floatable
-            right now", which is a fact the "Floatable now" chip already carries
-            with its own count. What the slot cannot lose is the error: a failed
-            pull-to-refresh leaves the stale list on screen, so ListEmptyComponent
-            never renders and this is the only thing that says the refresh
-            failed. Collapses to nothing when there is no error. */}
+        <Text style={[styles.title, { color: colors.text }]}>Today</Text>
+        {/* THE ANSWER, THEN THE ERROR.
+
+            This slot was reduced to errors only on the grounds that the
+            "Floatable now" chip already carried the count. It does — but only
+            in the Rivers segment, and the tab opens on All, so the number that
+            answers the question the screen is named for was not on screen at
+            all when it loaded. A count inside a filter is also a different
+            claim from a headline: one is a filter's size, the other is the
+            state of the Ozarks this morning.
+
+            The error still wins the slot when there is one. A failed
+            pull-to-refresh leaves the stale list on screen, so
+            ListEmptyComponent never renders and this is the only thing that
+            says the refresh failed — and a confident tally above a list that
+            silently failed to update is the exact thing this screen must not
+            do. Collapses to nothing when there is neither. */}
         {error ? (
           <Text style={[styles.subtitle, { color: colors.error }]}>{error}</Text>
+        ) : headline ? (
+          <>
+            <Text style={[styles.subtitle, { color: colors.text }]}>{headline}</Text>
+            <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
+              {READING_LAG_NOTE}
+            </Text>
+          </>
         ) : null}
       </View>
 
@@ -930,59 +994,72 @@ export default function ReportsScreen() {
           // Rated gauges are matched locally so they land on the keystroke, and
           // the list has to exist before the first one — the same reason the
           // map's field warms it on focus.
-          onFocus={ensureGauges}
-          trailing={
-            // Inside the field rather than as a sixth filter chip: this changes
-            // the ORDER, and the chips all change which rivers appear. Mixing
-            // the two in one row would make "Near me" look mutually exclusive
-            // with "Floatable now", which it is not — they compose.
-            // Rivers only. Every ordering here is a question about rivers —
-            // "most water" compares readings across rated units, "near me"
-            // measures to a river's own gauge — and offering them over a list
-            // of national stations would be five orderings that do nothing.
-            !riverScope ? null : (
-            <Pressable
-              onPress={() => setSortOpen((open) => !open)}
-              disabled={location.status === 'locating'}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: sortOpen }}
-              accessibilityLabel={`Sort: ${SORT_LABELS.find((s) => s.key === sort)?.label}`}
-            >
-              {location.status === 'locating' ? (
-                <ActivityIndicator size="small" color={colors.interactive} />
-              ) : (
-                <Ionicons
-                  name={sort === 'nearest' ? 'navigate' : 'swap-vertical-outline'}
-                  size={17}
-                  color={sort === 'condition' ? colors.textMuted : colors.interactive}
-                />
-              )}
-            </Pressable>
-            )
-          }
+          onFocus={() => {
+            setSearchFocused(true);
+            ensureGauges();
+          }}
+          onBlur={() => setSearchFocused(false)}
         />
       </View>
 
-      {/* ── Which kind of thing ──────────────────────────────────
-          Above the filters, below the field, because it governs both: the chips
-          under it change with it, and so does what the field is asking for. */}
-      <ScopeSwitch options={SCOPES} value={scope} onChange={setScope} />
+      {/* ── The ordering, named ──────────────────────────────────
+          Below the field rather than inside it, and spelled out rather than
+          drawn.
 
+          This was a bare ⇅ glyph in the field's trailing slot, which is the
+          whole of what five orderings looked like: the live one was legible
+          only to VoiceOver, through an accessibilityLabel. Somebody who can
+          READ "Floatable first" knows both that the list is ordered and that
+          there is another way to see it; somebody looking at an unlabelled
+          glyph knows neither.
+
+          Still a menu rather than a chip row. Five orderings would double the
+          width of the filter strip and read as ten filters, and unlike the
+          filters only one ordering is ever live — which is what a menu says
+          and a chip row does not.
+
+          Rivers only. Every ordering here is a question about rivers — "most
+          water" compares readings across rated units, "near me" measures to a
+          river's own gauge — and offering them over a list of national
+          stations would be five orderings that do nothing. */}
       {riverScope ? (
-        <View style={styles.trustRow}>
-          <Text style={[styles.trustText, { color: colors.textMuted }]}>
-            Every river here is researched by hand — put-ins walked, hazards logged, gauges
-            rated. New ones go out regularly. Missing yours?
-          </Text>
+        <View style={styles.sortRow}>
           <Pressable
-            onPress={() => setRiverRequestOpen(true)}
+            onPress={() => setSortOpen((open) => !open)}
+            disabled={location.status === 'locating'}
+            hitSlop={8}
+            style={({ pressed }) => [styles.sortTrigger, { opacity: pressed ? 0.6 : 1 }]}
             accessibilityRole="button"
-            accessibilityLabel="Request a river"
+            accessibilityState={{ expanded: sortOpen }}
+            accessibilityLabel={`Order: ${sortLabel}. Change the order`}
           >
-            <Text style={[styles.requestRiver, { color: colors.interactive }]}>Request a river</Text>
+            {location.status === 'locating' ? (
+              <ActivityIndicator size="small" color={colors.interactive} />
+            ) : (
+              <Ionicons
+                name={sort === 'nearest' ? 'navigate' : 'swap-vertical-outline'}
+                size={15}
+                color={colors.interactive}
+              />
+            )}
+            <Text style={[styles.sortTriggerText, { color: colors.interactive }]}>{sortLabel}</Text>
+            <Ionicons
+              name={sortOpen ? 'chevron-up' : 'chevron-down'}
+              size={14}
+              color={colors.interactive}
+            />
           </Pressable>
         </View>
+      ) : null}
+
+      {/* ── Which kind of thing ──────────────────────────────────
+          ONLY WHILE THE FIELD IS ENGAGED. A scope is a refinement of a search,
+          and there is no search at rest — so at rest this was a taxonomy asked
+          before the question, sitting where the first river should be. Focus
+          the field and it appears, above the filters and below the field,
+          because it governs both. */}
+      {searching ? (
+        <ScopeSwitch options={SCOPES} value={scope} onChange={setScope} />
       ) : null}
 
       {/* A menu, not a chip row. Five orderings would double the width of the
@@ -1024,9 +1101,25 @@ export default function ReportsScreen() {
           Nearest first, straight-line to each river&apos;s gauge — not drive time.
         </Text>
       ) : riverScope && location.status === 'denied' ? (
-        <Text style={[styles.sortNote, { color: colors.textSubtle }]}>
-          Location is off for Eddy. Turn it on in Settings to sort by what is closest.
-        </Text>
+        // A WAY OUT, not just an explanation. iOS spends the location prompt
+        // once; after a denial `useLocation` never asks again, so a sentence
+        // saying "turn it on in Settings" left the only recovery in the app as
+        // a trip somebody had to make on their own, through two levels of
+        // Settings, having been told to and not shown where. Same
+        // Linking.openSettings escape the push denial has had in Profile.
+        <View style={styles.sortNoteRow}>
+          <Text style={[styles.sortNoteInline, { color: colors.textSubtle }]}>
+            Location is off for Eddy, so it cannot sort by what is closest.
+          </Text>
+          <Pressable
+            onPress={() => void Linking.openSettings()}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Open Settings to turn location on for Eddy"
+          >
+            <Text style={[styles.sortNoteAction, { color: colors.interactive }]}>Open Settings</Text>
+          </Pressable>
+        </View>
       ) : null}
 
       {/* ── The filters, per scope ───────────────────────────────
@@ -1126,6 +1219,36 @@ export default function ReportsScreen() {
             {search.hasMore || (search.searching && rows.length > 0) ? (
               <View style={styles.footer}>
                 <ActivityIndicator color={colors.interactive} />
+              </View>
+            ) : null}
+
+            {/* ── Researched by hand, and how to ask for more ────────
+                AT THE END OF THE LIST, which is the only place it has ever
+                been useful. This is good copy, and it was sitting between the
+                scope switch and the filters — three river rows of fixed chrome
+                on every launch, read by everybody and needed by the few who
+                scrolled the whole list without finding their water. Those are
+                exactly the people who reach the bottom.
+
+                Rivers only, and only once the list has actually ended: an
+                invitation to request a river underneath a half-loaded search
+                is an answer to a question nobody has finished asking. */}
+            {riverScope && !search.hasMore && rows.length > 0 ? (
+              <View style={styles.trustRow}>
+                <Text style={[styles.trustText, { color: colors.textMuted }]}>
+                  Every river here is researched by hand — put-ins walked, hazards logged, gauges
+                  rated. New ones go out regularly. Missing yours?
+                </Text>
+                <Pressable
+                  onPress={() => setRiverRequestOpen(true)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Request a river"
+                >
+                  <Text style={[styles.requestRiver, { color: colors.interactive }]}>
+                    Request a river
+                  </Text>
+                </Pressable>
               </View>
             ) : null}
           </View>
@@ -1320,7 +1443,22 @@ const styles = StyleSheet.create({
   // screen a user actually spends time on.
   title: { ...t['3xl'], fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
+  // The caveat sits under the count in the quietest ink on the screen. It is
+  // not a disclaimer to be got past; it is the precision the number carries.
+  headlineNote: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   searchRow: { paddingHorizontal: 16, paddingTop: 12 },
+  sortRow: { paddingHorizontal: 16, paddingTop: 10 },
+  sortTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    // Padded rather than sized: the row reads as text, and hitSlop above
+    // carries the rest of the way to 44.
+    paddingVertical: 4,
+    paddingRight: 4,
+  },
+  sortTriggerText: { ...t.sm, fontFamily: fonts.semibold },
   sortMenu: {
     marginHorizontal: 16,
     marginBottom: 8,
@@ -1338,7 +1476,19 @@ const styles = StyleSheet.create({
   },
   sortItemText: { ...t.sm, fontFamily: fonts.medium },
   sortNote: { ...t.xs, fontFamily: fonts.body, paddingHorizontal: 20, paddingTop: 8 },
-  trustRow: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4, gap: 3 },
+  // The note and its escape hatch on one line, wrapping together rather than
+  // the action being stranded under a paragraph.
+  sortNoteRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'baseline',
+    columnGap: 6,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+  },
+  sortNoteInline: { ...t.xs, fontFamily: fonts.body },
+  sortNoteAction: { ...t.xs, fontFamily: fonts.semibold },
+  trustRow: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4, gap: 3 },
   trustText: { ...t.xs, fontFamily: fonts.body },
   requestRiver: { ...t.xs, fontFamily: fonts.semibold },
   corpusCount: { ...t.xs, fontFamily: fonts.mono, paddingHorizontal: 20, paddingTop: 8 },

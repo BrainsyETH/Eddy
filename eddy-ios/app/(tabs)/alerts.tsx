@@ -2,7 +2,7 @@
 // Three things under one tab: the alerts you set, the water running high now,
 // and what the agencies have posted about the places you would put in.
 //
-// ── Why My alerts leads ─────────────────────────────────────────────────────
+// ── Why Mine leads ──────────────────────────────────────────────────────────
 //
 // A tab called Alerts opens on your alerts. That was not always the arrangement
 // here: the second segment used to be a free, account-free CHANGE FEED, and
@@ -13,8 +13,8 @@
 // a log — it is a statewide safety readout — so it no longer competes with
 // "mine" for the same slot, and the ordering that always read correctly
 // (yours first, everyone's second) is now also the honest one. The empty state
-// on the rules list is not a dead end either: it explains what an alert is and
-// the Add alert button is right there.
+// on the rules list is not a dead end either: it explains what an alert is, and
+// the + in the header is right there.
 //
 // ── Why the second tab is a snapshot and not the old feed ──────────────────
 //
@@ -76,6 +76,7 @@ import type { Palette } from '@/theme/palette';
 import { readingAge } from '@/lib/readingCopy';
 import { EddyScene } from '@/components/EddyScene';
 import { AlertRuleRow } from '@/components/AlertRuleRow';
+import { QuietHoursRow } from '@/components/QuietHoursRow';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
@@ -180,15 +181,13 @@ function readingLine(entry: HighWaterEntry): string | null {
  * each is costs one line and answers the question before it is asked.
  */
 const CAPTION: Record<Segment, string> = {
-  rules: 'Alerts you have set. Only you receive these.',
+  // Empty on purpose — see where it renders.
+  rules: '',
   'high-water':
     'Every river, gauge and dam Eddy grades that is running high or in flood right now.',
   notices:
     'Closures from the National Park Service and warnings from the National Weather Service. Not Eddy\u2019s call \u2014 theirs.',
 };
-
-/** Room left under the lists so the last row clears the pinned CTA. */
-const CTA_CLEARANCE = 84;
 
 export default function AlertsScreen() {
   const [highWater, setHighWater] = useState<HighWaterEntry[] | null>(null);
@@ -202,7 +201,7 @@ export default function AlertsScreen() {
   const [notices, setNotices] = useState<RiverAlert[] | null>(null);
   const [noticeError, setNoticeError] = useState<string | null>(null);
   const { rules, ready: rulesReady, refresh: refreshRules, setEnabled } = useAlertRules();
-  const { colors, elevation, floating } = useTheme();
+  const { colors, elevation } = useTheme();
   const router = useRouter();
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -284,40 +283,77 @@ export default function AlertsScreen() {
     );
   }
 
-  // ONBOARDING, not a permanent control. Someone who already holds an alert has
-  // been through this flow and knows where it lives; a button covering the
-  // bottom of every scroll forever to offer them something they have already
-  // done is a banner. `ready` gates it so it does not flash on first load and
-  // vanish, and a null `rules` — signed out, or no usable session — counts as
-  // none, because that person has no alerts and this flow is exactly the one
-  // they need. It ends at the sign-in sheet.
-  const showCta = rulesReady && (rules?.length ?? 0) === 0;
-  const listPadding = showCta ? { paddingBottom: CTA_CLEARANCE } : undefined;
+  // THE HEADER + IS THE ONLY WAY IN, now.
+  //
+  // There was a second, floating "Add alert" pinned over the bottom of the
+  // list, gated on holding no rules — onboarding rather than a permanent
+  // control, which was a fair reading of it. Two buttons pointing at one route
+  // is still two buttons: the pair was only ever met by somebody with no
+  // alerts, which is to say by everybody exactly once, at the moment they are
+  // least able to tell that both do the same thing. And because the gate was
+  // on the rule count rather than on the segment, it also floated over the
+  // High water and Notices readouts, where "Add alert" answers nothing.
+  //
+  // The header + is always there, on all three segments, and is where a
+  // second alert gets created anyway — so it is the one that had to survive.
 
-  const segmentButton = (value: Segment, label: string) => (
-    <Pressable
-      onPress={() => setSegment(value)}
-      style={[
-        styles.toggle,
-        { borderColor: colors.border },
-        segment === value && {
-          backgroundColor: colors.selectionBg,
-          borderColor: colors.interactive,
-        },
-      ]}
-      accessibilityRole="button"
-      accessibilityState={{ selected: segment === value }}
-    >
-      <Text
+  /**
+   * A segment, its size, and nothing else.
+   *
+   * THE COUNT IS THE POINT. A segmented control tells you three lists exist;
+   * it does not tell you whether any of them has anything in it, so the only
+   * way to find out there are two flood warnings up was to go and look. The
+   * number does the work the caption underneath could not: it is visible
+   * before the tap, and it is the reason to make one.
+   *
+   * `null` is not zero. A count only renders once its list has loaded — a
+   * signed-out user has no rules to count, not zero rules, and an agency feed
+   * that failed has not told us it is empty. The badge stays off in both
+   * cases rather than reporting a request as a fact.
+   *
+   * Same badge the filter chips use, deliberately: one shape for "how many are
+   * in here" across the app.
+   */
+  const segmentButton = (value: Segment, label: string, count: number | null) => {
+    const on = segment === value;
+    return (
+      <Pressable
+        onPress={() => setSegment(value)}
         style={[
-          styles.toggleText,
-          { color: segment === value ? colors.selectionText : colors.textMuted },
+          styles.toggle,
+          { borderColor: colors.border },
+          on && {
+            backgroundColor: colors.selectionBg,
+            borderColor: colors.interactive,
+          },
         ]}
+        accessibilityRole="button"
+        accessibilityState={{ selected: on }}
+        accessibilityLabel={count == null ? label : `${label}, ${count}`}
       >
-        {label}
-      </Text>
-    </Pressable>
-  );
+        <Text style={[styles.toggleText, { color: on ? colors.selectionText : colors.textMuted }]}>
+          {label}
+        </Text>
+        {count != null ? (
+          <View
+            style={[
+              styles.toggleCount,
+              { backgroundColor: on ? colors.interactive : colors.border },
+            ]}
+          >
+            <Text
+              style={[
+                styles.toggleCountText,
+                { color: on ? colors.onInteractive : colors.textMuted },
+              ]}
+            >
+              {count}
+            </Text>
+          </View>
+        ) : null}
+      </Pressable>
+    );
+  };
 
   const header = (
     <View style={styles.header}>
@@ -337,16 +373,27 @@ export default function AlertsScreen() {
         </Pressable>
       </View>
 
-      {/* Yours first, then what Eddy says, then what everyone else says. */}
+      {/* Yours first, then what Eddy says, then what everyone else says.
+          "Mine" rather than "My alerts": the screen is already called Alerts,
+          so the second word was the title again, and the three labels only
+          have to differ from each other. */}
       <View style={styles.toggleRow}>
-        {segmentButton('rules', 'My alerts')}
-        {segmentButton('high-water', 'High water')}
-        {segmentButton('notices', 'Notices')}
+        {segmentButton('rules', 'Mine', rulesReady ? (rules?.length ?? null) : null)}
+        {segmentButton('high-water', 'Running high', highWater?.length ?? null)}
+        {segmentButton('notices', 'Notices', notices?.length ?? null)}
       </View>
 
-      {/* See CAPTION for why this line exists. A lookup rather than a ternary,
-          now that there are three segments. */}
-      <Text style={[styles.caption, { color: colors.textSubtle }]}>{CAPTION[segment]}</Text>
+      {/* See CAPTION for why the remaining two lines exist. `rules` has no
+          caption any more: "Alerts you have set. Only you receive these." was
+          answering a question the label was creating, and a segment reading
+          "Mine" on a screen called Alerts does not create it. The other two
+          still do — a statewide readout and two federal agencies are not
+          self-evident from two words — and the notices line in particular is
+          load-bearing, because it is where Eddy disclaims authorship of
+          somebody else's warning. */}
+      {CAPTION[segment] ? (
+        <Text style={[styles.caption, { color: colors.textSubtle }]}>{CAPTION[segment]}</Text>
+      ) : null}
 
       {error && segment === 'high-water' ? (
         <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
@@ -364,29 +411,6 @@ export default function AlertsScreen() {
     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.interactive} />
   );
 
-  const cta = showCta ? (
-    // No safe-area inset added here. The tab bar is laid out in flow (its style
-    // sets no `position`), so screen content ends at the top of the bar and the
-    // bar already carries the home-indicator inset — adding it again would
-    // float the button a thumb's width above where it belongs on a notched
-    // phone and leave a gap on every other one.
-    <View style={styles.ctaBar} pointerEvents="box-none">
-      <Pressable
-        onPress={() => router.push('/alerts/new')}
-        style={({ pressed }) => [
-          styles.ctaButton,
-          floating(),
-          { backgroundColor: colors.accentFill, opacity: pressed ? 0.7 : 1 },
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel="Add an alert"
-      >
-        <Ionicons name="add" size={18} color={colors.onAccent} />
-        <Text style={[styles.ctaText, { color: colors.onAccent }]}>Add alert</Text>
-      </Pressable>
-    </View>
-  ) : null;
-
   if (showingRules) {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
@@ -394,8 +418,17 @@ export default function AlertsScreen() {
           data={rules ?? []}
           keyExtractor={(item) => `${item.source}:${item.id}`}
           refreshControl={refreshControl}
-          contentContainerStyle={listPadding}
-          ListHeaderComponent={header}
+          ListHeaderComponent={
+            // ABOVE the rules, and only on this segment. Quiet hours govern
+            // what your own alerts are allowed to do at 4am; they have no
+            // bearing on the two statewide readouts, where the row would be a
+            // setting floating over somebody else's data. It renders itself
+            // away when signed out — see QuietHoursRow.
+            <>
+              {header}
+              <QuietHoursRow />
+            </>
+          }
           ListEmptyComponent={
             <View style={styles.empty}>
               {!rulesReady ? (
@@ -435,7 +468,6 @@ export default function AlertsScreen() {
             />
           )}
         />
-        {cta}
       </SafeAreaView>
     );
   }
@@ -447,7 +479,6 @@ export default function AlertsScreen() {
           data={noticeRows}
           keyExtractor={(item) => item.key}
           refreshControl={refreshControl}
-          contentContainerStyle={listPadding}
           ListHeaderComponent={header}
           ListEmptyComponent={
             <View style={styles.empty}>
@@ -518,7 +549,6 @@ export default function AlertsScreen() {
             );
           }}
         />
-        {cta}
       </SafeAreaView>
     );
   }
@@ -529,7 +559,6 @@ export default function AlertsScreen() {
         data={highWaterRows}
         keyExtractor={(item) => item.key}
         refreshControl={refreshControl}
-        contentContainerStyle={listPadding}
         ListHeaderComponent={header}
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -618,7 +647,6 @@ export default function AlertsScreen() {
           );
         }}
       />
-      {cta}
     </SafeAreaView>
   );
 }
@@ -631,33 +659,24 @@ const styles = StyleSheet.create({
   title: { ...t['3xl'], fontFamily: fonts.display },
   addButton: { width: 36, height: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   toggleRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
-  toggle: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1 },
+  toggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
   toggleText: { ...t.xs, fontFamily: fonts.semibold },
+  // Same pill the filter chips draw their counts in — see FilterChips.
+  toggleCount: { minWidth: 18, paddingHorizontal: 5, borderRadius: 999, alignItems: 'center' },
+  toggleCountText: { ...t.xs, fontFamily: fonts.semibold, fontSize: 11 },
   caption: { ...t.xs, fontFamily: fonts.body, marginTop: 10, lineHeight: 16 },
   errorText: { ...t.sm, fontFamily: fonts.body, marginTop: 10 },
   empty: { alignItems: 'center', paddingHorizontal: 40, paddingTop: 30 },
   emptyTitle: { ...t.lg, fontFamily: fonts.semibold, marginTop: 10 },
   emptyBody: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },
-  // box-none on the bar, not none: the bar itself must let taps through to the
-  // list underneath while the button inside it stays tappable.
-  ctaBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  ctaButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 22,
-    paddingVertical: 13,
-    borderRadius: 999,
-  },
-  ctaText: { ...t.sm, fontFamily: fonts.semibold },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

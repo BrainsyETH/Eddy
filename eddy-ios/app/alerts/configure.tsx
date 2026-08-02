@@ -59,8 +59,7 @@ import { PushPrimer } from '@/components/PushPrimer';
 import { CONDITION_KINDS, codesForKind } from '@/lib/alertKinds';
 import { readingAge } from '@/lib/readingCopy';
 import { useAlertRules } from '@/hooks/useAlertRules';
-import { usePush } from '@/hooks/usePush';
-import { useSession } from '@/hooks/useSession';
+import { useAlertGate } from '@/hooks/useAlertGate';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -138,16 +137,14 @@ export default function ConfigureAlertScreen() {
 
   const router = useRouter();
   const { colors, elevation } = useTheme();
-  const { getAccessToken } = useSession();
   const { add, refresh } = useAlertRules();
-  const { permission, enable } = usePush();
+  // Session, sign-in sheet, push primer and the busy flag. Shared with the
+  // one-tap bell on the river screen — see useAlertGate.
+  const gate = useAlertGate();
 
   const [context, setContext] = useState<Context | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [signInOpen, setSignInOpen] = useState(false);
-  const [primerOpen, setPrimerOpen] = useState(false);
 
   const [mode, setMode] = useState<AlertRuleMode>('condition');
   const [conditionKind, setConditionKind] = useState<AlertSubscriptionKind>('safety');
@@ -336,72 +333,78 @@ export default function ConfigureAlertScreen() {
     ],
   );
 
+  /**
+   * What happens after a save lands.
+   *
+   * The gate arms the push primer on its own and SAYS whether it did, because
+   * that decides whether this screen leaves. When the primer is up it is
+   * covering this screen and its own handlers go back — see the sheet at the
+   * bottom of this file — so popping here as well would dismiss the prompt
+   * before anyone could answer it.
+   */
   const finish = useCallback(
-    (seedNote: string | null) => {
+    (seedNote: string | null, primed: boolean) => {
       const goBack = () => {
-        // The one-shot iOS prompt is worth spending only now: a notification is
-        // genuinely waiting to be delivered, which is the strongest case this
-        // app will ever have. Asking earlier burns it on a hypothetical.
-        if (permission === 'undetermined') setPrimerOpen(true);
-        else router.back();
+        if (!primed) router.back();
       };
 
       if (seedNote) Alert.alert('Alert saved', seedNote, [{ text: 'OK', onPress: goBack }]);
       else goBack();
     },
-    [permission, router],
+    [router],
   );
 
   const save = useCallback(async () => {
     setError(null);
-    setSaving(true);
     try {
-      const token = await getAccessToken();
-      if (!token) {
-        setSignInOpen(true);
-        return;
-      }
+      // Collected inside the write and acted on after it, so the navigation
+      // decision can see whether the gate opened the primer.
+      let seedNote: string | null = null;
+      const { wrote, primed } = await gate.run(async (token) => {
+        // River + Eddy's call is the existing subscription path, and deliberately
+        // so: that alert is fanned out from one shared event, and duplicating it
+        // as a per-user rule would mean two mechanisms racing on one river.
+        if (scope === 'river' && mode === 'condition') {
+          if (!riverId) throw new ApiError('This river is missing an id', 400);
+          await subscribeToRiver(token, riverId, conditionKind);
+          await refresh();
+          return;
+        }
 
-      // River + Eddy's call is the existing subscription path, and deliberately
-      // so: that alert is fanned out from one shared event, and duplicating it
-      // as a per-user rule would mean two mechanisms racing on one river.
-      if (scope === 'river' && mode === 'condition') {
-        if (!riverId) throw new ApiError('This river is missing an id', 400);
-        await subscribeToRiver(token, riverId, conditionKind);
-        await refresh();
-        finish(null);
-        return;
-      }
-
-      const { rule, seed } = await createGaugeAlert(token, {
-        gaugeStationId: context?.gaugeStationId ?? undefined,
-        usgsSiteId: context?.usgsSiteId ?? undefined,
-        riverId: riverId ?? undefined,
-        riverSlug: params.riverSlug || undefined,
-        scope,
-        mode,
-        conditionKind: mode === 'condition' ? conditionKind : undefined,
-        metric: mode === 'threshold' ? metric : undefined,
-        comparator: mode === 'threshold' ? comparator : undefined,
-        thresholdValue: mode === 'threshold' ? parsedValue : undefined,
-        thresholdValueMax:
-          mode === 'threshold' && comparator === 'between' ? parsedMax : undefined,
-        oneShot,
+        const { rule, seed } = await createGaugeAlert(token, {
+          gaugeStationId: context?.gaugeStationId ?? undefined,
+          usgsSiteId: context?.usgsSiteId ?? undefined,
+          riverId: riverId ?? undefined,
+          riverSlug: params.riverSlug || undefined,
+          scope,
+          mode,
+          conditionKind: mode === 'condition' ? conditionKind : undefined,
+          metric: mode === 'threshold' ? metric : undefined,
+          comparator: mode === 'threshold' ? comparator : undefined,
+          thresholdValue: mode === 'threshold' ? parsedValue : undefined,
+          thresholdValueMax:
+            mode === 'threshold' && comparator === 'between' ? parsedMax : undefined,
+          oneShot,
       });
 
       add(rule);
 
       // `inside` means the condition is already true. Saying so is the whole
       // reason the server returns the seed.
-      const note =
+      seedNote =
         seed?.state === 'inside' && seed.value != null
           ? `${targetName} is already at ${formatAlertValue(seed.value, metric)}. We'll tell you the next time it crosses your level, not right now.`
           : null;
-      finish(note);
+      });
+
+      // Nothing was written when the gate stopped at the sign-in sheet, and
+      // leaving then would drop somebody back on the alerts list having just
+      // been asked to sign in.
+      if (wrote) finish(seedNote, primed);
     } catch (err) {
-      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-        setSignInOpen(true);
-      } else if (err instanceof ApiError && err.status && err.status >= 400 && err.status < 500) {
+      // The gate has already absorbed 401 and 403 and opened the sign-in
+      // sheet for them; what is left is the route's own refusals.
+      if (err instanceof ApiError && err.status && err.status >= 400 && err.status < 500) {
         // The route answers 409 and 422 with a sentence written for a person —
         // "You already have this alert", "This gauge does not report discharge".
         // Showing ours instead would be inventing a reason we do not know.
@@ -409,11 +412,9 @@ export default function ConfigureAlertScreen() {
       } else {
         setError('Could not save that alert. Try again.');
       }
-    } finally {
-      setSaving(false);
     }
   }, [
-    getAccessToken, scope, mode, riverId, conditionKind, refresh, finish, context,
+    gate, scope, mode, riverId, conditionKind, refresh, finish, context,
     params.riverSlug, metric, comparator, parsedValue, parsedMax, oneShot, add, targetName,
   ]);
 
@@ -669,7 +670,7 @@ export default function ConfigureAlertScreen() {
 
         <Pressable
           onPress={() => void save()}
-          disabled={!canSave || saving}
+          disabled={!canSave || gate.busy}
           style={({ pressed }) => [
             styles.saveButton,
             {
@@ -679,7 +680,7 @@ export default function ConfigureAlertScreen() {
           ]}
           accessibilityRole="button"
         >
-          {saving ? (
+          {gate.busy ? (
             <ActivityIndicator color={colors.onAccent} />
           ) : (
             <Text
@@ -692,24 +693,24 @@ export default function ConfigureAlertScreen() {
       </ScrollView>
 
       <AlertSignInSheet
-        visible={signInOpen}
+        visible={gate.signInOpen}
         riverName={targetName}
         onSignedIn={() => {
-          setSignInOpen(false);
+          gate.setSignInOpen(false);
           void save();
         }}
-        onDismiss={() => setSignInOpen(false)}
+        onDismiss={() => gate.setSignInOpen(false)}
       />
       <PushPrimer
-        visible={primerOpen}
+        visible={gate.primerOpen}
         riverName={targetName}
         onAllow={() => {
-          setPrimerOpen(false);
-          void enable();
+          gate.setPrimerOpen(false);
+          void gate.enablePush();
           router.back();
         }}
         onDismiss={() => {
-          setPrimerOpen(false);
+          gate.setPrimerOpen(false);
           // The alert is saved either way — declining the prompt is a choice
           // about this phone, not a reason to lose the rule.
           router.back();

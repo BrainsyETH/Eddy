@@ -102,7 +102,7 @@ import { AlertSignInSheet } from '@/components/AlertSignInSheet';
 import { gaugeConditionCode, gaugeLink, gaugesForRiver } from '@/lib/gaugeCondition';
 import { driveToUrl } from '@/lib/directions';
 import { useAccount } from '@/hooks/useAccount';
-import { usePush } from '@/hooks/usePush';
+import { useAlertGate } from '@/hooks/useAlertGate';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useSession } from '@/hooks/useSession';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
@@ -207,9 +207,9 @@ export default function RiverDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paywallOpen, setPaywallOpen] = useState(false);
-  const [primerOpen, setPrimerOpen] = useState(false);
-  const [signInOpen, setSignInOpen] = useState(false);
-  const { permission, enable } = usePush();
+  // Session, sign-in sheet, push primer and the busy flag — the gate every
+  // alert write passes through, shared with the full editor. See useAlertGate.
+  const gate = useAlertGate();
 
   // This screen owns the BELL, but the Alerts tab owns the LIST, and they read
   // different things: the bell from its own fetchSubscriptions call below, the
@@ -218,7 +218,6 @@ export default function RiverDetailScreen() {
   // problem — the provider's copy simply went stale the moment the bell wrote
   // through it. Turning alerts off here left them listed as on over there.
   const { refresh: refreshAlertRules } = useAlertRules();
-  const [subscribing, setSubscribing] = useState(false);
   /**
    * Whether alerts are already on for this river.
    *
@@ -491,55 +490,44 @@ export default function RiverDetailScreen() {
    */
   const subscribe = useCallback(async () => {
     if (!river) return;
-    setSubscribing(true);
     try {
-      const token = await getAccessToken();
-      if (!token) {
-        setSignInOpen(true);
-        return;
-      }
-      await subscribeToRiver(token, river.id, 'safety');
-      setSubscribed(true);
-      // Local state first so the bell answers immediately; the provider catches
-      // up in the background. Not awaited — a slow list must not make the tap
-      // feel slow, and a failed refresh leaves a stale list rather than a
-      // subscription that did not happen.
-      void refreshAlertRules();
-
-      // The subscription exists — now, and only now, is it worth spending
-      // the one-shot iOS permission prompt: there is a concrete notification
-      // waiting to be delivered, which is the strongest case this app will
-      // ever have. Asking earlier would burn it on a hypothetical.
-      if (permission === 'undetermined') setPrimerOpen(true);
-    } catch (err) {
-      // 403 means the session is anonymous rather than permanent, which is the
-      // same remedy as no session at all.
-      if (err instanceof ApiError && err.status === 403) setSignInOpen(true);
-      else setSubscribeError('Could not turn on alerts. Try again.');
-    } finally {
-      setSubscribing(false);
+      await gate.run(async (token) => {
+        await subscribeToRiver(token, river.id, 'safety');
+        setSubscribed(true);
+        // Local state first so the bell answers immediately; the provider
+        // catches up in the background. Not awaited — a slow list must not
+        // make the tap feel slow, and a failed refresh leaves a stale list
+        // rather than a subscription that did not happen.
+        void refreshAlertRules();
+      });
+    } catch {
+      // The gate has already absorbed the two auth cases and opened the
+      // sign-in sheet for them. Anything reaching here is a real failure.
+      setSubscribeError('Could not turn on alerts. Try again.');
     }
-  }, [river, getAccessToken, permission, refreshAlertRules]);
+  }, [river, gate, refreshAlertRules]);
 
   /** Turn alerts off. Deliberately reachable — see Stage 3 of the alert plan. */
   const unsubscribe = useCallback(async () => {
     if (!river) return;
-    setSubscribing(true);
     try {
-      const token = await getAccessToken();
-      if (!token) return;
-      await unsubscribeFromRiver(token, river.id);
-      setSubscribed(false);
-      // The direction that actually got reported: alerts turned off here still
-      // showed as on in the Alerts tab, which reads as "the off switch does
-      // nothing" on a feature whose whole promise is that it stops.
-      void refreshAlertRules();
+      await gate.run(
+        async (token) => {
+          await unsubscribeFromRiver(token, river.id);
+          setSubscribed(false);
+          // The direction that actually got reported: alerts turned off here
+          // still showed as on in the Alerts tab, which reads as "the off
+          // switch does nothing" on a feature whose whole promise is that it
+          // stops.
+          void refreshAlertRules();
+        },
+        // Turning alerts OFF must never ask for permission to send them.
+        { primes: false },
+      );
     } catch {
       setSubscribeError('Could not turn alerts off. Try again.');
-    } finally {
-      setSubscribing(false);
     }
-  }, [river, getAccessToken, refreshAlertRules]);
+  }, [river, gate, refreshAlertRules]);
 
   const onNotify = useCallback(() => {
     setSubscribeError(null);
@@ -881,7 +869,7 @@ export default function RiverDetailScreen() {
             one-shot. */}
         <Pressable
           onPress={onNotify}
-          disabled={subscribing}
+          disabled={gate.busy}
           style={({ pressed }) => [
             styles.notifyButton,
             subscribed
@@ -901,7 +889,7 @@ export default function RiverDetailScreen() {
             subscribed ? `Turn off alerts for ${river.name}` : `Alert me about ${river.name}`
           }
         >
-          {subscribing ? (
+          {gate.busy ? (
             <ActivityIndicator color={subscribed ? colors.textMuted : colors.onAccent} size="small" />
           ) : (
             <Ionicons
@@ -1311,28 +1299,28 @@ export default function RiverDetailScreen() {
       />
 
       <AlertSignInSheet
-        visible={signInOpen}
+        visible={gate.signInOpen}
         riverName={river.name}
         onSignedIn={() => {
-          setSignInOpen(false);
+          gate.setSignInOpen(false);
           // Finish what they tapped. The session is live now, so this is the
           // same call that failed a moment ago.
           void subscribe();
         }}
-        onDismiss={() => setSignInOpen(false)}
+        onDismiss={() => gate.setSignInOpen(false)}
       />
 
       <PushPrimer
-        visible={primerOpen}
+        visible={gate.primerOpen}
         riverName={river.name}
         onAllow={async () => {
-          setPrimerOpen(false);
+          gate.setPrimerOpen(false);
           // Spends the one-shot prompt. The outcome needs no handling here:
           // the subscription already exists either way, and someone who
           // declines still sees the change in the Alerts feed.
-          await enable();
+          await gate.enablePush();
         }}
-        onDismiss={() => setPrimerOpen(false)}
+        onDismiss={() => gate.setPrimerOpen(false)}
       />
     </SafeAreaView>
   );
