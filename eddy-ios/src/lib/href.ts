@@ -17,8 +17,16 @@
 // or an export runs. CI installs and typechecks WITHOUT ever generating it, so
 // `Href` degrades to something permissive and the errors do not appear — while
 // any machine that has run `expo start` sees them. Three of these sat green in
-// CI for a week. Ordering the mobile job's bundle step before its typecheck
-// step would close that gap; until then, local is stricter than CI.
+// CI for a week.
+//
+// Reordering the mobile job so it bundles before it typechecks does NOT close
+// that gap, though it looks like it should. In @expo/cli 57,
+// startTypescriptTypeGeneration is imported by exactly one file —
+// MetroBundlerDevServer — and nothing under export/ references it, so
+// `expo export` never writes the declaration. Only the DEV SERVER generates
+// it. Closing the gap in CI means running `expo start` there and asserting the
+// file appeared; until someone decides that is worth the flakiness, local
+// `make check-mobile` is the authority for this class of error.
 //
 // ── Why not `Href` ────────────────────────────────────────────────────────
 //
