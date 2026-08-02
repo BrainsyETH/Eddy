@@ -9,6 +9,14 @@
 // The trigger sentence comes from describeAlertRule in @eddy/types, shared with
 // the push body so the notification and this row cannot describe the same rule
 // differently.
+//
+// ── Two sizes, because the list is now a tree ───────────────────────────────
+//
+// `nested` draws the same row as a CHILD of the river above it: indented,
+// unelevated, titled by its station rather than by the river whose name the
+// parent already carries. See src/lib/alertGroups.ts for why gauge alerts stop
+// being top-level cards, and app/(tabs)/alerts.tsx for the writes that make the
+// parent's switch mean what nesting says it means.
 
 import { memo } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
@@ -22,6 +30,21 @@ interface Props {
   rule: AlertRule;
   onPress: () => void;
   onToggle: (enabled: boolean) => void;
+  /**
+   * Drawn as a child of the river row above it.
+   *
+   * Indented, unelevated and without the river's name — the parent already
+   * carries it, and repeating it on four consecutive rows is the duplication
+   * the grouping exists to remove. See src/lib/alertGroups.ts.
+   */
+  nested?: boolean;
+  /**
+   * How many gauge alerts hang off this one, for the row's own hint.
+   *
+   * Stated because the parent's switch governs them: a switch whose reach is
+   * larger than the row it sits on has to say so before it is flicked.
+   */
+  childCount?: number;
 }
 
 /** A spent one-shot: it has already fired and will not fire again unarmed. */
@@ -33,16 +56,22 @@ function sentenceCase(text: string): string {
   return text.length > 0 ? text[0].toUpperCase() + text.slice(1) : text;
 }
 
-function AlertRuleRowInner({ rule, onPress, onToggle }: Props) {
+function AlertRuleRowInner({ rule, onPress, onToggle, nested = false, childCount = 0 }: Props) {
   const { colors, elevation } = useTheme();
 
-  // The river when there is one, because that is what people call the water.
-  // The station is the fallback and the ONLY option on the national tier.
-  const title = rule.riverName ?? rule.gaugeName ?? 'Alert';
+  // NESTED ROWS ARE ABOUT THE STATION, not the river. The parent above already
+  // says which water this is; a child repeating it would be the duplication the
+  // grouping removes, drawn one indent to the right.
+  const title = nested
+    ? (rule.gaugeName ?? 'This gauge')
+    : (rule.riverName ?? rule.gaugeName ?? 'Alert');
   // Named only when it adds something. On a river alert graded by its own
-  // primary gauge, printing the station too is noise.
+  // primary gauge, printing the station too is noise — and on a nested row the
+  // station IS the title.
   const subtitle =
-    rule.scope === 'gauge' && rule.riverName && rule.gaugeName ? rule.gaugeName : null;
+    !nested && rule.scope === 'gauge' && rule.riverName && rule.gaugeName
+      ? rule.gaugeName
+      : null;
 
   const spent = isSpent(rule);
   const dimmed = !rule.enabled || spent;
@@ -53,8 +82,14 @@ function AlertRuleRowInner({ rule, onPress, onToggle }: Props) {
       onPress={onPress}
       style={({ pressed }) => [
         styles.row,
-        { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
-        elevation(1),
+        nested ? styles.nestedRow : null,
+        {
+          backgroundColor: nested ? colors.cardRaised : colors.card,
+          opacity: pressed ? 0.7 : 1,
+        },
+        // No elevation on a child: it sits ON the group rather than beside it,
+        // and a second shadow inside the first reads as two stacked cards.
+        nested ? { borderLeftWidth: 2, borderLeftColor: colors.border } : elevation(1),
       ]}
       accessibilityRole="button"
       accessibilityLabel={`Edit alert for ${title}`}
@@ -62,15 +97,28 @@ function AlertRuleRowInner({ rule, onPress, onToggle }: Props) {
       <View
         style={[
           styles.icon,
-          { backgroundColor: colors.cardRaised, opacity: dimmed ? 0.48 : 1 },
+          nested ? styles.nestedIcon : null,
+          { backgroundColor: nested ? colors.card : colors.cardRaised, opacity: dimmed ? 0.48 : 1 },
         ]}
       >
-        <EddySymbol name={rule.scope === 'gauge' ? 'gauge' : 'alertWatch'} size={25} />
+        {/* THE RIVER GETS THE RIVER MARK. It used to get `alertWatch` — the
+            binoculars — which said "this is an alert" on a screen where every
+            row is an alert, and made a river indistinguishable from a dam or a
+            gauge at a glance. `gauge` and `river` are the same two marks
+            KindMark hands the rest of the app, so a river on the Alerts tab now
+            looks like a river everywhere else. */}
+        <EddySymbol
+          name={rule.scope === 'gauge' ? 'gauge' : 'river'}
+          size={nested ? 20 : 25}
+        />
       </View>
 
       <View style={styles.body}>
         <Text
-          style={[styles.title, { color: dimmed ? colors.textMuted : colors.text }]}
+          style={[
+            nested ? styles.nestedTitle : styles.title,
+            { color: dimmed ? colors.textMuted : colors.text },
+          ]}
           numberOfLines={1}
         >
           {title}
@@ -86,6 +134,16 @@ function AlertRuleRowInner({ rule, onPress, onToggle }: Props) {
         {subtitle ? (
           <Text style={[styles.meta, { color: colors.textSubtle }]} numberOfLines={1}>
             {subtitle}
+          </Text>
+        ) : null}
+        {/* THE SWITCH'S REACH, said before it is flicked. A parent whose toggle
+            silently pauses three other rules is a control that does more than
+            it looks like it does, which is the one thing a switch may never
+            be. */}
+        {childCount > 0 ? (
+          <Text style={[styles.meta, { color: colors.textSubtle }]}>
+            {childCount} more {childCount === 1 ? 'gauge' : 'gauges'} on this river · the
+            switch covers {childCount === 1 ? 'both' : 'all'}
           </Text>
         ) : null}
         {spent ? (
@@ -106,7 +164,11 @@ function AlertRuleRowInner({ rule, onPress, onToggle }: Props) {
         value={rule.enabled}
         onValueChange={onToggle}
         trackColor={{ true: colors.interactive, false: colors.border }}
-        accessibilityLabel={`${rule.enabled ? 'Pause' : 'Resume'} alert for ${title}`}
+        accessibilityLabel={
+          childCount > 0
+            ? `${rule.enabled ? 'Pause' : 'Resume'} the alert for ${title} and its ${childCount} gauge alerts`
+            : `${rule.enabled ? 'Pause' : 'Resume'} alert for ${title}`
+        }
       />
     </Pressable>
   );
@@ -124,9 +186,20 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 14,
   },
+  // Indented to the parent's icon column, and pulled up so the group reads as
+  // one object with a rule between its parts rather than as separate cards.
+  nestedRow: {
+    marginLeft: 40,
+    marginTop: -4,
+    marginBottom: 8,
+    paddingVertical: 11,
+    borderRadius: 12,
+  },
   icon: { width: 32, height: 32, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  nestedIcon: { width: 28, height: 28 },
   body: { flex: 1 },
   title: { ...t.base, fontFamily: fonts.semibold },
+  nestedTitle: { ...t.sm, fontFamily: fonts.semibold },
   trigger: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
   meta: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
 });

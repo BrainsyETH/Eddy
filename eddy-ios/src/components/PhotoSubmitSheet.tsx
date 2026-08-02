@@ -28,6 +28,27 @@
 // real place, and it matches how somebody on the water thinks about where they
 // are. The route validates the coordinate against a corridor around the river
 // regardless, so a wrong answer is refused server-side.
+//
+// It is a DROPDOWN rather than a chip row. Chips are the right control for a
+// short, fixed set of alternatives — the feedback sheet's six types — and the
+// wrong one here: the Current River has thirty-odd access points, which as
+// chips is a wall of pills between the photo and the Send button, with the
+// chosen one somewhere in the middle of it. A closed row that names the
+// selection is one line; the list opens over the form when it is wanted.
+//
+// ── The photo does NOT read the phone's location ────────────────────────────
+// Only its EXIF capture TIME (`exif: true` below), which is what lets the
+// server file it against the reading the river was at. No coordinate is taken
+// from the image or from Core Location, and none is asked for: the position
+// that is sent is the access point the user picks from the list. That is the
+// honest answer to "where was this taken" — a phone's fix is where the phone is
+// NOW, which on a photo chosen from the camera roll is a different county.
+//
+// ── Overriding the reading ─────────────────────────────────────────────────
+// The server derives the level from the capture time by default. Somebody who
+// was standing at the staff gauge can say what they actually read instead —
+// see the manual-reading section below and `readingSource: 'manual'`, which
+// exists on the route for exactly this and had no client sending it.
 
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -230,8 +251,19 @@ export function PhotoSubmitSheet({
   const [accessPointId, setAccessPointId] = useState<string | null>(
     initialAccessPointId ?? null,
   );
+  const [placeOpen, setPlaceOpen] = useState(false);
   const [note, setNote] = useState('');
   const [name, setName] = useState('');
+  /**
+   * The reading the submitter says they saw, when they want to override.
+   *
+   * Held as the typed STRING, not a number: "3." is a state a text field passes
+   * through on the way to "3.5", and parsing on every keystroke would fight the
+   * keyboard. Parsed once, at send.
+   */
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideValue, setOverrideValue] = useState('');
+  const [overrideUnit, setOverrideUnit] = useState<'ft' | 'cfs'>('ft');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -243,12 +275,36 @@ export function PhotoSubmitSheet({
     [accessPoints],
   );
 
+  /** The chosen point, or null. Read by the trigger, the summary and send(). */
+  const selectedPoint = useMemo(
+    () => placeable.find((p) => p.id === accessPointId) ?? null,
+    [placeable, accessPointId],
+  );
+
+  /**
+   * The filed-level line, when the submitter has overridden it.
+   *
+   * Null while the override is closed or empty, which is what lets the two
+   * derived cases below keep their own wording — "filed under today's level"
+   * and "filed under the level it was at then" are different claims and neither
+   * survives being merged with this one.
+   */
+  const manualLine = useMemo(() => {
+    const trimmed = overrideValue.trim();
+    if (!overrideOpen || !trimmed) return null;
+    return `Filed at ${trimmed} ${overrideUnit}, as you read it — not the gauge's own number.`;
+  }, [overrideOpen, overrideValue, overrideUnit]);
+
   /** Clear on the way out, in the handler — never in an effect. See FeedbackSheet. */
   const dismiss = useCallback(() => {
     setPhoto(null);
     setAccessPointId(initialAccessPointId ?? null);
+    setPlaceOpen(false);
     setNote('');
     setName('');
+    setOverrideOpen(false);
+    setOverrideValue('');
+    setOverrideUnit('ft');
     setError(null);
     setSent(false);
     setBusy(false);
@@ -310,10 +366,49 @@ export function PhotoSubmitSheet({
       setError('Pick a photo first.');
       return;
     }
-    const point = placeable.find((p) => p.id === accessPointId);
+    const point = selectedPoint;
     if (!point) {
       setError('Choose where this was taken.');
       return;
+    }
+    const description = note.trim();
+    // ── SAID HERE, BECAUSE THE SERVER SAYS IT ANYWAY ──────────────────────
+    // The field used to be labelled "(optional)" and POST /api/reports refuses
+    // every report without a description — so the one instruction on screen was
+    // contradicted by the only thing that could act on it, after the upload,
+    // several seconds in, in the server's words rather than the form's. The
+    // note is genuinely required (a moderator has to know what they are
+    // looking at), so the form now asks for it up front and refuses before
+    // spending somebody's data on an upload that cannot land.
+    if (!description) {
+      setError('Say what the photo shows — a moderator needs it to file the photo.');
+      return;
+    }
+
+    /**
+     * The submitter's own reading, when they gave one.
+     *
+     * Validated to the route's own ranges (-100..100 ft, 0..1,000,000 cfs) so a
+     * fat-fingered number is refused HERE rather than after the upload — the
+     * same reason the description check moved up. An open-but-empty override is
+     * not an error: it is somebody who opened the section and thought better
+     * of it.
+     */
+    let manual: { gaugeHeightFt?: number; dischargeCfs?: number } | null = null;
+    if (overrideOpen && overrideValue.trim()) {
+      const value = Number(overrideValue.trim());
+      const ok =
+        Number.isFinite(value) &&
+        (overrideUnit === 'ft' ? value >= -100 && value <= 100 : value >= 0 && value <= 1_000_000);
+      if (!ok) {
+        setError(
+          overrideUnit === 'ft'
+            ? 'That gauge height does not look right. Feet, e.g. 3.4.'
+            : 'That discharge does not look right. Cubic feet per second, e.g. 940.',
+        );
+        return;
+      }
+      manual = overrideUnit === 'ft' ? { gaugeHeightFt: value } : { dischargeCfs: value };
     }
 
     setBusy(true);
@@ -331,12 +426,17 @@ export function PhotoSubmitSheet({
         longitude: point.coordinates.lng,
         imagePath,
         accessPointId: point.id,
-        description: note.trim() || undefined,
+        description,
         submitterName: name.trim() || undefined,
         capturedAt: photo.capturedAt ?? undefined,
-        // The server reads the gauge itself from the capture time. Claiming a
-        // reading the phone did not measure would be inventing data.
-        readingSource: photo.capturedAt ? 'historical' : 'live',
+        ...(manual ?? {}),
+        // WHERE THE NUMBER CAME FROM, so a moderator can weigh it. 'manual'
+        // outranks the other two: a reading somebody typed is a claim about
+        // what they saw at the staff gauge, and must never be filed as though
+        // the server had derived it. Without an override the server reads the
+        // gauge itself from the capture time — claiming a reading the phone did
+        // not measure would be inventing data.
+        readingSource: manual ? 'manual' : photo.capturedAt ? 'historical' : 'live',
       });
       setSent(true);
       onSubmitted?.();
@@ -431,39 +531,57 @@ export function PhotoSubmitSheet({
                 </View>
               )}
 
+              {/* ── Where, as a dropdown ────────────────────────────────
+                  One line closed, naming the choice; the list opens over the
+                  form. See the header for why this stopped being chips. */}
               <Text style={[styles.label, { color: colors.text }]}>Where was it taken?</Text>
-              <View style={styles.chips}>
-                {placeable.map((point) => {
-                  const on = point.id === accessPointId;
-                  return (
-                    <Pressable
-                      key={point.id}
-                      onPress={() => setAccessPointId(point.id)}
-                      style={({ pressed }) => [
-                        styles.chip,
-                        {
-                          borderColor: on ? colors.interactive : colors.border,
-                          backgroundColor: on ? colors.cardRaised : 'transparent',
-                          opacity: pressed ? 0.7 : 1,
-                        },
-                      ]}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: on }}
-                    >
-                      <Text
-                        style={[styles.chipText, { color: on ? colors.text : colors.textMuted }]}
-                      >
-                        {point.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <Pressable
+                onPress={() => setPlaceOpen(true)}
+                style={({ pressed }) => [
+                  styles.select,
+                  {
+                    borderColor: selectedPoint ? colors.interactive : colors.border,
+                    backgroundColor: colors.bg,
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  selectedPoint
+                    ? `Where it was taken: ${selectedPoint.name}. Change it`
+                    : 'Choose where this was taken'
+                }
+              >
+                <Ionicons
+                  name="location-outline"
+                  size={17}
+                  color={selectedPoint ? colors.interactive : colors.textSubtle}
+                />
+                <Text
+                  style={[
+                    styles.selectText,
+                    { color: selectedPoint ? colors.text : colors.textSubtle },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {selectedPoint?.name ?? 'Choose an access point'}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={colors.textSubtle} />
+              </Pressable>
+              {/* Says what the choice DOES, once, under the control. It is the
+                  photo's coordinate — not a label — and it is the reason the
+                  sheet cannot be sent without one. */}
+              <Text style={[styles.hint, { color: colors.textSubtle }]}>
+                This is the location filed with the photo. Eddy does not read your phone&apos;s
+                location or the picture&apos;s.
+              </Text>
 
+              {/* Required, and says so where it is asked rather than after the
+                  upload. See send(). */}
               <TextInput
                 value={note}
                 onChangeText={setNote}
-                placeholder="Anything worth saying about it? (optional)"
+                placeholder="What does it show? Water level, the ramp, a hazard…"
                 placeholderTextColor={colors.textSubtle}
                 multiline
                 style={[
@@ -471,7 +589,7 @@ export function PhotoSubmitSheet({
                   styles.noteInput,
                   { borderColor: colors.border, color: colors.text, backgroundColor: colors.bg },
                 ]}
-                accessibilityLabel="Note"
+                accessibilityLabel="What the photo shows"
               />
               <TextInput
                 value={name}
@@ -485,7 +603,22 @@ export function PhotoSubmitSheet({
                 accessibilityLabel="Your name"
               />
 
-              {photo?.capturedAt ? (
+              {/* ── The level this gets filed under, and a way to correct it ──
+                  The server derives it from the capture time, which is right
+                  almost always and wrong in the case this feature is best at:
+                  somebody standing at the staff gauge who can read the number
+                  off the plate. A gauge is also a point on a long river, and a
+                  photo taken eight miles downstream is filed against a number
+                  measured somewhere else.
+
+                  So the derived answer is stated plainly, and overriding it is
+                  one tap away rather than the default — most people should not
+                  touch this, and a form that opens with an empty number field
+                  invites a guess. `readingSource: 'manual'` is what tells the
+                  moderator which of the two they are looking at. */}
+              {manualLine ? (
+                <Text style={[styles.hint, { color: colors.textSubtle }]}>{manualLine}</Text>
+              ) : photo?.capturedAt ? (
                 <Text style={[styles.hint, { color: colors.textSubtle }]}>
                   Taken {new Date(photo.capturedAt).toLocaleDateString()} — it will be filed under
                   the level the river was at then.
@@ -495,6 +628,83 @@ export function PhotoSubmitSheet({
                   Filed under today&apos;s level.
                 </Text>
               )}
+
+              {overrideOpen ? (
+                <View style={styles.override}>
+                  <View style={styles.overrideRow}>
+                    <TextInput
+                      value={overrideValue}
+                      onChangeText={setOverrideValue}
+                      placeholder={overrideUnit === 'ft' ? '3.40' : '940'}
+                      placeholderTextColor={colors.textSubtle}
+                      keyboardType="decimal-pad"
+                      style={[
+                        styles.input,
+                        styles.overrideInput,
+                        {
+                          borderColor: colors.border,
+                          color: colors.text,
+                          backgroundColor: colors.bg,
+                        },
+                      ]}
+                      accessibilityLabel={
+                        overrideUnit === 'ft' ? 'Gauge height in feet' : 'Discharge in cfs'
+                      }
+                    />
+                    {/* BOTH UNITS, because the ladders are defined in both and
+                        18 of 24 rivers are rated in cfs. A single field
+                        labelled "ft" would collect feet from people reading a
+                        cfs river, which is the cross-unit mistake every reading
+                        helper in this codebase refuses to make. */}
+                    {(['ft', 'cfs'] as const).map((unit) => {
+                      const on = overrideUnit === unit;
+                      return (
+                        <Pressable
+                          key={unit}
+                          onPress={() => setOverrideUnit(unit)}
+                          style={({ pressed }) => [
+                            styles.chip,
+                            {
+                              borderColor: on ? colors.interactive : colors.border,
+                              backgroundColor: on ? colors.cardRaised : 'transparent',
+                              opacity: pressed ? 0.7 : 1,
+                            },
+                          ]}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: on }}
+                        >
+                          <Text
+                            style={[
+                              styles.chipText,
+                              { color: on ? colors.text : colors.textMuted },
+                            ]}
+                          >
+                            {unit}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Text style={[styles.hint, { color: colors.textSubtle }]}>
+                    Read off the staff gauge, if you were standing at one. A moderator sees this
+                    as your reading rather than Eddy&apos;s.
+                  </Text>
+                </View>
+              ) : null}
+
+              <Pressable
+                onPress={() => {
+                  setOverrideOpen((open) => !open);
+                  if (overrideOpen) setOverrideValue('');
+                }}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: overrideOpen }}
+              >
+                <Text style={[styles.overrideToggle, { color: colors.interactive }]}>
+                  {overrideOpen ? 'Use the gauge reading instead' : 'Set the reading yourself'}
+                </Text>
+              </Pressable>
 
               {error ? (
                 <Text style={[styles.error, { color: colors.error }]} accessibilityRole="alert">
@@ -524,6 +734,68 @@ export function PhotoSubmitSheet({
           )}
         </View>
       </KeyboardAvoidingView>
+
+      {/* ── The list itself ─────────────────────────────────────────────
+          A second Modal, nested inside the sheet's own, rather than an inline
+          expander: thirty access points inline would push Send off the bottom
+          of a form somebody is halfway through, and collapse it again under
+          their thumb. Transparent with a scrim so the form stays visible
+          behind — the choice is about the photo above it. */}
+      <Modal
+        visible={placeOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPlaceOpen(false)}
+      >
+        <Pressable
+          style={[styles.pickerScrim, { backgroundColor: colors.scrim }]}
+          onPress={() => setPlaceOpen(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Close the list"
+        >
+          {/* Swallows taps so a press inside the card does not dismiss it. */}
+          <Pressable
+            style={[styles.pickerCard, { backgroundColor: colors.card }]}
+            onPress={() => {}}
+          >
+            <Text style={[styles.pickerTitle, { color: colors.text }]}>
+              Where was it taken?
+            </Text>
+            <ScrollView style={styles.pickerList}>
+              {placeable.map((point) => {
+                const on = point.id === accessPointId;
+                return (
+                  <Pressable
+                    key={point.id}
+                    onPress={() => {
+                      setAccessPointId(point.id);
+                      setPlaceOpen(false);
+                    }}
+                    style={({ pressed }) => [
+                      styles.pickerRow,
+                      { borderBottomColor: colors.border, opacity: pressed ? 0.6 : 1 },
+                    ]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Text
+                      style={[
+                        styles.pickerRowText,
+                        { color: on ? colors.interactive : colors.text },
+                      ]}
+                    >
+                      {point.name}
+                    </Text>
+                    {on ? (
+                      <Ionicons name="checkmark" size={17} color={colors.interactive} />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Modal>
   );
 }
@@ -558,9 +830,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: { ...t.sm, fontFamily: fonts.semibold, marginTop: 6 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1 },
   chipText: { ...t.xs, fontFamily: fonts.medium },
+  select: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    // 46pt tall, past the 44pt touch minimum without hitSlop.
+    paddingVertical: 13,
+  },
+  selectText: { flex: 1, minWidth: 0, ...t.sm, fontFamily: fonts.medium },
+  pickerScrim: { flex: 1, justifyContent: 'flex-end' },
+  // Capped so a river with thirty put-ins scrolls inside the card rather than
+  // running the card off the top of the screen.
+  pickerCard: {
+    maxHeight: '70%',
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 28,
+  },
+  pickerTitle: { ...t.lg, fontFamily: fonts.semibold, marginBottom: 6 },
+  pickerList: { flexGrow: 0 },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  pickerRowText: { flex: 1, ...t.sm, fontFamily: fonts.medium },
+  override: { gap: 8 },
+  overrideRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  overrideInput: { flex: 1 },
+  overrideToggle: { ...t.xs, fontFamily: fonts.semibold, paddingVertical: 2 },
   input: {
     borderWidth: 1,
     borderRadius: 12,

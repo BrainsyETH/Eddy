@@ -179,11 +179,15 @@ export function RiverGaugeAlerts({ rule }: Props) {
     <>
       <Text style={[styles.sectionLabel, { color: colors.textSubtle }]}>Gauges on this river</Text>
       <Text style={[styles.intro, { color: colors.textMuted }]}>
-        {/* Says what the river alert actually watches. Without this the extra
-            switches read as optional detail rather than as the answer to
-            "which part of the river is this about". */}
+        {/* Says what the river alert actually watches, and — since the Alerts
+            tab started nesting these under their river — where the switch you
+            are about to flick shows up. Without the first sentence the extra
+            switches read as optional detail rather than as the answer to "which
+            part of the river is this about"; without the second, switching one
+            on looked like it had done nothing. */}
         This alert follows {rule.riverName ?? 'the river'}&apos;s main gauge. Switch on any other
-        one to be told about its stretch too, graded on its own levels.
+        one to be told about its stretch too, graded on its own levels — it appears under this
+        alert on the Alerts tab.
       </Text>
 
       {gauges === null ? (

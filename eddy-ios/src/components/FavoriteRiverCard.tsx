@@ -54,6 +54,7 @@ import {
 } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { KindMark } from '@/components/KindMark';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { ReadingScale } from '@/components/ReadingScale';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
@@ -82,11 +83,33 @@ interface Props {
    * /api/gauges may simply not have landed yet. The card renders without it.
    */
   thresholds: GaugeThresholds | null;
+  /**
+   * The station the reading and the track above it actually came from.
+   *
+   * ── Why the card says this out loud ─────────────────────────────────────
+   *
+   * A river is a line and a reading is a point on it. The Meramec is gauged
+   * four times over 108 miles, and this card prints ONE number under the
+   * river's name as though the river had a level — which is the same elision
+   * RiverGaugeAlerts exists to correct on the alerts side. Somebody who floats
+   * the upper river was reading a verdict measured 70 miles downstream and the
+   * card never said so.
+   *
+   * Null is ordinary — no gauge, or /api/gauges has not landed — and the line
+   * is simply absent rather than guessed at.
+   */
+  gaugeName?: string | null;
   onPress: () => void;
   onToggleStar: () => void;
 }
 
-function FavoriteRiverCardComponent({ river, thresholds, onPress, onToggleStar }: Props) {
+function FavoriteRiverCardComponent({
+  river,
+  thresholds,
+  gaugeName = null,
+  onPress,
+  onToggleStar,
+}: Props) {
   const { colors, elevation, isDark } = useTheme();
 
   const condition = river.currentCondition;
@@ -115,13 +138,22 @@ function FavoriteRiverCardComponent({ river, thresholds, onPress, onToggleStar }
               condition?.label ?? conditionLongLabel(code),
               reading ? formatReading(reading.value, reading.unit) : 'no gauge reading',
               trend?.label,
+              gaugeName && reading ? `via ${gaugeName}` : null,
             ]
               .filter(Boolean)
               .join(', ')}
           >
-            <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-              {river.name}
-            </Text>
+            {/* THE KIND, drawn. GaugeRow and DamRow have carried a KindMark
+                since they shipped; this card had none, so in a Favorites list
+                holding all three the river was the one row you had to read to
+                identify. The mark is the same one the Today tab and the search
+                results use, so a river looks like a river everywhere. */}
+            <View style={styles.nameRow}>
+              <KindMark kind="river" color={colors.textMuted} />
+              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+                {river.name}
+              </Text>
+            </View>
             <View
               style={[
                 styles.chip,
@@ -189,6 +221,15 @@ function FavoriteRiverCardComponent({ river, thresholds, onPress, onToggleStar }
                 </Text>
               ) : null}
             </View>
+            {/* Under the number it qualifies, in the subtle role — this is
+                attribution, not a second reading. Only when the reading it
+                would attribute actually exists: "via Meramec at Eureka" over
+                "No gauge reading" would be attributing nothing to somewhere. */}
+            {gaugeName && reading ? (
+              <Text style={[styles.metaText, { color: colors.textSubtle }]} numberOfLines={1}>
+                via {gaugeName}
+              </Text>
+            ) : null}
           </View>
         </Pressable>
 
@@ -229,7 +270,8 @@ const styles = StyleSheet.create({
   body: { flex: 1, minWidth: 0, paddingVertical: 12, paddingLeft: 13, paddingRight: 4 },
   head: { flexDirection: 'row', alignItems: 'flex-start' },
   headMain: { flex: 1, minWidth: 0, gap: 6 },
-  name: { ...t.base, fontFamily: fonts.semibold },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  name: { ...t.base, fontFamily: fonts.semibold, flexShrink: 1 },
   chip: {
     alignSelf: 'flex-start',
     paddingHorizontal: 9,

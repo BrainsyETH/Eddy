@@ -7,11 +7,14 @@
 //
 // Free/paid boundary:
 //   FREE  condition, reading, the gauge picker, percentile context, hazards,
-//         access points, the bottom line, the weather — and the bell
-//   PAID  Eddy's written report
+//         access points, the 72-hour rain and forecast-stage strip — and the bell
+//   PAID  Eddy's take, whole: the written read, the weather paragraph and the
+//         bottom line. The last two used to be free; see the header of EddyTake
+//         for why the carve-out was withdrawn and what keeps it defensible.
 //
-// Everything that decides whether to get on the water is free, and that is a
-// rule rather than a description — see the header of PaywallSheet. The bell used
+// Everything FACTUAL about the water is free, and that is a rule rather than a
+// description — see the header of PaywallSheet. What is sold is Eddy's writing
+// about those facts, never the facts. The bell used
 // to be the second paid affordance and is no longer: alerting is free in its
 // entirety. It still needs an ACCOUNT, which is not a tier — a notification has
 // to have somewhere to go, and an anonymous id is replaced on reinstall.
@@ -141,9 +144,9 @@ export default function RiverDetailScreen() {
   const { getAccessToken } = useSession();
   const { isStarred, toggleStar } = useStarredRivers();
 
-  // Only Eddy's read is gated on this screen, and it fails OPEN — see the
-  // `entitled` computation below and the prop comment in EddyTake. Everything
-  // that decides whether to get on the water stays free.
+  // Eddy's take is the one gated card on this screen, and it fails OPEN — see
+  // the `entitled` computation below and the prop comment in EddyTake. Every
+  // measured fact about the water stays free.
   const { entitlement, loaded: accountLoaded, error: accountError } = useAccount();
 
   const [river, setRiver] = useState<RiverListItem | null>(null);

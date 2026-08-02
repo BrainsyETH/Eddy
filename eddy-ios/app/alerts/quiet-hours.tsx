@@ -38,6 +38,7 @@ import {
   DEFAULT_START_MINUTE as DEFAULT_START,
   deviceTimezone,
   hourLabel as label,
+  timezoneLabel,
   withUsableWindow,
 } from '@/lib/quietHours';
 import { useSession } from '@/hooks/useSession';
@@ -155,6 +156,9 @@ export default function QuietHoursScreen() {
 
   const start = prefs.quietStartMinute ?? DEFAULT_START;
   const end = prefs.quietEndMinute ?? DEFAULT_END;
+  // Read once per render rather than three times in the footnotes below: it is
+  // an Intl lookup, and the three uses must agree with each other.
+  const deviceZone = deviceTimezone();
 
   const hourPicker = (
     which: 'start' | 'end',
@@ -278,9 +282,41 @@ export default function QuietHoursScreen() {
               be worse than none. You will still see every change in the Alerts
               feed.
             </Text>
-            <Text style={[styles.footnote, { color: colors.textSubtle }]}>
-              Times are in {prefs.timezone.replace(/_/g, ' ')}.
-            </Text>
+
+            {/* ── WHICH CLOCK, and a way to change the answer ──────────────
+                The window is stored on the ACCOUNT, so it is evaluated in the
+                zone the account carries — and an account that has never been
+                here carries the server's default, which is Missouri's. Somebody
+                setting "silent 10pm–7am" in Denver was setting 9pm–6am and the
+                screen said so in the one form nobody reads: the raw IANA id.
+
+                So the zone is named the way the OS names it, and when it is not
+                the phone's own zone that is stated as a mismatch with a control
+                beside it. Never corrected silently: a quiet window is a promise
+                about somebody's night, and shifting it by an hour without being
+                asked is the same class of mistake as leaving it wrong. */}
+            {prefs.timezone === deviceZone ? (
+              <Text style={[styles.footnote, { color: colors.textSubtle }]}>
+                Times are in {timezoneLabel(prefs.timezone)}, this phone&apos;s clock.
+              </Text>
+            ) : (
+              <View style={styles.zoneRow}>
+                <Text style={[styles.footnoteInline, { color: colors.textSubtle }]}>
+                  Times are in {timezoneLabel(prefs.timezone)} — this phone is on{' '}
+                  {timezoneLabel(deviceZone)}.
+                </Text>
+                <Pressable
+                  onPress={() => void save({ ...prefs, timezone: deviceZone })}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Use ${timezoneLabel(deviceZone)} for quiet hours`}
+                >
+                  <Text style={[styles.zoneAction, { color: colors.interactive }]}>
+                    Use this phone&apos;s time
+                  </Text>
+                </Pressable>
+              </View>
+            )}
           </>
         ) : null}
 
@@ -331,6 +367,9 @@ const styles = StyleSheet.create({
   hourChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1 },
   hourText: { ...t.xs, fontFamily: fonts.semibold },
   footnote: { ...t.xs, fontFamily: fonts.body, marginTop: 16, marginHorizontal: 4, lineHeight: 17 },
+  zoneRow: { marginTop: 16, marginHorizontal: 4, gap: 4 },
+  footnoteInline: { ...t.xs, fontFamily: fonts.body, lineHeight: 17 },
+  zoneAction: { ...t.xs, fontFamily: fonts.semibold },
   errorText: { ...t.sm, fontFamily: fonts.body, marginTop: 14 },
   savingSpinner: { marginTop: 16 },
   emptyTitle: { ...t.lg, fontFamily: fonts.semibold },
