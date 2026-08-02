@@ -71,7 +71,8 @@ import {
   portageNote,
   severityLabel,
 } from '@eddy/hazards';
-import { conditionColor, conditionLabel } from '@/theme/conditions';
+import { CONDITION_ORDER } from '@eddy/conditions';
+import { alarmRank, conditionColor, conditionLabel } from '@/theme/conditions';
 import { neutral, primary, type Palette } from '@/theme/palette';
 import { useTheme } from '@/theme/ThemeProvider';
 import { readingAge } from '@/lib/readingCopy';
@@ -215,6 +216,51 @@ function accessMatch(pick: (code: PublicLandAccess) => string): unknown[] {
  * nobody computed.
  */
 const CLUSTER_FILL = primary[600];
+
+/**
+ * A rated-gauge cluster's aggregate: the WORST verdict inside it.
+ *
+ * ── Why the rated tier clusters at all now ─────────────────────────────────
+ *
+ * It did not, and this file argued at length that it must not: "a rated pin
+ * disappearing into a grey bubble would break the one promise that layer makes,
+ * which is that its colour is a verdict you can act on." The promise is right.
+ * The grey bubble was the problem with it.
+ *
+ * `clusterProperties` reduces over the members, so a cluster is not obliged to
+ * be an average of five verdicts — it can be the most alarming one, which is
+ * the only summary of mixed river conditions that is safe to show. Ten gauges
+ * where one is in flood collapse into a RED bubble, not a teal count. Nothing
+ * is hidden that mattered: the worst news survives the collapse, and one tap
+ * expands it into the individual dots.
+ *
+ * `min`, because CONDITION_SYSTEM ranks most-alarming FIRST — dangerous is 0.
+ * See alarmRank, which is the only place that ordering is read.
+ */
+const CLUSTER_WORST = {
+  worst: [['min', ['accumulated'], ['get', 'worst']], ['get', 'severity']],
+} as const;
+
+/**
+ * Paint a cluster in the colour of the worst condition it holds.
+ *
+ * Built from the ladder rather than written out, so a new condition code is
+ * carried here by adding it to CONDITION_SYSTEM and nothing else. The fallback
+ * is the neutral teal the national tier uses — correct for a bubble whose
+ * members carry no verdict at all.
+ *
+ * A module constant rather than something built during render: condition colour
+ * does not depend on the theme (the tints composite over both schemes — see
+ * theme/conditions), and a fresh array on every pass is a style prop that never
+ * compares equal, which is a native paint update per render for a value that
+ * never changes.
+ */
+const CLUSTER_CONDITION_COLOR: unknown[] = [
+  'match',
+  ['get', 'worst'],
+  ...CONDITION_ORDER.flatMap((code) => [alarmRank(code), conditionColor(code)]),
+  CLUSTER_FILL,
+];
 
 /**
  * What onMapIdle hands back, structurally.
@@ -377,6 +423,19 @@ function accessLabel(point: MapAccessPoint): string {
 }
 
 /**
+ * An access point and the river it belongs to.
+ *
+ * MapAccessPoint itself carries no river — the endpoint that serves it is
+ * already river-scoped, so it never had to. The map's access layer is not, any
+ * more, so the pairing has to be explicit here.
+ */
+export interface MapPinAccessPoint {
+  point: MapAccessPoint;
+  /** Null means "whichever river is drawn", for a per-river response. */
+  riverSlug?: string | null;
+}
+
+/**
  * The canonical presentation object for an access point.
  *
  * Exported because a search result needs to open the exact callout RiverMap
@@ -415,7 +474,15 @@ interface Props {
   /** Fit this instead of a river, when nothing is selected. [w, s, e, n]. */
   networkBounds?: [number, number, number, number] | null;
   onSelectRiverSlug?: (slug: string) => void;
-  accessPoints: MapAccessPoint[];
+  /**
+   * Every access point to draw, each tagged with the river it is on.
+   *
+   * Tagged rather than bare, because this is no longer the selected river's
+   * list: the map draws the whole network's put-ins before anything is
+   * selected, and a pin's detail route is built from ITS river. A null slug
+   * falls back to the drawn river, which is what a per-river response supplies.
+   */
+  accessPoints: MapPinAccessPoint[];
   gauges: MapGauge[];
   /**
    * The national tier, already converted to pins by the screen. Drawn CLUSTERED
@@ -494,6 +561,11 @@ function featureCollection(pins: MapPin[], defaultColor: string) {
         color: pin.color ?? defaultColor,
         magnitude: pin.magnitude ?? 0,
         privateAccess: pin.privateAccess ?? false,
+        // Written on every feature so a CLUSTER can reduce over it — see
+        // CLUSTER_WORST and the gauge layer's paint. A pin with no condition
+        // lands on `unknown`, which is the calmest rank and therefore never
+        // wins a bubble it has nothing to say about.
+        severity: alarmRank(pin.code ?? 'unknown'),
       },
       geometry: {
         type: 'Point' as const,
@@ -551,7 +623,16 @@ export function RiverMap({
 
   // ── Pins, one array per layer ─────────────────────────────────
   const pins = useMemo(() => {
-    const access = accessPoints.map((point) => mapAccessPointPin(point, riverSlug));
+    // Each point carries its OWN river, because this layer is no longer one
+    // river's put-ins — it is every river's, drawn before anything is selected.
+    // Using the drawn river's slug for all of them, which is what this did when
+    // the list could only ever be one river's, would send a tap on a Meramec
+    // landing to /river/current-river/access/... — a 404 dressed as a detail
+    // screen. `riverSlug` remains the fallback for a point with no river of its
+    // own, which is what a live per-river response still produces.
+    const access = accessPoints.map(({ point, riverSlug: pointSlug }) =>
+      mapAccessPointPin(point, pointSlug ?? riverSlug),
+    );
 
     // Campgrounds come from two places. An access point tagged `campground` is
     // a put-in you can sleep at; a linked service is somewhere to sleep that is
@@ -562,7 +643,10 @@ export function RiverMap({
     // campgrounds on, these locations return as campground pins and still carry
     // the access photo, route, privacy state, and planner identity.
     const campgrounds: MapPin[] = [
-      ...(!layers.includes('access') ? accessPoints.filter(isCampground) : []).map((p) => ({
+      ...(!layers.includes('access')
+        ? accessPoints.filter((entry) => isCampground(entry.point))
+        : []
+      ).map(({ point: p, riverSlug: pointSlug }) => ({
         // Keep the canonical access identity even while it is being presented
         // through the campground layer. If the user enables Access with this
         // callout open, the tent becomes a pin without losing selection.
@@ -572,7 +656,10 @@ export function RiverMap({
         subtitle: `Camp · Mile ${p.riverMile.toFixed(1)}`,
         coordinates: p.coordinates,
         imageUrl: p.imageUrls?.[0] ?? null,
-        detailRoute: riverSlug && p.slug ? `/river/${riverSlug}/access/${p.slug}` : null,
+        detailRoute:
+          (pointSlug ?? riverSlug) && p.slug
+            ? `/river/${pointSlug ?? riverSlug}/access/${p.slug}`
+            : null,
         privateAccess: !p.isPublic,
       })),
       ...services
@@ -949,21 +1036,89 @@ export function RiverMap({
      * wall of full-size staff marks and labels.
      */
     compactUntilZoom?: number,
+    /**
+     * Collapse this layer into count bubbles below `maxZoom`.
+     *
+     * Only the rated gauge tier passes it. The bubble wears the worst verdict
+     * it contains rather than a neutral fill — see CLUSTER_WORST, which is what
+     * makes clustering a layer of verdicts defensible at all.
+     */
+    clustering?: { radius: number; maxZoom: number },
   ) => {
     // No early return on an empty list. Access points and gauges arrive
     // asynchronously, and a source that unmounts takes its layers out of the
     // style with it — see the note above networkShape. An empty collection is
     // a source update; `null` is a teardown.
     const icon = PIN_ICONS[shape];
+    /**
+     * Every non-cluster layer has to say so once the source clusters.
+     *
+     * A clustered source emits BOTH kinds of feature, and a layer with no
+     * filter draws a cluster as though it were a pin — which for the gauge
+     * layer means a bubble of forty stations rendered as one staff mark in one
+     * station's colour, sitting exactly where no gauge is.
+     *
+     * Undefined when the source does not cluster, so every other caller's
+     * layers are unchanged.
+     */
+    const solo = clustering ? (['!', ['has', 'point_count']] as unknown[]) : undefined;
     return (
       <Mapbox.ShapeSource
         id={`pins-${id}`}
         shape={pinShapes[id]}
-        onPress={onPress}
+        // A tap on a clustered source may be a place or a bubble of places;
+        // onClusterablePress is the handler that can tell the difference.
+        onPress={clustering ? onClusterablePress : onPress}
+        cluster={clustering !== undefined}
+        clusterRadius={clustering?.radius}
+        clusterMaxZoomLevel={clustering?.maxZoom}
+        clusterProperties={clustering ? CLUSTER_WORST : undefined}
       >
+        {clustering ? (
+          <Mapbox.CircleLayer
+            id={`pins-${id}-cluster`}
+            filter={['has', 'point_count']}
+            // The layer's own floor applies to its bubbles too, or a tier that
+            // is meant to be silent at continental zoom announces itself there
+            // as one very large count.
+            minZoomLevel={minZoom}
+            style={{
+              circleColor: CLUSTER_CONDITION_COLOR,
+              circleOpacity: 0.92,
+              circleStrokeWidth: 1.5,
+              circleStrokeColor: '#FFFFFF',
+              circleRadius: ['step', ['get', 'point_count'], 14, 10, 17, 30, 20],
+            }}
+          />
+        ) : null}
+        {clustering ? (
+          <Mapbox.SymbolLayer
+            id={`pins-${id}-cluster-count`}
+            filter={['has', 'point_count']}
+            minZoomLevel={minZoom}
+            style={{
+              textField: ['get', 'point_count_abbreviated'],
+              textSize: 11,
+              // Dark ink, not white: these bubbles wear condition colours, and
+              // three of the six — good, flowing, high — are light enough that
+              // white on them fails the contrast every other condition surface
+              // in this app is held to. The canonical inks are darker still,
+              // but they are per-code and a count must not need a `match` to
+              // stay legible.
+              textColor: LABEL_INK,
+              textHaloColor: LABEL_HALO,
+              textHaloWidth: 1,
+              // A circle with no number in it is a dot that lies about being
+              // one gauge. Never dropped by collision detection.
+              textAllowOverlap: true,
+              textIgnorePlacement: true,
+            }}
+          />
+        ) : null}
         {icon && compactUntilZoom !== undefined ? (
           <Mapbox.CircleLayer
             id={`pins-${id}-overview`}
+            filter={solo}
             minZoomLevel={minZoom}
             maxZoomLevel={compactUntilZoom}
             style={{
@@ -981,6 +1136,7 @@ export function RiverMap({
         {icon?.themed ? (
           <Mapbox.CircleLayer
             id={`pins-${id}-badge`}
+            filter={solo}
             minZoomLevel={compactUntilZoom ?? minZoom}
             style={{
               circleRadius: selectedPinId
@@ -997,6 +1153,7 @@ export function RiverMap({
         {icon ? (
           <Mapbox.SymbolLayer
             id={`pins-${id}-icon`}
+            filter={solo}
             minZoomLevel={compactUntilZoom ?? minZoom}
             style={{
               iconImage: icon.image,
@@ -1014,6 +1171,7 @@ export function RiverMap({
         ) : (
           <Mapbox.CircleLayer
             id={`pins-${id}-circle`}
+            filter={solo}
             minZoomLevel={minZoom}
             style={{
               circleRadius: 6,
@@ -1037,6 +1195,7 @@ export function RiverMap({
             at. */}
         <Mapbox.SymbolLayer
           id={`pins-${id}-label`}
+          filter={solo}
           // The higher of the two floors. A label is allowed to arrive after
           // its pin, never before it.
           minZoomLevel={Math.max(labelMinZoom, compactUntilZoom ?? minZoom ?? 0)}
@@ -1519,10 +1678,26 @@ export function RiverMap({
       {/* Present from the opening statewide view, without making that view pay
           for forty full-size symbols and labels. Compact condition dots answer
           "where is the water?" immediately; the staff marks and place names
-          arrive at GAUGE_DETAIL_ZOOM. Rated gauges never cluster because each
-          colour is Eddy's verdict and must remain individually visible. */}
+          arrive at GAUGE_DETAIL_ZOOM.
+
+          ── Rated gauges cluster now, and keep their verdict ──────────────
+          They used to be the one pin layer that never collapsed, on the
+          argument that a verdict hidden in a grey bubble is a verdict
+          withheld. That was an argument against GREY, and it is answered: a
+          rated cluster is painted with the worst condition inside it (see
+          CLUSTER_WORST). At statewide zoom the Ozarks now read as a handful of
+          coloured counts instead of forty overlapping dots, and a river in
+          flood is redder for it, not quieter.
+
+          The ceiling is MIN_GAUGE_ZOOM + 2.5, which lands just under
+          GAUGE_DETAIL_ZOOM: bubbles for the overview, individual dots from the
+          moment the map is close enough for them to be distinguishable, full
+          marks and names a beat later. */}
       {layerOn('gauges')
-        ? pinLayer('gauges', 'drop', GAUGE_DETAIL_ZOOM, MIN_GAUGE_ZOOM, GAUGE_DETAIL_ZOOM)
+        ? pinLayer('gauges', 'drop', GAUGE_DETAIL_ZOOM, MIN_GAUGE_ZOOM, GAUGE_DETAIL_ZOOM, {
+            radius: 40,
+            maxZoom: 8,
+          })
         : null}
       {/* Ten pins statewide, so labels are on at every zoom like the gauges —
           an unnamed dot cannot be told from the lake it sits on. Drawn before

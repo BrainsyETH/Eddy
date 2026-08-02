@@ -82,10 +82,21 @@ interface Props {
  * promise.
  */
 const BENEFITS: { symbol: EddySymbolName; symbolSize?: number; title: string; body: string }[] = [
+  // NAMES THE PAID HALF, not the free one. This entry used to read "A bottom
+  // line for today" — which is the one line on the river screen that is NEVER
+  // gated (see EddyTake: Bottom line and Weather are safety calls and stay
+  // free). Selling it was the paywall advertising something the reader already
+  // has, and quietly implying the free thing would be taken away.
+  //
+  // What is actually behind the gate is Eddy's read: the long written report a
+  // model writes about this river every morning. So the entry says that, and
+  // says the bottom line stays free, because a subscription page that is
+  // straight about what is free is the only kind worth trusting about what is
+  // not.
   {
     symbol: 'eddyRated',
-    title: 'A bottom line for today',
-    body: "Eddy's written call on whether the current reading supports getting on the water.",
+    title: "Eddy's daily take",
+    body: "The full written report on the river — what the water is doing and why — rewritten every morning. The bottom line stays free.",
   },
   {
     symbol: 'weather',

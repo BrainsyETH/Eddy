@@ -874,11 +874,19 @@ export default function ReportsScreen() {
         return;
       }
       if (nearest) return;
-      const [coords] = await Promise.all([location.request(), ensureGauges()]);
+      // A position the hook ALREADY holds is enough, and asking for one anyway
+      // is the re-prompt this app is trying to stop. Ranking rivers is measured
+      // in tens of miles, so a fix remembered from the last session answers it
+      // exactly as well as a fresh one — the dialog only appears when there is
+      // genuinely nothing to sort by. See useLocation.
+      const [requested] = await Promise.all([
+        location.coords ? Promise.resolve(location.coords) : location.request(),
+        ensureGauges(),
+      ]);
       // Only commit to the ordering if a position actually arrived. Selecting
       // "Near me" and then being shown an unchanged list with no explanation is
       // worse than the selection not sticking.
-      if (coords) setSort('nearest');
+      if (requested) setSort('nearest');
     },
     [nearest, location, ensureGauges],
   );

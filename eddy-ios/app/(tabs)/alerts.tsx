@@ -77,6 +77,7 @@ import { readingAge } from '@/lib/readingCopy';
 import { EddyScene } from '@/components/EddyScene';
 import { AlertRuleRow } from '@/components/AlertRuleRow';
 import { QuietHoursRow } from '@/components/QuietHoursRow';
+import { SwipeRow } from '@/components/SwipeRow';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
@@ -200,7 +201,13 @@ export default function AlertsScreen() {
   const [ruleError, setRuleError] = useState<string | null>(null);
   const [notices, setNotices] = useState<RiverAlert[] | null>(null);
   const [noticeError, setNoticeError] = useState<string | null>(null);
-  const { rules, ready: rulesReady, refresh: refreshRules, setEnabled } = useAlertRules();
+  const {
+    rules,
+    ready: rulesReady,
+    refresh: refreshRules,
+    setEnabled,
+    remove,
+  } = useAlertRules();
   const { colors, elevation } = useTheme();
   const router = useRouter();
 
@@ -270,6 +277,22 @@ export default function AlertsScreen() {
       );
     },
     [setEnabled],
+  );
+
+  /**
+   * Delete, from the swipe.
+   *
+   * Same contract as the toggle: the hook removes the row optimistically and
+   * puts it back if the write fails, so the only thing left here is to say
+   * why it reappeared. Returns the promise so SwipeRow can close itself once
+   * the round trip has settled rather than the instant the button is tapped.
+   */
+  const removeRule = useCallback(
+    (rule: AlertRule) => {
+      setRuleError(null);
+      return remove(rule).catch(() => setRuleError('Could not delete that alert.'));
+    },
+    [remove],
   );
 
   // Headings interleaved with rows, so a section title scrolls with the group
@@ -471,20 +494,36 @@ export default function AlertsScreen() {
             </View>
           }
           renderItem={({ item }) => (
-            <AlertRuleRow
-              rule={item}
-              // `source` rides along because the two tables are addressed
-              // differently on write — a gauge rule by its own id, a river
-              // subscription by riverId — and the edit screen must not have to
-              // guess which one it is holding.
-              onPress={() =>
-                router.push({
-                  pathname: '/alerts/[id]',
-                  params: { id: item.id, source: item.source },
-                })
-              }
-              onToggle={(enabled) => onToggleRule(item, enabled)}
-            />
+            // Swipe left to delete. The row's switch PAUSES an alert and the
+            // screen behind it edits one; neither is how somebody gets rid of a
+            // rule they no longer want, and until now that took three screens.
+            // The confirmation is not ceremony — the rule is a server-side row
+            // and re-creating it means finding the water and setting the
+            // trigger again.
+            <SwipeRow
+              onAction={() => removeRule(item)}
+              actionLabel="Delete"
+              accessibilityActionLabel={`Delete the alert for ${item.riverName ?? item.gaugeName ?? 'this water'}`}
+              confirm={{
+                title: `Delete this alert?`,
+                message: 'You will stop being notified about it. This cannot be undone.',
+              }}
+            >
+              <AlertRuleRow
+                rule={item}
+                // `source` rides along because the two tables are addressed
+                // differently on write — a gauge rule by its own id, a river
+                // subscription by riverId — and the edit screen must not have to
+                // guess which one it is holding.
+                onPress={() =>
+                  router.push({
+                    pathname: '/alerts/[id]',
+                    params: { id: item.id, source: item.source },
+                  })
+                }
+                onToggle={(enabled) => onToggleRule(item, enabled)}
+              />
+            </SwipeRow>
           )}
         />
       </SafeAreaView>

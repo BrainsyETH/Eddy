@@ -61,7 +61,6 @@ import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import { driveBetweenUrl, driveToUrl, usgsGaugeUrl } from '@/lib/directions';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { PlanAlongRoute } from '@/components/PlanAlongRoute';
-import { PlanRoutePreview } from '@/components/PlanRoutePreview';
 import { PlanNearby } from '@/components/PlanNearby';
 import { EddySymbol } from '@/components/EddySymbol';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
@@ -101,16 +100,18 @@ export function PlanResult({ plan, actions }: Props) {
       ) : null}
 
       {/* ── The stretch ─────────────────────────────────────────────
-          ABOVE the numbers, inside the same card, because it is what the
-          numbers are about. It renders itself away when the plan came back
-          without usable geometry — see PlanRoutePreview, which never draws a
-          route it had to invent.
+          THE DRAWN ROUTE IS GONE FROM HERE. A 116pt SVG strip used to open this
+          card with the shape of the stretch — no basemap, no scale, no north
+          arrow, no context of any kind. On the screen it was meant to help, a
+          bare squiggle answers nothing: it cannot say where the stretch is,
+          which way the water runs, or what is beside it, and the map tab draws
+          the same line on an actual map one tap away. It cost the top of the
+          card that carries the two numbers people opened this for.
 
-          Saved floats get it for free: this component is the whole of what
-          both screens render, which is the reason it exists. */}
+          If a picture of the route belongs here it needs a basemap and the
+          licence question that comes with one — not a line with no world under
+          it. See git history for the removed component. */}
       <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-        <PlanRoutePreview geometry={plan.route?.geometry} />
-
         <View style={styles.segmentRow}>
           <Text style={[styles.segment, { color: colors.textMuted }]} numberOfLines={2}>
             {plan.putIn.name} → {plan.takeOut.name}

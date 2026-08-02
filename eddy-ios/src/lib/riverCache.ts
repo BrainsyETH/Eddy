@@ -55,10 +55,12 @@ import {
   META_KEY,
   NETWORK_KEY,
   envelope,
+  isRiverKey,
   isStaleVersionKey,
   mergeParts,
   parseEnvelope,
   riverKey,
+  slugFromRiverKey,
   type CacheEnvelope,
 } from '@/lib/offline-cache';
 
@@ -182,6 +184,56 @@ export function writeRiver(slug: string, parts: CachedRiver, fetchedAt: string, 
     const merged = mergeParts<CachedRiver>(existing, parts, fetchedAt, etag);
     await AsyncStorage.setItem(riverKey(slug), JSON.stringify(merged));
   });
+}
+
+/** An access point and the river it belongs to, which its own type never says. */
+export interface CachedAccessPoint {
+  point: MapAccessPoint;
+  riverSlug: string;
+}
+
+/**
+ * Every access point on disk, from every river, in one read.
+ *
+ * ── Why the Map tab wants this ─────────────────────────────────────────────
+ *
+ * Put-ins used to be fetched per river, on selection, which meant the map
+ * opened with none of them — the answer to "where can I get on the water" was
+ * behind picking a river first, and picking a river is the thing people open
+ * the map to decide. Every one of these is already on the phone: the launch
+ * bundle seeds all 25 rivers (see seedOfflineBundle), and this is one
+ * AsyncStorage batch over what it wrote.
+ *
+ * NO NETWORK, deliberately. The alternative was the full /api/usgs/mo-dataset,
+ * which carries access points, POIs and campgrounds for every river — the app
+ * asks that endpoint for `?slim=1` precisely to avoid paying for them, and
+ * paying for them once per map open to draw what is already stored would be a
+ * strange way to spend a put-in's worth of signal.
+ *
+ * Keys come from getAllKeys rather than from the rivers index, so a river the
+ * bundle seeded is included whether or not /api/rivers has landed this session.
+ */
+export async function readAllAccessPoints(): Promise<CachedAccessPoint[]> {
+  try {
+    const keys = (await AsyncStorage.getAllKeys()).filter(isRiverKey);
+    if (keys.length === 0) return [];
+
+    const entries = await AsyncStorage.multiGet(keys);
+    const out: CachedAccessPoint[] = [];
+    for (const [key, raw] of entries) {
+      const riverSlug = slugFromRiverKey(key);
+      if (!riverSlug) continue;
+      const stored = parseEnvelope<CachedRiver>(raw, 'object');
+      for (const point of stored?.payload?.accessPoints ?? []) {
+        out.push({ point, riverSlug });
+      }
+    }
+    return out;
+  } catch {
+    // An empty map layer, never a failed screen. Same posture as every other
+    // read in this file.
+    return [];
+  }
 }
 
 // ── The statewide network ───────────────────────────────────────────────────
