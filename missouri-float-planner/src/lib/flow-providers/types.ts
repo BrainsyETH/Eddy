@@ -61,6 +61,33 @@ export interface DailyStatistics {
   yearsOfRecord: number | null;
 }
 
+/**
+ * One day-of-year row of statistics, before it is keyed to a calendar date.
+ *
+ * Lives here rather than beside a fetcher because two of them now produce it:
+ * the modern USGS Statistics API (src/lib/flow-providers/usgs-statistics.ts)
+ * and, until it is decommissioned, the legacy RDB statistics service.
+ * `DailyStatistics` above is what the app consumes; this is the row shape the
+ * snapshot table is written from.
+ */
+export interface DailyStatisticsRow {
+  month: number;
+  day: number;
+  p05: number | null;
+  p10: number | null;
+  p20: number | null;
+  p25: number | null;
+  p50: number | null;
+  p75: number | null;
+  p80: number | null;
+  p90: number | null;
+  p95: number | null;
+  mean: number | null;
+  countYears: number | null;
+  beginYear: number | null;
+  endYear: number | null;
+}
+
 export interface HistoricalReading {
   timestamp: string;
   gaugeHeightFt: number | null;

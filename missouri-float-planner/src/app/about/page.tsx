@@ -251,13 +251,13 @@ export default function AboutPage() {
           <div className="bg-white border-2 border-neutral-200 rounded-xl p-6 shadow-sm">
             <div className="space-y-4">
               <div>
-                <h3 className="font-bold text-neutral-900 mb-1">USGS Water Services</h3>
+                <h3 className="font-bold text-neutral-900 mb-1">USGS Water Data APIs</h3>
                 <p className="text-neutral-700 mb-1">
-                  Real-time and historical gauge data from the United States Geological Survey&apos;s
-                  National Water Information System.
+                  Real-time, historical and statistical gauge data from the United States
+                  Geological Survey&apos;s National Water Information System.
                 </p>
-                <a href="https://waterservices.usgs.gov/" target="_blank" rel="noopener noreferrer" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
-                  waterservices.usgs.gov &rarr;
+                <a href="https://api.waterdata.usgs.gov/" target="_blank" rel="noopener noreferrer" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                  api.waterdata.usgs.gov &rarr;
                 </a>
               </div>
               <div>

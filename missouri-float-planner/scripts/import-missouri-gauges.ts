@@ -5,8 +5,10 @@
  * Fetches all active stream gauges in Missouri from the official USGS Water Services API
  * and imports them into the database.
  * 
- * This uses the official USGS site inventory feed (not scraping):
- * https://waterservices.usgs.gov/nwis/site/?format=rdb&stateCd=MO&siteType=ST&siteStatus=active
+ * This uses the official USGS site inventory (not scraping), via the modern
+ * monitoring-locations collection. See fetchMissouriGauges below for what
+ * changed when the legacy RDB site service was retired — in particular that
+ * "active" is no longer a filter the inventory can express.
  * 
  * Usage:
  *   npx tsx scripts/import-missouri-gauges.ts
@@ -27,6 +29,7 @@
  *       active = excluded.active;
  */
 
+import { MODERN_BASE, modernHeaders } from '../src/lib/flow-providers/usgs';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { createAdminClient } from '../src/lib/supabase/admin';
@@ -64,104 +67,78 @@ interface USGSRDBRow {
 }
 
 /**
- * Fetches all active stream gauges in Missouri from USGS
+ * Fetches Missouri stream gauges from the modern monitoring-locations
+ * collection.
+ *
+ * Was the legacy RDB site inventory
+ * (`nwis/site/?stateCd=MO&siteType=ST&siteStatus=active`), decommissioned
+ * Q1 2027. Three differences worth knowing:
+ *
+ * 1. `state_code` here is the bare FIPS code ('29'). The USGS *Statistics* API
+ *    wants 'US:29' for the same concept — two services, two conventions.
+ * 2. The collection carries NON-USGS agencies (USCE, AR001, …). A bare state
+ *    query returns Corps of Engineers stations whose numbers are not USGS site
+ *    ids, so agency_code must be pinned.
+ * 3. ⚠️ `siteStatus=active` has NO equivalent here — monitoring-locations is an
+ *    inventory, not a liveness signal. The modern way to ask "is it currently
+ *    reporting" is to intersect with latest-continuous, which
+ *    scripts/import-usgs-gauges.ts already does and is the better-maintained
+ *    importer. This script now returns every USGS stream site in the state;
+ *    downstream upsert marks them active, as it always did.
  */
 async function fetchMissouriGauges(): Promise<USGSRDBRow[]> {
-  const url = new URL('https://waterservices.usgs.gov/nwis/site/');
-  url.searchParams.set('format', 'rdb');
-  url.searchParams.set('stateCd', 'MO');
-  url.searchParams.set('siteType', 'ST'); // Stream gauges
-  url.searchParams.set('siteStatus', 'active');
+  const url = new URL(`${MODERN_BASE}/monitoring-locations/items`);
+  url.searchParams.set('f', 'json');
+  url.searchParams.set('state_code', '29'); // Missouri (FIPS)
+  url.searchParams.set('site_type_code', 'ST'); // Stream
+  url.searchParams.set('agency_code', 'USGS');
+  url.searchParams.set('limit', '10000');
 
-  console.log('📡 Fetching Missouri gauges from USGS...');
+  console.log('📡 Fetching Missouri gauges from USGS monitoring-locations...');
   console.log(`   URL: ${url.toString()}`);
 
-  const response = await fetch(url.toString());
-
+  const response = await fetch(url.toString(), { headers: modernHeaders() });
   if (!response.ok) {
     throw new Error(`USGS API error: ${response.status} ${response.statusText}`);
   }
 
-  const text = await response.text();
-  const lines = text.split('\n');
+  const data = (await response.json()) as {
+    features?: Array<{
+      geometry?: { coordinates?: number[] } | null;
+      properties?: {
+        monitoring_location_number?: string;
+        monitoring_location_name?: string;
+        agency_code?: string;
+      } | null;
+    }>;
+  };
 
-  // RDB format: First few lines are comments (start with #)
-  // Then column headers (tab-separated)
-  // Then data rows (tab-separated)
-  
-  let headerLineIndex = -1;
-  let headerColumns: string[] = [];
-
-  // Find the header line (first non-comment line that's not empty)
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (line && !line.startsWith('#')) {
-      headerLineIndex = i;
-      headerColumns = line.split('\t');
-      break;
-    }
-  }
-
-  if (headerLineIndex === -1 || headerColumns.length === 0) {
-    throw new Error('Could not find header line in RDB response');
-  }
-
-  console.log(`   Found ${headerColumns.length} columns`);
-  console.log(`   Columns: ${headerColumns.join(', ')}`);
-
-  // Find indices of columns we need
-  const siteNoIndex = headerColumns.indexOf('site_no');
-  const stationNmIndex = headerColumns.indexOf('station_nm');
-  const latIndex = headerColumns.indexOf('dec_lat_va');
-  const lonIndex = headerColumns.indexOf('dec_long_va');
-
-  if (siteNoIndex === -1 || stationNmIndex === -1 || latIndex === -1 || lonIndex === -1) {
-    throw new Error('Missing required columns in RDB response');
-  }
-
-  // Parse data rows
-  // Skip the header line and the next line (column width specification like "5s", "15s")
   const gauges: USGSRDBRow[] = [];
-  let dataStartIndex = headerLineIndex + 1;
+  for (const feature of data.features ?? []) {
+    const props = feature.properties;
+    const siteNo = props?.monitoring_location_number?.trim();
+    const stationNm = props?.monitoring_location_name?.trim();
+    // Belt and braces: the agency_code filter is server-side, but a site id
+    // from another agency looks USGS-shaped and would upsert as one.
+    if (!siteNo || !stationNm || props?.agency_code !== 'USGS') continue;
 
-  // Skip the column width line if it exists (contains patterns like "5s", "15s")
-  if (dataStartIndex < lines.length) {
-    const widthLine = lines[dataStartIndex].trim();
-    if (widthLine && widthLine.match(/\d+s/)) {
-      // This is the column width line, skip it
-      dataStartIndex++;
+    const coords = feature.geometry?.coordinates;
+    const lonNum = coords?.[0];
+    const latNum = coords?.[1];
+    if (typeof lonNum !== 'number' || typeof latNum !== 'number') {
+      console.warn(`   ⚠️ Skipping ${siteNo}: no coordinates`);
+      continue;
     }
-  }
-
-  for (let i = dataStartIndex; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line || line.startsWith('#')) continue;
-
-    const values = line.split('\t');
-    if (values.length < headerColumns.length) continue;
-
-    const siteNo = values[siteNoIndex]?.trim();
-    const stationNm = values[stationNmIndex]?.trim();
-    const lat = values[latIndex]?.trim();
-    const lon = values[lonIndex]?.trim();
-
-    // Skip rows with missing required data
-    if (!siteNo || !stationNm || !lat || !lon) continue;
-
-    // Validate coordinates
-    const latNum = parseFloat(lat);
-    const lonNum = parseFloat(lon);
-
     if (isNaN(latNum) || isNaN(lonNum)) {
-      console.warn(`   ⚠️ Skipping ${siteNo}: invalid coordinates (${lat}, ${lon})`);
+      console.warn(`   ⚠️ Skipping ${siteNo}: invalid coordinates (${latNum}, ${lonNum})`);
       continue;
     }
 
     gauges.push({
       site_no: siteNo,
       station_nm: stationNm,
-      dec_lat_va: lat,
-      dec_long_va: lon,
+      dec_lat_va: String(latNum),
+      dec_long_va: String(lonNum),
     });
   }
 
