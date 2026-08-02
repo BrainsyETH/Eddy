@@ -70,8 +70,16 @@ test('offering failures stay customer-safe and reach diagnostics lazily', () => 
 });
 
 test('the paywall states forecast uncertainty explicitly', () => {
+  // The sentence moved from the component into premiumCopy.ts when the pitch
+  // was centralised, so this now checks the copy module AND that the paywall
+  // still renders it. Checking only the module would let someone drop the
+  // render and keep the test green — which is the failure this guards against,
+  // since the caveat is worthless anywhere but on screen.
+  const copy = readFileSync('../eddy-ios/src/lib/premiumCopy.ts', 'utf8');
+  assert.match(copy, /outlook is a forecast, not a promise/i);
+
   const paywall = readFileSync('../eddy-ios/src/components/PaywallSheet.tsx', 'utf8');
-  assert.match(paywall, /outlook is a forecast, not a promise/i);
+  assert.match(paywall, /PREMIUM_FORECAST_CAVEAT/);
 });
 
 test('the localised price string is passed through untouched', () => {

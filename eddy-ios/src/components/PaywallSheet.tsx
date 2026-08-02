@@ -14,9 +14,16 @@
 // floatability push stayed paid. The carve-out did not survive contact: the only
 // route that could create a subscription demanded payment for every kind, so the
 // free warning was unreachable, and the app asked for `kind: 'floatable'`, which
-// matches no warning anyway. Alerting is free in its entirety now, and the two
-// remaining triggers for this sheet are the offline download and Eddy's written
-// read — commentary and convenience, never the water.
+// matches no warning anyway. Alerting is free in its entirety now.
+//
+// So is the offline map download, in the sense that it no longer exists — it
+// was removed rather than kept as a thin paid line. That leaves exactly ONE
+// entitlement gate in the app: EddyTake, Eddy's written read on a river.
+// Commentary, never the water.
+//
+// EVERY STRING ON THIS SHEET COMES FROM src/lib/premiumCopy.ts. It is not
+// centralised for tidiness: the gauge screen carried a second, contradictory
+// pitch for months, and neither surface could have caught the other.
 
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -49,6 +56,13 @@ import {
   type PurchasePackage,
 } from '@/lib/purchases';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
+import {
+  PREMIUM_BENEFITS,
+  PREMIUM_FORECAST_CAVEAT,
+  PREMIUM_FREE_NOTE,
+  PREMIUM_TITLE,
+  premiumSubtitle,
+} from '@/lib/premiumCopy';
 
 interface Props {
   visible: boolean;
@@ -64,57 +78,6 @@ interface Props {
    */
   onPurchased?: () => void;
 }
-
-/**
- * ── This sheet used to sell three things, two of which were free ──────────
- *
- * The header above says alerting is free in its entirety and that hazards
- * behind a paywall are a liability. The list then sold "a push when a river
- * becomes floatable" and "follow as many rivers as you like" — both free — and
- * promised the offline download would "keep the map, access points and hazards
- * on the water", when the download saved Mapbox tiles and nothing else. Twenty
- * lines below, the same sheet said conditions, readings, hazards and alerts are
- * always free. It contradicted itself on one screen, in both directions at
- * once.
- *
- * The entries below stay within the two actual gates, but name the concrete
- * decisions the written read answers instead of collapsing them into one vague
- * promise.
- */
-const BENEFITS: { symbol: EddySymbolName; symbolSize?: number; title: string; body: string }[] = [
-  // NAMES THE PAID HALF, not the free one. This entry used to read "A bottom
-  // line for today" — which is the one line on the river screen that is NEVER
-  // gated (see EddyTake: Bottom line and Weather are safety calls and stay
-  // free). Selling it was the paywall advertising something the reader already
-  // has, and quietly implying the free thing would be taken away.
-  //
-  // What is actually behind the gate is Eddy's read: the long written report a
-  // model writes about this river every morning. So the entry says that, and
-  // says the bottom line stays free, because a subscription page that is
-  // straight about what is free is the only kind worth trusting about what is
-  // not.
-  {
-    symbol: 'eddyRated',
-    title: "Eddy's daily take",
-    body: "The full written report on the river — what the water is doing and why — rewritten every morning. The bottom line stays free.",
-  },
-  {
-    symbol: 'weather',
-    title: 'The last 72 hours and weather ahead',
-    body: 'See whether the river is rising, falling, or holding — and what forecast rain may change before launch.',
-  },
-  {
-    symbol: 'heart',
-    symbolSize: 30,
-    title: 'Thank you for supporting Eddy',
-    body: 'Eddy is built by one person. Your subscription keeps the gauges, maps, and alerts running.',
-  },
-  {
-    symbol: 'offlineMap',
-    title: 'The map, downloaded',
-    body: "Download a river's map to your phone. The put-ins and hazards are already saved for free — this is the map they sit on.",
-  },
-];
 
 // App Store review requires a subscription screen to link to both the terms
 // (EULA) and the privacy policy. These are not optional decoration — a paywall
@@ -238,21 +201,21 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
         <ScrollView contentContainerStyle={styles.body}>
           <Otter mood="green" size={120} />
 
-          {/* Was "Be first to know", which is now the free product. */}
-          <Text style={[styles.title, { color: colors.text }]}>More than a number</Text>
+          {/* Every string on this sheet comes from premiumCopy.ts — see its
+              header for why, and for the rule that it may name only what is
+              actually gated. */}
+          <Text style={[styles.title, { color: colors.text }]}>{PREMIUM_TITLE}</Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            {riverName
-              ? `Eddy's full read on the ${riverName} — and a map that still works when the signal doesn't.`
-              : "Eddy's full read on your rivers — and a map that still works when the signal doesn't."}
+            {premiumSubtitle(riverName)}
           </Text>
 
-          {BENEFITS.map((benefit) => (
+          {PREMIUM_BENEFITS.map((benefit) => (
             <View
               key={benefit.title}
               style={[styles.benefit, { backgroundColor: colors.card }, elevation(1)]}
             >
               <View style={[styles.benefitIcon, { backgroundColor: colors.cardRaised }]}>
-                <EddySymbol name={benefit.symbol} size={benefit.symbolSize ?? 19} />
+                <EddySymbol name={benefit.symbol as EddySymbolName} size={benefit.symbolSize ?? 19} />
               </View>
               <View style={styles.benefitText}>
                 <Text style={[styles.benefitTitle, { color: colors.text }]}>{benefit.title}</Text>
@@ -264,13 +227,10 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
           {/* Forecast uncertainty belongs on the screen that takes money for
               the outlook. A general river disclaimer does not say this. */}
           <Text style={[styles.forecastCaveat, { color: colors.error }]}>
-            The outlook is a forecast, not a promise. Conditions can change before your trip.
+            {PREMIUM_FORECAST_CAVEAT}
           </Text>
 
-          <Text style={[styles.freeNote, { color: colors.textSubtle }]}>
-            River conditions, gauge readings, hazard information and alerts are always free — and
-            the last ones you saw stay on your phone when the signal goes.
-          </Text>
+          <Text style={[styles.freeNote, { color: colors.textSubtle }]}>{PREMIUM_FREE_NOTE}</Text>
 
           {/* Apple also requires the renewal terms themselves to be visible on
               the purchase screen, not only inside the linked document. */}
