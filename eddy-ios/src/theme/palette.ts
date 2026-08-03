@@ -91,6 +91,33 @@ export interface Palette {
   /** Sunset Coral — Eddy branding and decorative emphasis. NEVER a CTA fill. */
   accent: string;
   /**
+   * Sunset Coral as a FILL — the brand's sticker, for a small badge that marks
+   * something rather than doing anything.
+   *
+   * ── Why this exists alongside `accent` and `accentFill` ──────────────────
+   *
+   * `accent` is coral as INK — a rule, a label, a lock glyph. `accentFill` is
+   * the primary CTA and is deliberately teal (see below). Neither covers a
+   * coral pill with words in it, which is DESIGN.md's own badge — "pill-shaped,
+   * tinted background, dark text of the same hue" — and the most recognisably
+   * Eddy object the design system has. The paywall's "best value" ribbon is
+   * one, and it is exactly the case the palette note above describes as
+   * legitimate: Eddy being Eddy rather than asking for a tap.
+   *
+   * It does NOT reopen the argument settled under accentFill. That was about
+   * the loudest, largest object on a screen full of safety colour being the
+   * button that asks for money. A 19pt badge that says "best value" is neither
+   * large nor a verdict about water, and it never appears beside a condition.
+   *
+   * SAME VALUES IN BOTH SCHEMES, and the ink is warm near-black rather than
+   * white. The website paints white on accent-500 (2.9:1) and gets away with it
+   * at button size; this is 10pt type on a purchase screen, so it takes the
+   * ink that clears AA instead — #1A1814 on #F07052 is 6.05:1. A sticker also
+   * ought to look like the same sticker on either appearance.
+   */
+  emphasisFill: string;
+  onEmphasis: string;
+  /**
    * THE PRIMARY CTA FILL — Deep River Teal, not coral.
    *
    * ── Why it stopped being coral ──────────────────────────────────────────
@@ -206,6 +233,8 @@ export const darkPalette: Palette = {
   textMuted: primary[300],
   textSubtle: neutral[400],
   accent: accent[500],
+  emphasisFill: accent[500],
+  onEmphasis: neutral[950],
   // Dark moves UP the scale here for the same reason `interactive` does: a
   // primary-700 pill against a primary-900 card is very nearly the card. 500 is
   // the lightest step that still clears AA with white on it (5.06:1).
@@ -248,6 +277,8 @@ export const lightPalette: Palette = {
   textMuted: neutral[600],
   textSubtle: neutral[500],
   accent: accent[500],
+  emphasisFill: accent[500],
+  onEmphasis: neutral[950],
   // Primary-700, a step below `interactive`: the CTA is the darkest object on
   // a warm off-white page, which is what makes it the one you see first.
   accentFill: primary[700],

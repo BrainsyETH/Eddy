@@ -145,12 +145,31 @@ export interface PurchasePackage {
    * purchase sheet charges is both a review rejection and a refund request.
    */
   priceString: string;
+  /**
+   * The same price as a NUMBER, and the currency it is in.
+   *
+   * These exist only for arithmetic the store cannot do for us — the monthly
+   * equivalent of an annual plan, and how much that saves against the monthly
+   * plan. Everything charged is still quoted from `priceString`: nothing
+   * derived from these two fields may ever be presented as the amount someone
+   * will pay, and every function below that touches them returns null rather
+   * than guessing when either is missing.
+   */
+  priceAmount: number | null;
+  currencyCode: string | null;
   /** Free-trial length in days, when the product carries an introductory offer. */
   trialDays: number | null;
   /** Billing period, for copy like "per year". Null when it is neither. */
   period: 'year' | 'month' | null;
   /** Set on the option we want people to take. */
   recommended: boolean;
+  /**
+   * Whole percent saved against twelve months of the monthly plan, or null.
+   *
+   * Filled in by annotateSavings() because it cannot be known from one package
+   * alone. Null whenever the comparison would be unsound — see that function.
+   */
+  savingsPercent: number | null;
   /** The SDK's own package object, handed back to purchasePackage(). */
   raw: unknown;
 }
@@ -192,25 +211,176 @@ export function trialDaysFromIntroPrice(intro: unknown): number | null {
 }
 
 /**
- * The label on a purchase button.
+ * ── The strings on a plan chooser ───────────────────────────────────────────
  *
- * Apple requires the price and the billing period to be legible on the purchase
- * screen, and a trial has to state what happens when it ends — "7 days free"
- * alone reads as a gift. Pulled out of the JSX so it can be tested: this is the
- * string that decides whether the offer is honest.
+ * The paywall used to be a stack of buttons, one per plan, each one carrying
+ * the whole offer in its label ("Try 7 days free — then $69.99/year"). It is
+ * now a chooser — two selectable rows with the yearly one preselected — and a
+ * single button that buys whichever is selected. That splits one string into
+ * three, so the rule that mattered about the old one has to hold across all
+ * three together:
+ *
+ *   APPLE REQUIRES THE PRICE, THE BILLING PERIOD, AND WHAT A TRIAL TURNS INTO
+ *   TO BE LEGIBLE ON THE SCREEN THAT TAKES THE MONEY.
+ *
+ * packagePriceLabel and packageCadence put the first two in the row; the
+ * button says what it does and packageTerms says what it costs directly
+ * beneath it. purchase-copy.test.ts asserts the whole set, because the failure
+ * mode of splitting a string in three is that one of the pieces goes missing
+ * and nothing notices.
+ */
+
+/** "/yr", "/mo", or nothing — the compact suffix used beside a row's price. */
+function shortPeriod(period: PurchasePackage['period']): string {
+  if (period === 'year') return '/yr';
+  if (period === 'month') return '/mo';
+  return '';
+}
+
+/** "/year", "/month", or nothing — spelled out where there is room for it. */
+function longPeriod(period: PurchasePackage['period']): string {
+  return period ? `/${period}` : '';
+}
+
+/**
+ * What the plan costs, as the row's headline figure — "$69.99/yr".
+ *
+ * Empty when the store returned no price, which the row renders as nothing
+ * rather than as a stray "/yr".
+ */
+export function packagePriceLabel(pkg: PurchasePackage): string {
+  if (!pkg.priceString) return '';
+  return `${pkg.priceString}${shortPeriod(pkg.period)}`;
+}
+
+/**
+ * The monthly equivalent of an annual plan — "$5.83" — or null.
+ *
+ * THIS IS NOT A PRICE ANYONE IS CHARGED, and the only reason it is safe to
+ * show is that packageCadence always prints it next to "billed annually". It
+ * is what makes the two plans comparable at a glance; "$69.99 vs $9.99" is not
+ * a comparison, it is a bigger number next to a smaller one.
+ *
+ * Formatted through Intl with the store's own currency code so the symbol,
+ * separators and number of decimal places follow the storefront — ¥ has none,
+ * most of Europe uses a comma. Anything missing or unformattable returns null
+ * and the caller says less, which is the only safe direction on this screen.
+ */
+export function perMonthPriceString(pkg: PurchasePackage): string | null {
+  if (pkg.period !== 'year') return null;
+  if (!pkg.currencyCode) return null;
+
+  const amount = pkg.priceAmount;
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return null;
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: pkg.currencyCode,
+    }).format(amount / 12);
+  } catch {
+    // An unrecognised currency code throws rather than falling back. Saying
+    // nothing beats printing a bare number with no symbol on it.
+    return null;
+  }
+}
+
+/** How the plan bills, under its title — "$5.83/mo, billed annually". */
+export function packageCadence(pkg: PurchasePackage): string | null {
+  if (pkg.period === 'year') {
+    const perMonth = perMonthPriceString(pkg);
+    return perMonth ? `${perMonth}/mo, billed annually` : 'Billed once a year';
+  }
+  if (pkg.period === 'month') return 'Billed every month';
+  return null;
+}
+
+/**
+ * Whole percent the annual plan saves against twelve months of the monthly one.
+ *
+ * ROUNDED DOWN, always. An overstated saving is a false claim about money, and
+ * the difference between 19% and 20% is worth nothing next to being wrong.
+ *
+ * Returns null rather than a number whenever the comparison would not be sound:
+ * a missing price on either side, two different currencies (a storefront can
+ * price one product and not the other), or a result outside 1–99%, which means
+ * the two products are not the pair this is meant to compare.
+ */
+export function annualSavingsPercent(
+  annual: PurchasePackage,
+  monthly: PurchasePackage | null | undefined,
+): number | null {
+  if (!monthly) return null;
+  if (annual.period !== 'year' || monthly.period !== 'month') return null;
+
+  if (!annual.currencyCode || !monthly.currencyCode) return null;
+  if (annual.currencyCode !== monthly.currencyCode) return null;
+
+  const yearly = annual.priceAmount;
+  const perMonth = monthly.priceAmount;
+  if (typeof yearly !== 'number' || !Number.isFinite(yearly) || yearly <= 0) return null;
+  if (typeof perMonth !== 'number' || !Number.isFinite(perMonth) || perMonth <= 0) return null;
+
+  const twelveMonths = perMonth * 12;
+  const percent = Math.floor(((twelveMonths - yearly) / twelveMonths) * 100);
+
+  return percent >= 1 && percent < 100 ? percent : null;
+}
+
+/** The saving as the row prints it — "19% off" — or null. */
+export function savingsLabel(pkg: PurchasePackage): string | null {
+  return pkg.savingsPercent ? `${pkg.savingsPercent}% off` : null;
+}
+
+/**
+ * Fill in `savingsPercent` across a set of packages.
+ *
+ * Separate from the mapping in fetchOfferings so it can be tested without the
+ * native SDK — the discount is the one number on this screen that is computed
+ * rather than quoted, so it is the one that most needs a test.
+ */
+export function annotateSavings(packages: PurchasePackage[]): PurchasePackage[] {
+  const monthly = packages.find((pkg) => pkg.period === 'month') ?? null;
+  return packages.map((pkg) =>
+    pkg.period === 'year' ? { ...pkg, savingsPercent: annualSavingsPercent(pkg, monthly) } : pkg,
+  );
+}
+
+/**
+ * The label on the one purchase button.
+ *
+ * An action, not a receipt — the price sits in the selected row above it and in
+ * packageTerms below it. A trial still has to be named here, because "Get Eddy
+ * Premium" on a button that in fact starts a free week understates the offer
+ * exactly as badly as the reverse would overstate it.
  */
 export function packageCta(pkg: PurchasePackage): string {
-  const per = pkg.period ? `/${pkg.period}` : '';
+  if (pkg.trialDays) return `Start ${pkg.trialDays}-day free trial`;
+  return 'Get Eddy Premium';
+}
 
-  if (pkg.trialDays && pkg.priceString) {
-    return `Try ${pkg.trialDays} days free — then ${pkg.priceString}${per}`;
+/**
+ * The fine print under that button: what is charged, when, and what a trial
+ * turns into.
+ *
+ * "7 days free" alone reads as a gift rather than the start of a subscription,
+ * which is the sentence this one exists to prevent.
+ */
+export function packageTerms(pkg: PurchasePackage): string {
+  const per = longPeriod(pkg.period);
+
+  // No price means the store did not return one. Promising a figure we do not
+  // have would be worse than pointing at the sheet that will show it.
+  if (!pkg.priceString) {
+    return pkg.trialDays
+      ? `Free for ${pkg.trialDays} days. The App Store shows the price before you confirm.`
+      : 'The App Store shows the price before you confirm.';
   }
-  if (pkg.priceString) {
-    return `${pkg.title} · ${pkg.priceString}${per}`;
+
+  if (pkg.trialDays) {
+    return `Free for ${pkg.trialDays} days, then ${pkg.priceString}${per}.`;
   }
-  // No price means the store did not return one; offering a button that cannot
-  // say what it charges is worse than an obviously incomplete one.
-  return pkg.title;
+  return `${pkg.priceString}${per}, renewing until cancelled.`;
 }
 
 export type OfferingsResult =
@@ -228,7 +398,10 @@ export function unavailableOfferings(): OfferingsResult {
  *
  * Ordering is not cosmetic: annual is the product the business wants people on
  * (it hedges seasonal churn, and its renewal lands in the same month they
- * bought), so it leads and carries the trial.
+ * bought), so it leads, carries the trial, and — since the paywall became a
+ * chooser rather than a stack of buttons — is the one selected when the sheet
+ * opens. `recommended` is what marks it, and the paywall reads that flag rather
+ * than assuming the first element.
  */
 export async function fetchOfferings(): Promise<OfferingsResult> {
   const Purchases = loadPurchases();
@@ -255,19 +428,26 @@ export async function fetchOfferings(): Promise<OfferingsResult> {
     const mapped: PurchasePackage[] = available.map((pkg) => {
       const type = String(pkg?.packageType ?? '').toUpperCase();
       const annual = type === 'ANNUAL';
+      const amount = Number(pkg?.product?.price);
       return {
         id: String(pkg?.identifier ?? type),
         title: annual ? 'Yearly' : type === 'MONTHLY' ? 'Monthly' : String(pkg?.identifier ?? ''),
         priceString: String(pkg?.product?.priceString ?? ''),
+        // Only ever used for the derived per-month figure and the discount —
+        // see the field comments. Anything non-numeric becomes null so those
+        // two say nothing rather than something wrong.
+        priceAmount: Number.isFinite(amount) && amount > 0 ? amount : null,
+        currencyCode: pkg?.product?.currencyCode ? String(pkg.product.currencyCode) : null,
         trialDays: trialDaysFromIntroPrice(pkg?.product?.introPrice),
         period: annual ? 'year' : type === 'MONTHLY' ? 'month' : null,
         recommended: annual,
+        savingsPercent: null,
         raw: pkg,
       };
     });
 
     mapped.sort((a, b) => Number(b.recommended) - Number(a.recommended));
-    return { status: 'ok', packages: mapped };
+    return { status: 'ok', packages: annotateSavings(mapped) };
   } catch (error) {
     // RevenueCat's errors describe dashboard and StoreKit configuration. They
     // belong in diagnostics, never verbatim on a customer-facing paywall.
