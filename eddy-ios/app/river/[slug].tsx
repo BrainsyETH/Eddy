@@ -1419,7 +1419,7 @@ export default function RiverDetailScreen() {
         >
           <Ionicons name="flag-outline" size={13} color={colors.textSubtle} />
           <Text style={[styles.reportText, { color: colors.textSubtle }]}>
-            Didn&apos;t match the river? Tell us
+            Didn&apos;t match the river? Tell Eddy
           </Text>
         </Pressable>
       </ScrollView>

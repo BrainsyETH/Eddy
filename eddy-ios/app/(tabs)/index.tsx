@@ -361,7 +361,11 @@ export default function MapScreen() {
         })
         .catch((err: unknown) => {
           if (err instanceof ApiError && err.message === 'Request cancelled') return;
-          setRiversError(err instanceof ApiError ? err.message : 'Something went wrong');
+          setRiversError(
+            err instanceof ApiError
+              ? err.message
+              : 'Couldn’t load rivers. Eddy retries when you reopen this tab.',
+          );
         }),
     [],
   );
@@ -1374,7 +1378,7 @@ export default function MapScreen() {
         <SearchBar
           value={search.query}
           onChangeText={search.setQuery}
-          placeholder="Search rivers, gauges, and access points"
+          placeholder="Search rivers, gauges and access points"
           // Gauges are matched locally, so the list has to exist before the
           // first keystroke rather than after the first gauge query.
           onFocus={ensureGauges}
@@ -1463,7 +1467,7 @@ export default function MapScreen() {
               results={search.results}
               onSelect={onSelectResult}
               loading={search.searching}
-              emptyMessage="Nothing matched. Try a river, a gauge name, or a put-in."
+              emptyMessage="Nothing matched. Try a river, a gauge or an access point."
             />
           </View>
         ) : null}
@@ -2335,18 +2339,26 @@ function PinCallout({
  */
 function MapUnavailable({ reason }: { reason: 'expo-go' | 'missing-token' | 'load-failed' }) {
   const { colors } = useTheme();
+  // The body is what the person holding the phone can act on; `dev` is the
+  // diagnostic that used to BE the body. A build variable or an eas flag on a
+  // full-screen state is a bug report addressed to the wrong person, so it is
+  // gated to __DEV__ — which is true in Expo Go and in a dev build, the only
+  // two places anyone can act on it.
   const copy = {
     'expo-go': {
       title: 'Map needs a full build',
-      body: 'Maps use a native module that Expo Go cannot load. Run a development build (eas build --profile development) to see the map. The other tabs work here.',
+      body: 'The map uses a native module this build cannot load. The other tabs work here.',
+      dev: 'Expo Go cannot load the Mapbox native module. Run: eas build --profile development',
     },
     'missing-token': {
-      title: 'Map key missing',
-      body: 'Set EXPO_PUBLIC_MAPBOX_TOKEN to a Mapbox public token and rebuild.',
+      title: 'Map unavailable',
+      body: 'The map cannot start. Conditions, alerts and float plans still work.',
+      dev: 'Set EXPO_PUBLIC_MAPBOX_TOKEN to a Mapbox public token and rebuild.',
     },
     'load-failed': {
       title: 'Map failed to load',
-      body: 'The map module could not start. Everything else still works.',
+      body: 'The map could not start. The other tabs work here.',
+      dev: null,
     },
   }[reason];
 
@@ -2355,6 +2367,9 @@ function MapUnavailable({ reason }: { reason: 'expo-go' | 'missing-token' | 'loa
       <Otter mood="flag" size={110} />
       <Text style={[styles.unavailableTitle, { color: colors.text }]}>{copy.title}</Text>
       <Text style={[styles.unavailableBody, { color: colors.textMuted }]}>{copy.body}</Text>
+      {__DEV__ && copy.dev ? (
+        <Text style={[styles.unavailableBody, { color: colors.textSubtle }]}>{copy.dev}</Text>
+      ) : null}
     </View>
   );
 }

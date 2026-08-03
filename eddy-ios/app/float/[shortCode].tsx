@@ -55,7 +55,7 @@ export default function SavedFloatScreen() {
         setError(
           err instanceof ApiError && err.status === 404
             ? 'This float is no longer available. The link may have expired.'
-            : 'We need a connection to read this float against today’s river.',
+            : 'Eddy needs a connection to read this float against today’s river.',
         );
       } finally {
         if (!signal?.aborted) setLoading(false);

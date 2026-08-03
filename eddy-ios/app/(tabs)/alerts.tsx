@@ -232,7 +232,11 @@ export default function AlertsScreen() {
       setHighWater(await fetchHighWater(signal));
     } catch (err) {
       if (err instanceof ApiError && err.message === 'Request cancelled') return;
-      setError(err instanceof ApiError ? err.message : 'Something went wrong');
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'Couldn’t load high water. Pull down to refresh.',
+      );
     }
   }, []);
 
@@ -246,7 +250,11 @@ export default function AlertsScreen() {
       setNotices(await fetchRiverAlerts(undefined, signal));
     } catch (err) {
       if (err instanceof ApiError && err.message === 'Request cancelled') return;
-      setNoticeError(err instanceof ApiError ? err.message : 'Something went wrong');
+      setNoticeError(
+        err instanceof ApiError
+          ? err.message
+          : 'Couldn’t reach the agencies. Pull down to try again.',
+      );
     }
   }, []);
 
@@ -532,7 +540,7 @@ export default function AlertsScreen() {
                   </Text>
                   <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
                     {rules === null
-                      ? 'Alerts are free, but they need an account so we know which phone to notify.'
+                      ? 'Alerts are free, but they need an account so Eddy knows which phone to notify.'
                       : 'Get a notification when a river becomes floatable, turns dangerous, or hits a level you pick.'}
                   </Text>
                 </>

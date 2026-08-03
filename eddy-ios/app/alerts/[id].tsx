@@ -532,8 +532,8 @@ export default function EditAlertScreen() {
             <Text style={[styles.optionTitle, { color: colors.text }]}>Just once</Text>
             <Text style={[styles.optionHint, { color: colors.textMuted }]}>
               {oneShot
-                ? 'We’ll tell you the first time, then switch this alert off.'
-                : 'Keep telling me every time it happens.'}
+                ? 'Eddy tells you the first time, then switches this alert off.'
+                : 'Eddy tells you every time it happens.'}
             </Text>
           </View>
           <Switch

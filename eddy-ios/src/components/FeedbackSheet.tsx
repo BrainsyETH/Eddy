@@ -117,11 +117,11 @@ export function FeedbackSheet({ visible, onDismiss, context, defaultType = 'othe
     const trimmedMessage = message.trim();
 
     if (!EMAIL_RE.test(trimmedEmail)) {
-      setError('Enter an email we can reply to.');
+      setError('Enter an email Eddy can reply to.');
       return;
     }
     if (!trimmedMessage) {
-      setError('Tell us what you saw.');
+      setError('Add a line about what you saw.');
       return;
     }
 
@@ -166,7 +166,7 @@ export function FeedbackSheet({ visible, onDismiss, context, defaultType = 'othe
               <Ionicons name="checkmark-circle" size={40} color={colors.success} />
               <Text style={[styles.doneTitle, { color: colors.text }]}>Thank you</Text>
               <Text style={[styles.doneBody, { color: colors.textMuted }]}>
-                A person reads every one of these. We&apos;ll reply if we need more.
+                A person reads every one of these.
               </Text>
               <Pressable
                 onPress={dismiss}
@@ -201,8 +201,7 @@ export function FeedbackSheet({ visible, onDismiss, context, defaultType = 'othe
                   form is a form people close; one line above the type chips is
                   read on the way past. */}
               <Text style={[styles.nimble, { color: colors.textMuted }]}>
-                We&apos;re new, but nimble. If you see anything worth calling out please let us
-                know and we&apos;ll get it fixed.
+                Eddy is small and moves fast. Say what looks wrong and it gets fixed.
               </Text>
 
               <View style={styles.chips}>
@@ -266,7 +265,7 @@ export function FeedbackSheet({ visible, onDismiss, context, defaultType = 'othe
                 accessibilityLabel="Your email"
               />
               <Text style={[styles.hint, { color: colors.textSubtle }]}>
-                So we can reply. Nothing else is sent.
+                Used only for a reply. Nothing else is sent.
               </Text>
 
               {error ? (
