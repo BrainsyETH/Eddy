@@ -99,7 +99,14 @@ export default function StorageScreen() {
           </Text>
 
           <View style={styles.totalRow}>
-            <Text style={[styles.total, { color: colors.text }]}>
+            {/* Before the measurement lands this is a bare em dash, which reads
+                as "dash" or as nothing. The note beside it already says
+                "Measuring…", so the glyph is decorative until there is a real
+                size to announce. */}
+            <Text
+              style={[styles.total, { color: colors.text }]}
+              accessibilityElementsHidden={!cache}
+            >
               {cache ? formatBytes(cache.bytes) : '—'}
             </Text>
             <Text style={[styles.totalNote, { color: colors.textSubtle }]}>
