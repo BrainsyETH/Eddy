@@ -15,6 +15,38 @@
 /** [minLng, minLat, maxLng, maxLat] — the order /api/rivers/[slug] returns. */
 export type Bounds = [number, number, number, number];
 
+/** A point, in the lng/lat pair order the rest of this file uses. */
+export interface Coords {
+  lat: number;
+  lng: number;
+}
+
+/**
+ * Great-circle distance in miles.
+ *
+ * STRAIGHT LINE, and every caller must say so. The number that actually decides
+ * a trip is drive time, which is a Mapbox Directions call per candidate — far
+ * too expensive to run across two dozen rivers to sort a list. "32 miles away"
+ * with the caveat beats a spinner, and beats nothing.
+ *
+ * Lives here rather than in the hook that used to own it because it is pure
+ * arithmetic with no relationship to a permission prompt, and because two
+ * screens now rank rivers by it — see riverMilesByGauge in eddy-ios. useLocation
+ * re-exports it, so existing imports are unaffected.
+ */
+export function milesBetween(a: Coords, b: Coords): number {
+  const EARTH_RADIUS_MILES = 3958.8;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_MILES * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
 /**
  * Bytes as a person reads them. Its one caller is the Storage screen, which
  * reports how much room the cached river data takes on the phone.
