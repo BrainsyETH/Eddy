@@ -733,6 +733,12 @@ export const FEEDBACK_TYPES = [
   'other',
   'partner',
   'gauge_recalibration',
+  // Reports about a published community photo. Kept as its own type rather than
+  // folded into `other` because App Store Guideline 1.2 requires a reporting
+  // mechanism for user-generated content AND a timely response to what it
+  // produces — and a report that arrives in the queue labelled "Other" is one
+  // nobody triages differently from a typo correction. See the migration.
+  'objectionable_content',
 ] as const;
 export type FeedbackType = (typeof FEEDBACK_TYPES)[number];
 export type FeedbackContextType = 'gauge' | 'access_point' | 'river' | 'general';

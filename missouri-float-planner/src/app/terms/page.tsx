@@ -259,6 +259,28 @@ export default function TermsPage() {
               Community reports are user opinion, not verified fact. Treat them as you would a
               tip from a stranger at a put-in.
             </p>
+            <p>
+              <strong>
+                Eddy has no tolerance for objectionable content or abusive users.
+              </strong>{' '}
+              Do not submit anything that is offensive, harassing, hateful, threatening, sexually
+              explicit, violent, deceptive, or otherwise objectionable, and do not use Eddy to
+              harass or endanger anyone.
+            </p>
+            <p>
+              If you see a photograph or other submission that should not be published, report it
+              from inside the app &mdash; tap <strong>Report</strong> under the photo on a river
+              screen &mdash; or email us at{' '}
+              <a href="mailto:eddy@eddy.guide" className="text-teal-700 underline">
+                eddy@eddy.guide
+              </a>
+              . We review reports promptly, and we remove content that breaches these terms.
+            </p>
+            <p>
+              We may suspend or permanently bar anyone who submits objectionable content or
+              abuses other users, and we may decline future submissions from them. Where content
+              appears to be unlawful we may report it to the relevant authorities.
+            </p>
           </div>
         </section>
 

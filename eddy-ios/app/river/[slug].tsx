@@ -40,6 +40,7 @@ import type {
   RiverListItem,
   RiverOutlookResponse,
   RiverService,
+  RiverVisual,
   RiverVisualsResponse,
   DamSnapshot,
 } from '@eddy/types';
@@ -411,6 +412,15 @@ export default function RiverDetailScreen() {
   const [subscribeError, setSubscribeError] = useState<string | null>(null);
   const [showAllHazards, setShowAllHazards] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  /**
+   * The community photo being reported, when the sheet was opened by its flag.
+   *
+   * Null is the ordinary case and means the sheet opens as it always has: a
+   * gauge-recalibration report about the river. One sheet serves both because
+   * they are the same form with different defaults, and two mounted modals to
+   * express that would be two things to keep in step.
+   */
+  const [reportedPhoto, setReportedPhoto] = useState<RiverVisual | null>(null);
   const [photoOpen, setPhotoOpen] = useState(false);
 
   useEffect(() => {
@@ -1088,6 +1098,14 @@ export default function RiverDetailScreen() {
             // the position against a corridor around the river — so before the
             // access points land there is nothing the sheet could complete.
             onAddPhoto={accessPoints.length > 0 ? () => setPhotoOpen(true) : undefined}
+            // Unconditional, unlike the one above. Reporting a photo needs
+            // nothing but the photo, and a river whose access points failed to
+            // load is not a river whose community content stops being
+            // reportable — see RiverVisuals' header.
+            onReportPhoto={(visual) => {
+              setReportedPhoto(visual);
+              setFeedbackOpen(true);
+            }}
           />
         ) : null}
 
@@ -1444,22 +1462,51 @@ export default function RiverDetailScreen() {
         accessPoints={accessPoints}
       />
 
+      {/* ── One sheet, two jobs, and a key that keeps them apart ──────
+          `defaultType` seeds FeedbackSheet's `type` with useState, so it is read
+          once per mount and NOT when the prop changes. Without the key, opening
+          the sheet from a photo flag after it had been dismissed as a gauge
+          report would show the photo's context under the gauge type — the
+          report would file as the wrong class, silently, which is the one
+          outcome a reporting mechanism must not have. Changing the key remounts
+          it, which is the whole point of a key here rather than an oversight. */}
       <FeedbackSheet
+        key={reportedPhoto ? `photo:${reportedPhoto.id}` : 'river'}
         visible={feedbackOpen}
-        onDismiss={() => setFeedbackOpen(false)}
-        defaultType="gauge_recalibration"
-        context={{
-          type: 'river',
-          id: river.id,
-          name: river.name,
-          data: {
-            conditionCode: condition?.code ?? null,
-            gaugeHeightFt: condition?.gaugeHeightFt ?? null,
-            dischargeCfs: condition?.dischargeCfs ?? null,
-            readingTimestamp: condition?.readingTimestamp ?? null,
-            gaugeUsgsId: condition?.gaugeUsgsId ?? null,
-          },
+        onDismiss={() => {
+          setFeedbackOpen(false);
+          setReportedPhoto(null);
         }}
+        defaultType={reportedPhoto ? 'objectionable_content' : 'gauge_recalibration'}
+        context={
+          reportedPhoto
+            ? {
+                type: 'river',
+                id: river.id,
+                name: river.name,
+                // Enough to FIND and unpublish the photo without a reply. A
+                // report a moderator has to answer before they can act on it is
+                // a report that misses the day it mattered.
+                data: {
+                  visualId: reportedPhoto.id,
+                  imageUrl: reportedPhoto.imageUrl,
+                  accessPointName: reportedPhoto.accessPointName ?? null,
+                  description: reportedPhoto.description ?? null,
+                },
+              }
+            : {
+                type: 'river',
+                id: river.id,
+                name: river.name,
+                data: {
+                  conditionCode: condition?.code ?? null,
+                  gaugeHeightFt: condition?.gaugeHeightFt ?? null,
+                  dischargeCfs: condition?.dischargeCfs ?? null,
+                  readingTimestamp: condition?.readingTimestamp ?? null,
+                  gaugeUsgsId: condition?.gaugeUsgsId ?? null,
+                },
+              }
+        }
       />
 
       {/* Only Eddy's written read opens this now. The bell used to, and does

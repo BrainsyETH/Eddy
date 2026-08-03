@@ -1808,6 +1808,11 @@ export const FEEDBACK_TYPES = [
   'other',
   'partner',
   'gauge_recalibration',
+  // A report about a published community photo — the App Store's required
+  // route for objectionable user-generated content. Must stay byte-identical
+  // to the web copy in src/types/api.ts and to the DB CHECK; feedback-types.test.ts
+  // asserts all three, because this contract has drifted and silently 500'd before.
+  'objectionable_content',
 ] as const;
 export type FeedbackType = (typeof FEEDBACK_TYPES)[number];
 

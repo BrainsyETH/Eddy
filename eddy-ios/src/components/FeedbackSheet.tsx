@@ -51,6 +51,17 @@ const TYPES: { value: FeedbackType; label: string; hint: string }[] = [
   { value: 'missing_access_point', label: 'Missing access point', hint: "One that isn't listed" },
   { value: 'bug_report', label: 'Something is broken', hint: 'The app misbehaved' },
   { value: 'suggestion', label: 'Suggestion', hint: 'An idea for Eddy' },
+  // Reachable two ways on purpose. The flag under a community photo opens this
+  // sheet with this type already chosen and the photo in `context`, which is the
+  // route somebody actually looking at the photo will take — but it stays in the
+  // list as well, because a reporting mechanism nobody can find from the ordinary
+  // "Report an issue" entry point is one that only works if you already knew it
+  // was there. Second-to-last: rare, and not what this sheet is mostly for.
+  {
+    value: 'objectionable_content',
+    label: 'Report a photo',
+    hint: 'Offensive, unsafe, or not this river',
+  },
   { value: 'other', label: 'Something else', hint: '' },
 ];
 
