@@ -72,12 +72,15 @@ export const PREMIUM_BENEFITS: PremiumBenefit[] = [
     symbol: 'heart',
     symbolSize: 30,
     title: 'Thank you for supporting Eddy',
-    // The approved gratitude line used to enumerate "the gauges, the maps and
-    // the alerts", which reads as a feature list on a page whose whole problem
-    // has been listing free features as paid ones. Naming the infrastructure
-    // instead says the same thing and is truer: a subscription pays for what
-    // everyone here uses, whether or not they pay.
-    body: 'Eddy is built by one person. Your subscription pays for the servers and river data everyone here uses — subscribers and not.',
+    // Two earlier versions of this line went the wrong way for the same reason:
+    // they tried to justify the price. One enumerated "the gauges, the maps and
+    // the alerts", which is a feature list on a page whose entire history of
+    // mistakes is listing free features as paid ones; the next named the
+    // servers and the river data, which is truer but is still an itemised bill.
+    //
+    // Gratitude does not need a receipt attached. Who builds it and what the
+    // money does, in two clauses, and then stop.
+    body: 'Eddy is built by one person. Your subscription helps keep the app going.',
   },
 ];
 
@@ -111,55 +114,35 @@ export function premiumPitch(riverName?: string | null): string {
 
 // ── The lock row on the river and gauge screens ─────────────────────────────
 //
-// These three strings were written inline in EddyTake.tsx, which is precisely
-// the arrangement this module exists to end: the gauge screen's pitch and the
-// paywall sheet's pitch drifted for months because neither surface could see
-// the other. The lock row is a third surface and was making the same mistake in
-// slower motion.
+// Written inline in EddyTake.tsx once, which is precisely the arrangement this
+// module exists to end: the gauge screen's pitch and the paywall sheet's pitch
+// drifted for months because neither surface could see the other. The lock row
+// was a third surface making the same mistake in slower motion.
 //
-// It is the FIRST thing anyone reads about the subscription — it sits under the
-// blurred report, on the screen where the claim can be checked by looking up —
-// so it has to be the plainest of the three. No feature list, no verb dressed
-// up as a benefit. What it is, and how often it arrives.
+// ── It is ONE LINE now, and it used to be three ─────────────────────────────
+//
+// A title, a body naming the three sections, and a note about what stays free.
+// All three were defensible on their own and together they made the smallest
+// control on the screen the wordiest thing on it — three stacked paragraphs
+// under a blurred report, in a row whose entire job is to be tapped.
+//
+// The body went because the headings it named — EDDY'S READ, WEATHER, BOTTOM
+// LINE — are directly above it, sharp, in the same card. It was reading the
+// screen back to the reader.
 
 /**
  * The offer, in a phrase.
  *
- * "Unlock Eddy's take" named the mechanism, not the thing: it told a reader
- * what the button does rather than what they get, and "take" is Eddy's word for
- * it, not theirs. A report that arrives every day about the river you care
- * about is the whole product, and it is one line.
+ * Names the product AND the action, which is the balance two earlier versions
+ * each missed in opposite directions. "Unlock Eddy's take" was all mechanism:
+ * it said what the button does rather than what you get, in Eddy's word for it
+ * rather than the reader's. "A daily report on your favorite river" was all
+ * product: a good description of the thing, sitting on a control with nothing
+ * to say that it was a control. This is both, and the subscription is named,
+ * so the row and the sheet it opens agree about what is being bought.
  */
-export const PREMIUM_LOCK_TITLE = 'A daily report on your favorite river';
-
-/**
- * What is behind the blur, said once the title has made the promise.
- *
- * Names the three sections the headings above the lock already show — the read,
- * the weather, the bottom line — because the blur can show their shape but not
- * what they are. Deliberately does not repeat "every day"; the title has it.
- */
-export const PREMIUM_LOCK_BODY =
-  "What the water is doing, what the weather is about to do to it, and Eddy's bottom line.";
-
-/**
- * What is NOT behind it, on the screen where that claim can be checked.
- *
- * A paywall straight about the free half is the only kind worth trusting about
- * the paid one. Kept short enough to be read: the long version is
- * PREMIUM_FREE_NOTE, on the sheet this row opens.
- */
-export const PREMIUM_LOCK_FREE_NOTE =
-  'The condition, the reading, hazards and alerts stay free.';
-
-/**
- * What a subscription does NOT gate, said on the paywall itself.
- *
- * A subscription page that is straight about what is free is the only kind
- * worth trusting about what is not.
- */
-export const PREMIUM_FREE_NOTE =
-  'River conditions, gauge readings, the trend, hazard information, alerts and float plans are always free — and the last ones you saw stay on your phone when the signal goes.';
+export const PREMIUM_LOCK_TITLE =
+  'Unlock Eddy Premium to get a daily report on your favorite river';
 
 /**
  * Forecast uncertainty, on the screen that takes money for the outlook.

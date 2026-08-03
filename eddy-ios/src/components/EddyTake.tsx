@@ -97,11 +97,7 @@ import type { RiverOutlookResponse } from '@eddy/types';
 import { conditionBg, conditionInk, conditionLabel } from '@/theme/conditions';
 import { EddySymbol } from '@/components/EddySymbol';
 import { Otter } from '@/components/Otter';
-import {
-  PREMIUM_LOCK_BODY,
-  PREMIUM_LOCK_FREE_NOTE,
-  PREMIUM_LOCK_TITLE,
-} from '@/lib/premiumCopy';
+import { PREMIUM_LOCK_TITLE } from '@/lib/premiumCopy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -536,7 +532,18 @@ export function EddyTake({
               </View>
 
               <View style={[styles.section, { borderTopColor: colors.border }]}>
-                <View style={[styles.bottomLine, { borderLeftColor: colors.accent }]}>
+                {/* No coloured edge, and no indent. The rule and the 12pt inset
+                    that came with it pushed BOTTOM LINE a centimetre to the
+                    right of EDDY'S READ and WEATHER, so the one section meant
+                    to read as the conclusion of the two above it was the one
+                    that did not line up with them. Three headings on one
+                    margin is what makes them a set.
+
+                    The emphasis it was carrying has not gone anywhere: the
+                    label is still in the accent colour, it still gets the otter
+                    where the others get a glyph, and its text is still the only
+                    body on the card set in the larger face. */}
+                <View>
                   <View style={styles.sectionHead}>
                     <Otter mood="favicon" size={18} style={styles.bottomLineOtter} />
                     <Text style={[styles.sectionLabel, { color: colors.accent }]}>
@@ -591,7 +598,7 @@ export function EddyTake({
                     },
                   ]}
                   accessibilityRole="button"
-                  accessibilityLabel={`${PREMIUM_LOCK_TITLE}. ${PREMIUM_LOCK_BODY}`}
+                  accessibilityLabel={PREMIUM_LOCK_TITLE}
                 >
                   <View style={styles.lockHead}>
                     <View style={[styles.lockMark, { backgroundColor: colors.accentFill }]}>
@@ -602,15 +609,6 @@ export function EddyTake({
                     </Text>
                     <Ionicons name="chevron-forward" size={16} color={colors.accent} />
                   </View>
-                  <Text style={[styles.lockBody, { color: colors.textMuted }]}>
-                    {PREMIUM_LOCK_BODY}
-                  </Text>
-                  {/* Says what is NOT behind it, on the screen where that claim can
-                      be checked by looking up. A paywall straight about the free
-                      half is the only kind worth trusting about the paid one. */}
-                  <Text style={[styles.lockFree, { color: colors.textSubtle }]}>
-                    {PREMIUM_LOCK_FREE_NOTE}
-                  </Text>
                 </Pressable>
               ) : null}
 
@@ -652,8 +650,6 @@ const styles = StyleSheet.create({
   forecastValue: { ...t.xs, fontFamily: fonts.monoMedium },
   forecastCode: { ...t.xs, fontFamily: fonts.semibold, marginTop: 1 },
   takeHeading: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.8, marginBottom: 12 },
-  // The one section with a coloured edge. It is the answer; the two above explain it.
-  bottomLine: { borderLeftWidth: 3, paddingLeft: 12, paddingVertical: 2 },
   // Nudged up so the mark sits on the label's cap height rather than its box —
   // the artwork carries its own margin, which a 13pt glyph does not.
   bottomLineOtter: { marginLeft: -2 },
@@ -687,8 +683,6 @@ const styles = StyleSheet.create({
   // Fredoka, matching the headline on Today and the river's own name. This is
   // Eddy making an offer, and the display face is where the brand lives.
   lockTitle: { ...t.base, fontFamily: fonts.display, flex: 1, minWidth: 0 },
-  lockBody: { ...t.xs, fontFamily: fonts.body, marginTop: 7, lineHeight: 17 },
-  lockFree: { ...t.xs, fontFamily: fonts.medium, marginTop: 7 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   sectionLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6 },
   sectionText: { ...t.sm, fontFamily: fonts.body, marginTop: SECTION_TEXT_MARGIN_TOP },

@@ -324,6 +324,35 @@ export default function MapScreen() {
   const unavailable = mapUnavailableReason();
   const { colors, floating } = useTheme();
   const location = useLocation();
+  /**
+   * Has the user asked to be located ON THIS SCREEN, this session?
+   *
+   * ── The second permission prompt this removes ─────────────────────────────
+   *
+   * The puck used to mount on `location.status === 'ready'` alone. That reads
+   * as the obvious condition and it is the wrong one, because 'ready' is
+   * reachable without anybody touching this screen: useLocation's mount effect
+   * calls getForegroundPermissionsAsync — the getter, which never prompts —
+   * and if a grant is already held and a fix is under five minutes old, it goes
+   * straight to 'ready'.
+   *
+   * Which is exactly the state somebody is in one tab-tap after granting
+   * location during onboarding. So opening Map mounted <Mapbox.UserLocation>
+   * with no interaction at all, and the puck is not ours: @rnmapbox/maps runs
+   * its own native CLLocationManager. useLocation's header already names this
+   * as the hazard — "the Mapbox user-location puck (which would itself prompt)
+   * must never be mounted off [a remembered position]" — and the rule was
+   * simply never applied to the live case as well.
+   *
+   * The app itself has never prompted twice: there are two request sites, the
+   * onboarding chip and the locate button, and both are explicit taps. This
+   * closes the third one, which we do not own and cannot see.
+   *
+   * NOT PERSISTED, deliberately. It is a statement about this visit to this
+   * screen, not a setting. Somebody who tapped locate on Tuesday has not asked
+   * to be tracked on Thursday, and the button is right there.
+   */
+  const [locateAsked, setLocateAsked] = useState(false);
   const router = useRouter();
 
   /**
@@ -1221,6 +1250,11 @@ export default function MapScreen() {
   }, [heldCamera]);
 
   const onLocate = useCallback(async () => {
+    // Recorded BEFORE the request, not after it. This is what mounts the puck,
+    // and the thing it stands for is "the user asked to be shown on the map" —
+    // which is true the moment the button is pressed, whatever the dialog then
+    // returns. See `locateAsked` for why the puck waits on this.
+    setLocateAsked(true);
     // Falls back to whatever position the hook already holds — which after a
     // lapsed "Allow Once" grant is the fix remembered from the last session.
     // Declining the dialog then still recentres the map roughly where you are,
@@ -1443,7 +1477,10 @@ export default function MapScreen() {
             services={services ?? []}
             layers={layers}
             focus={activeFocus ?? openingFocus}
-            showUserLocation={location.status === 'ready' && isFocused}
+            // `locateAsked` first: the puck is a native location consumer of
+            // its own, so it waits for an explicit ask rather than for a status
+            // that can arrive on its own. See the state's declaration.
+            showUserLocation={locateAsked && location.status === 'ready' && isFocused}
             planRoute={planner.plan?.route?.geometry ?? null}
             planEndpoints={
               planner.plan ? { putIn: planner.plan.putIn, takeOut: planner.plan.takeOut } : null
