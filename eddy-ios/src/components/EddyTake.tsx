@@ -37,6 +37,26 @@
 // One lock, not three. Three lock rows over three consecutive sections is the
 // same wall drawn three times, and it reads as nagging rather than as an offer.
 //
+// ── The locked card SHOWS ITS SHAPE ─────────────────────────────────────────
+//
+// It used to replace all three sections with a single lock row, so what was for
+// sale was described only in the sales copy — a reader had no way to see that
+// there were three separate pieces of writing behind it, how long they were, or
+// that one of them was a one-line call. A blank wall sells nothing.
+//
+// So the locked state draws the real card: all three headings, sharp, with
+// their bodies blurred and the CTA underneath. The blur is a text shadow, not a
+// native blur view — `color: 'transparent'` with a shadow of the ink colour at
+// a wide radius smears each glyph into an unreadable band while keeping the
+// real line lengths and paragraph shapes. That matters: the shape is the
+// honest part of the offer, and a fabricated placeholder would advertise a
+// report of a length Eddy did not write.
+//
+// It is NOT a security boundary and never was — the text has always been in the
+// payload, and this changes nothing about that. The gate is the same one it has
+// been: the card does not render the words. What changed is that the reader can
+// now see there are words.
+//
 // BOTTOM LINE CLOSES rather than opens. It used to lead, on the reasoning that
 // the answer should come first — but the reading card directly above this
 // already gives the answer in colour, and leading with it here meant the card
@@ -55,6 +75,71 @@ import { EddySymbol } from '@/components/EddySymbol';
 import { Otter } from '@/components/Otter';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+
+/** How far each glyph is smeared in the locked card. Small enough to keep line
+ *  shape, wide enough that no word survives at any type size used here. */
+const BLUR_RADIUS = 8;
+/** No offset: a displaced shadow reads as a drop shadow rather than as a blur. */
+const BLUR_OFFSET = { width: 0, height: 0 };
+
+/**
+ * What to smear when the server sent no text at all for a section.
+ *
+ * Only reachable on the locked card, and only when the payload is short of a
+ * section — `fullRead` is withheld server-side whenever the live river has
+ * moved far enough that the prose would contradict the condition chip. Blurring
+ * nothing would collapse the section to a heading and a gap, which reads as a
+ * rendering fault rather than as a locked report.
+ *
+ * These are LENGTH, not content. Nobody can read them, and nothing else on the
+ * card is derived from them — they exist so the three areas keep their
+ * proportions when a section happens to be missing.
+ */
+const LOCKED_READ_SHAPE =
+  'The gauge is reading in the middle of its band this morning, and the last two days of rain have not moved it much. The upper stretch is the one worth watching for the rest of the week.';
+const LOCKED_WEATHER_SHAPE =
+  'Scattered storms are possible in the afternoon, with the heavier cells staying north of the valley.';
+const LOCKED_BOTTOM_LINE_SHAPE = 'Good day to be on this river.';
+
+/**
+ * One line of Eddy's writing, smeared.
+ *
+ * Hidden from assistive technology outright. A screen reader that read this
+ * aloud would be handing over the paid text in the one presentation where it is
+ * deliberately unreadable, and a blurred paragraph is not information to anyone
+ * navigating by voice — the CTA below carries the whole offer in its own label.
+ */
+function BlurredLine({
+  text,
+  color,
+  style,
+  lines,
+}: {
+  text: string;
+  color: string;
+  style: object;
+  lines: number;
+}) {
+  return (
+    <Text
+      style={[
+        style,
+        {
+          color: 'transparent',
+          textShadowColor: color,
+          textShadowOffset: BLUR_OFFSET,
+          textShadowRadius: BLUR_RADIUS,
+        },
+      ]}
+      numberOfLines={lines}
+      selectable={false}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      {text}
+    </Text>
+  );
+}
 
 /** OpenWeather icon code → Ionicons glyph. Same buckets the website maps. */
 function weatherGlyph(code: string): keyof typeof Ionicons.glyphMap {
@@ -291,38 +376,6 @@ export function EddyTake({
                 />
               ))}
             </View>
-          ) : locked ? (
-            <Pressable
-              onPress={onUpgrade}
-              disabled={!onUpgrade}
-              style={({ pressed }) => [
-                styles.lock,
-                { backgroundColor: colors.cardRaised, opacity: pressed ? 0.7 : 1 },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Unlock Eddy's take"
-            >
-              <Ionicons name="lock-closed" size={15} color={colors.accent} />
-              <View style={styles.lockText}>
-                <Text style={[styles.lockTitle, { color: colors.text }]}>
-                  Unlock Eddy&apos;s take
-                </Text>
-                {/* NAMES THE THREE SECTIONS, because the card no longer draws
-                    their headings and a lock over an unlabelled space sells
-                    nothing. */}
-                <Text style={[styles.lockBody, { color: colors.textMuted }]}>
-                  The full written report on this river, what the weather is about
-                  to do to it, and Eddy&apos;s bottom line — rewritten every morning.
-                </Text>
-                {/* Says what is NOT behind it, on the screen where that claim can
-                    be checked by looking up. A paywall straight about the free
-                    half is the only kind worth trusting about the paid one. */}
-                <Text style={[styles.lockFree, { color: colors.textSubtle }]}>
-                  The condition, the reading, hazards and alerts stay free.
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
-            </Pressable>
           ) : (
             <>
               {/* No top rule: this is the first section in the card, and the two
@@ -334,7 +387,18 @@ export function EddyTake({
                     EDDY&apos;S READ
                   </Text>
                 </View>
-                {read ? (
+                {locked ? (
+                  // Clamped to three lines. The full read runs to several
+                  // paragraphs on a good day, and a locked card the height of an
+                  // unlocked one is a wall again — three lines is enough to show
+                  // that this is prose rather than a sentence.
+                  <BlurredLine
+                    text={read || LOCKED_READ_SHAPE}
+                    color={colors.textMuted}
+                    style={styles.sectionText}
+                    lines={3}
+                  />
+                ) : read ? (
                   <Text style={[styles.sectionText, { color: colors.textMuted }]}>{read}</Text>
                 ) : null}
               </View>
@@ -344,9 +408,21 @@ export function EddyTake({
                   <EddySymbol name="weather" size={17} />
                   <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>WEATHER</Text>
                 </View>
-                <Text style={[styles.sectionText, { color: colors.textMuted }]}>
-                  {sections.watchFor}
-                </Text>
+                {locked ? (
+                  <BlurredLine
+                    text={sections.watchFor || LOCKED_WEATHER_SHAPE}
+                    color={colors.textMuted}
+                    style={styles.sectionText}
+                    lines={2}
+                  />
+                ) : (
+                  <Text style={[styles.sectionText, { color: colors.textMuted }]}>
+                    {sections.watchFor}
+                  </Text>
+                )}
+                {/* Kept sharp even when locked: it is a disclaimer about what
+                    the forecast strip above — which is free — does and does not
+                    predict, not part of the writing being sold. */}
                 {outlook.isGuidance ? (
                   <Text style={[styles.caveat, { color: colors.textSubtle }]}>
                     Weather outlook; future river levels are not predicted.
@@ -362,12 +438,63 @@ export function EddyTake({
                       BOTTOM LINE
                     </Text>
                   </View>
-                  <Text style={[styles.bottomLineText, { color: colors.text }]}>
-                    {sections.bottomLine}
-                  </Text>
+                  {locked ? (
+                    <BlurredLine
+                      text={sections.bottomLine || LOCKED_BOTTOM_LINE_SHAPE}
+                      color={colors.text}
+                      style={styles.bottomLineText}
+                      lines={2}
+                    />
+                  ) : (
+                    <Text style={[styles.bottomLineText, { color: colors.text }]}>
+                      {sections.bottomLine}
+                    </Text>
+                  )}
                 </View>
               </View>
 
+              {/* ── The offer, under the thing being offered ────────────
+                  Last rather than first. Read top to bottom the card now says
+                  "here are the three things, here is what they are, here is how
+                  to read them" — where a lock above them would have been asking
+                  for money before showing what for. Still ONE lock for three
+                  sections, which is the rule this card has always kept. */}
+              {locked ? (
+                <Pressable
+                  onPress={onUpgrade}
+                  disabled={!onUpgrade}
+                  style={({ pressed }) => [
+                    styles.lock,
+                    { backgroundColor: colors.cardRaised, opacity: pressed ? 0.7 : 1 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Unlock Eddy's take"
+                >
+                  <Ionicons name="lock-closed" size={15} color={colors.accent} />
+                  <View style={styles.lockText}>
+                    <Text style={[styles.lockTitle, { color: colors.text }]}>
+                      Unlock Eddy&apos;s take
+                    </Text>
+                    {/* The headings above now name the three sections, so this
+                        no longer has to. What it says instead is the thing the
+                        blur cannot: that they are rewritten daily. */}
+                    <Text style={[styles.lockBody, { color: colors.textMuted }]}>
+                      The written report, the weather read and Eddy&apos;s bottom line
+                      on this river — rewritten every morning.
+                    </Text>
+                    {/* Says what is NOT behind it, on the screen where that claim can
+                        be checked by looking up. A paywall straight about the free
+                        half is the only kind worth trusting about the paid one. */}
+                    <Text style={[styles.lockFree, { color: colors.textSubtle }]}>
+                      The condition, the reading, hazards and alerts stay free.
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
+                </Pressable>
+              ) : null}
+
+              {/* Attribution is a fact about which station this describes, and
+                  facts about the water are free — so it survives the lock. */}
               {outlook.gaugeName ? (
                 <Text style={[styles.attribution, { color: colors.textSubtle }]}>
                   via {outlook.gaugeName}
@@ -421,7 +548,9 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 11,
     borderRadius: 12,
-    marginTop: 8,
+    // Wider than it was: it now follows a blurred section rather than opening
+    // the card, and needs to read as a separate thing from the smear above it.
+    marginTop: 16,
   },
   lockText: { flex: 1, minWidth: 0 },
   lockTitle: { ...t.sm, fontFamily: fonts.semibold },

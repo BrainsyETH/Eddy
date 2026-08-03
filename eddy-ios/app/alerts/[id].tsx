@@ -58,6 +58,56 @@ export default function EditAlertScreen() {
     [rules, id, source],
   );
 
+  /**
+   * The river alert this one hangs off, when it hangs off one.
+   *
+   * ── Why this screen has to know ────────────────────────────────────────────
+   *
+   * A gauge rule created from RiverGaugeAlerts — the switch list inside a river
+   * alert's own edit screen — is a CHILD: `parent_subscription_id` is set, the
+   * evaluator skips it while the parent is paused, and deleting the parent
+   * cascades to it. The Alerts tab draws all of that, indenting the row under
+   * its river and marking it unavailable when the parent is off.
+   *
+   * Tapping that row landed here, and here knew none of it. Three things were
+   * wrong as a result and all three are states a reader cannot make sense of:
+   *
+   *   * the title read the RIVER's name, so a child and its parent opened two
+   *     screens with the same heading and different contents;
+   *   * the Active row said "Watching for changes" over a rule the evaluator
+   *     was skipping, which is the one claim on this screen that has to be
+   *     true;
+   *   * nothing said the trigger below had been seeded from the river alert, so
+   *     changing it looked like editing the river alert rather than diverging
+   *     from it.
+   *
+   * Looked up in the list rather than fetched: /api/me/alerts returns both
+   * tables in one response, so the parent is already in hand whenever the child
+   * is. Null when the parent is genuinely absent from a partial response — the
+   * screen then degrades to the plain editor it has always been, which is the
+   * same thing groupAlertRules does with an orphan.
+   */
+  // Read out of the rule BEFORE the memo rather than reached through it inside
+  // one. `rule` is replaced wholesale whenever the list refreshes while this
+  // memo only cares about one string, and the React Compiler cannot preserve
+  // the memoization when the dependency is an optional chain — same arrangement
+  // as `riverSlug` in RiverMap, and for the same reason.
+  const parentId = rule?.parentId ?? null;
+
+  const parent = useMemo(() => {
+    if (!parentId) return null;
+    return (rules ?? []).find((r) => r.source === 'river_condition' && r.id === parentId) ?? null;
+  }, [rules, parentId]);
+
+  /**
+   * On, and not going to fire — the state only the parent can explain.
+   *
+   * The child's own `enabled` is untouched by the gate, which is the whole point
+   * of a gate, so the switch below reads true and is telling the truth about
+   * itself while being wrong about what will happen.
+   */
+  const gatedByParent = Boolean(parent && !parent.enabled);
+
   // Placeholder only. Once the requested rule resolves, its stored kind wins.
   const [conditionKind, setConditionKind] = useState<AlertSubscriptionKind>('safety');
   const [comparator, setComparator] = useState<AlertComparator>('above');
@@ -218,7 +268,22 @@ export default function EditAlertScreen() {
     );
   }
 
-  const targetName = rule.riverName ?? rule.gaugeName ?? 'this water';
+  /**
+   * What this alert is ABOUT, named as specifically as the rule allows.
+   *
+   * Gauge first on a gauge-scoped rule, which is the correction: a gauge rule
+   * carries its river's name too, so the old river-first order titled every
+   * child with the name of the river alert above it. Two rows on the Alerts tab
+   * that plainly differ opened two screens headed identically.
+   *
+   * It also names the seed notice below — "Meramec at Eureka is already at
+   * 3.20 ft" is a checkable sentence; the river's name over one station's
+   * threshold is not.
+   */
+  const targetName =
+    rule.scope === 'gauge'
+      ? (rule.gaugeName ?? rule.riverName ?? 'this water')
+      : (rule.riverName ?? rule.gaugeName ?? 'this water');
   const canSave = valueValid && maxValid;
 
   const chip = (selected: boolean) => [
@@ -250,6 +315,54 @@ export default function EditAlertScreen() {
           Currently: {describeAlertRule(rule)}.
         </Text>
 
+        {/* ── Whose alert this is ────────────────────────────────
+            Only on a child, and it is the first thing on the screen because it
+            changes what every control below it means: the switch is gated by
+            another rule, the trigger was seeded from that rule, and Delete here
+            removes one station rather than the river alert.
+
+            It opens the parent. Without that, somebody who reads "the river
+            alert is paused" has been told exactly what is wrong and given no
+            way to it — the parent is a row on a tab two taps back, indented
+            under a name that is not the one at the top of this screen. */}
+        {parent ? (
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: '/alerts/[id]',
+                params: { id: parent.id, source: parent.source },
+              })
+            }
+            style={({ pressed }) => [
+              styles.parentRow,
+              { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
+              elevation(1),
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`Open the ${parent.riverName ?? 'river'} alert this one belongs to`}
+          >
+            <Ionicons
+              name={gatedByParent ? 'pause-circle-outline' : 'git-branch-outline'}
+              size={18}
+              color={gatedByParent ? colors.error : colors.textMuted}
+            />
+            <View style={styles.optionBody}>
+              <Text style={[styles.optionTitle, { color: colors.text }]}>
+                Part of your {parent.riverName ?? 'river'} alert
+              </Text>
+              <Text style={[styles.optionHint, { color: colors.textMuted }]}>
+                {gatedByParent
+                  ? // The whole reason this row exists. Says the consequence
+                    // first — nothing will arrive — because that is the part
+                    // that is invisible everywhere else on this screen.
+                    `Nothing will be sent from this one while that alert is paused. Its switch is separate from the one below.`
+                  : `Added from there, so it starts on the same setting and goes with it if that alert is paused or deleted. You can change this one on its own.`}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
+          </Pressable>
+        ) : null}
+
         {spent ? (
           <View style={[styles.notice, { borderColor: colors.border }]}>
             <Text style={[styles.noticeText, { color: colors.textMuted }]}>
@@ -269,11 +382,22 @@ export default function EditAlertScreen() {
           <View style={styles.optionBody}>
             <Text style={[styles.optionTitle, { color: colors.text }]}>Active</Text>
             <Text style={[styles.optionHint, { color: colors.textMuted }]}>
-              {rule.enabled
-                ? 'Watching for changes.'
-                : spent
-                  ? 'Already sent — switch on to watch again.'
-                  : 'Paused — nothing will be sent.'}
+              {/* THE GATE OUTRANKS THE SWITCH. A child of a paused river alert
+                  has `enabled: true` and will not fire, and this row is the one
+                  place on the screen that claims to say whether anything is
+                  going to happen — so it must not say "Watching for changes"
+                  about a rule the evaluator is skipping. Its own state is still
+                  reported, because it is still what this switch controls and it
+                  is what resuming the parent will restore it to. */}
+              {gatedByParent
+                ? rule.enabled
+                  ? 'Held off by the river alert above, which is paused.'
+                  : 'Paused here, and held off by the river alert above too.'
+                : rule.enabled
+                  ? 'Watching for changes.'
+                  : spent
+                    ? 'Already sent — switch on to watch again.'
+                    : 'Paused — nothing will be sent.'}
             </Text>
           </View>
           <Switch
@@ -491,6 +615,19 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 14,
     marginTop: 8,
+  },
+  // Same card as the option rows below it, deliberately: it is a row you tap
+  // that goes somewhere, which is the vocabulary this screen already has. What
+  // separates it is that it comes first and carries a chevron rather than a
+  // control. `flex-start` because its hint runs to three lines when gated and a
+  // centred glyph would float in the middle of them.
+  parentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 11,
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 4,
   },
   optionBody: { flex: 1 },
   optionTitle: { ...t.base, fontFamily: fonts.semibold },

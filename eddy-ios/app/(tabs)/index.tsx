@@ -97,6 +97,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { mapAccessPointPin, RiverMap, type MapPin } from '@/map/RiverMap';
 import { mapUnavailableReason } from '@/map/runtime';
 import {
+  drawnAsAccessPoint,
   MAP_LAYERS,
   OUTFITTER_SERVICE_TYPES,
   PUBLIC_LAND_ATTRIBUTION,
@@ -1012,7 +1013,17 @@ export default function MapScreen() {
       // layer holds every river's put-ins from launch, so the sheet can report
       // a real number on the opening screen. Still `undefined` while empty —
       // that is the bundle not having landed, not a state with no landings.
-      access: drawnAccessPoints.length > 0 ? drawnAccessPoints.length : undefined,
+      //
+      // MINUS THE CAMPGROUNDS, but only while the Campgrounds row has them.
+      // The two rows partition the put-ins between them when both are on (see
+      // campgroundPins in RiverMap), and a sheet whose two counts add up to
+      // more pins than the map draws is a sheet arguing with the map.
+      access:
+        drawnAccessPoints.length > 0
+          ? layers.includes('campgrounds')
+            ? drawnAccessPoints.filter((entry) => !isCampground(entry.point)).length
+            : drawnAccessPoints.length
+          : undefined,
       gauges: gauges ? mappableGauges.length : undefined,
       // Viewport-scoped, so it moves as you pan — and `undefined` until the
       // layer has actually been switched on and fetched something, per the rule
@@ -1032,12 +1043,23 @@ export default function MapScreen() {
       // Statewide, like access above: the count is what the layer draws, and
       // what it draws is every hazard Eddy has rather than one river's.
       hazards: drawnHazards.length > 0 ? drawnHazards.filter(hasCoordinates).length : undefined,
-      // The access half counts every drawn put-in tagged `campground`, matching
-      // what the layer emits — see the campgrounds branch in RiverMap's pin
-      // builder, which draws them from the same statewide set.
+      // A COUNT OF PINS, which is the only thing a count beside a switch can
+      // honestly be. Both halves mirror RiverMap's campgrounds branch exactly:
+      // every drawn put-in tagged `campground`, plus the campground services
+      // that are not already one of them. Adding the two raw totals double-
+      // counted every place that exists in both tables — which after the
+      // coordinate correction is every one of them that ever mattered, since
+      // the duplicates used to be miles apart and now sit on top of each other.
       campgrounds: placed
-        ? drawnAccessPoints.filter((entry) => isCampground(entry.point)).length +
-          placed.filter((s) => s.type === 'campground').length
+        ? (() => {
+            const camps = drawnAccessPoints.filter((entry) => isCampground(entry.point));
+            const points = camps.map((entry) => entry.point);
+            return (
+              camps.length +
+              placed.filter((s) => s.type === 'campground' && !drawnAsAccessPoint(s, points))
+                .length
+            );
+          })()
         : undefined,
       outfitters: placed?.filter((s) => OUTFITTER_SERVICE_TYPES.includes(s.type)).length,
       // Viewport-scoped, like allGauges above and with the same three-way
@@ -1124,12 +1146,47 @@ export default function MapScreen() {
         }
       : null;
 
-  // Asks for permission the first time, then recentres. A denial is not
-  // re-prompted — iOS would suppress the dialog anyway — so the button simply
-  // goes quiet rather than becoming a trap.
+  /**
+   * Leave the camera exactly where it is.
+   *
+   * ── The bug this is the fix for ────────────────────────────────────────────
+   *
+   * Closing a river — or closing a pin's callout with no river selected — set
+   * `focus` to null, and null is not "stay". It is "I have no opinion", and two
+   * things downstream do have one. `openingFocus` becomes live again the moment
+   * nothing is selected and no focus is set, so putting a river down flew the
+   * map back to the user's own position at zoom 8.5; and with location denied
+   * the camera fell through to the network bounds and snapped to the whole
+   * state instead. Either way the answer to "close this" was "and here is
+   * somewhere else", after the user had panned to exactly where they wanted.
+   *
+   * A focus on the current centre is a flyTo to where the camera already is,
+   * which is no movement at all, and being non-null is what keeps the two
+   * fallbacks above from claiming the camera. Tagged `slug: null` so it makes no
+   * claim about a river and cannot go stale against one — see activeFocus.
+   *
+   * Returns null before the first onMapIdle, when there is no viewport to hold.
+   * The caller then falls back to the old behaviour, which is the right thing on
+   * a camera that has not settled anywhere yet.
+   */
+  const heldCamera = useCallback((): Focus | null => {
+    if (!viewport) return null;
+    const [west, south, east, north] = viewport.bounds;
+    return {
+      slug: null,
+      lng: (west + east) / 2,
+      lat: (south + north) / 2,
+      zoom: viewport.zoom,
+    };
+  }, [viewport]);
+
   // Tapping a river on the network selects it, which is the whole point of
   // drawing it: the map is now a way of CHOOSING a river, not just of looking
   // at one you already chose. Any open callout belongs to the old river.
+  //
+  // Focus IS cleared here, unlike the two below: choosing a river is a request
+  // to be shown it, and RiverMap's bounds chain framing the new selection is
+  // the whole answer.
   const onSelectNetworkRiver = useCallback((slug: string) => {
     setPickedSlug(slug);
     setSelectedPin(null);
@@ -1140,21 +1197,24 @@ export default function MapScreen() {
   /**
    * Put the selected river down and go back to the whole network.
    *
-   * Everything river-scoped follows from `pickedSlug` being null, so this is
-   * mostly one line: the camera falls back through RiverMap's own narrowest-
-   * frame-first chain to the network bounds, the heavier line stops being drawn
-   * and the planner resets itself off the riverId change (see useFloatPlan's
-   * first effect). What does NOT follow is the callout and the camera override,
-   * which belong to a pin on the river being put down — clearing the selection
+   * Everything river-scoped follows from `pickedSlug` being null: the heavier
+   * line stops being drawn and the planner resets itself off the riverId change
+   * (see useFloatPlan's first effect). What does NOT follow is the callout,
+   * which belongs to a pin on the river being put down — clearing the selection
    * and leaving its put-in's callout open would be the same half-exit the map
    * had before.
+   *
+   * THE CAMERA STAYS. Closing a river is a statement about the river, not a
+   * request to be taken somewhere; the map used to re-frame on the user's
+   * position or on the whole network, which is a hundred miles of pan away from
+   * whatever the user was actually looking at. See heldCamera.
    */
   const clearRiver = useCallback(() => {
     setPickedSlug(null);
     setSelectedPin(null);
     pendingAccessSelection.current = null;
-    setFocus(null);
-  }, []);
+    setFocus(heldCamera());
+  }, [heldCamera]);
 
   const onLocate = useCallback(async () => {
     // Falls back to whatever position the hook already holds — which after a
@@ -1485,9 +1545,14 @@ export default function MapScreen() {
                 onOpenGauge={onOpenGauge}
                 onOpenDam={onOpenDam}
                 onOpenDetail={(route) => router.push(asHref(route))}
+                // Closing a callout drops the pin's camera override without
+                // handing the camera to anything else. It used to null the
+                // focus, which on a map with no river selected woke the opening
+                // focus and flew you to your own position for having shut a
+                // gauge bubble. See heldCamera.
                 onClose={() => {
                   setSelectedPin(null);
-                  setFocus(null);
+                  setFocus(heldCamera());
                 }}
                 starred={pinGauge ? isStarred('gauge', pinGauge.id) : false}
                 onToggleStar={

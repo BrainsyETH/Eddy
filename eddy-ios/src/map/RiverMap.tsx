@@ -85,6 +85,7 @@ import type { NetworkCollection } from '@/lib/statewideNetwork';
 import { loadMapbox } from './runtime';
 import { STYLE_URL } from './runtime';
 import {
+  drawnAsAccessPoint,
   GAUGE_DETAIL_ZOOM,
   MAP_LAYERS,
   MIN_GAUGE_ZOOM,
@@ -646,10 +647,11 @@ export function RiverMap({
 
   // ── Pins, one array per layer ─────────────────────────────────
   /**
-   * Whether the access layer is drawing, as a boolean the memos below can
-   * depend on without depending on the whole `layers` array.
+   * Whether each place-layer is drawing, as booleans the memos below can depend
+   * on without depending on the whole `layers` array — so toggling the radar or
+   * the public-land overlay does not rebuild three hundred access features.
    */
-  const accessLayerOn = layers.includes('access');
+  const campgroundLayerOn = layers.includes('campgrounds');
 
   /**
    * ── ONE MEMO PER LAYER, not one for all six ───────────────────────────────
@@ -673,31 +675,47 @@ export function RiverMap({
     // landing to /river/current-river/access/... — a 404 dressed as a detail
     // screen. `riverSlug` remains the fallback for a point with no river of its
     // own, which is what a live per-river response still produces.
-    return accessPoints.map(({ point, riverSlug: pointSlug }) =>
+    //
+    // A campground is HANDED OVER to the campgrounds layer while that layer is
+    // on — see campgroundPins, which is where the reasoning lives. It comes
+    // back here the moment that layer goes off.
+    const drawnHere = campgroundLayerOn
+      ? accessPoints.filter((entry) => !isCampground(entry.point))
+      : accessPoints;
+    return drawnHere.map(({ point, riverSlug: pointSlug }) =>
       mapAccessPointPin(point, pointSlug ?? riverSlug),
     );
-  }, [accessPoints, riverSlug]);
+  }, [accessPoints, riverSlug, campgroundLayerOn]);
 
   /**
    * Campgrounds, from the two places they come from.
    *
-   * `accessLayerOn` rather than `layers`, so toggling the radar or the public
-   * land overlay does not rebuild this.
+   * ── The filter now answers its own question ────────────────────────────────
+   *
+   * This layer used to emit access-point campgrounds only while the Access layer
+   * was OFF, to avoid two pins on one coordinate. The effect was that switching
+   * Campgrounds on with the default layer set — which has Access on — added the
+   * handful of campgrounds that are businesses and none of the ones that are
+   * put-ins, i.e. most of them. Red Bluff is a put-in you can sleep at; asking
+   * the map for campgrounds and not being shown Red Bluff is the filter failing
+   * at the only thing it does.
+   *
+   * The de-duplication is right and the direction was wrong. One place still
+   * draws one pin; what changed is which layer claims it. Turning Campgrounds
+   * ON is a request to see the campgrounds AS campgrounds, so they move here and
+   * wear the tent, and the access layer drops them for as long as that is true.
+   * Nothing is lost when it happens: the pin keeps the access point's id, its
+   * photo, its detail route and its privacy state, so it opens the same screen
+   * and the planner still recognises it — see `id: access:` below.
+   *
+   * Neither layer on: nothing draws either way. Access only: the old behaviour,
+   * campgrounds among the put-ins. Campgrounds only: tents alone, which is what
+   * that switch has always meant.
    */
   const campgroundPins = useMemo(() => {
-    // Campgrounds come from two places. An access point tagged `campground` is
-    // a put-in you can sleep at; a linked service is somewhere to sleep that is
-    // not a put-in. When access is already visible, the first group must NOT be
-    // emitted again: two sources at one coordinate made the campground dot sit
-    // on top of the access pin and steal its planning actions. The access
-    // callout already lists every role. If someone turns access off and leaves
-    // campgrounds on, these locations return as campground pins and still carry
-    // the access photo, route, privacy state, and planner identity.
+    const fromAccess = accessPoints.filter((entry) => isCampground(entry.point));
     const campgrounds: MapPin[] = [
-      ...(!accessLayerOn
-        ? accessPoints.filter((entry) => isCampground(entry.point))
-        : []
-      ).map(({ point: p, riverSlug: pointSlug }) => ({
+      ...fromAccess.map(({ point: p, riverSlug: pointSlug }) => ({
         // Keep the canonical access identity even while it is being presented
         // through the campground layer. If the user enables Access with this
         // callout open, the tent becomes a pin without losing selection.
@@ -713,8 +731,20 @@ export function RiverMap({
             : null,
         privateAccess: !p.isPublic,
       })),
+      // A service campground is somewhere to sleep that is NOT a put-in — which
+      // is what makes it worth drawing, and also what makes the ones that ARE
+      // put-ins a problem. Several rows in nearby_services are the same place as
+      // an access point above, seeded years apart from different sources, and
+      // the two records were only ever distinguishable on the map because their
+      // coordinates disagreed by miles. See drawnAsAccessPoint.
       ...services
-        .filter((s) => s.type === 'campground' && s.latitude != null && s.longitude != null)
+        .filter(
+          (s) =>
+            s.type === 'campground' &&
+            s.latitude != null &&
+            s.longitude != null &&
+            !drawnAsAccessPoint(s, fromAccess.map((entry) => entry.point)),
+        )
         .map((s) => ({
           id: `camp-service:${s.id}`,
           name: s.name,
@@ -726,7 +756,7 @@ export function RiverMap({
         })),
     ];
     return campgrounds;
-  }, [accessPoints, services, riverSlug, accessLayerOn]);
+  }, [accessPoints, services, riverSlug]);
 
   // A gauge wears its OWN condition, graded on the phone from the ladder that
     // came down with the reading. That is the difference between a layer of

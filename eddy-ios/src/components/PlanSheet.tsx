@@ -10,7 +10,9 @@
 // There used to be a third step here: pick a boat. It is gone. A required tap
 // that moves the answer less than the wind does is a tap that only ever loses
 // people between "I picked two access points" and "how long is it" — see the
-// note at the top of useFloatPlan. The estimate still says which boat it assumed.
+// note at the top of useFloatPlan. The plan still carries the vessel the speed
+// model used; the basis line under the estimate no longer names it, and
+// floatTimeCeilingBasisNote says why.
 //
 // ── Structure ───────────────────────────────────────────────────────────────
 // This file owns the FLOW — the breadcrumb, the two pickers, and the sheet they
@@ -631,9 +633,17 @@ const styles = StyleSheet.create({
   breadcrumb: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingBottom: 12,
+    // Top padding it never had. The row sat directly against the sheet's title
+    // block, so the three pills read as attached to "Plan a float" rather than
+    // as the step control under it.
+    paddingTop: 4,
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    gap: 12,
+    // Tighter between the pills now that each one is wider inside. The row is
+    // three equal thirds either way; what changed is where the space went —
+    // into the pills, where it separates the mark from the place name, rather
+    // than into the gaps, where it only separated the pills from each other.
+    gap: 8,
   },
   crumb: {
     flex: 1,
@@ -641,11 +651,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    // 30 + the row's own padding clears 44 with the sheet's grab area; a
-    // taller chip would push the first picker row off a small screen.
-    minHeight: 30,
+    gap: 6,
+    // 8 was not enough for a bordered pill: the mark sat on the left edge and a
+    // truncated place name ran into the right one, so the whole control read as
+    // text that happened to have a line drawn round it.
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    // 34 rather than 30, which is what the vertical padding above lands on for
+    // a single line of 13pt — stated as a floor so a pill holding a mark and no
+    // text cannot come out shorter than its neighbours.
+    minHeight: 34,
     borderRadius: 999,
     borderWidth: 1,
   },

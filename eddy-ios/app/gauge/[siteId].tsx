@@ -40,10 +40,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import type { GaugeDetail, GaugeDetailThreshold, GaugeFloodStages } from '@eddy/types';
+import type {
+  GaugeDetail,
+  GaugeDetailThreshold,
+  GaugeFloodStages,
+  RiverOutlookResponse,
+} from '@eddy/types';
 import { classifyReading, hasLadder } from '@eddy/conditions/condition-ladder';
 import { flowBand } from '@eddy/conditions/flow-band';
-import { fetchGaugeDetail } from '@/api/client';
+import { fetchGaugeDetail, fetchRiverOutlook } from '@/api/client';
 import {
   conditionBg,
   conditionChipBorder,
@@ -74,6 +79,7 @@ import {
 } from '@/lib/gaugeProvider';
 import { recallGauge, rememberGauge, seedFromDetail, type GaugeSeed } from '@/lib/gaugeSeed';
 import { readGauge, writeGauge } from '@/lib/gaugeCache';
+import { EddyTake } from '@/components/EddyTake';
 import { GaugeChart } from '@/components/GaugeChart';
 import { ReadingScale } from '@/components/ReadingScale';
 import { ShareButton } from '@/components/ShareButton';
@@ -160,6 +166,36 @@ export default function GaugeDetailScreen() {
   const [failed, setFailed] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
+  /**
+   * Eddy's written report FOR THIS STATION, when there is one.
+   *
+   * ── The gap this closes ───────────────────────────────────────────────────
+   * /outlook?gaugeId has answered per gauge since the river screen's picker
+   * started following it: ask for a station and you get that station's weather,
+   * its hydrograph, its condition and its own written report. The river screen
+   * used that; this screen — the one page in the app that is entirely about a
+   * single station — did not, so a gauge with a report of its own could only be
+   * read by going to the river, finding the picker, and selecting the station
+   * you had just come from.
+   *
+   * Rated stations only, and only ones that rate a river: the endpoint is
+   * river-scoped, and there is no report to ask for on the national tier.
+   *
+   * Null means "nothing to show", never an error. Every failure lands here —
+   * the reading, the chart and the stages above are what this screen is for,
+   * and none of them depend on it.
+   *
+   * ── Stored WITH the request it answers ────────────────────────────────────
+   * `key` is the station this report describes. Holding it means the panel can
+   * be dropped the instant the screen starts describing a different one, by
+   * comparing rather than by clearing — which matters because this panel NAMES
+   * its river, and one station's report under another's heading is the exact
+   * mismatch the river screen's picker had to be fixed for. Clearing state in
+   * the effect body would do the same job by triggering a second render pass.
+   */
+  const [report, setReport] = useState<{ key: string; data: RiverOutlookResponse | null } | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!siteId) return;
@@ -199,6 +235,44 @@ export default function GaugeDetailScreen() {
 
     return () => controller.abort();
   }, [siteId]);
+
+  // ── The two vocabularies ──────────────────────────────────────────────────
+  // The ladder to grade against.
+  //
+  // FIND-PRIMARY, not [0], even though /api/gauges/[siteId] already sorts it
+  // that way. The seed does not: it can come from a MapGauge whose `thresholds`
+  // are in whatever order /api/gauges emitted them, and a station that rates two
+  // rivers would then flash the SECOND river's bands under this reading for the
+  // frame before the fetch lands. Same rule gaugeLink() applies everywhere else
+  // in the app, for the same reason.
+  //
+  // ABOVE THE EARLY RETURNS, because the report effect below needs it and a
+  // hook cannot run after a conditional return. One definition rather than two,
+  // so the report and the ladder cannot end up describing different rivers.
+  const link = gauge
+    ? (gauge.thresholds?.find((l) => l.isPrimary) ?? gauge.thresholds?.[0] ?? null)
+    : null;
+  const rated = Boolean(link && hasLadder(link));
+
+  const reportSlug = rated ? (link?.riverSlug ?? null) : null;
+  const reportGaugeId = gauge?.id ?? null;
+  /** What a held report has to match to be shown. Null when there is none to ask for. */
+  const reportKey = reportSlug ? `${reportSlug}:${reportGaugeId ?? ''}` : null;
+
+  useEffect(() => {
+    if (!reportSlug) return;
+    const key = `${reportSlug}:${reportGaugeId ?? ''}`;
+    const controller = new AbortController();
+    fetchRiverOutlook(reportSlug, controller.signal, reportGaugeId)
+      .catch(() => null)
+      .then((data) => {
+        if (!controller.signal.aborted) setReport({ key, data });
+      });
+    return () => controller.abort();
+  }, [reportSlug, reportGaugeId]);
+
+  /** The held report, but only while it still describes the station on screen. */
+  const outlook = reportKey && report?.key === reportKey ? report.data : null;
 
   if (loading && !gauge) {
     return (
@@ -249,19 +323,8 @@ export default function GaugeDetailScreen() {
     );
   }
 
-  // ── The two vocabularies ──────────────────────────────────────────────────
-  // The ladder to grade against.
-  //
-  // FIND-PRIMARY, not [0], even though /api/gauges/[siteId] already sorts it
-  // that way. The seed does not: it can come from a MapGauge whose `thresholds`
-  // are in whatever order /api/gauges emitted them, and a station that rates two
-  // rivers would then flash the SECOND river's bands under this reading for the
-  // frame before the fetch lands. Same rule gaugeLink() applies everywhere else
-  // in the app, for the same reason.
-  const link =
-    gauge.thresholds?.find((l) => l.isPrimary) ?? gauge.thresholds?.[0] ?? null;
-  const rated = Boolean(link && hasLadder(link));
-
+  // `link` and `rated` are resolved above the early returns — see the block
+  // beside the report effect for why.
   const unit = displayUnit(gauge, link);
   const value = readingValue(gauge, unit);
 
@@ -313,6 +376,18 @@ export default function GaugeDetailScreen() {
   // id-shaped, because a USGS site and a USACE dam live under different
   // segments and an NWS LID lives under neither. See src/lib/share.ts.
   const sharePath = gaugeSharePath(gauge.provider, gauge.siteId);
+
+  // THREE states, the same three the river screen resolves and for the same
+  // reasons: 'pending' while /api/me/profile is in flight so a cold open cannot
+  // paint the paid report and then yank it back, null on error so an
+  // unreachable profile fails OPEN rather than locking a subscriber out on one
+  // bar of signal, and only a definite false locks anything. See EddyTake's
+  // `entitled` prop.
+  const entitled = !accountLoaded
+    ? ('pending' as const)
+    : accountError
+      ? null
+      : Boolean(entitlement?.isActive);
 
   // A plain function, not a useCallback: everything above it is guarded by
   // early returns, and a hook below one of those is a hook that does not run in
@@ -524,11 +599,40 @@ export default function GaugeDetailScreen() {
           />
         </View>
 
+        {/* ── Eddy's report on this station ─────────────────────
+            BELOW the chart, in the same order the river screen puts it: the
+            number, then how it got there, then what Eddy makes of it. The card
+            gates itself — locked it draws all three sections blurred with one
+            CTA, which is the same offer the premium row below used to make in
+            prose and now makes with the thing itself.
+
+            Inset by the SCREEN like the chart above, because EddyTake carries
+            no horizontal margin of its own.
+
+            `ratedUnit` is what stops the 72-hour strip's forecast — always NWS
+            stage in feet — from reading as this station's own unit on the 18 of
+            24 rivers rated in cfs. */}
+        {outlook ? (
+          <View style={styles.inset}>
+            <EddyTake
+              outlook={outlook}
+              ratedUnit={unit}
+              entitled={entitled}
+              onUpgrade={() => setPaywallOpen(true)}
+            />
+          </View>
+        ) : null}
+
         {/* A gauge is where "what does this number mean next?" is most likely
             to arise. Offer the paid interpretation here, but only when the
             account answered definitively that it is inactive; an offline or
-            still-loading entitlement must never advertise to a subscriber. */}
-        {accountLoaded && !accountError && !entitlement?.isActive ? (
+            still-loading entitlement must never advertise to a subscriber.
+
+            SUPPRESSED once the report above is on screen. Two paywall pitches
+            on one screen, one of them a paragraph about a report that is
+            already sitting above it blurred, is the same wall drawn twice —
+            the rule EddyTake's own header sets for its three sections. */}
+        {!outlook && accountLoaded && !accountError && !entitlement?.isActive ? (
           <Pressable
             onPress={() => setPaywallOpen(true)}
             style={({ pressed }) => [
