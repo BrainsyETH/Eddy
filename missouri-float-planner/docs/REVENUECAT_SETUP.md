@@ -192,13 +192,13 @@ App Store Connect → your app → **Monetization → Subscriptions**.
    this one group (see gotcha #4).
 
 2. **Add the annual product:**
-   - Product ID: `eddy_plus_annual`
+   - Product ID: `eddy_annual`
    - Duration: 1 year
    - Price: **$19.99**
    - Localized display name + description (required before submission)
 
 3. **Add the monthly product:**
-   - Product ID: `eddy_plus_monthly`
+   - Product ID: `eddy_monthly`
    - Duration: 1 month
    - Price: **$1.99**
    - ⚠️ At these prices monthly is **no longer a decoy**. Twelve months of
@@ -209,16 +209,20 @@ App Store Connect → your app → **Monetization → Subscriptions**.
      in May and cancels in September. See the strategy doc's break-even
      section — the annual-first framing depends on that arithmetic.
 
-4. **Add the free trial** — on `eddy_plus_annual` → **Introductory Offers** →
+4. **Add the free trial** — on `eddy_annual` → **Introductory Offers** →
    **Free** → **7 days** → all territories.
 
    Put the trial on annual only. The trial is the conversion mechanism for the
    product we actually want people on.
 
-Product IDs are yours to choose — the backend records whatever arrives and
-never branches on them, so the `eddy_plus_*` names above are illustrative and
-may not match what is actually live in App Store Connect. Only the *entitlement*
-identifier is load-bearing, and that one is `eddy_premium`.
+The IDs above are the ones actually live in App Store Connect, recorded here so
+this file stops describing products that never existed — it said `eddy_plus_*`
+for a while, which were placeholders from before anything was created.
+
+They are still not load-bearing. The backend records whatever product id
+arrives and never branches on it, so renaming these breaks nothing in code.
+Only the *entitlement* identifier is load-bearing, and that one is
+`eddy_premium`.
 
 ---
 
@@ -235,7 +239,7 @@ identifier is load-bearing, and that one is `eddy_premium`.
 
 3. **Import the products** — Product Catalog → **Products** → RevenueCat can
    import from App Store Connect once the API key is attached. Confirm both
-   `eddy_plus_annual` and `eddy_plus_monthly` appear.
+   `eddy_annual` and `eddy_monthly` appear.
 
 ---
 
@@ -260,7 +264,7 @@ check the dashboard for you.
 Product Catalog → **Offerings** → **+ New**:
 
 - Identifier: `default`
-- Packages: **Annual** → `eddy_plus_annual`, **Monthly** → `eddy_plus_monthly`
+- Packages: **Annual** → `eddy_annual`, **Monthly** → `eddy_monthly`
 - **Mark it Current.** ← load-bearing, see below
 
 Nothing server-side reads this; the Phase 1 paywall does. Creating it now means
