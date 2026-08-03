@@ -18,9 +18,20 @@
     },
     "src/app/api/cron/post-social/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/cron/sync-availability/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
+    {
+      "path": "/api/cron/sync-availability?source=recreation_gov",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/sync-availability?source=mo_state_parks",
+      "schedule": "20 9 * * *"
+    },
     {
       "path": "/api/cron/update-gauges",
       "schedule": "0 * * * *"

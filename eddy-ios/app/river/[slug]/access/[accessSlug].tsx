@@ -43,7 +43,7 @@ import type {
   NearbyAccessPoint,
   NearbyService,
 } from '@eddy/types';
-import { accessTypeLabel } from '@eddy/types';
+import { accessTypeLabel, campsiteAvailabilityLine } from '@eddy/types';
 import { ApiError, fetchAccessPointDetail } from '@/api/client';
 import {
   conditionBg,
@@ -629,6 +629,15 @@ export default function AccessPointDetailScreen() {
                     .filter(Boolean)
                     .join(' · ')}
                 </Text>
+                {/* Live availability for the coming weekend, when the server
+                    has it. Absent for most campgrounds and for every build that
+                    predates the field, and absent means render nothing — the
+                    static counts above already say what the place holds. */}
+                {campsiteAvailabilityLine(point.npsCampground.availability) ? (
+                  <Text style={[styles.npsAvailability, { color: colors.text }]}>
+                    {campsiteAvailabilityLine(point.npsCampground.availability)}
+                  </Text>
+                ) : null}
                 {point.npsCampground.reservationInfo ? (
                   <Text style={[styles.prose, { color: colors.textMuted }]}>
                     {point.npsCampground.reservationInfo}
@@ -895,6 +904,9 @@ const styles = StyleSheet.create({
   npsCard: { marginHorizontal: 16, marginTop: 12, padding: 14, borderRadius: 14 },
   npsName: { ...t.base, fontFamily: fonts.semibold },
   npsMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
+  // Full-strength ink rather than the muted meta above it: this is the line
+  // that decides whether the Reserve button is worth pressing.
+  npsAvailability: { ...t.xs, fontFamily: fonts.medium, marginTop: 8 },
   footnote: {
     ...t.xs,
     fontFamily: fonts.body,

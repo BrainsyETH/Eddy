@@ -197,6 +197,28 @@ export interface AccessPointDetail extends AccessPoint {
   npsCampground: NPSCampgroundInfo | null;
 }
 
+/**
+ * Live availability for the coming weekend, when Eddy has it.
+ *
+ * Null everywhere it does not: unlinked campgrounds, state parks outside the
+ * UseDirect systems Eddy reads, and every private outfitter. Consumers must
+ * render nothing at all in that case — a blank slot reads as "not applicable",
+ * where the word "unknown" reads as Eddy being broken.
+ */
+export interface CampsiteAvailabilityInfo {
+  /** Server-resolved so the two clients can never describe different weekends. */
+  window: { startDate: string; endDate: string; label: string };
+  /** Sites free for every night of the window, not just the best night. */
+  sitesOpen: number;
+  /** Sites bookable at all. Excludes walk-up inventory. */
+  sitesReservable: number;
+  /** `closed` is seasonal and must not be worded as "fully booked". */
+  status: 'open' | 'full' | 'closed' | 'not_yet_released';
+  kind: 'campground' | 'backcountry_district';
+  source: 'recreation_gov' | 'mo_state_parks';
+  fetchedAt: string;
+}
+
 /** NPS campground data enrichment for access point detail */
 export interface NPSCampgroundInfo {
   npsId: string;
@@ -227,6 +249,8 @@ export interface NPSCampgroundInfo {
   classification: string | null;
   weatherOverview: string | null;
   images: { url: string; title: string; altText: string; caption: string; credit: string }[];
+  /** Null unless this campground is linked to a booking system Eddy reads. */
+  availability: CampsiteAvailabilityInfo | null;
 }
 
 export interface VesselType {
@@ -656,6 +680,8 @@ export interface NearbyServiceDirectory {
   seasonOpenMonth: number | null;
   seasonCloseMonth: number | null;
   details: Record<string, unknown>;
+  /** Null unless this listing is linked to a booking system Eddy reads. */
+  availability?: CampsiteAvailabilityInfo | null;
 }
 
 export interface ServiceRiverLink {

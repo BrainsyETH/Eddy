@@ -4,6 +4,7 @@
 import { ExternalLink, Tent, Droplets, Phone, Flame, Trash2 } from 'lucide-react';
 import type { AccessPointDetail } from '@/types/api';
 import { getAgencyFullName } from '@/lib/navigation';
+import AvailabilityChip from '@/components/ui/AvailabilityChip';
 
 interface FacilitiesSectionProps {
   accessPoint: AccessPointDetail;
@@ -44,6 +45,12 @@ export default function FacilitiesSection({ accessPoint }: FacilitiesSectionProp
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Availability sits above the reservation link so the click is
+              informed before it happens, not after Recreation.gov loads. */}
+          {nps.availability && (
+            <AvailabilityChip availability={nps.availability} name={nps.name} />
           )}
 
           {/* Reservation Info */}

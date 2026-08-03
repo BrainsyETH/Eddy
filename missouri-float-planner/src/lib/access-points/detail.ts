@@ -19,6 +19,7 @@ import type {
   ParkingCapacity,
   NearbyService,
 } from '@/types/api';
+import { loadAvailability } from '@/lib/camping/read';
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -410,6 +411,9 @@ async function getNPSCampgroundInfo(
       classification: cg.classification,
       weatherOverview: cg.weather_overview,
       images: imagesData,
+      // Cached rows only, and null whenever this campground is not linked to a
+      // booking system Eddy reads — which is most of them.
+      availability: (await loadAvailability(supabase)).byNpsCampgroundId.get(cg.id) ?? null,
     };
   } catch (error) {
     console.error('Error fetching NPS campground info:', error);
