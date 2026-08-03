@@ -187,15 +187,33 @@ WHERE rs.section_slug = 'lower-markham-hammer'
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Invariants
 -- ─────────────────────────────────────────────────────────────────────────────
+-- Every check below asserts a POSITIVE row count before it asserts a property.
+-- A guard written only as "no bad rows found" passes when it finds no rows at
+-- all, which is precisely the case worth catching: rename a slug or mistype a
+-- site id and the UPDATE silently matches nothing while the check that was
+-- supposed to notice matches nothing either. Ask first "did I touch what I
+-- meant to", then "is it right".
 DO $$
 DECLARE
-    r RECORD;
+    lad RECORD;
     v_count INT;
 BEGIN
+    -- Part 1 and Part 2 must have landed on exactly the rows they name.
+    SELECT count(*) INTO v_count
+    FROM river_gauges rg
+    JOIN gauge_stations gs ON gs.id = rg.gauge_station_id
+    JOIN (VALUES ('07068000', 950, 1250, 1600), ('07063000', 280, 400, 550)) AS e(site_id, tl, lo, omin)
+      ON e.site_id = gs.usgs_site_id
+    WHERE rg.threshold_unit = 'cfs'
+      AND (rg.level_too_low, rg.level_low, rg.level_optimal_min) = (e.tl, e.lo, e.omin);
+    IF v_count <> 2 THEN
+        RAISE EXCEPTION 'recalibrate: expected 2 recalibrated USGS ladders, found %', v_count;
+    END IF;
+
     -- Every ladder touched here must stay monotonic. An out-of-order ladder
     -- does not error at read time -- classifyReading just silently skips a
     -- band -- so it has to be caught at write time.
-    FOR r IN
+    FOR lad IN
         SELECT gs.name, rg.level_too_low t, rg.level_low l, rg.level_optimal_min omin,
                rg.level_optimal_max omax, rg.level_dangerous dng
         FROM river_gauges rg
@@ -203,12 +221,12 @@ BEGIN
         WHERE gs.usgs_site_id IN ('07068000','07063000')
            OR gs.site_id_external = 'swl-clearwater-dam'
     LOOP
-        IF r.t IS NULL OR r.l IS NULL OR r.omin IS NULL OR r.omax IS NULL OR r.dng IS NULL THEN
-            RAISE EXCEPTION 'recalibrate: % has a NULL ladder line', r.name;
+        IF lad.t IS NULL OR lad.l IS NULL OR lad.omin IS NULL OR lad.omax IS NULL OR lad.dng IS NULL THEN
+            RAISE EXCEPTION 'recalibrate: % has a NULL ladder line', lad.name;
         END IF;
-        IF NOT (r.t < r.l AND r.l < r.omin AND r.omin < r.omax AND r.omax < r.dng) THEN
+        IF NOT (lad.t < lad.l AND lad.l < lad.omin AND lad.omin < lad.omax AND lad.omax < lad.dng) THEN
             RAISE EXCEPTION 'recalibrate: % ladder is not monotonic (% % % % %)',
-                r.name, r.t, r.l, r.omin, r.omax, r.dng;
+                lad.name, lad.t, lad.l, lad.omin, lad.omax, lad.dng;
         END IF;
     END LOOP;
 
@@ -238,9 +256,9 @@ BEGIN
                  ('07066000', 176, 200, 313)) AS j(site_id, tl, lo, omin)
       ON j.site_id = gs.usgs_site_id
     WHERE rg.threshold_unit = 'cfs'
-      AND (rg.level_too_low, rg.level_low, rg.level_optimal_min) IS DISTINCT FROM (j.tl, j.lo, j.omin);
-    IF v_count > 0 THEN
-        RAISE EXCEPTION 'recalibrate: % Jacks Fork ladder(s) moved; they are deferred pending the USGS record fix', v_count;
+      AND (rg.level_too_low, rg.level_low, rg.level_optimal_min) = (j.tl, j.lo, j.omin);
+    IF v_count <> 3 THEN
+        RAISE EXCEPTION 'recalibrate: expected 3 untouched Jacks Fork ladders at 00177 values, found % -- they are deferred pending the USGS record fix', v_count;
     END IF;
 
     -- The dam release must be rated now, or the tailwater is still ungraded.
@@ -251,12 +269,16 @@ BEGIN
         RAISE EXCEPTION 'recalibrate: Clearwater release still has no ladder';
     END IF;
 
-    -- And the plumbing note must be gone from the paddler-facing panel.
-    PERFORM 1 FROM river_sections rs
-      JOIN rivers r ON r.id = rs.river_id
-     WHERE r.slug = 'black' AND rs.section_slug = 'lower-markham-hammer'
-       AND rs.description IS NOT NULL;
-    IF FOUND THEN
-        RAISE EXCEPTION 'recalibrate: the lower Black still carries a reach description';
+    -- And the plumbing note must be gone from the paddler-facing panel. Asserted
+    -- as "exactly one such section exists AND its description is null", not as
+    -- "no section with a description was found" -- the latter also passes when
+    -- the river slug or the section slug has moved and Part 3 updated nothing.
+    SELECT count(*) INTO v_count
+    FROM river_sections rs
+    JOIN rivers riv ON riv.id = rs.river_id
+    WHERE riv.slug = 'black' AND rs.section_slug = 'lower-markham-hammer'
+      AND rs.description IS NULL;
+    IF v_count <> 1 THEN
+        RAISE EXCEPTION 'recalibrate: expected 1 lower-Black section with no description, found %', v_count;
     END IF;
 END $$;
