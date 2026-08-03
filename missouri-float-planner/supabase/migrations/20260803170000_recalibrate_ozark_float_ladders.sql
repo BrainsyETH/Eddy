@@ -1,7 +1,7 @@
 -- 20260803170000_recalibrate_ozark_float_ladders.sql
 --
--- Recalibrate the float ladders on the lower Current, the Jacks Fork and the
--- Black, and give Clearwater's release a ladder of its own.
+-- Recalibrate the float ladders on the lower Current and the Black, and give
+-- Clearwater's release a ladder of its own.
 --
 -- REPORTED: the Current at Doniphan read "Low" through a normal summer; the
 -- three Jacks Fork gauges disagreed with each other; the Black at Poplar Bluff
@@ -11,7 +11,7 @@
 --
 -- 00177 rebuilt these ladders from MOHERP and was right to. What it could not
 -- see is that MOHERP publishes TWO ratings per gauge -- "Observed" (from real
--- trip reports) and "Estimated" (formula) -- and that on these five gauges the
+-- trip reports) and "Estimated" (formula) -- and that on these gauges the
 -- estimated numbers sit far above what the river actually floats at. 00177's
 -- own policy says observed wins; the mapping it wrote reached for the estimated
 -- "Poor" line for level_too_low on every gauge here, including the ones whose
@@ -24,14 +24,37 @@
 --
 --   gauge                     Aug-3 median   old line that fired    percentile
 --   Current @ Doniphan          1,660 cfs    optimal_min 2,350         ~p87
---   Jacks Fork @ Eminence         185 cfs    too_low     176           ~p47
---   Jacks Fork @ Alley            81 cfs     too_low      76           ~p40
 --   Black @ Poplar Bluff          562 cfs    level_low   650           ~p60
 --
 -- A median summer day landing in "Too Low" or "Low" is the bug. On the lower
 -- Current the ladder could not reach "Flowing" at all below the 87th percentile
 -- -- on the largest-volume spring river in the Ozarks, which Big Spring alone
 -- feeds ~470 cfs. Doniphan was reading "Low" at the 76th percentile of flow.
+--
+-- ── The Jacks Fork is DELIBERATELY not in this migration ────────────────────
+--
+-- All three Jacks Fork gauges carry the same defect (Alley: too_low 76 against
+-- an August median of 81, ~p40; Eminence: too_low 176 against a median of 185,
+-- ~p47; both took optimal_min from MOHERP's ESTIMATED "Low" onset, which sits
+-- ABOVE their OBSERVED "Good" onset of 100 and 200, so "Flowing" could not
+-- begin until the river was already past good).
+--
+-- They are held back because USGS has confirmed a problem with the gauge
+-- record itself, which showed up here as a mass-balance failure. Subtracting
+-- the Alley Spring gauge (07065495, which sits ABOVE the spring inflow) from
+-- Eminence (07066000) gives the implied Alley Spring contribution:
+--
+--   Jul 24-27    69.0  71.2  71.6  58.4
+--   Jul 28-31    39.6  36.3  25.5  41.5     <- halves, then doubles back
+--   Aug 1        66.8
+--
+-- while the upstream gauge fell smoothly (69.0 -> 58.0 -> 61.2) and no rain
+-- fell. A karst spring of Alley's size cannot do that. Recalibrating against a
+-- record the agency has flagged would bake compensation for a sensor fault into
+-- the ladder, and the corrected record will move the very percentiles the new
+-- floors are anchored on. Redo the percentile pull and re-derive the three
+-- ladders once USGS publishes the revised record; the analysis above holds, the
+-- numbers may not.
 --
 -- ── What is NOT changed, and why ────────────────────────────────────────────
 --
@@ -41,22 +64,13 @@
 -- this investigation suggests they over- or under-warn. This migration moves
 -- only the three lines below the optimal band.
 --
--- Jacks Fork near Mountain View keeps its floor at 30 cfs (MOHERP OBSERVED Low)
--- and its optimal_min at 100 (MOHERP OBSERVED Good). Its median August flow of
--- 40 cfs reading "Low" is CORRECT and must not be "fixed": the upper Jacks Fork
--- above Alley is a genuinely seasonal float that is bony all summer. The only
--- change is level_low 100 -> 85, because 00177 set level_low and optimal_min to
--- the same number, leaving the "Good" band empty so the gauge jumped from Low
--- straight to Flowing.
---
 -- ── Sources ────────────────────────────────────────────────────────────────
 --   1. MOHERP per-gauge Observed ratings (rivers.moherp.org/gauge/?gauge=<id>),
---      re-read 2026-08-02. Observed onsets used verbatim where they exist:
---      Alley Good 100, Eminence Good 200, Mountain View Low 30 / Good 100.
+--      re-read 2026-08-02. Neither gauge here has an observed onset -- both
+--      ladders are MOHERP ESTIMATES end to end, which is the point.
 --   2. USGS day-of-year percentiles, full period of record (105 yr Doniphan,
---      104 yr Eminence, 87 yr Poplar Bluff, 33 yr Alley, 24 yr Mountain View).
---      Used ONLY to place the floor lines, never to define the optimal band:
---      level_too_low ~ p5 of summer flow, level_low ~ p25.
+--      87 yr Poplar Bluff). Used ONLY to place the floor lines, never to define
+--      the optimal band: level_too_low ~ p5 of summer flow, level_low ~ p25.
 --   3. USGS exsa rating curves for every cfs -> ft conversion, so the primary
 --      (cfs) and alt (ft) ladders keep describing the same water, per 00177.
 --
@@ -66,7 +80,7 @@
 -- unaffected -- pages compute condition live.
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- Part 1 -- the four USGS ladders
+-- Part 1 -- the two USGS ladders
 -- ─────────────────────────────────────────────────────────────────────────────
 --   cfs: tl lo omin omax hi dng | ft: atl alo aomin aomax ahi adng
 UPDATE river_gauges rg SET
@@ -88,28 +102,6 @@ FROM (VALUES
   -- Doniphan also had no ft ladder at all; filled from the rating curve so the
   -- two units agree, as they do on every other cfs-primary gauge.
   ('07068000', 950, 1250, 1600, 3350, 3350, 7800, -0.99, -0.6, -0.19, 1.39, 1.4, 3.99),
-
-  -- Jacks Fork near Mountain View (upper river, DA 185). Observed anchors kept;
-  -- only the empty Good band is fixed (level_low 100 -> 85, MOHERP est Low).
-  ('07065200', 30, 85, 100, 490, 490, 1200, 0.28, 0.82, 0.93, 2.49, 2.5, 4.06),
-
-  -- Jacks Fork at Alley Spring (DA 298). optimal_min was 159 -- MOHERP's
-  -- ESTIMATED Low onset -- which sits ABOVE its OBSERVED Good onset of 100, so
-  -- "Flowing" could not start until the river was already past good. Floors to
-  -- p5/p25 (39 / 62); optimal_min to the observed 100.
-  --
-  -- NOTE for whoever tunes this next: this gauge sits ABOVE the Alley Spring
-  -- inflow. The spring adds roughly 60-125 cfs to the reach immediately below
-  -- it, so this gauge systematically UNDER-reads the Alley-to-Two-Rivers float
-  -- that most people actually run. Erring low here is the wrong direction.
-  ('07065495', 40, 62, 100, 637, 637, 1000, 0.98, 1.21, 1.49, 3.32, 3.33, 3.96),
-
-  -- Jacks Fork at Eminence (DA 398). Worst of the three: too_low sat at 176
-  -- against an August median of 185, so roughly half of all normal early-August
-  -- days on the most-floated reach of the Jacks Fork reported "Too Low".
-  -- optimal_min was again the estimated Low onset (313) rather than the
-  -- OBSERVED Good onset (200). Floors to p5/p25 (96 / 143).
-  ('07066000', 95, 145, 200, 900, 900, 1700, 1.6, 1.8, 1.98, 3.43, 3.44, 4.51),
 
   -- Black @ Poplar Bluff. Also MOHERP-estimated throughout. level_low 650 sat
   -- above the August median of 562, so ordinary conservation-release water read
@@ -208,7 +200,7 @@ BEGIN
                rg.level_optimal_max omax, rg.level_dangerous dng
         FROM river_gauges rg
         JOIN gauge_stations gs ON gs.id = rg.gauge_station_id
-        WHERE gs.usgs_site_id IN ('07068000','07065200','07065495','07066000','07063000')
+        WHERE gs.usgs_site_id IN ('07068000','07063000')
            OR gs.site_id_external = 'swl-clearwater-dam'
     LOOP
         IF r.t IS NULL OR r.l IS NULL OR r.omin IS NULL OR r.omax IS NULL OR r.dng IS NULL THEN
@@ -221,28 +213,34 @@ BEGIN
     END LOOP;
 
     -- The whole point of the change: a median early-August day must no longer
-    -- grade below "good" on the three year-round floats. These are the p50
-    -- values read from USGS statistics/v0 on 2026-08-03, asserted against
-    -- level_low (the floor of "good") rather than recomputed, so the check
-    -- stays deterministic and offline.
+    -- grade below "good" on either year-round float. These are the p50 values
+    -- read from USGS statistics/v0 on 2026-08-03, asserted against level_low
+    -- (the floor of "good") rather than recomputed, so the check stays
+    -- deterministic and offline.
     SELECT count(*) INTO v_count
     FROM river_gauges rg
     JOIN gauge_stations gs ON gs.id = rg.gauge_station_id
-    JOIN (VALUES ('07068000', 1660), ('07066000', 185), ('07063000', 562)) AS m(site_id, median)
+    JOIN (VALUES ('07068000', 1660), ('07063000', 562)) AS m(site_id, median)
       ON m.site_id = gs.usgs_site_id
     WHERE rg.level_low > m.median;
     IF v_count > 0 THEN
         RAISE EXCEPTION 'recalibrate: % gauge(s) still grade their median August flow below Good', v_count;
     END IF;
 
-    -- Mountain View is the deliberate exception -- the upper Jacks Fork really
-    -- is a seasonal float, and its observed anchors must survive intact.
-    PERFORM 1 FROM river_gauges rg
-      JOIN gauge_stations gs ON gs.id = rg.gauge_station_id
-     WHERE gs.usgs_site_id = '07065200'
-       AND rg.level_too_low = 30 AND rg.level_optimal_min = 100;
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'recalibrate: Mountain View lost its MOHERP observed anchors';
+    -- The Jacks Fork must come out of this migration UNTOUCHED. USGS has an
+    -- open issue with the record; these are 00177's values, and they stay until
+    -- the agency publishes a revised one. If this fires, someone re-added the
+    -- Jacks Fork to Part 1 without redoing the percentile work.
+    SELECT count(*) INTO v_count
+    FROM river_gauges rg
+    JOIN gauge_stations gs ON gs.id = rg.gauge_station_id
+    JOIN (VALUES ('07065200', 30, 100, 100), ('07065495', 76, 100, 159),
+                 ('07066000', 176, 200, 313)) AS j(site_id, tl, lo, omin)
+      ON j.site_id = gs.usgs_site_id
+    WHERE rg.threshold_unit = 'cfs'
+      AND (rg.level_too_low, rg.level_low, rg.level_optimal_min) IS DISTINCT FROM (j.tl, j.lo, j.omin);
+    IF v_count > 0 THEN
+        RAISE EXCEPTION 'recalibrate: % Jacks Fork ladder(s) moved; they are deferred pending the USGS record fix', v_count;
     END IF;
 
     -- The dam release must be rated now, or the tailwater is still ungraded.
