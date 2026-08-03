@@ -38,7 +38,14 @@ own behalf by default is Mapbox, and the app turns that off — see Location.
 
 ## Contact Info → Email Address
 
-**Collected, linked to identity. Purposes: App Functionality, Customer Support.**
+**Collected, linked to identity. Purpose: App Functionality.**
+
+> This said "App Functionality, Customer Support" and sent someone looking for a
+> purpose that does not exist. App Store Connect offers exactly six purposes —
+> Third-Party Advertising, Developer's Advertising or Marketing, Analytics,
+> Product Personalization, App Functionality, Other Purposes. "Customer Support"
+> is a data TYPE under User Content, not a purpose. Replying to a feedback
+> report is App Functionality.
 
 Two sources:
 
