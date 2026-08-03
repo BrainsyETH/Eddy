@@ -261,10 +261,29 @@ Product Catalog → **Offerings** → **+ New**:
 
 - Identifier: `default`
 - Packages: **Annual** → `eddy_plus_annual`, **Monthly** → `eddy_plus_monthly`
+- **Mark it Current.** ← load-bearing, see below
 
 Nothing server-side reads this; the Phase 1 paywall does. Creating it now means
 the app has something to render on day one, and it's what RevenueCat
 Experiments will A/B against later (price testing, per the strategy).
+
+**Two things here the app will not tell you it needs.** The identifier is not
+one of them — `default` is convention, and nothing reads the string:
+
+1. **The offering must be marked CURRENT.** `fetchOfferings` reads
+   `offerings.current` and nothing else. An offering that exists but is not
+   current returns no packages, and the paywall renders "No subscription
+   options are available right now" — indistinguishable from products that were
+   never created. It logs `RevenueCat returned no packages for the current
+   offering`, which is the string to search for when this happens.
+
+2. **Use the standard ANNUAL and MONTHLY package types**, not custom package
+   identifiers. `purchases.ts` branches on `packageType` to decide the plan
+   title, the billing period, the per-month figure, the annual saving, and which
+   plan the sheet opens on. A custom type still sells, but it renders with its
+   raw identifier as its title, no cadence line and no saving — a paywall that
+   looks half-built rather than one that is broken, which is the harder kind to
+   notice.
 
 ---
 
