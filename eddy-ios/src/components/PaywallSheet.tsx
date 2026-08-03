@@ -361,8 +361,15 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
                           .join(', ')}
                         style={({ pressed }) => [
                           styles.option,
+                          // The same depth the benefit cards above carry, so a
+                          // plan reads as one more Eddy card rather than as a
+                          // form control. elevation() sets a 1px border of its
+                          // own; the object after it restores the 2px the
+                          // selected state needs.
+                          elevation(1),
                           {
                             backgroundColor: isSelected ? colors.selectionBg : colors.card,
+                            borderWidth: 2,
                             borderColor: isSelected ? colors.accentFill : colors.border,
                             opacity: pressed ? 0.7 : 1,
                           },
@@ -409,13 +416,26 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
                       {/* Sits ON the card's top edge, so it labels the plan
                           rather than floating above the group. Rendered after
                           the row and not inside it so the row's own padding
-                          does not have to make space for it. */}
+                          does not have to make space for it.
+
+                          THE ONE BRANDED OBJECT DOWN HERE. A coral sticker in
+                          Fredoka with Eddy's face on it — DESIGN.md's own badge
+                          and display face, and the mark it uses everywhere the
+                          product is speaking as Eddy rather than as an
+                          interface. The face is also the honest reading of the
+                          claim: "best value" is a recommendation, and this is
+                          whose. Everything else in the chooser stays in the
+                          app's ordinary selection idiom, because a plan row
+                          that behaves differently from every other selectable
+                          row in the app is a cost the branding does not pay
+                          for. */}
                       {showBadge ? (
                         <View
                           pointerEvents="none"
-                          style={[styles.badge, { backgroundColor: colors.accentFill }]}
+                          style={[styles.badge, { backgroundColor: colors.emphasisFill }]}
                         >
-                          <Text style={[styles.badgeText, { color: colors.onAccent }]}>
+                          <EddySymbol name="eddyRated" size={13} />
+                          <Text style={[styles.badgeText, { color: colors.onEmphasis }]}>
                             BEST VALUE
                           </Text>
                         </View>
@@ -523,13 +543,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 14,
-    paddingHorizontal: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingLeft: 7,
+    paddingRight: 10,
     paddingVertical: 3,
+    // DESIGN.md §4: standard badges are pills, condition badges are not. This
+    // is a standard badge.
     borderRadius: 999,
   },
   // Below the type scale on purpose: it is a label on an object, not a line of
-  // copy, and tracking it out is what keeps it legible that small.
-  badgeText: { fontSize: 10, lineHeight: 13, letterSpacing: 0.8, fontFamily: fonts.semibold },
+  // copy, and tracking it out is what keeps it legible that small. Fredoka
+  // because DESIGN.md gives the display face to the brand name and mascot
+  // callouts, and a sticker with the otter on it is the second of those.
+  badgeText: { fontSize: 10, lineHeight: 14, letterSpacing: 0.8, fontFamily: fonts.display },
   handleRow: { alignItems: 'flex-end', paddingHorizontal: 20, paddingTop: 14 },
   body: { paddingHorizontal: 24, paddingBottom: 24, alignItems: 'center' },
   title: { ...t['2xl'], fontFamily: fonts.displayBold, marginTop: 8, textAlign: 'center' },

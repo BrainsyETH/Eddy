@@ -29,6 +29,11 @@ import {
   type PurchasePackage,
 } from '../../../eddy-ios/src/lib/purchases';
 
+// The two fixtures below carry the SHIPPED US prices — $19.99/yr and $1.99/mo,
+// with the 7-day trial on annual (docs/REVENUECAT_SETUP.md). Nothing asserts
+// the store must return those; they are here so the strings these tests read
+// are the strings a buyer in the US actually sees, and so the arithmetic is
+// exercised on the pair that ships rather than on invented round numbers.
 function pkg(overrides: Partial<PurchasePackage> = {}): PurchasePackage {
   return {
     id: 'annual',
@@ -92,8 +97,8 @@ test('a missing price is never invented, on the button or under it', () => {
 });
 
 test('the row states the price against the period it buys', () => {
-  assert.equal(packagePriceLabel(pkg({ priceString: '$69.99' })), '$69.99/yr');
-  assert.equal(packagePriceLabel(monthlyPkg({ priceString: '$9.99' })), '$9.99/mo');
+  assert.equal(packagePriceLabel(pkg()), '$19.99/yr');
+  assert.equal(packagePriceLabel(monthlyPkg()), '$1.99/mo');
   // An unrecognised package type has no period to name, so it names none
   // rather than guessing one.
   assert.equal(packagePriceLabel(pkg({ period: null, priceString: '$5.00' })), '$5.00');
@@ -102,11 +107,11 @@ test('the row states the price against the period it buys', () => {
 // ── The derived monthly figure ──────────────────────────────────────────────
 
 test('an annual plan is quoted per month AND labelled as billed annually', () => {
-  // The per-month figure is the whole point of the row — $69.99 beside $9.99
+  // The per-month figure is the whole point of the row — $19.99 beside $1.99
   // reads as expensive beside cheap — but it is not what anyone is charged, so
   // it may never appear without "billed annually" beside it.
-  const cadence = packageCadence(pkg({ priceString: '$69.99', priceAmount: 69.99 }));
-  assert.match(String(cadence), /5[.,]83/);
+  const cadence = packageCadence(pkg());
+  assert.match(String(cadence), /1[.,]67/);
   assert.match(String(cadence), /billed annually/);
 });
 
@@ -136,11 +141,11 @@ test('a monthly equivalent is never shown without the numbers to compute it', ()
 // ── The discount ────────────────────────────────────────────────────────────
 
 test('the saving is measured against twelve months of the monthly plan', () => {
-  const percent = annualSavingsPercent(
-    pkg({ priceAmount: 71.88 }),
-    monthlyPkg({ priceAmount: 7.99 }),
-  );
-  assert.equal(percent, 25);
+  // $19.99 against 12 × $1.99 = $23.88. The shipped pair, and a thin margin —
+  // REVENUECAT_SETUP.md calls it a 1.19x premium — which is exactly why the
+  // figure has to be computed from the store's numbers rather than written
+  // down. Repricing either product moves it without anyone editing this app.
+  assert.equal(annualSavingsPercent(pkg(), monthlyPkg()), 16);
 });
 
 test('the saving rounds DOWN, never up', () => {
@@ -176,19 +181,16 @@ test('an unsound comparison yields no discount rather than a wrong one', () => {
 });
 
 test('only the annual plan carries a saving, and only when there is one to carry', () => {
-  const [annual, monthly] = annotateSavings([
-    pkg({ priceAmount: 71.88 }),
-    monthlyPkg({ priceAmount: 7.99 }),
-  ]);
-  assert.equal(annual.savingsPercent, 25);
-  assert.equal(savingsLabel(annual), '25% off');
+  const [annual, monthly] = annotateSavings([pkg(), monthlyPkg()]);
+  assert.equal(annual.savingsPercent, 16);
+  assert.equal(savingsLabel(annual), '16% off');
 
   // The monthly plan is the baseline; it cannot be a discount on itself.
   assert.equal(monthly.savingsPercent, null);
   assert.equal(savingsLabel(monthly), null);
 
   // An offering with no monthly plan has nothing to compare against.
-  const [alone] = annotateSavings([pkg({ priceAmount: 71.88 })]);
+  const [alone] = annotateSavings([pkg()]);
   assert.equal(alone.savingsPercent, null);
   assert.equal(savingsLabel(alone), null);
 });
@@ -236,6 +238,25 @@ test('the paywall opens on the recommended plan and buys the selected one', () =
   // back to being the bigger number.
   assert.match(paywall, /packageCadence\(pkg\)/);
   assert.match(paywall, /savingsLabel\(pkg\)/);
+});
+
+test('the best-value ribbon is the branded object, not a grey chip', () => {
+  // The chooser is otherwise deliberately plain — it uses the same selection
+  // idiom as every other selectable row in the app. This one badge is where the
+  // brand lands, so it is worth pinning: DESIGN.md's coral pill, DESIGN.md's
+  // display face, and the otter mark that says whose recommendation it is.
+  const paywall = readFileSync('../eddy-ios/src/components/PaywallSheet.tsx', 'utf8');
+  assert.match(paywall, /backgroundColor: colors\.emphasisFill/);
+  assert.match(paywall, /color: colors\.onEmphasis/);
+  assert.match(paywall, /fontFamily: fonts\.display\b/);
+  assert.match(paywall, /<EddySymbol name="eddyRated"/);
+
+  // Coral as a fill has one legibility trap and this is it: the website's own
+  // white-on-coral is 2.9:1, which is not good enough for 10pt type on a
+  // purchase screen. The ink must stay the warm near-black.
+  const palette = readFileSync('../eddy-ios/src/theme/palette.ts', 'utf8');
+  assert.match(palette, /onEmphasis: neutral\[950\]/);
+  assert.doesNotMatch(palette, /onEmphasis: '#FFFFFF'/);
 });
 
 test('the annual package is the one marked recommended', () => {
