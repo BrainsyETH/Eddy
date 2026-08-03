@@ -31,6 +31,19 @@ const REDACTIONS: [RegExp, string][] = [
     /((?:api[_-]?key|token|secret|password|authorization)["']?\s*[:=]\s*["']?)[^\s"',}]+/gi,
     '$1[redacted]',
   ],
+  // latitude,longitude pairs
+  //
+  // The app computes position on the device and never sends it anywhere, so a
+  // coordinate can only reach a reporter by riding along in a message — which
+  // is exactly the case a redaction table is for, and which the privacy policy
+  // states plainly is stripped.
+  //
+  // THREE decimal places minimum, and that is what keeps it from eating the
+  // app's own numbers: a pair of gauge readings ("3.40, 2.80") or a river mile
+  // and a distance are two decimals at most, while a real fix off Core Location
+  // carries five or six. Roughly, three decimals is 100 m — below any precision
+  // this app has reason to print about anything but a person.
+  [/-?\b\d{1,3}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}\b/g, '[redacted-coords]'],
 ];
 
 /** Longest single value we will carry. Keeps a huge body out of a report. */

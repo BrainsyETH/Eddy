@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           >
             Privacy Policy
           </h1>
-          <p className="text-white/80">Last updated: August 1, 2026</p>
+          <p className="text-white/80">Last updated: August 3, 2026</p>
         </div>
       </section>
 
@@ -68,9 +68,10 @@ export default function PrivacyPage() {
             <li>
               <strong>Push notification tokens.</strong> If you enable notifications, Eddy stores
               a push token issued by Apple and the notification service, together with the
-              platform, app version, an optional device name, and a record of which alerts were
-              sent to that device. Tokens identify a device installation, not a person, and are
-              removed when the device stops accepting notifications.
+              platform, app version, the device&rsquo;s model name (for example
+              &ldquo;iPhone 15 Pro&rdquo;), and a record of which alerts were sent to that
+              device. Tokens identify a device installation, not a person, and are removed when
+              the device stops accepting notifications.
             </li>
             <li>
               <strong>Subscription status.</strong> If you purchase Eddy Premium, Eddy stores the
@@ -94,8 +95,9 @@ export default function PrivacyPage() {
               from Profile &rsaquo; Storage, and deleting the app removes everything.
             </li>
             <li>
-              <strong>Feedback and correspondence.</strong> Email address, optional name,
-              message, attachments, page or river context, and emails you send to an
+              <strong>Feedback and correspondence.</strong> Email address (required when you
+              send feedback from the app, so we can reply), optional name, message, attachments,
+              page or river context, and emails you send to an
               <code className="mx-1">@eddy.guide</code> address.
             </li>
             <li>
@@ -159,8 +161,8 @@ export default function PrivacyPage() {
             <li><strong>Google Analytics/Tag Manager</strong> for usage measurement when configured.</li>
             <li><strong>Resend</strong> for subscription, inbound email, and reply delivery.</li>
             <li><strong>USGS and weather providers</strong> for river and forecast data. Gauge requests are generally made server-side.</li>
-            <li><strong>Mapbox</strong> for map tiles. Loading a map sends Mapbox your IP address and the area of the map you are looking at, which approximates your location even when you have not granted location access.</li>
-            <li><strong>Sentry</strong> for crash and error reporting from the website and the iOS app. Reports carry device model, operating system, app version, and a stack trace. Access tokens, email addresses, and coordinates are stripped before sending.</li>
+            <li><strong>Mapbox</strong> for map tiles. Loading a map sends Mapbox your IP address and the area of the map you are looking at, which approximates your location even when you have not granted location access. The iOS app switches Mapbox&rsquo;s own usage telemetry off at startup, so it sends Mapbox nothing beyond the tile requests needed to draw the map.</li>
+            <li><strong>Sentry</strong> for crash and error reporting from the website and the iOS app. Reports carry device model, operating system, app version, and a stack trace. Access tokens, email addresses, and coordinates are stripped on your device before anything is sent.</li>
             <li><strong>RevenueCat</strong> for subscription purchases and their status. RevenueCat receives your Eddy account identifier and the purchase records Apple returns. Eddy never receives your payment details — those stay with Apple.</li>
             <li><strong>Expo</strong> for delivering push notifications to the iOS app. Expo receives a device push token and the contents of each notification, which name the river and its condition.</li>
             <li><strong>Apple</strong> for Sign in with Apple and for all subscription billing.</li>
@@ -198,8 +200,25 @@ export default function PrivacyPage() {
             <li>Use an unlisted shared-plan link only with people you trust.</li>
             <li>Do not include faces, license plates, children, or private details in community photos.</li>
             <li>Use the unsubscribe option in an email or contact us to stop email updates.</li>
+            <li>
+              <strong>Delete your account in the app.</strong> In the iOS app, open Profile and
+              choose Delete account. Deletion happens immediately and removes your account, your
+              saved float plans, favorites, alert rules, and registered devices. It does not
+              cancel an active subscription &mdash; Apple manages billing, so cancel there first
+              if you want it stopped.
+            </li>
             <li>Ask to access, correct, or delete information associated with your email or submission.</li>
           </ul>
+        </section>
+
+        <section>
+          <h2 className={heading}>No Advertising or Tracking</h2>
+          <p className={body}>
+            Eddy shows no advertising, does not use the advertising identifier (IDFA), and does not
+            track you across other companies&rsquo; apps or websites. Nothing here is sold or shared
+            with data brokers. Because Eddy does no such tracking, the iOS app never shows
+            Apple&rsquo;s App Tracking Transparency prompt.
+          </p>
         </section>
 
         <section>

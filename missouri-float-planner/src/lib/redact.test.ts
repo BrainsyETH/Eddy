@@ -27,6 +27,8 @@ const CORPUS = [
   'api_key: pk_test_notreal',
   'password="hunter2"',
   'token=abc123def456',
+  'at 37.15412, -91.56231 when it threw',
+  'gauge read 3.40, 2.80 at the time',
   'no secrets in this one at all',
   '',
 ];
@@ -59,6 +61,26 @@ test('an email in a thrown message is redacted', () => {
   // Apple returns a real address on first authorisation, and it passes through
   // signInWithApple — so it is one throw away from an error report.
   assert.equal(appRedact('no account for evan@eddy.guide'), 'no account for [redacted-email]');
+});
+
+test('a coordinate pair never survives redaction', () => {
+  // The privacy policy states that coordinates are stripped before anything
+  // leaves the device. Location is computed on-device and never sent, so the
+  // only way one reaches a reporter is inside a message — which is this.
+  const out = appRedact('locate failed near 37.15412, -91.56231');
+  assert.match(out, /\[redacted-coords\]/);
+  assert.ok(!out.includes('37.15412'), 'the raw latitude survived redaction');
+  assert.ok(!out.includes('-91.56231'), 'the raw longitude survived redaction');
+});
+
+test("the coordinate rule does not eat the app's own two-decimal readings", () => {
+  // A stage and a discharge printed together are the shape this rule is most
+  // likely to catch by accident, and a report that redacted its own gauge
+  // numbers would be useless for the bugs it exists to diagnose.
+  const readings = 'gauge height 3.40, discharge 2.80';
+  assert.equal(appRedact(readings), readings);
+  // River mile and distance, the other pairing that shows up in this app.
+  assert.equal(appRedact('mile 12.75, 4.20 away'), 'mile 12.75, 4.20 away');
 });
 
 test('redactValue leaves non-strings that cannot carry a secret alone', () => {

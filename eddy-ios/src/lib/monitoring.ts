@@ -18,9 +18,13 @@
 //
 // ── Two deliberate restraints ──────────────────────────────────────────────
 //
-// NOTHING LEAVES UNREDACTED. See src/lib/redact.ts — beforeSend and
-// beforeBreadcrumb both run over it. Sentry's own server-side scrubbing is one
-// hop too late for a token that should never have left the phone.
+// NOTHING LEAVES UNREDACTED. See src/lib/redact.ts for the table and
+// src/lib/scrub-event.ts for which fields of an event it is applied to —
+// beforeSend and beforeBreadcrumb both run over it. Sentry's own server-side
+// scrubbing is one hop too late for a token that should never have left the
+// phone. The scrubber lives in its own module so the web app's test runner can
+// load it without @sentry/react-native; it went a long time uncovered, and
+// missing the field captureException actually writes to.
 //
 // NO PERFORMANCE TRACING, NO PII. tracesSampleRate is 0 and sendDefaultPii is
 // false. We want crashes and handled errors; traces would spend the quota on
@@ -31,6 +35,7 @@ import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { pickEnvironment } from '@/lib/app-environment';
 import { isContextBag, redactContext, redactText, redactValue } from '@/lib/redact';
+import { scrubEvent } from '@/lib/scrub-event';
 import {
   createReportBudget,
   fingerprintOf,
@@ -77,14 +82,6 @@ export type LogTag =
  * hitting a bug and reopens to try again.
  */
 const budget = createReportBudget();
-
-function scrubEvent<T extends { message?: unknown; extra?: unknown }>(event: T): T {
-  if (typeof event.message === 'string') event.message = redactText(event.message);
-  if (event.extra && typeof event.extra === 'object') {
-    event.extra = redactContext(event.extra as Record<string, unknown>);
-  }
-  return event;
-}
 
 /**
  * Call once, at module scope in app/_layout.tsx, before anything renders.
