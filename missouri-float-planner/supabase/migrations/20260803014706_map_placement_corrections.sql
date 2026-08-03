@@ -1,13 +1,13 @@
--- 20260803160000_map_placement_corrections.sql
+-- 20260803014706_map_placement_corrections.sql
 -- Places that draw in the wrong spot on the map.
 --
 -- Two unrelated defects with one symptom: a pin miles from the water it belongs
 -- to. Reported from the app as "some of the campgrounds and hazards are in the
 -- wrong location, examples: Red Bluff and Dillard Mill".
 --
--- NOT APPLIED BY THIS CHANGE. This file is the correction; running it against
--- production is a separate, deliberate act. Every UPDATE below is idempotent and
--- addressed by slug or id, so re-running it is a no-op.
+-- APPLIED to production on 2026-08-03, recorded as migration 20260803014706.
+-- Every UPDATE below is idempotent and addressed by slug or by distance from the
+-- river line, so re-running it is a no-op.
 --
 --
 -- ── 1. Two campgrounds that are the same place twice ────────────────────────
@@ -38,6 +38,11 @@
 -- copied the error from one table into the other. (The seed is fixed too, and
 -- the two files now agree to the sixth decimal — but a data correction that
 -- depends on another data correction having run first is not a correction.)
+--
+-- scripts/seed-nearby-services.ts, which is where these two service rows are
+-- generated from and is re-runnable against production, carried the same wrong
+-- pair and is corrected in the same change. Without that, the next seed run
+-- would have put both campgrounds back in the wrong county.
 --
 -- The app now also DROPS a service campground that sits on top of a drawn access
 -- point (drawnAsAccessPoint in eddy-ios/src/map/layers.ts), so after this these
