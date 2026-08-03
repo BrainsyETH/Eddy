@@ -28,9 +28,14 @@
 // basemap tiles while the half that makes a river readable without a signal
 // shipped free to everyone. One gate, one thing sold.
 //
-// EVERY STRING ON THIS SHEET COMES FROM src/lib/premiumCopy.ts. It is not
+// EVERY WORD OF THE PITCH COMES FROM src/lib/premiumCopy.ts. It is not
 // centralised for tidiness: the gauge screen carried a second, contradictory
-// pitch for months, and neither surface could have caught the other.
+// pitch for months, and neither surface could have caught the other. The
+// numbers — plan titles, prices, the monthly equivalent, the saving and the
+// renewal terms — come from src/lib/purchases.ts instead, because they are
+// derived from what the store returned rather than written. Nothing on this
+// screen is a string literal in this file except the two link labels and the
+// renewal paragraph App Review requires verbatim.
 
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -55,11 +60,15 @@ import { waitForEntitlement } from '@/api/client';
 import {
   fetchOfferings,
   identifyUser,
+  packageCadence,
   packageCta,
+  packagePriceLabel,
+  packageTerms,
   PREMIUM_UNAVAILABLE_COPY,
   purchasePackage,
   purchasesUnavailableReason,
   restorePurchases,
+  savingsLabel,
   type PurchasePackage,
 } from '@/lib/purchases';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
@@ -95,12 +104,26 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
   const { session, isAnonymous, getAccessToken, signInWithApple } = useSession();
 
   const [packages, setPackages] = useState<PurchasePackage[] | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<null | 'apple' | 'buy' | 'restore'>(null);
 
   const userId = session?.user?.id ?? null;
   const signedIn = Boolean(userId) && !isAnonymous;
   const blocked = purchasesUnavailableReason(userId, isAnonymous);
+
+  // YEARLY IS THE DEFAULT, and it is derived rather than stored so that it is
+  // the default *every* time the sheet opens — a visit that ended on Monthly
+  // without buying does not decide what the next one is preselecting. Holding
+  // only the explicit tap in state and falling back through `recommended` also
+  // means the choice never has to be reconciled with a package list that
+  // arrives after the sheet does, or with an offering that changed shape
+  // between two opens.
+  const selected =
+    packages?.find((pkg) => pkg.id === selectedId) ??
+    packages?.find((pkg) => pkg.recommended) ??
+    packages?.[0] ??
+    null;
 
   // Offerings load only once someone is signed in, because that is the earliest
   // point the SDK is configured — see identifyUser. Loading them behind the
@@ -192,7 +215,16 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
   }, [getAccessToken, onPurchased, onClose]);
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+      // Fires however the sheet went away — the close button, a swipe down, or
+      // a purchase completing — which is what makes the fallback above resolve
+      // back to Yearly on the next open. See `selected`.
+      onDismiss={() => setSelectedId(null)}
+    >
       <View style={[styles.sheet, { backgroundColor: colors.bg }]}>
         <View style={styles.handleRow}>
           <Pressable
@@ -294,52 +326,160 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
           ) : packages === null ? (
             <ActivityIndicator color={colors.interactive} style={styles.footerBusy} />
           ) : (
-            packages.map((pkg) => (
-              <Pressable
-                key={pkg.id}
-                onPress={() => void handleBuy(pkg)}
-                disabled={busy !== null}
-                style={({ pressed }) => [
-                  pkg.recommended ? styles.primary : styles.secondary,
-                  {
-                    backgroundColor: pkg.recommended ? colors.accentFill : 'transparent',
-                    borderColor: colors.border,
-                    opacity: pressed || busy !== null ? 0.6 : 1,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    pkg.recommended ? styles.primaryText : styles.secondaryText,
-                    { color: pkg.recommended ? colors.onAccent : colors.textMuted },
-                  ]}
-                >
-                  {busy === 'buy' ? 'One moment…' : packageCta(pkg)}
-                </Text>
-              </Pressable>
-            ))
+            <>
+              {/* CHOOSE, THEN BUY — one row per plan and one button, rather
+                  than a button per plan.
+
+                  Two plans as two buttons made the yearly one a decision
+                  between two prices with nothing to compare them by: $69.99
+                  beside $9.99 reads as expensive beside cheap, when it is in
+                  fact the cheaper of the two. Rows carry the monthly
+                  equivalent and the saving, so the comparison is on the screen
+                  instead of in the reader's head — and the one the offer is
+                  built around starts selected. */}
+              <View style={styles.options}>
+                {packages.map((pkg) => {
+                  const isSelected = pkg.id === selected?.id;
+                  const cadence = packageCadence(pkg);
+                  const saving = savingsLabel(pkg);
+                  const price = packagePriceLabel(pkg);
+                  // "Best value" is a comparison, so it needs something to
+                  // compare against. An offering that ships one plan gets the
+                  // row without the ribbon rather than a superlative over an
+                  // empty field.
+                  const showBadge = pkg.recommended && packages.length > 1;
+
+                  return (
+                    <View key={pkg.id} style={showBadge ? styles.optionSlot : undefined}>
+                      <Pressable
+                        onPress={() => setSelectedId(pkg.id)}
+                        disabled={busy !== null}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: isSelected, disabled: busy !== null }}
+                        accessibilityLabel={[pkg.title, price, cadence, saving]
+                          .filter(Boolean)
+                          .join(', ')}
+                        style={({ pressed }) => [
+                          styles.option,
+                          {
+                            backgroundColor: isSelected ? colors.selectionBg : colors.card,
+                            borderColor: isSelected ? colors.accentFill : colors.border,
+                            opacity: pressed ? 0.7 : 1,
+                          },
+                        ]}
+                      >
+                        <View style={styles.optionMain}>
+                          <View style={styles.optionTitleRow}>
+                            <Text
+                              style={[
+                                styles.optionTitle,
+                                { color: isSelected ? colors.selectionText : colors.text },
+                              ]}
+                            >
+                              {pkg.title}
+                            </Text>
+                            {/* Green rather than the brand coral: coral fails
+                                contrast at this size on both selected
+                                surfaces, and a saving is good news. */}
+                            {saving ? (
+                              <Text style={[styles.optionSaving, { color: colors.success }]}>
+                                {saving}
+                              </Text>
+                            ) : null}
+                          </View>
+                          {cadence ? (
+                            <Text style={[styles.optionCadence, { color: colors.textMuted }]}>
+                              {cadence}
+                            </Text>
+                          ) : null}
+                        </View>
+
+                        {price ? (
+                          <Text
+                            style={[
+                              styles.optionPrice,
+                              { color: isSelected ? colors.selectionText : colors.text },
+                            ]}
+                          >
+                            {price}
+                          </Text>
+                        ) : null}
+                      </Pressable>
+
+                      {/* Sits ON the card's top edge, so it labels the plan
+                          rather than floating above the group. Rendered after
+                          the row and not inside it so the row's own padding
+                          does not have to make space for it. */}
+                      {showBadge ? (
+                        <View
+                          pointerEvents="none"
+                          style={[styles.badge, { backgroundColor: colors.accentFill }]}
+                        >
+                          <Text style={[styles.badgeText, { color: colors.onAccent }]}>
+                            BEST VALUE
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+
+              {selected ? (
+                <>
+                  <Pressable
+                    onPress={() => void handleBuy(selected)}
+                    disabled={busy !== null}
+                    accessibilityRole="button"
+                    style={({ pressed }) => [
+                      styles.primary,
+                      {
+                        backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill,
+                        opacity: busy !== null ? 0.6 : 1,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.primaryText, { color: colors.onAccent }]}>
+                      {busy === 'buy' ? 'One moment…' : packageCta(selected)}
+                    </Text>
+                  </Pressable>
+
+                  {/* What the button above actually costs. The row states the
+                      price; this states the commitment, and for a trial it is
+                      the only place that says what happens when it ends. */}
+                  <Text style={[styles.terms, { color: colors.textMuted }]}>
+                    {packageTerms(selected)}
+                  </Text>
+                </>
+              ) : null}
+            </>
           )}
 
           {/* Restore has to be reachable from the purchase screen itself, not
               only from Profile — a reviewer looks for it here, and so does
-              anyone who already paid and is seeing this wall by mistake. */}
-          {signedIn && (
-            <Pressable onPress={() => void handleRestore()} disabled={busy !== null} hitSlop={8}>
-              <Text style={[styles.restore, { color: colors.textMuted }]}>
-                {busy === 'restore' ? 'Restoring…' : 'Restore purchases'}
-              </Text>
-            </Pressable>
-          )}
+              anyone who already paid and is seeing this wall by mistake.
 
-          <Pressable
-            onPress={onClose}
-            style={({ pressed }) => [
-              styles.secondary,
-              { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
-            ]}
-          >
-            <Text style={[styles.secondaryText, { color: colors.textMuted }]}>Not now</Text>
-          </Pressable>
+              It and "Not now" are text links rather than the bordered buttons
+              they used to be: the chooser needs the height, and a full-width
+              outlined button is the shape of the thing being offered. Neither
+              of these is that. Dismissing also still has the close control at
+              the top of the sheet and the swipe. */}
+          <View style={styles.footerLinks}>
+            {signedIn ? (
+              <>
+                <Pressable onPress={() => void handleRestore()} disabled={busy !== null} hitSlop={8}>
+                  <Text style={[styles.footerLink, { color: colors.textMuted }]}>
+                    {busy === 'restore' ? 'Restoring…' : 'Restore purchases'}
+                  </Text>
+                </Pressable>
+                <Text style={[styles.footerLink, { color: colors.textSubtle }]}>·</Text>
+              </>
+            ) : null}
+
+            <Pressable onPress={onClose} hitSlop={8}>
+              <Text style={[styles.footerLink, { color: colors.textMuted }]}>Not now</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     </Modal>
@@ -353,7 +493,43 @@ const styles = StyleSheet.create({
   footerBusy: { paddingVertical: 16 },
   primary: { borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
   primaryText: { ...t.base, fontFamily: fonts.semibold },
-  restore: { ...t.xs, fontFamily: fonts.medium, textAlign: 'center', paddingVertical: 4 },
+  terms: { ...t.xs, fontFamily: fonts.body, textAlign: 'center' },
+  footerLinks: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  footerLink: { ...t.sm, fontFamily: fonts.medium, paddingVertical: 4 },
+
+  // ── The plan chooser ──────────────────────────────────────────────────────
+  options: { alignSelf: 'stretch', gap: 10 },
+  // Room above the recommended row for the badge that overhangs it. Only that
+  // row gets it, so an offering without one loses the gap too.
+  optionSlot: { paddingTop: 9 },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    // The same width whether or not it is selected — a border that thickens on
+    // selection reflows both rows under the thumb that just tapped one.
+    borderWidth: 2,
+  },
+  optionMain: { flex: 1 },
+  optionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  optionTitle: { ...t.base, fontFamily: fonts.semibold },
+  optionSaving: { ...t.xs, fontFamily: fonts.semibold },
+  optionCadence: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  optionPrice: { ...t.base, fontFamily: fonts.semibold },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    left: 14,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  // Below the type scale on purpose: it is a label on an object, not a line of
+  // copy, and tracking it out is what keeps it legible that small.
+  badgeText: { fontSize: 10, lineHeight: 13, letterSpacing: 0.8, fontFamily: fonts.semibold },
   handleRow: { alignItems: 'flex-end', paddingHorizontal: 20, paddingTop: 14 },
   body: { paddingHorizontal: 24, paddingBottom: 24, alignItems: 'center' },
   title: { ...t['2xl'], fontFamily: fonts.displayBold, marginTop: 8, textAlign: 'center' },
@@ -399,6 +575,4 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   pendingText: { ...t.sm, fontFamily: fonts.semibold },
-  secondary: { alignItems: 'center', paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
-  secondaryText: { ...t.sm, fontFamily: fonts.semibold },
 });
