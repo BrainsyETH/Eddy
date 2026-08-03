@@ -353,6 +353,62 @@ export function layerKeysFor(layer: LayerDef): LayerKey[] {
 /** Service types that belong under the Outfitters row rather than Campgrounds. */
 export const OUTFITTER_SERVICE_TYPES = ['outfitter', 'canoe_rental', 'shuttle', 'lodging'];
 
+// ── One place, one pin ──────────────────────────────────────────────────────
+//
+// A campground can reach the map from two tables. `access_points` holds the ones
+// you can also put in at — Red Bluff, Hazel Creek, Montauk — tagged `campground`
+// among their types. `nearby_services` holds campgrounds as businesses, and
+// several of them are the SAME PLACE as an access point, seeded separately years
+// apart from different sources.
+//
+// That was survivable for exactly as long as the two copies disagreed about
+// where the place is, because the duplicate landed miles away and read as a
+// second campground. It is not survivable once they agree: two pins on one
+// coordinate, one of them carrying the access point's planner actions and photo
+// and one of them carrying a phone number, with no way to tell which is on top.
+//
+// So a service that sits on top of a drawn access point is dropped, and the
+// access point — the richer record, and the one the planner can use — wins.
+
+/**
+ * How close counts as "the same place", in degrees of latitude.
+ *
+ * ~0.002° is a little over 200 m. Generous on purpose: the two records were
+ * geocoded independently, and a campground is an area rather than a point — a
+ * service pinned at the entrance and an access point pinned at the ramp are one
+ * place even though they are two hundred metres apart. Nothing legitimate is
+ * lost at this radius; two DIFFERENT campgrounds that close together on one
+ * river do not exist in this dataset.
+ */
+const SAME_PLACE_DEGREES = 0.002;
+
+/**
+ * Is this service already on the map as an access point?
+ *
+ * Position, not name. "Red Bluff Campground" and "Red Bluff Recreation Area"
+ * are one place under two names, and the reverse trap exists too — matching on
+ * names would eventually collapse two genuinely different places that share a
+ * creek's name. What the reader is being spared is two pins in one spot, which
+ * is a question about coordinates.
+ *
+ * Longitude is scaled by latitude so the box is square on the ground. At 37°N a
+ * degree of longitude is about four fifths of a degree of latitude, and an
+ * unscaled comparison would quietly make the box wider than it is tall.
+ */
+export function drawnAsAccessPoint(
+  service: { latitude: number | null; longitude: number | null },
+  points: readonly { coordinates: { lng: number; lat: number } }[],
+): boolean {
+  const { latitude, longitude } = service;
+  if (latitude == null || longitude == null) return false;
+  const lngScale = Math.max(0.2, Math.cos((latitude * Math.PI) / 180));
+  return points.some(
+    (point) =>
+      Math.abs(point.coordinates.lat - latitude) <= SAME_PLACE_DEGREES &&
+      Math.abs(point.coordinates.lng - longitude) <= SAME_PLACE_DEGREES / lngScale,
+  );
+}
+
 // ── Weather radar tiles ─────────────────────────────────────────────────────
 //
 // ── Why not NOAA directly ──────────────────────────────────────────────────

@@ -1173,8 +1173,11 @@ const services: ServiceRecord[] = [
     city: 'Davisville',
     state: 'MO',
     zip: '65456',
-    latitude: 37.8862,
-    longitude: -91.3390,
+    // Corrected 2026-08-03 (migration 20260803014706): the previous
+    // 37.8862, -91.3390 sat 8.71 mi west of Huzzah Creek. This matches the
+    // `red-bluff` access point and OSM node 12537584637.
+    latitude: 37.815520,
+    longitude: -91.169350,
     description: 'USFS campground in the Mark Twain National Forest on Huzzah Creek. Four camping loops with mix of electric and primitive sites. Named for towering red bluffs carved over thousands of years.',
     services_offered: ['camping_rv', 'camping_primitive', 'showers'],
     seasonal_notes: 'Reservations via Recreation.gov. Some loops seasonal.',
@@ -1203,8 +1206,11 @@ const services: ServiceRecord[] = [
     city: 'Viburnum',
     state: 'MO',
     zip: '65566',
-    latitude: 37.8300,
-    longitude: -91.3826,
+    // Corrected 2026-08-03 (migration 20260803014706): the previous
+    // 37.8300, -91.3826 sat 10.58 mi west of Huzzah Creek. This matches the
+    // `dillard-mill` access point and OSM node 358084313.
+    latitude: 37.720300,
+    longitude: -91.204800,
     description: 'State historic site on upper Huzzah Creek featuring a beautifully restored 1908 red gristmill. Uppermost access point for Huzzah Creek. Picnic area and hiking trail.',
     services_offered: [],
     seasonal_notes: 'Park open year-round. Mill tours May–Oct.',

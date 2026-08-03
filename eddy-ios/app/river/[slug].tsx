@@ -34,14 +34,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type {
+  MapAccessPoint,
   MapGauge,
   RiverConditionDetail,
   RiverListItem,
   RiverOutlookResponse,
+  RiverService,
   RiverVisualsResponse,
   DamSnapshot,
 } from '@eddy/types';
-import { accessPointTypes, accessTypeLabel } from '@eddy/types';
+import { accessPointTypes, accessTypeLabel, isCampground } from '@eddy/types';
 import {
   criticalHazards,
   hazardConditionCode,
@@ -124,6 +126,15 @@ import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
  *
  * Local to this screen rather than extracted — one file, two uses.
  */
+/**
+ * Direction, as a glyph. The same three the Today rows and Favorites cards use.
+ */
+const TREND_ICON = {
+  rising: 'arrow-up',
+  falling: 'arrow-down',
+  steady: 'remove',
+} as const;
+
 function UnavailableNote({ text, onRetry }: { text: string; onRetry: () => void }) {
   const { colors } = useTheme();
   return (
@@ -133,6 +144,171 @@ function UnavailableNote({ text, onRetry }: { text: string; onRetry: () => void 
       <Pressable onPress={onRetry} hitSlop={8} accessibilityRole="button">
         <Text style={[styles.retryLink, { color: colors.interactive }]}>Try again</Text>
       </Pressable>
+    </View>
+  );
+}
+
+/**
+ * One place on the river you can get to.
+ *
+ * Extracted so Access points and Campgrounds draw the SAME row rather than two
+ * that look alike — a campground reached through the second heading has to open
+ * the same detail screen, carry the same photo and hand over the same
+ * coordinate as the one reached through the first, and two copies of eighty
+ * lines of JSX is how that stops being true.
+ */
+function AccessRow({ point, riverSlug }: { point: MapAccessPoint; riverSlug: string }) {
+  const router = useRouter();
+  const { colors, elevation } = useTheme();
+
+  return (
+    /* THE ROW OPENS THE PLACE; the arrow still opens Maps.
+
+       These rows went straight to Apple Maps, which answered "how do I get
+       there" and foreclosed every other question a put-in raises — is the last
+       mile gravel, is there room for a trailer, is there a toilet, who runs a
+       shuttle. All of that was already in the database and on the website, and
+       the app had no screen for it.
+
+       So the row is a destination and directions is a control ON the row,
+       rather than the row being the control. Nothing that worked before stopped
+       working: the navigate arrow to the right is the same one-tap handoff,
+       still by coordinate and never by name — "Akers Ferry" is ambiguous to a
+       geocoder and most Ozark access points are not in one at all. See
+       src/lib/directions.ts.
+
+       A point with no slug cannot be addressed, so it keeps the old behaviour
+       of opening Maps directly rather than offering a destination that 404s.
+       `slug` is optional on MapAccessPoint for exactly this reason. */
+    <Pressable
+      onPress={() =>
+        point.slug
+          ? router.push(`/river/${riverSlug}/access/${encodeURIComponent(point.slug)}`)
+          : void Linking.openURL(driveToUrl(point))
+      }
+      style={({ pressed }) => [
+        styles.accessRow,
+        { backgroundColor: colors.card, opacity: pressed ? 0.6 : 1 },
+        elevation(1),
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={
+        point.slug
+          ? `${point.name}, mile ${point.riverMile}`
+          : `Directions to ${point.name}, mile ${point.riverMile}`
+      }
+    >
+      {/* WHAT IT LOOKS LIKE. A put-in's name is a label and its river mile is a
+          coordinate; neither answers the question people actually have standing
+          in a driveway with a boat on the roof, which is whether they can get
+          down there. The photo does, and it has been on the wire all along —
+          see imageUrls on MapAccessPoint.
+
+          The icon stays for every point without one, rather than a grey
+          placeholder box: coverage is partial by nature, and a row that looks
+          broken is worse than a row that is plain. `isPublic` keeps its cue in
+          the meta line below either way. */}
+      {point.imageUrls?.[0] ? (
+        <Image
+          source={{ uri: point.imageUrls[0] }}
+          style={[styles.accessThumb, { backgroundColor: colors.cardRaised }]}
+          // Required by RN's a11y lint: a photograph must not be
+          // colour-inverted by Smart Invert, unlike UI chrome.
+          accessibilityIgnoresInvertColors
+        />
+      ) : (
+        // Eddy's mark, whether or not the point is public. A padlock here
+        // swapped the brand out for a warning glyph on the one row that most
+        // needs to look like a place you could go and ask; `isPublic` is stated
+        // in the meta line below instead.
+        //
+        // The CAMPGROUND mark on a place you can sleep at, since this row now
+        // appears under two headings and the mark is the fastest way to tell
+        // which kind of stop it is when it is not carrying a photo.
+        <EddySymbol name={isCampground(point) ? 'campground' : 'accessPoint'} size={17} />
+      )}
+      <View style={styles.accessBody}>
+        <Text style={[styles.accessName, { color: colors.text }]}>{point.name}</Text>
+        <Text style={[styles.accessMeta, { color: colors.textMuted }]}>
+          {/* What is actually there, from the same resolver the map callout
+              uses — a boat ramp you can camp at is a different stop from a
+              gravel bar. */}
+          {[
+            `Mile ${point.riverMile}`,
+            ...accessPointTypes(point).map(accessTypeLabel),
+            point.isPublic ? null : 'Private',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </Text>
+      </View>
+      {/* A SIBLING of the row's own Pressable, never a child — the same
+          arrangement RiverRow settled on for its star, so the two touch areas
+          cannot overlap and a tap near the arrow cannot be ambiguous about
+          which it meant. Only drawn where the row itself goes somewhere else;
+          on a slug-less point the whole row is already the directions
+          handoff. */}
+      {point.slug ? (
+        <Pressable
+          onPress={() => void Linking.openURL(driveToUrl(point))}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={`Directions to ${point.name}`}
+        >
+          <Ionicons name="navigate-outline" size={17} color={colors.interactive} />
+        </Pressable>
+      ) : (
+        <Ionicons name="navigate-outline" size={16} color={colors.interactive} />
+      )}
+    </Pressable>
+  );
+}
+
+/**
+ * A business on the river: an outfitter, a shuttle, or a campground.
+ *
+ * Shared by Outfitters and Campgrounds. Rows carry only the actions that exist
+ * — a dial button on a service with no number is a control that fails when
+ * pressed.
+ */
+function ServiceRow({ service }: { service: RiverService }) {
+  const { colors, elevation } = useTheme();
+
+  return (
+    <View style={[styles.serviceRow, { backgroundColor: colors.card }, elevation(1)]}>
+      <View style={styles.serviceBody}>
+        <Text style={[styles.serviceName, { color: colors.text }]} numberOfLines={1}>
+          {service.name}
+        </Text>
+        <Text style={[styles.serviceMeta, { color: colors.textMuted }]} numberOfLines={1}>
+          {[
+            [service.city, service.state].filter(Boolean).join(', '),
+            ...service.servicesOffered.slice(0, 2),
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </Text>
+      </View>
+      {service.phone ? (
+        <Pressable
+          onPress={() => void Linking.openURL(`tel:${service.phone!.replace(/[^\d+]/g, '')}`)}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={`Call ${service.name}`}
+        >
+          <Ionicons name="call-outline" size={19} color={colors.interactive} />
+        </Pressable>
+      ) : null}
+      {service.website ? (
+        <Pressable
+          onPress={() => void Linking.openURL(service.website!)}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={`Open ${service.name} website`}
+        >
+          <Ionicons name="open-outline" size={19} color={colors.interactive} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -620,6 +796,47 @@ export default function RiverDetailScreen() {
   // conditional hook. Same reason the sorted hazards above are computed inline.
   const outfitters = services.filter((s) => OUTFITTER_SERVICE_TYPES.includes(s.type));
 
+  // ── The two halves of "where can I camp on this river" ──────────────────────
+  // isCampground is the shared resolver in @eddy/types — the same one the map's
+  // campground layer and the planner's overnight logic ask — so a place that
+  // counts as a campground on the map counts as one here. Reading `type` alone
+  // would miss every put-in tagged both, which is most of them.
+  const campgroundPoints = accessPoints.filter(isCampground);
+  // Services excluded from Outfitters above. Until this section existed they
+  // were fetched on every river screen and drawn on none of them.
+  const campgroundServices = services.filter((s) => s.type === 'campground');
+  const campgroundTotal = campgroundPoints.length + campgroundServices.length;
+  // Says how many of them you can also put in at, because that is the thing
+  // this section is otherwise silently repeating from the list above it.
+  const campgroundSummary =
+    campgroundPoints.length > 0
+      ? `${campgroundTotal} · ${campgroundPoints.length} you can also put in at`
+      : `${campgroundTotal} on this river`;
+
+  /**
+   * Which way the water is going, for the station actually on screen.
+   *
+   * ── The outlook is the authority, because it FOLLOWS THE PICKER ───────────
+   * /outlook?gaugeId re-reads the whole panel for whichever station the picker
+   * is on and returns that station's trend with it. The rivers index also
+   * carries one — it is what the Today and Favorites rows draw — but it is
+   * always the RIVER's rated gauge, so on a five-gauge river it would print
+   * Van Buren's direction under a Montauk reading. That is the same mismatch
+   * the outlook effect was written to end.
+   *
+   * So: the outlook's trend when there is an outlook, the index's only while
+   * the primary is the one being shown, and nothing at all otherwise. Nothing
+   * is worse than a direction belonging to another stretch.
+   *
+   * Withheld on a CACHED reading for the same reason the percentile is: the
+   * trend arrives live and the number beside it did not, and a fresh "Rising
+   * fast" over a two-day-old reading is the screen contradicting itself.
+   */
+  const shownTrend =
+    band !== 'fresh'
+      ? null
+      : (outlook?.trend ?? (pickedGauge ? null : (river.currentCondition?.trend ?? null)));
+
   const caveat = condition && !pickedGauge ? accuracyNote(condition) : null;
   const percentileText = percentileSentence(condition?.percentile);
   const starred = isStarred('river', river.id);
@@ -771,16 +988,41 @@ export default function RiverDetailScreen() {
 
           {/* Past forty-eight hours the age is not printed at all. "Updated 3
               days ago" invites arithmetic against water that has rained twice
-              since; the honest form is to stop claiming an age. */}
-          {readingAgeHours != null && band !== 'expired' ? (
+              since; the honest form is to stop claiming an age.
+
+              ── The trend rides on the right of this line ──────────────
+              Every list in the app has shown which way the water is going —
+              the Today rows, the Favorites cards — and the one screen devoted
+              to a single river did not, so opening a river from a card that
+              said "Rising fast" lost the only forward-looking thing on it.
+
+              It sits here rather than beside the number because it belongs to
+              the same claim this line makes: which station, how long ago, and
+              which way it has moved since. Muted ink, never green-for-rising —
+              on a river approaching flood "rising fast" is the opposite of good
+              news, and the chip above already carries the verdict. */}
+          {(readingAgeHours != null && band !== 'expired') || shownTrend ? (
             <View style={styles.updatedRow}>
               {cachedReading ? (
                 <Ionicons name="cloud-offline-outline" size={12} color={colors.textSubtle} />
               ) : null}
-              <Text style={[styles.updated, { color: colors.textSubtle }]}>
-                {readingAge(readingAgeHours)}
-                {shownGaugeName ? ` · ${shownGaugeName}` : ''}
+              <Text style={[styles.updated, { color: colors.textSubtle }]} numberOfLines={1}>
+                {readingAgeHours != null && band !== 'expired'
+                  ? `${readingAge(readingAgeHours)}${shownGaugeName ? ` · ${shownGaugeName}` : ''}`
+                  : (shownGaugeName ?? '')}
               </Text>
+              {shownTrend ? (
+                <View style={styles.trend}>
+                  <Ionicons
+                    name={TREND_ICON[shownTrend.direction]}
+                    size={13}
+                    color={colors.textMuted}
+                  />
+                  <Text style={[styles.trendText, { color: colors.textMuted }]} numberOfLines={1}>
+                    {shownTrend.label}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           ) : null}
 
@@ -1074,87 +1316,45 @@ export default function RiverDetailScreen() {
                 destination that 404s. `slug` is optional on MapAccessPoint for
                 exactly this reason. */}
             {accessPoints.map((point) => (
-              <Pressable
-                key={point.id}
-                onPress={() =>
-                  point.slug
-                    ? router.push(
-                        `/river/${slug}/access/${encodeURIComponent(point.slug)}`,
-                      )
-                    : void Linking.openURL(driveToUrl(point))
-                }
-                style={({ pressed }) => [
-                  styles.accessRow,
-                  { backgroundColor: colors.card, opacity: pressed ? 0.6 : 1 },
-                  elevation(1),
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  point.slug
-                    ? `${point.name}, mile ${point.riverMile}`
-                    : `Directions to ${point.name}, mile ${point.riverMile}`
-                }
-              >
-                {/* WHAT IT LOOKS LIKE. A put-in's name is a label and its river
-                    mile is a coordinate; neither answers the question people
-                    actually have standing in a driveway with a boat on the
-                    roof, which is whether they can get down there. The photo
-                    does, and it has been on the wire all along — see imageUrls
-                    on MapAccessPoint.
+              <AccessRow key={point.id} point={point} riverSlug={slug} />
+            ))}
+          </CollapsibleSection>
+        ) : null}
 
-                    The icon stays for every point without one, rather than a
-                    grey placeholder box: coverage is partial by nature, and a
-                    row that looks broken is worse than a row that is plain.
-                    `isPublic` keeps its cue in the meta line below either way. */}
-                {point.imageUrls?.[0] ? (
-                  <Image
-                    source={{ uri: point.imageUrls[0] }}
-                    style={[styles.accessThumb, { backgroundColor: colors.cardRaised }]}
-                    // Required by RN's a11y lint: a photograph must not be
-                    // colour-inverted by Smart Invert, unlike UI chrome.
-                    accessibilityIgnoresInvertColors
-                  />
-                ) : (
-                  // Eddy's mark, whether or not the point is public. A padlock
-                  // here swapped the brand out for a warning glyph on the one
-                  // row that most needs to look like a place you could go and
-                  // ask; `isPublic` is stated in the meta line below instead.
-                  <EddySymbol name="accessPoint" size={17} />
-                )}
-                <View style={styles.accessBody}>
-                  <Text style={[styles.accessName, { color: colors.text }]}>{point.name}</Text>
-                  <Text style={[styles.accessMeta, { color: colors.textMuted }]}>
-                    {/* What is actually there, from the same resolver the map
-                        callout uses — a boat ramp you can camp at is a
-                        different stop from a gravel bar. */}
-                    {[
-                      `Mile ${point.riverMile}`,
-                      ...accessPointTypes(point).map(accessTypeLabel),
-                      point.isPublic ? null : 'Private',
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </Text>
-                </View>
-                {/* A SIBLING of the row's own Pressable, never a child — the
-                    same arrangement RiverRow settled on for its star, so the
-                    two touch areas cannot overlap and a tap near the arrow
-                    cannot be ambiguous about which it meant. Only drawn where
-                    the row itself goes somewhere else; on a slug-less point the
-                    whole row is already the directions handoff. */}
-                {point.slug ? (
-                  <Pressable
-                    onPress={() => void Linking.openURL(driveToUrl(point))}
-                    hitSlop={10}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Directions to ${point.name}`}
-                  >
-                    <Ionicons name="navigate-outline" size={17} color={colors.interactive} />
-                  </Pressable>
-                ) : (
-                  <Ionicons name="navigate-outline" size={16} color={colors.interactive} />
-                )}
-              </Pressable>
+        {/* ── Campgrounds ──────────────────────────────────────
+            THE SAME PLACES AGAIN, ON PURPOSE. Most Ozark campgrounds on these
+            rivers are also put-ins — Red Bluff, Hazel Creek, Montauk — so they
+            were already in the list above, filed under the question "where do I
+            get on the water" and identifiable as somewhere to sleep only by a
+            reader who noticed the word Campground in a dot-separated meta line
+            four items long. "Where can I camp on this river" is a different
+            question asked at a different moment, usually days earlier, and it
+            deserves a heading rather than a filter of one.
+
+            So a campground appears TWICE on this screen and that is the design,
+            not an oversight. It is one place with two uses, and dropping it from
+            Access points to avoid the repeat would hide a put-in from the list
+            of put-ins.
+
+            Two sources, like the map's campground layer: access points tagged
+            `campground`, and services of type campground on this river — the
+            latter had no home on this screen at all, because the Outfitters
+            section below deliberately excludes them. A private riverside
+            campground that is not a public access was invisible here. */}
+        {campgroundPoints.length > 0 || campgroundServices.length > 0 ? (
+          <CollapsibleSection
+            title="Campgrounds"
+            leading={<EddySymbol name="campground" size={18} />}
+            summary={campgroundSummary}
+          >
+            {campgroundPoints.map((point) => (
+              // Keyed apart from the identical row in Access points above:
+              // React would otherwise see one element moving between two
+              // parents rather than two rows, and remount it on every toggle.
+              <AccessRow key={`camp-${point.id}`} point={point} riverSlug={slug} />
+            ))}
+            {campgroundServices.map((service) => (
+              <ServiceRow key={service.id} service={service} />
             ))}
           </CollapsibleSection>
         ) : null}
@@ -1166,20 +1366,16 @@ export default function RiverDetailScreen() {
             fetched for the map and simply never showed anywhere a person reads
             about a river.
 
-            OUTFITTERS AND SHUTTLES TOGETHER, campgrounds left out. A shuttle
-            operator is what most people are actually looking for when they look
-            for an outfitter, and separating the two would put one name under two
-            headings; campgrounds are already their own map layer and their own
-            question.
+            OUTFITTERS AND SHUTTLES TOGETHER, campgrounds left out — they have
+            their own section directly above. A shuttle operator is what most
+            people are actually looking for when they look for an outfitter, and
+            separating the two would put one name under two headings.
 
             The membership test is OUTFITTER_SERVICE_TYPES, the same constant
             the map's Outfitters layer filters on, rather than a list written
             out again here. A second definition of "what counts as an outfitter"
             is how the layer sheet and this section end up disagreeing about a
-            business that appears on one and not the other.
-
-            Rows carry only the actions that exist. A dial button on a service
-            with no number is a control that fails when pressed. */}
+            business that appears on one and not the other. */}
         {outfitters.length > 0 ? (
           <CollapsibleSection
             title="Outfitters"
@@ -1187,46 +1383,7 @@ export default function RiverDetailScreen() {
             summary={`${outfitters.length} nearby`}
           >
             {outfitters.map((service) => (
-              <View
-                key={service.id}
-                style={[styles.serviceRow, { backgroundColor: colors.card }, elevation(1)]}
-              >
-                <View style={styles.serviceBody}>
-                  <Text style={[styles.serviceName, { color: colors.text }]} numberOfLines={1}>
-                    {service.name}
-                  </Text>
-                  <Text style={[styles.serviceMeta, { color: colors.textMuted }]} numberOfLines={1}>
-                    {[
-                      [service.city, service.state].filter(Boolean).join(', '),
-                      ...service.servicesOffered.slice(0, 2),
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </Text>
-                </View>
-                {service.phone ? (
-                  <Pressable
-                    onPress={() =>
-                      void Linking.openURL(`tel:${service.phone!.replace(/[^\d+]/g, '')}`)
-                    }
-                    hitSlop={10}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Call ${service.name}`}
-                  >
-                    <Ionicons name="call-outline" size={19} color={colors.interactive} />
-                  </Pressable>
-                ) : null}
-                {service.website ? (
-                  <Pressable
-                    onPress={() => void Linking.openURL(service.website!)}
-                    hitSlop={10}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open ${service.name} website`}
-                  >
-                    <Ionicons name="open-outline" size={19} color={colors.interactive} />
-                  </Pressable>
-                ) : null}
-              </View>
+              <ServiceRow key={service.id} service={service} />
             ))}
           </CollapsibleSection>
         ) : null}
@@ -1375,7 +1532,16 @@ const styles = StyleSheet.create({
   percentileMeta: { ...t.xs, fontFamily: fonts.mono, marginTop: 2 },
   updatedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10 },
   // marginTop moves to the row so the glyph and the text sit on one baseline.
-  updated: { ...t.xs, fontFamily: fonts.body },
+  // `flex: 1` pushes the trend to the right-hand end and makes the station name
+  // the part that truncates — a trend clipped to "Rising fa" is worse than a
+  // gauge name clipped to its town, which is how everything else in the app
+  // shortens a station.
+  updated: { ...t.xs, fontFamily: fonts.body, flex: 1 },
+  // Matches the trend on the Today rows and the Favorites cards: same glyph,
+  // same muted ink, same 3pt gap. It is one fact and it should read as one
+  // thing wherever it appears.
+  trend: { flexDirection: 'row', alignItems: 'center', gap: 3, flexShrink: 0 },
+  trendText: { ...t.xs, fontFamily: fonts.semibold },
   caveat: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1439,11 +1605,15 @@ const styles = StyleSheet.create({
   accessBody: { flex: 1 },
   accessName: { ...t.sm, fontFamily: fonts.semibold },
   accessMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  // No marginHorizontal. It carried 16 on top of the ScrollView's own 16, so
+  // service rows sat inset 32 while every access and hazard row on the screen
+  // sat at 16 — one column of cards with a second column half a thumb narrower
+  // inside it. The campgrounds section, which draws both kinds of row side by
+  // side, is where that finally became impossible to read as deliberate.
   serviceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    marginHorizontal: 16,
     marginBottom: 8,
     padding: 12,
     borderRadius: 13,

@@ -143,16 +143,14 @@ export function PlanResult({ plan, actions }: Props) {
                 : plan.floatTime.formatted}
             </Text>
             <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
-              {/* NOT "no stops". The long end is moving time x1.6 — a relaxed
-                  pace that stops on gravel bars — so "no stops" would describe
-                  the SHORT end while printing the long one.
-
-                  The vessel is named here because nothing else names it. The
-                  boat picker is gone from this flow and the server defaults to
-                  a canoe, which the header of this file has claimed the
-                  estimate "still says" for a while without it being true
-                  anywhere on screen. See floatTimeCeilingBasisNote. */}
-              {floatTimeCeilingBasisNote(plan.vessel?.name)}
+              {/* One short sentence under the headline, and no longer a clause
+                  about the boat. It used to open with the vessel — "Raft at
+                  today's level, estimated at a relaxed pace with stops" —
+                  which put a noun the reader had not chosen, and cannot change
+                  from this screen, in front of the only thing the line is for.
+                  See floatTimeCeilingBasisNote for what the vessel was doing
+                  there and where it went. */}
+              {floatTimeCeilingBasisNote()}
             </Text>
           </>
         ) : (

@@ -1665,7 +1665,12 @@ SELECT
     r.id,
     'Dillard Mill',
     'dillard-mill',
-    ST_SetSRID(ST_MakePoint(-91.3826, 37.8300), 4326),
+    -- Corrected 2026-08-03. The seeded point was (-91.3826, 37.8300), ten and a
+    -- half miles west of Huzzah Creek — production had already been fixed out of
+    -- band, so only a rebuild from seed carried the error. This is the value
+    -- production holds, within 60 m of OSM node 358084313 ("Dillard Mill State
+    -- Historic Site") and 0.10 mi from the creek line.
+    ST_SetSRID(ST_MakePoint(-91.20480, 37.72030), 4326),
     'access',
     ARRAY['access', 'historic_site'],
     true,
@@ -1851,7 +1856,11 @@ SELECT
     r.id,
     'Red Bluff Recreation Area',
     'red-bluff',
-    ST_SetSRID(ST_MakePoint(-91.3390, 37.8862), 4326),
+    -- Corrected 2026-08-03, same story as Dillard Mill above: the seeded point
+    -- was (-91.3390, 37.8862), 8.7 miles west of the creek. This is production's
+    -- value, within 60 m of OSM node 12537584637 ("Red Bluff", operator=Forest
+    -- Service, tourism=camp_site) and 0.04 mi from the creek line.
+    ST_SetSRID(ST_MakePoint(-91.16935, 37.81552), 4326),
     'campground',
     ARRAY['access', 'campground'],
     true,

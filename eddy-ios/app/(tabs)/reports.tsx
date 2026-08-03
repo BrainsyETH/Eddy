@@ -894,6 +894,21 @@ export default function ReportsScreen() {
     [rivers],
   );
 
+  /**
+   * The same count the headline states, as a number the card's CTA can name.
+   *
+   * Counted with isFloatableNow — the strict flowing/good bucket the `floatable`
+   * chip filters on — so the button and the list it produces cannot disagree
+   * about how many there are. floatableHeadline uses the same bucket upstream;
+   * this is the number back out of the sentence, not a second opinion.
+   */
+  const floatableCount = useMemo(
+    () =>
+      (rivers ?? []).filter((river) => isFloatableNow(river.currentCondition?.code ?? 'unknown'))
+        .length,
+    [rivers],
+  );
+
   // Two things have to arrive before this list can be sorted: permission, and
   // the gauge coordinates to measure against. Both are fetched here, on the
   // tap, and never on mount — see useLocation for why the prompt is never spent
@@ -1010,6 +1025,20 @@ export default function ReportsScreen() {
             headline={headline}
             prose={summary?.quoteText ?? null}
             generatedAt={summary?.generatedAt ?? null}
+            floatableCount={floatableCount}
+            // Clears the query too. The chips are hidden mid-search on the All
+            // scope (see `visible`), so setting the filter without dropping the
+            // query would apply a filter whose control is off screen — and the
+            // list would narrow with nothing on screen saying why.
+            onShowFloatable={() => {
+              // Rivers, explicitly. The filter chips only apply on a river
+              // scope, so from Gauges or Dams this would otherwise set a filter
+              // with no visible effect — and the card's sentence is about
+              // rivers either way.
+              setScope('rivers');
+              setQuery('');
+              setFilter('floatable');
+            }}
           />
         )}
       </View>

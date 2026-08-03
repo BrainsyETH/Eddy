@@ -128,24 +128,21 @@ export function formatFloatTimeCeilingCompact(maxMinutes: number): string {
  * fragments, because it is a sentence: it says what the number assumed, and
  * "Estimated · relaxed pace, some stops" made a reader assemble that themselves.
  *
- * ── The boat ────────────────────────────────────────────────────────────────
+ * ── The boat, and why it is no longer in the line ───────────────────────────
  *
- * `vesselName` names the hull the speed model used. The iOS app dropped the
- * boat picker — one required tap that moved the answer less than the wind does
- * — and the server defaults to a canoe when the client sends no vessel. That
- * default was then never stated anywhere, so a party of tubers read a canoe's
- * number as theirs. A tube is a third slower than a canoe in the same water;
- * on a seven-mile stretch that is well over an hour, in the direction that
- * ends in the dark.
+ * `vesselName` used to lead it: "Raft at today's level, estimated at a relaxed
+ * pace with stops". The argument for that was real — the server defaults to a
+ * canoe when the client sends no vessel, and an unattributed estimate cannot be
+ * discounted by somebody in a slower boat. What it produced on screen was a
+ * fourteen-word clause under a headline, opening with a noun most readers had
+ * not chosen and could not change from that screen.
  *
- * Naming it is also what makes the number DISCOUNTABLE, which is the whole
- * job of a basis line: somebody in a kayak can read "canoe" and know to knock
- * time off, and nobody can do that from an unattributed estimate.
- *
- * Omitted rather than guessed when the caller has no vessel — the sentence is
- * still true without it.
+ * The parameter is gone rather than accepted and ignored, so a caller cannot
+ * pass a vessel and believe it reached the screen. Nothing is lost from the
+ * plan itself: `plan.vessel` is still on the wire, still what the speed model
+ * used, and still available to any surface that wants to say so in a place with
+ * room for it.
  */
-export function floatTimeCeilingBasisNote(vesselName?: string | null): string {
-  const base = 'Estimated at a relaxed pace with stops';
-  return vesselName ? `${vesselName} at today's level, ${base.toLowerCase()}` : base;
+export function floatTimeCeilingBasisNote(): string {
+  return 'Estimated at an average pace';
 }
