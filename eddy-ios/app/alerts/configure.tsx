@@ -578,7 +578,7 @@ export default function ConfigureAlertScreen() {
         {loadFailed && hasStation ? (
           <Text style={[styles.hint, { color: colors.textSubtle }]}>
             Couldn&apos;t load the current reading, so there&apos;s no verdict to watch and no
-            number to start you off. You can still set your own level — we&apos;ll check it
+            number to start you off. You can still set your own level, and Eddy checks it
             against the gauge when you save.
           </Text>
         ) : !loadFailed && !canUseCondition && hasStation ? (
