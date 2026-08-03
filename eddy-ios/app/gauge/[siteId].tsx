@@ -84,6 +84,7 @@ import { EddySymbol } from '@/components/EddySymbol';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useAccount } from '@/hooks/useAccount';
+import { goBack } from '@/lib/nav';
 
 /**
  * The unit to lead with, and to draw the chart in.
@@ -214,7 +215,7 @@ export default function GaugeDetailScreen() {
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.navRow}>
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
             <Ionicons name="chevron-back" size={26} color={colors.text} />
           </Pressable>
         </View>
@@ -336,7 +337,7 @@ export default function GaugeDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <View style={styles.navActions}>

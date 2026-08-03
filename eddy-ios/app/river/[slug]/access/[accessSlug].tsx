@@ -61,6 +61,7 @@ import { ShareButton } from '@/components/ShareButton';
 // access-point screen rather than just the photo button.
 import { PhotoSubmitSheetLazy } from '@/components/PhotoSubmitSheetLazy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
+import { goBack } from '@/lib/nav';
 import {
   driveToUrl,
   installedNavLinks,
@@ -350,7 +351,7 @@ export default function AccessPointDetailScreen() {
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.navRow}>
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
             <Ionicons name="chevron-back" size={26} color={colors.text} />
           </Pressable>
         </View>
@@ -378,7 +379,7 @@ export default function AccessPointDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <View style={styles.navActions}>

@@ -44,6 +44,7 @@ import {
 import { useSession } from '@/hooks/useSession';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { goBack } from '@/lib/nav';
 
 /** 24 whole hours. See the header on why this is not a minute picker. */
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour * 60);
@@ -57,12 +58,23 @@ export default function QuietHoursScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A FAILED LOAD IS NOT A MISSING SESSION, and the screen used to say it was.
+  // `error` below is set by the load and by `save`, but it is only rendered
+  // inside the loaded form — so a load that threw fell through to the `!prefs`
+  // branch and told a signed-in person to sign in. These two carry the load
+  // failure on their own: `error` is now the SAVE failure's alone, because a
+  // "could not load" line under a form full of defaults is its own wrong claim.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
 
     (async () => {
       try {
+        setLoading(true);
+        setLoadFailed(false);
+        setError(null);
         const token = await getAccessToken();
         if (!token) {
           setPrefs(null);
@@ -83,14 +95,14 @@ export default function QuietHoursScreen() {
           },
         );
       } catch {
-        if (!controller.signal.aborted) setError('Could not load your settings.');
+        if (!controller.signal.aborted) setLoadFailed(true);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
     })();
 
     return () => controller.abort();
-  }, [getAccessToken]);
+  }, [getAccessToken, reloadNonce]);
 
   const save = useCallback(
     async (draft: NotificationPreferences) => {
@@ -121,17 +133,12 @@ export default function QuietHoursScreen() {
     [prefs, getAccessToken],
   );
 
-  if (loading) {
-    return (
-      <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]} edges={['top']}>
-        <ActivityIndicator color={colors.interactive} />
-      </SafeAreaView>
-    );
-  }
-
+  // Declared ABOVE the loading branch so every state below renders it. A
+  // spinner with no way off it is a trap on a slow connection, where the
+  // request has fifteen seconds to run before it even fails.
   const nav = (
     <View style={styles.navRow}>
-      <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+      <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
         <Ionicons name="chevron-back" size={26} color={colors.text} />
       </Pressable>
       <Text style={[styles.navTitle, { color: colors.text }]}>Quiet hours</Text>
@@ -139,6 +146,44 @@ export default function QuietHoursScreen() {
     </View>
   );
 
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        {nav}
+        <View style={[styles.centered, styles.flex]}>
+          <ActivityIndicator color={colors.interactive} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (loadFailed) {
+    return (
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        {nav}
+        <View style={[styles.centered, styles.flex]}>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>Couldn&apos;t load your quiet hours</Text>
+          <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
+            Your settings are stored with your account, so this screen needs a connection. Nothing has
+            changed.
+          </Text>
+          <Pressable
+            onPress={() => setReloadNonce((n) => n + 1)}
+            hitSlop={10}
+            accessibilityRole="button"
+            style={styles.retry}
+          >
+            <Text style={[styles.retryText, { color: colors.interactive }]}>Try again</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Reached only when there is genuinely no session — `getAccessToken` returned
+  // nothing — so the sign-in copy below is now true whenever it is on screen.
   if (!prefs) {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
@@ -372,6 +417,8 @@ const styles = StyleSheet.create({
   zoneAction: { ...t.xs, fontFamily: fonts.semibold },
   errorText: { ...t.sm, fontFamily: fonts.body, marginTop: 14 },
   savingSpinner: { marginTop: 16 },
-  emptyTitle: { ...t.lg, fontFamily: fonts.semibold },
+  emptyTitle: { ...t.lg, fontFamily: fonts.semibold, textAlign: 'center' },
   emptyBody: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 6 },
+  retry: { marginTop: 14, minHeight: 44, justifyContent: 'center' },
+  retryText: { ...t.sm, fontFamily: fonts.semibold },
 });

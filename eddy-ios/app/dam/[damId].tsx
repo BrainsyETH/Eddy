@@ -42,6 +42,7 @@ import { GenerationSchedule } from '@/components/dam/GenerationSchedule';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { goBack } from '@/lib/nav';
 
 export default function DamDetailScreen() {
   const { damId } = useLocalSearchParams<{ damId: string }>();
@@ -90,7 +91,7 @@ export default function DamDetailScreen() {
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.navRow}>
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
             <Ionicons name="chevron-back" size={26} color={colors.text} />
           </Pressable>
         </View>
@@ -131,7 +132,7 @@ export default function DamDetailScreen() {
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.navRow}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         {/* Same control, same place and same rules as the gauge screen's. A dam

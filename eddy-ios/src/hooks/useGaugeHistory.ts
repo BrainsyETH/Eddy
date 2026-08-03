@@ -20,6 +20,18 @@
 // The one state that IS empty is a station with genuinely no history — new
 // sites and seasonal ones both exist — and that is `unavailable`, which the
 // chart renders as a short honest note instead of a blank frame.
+//
+// ── Which needed the client to stop conflating them ─────────────────────────
+// That split only works if a failure is distinguishable from an empty station,
+// and it was not: fetchGaugeHistory returned null for both. On the FIRST window
+// requested for a station there is no older series to fall back on, so a single
+// timeout was cached as "this station has nothing" and, being a cache hit, was
+// never re-requested for the life of the screen. One bar of LTE printed a
+// verdict about the river.
+//
+// The client is now three-valued (response / null=404 / undefined=failed) and
+// only genuine answers are cached. A failure with nothing held reports `failed`
+// and offers `retry`, which is a sentence about the network and recoverable.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GaugeHistoryResponse } from '@eddy/types';
@@ -39,11 +51,30 @@ export interface GaugeHistoryState {
    * the user as a fact about the gauge.
    */
   unavailable: boolean;
+  /**
+   * The request failed and there is no older series for this station to fall
+   * back on.
+   *
+   * The counterpart to `unavailable`, and the reason it can be trusted: this is
+   * a fact about the NETWORK, phrased as one, with a retry beside it. Never
+   * cached — a failure is not an answer about the river.
+   */
+  failed: boolean;
 }
 
-const EMPTY: GaugeHistoryState = { history: null, loading: false, unavailable: false };
+interface GaugeHistory extends GaugeHistoryState {
+  /** Re-request the current window. Failures are uncached, so this really refetches. */
+  retry: () => void;
+}
 
-export function useGaugeHistory(siteId: string | null, days: number): GaugeHistoryState {
+const EMPTY: GaugeHistoryState = {
+  history: null,
+  loading: false,
+  unavailable: false,
+  failed: false,
+};
+
+export function useGaugeHistory(siteId: string | null, days: number): GaugeHistory {
   const [state, setState] = useState<GaugeHistoryState>(EMPTY);
 
   const cache = useRef(new Map<string, GaugeHistoryResponse | null>());
@@ -55,7 +86,7 @@ export function useGaugeHistory(siteId: string | null, days: number): GaugeHisto
     // station has nothing" — and must not be re-requested on every toggle.
     if (cache.current.has(key)) {
       const hit = cache.current.get(key) ?? null;
-      setState({ history: hit, loading: false, unavailable: hit === null });
+      setState({ history: hit, loading: false, unavailable: hit === null, failed: false });
       return;
     }
 
@@ -63,25 +94,30 @@ export function useGaugeHistory(siteId: string | null, days: number): GaugeHisto
     const controller = new AbortController();
     inFlight.current = controller;
 
-    setState((prev) => ({ ...prev, loading: true }));
+    setState((prev) => ({ ...prev, loading: true, failed: false }));
 
     const result = await fetchGaugeHistory(site, window, controller.signal);
     if (controller.signal.aborted) return;
 
-    // fetchGaugeHistory swallows its errors and returns null either way, so a
-    // network failure and an empty station are the same value here. They are
-    // NOT the same thing, and conflating them would let one dropped request
-    // print "no history for this gauge" under a station with ten years of it.
-    //
-    // The tell is what we already hold: if a previous window for this station
-    // came back with readings, the station demonstrably has history and this
-    // null is a failure. Keep the line, say nothing.
-    const heldForSite = [...cache.current.entries()].some(
-      ([k, v]) => k.startsWith(`${site}:`) && v !== null,
-    );
+    // `undefined` is a FAILED request; `null` is the endpoint's 404; a response
+    // with no readings is a station that answered and has nothing. The client
+    // draws that line — see fetchGaugeHistory — because only it holds the
+    // status code. Nothing below may cache a failure.
+    if (result === undefined) {
+      // What we already hold is still the better answer where we have one: if
+      // another window for this station came back with readings, the station
+      // demonstrably has history, so keep the line and say nothing rather than
+      // replacing a chart someone is reading with an error.
+      const heldForSite = [...cache.current.entries()].some(
+        ([k, v]) => k.startsWith(`${site}:`) && v !== null,
+      );
 
-    if (result === null && heldForSite) {
-      setState((prev) => ({ ...prev, loading: false }));
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        unavailable: false,
+        failed: !heldForSite,
+      }));
       if (inFlight.current === controller) inFlight.current = null;
       return;
     }
@@ -94,7 +130,7 @@ export function useGaugeHistory(siteId: string | null, days: number): GaugeHisto
       if (oldest !== undefined) cache.current.delete(oldest);
     }
 
-    setState({ history: usable, loading: false, unavailable: usable === null });
+    setState({ history: usable, loading: false, unavailable: usable === null, failed: false });
     if (inFlight.current === controller) inFlight.current = null;
   }, []);
 
@@ -111,5 +147,13 @@ export function useGaugeHistory(siteId: string | null, days: number): GaugeHisto
   // Abort on unmount so a screen the user has left is not still fetching.
   useEffect(() => () => inFlight.current?.abort(), []);
 
-  return state;
+  // Nothing to clear first: a failure is never written to the cache, so this
+  // misses and refetches. A window that genuinely holds nothing is a cache hit
+  // and re-sets the same honest answer, which is the right no-op.
+  const retry = useCallback(() => {
+    if (!siteId) return;
+    void load(`${siteId}:${days}`, siteId, days);
+  }, [siteId, days, load]);
+
+  return { ...state, retry };
 }
