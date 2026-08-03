@@ -26,11 +26,23 @@ import type { Feedback, FeedbackStatus } from '@/types/api';
 
 type AdminInboxView = 'feedback' | 'email';
 
+// Unlisted types fall back to the `other` badge below, which is why the two
+// newest ones are here: a gauge recalibration and a photo report were both
+// arriving in this queue wearing a grey "Other" chip, i.e. looking exactly like
+// the typo corrections they need to be triaged differently from.
+//
+// `objectionable_content` is the one row in this table with a clock on it. It is
+// the App Store's required reporting route for community photos, the remedy is
+// to unpublish rather than to correct a field, and the guideline expects it
+// acted on promptly — so it gets the loudest chip here.
 const FEEDBACK_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   inaccurate_data: { label: 'Inaccurate Data', color: 'bg-red-500' },
   missing_access_point: { label: 'Missing Access Point', color: 'bg-blue-500' },
   suggestion: { label: 'Suggestion', color: 'bg-purple-500' },
   bug_report: { label: 'Bug Report', color: 'bg-orange-500' },
+  gauge_recalibration: { label: 'Gauge Recalibration', color: 'bg-amber-500' },
+  objectionable_content: { label: 'Reported Photo', color: 'bg-rose-600' },
+  partner: { label: 'Partner Enquiry', color: 'bg-teal-500' },
   other: { label: 'Other', color: 'bg-neutral-500' },
 };
 

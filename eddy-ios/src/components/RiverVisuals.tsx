@@ -28,6 +28,25 @@
 // way to add one. But a river with an `onAddPhoto` gets an invitation instead of
 // silence — which is also the only route by which a river with zero photos ever
 // gets its first.
+//
+// ── Every photo can be reported, and that is not optional ──────────────────
+//
+// This card is the only place in the app that displays user-generated content,
+// which makes it the place App Store Guideline 1.2 is about. The guideline asks
+// for four things: a filter for objectionable material, a way to report it, a
+// way to eject abusive submitters, and published contact information.
+//
+// Eddy's filter is strong — a submission sits in a private quarantine bucket
+// until a person verifies it, so nothing here reached the screen unreviewed —
+// and that is exactly why the report route was missing for so long: it is easy
+// to conclude that pre-moderation is the whole job. It is not. A photo can be
+// approved in good faith and become a problem afterwards, the moderator can
+// miss something, and a reviewer looking for the mechanism will not accept
+// "we check them first" as one.
+//
+// The flag is per PHOTO rather than per card, because "report this card" is not
+// a report anyone can act on: the card holds up to a dozen images across several
+// bands, and the queue needs to know which one.
 
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -110,6 +129,7 @@ function AddPhotoButton({ onPress }: { onPress: () => void }) {
 export function RiverVisuals({
   data,
   onAddPhoto,
+  onReportPhoto,
 }: {
   data: RiverVisualsResponse;
   /**
@@ -119,6 +139,11 @@ export function RiverVisuals({
    * worse than no button.
    */
   onAddPhoto?: () => void;
+  /**
+   * Report this photo. Optional in the type only — every screen that renders
+   * community photos is expected to pass it, and the header says why.
+   */
+  onReportPhoto?: (visual: RiverVisual) => void;
 }) {
   const { colors, elevation } = useTheme();
   const [level, setLevel] = useState<ConditionCode | null>(() => pickLevel(data));
@@ -215,11 +240,37 @@ export function RiverVisuals({
               {reading ? (
                 <Text style={[styles.reading, { color: colors.text }]}>{reading}</Text>
               ) : null}
-              {visual.accessPointName ? (
-                <Text style={[styles.caption, { color: colors.textSubtle }]} numberOfLines={1}>
-                  {visual.accessPointName}
-                </Text>
-              ) : null}
+              <View style={styles.photoFoot}>
+                {visual.accessPointName ? (
+                  <Text
+                    style={[styles.caption, { color: colors.textSubtle }]}
+                    numberOfLines={1}
+                  >
+                    {visual.accessPointName}
+                  </Text>
+                ) : (
+                  <View style={styles.captionSpacer} />
+                )}
+                {/* Quiet, and deliberately so. It has to be findable without
+                    competing with the photograph — a red flag on every image
+                    would make a card of verified community photos look like a
+                    moderation queue. hitSlop rather than padding gets it to a
+                    44pt target without a control that large on screen. */}
+                {onReportPhoto ? (
+                  <Pressable
+                    onPress={() => onReportPhoto(visual)}
+                    hitSlop={12}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Report this photo${
+                      visual.accessPointName ? ` from ${visual.accessPointName}` : ''
+                    }`}
+                    style={({ pressed }) => [styles.report, { opacity: pressed ? 0.5 : 1 }]}
+                  >
+                    <Ionicons name="flag-outline" size={12} color={colors.textSubtle} />
+                    <Text style={[styles.reportText, { color: colors.textSubtle }]}>Report</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
           );
         })}
@@ -243,7 +294,16 @@ const styles = StyleSheet.create({
   photo: { width: 220 },
   image: { width: 220, height: 150, borderRadius: 12 },
   reading: { ...t.sm, fontFamily: fonts.mono, marginTop: 7 },
-  caption: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
+  // The caption and the flag share one line. `flex: 1` on the caption makes the
+  // place name the part that truncates, so "Report" never gets pushed off a
+  // 220pt card by a long access-point name.
+  photoFoot: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 1 },
+  caption: { ...t.xs, fontFamily: fonts.body, flex: 1, minWidth: 0 },
+  // Holds the flag at the right-hand end on a photo with no place name, rather
+  // than letting it slide under the image's left edge.
+  captionSpacer: { flex: 1 },
+  report: { flexDirection: 'row', alignItems: 'center', gap: 3, flexShrink: 0 },
+  reportText: { ...t.xs, fontFamily: fonts.medium },
   emptyBody: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 14, marginTop: 8, lineHeight: 20 },
   addButton: {
     flexDirection: 'row',
