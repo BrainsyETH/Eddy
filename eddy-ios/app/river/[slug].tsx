@@ -114,6 +114,7 @@ import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { readConditions, readIndex } from '@/lib/riverCache';
 import { useRiverData } from '@/hooks/useRiverData';
 import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
+import { goBack } from '@/lib/nav';
 
 
 /**
@@ -726,7 +727,7 @@ export default function RiverDetailScreen() {
       <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]}>
         <Otter mood="flag" size={110} />
         <Text style={[styles.errorTitle, { color: colors.text }]}>{error ?? 'River not found'}</Text>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
+        <Pressable onPress={() => goBack(router)} hitSlop={10}>
           <Text style={[styles.backLink, { color: colors.interactive }]}>Go back</Text>
         </Pressable>
       </SafeAreaView>
@@ -868,7 +869,7 @@ export default function RiverDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <View style={styles.navActions}>

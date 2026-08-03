@@ -19,6 +19,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { useSavedFloats, type SavedFloat } from '@/hooks/useSavedFloats';
+import { goBack } from '@/lib/nav';
 
 /** "3 days ago" — the precision a share history deserves and no more. */
 function savedAgo(iso: string): string {
@@ -42,7 +43,7 @@ export default function SavedFloatsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
       </View>

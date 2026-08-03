@@ -106,14 +106,43 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
   // closure there would reconcile against an out-of-date local set and undo a
   // star the user made moments earlier.
   const entriesRef = useRef<LocalStar[]>([]);
-  // Written in an effect, not during render. A ref mutated during render is a
+  // Written in an effect, not during RENDER. A ref mutated during render is a
   // React rule violation (it breaks under StrictMode's double render and under
   // concurrent rendering, where a render can be thrown away), and React 19's
-  // lint rejects it. An effect is also sufficient here: every reader of this
-  // ref — sync() and the handlers that call it — runs after commit.
+  // lint rejects it.
+  //
+  // That ban is on render only. `toggleStar` writes this ref directly, and has
+  // to: it calls sync() in the same tick, before this effect has run, so the
+  // effect alone left sync() reconciling against the set as it was BEFORE the
+  // tap that triggered it.
   useEffect(() => {
     entriesRef.current = entries;
   }, [entries]);
+
+  // ── Why a sync needs a generation, and a queue ──────────────────────────
+  //
+  // sync() snapshots the local set, then awaits a fetch and a round of pushes —
+  // seconds, on the connection this app is used on — and then commits the
+  // merged result as authoritative. A star toggled during that window was not
+  // in the snapshot, so committing overwrote it in memory AND on disk; and it
+  // was never pushed either, so no later sync could bring it back. A tap
+  // silently undone is the one failure this store must not have.
+  //
+  // `mutationGen` marks the local set as changed. A sync that finds it moved
+  // since its snapshot declines to commit and asks for another pass instead of
+  // publishing a stale answer.
+  //
+  // `syncInFlight`/`syncQueued` keep the passes from overlapping at all, so two
+  // runs cannot push contradictory stars and unstars for the same id at once.
+  // Between them: the local store stays authoritative, and every tap survives.
+  const mutationGen = useRef(0);
+  const syncInFlight = useRef(false);
+  const syncQueued = useRef(false);
+  // The trailing pass is started through this rather than by sync() naming
+  // itself: a useCallback whose body references its own binding cannot be
+  // memoized by the React compiler, which fails the lint outright. Written in
+  // an effect below, and only ever read long after mount.
+  const syncRef = useRef<(() => void) | null>(null);
 
   const persist = useCallback((next: LocalStar[]) => {
     // Fire-and-forget: in-memory state is already updated, so a failed write
@@ -164,11 +193,23 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
    * first would let a dropped DELETE look like a completed unstar.
    */
   const sync = useCallback(async () => {
-    const token = await getAccessToken();
-    if (!token) return;
+    // One pass at a time. A second caller leaves a note rather than starting a
+    // parallel round of pushes against the same ids.
+    if (syncInFlight.current) {
+      syncQueued.current = true;
+      return;
+    }
+    syncInFlight.current = true;
 
-    setSyncing(true);
     try {
+      const token = await getAccessToken();
+      if (!token) return;
+
+      // Captured with the snapshot below, and checked against it before this
+      // pass is allowed to publish anything.
+      const gen = mutationGen.current;
+
+      setSyncing(true);
       // Fetched together, merged SEPARATELY. Each null is its own story: a
       // rejected session, or — for gauges — a backend that predates the
       // endpoint, which is guaranteed to exist for as long as an App Store
@@ -221,11 +262,26 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
         settledIds.push(...plan.toUnstar);
       }
 
+      // The local set moved while this pass was on the wire, so `merged` is
+      // built on a snapshot that no longer describes what the user wants.
+      // Publishing it would undo their tap. Drop the result — the pushes above
+      // already happened and are idempotent — and let the trailing pass merge
+      // against the current set and a server that now reflects them.
+      //
+      // Tombstone pruning is skipped with it, deliberately: a tombstone kept
+      // one pass too long is re-sent and re-settled, which costs a request. A
+      // star dropped is gone.
+      if (mutationGen.current !== gen) {
+        syncQueued.current = true;
+        return;
+      }
+
       // Tombstones that were just deleted server-side have done their job.
       const settled = settledIds.length
         ? merged.filter((e) => e.starred || !settledIds.includes(e.entityId))
         : merged;
 
+      entriesRef.current = settled;
       setEntries(settled);
       persist(settled);
     } catch (err) {
@@ -234,8 +290,21 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       warn('stars', 'sync failed', err);
     } finally {
       setSyncing(false);
+      syncInFlight.current = false;
+      // Whatever asked for another pass — an overlapping caller, or this one
+      // declining to publish — gets it now that the wire is free.
+      if (syncQueued.current) {
+        syncQueued.current = false;
+        syncRef.current?.();
+      }
     }
   }, [getAccessToken, persist]);
+
+  useEffect(() => {
+    syncRef.current = () => {
+      void sync();
+    };
+  }, [sync]);
 
   // Sync once the local store is loaded and a session exists. Ordering matters:
   // syncing before the disk read would merge against an empty local set and
@@ -247,14 +316,22 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
 
   const toggleStar = useCallback(
     (item: Omit<StarredItem, 'starredAt'>) => {
-      setEntries((current) => {
-        const next = toggleLocal(current, item, new Date().toISOString());
-        persist(next);
-        return next;
-      });
+      // Computed off the REF rather than inside a functional update, so the
+      // three things that follow all describe the same set. sync() is called
+      // below in this same tick — before any effect has run — so a ref written
+      // only by an effect would hand it the pre-tap set and let the pass
+      // overwrite this tap. This is an event handler, not a render, so writing
+      // the ref here is allowed; see the note beside its declaration.
+      const next = toggleLocal(entriesRef.current, item, new Date().toISOString());
+      entriesRef.current = next;
+      // Any pass already on the wire is now reconciling a stale set and must
+      // not publish its result.
+      mutationGen.current += 1;
+      setEntries(next);
+      persist(next);
       // Push in the background. If it fails the local tombstone or star stays
       // put and the next sync resolves it — which is the point of tombstones.
-      sync();
+      void sync();
     },
     [persist, sync],
   );

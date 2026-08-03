@@ -35,6 +35,7 @@ import { formatBytes } from '@eddy/geo';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { cacheFootprint, clearCache, type CacheFootprint } from '@/lib/riverCache';
+import { goBack } from '@/lib/nav';
 
 export default function StorageScreen() {
   const { colors, elevation } = useTheme();
@@ -77,7 +78,7 @@ export default function StorageScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
       </View>

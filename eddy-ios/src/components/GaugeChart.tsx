@@ -196,7 +196,7 @@ function GaugeChartInner({
    */
   const [unitOverride, setUnitOverride] = useState<'ft' | 'cfs' | null>(null);
 
-  const { history, loading, unavailable } = useGaugeHistory(siteId, days);
+  const { history, loading, unavailable, failed, retry } = useGaugeHistory(siteId, days);
 
   const drawnUnit = unitOverride ?? unit;
 
@@ -661,12 +661,30 @@ function GaugeChartInner({
           <View style={[styles.placeholder, { height: CHART_HEIGHT }]}>
             {loading ? (
               <ActivityIndicator size="small" color={colors.interactive} />
+            ) : failed ? (
+              // A sentence about the NETWORK, and the only one here that comes
+              // with a way out. It is reachable only when nothing is held for
+              // this station — with an older window cached, useGaugeHistory
+              // keeps that line up and never lands here at all.
+              <>
+                <Text style={[styles.placeholderText, { color: colors.textSubtle }]}>
+                  Couldn&apos;t load this gauge&apos;s history.
+                </Text>
+                <Pressable
+                  onPress={retry}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  style={styles.retry}
+                >
+                  <Text style={[styles.retryText, { color: colors.interactive }]}>Try again</Text>
+                </Pressable>
+              </>
             ) : (
               <Text style={[styles.placeholderText, { color: colors.textSubtle }]}>
                 {/* Three distinct states, because two of them would be a lie as
                     the third. Only `unavailable` may be phrased as a fact about
-                    the gauge — a failed request leaves the previous line up and
-                    never lands here; see useGaugeHistory.
+                    the gauge — a failed request either leaves the previous line
+                    up or takes the branch above; see useGaugeHistory.
 
                     The single-point case is its own sentence. A line needs two
                     points, so one reading falls through to this branch, and
@@ -786,4 +804,6 @@ const styles = StyleSheet.create({
   plotWrap: { marginTop: 2 },
   placeholder: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
   placeholderText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
+  retry: { marginTop: 8, minHeight: 44, justifyContent: 'center' },
+  retryText: { ...t.sm, fontFamily: fonts.semibold },
 });

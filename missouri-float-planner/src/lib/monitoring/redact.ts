@@ -33,6 +33,11 @@ const REDACTIONS: Array<[RegExp, string]> = [
   [/\beyJ[\w-]+\.[\w-]+\.[\w-]+\b/g, '[redacted-jwt]'],
   // key=value style secrets
   [/((?:api[_-]?key|token|secret|password|authorization)["']?\s*[:=]\s*["']?)[^\s"',}]+/gi, '$1[redacted]'],
+  // latitude,longitude pairs. Three decimal places minimum (~100 m), which is
+  // finer than anything this app prints about a river and coarser than any real
+  // fix — so a pair of gauge readings survives and a position does not.
+  // Mirrored in eddy-ios/src/lib/redact.ts; redact.test.ts pins the two.
+  [/-?\b\d{1,3}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}\b/g, '[redacted-coords]'],
 ];
 
 export function redactText(input: string): string {

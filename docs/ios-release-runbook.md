@@ -385,12 +385,19 @@ testing and the first submission, not installation.
 - [ ] StoreKit sandbox purchase run end to end: purchase → RevenueCat webhook →
       `entitlements` row → `/api/me/profile` → `waitForEntitlement`.
 - [ ] Support URL, Marketing URL, privacy policy URL.
-- [ ] App Privacy nutrition labels, age rating.
+- [ ] App Privacy nutrition labels, age rating. **The answers are written down**
+      — see `docs/app-privacy-labels.md`, which records each category, whether it
+      is linked to identity, and the code that makes the answer true. Transcribe
+      it rather than re-deriving it; a label that disagrees with observed traffic
+      is grounds for rejection either way it disagrees.
 - [ ] Screenshots (6.9" and 6.5").
-- [ ] **Reviewer notes** covering the two things that otherwise read as broken:
-      the app is anonymous-first so no demo account is needed to browse, but the
-      paywall deliberately renders no purchase controls until Sign in with Apple
-      completes; and location is only ever requested on an explicit tap.
+- [ ] **Reviewer notes** — a paste-ready block lives at the bottom of
+      `docs/app-privacy-labels.md`. It covers the things that otherwise read as
+      broken: the app is anonymous-first so no demo account is needed to browse,
+      but the paywall deliberately renders no purchase controls until Sign in
+      with Apple completes; location is only ever requested on an explicit tap;
+      account deletion is in Profile; and community photos are moderated before
+      publication.
 
 ### Privacy manifest
 

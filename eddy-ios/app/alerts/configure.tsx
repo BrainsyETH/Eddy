@@ -62,6 +62,7 @@ import { useAlertRules } from '@/hooks/useAlertRules';
 import { useAlertGate } from '@/hooks/useAlertGate';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { goBack } from '@/lib/nav';
 
 /** What the screen learned about the water it is configuring. */
 interface Context {
@@ -145,6 +146,12 @@ export default function ConfigureAlertScreen() {
   const [context, setContext] = useState<Context | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // A null `context` has two causes that owe the user opposite sentences: the
+  // route carried no station at all, or the request for its reading failed.
+  // Without this flag the screen cannot tell them apart, and it chose the
+  // wrong one — telling someone who had just tapped "Alert me" on a gauge that
+  // the river has no gauge. See the hints under the mode chips.
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const [mode, setMode] = useState<AlertRuleMode>('condition');
   const [conditionKind, setConditionKind] = useState<AlertSubscriptionKind>('safety');
@@ -162,6 +169,7 @@ export default function ConfigureAlertScreen() {
 
     (async () => {
       try {
+        setLoadFailed(false);
         if (scope === 'gauge' && params.siteId) {
           const gauge = await fetchGaugeDetail(params.siteId, controller.signal);
           if (controller.signal.aborted) return;
@@ -210,7 +218,15 @@ export default function ConfigureAlertScreen() {
         // A gauge we cannot read is still one you can set a level on — the
         // server re-checks everything on save. Losing the current reading costs
         // the helpful default, not the feature.
-        if (!controller.signal.aborted) setContext(null);
+        //
+        // Keeping that promise takes more than this catch: `hasStation`, the
+        // save payload and the mode default all used to read the station out of
+        // `context` alone, so a failure here disabled the form it claims to
+        // preserve. Each of the three now falls back to the route params.
+        if (!controller.signal.aborted) {
+          setContext(null);
+          setLoadFailed(true);
+        }
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -232,10 +248,19 @@ export default function ConfigureAlertScreen() {
   const hasDischarge = context?.dischargeCfs != null;
 
   useEffect(() => {
-    if (!context) return;
+    if (loading) return;
     // Eddy's call when Eddy has one, because it is the answer that cannot
     // disagree with the rest of the app.
+    //
+    // This runs once loading finishes rather than only when `context` arrived.
+    // `mode` initialises to 'condition', and a failed load left it there with
+    // `canUseCondition` false — so `canSave` was false and the form was dead no
+    // matter what else was fixed. Falling to 'threshold' is the honest default
+    // when there is no verdict to offer.
     setMode(canUseCondition ? 'condition' : 'threshold');
+    // The rest needs a reading to choose between units; without one the
+    // initial metric stands and the field simply opens empty.
+    if (!context) return;
     // Prefer the unit the water is actually rated in; otherwise whichever
     // series this station publishes. Never a unit with no reading behind it.
     const preferred: AlertMetric =
@@ -247,7 +272,7 @@ export default function ConfigureAlertScreen() {
             ? 'gauge_height_ft'
             : 'discharge_cfs';
     setMetric(preferred);
-  }, [context, canUseCondition]);
+  }, [loading, context, canUseCondition]);
 
   const currentValue = metric === 'discharge_cfs' ? context?.dischargeCfs ?? null : context?.gaugeHeightFt ?? null;
 
@@ -297,7 +322,17 @@ export default function ConfigureAlertScreen() {
   // has none. Without this the screen happily takes a number and the save
   // answers 404 "Gauge not found" — a true statement about a request the user
   // never knowingly made.
-  const hasStation = Boolean(context?.usgsSiteId || context?.gaugeStationId);
+  //
+  // The ROUTE PARAMS count as a station, not just the loaded context. Reaching
+  // this screen with scope 'gauge' means a gauge pin or row was tapped, and its
+  // id came along in the link — so a reading we could not fetch says nothing
+  // about whether the station exists. Reading `context` alone turned a dropped
+  // request into "this river has no gauge" and a permanently dead Save button.
+  const hasStation = Boolean(
+    context?.usgsSiteId ||
+      context?.gaugeStationId ||
+      (scope === 'gauge' && (params.siteId || params.gaugeId)),
+  );
   const canSave =
     mode === 'condition' ? canUseCondition : hasStation && valueValid && maxValid;
 
@@ -348,12 +383,12 @@ export default function ConfigureAlertScreen() {
    */
   const finish = useCallback(
     (seedNote: string | null, primed: boolean) => {
-      const goBack = () => {
-        if (!primed) router.back();
+      const leave = () => {
+        if (!primed) goBack(router);
       };
 
-      if (seedNote) Alert.alert('Alert saved', seedNote, [{ text: 'OK', onPress: goBack }]);
-      else goBack();
+      if (seedNote) Alert.alert('Alert saved', seedNote, [{ text: 'OK', onPress: leave }]);
+      else leave();
     },
     [router],
   );
@@ -376,8 +411,12 @@ export default function ConfigureAlertScreen() {
         }
 
         const { rule, seed } = await createGaugeAlert(token, {
-          gaugeStationId: context?.gaugeStationId ?? undefined,
-          usgsSiteId: context?.usgsSiteId ?? undefined,
+          // Same params fallback as `hasStation`, and required by it: enabling
+          // Save on the strength of a route param and then sending neither id
+          // would answer 404 for a station the user plainly selected. The
+          // success path above already prefers the fetched ids the same way.
+          gaugeStationId: context?.gaugeStationId ?? params.gaugeId ?? undefined,
+          usgsSiteId: context?.usgsSiteId ?? params.siteId ?? undefined,
           riverId: riverId ?? undefined,
           riverSlug: params.riverSlug || undefined,
           scope,
@@ -419,13 +458,29 @@ export default function ConfigureAlertScreen() {
     }
   }, [
     gate, scope, mode, riverId, conditionKind, refresh, finish, context,
-    params.riverSlug, metric, comparator, parsedValue, parsedMax, oneShot, add, targetName,
+    params.riverSlug, params.siteId, params.gaugeId,
+    metric, comparator, parsedValue, parsedMax, oneShot, add, targetName,
   ]);
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]} edges={['top']}>
-        <ActivityIndicator color={colors.interactive} />
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        {/* The nav row renders here too: the reading has fifteen seconds to
+            arrive before it times out, and a spinner with no chevron is that
+            long with no way off the screen. */}
+        <View style={styles.navRow}>
+          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
+            <Ionicons name="chevron-back" size={26} color={colors.text} />
+          </Pressable>
+          <Text style={[styles.navTitle, { color: colors.text }]} numberOfLines={1}>
+            {targetName}
+          </Text>
+          <View style={styles.navSpacer} />
+        </View>
+        <View style={[styles.centered, styles.flex]}>
+          <ActivityIndicator color={colors.interactive} />
+        </View>
       </SafeAreaView>
     );
   }
@@ -445,7 +500,7 @@ export default function ConfigureAlertScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <Text style={[styles.navTitle, { color: colors.text }]} numberOfLines={1}>
@@ -515,7 +570,18 @@ export default function ConfigureAlertScreen() {
             <Text style={chipText(mode === 'threshold')}>My own level</Text>
           </Pressable>
         </View>
-        {!canUseCondition && hasStation ? (
+        {/* Three mutually exclusive sentences, and which one shows is the
+            whole of the fix. The rating hint is a claim about a ladder we only
+            know from the request that failed, so it must not stand in for the
+            failure — and "no gauge on this river" must not stand in for
+            either. */}
+        {loadFailed && hasStation ? (
+          <Text style={[styles.hint, { color: colors.textSubtle }]}>
+            Couldn&apos;t load the current reading, so there&apos;s no verdict to watch and no
+            number to start you off. You can still set your own level — we&apos;ll check it
+            against the gauge when you save.
+          </Text>
+        ) : !loadFailed && !canUseCondition && hasStation ? (
           <Text style={[styles.hint, { color: colors.textSubtle }]}>
             Eddy doesn&apos;t rate this gauge for a river, so there&apos;s no floatable verdict to
             watch — set your own level instead.
@@ -711,13 +777,13 @@ export default function ConfigureAlertScreen() {
         onAllow={() => {
           gate.setPrimerOpen(false);
           void gate.enablePush();
-          router.back();
+          goBack(router);
         }}
         onDismiss={() => {
           gate.setPrimerOpen(false);
           // The alert is saved either way — declining the prompt is a choice
           // about this phone, not a reason to lose the rule.
-          router.back();
+          goBack(router);
         }}
       />
     </SafeAreaView>
@@ -726,6 +792,7 @@ export default function ConfigureAlertScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  flex: { flex: 1 },
   centered: { alignItems: 'center', justifyContent: 'center' },
   navRow: {
     flexDirection: 'row',

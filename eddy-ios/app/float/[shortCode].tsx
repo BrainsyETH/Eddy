@@ -27,6 +27,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { PlanResult } from '@/components/PlanResult';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
+import { goBack } from '@/lib/nav';
 
 export default function SavedFloatScreen() {
   const { shortCode } = useLocalSearchParams<{ shortCode: string }>();
@@ -105,7 +106,7 @@ export default function SavedFloatScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <View style={styles.navActions}>

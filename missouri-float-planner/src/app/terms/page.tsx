@@ -24,7 +24,7 @@ export default function TermsPage() {
             Terms of Service
           </h1>
           <p className="text-white/80">
-            Last updated: July 26, 2026
+            Last updated: August 3, 2026
           </p>
         </div>
       </section>
@@ -145,8 +145,18 @@ export default function TermsPage() {
               browsing session.
             </p>
             <p>
-              You are responsible for activity that occurs under your account. Contact us to
-              request deletion of an account and its associated data.
+              You are responsible for activity that occurs under your account. You can delete
+              your account and its associated data at any time from the iOS app &mdash; open
+              Profile and choose Delete account &mdash; and deletion takes effect immediately.
+              You can also email us at{' '}
+              <a
+                href="mailto:eddy@eddy.guide"
+                className="text-primary-600 hover:text-primary-700 font-medium"
+              >
+                eddy@eddy.guide
+              </a>{' '}
+              to request deletion. Deleting an account does not cancel an active subscription:
+              Apple handles billing, so cancel there first if you want it stopped.
             </p>
           </div>
         </section>
@@ -345,8 +355,14 @@ export default function TermsPage() {
         <section>
           <h2 className="text-2xl font-bold text-neutral-900 mb-3">Contact</h2>
           <p className="text-neutral-700 leading-relaxed">
-            If you have questions about these Terms of Service, feel free to reach out through
-            our website at{' '}
+            If you have questions about these Terms of Service, email us at{' '}
+            <a
+              href="mailto:eddy@eddy.guide"
+              className="text-primary-600 hover:text-primary-700 font-medium"
+            >
+              eddy@eddy.guide
+            </a>{' '}
+            or reach out through our website at{' '}
             <Link href="/" className="text-primary-600 hover:text-primary-700 font-medium">
               eddy.guide
             </Link>.

@@ -30,6 +30,7 @@ import { useEddySearch } from '@/hooks/useEddySearch';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { goBack } from '@/lib/nav';
 
 /** What the configure screen needs to describe and create a rule. */
 interface Target {
@@ -145,7 +146,7 @@ export default function NewAlertScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <Text style={[styles.navTitle, { color: colors.text }]}>New alert</Text>

@@ -801,22 +801,33 @@ export async function fetchGaugeDetail(
  * again on the client: at 30 days that is ~720 points, which is a line, not a
  * performance problem.
  *
- * Returns null rather than throwing when the station has no history at all —
- * an ordinary state for a new or seasonal site, and the chart simply does not
- * render. A cancelled request also returns null; the caller has already moved on.
+ * THREE-VALUED, and the distinction is load-bearing rather than tidy:
+ *
+ *   response — readings, possibly an empty array. The station answered.
+ *   null     — 404. The endpoint's own "nothing here": no such station, or a
+ *              deploy without this route. An answer, and cacheable as one.
+ *   undefined — the request FAILED. Network, timeout, 5xx, or cancellation.
+ *              Says nothing about the station and must never be cached.
+ *
+ * It used to collapse all three into null, which let one timeout at a put-in
+ * print "no history for this gauge" under a station with ten years of it — and
+ * cache that verdict for the life of the screen. This function is the only
+ * place that can tell the difference, because it is the only one holding the
+ * status code, so it is where the difference has to be drawn.
  */
 export async function fetchGaugeHistory(
   siteId: string,
   days: number,
   signal?: AbortSignal,
-): Promise<GaugeHistoryResponse | null> {
+): Promise<GaugeHistoryResponse | null | undefined> {
   try {
     return await get<GaugeHistoryResponse>(
       `/api/gauges/${encodeURIComponent(siteId)}/history?days=${days}`,
       signal,
     );
-  } catch {
-    return null;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    return undefined;
   }
 }
 

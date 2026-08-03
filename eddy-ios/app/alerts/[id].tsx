@@ -40,6 +40,7 @@ import { CONDITION_KINDS, codesForKind } from '@/lib/alertKinds';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { goBack } from '@/lib/nav';
 
 const COMPARATORS: { value: AlertComparator; label: string }[] = [
   { value: 'above', label: 'Rises above' },
@@ -184,7 +185,7 @@ export default function EditAlertScreen() {
         setSeed(result);
         return;
       }
-      router.back();
+      goBack(router);
     } catch {
       setError('Could not save that change. Try again.');
     } finally {
@@ -234,7 +235,7 @@ export default function EditAlertScreen() {
         style: 'destructive',
         onPress: () => {
           void remove(rule)
-            .then(() => router.back())
+            .then(() => goBack(router))
             .catch(() => setError('Could not delete that alert. Try again.'));
         },
       },
@@ -254,7 +255,7 @@ export default function EditAlertScreen() {
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.navRow}>
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
             <Ionicons name="chevron-back" size={26} color={colors.text} />
           </Pressable>
         </View>
@@ -301,7 +302,7 @@ export default function EditAlertScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <Text style={[styles.navTitle, { color: colors.text }]} numberOfLines={1}>
