@@ -33,22 +33,26 @@ RULES:
 - Output ONLY the quote text. No labels, no formatting, no quotes around it.`;
 
 /**
- * How far back the daily pass looks for the per-river rows it summarises.
+ * How far back to look for the per-river rows this summarises.
  *
- * Thirty minutes because the pass that calls it wrote them a moment ago, and a
- * summary of yesterday's rivers written under today's date is the one output
- * this must never produce.
- */
-export const GLOBAL_INPUT_WINDOW_MINUTES = 30;
-
-/**
- * How far back the REPAIR pass looks. See the route's globalOnly branch.
+ * ── Why this is hours and not minutes ──────────────────────────────────────
  *
- * Wider, because by then the daily pass is hours old — but still same-day, and
- * still only the newest row per river. What it must not do is reach back far
- * enough to summarise a river nobody has looked at since yesterday.
+ * It was thirty minutes, which was correct while this ran at the tail of the
+ * per-river pass that had just written them. It no longer does: the statewide
+ * summary is its own scheduled invocation, half an hour after the rivers, for
+ * reasons the cron route's header sets out at length. Thirty minutes would now
+ * miss the very rows it exists to read.
+ *
+ * Six hours is wide enough to absorb a late or slow per-river pass and narrow
+ * enough that it can only ever summarise rivers looked at THIS MORNING. A
+ * summary of yesterday's water written under today's date is the one output
+ * this must never produce, and that is the boundary this number defends.
+ *
+ * The dedupe below is what makes a wide window safe: one row per river, newest
+ * first, so reaching back further never doubles a river or resurrects a reading
+ * that has since been replaced.
  */
-export const GLOBAL_REPAIR_WINDOW_MINUTES = 6 * 60;
+export const GLOBAL_INPUT_WINDOW_MINUTES = 6 * 60;
 
 export interface GlobalUpdateOptions {
   /**

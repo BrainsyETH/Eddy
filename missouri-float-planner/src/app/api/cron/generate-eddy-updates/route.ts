@@ -4,42 +4,59 @@
 // minutes after the hourly gauge sync so reports use the freshest readings.
 // Uses concurrent processing (max 3 parallel) for faster execution.
 //
-// ── The statewide summary is the fragile part of this route ─────────────────
+// ── THE STATEWIDE SUMMARY IS A SEPARATE INVOCATION ──────────────────────────
 //
-// It runs LAST, after all 24 rivers, because generateGlobalUpdate summarises
-// the rows this pass has just written. That ordering is correct and is not
-// what went wrong — but it means one model call, at the end of a long
-// function, with every per-river success already banked, decides whether the
-// app's launch screen has a report on it for the next 24 hours.
+// `?globalOnly=1`, on its own cron at 11:45 UTC. It is not a variant of this
+// pass and not a fallback for it; it is where the statewide summary is
+// generated, full stop. This pass writes rivers and stops.
 //
-// On 2026-08-03 that call did not land. All 24 per-river rows were written
-// between 11:10:29 and 11:11:54 UTC and no global row followed. Yesterday's
-// expired at 12:10 UTC and the Today tab lost its report for the rest of the
-// day. Three things made that possible and all three are fixed here:
+// ── What the timings said ───────────────────────────────────────────────────
 //
-//   1. ONE ATTEMPT. A single transient API failure cost the whole day. The
-//      call is now retried with backoff.
-//   2. A SILENT 200. The failure went into an `errors` array in a JSON body
-//      that nothing reads — not Vercel's cron log, which only sees the status.
-//      A full pass that cannot produce the summary now returns 500.
-//   3. NO SECOND CHANCE. Nothing between one 11:10 and the next could notice
-//      the row was missing. `?globalOnly=1` is a repair pass that regenerates
-//      it only when it is actually absent; see the branch below.
+// The summary used to run LAST, inside this pass, on the sound reasoning that
+// generateGlobalUpdate reads the rows the pass has just written. Then it did
+// not land on 2026-08-03 and the Today tab lost its report for a day. The row
+// timestamps across three days say why, and they say something sharper than
+// "a call failed":
 //
-// The route also had no `maxDuration` in vercel.json while every other
-// long-running cron there does. The 2026-08-02 pass took 4m12s. That is added
-// too — see the functions block in vercel.json.
+//   Day     rivers written   river phase   statewide row   statewide took
+//   Aug 1   24               76s           11:15:22        3m 23s
+//   Aug 2   24               68s           11:15:03        3m 03s
+//   Aug 3   24               84s           never           —
+//
+// Twenty-four river reports take about eighty seconds. ONE statewide call —
+// a single messages.create with max_tokens 200 — takes over three minutes,
+// every time it succeeds. So the pass ran 4m11s and 4m38s on the days it
+// worked, against a route that had no `maxDuration` declared at all. The
+// successful runs were clearing the ceiling by seconds. On the third day the
+// river phase ran sixteen seconds longer than the day before, and the function
+// stops dead the moment the rivers finish.
+//
+// The most likely reason one small call takes three minutes is WHERE it sits:
+// immediately behind twenty-four concurrent-3 calls to the same API, so it is
+// queued or rate-limited and the SDK's own retries stretch it. That is
+// inference — a killed function does not get to log — but the three minutes is
+// measured, and it is the same three minutes on every successful day.
+//
+// Either way the conclusion does not depend on the mechanism: a step that
+// takes three minutes must not run inside a pass that has already spent most
+// of its budget, behind the burst that is probably what slows it down.
+//
+// ── Why a retry here would have made it worse ───────────────────────────────
+//
+// The first fix for this added retries to the in-pass global step. That was
+// aimed at the wrong failure: three attempts at a three-minute call, inside an
+// invocation already 85 seconds in, guarantees the timeout it was meant to
+// survive. The retry is right — it just belongs in the invocation that has the
+// whole budget to itself, which is where it now lives.
+//
+// What is left here is the part that was always correct: per-river generation,
+// bounded concurrency, and a pass that finishes in ninety seconds.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUpdateTargetsFromDb, type UpdateTarget } from '@/lib/eddy/update-targets';
 import { generateEddyUpdate, usageColumns } from '@/lib/eddy/generate-update';
-import {
-  generateGlobalUpdate,
-  GLOBAL_REPAIR_WINDOW_MINUTES,
-  type GlobalUpdate,
-} from '@/lib/eddy/generate-global-update';
-import { GLOBAL_PROSE_STALE_HOURS } from '@/lib/eddy/global-prose-gate';
+import { generateGlobalUpdate, type GlobalUpdate } from '@/lib/eddy/generate-global-update';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,20 +69,48 @@ const MAX_CONCURRENCY = 3;
 /**
  * Attempts at the statewide summary before giving the day up.
  *
- * Three, with a short linear backoff. The failure mode being covered is a
- * transient one — a rate limit, an overloaded model, a socket closed mid-call —
- * and those clear in seconds. A run that has already spent minutes generating
- * 24 river reports can afford a few more to keep them from being unreadable as
- * a group.
+ * Three, with a short linear backoff, and a DEADLINE that usually stops it at
+ * one — which is not a contradiction, it is the whole design.
+ *
+ * ── Why a retry count alone is a trap here ─────────────────────────────────
+ *
+ * This call takes about three minutes when it succeeds (see the header). The
+ * function's ceiling is five. So three unconditional attempts do not make a
+ * flaky call reliable; they guarantee the timeout, because attempt two starts
+ * at roughly minute three and is killed at minute five with nothing written.
+ * A retry policy that cannot finish is worse than none: it converts a clean
+ * failure into a half-run that also costs a second call.
+ *
+ * The two failure shapes want opposite things, and the clock tells them apart:
+ *
+ *   FAST failure   a 4xx, a bad key, a malformed response. Seconds. There is
+ *                  plenty of budget left and a retry is worth having.
+ *   SLOW failure   queued, rate-limited, the SDK grinding through its own
+ *                  internal retries. Minutes. There is no room for another and
+ *                  trying is how the whole invocation is lost.
+ *
+ * So the count bounds the fast case and the deadline bounds the slow one.
  */
 const GLOBAL_ATTEMPTS = 3;
 const GLOBAL_RETRY_DELAY_MS = 4_000;
 
-/** One statewide summary, retried. Null only when every attempt failed. */
+/**
+ * How long into the invocation a NEW attempt may still be started.
+ *
+ * Four minutes of the five in vercel.json's maxDuration. It is not a timeout on
+ * the call — nothing here can interrupt one in flight — it is a gate on
+ * beginning another, so a retry is only ever taken when there is room to finish
+ * it. Past this the function reports the failure it has, which the 500 below
+ * makes visible, rather than being killed while pretending to recover.
+ */
+const GLOBAL_START_DEADLINE_MS = 4 * 60 * 1000;
+
+/** One statewide summary, retried while there is budget. Null if none landed. */
 async function generateGlobalWithRetry(
   windowMinutes?: number,
 ): Promise<{ update: GlobalUpdate | null; attempts: number; lastError: string | null }> {
   let lastError: string | null = null;
+  const startedAt = Date.now();
 
   for (let attempt = 1; attempt <= GLOBAL_ATTEMPTS; attempt++) {
     try {
@@ -84,9 +129,18 @@ async function generateGlobalWithRetry(
       console.error(`[EddyCron] Global attempt ${attempt}/${GLOBAL_ATTEMPTS} threw:`, e);
     }
 
-    if (attempt < GLOBAL_ATTEMPTS) {
-      await new Promise((resolve) => setTimeout(resolve, GLOBAL_RETRY_DELAY_MS * attempt));
+    if (attempt >= GLOBAL_ATTEMPTS) break;
+
+    const elapsed = Date.now() - startedAt;
+    if (elapsed >= GLOBAL_START_DEADLINE_MS) {
+      console.error(
+        `[EddyCron] Statewide summary out of budget after ${attempt} attempt(s) ` +
+          `(${Math.round(elapsed / 1000)}s elapsed); not starting another`,
+      );
+      return { update: null, attempts: attempt, lastError };
     }
+
+    await new Promise((resolve) => setTimeout(resolve, GLOBAL_RETRY_DELAY_MS * attempt));
   }
 
   return { update: null, attempts: GLOBAL_ATTEMPTS, lastError };
@@ -159,27 +213,45 @@ async function runGeneration(request: NextRequest) {
     return error;
   };
 
-  // ── The repair pass ───────────────────────────────────────────────────────
+  // ── The statewide pass ────────────────────────────────────────────────────
   //
-  // `?globalOnly=1` regenerates the statewide summary and nothing else, and
-  // only when there is not already a good one. It exists because the daily
-  // pass has exactly one chance at the summary and a miss costs the Today tab
-  // its report until the next morning — which is what happened on 2026-08-03.
+  // `?globalOnly=1` generates the statewide summary and nothing else. It is
+  // where that artifact comes from — see the header for why it is not a step at
+  // the end of the river pass any more.
   //
-  // IT IS A NO-OP ON A HEALTHY DAY, and that is the point: it must not become
-  // a second daily generation, spending a Sonnet call and rewriting prose
-  // people have already read. The condition it repairs is narrow — no row, or
-  // one the read side would refuse to serve anyway.
+  // It has the whole invocation to itself, which is the entire point: one call
+  // that takes three minutes, with no burst in front of it, and a retry that
+  // can afford to fire.
   //
-  // It regenerates from the NEWEST row per river within a wider window rather
-  // than re-reading this morning's inputs, so the prose describes water that
-  // is current as of when it is written. That keeps the read-side gate honest:
-  // it decides what the summary "knew" from the rows that predate it, and a
-  // summary stamped now but written from six-hour-old inputs would tell it a
-  // flood was known about when it was not. See global-prose-gate.ts.
+  // It reads the NEWEST row per river inside the input window rather than
+  // rows tied to a particular pass, so the prose describes water that is
+  // current as of when it is written. That is what keeps the read-side gate
+  // honest — the gate decides what the summary "knew" from the rows that
+  // predate it, and a summary stamped now but written from stale inputs would
+  // tell it a flood was known about when it was not. See global-prose-gate.ts.
   if (request.nextUrl.searchParams.get('globalOnly') === '1') {
+    // ── The skip guard, and why it is NOT the read side's 24 hours ──────────
+    //
+    // Firing this twice in a morning must not spend a second call or rewrite
+    // prose people have already read, so an existing summary short-circuits it.
+    //
+    // The threshold cannot be GLOBAL_PROSE_STALE_HOURS. That is 24, this cron
+    // fires every 24 hours, and `generated_at` is stamped AFTER the model call
+    // returns — three minutes after the invocation starts. So yesterday's row
+    // is reliably a few minutes SHORT of 24 hours old when today's run checks
+    // it, the guard reads it as current, and today's summary is never written.
+    // Every other day at best, and silently.
+    //
+    // That never fired while this was a repair pass, because the river pass had
+    // already written a fresh row and this was supposed to no-op. Promoting it
+    // to the primary generator is what would have armed it.
+    //
+    // Twelve hours: comfortably longer than any manual re-fire on the same
+    // morning, comfortably shorter than the gap between two scheduled runs, and
+    // it cannot collide with the interval it is measuring.
+    const REGENERATE_AFTER_HOURS = 12;
     const freshEnough = new Date(
-      Date.now() - GLOBAL_PROSE_STALE_HOURS * 60 * 60 * 1000,
+      Date.now() - REGENERATE_AFTER_HOURS * 60 * 60 * 1000,
     ).toISOString();
 
     const { data: liveGlobal, error: globalReadError } = await supabase
@@ -188,33 +260,28 @@ async function runGeneration(request: NextRequest) {
       .eq('river_slug', 'global')
       .is('section_slug', null)
       .gt('expires_at', new Date().toISOString())
-      // The read side drops a summary older than this regardless of expiry, so
-      // a row it would refuse to serve is a row this pass must treat as absent.
       .gt('generated_at', freshEnough)
       .limit(1);
 
     if (globalReadError) {
-      console.error('[EddyCron] Global repair could not read existing rows:', globalReadError);
+      console.error('[EddyCron] Statewide pass could not read existing rows:', globalReadError);
       return NextResponse.json({ error: 'Failed to read existing summary' }, { status: 500 });
     }
 
     if (liveGlobal && liveGlobal.length > 0) {
       return NextResponse.json({
-        message: 'Statewide summary already current; nothing to repair',
-        repaired: false,
+        message: 'Statewide summary already current; nothing to do',
+        generated: false,
         generatedAt: liveGlobal[0].generated_at,
       });
     }
 
-    console.warn('[EddyCron] No serviceable statewide summary; regenerating');
-    const { update, attempts, lastError } = await generateGlobalWithRetry(
-      GLOBAL_REPAIR_WINDOW_MINUTES,
-    );
+    const { update, attempts, lastError } = await generateGlobalWithRetry();
 
     if (!update) {
-      console.error(`[EddyCron] Global repair failed after ${attempts} attempts: ${lastError}`);
+      console.error(`[EddyCron] Statewide summary failed after ${attempts} attempts: ${lastError}`);
       return NextResponse.json(
-        { error: 'Statewide summary repair failed', attempts, lastError },
+        { error: 'Statewide summary generation failed', attempts, lastError },
         { status: 500 },
       );
     }
@@ -224,12 +291,12 @@ async function runGeneration(request: NextRequest) {
       new Date(Date.now() + UPDATE_TTL_HOURS * 60 * 60 * 1000).toISOString(),
     );
     if (insertError) {
-      console.error('[EddyCron] Global repair insert failed:', insertError);
-      return NextResponse.json({ error: 'Repair insert failed' }, { status: 500 });
+      console.error('[EddyCron] Statewide summary insert failed:', insertError);
+      return NextResponse.json({ error: 'Statewide insert failed' }, { status: 500 });
     }
 
-    console.log(`[EddyCron] Repaired the statewide summary after ${attempts} attempt(s)`);
-    return NextResponse.json({ message: 'Statewide summary repaired', repaired: true, attempts });
+    console.log(`[EddyCron] Generated the statewide summary after ${attempts} attempt(s)`);
+    return NextResponse.json({ message: 'Statewide summary generated', generated: true, attempts });
   }
 
   // Get active rivers from the database
@@ -330,36 +397,14 @@ async function runGeneration(request: NextRequest) {
     }
   }
 
-  // Generate global summary from per-river updates. Skipped on single-river
-  // on-demand runs, which would otherwise skew the statewide summary.
+  // THE STATEWIDE SUMMARY IS NOT GENERATED HERE. It has its own invocation at
+  // 11:45 — `?globalOnly=1`, the branch above — because one call that reliably
+  // takes three minutes has no business at the tail of a pass that has already
+  // spent eighty seconds and is queued behind its own burst. The header has the
+  // timings this is built on.
   //
-  // `globalFailed` is tracked separately from `errors` because it is the only
-  // failure in this route that costs a whole surface rather than one river's
-  // paragraph — see the header. It decides the status code below.
-  let globalFailed = false;
-  if (!singleRiver) {
-    const { update: globalUpdate, attempts, lastError } = await generateGlobalWithRetry();
-
-    if (globalUpdate) {
-      const globalInsertError = await insertGlobal(globalUpdate, expiresAt);
-      if (globalInsertError) {
-        console.error('[EddyCron] Global insert failed:', globalInsertError);
-        errors.push(`global: DB insert failed: ${globalInsertError.message}`);
-        globalFailed = true;
-      } else {
-        generated++;
-        console.log(
-          `[EddyCron] Generated global Ozarks summary after ${attempts} attempt(s)`,
-        );
-      }
-    } else {
-      console.error(
-        `[EddyCron] Global summary failed after ${attempts} attempts: ${lastError}`,
-      );
-      errors.push(`global: ${lastError ?? 'generation returned null'}`);
-      globalFailed = true;
-    }
-  }
+  // Nothing replaces it in this position. A "kick off the statewide pass from
+  // here" call would put the same three minutes back on the same clock.
 
   // Clean up expired updates (keep last 48 hours for history). Global
   // maintenance, so it only runs on full cron passes, not single-river runs.
@@ -375,32 +420,24 @@ async function runGeneration(request: NextRequest) {
     }
   }
 
-  // ── A missing statewide summary is a FAILED cron run ──────────────────────
+  // A 200 with per-river failures listed, which is the honest shape for this
+  // pass: one river short of a paragraph is a real but partial outcome, and 23
+  // good reports should not be reported to Vercel's cron log as a failed job.
   //
-  // It used to be a line in `errors` under a 200, which is indistinguishable
-  // from success everywhere it is actually watched: Vercel's cron log records
-  // the status code and nothing else, so the run that cost the Today tab its
-  // report for a day looked exactly like the 30 that worked. The per-river
-  // failures stay inside the 200 — one river short of a paragraph is a real
-  // but partial outcome, and 23 good reports should not be reported as a
-  // failed job.
-  const status = globalFailed ? 500 : 200;
-
-  return NextResponse.json(
-    {
-      message: globalFailed
-        ? 'Eddy update generation completed WITHOUT the statewide summary'
-        : 'Eddy update generation complete',
-      river: riverParam ?? undefined,
-      generated,
-      failed,
-      globalFailed,
-      total: targets.length,
-      errors: errors.length > 0 ? errors : undefined,
-      executionTime: new Date().toISOString(),
-    },
-    { status },
-  );
+  // The statewide summary used to decide this status code, because losing it
+  // costs a whole surface rather than one river's paragraph. It still does —
+  // in its own invocation, which returns 500 when it cannot produce one. That
+  // is a cleaner signal than it ever was here: a red run in the log now means
+  // exactly one thing, and it is the thing worth being woken for.
+  return NextResponse.json({
+    message: 'Eddy update generation complete',
+    river: riverParam ?? undefined,
+    generated,
+    failed,
+    total: targets.length,
+    errors: errors.length > 0 ? errors : undefined,
+    executionTime: new Date().toISOString(),
+  });
 }
 
 export async function GET(request: NextRequest) {
