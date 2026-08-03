@@ -38,6 +38,8 @@ export type FirstRunStep = 'legal' | 'picker' | 'app';
 export interface OnboardingStorage {
   getItem(key: string): Promise<string | null>;
   setItem(key: string, value: string): Promise<void>;
+  /** Only resetFirstRun needs it, so it stays optional for the test stubs. */
+  removeItem?(key: string): Promise<void>;
 }
 
 function deviceStorage(): OnboardingStorage {
@@ -181,4 +183,47 @@ export function stepAfterLegal(snapshot: FirstRunSnapshot): FirstRunStep {
  */
 export function needsMigrationRecord(snapshot: FirstRunSnapshot): boolean {
   return snapshot.legalAccepted && snapshot.personalization == null;
+}
+
+/**
+ * Forget both keys, so the next launch is a first launch.
+ *
+ * ── Why this exists, and why it is not a developer convenience ──────────────
+ *
+ * First run is the one flow in this app that cannot be tested twice on the same
+ * device. Everything else can be re-entered from a tab; this is gated on two
+ * AsyncStorage keys that are written once and never cleared, so verifying a
+ * change to the disclaimer or the picker meant deleting the app, reinstalling
+ * from TestFlight, and waiting.
+ *
+ * That made a REPORT of the gate not appearing — "I deleted and reinstalled and
+ * was not prompted" — unfalsifiable from this side. The gate is wired correctly
+ * (OnboardingGate is mounted in app/_layout.tsx above the router, and
+ * hasAcceptedTerms fails closed to false), both keys die with the app
+ * container, and there is no code path that writes 'accepted' anywhere else.
+ * So the likeliest explanation is a build that predates the gate — but nothing
+ * on the device could confirm or refute that, which is the actual defect.
+ *
+ * Two things fix that: this, and the breadcrumb OnboardingGate now files naming
+ * the step it resolved. One makes the flow re-testable in seconds; the other
+ * means the next report arrives with the answer attached.
+ *
+ * NOT OFFERED ON PRODUCTION. Profile gates the control on the update channel —
+ * clearing a legal acceptance is not something to leave lying around in a
+ * shipped build, and nobody outside a test flight has a reason to.
+ *
+ * Never throws. The caller sends the session back to the gate either way; a
+ * reset that failed to persist costs a relaunch, not a wedged screen.
+ */
+export async function resetFirstRun(storage?: OnboardingStorage): Promise<void> {
+  try {
+    const store = storage ?? deviceStorage();
+    if (!store.removeItem) return;
+    await Promise.all([
+      store.removeItem(ONBOARDING_KEY),
+      store.removeItem(PERSONALIZATION_KEY),
+    ]);
+  } catch {
+    // Intentionally swallowed — see above.
+  }
 }

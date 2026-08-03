@@ -66,3 +66,40 @@ export async function writeUpdateCollapsed(
     // a smaller failure than a tab that stalls on a key-value write.
   }
 }
+
+// ── The fold, as two pure functions ─────────────────────────────────────────
+//
+// They live here rather than inline in TodaySummary because the app has no test
+// runner of its own and a component cannot be exercised from the web suite. The
+// state machine is four lines and it shipped INVERTED: the card computed
+// `open = collapsed === false` and then wrote `!open` back as the next
+// collapsed value — which is the state it was already in. Tapping the chevron
+// changed nothing, in either direction, on every device, for every user. It
+// looked like a dead control rather than like a bug, so nobody could report it
+// as one.
+//
+// Two named functions with a test each is what stops that recurring. The
+// component now holds no fold logic at all.
+
+/**
+ * Is the update showing?
+ *
+ * `collapsed` is `undefined` while the stored answer is still being read, and
+ * that resolves to SHUT — see TodaySummary for why the card must not open and
+ * then close under the reader's thumb. Nothing to show is also shut: a card
+ * with no prose has nothing to open.
+ */
+export function isUpdateOpen(hasProse: boolean, collapsed: boolean | undefined): boolean {
+  return hasProse && collapsed === false;
+}
+
+/**
+ * What to store after a tap on the chevron.
+ *
+ * Takes the CURRENT open state and returns the next COLLAPSED value, which is
+ * the same thing: a card that is open becomes collapsed, and vice versa. The
+ * inversion is the whole content of the bug above, so it is named once, here.
+ */
+export function collapsedAfterToggle(open: boolean): boolean {
+  return open;
+}

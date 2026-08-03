@@ -31,22 +31,37 @@
 // it is the only thing here that reads as observation rather than measurement.
 // The stamp is what keeps it from being mistaken for the former.
 //
-// ── The footer is a way out, not a caveat ───────────────────────────────────
+// ── The card has no footer, and has stopped having one twice ────────────────
 //
-// It used to print the reading-lag note — "Gauge readings can trail the river by
+// It printed the reading-lag note first — "Gauge readings can trail the river by
 // up to about an hour" — under every state of this card, including the ones with
 // no reading anywhere near it. A caveat repeated on a screen that cannot act on
 // it is a caveat people stop seeing, and the app makes the same disclosure twice
 // more where it bites: on the Alerts tab, beside the thing that will wake your
-// phone, and in Profile. What belongs here instead is the next move: the
-// headline says nine rivers are floatable, so the footer offers the nine.
+// phone, and in Profile.
+//
+// What replaced it was a "Show the 9 that are floatable" row, on the reasoning
+// that the headline states a count and the reader should be able to act on it.
+// That is gone too. The count is a fact about the Ozarks, not a filter, and
+// restating it as a button directly under the sentence that just said it made
+// the card ask a question it had already answered — three lines of teal to
+// arrive at the chip row a thumb's width below, which does the same thing,
+// says the same number, and is on screen either way.
+//
+// So the card is the headline and the paragraph, and nothing else. Anything
+// that wants to be under the prose has to earn the slot against being absent.
 
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Otter } from '@/components/Otter';
 import { primary } from '@/theme/palette';
-import { readUpdateCollapsed, writeUpdateCollapsed } from '@/lib/todayPreferences';
+import {
+  collapsedAfterToggle,
+  isUpdateOpen,
+  readUpdateCollapsed,
+  writeUpdateCollapsed,
+} from '@/lib/todayPreferences';
 import { fonts, type as t } from '@/theme/typography';
 
 interface Props {
@@ -56,19 +71,6 @@ interface Props {
   prose: string | null;
   /** When the prose was generated. Ignored when there is no prose. */
   generatedAt: string | null;
-  /**
-   * Narrow the list below to the floatable ones.
-   *
-   * The card's whole headline is a count of them, and until now the only way to
-   * act on it was to find the chip row under the search field and work out which
-   * chip meant the same thing as the sentence at the top of the screen.
-   *
-   * Optional: absent when the caller has nothing to filter — the footer then
-   * renders nothing rather than a button that does nothing.
-   */
-  onShowFloatable?: () => void;
-  /** How many rivers the CTA would reveal. Absent means "do not name a number". */
-  floatableCount?: number | null;
 }
 
 /**
@@ -87,13 +89,7 @@ function writtenAge(iso: string, now = new Date()): string | null {
   return `Written ${Math.round(hours)} hours ago`;
 }
 
-export function TodaySummary({
-  headline,
-  prose,
-  generatedAt,
-  onShowFloatable,
-  floatableCount = null,
-}: Props) {
+export function TodaySummary({ headline, prose, generatedAt }: Props) {
   /**
    * Undefined until the stored answer lands, and that third state matters.
    *
@@ -124,10 +120,14 @@ export function TodaySummary({
   // absent rather than disabled — a chevron that opens an empty card is a
   // chevron that teaches people the card is broken.
   const foldable = Boolean(prose);
-  const open = foldable && collapsed === false;
+  const open = isUpdateOpen(foldable, collapsed);
 
+  // Both halves come from todayPreferences, and neither is written out here.
+  // This used to be `const next = !open`, which is the state the card is ALREADY
+  // in — so the chevron flipped its own glyph and nothing else, forever. See the
+  // two functions' comments.
   const toggle = () => {
-    const next = !open;
+    const next = collapsedAfterToggle(open);
     setCollapsed(next);
     void writeUpdateCollapsed(next);
   };
@@ -174,29 +174,6 @@ export function TodaySummary({
           ) : null}
         </>
       ) : null}
-
-      {/* The next move, in the slot the reading-lag caveat used to occupy. Only
-          when there is something to reveal: on a morning with nothing floatable
-          this would be a button that filters the list down to an empty state. */}
-      {open && onShowFloatable && (floatableCount ?? 0) > 0 ? (
-        <Pressable
-          onPress={onShowFloatable}
-          style={({ pressed }) => [styles.cta, { opacity: pressed ? 0.7 : 1 }]}
-          accessibilityRole="button"
-          accessibilityLabel={
-            floatableCount === 1
-              ? 'Show the one floatable river'
-              : `Show the ${floatableCount} floatable rivers`
-          }
-        >
-          <Text style={[styles.ctaText, { color: primary[50] }]}>
-            {floatableCount === 1
-              ? 'Show the one that is floatable'
-              : `Show the ${floatableCount} that are floatable`}
-          </Text>
-          <Ionicons name="arrow-forward" size={15} color={primary[50]} />
-        </Pressable>
-      ) : null}
     </View>
   );
 }
@@ -209,9 +186,4 @@ const styles = StyleSheet.create({
   headline: { ...t.xl, fontFamily: fonts.display, flex: 1 },
   prose: { ...t.sm, fontFamily: fonts.body, lineHeight: 21 },
   footnote: { ...t.xs, fontFamily: fonts.body },
-  // A row rather than a filled button: this card is already a solid teal block
-  // and a second fill inside it would read as a second card. The arrow is what
-  // makes it a control.
-  cta: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 2 },
-  ctaText: { ...t.sm, fontFamily: fonts.semibold },
 });

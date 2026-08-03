@@ -77,7 +77,13 @@ import {
   stationCaption,
   supportsFlowBand,
 } from '@/lib/gaugeProvider';
-import { recallGauge, rememberGauge, seedFromDetail, type GaugeSeed } from '@/lib/gaugeSeed';
+import {
+  gaugeTier,
+  recallGauge,
+  rememberGauge,
+  seedFromDetail,
+  type GaugeSeed,
+} from '@/lib/gaugeSeed';
 import { readGauge, writeGauge } from '@/lib/gaugeCache';
 import { EddyTake } from '@/components/EddyTake';
 import { GaugeChart } from '@/components/GaugeChart';
@@ -253,6 +259,21 @@ export default function GaugeDetailScreen() {
     ? (gauge.thresholds?.find((l) => l.isPrimary) ?? gauge.thresholds?.[0] ?? null)
     : null;
   const rated = Boolean(link && hasLadder(link));
+
+  /**
+   * True while the screen does not yet know which vocabulary it is entitled to.
+   *
+   * `rated` alone cannot tell "this station has no ladder" from "the thing that
+   * opened this screen does not carry ladders", and three of the five seeds are
+   * the second case — so the false branch printed the reference tier's answer
+   * about rated rivers for a frame. gaugeTier() separates the two; this pairs it
+   * with whether anything is still coming.
+   *
+   * ONCE THE DETAIL HAS LANDED, unknown stops being unknown: nothing further
+   * will arrive, and the flow-band vocabulary is the honest floor for a station
+   * we hold no ladder for. So this is only true while `loading`.
+   */
+  const tierResolving = gauge ? gaugeTier(gauge) === 'unknown' && loading : false;
 
   const reportSlug = rated ? (link?.riverSlug ?? null) : null;
   const reportGaugeId = gauge?.id ?? null;
@@ -453,11 +474,16 @@ export default function GaugeDetailScreen() {
         <Text style={[styles.meta, { color: colors.textMuted }]}>
           {[
             stationCaption(gauge.provider, gauge.siteId),
-            rated
-              ? link?.riverName
-              : supportsFlowBand(gauge.provider)
-                ? 'Not rated by Eddy'
-                : 'Dam release',
+            // "Not rated by Eddy" is withheld while the tier is unresolved for
+            // the same reason the chip below is: it is the strongest sentence
+            // on this line and it was being printed about rated rivers.
+            tierResolving
+              ? null
+              : rated
+                ? link?.riverName
+                : supportsFlowBand(gauge.provider)
+                  ? 'Not rated by Eddy'
+                  : 'Dam release',
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -470,7 +496,7 @@ export default function GaugeDetailScreen() {
             making a floatability claim it has explicitly declined to make. */}
         <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
           <View style={styles.readingRow}>
-            {rated ? <Otter mood={otterForCondition(code)} size={56} /> : null}
+            {rated && !tierResolving ? <Otter mood={otterForCondition(code)} size={56} /> : null}
             <View style={styles.readingText}>
               <Text
                 style={[
@@ -488,7 +514,20 @@ export default function GaugeDetailScreen() {
               ) : null}
             </View>
 
-            {rated ? (
+            {/* A SHAPE, not a sentence, while the tier is unresolved.
+                The reading and its age above are true on the first frame from
+                any seed — that is what seeding is for — and they stay. What
+                cannot be shown yet is the CLAIM about them, because the two
+                available claims contradict each other and the screen has not
+                been told which it is entitled to. An empty chip of the right
+                size holds the layout so nothing jumps when the answer lands. */}
+            {tierResolving ? (
+              <View
+                style={[styles.chip, styles.chipResolving, { backgroundColor: colors.cardRaised }]}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+              />
+            ) : rated ? (
               <View
                 style={[
                   styles.chip,
@@ -530,8 +569,12 @@ export default function GaugeDetailScreen() {
 
           {/* The comparison, for a station that has one. This is the reference
               tier's whole answer, so it is stated in words and not left to a
-              chip colour five steps of one hue deep. */}
-          {!rated && supportsFlowBand(gauge.provider) ? (
+              chip colour five steps of one hue deep.
+
+              Withheld entirely while the tier is unresolved — this line is the
+              one that actually said the false thing. "No historical comparison
+              published for this gauge", under a rated river, for one frame. */}
+          {tierResolving ? null : !rated && supportsFlowBand(gauge.provider) ? (
             <Text style={[styles.bandSentence, { color: colors.textMuted }]}>
               {flowBandSentence(band)}
               {percentile ? ` — ${percentile}.` : '.'}
@@ -895,6 +938,11 @@ const styles = StyleSheet.create({
   age: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
   chipText: { ...t.xs, fontFamily: fonts.semibold },
+  // Sized to the labels it stands in for — "Floatable" and "Much lower than
+  // usual" bracket the range — so the card does not resize when the real chip
+  // arrives. Borderless, because a chip outline reads as a chip with its text
+  // failed to load, which is the appearance this whole change is removing.
+  chipResolving: { width: 96, height: 25, borderWidth: 0 },
   caveat: { ...t.xs, fontFamily: fonts.medium, marginTop: 10 },
   scaleWrap: { marginTop: 14 },
   bandSentence: { ...t.sm, fontFamily: fonts.body, marginTop: 12 },

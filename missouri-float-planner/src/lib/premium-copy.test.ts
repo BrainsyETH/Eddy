@@ -4,6 +4,9 @@ import { readFileSync } from 'node:fs';
 import {
   PREMIUM_BENEFITS,
   PREMIUM_FREE_NOTE,
+  PREMIUM_LOCK_BODY,
+  PREMIUM_LOCK_FREE_NOTE,
+  PREMIUM_LOCK_TITLE,
   PREMIUM_TITLE,
   premiumPitch,
   premiumSubtitle,
@@ -82,6 +85,51 @@ test('the river-specific and generic pitches say the same thing', () => {
   }
   assert.match(premiumSubtitle('Huzzah Creek'), /Huzzah Creek/);
   assert.match(premiumPitch('Huzzah Creek'), /Huzzah Creek/);
+});
+
+test('the lock row sells the report, not the button', () => {
+  // It said "Unlock Eddy's take", which names the mechanism and uses Eddy's own
+  // word for the thing rather than the reader's. The title is now the offer in
+  // a phrase, and it has to keep naming both halves of what makes it one: that
+  // it is a report, and that it arrives every day.
+  assert.match(PREMIUM_LOCK_TITLE, /daily/i);
+  assert.match(PREMIUM_LOCK_TITLE, /report/i);
+  assert.doesNotMatch(PREMIUM_LOCK_TITLE, /unlock/i, 'the title must not name the button');
+
+  // The body carries the three sections the blur can show the shape of but not
+  // the content of.
+  assert.match(PREMIUM_LOCK_BODY, /water/i);
+  assert.match(PREMIUM_LOCK_BODY, /weather/i);
+  assert.match(PREMIUM_LOCK_BODY, /bottom line/i);
+});
+
+test('the lock row does not advertise anything free', () => {
+  // Same rule as the benefit list, applied to the surface that broke it first.
+  // PREMIUM_LOCK_FREE_NOTE is excluded for the same reason PREMIUM_FREE_NOTE is
+  // below: naming free features is its entire job.
+  const text = `${PREMIUM_LOCK_TITLE} ${PREMIUM_LOCK_BODY}`;
+  for (const pattern of NEVER_SOLD) {
+    assert.doesNotMatch(text, pattern, `the lock row must not advertise ${pattern}`);
+  }
+});
+
+test('the lock row says what stays free, on the screen that can be checked', () => {
+  // It sits under the blurred report with the condition, the reading and the
+  // trend sharp a few hundred pixels above it. A claim that can be verified by
+  // looking up is the only kind worth making here.
+  for (const pattern of [/condition/i, /reading/i, /hazard/i, /alert/i, /free/i]) {
+    assert.match(PREMIUM_LOCK_FREE_NOTE, pattern);
+  }
+});
+
+test('EddyTake reads the lock copy rather than holding its own', () => {
+  // The third surface, and the last one to be inlined. It drifted the same way
+  // the other two did and for the same reason: nothing could see it.
+  const take = readFileSync('../eddy-ios/src/components/EddyTake.tsx', 'utf8');
+  assert.match(take, /from '@\/lib\/premiumCopy'/);
+  assert.match(take, /PREMIUM_LOCK_TITLE/);
+  assert.match(take, /PREMIUM_LOCK_BODY/);
+  assert.match(take, /PREMIUM_LOCK_FREE_NOTE/);
 });
 
 test('the free note names what a subscription does not gate', () => {

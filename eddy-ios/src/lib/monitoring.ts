@@ -66,7 +66,11 @@ export type LogTag =
   | 'cache'
   | 'photo'
   | 'purchase'
-  | 'launch';
+  | 'launch'
+  // First run resolves once per launch and then cannot be observed again on
+  // that device. Without a tag naming which pane it chose, "I was not prompted"
+  // is a report with nothing behind it — see resetFirstRun in onboarding.ts.
+  | 'onboarding';
 
 /**
  * Throttling state for warn(), for the life of the process.
@@ -141,8 +145,13 @@ function initSentry(): void {
  * would put one more native module on the path that must not fail, in service
  * of a dashboard label. `Updates.channel` also throws outright when updates are
  * disabled for the build, which is a normal state, not an error.
+ *
+ * EXPORTED for one other caller: Profile shows its first-run reset only off
+ * production. Everything about which build this is already lives here, and a
+ * second copy of the channel read is how the two would come to disagree about
+ * what "production" means.
  */
-function resolveEnvironment(): string {
+export function resolveEnvironment(): string {
   let updatesChannel: string | null = null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports

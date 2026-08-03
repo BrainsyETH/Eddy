@@ -3,12 +3,43 @@
 // Runs once daily at 6:10 AM Central (11:10 UTC) via Vercel Cron — offset 10
 // minutes after the hourly gauge sync so reports use the freshest readings.
 // Uses concurrent processing (max 3 parallel) for faster execution.
+//
+// ── The statewide summary is the fragile part of this route ─────────────────
+//
+// It runs LAST, after all 24 rivers, because generateGlobalUpdate summarises
+// the rows this pass has just written. That ordering is correct and is not
+// what went wrong — but it means one model call, at the end of a long
+// function, with every per-river success already banked, decides whether the
+// app's launch screen has a report on it for the next 24 hours.
+//
+// On 2026-08-03 that call did not land. All 24 per-river rows were written
+// between 11:10:29 and 11:11:54 UTC and no global row followed. Yesterday's
+// expired at 12:10 UTC and the Today tab lost its report for the rest of the
+// day. Three things made that possible and all three are fixed here:
+//
+//   1. ONE ATTEMPT. A single transient API failure cost the whole day. The
+//      call is now retried with backoff.
+//   2. A SILENT 200. The failure went into an `errors` array in a JSON body
+//      that nothing reads — not Vercel's cron log, which only sees the status.
+//      A full pass that cannot produce the summary now returns 500.
+//   3. NO SECOND CHANCE. Nothing between one 11:10 and the next could notice
+//      the row was missing. `?globalOnly=1` is a repair pass that regenerates
+//      it only when it is actually absent; see the branch below.
+//
+// The route also had no `maxDuration` in vercel.json while every other
+// long-running cron there does. The 2026-08-02 pass took 4m12s. That is added
+// too — see the functions block in vercel.json.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUpdateTargetsFromDb, type UpdateTarget } from '@/lib/eddy/update-targets';
 import { generateEddyUpdate, usageColumns } from '@/lib/eddy/generate-update';
-import { generateGlobalUpdate } from '@/lib/eddy/generate-global-update';
+import {
+  generateGlobalUpdate,
+  GLOBAL_REPAIR_WINDOW_MINUTES,
+  type GlobalUpdate,
+} from '@/lib/eddy/generate-global-update';
+import { GLOBAL_PROSE_STALE_HOURS } from '@/lib/eddy/global-prose-gate';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +48,49 @@ const UPDATE_TTL_HOURS = 25; // Slightly longer than the 24-hour cron interval
 
 // Maximum concurrent API calls to avoid rate limiting
 const MAX_CONCURRENCY = 3;
+
+/**
+ * Attempts at the statewide summary before giving the day up.
+ *
+ * Three, with a short linear backoff. The failure mode being covered is a
+ * transient one — a rate limit, an overloaded model, a socket closed mid-call —
+ * and those clear in seconds. A run that has already spent minutes generating
+ * 24 river reports can afford a few more to keep them from being unreadable as
+ * a group.
+ */
+const GLOBAL_ATTEMPTS = 3;
+const GLOBAL_RETRY_DELAY_MS = 4_000;
+
+/** One statewide summary, retried. Null only when every attempt failed. */
+async function generateGlobalWithRetry(
+  windowMinutes?: number,
+): Promise<{ update: GlobalUpdate | null; attempts: number; lastError: string | null }> {
+  let lastError: string | null = null;
+
+  for (let attempt = 1; attempt <= GLOBAL_ATTEMPTS; attempt++) {
+    try {
+      const update = await generateGlobalUpdate(
+        windowMinutes != null ? { windowMinutes } : undefined,
+      );
+      if (update) return { update, attempts: attempt, lastError: null };
+      // Null without a throw is generateGlobalUpdate declining: no API key, no
+      // inputs in the window, or an empty completion. The first two will not
+      // change on a retry, but the third will, and the function does not
+      // distinguish them to its caller — so this retries and reports honestly
+      // if it never lands.
+      lastError = 'generation returned null';
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : 'unknown error';
+      console.error(`[EddyCron] Global attempt ${attempt}/${GLOBAL_ATTEMPTS} threw:`, e);
+    }
+
+    if (attempt < GLOBAL_ATTEMPTS) {
+      await new Promise((resolve) => setTimeout(resolve, GLOBAL_RETRY_DELAY_MS * attempt));
+    }
+  }
+
+  return { update: null, attempts: GLOBAL_ATTEMPTS, lastError };
+}
 
 /**
  * Simple concurrency limiter — processes items with at most `limit` in flight.
@@ -65,6 +139,98 @@ async function runGeneration(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+
+  /** Writes one statewide row. Shared by the daily pass and the repair pass. */
+  const insertGlobal = async (update: GlobalUpdate, expires: string) => {
+    const { error } = await supabase.from('eddy_updates').insert({
+      river_slug: 'global',
+      section_slug: null,
+      condition_code: 'unknown',
+      gauge_height_ft: null,
+      discharge_cfs: null,
+      quote_text: update.quoteText,
+      sources_used: update.sourcesUsed,
+      ...usageColumns(update.usage),
+      generated_at: new Date().toISOString(),
+      expires_at: expires,
+      trigger_reason: 'scheduled',
+      is_event_driven: false,
+    });
+    return error;
+  };
+
+  // ── The repair pass ───────────────────────────────────────────────────────
+  //
+  // `?globalOnly=1` regenerates the statewide summary and nothing else, and
+  // only when there is not already a good one. It exists because the daily
+  // pass has exactly one chance at the summary and a miss costs the Today tab
+  // its report until the next morning — which is what happened on 2026-08-03.
+  //
+  // IT IS A NO-OP ON A HEALTHY DAY, and that is the point: it must not become
+  // a second daily generation, spending a Sonnet call and rewriting prose
+  // people have already read. The condition it repairs is narrow — no row, or
+  // one the read side would refuse to serve anyway.
+  //
+  // It regenerates from the NEWEST row per river within a wider window rather
+  // than re-reading this morning's inputs, so the prose describes water that
+  // is current as of when it is written. That keeps the read-side gate honest:
+  // it decides what the summary "knew" from the rows that predate it, and a
+  // summary stamped now but written from six-hour-old inputs would tell it a
+  // flood was known about when it was not. See global-prose-gate.ts.
+  if (request.nextUrl.searchParams.get('globalOnly') === '1') {
+    const freshEnough = new Date(
+      Date.now() - GLOBAL_PROSE_STALE_HOURS * 60 * 60 * 1000,
+    ).toISOString();
+
+    const { data: liveGlobal, error: globalReadError } = await supabase
+      .from('eddy_updates')
+      .select('generated_at')
+      .eq('river_slug', 'global')
+      .is('section_slug', null)
+      .gt('expires_at', new Date().toISOString())
+      // The read side drops a summary older than this regardless of expiry, so
+      // a row it would refuse to serve is a row this pass must treat as absent.
+      .gt('generated_at', freshEnough)
+      .limit(1);
+
+    if (globalReadError) {
+      console.error('[EddyCron] Global repair could not read existing rows:', globalReadError);
+      return NextResponse.json({ error: 'Failed to read existing summary' }, { status: 500 });
+    }
+
+    if (liveGlobal && liveGlobal.length > 0) {
+      return NextResponse.json({
+        message: 'Statewide summary already current; nothing to repair',
+        repaired: false,
+        generatedAt: liveGlobal[0].generated_at,
+      });
+    }
+
+    console.warn('[EddyCron] No serviceable statewide summary; regenerating');
+    const { update, attempts, lastError } = await generateGlobalWithRetry(
+      GLOBAL_REPAIR_WINDOW_MINUTES,
+    );
+
+    if (!update) {
+      console.error(`[EddyCron] Global repair failed after ${attempts} attempts: ${lastError}`);
+      return NextResponse.json(
+        { error: 'Statewide summary repair failed', attempts, lastError },
+        { status: 500 },
+      );
+    }
+
+    const insertError = await insertGlobal(
+      update,
+      new Date(Date.now() + UPDATE_TTL_HOURS * 60 * 60 * 1000).toISOString(),
+    );
+    if (insertError) {
+      console.error('[EddyCron] Global repair insert failed:', insertError);
+      return NextResponse.json({ error: 'Repair insert failed' }, { status: 500 });
+    }
+
+    console.log(`[EddyCron] Repaired the statewide summary after ${attempts} attempt(s)`);
+    return NextResponse.json({ message: 'Statewide summary repaired', repaired: true, attempts });
+  }
 
   // Get active rivers from the database
   const { data: activeRivers, error: riversError } = await supabase
@@ -166,37 +332,33 @@ async function runGeneration(request: NextRequest) {
 
   // Generate global summary from per-river updates. Skipped on single-river
   // on-demand runs, which would otherwise skew the statewide summary.
-  if (!singleRiver) try {
-    const globalUpdate = await generateGlobalUpdate();
-    if (globalUpdate) {
-      const { error: globalInsertError } = await supabase.from('eddy_updates').insert({
-        river_slug: 'global',
-        section_slug: null,
-        condition_code: 'unknown',
-        gauge_height_ft: null,
-        discharge_cfs: null,
-        quote_text: globalUpdate.quoteText,
-        sources_used: globalUpdate.sourcesUsed,
-        ...usageColumns(globalUpdate.usage),
-        generated_at: new Date().toISOString(),
-        expires_at: expiresAt,
-        trigger_reason: 'scheduled',
-        is_event_driven: false,
-      });
+  //
+  // `globalFailed` is tracked separately from `errors` because it is the only
+  // failure in this route that costs a whole surface rather than one river's
+  // paragraph — see the header. It decides the status code below.
+  let globalFailed = false;
+  if (!singleRiver) {
+    const { update: globalUpdate, attempts, lastError } = await generateGlobalWithRetry();
 
+    if (globalUpdate) {
+      const globalInsertError = await insertGlobal(globalUpdate, expiresAt);
       if (globalInsertError) {
         console.error('[EddyCron] Global insert failed:', globalInsertError);
-        errors.push('global: DB insert failed');
+        errors.push(`global: DB insert failed: ${globalInsertError.message}`);
+        globalFailed = true;
       } else {
         generated++;
-        console.log(`[EddyCron] Generated global Ozarks summary`);
+        console.log(
+          `[EddyCron] Generated global Ozarks summary after ${attempts} attempt(s)`,
+        );
       }
     } else {
-      errors.push('global: generation returned null');
+      console.error(
+        `[EddyCron] Global summary failed after ${attempts} attempts: ${lastError}`,
+      );
+      errors.push(`global: ${lastError ?? 'generation returned null'}`);
+      globalFailed = true;
     }
-  } catch (e) {
-    console.error('[EddyCron] Error generating global update:', e);
-    errors.push(`global: ${e instanceof Error ? e.message : 'unknown error'}`);
   }
 
   // Clean up expired updates (keep last 48 hours for history). Global
@@ -213,15 +375,32 @@ async function runGeneration(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({
-    message: 'Eddy update generation complete',
-    river: riverParam ?? undefined,
-    generated,
-    failed,
-    total: targets.length,
-    errors: errors.length > 0 ? errors : undefined,
-    executionTime: new Date().toISOString(),
-  });
+  // ── A missing statewide summary is a FAILED cron run ──────────────────────
+  //
+  // It used to be a line in `errors` under a 200, which is indistinguishable
+  // from success everywhere it is actually watched: Vercel's cron log records
+  // the status code and nothing else, so the run that cost the Today tab its
+  // report for a day looked exactly like the 30 that worked. The per-river
+  // failures stay inside the 200 — one river short of a paragraph is a real
+  // but partial outcome, and 23 good reports should not be reported as a
+  // failed job.
+  const status = globalFailed ? 500 : 200;
+
+  return NextResponse.json(
+    {
+      message: globalFailed
+        ? 'Eddy update generation completed WITHOUT the statewide summary'
+        : 'Eddy update generation complete',
+      river: riverParam ?? undefined,
+      generated,
+      failed,
+      globalFailed,
+      total: targets.length,
+      errors: errors.length > 0 ? errors : undefined,
+      executionTime: new Date().toISOString(),
+    },
+    { status },
+  );
 }
 
 export async function GET(request: NextRequest) {

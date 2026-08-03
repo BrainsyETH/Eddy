@@ -952,6 +952,35 @@ export default function RiverDetailScreen() {
                 </Text>
               )}
             </View>
+
+            {/* ── Which way it is going, top right ──────────────────
+                It used to ride the "Updated 40 minutes ago · Van Buren" line
+                at the FOOT of this card, sharing one 12pt row with a station
+                name that had to truncate to make room. Three facts of
+                different kinds in one line, and the only forward-looking one
+                was last and smallest.
+
+                Up here it sits level with the condition chip, which is what it
+                qualifies: the chip says where the river is, this says where it
+                is heading. Same pairing the Today rows and the Favorites cards
+                already draw, and the foot of the card is left to say plainly
+                when the reading was taken and which station took it.
+
+                Still muted ink, never green-for-rising — on a river
+                approaching flood "rising fast" is the opposite of good news,
+                and the chip beside it already carries the verdict. */}
+            {shownTrend ? (
+              <View style={[styles.trend, { backgroundColor: colors.cardRaised }]}>
+                <Ionicons
+                  name={TREND_ICON[shownTrend.direction]}
+                  size={13}
+                  color={colors.textMuted}
+                />
+                <Text style={[styles.trendText, { color: colors.textMuted }]} numberOfLines={1}>
+                  {shownTrend.label}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           {/* The scale the number sits on. Placed directly under the reading
@@ -990,18 +1019,12 @@ export default function RiverDetailScreen() {
               days ago" invites arithmetic against water that has rained twice
               since; the honest form is to stop claiming an age.
 
-              ── The trend rides on the right of this line ──────────────
-              Every list in the app has shown which way the water is going —
-              the Today rows, the Favorites cards — and the one screen devoted
-              to a single river did not, so opening a river from a card that
-              said "Rising fast" lost the only forward-looking thing on it.
-
-              It sits here rather than beside the number because it belongs to
-              the same claim this line makes: which station, how long ago, and
-              which way it has moved since. Muted ink, never green-for-rising —
-              on a river approaching flood "rising fast" is the opposite of good
-              news, and the chip above already carries the verdict. */}
-          {(readingAgeHours != null && band !== 'expired') || shownTrend ? (
+              PROVENANCE ONLY, now that the trend has moved to the head of the
+              card. This line answers "how do you know" — when the reading was
+              taken and which station took it — and it gets the whole width for
+              it, so a station name no longer truncates to make room for a
+              direction it has nothing to do with. */}
+          {(readingAgeHours != null && band !== 'expired') || shownGaugeName ? (
             <View style={styles.updatedRow}>
               {cachedReading ? (
                 <Ionicons name="cloud-offline-outline" size={12} color={colors.textSubtle} />
@@ -1011,18 +1034,6 @@ export default function RiverDetailScreen() {
                   ? `${readingAge(readingAgeHours)}${shownGaugeName ? ` · ${shownGaugeName}` : ''}`
                   : (shownGaugeName ?? '')}
               </Text>
-              {shownTrend ? (
-                <View style={styles.trend}>
-                  <Ionicons
-                    name={TREND_ICON[shownTrend.direction]}
-                    size={13}
-                    color={colors.textMuted}
-                  />
-                  <Text style={[styles.trendText, { color: colors.textMuted }]} numberOfLines={1}>
-                    {shownTrend.label}
-                  </Text>
-                </View>
-              ) : null}
             </View>
           ) : null}
 
@@ -1515,8 +1526,13 @@ const styles = StyleSheet.create({
   riverName: { ...t['3xl'], fontFamily: fonts.display, paddingHorizontal: 4, marginTop: 6 },
   riverMeta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 4, marginTop: 2, marginBottom: 16 },
   card: { padding: 16, borderRadius: 16, marginBottom: 10 },
-  statusHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  statusHeadText: { flex: 1, gap: 8 },
+  // `flex-start` so the trend sits at the TOP right rather than centred against
+  // a 64pt otter — level with the condition chip, which is the thing it
+  // qualifies.
+  statusHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  // Centred within the row it used to define, so the chip and reading keep the
+  // vertical position they had beside the otter.
+  statusHeadText: { flex: 1, gap: 8, justifyContent: 'center', minHeight: 64 },
   conditionChip: {
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
@@ -1532,15 +1548,23 @@ const styles = StyleSheet.create({
   percentileMeta: { ...t.xs, fontFamily: fonts.mono, marginTop: 2 },
   updatedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10 },
   // marginTop moves to the row so the glyph and the text sit on one baseline.
-  // `flex: 1` pushes the trend to the right-hand end and makes the station name
-  // the part that truncates — a trend clipped to "Rising fa" is worse than a
-  // gauge name clipped to its town, which is how everything else in the app
-  // shortens a station.
+  // `flex: 1` still lets a long station name take the width — but it is the
+  // only thing competing for it now that the trend has moved to the card head.
   updated: { ...t.xs, fontFamily: fonts.body, flex: 1 },
-  // Matches the trend on the Today rows and the Favorites cards: same glyph,
-  // same muted ink, same 3pt gap. It is one fact and it should read as one
-  // thing wherever it appears.
-  trend: { flexDirection: 'row', alignItems: 'center', gap: 3, flexShrink: 0 },
+  // Same glyph, muted ink and 3pt gap as the trend on the Today rows and the
+  // Favorites cards — it is one fact and should read as one thing wherever it
+  // appears. What it gains here is a pill: at the top of the card it stands
+  // beside the condition chip rather than inside a line of small print, and two
+  // adjacent facts with only one of them enclosed reads as an accident.
+  trend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    flexShrink: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
   trendText: { ...t.xs, fontFamily: fonts.semibold },
   caveat: {
     flexDirection: 'row',

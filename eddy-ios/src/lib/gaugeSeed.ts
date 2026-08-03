@@ -38,6 +38,7 @@ import type {
   MapGaugeLite,
   SearchResult,
 } from '@eddy/types';
+import { hasLadder } from '@eddy/conditions/condition-ladder';
 
 export interface GaugeSeed {
   /** gauge_stations.id, when the source knew it. Stars are keyed on this. */
@@ -78,8 +79,15 @@ export interface GaugeSeed {
    */
   stationNote: string | null;
   name: string;
-  /** Eddy rates this station; it has a ladder and a condition, not a band. */
-  curated: boolean;
+  /**
+   * Eddy rates this station; it has a ladder and a condition, not a band.
+   *
+   * NULL MEANS THE SOURCE DID NOT SAY, and it is a third answer, not a soft
+   * `false`. Same posture as `provider` above and for a sharper reason: this
+   * field decides which of the app's two vocabularies the gauge screen speaks,
+   * and the two make incompatible claims about the same water. See gaugeTier().
+   */
+  curated: boolean | null;
   coordinates: { lng: number; lat: number } | null;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
@@ -206,7 +214,11 @@ export function seedFromSearchResult(result: SearchResult): GaugeSeed | null {
     publicUrl: null,
     stationNote: null,
     name: result.name,
-    curated: reading?.curated ?? false,
+    // NULL, not false. A search row that carries no reading says nothing about
+    // the tier, and `?? false` turned that silence into "reference gauge" —
+    // which is a claim, and on a rated Eddy river it is the wrong one. See
+    // gaugeTier() for what the screen does with the honest answer.
+    curated: reading?.curated ?? null,
     coordinates: result.coordinates,
     gaugeHeightFt: reading?.gaugeHeightFt ?? null,
     dischargeCfs: reading?.dischargeCfs ?? null,
@@ -231,10 +243,16 @@ export function seedFromSearchResult(result: SearchResult): GaugeSeed | null {
  * Favorites row has no MapGauge to build from and the screen would otherwise
  * open on a spinner with no name on it.
  *
- * `curated: false` is a statement about what this seed KNOWS, not about the
- * station: the store does not record the tier. The detail fetch corrects it a
- * moment later, and until then the screen shows the reference vocabulary, which
- * is the one that claims less.
+ * `curated: null` is a statement about what this seed KNOWS, not about the
+ * station: the store does not record the tier.
+ *
+ * It used to be `false`, on the reasoning that the reference vocabulary "claims
+ * less" while the detail fetch is in flight. It does not. "No comparison", and
+ * the sentence under it — "No historical comparison published for this gauge" —
+ * are a positive statement that this station has no history to compare against,
+ * printed under a station Eddy has rated for years. Claiming less than a
+ * verdict is not the same as claiming nothing, and the frame this occupies is
+ * the one somebody is looking at while the screen loads.
  */
 export function seedFromStar(star: {
   entityId: string;
@@ -256,7 +274,7 @@ export function seedFromStar(star: {
     publicUrl: null,
     stationNote: null,
     name: star.name,
-    curated: false,
+    curated: null,
     coordinates: null,
     gaugeHeightFt: null,
     dischargeCfs: null,
@@ -268,6 +286,57 @@ export function seedFromStar(star: {
     thresholds: null,
     floodStages: null,
   };
+}
+
+/**
+ * Which vocabulary the screen may speak about this station yet.
+ *
+ * ── The bug this ends ──────────────────────────────────────────────────────
+ *
+ * The gauge screen has two ways of describing a number and they contradict each
+ * other by design: a RATED station gets a ladder and a verdict ("Floatable"),
+ * and a REFERENCE station gets a comparison to its own history ("Much lower
+ * than usual") or, having none, "No comparison" and the sentence "No historical
+ * comparison published for this gauge".
+ *
+ * The screen chose between them by asking whether the seed carried a ladder —
+ * and three of the five seeds cannot carry one. Search results, starred rows
+ * and the national tier all arrive with `thresholds: null` because no list
+ * endpoint sends ladders, not because the station has none. So opening a rated
+ * Eddy gauge from search painted the reference tier's answer, in full
+ * confidence, until /api/gauges/[siteId] landed a moment later and replaced it.
+ *
+ * That is worse than a spinner. A spinner says the screen does not know yet;
+ * "No historical comparison published for this gauge" says it asked and there
+ * is none. Reported from the field on the Eleven Point near Bardley, which is
+ * rated, has a ladder, and read as an unrated creek for the first frame.
+ *
+ * ── The three answers ──────────────────────────────────────────────────────
+ *
+ *   rated      A ladder is present and usable. Verdict vocabulary.
+ *   reference  Known not to be curated, or carrying ladders with none usable.
+ *              Flow-band vocabulary.
+ *   unknown    No ladders on the wire AND no statement about the tier. The
+ *              screen must say neither thing — see app/gauge/[siteId].tsx.
+ *
+ * Pure and total, so the web suite can hold it to this; the Expo app has no
+ * test runner of its own.
+ */
+export type GaugeTier = 'rated' | 'reference' | 'unknown';
+
+export function gaugeTier(seed: GaugeSeed): GaugeTier {
+  // FIND-PRIMARY, matching the screen and gaugeLink() everywhere else: a
+  // station that rates two rivers must be graded on the one it is primary for.
+  const link = seed.thresholds?.find((l) => l.isPrimary) ?? seed.thresholds?.[0] ?? null;
+  if (link && hasLadder(link)) return 'rated';
+  // Ladders were on the wire and none of them is a ladder. That is an answer:
+  // the source that carries ladders carried this station's, and it has none.
+  if (seed.thresholds != null) return 'reference';
+  // No ladders, but the source stated the tier outright. The national tier says
+  // `curated: false` and means it — those stations get their band immediately,
+  // with the percentile the lite seed already carries.
+  if (seed.curated === false) return 'reference';
+  return 'unknown';
 }
 
 /** The fetched record, so a revisit within the session paints from the fuller one. */

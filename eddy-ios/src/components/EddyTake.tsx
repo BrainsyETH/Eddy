@@ -45,17 +45,40 @@
 // that one of them was a one-line call. A blank wall sells nothing.
 //
 // So the locked state draws the real card: all three headings, sharp, with
-// their bodies blurred and the CTA underneath. The blur is a text shadow, not a
-// native blur view — `color: 'transparent'` with a shadow of the ink colour at
-// a wide radius smears each glyph into an unreadable band while keeping the
-// real line lengths and paragraph shapes. That matters: the shape is the
-// honest part of the offer, and a fabricated placeholder would advertise a
-// report of a length Eddy did not write.
+// their bodies obscured and the CTA underneath. The shape is the honest part of
+// the offer, and a fabricated placeholder would advertise a report of a length
+// Eddy did not write.
 //
-// It is NOT a security boundary and never was — the text has always been in the
-// payload, and this changes nothing about that. The gate is the same one it has
-// been: the card does not render the words. What changed is that the reader can
-// now see there are words.
+// ── Why the smear had to go ─────────────────────────────────────────────────
+//
+// The first version obscured the text with a SHADOW: `color: 'transparent'`
+// plus a shadow of the ink colour at an 8pt radius, which smears each glyph
+// into a band. It was cheap, needed no native module, and it looked like a
+// bug. Reported from the field in exactly those words — that the card "looks
+// like it isn't loading". And it should have been predictable: a low-contrast
+// grey band where text belongs is the universal appearance of a SKELETON, so
+// the card was drawing the one thing every app on the phone uses to mean
+// "still loading", directly below a paragraph that really is a skeleton while
+// entitlement resolves. Two states, one appearance, and the one that meant
+// "pay to read this" was the one nobody recognised.
+//
+// A real blur does not have that problem. expo-blur's BlurView is a
+// UIVisualEffectView — the frosted material iOS uses for its own sheets and
+// nav bars — and nothing on the phone loads that way. It reads as deliberately
+// obscured because on this platform it only ever IS deliberately obscured.
+//
+// ── The first line stays sharp ──────────────────────────────────────────────
+//
+// Blurring all of it is still a wall, just a nicer-looking one. The read now
+// opens with one legible line and blurs from there, which is the pattern every
+// paywalled article on the web settled on for a reason: it turns the card from
+// a locked door into an interrupted sentence. What is given away is one line of
+// a report that runs to paragraphs, and it is the line most likely to make
+// somebody want the rest.
+//
+// It is NOT a security boundary and never was — the text is in the payload
+// either way, and both the smear and the blur render the real words. The gate
+// is unchanged. What changed is that the reader can tell it is a gate.
 //
 // BOTTOM LINE CLOSES rather than opens. It used to lead, on the reasoning that
 // the answer should come first — but the reading card directly above this
@@ -68,19 +91,49 @@
 // On the web these are three columns; on a phone they stack.
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import type { RiverOutlookResponse } from '@eddy/types';
 import { conditionBg, conditionInk, conditionLabel } from '@/theme/conditions';
 import { EddySymbol } from '@/components/EddySymbol';
 import { Otter } from '@/components/Otter';
+import {
+  PREMIUM_LOCK_BODY,
+  PREMIUM_LOCK_FREE_NOTE,
+  PREMIUM_LOCK_TITLE,
+} from '@/lib/premiumCopy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
-/** How far each glyph is smeared in the locked card. Small enough to keep line
- *  shape, wide enough that no word survives at any type size used here. */
-const BLUR_RADIUS = 8;
-/** No offset: a displaced shadow reads as a drop shadow rather than as a blur. */
-const BLUR_OFFSET = { width: 0, height: 0 };
+/**
+ * How hard to frost the paid text.
+ *
+ * Chosen to leave nothing readable at 14pt, which is the size every blurred
+ * line here is set in. Erring HIGH is the safe direction — under-blurring hands
+ * over the thing being sold, and over-blurring costs nothing but a slightly
+ * heavier looking card.
+ */
+const BLUR_INTENSITY = 34;
+
+/**
+ * The text under the blur is also dimmed.
+ *
+ * Belt and braces. `intensity` is a hint to a native effect, not a guaranteed
+ * radius, and it composites differently against a light card than a dark one.
+ * Dropping the ink's contrast first means the blur has less to fail at.
+ */
+const BLURRED_TEXT_OPACITY = 0.5;
+
+/**
+ * One line of `sectionText`, and the gap above it, from the type scale.
+ *
+ * Both are read by the overlay offset below and by the style itself, so the
+ * sharp opener cannot drift out of alignment with the line it is meant to
+ * uncover. Only `sectionText` is ever given a sharp opener — see the read
+ * section, and note that `bottomLineText` is set in a different size.
+ */
+const SECTION_LINE_HEIGHT = t.sm.lineHeight;
+const SECTION_TEXT_MARGIN_TOP = 5;
 
 /**
  * What to smear when the server sent no text at all for a section.
@@ -102,42 +155,77 @@ const LOCKED_WEATHER_SHAPE =
 const LOCKED_BOTTOM_LINE_SHAPE = 'Good day to be on this river.';
 
 /**
- * One line of Eddy's writing, smeared.
+ * Eddy's writing, behind frosted glass.
+ *
+ * The real text renders and a BlurView covers it. That is the only way to get
+ * a genuine gaussian blur in React Native — a UIVisualEffectView blurs what is
+ * BEHIND it, so the paragraph has to be there for the effect to have anything
+ * to work on. It puts no more of the text on the device than the old text
+ * shadow did, which also rendered the real string; see the header on why this
+ * has never been a security boundary.
+ *
+ * `sharpLines` leaves the first N lines legible and starts the blur beneath
+ * them, by offsetting the overlay rather than by splitting the string. Splitting
+ * on a sentence boundary would give away a variable amount — Eddy's first
+ * sentence is sometimes the whole answer — where an offset gives away exactly
+ * one line of a report that runs to several.
  *
  * Hidden from assistive technology outright. A screen reader that read this
  * aloud would be handing over the paid text in the one presentation where it is
  * deliberately unreadable, and a blurred paragraph is not information to anyone
  * navigating by voice — the CTA below carries the whole offer in its own label.
  */
-function BlurredLine({
+function BlurredProse({
   text,
   color,
   style,
   lines,
+  sharpLines = 0,
+  scheme,
 }: {
   text: string;
   color: string;
   style: object;
   lines: number;
+  sharpLines?: number;
+  scheme: 'light' | 'dark';
 }) {
   return (
-    <Text
-      style={[
-        style,
-        {
-          color: 'transparent',
-          textShadowColor: color,
-          textShadowOffset: BLUR_OFFSET,
-          textShadowRadius: BLUR_RADIUS,
-        },
-      ]}
-      numberOfLines={lines}
-      selectable={false}
+    <View
+      style={styles.blurWrap}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      {text}
-    </Text>
+      <Text
+        style={[style, { color, opacity: BLURRED_TEXT_OPACITY }]}
+        numberOfLines={lines}
+        selectable={false}
+      >
+        {text}
+      </Text>
+      {/* Tinted to the scheme rather than left on 'default'. The system tint
+          adapts to the ambient appearance, not to the card it is sitting on,
+          and this card is `colors.card` in both — so 'default' frosts LIGHT
+          over a dark card and the blurred block glows brighter than the sharp
+          text above it. */}
+      <BlurView
+        intensity={BLUR_INTENSITY}
+        tint={scheme === 'dark' ? 'dark' : 'light'}
+        style={[
+          styles.blurOverlay,
+          {
+            // The text's own top margin has to be cleared before counting
+            // lines, or the blur starts a few points high and clips the
+            // descenders off the one line that is supposed to be readable.
+            top:
+              sharpLines > 0
+                ? SECTION_TEXT_MARGIN_TOP + sharpLines * SECTION_LINE_HEIGHT
+                : 0,
+          },
+        ]}
+        pointerEvents="none"
+      />
+    </View>
   );
 }
 
@@ -396,15 +484,19 @@ export function EddyTake({
                   </Text>
                 </View>
                 {locked ? (
-                  // Clamped to three lines. The full read runs to several
-                  // paragraphs on a good day, and a locked card the height of an
-                  // unlocked one is a wall again — three lines is enough to show
-                  // that this is prose rather than a sentence.
-                  <BlurredLine
+                  // Clamped to four lines, the first of them readable. The full
+                  // read runs to several paragraphs on a good day, and a locked
+                  // card the height of an unlocked one is a wall again — four
+                  // lines is enough to show this is prose rather than a
+                  // sentence, and the sharp opener is what makes it an
+                  // interrupted one rather than a closed door.
+                  <BlurredProse
                     text={read || LOCKED_READ_SHAPE}
                     color={colors.textMuted}
                     style={styles.sectionText}
-                    lines={3}
+                    lines={4}
+                    sharpLines={1}
+                    scheme={colors.scheme}
                   />
                 ) : read ? (
                   <Text style={[styles.sectionText, { color: colors.textMuted }]}>{read}</Text>
@@ -416,12 +508,17 @@ export function EddyTake({
                   <EddySymbol name="weather" size={17} />
                   <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>WEATHER</Text>
                 </View>
+                {/* No sharp opener here, nor on the bottom line below. Both are
+                    one or two sentences, so a legible first line would be most
+                    of the section — the read is the only one long enough for an
+                    opener to be a taste rather than the thing itself. */}
                 {locked ? (
-                  <BlurredLine
+                  <BlurredProse
                     text={sections.watchFor || LOCKED_WEATHER_SHAPE}
                     color={colors.textMuted}
                     style={styles.sectionText}
                     lines={2}
+                    scheme={colors.scheme}
                   />
                 ) : (
                   <Text style={[styles.sectionText, { color: colors.textMuted }]}>
@@ -447,11 +544,12 @@ export function EddyTake({
                     </Text>
                   </View>
                   {locked ? (
-                    <BlurredLine
+                    <BlurredProse
                       text={sections.bottomLine || LOCKED_BOTTOM_LINE_SHAPE}
                       color={colors.text}
                       style={styles.bottomLineText}
                       lines={2}
+                      scheme={colors.scheme}
                     />
                   ) : (
                     <Text style={[styles.bottomLineText, { color: colors.text }]}>
@@ -467,37 +565,52 @@ export function EddyTake({
                   to read them" — where a lock above them would have been asking
                   for money before showing what for. Still ONE lock for three
                   sections, which is the rule this card has always kept. */}
+              {/* ── The offer ──────────────────────────────────────────
+                  Every word comes from premiumCopy, which is where the app's
+                  three subscription surfaces are kept from disagreeing. This
+                  row wrote its own for months and was the reason that module
+                  had to exist; see its header.
+
+                  It reads as a CARD now rather than a grey strip: an accent
+                  hairline, the otter that closes the bottom line above it
+                  repeated as a small lock mark, and the title in the display
+                  face the rest of Eddy's voice is set in. The strip version was
+                  the same neutral fill as every disabled row in the app, which
+                  is a strange thing for the one control on the screen that is
+                  asking for money. */}
               {locked ? (
                 <Pressable
                   onPress={onUpgrade}
                   disabled={!onUpgrade}
                   style={({ pressed }) => [
                     styles.lock,
-                    { backgroundColor: colors.cardRaised, opacity: pressed ? 0.7 : 1 },
+                    {
+                      backgroundColor: colors.cardRaised,
+                      borderColor: colors.accent,
+                      opacity: pressed ? 0.75 : 1,
+                    },
                   ]}
                   accessibilityRole="button"
-                  accessibilityLabel="Unlock Eddy's take"
+                  accessibilityLabel={`${PREMIUM_LOCK_TITLE}. ${PREMIUM_LOCK_BODY}`}
                 >
-                  <Ionicons name="lock-closed" size={15} color={colors.accent} />
-                  <View style={styles.lockText}>
+                  <View style={styles.lockHead}>
+                    <View style={[styles.lockMark, { backgroundColor: colors.accentFill }]}>
+                      <Ionicons name="lock-closed" size={13} color={colors.onAccent} />
+                    </View>
                     <Text style={[styles.lockTitle, { color: colors.text }]}>
-                      Unlock Eddy&apos;s take
+                      {PREMIUM_LOCK_TITLE}
                     </Text>
-                    {/* The headings above now name the three sections, so this
-                        no longer has to. What it says instead is the thing the
-                        blur cannot: that they are rewritten daily. */}
-                    <Text style={[styles.lockBody, { color: colors.textMuted }]}>
-                      The written report, the weather read and Eddy&apos;s bottom line
-                      on this river — rewritten every morning.
-                    </Text>
-                    {/* Says what is NOT behind it, on the screen where that claim can
-                        be checked by looking up. A paywall straight about the free
-                        half is the only kind worth trusting about the paid one. */}
-                    <Text style={[styles.lockFree, { color: colors.textSubtle }]}>
-                      The condition, the reading, hazards and alerts stay free.
-                    </Text>
+                    <Ionicons name="chevron-forward" size={16} color={colors.accent} />
                   </View>
-                  <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
+                  <Text style={[styles.lockBody, { color: colors.textMuted }]}>
+                    {PREMIUM_LOCK_BODY}
+                  </Text>
+                  {/* Says what is NOT behind it, on the screen where that claim can
+                      be checked by looking up. A paywall straight about the free
+                      half is the only kind worth trusting about the paid one. */}
+                  <Text style={[styles.lockFree, { color: colors.textSubtle }]}>
+                    {PREMIUM_LOCK_FREE_NOTE}
+                  </Text>
                 </Pressable>
               ) : null}
 
@@ -551,22 +664,39 @@ const styles = StyleSheet.create({
   // version of the flash it was added to prevent.
   skeletonLine: { height: 11, borderRadius: 5, marginTop: 9 },
   lock: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 11,
-    borderRadius: 12,
+    padding: 13,
+    borderRadius: 14,
+    // A hairline in the accent rather than a fill in it: the row sits inside a
+    // card that is already a panel, and a solid accent block here would outweigh
+    // the bottom line directly above it — which is the thing being sold.
+    borderWidth: StyleSheet.hairlineWidth,
     // Wider than it was: it now follows a blurred section rather than opening
-    // the card, and needs to read as a separate thing from the smear above it.
+    // the card, and needs to read as a separate thing from the frost above it.
     marginTop: 16,
   },
-  lockText: { flex: 1, minWidth: 0 },
-  lockTitle: { ...t.sm, fontFamily: fonts.semibold },
-  lockBody: { ...t.xs, fontFamily: fonts.body, marginTop: 2, lineHeight: 17 },
-  lockFree: { ...t.xs, fontFamily: fonts.medium, marginTop: 5 },
+  lockHead: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  // A filled circle, so the lock is a mark rather than a loose glyph leaning on
+  // the text beside it.
+  lockMark: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Fredoka, matching the headline on Today and the river's own name. This is
+  // Eddy making an offer, and the display face is where the brand lives.
+  lockTitle: { ...t.base, fontFamily: fonts.display, flex: 1, minWidth: 0 },
+  lockBody: { ...t.xs, fontFamily: fonts.body, marginTop: 7, lineHeight: 17 },
+  lockFree: { ...t.xs, fontFamily: fonts.medium, marginTop: 7 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   sectionLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6 },
-  sectionText: { ...t.sm, fontFamily: fonts.body, marginTop: 5 },
+  sectionText: { ...t.sm, fontFamily: fonts.body, marginTop: SECTION_TEXT_MARGIN_TOP },
+  // The blur is absolutely positioned over the prose, so the wrapper is what
+  // gives it a box to fill. Overflow hidden keeps the frost inside the section
+  // rather than bleeding over the rule below it.
+  blurWrap: { position: 'relative', overflow: 'hidden' },
+  blurOverlay: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   caveat: { ...t.xs, fontFamily: fonts.body, marginTop: 6 },
   attribution: { ...t.xs, fontFamily: fonts.body, marginTop: 12, textAlign: 'right' },
 });
