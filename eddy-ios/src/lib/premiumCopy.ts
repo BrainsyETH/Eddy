@@ -109,6 +109,49 @@ export function premiumPitch(riverName?: string | null): string {
     : "Unlock Eddy's full written read on your rivers, rewritten every morning.";
 }
 
+// ── The lock row on the river and gauge screens ─────────────────────────────
+//
+// These three strings were written inline in EddyTake.tsx, which is precisely
+// the arrangement this module exists to end: the gauge screen's pitch and the
+// paywall sheet's pitch drifted for months because neither surface could see
+// the other. The lock row is a third surface and was making the same mistake in
+// slower motion.
+//
+// It is the FIRST thing anyone reads about the subscription — it sits under the
+// blurred report, on the screen where the claim can be checked by looking up —
+// so it has to be the plainest of the three. No feature list, no verb dressed
+// up as a benefit. What it is, and how often it arrives.
+
+/**
+ * The offer, in a phrase.
+ *
+ * "Unlock Eddy's take" named the mechanism, not the thing: it told a reader
+ * what the button does rather than what they get, and "take" is Eddy's word for
+ * it, not theirs. A report that arrives every day about the river you care
+ * about is the whole product, and it is one line.
+ */
+export const PREMIUM_LOCK_TITLE = 'A daily report on your favorite river';
+
+/**
+ * What is behind the blur, said once the title has made the promise.
+ *
+ * Names the three sections the headings above the lock already show — the read,
+ * the weather, the bottom line — because the blur can show their shape but not
+ * what they are. Deliberately does not repeat "every day"; the title has it.
+ */
+export const PREMIUM_LOCK_BODY =
+  "What the water is doing, what the weather is about to do to it, and Eddy's bottom line.";
+
+/**
+ * What is NOT behind it, on the screen where that claim can be checked.
+ *
+ * A paywall straight about the free half is the only kind worth trusting about
+ * the paid one. Kept short enough to be read: the long version is
+ * PREMIUM_FREE_NOTE, on the sheet this row opens.
+ */
+export const PREMIUM_LOCK_FREE_NOTE =
+  'The condition, the reading, hazards and alerts stay free.';
+
 /**
  * What a subscription does NOT gate, said on the paywall itself.
  *

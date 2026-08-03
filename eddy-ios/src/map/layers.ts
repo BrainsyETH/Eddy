@@ -107,23 +107,54 @@ export interface LayerDef {
 }
 
 /**
- * Access points, hazards and BOTH gauge tiers are on by default.
+ * Access points and BOTH gauge tiers are on by default. Hazards are not.
  *
- * The questions someone opens the map with are "where can I get on this river",
- * "is there any water in it" and "is any of it going to kill me", and those are
- * exactly these layers. Everything else is a follow-up question and stays off
- * until asked — a river under five layers of pins answers nothing. The choice
- * sticks for the session.
+ * The questions someone opens the map with are "where can I get on this river"
+ * and "is there any water in it", and those are exactly these layers.
+ * Everything else is a follow-up question and stays off until asked — a river
+ * under five layers of pins answers nothing.
  *
- * ── Hazards joined this list when they stopped being river-scoped ──────────
+ * ── Hazards were on, and are off again ─────────────────────────────────────
  *
- * They were off by default for a defensible reason: the layer held nothing
- * until a river had been chosen, so switching it on before that did visibly
- * nothing. Now it draws all 19 hazards Eddy has, across 11 of 25 rivers, from
- * the launch bundle. Nineteen pins is not clutter, and a layer that answers
- * "which of these rivers has a low-water dam on it" belongs ON while somebody
- * is still deciding which river to drive to. Defaulting safety data off is a
- * hard thing to defend once the data is actually there.
+ * They joined this list when they stopped being river-scoped, on the argument
+ * that a layer answering "which of these rivers has a low-water dam on it"
+ * belongs on while somebody is deciding which river to drive to, and that
+ * defaulting safety data off is hard to defend once the data is there.
+ *
+ * That argument was about the DATA and not about the map. What it missed is
+ * that hazard pins are statewide, unclustered by design, and drawn at every
+ * zoom — so on the opening view they scatter across the whole state at the
+ * exact moment nothing has been chosen and every pin is equally irrelevant.
+ * The layer that was meant to answer "which river" instead crowded the two
+ * layers that do.
+ *
+ * ── What makes this defensible, and it is not "it is only a default" ───────
+ *
+ * NO HAZARD IS HIDDEN BY THIS. The map is not, and has never been, where this
+ * app discharges its duty to warn:
+ *
+ *   • Every river screen carries a free Hazards section that names its critical
+ *     count and wears a severity dot per critical hazard WHILE SHUT — see
+ *     CollapsibleSection's header on why a folded section must still say what
+ *     it is hiding, and why that rule was written for this data specifically.
+ *   • A river whose hazards failed to load says so, and opens expanded.
+ *   • The float plan lists every hazard on the stretch it returns, free, and
+ *     never summarises them away.
+ *   • The layers sheet lists Hazards with its switch, so an off layer is
+ *     visible AS off the moment anyone looks — which is the distinction
+ *     mapPreferences' header draws between a layer and a filter, and it is the
+ *     reason this is a defensible default rather than a quiet removal.
+ *
+ * The map is a way to find a river. The river screen is where you are told
+ * what is on it.
+ *
+ * ── Existing devices keep what they chose ──────────────────────────────────
+ *
+ * This is the default for a phone that has never opened the layers sheet.
+ * Anyone who has is restored from AsyncStorage and keeps hazards on, because
+ * `readMapLayers` returning a stored set means somebody made a choice — and
+ * bumping the key to force this on them would also throw away every other
+ * layer decision they have made. See mapPreferences.ts.
  *
  * `allGauges` used to be excluded, on the grounds that the national tier is a
  * reference someone asks for and that defaulting it on would fire a viewport
@@ -132,7 +163,7 @@ export interface LayerDef {
  * curated gauges as compact condition dots and the national tier as clusters.
  * The full station marks and labels arrive only when the camera is closer.
  */
-export const DEFAULT_LAYERS: LayerKey[] = ['access', 'hazards', 'gauges', 'allGauges'];
+export const DEFAULT_LAYERS: LayerKey[] = ['access', 'gauges', 'allGauges'];
 
 /**
  * ── THE ZOOM LADDER ─────────────────────────────────────────────────────────

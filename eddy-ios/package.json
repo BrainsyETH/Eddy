@@ -7,12 +7,12 @@
     "node": ">=20 <23"
   },
   "//overrides": [
-    "react-dom is never declared with a version anywhere in this tree \u2014 expo,",
+    "react-dom is never declared with a version anywhere in this tree — expo,",
     "expo-router, @expo/metro-runtime and @rnmapbox/maps all peer-depend on it",
     "as \"*\". npm auto-installs peers, so it resolves the NEWEST react-dom, and",
     "every react-dom past 19.2.3 peer-requires a react past the 19.2.3 that Expo",
     "SDK 57 pins. That is an ERESOLVE deadlock on a plain `npm install`, and it",
-    "is why this project could only be installed with --legacy-peer-deps \u2014 which",
+    "is why this project could only be installed with --legacy-peer-deps — which",
     "silently skips peer installation and drops react-native-reanimated,",
     "react-native-gesture-handler and react-native-worklets out of the tree.",
     "",
@@ -74,6 +74,7 @@
     "@supabase/supabase-js": "^2.110.8",
     "expo": "^57.0.8",
     "expo-apple-authentication": "~57.0.1",
+    "expo-blur": "~57.0.2",
     "expo-constants": "~57.0.7",
     "expo-dev-client": "~57.0.9",
     "expo-device": "~57.0.1",

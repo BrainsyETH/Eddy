@@ -16,7 +16,7 @@ import {
   type FirstRunSnapshot,
   type FirstRunStep,
 } from '@/lib/onboarding';
-import { report } from '@/lib/monitoring';
+import { report, warn } from '@/lib/monitoring';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -53,7 +53,25 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
         if (!active) return;
         const next: FirstRunSnapshot = { legalAccepted, personalization };
         setSnapshot(next);
-        setStep(resolveFirstRun(next));
+        const resolved = resolveFirstRun(next);
+        setStep(resolved);
+
+        // ── Say which pane this launch chose ──────────────────────────
+        // First run resolves once and is then unobservable on that device
+        // forever, so a report that the disclaimer did not appear had nothing
+        // to check it against — not the keys, not the build, not the step. On
+        // a build with a DSN this is a breadcrumb attached to anything that
+        // reports later; on one without, it is a console line a field tester
+        // can read off a connected Mac. Either beats guessing.
+        //
+        // Names the inputs, not just the outcome: 'app' with legalAccepted
+        // false would be a real bug, and 'app' with it true is simply somebody
+        // who has used the app before.
+        warn(
+          'onboarding',
+          `first run resolved to "${resolved}" ` +
+            `(legal=${legalAccepted}, personalization=${personalization ?? 'none'})`,
+        );
 
         // An install from before the picker existed. Settle it permanently, so a
         // later legal re-gate does not read the absent key as "never asked" and

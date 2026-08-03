@@ -53,6 +53,8 @@ import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
+import { resolveEnvironment } from '@/lib/monitoring';
+import { resetFirstRun } from '@/lib/onboarding';
 
 /**
  * Not the same thing as the Feedback sheet below it. Feedback is one-way and
@@ -91,6 +93,14 @@ export default function ProfileScreen() {
   const [busy, setBusy] = useState<null | 'apple' | 'restore' | 'delete'>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
+  /**
+   * Whether the first-run keys have been cleared this session.
+   *
+   * The button has to say something afterwards or it looks like it did nothing:
+   * clearing the keys changes what the NEXT cold start does and has no effect
+   * on the screen it was tapped from. The label carries the next step.
+   */
+  const [firstRunCleared, setFirstRunCleared] = useState(false);
 
   const signedIn = Boolean(session) && !isAnonymous;
 
@@ -492,6 +502,38 @@ export default function ProfileScreen() {
                 Manage storage
               </Text>
             </Pressable>
+
+            {/* ── Re-running first run, off production only ──────────────
+                First run is the one flow in the app that cannot be entered
+                twice on a device: two AsyncStorage keys are written once and
+                nothing clears them, so checking a change to the disclaimer or
+                the river picker meant deleting the app and reinstalling from
+                TestFlight.
+
+                That is also why "I reinstalled and was not prompted" could not
+                be investigated — there was no way to ask the device to do it
+                again. See resetFirstRun in src/lib/onboarding.ts.
+
+                NOT ON PRODUCTION. A control that clears a legal acknowledgement
+                has no business in a shipped build, and the channel is read from
+                monitoring's resolver rather than a second copy of the same
+                logic. It relaunches nothing: the keys are cleared and the next
+                cold start reads them, which is precisely the path being
+                tested. */}
+            {resolveEnvironment() !== 'production' ? (
+              <Pressable
+                onPress={() => {
+                  void resetFirstRun().then(() => setFirstRunCleared(true));
+                }}
+                style={[styles.secondary, { borderColor: colors.border }]}
+                accessibilityRole="button"
+                accessibilityLabel="Show the disclaimer and river picker again on next launch"
+              >
+                <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
+                  {firstRunCleared ? 'Cleared — force-quit and reopen' : 'Reset first run'}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         </Section>
 
