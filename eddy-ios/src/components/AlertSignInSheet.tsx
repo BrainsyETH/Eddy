@@ -74,7 +74,7 @@ export function AlertSignInSheet({ visible, riverName, onSignedIn, onDismiss }: 
           </Text>
 
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            Alerts are free. An account is how we know which phone to send them to.
+            Alerts are free. An account is how Eddy knows which phone to send them to.
           </Text>
 
           <View style={styles.points}>

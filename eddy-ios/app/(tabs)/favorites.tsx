@@ -290,7 +290,7 @@ export default function FavoritesScreen() {
               <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
                 {starred.length > 0
                   ? 'Tap the live chip again to see everything you have saved.'
-                  : 'Tap the star on any river or gauge to save it to your favorites. No account needed — favorites are kept on this device and will sync when you sign in.'}
+                  : 'Tap the star on any river or gauge to add it to your favorites. No account needed — favorites are kept on this device and will sync when you sign in.'}
               </Text>
             </View>
           ) : null

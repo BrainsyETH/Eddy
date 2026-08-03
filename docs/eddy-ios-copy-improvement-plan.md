@@ -67,9 +67,11 @@ Developer comments and logs are out of scope unless they produce visible text.
 8. Use internal terms such as feed, module, build, registration, and entitlement only on development-only screens.
 
 Punctuation style, specifically the use of em dashes in user-visible prose, is
-**not** settled here. See `docs/eddy-ios-copy-em-dash-proposal.md`, which is
-decision-pending and deliberately excluded from this plan's scope and acceptance
-criteria so that the accuracy work below can ship independently.
+settled in `docs/eddy-ios-copy-em-dash-proposal.md`: a blanket ban was measured
+against a filtered count and **rejected**. Em dashes are house voice, and the
+short `[State] — [consequence]` status line is a sanctioned pattern rather than
+something to rewrite. The wording changes below stand on their own and never
+require removing a dash.
 
 ## Priority 1: Correct claims that affect decisions
 
@@ -255,9 +257,9 @@ than a forecast supports. Note that `PREMIUM_FORECAST_CAVEAT`
 `purchase-copy.test.ts` asserts it reaches the paywall — so the fix is to stop
 overclaiming in the benefit, not to add another disclaimer.
 
-Whether to also remove the em dashes in these strings is deferred to
-`docs/eddy-ios-copy-em-dash-proposal.md`. The wording changes above stand on
-their own either way.
+The em dashes in these strings stay —
+`docs/eddy-ios-copy-em-dash-proposal.md` measured the question and rejected a
+ban. The wording changes above stand on their own.
 
 ### 2.3 "Rewritten every morning" is supported — keep it
 
@@ -557,8 +559,8 @@ labels do not preserve removed claims.
 - Every string this plan quotes as **Current** still resolves to exactly one source location, or the plan is updated.
 - Mobile, shared, and production-bundle checks pass.
 
-Punctuation is deliberately absent from this list. See
-`docs/eddy-ios-copy-em-dash-proposal.md`.
+Punctuation is deliberately absent from this list: a ban on em dashes was
+measured and rejected in `docs/eddy-ios-copy-em-dash-proposal.md`.
 
 ## Suggested implementation order
 

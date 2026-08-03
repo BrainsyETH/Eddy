@@ -112,7 +112,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
               // two points, which is not a server fault the user can act on —
               // say what it means for them instead.
               err.status === 500
-              ? 'We could not work out a float between those two points. Try a different pair.'
+              ? 'Eddy could not work out a float between those two points. Try a different pair.'
               : err.message
             : 'Could not build that float plan',
         );

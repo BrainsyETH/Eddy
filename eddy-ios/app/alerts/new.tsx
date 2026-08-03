@@ -181,7 +181,7 @@ export default function NewAlertScreen() {
           <View style={styles.empty}>
             <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
               {active && !searching
-                ? 'Nothing matched. Try a river name, a gauge name, or a USGS site number.'
+                ? 'Nothing matched. Try a river name, a gauge name or a USGS site number.'
                 : active
                   ? ''
                   : 'Search for any river or USGS gauge — including gauges outside Missouri.'}

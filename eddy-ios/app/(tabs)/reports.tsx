@@ -369,7 +369,9 @@ export default function ReportsScreen() {
       setRivers(await fetchRivers(signal));
     } catch (err) {
       if (err instanceof ApiError && err.message === 'Request cancelled') return;
-      setError(err instanceof ApiError ? err.message : 'Something went wrong');
+      setError(
+        err instanceof ApiError ? err.message : 'Couldn’t load rivers. Pull down to refresh.',
+      );
     }
   }, []);
 
@@ -1284,7 +1286,7 @@ export default function ReportsScreen() {
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                 {error ??
                   (filtering
-                    ? 'Nothing matches that. Try another name, or clear the filter.'
+                    ? 'Nothing matched. Try another name or clear the filter.'
                     : riverScope
                       ? 'No rivers found'
                       : scope === 'dams'

@@ -159,7 +159,7 @@ export function PlanResult({ plan, actions }: Props) {
               No float time
             </Text>
             <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
-              We do not estimate a time in this water. Wait for it to drop.
+              Eddy does not estimate a time in this water. Wait for it to drop.
             </Text>
           </>
         )}

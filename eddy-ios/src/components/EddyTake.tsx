@@ -325,7 +325,15 @@ export function EddyTake({
                         ) : null}
                       </>
                     ) : (
-                      <Text style={[styles.unavailable, { color: colors.textSubtle }]}>—</Text>
+                      // The glyph is the whole cell here — nothing beside it says
+                      // what it means, so a screen reader that announces "dash"
+                      // (or skips it) gets no forecast state at all.
+                      <Text
+                        style={[styles.unavailable, { color: colors.textSubtle }]}
+                        accessibilityLabel="No forecast"
+                      >
+                        —
+                      </Text>
                     )}
                   </View>
                 ) : null}

@@ -45,7 +45,7 @@ export function PushPrimer({ visible, riverName, onAllow, onDismiss }: Props) {
           <EddyScene name="checkingGauge" size={120} />
 
           <Text style={[styles.title, { color: colors.text }]}>
-            {riverName ? `We'll watch the ${riverName}` : "We'll watch your rivers"}
+            {riverName ? `Eddy will watch the ${riverName}` : 'Eddy will watch your rivers'}
           </Text>
 
           {/* "a notification", not "one notification": the subscription is

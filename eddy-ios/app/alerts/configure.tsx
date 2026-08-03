@@ -397,7 +397,7 @@ export default function ConfigureAlertScreen() {
       // reason the server returns the seed.
       seedNote =
         seed?.state === 'inside' && seed.value != null
-          ? `${targetName} is already at ${formatAlertValue(seed.value, metric)}. We'll tell you the next time it crosses your level, not right now.`
+          ? `${targetName} is already at ${formatAlertValue(seed.value, metric)}. Eddy tells you the next time it crosses your level, not right now.`
           : null;
       });
 
@@ -650,8 +650,8 @@ export default function ConfigureAlertScreen() {
             <Text style={[styles.optionTitle, { color: colors.text }]}>Just once</Text>
             <Text style={[styles.optionHint, { color: colors.textMuted }]}>
               {oneShot
-                ? 'We’ll tell you the first time, then switch this alert off.'
-                : 'Keep telling me every time it happens.'}
+                ? 'Eddy tells you the first time, then switches this alert off.'
+                : 'Eddy tells you every time it happens.'}
             </Text>
           </View>
           <Switch
