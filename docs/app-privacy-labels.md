@@ -151,13 +151,31 @@ app-collected location data.
 
 ---
 
+## Sign-In Information — leave "Sign-in required" UNCHECKED
+
+Not an oversight, and worth stating here because the field invites the opposite.
+
+**Eddy has no username-and-password login.** Sign in with Apple is the only
+sign-in method in the app: `useSession` exposes `signInWithApple`, which goes
+through `signInWithIdToken`, plus `signInAnonymously` for the background
+session. There is no email/password form anywhere, and no field a reviewer
+could type a demo credential into.
+
+So filling that box in is worse than leaving it empty. A reviewer given
+credentials with nowhere to enter them files it as a defect, and the round trip
+costs a review cycle. Uncheck the box and let the notes below explain it — which
+is the standard arrangement for a Sign in with Apple-only app, because Apple's
+own policy is what makes a demo account impossible.
+
 ## Reviewer notes — paste into App Store Connect
 
-> **No demo account is needed.** Eddy is anonymous-first: the app creates an
-> anonymous account on launch and every browsing feature — rivers, live gauge
-> readings, hazards, access points, and the full float-plan calculator — works
-> without signing in. Sign in with Apple is offered but never required to
-> evaluate the app.
+> **Eddy uses Sign in with Apple only, so no demo account can be provided —
+> and none is needed.** There is no username/password login in the app. Eddy is
+> anonymous-first: it creates an anonymous account on launch, and every browsing
+> feature — rivers, live gauge readings, hazards, access points, community
+> photos, and the full float-plan calculator — works without signing in at all.
+> The two features that do require an account (creating an alert, and
+> purchasing) use Sign in with Apple with the Apple ID already on the device.
 >
 > **The paywall shows no purchase controls until Sign in with Apple completes.**
 > This is deliberate and not a bug. Subscriptions are keyed to the account id, so
@@ -168,19 +186,24 @@ app-collected location data.
 > is available on the paywall and in Profile.
 >
 > **Location is only ever requested on an explicit tap** — the locate button on
-> the map or the compass in the search field — never on launch. Coordinates are
-> used on the device to sort nearby put-ins and are never transmitted to our
-> servers.
+> the map, or the "near me" chip — never on launch. Coordinates are used on the
+> device to sort nearby put-ins and are never transmitted to our servers.
 >
 > **Account deletion is in the app**: Profile › Delete account. It takes effect
 > immediately and removes the account, saved floats, favorites, alert rules, and
 > registered devices. The screen states that it does not cancel an active
 > subscription, since Apple manages billing.
 >
-> **User-generated content is moderated before publication.** Community river
-> photos are uploaded to a private bucket with `pending` status and are reviewed
-> by a person before they become visible to anyone else. Location metadata is
-> stripped from every upload server-side.
+> **User-generated content is moderated before publication, and reportable
+> after it.** Community river photos are uploaded to a private bucket with
+> `pending` status and are reviewed by a person before they become visible to
+> anyone else; location metadata is stripped from every upload server-side.
+> Every published photo also carries a **Report** control beneath it (river
+> screen › "What it looks like"), which files the photo's id directly to our
+> moderation queue as its own report class so it can be unpublished without a
+> reply. Our Terms state that Eddy has no tolerance for objectionable content or
+> abusive users, name both reporting routes, and reserve the right to bar a
+> submitter: https://eddy.guide/terms
 >
 > **Safety disclaimers** appear wherever conditions or float times are shown.
 > The app refuses to estimate a float time in dangerous water rather than

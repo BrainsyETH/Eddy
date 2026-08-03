@@ -378,6 +378,17 @@ testing and the first submission, not installation.
 
 ## 9 · App Store submission
 
+**`docs/app-store-submission-checklist.md` walks the version page field by
+field**, in the order the blockers actually gate each other. This section is the
+summary; that file is what to have open while filling the form.
+
+Two things it adds that are not below and have cost real time: the **Paid
+Applications Agreement** (App Store Connect → Business) must show Active before
+an in-app purchase can be created at all, and bank plus tax verification takes
+several business days — start it before anything else. And each subscription
+needs its own **review screenshot** in App Store Connect, which blocks the
+submit button.
+
 - [ ] Subscription products created in ASC, attached to the RevenueCat offering
       marked **current**, and **submitted with the build**. If they are not,
       `fetchOfferings()` returns empty and the reviewer sees "No subscription
