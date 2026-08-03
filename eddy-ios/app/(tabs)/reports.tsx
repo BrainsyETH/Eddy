@@ -92,7 +92,6 @@ import type {
   SearchResult,
   SearchResultKind,
 } from '@eddy/types';
-import { hasCoordinates } from '@eddy/types';
 import { FLOW_BAND_ORDER, flowBand, type FlowBand } from '@eddy/conditions/flow-band';
 import { floatableHeadline } from '@eddy/conditions/floatable-headline';
 import {
@@ -119,7 +118,8 @@ import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { gaugeToSearchResult, useEddySearch } from '@/hooks/useEddySearch';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
-import { milesBetween, useLocation, type Coords } from '@/hooks/useLocation';
+import { useLocation, type Coords } from '@/hooks/useLocation';
+import { riverMilesByGauge } from '@/lib/riverDistance';
 import { gaugeLink } from '@/lib/gaugeCondition';
 import { rememberGauge, seedFromSearchResult } from '@/lib/gaugeSeed';
 import { primaryReading } from '@/lib/readingCopy';
@@ -321,7 +321,15 @@ export default function ReportsScreen() {
     damsRequested.current = true;
     void fetchDams().then(setDams);
   }, [scope]);
-  const [filter, setFilter] = useState<FilterKey>('all');
+  /**
+   * null means "not chosen yet", which is NOT the same as 'all'.
+   *
+   * The distinction is what lets the default below apply exactly once without an
+   * effect: the moment somebody taps a chip this holds their answer, and the
+   * derived default stops having an opinion — including when they tap All, which
+   * a `setFilter('all')` default would be unable to tell from never having asked.
+   */
+  const [chosenFilter, setFilter] = useState<FilterKey | null>(null);
   const [gaugeFilter, setGaugeFilter] = useState<GaugeFilterKey>('all');
   const [sort, setSort] = useState<SortKey>('condition');
   const [sortOpen, setSortOpen] = useState(false);
@@ -331,6 +339,24 @@ export default function ReportsScreen() {
   const { starred, isStarred, toggleStar, ready: starsReady } = useStarredRivers();
   const { colors } = useTheme();
   const router = useRouter();
+
+  /**
+   * Somebody who follows rivers opens on THEIR rivers.
+   *
+   * This is the other half of first-run onboarding: the picker's promise is that
+   * picking does something, and landing on the same twenty-four-river list it
+   * would have shown anyway makes the pick look ignored. It is also simply right
+   * for anyone with follows, whether they came through the picker or starred a
+   * river months ago.
+   *
+   * DERIVED, not assigned in an effect. The store loads asynchronously and syncs
+   * in the background, so an effect would need a ref to fire once — and would
+   * still be a cascading render on every launch. As a fallback it costs nothing
+   * and cannot fight the user: `chosenFilter` wins the instant they tap a chip.
+   */
+  const filter: FilterKey =
+    chosenFilter ??
+    (starsReady && starred.some((entry) => entry.kind === 'river') ? 'starred' : 'all');
 
   const load = useCallback(async (signal?: AbortSignal) => {
     // Not awaited with the rivers, and its failure is not this screen's error:
@@ -498,24 +524,12 @@ export default function ReportsScreen() {
   }, [rivers, sort]);
 
   // Gauge coordinates, keyed by the river each one is primary for. One flat
-  // request, fetched only when someone actually taps Near me.
+  // request, fetched only when someone actually taps Near me. The mapping lives
+  // in src/lib/riverDistance.ts because the first-run picker ranks rivers the
+  // same way, and two copies would be two definitions of "near".
   const distanceByRiver = useMemo(() => {
     if (!nearest || !location.coords || !gauges) return null;
-    const here = location.coords as Coords;
-    const map = new Map<string, number>();
-    for (const gauge of gauges) {
-      if (!hasCoordinates(gauge)) continue;
-      const miles = milesBetween(here, gauge.coordinates);
-      for (const link of gauge.thresholds ?? []) {
-        // Primary wins; a secondary association only fills a gap. A gauge two
-        // rivers share should measure the river it actually rates.
-        const existing = map.get(link.riverId);
-        if (existing == null || (link.isPrimary && miles < existing)) {
-          map.set(link.riverId, miles);
-        }
-      }
-    }
-    return map;
+    return riverMilesByGauge(gauges, location.coords as Coords);
   }, [nearest, location.coords, gauges]);
 
   /**
@@ -1212,7 +1226,10 @@ export default function ReportsScreen() {
           active={[filter]}
           // Single-select: tapping the live chip returns to All rather than
           // leaving the screen with nothing selected and no rivers shown.
-          onToggle={(key) => setFilter((prev) => (prev === key ? 'all' : (key as FilterKey)))}
+          // Compared against the DERIVED filter, not the stored one: before the
+          // first tap that is null, and tapping the chip that is visibly active
+          // has to clear it rather than re-select it.
+          onToggle={(key) => setFilter(filter === key ? 'all' : (key as FilterKey))}
           paddingHorizontal={16}
         />
       ) : scope === 'gauges' ? (

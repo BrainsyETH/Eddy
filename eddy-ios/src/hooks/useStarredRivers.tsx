@@ -27,6 +27,7 @@ import {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  addStars,
   mergeStars,
   migrateStars,
   toggleLocal,
@@ -74,6 +75,14 @@ interface StarredRiversValue {
   ready: boolean;
   isStarred: (kind: StarKind, entityId: string) => boolean;
   toggleStar: (item: Omit<StarredItem, 'starredAt'>) => void;
+  /**
+   * Stars several entities at once WITHOUT unstarring any of them.
+   *
+   * First-run onboarding follows a handful of rivers in one press, and some of
+   * them may already be starred on the account. `toggleStar` in a loop would
+   * turn those off. See addStars in packages/eddy-sync.
+   */
+  followStars: (items: Omit<StarredItem, 'starredAt'>[]) => void;
   /** True while a background reconciliation is in flight. Never blocks the UI. */
   syncing: boolean;
 }
@@ -83,6 +92,7 @@ const StarredRiversContext = createContext<StarredRiversValue>({
   ready: false,
   isStarred: () => false,
   toggleStar: () => {},
+  followStars: () => {},
   syncing: false,
 });
 
@@ -249,6 +259,23 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
     [persist, sync],
   );
 
+  const followStars = useCallback(
+    (items: Omit<StarredItem, 'starredAt'>[]) => {
+      if (items.length === 0) return;
+      // One timestamp for the batch: these were all chosen by the same press,
+      // and giving them separate clock reads would order them arbitrarily in
+      // Favorites for no reason a user could see.
+      const now = new Date().toISOString();
+      setEntries((current) => {
+        const next = addStars(current, items, now);
+        persist(next);
+        return next;
+      });
+      sync();
+    },
+    [persist, sync],
+  );
+
   const value = useMemo<StarredRiversValue>(() => {
     const visible = visibleStars(entries);
     // Keyed on the PAIR: a river and a gauge could carry the same uuid, and a
@@ -267,8 +294,9 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       syncing,
       isStarred: (kind: StarKind, entityId: string) => keys.has(`${kind}:${entityId}`),
       toggleStar,
+      followStars,
     };
-  }, [entries, ready, syncing, toggleStar]);
+  }, [entries, ready, syncing, toggleStar, followStars]);
 
   return (
     <StarredRiversContext.Provider value={value}>{children}</StarredRiversContext.Provider>

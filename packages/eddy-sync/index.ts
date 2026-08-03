@@ -217,6 +217,59 @@ export function toggleLocal(
 }
 
 /**
+ * Stars several entities at once, without unstarring anything.
+ *
+ * ── Why this is not a loop over toggleLocal ─────────────────────────────────
+ * toggleLocal FLIPS. Handed a river this device already has starred it produces
+ * an unstar, which is correct for a tap on a star button and catastrophic for
+ * first-run onboarding: a signed-in reinstall syncs the account's stars down,
+ * the picker offers those same rivers, and "Follow" would silently tombstone
+ * every one the user picked — the exact opposite of what they pressed.
+ *
+ * So this SETS rather than flips. Already starred is a no-op that keeps the
+ * original `updatedAt`, because the user did not change anything and moving the
+ * timestamp would let this device win a last-write-wins race it has no claim to.
+ * A tombstone is resurrected with `now`, which is a real edit and must win.
+ *
+ * Duplicate entries in `entities` collapse to one, so a caller need not dedupe.
+ * `now` is injected for the same reasons as toggleLocal's.
+ */
+export function addStars(
+  local: LocalStar[],
+  entities: Array<
+    Pick<LocalStar, 'kind' | 'entityId' | 'name' | 'slug'> & { usgsSiteId?: string | null }
+  >,
+  now: string,
+): LocalStar[] {
+  const byKey = new Map<string, LocalStar>();
+  for (const entry of local) {
+    if (!entry || typeof entry.entityId !== 'string') continue;
+    byKey.set(starKey(entry.kind, entry.entityId), entry);
+  }
+
+  /** Newly starred, newest-first like toggleLocal's output. */
+  const added: LocalStar[] = [];
+  const handled = new Set<string>();
+
+  for (const entity of entities) {
+    if (!entity || typeof entity.entityId !== 'string' || !entity.entityId) continue;
+    const key = starKey(entity.kind, entity.entityId);
+    if (handled.has(key)) continue;
+    handled.add(key);
+
+    const existing = byKey.get(key);
+    if (existing?.starred) continue; // Already on. Leave its timestamp alone.
+
+    byKey.delete(key);
+    added.push({ ...entity, updatedAt: now, starred: true });
+  }
+
+  // Untouched entries keep their relative order; the new stars go in front,
+  // which is what visibleStars' newest-first ordering would do anyway.
+  return [...added, ...local.filter((entry) => byKey.has(starKey(entry.kind, entry.entityId)))];
+}
+
+/**
  * Reads any stored payload — v3, v2 or the pre-sync v1 — into the current shape.
  *
  * v1 was a plain list of starred rivers with no `starred` field and no

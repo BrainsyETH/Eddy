@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  addStars,
   mergeStars as mergeStarsRaw,
   migrateStars,
   toggleLocal,
@@ -296,4 +297,135 @@ test('an entry with an unrecognised kind is treated as a river, not dropped', ()
     { entityId: 'x', kind: 'planet', name: 'x', slug: 'x', updatedAt: EARLY, starred: true },
   ]);
   assert.equal(migrated[0].kind, 'river');
+});
+
+// ── addStars: following several rivers without unstarring any ───────────────
+//
+// The bug this exists to prevent: first-run onboarding follows six rivers in one
+// press, and `toggleLocal` in a loop would turn OFF every one the device already
+// held. That is not hypothetical — a signed-in reinstall syncs the account's
+// stars down before the picker renders, so the rivers most likely to be already
+// starred are exactly the popular ones the picker offers.
+
+test('addStars stars everything it is given', () => {
+  const next = addStars(
+    [],
+    [
+      { kind: 'river', entityId: 'r1', name: 'Current', slug: 'current' },
+      { kind: 'river', entityId: 'r2', name: 'Jacks Fork', slug: 'jacks-fork' },
+    ],
+    '2026-08-03T00:00:00.000Z',
+  );
+  assert.equal(visibleStars(next).length, 2);
+});
+
+test('following an already-starred river does not unstar it', () => {
+  const local: LocalStar[] = [
+    {
+      kind: 'river',
+      entityId: 'r1',
+      name: 'Current',
+      slug: 'current',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      starred: true,
+    },
+  ];
+  const next = addStars(
+    local,
+    [{ kind: 'river', entityId: 'r1', name: 'Current', slug: 'current' }],
+    '2026-08-03T00:00:00.000Z',
+  );
+
+  const entry = next.find((e) => e.entityId === 'r1');
+  assert.equal(entry?.starred, true);
+  // The user changed nothing, so the edit clock must not move — advancing it
+  // would let this device win a last-write-wins race it has no claim to.
+  assert.equal(entry?.updatedAt, '2026-01-01T00:00:00.000Z');
+});
+
+test('following a river that was deliberately unstarred resurrects it', () => {
+  const local: LocalStar[] = [
+    {
+      kind: 'river',
+      entityId: 'r1',
+      name: 'Current',
+      slug: 'current',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      starred: false, // tombstone
+    },
+  ];
+  const next = addStars(
+    local,
+    [{ kind: 'river', entityId: 'r1', name: 'Current', slug: 'current' }],
+    '2026-08-03T00:00:00.000Z',
+  );
+
+  const entry = next.find((e) => e.entityId === 'r1');
+  assert.equal(entry?.starred, true);
+  // A real edit, so it must win against the server's older row.
+  assert.equal(entry?.updatedAt, '2026-08-03T00:00:00.000Z');
+  assert.equal(next.filter((e) => e.entityId === 'r1').length, 1);
+});
+
+test('addStars leaves other entities and other kinds alone', () => {
+  const local: LocalStar[] = [
+    { kind: 'gauge', entityId: 'g1', name: 'Akers', slug: '', updatedAt: '2026-01-01T00:00:00.000Z', starred: true },
+    { kind: 'river', entityId: 'r9', name: 'Meramec', slug: 'meramec', updatedAt: '2026-01-01T00:00:00.000Z', starred: false },
+  ];
+  const next = addStars(
+    local,
+    [{ kind: 'river', entityId: 'r1', name: 'Current', slug: 'current' }],
+    '2026-08-03T00:00:00.000Z',
+  );
+
+  assert.equal(next.find((e) => e.entityId === 'g1')?.starred, true);
+  // An untouched tombstone stays a tombstone: not being picked in the grid is
+  // not the same as being re-starred.
+  assert.equal(next.find((e) => e.entityId === 'r9')?.starred, false);
+});
+
+test('a river and a gauge sharing an id are not confused', () => {
+  const local: LocalStar[] = [
+    { kind: 'gauge', entityId: 'shared', name: 'Akers', slug: '', updatedAt: '2026-01-01T00:00:00.000Z', starred: false },
+  ];
+  const next = addStars(
+    local,
+    [{ kind: 'river', entityId: 'shared', name: 'Current', slug: 'current' }],
+    '2026-08-03T00:00:00.000Z',
+  );
+
+  assert.equal(next.find((e) => e.kind === 'river')?.starred, true);
+  assert.equal(next.find((e) => e.kind === 'gauge')?.starred, false);
+});
+
+test('duplicates in one batch collapse to a single star', () => {
+  const next = addStars(
+    [],
+    [
+      { kind: 'river', entityId: 'r1', name: 'Current', slug: 'current' },
+      { kind: 'river', entityId: 'r1', name: 'Current', slug: 'current' },
+    ],
+    '2026-08-03T00:00:00.000Z',
+  );
+  assert.equal(next.filter((e) => e.entityId === 'r1').length, 1);
+});
+
+test('an empty batch is a no-op', () => {
+  const local: LocalStar[] = [
+    { kind: 'river', entityId: 'r1', name: 'Current', slug: 'current', updatedAt: '2026-01-01T00:00:00.000Z', starred: true },
+  ];
+  assert.deepEqual(addStars(local, [], '2026-08-03T00:00:00.000Z'), local);
+});
+
+test('newly followed stars survive a sync that the server has not seen', () => {
+  // The end-to-end shape: follow offline, then reconcile against a server that
+  // knows nothing about them. They must be pushed, not dropped.
+  const followed = addStars(
+    [],
+    [{ kind: 'river', entityId: 'r1', name: 'Current', slug: 'current' }],
+    '2026-08-03T00:00:00.000Z',
+  );
+  const plan = mergeStarsRaw(followed, [], 'river');
+  assert.deepEqual(plan.toStar, ['r1']);
+  assert.equal(visibleStars(plan.merged).length, 1);
 });

@@ -1,9 +1,21 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Otter } from '@/components/Otter';
+import { FirstRunPicker } from '@/components/FirstRunPicker';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
-import { acceptTerms, hasAcceptedTerms } from '@/lib/onboarding';
+import {
+  acceptTerms,
+  completePersonalization,
+  hasAcceptedTerms,
+  markPersonalizationPending,
+  needsMigrationRecord,
+  readPersonalization,
+  resolveFirstRun,
+  stepAfterLegal,
+  type FirstRunSnapshot,
+  type FirstRunStep,
+} from '@/lib/onboarding';
 import { report } from '@/lib/monitoring';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -11,31 +23,68 @@ import { fonts, type as t } from '@/theme/typography';
 
 export function OnboardingGate({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
-  const [accepted, setAccepted] = useState<boolean | null>(null);
+  const [step, setStep] = useState<FirstRunStep | null>(null);
   const [saving, setSaving] = useState(false);
 
+  /**
+   * The LAUNCH state of both keys, kept for the whole session.
+   *
+   * Held rather than re-read because after `acceptTerms()` lands the legal key
+   * says "accepted", which is byte-identical to what a pre-picker install looks
+   * like — and that install must skip the picker while the new user must see it.
+   * Re-deriving from storage after the tap answers the wrong question, and only
+   * on a real device, where nothing is watching. See stepAfterLegal.
+   */
+  const [snapshot, setSnapshot] = useState<FirstRunSnapshot | null>(null);
+
   // The .catch() is load-bearing, not defensive habit. Everything below this
-  // component renders only once `accepted` stops being null, so a rejection with
+  // component renders only once `step` stops being null, so a rejection with
   // no catch does not surface an error — it renders the blank fallback forever,
-  // in a colour identical to the splash. hasAcceptedTerms() already fails closed
-  // to `false`; this is the second belt, for anything it cannot catch.
+  // in a colour identical to the splash. Both readers already fail safe; this is
+  // the second belt, for anything they cannot catch.
   useEffect(() => {
     let active = true;
-    void hasAcceptedTerms()
+    void Promise.all([hasAcceptedTerms(), readPersonalization()])
       .catch((error) => {
-        report(error, { operation: 'onboarding.hasAcceptedTerms' });
-        return false;
+        report(error, { operation: 'onboarding.readFirstRun' });
+        return [false, null] as const;
       })
-      .then((value) => {
-        if (active) setAccepted(value);
+      .then(([legalAccepted, personalization]) => {
+        if (!active) return;
+        const next: FirstRunSnapshot = { legalAccepted, personalization };
+        setSnapshot(next);
+        setStep(resolveFirstRun(next));
+
+        // An install from before the picker existed. Settle it permanently, so a
+        // later legal re-gate does not read the absent key as "never asked" and
+        // show the picker to someone who has been following rivers for months.
+        if (needsMigrationRecord(next)) void completePersonalization();
       });
     return () => {
       active = false;
     };
   }, []);
 
-  if (accepted === true) return <>{children}</>;
-  if (accepted === null) return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
+  /** Followed or skipped — either way the question has been asked. */
+  const finishPicker = useCallback(() => {
+    void completePersonalization();
+    setStep('app');
+  }, []);
+
+  /**
+   * No catalog and no cache, so there was nothing to ask with.
+   *
+   * Deliberately does NOT record completion: the state stays `pending`, and
+   * somebody whose first launch happened in a dead zone gets the picker on a
+   * later one instead of losing it to a bad minute of signal.
+   */
+  const skipPickerUnasked = useCallback(() => setStep('app'), []);
+
+  if (step === 'app') return <>{children}</>;
+  if (step === null) return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
+  if (step === 'picker') {
+    return <FirstRunPicker onDone={finishPicker} onUnavailable={skipPickerUnasked} />;
+  }
 
   const agree = async () => {
     if (saving) return;
@@ -47,7 +96,11 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
       // session continue, report the storage failure, and re-prompt next launch.
       report(error, { operation: 'onboarding.acceptTerms' });
     } finally {
-      setAccepted(true);
+      const next = snapshot ? stepAfterLegal(snapshot) : 'app';
+      // Recorded BEFORE the picker renders, so an onboarding interrupted by a
+      // kill resumes there instead of being lost to the migration branch.
+      if (next === 'picker') void markPersonalizationPending();
+      setStep(next);
       setSaving(false);
     }
   };

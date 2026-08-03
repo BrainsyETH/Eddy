@@ -31,6 +31,9 @@
       "@eddy/types": [
         "../packages/eddy-types/index.ts"
       ],
+      "@eddy/geo": [
+        "../packages/eddy-geo/index.ts"
+      ],
       "@eddy/conditions": [
         "./shared/condition-system.ts"
       ],
