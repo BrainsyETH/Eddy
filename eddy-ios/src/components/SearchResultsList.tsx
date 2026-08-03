@@ -44,6 +44,10 @@ function SearchResultsListComponent({ results, onSelect, emptyMessage, loading }
         // The list overlays a map. Without this a tap that lands while the
         // keyboard is up is eaten by the dismiss, and the user has to tap twice.
         keyboardShouldPersistTaps="handled"
+        // Its other half, which was missing here and on the Today tab alike:
+        // `keyboardDismissMode` defaults to 'none', so scrolling the results
+        // left the keyboard covering them with no way out but the return key.
+        keyboardDismissMode="on-drag"
         ItemSeparatorComponent={() => (
           <View style={[styles.separator, { backgroundColor: colors.border }]} />
         )}

@@ -75,7 +75,6 @@ import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
 import {
   PREMIUM_BENEFITS,
   PREMIUM_FORECAST_CAVEAT,
-  PREMIUM_FREE_NOTE,
   PREMIUM_TITLE,
   premiumSubtitle,
 } from '@/lib/premiumCopy';
@@ -269,7 +268,22 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
             {PREMIUM_FORECAST_CAVEAT}
           </Text>
 
-          <Text style={[styles.freeNote, { color: colors.textSubtle }]}>{PREMIUM_FREE_NOTE}</Text>
+          {/* THE FREE NOTE IS GONE, and it is worth saying why rather than
+              leaving a gap here for someone to helpfully refill.
+
+              It listed everything a subscription does NOT gate — conditions,
+              readings, the trend, hazards, alerts, float plans, and that the
+              last ones you saw stay on the phone. Every word was true and the
+              instinct was right: a paywall straight about the free half is the
+              only kind worth trusting about the paid one.
+
+              But it was a seven-item feature list, in small grey type, on the
+              screen where somebody has already decided to look at the price —
+              and it spent that moment enumerating reasons not to pay. The honesty
+              is not lost: premiumCopy's own rule is still that nothing here may
+              name a free capability, premium-copy.test.ts still enforces it, and
+              the Terms say what is free at length. This screen sells the report
+              and states the renewal terms, which is what it is for. */}
 
           {/* Apple also requires the renewal terms themselves to be visible on
               the purchase screen, not only inside the linked document. */}
@@ -589,7 +603,6 @@ const styles = StyleSheet.create({
   benefitTitle: { ...t.sm, fontFamily: fonts.semibold },
   benefitBody: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
   forecastCaveat: { ...t.xs, fontFamily: fonts.semibold, alignSelf: 'stretch', marginTop: 14 },
-  freeNote: { ...t.xs, fontFamily: fonts.medium, alignSelf: 'stretch', marginTop: 10 },
   legal: { ...t.xs, fontFamily: fonts.body, alignSelf: 'stretch', marginTop: 14 },
   legalLinks: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
   legalLink: { ...t.xs, fontFamily: fonts.semibold, textDecorationLine: 'underline' },

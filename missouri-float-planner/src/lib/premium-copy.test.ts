@@ -3,9 +3,6 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import {
   PREMIUM_BENEFITS,
-  PREMIUM_FREE_NOTE,
-  PREMIUM_LOCK_BODY,
-  PREMIUM_LOCK_FREE_NOTE,
   PREMIUM_LOCK_TITLE,
   PREMIUM_TITLE,
   premiumPitch,
@@ -87,39 +84,46 @@ test('the river-specific and generic pitches say the same thing', () => {
   assert.match(premiumPitch('Huzzah Creek'), /Huzzah Creek/);
 });
 
-test('the lock row sells the report, not the button', () => {
-  // It said "Unlock Eddy's take", which names the mechanism and uses Eddy's own
-  // word for the thing rather than the reader's. The title is now the offer in
-  // a phrase, and it has to keep naming both halves of what makes it one: that
-  // it is a report, and that it arrives every day.
-  assert.match(PREMIUM_LOCK_TITLE, /daily/i);
-  assert.match(PREMIUM_LOCK_TITLE, /report/i);
-  assert.doesNotMatch(PREMIUM_LOCK_TITLE, /unlock/i, 'the title must not name the button');
-
-  // The body carries the three sections the blur can show the shape of but not
-  // the content of.
-  assert.match(PREMIUM_LOCK_BODY, /water/i);
-  assert.match(PREMIUM_LOCK_BODY, /weather/i);
-  assert.match(PREMIUM_LOCK_BODY, /bottom line/i);
+test('the lock row names the product AND the action', () => {
+  // Two earlier titles each got one half. "Unlock Eddy's take" was all
+  // mechanism — what the button does, in Eddy's word for the thing rather than
+  // the reader's. "A daily report on your favorite river" was all product: a
+  // good description sitting on a control with nothing to say it was a control.
+  assert.match(PREMIUM_LOCK_TITLE, /daily/i, 'must say how often it arrives');
+  assert.match(PREMIUM_LOCK_TITLE, /report/i, 'must say what the thing is');
+  assert.match(PREMIUM_LOCK_TITLE, /unlock/i, 'must read as something you can tap');
+  assert.match(PREMIUM_LOCK_TITLE, /premium/i, 'must name the subscription it buys');
 });
 
 test('the lock row does not advertise anything free', () => {
   // Same rule as the benefit list, applied to the surface that broke it first.
-  // PREMIUM_LOCK_FREE_NOTE is excluded for the same reason PREMIUM_FREE_NOTE is
-  // below: naming free features is its entire job.
-  const text = `${PREMIUM_LOCK_TITLE} ${PREMIUM_LOCK_BODY}`;
+  // The row is a single string now, which is the whole of what it may claim.
   for (const pattern of NEVER_SOLD) {
-    assert.doesNotMatch(text, pattern, `the lock row must not advertise ${pattern}`);
+    assert.doesNotMatch(
+      PREMIUM_LOCK_TITLE,
+      pattern,
+      `the lock row must not advertise ${pattern}`,
+    );
   }
 });
 
-test('the lock row says what stays free, on the screen that can be checked', () => {
-  // It sits under the blurred report with the condition, the reading and the
-  // trend sharp a few hundred pixels above it. A claim that can be verified by
-  // looking up is the only kind worth making here.
-  for (const pattern of [/condition/i, /reading/i, /hazard/i, /alert/i, /free/i]) {
-    assert.match(PREMIUM_LOCK_FREE_NOTE, pattern);
-  }
+test('the lock row is ONE line', () => {
+  // It carried a title, a body naming the three sections, and a note about what
+  // stays free. Every one was defensible alone; together they made the smallest
+  // control on the screen the wordiest thing on it. The body in particular read
+  // the screen back to the reader — EDDY'S READ, WEATHER and BOTTOM LINE are
+  // directly above it, sharp, in the same card.
+  //
+  // Asserted against the component rather than the constants, because the way
+  // this regresses is a second <Text> appearing in the row, not a new export.
+  const take = readFileSync('../eddy-ios/src/components/EddyTake.tsx', 'utf8');
+  const row = take.slice(take.indexOf('accessibilityLabel={PREMIUM_LOCK_TITLE}'));
+  const body = row.slice(0, row.indexOf('</Pressable>'));
+  assert.equal(
+    (body.match(/<Text/g) ?? []).length,
+    1,
+    'the lock row renders exactly one line of copy',
+  );
 });
 
 test('EddyTake reads the lock copy rather than holding its own', () => {
@@ -128,17 +132,40 @@ test('EddyTake reads the lock copy rather than holding its own', () => {
   const take = readFileSync('../eddy-ios/src/components/EddyTake.tsx', 'utf8');
   assert.match(take, /from '@\/lib\/premiumCopy'/);
   assert.match(take, /PREMIUM_LOCK_TITLE/);
-  assert.match(take, /PREMIUM_LOCK_BODY/);
-  assert.match(take, /PREMIUM_LOCK_FREE_NOTE/);
 });
 
-test('the free note names what a subscription does not gate', () => {
-  // Being straight about what is free is the only thing that makes a paywall
-  // trustworthy about what is not — and this note is the sheet's one place to
-  // say so, which is why the NEVER_SOLD list deliberately does not apply here.
-  for (const pattern of [/conditions/i, /readings/i, /hazard/i, /alerts/i, /float plan/i]) {
-    assert.match(PREMIUM_FREE_NOTE, pattern);
+test('no paywall surface enumerates what is free', () => {
+  // ── The reversal, and why it is not a loss of honesty ──────────────────
+  //
+  // Both surfaces used to list what a subscription does NOT gate: the sheet at
+  // length (conditions, readings, the trend, hazards, alerts, float plans, and
+  // that the last ones you saw stay on the phone) and the lock row in short.
+  // The instinct was right — a paywall straight about the free half is the only
+  // kind worth trusting about the paid one — and the placement was wrong. It
+  // was a seven-item feature list in small grey type on the screen where
+  // somebody has already decided to look at the price, spending that moment
+  // enumerating reasons not to pay.
+  //
+  // What actually keeps this honest survives untouched and is tested above:
+  // nothing on either surface may NAME a free capability. The Terms say what is
+  // free at length, where it is a commitment rather than a sales aside.
+  const paywall = readFileSync('../eddy-ios/src/components/PaywallSheet.tsx', 'utf8');
+  const take = readFileSync('../eddy-ios/src/components/EddyTake.tsx', 'utf8');
+  for (const source of [paywall, take]) {
+    assert.doesNotMatch(source, /PREMIUM_FREE_NOTE/);
+    assert.doesNotMatch(source, /PREMIUM_LOCK_FREE_NOTE/);
   }
+});
+
+test('the gratitude line thanks without itemising', () => {
+  // Two earlier versions justified the price instead: one listed "the gauges,
+  // the maps and the alerts" — free features, on the page whose entire history
+  // of mistakes is exactly that — and the next named the servers and the river
+  // data, which is true but is still a receipt.
+  const thanks = PREMIUM_BENEFITS.find((b) => /thank/i.test(b.title));
+  assert.ok(thanks, 'the benefit list still carries the thanks');
+  assert.match(thanks.body, /one person/i);
+  assert.doesNotMatch(thanks.body, /server/i, 'gratitude does not need an invoice');
 });
 
 test('both paywall surfaces read from the shared copy', () => {

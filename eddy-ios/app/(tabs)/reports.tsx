@@ -1236,6 +1236,16 @@ export default function ReportsScreen() {
         data={rows}
         keyExtractor={(item) => item.key}
         keyboardShouldPersistTaps="handled"
+        // ── Scroll to dismiss ──────────────────────────────────────────
+        // The two props do different halves of one job and only one of them
+        // was here. `handled` keeps a tap on a row from being eaten by the
+        // dismiss, which is why tapping a river always worked. Nothing set
+        // `keyboardDismissMode`, which defaults to 'none' on iOS — so
+        // scrolling the results left the keyboard sitting over them, and the
+        // only way out was the return key, which with returnKeyType="search"
+        // draws as a magnifying glass. That is a dismissal nobody finds by
+        // accident, and it is not how any other iOS search list behaves.
+        keyboardDismissMode="on-drag"
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
