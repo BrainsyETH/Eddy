@@ -11,7 +11,7 @@
 // cause, one decision, one confirmed count.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { logAdminAction, requireAdminAuth } from '@/lib/admin-auth';
+import { requireAdminAuth } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { describeRefusal, planBulkAction } from '@/lib/trust/bulk';
 
@@ -21,6 +21,8 @@ const ACTIONS = ['resolve', 'snooze'] as const;
 type Action = (typeof ACTIONS)[number];
 
 const MAX_SNOOZE_DAYS = 90;
+/** Long enough to be a sentence, short enough not to be a chore. */
+const MIN_REASON_LENGTH = 8;
 
 export async function POST(request: NextRequest) {
   const authError = requireAdminAuth(request);
@@ -32,7 +34,12 @@ export async function POST(request: NextRequest) {
     const checkId: string = body.checkId;
     const ruleKey: string = body.ruleKey;
     const expectedCount: number = Number(body.expectedCount);
-    const reason: string | undefined = body.reason;
+    // Required, not optional. The count guard stops the set CHANGING under the
+    // operator; it does nothing about a misclick, and a bulk close is the one
+    // action here that touches many rows at once. Typing why is the confirmation
+    // step, and unlike a yes/no dialog it leaves something worth reading in the
+    // activity log six weeks later.
+    const reason: string = typeof body.reason === 'string' ? body.reason.trim() : '';
 
     if (!ACTIONS.includes(action)) {
       return NextResponse.json(
@@ -46,6 +53,12 @@ export async function POST(request: NextRequest) {
     if (!Number.isInteger(expectedCount) || expectedCount < 0) {
       return NextResponse.json(
         { error: 'expectedCount must be the number of findings you are confirming' },
+        { status: 400 },
+      );
+    }
+    if (reason.length < MIN_REASON_LENGTH) {
+      return NextResponse.json(
+        { error: `A reason of at least ${MIN_REASON_LENGTH} characters is required to close a group.` },
         { status: 400 },
       );
     }
@@ -111,18 +124,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Could not update findings' }, { status: 500 });
     }
 
-    // One log row per finding, matching what the single-finding route writes.
-    // A bulk action that logged once would make 24 closures look like one
-    // decision in the audit trail, which is exactly the visibility this system
-    // argues for everywhere else.
-    for (const row of rows) {
-      logAdminAction({
+    // One log row per finding, matching what the single-finding route writes:
+    // a bulk action logging once would make 24 closures look like one decision.
+    //
+    // Written as ONE awaited insert rather than a loop of fire-and-forget
+    // logAdminAction() calls. That helper is async and never awaited elsewhere
+    // in the codebase, which is survivable for a single row — but this route
+    // would leave N promises in flight when it returns, and a serverless
+    // function can be frozen the moment the response is sent. Losing the audit
+    // trail for a bulk close is exactly the invisible change this system argues
+    // against everywhere else.
+    const { error: auditError } = await supabase.from('admin_activity_log').insert(
+      rows.map((row) => ({
         action: `trust_finding_${action}`,
-        entityType: 'trust_finding',
-        entityId: row.id,
-        entityName: row.title,
-        details: { checkId, ruleKey, via: 'bulk', batchSize: plan.ids.length, reason: reason ?? null },
-      });
+        entity_type: 'trust_finding',
+        entity_id: row.id,
+        entity_name: row.title,
+        details: { checkId, ruleKey, via: 'bulk', batchSize: plan.ids.length, reason },
+      })),
+    );
+
+    if (auditError) {
+      // The findings are already updated. Say so loudly rather than reporting
+      // a clean success over a missing audit trail.
+      console.error('Bulk trust action applied but audit log failed:', auditError);
     }
 
     return NextResponse.json({ updated: plan.ids.length, action, checkId, ruleKey });

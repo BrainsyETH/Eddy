@@ -107,7 +107,17 @@ export default function TrustAdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [checks, setChecks] = useState<{ id: string; title: string; cadence: string }[]>([]);
+  const [checks, setChecks] = useState<
+    {
+      id: string;
+      title: string;
+      cadence: string;
+      lastRunAt: string | null;
+      lastStatus: string | null;
+      overdue: boolean;
+      heartbeat: string;
+    }[]
+  >([]);
   const [runningCheck, setRunningCheck] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -168,9 +178,21 @@ export default function TrustAdminPage() {
   }
 
   async function bulkResolve(checkId: string, ruleKey: string, count: number) {
-    // The count travels with the request. If a scheduled run lands in between
-    // and the set changes, the server refuses rather than closing something
-    // nobody looked at.
+    // Two guards, for two different mistakes. The count travels with the
+    // request so the server refuses if a scheduled run changed the set. The
+    // reason is the confirmation step for the other mistake — a misclick —
+    // and unlike a yes/no dialog it leaves something worth reading in the
+    // activity log six weeks from now.
+    const reason = window.prompt(
+      `Resolve all ${count} open "${ruleKey}" findings?\n\nWhy are these being closed? (recorded in the activity log)`,
+      '',
+    );
+    if (reason === null) return;
+    if (reason.trim().length < 8) {
+      setError('A reason of at least 8 characters is required to close a group.');
+      return;
+    }
+
     setUpdating(`${checkId}:${ruleKey}`);
     setNotice(null);
     setError(null);
@@ -178,7 +200,13 @@ export default function TrustAdminPage() {
       const response = await adminFetch('/api/admin/trust/findings/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'resolve', checkId, ruleKey, expectedCount: count }),
+        body: JSON.stringify({
+          action: 'resolve',
+          checkId,
+          ruleKey,
+          expectedCount: count,
+          reason: reason.trim(),
+        }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
@@ -288,7 +316,7 @@ export default function TrustAdminPage() {
                 onClick={() => runCheck(c.id)}
                 disabled={runningCheck !== null}
                 className="flex items-center gap-2 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
-                title={`${c.title} (${c.cadence})`}
+                title={c.heartbeat}
               >
                 {runningCheck === c.id ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -296,7 +324,23 @@ export default function TrustAdminPage() {
                   <Play className="w-3.5 h-3.5" />
                 )}
                 {c.id}
-                <span className="text-xs text-neutral-400">{c.cadence}</span>
+                {/* A calm list of findings looks the same whether the ledger ran
+                    an hour ago or stopped last week. This is where that shows. */}
+                <span
+                  className={`text-xs ${
+                    c.overdue
+                      ? 'text-red-400'
+                      : c.lastStatus === 'error'
+                        ? 'text-amber-400'
+                        : 'text-neutral-400'
+                  }`}
+                >
+                  {c.overdue
+                    ? 'overdue'
+                    : c.lastRunAt
+                      ? formatDate(c.lastRunAt)
+                      : 'never run'}
+                </span>
               </button>
             ))}
           </div>
