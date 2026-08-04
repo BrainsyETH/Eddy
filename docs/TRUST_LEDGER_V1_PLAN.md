@@ -1,18 +1,55 @@
 # Trust Ledger v1 — implementation plan
 
-> **Status: built, pending migration** (2026-08). Scopes the first buildable
-> slice of `docs/EDDY_AGENT_FRAMEWORK_PLAN.md`, and revises that document where
+> **Status: shipped and running** (2026-08-04). Scopes the first buildable slice
+> of `docs/EDDY_AGENT_FRAMEWORK_PLAN.md`, and revises that document where
 > verification against the code contradicted it. Supersedes Phases 0-5 of the
 > framework roadmap.
+>
+> All migrations are **applied to production**. First scheduled run 16:01Z
+> 2026-08-04. Kept as the record of what was decided and why; it is not a to-do
+> list any more.
 
-## What shipped, and what did not
+## What shipped
 
-**Built** — `missouri-float-planner/src/lib/trust/` (contracts, fingerprinting,
-reconciliation, severity, registry, ledger writer), four checks
-(`validate_river_data`, `river_geometry`, `eddy_knowledge`, `gauge_wiring`), the
-`/api/cron/trust-tick` hourly drain, and `/admin/trust` with snooze / resolve /
-reopen. `/api/admin/river-health` now consumes the extracted geometry check, so
-the page and the scheduled check cannot drift. 60 new tests.
+`missouri-float-planner/src/lib/trust/` — contracts, fingerprinting,
+reconciliation, severity, remediation, registry, ledger writer — plus **five
+checks**: `validate_river_data`, `river_geometry`, `eddy_knowledge`,
+`gauge_wiring`, `schema_invariants`. The `/api/cron/trust-tick` hourly drain,
+and `/admin/trust` with snooze / resolve / reopen and per-finding remediation.
+`/api/admin/river-health` consumes the extracted geometry check, so the page and
+the scheduled check cannot drift.
+
+Applied migrations, under the versions `schema_migrations` recorded:
+
+| Version | What |
+| --- | --- |
+| `20260804141538` | `trust_runs`, `trust_findings`, RLS |
+| `20260804141629` | one primary gauge per river |
+| `20260804162015` | `trust_schema_invariants()` |
+| `20260804163747` | restored `get_river_geometry_json()` |
+| `20260804175222` | grant checks see PUBLIC (grantee 0) |
+
+Also recorded `20260803170000` by repair — it had been applied by hand and never
+written to `schema_migrations`.
+
+## What the first day actually found
+
+The ledger's first scheduled run raised the same finding 24 times, which is what
+made it obviously a broken check rather than broken data:
+`get_river_geometry_json()` was absent from production, PostgREST returns an
+error object rather than throwing, and `/api/admin/river-health` read only
+`data` — so a missing FUNCTION was indistinguishable from a river with no
+GEOMETRY. That page had been reporting "No geometry data found" for every river.
+
+An external audit then found the same shape in the check written to prevent it:
+`trust_schema_invariants()` joined `pg_roles` on the ACL grantee, and
+`aclexplode()` represents PUBLIC as grantee 0, which has no `pg_roles` row. A
+`GRANT INSERT ... TO PUBLIC` passed clean. Fixed in `20260804175222` and guarded
+by `scripts/security/trust-invariants-public-acl.test.ts`.
+
+Two instances, two mechanisms, one lesson: **a check that cannot see reports a
+confident pass.** That is the failure this subsystem exists to catch, and it
+caught it in itself twice on day one.
 
 **Two design changes made while building**, both caught by writing the thing:
 
@@ -28,12 +65,14 @@ the page and the scheduled check cannot drift. 60 new tests.
 **Part B, closed:** the cross-surface float-time divergence (B2) and the
 triplicated `STALE_READING_HOURS` (B4).
 
-**Part B, deferred with cause:**
-
-- **B3, catalog-level schema invariants.** Needs a `SECURITY DEFINER` function to
-  read `pg_policies` / `pg_constraint`, which is a migration this branch cannot
-  verify without a live apply. The ledger is the right home for it once Step 0
-  has run.
+**B3 closed.** `trust_schema_invariants()` asserts the four release invariants
+from `docs/legacy-schema-security-audit.md` against `pg_class`, `pg_policies`
+and `pg_constraint`, closing that document's outstanding instruction. Two of
+seven fail on the live database and are recorded as decisions with owners rather
+than cleanups: `feedback` still grants INSERT/UPDATE/DELETE to `anon` and
+`authenticated` (RLS blocks them, so it is the missing second half), and ten
+policies across `community_reports`, `nearby_services` and `service_rivers`
+inline the `user_roles` lookup instead of calling `is_admin()`.
 
 **B1 closed, and the finding was wrong.** Confirmed with the owner: Courtois
 Creek has no gauge of its own and borrows Huzzah's, so 07014000 is *correctly*
@@ -56,8 +95,9 @@ all four refusals end to end against an in-memory PostgREST stand-in, so a
 broken check that reports an all-clear fails CI rather than a runbook step
 nobody repeats.
 
-**Not applied:** `20260804120000_trust_ledger.sql`. Read its header before
-applying — the filename must match the version Supabase records.
+**All applied.** See the migration table at the top for the versions
+`schema_migrations` actually recorded; every file is named for its recorded
+version, and `make check-db` reports zero drift in both directions.
 
 
 ## Context
@@ -505,7 +545,7 @@ self-authorizing." Change:
 |---|---|---|
 | 0 | Live read-only recon (gates Step 6) | 0.5 |
 | 1 | Migration + RLS; `fingerprint.ts`, `reconcile.ts`, `severity.ts` + unit tests. Nothing scheduled. | 2 |
-| 2 | `types.ts`, `registry.ts`, the four checks; extract `river-geometry` and rewire the existing admin route | 1.5 |
+| 2 | `types.ts`, `registry.ts`, the checks; extract `river-geometry` and rewire the existing admin route | 1.5 |
 | 3 | `trust-tick` cron + `vercel.json` (both blocks) + lock + time budget | 1 |
 | 4 | Admin API, `/admin/trust` page, nav in both arrays, stats badge | 1.5 |
 | 5 | Part B fixes with guard tests | 2.5 |
@@ -533,7 +573,7 @@ invisible to CI.
 - `src/lib/calculations/float-time-parity.test.ts` — plan / chat / social agree (B2)
 - a guard test that `STALE_READING_HOURS` is defined exactly once (B4)
 
-No test touches a database or the network — that rule holds; all four checks are
+No test touches a database or the network — that rule holds; the checks are
 I/O glue over pure policy modules.
 
 **Manual, in order:**
