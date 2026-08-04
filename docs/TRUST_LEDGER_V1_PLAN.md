@@ -30,15 +30,31 @@ triplicated `STALE_READING_HOURS` (B4).
 
 **Part B, deferred with cause:**
 
-- **B1, the dual-primary gauge.** The `gauge_wiring` check now detects it, which
-  was the durable half. The partial unique index and the data decision both wait
-  on Step 0: USGS 07014000 being primary for two rivers may be a legitimate
-  proxy arrangement, and an index that fails to build is a worse outcome than a
-  finding that stays open. Do not write that migration from migration files.
 - **B3, catalog-level schema invariants.** Needs a `SECURITY DEFINER` function to
   read `pg_policies` / `pg_constraint`, which is a migration this branch cannot
   verify without a live apply. The ledger is the right home for it once Step 0
   has run.
+
+**B1 closed, and the finding was wrong.** Confirmed with the owner: Courtois
+Creek has no gauge of its own and borrows Huzzah's, so 07014000 is *correctly*
+`is_primary` for both. `is_primary` means "the primary gauge FOR THIS RIVER" and
+each river still has exactly one, so the first version of `gauge_wiring` would
+have reported correct data forever.
+
+The real defect is the reverse lookup: given the gauge, which river is it? Every
+consumer used `find(l => l.isPrimary) || links[0]`, which returns whichever row
+the query ordered first. Resolved by `shared/primary-river-link.ts` using the
+tiebreak already in the data — `distance_from_section_miles`, 0.0 for Huzzah and
+5.0 for Courtois, because the gauge sits on the Huzzah. Alphabetical order would
+have picked Courtois, so a merely-stable tiebreak would have been stably wrong.
+The check now fires only on ties nothing can order, and
+`20260804130000_one_primary_gauge_per_river.sql` enforces the invariant that
+does hold: one primary per river, not one river per gauge.
+
+**The sabotage step is automated.** `src/lib/trust/ledger-wiring.test.ts` runs
+all four refusals end to end against an in-memory PostgREST stand-in, so a
+broken check that reports an all-clear fails CI rather than a runbook step
+nobody repeats.
 
 **Not applied:** `20260804120000_trust_ledger.sql`. Read its header before
 applying — the filename must match the version Supabase records.
@@ -530,11 +546,10 @@ I/O glue over pure policy modules.
    snoozed and does not re-open.
 4. **Fix one real finding, re-run, confirm it auto-resolves.** This is the whole
    point of the system.
-5. **Break a check deliberately** (point it at a nonexistent RPC) and confirm the
-   run records `status='error'` and resolves *nothing*. Then stub a check to return
-   zero findings over a non-empty scope and confirm `mass_resolve` suppression
-   fires with its critical meta-finding.
-6. `make check-web` green.
+5. `make check-web` and `make check-mobile` green, and `make bundle-mobile`
+   succeeds — the last is what proves Metro resolves the new `shared/` subpath
+   imports, which typechecking does not.
 
-Step 5 is the one that matters most: it is the difference between a monitor and a
-monitor you can trust.
+The old step 5 — deliberately break a check and confirm it resolves nothing — is
+now `src/lib/trust/ledger-wiring.test.ts` and runs in CI. It was the step that
+mattered most and the one least likely to be repeated by hand.
