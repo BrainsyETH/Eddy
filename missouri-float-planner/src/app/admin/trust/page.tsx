@@ -30,6 +30,8 @@ import {
   ShieldCheck,
   Terminal,
   Wrench,
+  Play,
+  Layers,
 } from 'lucide-react';
 import type { Remediation, RemediationKind } from '@/lib/trust/remediation';
 
@@ -105,6 +107,9 @@ export default function TrustAdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [checks, setChecks] = useState<{ id: string; title: string; cadence: string }[]>([]);
+  const [runningCheck, setRunningCheck] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const fetchFindings = useCallback(async () => {
     setLoading(true);
@@ -127,6 +132,77 @@ export default function TrustAdminPage() {
   useEffect(() => {
     fetchFindings();
   }, [fetchFindings]);
+
+  // The registry, not a hardcoded list — adding a check should not mean editing
+  // this page too.
+  useEffect(() => {
+    adminFetch('/api/admin/trust/run')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setChecks(d?.checks ?? []))
+      .catch(() => {});
+  }, []);
+
+  async function runCheck(checkId: string) {
+    setRunningCheck(checkId);
+    setNotice(null);
+    setError(null);
+    try {
+      const response = await adminFetch('/api/admin/trust/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checkId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || data.reason || `HTTP ${response.status}`);
+      const s = data.summary;
+      setNotice(
+        `${checkId}: ${s.raised} raised, ${s.touched} still true, ${s.resolved} resolved` +
+          (s.suppressedReason ? ` — reconciliation refused (${s.suppressedReason})` : ''),
+      );
+      await fetchFindings();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Run failed');
+    } finally {
+      setRunningCheck(null);
+    }
+  }
+
+  async function bulkResolve(checkId: string, ruleKey: string, count: number) {
+    // The count travels with the request. If a scheduled run lands in between
+    // and the set changes, the server refuses rather than closing something
+    // nobody looked at.
+    setUpdating(`${checkId}:${ruleKey}`);
+    setNotice(null);
+    setError(null);
+    try {
+      const response = await adminFetch('/api/admin/trust/findings/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resolve', checkId, ruleKey, expectedCount: count }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      setNotice(`Resolved ${data.updated} × ${ruleKey}.`);
+      await fetchFindings();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bulk action failed');
+    } finally {
+      setUpdating(null);
+    }
+  }
+
+  /** Open findings grouped by check+rule, for the bulk control. */
+  const groups = findings.reduce<Record<string, { checkId: string; ruleKey: string; n: number }>>(
+    (acc, f) => {
+      if (f.status !== 'open') return acc;
+      const key = `${f.checkId}:${f.ruleKey}`;
+      acc[key] = acc[key]
+        ? { ...acc[key], n: acc[key].n + 1 }
+        : { checkId: f.checkId, ruleKey: f.ruleKey, n: 1 };
+      return acc;
+    },
+    {},
+  );
 
   async function act(id: string, action: 'snooze' | 'resolve' | 'reopen', days?: number) {
     setUpdating(id);
@@ -195,6 +271,76 @@ export default function TrustAdminPage() {
           Refresh
         </button>
       </div>
+
+      {checks.length > 0 && (
+        <div className="mb-6 bg-neutral-800 border border-neutral-700 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Play className="w-4 h-4 text-neutral-400" />
+            <span className="text-sm text-neutral-300">Run a check now</span>
+            <span className="text-xs text-neutral-500">
+              daily checks otherwise wait until their next scheduled pass
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {checks.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => runCheck(c.id)}
+                disabled={runningCheck !== null}
+                className="flex items-center gap-2 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+                title={`${c.title} (${c.cadence})`}
+              >
+                {runningCheck === c.id ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Play className="w-3.5 h-3.5" />
+                )}
+                {c.id}
+                <span className="text-xs text-neutral-400">{c.cadence}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {Object.keys(groups).length > 0 && statusFilter === 'open' && (
+        <div className="mb-6 bg-neutral-800 border border-neutral-700 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Layers className="w-4 h-4 text-neutral-400" />
+            <span className="text-sm text-neutral-300">Resolve a whole group</span>
+            <span className="text-xs text-neutral-500">
+              for when one broken check filed the same finding against everything
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(groups)
+              .filter(([, g]) => g.n > 1)
+              .map(([key, g]) => (
+                <button
+                  key={key}
+                  onClick={() => bulkResolve(g.checkId, g.ruleKey, g.n)}
+                  disabled={updating !== null}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  {g.ruleKey}
+                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-neutral-600">{g.n}</span>
+                </button>
+              ))}
+            {Object.values(groups).every((g) => g.n <= 1) && (
+              <span className="text-xs text-neutral-500">
+                No rule has more than one open finding — nothing worth bulk-resolving.
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {notice && (
+        <div className="bg-neutral-800 border border-neutral-600 text-neutral-200 px-4 py-3 rounded-lg mb-6 text-sm">
+          {notice}
+        </div>
+      )}
 
       {criticalCount > 0 && statusFilter === 'open' && (
         <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
