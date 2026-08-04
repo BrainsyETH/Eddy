@@ -122,6 +122,18 @@ create table if not exists public.trust_findings (
     entity_type text not null,
     entity_key text not null,
     severity text not null,
+    -- Sorting by `severity` directly orders it alphabetically — critical, high,
+    -- low, medium — which is nearly right and wrong exactly where it matters.
+    -- Re-ranking in the route would only reorder the page in hand, so a low
+    -- would outrank a medium across a page boundary. The database has to know.
+    severity_rank integer generated always as (
+        case severity
+            when 'critical' then 0
+            when 'high' then 1
+            when 'medium' then 2
+            else 3
+        end
+    ) stored,
     status text not null default 'open',
     title text not null,
     detail text not null,
@@ -133,6 +145,10 @@ create table if not exists public.trust_findings (
     last_seen_at timestamptz not null default now(),
     resolved_at timestamptz,
     snoozed_until timestamptz,
+    -- Episodes, not sightings. Incremented when a finding is raised — first
+    -- time, or back after being resolved — and NOT on every run that sees it
+    -- still standing. An hourly check would otherwise reach 24 a day and the
+    -- number would mean nothing; this way it reads as "came back N times".
     occurrences integer not null default 1,
     last_run_id uuid references public.trust_runs(id) on delete set null,
     constraint trust_findings_severity check (severity in ('critical', 'high', 'medium', 'low')),
@@ -150,7 +166,7 @@ comment on column public.trust_findings.fingerprint is
 
 -- The admin console's default view: open findings, worst first.
 create index if not exists idx_trust_findings_open
-    on public.trust_findings (severity, last_seen_at desc)
+    on public.trust_findings (severity_rank, last_seen_at desc)
     where status = 'open';
 
 -- Reconciliation loads one check's open set on every run.

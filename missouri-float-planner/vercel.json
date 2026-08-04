@@ -24,6 +24,9 @@
     },
     "src/app/api/cron/sync-availability/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron/trust-tick/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -118,6 +121,10 @@
     {
       "path": "/api/cron/weekly-review",
       "schedule": "15 6 * * 1"
+    },
+    {
+      "path": "/api/cron/trust-tick",
+      "schedule": "0 * * * *"
     }
   ]
 }

@@ -1,0 +1,319 @@
+'use client';
+
+// src/app/admin/trust/page.tsx
+// The trust ledger: what the scheduled checks currently believe is wrong.
+//
+// Deliberately not a workflow. There is no approve step and no action to
+// execute — the operator reads a finding, fixes the underlying data by hand, and
+// the next check run notices and resolves it. Snooze and resolve exist for the
+// two cases a check cannot see: a finding worth ignoring for a week, and one
+// that was never real.
+
+import { useCallback, useEffect, useState } from 'react';
+import { adminFetch } from '@/hooks/useAdminAuth';
+import AdminLayout from '@/components/admin/AdminLayout';
+import {
+  AlertTriangle,
+  BellOff,
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
+  RotateCcw,
+  ShieldCheck,
+} from 'lucide-react';
+
+type Severity = 'critical' | 'high' | 'medium' | 'low';
+type Status = 'open' | 'snoozed' | 'resolved';
+
+interface Finding {
+  id: string;
+  fingerprint: string;
+  checkId: string;
+  ruleKey: string;
+  entityType: string;
+  entityKey: string;
+  severity: Severity;
+  status: Status;
+  title: string;
+  detail: string;
+  evidence: Record<string, unknown> | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  resolvedAt: string | null;
+  snoozedUntil: string | null;
+  occurrences: number;
+}
+
+const SEVERITY_STYLE: Record<Severity, string> = {
+  critical: 'bg-red-500/20 text-red-400 border-red-500/30',
+  high: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  low: 'bg-neutral-500/20 text-neutral-400 border-neutral-500/30',
+};
+
+const STATUS_STYLE: Record<Status, string> = {
+  open: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  snoozed: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  resolved: 'bg-green-500/20 text-green-400 border-green-500/30',
+};
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function daysSince(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000));
+}
+
+export default function TrustAdminPage() {
+  const [findings, setFindings] = useState<Finding[]>([]);
+  const [total, setTotal] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<Status>('open');
+  const [severityFilter, setSeverityFilter] = useState<Severity | 'all'>('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [updating, setUpdating] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const fetchFindings = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ status: statusFilter, limit: '100' });
+      if (severityFilter !== 'all') params.set('severity', severityFilter);
+      const response = await adminFetch(`/api/admin/trust/findings?${params}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      setFindings(data.items ?? []);
+      setTotal(data.total ?? 0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load findings');
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter, severityFilter]);
+
+  useEffect(() => {
+    fetchFindings();
+  }, [fetchFindings]);
+
+  async function act(id: string, action: 'snooze' | 'resolve' | 'reopen', days?: number) {
+    setUpdating(id);
+    try {
+      const response = await adminFetch(`/api/admin/trust/findings/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(days ? { action, days } : { action }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      await fetchFindings();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Update failed');
+    } finally {
+      setUpdating(null);
+    }
+  }
+
+  const criticalCount = findings.filter((f) => f.severity === 'critical').length;
+
+  return (
+    <AdminLayout
+      title="Trust"
+      description="What the scheduled data checks currently believe is wrong."
+    >
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-neutral-400">Status:</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as Status)}
+              className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="open">Open</option>
+              <option value="snoozed">Snoozed</option>
+              <option value="resolved">Resolved</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-neutral-400">Severity:</label>
+            <select
+              value={severityFilter}
+              onChange={(e) => setSeverityFilter(e.target.value as Severity | 'all')}
+              className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="all">All</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+        </div>
+
+        <button
+          onClick={fetchFindings}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </div>
+
+      {criticalCount > 0 && statusFilter === 'open' && (
+        <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+          <AlertTriangle className="w-5 h-5 shrink-0" />
+          <span>
+            {criticalCount} critical finding{criticalCount === 1 ? '' : 's'} — each can change a
+            condition badge or a go/no-go answer.
+          </span>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg mb-6">
+          {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-4 border-neutral-600 border-t-primary-500 rounded-full animate-spin" />
+        </div>
+      )}
+
+      {!loading && findings.length === 0 && (
+        <div className="text-center py-12 text-neutral-400">
+          <ShieldCheck className="w-12 h-12 mx-auto mb-4 opacity-50" />
+          <p>No {statusFilter} findings.</p>
+          <p className="text-sm mt-2 text-neutral-500">
+            An empty list means the checks ran and found nothing — not that they did not run. The
+            ledger refuses to resolve anything on a failed or partial pass.
+          </p>
+        </div>
+      )}
+
+      {!loading && findings.length > 0 && (
+        <>
+          <p className="text-sm text-neutral-500 mb-3">
+            Showing {findings.length} of {total}
+          </p>
+          <div className="space-y-3">
+            {findings.map((finding) => (
+              <div
+                key={finding.id}
+                className="bg-neutral-800 border border-neutral-700 rounded-xl p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <span
+                        className={`px-2 py-0.5 text-xs font-medium rounded-full border ${SEVERITY_STYLE[finding.severity]}`}
+                      >
+                        {finding.severity}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 text-xs font-medium rounded-full border ${STATUS_STYLE[finding.status]}`}
+                      >
+                        {finding.status}
+                      </span>
+                      <span className="text-xs text-neutral-500 font-mono">{finding.ruleKey}</span>
+                      {finding.occurrences > 1 && (
+                        <span className="px-2 py-0.5 text-xs font-medium rounded-full border bg-amber-500/20 text-amber-400 border-amber-500/30">
+                          returned {finding.occurrences}×
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 className="text-white font-medium break-words">{finding.title}</h3>
+                    <p className="text-sm text-neutral-400 mt-1 break-words">{finding.detail}</p>
+
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-neutral-500">
+                      <span>{finding.checkId}</span>
+                      <span>
+                        {finding.entityType}: {finding.entityKey}
+                      </span>
+                      <span>
+                        open {daysSince(finding.firstSeenAt)}d · last seen{' '}
+                        {formatDate(finding.lastSeenAt)}
+                      </span>
+                      {finding.snoozedUntil && (
+                        <span>snoozed until {formatDate(finding.snoozedUntil)}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {finding.status !== 'resolved' ? (
+                      <>
+                        <button
+                          onClick={() => act(finding.id, 'snooze', 7)}
+                          disabled={updating === finding.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+                          title="Snooze for 7 days"
+                        >
+                          <BellOff className="w-4 h-4" />
+                          Snooze
+                        </button>
+                        <button
+                          onClick={() => act(finding.id, 'resolve')}
+                          disabled={updating === finding.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          Resolve
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => act(finding.id, 'reopen')}
+                        disabled={updating === finding.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        Reopen
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {finding.evidence && Object.keys(finding.evidence).length > 0 && (
+                  <div className="mt-3 border-t border-neutral-700 pt-3">
+                    <button
+                      onClick={() => setExpanded(expanded === finding.id ? null : finding.id)}
+                      className="flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-200 transition-colors"
+                    >
+                      {expanded === finding.id ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                      Evidence
+                    </button>
+                    {expanded === finding.id && (
+                      <pre className="mt-2 p-3 bg-neutral-900 rounded-lg text-xs text-neutral-300 overflow-x-auto">
+                        {JSON.stringify(finding.evidence, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </AdminLayout>
+  );
+}

@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
       publishedPostsResult,
       gaugeStationsResult,
       poisResult,
+      openCriticalFindingsResult,
     ] = await Promise.all([
       supabase.from('feedback').select('id', { count: 'exact', head: true }),
       supabase.from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
@@ -35,6 +36,13 @@ export async function GET(request: NextRequest) {
       supabase.from('blog_posts').select('id', { count: 'exact', head: true }).eq('status', 'published'),
       supabase.from('gauge_stations').select('id', { count: 'exact', head: true }),
       supabase.from('points_of_interest').select('id', { count: 'exact', head: true }),
+      // Drives the Trust nav badge. Critical means a finding that can change a
+      // condition badge or a go/no-go answer — see src/lib/trust/severity.ts.
+      supabase
+        .from('trust_findings')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'open')
+        .eq('severity', 'critical'),
     ]);
 
     // Get latest gauge reading timestamp
@@ -56,6 +64,7 @@ export async function GET(request: NextRequest) {
         publishedBlogPosts: publishedPostsResult.count ?? 0,
         totalGaugeStations: gaugeStationsResult.count ?? 0,
         totalPOIs: poisResult.count ?? 0,
+        openCriticalFindings: openCriticalFindingsResult.count ?? 0,
         lastGaugeUpdate: latestGauge?.reading_timestamp ?? null,
       },
     });

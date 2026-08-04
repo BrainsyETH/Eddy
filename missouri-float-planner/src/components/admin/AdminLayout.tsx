@@ -24,6 +24,7 @@ import {
   MessageSquare,
   History,
   Film,
+  ShieldCheck,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { adminFetch } from '@/hooks/useAdminAuth';
@@ -36,6 +37,7 @@ interface AdminLayoutProps {
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: Home },
+  { href: '/admin/trust', label: 'Trust', icon: ShieldCheck, badgeKey: 'openCriticalFindings' as const },
   { href: '/admin/blog', label: 'Blog Posts', icon: FileText },
   { href: '/admin/gauges', label: 'Gauge Thresholds', icon: Activity },
   { href: '/admin/feedback', label: 'Feedback', icon: Flag, badgeKey: 'pendingFeedback' as const },
@@ -54,6 +56,7 @@ const NAV_ITEMS = [
 interface NavBadges {
   pendingFeedback: number;
   unapprovedAccessPoints: number;
+  openCriticalFindings: number;
 }
 
 export default function AdminLayout({ children, title, description }: AdminLayoutProps) {
@@ -71,6 +74,7 @@ export default function AdminLayout({ children, title, description }: AdminLayou
           setBadges({
             pendingFeedback: data.stats.pendingFeedback || 0,
             unapprovedAccessPoints: data.stats.unapprovedAccessPoints || 0,
+            openCriticalFindings: data.stats.openCriticalFindings || 0,
           });
         }
       })
