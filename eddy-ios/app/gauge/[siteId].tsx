@@ -97,6 +97,7 @@ import { Otter, otterForCondition } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useAccount } from '@/hooks/useAccount';
 import { goBack } from '@/lib/nav';
+import { pickPrimaryRiverLink } from '@eddy/conditions/primary-river-link';
 
 /**
  * The unit to lead with, and to draw the chart in.
@@ -256,9 +257,12 @@ export default function GaugeDetailScreen() {
   // ABOVE THE EARLY RETURNS, because the report effect below needs it and a
   // hook cannot run after a conditional return. One definition rather than two,
   // so the report and the ladder cannot end up describing different rivers.
-  const link = gauge
-    ? (gauge.thresholds?.find((l) => l.isPrimary) ?? gauge.thresholds?.[0] ?? null)
-    : null;
+  // Deterministic rather than find(isPrimary). 07014000 is legitimately primary
+  // for both Huzzah and Courtois — Courtois has no gauge of its own and borrows
+  // it — so `find` returned whichever row the API happened to list first, and
+  // this screen could name a different river than the map did in the same
+  // session. See @eddy/conditions/primary-river-link.
+  const link = gauge ? pickPrimaryRiverLink(gauge.thresholds) : null;
   const rated = Boolean(link && hasLadder(link));
 
   /**
@@ -423,7 +427,7 @@ export default function GaugeDetailScreen() {
       name: gauge.name,
       // The river it rates, so a starred gauge taps through somewhere. Empty
       // for the national tier, which rates none — an honest empty, not a guess.
-      slug: gauge.thresholds?.find((l) => l.isPrimary)?.riverSlug ?? '',
+      slug: pickPrimaryRiverLink(gauge.thresholds)?.riverSlug ?? '',
       usgsSiteId: gauge.siteId,
     });
   };

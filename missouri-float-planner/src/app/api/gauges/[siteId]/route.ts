@@ -44,6 +44,7 @@ import { maxReadingAgeHours } from '@/lib/alerts/gate';
 import { classifyQualifiers } from '@/lib/usgs/gauges';
 import { toNum } from '@/lib/utils/num';
 import { withX402Route } from '@/lib/x402-config';
+import { orderRiverLinks } from '@shared/primary-river-link';
 
 export const dynamic = 'force-dynamic';
 
@@ -247,6 +248,7 @@ async function _GET(
         .select(
           `gauge_station_id,
            is_primary,
+           distance_from_section_miles,
            threshold_unit,
            level_too_low,
            level_low,
@@ -309,6 +311,7 @@ async function _GET(
 
     type LinkRow = {
       is_primary: boolean | null;
+      distance_from_section_miles: number | null;
       action_stage_ft: number | null;
       threshold_unit: string | null;
       level_too_low: number | null;
@@ -339,10 +342,18 @@ async function _GET(
         levelHigh: toNum(link.level_high),
         levelDangerous: toNum(link.level_dangerous),
         floodStageFt: toNum(link.flood_stage_ft),
-      }))
-      // Primary first, so a consumer taking [0] gets the association the app
-      // should navigate to without re-sorting.
-      .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary));
+        distanceFromSectionMiles: toNum(link.distance_from_section_miles),
+      }));
+
+    // Primary first, so a consumer taking [0] gets the association the app
+    // should navigate to without re-sorting.
+    //
+    // Not a bare isPrimary comparator any more: with TWO primaries — 07014000
+    // is legitimately primary for Huzzah and for Courtois, which borrows it —
+    // that comparator returned 0 for both and the arbitrary query order
+    // survived. orderRiverLinks breaks the tie on distance, which is what puts
+    // the gauge on the Huzzah where it physically sits.
+    const orderedThresholds = orderRiverLinks(thresholds);
 
     // ── The NWS stages ──────────────────────────────────────────────────────
     // Station columns first. They are the national import and exist only on
@@ -362,7 +373,18 @@ async function _GET(
     } | null;
 
     const nwpsFlood = toNum(station?.nwps_flood_stage_ft);
-    const curatedLink = links.find((l) => l.is_primary) ?? links[0] ?? null;
+    // Same tiebreak as the thresholds array above, so the flood stage quoted
+    // here belongs to the river the client will name. find(is_primary) picked
+    // arbitrarily between Huzzah and Courtois.
+    const curatedLink =
+      orderRiverLinks(
+        links.map((l) => ({
+          ...l,
+          isPrimary: l.is_primary ?? false,
+          riverSlug: l.rivers?.slug ?? null,
+          distanceFromSectionMiles: l.distance_from_section_miles,
+        })),
+      )[0] ?? null;
     const curatedFlood = toNum(curatedLink?.flood_stage_ft);
 
     const floodStages: GaugeFloodStages | null = nwpsFlood
@@ -404,7 +426,7 @@ async function _GET(
       readingSuspect: suspect,
       qualifierNote: note,
       flowPercentile: row.flow_percentile,
-      thresholds: thresholds.length > 0 ? thresholds : null,
+      thresholds: orderedThresholds.length > 0 ? orderedThresholds : null,
       floodStages,
       publicUrl: getFlowProvider(provider)?.publicUrl(siteId) ?? null,
       stationNote,

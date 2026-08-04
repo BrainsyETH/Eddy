@@ -162,9 +162,13 @@ export async function runTrustCheck(
       // occurrences counts EPISODES, not sightings. Incrementing on every touch
       // would reach 24 a day on an hourly check and mean nothing; incrementing
       // only here makes it read as "this has come back N times".
+      // `?? 1` rather than a bare +1: the column has a default, so a row
+      // written by hand or predating a schema change can arrive without it, and
+      // `undefined + 1` is NaN — which Postgres rejects on an integer column,
+      // failing the whole update and losing the finding.
       await supabase
         .from('trust_findings')
-        .update({ ...row, occurrences: prior.occurrences + 1 })
+        .update({ ...row, occurrences: (prior.occurrences ?? 1) + 1 })
         .eq('id', prior.id);
     } else {
       await supabase.from('trust_findings').insert(row);
