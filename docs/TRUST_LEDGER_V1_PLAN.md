@@ -69,6 +69,58 @@ caught by checking rather than by assuming:
   first time (`491da3d0…`, 8797 characters), which is the only reason a
   hand-transcribed 207-line function replacement is trustworthy at all.
 
+## Making the MVP gate measurable
+
+The Trust MVP gate had six criteria and four of them were unanswerable, each
+for the same reason: nothing recorded the thing being asked about. A gate that
+cannot be computed is decoration, and it would have been "passed" by whoever
+was willing to estimate.
+
+**Why a finding closed.** `trust_findings.resolution` records
+`fixed | false_positive | accepted | auto_resolved | expired`. "Somebody fixed
+the river" and "the check was wrong" are opposite outcomes — the system working
+versus the system crying wolf — and `status = 'resolved'` scored them
+identically. The two machine values exist because most findings close without
+anyone looking; folding those into `fixed` would pack the denominator with rows
+nobody read and drive the false-positive rate toward zero exactly as the console
+filled with noise. A trigger labels any closure that did not say why, which also
+covers the deployed code that predates the column.
+
+The rate reports `null`, never `0`, until there is something to divide by, and
+the console says "not yet" below ten reviews. Zero reads as "no false
+positives", which is the same sentence a system with no data produces.
+
+**The known safety-critical set.** `src/lib/trust/baseline.ts` enumerates the
+six defects open at Phase 0, each with what closed it and what its return would
+look like. Four have a ledger signature; two are code-shape defects no check can
+see — a float time that disagreed across surfaces, a staleness constant defined
+three times — and those name their CI guard instead of being counted clear on
+evidence nothing has. A `known_regressions` check files
+`known_defect_regressed` at critical when one comes back. That duplicates the
+rule that detects the underlying condition, deliberately: "there is a primary
+tie on 07014000" and "a repair we made on 2026-08-04 did not hold" are different
+facts, and the second is the one the gate treats as disqualifying.
+
+**A bounded queue.** `decay.ts` shelves informational findings nobody has acted
+on in thirty days, and closes findings orphaned by a check that no longer exists.
+The console shows the worst twenty-five by default with the rest one click away.
+
+> **Deviation from the gate's wording, on purpose.** It says auto-*close*
+> informational findings. For a condition that persists that is a treadmill: the
+> finding closes, the check re-emits it, reconciliation raises it again with
+> `occurrences` incremented, and a month later it closes again — the list is
+> bounded for an hour at a time and the ledger fills with a fix-and-regress
+> history of something that never changed. Shelving achieves what the gate
+> actually asks for (off the open list, visible on request, backlog bounded)
+> using machinery reconciliation already respects. Auto-close is kept for
+> orphans, where nothing will ever resolve them and it is the only correct
+> answer.
+
+`GET /api/admin/trust/review` computes all of it, and the console renders it.
+What still has no mechanism: hours saved net of review time, and the 15-minute
+detection SLA for critical conditions — `validate_river_data` owns the critical
+rules and runs hourly.
+
 ### A grant shape worth a separate look
 
 Checking `trust_apply_reconcile`'s ACL turned up the same shape on functions
