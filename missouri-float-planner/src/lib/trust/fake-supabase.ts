@@ -19,6 +19,33 @@ interface Row {
 
 type Filter = { op: 'eq' | 'neq' | 'in'; column: string; value: unknown };
 
+type Mode = 'select' | 'insert' | 'update';
+
+/**
+ * A scheduled failure, so a test can make one specific query fail.
+ *
+ * This is the half the fake was missing, and it was missing the important half.
+ * Every terminator returned `error: null` unconditionally, so the sabotage suite
+ * could prove the ledger handles a check that THROWS — and could not express the
+ * failure that actually shipped, which is a query that RESOLVES with an error
+ * and gets ignored. A fake that cannot fail cannot test error handling.
+ */
+interface FailureRule {
+  table: string;
+  mode?: Mode;
+  message: string;
+  remaining: number;
+}
+
+export interface FailureSpec {
+  table: string;
+  /** Omitted means any operation on the table. */
+  mode?: Mode;
+  message?: string;
+  /** How many matching operations to fail. Defaults to every one of them. */
+  times?: number;
+}
+
 function matches(row: Row, filters: Filter[]): boolean {
   return filters.every((f) => {
     if (f.op === 'eq') return row[f.column] === f.value;
@@ -38,7 +65,7 @@ function nextId(prefix: string): string {
 
 class QueryBuilder {
   private filters: Filter[] = [];
-  private mode: 'select' | 'insert' | 'update' = 'select';
+  private mode: Mode = 'select';
   private payload: Row | null = null;
   private orderColumn: string | null = null;
   private orderAsc = true;
@@ -47,7 +74,21 @@ class QueryBuilder {
   constructor(
     private readonly table: string,
     private readonly store: Map<string, Row[]>,
+    private readonly failures: FailureRule[] = [],
   ) {}
+
+  /**
+   * Consumed at the terminator, and the store is left untouched when it fires —
+   * which is the point. A failed PostgREST write does not half-apply.
+   */
+  private takeFailure(): { message: string } | null {
+    const rule = this.failures.find(
+      (f) => f.table === this.table && (f.mode === undefined || f.mode === this.mode) && f.remaining > 0,
+    );
+    if (!rule) return null;
+    rule.remaining -= 1;
+    return { message: rule.message };
+  }
 
   private rows(): Row[] {
     return this.store.get(this.table) ?? [];
@@ -137,19 +178,32 @@ class QueryBuilder {
   }
 
   async single() {
+    const failure = this.takeFailure();
+    if (failure) return { data: null, error: failure };
     const rows = this.apply();
     return { data: rows[0] ?? null, error: rows.length ? null : { message: 'no rows' } };
   }
   async maybeSingle() {
+    const failure = this.takeFailure();
+    if (failure) return { data: null, error: failure };
     const rows = this.apply();
     return { data: rows[0] ?? null, error: null };
   }
   // Awaiting the builder directly is the un-terminated PostgREST form.
   then<TResult1 = unknown, TResult2 = never>(
-    onfulfilled?: ((value: { data: Row[]; error: null }) => TResult1 | PromiseLike<TResult1>) | null,
+    onfulfilled?:
+      | ((value: {
+          data: Row[] | null;
+          error: { message: string } | null;
+        }) => TResult1 | PromiseLike<TResult1>)
+      | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ): Promise<TResult1 | TResult2> {
-    return Promise.resolve({ data: this.apply(), error: null }).then(onfulfilled, onrejected);
+    const failure = this.takeFailure();
+    const result = failure
+      ? { data: null, error: failure }
+      : { data: this.apply(), error: null };
+    return Promise.resolve(result).then(onfulfilled, onrejected);
   }
 }
 
@@ -157,13 +211,23 @@ export interface FakeSupabase {
   from(table: string): QueryBuilder;
   rows(table: string): Row[];
   seed(table: string, rows: Row[]): void;
+  /** Schedule a query failure. See FailureSpec. */
+  failOn(spec: FailureSpec): void;
 }
 
 export function createFakeSupabase(seed: Record<string, Row[]> = {}): FakeSupabase {
   const store = new Map<string, Row[]>(Object.entries(seed));
+  const failures: FailureRule[] = [];
   return {
-    from: (table: string) => new QueryBuilder(table, store),
+    from: (table: string) => new QueryBuilder(table, store, failures),
     rows: (table: string) => store.get(table) ?? [],
     seed: (table: string, rows: Row[]) => store.set(table, rows),
+    failOn: (spec: FailureSpec) =>
+      failures.push({
+        table: spec.table,
+        mode: spec.mode,
+        message: spec.message ?? `${spec.table} is unreachable`,
+        remaining: spec.times ?? Number.POSITIVE_INFINITY,
+      }),
   };
 }

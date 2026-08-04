@@ -257,3 +257,124 @@ test('a run row is opened pessimistically so a killed function reads as failed',
   await run(supabase, c);
   assert.equal(supabase.rows('trust_runs').at(-1)!.status, 'ok');
 });
+
+// ── a database that says no ──────────────────────────────────────
+//
+// Every test above sabotages the CHECK. These sabotage the DATABASE, which is
+// the failure that actually shipped: PostgREST resolves with `{ data: null,
+// error }` instead of throwing, the ledger read only `data`, and so every
+// failure arrived wearing the costume of an empty result — no rows, no
+// findings, nothing wrong.
+//
+// The guard in scripts/security/trust-supabase-error-handling.test.ts stops the
+// shape coming back. These prove the handling underneath it is right.
+
+test('an unopenable run row aborts rather than running the check into a void', async () => {
+  const supabase = createFakeSupabase({ trust_runs: [], trust_findings: [] });
+  supabase.failOn({ table: 'trust_runs', mode: 'insert', message: 'permission denied' });
+
+  let checkRan = false;
+  const c: TrustCheck = {
+    id: 'test_check',
+    title: 'Test check',
+    cadence: 'hourly',
+    async run() {
+      checkRan = true;
+      return { scopeCount: 13, findings: [finding()] };
+    },
+  };
+
+  const summary = await run(supabase, c);
+  assert.equal(summary.status, 'error');
+  assert.equal(summary.runId, null);
+  assert.match(summary.errorDetail!, /permission denied/);
+  assert.equal(checkRan, false, 'with nowhere to record evidence, the check must not run');
+  assert.equal(supabase.rows('trust_findings').length, 0);
+});
+
+test('an unreadable open set is a failed run, not an empty one', async () => {
+  // The most dangerous instance of the family. Substituting [] here means every
+  // emitted fingerprint classifies as NEW, the inserts collide with the unique
+  // fingerprint constraint, and the run reports findings it never wrote.
+  const supabase = createFakeSupabase({ trust_runs: [], trust_findings: [] });
+  await run(supabase, check({ scopeCount: 13, findings: [finding()] }));
+  assert.equal(supabase.rows('trust_findings').length, 1);
+
+  supabase.failOn({ table: 'trust_findings', mode: 'select', message: 'relation does not exist' });
+  const summary = await run(supabase, check({ scopeCount: 13, findings: [finding()] }));
+
+  assert.equal(summary.status, 'error');
+  assert.equal(summary.suppressedReason, 'check_error');
+  assert.equal(summary.raised, 0, 'nothing may be reported as raised on an unreadable ledger');
+  assert.equal(summary.resolved, 0);
+  assert.equal(
+    supabase.rows('trust_findings').filter((r) => r.rule_key === 'stale_gauge')[0].status,
+    'open',
+    'the standing finding must survive a run that could not read it',
+  );
+});
+
+test('a failed mutation makes the run read as failed and counts only what landed', async () => {
+  const supabase = createFakeSupabase({ trust_runs: [], trust_findings: [] });
+  supabase.failOn({ table: 'trust_findings', mode: 'insert', message: 'disk full' });
+
+  const summary = await run(
+    supabase,
+    check({
+      scopeCount: 13,
+      findings: [finding(), finding({ entityKey: 'jacks-fork', title: 'jacks-fork: stale gauge' })],
+    }),
+  );
+
+  assert.equal(summary.status, 'error');
+  assert.equal(summary.raised, 0, 'a write that failed is not a finding raised');
+  assert.match(summary.errorDetail!, /disk full/);
+  assert.equal(supabase.rows('trust_runs').at(-1)!.status, 'error');
+  assert.equal(supabase.rows('trust_runs').at(-1)!.findings_raised, 0);
+});
+
+test('a run row that cannot be finalized keeps its pessimistic failure', async () => {
+  const supabase = createFakeSupabase({ trust_runs: [], trust_findings: [] });
+  supabase.failOn({ table: 'trust_runs', mode: 'update', message: 'connection reset' });
+
+  const summary = await run(supabase, check({ scopeCount: 13, findings: [finding()] }));
+
+  assert.equal(summary.status, 'error');
+  assert.match(summary.errorDetail!, /connection reset/);
+  // Never overwritten, so it still reads exactly as a run that did not complete.
+  const row = supabase.rows('trust_runs').at(-1)!;
+  assert.equal(row.status, 'error');
+  assert.equal(row.error_detail, 'run did not complete');
+});
+
+// ── an empty scope is a failure, not a quiet success ─────────────
+
+test('a scope of zero records the RUN as an error, not merely a suppression', async () => {
+  // TRUST_LEDGER_V1_PLAN.md:316 — "the run is recorded as an error and resolves
+  // nothing". Reconciliation was already refused, but the run row said 'ok', so
+  // a check that examined nothing showed a green timestamp in the console and
+  // counted as a healthy recent run everywhere that keys on status.
+  const supabase = createFakeSupabase({ trust_runs: [], trust_findings: [] });
+  const summary = await run(supabase, check({ scopeCount: 0, findings: [] }));
+
+  assert.equal(summary.suppressedReason, 'empty_scope');
+  assert.equal(summary.status, 'error');
+  const row = supabase.rows('trust_runs').at(-1)!;
+  assert.equal(row.status, 'error');
+  assert.equal(row.suppressed_reason, 'empty_scope');
+  assert.match(String(row.error_detail), /0 entities/);
+});
+
+test('a truncated pass is still an ok run — it is ordinary, not broken', async () => {
+  // The counterpart assertion. partial_scope must NOT be promoted to an error,
+  // or a check that legitimately ran out of its time budget would page.
+  const supabase = createFakeSupabase({ trust_runs: [], trust_findings: [] });
+  const summary = await run(
+    supabase,
+    check({ scopeCount: 6, findings: [finding()], partial: true }),
+  );
+
+  assert.equal(summary.suppressedReason, 'partial_scope');
+  assert.equal(summary.status, 'ok');
+  assert.equal(supabase.rows('trust_runs').at(-1)!.status, 'ok');
+});

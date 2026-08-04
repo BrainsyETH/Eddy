@@ -172,9 +172,28 @@ export function invalidIdResponse(): NextResponse {
   );
 }
 
+/** Whether the audit row actually landed. */
+export type AdminLogResult = { ok: true } | { ok: false; error: string };
+
 /**
  * Logs an admin action to the admin_activity_log table.
- * Fire-and-forget: errors are caught and logged, never thrown.
+ *
+ * ── Why this returns a result instead of nothing ─────────────────────────
+ *
+ * It never threw, which was deliberate: an audit write must not take down the
+ * operation it is recording. But it also never *checked*. The insert was
+ * awaited and its result discarded, and PostgREST resolves with `{ error }`
+ * rather than throwing — so a rejected insert, a schema change, or a dead
+ * connection completed silently and the caller reported a clean success.
+ *
+ * The `try/catch` only ever caught a thrown client construction, which is not
+ * the way this fails. So the trust manual-run route's claim that awaiting this
+ * preserves the record was wrong in the way that matters: it awaited a promise
+ * that resolved successfully on failure.
+ *
+ * Still no throw — the bias is right — but the outcome is now returned, so a
+ * caller for whom the audit trail IS the deliverable can say so. Callers that
+ * ignore the result behave exactly as before.
  */
 export async function logAdminAction(params: {
   action: string;
@@ -182,19 +201,27 @@ export async function logAdminAction(params: {
   entityId?: string;
   entityName?: string;
   details?: Record<string, unknown>;
-}): Promise<void> {
+}): Promise<AdminLogResult> {
   try {
     const { createAdminClient } = await import('@/lib/supabase/admin');
     const supabase = createAdminClient();
 
-    await supabase.from('admin_activity_log').insert({
+    const { error } = await supabase.from('admin_activity_log').insert({
       action: params.action,
       entity_type: params.entityType,
       entity_id: params.entityId || null,
       entity_name: params.entityName || null,
       details: params.details || null,
     });
+
+    if (error) {
+      console.error('[logAdminAction] Audit insert rejected:', error.message);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
   } catch (error) {
-    console.error('[logAdminAction] Failed to log admin action:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[logAdminAction] Failed to log admin action:', message);
+    return { ok: false, error: message };
   }
 }

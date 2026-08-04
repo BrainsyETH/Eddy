@@ -114,15 +114,33 @@ export async function POST(request: NextRequest) {
       update = { status: 'resolved', resolved_at: nowIso, snoozed_until: null };
     }
 
-    const { error: writeError } = await supabase
+    // `.eq('status','open')` is what turns this from a read-then-write into a
+    // compare-and-set.
+    //
+    // The count guard alone only proves the set matched when it was READ. A
+    // scheduled reconciliation running between the read and the write can
+    // resolve a finding, or an operator can snooze one in another tab, and the
+    // bulk update would then overwrite that newer state with a decision made
+    // against a world that no longer exists. Re-asserting `open` in the write
+    // itself means a row that moved is skipped rather than clobbered.
+    //
+    // `.select('id')` so the response can report what actually changed instead
+    // of what was planned — the same distinction ledger.ts now makes between
+    // applied and attempted counts.
+    const { data: updatedRows, error: writeError } = await supabase
       .from('trust_findings')
       .update(update)
-      .in('id', plan.ids);
+      .in('id', plan.ids)
+      .eq('status', 'open')
+      .select('id');
 
     if (writeError) {
       console.error('Error applying bulk trust action:', writeError);
       return NextResponse.json({ error: 'Could not update findings' }, { status: 500 });
     }
+
+    const updatedIds: string[] = (updatedRows ?? []).map((r: { id: string }) => r.id);
+    const skipped = plan.ids.length - updatedIds.length;
 
     // One log row per finding, matching what the single-finding route writes:
     // a bulk action logging once would make 24 closures look like one decision.
@@ -134,13 +152,14 @@ export async function POST(request: NextRequest) {
     // function can be frozen the moment the response is sent. Losing the audit
     // trail for a bulk close is exactly the invisible change this system argues
     // against everywhere else.
+    const titleById = new Map(rows.map((r) => [r.id, r.title]));
     const { error: auditError } = await supabase.from('admin_activity_log').insert(
-      rows.map((row) => ({
+      updatedIds.map((id) => ({
         action: `trust_finding_${action}`,
         entity_type: 'trust_finding',
-        entity_id: row.id,
-        entity_name: row.title,
-        details: { checkId, ruleKey, via: 'bulk', batchSize: plan.ids.length, reason },
+        entity_id: id,
+        entity_name: titleById.get(id) ?? null,
+        details: { checkId, ruleKey, via: 'bulk', batchSize: updatedIds.length, reason },
       })),
     );
 
@@ -150,7 +169,26 @@ export async function POST(request: NextRequest) {
       console.error('Bulk trust action applied but audit log failed:', auditError);
     }
 
-    return NextResponse.json({ updated: plan.ids.length, action, checkId, ruleKey });
+    return NextResponse.json({
+      updated: updatedIds.length,
+      action,
+      checkId,
+      ruleKey,
+      // Rows that moved between the read and the write. Zero is the normal case;
+      // anything else means a scheduled run or another tab got there first, and
+      // the operator should see the number rather than a count that silently
+      // disagrees with the one they confirmed.
+      skipped,
+      // Reported rather than only logged. "The group was closed" and "the group
+      // was closed and nobody will ever know who or why" are different outcomes,
+      // and the console showed the same green message for both.
+      auditLogged: !auditError,
+      ...(auditError
+        ? {
+            warning: `Findings updated, but the audit records failed to write: ${auditError.message}`,
+          }
+        : {}),
+    });
   } catch (error) {
     console.error('Error in bulk trust action:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

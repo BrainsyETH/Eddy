@@ -210,7 +210,13 @@ export default function TrustAdminPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-      setNotice(`Resolved ${data.updated} × ${ruleKey}.`);
+      setNotice(
+        `Resolved ${data.updated} × ${ruleKey}.` +
+          // Rows that moved between the server's read and its write — a
+          // scheduled run or another tab got there first. Normally zero.
+          (data.skipped ? ` ${data.skipped} had already moved and were left alone.` : ''),
+      );
+      if (data.warning) setError(data.warning);
       await fetchFindings();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Bulk action failed');
@@ -233,17 +239,42 @@ export default function TrustAdminPage() {
   );
 
   async function act(id: string, action: 'snooze' | 'resolve' | 'reopen', days?: number) {
+    // Closing or re-opening a finding is a judgement no check made, and the
+    // status transition alone does not record it — six weeks later "resolved"
+    // says what happened and nothing about whether it was ever real.
+    //
+    // Snooze is exempt: bounded, self-expiring, and the most-used control here.
+    // A prompt on every "not now" is how an operator learns to stop reading the
+    // list, which is the failure this whole console is arguing against.
+    let reason = '';
+    if (action === 'resolve' || action === 'reopen') {
+      const answer = window.prompt(
+        `Why is this finding being ${action === 'resolve' ? 'resolved' : 'reopened'}? (recorded in the activity log)`,
+        '',
+      );
+      if (answer === null) return;
+      if (answer.trim().length < 8) {
+        setError(`A reason of at least 8 characters is required to ${action} a finding.`);
+        return;
+      }
+      reason = answer.trim();
+    }
+
     setUpdating(id);
+    setNotice(null);
+    setError(null);
     try {
       const response = await adminFetch(`/api/admin/trust/findings/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(days ? { action, days } : { action }),
+        body: JSON.stringify({ action, ...(days ? { days } : {}), ...(reason ? { reason } : {}) }),
       });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || `HTTP ${response.status}`);
-      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      // A lost audit record is not a failure of the action, but it is not a
+      // clean success either, and showing the same green message for both is
+      // how the trail goes missing without anyone noticing.
+      if (data.warning) setError(data.warning);
       await fetchFindings();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed');

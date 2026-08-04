@@ -13,6 +13,7 @@
 // scheduled check looks at active rivers only, matching validate_river_data().
 // A draft river with no geometry yet is a to-do, not a finding.
 
+import { mustCount, mustRows, mustRpc } from '../db';
 import type { RawFinding, TrustCheck, TrustCheckContext, TrustCheckResult } from '../types';
 
 export interface BoundingBox {
@@ -250,47 +251,63 @@ export async function collectRiverHealth(
       geometryMissing = true;
     }
 
-    const { count: gaugeCount } = await supabase
-      .from('river_gauges')
-      .select('id', { count: 'exact', head: true })
-      .eq('river_id', river.id);
+    // Every auxiliary query below now aborts the check on failure, for the same
+    // reason the geometry RPC above does: these read only `data`/`count`, and
+    // `count ?? 0` turned an unreadable table into "this river has zero gauges"
+    // — which deriveRiverGeometryIssues() files as ungauged_river at CRITICAL,
+    // against a river whose gauges are fine.
+    //
+    // A database that cannot answer is broken for every river, not for this one,
+    // so aborting produces one honest check_error refusal instead of 24 false
+    // findings. That is the shape the first scheduled run already got wrong once.
+    const gaugeCount = await mustCount(
+      supabase.from('river_gauges').select('id', { count: 'exact', head: true }).eq('river_id', river.id),
+      `could not count gauges for ${river.slug}`,
+    );
 
     let gaugesOnRiver = 0;
-    const { data: gaugeStations } = await supabase
-      .from('river_gauges')
-      .select('gauge_stations!inner(location)')
-      .eq('river_id', river.id);
+    const gaugeStations = await mustRows<{ gauge_stations: unknown }>(
+      supabase.from('river_gauges').select('gauge_stations!inner(location)').eq('river_id', river.id),
+      `could not load gauge stations for ${river.slug}`,
+    );
 
-    if (gaugeStations) {
-      for (const gs of gaugeStations) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const station = gs.gauge_stations as any;
-        if (!station?.location) continue;
-        if (typeof station.location !== 'object' || station.location.type !== 'Point') continue;
+    for (const gs of gaugeStations) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const station = gs.gauge_stations as any;
+      if (!station?.location) continue;
+      if (typeof station.location !== 'object' || station.location.type !== 'Point') continue;
 
-        const lng = station.location.coordinates[0];
-        const lat = station.location.coordinates[1];
-        const { data: nearResult } = await supabase.rpc('find_nearest_river', {
+      const lng = station.location.coordinates[0];
+      const lat = station.location.coordinates[1];
+      const nearResult = await mustRpc<{ river_id: string }[] | null>(
+        supabase.rpc('find_nearest_river', {
           p_lat: lat,
           p_lng: lng,
           p_max_distance_meters: 1000,
-        });
-        if (nearResult && nearResult.length > 0 && nearResult[0].river_id === river.id) {
-          gaugesOnRiver++;
-        }
+        }),
+        `find_nearest_river failed near ${river.slug}`,
+      );
+      if (nearResult && nearResult.length > 0 && nearResult[0].river_id === river.id) {
+        gaugesOnRiver++;
       }
     }
 
-    const { count: apCount } = await supabase
-      .from('access_points')
-      .select('id', { count: 'exact', head: true })
-      .eq('river_id', river.id)
-      .eq('approved', true);
+    const apCount = await mustCount(
+      supabase
+        .from('access_points')
+        .select('id', { count: 'exact', head: true })
+        .eq('river_id', river.id)
+        .eq('approved', true),
+      `could not count access points for ${river.slug}`,
+    );
 
-    const { count: poiCount } = await supabase
-      .from('points_of_interest')
-      .select('id', { count: 'exact', head: true })
-      .eq('river_id', river.id);
+    const poiCount = await mustCount(
+      supabase
+        .from('points_of_interest')
+        .select('id', { count: 'exact', head: true })
+        .eq('river_id', river.id),
+      `could not count points of interest for ${river.slug}`,
+    );
 
     const lengthMiles = river.length_miles === null ? null : Number(river.length_miles);
     const coordsPerMile = coordsPerMileOf(coordinateCount, lengthMiles);
@@ -306,10 +323,10 @@ export async function collectRiverHealth(
       coordinateCount,
       coordsPerMile,
       boundingBox,
-      gaugeCount: gaugeCount || 0,
+      gaugeCount,
       gaugesOnRiver,
-      accessPointCount: apCount || 0,
-      poiCount: poiCount || 0,
+      accessPointCount: apCount,
+      poiCount,
       issues: deriveRiverGeometryIssues({
         coordinateCount,
         coordsPerMile,
@@ -319,7 +336,7 @@ export async function collectRiverHealth(
         lengthMiles,
         directionVerified: river.direction_verified,
         geometryStartsAtHeadwaters: river.geometry_starts_at_headwaters,
-        gaugeCount: gaugeCount || 0,
+        gaugeCount,
         gaugesOnRiver,
       }),
     });
