@@ -3,11 +3,18 @@
 // src/app/admin/trust/page.tsx
 // The trust ledger: what the scheduled checks currently believe is wrong.
 //
-// Deliberately not a workflow. There is no approve step and no action to
-// execute — the operator reads a finding, fixes the underlying data by hand, and
-// the next check run notices and resolves it. Snooze and resolve exist for the
-// two cases a check cannot see: a finding worth ignoring for a week, and one
-// that was never real.
+// Deliberately not a workflow. There is no approve step and nothing here
+// executes: the operator reads a finding, goes and fixes the real thing, and the
+// next run notices and resolves it on its own.
+//
+// That is why every finding carries its remediation. Without it the page is a
+// list of complaints — "no_too_low_anchor on gasconade" tells you nothing about
+// where to go or how to derive the number. With it the page is a worklist.
+//
+// Resolve is bookkeeping, not repair. Resolving something still true only means
+// the next run raises it again with occurrences incremented, which is by design:
+// a climbing counter on a repeatedly-resolved finding is the tell that someone
+// is clearing the list instead of fixing the river. Snooze is the dismiss.
 
 import { useCallback, useEffect, useState } from 'react';
 import { adminFetch } from '@/hooks/useAdminAuth';
@@ -21,7 +28,10 @@ import {
   RefreshCw,
   RotateCcw,
   ShieldCheck,
+  Terminal,
+  Wrench,
 } from 'lucide-react';
+import type { Remediation, RemediationKind } from '@/lib/trust/remediation';
 
 type Severity = 'critical' | 'high' | 'medium' | 'low';
 type Status = 'open' | 'snoozed' | 'resolved';
@@ -43,7 +53,21 @@ interface Finding {
   resolvedAt: string | null;
   snoozedUntil: string | null;
   occurrences: number;
+  remediation: Remediation;
 }
+
+/**
+ * `mechanical` reads as a to-do; everything else reads as a caveat. The colours
+ * carry that difference, because the operator's first question about a finding
+ * is whether it can be actioned now or needs thinking about.
+ */
+const REMEDIATION_STYLE: Record<RemediationKind, { label: string; className: string }> = {
+  mechanical: { label: 'run this', className: 'bg-green-500/20 text-green-400 border-green-500/30' },
+  judgment: { label: 'needs judgment', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+  investigate: { label: 'investigate', className: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+  deferred: { label: 'deferred', className: 'bg-neutral-500/20 text-neutral-400 border-neutral-500/30' },
+  check_bug: { label: 'probably a check bug', className: 'bg-rose-500/20 text-rose-400 border-rose-500/30' },
+};
 
 const SEVERITY_STYLE: Record<Severity, string> = {
   critical: 'bg-red-500/20 text-red-400 border-red-500/30',
@@ -288,6 +312,36 @@ export default function TrustAdminPage() {
                     )}
                   </div>
                 </div>
+
+                {finding.remediation && (
+                  <div className="mt-3 border-t border-neutral-700 pt-3">
+                    <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                      {finding.remediation.kind === 'mechanical' ? (
+                        <Terminal className="w-4 h-4 text-green-400 shrink-0" />
+                      ) : (
+                        <Wrench className="w-4 h-4 text-neutral-400 shrink-0" />
+                      )}
+                      <span
+                        className={`px-2 py-0.5 text-xs font-medium rounded-full border ${REMEDIATION_STYLE[finding.remediation.kind].className}`}
+                      >
+                        {REMEDIATION_STYLE[finding.remediation.kind].label}
+                      </span>
+                    </div>
+                    <p className="text-sm text-neutral-200 break-words">
+                      {finding.remediation.action}
+                    </p>
+                    {finding.remediation.where && (
+                      <p className="mt-1 text-xs font-mono text-neutral-400 break-words">
+                        {finding.remediation.where}
+                      </p>
+                    )}
+                    {finding.remediation.method && (
+                      <p className="mt-1.5 text-xs text-neutral-500 break-words">
+                        {finding.remediation.method}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {finding.evidence && Object.keys(finding.evidence).length > 0 && (
                   <div className="mt-3 border-t border-neutral-700 pt-3">
