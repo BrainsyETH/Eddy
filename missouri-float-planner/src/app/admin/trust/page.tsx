@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import type { Remediation, RemediationKind } from '@/lib/trust/remediation';
 import { SURFACED_BY_DEFAULT } from '@/lib/trust/decay';
+import { RESOLUTION_LABEL, type Resolution } from '@/lib/trust/resolution';
 
 type Severity = 'critical' | 'high' | 'medium' | 'low';
 type Status = 'open' | 'snoozed' | 'resolved';
@@ -95,6 +96,9 @@ function formatDate(iso: string | null): string {
   });
 }
 
+/** Matches MIN_REASON_LENGTH in both trust finding routes. */
+const MIN_REASON_LENGTH = 8;
+
 function daysSince(iso: string): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000));
 }
@@ -143,6 +147,22 @@ export default function TrustAdminPage() {
     safetyBaseline: { total: number; regressed: { id: string; summary: string }[]; met: boolean };
   } | null>(null);
   const [showAll, setShowAll] = useState(false);
+  // ── why this is state and not window.prompt() ──────────────────────────
+  //
+  // It used to be a dialog. Browsers suppress window.prompt/confirm once a page
+  // has shown a few — the "prevent this page from creating additional dialogs"
+  // checkbox — and a suppressed prompt returns null, which this code read as
+  // "the operator cancelled" and silently did nothing.
+  //
+  // So every resolve, single and bulk, became a button that swallowed the click:
+  // no dialog, no error, no request. Failing quietly is the exact defect this
+  // console exists to surface, and it was shipped inside the console.
+  const [pending, setPending] = useState<
+    | { kind: 'single'; id: string; action: 'resolve' | 'reopen'; resolution?: Resolution }
+    | { kind: 'bulk'; checkId: string; ruleKey: string; count: number; resolution: Resolution }
+    | null
+  >(null);
+  const [pendingReason, setPendingReason] = useState('');
 
   const fetchFindings = useCallback(async () => {
     setLoading(true);
@@ -212,34 +232,21 @@ export default function TrustAdminPage() {
     }
   }
 
-  async function bulkResolve(checkId: string, ruleKey: string, count: number) {
+  async function bulkResolve(
+    checkId: string,
+    ruleKey: string,
+    count: number,
+    resolution: Resolution,
+    reason: string,
+  ) {
     // Two guards, for two different mistakes. The count travels with the
     // request so the server refuses if a scheduled run changed the set. The
-    // reason is the confirmation step for the other mistake — a misclick —
-    // and unlike a yes/no dialog it leaves something worth reading in the
-    // activity log six weeks from now.
-    const reason = window.prompt(
-      `Resolve all ${count} open "${ruleKey}" findings?\n\nWhy are these being closed? (recorded in the activity log)`,
-      '',
-    );
-    if (reason === null) return;
-    if (reason.trim().length < 8) {
-      setError('A reason of at least 8 characters is required to close a group.');
-      return;
-    }
-
-    // The case this control exists for — one broken check filing the same
-    // finding against every entity — is a pile of false positives closed in one
-    // keystroke. That is the single most informative thing this system can learn
-    // about its own accuracy, and it was being recorded as an undifferentiated
-    // "resolved".
-    const wasFalsePositive = window.confirm(
-      `Were these ${count} findings NOT real problems?\n\n` +
-        'OK — the check was wrong (counts against the false-positive rate)\n' +
-        'Cancel — the underlying problem was actually fixed',
-    );
-    const resolution = wasFalsePositive ? 'false_positive' : 'fixed';
-
+    // reason is the confirmation step for the other mistake — a misclick — and
+    // unlike a yes/no dialog it leaves something worth reading in the activity
+    // log six weeks from now.
+    //
+    // Both are collected by the in-page panel now rather than by window.prompt,
+    // which the browser can suppress into a silent no-op.
     setUpdating(`${checkId}:${ruleKey}`);
     setNotice(null);
     setError(null);
@@ -252,14 +259,14 @@ export default function TrustAdminPage() {
           checkId,
           ruleKey,
           expectedCount: count,
-          reason: reason.trim(),
+          reason,
           resolution,
         }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
       setNotice(
-        `Resolved ${data.updated} × ${ruleKey}.` +
+        `Resolved ${data.updated} × ${ruleKey} (${RESOLUTION_LABEL[resolution].toLowerCase()}).` +
           // Rows that moved between the server's read and its write — a
           // scheduled run or another tab got there first. Normally zero.
           (data.skipped ? ` ${data.skipped} had already moved and were left alone.` : ''),
@@ -291,37 +298,9 @@ export default function TrustAdminPage() {
     id: string,
     action: 'snooze' | 'resolve' | 'reopen',
     days?: number,
-    resolution?: 'fixed' | 'false_positive' | 'accepted',
+    resolution?: Resolution,
+    reason?: string,
   ) {
-    // Closing or re-opening a finding is a judgement no check made, and the
-    // status transition alone does not record it — six weeks later "resolved"
-    // says what happened and nothing about whether it was ever real.
-    //
-    // Snooze is exempt: bounded, self-expiring, and the most-used control here.
-    // A prompt on every "not now" is how an operator learns to stop reading the
-    // list, which is the failure this whole console is arguing against.
-    let reason = '';
-    if (action === 'resolve' || action === 'reopen') {
-      const what =
-        action === 'reopen'
-          ? 'reopened'
-          : resolution === 'false_positive'
-            ? 'closed as NOT a real problem'
-            : resolution === 'accepted'
-              ? 'accepted as-is'
-              : 'closed as fixed';
-      const answer = window.prompt(
-        `This finding is being ${what}. Why? (recorded in the activity log)`,
-        '',
-      );
-      if (answer === null) return;
-      if (answer.trim().length < 8) {
-        setError(`A reason of at least 8 characters is required to ${action} a finding.`);
-        return;
-      }
-      reason = answer.trim();
-    }
-
     setUpdating(id);
     setNotice(null);
     setError(null);
@@ -330,11 +309,11 @@ export default function TrustAdminPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-        action,
-        ...(days ? { days } : {}),
-        ...(reason ? { reason } : {}),
-        ...(resolution ? { resolution } : {}),
-      }),
+          action,
+          ...(days ? { days } : {}),
+          ...(reason ? { reason } : {}),
+          ...(resolution ? { resolution } : {}),
+        }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
@@ -347,6 +326,40 @@ export default function TrustAdminPage() {
       setError(err instanceof Error ? err.message : 'Update failed');
     } finally {
       setUpdating(null);
+    }
+  }
+
+  /**
+   * Closing or re-opening a finding is a judgement no check made, and the status
+   * transition alone does not record it — six weeks later "resolved" says what
+   * happened and nothing about whether it was ever real. So both ask why.
+   *
+   * Snooze does not: it is bounded, self-expiring, and the most-used control
+   * here, and a confirmation step on every "not now" is how an operator learns
+   * to stop reading the list.
+   */
+  function startAction(next: NonNullable<typeof pending>) {
+    setPendingReason('');
+    setError(null);
+    setNotice(null);
+    setPending(next);
+  }
+
+  async function confirmPending() {
+    if (!pending) return;
+    const reason = pendingReason.trim();
+    if (reason.length < MIN_REASON_LENGTH) {
+      setError(`A reason of at least ${MIN_REASON_LENGTH} characters is required.`);
+      return;
+    }
+    const current = pending;
+    setPending(null);
+    setPendingReason('');
+
+    if (current.kind === 'single') {
+      await act(current.id, current.action, undefined, current.resolution, reason);
+    } else {
+      await bulkResolve(current.checkId, current.ruleKey, current.count, current.resolution, reason);
     }
   }
 
@@ -481,16 +494,47 @@ export default function TrustAdminPage() {
             {Object.entries(groups)
               .filter(([, g]) => g.n > 1)
               .map(([key, g]) => (
-                <button
-                  key={key}
-                  onClick={() => bulkResolve(g.checkId, g.ruleKey, g.n)}
-                  disabled={updating !== null}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
-                >
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  {g.ruleKey}
+                <div key={key} className="flex items-center gap-1 bg-neutral-700 rounded-lg pl-3 pr-1 py-1">
+                  <span className="text-sm text-white">{g.ruleKey}</span>
                   <span className="px-1.5 py-0.5 text-xs rounded-full bg-neutral-600">{g.n}</span>
-                </button>
+                  {/* The disposition is chosen up front rather than asked
+                      afterwards. This control's whole reason for existing — one
+                      broken check filing the same finding against everything —
+                      is a pile of false positives, and which of the two it is
+                      determines the MVP gate's false-positive rate. */}
+                  <button
+                    onClick={() =>
+                      startAction({
+                        kind: 'bulk',
+                        checkId: g.checkId,
+                        ruleKey: g.ruleKey,
+                        count: g.n,
+                        resolution: 'fixed',
+                      })
+                    }
+                    disabled={updating !== null}
+                    className="ml-1 px-2 py-1 bg-primary-500 hover:bg-primary-600 text-white rounded text-xs transition-colors disabled:opacity-50"
+                    title="All of these were repaired"
+                  >
+                    Fixed
+                  </button>
+                  <button
+                    onClick={() =>
+                      startAction({
+                        kind: 'bulk',
+                        checkId: g.checkId,
+                        ruleKey: g.ruleKey,
+                        count: g.n,
+                        resolution: 'false_positive',
+                      })
+                    }
+                    disabled={updating !== null}
+                    className="px-2 py-1 bg-neutral-600 hover:bg-neutral-500 text-white rounded text-xs transition-colors disabled:opacity-50"
+                    title="None of these were real — the check was wrong"
+                  >
+                    Not real
+                  </button>
+                </div>
               ))}
             {Object.values(groups).every((g) => g.n <= 1) && (
               <span className="text-xs text-neutral-500">
@@ -513,6 +557,71 @@ export default function TrustAdminPage() {
       {notice && (
         <div className="bg-neutral-800 border border-neutral-600 text-neutral-200 px-4 py-3 rounded-lg mb-6 text-sm">
           {notice}
+        </div>
+      )}
+
+      {/* ── the confirmation step, in the page ────────────────────────────
+          Where a window.prompt used to be. A dialog the browser can suppress
+          turns a button into a no-op with no error and no request, which is
+          precisely the class of failure this console exists to make visible. */}
+      {pending && (
+        <div className="mb-6 bg-neutral-800 border border-primary-500/40 rounded-xl p-4">
+          <div className="text-sm text-white mb-1">
+            {pending.kind === 'bulk'
+              ? `Closing all ${pending.count} open "${pending.ruleKey}" findings as ${RESOLUTION_LABEL[pending.resolution].toLowerCase()}.`
+              : pending.action === 'reopen'
+                ? 'Reopening this finding.'
+                : `Closing this finding as ${RESOLUTION_LABEL[pending.resolution!].toLowerCase()}.`}
+          </div>
+          <p className="text-xs text-neutral-500 mb-3">
+            Why? Recorded in the activity log — at least {MIN_REASON_LENGTH} characters.
+          </p>
+          <textarea
+            autoFocus
+            value={pendingReason}
+            onChange={(e) => setPendingReason(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setPending(null);
+                setPendingReason('');
+              }
+              // Enter submits; Shift+Enter for a second line. A reason is
+              // usually one sentence and reaching for the mouse for it is the
+              // friction that stops the list being read.
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                confirmPending();
+              }
+            }}
+            rows={2}
+            placeholder="e.g. added the missing float_summary sections for all 11 rivers"
+            className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+          <div className="flex items-center gap-2 mt-3">
+            <button
+              onClick={confirmPending}
+              disabled={updating !== null || pendingReason.trim().length < MIN_REASON_LENGTH}
+              className="px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm transition-colors disabled:opacity-40"
+            >
+              Confirm
+            </button>
+            <button
+              onClick={() => {
+                setPending(null);
+                setPendingReason('');
+              }}
+              className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors"
+            >
+              Cancel
+            </button>
+            {pendingReason.trim().length > 0 &&
+              pendingReason.trim().length < MIN_REASON_LENGTH && (
+                <span className="text-xs text-neutral-500">
+                  {MIN_REASON_LENGTH - pendingReason.trim().length} more character
+                  {MIN_REASON_LENGTH - pendingReason.trim().length === 1 ? '' : 's'}
+                </span>
+              )}
+          </div>
         </div>
       )}
 
@@ -691,7 +800,9 @@ export default function TrustAdminPage() {
                             false-positive rate is computed from this choice and
                             nothing else. */}
                         <button
-                          onClick={() => act(finding.id, 'resolve', undefined, 'fixed')}
+                          onClick={() =>
+                            startAction({ kind: 'single', id: finding.id, action: 'resolve', resolution: 'fixed' })
+                          }
                           disabled={updating === finding.id}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
                           title="The underlying problem was repaired"
@@ -700,7 +811,9 @@ export default function TrustAdminPage() {
                           Fixed
                         </button>
                         <button
-                          onClick={() => act(finding.id, 'resolve', undefined, 'false_positive')}
+                          onClick={() =>
+                            startAction({ kind: 'single', id: finding.id, action: 'resolve', resolution: 'false_positive' })
+                          }
                           disabled={updating === finding.id}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
                           title="There was nothing to fix — the check was wrong"
@@ -709,7 +822,9 @@ export default function TrustAdminPage() {
                           Not real
                         </button>
                         <button
-                          onClick={() => act(finding.id, 'resolve', undefined, 'accepted')}
+                          onClick={() =>
+                            startAction({ kind: 'single', id: finding.id, action: 'resolve', resolution: 'accepted' })
+                          }
                           disabled={updating === finding.id}
                           className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 rounded-lg text-sm transition-colors disabled:opacity-50"
                           title="Real, understood, and being lived with"
@@ -719,7 +834,7 @@ export default function TrustAdminPage() {
                       </>
                     ) : (
                       <button
-                        onClick={() => act(finding.id, 'reopen')}
+                        onClick={() => startAction({ kind: 'single', id: finding.id, action: 'reopen' })}
                         disabled={updating === finding.id}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
                       >
