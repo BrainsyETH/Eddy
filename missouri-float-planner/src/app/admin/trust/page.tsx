@@ -114,12 +114,22 @@ export default function TrustAdminPage() {
       cadence: string;
       lastRunAt: string | null;
       lastStatus: string | null;
+      // The API has always returned this and the console has never rendered it,
+      // so a scheduled pass that refused to reconcile — empty_scope,
+      // mass_resolve, check_error — showed a normal timestamp and no error
+      // indicator. A refusal is the ledger saying it does not believe itself;
+      // it cannot be the one thing the page leaves out.
+      lastSuppressedReason: string | null;
       overdue: boolean;
       heartbeat: string;
     }[]
   >([]);
   const [runningCheck, setRunningCheck] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [groupCounts, setGroupCounts] = useState<
+    { checkId: string; ruleKey: string; count: number }[]
+  >([]);
+  const [groupsComplete, setGroupsComplete] = useState(true);
 
   const fetchFindings = useCallback(async () => {
     setLoading(true);
@@ -132,6 +142,8 @@ export default function TrustAdminPage() {
       const data = await response.json();
       setFindings(data.items ?? []);
       setTotal(data.total ?? 0);
+      setGroupCounts(data.groups ?? []);
+      setGroupsComplete(data.groupsComplete !== false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load findings');
     } finally {
@@ -210,7 +222,13 @@ export default function TrustAdminPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-      setNotice(`Resolved ${data.updated} × ${ruleKey}.`);
+      setNotice(
+        `Resolved ${data.updated} × ${ruleKey}.` +
+          // Rows that moved between the server's read and its write — a
+          // scheduled run or another tab got there first. Normally zero.
+          (data.skipped ? ` ${data.skipped} had already moved and were left alone.` : ''),
+      );
+      if (data.warning) setError(data.warning);
       await fetchFindings();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Bulk action failed');
@@ -219,31 +237,57 @@ export default function TrustAdminPage() {
     }
   }
 
-  /** Open findings grouped by check+rule, for the bulk control. */
-  const groups = findings.reduce<Record<string, { checkId: string; ruleKey: string; n: number }>>(
-    (acc, f) => {
-      if (f.status !== 'open') return acc;
-      const key = `${f.checkId}:${f.ruleKey}`;
-      acc[key] = acc[key]
-        ? { ...acc[key], n: acc[key].n + 1 }
-        : { checkId: f.checkId, ruleKey: f.ruleKey, n: 1 };
-      return acc;
-    },
-    {},
+  /**
+   * Open findings grouped by check+rule, for the bulk control.
+   *
+   * Server-computed over the whole filtered set, not derived from the page. The
+   * previous version counted only the first 100 rows the console had loaded,
+   * while the bulk endpoint compares against every matching open row — so any
+   * group extending past one page produced a permanent 409 the operator could
+   * not clear, on exactly the kind of mass false positive the control exists to
+   * clear. See /api/admin/trust/findings.
+   */
+  const groups = Object.fromEntries(
+    groupCounts.map((g) => [`${g.checkId}:${g.ruleKey}`, { ...g, n: g.count }]),
   );
 
   async function act(id: string, action: 'snooze' | 'resolve' | 'reopen', days?: number) {
+    // Closing or re-opening a finding is a judgement no check made, and the
+    // status transition alone does not record it — six weeks later "resolved"
+    // says what happened and nothing about whether it was ever real.
+    //
+    // Snooze is exempt: bounded, self-expiring, and the most-used control here.
+    // A prompt on every "not now" is how an operator learns to stop reading the
+    // list, which is the failure this whole console is arguing against.
+    let reason = '';
+    if (action === 'resolve' || action === 'reopen') {
+      const answer = window.prompt(
+        `Why is this finding being ${action === 'resolve' ? 'resolved' : 'reopened'}? (recorded in the activity log)`,
+        '',
+      );
+      if (answer === null) return;
+      if (answer.trim().length < 8) {
+        setError(`A reason of at least 8 characters is required to ${action} a finding.`);
+        return;
+      }
+      reason = answer.trim();
+    }
+
     setUpdating(id);
+    setNotice(null);
+    setError(null);
     try {
       const response = await adminFetch(`/api/admin/trust/findings/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(days ? { action, days } : { action }),
+        body: JSON.stringify({ action, ...(days ? { days } : {}), ...(reason ? { reason } : {}) }),
       });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || `HTTP ${response.status}`);
-      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      // A lost audit record is not a failure of the action, but it is not a
+      // clean success either, and showing the same green message for both is
+      // how the trail goes missing without anyone noticing.
+      if (data.warning) setError(data.warning);
       await fetchFindings();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed');
@@ -316,7 +360,11 @@ export default function TrustAdminPage() {
                 onClick={() => runCheck(c.id)}
                 disabled={runningCheck !== null}
                 className="flex items-center gap-2 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
-                title={c.heartbeat}
+                title={
+                  c.lastSuppressedReason
+                    ? `${c.heartbeat} — last run refused to reconcile (${c.lastSuppressedReason})`
+                    : c.heartbeat
+                }
               >
                 {runningCheck === c.id ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -341,6 +389,20 @@ export default function TrustAdminPage() {
                       ? formatDate(c.lastRunAt)
                       : 'never run'}
                 </span>
+                {/* A refusal is the ledger declining to believe itself, and the
+                    console rendered a normal timestamp for it — so a scheduled
+                    empty_scope or mass_resolve pass looked exactly like a
+                    healthy one. partial_scope is excluded: a check that ran out
+                    of its time budget is ordinary, and badging it would teach
+                    the operator to ignore the badge. */}
+                {c.lastSuppressedReason && c.lastSuppressedReason !== 'partial_scope' && (
+                  <span
+                    className="px-1.5 py-0.5 text-xs rounded-full bg-red-500/20 text-red-400 border border-red-500/30"
+                    title={`Reconciliation refused: ${c.lastSuppressedReason}`}
+                  >
+                    refused
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -377,6 +439,15 @@ export default function TrustAdminPage() {
               </span>
             )}
           </div>
+          {!groupsComplete && (
+            // The server could not scan the whole open set, so these are floors
+            // rather than totals and the bulk endpoint would refuse them. Saying
+            // so beats offering a button that always 409s.
+            <p className="mt-3 text-xs text-amber-400">
+              Counts are incomplete — the open set is larger than one scan. Filter by check to
+              bulk-resolve.
+            </p>
+          )}
         </div>
       )}
 

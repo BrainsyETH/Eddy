@@ -20,6 +20,7 @@ import { releaseCronLock, tryCronLock } from '@/lib/social/cron-lock';
 import { getCheck, TRUST_CHECKS } from '@/lib/trust/registry';
 import { runTrustCheck } from '@/lib/trust/ledger';
 import { assessHeartbeat } from '@/lib/trust/heartbeat';
+import { mustCount, mustRow } from '@/lib/trust/db';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -44,45 +45,69 @@ export async function GET(request: NextRequest) {
   const supabase = createAdminClient();
   const now = new Date();
 
-  // Opportunities the scheduler had, so a never-run check is judged against
-  // tick history rather than being exempt forever. Widest allowance any check
-  // uses: daily x 2.5.
-  const { count: ticksInWindow } = await supabase
-    .from('trust_runs')
-    .select('id', { count: 'exact', head: true })
-    .gte('started_at', new Date(now.getTime() - 24 * 2.5 * 3_600_000).toISOString());
-
-  const checks = await Promise.all(
-    TRUST_CHECKS.map(async (c) => {
-      const { data } = await supabase
+  // Both reads below propagate their error rather than degrading to null.
+  //
+  // The degraded forms were the quietest bug on this page: an unreadable
+  // trust_runs gave `ticksInWindow` null, coerced to 0, which assessHeartbeat()
+  // reads as "no ticks yet — expected on the next pass". Every check would have
+  // rendered as calmly not-yet-overdue on a database nobody could read, on the
+  // one screen an operator opens to ask whether the ledger is alive.
+  try {
+    const ticksInWindow = await mustCount(
+      supabase
         .from('trust_runs')
-        .select('started_at, status, suppressed_reason')
-        .eq('check_id', c.id)
-        .order('started_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .select('id', { count: 'exact', head: true })
+        .gte('started_at', new Date(now.getTime() - 24 * 2.5 * 3_600_000).toISOString()),
+      'could not count recent trust runs',
+    );
 
-      const lastStartedAt = data?.started_at ? new Date(data.started_at) : null;
-      const beat = assessHeartbeat(
-        { checkId: c.id, cadence: c.cadence, lastStartedAt },
-        now,
-        { ticksInWindow: ticksInWindow ?? 0 },
-      );
+    const checks = await Promise.all(
+      TRUST_CHECKS.map(async (c) => {
+        const data = await mustRow<{
+          started_at: string;
+          status: string | null;
+          suppressed_reason: string | null;
+        }>(
+          supabase
+            .from('trust_runs')
+            .select('started_at, status, suppressed_reason')
+            .eq('check_id', c.id)
+            .order('started_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          `could not read the last run of ${c.id}`,
+        );
 
-      return {
-        id: c.id,
-        title: c.title,
-        cadence: c.cadence,
-        lastRunAt: data?.started_at ?? null,
-        lastStatus: (data?.status as string | null) ?? null,
-        lastSuppressedReason: (data?.suppressed_reason as string | null) ?? null,
-        overdue: beat.overdue,
-        heartbeat: beat.detail,
-      };
-    }),
-  );
+        const lastStartedAt = data?.started_at ? new Date(data.started_at) : null;
+        const beat = assessHeartbeat({ checkId: c.id, cadence: c.cadence, lastStartedAt }, now, {
+          ticksInWindow,
+        });
 
-  return NextResponse.json({ checks });
+        return {
+          id: c.id,
+          title: c.title,
+          cadence: c.cadence,
+          lastRunAt: data?.started_at ?? null,
+          lastStatus: data?.status ?? null,
+          lastSuppressedReason: data?.suppressed_reason ?? null,
+          overdue: beat.overdue,
+          heartbeat: beat.detail,
+        };
+      }),
+    );
+
+    return NextResponse.json({ checks });
+  } catch (error) {
+    console.error('Error loading trust check status:', error);
+    return NextResponse.json(
+      {
+        error:
+          'Could not read run history — check liveness is UNKNOWN, not healthy.',
+        detail: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {

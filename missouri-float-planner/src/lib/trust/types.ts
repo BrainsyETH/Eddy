@@ -43,6 +43,25 @@ export interface RawFinding {
   title: string;
   detail: string;
   evidence?: Record<string, unknown>;
+  /**
+   * File this finding already snoozed, until the given instant.
+   *
+   * The one case for it is a governed exception: a deviation somebody has
+   * explicitly accepted, with an owner and an expiry, in
+   * src/lib/trust/exceptions.ts. Such a finding is real and must stay in the
+   * record — but it is also already triaged, and leaving it in the open list
+   * teaches the operator that the open list contains things nobody needs to act
+   * on, which is the failure this whole console is arguing against.
+   *
+   * Honoured only when the finding is RAISED, never on a touch. An operator who
+   * reopens a governed finding has overruled the register for that row, and a
+   * scheduled run re-snoozing it every hour would be the ledger arguing with
+   * the person it exists to serve.
+   *
+   * Everything else about it is ordinary: the expiry is a normal snooze
+   * deadline, so classifyExisting() wakes it on its own when the date passes.
+   */
+  snoozeUntil?: string;
 }
 
 export interface TrustCheckResult {

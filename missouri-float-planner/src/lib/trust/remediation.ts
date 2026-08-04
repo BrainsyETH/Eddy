@@ -305,6 +305,13 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     action: 'Reconcile the kind CHECK with AlertSubscriptionKind.',
     where: 'src/types/api.ts and a forward migration',
   },
+  schema_exception_unnecessary: {
+    kind: 'mechanical',
+    action: 'Delete the entry from SCHEMA_EXCEPTIONS.',
+    where: 'src/lib/trust/exceptions.ts',
+    method:
+      'The invariant passes on production, so the exception is governing nothing. Left in place it is a standing permission: if the invariant fails again, the finding arrives pre-snoozed to a date somebody chose for a different reason, and nobody is told.',
+  },
   schema_feedback_type_check_has_gauge_recalibration: {
     kind: 'judgment',
     action: 'Restore gauge_recalibration to the feedback_type CHECK.',

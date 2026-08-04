@@ -6,6 +6,7 @@
 // here is the ordering of the writes and the handling of the ways a database
 // can disagree with you.
 
+import { mustRows, mustRpc, mustWriteReturning } from './db';
 import { fingerprint } from './fingerprint';
 import {
   planReconcile,
@@ -76,18 +77,41 @@ export async function runTrustCheck(
   // Opened pessimistically. If this function is killed partway — a Vercel
   // timeout, a deploy mid-run — the row it leaves behind correctly reads as a
   // failure rather than as a run that quietly reported nothing.
-  const { data: runRow } = await supabase
-    .from('trust_runs')
-    .insert({
-      check_id: check.id,
+  //
+  // If the row cannot be written at all, there is nowhere to anchor evidence and
+  // the database is unreachable for everything that follows, so this bails
+  // rather than running the check into a void. The absence of a trust_runs row
+  // is itself observable: the heartbeat sees the check go stale and files
+  // check_not_running at critical.
+  let runId: string | null = null;
+  try {
+    const runRow = await mustWriteReturning<{ id: string }>(
+      supabase
+        .from('trust_runs')
+        .insert({
+          check_id: check.id,
+          status: 'error',
+          error_detail: 'run did not complete',
+          git_sha: options.gitSha ?? null,
+        })
+        .select('id')
+        .single(),
+      `could not open a trust_runs row for ${check.id}`,
+    );
+    runId = runRow?.id ?? null;
+  } catch (error) {
+    return {
+      checkId: check.id,
+      runId: null,
       status: 'error',
-      error_detail: 'run did not complete',
-      git_sha: options.gitSha ?? null,
-    })
-    .select('id')
-    .single();
-
-  const runId: string | null = runRow?.id ?? null;
+      scopeCount: 0,
+      raised: 0,
+      touched: 0,
+      resolved: 0,
+      errorDetail: error instanceof Error ? error.message : String(error),
+      durationMs: Date.now() - startedAt,
+    };
+  }
 
   let emitted: RawFinding[] = [];
   let scopeCount = 0;
@@ -109,12 +133,32 @@ export async function runTrustCheck(
     errorDetail = error instanceof Error ? error.message : String(error);
   }
 
-  const { data: existingRows } = await supabase
-    .from('trust_findings')
-    .select('id, fingerprint, status, occurrences, snoozed_until')
-    .eq('check_id', check.id);
+  // An unreadable open set is NOT an empty one.
+  //
+  // Substituting `[]` here was the most dangerous instance of the discarded-error
+  // family: with no open fingerprints, every emitted finding classifies as new,
+  // the inserts collide with the unique fingerprint constraint, those failures
+  // are ignored too, and the run reports a pile of findings it did not write.
+  // Nothing resolves, nothing is touched, and the counts are fiction.
+  //
+  // Demoting it to a check failure routes it through the refusal path that
+  // already exists and is already tested: planReconcile() refuses everything on
+  // checkStatus 'error', so the run changes nothing and says so.
+  let existing: ExistingFindingRow[] = [];
+  try {
+    existing = await mustRows<ExistingFindingRow>(
+      supabase
+        .from('trust_findings')
+        .select('id, fingerprint, status, occurrences, snoozed_until')
+        .eq('check_id', check.id),
+      `could not read the open findings for ${check.id}`,
+    );
+  } catch (error) {
+    checkStatus = 'error';
+    errorDetail = error instanceof Error ? error.message : String(error);
+    existing = [];
+  }
 
-  const existing: ExistingFindingRow[] = existingRows ?? [];
   const byFingerprint = new Map(existing.map((row) => [row.fingerprint, row]));
   const { openFingerprints, snoozedFingerprints } = classifyExisting(existing, options.now);
 
@@ -134,125 +178,124 @@ export async function runTrustCheck(
 
   const nowIso = options.now.toISOString();
 
-  // Raised: brand new, or a fingerprint that had been resolved and is back.
-  // Recurrence keeps the original first_seen_at, which is the only way the
-  // console can tell "broken since March" from "broke again last night".
-  for (const fp of plan.raise) {
-    const finding = emittedByFingerprint.get(fp);
-    if (!finding) continue;
-    const prior = byFingerprint.get(fp);
-    const row = {
-      fingerprint: fp,
-      check_id: check.id,
-      rule_key: finding.ruleKey,
-      entity_type: finding.entityType,
-      entity_key: finding.entityKey,
-      severity: severityForRule(finding.ruleKey),
-      status: 'open',
-      title: finding.title,
-      detail: finding.detail,
-      evidence: finding.evidence ?? {},
-      last_seen_at: nowIso,
-      resolved_at: null,
-      snoozed_until: null,
-      last_run_id: runId,
-    };
-
-    if (prior) {
-      // occurrences counts EPISODES, not sightings. Incrementing on every touch
-      // would reach 24 a day on an hourly check and mean nothing; incrementing
-      // only here makes it read as "this has come back N times".
-      // `?? 1` rather than a bare +1: the column has a default, so a row
-      // written by hand or predating a schema change can arrive without it, and
-      // `undefined + 1` is NaN — which Postgres rejects on an integer column,
-      // failing the whole update and losing the finding.
-      await supabase
-        .from('trust_findings')
-        .update({ ...row, occurrences: (prior.occurrences ?? 1) + 1 })
-        .eq('id', prior.id);
-    } else {
-      await supabase.from('trust_findings').insert(row);
-    }
-  }
-
-  // Touched: still true. Refresh the values without disturbing identity,
-  // status or occurrences — a snoozed finding stays snoozed.
-  for (const fp of plan.touch) {
-    const finding = emittedByFingerprint.get(fp);
-    const prior = byFingerprint.get(fp);
-    if (!finding || !prior) continue;
-    await supabase
-      .from('trust_findings')
-      .update({
-        severity: severityForRule(finding.ruleKey),
-        title: finding.title,
-        detail: finding.detail,
-        evidence: finding.evidence ?? {},
-        last_seen_at: nowIso,
-        last_run_id: runId,
-        // Wakes a snooze whose deadline has passed. classifyExisting already
-        // treats it as open; this makes the row agree.
-        ...(prior.status === 'snoozed' && !snoozedFingerprints.includes(fp)
-          ? { status: 'open', snoozed_until: null }
-          : {}),
-      })
-      .eq('id', prior.id);
-  }
-
-  if (plan.resolve.length > 0) {
-    const ids = plan.resolve
-      .map((fp) => byFingerprint.get(fp)?.id)
-      .filter((id): id is string => Boolean(id));
-    if (ids.length > 0) {
-      await supabase
-        .from('trust_findings')
-        .update({ status: 'resolved', resolved_at: nowIso, last_run_id: runId })
-        .in('id', ids);
-    }
-  }
-
-  // A refusal that reached only the logs would be a monitoring gap of exactly
-  // the kind reconcile.ts exists to prevent, so the loud ones go in the ledger
-  // beside the findings they are standing in for.
-  if (plan.suppressedReason && suppressionWarrantsFinding(plan.suppressedReason)) {
-    await writeReconcileAnomaly(supabase, {
-      check,
-      runId,
-      reason: plan.suppressedReason,
-      nowIso,
-      counts: {
-        openCount: openFingerprints.length,
-        wouldResolve: openFingerprints.filter((fp) => !emittedByFingerprint.has(fp)).length,
-        scopeCount,
-      },
-    });
-  } else if (!plan.suppressedReason) {
-    // The check reconciled cleanly, so any standing complaint about it is over.
-    await supabase
-      .from('trust_findings')
-      .update({ status: 'resolved', resolved_at: nowIso, last_run_id: runId })
-      .eq('check_id', check.id)
-      .eq('rule_key', 'reconcile_anomaly')
-      .neq('status', 'resolved');
+  // An empty scope is recorded as an ERROR, not as a successful run that found
+  // nothing — TRUST_LEDGER_V1_PLAN.md:316. Reconciliation was already refused
+  // by planReconcile(), but the run row said `ok`, so a check that examined
+  // nothing showed a normal green timestamp in the console and counted as a
+  // healthy recent run everywhere that keys on status.
+  //
+  // "I looked at zero things and found zero problems" is the exact sentence
+  // this subsystem exists to stop anyone believing.
+  if (plan.suppressedReason === 'empty_scope' && checkStatus === 'ok') {
+    checkStatus = 'error';
+    errorDetail = errorDetail ?? `${check.id} examined 0 entities`;
   }
 
   const durationMs = Date.now() - startedAt;
 
-  if (runId) {
-    await supabase
-      .from('trust_runs')
-      .update({
-        status: checkStatus,
-        finished_at: nowIso,
-        suppressed_reason: plan.suppressedReason ?? null,
-        scope_count: scopeCount,
-        findings_raised: plan.raise.length,
-        findings_touched: plan.touch.length,
-        findings_resolved: plan.resolve.length,
-        duration_ms: durationMs,
-        error_detail: errorDetail ?? null,
+  // ── one transaction, decided here and applied there ──────────────────
+  //
+  // Every finding change and the run finalization go to the database as a
+  // single call. They used to be six independent round-trips across three
+  // loops, so a Vercel timeout or a mid-run deploy could raise some findings,
+  // resolve others, and leave the pessimistic run row saying 'error' — a ledger
+  // state describing a run that never happened.
+  //
+  // The DECISION stays here. planReconcile(), severityForRule() and
+  // fingerprint() hold every rule that determines whether this system can be
+  // believed, they are pure, and they are tested without a database.
+  // trust_apply_reconcile() carries no policy; it applies what it is given.
+  const payload = {
+    run_id: runId,
+    check_id: check.id,
+    now: nowIso,
+    raise: plan.raise
+      .map((fp) => {
+        const finding = emittedByFingerprint.get(fp);
+        if (!finding) return null;
+        return {
+          fingerprint: fp,
+          rule_key: finding.ruleKey,
+          entity_type: finding.entityType,
+          entity_key: finding.entityKey,
+          severity: severityForRule(finding.ruleKey),
+          title: finding.title,
+          detail: finding.detail,
+          evidence: finding.evidence ?? {},
+          // A finding may arrive pre-triaged — see RawFinding.snoozeUntil.
+          // Today that means a schema deviation somebody has accepted, with an
+          // owner and an expiry, in exceptions.ts. From here on it is an
+          // ordinary snooze deadline, so it wakes itself when it lapses.
+          snoozed_until: finding.snoozeUntil ?? null,
+        };
       })
-      .eq('id', runId);
+      .filter((row): row is NonNullable<typeof row> => row !== null),
+    touch: plan.touch
+      .map((fp) => {
+        const finding = emittedByFingerprint.get(fp);
+        const prior = byFingerprint.get(fp);
+        if (!finding || !prior) return null;
+        return {
+          fingerprint: fp,
+          severity: severityForRule(finding.ruleKey),
+          title: finding.title,
+          detail: finding.detail,
+          evidence: finding.evidence ?? {},
+          // classifyExisting() already treats a lapsed snooze as open; this
+          // makes the row itself agree instead of leaving a stale deadline.
+          wake: prior.status === 'snoozed' && !snoozedFingerprints.includes(fp),
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== null),
+    resolve: plan.resolve,
+    // A refusal that reached only the logs would be a monitoring gap of exactly
+    // the kind reconcile.ts exists to prevent, so the loud ones go in the ledger
+    // beside the findings they are standing in for.
+    anomaly:
+      plan.suppressedReason && suppressionWarrantsFinding(plan.suppressedReason)
+        ? buildReconcileAnomaly({
+            check,
+            reason: plan.suppressedReason,
+            counts: {
+              openCount: openFingerprints.length,
+              wouldResolve: openFingerprints.filter((fp) => !emittedByFingerprint.has(fp)).length,
+              scopeCount,
+            },
+          })
+        : null,
+    // The check reconciled cleanly, so any standing complaint about it is over.
+    clear_anomaly: !plan.suppressedReason,
+    run: {
+      status: checkStatus,
+      suppressed_reason: plan.suppressedReason ?? null,
+      scope_count: scopeCount,
+      duration_ms: durationMs,
+      error_detail: errorDetail ?? null,
+    },
+  };
+
+  let raised = 0;
+  let touched = 0;
+  let resolved = 0;
+
+  try {
+    // APPLIED counts, from the database. The summary used to report
+    // plan.raise.length — the number of writes ATTEMPTED — so a write that
+    // failed still counted as a finding raised.
+    const counts = await mustRpc<{ raised: number; touched: number; resolved: number }>(
+      supabase.rpc('trust_apply_reconcile', { p_payload: payload }),
+      `could not apply the reconciliation for ${check.id}`,
+    );
+    raised = counts?.raised ?? 0;
+    touched = counts?.touched ?? 0;
+    resolved = counts?.resolved ?? 0;
+  } catch (error) {
+    // Nothing was written — that is what the transaction buys. The run row
+    // keeps the pessimistic 'error' / 'run did not complete' it was opened
+    // with, which is the correct reading of what happened.
+    checkStatus = 'error';
+    const message = error instanceof Error ? error.message : String(error);
+    errorDetail = errorDetail ? `${errorDetail}; ${message}` : message;
   }
 
   return {
@@ -260,26 +303,28 @@ export async function runTrustCheck(
     runId,
     status: checkStatus,
     scopeCount,
-    raised: plan.raise.length,
-    touched: plan.touch.length,
-    resolved: plan.resolve.length,
+    raised,
+    touched,
+    resolved,
     suppressedReason: plan.suppressedReason,
     errorDetail,
     durationMs,
   };
 }
 
-async function writeReconcileAnomaly(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  args: {
-    check: TrustCheck;
-    runId: string | null;
-    reason: SuppressedReason;
-    nowIso: string;
-    counts: { openCount: number; wouldResolve: number; scopeCount: number };
-  },
-): Promise<void> {
+/**
+ * The finding a suppressed run files against itself.
+ *
+ * Pure — it builds a row for trust_apply_reconcile() to upsert. It used to do
+ * its own lookup-then-insert-or-update, which is the read-then-branch the
+ * ON CONFLICT in that function replaces: the choice was made from a read taken
+ * earlier in the request, and a row created in between made it wrong.
+ */
+function buildReconcileAnomaly(args: {
+  check: TrustCheck;
+  reason: SuppressedReason;
+  counts: { openCount: number; wouldResolve: number; scopeCount: number };
+}) {
   const finding: RawFinding = {
     entityType: 'global',
     entityKey: args.check.id,
@@ -289,32 +334,14 @@ async function writeReconcileAnomaly(
     evidence: { reason: args.reason, ...args.counts },
   };
 
-  const fp = fingerprint(args.check.id, finding);
-  const { data: prior } = await supabase
-    .from('trust_findings')
-    .select('id, occurrences')
-    .eq('fingerprint', fp)
-    .maybeSingle();
-
-  const row = {
-    fingerprint: fp,
-    check_id: args.check.id,
+  return {
+    fingerprint: fingerprint(args.check.id, finding),
     rule_key: finding.ruleKey,
     entity_type: finding.entityType,
     entity_key: finding.entityKey,
     severity: severityForRule(finding.ruleKey),
-    status: 'open',
     title: finding.title,
     detail: finding.detail,
     evidence: finding.evidence ?? {},
-    last_seen_at: args.nowIso,
-    resolved_at: null,
-    last_run_id: args.runId,
   };
-
-  if (prior) {
-    await supabase.from('trust_findings').update(row).eq('id', prior.id);
-  } else {
-    await supabase.from('trust_findings').insert(row);
-  }
 }

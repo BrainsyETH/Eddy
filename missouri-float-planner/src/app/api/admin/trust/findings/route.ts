@@ -80,11 +80,49 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Could not load findings' }, { status: 500 });
     }
 
+    // ── group counts, computed over the whole filtered set ───────────────
+    //
+    // The console used to derive these from the page it had in hand, which
+    // meant a group larger than the page reported a count smaller than the
+    // truth. The bulk endpoint compares the operator's count against every
+    // matching open row and refuses on a mismatch, so any group past the first
+    // page produced a permanent 409 that no amount of retrying could satisfy —
+    // and the control existed precisely for the case that produces the most
+    // rows at once. 24 false geometry findings is the example in its own header.
+    //
+    // Two narrow columns over the filtered set, aggregated here. The finding
+    // population is tens; if it ever outgrows PostgREST's row ceiling the
+    // comparison against `count` below notices, rather than quietly reporting
+    // small numbers again.
+    let groupQuery = supabase.from('trust_findings').select('check_id, rule_key');
+    if (status) groupQuery = groupQuery.eq('status', status);
+    if (severity) groupQuery = groupQuery.eq('severity', severity);
+    if (checkId) groupQuery = groupQuery.eq('check_id', checkId);
+
+    const { data: groupRows, error: groupError } = await groupQuery;
+    if (groupError) {
+      console.error('Error loading trust finding groups:', groupError);
+      return NextResponse.json({ error: 'Could not load findings' }, { status: 500 });
+    }
+
+    const tally = new Map<string, { checkId: string; ruleKey: string; count: number }>();
+    for (const row of groupRows ?? []) {
+      const key = `${row.check_id}:${row.rule_key}`;
+      const entry = tally.get(key);
+      if (entry) entry.count += 1;
+      else tally.set(key, { checkId: row.check_id, ruleKey: row.rule_key, count: 1 });
+    }
+
     return NextResponse.json({
       items: (data ?? []).map(toFinding),
       total: count ?? 0,
       page,
       limit,
+      groups: [...tally.values()].sort((a, b) => b.count - a.count),
+      // False means the group scan was itself truncated, so the counts are
+      // floors rather than totals and bulk actions would 409. Saying so beats
+      // showing a number that is confidently wrong.
+      groupsComplete: (groupRows ?? []).length === (count ?? 0),
     });
   } catch (error) {
     console.error('Error in trust findings route:', error);

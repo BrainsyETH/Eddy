@@ -10,9 +10,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
 import { logger } from '@/lib/logger';
-import { releaseCronLock, tryCronLock } from '@/lib/social/cron-lock';
+import { releaseCronLock, tryCronLockDetailed } from '@/lib/social/cron-lock';
 import { TRUST_CHECKS, isCheckDue, orderByStaleness } from '@/lib/trust/registry';
 import { runTrustCheck, type RunSummary } from '@/lib/trust/ledger';
+import { mustRow } from '@/lib/trust/db';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -45,9 +46,21 @@ async function run(request: NextRequest) {
   const startedAt = Date.now();
   const supabase = createAdminClient();
 
-  const locked = await tryCronLock(supabase, LOCK_JOB, LOCK_STALE_SECONDS);
-  if (!locked) {
-    return NextResponse.json({ skipped: true, reason: 'lock_contended' });
+  const lock = await tryCronLockDetailed(supabase, LOCK_JOB, LOCK_STALE_SECONDS);
+  if (!lock.acquired) {
+    // Contention is ordinary — another instance is mid-pass — so it stays a
+    // quiet 200. A lock that could not be evaluated at all is an outage
+    // wearing contention's clothes: the tick stops running and every skipped
+    // pass reports the same calm "skipped" as a healthy overlap. 503 so
+    // Vercel's cron history records a failed invocation.
+    if (lock.reason === 'unavailable') {
+      logger.error('[trust-tick] cron lock unavailable', new Error(lock.error), { job: LOCK_JOB });
+      return NextResponse.json(
+        { ok: false, skipped: true, reason: 'lock_unavailable', error: lock.error },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json({ ok: true, skipped: true, reason: 'lock_contended' });
   }
 
   try {
@@ -57,16 +70,23 @@ async function run(request: NextRequest) {
     // One row per check: when it last STARTED, not finished. A check that
     // crashes must still count as attempted, or a reliably failing check would
     // be retried every tick and starve the rest.
+    //
+    // A read failure here aborts the pass rather than degrading. Discarding the
+    // error would make every check look never-run, so the tick would run all of
+    // them every hour against a database it cannot read — and report success.
     const lastStartedById = new Map<string, Date | null>();
     for (const check of TRUST_CHECKS) {
-      const { data } = await supabase
-        .from('trust_runs')
-        .select('started_at')
-        .eq('check_id', check.id)
-        .order('started_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      lastStartedById.set(check.id, data?.started_at ? new Date(data.started_at) : null);
+      const row = await mustRow<{ started_at: string }>(
+        supabase
+          .from('trust_runs')
+          .select('started_at')
+          .eq('check_id', check.id)
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        `could not read the last run of ${check.id}`,
+      );
+      lastStartedById.set(check.id, row?.started_at ? new Date(row.started_at) : null);
     }
 
     const due = orderByStaleness(TRUST_CHECKS, lastStartedById).filter((check) =>
@@ -93,15 +113,34 @@ async function run(request: NextRequest) {
       );
     }
 
+    const failed = summaries.filter((s) => s.status === 'error').map((s) => s.checkId);
+    const suppressed = summaries
+      .filter((s) => s.suppressedReason)
+      .map((s) => ({ checkId: s.checkId, reason: s.suppressedReason }));
+
+    // partial_scope is ordinary: the check ran out of its time budget and will
+    // finish next hour. The other three mean the checking itself is broken.
+    const refused = suppressed.filter((s) => s.reason !== 'partial_scope');
+
     const summary = {
-      ok: true,
+      // Was hardcoded `true`. A pass in which every check threw, or in which
+      // reconciliation was refused across the board, returned `ok: true` with
+      // HTTP 200 and the failures visible only to something that walked the
+      // secondary arrays — so the cheapest possible monitor, the one that reads
+      // `ok`, was the one guaranteed to be wrong.
+      //
+      // The HTTP status stays 200 on a check-level failure on purpose: those are
+      // already in the ledger at critical severity and already reach Sentry
+      // through logger.error below, and a red cron history that stays red for as
+      // long as one finding is open teaches an operator to ignore cron history.
+      // Only an infrastructure failure — the lock, above — makes the invocation
+      // itself fail.
+      ok: failed.length === 0 && refused.length === 0,
       checksRun: summaries.length,
       checksDeferred: deferred.length,
       deferred,
-      failed: summaries.filter((s) => s.status === 'error').map((s) => s.checkId),
-      suppressed: summaries
-        .filter((s) => s.suppressedReason)
-        .map((s) => ({ checkId: s.checkId, reason: s.suppressedReason })),
+      failed,
+      suppressed,
       raised: summaries.reduce((n, s) => n + s.raised, 0),
       touched: summaries.reduce((n, s) => n + s.touched, 0),
       resolved: summaries.reduce((n, s) => n + s.resolved, 0),
@@ -110,7 +149,11 @@ async function run(request: NextRequest) {
 
     // A suppressed reconciliation already wrote itself into the ledger; this is
     // so it also shows up wherever cron output is being watched.
-    if (summary.failed.length > 0 || summary.suppressed.length > 0) {
+    //
+    // Keyed off `ok` rather than the raw suppressed list, so it agrees with the
+    // payload and with suppressionWarrantsFinding(): a truncated pass is not an
+    // error in the ledger and must not page as one here either.
+    if (!summary.ok) {
       logger.error('[trust-tick] pass completed with refusals', summary);
     } else {
       logger.info('[trust-tick] pass complete', summary);

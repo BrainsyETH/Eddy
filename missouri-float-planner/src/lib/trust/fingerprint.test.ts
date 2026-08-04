@@ -51,14 +51,11 @@ test('entity type participates in the identity', () => {
   assert.notEqual(a, b);
 });
 
-// ── the gauge_missing_site_id wart ───────────────────────────────
+// ── what normalization can and cannot absorb ─────────────────────
 
-test('an entity key that is a human name survives cosmetic renaming', () => {
-  // validate_river_data()'s gauge_missing_site_id rule returns
-  // COALESCE(r.slug, gs.name) — 00164_harden_river_validation.sql:180 — so its
-  // entity key can be a gauge NAME, not a slug. Without normalization, editing
-  // the display name would resolve the old finding as fixed and open an
-  // identical new one, both wrongly.
+test('a key that differs only cosmetically is the same finding', () => {
+  // Case, punctuation and runs of whitespace are incidental to how the same key
+  // is spelled between two runs, and folding them is the whole job.
   const a = fingerprint('validate_river_data', {
     entityType: 'gauge',
     entityKey: 'Current River at Van Buren',
@@ -70,6 +67,36 @@ test('an entity key that is a human name survives cosmetic renaming', () => {
     ruleKey: 'gauge_missing_site_id',
   });
   assert.equal(a, b);
+});
+
+test('normalization does NOT make prose rename-safe — which is why keys are ids', () => {
+  // The limit this file used to overstate. normalizeEntityKey()'s comment
+  // claimed it made human-facing keys survive an editorial rename; it cannot,
+  // and never could, because the tokens genuinely differ.
+  //
+  // Recorded as an assertion rather than a comment so nobody re-derives the
+  // false version: the fix is not a better normalizer, it is not keying on
+  // prose. gauge_missing_site_id now returns gs.id
+  // (20260804193100_validate_river_data_stable_gauge_key.sql) and gauge_wiring
+  // keys on the station id.
+  const at = fingerprint('validate_river_data', {
+    entityType: 'gauge',
+    entityKey: 'Current River at Van Buren',
+    ruleKey: 'gauge_missing_site_id',
+  });
+  const near = fingerprint('validate_river_data', {
+    entityType: 'gauge',
+    entityKey: 'Current River near Van Buren',
+    ruleKey: 'gauge_missing_site_id',
+  });
+  assert.notEqual(at, near);
+});
+
+test('a uuid key is stable under normalization', () => {
+  // The shape both gauge-scoped rules now emit. Nothing to fold, nothing to
+  // fork.
+  const id = '3f2a1c9e-0b44-4d1a-9f7e-2c8b5d6a1e30';
+  assert.equal(normalizeEntityKey(id), id);
 });
 
 test('normalizeEntityKey leaves an ordinary slug alone', () => {

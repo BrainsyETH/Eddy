@@ -20,6 +20,12 @@
 // against pg_class, pg_policies and pg_constraint rather than against .sql
 // files.
 
+import {
+  activeExceptionDetail,
+  exceptionFor,
+  expiredExceptionDetail,
+  SCHEMA_EXCEPTIONS,
+} from '../exceptions';
 import type { RawFinding, TrustCheck, TrustCheckContext, TrustCheckResult } from '../types';
 
 export interface InvariantRow {
@@ -47,22 +53,124 @@ export function invariantRuleKey(invariantKey: string): string {
   return `schema_${invariantKey}`;
 }
 
-/** Pure. Failed assertions become findings; passing ones become silence. */
-export function deriveInvariantFindings(rows: readonly InvariantRow[]): RawFinding[] {
-  return rows
+/** The rule an unnecessary exception is filed under. */
+export const STALE_EXCEPTION_RULE = 'schema_exception_unnecessary';
+
+/**
+ * Pure. Failed assertions become findings; passing ones become silence — except
+ * where the register in exceptions.ts has something to say.
+ *
+ * Three outcomes rather than two:
+ *
+ *   failed, no exception     → an open finding, as before.
+ *   failed, live exception   → the same finding, filed SNOOZED to the expiry.
+ *                              It stays in the record with its full history and
+ *                              its real severity; it just is not in the list of
+ *                              things nobody has looked at. On the expiry date
+ *                              the ledger's ordinary snooze-wake machinery
+ *                              reopens it with no help from anyone.
+ *   failed, lapsed exception → an open finding whose detail names the owner,
+ *                              the date it ran out, and what closing it needs.
+ *
+ * The fingerprint is identical in all three: same entity, same rule. An
+ * exception being granted, expiring, or being renewed does not fork the
+ * finding's identity, so the history reads as one continuous story about one
+ * problem — which is the only way an expiry is auditable at all.
+ */
+export function deriveInvariantFindings(
+  rows: readonly InvariantRow[],
+  now: Date = new Date(),
+): RawFinding[] {
+  const findings: RawFinding[] = rows
     .filter((row) => !row.ok)
-    .map((row) => ({
-      entityType: 'repo' as const,
-      entityKey: row.invariant_key,
-      ruleKey: invariantRuleKey(row.invariant_key),
-      title: `Schema invariant failed: ${row.invariant_key.replace(/_/g, ' ')}`,
-      detail: row.detail,
+    .map((row) => {
+      const verdict = exceptionFor(row.invariant_key, now);
+      const base = {
+        entityType: 'repo' as const,
+        entityKey: row.invariant_key,
+        ruleKey: invariantRuleKey(row.invariant_key),
+        title: `Schema invariant failed: ${row.invariant_key.replace(/_/g, ' ')}`,
+        evidence: {
+          invariant: row.invariant_key,
+          source: 'docs/legacy-schema-security-audit.md',
+          critical: CRITICAL_INVARIANTS.has(row.invariant_key),
+        },
+      };
+
+      if (verdict.kind === 'active') {
+        return {
+          ...base,
+          title: `${base.title} (accepted until ${verdict.exception.expires})`,
+          detail: row.detail + activeExceptionDetail(verdict.exception),
+          evidence: {
+            ...base.evidence,
+            exception: {
+              owner: verdict.exception.owner,
+              expires: verdict.exception.expires,
+              status: 'active',
+            },
+          },
+          snoozeUntil: verdict.expiresAt.toISOString(),
+        };
+      }
+
+      if (verdict.kind === 'expired') {
+        return {
+          ...base,
+          title: `${base.title} — accepted exception EXPIRED`,
+          detail: row.detail + expiredExceptionDetail(verdict.exception),
+          evidence: {
+            ...base.evidence,
+            exception: {
+              owner: verdict.exception.owner,
+              expires: verdict.exception.expires,
+              status: 'expired',
+            },
+          },
+        };
+      }
+
+      return { ...base, detail: row.detail };
+    });
+
+  // An exception governing an invariant that now PASSES is stale, and a stale
+  // exception is not harmless: it is a standing permission to break something
+  // that is currently fine, which nobody will notice has outlived its reason
+  // until the invariant fails again and quietly files itself as pre-accepted.
+  //
+  // Low severity — nothing is broken — but it belongs in the same list, because
+  // the register is only trustworthy if it is also checked.
+  const asserted = new Set(rows.map((r) => r.invariant_key));
+  const passing = new Set(rows.filter((r) => r.ok).map((r) => r.invariant_key));
+
+  for (const exception of SCHEMA_EXCEPTIONS) {
+    // Only judge what this run actually asserted. An exception naming an
+    // invariant the function no longer returns is a different problem, and
+    // guessing at it from a run that may itself be broken is how a check starts
+    // reporting on things it cannot see.
+    if (!asserted.has(exception.invariantKey)) continue;
+    if (!passing.has(exception.invariantKey)) continue;
+
+    findings.push({
+      entityType: 'repo',
+      entityKey: exception.invariantKey,
+      ruleKey: STALE_EXCEPTION_RULE,
+      title: `Accepted exception is no longer needed: ${exception.invariantKey.replace(/_/g, ' ')}`,
+      detail:
+        `The invariant "${exception.invariantKey}" now passes on production, but an accepted ` +
+        `exception for it is still recorded in src/lib/trust/exceptions.ts, owned by ` +
+        `${exception.owner} and running until ${exception.expires}. Delete the entry — an ` +
+        `exception left behind is a standing permission to break this again without anyone ` +
+        `being told.`,
       evidence: {
-        invariant: row.invariant_key,
-        source: 'docs/legacy-schema-security-audit.md',
-        critical: CRITICAL_INVARIANTS.has(row.invariant_key),
+        invariant: exception.invariantKey,
+        owner: exception.owner,
+        expires: exception.expires,
       },
-    }));
+    });
+  }
+
+  return findings;
 }
 
 export const schemaInvariantsCheck: TrustCheck = {
@@ -81,6 +189,6 @@ export const schemaInvariantsCheck: TrustCheck = {
     // Scope is the number of invariants ASSERTED, not the number that failed.
     // Zero means the function returned nothing — which for a security check is
     // the worst possible silence, and reconciliation refuses to resolve on it.
-    return { scopeCount: rows.length, findings: deriveInvariantFindings(rows) };
+    return { scopeCount: rows.length, findings: deriveInvariantFindings(rows, ctx.now) };
   },
 };

@@ -89,6 +89,9 @@ export const SCHEMA_INVARIANT_RULES = [
   'schema_segment_cache_no_public_mutation',
   'schema_admin_policies_use_is_admin',
   'schema_alert_subscription_kind_matches_api',
+  // Not an invariant the SQL asserts — a fact about the register that governs
+  // them. See src/lib/trust/exceptions.ts.
+  'schema_exception_unnecessary',
 ] as const;
 
 /** Filed by the ledger against itself when a run refuses to reconcile. */
@@ -200,6 +203,10 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   direction_unverified: 'low',
   headwaters_flag_unset: 'low',
   coordinate_count_very_low: 'low',
+  // Nothing is broken — the invariant passes. But an exception left behind is a
+  // standing permission to break it again with the finding arriving
+  // pre-accepted, so it belongs in the list rather than in nobody's memory.
+  schema_exception_unnecessary: 'low',
 };
 
 /**
