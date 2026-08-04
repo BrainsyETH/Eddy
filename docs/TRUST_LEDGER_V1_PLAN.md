@@ -42,6 +42,7 @@ recorded:
 | `20260804193041` | `trust_apply_reconcile()` — one run, one transaction |
 | `20260804193216` | take EXECUTE on it away from `anon`/`authenticated` |
 | `20260804193348` | restore the function's inline commentary |
+| `20260804200632` | `trust_findings.resolution` — why a finding closed |
 
 All three were developed against a scratch PostgreSQL 16 before going anywhere
 near production: the constraints were confirmed to reject each inconsistent
@@ -115,6 +116,19 @@ The console shows the worst twenty-five by default with the rest one click away.
 > using machinery reconciliation already respects. Auto-close is kept for
 > orphans, where nothing will ever resolve them and it is the only correct
 > answer.
+
+The resolution column is applied. Its trigger was verified against production
+inside a rolled-back transaction, the way `20260804175222` was: a close that
+said nothing came back `auto_resolved`, a `false_positive` set by hand survived
+untouched, and reopening cleared it — then the transaction aborted and the
+finding counts were confirmed unchanged. The trigger function's body matches the
+source file byte for byte (`3013216f…`), and both constraints came back
+`convalidated`.
+
+The 24 findings that closed before the column existed keep `resolution = NULL`,
+which is the honest value: this question was not asked when they closed. They
+count as neither reviewed nor unreviewed, so the first false-positive rate will
+be computed entirely from decisions made after today.
 
 `GET /api/admin/trust/review` computes all of it, and the console renders it.
 What still has no mechanism: hours saved net of review time, and the 15-minute
