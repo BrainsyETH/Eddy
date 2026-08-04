@@ -1,6 +1,13 @@
 -- 20260804214409_meramec_cook_station_high_below_dangerous.sql
 --
--- NOT YET APPLIED. Run in the SQL editor, then record the version.
+-- APPLIED to production 2026-08-04 as 20260804214409.
+--
+-- Executed as a single transaction (UPDATE + the assertion block below), then
+-- recorded in supabase_migrations.schema_migrations under this file's own
+-- version so local and remote histories stay identical for the drift gate.
+-- Pre-flight confirmed the row still read 1.00/1.50/2.00/4.00/5.50/5.50 and
+-- last_condition_code was already null; validate_river_data() now returns no
+-- threshold_order row for this gauge.
 --
 -- Clear the threshold_order finding on meramec / "Meramec River at Cook
 -- Station, MO" (ft) by moving level_high, which is the line that is wrong.
