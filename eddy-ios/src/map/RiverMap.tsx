@@ -59,6 +59,7 @@ import type {
 import {
   accessPointTypes,
   accessTypeLabel,
+  campsiteAvailabilityLine,
   hasCoordinates,
   isCampground,
   PUBLIC_LAND_ACCESS_STYLE,
@@ -749,9 +750,28 @@ export function RiverMap({
           id: `camp-service:${s.id}`,
           name: s.name,
           layer: 'campgrounds' as const,
-          subtitle: [s.city, s.state].filter(Boolean).join(', ') || 'Campground',
+          subtitle:
+            [
+              [s.city, s.state].filter(Boolean).join(', ') || 'Campground',
+              s.managingAgency,
+            ]
+              .filter(Boolean)
+              .join(' · '),
           coordinates: { lng: s.longitude as number, lat: s.latitude as number },
-          body: s.description,
+          // AVAILABILITY FIRST, when there is any. For somewhere to sleep this
+          // weekend it is the whole question, and the description below it is
+          // the same sentence it was last season. Most rows have none — Eddy
+          // reads the booking systems it can — and null is emphatically not
+          // "full", which is why the wording only ever comes from
+          // campsiteAvailabilityLine.
+          //
+          // This is where a Missouri State Park's inventory surfaces at all:
+          // campsite_facilities hangs off a nearby_services row, so a state
+          // park has no nps_campgrounds record and reaches the map through
+          // here or nowhere.
+          body: [campsiteAvailabilityLine(s.availability, s.name), s.description]
+            .filter(Boolean)
+            .join('\n\n') || null,
           link: serviceLink(s),
         })),
     ];

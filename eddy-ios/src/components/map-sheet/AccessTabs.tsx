@@ -16,6 +16,7 @@ import type {
   AccessPointDetailResponse,
   MapAccessPoint,
   NearbyAccessPoint,
+  NpsCampgroundSummary,
 } from '@eddy/types';
 import { accessPointTypes, accessTypeLabel, campsiteAvailabilityLine } from '@eddy/types';
 import { conditionBg, conditionChipBorder, conditionInk, conditionText } from '@/theme/conditions';
@@ -253,8 +254,29 @@ export function AccessCampingTab({ detail }: TabProps) {
           label="First come"
           value={nps && nps.sitesFirstCome > 0 ? String(nps.sitesFirstCome) : null}
         />
-        <Fact label="Fees" value={point.feeNotes ?? (point.feeRequired ? 'Fee required' : null)} />
+        {/* The mix, when the record breaks it down. What decides a trip is not
+            how many sites there are but whether one of them takes a camper or
+            can only be reached by boat. Zero and absent are both left out —
+            "RV sites: 0" is a sentence about the database. */}
+        <Fact label="Tent only" value={countOrNull(nps?.sitesTentOnly)} />
+        <Fact label="RV only" value={countOrNull(nps?.sitesRvOnly)} />
+        <Fact label="Electric" value={countOrNull(nps?.sitesElectrical)} />
+        <Fact label="Group" value={countOrNull(nps?.sitesGroup)} />
+        <Fact label="Walk or boat in" value={countOrNull(nps?.sitesWalkBoatTo)} />
+        <Fact label="Fees" value={feeLine(nps, point)} />
       </Section>
+
+      {/* Only the ones that are a yes. A grid of "Dump station: No" is a
+          checklist of what a place is not. */}
+      <Chips labels={campAmenities(nps)} />
+
+      {nps?.operatingHours?.length ? (
+        <Section title="Season">
+          {nps.operatingHours.map((hours) => (
+            <Prose key={hours.name || hours.description}>{hours.description}</Prose>
+          ))}
+        </Section>
+      ) : null}
 
       <Prose>{nps?.reservationInfo ?? null}</Prose>
 
@@ -356,6 +378,56 @@ export function AccessDetailsTab({ detail, onOpenDetail }: TabProps) {
 }
 
 /* ── Shared derivations ─────────────────────────────────────────────────── */
+
+/** Absent for both "none" and "not recorded", which a camper reads the same. */
+function countOrNull(count: number | null | undefined): string | null {
+  return count && count > 0 ? String(count) : null;
+}
+
+/**
+ * What it costs, preferring the campground's own fee table over the access
+ * point's note — the table is the specific answer and the note is often the
+ * park's, not the campground's.
+ */
+function feeLine(
+  nps: NpsCampgroundSummary | null,
+  point: { feeNotes: string | null; feeRequired: boolean },
+): string | null {
+  const paid = nps?.fees?.filter((fee) => fee.cost && fee.cost !== '0.00') ?? [];
+  if (paid.length) {
+    return paid.map((fee) => `$${fee.cost} ${fee.title}`.trim()).join(' · ');
+  }
+  return point.feeNotes ?? (point.feeRequired ? 'Fee required' : null);
+}
+
+/** The amenities a campground HAS. See the call site for why only those. */
+function campAmenities(nps: NpsCampgroundSummary | null): string[] {
+  const a = nps?.amenities;
+  if (!a) return [];
+  const out: string[] = [];
+  if (a.toilets?.some(present)) out.push('Toilets');
+  if (a.showers?.some(present)) out.push('Showers');
+  if (a.potableWater?.some(present)) out.push('Drinking water');
+  if (present(a.campStore)) out.push('Camp store');
+  if (present(a.firewoodForSale)) out.push('Firewood');
+  if (present(a.dumpStation)) out.push('Dump station');
+  if (present(a.trashCollection)) out.push('Trash collection');
+  if (present(a.cellPhoneReception)) out.push('Cell reception');
+  return out;
+}
+
+/**
+ * The NPS API answers these in prose, not booleans.
+ *
+ * "None", "No" and "" all mean absent; anything else — "Flush Toilets",
+ * "Yes - year round" — means the place has one. Treating a non-empty string as
+ * truthy would put "No cell reception" on the card as a feature.
+ */
+function present(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const normalised = value.trim().toLowerCase();
+  return normalised !== '' && normalised !== 'no' && normalised !== 'none' && normalised !== 'unknown';
+}
 
 /** Places to sleep near this put-in, whoever runs them. */
 function nearbyCamping(detail: AccessPointDetailResponse | null) {
