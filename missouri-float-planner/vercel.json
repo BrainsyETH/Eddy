@@ -27,6 +27,9 @@
     },
     "src/app/api/cron/trust-tick/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/admin/trust/run/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
