@@ -108,7 +108,7 @@ test('the river list is sorted so the detail does not churn', () => {
   assert.equal(a[0].detail, b[0].detail);
 });
 
-test('a station with no label falls back to its id rather than an empty key', () => {
+test('a station with no label still keys on its id rather than an empty string', () => {
   // entityKey is half the fingerprint; an empty one would collide every
   // unlabelled station onto a single finding.
   const findings = deriveDualPrimaryFindings([
@@ -116,4 +116,29 @@ test('a station with no label falls back to its id rather than an empty key', ()
     link({ gaugeLabel: '', riverSlug: 'b', distanceFromSectionMiles: null }),
   ]);
   assert.equal(findings[0].entityKey, 'station-1');
+});
+
+test('renaming the station does not change the finding identity', () => {
+  // The regression this file most needs to hold. entityKey used to be
+  // `entry.label || stationId`, and the label embeds an editorial name — so
+  // editing "at Scotia" to "near Scotia" changed the fingerprint, resolved the
+  // open finding as fixed, and opened an identical new one. The recurrence
+  // count reset and "unresolvable since March" read as "found last night".
+  //
+  // normalizeEntityKey() cannot save this: "at" and "near" are different
+  // tokens, and no amount of case-folding makes them equal.
+  const before = deriveDualPrimaryFindings([
+    link({ gaugeLabel: 'Huzzah Creek at Scotia (07014000)', riverSlug: 'a', distanceFromSectionMiles: null }),
+    link({ gaugeLabel: 'Huzzah Creek at Scotia (07014000)', riverSlug: 'b', distanceFromSectionMiles: null }),
+  ]);
+  const after = deriveDualPrimaryFindings([
+    link({ gaugeLabel: 'Huzzah Creek near Scotia (07014000)', riverSlug: 'a', distanceFromSectionMiles: null }),
+    link({ gaugeLabel: 'Huzzah Creek near Scotia (07014000)', riverSlug: 'b', distanceFromSectionMiles: null }),
+  ]);
+
+  assert.equal(before[0].entityKey, after[0].entityKey);
+  assert.equal(after[0].entityKey, 'station-1');
+  // The name still reaches the operator — it just does not carry identity.
+  assert.match(after[0].title, /near Scotia/);
+  assert.equal(after[0].evidence!.gaugeStationId, 'station-1');
 });

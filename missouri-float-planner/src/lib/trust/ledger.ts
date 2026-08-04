@@ -275,7 +275,12 @@ export async function runTrustCheck(
         await mustWrite(
           supabase
             .from('trust_findings')
-            .update({ status: 'resolved', resolved_at: nowIso, last_run_id: runId })
+            .update({
+              status: 'resolved',
+              resolved_at: nowIso,
+              snoozed_until: null,
+              last_run_id: runId,
+            })
             .in('id', ids),
           `could not resolve ${ids.length} finding(s) for ${check.id}`,
         );
@@ -303,7 +308,12 @@ export async function runTrustCheck(
       await mustWrite(
         supabase
           .from('trust_findings')
-          .update({ status: 'resolved', resolved_at: nowIso, last_run_id: runId })
+          .update({
+            status: 'resolved',
+            resolved_at: nowIso,
+            snoozed_until: null,
+            last_run_id: runId,
+          })
           .eq('check_id', check.id)
           .eq('rule_key', 'reconcile_anomaly')
           .neq('status', 'resolved'),
@@ -421,6 +431,7 @@ async function writeReconcileAnomaly(
     evidence: finding.evidence ?? {},
     last_seen_at: args.nowIso,
     resolved_at: null,
+    snoozed_until: null,
     last_run_id: args.runId,
   };
 

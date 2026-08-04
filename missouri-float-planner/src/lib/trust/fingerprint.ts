@@ -18,13 +18,30 @@ export interface FingerprintInput {
 /**
  * Collapses an entity key to a stable token.
  *
- * Mostly this is a no-op on slugs, which are already normalized. It exists for
- * one specific wart: validate_river_data()'s `gauge_missing_site_id` rule
- * returns `COALESCE(r.slug, gs.name)` (00164_harden_river_validation.sql:180),
- * so that one rule's key can be a human gauge NAME — "Current River at Van
- * Buren" — rather than a slug. Without normalization, an editorial rename of a
- * gauge would fork the finding's identity: the old one would resolve as fixed
- * and an identical new one would open, both wrongly.
+ * Mostly a no-op on slugs and ids, which are already normalized. It exists to
+ * absorb incidental differences in how the same key is spelled between runs:
+ * case, punctuation, and runs of whitespace.
+ *
+ * ── What it does NOT do ─────────────────────────────────────────────────
+ *
+ * This comment used to claim it made human-facing keys rename-safe, on the
+ * strength of validate_river_data()'s `gauge_missing_site_id` rule returning
+ * `COALESCE(r.slug, gs.name)`. That claim was wrong, and the test beneath it
+ * only ever demonstrated the cosmetic case.
+ *
+ * Normalization cannot survive an EDITORIAL rename, because the tokens change:
+ * "Current River at Van Buren" and "Current River near Van Buren" normalize to
+ * different strings, and always will. Nothing here can fix that — the only fix
+ * is not to key on prose in the first place.
+ *
+ * So both callers that were doing so no longer do. The SQL rule now returns
+ * `gs.id` (20260804193100_validate_river_data_stable_gauge_key.sql) and
+ * gauge_wiring keys on the station id rather than its label. Display names live
+ * in `title` and `detail`, which are excluded from the fingerprint on purpose.
+ *
+ * Keep this function anyway: it is cheap, it is correct for what it claims now,
+ * and a future rule keyed on something semi-structured should not have to
+ * rediscover that trailing whitespace forks an identity.
  */
 export function normalizeEntityKey(raw: string): string {
   return raw

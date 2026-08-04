@@ -25,11 +25,15 @@ interface ValidateRow {
 /**
  * Rules whose subject is a gauge rather than a river.
  *
- * `gauge_missing_site_id` selects COALESCE(r.slug, gs.name)
- * (00164_harden_river_validation.sql:180), so its "river_slug" may be a gauge's
- * display name. Filing it under entityType 'gauge' keeps it from colliding with
- * a river of a similar name, and normalizeEntityKey() in fingerprint.ts absorbs
- * the renaming that a human-facing name invites.
+ * `gauge_missing_site_id` is about a gauge_stations row, so it is filed under
+ * entityType 'gauge' — which also keeps it from colliding with a river of a
+ * similar name.
+ *
+ * Its key is now the gauge station's UUID
+ * (20260804193100_validate_river_data_stable_gauge_key.sql). It used to be
+ * COALESCE(r.slug, gs.name), which meant an unlinked gauge was identified by
+ * its DISPLAY NAME — so an editorial rename forked the finding's identity — and
+ * a gauge linked to two rivers produced two findings for one problem.
  */
 const GAUGE_SCOPED_RULES = new Set(['gauge_missing_site_id']);
 
@@ -39,9 +43,17 @@ export function toRawFinding(row: ValidateRow): RawFinding {
     entityType: isGaugeScoped ? 'gauge' : 'river',
     entityKey: row.river_slug,
     ruleKey: row.check_name,
-    title: `${row.river_slug}: ${row.check_name.replace(/_/g, ' ')}`,
+    // A stable key is the right thing to fingerprint and the wrong thing to
+    // show a person: for the gauge-scoped rules it is a UUID. The SQL puts the
+    // station's name in the detail precisely so the title can stay readable
+    // without the fingerprint depending on it.
+    title: isGaugeScoped ? row.detail : `${row.river_slug}: ${row.check_name.replace(/_/g, ' ')}`,
     detail: row.detail,
-    evidence: { sqlSeverity: row.severity, source: 'validate_river_data()' },
+    evidence: {
+      sqlSeverity: row.severity,
+      source: 'validate_river_data()',
+      ...(isGaugeScoped ? { gaugeStationId: row.river_slug } : {}),
+    },
   };
 }
 

@@ -61,7 +61,18 @@ export function deriveDualPrimaryFindings(links: GaugeRiverLink[]): RawFinding[]
       .sort();
     findings.push({
       entityType: 'gauge',
-      entityKey: entry.label || stationId,
+      // The station id, never the label.
+      //
+      // The label is `${name} (${usgs_site_id})` and the name is editorial —
+      // "Current River at Van Buren" is a sentence somebody typed. Keying on it
+      // meant a cosmetic rename changed the fingerprint, which resolves the old
+      // finding as fixed and opens an identical new one: the recurrence count
+      // resets and "unresolvable since March" reads as "found last night".
+      //
+      // The stable id was right here the whole time — the check groups BY it —
+      // and it goes in the evidence too, so the console can still show which
+      // station without the identity depending on how it is spelled.
+      entityKey: stationId,
       ruleKey: 'gauge_dual_primary',
       title: `${entry.label}: primary for ${entry.links.length} rivers with no tiebreak`,
       detail: `Primary for ${rivers.join(', ')}. Sharing a gauge is fine — Courtois borrows Huzzah's — but these links cannot be ordered by distance_from_section_miles, so the code falls back to alphabetical order when asked which river this gauge is on. Set the distances, or demote one link.`,
@@ -76,7 +87,9 @@ export function deriveDualPrimaryFindings(links: GaugeRiverLink[]): RawFinding[]
   }
 
   // Deterministic order so a run's output does not churn on Map iteration.
-  return findings.sort((a, b) => a.entityKey.localeCompare(b.entityKey));
+  // Sorted by title rather than entityKey now that the key is an opaque id:
+  // the console reads titles, and a station-id ordering is arbitrary to a human.
+  return findings.sort((a, b) => a.title.localeCompare(b.title));
 }
 
 export const gaugeWiringCheck: TrustCheck = {

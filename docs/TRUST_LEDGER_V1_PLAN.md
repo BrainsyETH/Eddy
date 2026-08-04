@@ -12,9 +12,9 @@
 ## What shipped
 
 `missouri-float-planner/src/lib/trust/` — contracts, fingerprinting,
-reconciliation, severity, remediation, registry, ledger writer — plus **five
+reconciliation, severity, remediation, registry, ledger writer — plus **six
 checks**: `validate_river_data`, `river_geometry`, `eddy_knowledge`,
-`gauge_wiring`, `schema_invariants`. The `/api/cron/trust-tick` hourly drain,
+`gauge_wiring`, `schema_invariants`, `ledger_heartbeat`. The `/api/cron/trust-tick` hourly drain,
 and `/admin/trust` with snooze / resolve / reopen and per-finding remediation.
 `/api/admin/river-health` consumes the extracted geometry check, so the page and
 the scheduled check cannot drift.
@@ -31,6 +31,35 @@ Applied migrations, under the versions `schema_migrations` recorded:
 
 Also recorded `20260803170000` by repair — it had been applied by hand and never
 written to `schema_migrations`.
+
+**Written but NOT yet applied.** These two are in the repository and covered by
+tests; neither has been run against production, and `make check-db` will report
+drift until they are:
+
+| Version | What |
+| --- | --- |
+| `20260804193000` | `trust_findings` lifecycle CHECK constraints |
+| `20260804193100` | `validate_river_data()` keys the gauge rule on `gs.id` |
+
+### Accepted one-time re-fingerprinting
+
+`20260804193100` and the matching change in `gauge_wiring` move two rules off
+human-readable entity keys and onto stable ids. A finding's identity is
+`sha256(check_id | entity_type | entity_key | rule_key)`, so both rules'
+existing open findings change fingerprint: the next run resolves the old rows
+and raises equivalent new ones.
+
+That churn is deliberate and was chosen over a backfill. A backfill would have
+to derive the old-to-new mapping from live data and would be correct only if it
+ran before the next check pass — more moving parts, and a worse failure mode,
+than one legible discontinuity in a finding population of a few dozen.
+
+What it costs: `first_seen_at` and `occurrences` reset for the affected
+findings, so anything that was "broken since March" reads as new on the first
+run after these migrations apply. Nothing else in the ledger is affected, and
+the identities are stable from that point on — which is the entire reason for
+the change. The old keys forked on an editorial rename, which produced the same
+reset silently and repeatedly, with no record that it had happened.
 
 ## What the first day actually found
 
@@ -343,7 +372,7 @@ critical**, whichever table the defect lives in.
 | **medium** | `access_point_offline`, `access_point_not_snapped`, `mileage_order_mismatch`, `mileage_equals_length`, `missing_river_type`, `missing_characteristics`, `missing_timezone`, `missing_state`, river-health *missing length_miles / low coords-per-mile / no geometry data / failed to read geometry / no gauge stations linked* |
 | **low** | `missing_weather_point`, `missing_alert_terms`, `knowledge_missing_section`, river-health *flow direction not verified / headwaters flag not set / very low coordinate density* |
 
-A unit test asserts **exhaustiveness**: every one of the 19 `validate_river_data`
+A unit test asserts **exhaustiveness**: every one of the 20 `validate_river_data`
 check names and every river-health issue string has a mapping, so a new SQL check
 cannot land unclassified.
 
@@ -377,7 +406,7 @@ export interface TrustCheckResult { scopeCount: number; findings: RawFinding[] }
 
 | id | Source | Cost | Notes |
 |---|---|---|---|
-| `validate_river_data` | `supabase.rpc('validate_river_data')` | 1 round-trip, 19 rules | Already exists; wrapping only |
+| `validate_river_data` | `supabase.rpc('validate_river_data')` | 1 round-trip, 20 rules | Already exists; wrapping only |
 | `river_geometry` | **extracted** from `src/app/api/admin/river-health/route.ts` | expensive — N+3 round-trips/river | Scope to `active = true` (the route currently scans all rivers) |
 | `eddy_knowledge` | `listKnowledgeRiverSlugs()` / `getGeneralKnowledge()` from `src/lib/eddy/knowledge.ts` | cheap | Verify the `.md` read works in the Vercel bundle — it is already used from cron routes, so it should, but confirm on first deploy |
 | `gauge_wiring` | one query on `river_gauges` | cheap | **The only new detection logic.** Flags any `gauge_station` that is `is_primary = true` for more than one river |
@@ -568,7 +597,7 @@ invisible to CI.
   across rule/entity; `normalizeEntityKey` handles the gauge-name case
 - `src/lib/trust/reconcile.test.ts` — insert/touch/resolve; **and each suppression
   path**: `check_error`, `empty_scope`, `mass_resolve`; snoozed never auto-resolved
-- `src/lib/trust/severity.test.ts` — exhaustive mapping over all 19
+- `src/lib/trust/severity.test.ts` — exhaustive mapping over all 20
   `validate_river_data` check names and all river-health issue strings
 - `src/lib/calculations/float-time-parity.test.ts` — plan / chat / social agree (B2)
 - a guard test that `STALE_READING_HOURS` is defined exactly once (B4)

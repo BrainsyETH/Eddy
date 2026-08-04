@@ -12,7 +12,7 @@
 -- Two tables that give Eddy's EXISTING data-quality checks a heartbeat and a
 -- memory. They add no detection of their own.
 --
--- The checks already exist and are good. validate_river_data() (00164) runs 19
+-- The checks already exist and are good. validate_river_data() (00164) runs 20
 -- of them. /api/admin/river-health emits ten more. src/lib/alerts/gate.ts is a
 -- unit-tested stale/suspect/flatline detector. What none of them have is a
 -- schedule and a place to remember what they said last time, so every run
