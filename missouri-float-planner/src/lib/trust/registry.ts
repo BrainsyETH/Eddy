@@ -11,6 +11,7 @@ import type { TrustCheck } from './types';
 import { validateRiverDataCheck } from './checks/validate-river-data';
 import { riverGeometryCheck } from './checks/river-geometry';
 import { eddyKnowledgeCheck } from './checks/eddy-knowledge';
+import { floatSummaryCheck } from './checks/float-summary';
 import { gaugeWiringCheck } from './checks/gauge-wiring';
 import { schemaInvariantsCheck } from './checks/schema-invariants';
 import { ledgerHeartbeatCheck } from './checks/ledger-heartbeat';
@@ -20,6 +21,7 @@ export const TRUST_CHECKS: readonly TrustCheck[] = [
   validateRiverDataCheck,
   riverGeometryCheck,
   eddyKnowledgeCheck,
+  floatSummaryCheck,
   gaugeWiringCheck,
   schemaInvariantsCheck,
   ledgerHeartbeatCheck,

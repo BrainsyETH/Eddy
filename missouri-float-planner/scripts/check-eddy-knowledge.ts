@@ -42,14 +42,30 @@ import { listKnowledgeRiverSlugs, getGeneralKnowledge } from '../src/lib/eddy/kn
   if (url && key) {
     const { createClient } = await import('@supabase/supabase-js');
     const db = createClient(url, key);
-    const { data, error } = await db.from('rivers').select('slug').eq('active', true);
+    const { data, error } = await db.from('rivers').select('slug, active');
     if (error) {
-      fail(`could not read active rivers: ${error.message}`);
+      fail(`could not read rivers: ${error.message}`);
     } else {
-      for (const r of data ?? []) {
+      const rivers = data ?? [];
+      const active = rivers.filter((r) => r.active);
+      for (const r of active) {
         if (!known.has(r.slug)) fail(`active river "${r.slug}" has no "## " section in EDDY_KNOWLEDGE.md`);
       }
-      console.log(`  ✓ ${data?.length ?? 0} active rivers checked against ${known.size} knowledge sections`);
+
+      // (3) Orphan sections. A heading whose slug matches NO river — active or
+      // not — is nearly always a heading that lost its `{#anchor}`: "## Big
+      // River" derives "big", which is nobody. That fails the same silent way
+      // a missing section does, except from the other direction, so name it.
+      // Only a warning: knowledge written ahead of a launch is legitimate.
+      const allSlugs = new Set(rivers.map((r) => r.slug));
+      const orphans = [...known].filter((s) => !allSlugs.has(s));
+      if (orphans.length > 0) {
+        console.warn(
+          `  ⚠️  knowledge sections match no river: ${orphans.join(', ')} — ` +
+          'check the {#slug} anchor on those headings (a bare "## Big River" derives "big").',
+        );
+      }
+      console.log(`  ✓ ${active.length} active rivers checked against ${known.size} knowledge sections`);
     }
   } else {
     console.warn('  ⚠️  SUPABASE creds not set — skipping the active-river cross-check (file checks still ran).');

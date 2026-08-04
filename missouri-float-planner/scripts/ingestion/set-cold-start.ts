@@ -7,8 +7,15 @@
  *
  * Prose is written from the finalized dossier thresholds:
  *   elk  07189000 [ft]  too_low 2.5 / optimal 3.5-5 / dangerous 6
- *   james 07052500 [cfs] optimal 180-937 / high 3079 / dangerous 4410 ; Boaz 07052250 opt_min 150
- *   north-fork-white 07057500 [cfs] optimal 282-811 / high 1000 / dangerous 8440
+ *   james 07052500 [cfs] optimal 358-921 / high 921 / dangerous 3000 ; Boaz 07052250 opt_min 150
+ *   north-fork-white 07057500 [cfs] optimal 628-1000 / high 1000 / dangerous 2200
+ *
+ * The james and north-fork ladders above were RECALIBRATED by migration 00177,
+ * which retired their old danger lines (4,410 and 8,440) as flood-anchored
+ * numbers that UNDER-warn. This file kept the pre-00177 prose and would have
+ * reverted the fix on the next run; 20260804210000 corrects the rows and
+ * src/lib/trust/checks/float-summary.ts now fails when prose drifts again.
+ * Re-read river_gauges before editing any number here.
  *   spring-river 07069305 [cfs] optimal 206-694 (no dangerous anchor — prose avoids a number)
  */
 import { createAdminClient } from '../../src/lib/supabase/admin';
@@ -39,9 +46,10 @@ const META: Meta[] = [
   {
     slug: 'james',
     float_summary:
-      "At the Galena gauge (primary), 180–937 cfs is the ideal range for the classic " +
-      "Hootentown-to-Galena float. Above ~3,079 cfs the James runs high and fast; " +
-      "4,410 cfs and up is dangerous—choose another day. On the upper river near " +
+      "At the Galena gauge (primary), 358–921 cfs is the ideal range for the classic " +
+      "Hootentown-to-Galena float. Below ~180 cfs it's low, and below ~97 cfs you'll drag. " +
+      "Above 921 cfs the James runs high and fast, and 3,000 cfs and up is dangerous—choose " +
+      "another day. On the upper river near " +
       "Springfield (Boaz gauge), you'll want at least ~150 cfs to avoid dragging.",
     float_tip:
       "The upper James above Galena drops quickly in summer. In low water, put in at " +
@@ -51,9 +59,10 @@ const META: Meta[] = [
   {
     slug: 'north-fork-white',
     float_summary:
-      "At the Tecumseh gauge (primary), 282–811 cfs is the ideal float range. " +
-      "Above ~1,000 cfs the North Fork runs high and cold; it becomes dangerous near " +
-      "8,440 cfs. Spring-fed baseflow from Rainbow and Blue Springs keeps it floatable " +
+      "At the Tecumseh gauge (primary), 628–1,000 cfs is the ideal float range. " +
+      "Around 475 cfs it's low, and below ~285 cfs you'll drag. Above 1,000 cfs the North " +
+      "Fork runs high and cold, and 2,200 cfs and up is dangerous. " +
+      "Spring-fed baseflow from Rainbow and Blue Springs keeps it floatable " +
       "most of the year, but it can jump quickly after heavy rain.",
     float_tip:
       "Scout or portage The Falls (a ledge drop in front of River of Life Farm, ~mile 37) " +
