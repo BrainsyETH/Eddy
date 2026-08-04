@@ -118,6 +118,26 @@ interface Props {
   /** Null renders nothing at all — the caller has no station to chart. */
   siteId: string | null;
   /**
+   * Whether touch-and-drag reads out the value under your finger.
+   *
+   * OFF INSIDE THE MAP SHEET, and that is a gesture-arbitration fact rather
+   * than a design preference. The scrub is a PanResponder that claims on
+   * touch-down (see the note above), and the sheet puts the chart inside two
+   * react-native-gesture-handler pans — the pager horizontally, the sheet
+   * vertically. RNGH cancels the RN responder the moment one of its own
+   * gestures activates, so a horizontal scrub would be stolen by the pager
+   * ~12pt in: the readout would follow your finger briefly and then vanish
+   * while the page turned underneath it. A chart that scrubs unreliably is
+   * worse than one that plainly does not.
+   *
+   * The honest fix is to port the scrub to Gesture.Pan() and declare the
+   * relation to those two explicitly, at which point this prop should be
+   * deleted rather than defaulted. That is a change to the shape of a
+   * component the gauge screen depends on, and it wants a device to verify —
+   * so it is not being made blind here.
+   */
+  scrubbable?: boolean;
+  /**
    * The unit to OPEN on. Comes from the river's ladder where there is one, so
    * the chart and the reading above it start out saying the same thing.
    *
@@ -180,6 +200,7 @@ function GaugeChartInner({
   thresholds = null,
   floodStages = null,
   title,
+  scrubbable = true,
 }: Props) {
   const { colors, elevation, isDark } = useTheme();
   const [days, setDays] = useState<number>(7);
@@ -485,7 +506,7 @@ function GaugeChartInner({
 
       <View style={styles.plotWrap} onLayout={onLayout}>
         {width > 0 && hasPlot ? (
-          <View {...pan.panHandlers}>
+          <View {...(scrubbable ? pan.panHandlers : null)}>
             <Svg width={width} height={CHART_HEIGHT}>
               {/* ── The bands, at their true numeric height ── */}
               {zones.map((zone) => {

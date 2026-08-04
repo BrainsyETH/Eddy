@@ -94,7 +94,7 @@ import { usePublicLands } from '@/hooks/usePublicLands';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
 import { gaugePlaceLabel } from '@/lib/gaugeCondition';
-import { readingAge } from '@/lib/readingCopy';
+import { formatReading, readingAge } from '@/lib/readingCopy';
 import { readRiver } from '@/lib/riverCache';
 import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
 import { rememberGauge, seedFromMapGauge, seedFromMapGaugeLite } from '@/lib/gaugeSeed';
@@ -104,7 +104,7 @@ import { useEddySearch } from '@/hooks/useEddySearch';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { milesBetween, useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
-import { riverBounds } from '@/lib/statewideNetwork';
+import { gradeGauge, readingIndex, riverBounds } from '@/lib/statewideNetwork';
 import { warn } from '@/lib/monitoring';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
@@ -126,6 +126,7 @@ import {
 import { PlanSheet } from '@/components/PlanSheet';
 import { MapSheet } from '@/components/map-sheet/MapSheet';
 import { PinSheet } from '@/components/map-sheet/PinSheet';
+import { RiverSheetPanel } from '@/components/map-sheet/RiverSheetPanel';
 
 /**
  * How far above the map's bottom edge everything floating has to sit.
@@ -860,6 +861,72 @@ export default function MapScreen() {
    * point the take-out — floating downhill is not negotiable, and offering the
    * pair the other way round would build a trip nobody can take.
    */
+  /**
+   * Everything the river sheet renders, assembled from what is already here.
+   *
+   * No request: the statewide network carries each river's gauges and their
+   * ladders, and this screen already holds every access point and hazard it
+   * draws. Tapping a river is the cheapest thing you can do on this map and it
+   * stays that way.
+   */
+  const gaugeNameFor = useCallback(
+    (siteId: string) => {
+      const known = (gauges ?? []).find((g) => g.usgsSiteId === siteId);
+      return known ? gaugePlaceLabel(known.name) : `USGS ${siteId}`;
+    },
+    [gauges],
+  );
+
+  const riverSheetData = useMemo(() => {
+    if (!selectedSlug) return null;
+    const river = network.bySlug.get(selectedSlug);
+    if (!river) return null;
+
+    const index = readingIndex(network.readings ?? []);
+    const gauges = (river.gauges ?? []).map((gauge) => {
+      const reading = index.get(`${river.id}:${gauge.site_id}`) ?? index.get(gauge.site_id) ?? null;
+      const unit = gauge.threshold_unit;
+      const value =
+        unit === 'ft'
+          ? reading?.gaugeHeightFt ?? null
+          : unit === 'cfs'
+            ? reading?.dischargeCfs ?? null
+            : null;
+      return {
+        siteId: gauge.site_id,
+        // StatewideRiverGauge carries no name — only a site id. The curated
+        // list this screen already holds does, so it is the one asked; a bare
+        // "USGS 07064533" is a row about a database.
+        name: gaugeNameFor(gauge.site_id),
+        // Graded against THIS river's ladder — one physical gauge can be
+        // primary for two rivers with different thresholds, and the same
+        // number is a different verdict on each.
+        code: gradeGauge(river, gauge, index),
+        reading: value != null && unit ? formatReading(value, unit) : null,
+        isPrimary: gauge.is_primary,
+      };
+    });
+
+    return {
+      slug: river.slug,
+      name: river.name,
+      region: river.region,
+      gauges,
+      accesses: drawnAccessPoints
+        .filter((entry) => (entry.riverSlug ?? drawnSlug) === selectedSlug)
+        .map((entry) => entry.point),
+      hazards: drawnHazards.filter((hazard) => hazard.riverId === river.id),
+    };
+  }, [
+    selectedSlug,
+    network.bySlug,
+    network.readings,
+    drawnAccessPoints,
+    drawnHazards,
+    drawnSlug,
+    gaugeNameFor,
+  ]);
+
   const onPlanToNearby = useCallback(
     (nearby: NearbyAccessPoint, from: MapAccessPoint) => {
       const other = drawnAccessPoints.find((entry) => entry.point.id === nearby.id)?.point;
@@ -1693,6 +1760,41 @@ export default function MapScreen() {
             button. Those stay put rather than being hidden — at the glance
             the sheet is short enough that they are still reachable, and
             moving them as it drags would be motion nobody asked for. */}
+        {/* ── The river sheet ───────────────────────────────────────────
+            Shown when a river is selected and NO pin is. A pin belongs to a
+            river, so both at once would be two sheets arguing about the same
+            stretch of water — and the pin is the more specific answer, so it
+            wins. Closing it puts you back on the river's own sheet, which is
+            where you were.
+
+            Tapping a river used to produce no UI whatsoever: onSelectNetworkRiver
+            set the slug, closed any callout and cleared the focus, and the only
+            thing that appeared was a header chip whose one action was to leave
+            the screen. */}
+        {riverSheetData && !selectedPin && !search.active ? (
+          <MapSheet
+            resetKey={riverSheetData.slug}
+            onClose={clearRiver}
+          >
+            <RiverSheetPanel
+              river={riverSheetData}
+              width={windowWidth}
+              onClose={clearRiver}
+              onOpenGauge={onOpenGauge}
+              onOpenRiver={(slug) => router.push(`/river/${slug}`)}
+              onSelectAccess={(point) => {
+                const entry = drawnAccessPoints.find((e) => e.point.id === point.id);
+                onSelectPin(mapAccessPointPin(point, entry?.riverSlug ?? riverSheetData.slug));
+              }}
+              onPlanPair={(putIn, takeOut) => {
+                planner.choosePutIn(putIn);
+                planner.chooseTakeOut(takeOut);
+                setPlanOpen(true);
+              }}
+            />
+          </MapSheet>
+        ) : null}
+
         {selectedPin && !search.active ? (
           <MapSheet
             // A new pin is a new question. See MapSheet's resetKey.

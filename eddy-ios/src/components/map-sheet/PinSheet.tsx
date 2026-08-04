@@ -29,6 +29,7 @@ import { fonts, type as t } from '@/theme/typography';
 import type { MapPin } from '@/map/RiverMap';
 import { MAP_LAYERS } from '@/map/layers';
 import { useAccessPointDetail } from '@/hooks/useAccessPointDetail';
+import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { PinCallout } from './PinCallout';
 import { SheetTabBar } from './SheetTabBar';
 import { SheetPager, mountedPages } from './SheetPager';
@@ -41,6 +42,14 @@ import {
   AccessFloatsTab,
   AccessOverviewTab,
 } from './AccessTabs';
+import {
+  GaugeAboutTab,
+  GaugeHistoryTab,
+  GaugeLevelsTab,
+  GaugeNowTab,
+  GaugeRiversTab,
+} from './GaugeTabs';
+import { gaugeTabs, type GaugePinFacts, type GaugeTabKey } from './gaugeTabs';
 
 export interface PinSheetProps {
   pin: MapPin;
@@ -67,6 +76,29 @@ export function PinSheet(props: PinSheetProps) {
   const { pin, accessPoint, width } = props;
   // One request, every tab. See useAccessPointDetail.
   const detail = useAccessPointDetail(accessPoint ? pin.detailRoute : null);
+  // Gauges of BOTH tiers. Null for anything else, so the hook no-ops on a pin
+  // that is not a station rather than the call being made conditionally.
+  const isGaugePin = pin.layer === 'gauges' || pin.layer === 'allGauges';
+  const gaugeDetail = useGaugeDetail(isGaugePin ? pin.siteId : null);
+
+  const gaugeFacts: GaugePinFacts | null = useMemo(() => {
+    if (!isGaugePin) return null;
+    return {
+      siteId: pin.siteId ?? null,
+      // The LAYER decides the tier, not the response: the pin is already drawn
+      // and the sheet has to be honest about which vocabulary it is speaking
+      // before the request lands.
+      curated: pin.layer === 'gauges',
+      reading: pin.value ?? null,
+      code: pin.code ?? null,
+      codeLabel: pin.codeLabel ?? null,
+      updatedAt: pin.updatedAt ?? null,
+      qualifierNote: null,
+      riverCount: gaugeDetail?.thresholds?.length ?? 0,
+    };
+  }, [isGaugePin, pin, gaugeDetail]);
+
+  const gTabs = useMemo(() => (gaugeFacts ? gaugeTabs(gaugeFacts) : []), [gaugeFacts]);
 
   const tabs = useMemo(
     () => (accessPoint ? accessTabs(accessPoint, detail) : []),
@@ -83,7 +115,7 @@ export function PinSheet(props: PinSheetProps) {
   // NULL MEANS "HAS NOT CHOSEN", which is a different state from "chose the
   // first tab" and has to be, or a tent pin would drag you back to Camping
   // every time you tapped Overview.
-  const [chosen, setChosen] = useState<TabKey | null>(null);
+  const [chosen, setChosen] = useState<string | null>(null);
   const [seededFor, setSeededFor] = useState<string | null>(null);
   const progress = useSharedValue(0);
 
@@ -94,19 +126,30 @@ export function PinSheet(props: PinSheetProps) {
     setChosen(null);
   }
 
+  // Whichever kind of thing was tapped. The shell, the bar and the pager are
+  // the same either way — only the page bodies differ, which is the whole
+  // reason the tab machinery knows nothing about pins.
+  const activeTabs: { key: string; label: string }[] = accessPoint ? tabs : gTabs;
+
   // A chosen tab that no longer qualifies falls back to the pin's preference
   // rather than to wherever its index now points.
+  const preferred = accessPoint ? initialTabKey(tabs, pin) : (gTabs[0]?.key ?? null);
   const activeKey =
-    chosen && tabs.some((tab) => tab.key === chosen) ? chosen : initialTabKey(tabs, pin);
-  const activeIndex = Math.max(0, tabs.findIndex((tab) => tab.key === activeKey));
+    chosen && activeTabs.some((tab) => tab.key === chosen) ? chosen : preferred;
+  const activeIndex = Math.max(0, activeTabs.findIndex((tab) => tab.key === activeKey));
 
-  const isMounted = mountedPages(activeIndex, tabs.length);
+  const isMounted = mountedPages(activeIndex, activeTabs.length);
 
-  if (!accessPoint || tabs.length <= 1) {
+  // One tab is not a tab bar. Hazards and outfitters land here always; so does
+  // an access point or a station that has not qualified for a second tab yet.
+  if (activeTabs.length <= 1) {
     return <PinCallout {...props} />;
   }
 
-  const renderTab = (key: TabKey) => {
+  const renderAccessTab = (key: TabKey) => {
+    // Narrowed here rather than at the early return: that guard now covers both
+    // kinds of tab set, so it no longer proves this pin is an access point.
+    if (!accessPoint) return null;
     const shared = {
       accessPoint,
       detail,
@@ -123,23 +166,41 @@ export function PinSheet(props: PinSheetProps) {
     return <AccessDetailsTab {...shared} />;
   };
 
+  const renderGaugeTab = (key: GaugeTabKey) => {
+    if (!gaugeFacts) return null;
+    const shared = {
+      facts: gaugeFacts,
+      detail: gaugeDetail,
+      onOpenGauge: props.onOpenGauge,
+      onOpenRiver: props.onOpenRiver,
+    };
+    if (key === 'now') return <GaugeNowTab {...shared} />;
+    if (key === 'levels') return <GaugeLevelsTab {...shared} />;
+    if (key === 'history') return <GaugeHistoryTab {...shared} />;
+    if (key === 'rivers') return <GaugeRiversTab {...shared} />;
+    return <GaugeAboutTab {...shared} />;
+  };
+
+  const renderTab = (key: string) =>
+    accessPoint ? renderAccessTab(key as TabKey) : renderGaugeTab(key as GaugeTabKey);
+
   return (
     <View>
       <PinSheetHeader {...props} detail={detail} />
       <SheetTabBar
-        labels={tabs.map((tab) => tab.label)}
+        labels={activeTabs.map((tab) => tab.label)}
         index={activeIndex}
-        onSelect={(i) => setChosen(tabs[i]?.key ?? null)}
+        onSelect={(i) => setChosen(activeTabs[i]?.key ?? null)}
         progress={progress}
       />
       <SheetPager
-        count={tabs.length}
+        count={activeTabs.length}
         index={activeIndex}
-        onIndexChange={(i) => setChosen(tabs[i]?.key ?? null)}
+        onIndexChange={(i) => setChosen(activeTabs[i]?.key ?? null)}
         progress={progress}
         width={width}
       >
-        {tabs.map((tab, i) => (
+        {activeTabs.map((tab, i) => (
           <View key={tab.key} style={styles.page}>
             {/* Neighbours only. A tab nobody has been near costs nothing, and
                 one that has been visited keeps whatever it had. */}

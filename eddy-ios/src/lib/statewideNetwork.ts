@@ -364,10 +364,15 @@ function nearestProgress(coords: number[][], progress: number[], lon: number, la
  * Rivers with no geometry are dropped rather than emitted empty — an empty
  * LineString is a feature the map has to skip on every repaint for nothing.
  */
-export function buildNetwork(
-  rivers: StatewideRiver[],
-  readings: StatewideReading[],
-): NetworkCollection {
+/**
+ * Readings keyed for grading, both per river-and-site and per site alone.
+ *
+ * Extracted so anything that needs to grade a gauge uses the SAME index rather
+ * than rebuilding it — the site-only fallback below has a tiebreak in it, and a
+ * second copy that skipped it would quietly grade a shared gauge against the
+ * wrong river's reading.
+ */
+export function readingIndex(readings: StatewideReading[]): Map<string, StatewideReading> {
   const byKey = new Map<string, StatewideReading>();
   for (const r of readings) {
     byKey.set(readingKey(r.river_id, r.site_no), r);
@@ -377,6 +382,14 @@ export function buildNetwork(
     const existing = byKey.get(r.site_no);
     if (!existing || (r.is_primary && !existing.is_primary)) byKey.set(r.site_no, r);
   }
+  return byKey;
+}
+
+export function buildNetwork(
+  rivers: StatewideRiver[],
+  readings: StatewideReading[],
+): NetworkCollection {
+  const byKey = readingIndex(readings);
 
   const features: Feature<NetworkFeatureProps>[] = [];
   for (const river of rivers) {
