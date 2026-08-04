@@ -77,6 +77,20 @@ export const EDDY_KNOWLEDGE_RULES = [
 
 export const GAUGE_WIRING_RULES = ['gauge_dual_primary'] as const;
 
+/**
+ * One per invariant in docs/legacy-schema-security-audit.md, prefixed so a
+ * schema assertion can never collide with a river rule.
+ */
+export const SCHEMA_INVARIANT_RULES = [
+  'schema_feedback_rls_enabled',
+  'schema_feedback_no_public_insert_policy',
+  'schema_feedback_type_check_has_gauge_recalibration',
+  'schema_feedback_no_public_mutation_grants',
+  'schema_segment_cache_no_public_mutation',
+  'schema_admin_policies_use_is_admin',
+  'schema_alert_subscription_kind_matches_api',
+] as const;
+
 /** Filed by the ledger against itself when a run refuses to reconcile. */
 export const LEDGER_RULES = ['reconcile_anomaly'] as const;
 
@@ -85,6 +99,7 @@ export const ALL_TRUST_RULES = [
   ...RIVER_GEOMETRY_RULES,
   ...EDDY_KNOWLEDGE_RULES,
   ...GAUGE_WIRING_RULES,
+  ...SCHEMA_INVARIANT_RULES,
   ...LEDGER_RULES,
 ] as const;
 
@@ -119,6 +134,12 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   // The ledger declining to believe itself. Filed at the top because it means
   // every other severity on this check is currently unverified.
   reconcile_anomaly: 'critical',
+  // RLS off means every policy on the table is inert RIGHT NOW, with nothing
+  // behind it. An INSERT policy reappearing means the publishable key — which
+  // Metro inlines into the shipped bundle by design — can write again.
+  schema_feedback_rls_enabled: 'critical',
+  schema_feedback_no_public_insert_policy: 'critical',
+  schema_segment_cache_no_public_mutation: 'critical',
 
   // ── high: wrong, but not toward danger ───────────────────────────────
   // The floatable range collapses; the badge misreports in the safe direction.
@@ -131,6 +152,21 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   gauge_dual_primary: 'high',
   no_gauges_near_geometry: 'high',
   bbox_outside_missouri: 'high',
+  // Defence in depth that is currently redundant — RLS is holding the line —
+  // which is exactly why it reads high rather than critical. The argument for
+  // fixing it is the one 20260731223406 makes: a table protected by one
+  // mechanism is one accidental permissive policy away from exposure.
+  schema_feedback_no_public_mutation_grants: 'high',
+  // An inlined user_roles lookup is not is_admin(). is_admin() is SECURITY
+  // DEFINER and bypasses RLS on user_roles; the inline form works only while
+  // that table's SELECT policy keeps its `user_id = auth.uid()` branch. Tighten
+  // it and every inline check silently returns false — locking admins out,
+  // quietly, on tables that still look correctly gated.
+  schema_admin_policies_use_is_admin: 'high',
+  // Narrower than the API union rejects valid input; wider accepts values no
+  // client can render.
+  schema_alert_subscription_kind_matches_api: 'high',
+  schema_feedback_type_check_has_gauge_recalibration: 'high',
 
   // ── medium: wrong numbers downstream of a correct badge ──────────────
   // Bad mileage means a bad float time. It reads medium rather than high
