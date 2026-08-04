@@ -10,7 +10,7 @@ EXPORT_DIR := $(or $(TMPDIR),/tmp)/eddy-expo-export
 # One source of truth for the supported Node major, shared with CI and nvm.
 NODE_MAJOR := $(shell sed 's/[^0-9].*//' .nvmrc 2>/dev/null)
 
-.PHONY: help guard-node setup-web setup-mobile check-web check-mobile \
+.PHONY: help guard-node setup-web setup-mobile check-web check-mobile check-db \
         bundle-mobile check dev preflight-eas build-ios testflight check-eas-env
 
 help: ## List targets (default)
@@ -72,6 +72,24 @@ bundle-mobile: guard-node ## Credential-free production iOS bundle + .easignore 
 	python3 -m pip install --quiet pathspec \
 		|| python3 -m pip install --quiet --break-system-packages pathspec
 	python3 $(MOBILE)/scripts/check-easignore.py
+
+# Deliberately NOT part of `check`, and not in CI.
+#
+# It shells out to the Supabase CLI against a LINKED project, so it needs
+# credentials and network that the hermetic jobs do not have and should not get.
+# CI staying hermetic is the reason it cannot live in check-web.
+#
+# It is here because the alternative — a gate that exists and runs nowhere — has
+# already cost something twice. 20260803170000_recalibrate_ozark_float_ladders
+# was applied by hand and never recorded, so schema_migrations disagreed with the
+# repo for a day while every effect sat in production, invisible from the app and
+# from the console. Nothing surfaced it until this check was run by hand.
+#
+# Run it before a release, and after applying anything by hand. See
+# docs/ios-release-runbook.md.
+check-db: guard-node ## Migration drift: repo files vs the linked Supabase project
+	@command -v npx >/dev/null || { echo "npx not found"; exit 1; }
+	cd $(WEB) && npm run db:check-migrations
 
 check: check-web check-mobile bundle-mobile ## Everything CI gates on
 
