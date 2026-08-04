@@ -44,6 +44,14 @@ export async function GET(request: NextRequest) {
   const supabase = createAdminClient();
   const now = new Date();
 
+  // Opportunities the scheduler had, so a never-run check is judged against
+  // tick history rather than being exempt forever. Widest allowance any check
+  // uses: daily x 2.5.
+  const { count: ticksInWindow } = await supabase
+    .from('trust_runs')
+    .select('id', { count: 'exact', head: true })
+    .gte('started_at', new Date(now.getTime() - 24 * 2.5 * 3_600_000).toISOString());
+
   const checks = await Promise.all(
     TRUST_CHECKS.map(async (c) => {
       const { data } = await supabase
@@ -55,7 +63,11 @@ export async function GET(request: NextRequest) {
         .maybeSingle();
 
       const lastStartedAt = data?.started_at ? new Date(data.started_at) : null;
-      const beat = assessHeartbeat({ checkId: c.id, cadence: c.cadence, lastStartedAt }, now);
+      const beat = assessHeartbeat(
+        { checkId: c.id, cadence: c.cadence, lastStartedAt },
+        now,
+        { ticksInWindow: ticksInWindow ?? 0 },
+      );
 
       return {
         id: c.id,

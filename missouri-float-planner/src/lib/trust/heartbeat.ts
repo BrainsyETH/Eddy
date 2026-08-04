@@ -56,19 +56,65 @@ export const OVERDUE_MULTIPLIER = 2.5;
 const CADENCE_HOURS: Record<CheckHeartbeat['cadence'], number> = { hourly: 1, daily: 24 };
 
 /**
- * A never-run check is NOT overdue.
+ * How many ticks must have fired without touching a never-run check before it
+ * counts as overdue.
  *
- * It is almost always a check that shipped minutes ago and has not reached its
- * first tick. Reporting that as a dead heartbeat would fire on every deploy
- * that adds a check, which is how a watchdog gets ignored.
+ * Two, not one. A check that ships minutes after a tick has legitimately missed
+ * that tick; it cannot legitimately miss the next one, because isCheckDue()
+ * returns true for a null lastStartedAt and orderByStaleness() sorts never-run
+ * to the FRONT. So one missed tick is a deploy, and two is a fault.
  */
-export function assessHeartbeat(beat: CheckHeartbeat, now: Date): HeartbeatVerdict {
+export const NEVER_RUN_GRACE_TICKS = 2;
+
+export interface HeartbeatContext {
+  /**
+   * Ticks observed within this check's allowance window — any check's runs
+   * count, because the question is whether the scheduler had opportunities.
+   *
+   * Omitted means unknown, and unknown is NOT treated as healthy for a
+   * never-run check; it is reported as indeterminate instead.
+   */
+  ticksInWindow?: number;
+}
+
+/**
+ * A never-run check is not exempt forever.
+ *
+ * The first version returned `overdue: false` unconditionally for a null
+ * lastStartedAt, reasoning that it would otherwise fire on every deploy adding
+ * a check. That reasoning was right about the symptom and wrong about the fix:
+ * it made a registered check that NEVER executes permanently invisible, which
+ * is the one state a heartbeat exists to catch.
+ *
+ * The bounded reference is the tick count rather than a deploy timestamp, which
+ * is not available here — and it is a better signal anyway, because it measures
+ * opportunities the scheduler actually had rather than wall-clock time.
+ */
+export function assessHeartbeat(
+  beat: CheckHeartbeat,
+  now: Date,
+  context: HeartbeatContext = {},
+): HeartbeatVerdict {
   if (!beat.lastStartedAt) {
+    const ticks = context.ticksInWindow;
+
+    if (ticks === undefined) {
+      return {
+        checkId: beat.checkId,
+        overdue: false,
+        hoursLate: null,
+        detail: `${beat.checkId} has never run, and tick history was not supplied — liveness indeterminate`,
+      };
+    }
+
+    const overdue = ticks >= NEVER_RUN_GRACE_TICKS;
     return {
       checkId: beat.checkId,
-      overdue: false,
+      overdue,
       hoursLate: null,
-      detail: `${beat.checkId} has never run — expected shortly after deploy`,
+      detail: overdue
+        ? `${beat.checkId} has never run despite ${ticks} tick(s) — it is registered and being skipped`
+        : `${beat.checkId} has never run, ${ticks} tick(s) so far — expected on the next pass`,
     };
   }
 

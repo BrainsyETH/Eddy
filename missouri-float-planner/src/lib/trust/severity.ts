@@ -92,7 +92,7 @@ export const SCHEMA_INVARIANT_RULES = [
 ] as const;
 
 /** Filed by the ledger against itself when a run refuses to reconcile. */
-export const LEDGER_RULES = ['reconcile_anomaly'] as const;
+export const LEDGER_RULES = ['reconcile_anomaly', 'check_not_running'] as const;
 
 export const ALL_TRUST_RULES = [
   ...VALIDATE_RIVER_DATA_RULES,
@@ -134,6 +134,10 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   // The ledger declining to believe itself. Filed at the top because it means
   // every other severity on this check is currently unverified.
   reconcile_anomaly: 'critical',
+  // A check that stopped running reports nothing, and nothing reads as health.
+  // Same severity as the ledger refusing to believe itself, for the same
+  // reason: everything that check covers is currently unverified.
+  check_not_running: 'critical',
   // RLS off means every policy on the table is inert RIGHT NOW, with nothing
   // behind it. An INSERT policy reappearing means the publishable key — which
   // Metro inlines into the shipped bundle by design — can write again.

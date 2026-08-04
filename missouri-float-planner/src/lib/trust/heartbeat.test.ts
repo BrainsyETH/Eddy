@@ -55,14 +55,40 @@ test('the boundary is exclusive', () => {
 
 // ── the case that would make it noise ────────────────────────────
 
-test('a check that has never run is not overdue', () => {
-  // Almost always a check that shipped minutes ago and has not reached its
-  // first tick. Reporting it as a dead heartbeat would fire on every deploy
-  // that adds a check — schema_invariants did exactly that today.
-  const v = assessHeartbeat({ checkId: 'brand_new', cadence: 'daily', lastStartedAt: null }, NOW);
+test('a never-run check is not overdue after one tick', () => {
+  // A check that shipped minutes after a tick legitimately missed that tick.
+  // Firing here would flag every deploy that adds a check — schema_invariants
+  // did exactly that today — which is how a watchdog gets ignored.
+  const v = assessHeartbeat(
+    { checkId: 'brand_new', cadence: 'daily', lastStartedAt: null },
+    NOW,
+    { ticksInWindow: 1 },
+  );
   assert.equal(v.overdue, false);
-  assert.equal(v.hoursLate, null);
-  assert.match(v.detail, /never run/);
+});
+
+test('a never-run check IS overdue once the scheduler has had two chances', () => {
+  // The regression this closes: the first version returned false
+  // unconditionally for a null lastStartedAt, so a registered check that never
+  // executed was permanently invisible — the one state a heartbeat exists to
+  // catch. It cannot legitimately miss a second tick, because isCheckDue()
+  // returns true for a null lastStartedAt and orderByStaleness() sorts never-run
+  // to the front.
+  const v = assessHeartbeat(
+    { checkId: 'wedged', cadence: 'daily', lastStartedAt: null },
+    NOW,
+    { ticksInWindow: 2 },
+  );
+  assert.equal(v.overdue, true);
+  assert.match(v.detail, /registered and being skipped/);
+});
+
+test('a never-run check with no tick history is indeterminate, not healthy', () => {
+  // "I could not tell" must not render as "fine". Same rule as the watchdog's
+  // read error.
+  const v = assessHeartbeat({ checkId: 'x', cadence: 'daily', lastStartedAt: null }, NOW);
+  assert.equal(v.overdue, false);
+  assert.match(v.detail, /indeterminate/);
 });
 
 // ── the independent half ─────────────────────────────────────────
