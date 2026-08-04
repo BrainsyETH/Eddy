@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { invalidIdResponse, isValidUUID, logAdminAction, requireAdminAuth } from '@/lib/admin-auth';
+import { isOperatorResolution, OPERATOR_RESOLUTIONS } from '@/lib/trust/resolution';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
@@ -63,6 +64,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       );
     }
 
+    // Closing a finding must say WHICH kind of closing it is.
+    //
+    // "Somebody fixed the river" and "the check was wrong" are opposite
+    // outcomes — one is the system working, the other is it crying wolf — and
+    // status='resolved' scores them identically. The MVP gate's false-positive
+    // rate is computed from this field and from nothing else, so a resolve that
+    // does not carry one is not a smaller record, it is a missing measurement.
+    if (action === 'resolve' && !isOperatorResolution(body.resolution)) {
+      return NextResponse.json(
+        { error: `resolution must be one of ${OPERATOR_RESOLUTIONS.join(', ')}` },
+        { status: 400 },
+      );
+    }
+
     const supabase = createAdminClient();
     const { data: existing, error: loadError } = await supabase
       .from('trust_findings')
@@ -95,7 +110,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const until = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
       update = { status: 'snoozed', snoozed_until: until, resolved_at: null };
     } else if (action === 'resolve') {
-      update = { status: 'resolved', resolved_at: nowIso, snoozed_until: null };
+      update = {
+        status: 'resolved',
+        resolved_at: nowIso,
+        snoozed_until: null,
+        resolution: body.resolution,
+      };
     } else {
       update = { status: 'open', resolved_at: null, snoozed_until: null };
     }
@@ -129,6 +149,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         checkId: existing.check_id,
         from: existing.status,
         to: data.status,
+        ...(action === 'resolve' ? { resolution: body.resolution } : {}),
         ...(reason ? { reason } : {}),
       },
     });

@@ -15,6 +15,7 @@ import { floatSummaryCheck } from './checks/float-summary';
 import { gaugeWiringCheck } from './checks/gauge-wiring';
 import { schemaInvariantsCheck } from './checks/schema-invariants';
 import { ledgerHeartbeatCheck } from './checks/ledger-heartbeat';
+import { knownRegressionsCheck } from './checks/known-regressions';
 
 export const TRUST_CHECKS: readonly TrustCheck[] = [
   validateRiverDataCheck,
@@ -24,6 +25,7 @@ export const TRUST_CHECKS: readonly TrustCheck[] = [
   gaugeWiringCheck,
   schemaInvariantsCheck,
   ledgerHeartbeatCheck,
+  knownRegressionsCheck,
 ];
 
 export function getCheck(id: string): TrustCheck | undefined {
