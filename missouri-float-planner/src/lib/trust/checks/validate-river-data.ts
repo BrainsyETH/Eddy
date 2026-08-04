@@ -30,7 +30,7 @@ interface ValidateRow {
  * similar name.
  *
  * Its key is now the gauge station's UUID
- * (20260804193100_validate_river_data_stable_gauge_key.sql). It used to be
+ * (20260804192753_validate_river_data_stable_gauge_key.sql). It used to be
  * COALESCE(r.slug, gs.name), which meant an unlinked gauge was identified by
  * its DISPLAY NAME — so an editorial rename forked the finding's identity — and
  * a gauge linked to two rivers produced two findings for one problem.

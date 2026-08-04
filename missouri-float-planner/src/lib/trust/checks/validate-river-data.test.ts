@@ -19,7 +19,7 @@ import { VALIDATE_RIVER_DATA_RULES } from '../severity';
 const MIGRATION_FILE = readFileSync(
   resolve(
     process.cwd(),
-    'supabase/migrations/20260804193100_validate_river_data_stable_gauge_key.sql',
+    'supabase/migrations/20260804192753_validate_river_data_stable_gauge_key.sql',
   ),
   'utf8',
 );

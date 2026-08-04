@@ -1,0 +1,41 @@
+-- APPLIED to production 2026-08-04 as 20260804193216.
+--
+-- Takes EXECUTE on trust_apply_reconcile() away from anon and authenticated.
+--
+-- ── Why 20260804193041 did not already do this ──────────────────────────
+--
+-- It ended with `revoke all on function ... from public`, which reads like it
+-- closes the door and does not. Checking the ACL on production immediately
+-- after applying it returned:
+--
+--     postgres=X/postgres
+--     anon=X/postgres
+--     authenticated=X/postgres
+--     service_role=X/postgres
+--
+-- Supabase ships ALTER DEFAULT PRIVILEGES that grant EXECUTE on new functions in
+-- `public` to anon and authenticated DIRECTLY. A direct grant is not a PUBLIC
+-- grant, so revoking PUBLIC leaves it untouched. Every new function in this
+-- schema is therefore born reachable by the publishable key — which Metro
+-- inlines into the shipped iOS bundle by design.
+--
+-- ── Why it mattered even though RLS held ────────────────────────────────
+--
+-- trust_apply_reconcile() is SECURITY INVOKER and trust_findings / trust_runs
+-- are service_role-only, so an anon call fails on the policy and writes
+-- nothing. The door was shut behind the door that was open.
+--
+-- That is exactly the state trust_schema_invariants() reports about `feedback`
+-- as schema_feedback_no_public_mutation_grants at HIGH severity, and
+-- 20260804181529 exists because leaving it that way was judged wrong there:
+-- a table protected by one mechanism is one accidental permissive policy away
+-- from exposure. Shipping a new mutating function with the same shape would be
+-- reproducing the finding inside the subsystem built to catch it — which is,
+-- by now, a familiar way for this code to be wrong.
+--
+-- 20260804193041 in this repository has been amended to carry both revokes, so
+-- a replay from scratch never opens the gap. This migration is what closed it
+-- on the database that had already been written to.
+
+revoke all on function public.trust_apply_reconcile(jsonb) from anon, authenticated;
+grant execute on function public.trust_apply_reconcile(jsonb) to service_role;

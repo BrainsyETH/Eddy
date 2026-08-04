@@ -1,6 +1,6 @@
 // scripts/trust/differential-reconcile.mts
 // Does the in-memory replay in fake-supabase.ts still agree with
-// 20260804194500_trust_apply_reconcile.sql?
+// 20260804193041_trust_apply_reconcile.sql?
 //
 // ── Why this exists outside `npm test` ──────────────────────────────────
 //
@@ -30,8 +30,8 @@
 //   psql -h /tmp -p 55432 -U postgres -c "create role service_role"
 //   psql -h /tmp -p 55432 -U postgres \
 //     -f supabase/migrations/20260804141538_trust_ledger.sql \
-//     -f supabase/migrations/20260804193000_trust_findings_lifecycle_constraints.sql \
-//     -f supabase/migrations/20260804194500_trust_apply_reconcile.sql
+//     -f supabase/migrations/20260804192501_trust_findings_lifecycle_constraints.sql \
+//     -f supabase/migrations/20260804193041_trust_apply_reconcile.sql
 //   npx tsx scripts/trust/differential-reconcile.mts
 //
 // Run it after changing either implementation. Exits non-zero on disagreement.

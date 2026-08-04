@@ -223,7 +223,7 @@ class QueryBuilder {
  * about mechanics (does a touch bump occurrences?), which is the kind of thing
  * a test is supposed to pin down anyway.
  *
- * 20260804194500_trust_apply_reconcile.sql is the authority. Verified against
+ * 20260804193041_trust_apply_reconcile.sql is the authority. Verified against
  * PostgreSQL 16 while it was written.
  */
 function applyReconcile(store: Map<string, Row[]>, payload: Row): Row {

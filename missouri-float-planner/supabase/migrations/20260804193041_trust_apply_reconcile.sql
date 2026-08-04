@@ -1,4 +1,18 @@
--- 20260804194500_trust_apply_reconcile.sql
+-- APPLIED to production 2026-08-04 as 20260804193041.
+--
+-- Two things about this file differ from the statement production recorded
+-- under that version. Both were corrected within minutes and both are recorded
+-- as their own migrations, because rewriting history to look tidy is how a
+-- migration list stops being evidence:
+--
+--   20260804193216 — the grants below originally revoked only from PUBLIC,
+--                    which left Supabase's default EXECUTE grants to anon and
+--                    authenticated untouched.
+--   20260804193348 — the body was transcribed without its inline commentary.
+--
+-- This file carries the corrected form of both, so a replay from scratch is
+-- right the first time and those two become no-ops. It is the authoritative
+-- definition; they are the audit trail of arriving at it.
 --
 -- Apply one check run's reconciliation as a single transaction.
 --
@@ -223,5 +237,28 @@ $$;
 comment on function public.trust_apply_reconcile(jsonb) is
     'Applies one trust check run''s reconciliation plan and closes its run row in a single transaction. Carries no policy: planReconcile() in src/lib/trust/reconcile.ts decides, this applies.';
 
+-- ── grants ───────────────────────────────────────────────────────────────
+--
+-- Revoking from PUBLIC is NOT enough, and this was caught on the live database
+-- rather than reasoned out: after applying with only the PUBLIC revoke, the
+-- function's ACL read
+--
+--     postgres=X/postgres, anon=X/postgres, authenticated=X/postgres, service_role=X/postgres
+--
+-- Supabase ships ALTER DEFAULT PRIVILEGES granting EXECUTE on new functions in
+-- `public` to anon and authenticated DIRECTLY. A direct grant is not a PUBLIC
+-- grant, so `revoke ... from public` does not touch it — and every new function
+-- in this schema is born reachable by the publishable key, which Metro inlines
+-- into the shipped iOS bundle by design.
+--
+-- RLS would have held: this is SECURITY INVOKER, and trust_findings/trust_runs
+-- are service_role-only, so an anon call fails on the policy rather than
+-- writing anything. But "RLS is holding, the grant is redundant" is precisely
+-- the finding trust_schema_invariants() raises about `feedback`
+-- (schema_feedback_no_public_mutation_grants, high), and 20260804181529 exists
+-- because leaving it that way was judged wrong there. Shipping a new mutating
+-- function with the same shape would be repeating the mistake in the subsystem
+-- built to notice it.
 revoke all on function public.trust_apply_reconcile(jsonb) from public;
+revoke all on function public.trust_apply_reconcile(jsonb) from anon, authenticated;
 grant execute on function public.trust_apply_reconcile(jsonb) to service_role;

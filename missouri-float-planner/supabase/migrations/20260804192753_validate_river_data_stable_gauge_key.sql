@@ -1,4 +1,4 @@
--- 20260804193100_validate_river_data_stable_gauge_key.sql
+-- APPLIED to production 2026-08-04 as 20260804192753.
 --
 -- Give gauge_missing_site_id an entity key that a rename cannot move.
 --

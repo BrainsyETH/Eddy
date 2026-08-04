@@ -32,21 +32,58 @@ Applied migrations, under the versions `schema_migrations` recorded:
 Also recorded `20260803170000` by repair — it had been applied by hand and never
 written to `schema_migrations`.
 
-**Written but NOT yet applied.** These two are in the repository and covered by
-tests; neither has been run against production, and `make check-db` will report
-drift until they are:
+**Applied to production 2026-08-04**, under the versions `schema_migrations`
+recorded:
 
 | Version | What |
 | --- | --- |
-| `20260804193000` | `trust_findings` lifecycle CHECK constraints |
-| `20260804193100` | `validate_river_data()` keys the gauge rule on `gs.id` |
-| `20260804194500` | `trust_apply_reconcile()` — one run, one transaction |
+| `20260804192501` | `trust_findings` lifecycle CHECK constraints |
+| `20260804192753` | `validate_river_data()` keys the gauge rule on `gs.id` |
+| `20260804193041` | `trust_apply_reconcile()` — one run, one transaction |
+| `20260804193216` | take EXECUTE on it away from `anon`/`authenticated` |
+| `20260804193348` | restore the function's inline commentary |
 
-All three were developed and verified against a scratch PostgreSQL 16, not only
-written: the constraints were confirmed to reject each inconsistent lifecycle
-combination, the rewritten gauge branch was executed against stub rows, and the
-reconcile function was checked to leave the tables and the run row untouched
-when a plan fails partway.
+All three were developed against a scratch PostgreSQL 16 before going anywhere
+near production: the constraints were confirmed to reject each inconsistent
+lifecycle combination, the rewritten gauge branch was executed against stub
+rows, and the reconcile function was checked to leave the tables and the run row
+untouched when a plan fails partway. On production the constraints came back
+`convalidated` — Postgres checked all 46 existing rows and none violated them.
+
+The last two entries are the cost of applying a function by hand, and both were
+caught by checking rather than by assuming:
+
+- **`20260804193216`.** `revoke all on function ... from public` reads like it
+  closes the door and does not. Supabase ships `ALTER DEFAULT PRIVILEGES`
+  granting EXECUTE on new `public` functions to `anon` and `authenticated`
+  *directly*, and a direct grant is not a PUBLIC grant — so the ACL came out
+  carrying both. RLS held (the function is SECURITY INVOKER and the trust tables
+  are service_role-only), but that is precisely the state
+  `schema_feedback_no_public_mutation_grants` reports at HIGH, and
+  `20260804181529` exists because leaving it that way was judged wrong there.
+
+- **`20260804193348`.** The first application transcribed the function without
+  its inline commentary. Caught by comparing `md5(prosrc)` against the source
+  file — 6101 characters deployed against 7727 — and re-applied until both read
+  `e6c03f5b33c18096a84eda028f99543b`. The same check on `20260804192753` matched
+  first time (`491da3d0…`, 8797 characters), which is the only reason a
+  hand-transcribed 207-line function replacement is trustworthy at all.
+
+### A grant shape worth a separate look
+
+Checking `trust_apply_reconcile`'s ACL turned up the same shape on functions
+nobody has revisited: `try_cron_lock`, `release_cron_lock`, `validate_river_data`
+and `get_river_geometry_json` are all EXECUTE-able by `anon`, and `cron_runs`
+grants `anon` INSERT/UPDATE/DELETE/TRUNCATE.
+
+Nothing is exploitable today — `cron_runs` has RLS enabled with **zero
+policies**, which denies everything to a non-bypassing role, so an `anon` call
+to `try_cron_lock` inserts nothing and returns false. But the whole argument of
+`20260731223406` and `20260804181529` is that one mechanism holding is not a
+reason to leave the second one open, and a cron lock is a better target than
+most: holding `trust_tick` or the gauge update would stop the safety-relevant
+path without breaking anything visibly. Not fixed here — it predates this work
+and deserves its own change.
 
 ### Keeping the two reconcile implementations honest
 
@@ -63,7 +100,7 @@ only a local PostgreSQL and never touches a Supabase project.
 
 ### Accepted one-time re-fingerprinting
 
-`20260804193100` and the matching change in `gauge_wiring` move two rules off
+`20260804192753` and the matching change in `gauge_wiring` move two rules off
 human-readable entity keys and onto stable ids. A finding's identity is
 `sha256(check_id | entity_type | entity_key | rule_key)`, so both rules'
 existing open findings change fingerprint: the next run resolves the old rows
