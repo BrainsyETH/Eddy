@@ -93,6 +93,22 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   // The primary gauge is silent and the badge is still quoting it.
   stale_gauge: 'critical',
   // A non-monotonic ladder can classify dangerous water as optimal.
+  //
+  // Verified against production 2026-08-04: all three live instances are the
+  // MILD shape — adjacent values equal rather than inverted (Meramec Cook
+  // Station and Sullivan both have level_high == level_dangerous; Jacks Fork
+  // has level_low == level_optimal_min). None of them currently misgrades a
+  // reading, because classifyReading() (shared/condition-ladder.ts:103-111)
+  // tests dangerous first with >=, and starts the High band at
+  // level_optimal_max — so level_high is not consulted at all while
+  // optimal_max is set.
+  //
+  // Kept critical anyway, because the rule covers the inverted shape too and
+  // that one does misgrade. The equal-value cases are a latent trap rather than
+  // a live one: null out an optimal_max and level_high starts being read, at
+  // which point a High band equal to the Dangerous line vanishes silently.
+  // If the triaged count of mild cases ever outgrows the inverted ones, split
+  // the SQL rule rather than downgrading this.
   threshold_order: 'critical',
   // computeCondition() has no flood-stage fallback, so the badge caps below
   // "Dangerous" and the worst water the river produces is unreachable.

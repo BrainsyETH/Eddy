@@ -1,6 +1,10 @@
--- NOT YET APPLIED. Read the filename note in 20260804120000_trust_ledger.sql
--- first: the name must carry the version supabase_migrations.schema_migrations
--- actually records, or the drift gate reports permanent drift.
+-- APPLIED to production 2026-08-04 as 20260804141629, renamed from its
+-- authoring timestamp to match what schema_migrations recorded. See the header
+-- of 20260804141538_trust_ledger.sql.
+--
+-- It built cleanly, which is itself the useful result: no river had two primary
+-- gauges at apply time, so the invariant below was already true and this locks
+-- it in rather than repairing anything.
 --
 -- ── What this enforces, and what it deliberately allows ──────────────────
 --
@@ -20,11 +24,10 @@
 -- against different thresholds by the map, the planner and the alert engine.
 -- docs/gauge-alerting-misalignment-audit.md is a record of what that costs.
 --
--- ── If this fails to build ──────────────────────────────────────────────
+-- ── If this ever fails to build (it did not) ────────────────────────────
 --
--- A unique-violation on apply means some river already has two primaries, which
--- is a real defect this index is meant to prevent recurring. Find them before
--- retrying:
+-- A unique-violation means some river has two primaries, which is a real defect
+-- this index prevents recurring. Find them before retrying:
 --
 --   select river_id, count(*) from public.river_gauges
 --    where is_primary group by river_id having count(*) > 1;

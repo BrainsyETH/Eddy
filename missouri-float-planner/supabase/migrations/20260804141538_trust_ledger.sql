@@ -1,12 +1,11 @@
--- NOT YET APPLIED. Before applying, read this paragraph.
+-- APPLIED to production 2026-08-04 as 20260804141538. The filename carries that
+-- exact version because the drift gate compares local filenames against
+-- supabase_migrations.schema_migrations — this file was authored as
+-- 20260804120000 and renamed after apply, exactly as
+-- 20260731223406_social_tables_service_role_only.sql warns.
 --
--- The filename must carry the version supabase_migrations.schema_migrations
--- actually records, not the one this file was authored under. Apply it, then
--- run `npm run db:check-migrations`; if the recorded version differs, rename
--- the file to match before committing. A file named for its authoring time
--- reads as two separate migrations to the drift gate and reports permanent
--- drift — see the header of 20260731223406_social_tables_service_role_only.sql,
--- which paid for that lesson.
+-- Verified after apply: both tables present, RLS enabled on both, one
+-- service-role policy each, and zero grants to anon or authenticated.
 --
 -- ── What this is ──────────────────────────────────────────────────────────
 --
