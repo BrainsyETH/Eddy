@@ -144,7 +144,12 @@ export default function TrustAdminPage() {
       meaningful: boolean;
       met: boolean | null;
     };
-    safetyBaseline: { total: number; regressed: { id: string; summary: string }[]; met: boolean };
+    safetyBaseline: {
+      total: number;
+      regressed: { id: string; summary: string }[];
+      unverified: { id: string; summary: string; awaitingCheck: string | null }[];
+      met: boolean | null;
+    };
   } | null>(null);
   const [showAll, setShowAll] = useState(false);
   // ── why this is state and not window.prompt() ──────────────────────────
@@ -663,10 +668,24 @@ export default function TrustAdminPage() {
             </div>
             <div>
               <div className="text-neutral-500 text-xs mb-0.5">Safety baseline</div>
-              <div className={gate.safetyBaseline.met ? 'text-green-400' : 'text-red-400'}>
-                {gate.safetyBaseline.met
-                  ? `all ${gate.safetyBaseline.total} still closed`
-                  : `${gate.safetyBaseline.regressed.length} REGRESSED`}
+              {/* Three states, like the false-positive rate beside it. Neutral
+                  is "the check that owns this has not run since the repair" —
+                  neither a pass nor a regression, and painting it either colour
+                  is a claim about evidence nobody has. */}
+              <div
+                className={
+                  gate.safetyBaseline.met === null
+                    ? 'text-neutral-400'
+                    : gate.safetyBaseline.met
+                      ? 'text-green-400'
+                      : 'text-red-400'
+                }
+              >
+                {gate.safetyBaseline.met === null
+                  ? `${gate.safetyBaseline.unverified.length} unverified since repair`
+                  : gate.safetyBaseline.met
+                    ? `all ${gate.safetyBaseline.total} still closed`
+                    : `${gate.safetyBaseline.regressed.length} REGRESSED`}
               </div>
             </div>
           </div>
@@ -675,6 +694,19 @@ export default function TrustAdminPage() {
               {gate.safetyBaseline.regressed.map((r) => (
                 <li key={r.id} className="text-sm text-red-400">
                   {r.summary}
+                </li>
+              ))}
+            </ul>
+          )}
+          {gate.safetyBaseline.unverified.length > 0 && (
+            <ul className="mt-3 border-t border-neutral-700 pt-3 space-y-1">
+              {gate.safetyBaseline.unverified.map((u) => (
+                <li key={u.id} className="text-sm text-neutral-400">
+                  {u.summary}
+                  <span className="text-neutral-500">
+                    {' '}
+                    — awaiting the next {u.awaitingCheck ?? 'check'} run
+                  </span>
                 </li>
               ))}
             </ul>
