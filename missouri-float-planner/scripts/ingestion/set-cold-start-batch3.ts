@@ -1,6 +1,14 @@
 #!/usr/bin/env npx tsx
 /** Cold-start prose (float_summary + float_tip) for the 3rd batch, written from
- *  the owner-approved ladders + researched hazards. Weather coords are already
+ *  the owner-approved ladders + researched hazards.
+ *
+ *  EVERY number below must be read off river_gauges for that river's PRIMARY
+ *  gauge. This file drifted from it three ways at once — mulberry put
+ *  "experts-only" at 8 ft above a 4.5 ft danger line, big-river credited
+ *  Byrnesville as primary when Richwoods is, and bryant-creek's numbers matched
+ *  no line in its ladder. Migration 20260804210000 corrected the rows; this
+ *  script is idempotent and would otherwise have reverted them on the next run.
+ *  src/lib/trust/checks/float-summary.ts now fails when prose drifts again. Weather coords are already
  *  set by ingest-dossier. Does not touch `active`. Idempotent. */
 import { createAdminClient } from '../../src/lib/supabase/admin';
 
@@ -14,7 +22,7 @@ const PROSE: Record<string, { summary: string; tip: string }> = {
     tip: "Portage the low-head dam at the historic War Eagle Mill near the lower end. The creek is flashy—just over 4 ft is flood stage on the Hwy 45 gauge—so watch for a rising, muddy gauge after rain.",
   },
   'mulberry': {
-    summary: "At the Mulberry gauge (primary), about 2.0–3.5 ft is prime for Arkansas's best-known float—lively Class I–II water; below ~1.2 ft you'll drag. It stiffens fast as it rises: above ~4 ft it's pushy, and 8 ft and up is experts-only. The Mulberry is undammed and very flashy, usually floatable late October through mid-June.",
+    summary: "At the Mulberry gauge (primary), about 2.0–3.5 ft is prime for Arkansas's best-known float—lively Class I–II water; below ~1.2 ft you'll drag. It stiffens fast as it rises: above ~4.0 ft it's pushy, and by 4.5 ft it is dangerous whitewater rather than a float. The Mulberry is undammed and very flashy, usually floatable late October through mid-June.",
     tip: "The Mulberry rises and falls several feet within a day—don't launch on a rising gauge, and stay right to get under the low-water bridge near Turner Bend. It's a serious whitewater river at high flows.",
   },
   'crooked-creek': {
@@ -22,11 +30,11 @@ const PROSE: Record<string, { summary: string; tip: string }> = {
     tip: "Use caution at Kelly's Slab (a low-water bridge). Crooked Creek can turn from a trickle into a raging torrent within hours of heavy rain, and there's no official flood gauge—treat any rapid rise as dangerous.",
   },
   'bryant-creek': {
-    summary: "At the Tecumseh gauge (primary), about 300–600 cfs is comfortable floating on Bryant Creek; around 245 cfs it's low but floatable (expect dragging), and below ~200 cfs most riffles drag. This spring-influenced Ozark creek runs lower and flashier than the neighboring North Fork, into which it empties.",
+    summary: "At the Tecumseh gauge (primary), about 356–1,050 cfs is comfortable floating on Bryant Creek; around 300 cfs it's low but floatable (expect dragging), and below ~189 cfs most riffles drag. Above 1,050 cfs it runs high, and 1,930 cfs and up is dangerous. The gauge sits at the mouth of the creek, so the water upstream at Vera Cruz or Bell Bridge runs thinner than the reading suggests. This spring-influenced Ozark creek runs lower and flashier than the neighboring North Fork, into which it empties.",
     tip: "Bryant is narrow and willow-choked in places (especially above Hwy 95)—watch for strainers—and it rises and muddies fast after local rain, so inspect visually before putting in. The popular reach is Hodgson Mill to Warren Bridge.",
   },
   'big-river': {
-    summary: "At the Byrnesville gauge (primary), roughly 200–600 cfs is comfortable floating; below ~90 cfs you'll scrape, and above ~600 cfs it runs high and pushy for a beginner river. The popular Washington State Park reach upstream runs a bit lower. Big River is a slow, scenic Ozark float.",
+    summary: "At the Richwoods gauge (primary), roughly 100–400 cfs is comfortable floating; below ~90 cfs you'll scrape, and below ~60 cfs the riffles between the long pools stop floating altogether. Above ~600 cfs it runs high and pushy for a beginner river, and 800 cfs and up is dangerous. Richwoods covers the popular Washington State Park reach; the Byrnesville gauge sits well downstream on a larger drainage and reads higher. Big River is a slow, scenic Ozark float.",
     tip: "Portage the old mill/low-head dams on the lower river (Byrnes Mill, Cedar Hill, Morse Mill). Big River drains the historic Old Lead Belt—MDC keeps a fish-consumption advisory, so avoid stirring up or ingesting bottom sediment.",
   },
   'big-piney': {
