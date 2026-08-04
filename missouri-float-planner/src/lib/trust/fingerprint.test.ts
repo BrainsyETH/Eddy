@@ -77,7 +77,7 @@ test('normalization does NOT make prose rename-safe — which is why keys are id
   // Recorded as an assertion rather than a comment so nobody re-derives the
   // false version: the fix is not a better normalizer, it is not keying on
   // prose. gauge_missing_site_id now returns gs.id
-  // (20260804193100_validate_river_data_stable_gauge_key.sql) and gauge_wiring
+  // (20260804192753_validate_river_data_stable_gauge_key.sql) and gauge_wiring
   // keys on the station id.
   const at = fingerprint('validate_river_data', {
     entityType: 'gauge',

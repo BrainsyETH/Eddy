@@ -35,7 +35,7 @@ export interface FingerprintInput {
  * is not to key on prose in the first place.
  *
  * So both callers that were doing so no longer do. The SQL rule now returns
- * `gs.id` (20260804193100_validate_river_data_stable_gauge_key.sql) and
+ * `gs.id` (20260804192753_validate_river_data_stable_gauge_key.sql) and
  * gauge_wiring keys on the station id rather than its label. Display names live
  * in `title` and `detail`, which are excluded from the fingerprint on purpose.
  *

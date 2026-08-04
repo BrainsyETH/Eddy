@@ -1,4 +1,4 @@
--- 20260804193000_trust_findings_lifecycle_constraints.sql
+-- APPLIED to production 2026-08-04 as 20260804192501.
 --
 -- Make the finding lifecycle self-protecting instead of merely well-behaved.
 --
