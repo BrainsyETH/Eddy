@@ -19,9 +19,11 @@ import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
 import { toNum } from '@/lib/utils/num';
+import { STALE_READING_HOURS } from '@shared/reading-staleness';
 
 // Reading age beyond which we surface an accuracy warning (mirrors the DB RPC).
-const STALE_READING_HOURS = 6;
+// Shared with social and the iOS app — see shared/reading-staleness.ts.
+// Three independent copies of this number was one decision nobody could change.
 
 // Published float times in float_segments assume NORMAL flow. Never serve them raw:
 // scale by the current condition so low water doesn't advertise a normal-flow time

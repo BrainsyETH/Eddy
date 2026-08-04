@@ -8,6 +8,7 @@ import { toNum } from '@/lib/utils/num';
 import { fetchWeather, fetchForecast, getWeatherPointForRiver } from '@/lib/weather/openweather';
 import { fetchNWSAlerts, filterAlertsForRiver } from '@/lib/nws/alerts';
 import { calculateFloatTime, DEFAULT_CANOE_SPEEDS } from '@/lib/calculations/floatTime';
+import { resolveFlowInputs } from '@/lib/calculations/flow-inputs';
 import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
 import { overlayLiveConditions } from '@/lib/social/live-conditions';
 // Note: getDriveTime/geocodeAddress from mapbox/directions are used by /api/plan, not here
@@ -243,7 +244,16 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
 
   // Calculate float time using shared default canoe speeds and actual condition.
   // Returns null for dangerous water — we do not quote a time next to "do not float".
-  const floatTime = calculateFloatTime(distanceMiles, DEFAULT_CANOE_SPEEDS, currentCondition);
+  //
+  // The flow inputs are what keep this equal to /api/plan. Without them
+  // calculateFloatTime silently degrades to the legacy condition-band step, and
+  // chat quoted a different number than the planner for the same two access
+  // points — same speeds, different model, no error anywhere.
+  const flow = await resolveFlowInputs(gauge?.usgsSiteId, gauge?.dischargeCfs);
+  const floatTime = calculateFloatTime(distanceMiles, DEFAULT_CANOE_SPEEDS, currentCondition, {
+    dischargeCfs: flow.dischargeCfs,
+    refCfs: flow.refCfs,
+  });
 
   const estimatedHours = floatTime
     ? {

@@ -57,6 +57,17 @@ export interface FloatTimeResult {
   speedMph: number;
   /** Whether `minutes` is a trip or moving figure. */
   basis: TimeBasis;
+  /**
+   * Which speed model produced `speedMph`.
+   *
+   * Exposed because the fallback is silent by construction: omit dischargeCfs
+   * or refCfs and you get the legacy band step, with no error and a
+   * plausible-looking number. That is how /api/plan, chat and social came to
+   * quote different times for the same trip — two of the three had simply never
+   * been passed the flow arguments. A caller that cares can now assert which
+   * model it got, and float-time-parity.test.ts does.
+   */
+  model: 'flow' | 'band';
 }
 
 export interface FloatTimeOptions {
@@ -152,7 +163,9 @@ export function calculateFloatTime(
   // Prefer the flow-dependent model when we have a live discharge and a reference
   // flow; otherwise fall back to the legacy condition-band step.
   let speedMph: number;
+  let model: 'flow' | 'band';
   if (options?.dischargeCfs != null && options?.refCfs != null) {
+    model = 'flow';
     // Base on the vessel's normal speed, modulate by flow, and keep the result
     // within the vessel's own low↔high envelope so it stays physically sane.
     const flowSpeed = effectiveSpeedFromFlow(
@@ -165,6 +178,7 @@ export function calculateFloatTime(
       Math.max(speeds.speedLowWater * 0.5, flowSpeed)
     );
   } else {
+    model = 'band';
     speedMph = bandSpeed(speeds, conditionCode, options?.speedCurve);
   }
 
@@ -183,6 +197,7 @@ export function calculateFloatTime(
     maxMinutes: Math.round(movingMinutes * RANGE_MAX_FACTOR), // relaxed pace
     speedMph: Math.round(speedMph * 10) / 10,
     basis,
+    model,
   };
 }
 
