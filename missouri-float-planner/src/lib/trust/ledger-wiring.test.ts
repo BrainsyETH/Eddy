@@ -314,7 +314,11 @@ test('an unreadable open set is a failed run, not an empty one', async () => {
   );
 });
 
-test('a failed mutation makes the run read as failed and counts only what landed', async () => {
+test('a failed reconciliation writes nothing at all', async () => {
+  // The property the transaction buys. Before trust_apply_reconcile() this was
+  // six independent round-trips, so a failure partway left the ledger holding
+  // some of the run's changes and not others — a state describing a run that
+  // never happened, with no way afterwards to tell which half landed.
   const supabase = createFakeSupabase({ trust_runs: [], trust_findings: [] });
   supabase.failOn({ table: 'trust_findings', mode: 'insert', message: 'disk full' });
 
@@ -329,8 +333,14 @@ test('a failed mutation makes the run read as failed and counts only what landed
   assert.equal(summary.status, 'error');
   assert.equal(summary.raised, 0, 'a write that failed is not a finding raised');
   assert.match(summary.errorDetail!, /disk full/);
-  assert.equal(supabase.rows('trust_runs').at(-1)!.status, 'error');
-  assert.equal(supabase.rows('trust_runs').at(-1)!.findings_raised, 0);
+  assert.equal(supabase.rows('trust_findings').length, 0, 'no finding may survive a failed plan');
+
+  // The run row keeps the pessimistic state it was opened with, which is the
+  // correct reading: this run did not complete.
+  const row = supabase.rows('trust_runs').at(-1)!;
+  assert.equal(row.status, 'error');
+  assert.equal(row.error_detail, 'run did not complete');
+  assert.equal(row.finished_at, undefined, 'an incomplete run has no finish time');
 });
 
 test('a run row that cannot be finalized keeps its pessimistic failure', async () => {

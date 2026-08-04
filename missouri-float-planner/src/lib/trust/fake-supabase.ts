@@ -207,8 +207,166 @@ class QueryBuilder {
   }
 }
 
+/**
+ * In-memory replay of trust_apply_reconcile().
+ *
+ * ── Why this is worth having rather than mocking the call ────────────────
+ *
+ * Moving the writes into one plpgsql function bought atomicity and cost the
+ * sabotage suite its coverage: ledger-wiring.test.ts proves that a broken check
+ * does not resolve findings, and it can only prove that by looking at what
+ * landed in the tables. A stub returning {raised: 0} would assert nothing.
+ *
+ * The duplication is bounded because the SQL function is deliberately dumb. It
+ * carries no policy — planReconcile() decides, it applies — so this replays a
+ * plan rather than reimplementing a judgement. If the two ever disagree it is
+ * about mechanics (does a touch bump occurrences?), which is the kind of thing
+ * a test is supposed to pin down anyway.
+ *
+ * 20260804194500_trust_apply_reconcile.sql is the authority. Verified against
+ * PostgreSQL 16 while it was written.
+ */
+function applyReconcile(store: Map<string, Row[]>, payload: Row): Row {
+  const findings = store.get('trust_findings') ?? [];
+  const byFingerprint = new Map(findings.map((r) => [r.fingerprint as string, r]));
+  const nowIso = payload.now as string;
+  const runId = payload.run_id as string;
+  const checkId = payload.check_id as string;
+
+  let raised = 0;
+  let touched = 0;
+  let resolved = 0;
+
+  const upsert = (item: Row, status: string, occurrenceBump: boolean) => {
+    const existing = byFingerprint.get(item.fingerprint as string);
+    const next: Row = {
+      ...(existing ?? {
+        id: nextId('trust_findings'),
+        first_seen_at: nowIso,
+        occurrences: 0,
+      }),
+      fingerprint: item.fingerprint,
+      check_id: checkId,
+      rule_key: item.rule_key,
+      entity_type: item.entity_type,
+      entity_key: item.entity_key,
+      severity: item.severity,
+      status,
+      title: item.title,
+      detail: item.detail,
+      evidence: item.evidence ?? {},
+      last_seen_at: nowIso,
+      resolved_at: null,
+      snoozed_until: item.snoozed_until ?? null,
+      last_run_id: runId,
+    };
+    // Mirrors what Postgres does, which is subtler than "+1 when raised".
+    //
+    // A fresh INSERT takes the column DEFAULT of 1 and the ON CONFLICT DO UPDATE
+    // never runs, so the bump does not apply to it. Only a genuine conflict —
+    // the finding was already on file — increments. And the anomaly upsert omits
+    // occurrences from its DO UPDATE list entirely, so an existing complaint
+    // keeps its count.
+    //
+    // A differential run against PostgreSQL 16 caught this: the fake had a fresh
+    // anomaly at 0 where the database had 1.
+    next.occurrences = existing
+      ? occurrenceBump
+        ? ((existing.occurrences as number) ?? 1) + 1
+        : ((existing.occurrences as number) ?? 1)
+      : 1;
+    if (existing) {
+      store.set(
+        'trust_findings',
+        (store.get('trust_findings') ?? []).map((r) => (r.fingerprint === item.fingerprint ? next : r)),
+      );
+    } else {
+      store.set('trust_findings', [...(store.get('trust_findings') ?? []), next]);
+    }
+    byFingerprint.set(item.fingerprint as string, next);
+  };
+
+  for (const item of (payload.raise as Row[]) ?? []) {
+    upsert(item, item.snoozed_until ? 'snoozed' : 'open', true);
+    raised += 1;
+  }
+
+  for (const item of (payload.touch as Row[]) ?? []) {
+    const existing = byFingerprint.get(item.fingerprint as string);
+    if (!existing) continue;
+    const wake = item.wake === true;
+    Object.assign(existing, {
+      severity: item.severity,
+      title: item.title,
+      detail: item.detail,
+      evidence: item.evidence ?? {},
+      last_seen_at: nowIso,
+      last_run_id: runId,
+      ...(wake ? { status: 'open', snoozed_until: null } : {}),
+    });
+    touched += 1;
+  }
+
+  // The compare-and-set, restated: open, or a snooze whose deadline has passed.
+  // A live snooze is an operator saying "I know" and must survive.
+  for (const fp of (payload.resolve as string[]) ?? []) {
+    const row = byFingerprint.get(fp);
+    if (!row || row.check_id !== checkId) continue;
+    const resolvable =
+      row.status === 'open' ||
+      (row.status === 'snoozed' &&
+        row.snoozed_until !== null &&
+        new Date(row.snoozed_until as string).getTime() <= new Date(nowIso).getTime());
+    if (!resolvable) continue;
+    Object.assign(row, {
+      status: 'resolved',
+      resolved_at: nowIso,
+      snoozed_until: null,
+      last_run_id: runId,
+    });
+    resolved += 1;
+  }
+
+  if (payload.anomaly) {
+    upsert(payload.anomaly as Row, 'open', false);
+  }
+
+  if (payload.clear_anomaly === true) {
+    for (const row of store.get('trust_findings') ?? []) {
+      if (row.check_id !== checkId) continue;
+      if (row.rule_key !== 'reconcile_anomaly') continue;
+      if (row.status === 'resolved') continue;
+      Object.assign(row, {
+        status: 'resolved',
+        resolved_at: nowIso,
+        snoozed_until: null,
+        last_run_id: runId,
+      });
+    }
+  }
+
+  const run = (payload.run as Row) ?? {};
+  const runs = store.get('trust_runs') ?? [];
+  const runRow = runs.find((r) => r.id === runId);
+  if (!runRow) throw new Error(`trust_apply_reconcile: no trust_runs row ${runId}`);
+  Object.assign(runRow, {
+    status: run.status,
+    finished_at: nowIso,
+    suppressed_reason: run.suppressed_reason ?? null,
+    scope_count: run.scope_count ?? 0,
+    findings_raised: raised,
+    findings_touched: touched,
+    findings_resolved: resolved,
+    duration_ms: run.duration_ms ?? null,
+    error_detail: run.error_detail ?? null,
+  });
+
+  return { raised, touched, resolved };
+}
+
 export interface FakeSupabase {
   from(table: string): QueryBuilder;
+  rpc(name: string, args: Record<string, unknown>): Promise<{ data: unknown; error: unknown }>;
   rows(table: string): Row[];
   seed(table: string, rows: Row[]): void;
   /** Schedule a query failure. See FailureSpec. */
@@ -218,8 +376,38 @@ export interface FakeSupabase {
 export function createFakeSupabase(seed: Record<string, Row[]> = {}): FakeSupabase {
   const store = new Map<string, Row[]>(Object.entries(seed));
   const failures: FailureRule[] = [];
+
   return {
     from: (table: string) => new QueryBuilder(table, store, failures),
+
+    async rpc(name: string, args: Record<string, unknown>) {
+      // Routed through the same failure list, keyed on the table the function
+      // writes — so `failOn({ table: 'trust_findings', mode: 'insert' })` still
+      // expresses "the mutation phase fails", which is what the tests mean.
+      const rule = failures.find(
+        (f) => (f.table === 'trust_findings' || f.table === 'trust_runs') && f.remaining > 0,
+      );
+      if (rule) {
+        rule.remaining -= 1;
+        return { data: null, error: { message: rule.message } };
+      }
+
+      if (name !== 'trust_apply_reconcile') {
+        return { data: null, error: { message: `unknown function ${name}` } };
+      }
+
+      try {
+        return { data: applyReconcile(store, args.p_payload as Row), error: null };
+      } catch (error) {
+        // A thrown replay stands in for a constraint violation: the real
+        // function is one transaction, so a failure means nothing landed.
+        return {
+          data: null,
+          error: { message: error instanceof Error ? error.message : String(error) },
+        };
+      }
+    },
+
     rows: (table: string) => store.get(table) ?? [],
     seed: (table: string, rows: Row[]) => store.set(table, rows),
     failOn: (spec: FailureSpec) =>

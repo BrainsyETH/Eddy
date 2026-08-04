@@ -40,6 +40,26 @@ drift until they are:
 | --- | --- |
 | `20260804193000` | `trust_findings` lifecycle CHECK constraints |
 | `20260804193100` | `validate_river_data()` keys the gauge rule on `gs.id` |
+| `20260804194500` | `trust_apply_reconcile()` — one run, one transaction |
+
+All three were developed and verified against a scratch PostgreSQL 16, not only
+written: the constraints were confirmed to reject each inconsistent lifecycle
+combination, the rewritten gauge branch was executed against stub rows, and the
+reconcile function was checked to leave the tables and the run row untouched
+when a plan fails partway.
+
+### Keeping the two reconcile implementations honest
+
+`trust_apply_reconcile()` moved the ledger's writes into SQL, which CI cannot
+run. `fake-supabase.ts` replays the same plan in memory so `ledger-wiring.test.ts`
+— the sabotage suite — keeps asserting on rows rather than on a stub.
+
+That is two implementations, and they can drift. `scripts/trust/differential-reconcile.mts`
+runs the same payload sequence through both and diffs the result; its first run
+found the fake writing a fresh `reconcile_anomaly` with `occurrences` 0 where
+Postgres wrote 1, because a plain INSERT takes the column default and the
+`ON CONFLICT DO UPDATE` never runs. Run it after changing either side. It needs
+only a local PostgreSQL and never touches a Supabase project.
 
 ### Accepted one-time re-fingerprinting
 
