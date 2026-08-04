@@ -41,13 +41,21 @@
 // explains itself and the other four tabs keep working — see src/map/runtime.ts.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   FloatPlan,
   Hazard,
   MapAccessPoint,
+  NearbyAccessPoint,
   DamSnapshot,
   MapGauge,
   RiverListItem,
@@ -116,8 +124,8 @@ import {
   type GaugeFilterKey,
 } from '@/components/GaugeFilterBar';
 import { PlanSheet } from '@/components/PlanSheet';
-import { PinCallout } from '@/components/map-sheet/PinCallout';
 import { MapSheet } from '@/components/map-sheet/MapSheet';
+import { PinSheet } from '@/components/map-sheet/PinSheet';
 
 /**
  * How far above the map's bottom edge everything floating has to sit.
@@ -197,6 +205,10 @@ export default function MapScreen() {
   );
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [pickedSlug, setPickedSlug] = useState<string | null>(null);
+  // A tab page is exactly as wide as the sheet, which is full-bleed over the
+  // map. Read from the window rather than measured so it survives a rotation
+  // without a layout round-trip.
+  const { width: windowWidth } = useWindowDimensions();
   const [accessPoints, setAccessPoints] = useState<MapAccessPoint[]>([]);
   // Planner data is tagged separately from what the map is drawing. The map
   // deliberately keeps the previous river visible during a switch; the planner
@@ -821,6 +833,44 @@ export default function MapScreen() {
       return drawnAccessPoints.find((entry) => entry.point.id === accessId) ?? null;
     },
     [drawnAccessPoints],
+  );
+
+  /**
+   * Which access points on the river you can sleep at.
+   *
+   * The detail response names a put-in's neighbours but does not say what they
+   * ARE, and this screen already holds every access point with its types — so
+   * it is the only place that can answer "can I camp at the take-out" without
+   * a second request per neighbour.
+   */
+  const campableAccessIds = useMemo(
+    () =>
+      new Set(
+        drawnAccessPoints.filter((entry) => isCampground(entry.point)).map((entry) => entry.point.id),
+      ),
+    [drawnAccessPoints],
+  );
+
+  /**
+   * Build a float between the selected put-in and one of its neighbours.
+   *
+   * The sheet knows the neighbour as a NearbyAccessPoint, which is the wire
+   * shape and carries no coordinates; the planner wants the MapAccessPoint this
+   * screen already has. Upstream neighbours are the PUT-IN and the selected
+   * point the take-out — floating downhill is not negotiable, and offering the
+   * pair the other way round would build a trip nobody can take.
+   */
+  const onPlanToNearby = useCallback(
+    (nearby: NearbyAccessPoint, from: MapAccessPoint) => {
+      const other = drawnAccessPoints.find((entry) => entry.point.id === nearby.id)?.point;
+      if (!other) return;
+      const downstream = nearby.direction === 'downstream';
+      planner.choosePutIn(downstream ? from : other);
+      planner.chooseTakeOut(downstream ? other : from);
+      setSelectedPin(null);
+      setPlanOpen(true);
+    },
+    [drawnAccessPoints, planner],
   );
 
   /**
@@ -1655,7 +1705,7 @@ export default function MapScreen() {
               setFocus(heldCamera());
             }}
           >
-            <PinCallout
+            <PinSheet
               pin={selectedPin}
               accessPoint={pinAccessPoint}
               canSetTakeOut={
@@ -1704,6 +1754,11 @@ export default function MapScreen() {
                       })
                   : null
               }
+              onPlanTo={(nearby) => {
+                if (pinAccessPoint) onPlanToNearby(nearby, pinAccessPoint);
+              }}
+              campableIds={campableAccessIds}
+              width={windowWidth}
             />
           </MapSheet>
         ) : null}

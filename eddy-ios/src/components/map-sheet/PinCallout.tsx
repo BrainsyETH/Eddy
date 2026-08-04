@@ -11,7 +11,7 @@
 // DRIVEABLE_LAYERS came with it: it was a module constant in the screen and is
 // used by nothing else there.
 
-import { Alert, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MapAccessPoint } from '@eddy/types';
 import { accessPointTypes, accessTypeLabel } from '@eddy/types';
@@ -24,17 +24,10 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import type { MapPin } from '@/map/RiverMap';
-import { MAP_LAYERS, type LayerKey } from '@/map/layers';
+import { MAP_LAYERS } from '@/map/layers';
 import { useAccessGaugeStatus } from '@/hooks/useAccessGaugeStatus';
 import { formatReading } from '@/lib/readingCopy';
-import { driveToUrl } from '@/lib/directions';
-
-/**
- * Layers whose pins are somewhere you get in a car and go.
- *
- * The exclusions are the point — see the Directions button in PinCallout.
- */
-const DRIVEABLE_LAYERS = new Set<LayerKey>(['access', 'campgrounds', 'outfitters']);
+import { confirmPlanAction, isDriveable, openDirections } from './sheetActions';
 
 /**
  * What a tapped pin is, and — for an access point — what to do with it.
@@ -88,37 +81,15 @@ export function PinCallout({
   const planActionLabel = planAsTakeOut ? 'Use as take-out' : 'Use as put-in';
   const performPlanAction = planAsTakeOut ? onSetTakeOut : onSetPutIn;
 
-  // PLACES YOU DRIVE TO, and nothing else. Access points, campgrounds and
-  // outfitters are destinations. A hazard is emphatically not one — a
-  // Directions button under a strainer is an invitation — and a gauge is a
-  // sensor on a bridge rail. See DRIVEABLE_LAYERS.
-  const driveable = DRIVEABLE_LAYERS.has(pin.layer);
-  // Coordinates, never the name: see src/lib/directions.ts.
-  const openDirections = () =>
-    void Linking.openURL(driveToUrl({ name: pin.name, coordinates: pin.coordinates }));
-
-  const onPlanAction = () => {
-    if (!accessPoint || accessPoint.isPublic) {
-      performPlanAction();
-      return;
-    }
-
-    const message = accessPoint.feeRequired
-      ? 'This location is marked private and may require both permission and a fee. Review its access details before relying on it.'
-      : 'This location is marked private and may require permission. Review its access details before relying on it.';
-    if (pin.detailRoute) {
-      Alert.alert('Private access', message, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Review details', onPress: () => onOpenDetail(pin.detailRoute!) },
-        { text: 'Use anyway', onPress: performPlanAction },
-      ]);
-      return;
-    }
-    Alert.alert('Private access', message, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Use anyway', onPress: performPlanAction },
-    ]);
-  };
+  // See sheetActions: which layers are destinations, and why a hazard is not.
+  const driveable = isDriveable(pin);
+  const onPlanAction = () =>
+    confirmPlanAction({
+      accessPoint,
+      detailRoute: pin.detailRoute,
+      proceed: performPlanAction,
+      onOpenDetail,
+    });
 
   /**
    * WHAT THIS PIN IS FOR, resolved once.
@@ -178,7 +149,7 @@ export function PinCallout({
       label: 'Directions',
       icon: 'navigate-outline',
       tone: 'interactive',
-      onPress: openDirections,
+      onPress: () => openDirections(pin),
       accessibilityLabel: `Directions to ${pin.name}`,
     });
   }
@@ -189,7 +160,7 @@ export function PinCallout({
       label: 'Directions',
       icon: 'navigate-outline',
       tone: 'neutral',
-      onPress: openDirections,
+      onPress: () => openDirections(pin),
       accessibilityLabel: `Directions to ${pin.name}`,
     });
   }
