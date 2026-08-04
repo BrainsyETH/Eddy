@@ -38,13 +38,19 @@ export async function GET(request: NextRequest) {
 
     const metrics = reviewMetrics(closed);
 
-    // The baseline is judged against what is OPEN right now. A known
-    // safety-critical defect that closed and came back is open again, and that
-    // is the only state that matters here.
-    const open = await mustRows<{ rule_key: string; entity_key: string; check_id: string }>(
+    // The baseline is judged against what is OPEN right now — and against WHEN
+    // each of those was last observed. A finding that pre-dates its repair is
+    // residue from before the fix, not a report that the fix failed, and
+    // assessBaseline() needs last_seen_at to tell those apart.
+    const open = await mustRows<{
+      rule_key: string;
+      entity_key: string;
+      check_id: string;
+      last_seen_at: string;
+    }>(
       supabase
         .from('trust_findings')
-        .select('rule_key, entity_key, check_id')
+        .select('rule_key, entity_key, check_id, last_seen_at')
         .in('status', ['open', 'snoozed']),
       'could not read open findings',
     );
@@ -92,7 +98,16 @@ export async function GET(request: NextRequest) {
             summary: e.summary,
             closedBy: e.closedBy,
           })),
-          met: baseline.allClosed,
+          // Reported, not hidden. These are the entries whose owning check has
+          // not run since the repair — the criterion asks whether the ledger
+          // SHOWS them staying closed, and for these it does not yet.
+          unverified: baseline.unverified.map((e) => ({
+            id: e.id,
+            summary: e.summary,
+            lastVerifiedAt: e.reappearsAs?.verifiedAt ?? null,
+            awaitingCheck: e.reappearsAs?.checkId ?? null,
+          })),
+          met: baseline.gateMet,
         },
         boundedQueue: { open: openCount, met: null },
       },
