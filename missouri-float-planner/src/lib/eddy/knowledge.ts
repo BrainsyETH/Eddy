@@ -46,10 +46,18 @@ function parseKnowledgeFile(): KnowledgeSections {
   let currentH2 = ''; // Current ## heading (normalized to slug)
   let currentH3 = ''; // Current ### heading (normalized to slug)
   let buffer: string[] = [];
+  // "## General" opens the knowledge proper. Everything above it is front
+  // matter written for humans — "## Format Rules" is an H2 like any other, and
+  // without this it parsed into a river named `format-rules`, which then looks
+  // to every consumer like a knowledge section for a river that does not exist.
+  let seenGeneral = false;
 
   function flushBuffer() {
     const text = buffer.join('\n').trim();
-    if (!text) return;
+    if (!text || !seenGeneral) {
+      buffer = [];
+      return;
+    }
 
     if (currentH2 === 'general') {
       // General has subsections too (e.g. "### Nearest Towns to Access Points").
@@ -80,6 +88,7 @@ function parseKnowledgeFile(): KnowledgeSections {
       flushBuffer();
       currentH2 = slugify(h2Match[1]);
       currentH3 = '';
+      if (currentH2 === 'general') seenGeneral = true;
       continue;
     }
 
@@ -165,11 +174,28 @@ export function getGeneralKnowledge(): string {
 
 /**
  * Converts a heading to a slug for matching.
- * "Upper Current" -> "upper-current"
- * "Current River" -> "current"
- * "Jacks Fork River" -> "jacks-fork"
+ *
+ * An explicit `{#slug}` anchor wins outright and is the preferred form:
+ *   "Big River {#big-river}" -> "big-river"
+ *   "Sycamore to Warren Bridge {#hodgson-mill-to-warren-bridge}"
+ *       -> "hodgson-mill-to-warren-bridge"
+ *
+ * Without one the slug is derived, which strips a trailing "River"/"Creek":
+ *   "Upper Current" -> "upper-current"
+ *   "Current River" -> "current"
+ *   "Jacks Fork River" -> "jacks-fork"
+ *
+ * That derivation is wrong for every river whose DB slug KEEPS the suffix
+ * ("big-river", "bryant-creek", "kings-river", "war-eagle-creek", ...), and it
+ * is wrong silently: getKnowledgeForTarget() finds no section and Eddy writes
+ * the river up from the General Ozarks primer alone, which reads as confident
+ * prose rather than an error. That is the Gasconade failure this module's own
+ * warning records. Anchor the heading rather than trusting the derivation.
  */
 function slugify(heading: string): string {
+  const anchored = heading.match(/\{#([a-z0-9-]+)\}\s*$/);
+  if (anchored) return anchored[1];
+
   return heading
     .toLowerCase()
     .replace(/\s+river$/i, '')    // Remove trailing "River"
