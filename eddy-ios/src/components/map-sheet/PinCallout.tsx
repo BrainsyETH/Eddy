@@ -72,7 +72,7 @@ export function PinCallout({
   /** Null for anything that cannot be starred, which is everything but gauges. */
   onToggleStar?: (() => void) | null;
 }) {
-  const { colors, elevation, isDark } = useTheme();
+  const { colors, isDark } = useTheme();
   const layer = MAP_LAYERS.find((l) => l.key === pin.layer);
   // Access points only, and only ones with a detail route — the hook returns
   // null for everything else, so no guard is needed here.
@@ -252,7 +252,7 @@ export function PinCallout({
   }
 
   return (
-    <View style={[styles.callout, { backgroundColor: colors.card }, elevation(2)]}>
+    <View style={styles.callout}>
       <View style={styles.calloutHead}>
         {accessPoint && pin.imageUrl ? (
           <View style={styles.calloutThumbWrap}>
@@ -578,7 +578,10 @@ export function PinCallout({
 }
 
 const styles = StyleSheet.create({
-  callout: { borderRadius: 14, padding: 13 },
+  // NO background, radius or elevation of its own: MapSheet is the card now,
+  // and a second one inside it read as a card on a card. Horizontal padding
+  // matches the calloutWrap this replaced; the sheet supplies the rest.
+  callout: { paddingHorizontal: 16, paddingBottom: 4 },
   calloutHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   calloutDot: { width: 10, height: 10, borderRadius: 999 },
   calloutThumbWrap: { width: 64, height: 64 },

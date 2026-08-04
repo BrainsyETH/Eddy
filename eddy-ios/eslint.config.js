@@ -31,4 +31,22 @@ module.exports = defineConfig([
       'react-hooks/set-state-in-effect': 'warn',
     },
   },
+  {
+    // ── Reanimated shared values are mutable BY DESIGN ────────────────────
+    // React 19's compiler lint treats anything a hook returned as immutable,
+    // and `sharedValue.value = x` is precisely how Reanimated is driven — it
+    // is the mechanism that keeps sixty-times-a-second updates off the React
+    // thread entirely. There is no alternative spelling to migrate to, so
+    // unlike set-state-in-effect above this is not a downgrade pending a
+    // decision; it is a rule that does not apply to this library.
+    //
+    // SCOPED TO THE DIRECTORY rather than switched off globally, so the rule
+    // keeps working everywhere it is right — which is everywhere else, since
+    // this is the only corner of the app that uses Reanimated. Widen the glob
+    // if that changes; do not move it up into the block above.
+    files: ['src/components/map-sheet/**/*.{ts,tsx}'],
+    rules: {
+      'react-hooks/immutability': 'off',
+    },
+  },
 ]);

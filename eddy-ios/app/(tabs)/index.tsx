@@ -117,6 +117,7 @@ import {
 } from '@/components/GaugeFilterBar';
 import { PlanSheet } from '@/components/PlanSheet';
 import { PinCallout } from '@/components/map-sheet/PinCallout';
+import { MapSheet } from '@/components/map-sheet/MapSheet';
 
 /**
  * How far above the map's bottom edge everything floating has to sit.
@@ -1516,74 +1517,6 @@ export default function MapScreen() {
             no callout the row sits flush at the ornament band and nothing adds
             phantom space. */}
         <View style={styles.bottomStack} pointerEvents="box-none">
-          {selectedPin && !search.active ? (
-            <View style={styles.calloutWrap} pointerEvents="box-none">
-              {/* ── Going to look at something does not deselect it ──────────
-                  onOpenRiver, onOpenGauge, onOpenDam and onOpenDetail below all
-                  used to clear the pin on the way out, so tapping a put-in,
-                  reading its screen and pressing Back landed you on a map with
-                  nothing selected — the callout gone, the pin no longer ringed,
-                  and no way to carry on with it but to find it among its
-                  neighbours and tap it again. That is a round trip the app
-                  asked for and then discarded the state of.
-
-                  A selection is a place the user is standing. Only the two
-                  things that genuinely leave it put it down: the close button,
-                  and handing an access point to the planner, which replaces the
-                  callout with the plan sheet. */}
-              <PinCallout
-                pin={selectedPin}
-                accessPoint={pinAccessPoint}
-                canSetTakeOut={
-                  Boolean(planner.putIn) &&
-                  pinAccessPoint != null &&
-                  pinAccessPoint.riverMile > (planner.putIn?.riverMile ?? Infinity)
-                }
-                onSetPutIn={() => {
-                  if (!pinAccessPoint) return;
-                  planner.choosePutIn(pinAccessPoint);
-                  setSelectedPin(null);
-                  setPlanOpen(true);
-                }}
-                onSetTakeOut={() => {
-                  if (!pinAccessPoint) return;
-                  planner.chooseTakeOut(pinAccessPoint);
-                  setSelectedPin(null);
-                  setPlanOpen(true);
-                }}
-                onOpenRiver={(slug) => router.push(`/river/${slug}`)}
-                onOpenGauge={onOpenGauge}
-                onOpenDam={onOpenDam}
-                onOpenDetail={(route) => router.push(asHref(route))}
-                // Closing a callout drops the pin's camera override without
-                // handing the camera to anything else. It used to null the
-                // focus, which on a map with no river selected woke the opening
-                // focus and flew you to your own position for having shut a
-                // gauge bubble. See heldCamera.
-                onClose={() => {
-                  setSelectedPin(null);
-                  setFocus(heldCamera());
-                }}
-                starred={pinGauge ? isStarred('gauge', pinGauge.id) : false}
-                onToggleStar={
-                  pinGauge
-                    ? () =>
-                        toggleStar({
-                          kind: 'gauge',
-                          entityId: pinGauge.id,
-                          name: pinGauge.name,
-                          // The river it is PRIMARY for, which is where a starred
-                          // gauge taps through to. Empty when it rates none.
-                          slug:
-                            pinGauge.thresholds?.find((link) => link.isPrimary)?.riverSlug ?? '',
-                          usgsSiteId: pinGauge.usgsSiteId,
-                        })
-                    : null
-                }
-              />
-            </View>
-          ) : null}
-
           <View style={styles.controlRow} pointerEvents="box-none">
           {/* Locate. The ONLY thing that ever asks for location permission on
               this screen — see useLocation for why the prompt is never spent on
@@ -1699,6 +1632,81 @@ export default function MapScreen() {
             </Pressable>
           ) : null}
         </View>
+
+        {/* ── The sheet ─────────────────────────────────────────────────
+            OUT of the bottom stack, which sized itself to the callout and
+            grew upward from the ornament band. A sheet is not a member of
+            that column: it spans the whole map area and slides, so the stack
+            now holds only the fixed chrome it was always about.
+
+            RENDERED LAST so it draws over the plan cluster and the locate
+            button. Those stay put rather than being hidden — at the glance
+            the sheet is short enough that they are still reachable, and
+            moving them as it drags would be motion nobody asked for. */}
+        {selectedPin && !search.active ? (
+          <MapSheet
+            // A new pin is a new question. See MapSheet's resetKey.
+            resetKey={selectedPin.id}
+            // Dragging the sheet shut is the same act as pressing its close
+            // button, so both land here — including the camera hold, without
+            // which shutting a gauge bubble flies you to your own position.
+            onClose={() => {
+              setSelectedPin(null);
+              setFocus(heldCamera());
+            }}
+          >
+            <PinCallout
+              pin={selectedPin}
+              accessPoint={pinAccessPoint}
+              canSetTakeOut={
+                Boolean(planner.putIn) &&
+                pinAccessPoint != null &&
+                pinAccessPoint.riverMile > (planner.putIn?.riverMile ?? Infinity)
+              }
+              onSetPutIn={() => {
+                if (!pinAccessPoint) return;
+                planner.choosePutIn(pinAccessPoint);
+                setSelectedPin(null);
+                setPlanOpen(true);
+              }}
+              onSetTakeOut={() => {
+                if (!pinAccessPoint) return;
+                planner.chooseTakeOut(pinAccessPoint);
+                setSelectedPin(null);
+                setPlanOpen(true);
+              }}
+              onOpenRiver={(slug) => router.push(`/river/${slug}`)}
+              onOpenGauge={onOpenGauge}
+              onOpenDam={onOpenDam}
+              onOpenDetail={(route) => router.push(asHref(route))}
+              // Closing a callout drops the pin's camera override without
+              // handing the camera to anything else. It used to null the
+              // focus, which on a map with no river selected woke the opening
+              // focus and flew you to your own position for having shut a
+              // gauge bubble. See heldCamera.
+              onClose={() => {
+                setSelectedPin(null);
+                setFocus(heldCamera());
+              }}
+              starred={pinGauge ? isStarred('gauge', pinGauge.id) : false}
+              onToggleStar={
+                pinGauge
+                  ? () =>
+                      toggleStar({
+                        kind: 'gauge',
+                        entityId: pinGauge.id,
+                        name: pinGauge.name,
+                        // The river it is PRIMARY for, which is where a starred
+                        // gauge taps through to. Empty when it rates none.
+                        slug:
+                          pinGauge.thresholds?.find((link) => link.isPrimary)?.riverSlug ?? '',
+                        usgsSiteId: pinGauge.usgsSiteId,
+                      })
+                  : null
+              }
+            />
+          </MapSheet>
+        ) : null}
       </View>
 
       {riversError ? (
