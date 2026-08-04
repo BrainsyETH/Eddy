@@ -1,10 +1,83 @@
 # Eddy Autonomous Operations and Intelligence Framework
 
-> **Status:** Proposed roadmap  
-> **Date:** 2026-08-03  
-> **Owner:** Eddy  
-> **Operating model:** Founder + Codex, bounded autonomy  
+> **Status:** Proposed roadmap — **revised 2026-08-04** against the codebase.
+> **Date:** 2026-08-03 (revised 2026-08-04)
+> **Owner:** Eddy
+> **Operating model:** Founder + Codex, bounded autonomy
 > **North star:** Trust first, followed by river intelligence, repeatable expansion, distribution, and sustainable revenue
+
+## What the revision changed, and why
+
+The first draft assumed Eddy needs a system to **detect** data problems. Checked
+against the code, that premise is wrong, and it was load-bearing for the whole
+sequence.
+
+Eddy already has a substantial detection suite. `validate_river_data()`
+(migration `00164`) runs **twenty** rules over active rivers.
+`/api/admin/river-health` emits ten more. `src/lib/alerts/gate.ts` is a pure,
+unit-tested stale / suspect-qualifier / flatline detector. There are seven
+read-only check scripts. Almost none of it runs on a schedule, and **nothing
+remembers what any of it said last time** — `npm run db:validate` prints to a
+terminal, so the output lives exactly as long as the scrollback.
+
+The gap is a **heartbeat and a memory**, not a detector.
+
+Second correction: most of the defects this roadmap would have rediscovered are
+already fixed. Dangerous water no longer returns a float time
+(`src/lib/calculations/floatTime.ts:145-148`); the flat per-vessel speed model
+is gone, replaced by a flow-dependent one; NWS flood stages were backfilled for
+16 stations (migration `00165`); the feedback write path works. The audit
+documents are stale, not the code. What remains open is a different class —
+**cross-surface inconsistency**, and **checks nobody runs**.
+
+The eleven substantive changes:
+
+1. Phases 0–5 collapse into a ~2-week first slice, specified in
+   `docs/TRUST_LEDGER_V1_PLAN.md` and now built.
+2. `trust/` cannot live at the repository root — Vercel's Root Directory is
+   `missouri-float-planner/` and shippable web code must not import outside it
+   (`CLAUDE.md`; ADR `0003` is the precedent). It lives at
+   `missouri-float-planner/src/lib/trust/`.
+3. Cadence lives in a check registry, not in `vercel.json`. That file already
+   declares 23 cron entries against a ceiling near 40, so a slot-per-check
+   design runs out before the interesting checks are written. One cron path
+   drains the registry.
+4. The 0–100 confidence score is dropped. There is no calibration data to fit
+   six weights to, and `scripts/ingestion/dossier.ts` already defines
+   `Confidence = 'high' | 'medium' | 'low'` with `corroboratingSources` — a
+   numeric score would fork the vocabulary over the same facts.
+5. Severity is assigned by **consequence at the surface**, not by category of
+   defect. See below.
+6. Phase 8 is a re-enable, not a build. Chat exists, streams, has eight tools,
+   and returns 503 at `src/app/api/chat/route.ts:25`.
+7. Open-web discovery leaves the MVP. The deferrals list rules out broad
+   crawling while Phase 3 schedules weekly discovery; that contradiction is
+   resolved toward the deferral.
+8. The MVP gate becomes **net** of review time, and gains a second condition:
+   the known-critical set is closed and the ledger proves it stayed closed.
+9. Four documents this roadmap silently overlapped are now named, with a
+   supersede/extend relationship for each.
+10. The daily brief's timezone becomes configuration.
+    `MULTI_STATE_SCALING_PLAN.md` names baked-in Central Time as a scaling
+    blocker; this must not add another.
+11. `pgmq` is deferred in favour of a plain table. Migrations here are applied
+    by hand and have drifted before; a queue inside an extension schema adds a
+    failure mode that cannot be seen from the admin console.
+
+## Where this sits among the existing documents
+
+This roadmap is not the first plan in this repository, and the first draft did
+not say how it related to the others. Six documents already own territory it
+described:
+
+| Document | Status | Relationship |
+| --- | --- | --- |
+| `docs/TRUST_LEDGER_V1_PLAN.md` | active | **Supersedes** Phases 0–5 of this document. |
+| `missouri-float-planner/docs/MULTI_STATE_SCALING_PLAN.md` | active | **Authoritative** for out-of-state expansion. Phase 9 defers to it. |
+| `missouri-float-planner/docs/RIVER_SCALING_PLAYBOOK.md` | active | **Authoritative** for in-Missouri river onboarding. |
+| `missouri-float-planner/scripts/ingestion/dossier.ts` | shipped code | **Already implements** Phase 9's `RiverPackage`, as a dossier with `Sourced<T>` provenance and `[auto]/[verify]/[signoff]/[manual]` gates. Extend it; do not re-specify it. |
+| `docs/data-pipeline.md` | active | **Already is** the source catalogue and guard-level model Phase 3 describes. |
+| `missouri-float-planner/docs/OBSERVABILITY_AND_UPGRADES.md` | active, §1–2 done | Sentry is wired across four runtimes. Phase 4 extends it. |
 
 ## Executive summary
 
@@ -162,6 +235,14 @@ Use Vercel Functions for time-sensitive and bounded jobs. Use GitHub Actions for
 
 Normal Vercel jobs should target two to three minutes even if the account permits longer execution. Every job must checkpoint and resume rather than depending on maximum function duration.
 
+**Cron slots are a hard budget.** `missouri-float-planner/vercel.json` already
+declares 23 cron entries against a ceiling around 40. Phase 3's per-source
+cadences alone would have consumed the remainder, before Phase 4's continuous
+checks and Phase 5's brief dispatcher. So cadence lives in the check registry
+and one cron path per frequency class drains it; adding a check must never cost
+a Vercel slot. This also delivers the checkpoint-and-resume requirement above,
+which per-source crons would have quietly violated.
+
 GitHub Actions handles:
 
 - Playwright journeys and mobile screenshots;
@@ -176,8 +257,15 @@ Critical condition freshness, closures, and production health remain on Vercel b
 
 ### Code organization
 
+The tree lives at `missouri-float-planner/src/lib/trust/`, **not** at the
+repository root. Vercel's Root Directory is `missouri-float-planner/` and
+shippable web code must not import from outside it — that constraint is why
+`shared/` lives inside the web tree (ADR `0003`), and the conductor, action
+executor and Trust Console are all Next.js routes on Vercel. A root-level
+`trust/` would not build.
+
 ```text
-trust/
+missouri-float-planner/src/lib/trust/
 ├── contracts/
 │   ├── job.ts
 │   ├── worker.ts
@@ -269,7 +357,21 @@ The runner should support both a CLI entrypoint for GitHub Actions and a Docker 
 
 ## Queue and job runtime
 
-Use Supabase Queues through `pgmq`. If the extension is unavailable, implement the same adapter over a `trust_jobs` table using `FOR UPDATE SKIP LOCKED`, visibility leases, attempt counters, idempotency keys, scheduled retries, and dead-letter state.
+Use a plain `trust_jobs` table with `FOR UPDATE SKIP LOCKED`, visibility leases,
+attempt counters, idempotency keys, scheduled retries, and dead-letter state.
+`pgmq` is deferred until queue depth justifies it.
+
+This inverts the first draft. Migrations here are applied **by hand** and have
+drifted from production before, so a queue living inside an extension schema
+adds a failure mode invisible from the admin console — while the plain table
+ships in the same migration stream, is inspectable, and is what the adapter
+boundary below wants anyway.
+
+**v1 has no queue at all.** Four checks over ~13 active rivers fit in one
+invocation with a wall-clock budget and a least-recently-run cursor. What would
+force a real queue: a check calling a rate-limited external API per entity, a
+check that cannot finish in 300 s, or checks needing genuinely independent
+cadences.
 
 Every job includes:
 
@@ -376,14 +478,20 @@ Maintain append-only state changes, decisions, policy/configuration changes, exe
 
 ### Confidence
 
-Use a transparent 0–100 score with default components:
+Use the ordinal vocabulary that already exists: `high | medium | low`, plus
+`corroboratingSources`, exactly as `scripts/ingestion/dossier.ts` defines it.
 
-- source authority: 30 points;
-- independent corroboration: 20 points;
-- freshness: 15 points;
-- entity and geographic match: 15 points;
-- extraction certainty: 10 points; and
-- consistency with trusted context: 10 points.
+The first draft specified a 0–100 score with six weighted components
+(30/20/15/15/10/10). It is dropped for two reasons. There is no adjudicated
+finding corpus to fit six weights against, so the weights would be intuition
+wearing a number — and every downstream consumer, including Chat and the
+decision service, would treat that number as meaningful. And the dossier already
+carries a confidence vocabulary over the same facts; a second, numeric one would
+mean two incompatible answers to "how sure are we" about a single threshold.
+
+Assign the bucket by rule, not by arithmetic: authoritative-and-corroborated,
+authoritative-single-source, secondary, unconfirmed. Introduce a numeric score
+only once enough findings have been adjudicated to fit one.
 
 Penalize contradictory authoritative evidence, copied sources, stale evidence, weak matching, inferred claims, parser uncertainty, and evidence originating only from user-generated content.
 
@@ -391,9 +499,29 @@ A single authoritative source can establish an urgent official closure. Communit
 
 ### Severity
 
-**Critical:** dangerous or stale condition data, missing authoritative closures, incorrect immediate safety guidance, core outages, exposed sensitive data, or total failure of critical monitoring.
+**Assign by consequence at the surface, not by category of defect.** Anything
+that can change a condition badge or a go/no-go answer is critical, whichever
+table the defect lives in.
 
-**High:** incorrect access legality, materially wrong route calculations, gauge miswiring, broken planning workflows, major embed outages, or contradictory authoritative evidence.
+The first draft graded by category, which produced an inversion worth naming:
+it filed "dangerous or stale condition data" as critical and "gauge miswiring"
+as high — but gauge miswiring is *how* dangerous condition data gets produced.
+That is the subject of `docs/gauge-alerting-misalignment-audit.md`.
+`validate_river_data()` makes the same mistake in its own grades, filing
+`stale_gauge` as a warning and `missing_timezone` as an error; the ledger
+re-maps rather than trusting it, and preserves the SQL's grade in
+`evidence.sqlSeverity` so the disagreement stays visible.
+
+**Critical:** anything reaching a badge or a go/no-go — a silent primary gauge, a
+non-monotonic threshold ladder, a missing dangerous anchor, an ungauged active
+river, missing authoritative closures, incorrect immediate safety guidance, core
+outages, exposed sensitive data, or total failure of critical monitoring.
+Gauge miswiring belongs here when it feeds a live badge.
+
+**High:** misreporting in the safe direction — a collapsed badge range —
+plus incorrect access legality, materially wrong route calculations, broken
+planning workflows, major embed outages, or contradictory authoritative
+evidence.
 
 **Medium:** stale business information, missing provenance, non-critical broken pages, incomplete amenities, or meaningful content/SEO drift.
 
@@ -408,6 +536,14 @@ Rank by severity, safety impact, confidence, affected users/surfaces, age, recur
 ### Automatic
 
 Workers may read canonical data, fetch configured sources, run checks, store evidence, create/deduplicate findings, generate proposals, send approved operational notifications, and archive operational records.
+
+Note that the architecture diagram above shows `ADMIN --> ACTION` as the only
+path into the executor, while the progressive-activation list ends at
+"explicitly allowlisted low-risk autonomy" and Phase 13 assumes it. Those
+disagree. The diagram is correct **for every phase up to and including 12**:
+until an allowlist is actually earned, there is no unattended path to the
+executor, and any such path must be added to the diagram in the same change
+that creates it.
 
 ### Approval required
 
@@ -448,7 +584,14 @@ Add one Trust section to Eddy Admin with:
 
 ### Daily brief
 
-Send once at 7:00 AM America/Chicago. Run the dispatcher hourly and use a local-time/idempotency guard so daylight saving time does not duplicate or skip delivery.
+Send once daily at a **configured** local time, defaulting to 7:00 AM
+America/Chicago. Run the dispatcher hourly and use a local-time/idempotency
+guard so daylight saving time does not duplicate or skip delivery.
+
+The timezone is configuration from day one, not a constant.
+`MULTI_STATE_SCALING_PLAN.md` names baked-in Central Time as one of the five
+concrete reasons the platform cannot take a non-Missouri river today; a
+framework meant to enable expansion must not add a sixth.
 
 Include overall health, new critical/high findings, approvals, resolutions, failed workers/sources, repeated issues, recommended work, estimated review time, and direct admin links.
 
@@ -465,11 +608,31 @@ Alert immediately for dangerous or stale condition data, authoritative closures,
 
 # Multi-phase delivery roadmap
 
+> **Phases 0–5 are superseded by `docs/TRUST_LEDGER_V1_PLAN.md`,** which
+> collapses them from roughly ten weeks into two by wrapping the checks that
+> already exist instead of writing new ones. They are kept below because the
+> gates are still the right gates; read them as the acceptance criteria the v1
+> slice has to meet, not as a work plan.
+>
+> What v1 actually built: two tables (not eight), no job queue, one cron entry,
+> four checks of which one is new detection logic, and an admin page with no
+> approval workflow. The reconciliation guards are the part that matters —
+> auto-resolve is what proves a fix held, and it is also the direction in which
+> a broken check looks healthy, so a check that errors, examines nothing, runs
+> out of time partway, or would close most of what was open at once is refused
+> and says so.
+
 ## Phase 0: Architecture and baseline — weeks 1–2
 
 ### Work
 
-- Verify `pgmq` availability.
+- **Close the migration drift.** `scripts/check-migration-drift.ts` exists and
+  runs nowhere — not in CI, not in `make check`. An integrity system cannot be
+  built on a schema nobody can prove production has, so this is a Phase 0 gate,
+  not a Phase 1 task.
+- Run the read-only reconnaissance queries in `docs/TRUST_LEDGER_V1_PLAN.md`
+  §Step 0. Several remediation decisions depend on live row counts and cannot be
+  made from migration files.
 - Inventory validators, syncs, admin endpoints, cron jobs, telemetry, and reusable scripts.
 - Classify existing code as checks, source adapters, actions, or legacy utilities.
 - Define all versioned contracts and the worker registry.
@@ -517,7 +680,19 @@ Ten to fifteen high-value checks run reliably, findings deduplicate, explanation
 
 ### Coverage
 
-Official sources include USGS, NWS, NPS, USFS, government GIS, and existing government recreation/closure feeds. Web discovery includes configured outfitters, campgrounds, tourism organizations, river sources, and targeted search results.
+Official sources include USGS, NWS, NPS, USFS, government GIS, and existing government recreation/closure feeds.
+
+**Open-web discovery is deferred out of the MVP**, resolving a contradiction in
+the first draft: the explicit-deferrals list ruled out continuous broad-web
+crawling while this phase scheduled weekly discovery across outfitters,
+campgrounds and tourism organizations. For thirteen active rivers the official
+feeds plus Eddy's own telemetry produce far more true findings per dollar, and
+open-web is where all the terms-of-service, prompt-injection and model-cost
+exposure lives. Configured outfitter and service pages — a known, small,
+enumerated list — may still be polled; it is untargeted discovery that waits.
+
+The source catalogue and its guard levels already exist in
+`docs/data-pipeline.md`. Extend that table rather than starting a second one.
 
 ### Cadence
 
@@ -525,7 +700,7 @@ Official sources include USGS, NWS, NPS, USFS, government GIS, and existing gove
 - Closures and alerts: hourly.
 - Stable government pages: daily.
 - Outfitter/service pages: weekly.
-- Broad discovery: weekly.
+- Broad discovery: **not in the MVP.**
 
 ### Gate
 
@@ -568,9 +743,21 @@ Run all trust loops without automated canonical execution. Review all critical/h
 
 - Four weeks of real operation.
 - Fewer than 20% false positives among reviewed findings.
-- At least two hours of manual work saved weekly.
+- **At least two hours of manual work saved weekly, NET of review time.** The
+  first draft measured hours saved and said nothing about hours spent. Fifteen
+  approval categories plus daily, weekly, monthly and quarterly review cadences
+  is a real cost for one person, and a framework that saves two hours and costs
+  three is a loss that this gate would have scored as a pass.
+- **Every known safety-critical defect that existed at Phase 0 is closed, and
+  the ledger shows it staying closed.** This is the gate the first draft
+  lacked, and the one that separates a repair from a better-formatted backlog:
+  every other criterion here measures detection.
 - Critical condition failures detected within 15 minutes.
-- Manageable solo-founder queue.
+- A bounded queue. Cap what surfaces — top N per day by priority, the rest
+  visible on request rather than pushed — and auto-close informational findings
+  left unactioned for N days. Without a cap and a decay rule the backlog only
+  grows, and the console becomes the thing the operator stops opening, which is
+  the exact failure this framework exists to prevent.
 - Every safety-critical field sourced or explicitly unknown.
 - No unauthorized mutations.
 - Reliable queue recovery and notification delivery.
@@ -599,6 +786,17 @@ No unsafe scenario passes evaluation; at least 80% of sampled ordinary recommend
 
 ## Phase 8: Public Chat integration — months 4–6
 
+> **This is a re-enable, not a build.** `src/app/api/chat/route.ts` already
+> exists: streaming SSE, eight tools (`get_river_conditions`, `get_float_route`,
+> `get_river_hazards`, `web_search` and others), rate limiting, x402 wrapping.
+> It returns 503 at line 25 — "Chat is temporarily unavailable while we optimize
+> the experience" — with the whole implementation as unreachable code below the
+> early return. `/api/mcp` exists too.
+>
+> So the real question this phase must answer is not how to build a chat. It is
+> **why the chat was turned off, and whether `RiverDecisionService` addresses
+> that reason.** Answer that before writing anything.
+
 Chat consumes accepted canonical data, accepted provenance, current conditions, and `RiverDecisionService`. It cannot read unresolved findings, rejected evidence, internal artifacts, proposed actions, or admin notes.
 
 Tool results add timestamps, freshness, confidence, sources, contradiction state, safety state, and support status. Stale or contradictory safety data produces conservative uncertainty. User questions may create anonymized product signals but never canonical facts.
@@ -607,7 +805,19 @@ Roll out through conversation replay, founder preview, limited public exposure, 
 
 ## Phase 9: Repeatable expansion — months 5–8
 
-Create a versioned `RiverPackage` covering identity, region, timezone, geometry, sections, hydrology archetype, providers, gauges, thresholds, access, hazards, miles, route calibration, weather/alerts, knowledge, regulations, sources, cadence, confidence, gaps, and launch state.
+**This already exists and is called a dossier.**
+`missouri-float-planner/scripts/ingestion/dossier.ts` defines the versioned
+package covering identity, region, geometry, sections, hydrology archetype,
+providers, gauges, thresholds, access, hazards, sources and confidence — with a
+`Sourced<T>` provenance envelope and per-field verification gates
+(`[auto]`, `[verify]`, `[signoff]`, `[manual]`), plus the rule that a threshold
+anchor is only ingestable when its `referenceGauge` is the gauge actually polled
+for the reach. `scripts/ingestion/README.md` is the runbook and
+`MULTI_STATE_SCALING_PLAN.md` is the operative expansion plan.
+
+Extend those. Do not re-specify a `RiverPackage` under a new name; a second
+provenance model over the same facts is how two answers to "where did this
+threshold come from" get created.
 
 Support spring-fed, rain-responsive, mixed, tailwater/regulated, large-mainstem, and explicitly unsupported archetypes. New archetypes require reviewed semantics and evaluations.
 
@@ -739,11 +949,11 @@ Emergency controls let the founder pause queues, disable workers/sources/models/
 Do not build in the initial Trust MVP:
 
 - a separate graph database;
-- Redis or another queue provider;
+- Redis, `pgmq`, or another queue provider;
 - a new worker-hosting vendor;
 - a general-purpose agent mesh;
 - free-form agent-to-agent conversations;
-- continuous broad-web crawling;
+- continuous broad-web crawling, **and untargeted open-web discovery of any cadence** (Phase 3 is amended to match this);
 - autonomous PR creation or publication;
 - automatic safety-data changes;
 - sophisticated forecast models;

@@ -1,9 +1,47 @@
 # Trust Ledger v1 — implementation plan
 
-> **Status: proposed** (2026-08). Scopes the first buildable slice of
-> `docs/EDDY_AGENT_FRAMEWORK_PLAN.md`, and revises that document where
+> **Status: built, pending migration** (2026-08). Scopes the first buildable
+> slice of `docs/EDDY_AGENT_FRAMEWORK_PLAN.md`, and revises that document where
 > verification against the code contradicted it. Supersedes Phases 0-5 of the
 > framework roadmap.
+
+## What shipped, and what did not
+
+**Built** — `missouri-float-planner/src/lib/trust/` (contracts, fingerprinting,
+reconciliation, severity, registry, ledger writer), four checks
+(`validate_river_data`, `river_geometry`, `eddy_knowledge`, `gauge_wiring`), the
+`/api/cron/trust-tick` hourly drain, and `/admin/trust` with snooze / resolve /
+reopen. `/api/admin/river-health` now consumes the extracted geometry check, so
+the page and the scheduled check cannot drift. 60 new tests.
+
+**Two design changes made while building**, both caught by writing the thing:
+
+- A truncated pass emits findings only for the entities it reached, so
+  reconciliation would have resolved findings for rivers it never looked at.
+  Added `partial` as a fourth suppression reason alongside `check_error`,
+  `empty_scope` and `mass_resolve`.
+- Sorting by `severity` orders it alphabetically — critical, high, **low**,
+  medium — and re-ranking in the route would only fix the page in hand, so a low
+  would outrank a medium across a page boundary. `severity_rank` is a generated
+  column.
+
+**Part B, closed:** the cross-surface float-time divergence (B2) and the
+triplicated `STALE_READING_HOURS` (B4).
+
+**Part B, deferred with cause:**
+
+- **B1, the dual-primary gauge.** The `gauge_wiring` check now detects it, which
+  was the durable half. The partial unique index and the data decision both wait
+  on Step 0: USGS 07014000 being primary for two rivers may be a legitimate
+  proxy arrangement, and an index that fails to build is a worse outcome than a
+  finding that stays open. Do not write that migration from migration files.
+- **B3, catalog-level schema invariants.** Needs a `SECURITY DEFINER` function to
+  read `pg_policies` / `pg_constraint`, which is a migration this branch cannot
+  verify without a live apply. The ledger is the right home for it once Step 0
+  has run.
+
+**Not applied:** `20260804120000_trust_ledger.sql`. Read its header before
+applying — the filename must match the version Supabase records.
 
 
 ## Context
