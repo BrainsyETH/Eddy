@@ -1,3 +1,5 @@
+-- APPLIED to production 2026-08-04 as 20260804200632.
+--
 -- Record WHY a finding closed, not just that it did.
 --
 -- ── The gate this unblocks ──────────────────────────────────────────────
