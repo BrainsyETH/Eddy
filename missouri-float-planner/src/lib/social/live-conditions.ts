@@ -15,6 +15,7 @@
 
 import { computeCondition, getFloatabilityClass, type ConditionThresholds } from '@/lib/conditions';
 import { toNum } from '@/lib/utils/num';
+import { STALE_READING_HOURS } from '@shared/reading-staleness';
 
 export interface LiveCondition {
   condition_code: string;
@@ -35,7 +36,10 @@ export interface LiveCondition {
  * (or AI prose written about it) as current. Matches the 6 h accuracy-warning
  * threshold used by the condition RPCs and the plan endpoint.
  */
-export const STALE_READING_HOURS = 6;
+// Defined once in shared/reading-staleness.ts so the website, this pipeline and
+// the iOS app cross the same line. Imported for local use and re-exported
+// because existing callers (and its test) import it from here.
+export { STALE_READING_HOURS };
 
 /**
  * Prose-blanking ceiling for user-facing website surfaces (the river cards and

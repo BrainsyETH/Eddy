@@ -238,8 +238,20 @@ export function mergeParts<T extends object>(
  * must not land on opposite sides of one line — a reading captioned "this gauge
  * has not reported recently" while still wearing a confident green is the
  * screen arguing with itself.
+ *
+ * It now comes from @eddy/conditions rather than being declared here. The same
+ * six-hour line had three independent definitions — this one, /api/plan and
+ * src/lib/social/live-conditions.ts — which is not three decisions but one
+ * decision nobody could change. The phone and the website have to cross it
+ * together, or the app paints a confident condition the website has already
+ * captioned as stale.
+ *
+ * Subpath import into shared/, the same way gaugeCondition.ts reaches
+ * condition-ladder; @eddy/conditions declares no `exports` map, and both
+ * tsconfigs alias `@eddy/conditions/*` to `shared/*`.
  */
-export const STALE_READING_HOURS = 6;
+export { STALE_READING_HOURS } from '@eddy/conditions/reading-staleness';
+import { STALE_READING_HOURS } from '@eddy/conditions/reading-staleness';
 
 /**
  * A persisted national-gauge viewport is a stale-first shortcut, not an

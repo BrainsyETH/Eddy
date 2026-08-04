@@ -128,10 +128,36 @@ const slugify = (s: string) => s.toLowerCase().replace(/\s+/g, '-');
  * Estimated canoe float time (hours, 1 decimal) for a distance at a condition.
  * Returns 0 for dangerous water (no time is quoted) — callers must treat 0 as
  * "not floatable" and suppress the stat rather than printing "0 hours".
- * Uses the shared DEFAULT_CANOE_SPEEDS so social matches the planner.
+ *
+ * Uses the shared DEFAULT_CANOE_SPEEDS so social matches the planner's speeds.
+ * It does NOT automatically match the planner's MODEL, and the distinction is
+ * worth stating because the old comment here claimed otherwise:
+ *
+ *   - Pass `flow` and you get the flow-dependent model /api/plan uses.
+ *   - Omit it and calculateFloatTime degrades to the legacy condition-band step,
+ *     silently and with a plausible number.
+ *
+ * The saving grace for social's TYPICAL figures is arithmetic rather than luck:
+ * at Q = Q_ref the flow factor is exactly 1, so the flow model returns
+ * speedNormal — which is precisely what bandSpeed() returns for 'flowing'. The
+ * two models agree exactly at typical flow, so `canoeHours(mi, 'flowing')` is
+ * already model-independent. Only the TODAY figures can diverge, and they only
+ * diverge as far as today's water is from typical.
+ *
+ * Threading real flow into the today figures means carrying dischargeCfs and
+ * the gauge's usgs id through RenderData and the section picker, which feed the
+ * Remotion render path; that is a larger change than it looks and is not done.
+ * float-time-parity.test.ts pins both halves of this so it cannot drift quietly.
  */
-export function canoeHours(distanceMi: number, conditionCode: ConditionCode): number {
-  const result = calculateFloatTime(distanceMi, DEFAULT_CANOE_SPEEDS, conditionCode);
+export function canoeHours(
+  distanceMi: number,
+  conditionCode: ConditionCode,
+  flow?: { dischargeCfs: number | null; refCfs: number | null },
+): number {
+  const result = calculateFloatTime(distanceMi, DEFAULT_CANOE_SPEEDS, conditionCode, {
+    dischargeCfs: flow?.dischargeCfs ?? null,
+    refCfs: flow?.refCfs ?? null,
+  });
   return result ? Math.round((result.minutes / 60) * 10) / 10 : 0;
 }
 

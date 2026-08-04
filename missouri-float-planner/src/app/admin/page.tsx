@@ -25,6 +25,7 @@ import {
   History,
   Compass,
   Film,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -38,9 +39,19 @@ interface DashboardStats {
   totalGaugeStations: number;
   totalPOIs: number;
   lastGaugeUpdate: string | null;
+  openCriticalFindings: number;
 }
 
 const ADMIN_SECTIONS = [
+  {
+    title: 'Trust',
+    description: 'Data-quality findings from the scheduled checks',
+    href: '/admin/trust',
+    icon: ShieldCheck,
+    color: 'bg-red-500',
+    statKey: 'openCriticalFindings' as const,
+    statLabel: 'critical',
+  },
   {
     title: 'Feedback',
     description: 'Review user-submitted feedback and data reports',

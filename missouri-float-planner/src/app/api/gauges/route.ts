@@ -153,6 +153,13 @@ export interface GaugeStation {
     riverName: string;
     riverSlug: string | null;
     isPrimary: boolean;
+    /**
+     * Miles from the rated section. The tiebreak when one gauge is primary for
+     * more than one river — Courtois borrows Huzzah's gauge, and this is what
+     * says the gauge physically sits on the Huzzah. See
+     * shared/primary-river-link.ts.
+     */
+    distanceFromSectionMiles: number | null;
     thresholdUnit: 'ft' | 'cfs';
     levelTooLow: number | null;
     levelLow: number | null;
@@ -345,6 +352,7 @@ async function _GET(request: NextRequest) {
         gauge_station_id,
         river_id,
         is_primary,
+        distance_from_section_miles,
         threshold_unit,
         level_too_low,
         level_low,
@@ -395,6 +403,7 @@ async function _GET(request: NextRequest) {
           riverName: river.name,
           riverSlug: river.slug || null,
           isPrimary: rg.is_primary as boolean,
+          distanceFromSectionMiles: (rg.distance_from_section_miles as number) ?? null,
           thresholdUnit: ((rg.threshold_unit as string) || 'ft') as 'ft' | 'cfs',
           levelTooLow: (rg.level_too_low as number) ?? null,
           levelLow: (rg.level_low as number) ?? null,

@@ -1,5 +1,25 @@
 -- 20260803170000_recalibrate_ozark_float_ladders.sql
 --
+-- APPLIED BY HAND 2026-08-03 and RECORDED 2026-08-04 by repair, not by replay.
+--
+-- The data changes below were run in the SQL editor and the recording step was
+-- missed, so schema_migrations had no row for this version while every one of
+-- its effects sat in production. That is invisible from the app and invisible
+-- from the console; it surfaced only when the drift gate's assertion was run
+-- (`npm run db:check-migrations`, which is still not wired into CI or `make
+-- check` — see docs/TRUST_LEDGER_V1_PLAN.md).
+--
+-- The SQL was NOT re-run. Every value was verified present first, to the
+-- decimal, including both alt (ft) ladders, the nulled section description, and
+-- all four of this file's own DO-block assertions — among them the one that
+-- requires the three Jacks Fork ladders to still be sitting at 00177's values.
+-- Replaying would only have bumped threshold_updated_at off its real 2026-08-03
+-- calibration date and re-nulled last_condition_code for no gain.
+--
+-- The row therefore carries no `statements`, matching what
+-- `supabase migration repair --status applied` writes. Claiming it executed
+-- here would be a false record.
+--
 -- Recalibrate the float ladders on the lower Current and the Black, and give
 -- Clearwater's release a ladder of its own.
 --

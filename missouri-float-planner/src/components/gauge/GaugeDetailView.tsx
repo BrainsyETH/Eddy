@@ -24,6 +24,7 @@ import { buildZones } from '@/lib/gauge/threshold-zones';
 import SiteFooter from '@/components/ui/SiteFooter';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import { EddyIcon } from '@/components/ui/EddyIcon';
+import { pickPrimaryRiverLink } from '@shared/primary-river-link';
 
 interface GaugeDetailViewProps {
   siteId: string;
@@ -44,7 +45,10 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   const { data: allGauges, isLoading: loading } = useGaugeStations();
   const gauge = allGauges?.find((g) => g.usgsSiteId === siteId) ?? null;
 
-  const primaryRiver = gauge?.thresholds?.find(t => t.isPrimary) || gauge?.thresholds?.[0];
+  // Deterministic rather than find(isPrimary): 07014000 is legitimately primary
+  // for both Huzzah and Courtois, and `find` returned whichever row the query
+  // happened to order first. See shared/primary-river-link.ts.
+  const primaryRiver = pickPrimaryRiverLink(gauge?.thresholds) ?? undefined;
   const riverSlug = primaryRiver?.riverSlug || null;
   const primaryUnit = primaryRiver?.thresholdUnit || 'ft';
 

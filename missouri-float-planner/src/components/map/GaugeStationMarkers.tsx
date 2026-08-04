@@ -15,6 +15,7 @@ import type { GaugeStation } from '@/hooks/useGaugeStations';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS, getEddyImageForCondition } from '@/constants';
 import { computeCondition } from '@/lib/conditions';
 import { escapeHtml } from '@/lib/escape-html';
+import { pickPrimaryRiverLink } from '@shared/primary-river-link';
 
 interface GaugeStationMarkersProps {
   gauges: GaugeStation[];
@@ -44,7 +45,7 @@ function getConditionFromReading(
   }
 
   // Use the primary river's threshold set if available
-  const t = thresholds.find(th => th.isPrimary) || thresholds[0];
+  const t = pickPrimaryRiverLink(thresholds) ?? thresholds[0];
 
   const { code } = computeCondition(
     gaugeHeightFt,
@@ -213,7 +214,7 @@ export default function GaugeStationMarkers({
       // Build threshold ranges HTML
       let thresholdHtml = '';
       if (gauge.thresholds && gauge.thresholds.length > 0) {
-        const t = gauge.thresholds.find(th => th.isPrimary) || gauge.thresholds[0];
+        const t = pickPrimaryRiverLink(gauge.thresholds) ?? gauge.thresholds[0];
         const tUnit = t.thresholdUnit === 'cfs' ? 'cfs' : 'ft';
         thresholdHtml = `
           <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--color-border);">
