@@ -12,12 +12,14 @@ import { validateRiverDataCheck } from './checks/validate-river-data';
 import { riverGeometryCheck } from './checks/river-geometry';
 import { eddyKnowledgeCheck } from './checks/eddy-knowledge';
 import { gaugeWiringCheck } from './checks/gauge-wiring';
+import { schemaInvariantsCheck } from './checks/schema-invariants';
 
 export const TRUST_CHECKS: readonly TrustCheck[] = [
   validateRiverDataCheck,
   riverGeometryCheck,
   eddyKnowledgeCheck,
   gaugeWiringCheck,
+  schemaInvariantsCheck,
 ];
 
 export function getCheck(id: string): TrustCheck | undefined {
