@@ -13,6 +13,7 @@ import { riverGeometryCheck } from './checks/river-geometry';
 import { eddyKnowledgeCheck } from './checks/eddy-knowledge';
 import { gaugeWiringCheck } from './checks/gauge-wiring';
 import { schemaInvariantsCheck } from './checks/schema-invariants';
+import { ledgerHeartbeatCheck } from './checks/ledger-heartbeat';
 
 export const TRUST_CHECKS: readonly TrustCheck[] = [
   validateRiverDataCheck,
@@ -20,6 +21,7 @@ export const TRUST_CHECKS: readonly TrustCheck[] = [
   eddyKnowledgeCheck,
   gaugeWiringCheck,
   schemaInvariantsCheck,
+  ledgerHeartbeatCheck,
 ];
 
 export function getCheck(id: string): TrustCheck | undefined {

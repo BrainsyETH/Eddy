@@ -110,7 +110,7 @@ changed what should be built.
 **The premise it assumes:** Eddy needs a system to detect data problems.
 
 **What is actually true:** Eddy already has a substantial detection suite.
-`validate_river_data()` (migration `00164`) runs **19 checks** over active
+`validate_river_data()` (migration `00164`) runs **20 rules** over active
 rivers. `/api/admin/river-health` emits 10 more. `src/lib/alerts/gate.ts` is a
 pure, unit-tested stale/suspect/flatline detector. There are seven read-only
 check scripts. Almost none of it runs on a schedule, and **nothing remembers

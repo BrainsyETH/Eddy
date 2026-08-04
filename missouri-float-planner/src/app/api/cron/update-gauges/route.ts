@@ -725,12 +725,22 @@ async function runUpdate(request: NextRequest) {
     // the ledger has no notification layer of its own.
     let trustLedgerSilentHours: number | null = null;
     try {
-      const { data: lastTrustRun } = await supabase
+      // The `error` half is the whole point. PostgREST does not throw on a
+      // failed query — it resolves with an error object — so reading only
+      // `data` would give null, and isLedgerSilent(null) deliberately reports
+      // healthy. A watchdog that cannot read the ledger would have reported the
+      // ledger fine, which is the third time today this exact shape has been
+      // shipped: the missing geometry RPC, the PUBLIC ACL join, and this.
+      const { data: lastTrustRun, error: trustReadError } = await supabase
         .from('trust_runs')
         .select('started_at')
         .order('started_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      if (trustReadError) {
+        throw new Error(`could not read trust_runs: ${trustReadError.message}`);
+      }
 
       const silence = isLedgerSilent(
         lastTrustRun?.started_at ? new Date(lastTrustRun.started_at) : null,
@@ -746,11 +756,17 @@ async function runUpdate(request: NextRequest) {
         );
       }
     } catch (watchdogError) {
-      // Never let the watchdog take down the gauge update. A ledger that cannot
-      // be observed is a problem; gauges that stop updating is a worse one.
-      logger.warn('[update-gauges] trust ledger heartbeat check failed', {
-        error: watchdogError instanceof Error ? watchdogError.message : String(watchdogError),
-      });
+      // error, not warn. "I could not tell whether the ledger is alive" carries
+      // the same weight as "the ledger is dead" — treating it as a lesser event
+      // is how an unobservable system reads as a healthy one.
+      //
+      // Still caught, so it can never take down the gauge update: an
+      // unobservable ledger is a problem, gauges that stop updating is worse.
+      logger.error(
+        '[update-gauges] trust ledger heartbeat check failed',
+        watchdogError instanceof Error ? watchdogError : new Error(String(watchdogError)),
+        { note: 'ledger liveness is UNKNOWN, not healthy' },
+      );
     }
 
     return NextResponse.json({

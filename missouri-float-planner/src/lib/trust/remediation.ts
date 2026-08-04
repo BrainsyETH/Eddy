@@ -313,6 +313,14 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
   },
 
   // ── the ledger complaining about itself ──────────────────────────────
+  check_not_running: {
+    kind: 'investigate',
+    action:
+      'Find out why the tick is skipping this check. Everything it covers is unverified until it runs.',
+    where: '/admin/trust — press Run on it, then read the result',
+    method:
+      'A manual run either succeeds (the scheduler was skipping it — check the time budget, since a slow check ahead of it can eat the pass) or fails with the real error. If the whole ledger has stopped rather than one check, /api/cron/update-gauges reports that to Sentry independently.',
+  },
   reconcile_anomaly: {
     kind: 'investigate',
     action:
