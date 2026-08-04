@@ -190,6 +190,16 @@ correct. Use the separate legacy schema-security audit before relying on those
 objects. New migrations use timestamp identifiers. On a new checkout, link it
 once with `npx supabase link --project-ref <project-ref>`.
 
+Run it as `make check-db`. It is deliberately outside `make check`, because it
+needs a linked project and CI has to stay hermetic — which is also why it cannot
+be a PR gate, and why it goes unrun unless something names it. That has already
+cost something: `20260803170000_recalibrate_ozark_float_ladders` was applied by
+hand in the SQL editor and the recording step was missed, so `schema_migrations`
+disagreed with the repo for a day while every effect of it sat in production.
+Invisible from the app, invisible from the console, and surfaced only by running
+this check. **Run it after applying anything by hand, not just before a
+release.**
+
 - [ ] **Anonymous sign-ins enabled** (Authentication → Providers).
 
 Without it the client gets `422 anonymous_provider_disabled`, silently stays

@@ -34,7 +34,7 @@ and `eddy-ios/package.json`. CI pins Node 20 (`.github/workflows/app-ci.yml`).
 | River-condition behavior | `missouri-float-planner/shared/` | comments in `.github/workflows/app-ci.yml` | `make check-web` + `make bundle-mobile` |
 | Shared types / geo / hazards / offline / sync | `packages/` | the package's source headers | `make check-web` + `make bundle-mobile` |
 | Data ingestion or correction | `missouri-float-planner/scripts/` | `docs/data-pipeline.md` (catalog + guard levels), then `scripts/ingestion/README.md` | script dry run, then `make check-web` |
-| Database schema / seeds | `missouri-float-planner/supabase/` | existing migrations | never against production by default |
+| Database schema / seeds | `missouri-float-planner/supabase/` | existing migrations | never against production by default; `make check-db` after any hand-applied change |
 | ClipEngine / social automation | `scripts/clipengine/`, `clipengine-local/` | `docs/clipengine-ops.md` | tool-specific dry run |
 | CI / deployment | `.github/workflows/`, `.easignore` | `.easignore` header, `app-ci.yml` comments | `make check` |
 | iOS build, TestFlight, App Store submission | EAS + Apple/RevenueCat dashboards | `docs/ios-release-runbook.md` | the checklists in that runbook |
@@ -52,6 +52,7 @@ scripts and mirror CI exactly:
 - `make check-web` — web typecheck + lint + tests
 - `make check-mobile` — iOS typecheck + lint
 - `make bundle-mobile` — credential-free production iOS bundle + `.easignore` allowlist check (the step that catches Metro/EAS breakage invisible in dev)
+- `make check-db` — migration drift against the **linked** Supabase project. Outside `make check` on purpose: it needs credentials, and CI stays hermetic. Run it after applying anything by hand, not only before a release
 - `make check` — all of the above
 - `make dev` — run the app locally on a simulator
 - `make build-ios` / `make testflight` — EAS builds. The native-artifact cleanup and the `.easignore` check are **prerequisites**, not remembered steps

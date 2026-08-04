@@ -122,7 +122,8 @@ lives at the repo root (`scripts/`, `clipengine-local/`) and is documented in
 `eddy-ios/scripts/check-easignore.py` (see
 [ADR 0004](decisions/0004-easignore-is-an-allowlist.md)).
 
-Before a release, run `npm run db:check-migrations` from
+Before a release — and after applying anything by hand — run `make check-db`
+(`npm run db:check-migrations`) from
 `missouri-float-planner/`. It freezes the repository's known legacy
 manual-migration split and fails on either local-only or remote-only migrations
 created after that baseline. New migrations must use timestamp identifiers.
