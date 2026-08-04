@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminAuth } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { remediationFor } from '@/lib/trust/remediation';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,10 @@ function toFinding(row: any) {
     resolvedAt: row.resolved_at,
     snoozedUntil: row.snoozed_until,
     occurrences: row.occurrences,
+    // Derived per rule rather than stored per row, so improving the guidance
+    // reaches findings that are already open — which are the ones somebody is
+    // stuck on. See src/lib/trust/remediation.ts.
+    remediation: remediationFor(row.rule_key),
   };
 }
 
