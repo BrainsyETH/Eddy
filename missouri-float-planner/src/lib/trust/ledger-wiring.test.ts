@@ -378,3 +378,76 @@ test('a truncated pass is still an ok run — it is ordinary, not broken', async
   assert.equal(summary.status, 'ok');
   assert.equal(supabase.rows('trust_runs').at(-1)!.status, 'ok');
 });
+
+// ── a pre-triaged finding ────────────────────────────────────────
+
+test('a finding raised with a snooze deadline is written snoozed, not open', async () => {
+  // The mechanism behind exceptions.ts: an accepted schema deviation is real
+  // and belongs in the record, but it is already triaged, and leaving it open
+  // teaches the operator that the open list contains things nobody must act on.
+  const supabase = createFakeSupabase({ trust_runs: [], trust_findings: [] });
+  const until = '2026-11-04T23:59:59.999Z';
+
+  await run(
+    supabase,
+    check({
+      scopeCount: 7,
+      findings: [finding({ ruleKey: 'schema_admin_policies_use_is_admin', snoozeUntil: until })],
+    }),
+  );
+
+  const row = supabase.rows('trust_findings')[0];
+  assert.equal(row.status, 'snoozed');
+  assert.equal(row.snoozed_until, until);
+});
+
+test('an expired governed finding wakes on the next run without anyone acting', async () => {
+  // NOW is 2026-08-04. A deadline in the past must not shield the finding: this
+  // is the whole reason the expiry is expressed as an ordinary snooze rather
+  // than as a flag something has to remember to re-read.
+  const supabase = createFakeSupabase({ trust_runs: [], trust_findings: [] });
+  const lapsed = '2026-07-01T00:00:00.000Z';
+
+  await run(
+    supabase,
+    check({
+      scopeCount: 7,
+      findings: [finding({ ruleKey: 'schema_admin_policies_use_is_admin', snoozeUntil: lapsed })],
+    }),
+  );
+  assert.equal(supabase.rows('trust_findings')[0].status, 'snoozed');
+
+  // Second pass: the check re-emits it, now with no snooze because the register
+  // says the exception has run out.
+  await run(
+    supabase,
+    check({
+      scopeCount: 7,
+      findings: [finding({ ruleKey: 'schema_admin_policies_use_is_admin' })],
+    }),
+  );
+
+  const row = supabase.rows('trust_findings')[0];
+  assert.equal(row.status, 'open', 'a lapsed deadline must reopen the finding');
+  assert.equal(row.snoozed_until, null);
+});
+
+test('a governed finding does not resurrect an operator reopen', async () => {
+  // snoozeUntil is honoured on RAISE only. An operator who reopens a governed
+  // finding has overruled the register for that row, and a scheduled run
+  // re-snoozing it every hour would be the ledger arguing with the person it
+  // exists to serve.
+  const supabase = createFakeSupabase({ trust_runs: [], trust_findings: [] });
+  const until = '2026-11-04T23:59:59.999Z';
+  const governed = finding({ ruleKey: 'schema_admin_policies_use_is_admin', snoozeUntil: until });
+
+  await run(supabase, check({ scopeCount: 7, findings: [governed] }));
+  assert.equal(supabase.rows('trust_findings')[0].status, 'snoozed');
+
+  // The operator reopens it.
+  const row = supabase.rows('trust_findings')[0];
+  supabase.seed('trust_findings', [{ ...row, status: 'open', snoozed_until: null }]);
+
+  await run(supabase, check({ scopeCount: 7, findings: [governed] }));
+  assert.equal(supabase.rows('trust_findings')[0].status, 'open');
+});

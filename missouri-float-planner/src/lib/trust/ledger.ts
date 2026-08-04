@@ -205,13 +205,17 @@ export async function runTrustCheck(
         entity_type: finding.entityType,
         entity_key: finding.entityKey,
         severity: severityForRule(finding.ruleKey),
-        status: 'open',
+        // A finding may arrive pre-triaged — see RawFinding.snoozeUntil. Today
+        // that means a schema deviation somebody has accepted, with an owner
+        // and an expiry, in exceptions.ts. The expiry is an ordinary snooze
+        // deadline from here on, so the finding wakes itself when it lapses.
+        status: finding.snoozeUntil ? 'snoozed' : 'open',
         title: finding.title,
         detail: finding.detail,
         evidence: finding.evidence ?? {},
         last_seen_at: nowIso,
         resolved_at: null,
-        snoozed_until: null,
+        snoozed_until: finding.snoozeUntil ?? null,
         last_run_id: runId,
       };
 
