@@ -40,7 +40,14 @@ export interface RiverGeometryMetrics {
   coordinateCount: number;
   coordsPerMile: number | null;
   boundingBox: BoundingBox | null;
-  /** The geometry RPC threw. Distinct from returning nothing. */
+  /**
+   * The geometry could not be READ, as opposed to being absent.
+   *
+   * No longer set by the RPC path: an RPC error aborts the whole check, because
+   * it fails identically for every river and 24 copies of one finding is noise
+   * that hides its own cause. Retained because the distinction is real and a
+   * future per-river read failure belongs here.
+   */
   geometryReadFailed: boolean;
   /** The RPC succeeded but there was no geometry to read. */
   geometryMissing: boolean;
@@ -208,22 +215,39 @@ export async function collectRiverHealth(
 
     let coordinateCount = 0;
     let boundingBox: BoundingBox | null = null;
-    let geometryReadFailed = false;
+    // Always false from this path now — see the field's doc comment. Kept as a
+    // named constant rather than dropped so the metrics shape stays stable for
+    // deriveRiverGeometryIssues and its tests.
+    const geometryReadFailed = false;
     let geometryMissing = false;
 
-    try {
-      const { data: geoData } = await supabase.rpc('get_river_geometry_json', {
-        p_slug: river.slug,
-      });
-      if (geoData && geoData.coordinates) {
-        const coords: number[][] = geoData.coordinates;
-        coordinateCount = coords.length;
-        boundingBox = boundingBoxOf(coords);
-      } else {
-        geometryMissing = true;
-      }
-    } catch {
-      geometryReadFailed = true;
+    // The `error` half is load-bearing and was missing. PostgREST does not
+    // throw when an RPC does not exist — it resolves with an error object — so
+    // reading only `data` made a missing FUNCTION indistinguishable from a
+    // river with no GEOMETRY. get_river_geometry_json had in fact been absent
+    // from production, and this check reported all 24 rivers as geometry-less
+    // on its first run while rivers.geom held hundreds of points each.
+    //
+    // An RPC that is broken is broken for every river, so it aborts the check
+    // rather than producing one wrong finding per river. That routes it through
+    // reconcile.ts's check_error refusal: one honest meta-finding, and nothing
+    // resolved on the strength of a run that could not see.
+    const { data: geoData, error: geoError } = await supabase.rpc('get_river_geometry_json', {
+      p_slug: river.slug,
+    });
+
+    if (geoError) {
+      throw new Error(
+        `get_river_geometry_json failed for ${river.slug}: ${geoError.message ?? 'unknown error'}`,
+      );
+    }
+
+    if (geoData && Array.isArray(geoData.coordinates)) {
+      const coords: number[][] = geoData.coordinates;
+      coordinateCount = coords.length;
+      boundingBox = boundingBoxOf(coords);
+    } else {
+      geometryMissing = true;
     }
 
     const { count: gaugeCount } = await supabase
