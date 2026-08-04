@@ -16,6 +16,7 @@ import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { gateReading, type GateRejection } from '@/lib/alerts/gate';
 import { logger } from '@/lib/logger';
 import { classifyEventKind } from '@/lib/alerts/event-kind';
+import { isLedgerSilent } from '@/lib/trust/heartbeat';
 
 // Force dynamic rendering (cron endpoint)
 export const dynamic = 'force-dynamic';
@@ -711,6 +712,47 @@ async function runUpdate(request: NextRequest) {
       );
     }
 
+    // ── Independent watchdog for the trust ledger ─────────────────────────
+    //
+    // Deliberately here rather than inside the ledger. A check that reports
+    // "the ledger has not run" cannot run when the ledger is not running, so
+    // the only useful place for this is a cron that fires often, matters for
+    // its own reasons, and would be noticed if IT stopped. This one runs every
+    // 15 minutes and feeds the condition badges.
+    //
+    // logger.error reaches Sentry via the reporter registered in
+    // instrumentation.ts, which is the one alert path that exists today —
+    // the ledger has no notification layer of its own.
+    let trustLedgerSilentHours: number | null = null;
+    try {
+      const { data: lastTrustRun } = await supabase
+        .from('trust_runs')
+        .select('started_at')
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const silence = isLedgerSilent(
+        lastTrustRun?.started_at ? new Date(lastTrustRun.started_at) : null,
+        new Date(),
+      );
+      trustLedgerSilentHours = silence.hoursSinceLastRun;
+
+      if (silence.silent) {
+        logger.error(
+          '[update-gauges] trust ledger has stopped running',
+          new Error(`no trust_runs row for ${silence.hoursSinceLastRun}h — /api/cron/trust-tick may be dead`),
+          { hoursSinceLastRun: silence.hoursSinceLastRun },
+        );
+      }
+    } catch (watchdogError) {
+      // Never let the watchdog take down the gauge update. A ledger that cannot
+      // be observed is a problem; gauges that stop updating is a worse one.
+      logger.warn('[update-gauges] trust ledger heartbeat check failed', {
+        error: watchdogError instanceof Error ? watchdogError.message : String(watchdogError),
+      });
+    }
+
     return NextResponse.json({
       message: 'Gauge update complete',
       updated,
@@ -732,6 +774,7 @@ async function runUpdate(request: NextRequest) {
       eddyRegensSkipped,
       executionTime,
       stationsProcessed: stations.length,
+      trustLedgerSilentHours,
     });
   } catch (error) {
     console.error('Error in gauge update cron:', error);
