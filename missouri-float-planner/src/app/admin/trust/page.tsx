@@ -34,6 +34,7 @@ import {
   Layers,
 } from 'lucide-react';
 import type { Remediation, RemediationKind } from '@/lib/trust/remediation';
+import { SURFACED_BY_DEFAULT } from '@/lib/trust/decay';
 
 type Severity = 'critical' | 'high' | 'medium' | 'low';
 type Status = 'open' | 'snoozed' | 'resolved';
@@ -130,6 +131,18 @@ export default function TrustAdminPage() {
     { checkId: string; ruleKey: string; count: number }[]
   >([]);
   const [groupsComplete, setGroupsComplete] = useState(true);
+  const [gate, setGate] = useState<{
+    operationDays: { value: number; required: number; met: boolean };
+    falsePositives: {
+      rate: number | null;
+      reviewed: number;
+      minimumReviews: number;
+      meaningful: boolean;
+      met: boolean | null;
+    };
+    safetyBaseline: { total: number; regressed: { id: string; summary: string }[]; met: boolean };
+  } | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const fetchFindings = useCallback(async () => {
     setLoading(true);
@@ -154,6 +167,16 @@ export default function TrustAdminPage() {
   useEffect(() => {
     fetchFindings();
   }, [fetchFindings]);
+
+  // The Trust MVP gate, computed rather than remembered. Every criterion in it
+  // was previously answerable only by writing SQL by hand, which in practice
+  // meant answerable by nobody.
+  useEffect(() => {
+    adminFetch('/api/admin/trust/review')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setGate(d?.gate ?? null))
+      .catch(() => {});
+  }, [findings]);
 
   // The registry, not a hardcoded list — adding a check should not mean editing
   // this page too.
@@ -205,6 +228,18 @@ export default function TrustAdminPage() {
       return;
     }
 
+    // The case this control exists for — one broken check filing the same
+    // finding against every entity — is a pile of false positives closed in one
+    // keystroke. That is the single most informative thing this system can learn
+    // about its own accuracy, and it was being recorded as an undifferentiated
+    // "resolved".
+    const wasFalsePositive = window.confirm(
+      `Were these ${count} findings NOT real problems?\n\n` +
+        'OK — the check was wrong (counts against the false-positive rate)\n' +
+        'Cancel — the underlying problem was actually fixed',
+    );
+    const resolution = wasFalsePositive ? 'false_positive' : 'fixed';
+
     setUpdating(`${checkId}:${ruleKey}`);
     setNotice(null);
     setError(null);
@@ -218,6 +253,7 @@ export default function TrustAdminPage() {
           ruleKey,
           expectedCount: count,
           reason: reason.trim(),
+          resolution,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -251,7 +287,12 @@ export default function TrustAdminPage() {
     groupCounts.map((g) => [`${g.checkId}:${g.ruleKey}`, { ...g, n: g.count }]),
   );
 
-  async function act(id: string, action: 'snooze' | 'resolve' | 'reopen', days?: number) {
+  async function act(
+    id: string,
+    action: 'snooze' | 'resolve' | 'reopen',
+    days?: number,
+    resolution?: 'fixed' | 'false_positive' | 'accepted',
+  ) {
     // Closing or re-opening a finding is a judgement no check made, and the
     // status transition alone does not record it — six weeks later "resolved"
     // says what happened and nothing about whether it was ever real.
@@ -261,8 +302,16 @@ export default function TrustAdminPage() {
     // list, which is the failure this whole console is arguing against.
     let reason = '';
     if (action === 'resolve' || action === 'reopen') {
+      const what =
+        action === 'reopen'
+          ? 'reopened'
+          : resolution === 'false_positive'
+            ? 'closed as NOT a real problem'
+            : resolution === 'accepted'
+              ? 'accepted as-is'
+              : 'closed as fixed';
       const answer = window.prompt(
-        `Why is this finding being ${action === 'resolve' ? 'resolved' : 'reopened'}? (recorded in the activity log)`,
+        `This finding is being ${what}. Why? (recorded in the activity log)`,
         '',
       );
       if (answer === null) return;
@@ -280,7 +329,12 @@ export default function TrustAdminPage() {
       const response = await adminFetch(`/api/admin/trust/findings/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, ...(days ? { days } : {}), ...(reason ? { reason } : {}) }),
+        body: JSON.stringify({
+        action,
+        ...(days ? { days } : {}),
+        ...(reason ? { reason } : {}),
+        ...(resolution ? { resolution } : {}),
+      }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
@@ -297,6 +351,11 @@ export default function TrustAdminPage() {
   }
 
   const criticalCount = findings.filter((f) => f.severity === 'critical').length;
+
+  // Bounded by default. The API already returns worst-first (severity_rank,
+  // then last_seen_at), so taking the head is taking the most important ones.
+  const visibleFindings = showAll ? findings : findings.slice(0, SURFACED_BY_DEFAULT);
+  const hiddenCount = findings.length - visibleFindings.length;
 
   return (
     <AdminLayout
@@ -457,6 +516,63 @@ export default function TrustAdminPage() {
         </div>
       )}
 
+      {gate && (
+        <div className="mb-6 bg-neutral-800 border border-neutral-700 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <ShieldCheck className="w-4 h-4 text-neutral-400" />
+            <span className="text-sm text-neutral-300">Trust MVP gate</span>
+            <span className="text-xs text-neutral-500">
+              four weeks, under 20% false positives, nothing safety-critical back
+            </span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3 text-sm">
+            <div>
+              <div className="text-neutral-500 text-xs mb-0.5">Operating</div>
+              <div className={gate.operationDays.met ? 'text-green-400' : 'text-neutral-300'}>
+                {gate.operationDays.value} of {gate.operationDays.required} days
+              </div>
+            </div>
+            <div>
+              <div className="text-neutral-500 text-xs mb-0.5">False positives</div>
+              {/* Null is rendered as "not yet", never as a pass. A rate of zero
+                  and a rate nobody has measured produce the same number, and
+                  scoring the second as the first is the failure this subsystem
+                  is about. */}
+              <div
+                className={
+                  gate.falsePositives.met === true
+                    ? 'text-green-400'
+                    : gate.falsePositives.met === false
+                      ? 'text-red-400'
+                      : 'text-neutral-400'
+                }
+              >
+                {gate.falsePositives.meaningful && gate.falsePositives.rate !== null
+                  ? `${Math.round(gate.falsePositives.rate * 100)}% of ${gate.falsePositives.reviewed} reviewed`
+                  : `not yet — ${gate.falsePositives.reviewed}/${gate.falsePositives.minimumReviews} reviewed`}
+              </div>
+            </div>
+            <div>
+              <div className="text-neutral-500 text-xs mb-0.5">Safety baseline</div>
+              <div className={gate.safetyBaseline.met ? 'text-green-400' : 'text-red-400'}>
+                {gate.safetyBaseline.met
+                  ? `all ${gate.safetyBaseline.total} still closed`
+                  : `${gate.safetyBaseline.regressed.length} REGRESSED`}
+              </div>
+            </div>
+          </div>
+          {gate.safetyBaseline.regressed.length > 0 && (
+            <ul className="mt-3 border-t border-neutral-700 pt-3 space-y-1">
+              {gate.safetyBaseline.regressed.map((r) => (
+                <li key={r.id} className="text-sm text-red-400">
+                  {r.summary}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {criticalCount > 0 && statusFilter === 'open' && (
         <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
           <AlertTriangle className="w-5 h-5 shrink-0" />
@@ -492,11 +608,26 @@ export default function TrustAdminPage() {
 
       {!loading && findings.length > 0 && (
         <>
-          <p className="text-sm text-neutral-500 mb-3">
-            Showing {findings.length} of {total}
-          </p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm text-neutral-500">
+              Showing {visibleFindings.length} of {total}
+              {hiddenCount > 0 && ' — worst first'}
+            </p>
+            {hiddenCount > 0 && (
+              // The gate's cap: "the rest visible on request rather than
+              // pushed". Nothing is filtered out of existence — but a bad week
+              // must not turn this page into a wall that gets closed unread,
+              // which is the exact failure the whole framework exists to stop.
+              <button
+                onClick={() => setShowAll((v) => !v)}
+                className="text-sm text-neutral-400 hover:text-white underline"
+              >
+                {showAll ? `Show top ${SURFACED_BY_DEFAULT}` : `Show ${hiddenCount} more`}
+              </button>
+            )}
+          </div>
           <div className="space-y-3">
-            {findings.map((finding) => (
+            {visibleFindings.map((finding) => (
               <div
                 key={finding.id}
                 className="bg-neutral-800 border border-neutral-700 rounded-xl p-4"
@@ -552,13 +683,38 @@ export default function TrustAdminPage() {
                           <BellOff className="w-4 h-4" />
                           Snooze
                         </button>
+                        {/* Three outcomes, not one.
+                            "Somebody fixed the river" and "the check was wrong"
+                            are opposite results — the system working versus the
+                            system crying wolf — and a single Resolve button
+                            recorded them identically. The MVP gate's
+                            false-positive rate is computed from this choice and
+                            nothing else. */}
                         <button
-                          onClick={() => act(finding.id, 'resolve')}
+                          onClick={() => act(finding.id, 'resolve', undefined, 'fixed')}
                           disabled={updating === finding.id}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+                          title="The underlying problem was repaired"
                         >
                           <CheckCircle className="w-4 h-4" />
-                          Resolve
+                          Fixed
+                        </button>
+                        <button
+                          onClick={() => act(finding.id, 'resolve', undefined, 'false_positive')}
+                          disabled={updating === finding.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+                          title="There was nothing to fix — the check was wrong"
+                        >
+                          <ShieldCheck className="w-4 h-4" />
+                          Not real
+                        </button>
+                        <button
+                          onClick={() => act(finding.id, 'resolve', undefined, 'accepted')}
+                          disabled={updating === finding.id}
+                          className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 rounded-lg text-sm transition-colors disabled:opacity-50"
+                          title="Real, understood, and being lived with"
+                        >
+                          Accept
                         </button>
                       </>
                     ) : (

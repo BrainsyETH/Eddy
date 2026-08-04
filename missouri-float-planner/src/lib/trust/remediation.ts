@@ -305,6 +305,13 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     action: 'Reconcile the kind CHECK with AlertSubscriptionKind.',
     where: 'src/types/api.ts and a forward migration',
   },
+  known_defect_regressed: {
+    kind: 'investigate',
+    action: 'Find out how a closed safety-critical defect got back in, before closing it again.',
+    where: 'src/lib/trust/baseline.ts names what closed it originally',
+    method:
+      'A repair that did not hold is a different problem from the original defect. Re-applying the same fix without knowing how it came undone means it can come undone the same way again — and this is the one finding the Trust MVP gate treats as disqualifying.',
+  },
   schema_exception_unnecessary: {
     kind: 'mechanical',
     action: 'Delete the entry from SCHEMA_EXCEPTIONS.',

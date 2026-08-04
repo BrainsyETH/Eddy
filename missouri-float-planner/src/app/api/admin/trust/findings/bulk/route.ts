@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminAuth } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { describeRefusal, planBulkAction } from '@/lib/trust/bulk';
+import { isOperatorResolution, OPERATOR_RESOLUTIONS } from '@/lib/trust/resolution';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +60,24 @@ export async function POST(request: NextRequest) {
     if (reason.length < MIN_REASON_LENGTH) {
       return NextResponse.json(
         { error: `A reason of at least ${MIN_REASON_LENGTH} characters is required to close a group.` },
+        { status: 400 },
+      );
+    }
+
+    // A bulk close is the single most informative event this system produces
+    // about its own accuracy, and it was recording the least.
+    //
+    // The case this route exists for — get_river_geometry_json missing from
+    // production, river_geometry raising geometry_missing 24 times — is 24 false
+    // positives in one keystroke. Closing them as an undifferentiated "resolved"
+    // threw away the clearest possible signal that a check had been wrong, in
+    // the exact moment it was most obvious.
+    //
+    // Only for `resolve`. A bulk snooze closes nothing, so it has no outcome to
+    // classify — demanding one there would be a prompt for the sake of symmetry.
+    if (action === 'resolve' && !isOperatorResolution(body.resolution)) {
+      return NextResponse.json(
+        { error: `resolution must be one of ${OPERATOR_RESOLUTIONS.join(', ')}` },
         { status: 400 },
       );
     }
@@ -111,7 +130,12 @@ export async function POST(request: NextRequest) {
         resolved_at: null,
       };
     } else {
-      update = { status: 'resolved', resolved_at: nowIso, snoozed_until: null };
+      update = {
+        status: 'resolved',
+        resolved_at: nowIso,
+        snoozed_until: null,
+        resolution: body.resolution,
+      };
     }
 
     // `.eq('status','open')` is what turns this from a read-then-write into a
@@ -159,7 +183,14 @@ export async function POST(request: NextRequest) {
         entity_type: 'trust_finding',
         entity_id: id,
         entity_name: titleById.get(id) ?? null,
-        details: { checkId, ruleKey, via: 'bulk', batchSize: updatedIds.length, reason },
+        details: {
+          checkId,
+          ruleKey,
+          via: 'bulk',
+          batchSize: updatedIds.length,
+          reason,
+          ...(action === 'resolve' ? { resolution: body.resolution } : {}),
+        },
       })),
     );
 

@@ -95,7 +95,11 @@ export const SCHEMA_INVARIANT_RULES = [
 ] as const;
 
 /** Filed by the ledger against itself when a run refuses to reconcile. */
-export const LEDGER_RULES = ['reconcile_anomaly', 'check_not_running'] as const;
+export const LEDGER_RULES = [
+  'reconcile_anomaly',
+  'check_not_running',
+  'known_defect_regressed',
+] as const;
 
 export const ALL_TRUST_RULES = [
   ...VALIDATE_RIVER_DATA_RULES,
@@ -141,6 +145,10 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   // Same severity as the ledger refusing to believe itself, for the same
   // reason: everything that check covers is currently unverified.
   check_not_running: 'critical',
+  // A repair that did not hold. The one signal the Trust MVP gate treats as
+  // disqualifying, and the reason it is filed separately from the rule that
+  // detects the underlying condition — see checks/known-regressions.ts.
+  known_defect_regressed: 'critical',
   // RLS off means every policy on the table is inert RIGHT NOW, with nothing
   // behind it. An INSERT policy reappearing means the publishable key — which
   // Metro inlines into the shipped bundle by design — can write again.

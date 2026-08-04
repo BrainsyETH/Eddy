@@ -13,7 +13,8 @@ import { logger } from '@/lib/logger';
 import { releaseCronLock, tryCronLockDetailed } from '@/lib/social/cron-lock';
 import { TRUST_CHECKS, isCheckDue, orderByStaleness } from '@/lib/trust/registry';
 import { runTrustCheck, type RunSummary } from '@/lib/trust/ledger';
-import { mustRow } from '@/lib/trust/db';
+import { mustRow, mustRows, mustWrite } from '@/lib/trust/db';
+import { planDecay } from '@/lib/trust/decay';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -122,6 +123,80 @@ async function run(request: NextRequest) {
     // finish next hour. The other three mean the checking itself is broken.
     const refused = suppressed.filter((s) => s.reason !== 'partial_scope');
 
+    // ── keep the open list bounded ───────────────────────────────────────
+    //
+    // Runs after the checks so it sees this pass's results, and outside the
+    // per-check reconciliation because it is not about any one check: it shelves
+    // informational findings nobody has acted on in a month, and closes findings
+    // orphaned by a check that no longer exists — which nothing else can ever
+    // resolve, because nothing emits them.
+    //
+    // Failures here are recorded and do not fail the pass. Housekeeping that
+    // takes down the checks would be a worse outcome than a list that grows for
+    // another hour.
+    let shelved = 0;
+    let expired = 0;
+    let decayError: string | undefined;
+
+    try {
+      const candidates = await mustRows<{
+        id: string;
+        check_id: string;
+        severity: string;
+        status: string;
+        first_seen_at: string;
+      }>(
+        supabase
+          .from('trust_findings')
+          .select('id, check_id, severity, status, first_seen_at')
+          .neq('status', 'resolved'),
+        'could not read findings for decay',
+      );
+
+      const decay = planDecay(
+        candidates,
+        now,
+        TRUST_CHECKS.map((c) => c.id),
+      );
+
+      // Grouped by deadline so this is one write, not one per finding. Every
+      // shelved finding in a pass shares the same `until`.
+      if (decay.shelve.length > 0) {
+        await mustWrite(
+          supabase
+            .from('trust_findings')
+            .update({ status: 'snoozed', snoozed_until: decay.shelve[0].until, resolved_at: null })
+            .in(
+              'id',
+              decay.shelve.map((s) => s.id),
+            )
+            .eq('status', 'open'),
+          'could not shelve stale informational findings',
+        );
+        shelved = decay.shelve.length;
+      }
+
+      if (decay.expire.length > 0) {
+        await mustWrite(
+          supabase
+            .from('trust_findings')
+            .update({
+              status: 'resolved',
+              resolved_at: now.toISOString(),
+              snoozed_until: null,
+              resolution: decay.resolution,
+            })
+            .in('id', decay.expire)
+            .neq('status', 'resolved'),
+          'could not close orphaned findings',
+        );
+        expired = decay.expire.length;
+      }
+    } catch (error) {
+      decayError = error instanceof Error ? error.message : String(error);
+      logger.error('[trust-tick] decay pass failed', new Error(decayError));
+    }
+
     const summary = {
       // Was hardcoded `true`. A pass in which every check threw, or in which
       // reconciliation was refused across the board, returned `ok: true` with
@@ -144,6 +219,9 @@ async function run(request: NextRequest) {
       raised: summaries.reduce((n, s) => n + s.raised, 0),
       touched: summaries.reduce((n, s) => n + s.touched, 0),
       resolved: summaries.reduce((n, s) => n + s.resolved, 0),
+      shelved,
+      expired,
+      ...(decayError ? { decayError } : {}),
       durationMs: Date.now() - startedAt,
     };
 
