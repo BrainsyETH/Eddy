@@ -58,31 +58,25 @@ export interface SchemaException {
 /**
  * The live register.
  *
- * One entry. `feedback_no_public_mutation_grants` was the other standing
- * deviation and is no longer an exception — it was fixed and applied as
- * 20260804181529_revoke_public_write_grants_on_feedback.sql, which is what
- * should happen to these: an exception is a holding position, not a resting
- * place.
+ * Empty, and that is the intended resting state — an exception is a holding
+ * position, not a resting place. Both entries this file has ever carried left
+ * the same way, by the deviation being fixed rather than by the exception
+ * expiring:
+ *
+ *   feedback_no_public_mutation_grants — fixed and applied as
+ *     20260804181529_revoke_public_write_grants_on_feedback.sql.
+ *   admin_policies_use_is_admin — the ten policies across community_reports,
+ *     nearby_services and service_rivers now call is_admin(). Removed on its
+ *     own stated exit criteria: trust_schema_invariants() returns ok for the
+ *     key on production ("every admin-gated policy calls is_admin()"), which
+ *     the register required instead of a migration merely existing.
+ *
+ * Leaving a satisfied exception here is not harmless, which is why
+ * schema_exception_unnecessary exists to file against it: a standing permission
+ * to break an invariant means the finding arrives pre-accepted the next time
+ * someone does.
  */
-export const SCHEMA_EXCEPTIONS: readonly SchemaException[] = [
-  {
-    invariantKey: 'admin_policies_use_is_admin',
-    owner: 'BrainsyETH',
-    expires: '2026-11-04',
-    rationale:
-      'Ten policies across community_reports, nearby_services and service_rivers inline the ' +
-      'user_roles lookup instead of calling is_admin(). They gate correctly today: the inline ' +
-      'form works while user_roles keeps the `user_id = auth.uid()` branch in its SELECT policy. ' +
-      'Rewriting ten policies across three tables in one pass is a larger change than the risk ' +
-      'currently justifies, and a mistake in it locks admins out of moderation.',
-    exitCriteria:
-      'All ten policies call is_admin(), verified by trust_schema_invariants() returning ok for ' +
-      'this key on production — not by a migration existing. The hazard is specifically that ' +
-      'is_admin() is SECURITY DEFINER and bypasses RLS on user_roles, so tightening that table ' +
-      'silently turns every inline check false and locks admins out of tables that still look ' +
-      'correctly gated.',
-  },
-];
+export const SCHEMA_EXCEPTIONS: readonly SchemaException[] = [];
 
 export type ExceptionVerdict =
   | { kind: 'none' }
@@ -96,9 +90,19 @@ export type ExceptionVerdict =
  * live for all of the 4th rather than lapsing at midnight — an off-by-one that
  * would wake a finding a day early and teach the operator the dates are
  * approximate.
+ *
+ * `register` defaults to the live one and exists so the granting, expiring and
+ * renewing behaviour can be tested against a fixture. It has to be: the live
+ * register is empty whenever the codebase is in the state it should be in, and
+ * a suite that reached into SCHEMA_EXCEPTIONS[0] for its fixtures stopped
+ * testing any of this the moment the last exception was retired.
  */
-export function exceptionFor(invariantKey: string, now: Date): ExceptionVerdict {
-  const exception = SCHEMA_EXCEPTIONS.find((e) => e.invariantKey === invariantKey);
+export function exceptionFor(
+  invariantKey: string,
+  now: Date,
+  register: readonly SchemaException[] = SCHEMA_EXCEPTIONS,
+): ExceptionVerdict {
+  const exception = register.find((e) => e.invariantKey === invariantKey);
   if (!exception) return { kind: 'none' };
 
   const expiresAt = new Date(`${exception.expires}T23:59:59.999Z`);

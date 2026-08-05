@@ -39,7 +39,23 @@ export interface RiverGeometryIssue {
 
 export interface RiverGeometryMetrics {
   coordinateCount: number;
+  /**
+   * Vertices per mile OF THE STORED LINE, not per mile of `length_miles`.
+   *
+   * It used to be the latter, and that made the number partly a measure of how
+   * stale a hand-maintained column was. `length_miles` is written by
+   * scripts/import-nhd-rivers-from-tnm.ts only on the INSERT path; its UPDATE
+   * path replaces `geom` and touches nothing else, so a re-imported river keeps
+   * whatever mileage it was created with. War Eagle Creek stores 33.17 miles
+   * against 68.1 miles of line, which reported 7.9 pts/mile — comfortably past
+   * the threshold — for the sparsest geometry in the catalog. Meanwhile every
+   * river whose column happened to be accurate got scored honestly and filed.
+   *
+   * Both halves now come from the same object. See geometryLengthMiles().
+   */
   coordsPerMile: number | null;
+  /** Measured from the coordinates themselves. Null when there are none. */
+  geometryLengthMiles: number | null;
   boundingBox: BoundingBox | null;
   /**
    * The geometry could not be READ, as opposed to being absent.
@@ -52,17 +68,53 @@ export interface RiverGeometryMetrics {
   geometryReadFailed: boolean;
   /** The RPC succeeded but there was no geometry to read. */
   geometryMissing: boolean;
+  /** The stored column, which is a separate claim from the geometry's own length. */
   lengthMiles: number | null;
   directionVerified: boolean;
   geometryStartsAtHeadwaters: boolean | null;
   gaugeCount: number;
   gaugesOnRiver: number;
+  /** Which state's bounds to judge the bounding box against. */
+  state: string | null;
 }
 
-/** Missouri, generously. Matches the bounds the route has always used. */
-const MO_BOUNDS = { minLat: 35, maxLat: 41, minLng: -97, maxLng: -88 };
+/**
+ * Where a river is allowed to be, per state, generously.
+ *
+ * Generous on purpose, and not a substitute for a state polygon: rivers cross
+ * state lines. The Kings River rises in Madison County, Arkansas and empties
+ * into Table Rock Lake in Missouri, so its geometry reaches 36.59°N — past
+ * Arkansas's own 36.50 border. Bounds tight enough to catch that would be
+ * reporting geography, not defects.
+ *
+ * This was a single MO_BOUNDS constant until the catalog stopped being
+ * Missouri-only. Seven active rivers are in Arkansas now, and the Caddo — which
+ * tops out at 34.46°N, below Missouri's 35 — was filed at HIGH as "geometry may
+ * be incorrect" for the offence of being an Arkansas river.
+ */
+const STATE_BOUNDS: Readonly<Record<string, BoundingBox>> = {
+  MO: { minLat: 35, maxLat: 41, minLng: -97, maxLng: -88 },
+  AR: { minLat: 32.5, maxLat: 36.6, minLng: -95, maxLng: -89.5 },
+};
+
 const MIN_COORDINATE_COUNT = 10;
 const MIN_COORDS_PER_MILE = 5;
+
+/**
+ * How far `length_miles` may sit from the measured line before it is a finding.
+ *
+ * Ten percent, because a few percent is expected and legitimate — the
+ * `missing_length_miles` remediation says as much, since published guide miles
+ * and a digitized channel are different measurements of the same river. Ten is
+ * clear of that band (the widest legitimate gap on file is Eleven Point at 6%)
+ * and well under the three live offenders: Jacks Fork and the Current at 22%,
+ * War Eagle Creek at 51%.
+ *
+ * Measured against the geometry, which is the denominator the finding quotes.
+ * Against the stored column the same three read 18%, 28% and 105% — a reminder
+ * that "percent off" means nothing without saying off WHAT.
+ */
+const MAX_LENGTH_DISAGREEMENT = 0.1;
 
 /**
  * Pure. Everything above this line is fetched; everything below is judgement.
@@ -88,12 +140,35 @@ export function deriveRiverGeometryIssues(m: RiverGeometryMetrics): RiverGeometr
   if (m.coordsPerMile !== null && m.coordsPerMile < MIN_COORDS_PER_MILE) {
     issues.push({
       ruleKey: 'coordinate_density_low',
-      message: `Low coordinate density: ${m.coordsPerMile} pts/mile (recommend 10+)`,
+      // The threshold, not an aspiration. This read "(recommend 10+)" while the
+      // rule fired below 5, so it asked for a number the check does not enforce
+      // and nothing between 5 and 10 ever appeared.
+      message: `Low coordinate density: ${m.coordsPerMile} pts/mile of channel (under ${MIN_COORDS_PER_MILE})`,
     });
   }
 
   if (!m.lengthMiles) {
     issues.push({ ruleKey: 'missing_length_miles', message: 'Missing length_miles' });
+  } else if (m.geometryLengthMiles !== null && m.geometryLengthMiles > 0) {
+    // A stored mileage that disagrees with the line is not cosmetic: mile
+    // markers are assigned as `length_miles * ST_LineLocatePoint(geom, point)`
+    // (00040_assign_rivers_to_pois.sql, and the POI compute-mile route), so the
+    // fraction is located on the real channel and then multiplied by a number
+    // describing a different one. Every mile marker on the river scales by the
+    // same error, and float distances derived from them scale with it.
+    //
+    // Known since audit F5 — 00142_get_float_segment_snap_fractions.sql names
+    // the drift in its header and routes AROUND it for the drawn polyline. The
+    // drift itself was never surfaced, so nothing was ever going to fix it.
+    const drift = Math.abs(m.lengthMiles - m.geometryLengthMiles) / m.geometryLengthMiles;
+    if (drift > MAX_LENGTH_DISAGREEMENT) {
+      issues.push({
+        ruleKey: 'length_miles_disagrees_geometry',
+        message:
+          `length_miles ${m.lengthMiles} disagrees with the stored line ` +
+          `(${m.geometryLengthMiles} mi measured, ${Math.round(drift * 100)}% off)`,
+      });
+    }
   }
 
   if (!m.directionVerified) {
@@ -121,22 +196,36 @@ export function deriveRiverGeometryIssues(m: RiverGeometryMetrics): RiverGeometr
     });
   }
 
-  if (m.boundingBox && isOutsideMissouri(m.boundingBox)) {
+  if (m.boundingBox && isOutsideStateBounds(m.boundingBox, m.state)) {
     issues.push({
-      ruleKey: 'bbox_outside_missouri',
-      message: 'Bounding box extends outside Missouri — geometry may be incorrect',
+      ruleKey: 'bbox_outside_state',
+      message: `Bounding box extends outside ${m.state ?? 'the covered states'} — geometry may be incorrect`,
     });
   }
 
   return issues;
 }
 
-export function isOutsideMissouri(box: BoundingBox): boolean {
+/**
+ * An unknown state is judged against every state's bounds at once.
+ *
+ * Not silence: a river with no state set still has a geometry that can be
+ * wildly wrong, and skipping the check would drop coverage without saying so.
+ * The union is the widest claim that is still true — it catches a line in
+ * Colorado and stays quiet about which side of a border a river sits on.
+ */
+export function isOutsideStateBounds(box: BoundingBox, state: string | null): boolean {
+  const bounds = state ? STATE_BOUNDS[state] : undefined;
+  if (bounds) return isOutsideBounds(box, bounds);
+  return Object.values(STATE_BOUNDS).every((b) => isOutsideBounds(box, b));
+}
+
+function isOutsideBounds(box: BoundingBox, bounds: BoundingBox): boolean {
   return (
-    box.minLat < MO_BOUNDS.minLat ||
-    box.maxLat > MO_BOUNDS.maxLat ||
-    box.minLng < MO_BOUNDS.minLng ||
-    box.maxLng > MO_BOUNDS.maxLng
+    box.minLat < bounds.minLat ||
+    box.maxLat > bounds.maxLat ||
+    box.minLng < bounds.minLng ||
+    box.maxLng > bounds.maxLng
   );
 }
 
@@ -152,9 +241,53 @@ export function boundingBoxOf(coords: number[][]): BoundingBox | null {
   };
 }
 
-export function coordsPerMileOf(coordinateCount: number, lengthMiles: number | null): number | null {
-  if (!lengthMiles || coordinateCount <= 0) return null;
-  return Math.round((coordinateCount / lengthMiles) * 10) / 10;
+/**
+ * The length of the stored line, walked vertex to vertex.
+ *
+ * Spherical rather than spheroidal, so it lands within about a tenth of a
+ * percent of PostGIS's `ST_Length(geom::geography)` — irrelevant against a
+ * threshold of 5 points per mile or a 10% drift, and it keeps the whole
+ * calculation pure and testable on the coordinates the check already holds.
+ * Measuring it in SQL would mean a second round-trip per river on a check that
+ * already takes 54 seconds, or widening an RPC that other callers read.
+ */
+const EARTH_RADIUS_MILES = 3958.7613;
+
+export function geometryLengthMiles(coords: readonly number[][]): number | null {
+  if (coords.length < 2) return null;
+
+  let miles = 0;
+  for (let i = 1; i < coords.length; i++) {
+    const [lng1, lat1] = coords[i - 1];
+    const [lng2, lat2] = coords[i];
+    const dLat = toRadians(lat2 - lat1);
+    const dLng = toRadians(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLng / 2) ** 2;
+    miles += 2 * EARTH_RADIUS_MILES * Math.asin(Math.min(1, Math.sqrt(a)));
+  }
+
+  return Math.round(miles * 100) / 100;
+}
+
+function toRadians(degrees: number): number {
+  return (degrees * Math.PI) / 180;
+}
+
+/**
+ * Points per mile of the line they describe.
+ *
+ * The second argument is the MEASURED length, never `rivers.length_miles` —
+ * see the doc comment on RiverGeometryMetrics.coordsPerMile for the day that
+ * distinction was learned.
+ */
+export function coordsPerMileOf(
+  coordinateCount: number,
+  measuredLengthMiles: number | null,
+): number | null {
+  if (!measuredLengthMiles || coordinateCount <= 0) return null;
+  return Math.round((coordinateCount / measuredLengthMiles) * 10) / 10;
 }
 
 export interface RiverHealthRow {
@@ -162,7 +295,10 @@ export interface RiverHealthRow {
   name: string;
   slug: string;
   active: boolean;
+  state: string | null;
   lengthMiles: number | null;
+  /** Measured from `geom`. Additive to the response shape data-sync reads. */
+  geometryLengthMiles: number | null;
   geometryStartsAtHeadwaters: boolean | null;
   directionVerified: boolean;
   coordinateCount: number;
@@ -194,7 +330,7 @@ export async function collectRiverHealth(
   let query = supabase
     .from('rivers')
     .select(
-      'id, name, slug, active, length_miles, direction_verified, geometry_starts_at_headwaters, nhd_feature_id',
+      'id, name, slug, active, state, length_miles, direction_verified, geometry_starts_at_headwaters, nhd_feature_id',
     )
     .order('name');
 
@@ -215,6 +351,7 @@ export async function collectRiverHealth(
     }
 
     let coordinateCount = 0;
+    let measuredLengthMiles: number | null = null;
     let boundingBox: BoundingBox | null = null;
     // Always false from this path now — see the field's doc comment. Kept as a
     // named constant rather than dropped so the metrics shape stays stable for
@@ -246,6 +383,7 @@ export async function collectRiverHealth(
     if (geoData && Array.isArray(geoData.coordinates)) {
       const coords: number[][] = geoData.coordinates;
       coordinateCount = coords.length;
+      measuredLengthMiles = geometryLengthMiles(coords);
       boundingBox = boundingBoxOf(coords);
     } else {
       geometryMissing = true;
@@ -310,14 +448,16 @@ export async function collectRiverHealth(
     );
 
     const lengthMiles = river.length_miles === null ? null : Number(river.length_miles);
-    const coordsPerMile = coordsPerMileOf(coordinateCount, lengthMiles);
+    const coordsPerMile = coordsPerMileOf(coordinateCount, measuredLengthMiles);
 
     rows.push({
       id: river.id,
       name: river.name,
       slug: river.slug,
       active: river.active,
+      state: river.state ?? null,
       lengthMiles,
+      geometryLengthMiles: measuredLengthMiles,
       geometryStartsAtHeadwaters: river.geometry_starts_at_headwaters,
       directionVerified: river.direction_verified,
       coordinateCount,
@@ -330,6 +470,7 @@ export async function collectRiverHealth(
       issues: deriveRiverGeometryIssues({
         coordinateCount,
         coordsPerMile,
+        geometryLengthMiles: measuredLengthMiles,
         boundingBox,
         geometryReadFailed,
         geometryMissing,
@@ -338,6 +479,7 @@ export async function collectRiverHealth(
         geometryStartsAtHeadwaters: river.geometry_starts_at_headwaters,
         gaugeCount,
         gaugesOnRiver,
+        state: river.state ?? null,
       }),
     });
   }
@@ -367,7 +509,9 @@ export const riverGeometryCheck: TrustCheck = {
           detail: issue.message,
           evidence: {
             riverId: row.id,
+            state: row.state,
             lengthMiles: row.lengthMiles,
+            geometryLengthMiles: row.geometryLengthMiles,
             coordinateCount: row.coordinateCount,
             coordsPerMile: row.coordsPerMile,
             gaugeCount: row.gaugeCount,

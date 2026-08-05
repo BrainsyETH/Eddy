@@ -25,6 +25,7 @@ import {
   exceptionFor,
   expiredExceptionDetail,
   SCHEMA_EXCEPTIONS,
+  type SchemaException,
 } from '../exceptions';
 import type { RawFinding, TrustCheck, TrustCheckContext, TrustCheckResult } from '../types';
 
@@ -80,11 +81,15 @@ export const STALE_EXCEPTION_RULE = 'schema_exception_unnecessary';
 export function deriveInvariantFindings(
   rows: readonly InvariantRow[],
   now: Date = new Date(),
+  // Defaults to the live register. Injectable only so the exception behaviour
+  // stays testable when that register is empty, which is the state it is
+  // supposed to be in — see exceptionFor().
+  register: readonly SchemaException[] = SCHEMA_EXCEPTIONS,
 ): RawFinding[] {
   const findings: RawFinding[] = rows
     .filter((row) => !row.ok)
     .map((row) => {
-      const verdict = exceptionFor(row.invariant_key, now);
+      const verdict = exceptionFor(row.invariant_key, now, register);
       const base = {
         entityType: 'repo' as const,
         entityKey: row.invariant_key,
@@ -143,7 +148,7 @@ export function deriveInvariantFindings(
   const asserted = new Set(rows.map((r) => r.invariant_key));
   const passing = new Set(rows.filter((r) => r.ok).map((r) => r.invariant_key));
 
-  for (const exception of SCHEMA_EXCEPTIONS) {
+  for (const exception of register) {
     // Only judge what this run actually asserted. An exception naming an
     // invariant the function no longer returns is a different problem, and
     // guessing at it from a run that may itself be broken is how a check starts
