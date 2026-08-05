@@ -143,6 +143,10 @@ export default function TrustAdminPage() {
       minimumReviews: number;
       meaningful: boolean;
       met: boolean | null;
+      /** Closed before the resolution column existed. Outside the denominator. */
+      unlabelled: number;
+      /** auto_resolved + expired — closures nobody judged. Also outside it. */
+      closedWithoutReview: number;
     };
     safetyBaseline: {
       total: number;
@@ -665,6 +669,30 @@ export default function TrustAdminPage() {
                   ? `${Math.round(gate.falsePositives.rate * 100)}% of ${gate.falsePositives.reviewed} reviewed`
                   : `not yet — ${gate.falsePositives.reviewed}/${gate.falsePositives.minimumReviews} reviewed`}
               </div>
+              {/* What the rate cannot see, said out loud beside it.
+                  The denominator is human judgements only, which is right — a
+                  gate you can pass by not looking is not a gate. But a rate
+                  printed alone reads as a measurement of everything that
+                  closed, and 24 of this ledger's closures pre-date the column
+                  that asks why. Rendering the percentage without them is how
+                  "no false positives" and "nobody was asked" come to look
+                  identical, which is the sentence resolution.ts opens with. */}
+              {(gate.falsePositives.unlabelled > 0 ||
+                gate.falsePositives.closedWithoutReview > 0) && (
+                <div className="text-xs text-neutral-500 mt-0.5">
+                  {[
+                    gate.falsePositives.unlabelled > 0
+                      ? `${gate.falsePositives.unlabelled} closed before the reason was recorded`
+                      : null,
+                    gate.falsePositives.closedWithoutReview > 0
+                      ? `${gate.falsePositives.closedWithoutReview} closed by the checks`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  {' — outside the rate'}
+                </div>
+              )}
             </div>
             <div>
               <div className="text-neutral-500 text-xs mb-0.5">Safety baseline</div>
