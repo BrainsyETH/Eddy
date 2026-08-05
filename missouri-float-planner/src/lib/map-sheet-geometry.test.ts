@@ -6,6 +6,7 @@ import {
   FLICK_VELOCITY,
   GRABBER_BLOCK,
   MIN_DETENT_GAP,
+  ORNAMENT_BAND,
   pageBudget,
   PEEK_MAX,
   resolveDetents,
@@ -46,6 +47,32 @@ test('tall content earns all three detents, ascending', () => {
   assert.deepEqual(d.order, ['peek', 'half', 'full']);
   assert.ok(d.height.peek < d.height.half);
   assert.ok(d.height.half < d.height.full);
+});
+
+test('the tallest detent always leaves the Mapbox ornaments somewhere to sit', () => {
+  // Not a layout preference. The logo and the attribution are a term of the
+  // licence, the sheet covers the band they live in, and the map screen lifts
+  // them onto the sheet's top edge — which only works if there is room up
+  // there. FULL_FRACTION alone left 8% of the map, which is less than the
+  // attribution's own tap frame on every phone Eddy runs on.
+  for (const available of [420, 500, 600, TALL, 900, 1400]) {
+    const d = resolveDetents(available, available * 2);
+    const tallest = d.height[d.order[d.order.length - 1]];
+    assert.ok(
+      tallest + ORNAMENT_BAND <= available,
+      `a ${available}pt map area settles at ${tallest}, leaving ${available - tallest} for a ${ORNAMENT_BAND}pt band`,
+    );
+  }
+});
+
+test('the ornament band binds before FULL_FRACTION does on a real phone', () => {
+  // Both ceilings are real; which one wins depends on the phone. Stated so that
+  // changing either fraction shows up here rather than as an ornament sliding
+  // back under the sheet.
+  assert.equal(resolveDetents(TALL, TALL * 2).height.full, TALL - ORNAMENT_BAND);
+  // Past ~775pt of map area the 8% FULL_FRACTION leaves is the larger gap, and
+  // it takes over. No phone is this tall; an iPad in a future split view is.
+  assert.equal(resolveDetents(2000, 4000).height.full, Math.round(2000 * 0.92));
 });
 
 test('detents closer together than the floor collapse into one', () => {

@@ -126,22 +126,37 @@ import {
 import { PlanSheet } from '@/components/PlanSheet';
 import { PinSheet } from '@/components/map-sheet/PinSheet';
 import { RiverSheetPanel } from '@/components/map-sheet/RiverSheetPanel';
+import { ORNAMENT_BAND } from '@/components/map-sheet/sheetGeometry';
 
 /**
- * How far above the map's bottom edge everything floating has to sit.
+ * How far above the ornament band everything floating has to sit.
  *
- * The Mapbox wordmark and the (i) attribution button live down there now, and
- * they are a legal obligation rather than decoration — the terms require them
- * visible and forbid hiding them. 53 is the top of the (i)'s 44x44 tap frame at
- * its current offset (see the ornament comment in RiverMap); the remaining 9
- * absorbs the floating shadow above it.
+ * The Mapbox wordmark and the (i) attribution button live down there, and they
+ * are a legal obligation rather than decoration — the terms require them visible
+ * and forbid hiding them. ORNAMENT_BAND is where that number is derived; this
+ * name is kept because it is what the styles below read as.
  *
- * This fixes an exposure rather than creating one. The callout is full-width at
- * the bottom and 115-251pt tall, so until now it covered the wordmark and the
- * attribution button outright whenever a pin was selected — and attribution you
- * have covered up is attribution you have not given.
+ * ── It clears the ornaments; it never cleared the SHEET ───────────────────
+ * An earlier version of this comment claimed lifting the floating controls
+ * fixed the exposure. It did not, and could not: the thing covering the
+ * ornaments is the sheet, which is full-width, opaque and 115pt tall at its
+ * shortest, so selecting any pin hid both outright however high the buttons
+ * sat. What fixes it is the ornaments RIDING the sheet — `ornamentBottomInset`
+ * on RiverMap — and this offset is then measured from the sheet's top edge
+ * rather than the map's, so the whole bottom stack keeps its arrangement
+ * wherever the sheet has settled.
  */
-const MAP_CHROME_BOTTOM = 62;
+const MAP_CHROME_BOTTOM = ORNAMENT_BAND;
+
+/**
+ * The plan cluster's own floor, which is NOT the ornament band.
+ *
+ * It sits in the bottom-right corner and the ornaments run along the bottom
+ * LEFT, ending around x=149, so it has nothing down there to clear. Named
+ * because the sheet-open override has to lift it by the same amount it uses at
+ * rest — the point of riding the sheet is that the arrangement does not change.
+ */
+const PLAN_CLUSTER_BOTTOM = 16;
 
 /**
  * A camera target, tagged with the river it belongs to.
@@ -1580,6 +1595,10 @@ export default function MapScreen() {
             cameraPaddingBottom={
               sheetOpen ? Math.min(sheet.height, Math.round(windowHeight * 0.55)) : 0
             }
+            // NOT the clamped number above. Framing may give up past 55%
+            // because there is nothing useful left to frame into; attribution
+            // may not, because it is a term of the licence. See the prop.
+            ornamentBottomInset={sheetOpen ? sheet.height : 0}
             river={mapRiver}
             conditionCode={conditionCode}
             network={network.collection}
@@ -1684,7 +1703,14 @@ export default function MapScreen() {
             they do genuinely go away there and only there. */}
         {sheetOpen && sheet.detent === 'full' ? null : (
         <View
-          style={[styles.bottomStack, sheetOpen ? { bottom: sheet.height + 12 } : null]}
+          style={[
+            styles.bottomStack,
+            // The SAME offset it uses at rest, measured from the sheet's top
+            // edge instead of the map's. It was +12, which cleared the sheet
+            // and nothing else — and now that the ornaments ride the sheet too,
+            // 12 would sit the locate button straight on top of the (i).
+            sheetOpen ? { bottom: sheet.height + MAP_CHROME_BOTTOM } : null,
+          ]}
           pointerEvents="box-none"
         >
           <View style={styles.controlRow} pointerEvents="box-none">
@@ -1744,7 +1770,10 @@ export default function MapScreen() {
             long label back over the ornaments. */}
         {sheetOpen && sheet.detent === 'full' ? null : (
         <View
-          style={[styles.planCluster, sheetOpen ? { bottom: sheet.height + 12 } : null]}
+          style={[
+            styles.planCluster,
+            sheetOpen ? { bottom: sheet.height + PLAN_CLUSTER_BOTTOM } : null,
+          ]}
           pointerEvents="box-none"
         >
           {/* CLEAR THE PLAN. The plan deliberately outlives its sheet — you
@@ -2151,7 +2180,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 12,
-    bottom: 16,
+    bottom: PLAN_CLUSTER_BOTTOM,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',

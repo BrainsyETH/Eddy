@@ -489,6 +489,17 @@ interface Props {
    */
   cameraPaddingBottom?: number;
   /**
+   * How far to lift the Mapbox logo and attribution off the map's bottom edge.
+   *
+   * SEPARATE FROM cameraPaddingBottom, and it must stay separate. That one is
+   * about framing and is clamped to 55% of the map, because past that Mapbox's
+   * own framing gets unreliable and there is nothing left to keep in view. This
+   * one is about VISIBILITY and may not be clamped at all: the ornaments are a
+   * term of the licence, so whatever the sheet covers they have to clear. The
+   * sheet's tallest detent is capped to guarantee they can — see ORNAMENT_BAND.
+   */
+  ornamentBottomInset?: number;
+  /**
    * The river in focus, or NULL when the map is showing the network and the
    * user has not picked one yet. Null is the opening state now, not an error:
    * everything river-scoped below simply does not render.
@@ -610,6 +621,7 @@ function featureCollection(pins: MapPin[], defaultColor: string) {
 
 export function RiverMap({
   cameraPaddingBottom,
+  ornamentBottomInset = 0,
   river,
   conditionCode,
   network,
@@ -1589,9 +1601,18 @@ export function RiverMap({
       //
       // Both sit at the map's BOTTOM EDGE, with everything else on the screen
       // lifted above them instead — see MAP_CHROME_BOTTOM in the map screen.
-      // The previous arrangement lifted the ornaments over the locate button,
-      // which only moved them under the callout: full-width, bottom-anchored
-      // and 115-251pt tall, so selecting any pin covered both outright.
+      //
+      // ── EXCEPT when a sheet is open, and then they ride it ──────────────
+      // Lifting them over the locate button was not enough, because the thing
+      // that actually covers them is the sheet: full-width, bottom-anchored,
+      // opaque, and 115pt tall at its SHORTEST. Selecting any pin hid both
+      // outright, at every detent, for as long as the sheet was up — which is
+      // most of the time anybody spends on this screen.
+      //
+      // So the sheet's settled height comes in as ornamentBottomInset and both
+      // ornaments sit on top of it, keeping the same offsets they have at rest.
+      // Settled, not per-frame: these are native props, and the tallest detent
+      // is capped so the lifted position always fits (ORNAMENT_BAND).
       //
       // THE OFFSETS ARE MEASURED, NOT TASTE. The wordmark is a fixed 85x21
       // bitmap, so at left:12 its right edge lands at x=97. The (i) is a 44x44
@@ -1604,9 +1625,9 @@ export function RiverMap({
       // high) and, more usefully, puts the top of its 44pt tap frame at y=53 —
       // which is the number MAP_CHROME_BOTTOM has to clear.
       logoEnabled
-      logoPosition={{ bottom: 10, left: 12 }}
+      logoPosition={{ bottom: 10 + ornamentBottomInset, left: 12 }}
       attributionEnabled
-      attributionPosition={{ bottom: 9, left: 94 }}
+      attributionPosition={{ bottom: 9 + ornamentBottomInset, left: 94 }}
       // The camera settled. This is the ONLY viewport-driven fetch in the app
       // — everything else loads a bounded set up front — and it is on idle
       // rather than onCameraChanged because idle fires once when motion stops
