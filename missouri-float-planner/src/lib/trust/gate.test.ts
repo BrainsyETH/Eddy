@@ -354,3 +354,49 @@ test('the shelf is no longer than an operator could choose by hand', () => {
   assert.ok(DEFAULT_DECAY_POLICY.shelveForDays <= 90);
   assert.ok(DEFAULT_DECAY_POLICY.staleAfterDays >= 28, 'longer than any check cadence');
 });
+
+// ── what the rate cannot see ─────────────────────────────────────
+//
+// The denominator is human judgements only, and that is right: folding
+// unreviewed closures in would drive the rate toward zero exactly as the
+// console filled with noise. But the excluded rows are not nothing, and a
+// percentage printed alone reads as a measurement of everything that closed.
+
+test('closures that pre-date the resolution column are counted, not discarded', () => {
+  // This ledger's real shape on 2026-08-05: the 24 geometry_missing rows the
+  // missing RPC produced were closed by hand three hours before the column
+  // existed, so nobody was asked why. NULL is the honest value for them —
+  // 20260804200632's header says so — but they must stay countable, because
+  // "0% of 14 reviewed" and "0% of 14 reviewed, with 24 more uncounted" are
+  // different claims about how much the gate has actually seen.
+  const metrics = reviewMetrics([
+    ...Array.from({ length: 24 }, () => ({ resolution: null })),
+    ...Array.from({ length: 14 }, () => ({ resolution: 'fixed' })),
+    ...Array.from({ length: 5 }, () => ({ resolution: 'auto_resolved' })),
+  ]);
+
+  assert.equal(metrics.tally.unknown, 24);
+  assert.equal(metrics.reviewed, 14);
+  assert.equal(metrics.falsePositiveRate, 0);
+
+  // The uncounted rows outnumber the counted ones nearly two to one. A gate
+  // reporting only the 14 is not wrong, but it is not the whole sentence.
+  assert.ok(metrics.tally.unknown + metrics.tally.auto_resolved > metrics.reviewed);
+});
+
+test('an unreviewed closure never improves the rate', () => {
+  // The property the denominator exists to protect: auto_resolved rows cannot
+  // dilute a real false positive into looking acceptable.
+  const withoutNoise = reviewMetrics([
+    { resolution: 'false_positive' },
+    { resolution: 'fixed' },
+  ]);
+  const withNoise = reviewMetrics([
+    { resolution: 'false_positive' },
+    { resolution: 'fixed' },
+    ...Array.from({ length: 50 }, () => ({ resolution: 'auto_resolved' })),
+  ]);
+
+  assert.equal(withoutNoise.falsePositiveRate, 0.5);
+  assert.equal(withNoise.falsePositiveRate, 0.5);
+});

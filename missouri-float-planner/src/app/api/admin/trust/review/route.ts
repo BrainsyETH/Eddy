@@ -90,6 +90,21 @@ export async function GET(request: NextRequest) {
           minimumReviews: MIN_REVIEWS_FOR_RATE,
           meaningful: rateIsMeaningful(metrics),
           met: rateIsMeaningful(metrics) ? metrics.meetsGate : null,
+          // Closures the rate cannot see, reported beside it rather than left
+          // out. `unknown` is rows closed before the resolution column existed
+          // — 24 of them, all the geometry_missing batch that the missing RPC
+          // produced, and every one a genuine false positive by the operator's
+          // own note. Excluding them is correct: nobody was asked why at the
+          // time, and inventing the answer now is the failure this subsystem is
+          // about. Showing "0% of 14 reviewed" while silently holding 24 such
+          // rows is a different failure, and the one this closes.
+          //
+          // `closedWithoutReview` is the ongoing version of the same gap: every
+          // auto_resolved row is a finding nobody judged. A rate over a shrinking
+          // reviewed set is exactly how "no false positives" and "nobody looked"
+          // come to print the same number.
+          unlabelled: metrics.tally.unknown,
+          closedWithoutReview: metrics.tally.auto_resolved + metrics.tally.expired,
         },
         safetyBaseline: {
           total: baseline.total,
