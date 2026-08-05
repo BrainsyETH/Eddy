@@ -13,7 +13,7 @@
  * The james and north-fork ladders above were RECALIBRATED by migration 00177,
  * which retired their old danger lines (4,410 and 8,440) as flood-anchored
  * numbers that UNDER-warn. This file kept the pre-00177 prose and would have
- * reverted the fix on the next run; 20260804210000 corrects the rows and
+ * reverted the fix on the next run; 20260804204033 corrects the rows and
  * src/lib/trust/checks/float-summary.ts now fails when prose drifts again.
  * Re-read river_gauges before editing any number here.
  *   spring-river 07069305 [cfs] optimal 206-694 (no dangerous anchor — prose avoids a number)

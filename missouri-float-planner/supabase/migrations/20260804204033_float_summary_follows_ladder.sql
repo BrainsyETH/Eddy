@@ -1,4 +1,12 @@
--- 20260804210000_float_summary_follows_ladder.sql
+-- 20260804204033_float_summary_follows_ladder.sql
+--
+-- Numbered 20260804204033, not the 20260804210000 this file was authored under.
+-- It was applied through apply_migration, which stamps its own timestamp rather
+-- than reading the filename, so production recorded 204033 and the checkout kept
+-- 210000. check-migration-drift.ts compares versions exactly and exempts only
+-- the pre-00212 legacy split, so the mismatch surfaced as two drift rows — one
+-- local-only, one remote-only — and failed `make check-db`. The rename makes the
+-- checkout agree with the history production actually has; do not rename it back.
 --
 -- Make rivers.float_summary agree with the float ladder it describes.
 --
