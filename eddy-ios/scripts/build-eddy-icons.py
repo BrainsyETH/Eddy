@@ -49,6 +49,7 @@ SYMBOLS = (
     "eddy-ai-assistant",
     "eddy-water-droplet",
     "eddy-poi",
+    "eddy-boat-ramp",
     "eddy-other-usgs-gauge",
     "eddy-hazard",
     "eddy-campground",

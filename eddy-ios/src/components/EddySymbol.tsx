@@ -34,6 +34,7 @@ const SYMBOLS = {
   gauge: require('../../assets/eddy/eddy-other-usgs-gauge.png'),
   dam: require('../../assets/eddy/eddy-dam.png'),
   accessPoint: require('../../assets/eddy/eddy-poi.png'),
+  boatRamp: require('../../assets/eddy/eddy-boat-ramp.png'),
   otherGauge: require('../../assets/eddy/eddy-other-usgs-gauge.png'),
   hazard: require('../../assets/eddy/eddy-hazard.png'),
   campground: require('../../assets/eddy/eddy-campground.png'),
