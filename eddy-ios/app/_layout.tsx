@@ -14,6 +14,15 @@ import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native'
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
+// The touch root every gesture in the app resolves against. It REPLACES
+// ThemedShell's plain wrapper rather than nesting inside it — on iOS this
+// renders `<View style={style} {...rest} />`, so it carries that view's style
+// and its onLayout unchanged, and onLayout is what hides the splash.
+//
+// Note for anything that gestures inside a Modal: RN Modals render in their own
+// native view hierarchy and do NOT inherit this root, so PlanSheet, MapLayersSheet,
+// PaywallSheet and friends each need their own if they ever grow a gesture.
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 // Imported per WEIGHT, not from the package root. Each @expo-google-fonts
 // package's index re-exports every weight it ships, and Metro bundles whatever
 // is reachable — importing the root pulled all 40-odd faces across the three
@@ -298,14 +307,14 @@ function ThemedShell() {
   }, []);
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }} onLayout={onLayout}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }} onLayout={onLayout}>
       {/* Follows the scheme rather than being pinned light — on the light theme
           white status-bar text would be invisible against the off-white canvas. */}
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <OnboardingGate>
         <Stack screenOptions={{ headerShown: false }} />
       </OnboardingGate>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 

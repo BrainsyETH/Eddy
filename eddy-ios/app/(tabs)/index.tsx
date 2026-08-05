@@ -43,12 +43,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  Image,
-  Linking,
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -57,19 +55,14 @@ import type {
   FloatPlan,
   Hazard,
   MapAccessPoint,
+  NearbyAccessPoint,
   DamSnapshot,
   MapGauge,
   RiverListItem,
   RiverService,
   SearchResult,
 } from '@eddy/types';
-import {
-  accessPointTypes,
-  accessTypeLabel,
-  hasCoordinates,
-  isCampground,
-  PUBLIC_LAND_OWNERSHIP_NOTE,
-} from '@eddy/types';
+import { hasCoordinates, isCampground, PUBLIC_LAND_OWNERSHIP_NOTE } from '@eddy/types';
 import {
   formatFloatTimeCeilingCompact,
   formatFloatTimeCompact,
@@ -83,22 +76,13 @@ import {
   fetchServices,
   fetchRivers,
 } from '@/api/client';
-import {
-  conditionBg,
-  conditionChipBorder,
-  conditionColor,
-  conditionInk,
-  conditionLabel,
-  conditionText,
-  floatableRank,
-} from '@/theme/conditions';
+import { conditionColor, conditionLabel, floatableRank } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { mapAccessPointPin, RiverMap, type MapPin } from '@/map/RiverMap';
 import { mapUnavailableReason } from '@/map/runtime';
 import {
   drawnAsAccessPoint,
-  MAP_LAYERS,
   OUTFITTER_SERVICE_TYPES,
   PUBLIC_LAND_ATTRIBUTION,
   RADAR_ATTRIBUTION,
@@ -114,20 +98,19 @@ import { formatReading, readingAge } from '@/lib/readingCopy';
 import { readRiver } from '@/lib/riverCache';
 import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
 import { rememberGauge, seedFromMapGauge, seedFromMapGaugeLite } from '@/lib/gaugeSeed';
-import { driveToUrl, usgsGaugeUrl } from '@/lib/directions';
+import { usgsGaugeUrl } from '@/lib/directions';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useEddySearch } from '@/hooks/useEddySearch';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { milesBetween, useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
-import { riverBounds } from '@/lib/statewideNetwork';
+import { gradeGauge, readingIndex, riverBounds } from '@/lib/statewideNetwork';
 import { warn } from '@/lib/monitoring';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
 import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
 import { SearchResultsList } from '@/components/SearchResultsList';
-import { useAccessGaugeStatus } from '@/hooks/useAccessGaugeStatus';
 import {
   LayerNote,
   MapLayersButton,
@@ -141,6 +124,8 @@ import {
   type GaugeFilterKey,
 } from '@/components/GaugeFilterBar';
 import { PlanSheet } from '@/components/PlanSheet';
+import { PinSheet } from '@/components/map-sheet/PinSheet';
+import { RiverSheetPanel } from '@/components/map-sheet/RiverSheetPanel';
 
 /**
  * How far above the map's bottom edge everything floating has to sit.
@@ -156,13 +141,6 @@ import { PlanSheet } from '@/components/PlanSheet';
  * attribution button outright whenever a pin was selected — and attribution you
  * have covered up is attribution you have not given.
  */
-/**
- * Layers whose pins are somewhere you get in a car and go.
- *
- * The exclusions are the point — see the Directions button in PinCallout.
- */
-const DRIVEABLE_LAYERS = new Set<LayerKey>(['access', 'campgrounds', 'outfitters']);
-
 const MAP_CHROME_BOTTOM = 62;
 
 /**
@@ -227,6 +205,10 @@ export default function MapScreen() {
   );
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [pickedSlug, setPickedSlug] = useState<string | null>(null);
+  // A tab page is exactly as wide as the sheet, which is full-bleed over the
+  // map. Read from the window rather than measured so it survives a rotation
+  // without a layout round-trip.
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [accessPoints, setAccessPoints] = useState<MapAccessPoint[]>([]);
   // Planner data is tagged separately from what the map is drawing. The map
   // deliberately keeps the previous river visible during a switch; the planner
@@ -854,6 +836,136 @@ export default function MapScreen() {
   );
 
   /**
+   * Which access points on the river you can sleep at.
+   *
+   * The detail response names a put-in's neighbours but does not say what they
+   * ARE, and this screen already holds every access point with its types — so
+   * it is the only place that can answer "can I camp at the take-out" without
+   * a second request per neighbour.
+   */
+  const campableAccessIds = useMemo(
+    () =>
+      new Set(
+        drawnAccessPoints.filter((entry) => isCampground(entry.point)).map((entry) => entry.point.id),
+      ),
+    [drawnAccessPoints],
+  );
+
+  /**
+   * Build a float between the selected put-in and one of its neighbours.
+   *
+   * The sheet knows the neighbour as a NearbyAccessPoint, which is the wire
+   * shape and carries no coordinates; the planner wants the MapAccessPoint this
+   * screen already has. Upstream neighbours are the PUT-IN and the selected
+   * point the take-out — floating downhill is not negotiable, and offering the
+   * pair the other way round would build a trip nobody can take.
+   */
+  /**
+   * Everything the river sheet renders, assembled from what is already here.
+   *
+   * No request: the statewide network carries each river's gauges and their
+   * ladders, and this screen already holds every access point and hazard it
+   * draws. Tapping a river is the cheapest thing you can do on this map and it
+   * stays that way.
+   */
+  const gaugeNameFor = useCallback(
+    (siteId: string) => {
+      const known = (gauges ?? []).find((g) => g.usgsSiteId === siteId);
+      return known ? gaugePlaceLabel(known.name) : `USGS ${siteId}`;
+    },
+    [gauges],
+  );
+
+  const riverSheetData = useMemo(() => {
+    if (!selectedSlug) return null;
+    const river = network.bySlug.get(selectedSlug);
+    if (!river) return null;
+
+    const index = readingIndex(network.readings ?? []);
+    const gauges = (river.gauges ?? []).map((gauge) => {
+      const reading = index.get(`${river.id}:${gauge.site_id}`) ?? index.get(gauge.site_id) ?? null;
+      const unit = gauge.threshold_unit;
+      const value =
+        unit === 'ft'
+          ? reading?.gaugeHeightFt ?? null
+          : unit === 'cfs'
+            ? reading?.dischargeCfs ?? null
+            : null;
+      return {
+        siteId: gauge.site_id,
+        // StatewideRiverGauge carries no name — only a site id. The curated
+        // list this screen already holds does, so it is the one asked; a bare
+        // "USGS 07064533" is a row about a database.
+        name: gaugeNameFor(gauge.site_id),
+        // Graded against THIS river's ladder — one physical gauge can be
+        // primary for two rivers with different thresholds, and the same
+        // number is a different verdict on each.
+        code: gradeGauge(river, gauge, index),
+        reading: value != null && unit ? formatReading(value, unit) : null,
+        isPrimary: gauge.is_primary,
+      };
+    });
+
+    return {
+      slug: river.slug,
+      name: river.name,
+      region: river.region,
+      gauges,
+      accesses: drawnAccessPoints
+        .filter((entry) => (entry.riverSlug ?? drawnSlug) === selectedSlug)
+        .map((entry) => entry.point),
+      hazards: drawnHazards.filter((hazard) => hazard.riverId === river.id),
+    };
+  }, [
+    selectedSlug,
+    network.bySlug,
+    network.readings,
+    drawnAccessPoints,
+    drawnHazards,
+    drawnSlug,
+    gaugeNameFor,
+  ]);
+
+  /**
+   * True whenever a sheet covers the bottom of the map.
+   *
+   * Both sheets are full-width and bottom-anchored, so at every detent they own
+   * the band the floating controls live in — including the glance.
+   */
+  /**
+   * How tall the sheet has settled, and at which detent.
+   *
+   * Committed on SETTLE only — MapSheet never reports mid-drag, because the
+   * two things that read this are a native camera prop and a layout offset,
+   * and neither wants sixty writes a second.
+   */
+  const [sheet, setSheet] = useState<{ detent: string; height: number }>({
+    detent: 'peek',
+    height: 0,
+  });
+  const onSheetDetentChange = useCallback(
+    (detent: string, height: number) => setSheet({ detent, height }),
+    [],
+  );
+
+  const sheetOpen = Boolean(
+    !search.active && (selectedPin || (riverSheetData && !selectedPin)),
+  );
+
+  const onPlanToNearby = useCallback(
+    (nearby: NearbyAccessPoint, from: MapAccessPoint) => {
+      const other = drawnAccessPoints.find((entry) => entry.point.id === nearby.id)?.point;
+      if (!other) return;
+      const downstream = nearby.direction === 'downstream';
+      planner.choosePutIn(downstream ? from : other);
+      planner.chooseTakeOut(downstream ? other : from);
+      setSelectedPin(null);
+      setPlanOpen(true);
+    },
+    [drawnAccessPoints, planner],
+  );
+
+  /**
    * Write-through on every change, including the reset.
    *
    * Inside the updater rather than in an effect on `layers`: an effect would
@@ -1309,6 +1421,14 @@ export default function MapScreen() {
           zoom: viewport?.zoom,
         });
       } else {
+        // ── THE CAMERA STAYS for a pin on the river already shown ──────────
+        // Deliberate, and the thing that makes browsing nearby pins feel
+        // continuous: the map holds still and only the sheet changes, dropping
+        // back to its glance for the new selection. Re-framing on every tap
+        // would fly the map a short distance for each dot you were comparing.
+        //
+        // What keeps that pin out from under the sheet is camera PADDING —
+        // see cameraPaddingBottom on RiverMap — rather than a new centre.
         pendingAccessSelection.current = null;
       }
       setSelectedPin(pin);
@@ -1453,6 +1573,13 @@ export default function MapScreen() {
           </View>
         ) : (
           <RiverMap
+            // Frame the selection into what the sheet leaves visible. Clamped
+            // to 55% of the map: past that Mapbox's framing gets unreliable,
+            // and at the tallest detent the map is not visible anyway, so
+            // there is nothing left to keep in view.
+            cameraPaddingBottom={
+              sheetOpen ? Math.min(sheet.height, Math.round(windowHeight * 0.55)) : 0
+            }
             river={mapRiver}
             conditionCode={conditionCode}
             network={network.collection}
@@ -1546,75 +1673,20 @@ export default function MapScreen() {
             `gap` rather than a margin: it applies only BETWEEN children, so with
             no callout the row sits flush at the ornament band and nothing adds
             phantom space. */}
-        <View style={styles.bottomStack} pointerEvents="box-none">
-          {selectedPin && !search.active ? (
-            <View style={styles.calloutWrap} pointerEvents="box-none">
-              {/* ── Going to look at something does not deselect it ──────────
-                  onOpenRiver, onOpenGauge, onOpenDam and onOpenDetail below all
-                  used to clear the pin on the way out, so tapping a put-in,
-                  reading its screen and pressing Back landed you on a map with
-                  nothing selected — the callout gone, the pin no longer ringed,
-                  and no way to carry on with it but to find it among its
-                  neighbours and tap it again. That is a round trip the app
-                  asked for and then discarded the state of.
+        {/* ── The controls ride the sheet ────────────────────────────────
+            Lifted by however tall the sheet has settled, rather than hidden
+            under it. They were hidden because the sheet is a full-width
+            gesture surface and does not merely overlap them — it takes their
+            touches — but hiding cost you Locate and Plan a float for as long
+            as anything was selected.
 
-                  A selection is a place the user is standing. Only the two
-                  things that genuinely leave it put it down: the close button,
-                  and handing an access point to the planner, which replaces the
-                  callout with the plan sheet. */}
-              <PinCallout
-                pin={selectedPin}
-                accessPoint={pinAccessPoint}
-                canSetTakeOut={
-                  Boolean(planner.putIn) &&
-                  pinAccessPoint != null &&
-                  pinAccessPoint.riverMile > (planner.putIn?.riverMile ?? Infinity)
-                }
-                onSetPutIn={() => {
-                  if (!pinAccessPoint) return;
-                  planner.choosePutIn(pinAccessPoint);
-                  setSelectedPin(null);
-                  setPlanOpen(true);
-                }}
-                onSetTakeOut={() => {
-                  if (!pinAccessPoint) return;
-                  planner.chooseTakeOut(pinAccessPoint);
-                  setSelectedPin(null);
-                  setPlanOpen(true);
-                }}
-                onOpenRiver={(slug) => router.push(`/river/${slug}`)}
-                onOpenGauge={onOpenGauge}
-                onOpenDam={onOpenDam}
-                onOpenDetail={(route) => router.push(asHref(route))}
-                // Closing a callout drops the pin's camera override without
-                // handing the camera to anything else. It used to null the
-                // focus, which on a map with no river selected woke the opening
-                // focus and flew you to your own position for having shut a
-                // gauge bubble. See heldCamera.
-                onClose={() => {
-                  setSelectedPin(null);
-                  setFocus(heldCamera());
-                }}
-                starred={pinGauge ? isStarred('gauge', pinGauge.id) : false}
-                onToggleStar={
-                  pinGauge
-                    ? () =>
-                        toggleStar({
-                          kind: 'gauge',
-                          entityId: pinGauge.id,
-                          name: pinGauge.name,
-                          // The river it is PRIMARY for, which is where a starred
-                          // gauge taps through to. Empty when it rates none.
-                          slug:
-                            pinGauge.thresholds?.find((link) => link.isPrimary)?.riverSlug ?? '',
-                          usgsSiteId: pinGauge.usgsSiteId,
-                        })
-                    : null
-                }
-              />
-            </View>
-          ) : null}
-
+            At the tallest detent there is no room left above the sheet, so
+            they do genuinely go away there and only there. */}
+        {sheetOpen && sheet.detent === 'full' ? null : (
+        <View
+          style={[styles.bottomStack, sheetOpen ? { bottom: sheet.height + 12 } : null]}
+          pointerEvents="box-none"
+        >
           <View style={styles.controlRow} pointerEvents="box-none">
           {/* Locate. The ONLY thing that ever asks for location permission on
               this screen — see useLocation for why the prompt is never spent on
@@ -1657,6 +1729,7 @@ export default function MapScreen() {
               layers sheet already carries the marks it toggles. */}
           </View>
         </View>
+        )}
 
         {/* ── The plan cluster ──────────────────────────────────────────
             IN THE CORNER, not in the stack above. Locate has to clear the
@@ -1669,7 +1742,11 @@ export default function MapScreen() {
             is a control row and a gap above MAP_CHROME_BOTTOM, well clear of
             this. See planButton's maxWidth for the one thing that could put a
             long label back over the ornaments. */}
-        <View style={styles.planCluster} pointerEvents="box-none">
+        {sheetOpen && sheet.detent === 'full' ? null : (
+        <View
+          style={[styles.planCluster, sheetOpen ? { bottom: sheet.height + 12 } : null]}
+          pointerEvents="box-none"
+        >
           {/* CLEAR THE PLAN. The plan deliberately outlives its sheet — you
               build a float and dismiss the sheet to look at the water between
               its ends — but nothing on the map could undo it. The only way
@@ -1730,6 +1807,114 @@ export default function MapScreen() {
             </Pressable>
           ) : null}
         </View>
+        )}
+
+        {/* ── The sheet ─────────────────────────────────────────────────
+            OUT of the bottom stack, which sized itself to the callout and
+            grew upward from the ornament band. A sheet is not a member of
+            that column: it spans the whole map area and slides, so the stack
+            now holds only the fixed chrome it was always about.
+
+            RENDERED LAST, so it draws over the map's own controls — and
+            because it is a full-width gesture surface at the bottom of the
+            screen, it does not merely overlap them, it takes their touches.
+            An earlier version of this comment claimed they stayed reachable
+            at the glance. They do not: the peek occupies exactly the band
+            Locate and Plan a float sit in.
+
+            So they are HIDDEN while a sheet is open, rather than left under it
+            to be tapped at and not respond. Both remain a close away, and for
+            an access point the plan action is already on the sheet itself —
+            which is the more direct route to it than the floating button was. */}
+        {/* ── The river sheet ───────────────────────────────────────────
+            Shown when a river is selected and NO pin is. A pin belongs to a
+            river, so both at once would be two sheets arguing about the same
+            stretch of water — and the pin is the more specific answer, so it
+            wins. Closing it puts you back on the river's own sheet, which is
+            where you were.
+
+            Tapping a river used to produce no UI whatsoever: onSelectNetworkRiver
+            set the slug, closed any callout and cleared the focus, and the only
+            thing that appeared was a header chip whose one action was to leave
+            the screen. */}
+        {riverSheetData && !selectedPin && !search.active ? (
+            <RiverSheetPanel
+              river={riverSheetData}
+              width={windowWidth}
+              onClose={clearRiver}
+              onOpenGauge={onOpenGauge}
+              onOpenRiver={(slug) => router.push(`/river/${slug}`)}
+              onSelectAccess={(point) => {
+                const entry = drawnAccessPoints.find((e) => e.point.id === point.id);
+                onSelectPin(mapAccessPointPin(point, entry?.riverSlug ?? riverSheetData.slug));
+              }}
+              onPlanPair={(putIn, takeOut) => {
+                planner.choosePutIn(putIn);
+                planner.chooseTakeOut(takeOut);
+                setPlanOpen(true);
+              }}
+              onDetentChange={onSheetDetentChange}
+            />
+        ) : null}
+
+        {selectedPin && !search.active ? (
+          <PinSheet
+              pin={selectedPin}
+              accessPoint={pinAccessPoint}
+              canSetTakeOut={
+                Boolean(planner.putIn) &&
+                pinAccessPoint != null &&
+                pinAccessPoint.riverMile > (planner.putIn?.riverMile ?? Infinity)
+              }
+              onSetPutIn={() => {
+                if (!pinAccessPoint) return;
+                planner.choosePutIn(pinAccessPoint);
+                setSelectedPin(null);
+                setPlanOpen(true);
+              }}
+              onSetTakeOut={() => {
+                if (!pinAccessPoint) return;
+                planner.chooseTakeOut(pinAccessPoint);
+                setSelectedPin(null);
+                setPlanOpen(true);
+              }}
+              onOpenRiver={(slug) => router.push(`/river/${slug}`)}
+              onOpenGauge={onOpenGauge}
+              onOpenDam={onOpenDam}
+              onOpenDetail={(route) => router.push(asHref(route))}
+              // Closing a callout drops the pin's camera override without
+              // handing the camera to anything else. It used to null the
+              // focus, which on a map with no river selected woke the opening
+              // focus and flew you to your own position for having shut a
+              // gauge bubble. See heldCamera.
+              onClose={() => {
+                setSelectedPin(null);
+                setFocus(heldCamera());
+              }}
+              starred={pinGauge ? isStarred('gauge', pinGauge.id) : false}
+              onToggleStar={
+                pinGauge
+                  ? () =>
+                      toggleStar({
+                        kind: 'gauge',
+                        entityId: pinGauge.id,
+                        name: pinGauge.name,
+                        // The river it is PRIMARY for, which is where a starred
+                        // gauge taps through to. Empty when it rates none.
+                        slug:
+                          pinGauge.thresholds?.find((link) => link.isPrimary)?.riverSlug ?? '',
+                        usgsSiteId: pinGauge.usgsSiteId,
+                      })
+                  : null
+              }
+              onPlanTo={(nearby) => {
+                if (pinAccessPoint) onPlanToNearby(nearby, pinAccessPoint);
+              }}
+              campableIds={campableAccessIds}
+              width={windowWidth}
+              onDetentChange={onSheetDetentChange}
+            />
+        ) : null}
       </View>
 
       {riversError ? (
@@ -1826,547 +2011,6 @@ export default function MapScreen() {
       />
 
     </SafeAreaView>
-  );
-}
-
-/**
- * What a tapped pin is, and — for an access point — what to do with it.
- *
- * The put-in / take-out buttons are the bridge between the map and the planner.
- * Without them the map is a picture and the plan is a form; with them, choosing
- * a stretch is something you do by pointing at the river.
- */
-function PinCallout({
-  pin,
-  accessPoint,
-  canSetTakeOut,
-  onSetPutIn,
-  onSetTakeOut,
-  onOpenRiver,
-  onOpenGauge,
-  onOpenDam,
-  onOpenDetail,
-  onClose,
-  starred = false,
-  onToggleStar = null,
-}: {
-  pin: MapPin;
-  accessPoint: MapAccessPoint | null;
-  canSetTakeOut: boolean;
-  onSetPutIn: () => void;
-  onSetTakeOut: () => void;
-  onOpenRiver: (slug: string) => void;
-  onOpenGauge: (siteId: string) => void;
-  onOpenDam: (damId: string) => void;
-  /** Takes an already-built route. See MapPin.detailRoute for why it is a path. */
-  onOpenDetail: (route: string) => void;
-  onClose: () => void;
-  starred?: boolean;
-  /** Null for anything that cannot be starred, which is everything but gauges. */
-  onToggleStar?: (() => void) | null;
-}) {
-  const { colors, elevation, isDark } = useTheme();
-  const layer = MAP_LAYERS.find((l) => l.key === pin.layer);
-  // Access points only, and only ones with a detail route — the hook returns
-  // null for everything else, so no guard is needed here.
-  const accessGauge = useAccessGaugeStatus(accessPoint ? pin.detailRoute : null);
-  const accessGaugeReading = accessGauge
-    ? accessGauge.cfs != null
-      ? formatReading(accessGauge.cfs, 'cfs')
-      : accessGauge.heightFt != null
-        ? formatReading(accessGauge.heightFt, 'ft')
-        : null
-    : null;
-  const planAsTakeOut = canSetTakeOut;
-  const planActionLabel = planAsTakeOut ? 'Use as take-out' : 'Use as put-in';
-  const performPlanAction = planAsTakeOut ? onSetTakeOut : onSetPutIn;
-
-  // PLACES YOU DRIVE TO, and nothing else. Access points, campgrounds and
-  // outfitters are destinations. A hazard is emphatically not one — a
-  // Directions button under a strainer is an invitation — and a gauge is a
-  // sensor on a bridge rail. See DRIVEABLE_LAYERS.
-  const driveable = DRIVEABLE_LAYERS.has(pin.layer);
-  // Coordinates, never the name: see src/lib/directions.ts.
-  const openDirections = () =>
-    void Linking.openURL(driveToUrl({ name: pin.name, coordinates: pin.coordinates }));
-
-  const onPlanAction = () => {
-    if (!accessPoint || accessPoint.isPublic) {
-      performPlanAction();
-      return;
-    }
-
-    const message = accessPoint.feeRequired
-      ? 'This location is marked private and may require both permission and a fee. Review its access details before relying on it.'
-      : 'This location is marked private and may require permission. Review its access details before relying on it.';
-    if (pin.detailRoute) {
-      Alert.alert('Private access', message, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Review details', onPress: () => onOpenDetail(pin.detailRoute!) },
-        { text: 'Use anyway', onPress: performPlanAction },
-      ]);
-      return;
-    }
-    Alert.alert('Private access', message, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Use anyway', onPress: performPlanAction },
-    ]);
-  };
-
-  /**
-   * WHAT THIS PIN IS FOR, resolved once.
-   *
-   * Exactly one promoted action, chosen by what the pin IS rather than by
-   * whichever condition happens to be tested first in the JSX. An access point
-   * is for floating from; a dam or a gauge is for reading; an outfitter or a
-   * campground is somewhere you drive. A hazard is for none of those — it is
-   * information, and its callout correctly offers nothing to do.
-   *
-   * Directions rides beside a promoted action as the quiet second, and takes
-   * the slot itself only when nothing else claimed it. Resolved here, in one
-   * place, so the button row and the list below can never both render the
-   * same destination.
-   *
-   * Coral stays reserved for the float CTA — it is the app's one accent and it
-   * means "this is what Eddy is for". Other primaries take the interactive
-   * outline, which is the emphasis step this callout already used for Details
-   * on an access point.
-   */
-  const calloutButtons: {
-    key: string;
-    label: string;
-    icon?: React.ComponentProps<typeof Ionicons>['name'];
-    tone: 'accent' | 'interactive' | 'neutral';
-    onPress: () => void;
-    accessibilityLabel?: string;
-    hint?: string;
-  }[] = [];
-
-  if (accessPoint) {
-    calloutButtons.push({
-      key: 'plan',
-      label: planActionLabel,
-      icon: 'flag-outline',
-      tone: 'accent',
-      onPress: onPlanAction,
-      hint: accessPoint.isPublic ? undefined : 'Private access confirmation required',
-    });
-  } else if (pin.damId) {
-    calloutButtons.push({
-      key: 'dam',
-      label: 'Open dam',
-      tone: 'interactive',
-      onPress: () => onOpenDam(pin.damId!),
-    });
-  } else if (pin.siteId) {
-    calloutButtons.push({
-      key: 'gauge',
-      label: 'Open gauge',
-      tone: 'interactive',
-      onPress: () => onOpenGauge(pin.siteId!),
-    });
-  } else if (driveable) {
-    calloutButtons.push({
-      key: 'directions',
-      label: 'Directions',
-      icon: 'navigate-outline',
-      tone: 'interactive',
-      onPress: openDirections,
-      accessibilityLabel: `Directions to ${pin.name}`,
-    });
-  }
-
-  if (driveable && !calloutButtons.some((b) => b.key === 'directions')) {
-    calloutButtons.push({
-      key: 'directions',
-      label: 'Directions',
-      icon: 'navigate-outline',
-      tone: 'neutral',
-      onPress: openDirections,
-      accessibilityLabel: `Directions to ${pin.name}`,
-    });
-  }
-
-  const promoted = new Set(calloutButtons.map((b) => b.key));
-
-  /**
-   * Everywhere else this pin can take you.
-   *
-   * Rows, not buttons, because that is what they are: navigation. Dressing a
-   * destination as the peer of a call to action was the original error, and
-   * the width it cost is what broke the row.
-   */
-  const calloutRows: {
-    key: string;
-    label: string;
-    onPress: () => void;
-    external?: boolean;
-    accessibilityLabel?: string;
-  }[] = [];
-
-  // The dam screen is a different destination from the gauge one — Stockton
-  // and Truman have a damId and no siteId at all, because they publish nothing
-  // to CWMS and so have no gauge row to open. See MapPin.damId.
-  if (pin.damId && !promoted.has('dam')) {
-    calloutRows.push({ key: 'dam', label: 'Open dam', onPress: () => onOpenDam(pin.damId!) });
-  }
-  // BEFORE the river. A gauge callout is a number, and the question a number
-  // provokes is "how did it get there" — which is a chart, not a river page.
-  if (pin.siteId && !promoted.has('gauge')) {
-    calloutRows.push({ key: 'gauge', label: 'Open gauge', onPress: () => onOpenGauge(pin.siteId!) });
-  }
-  if (pin.detailRoute) {
-    calloutRows.push({
-      key: 'details',
-      // Spelled out now that it has a whole row. It was abbreviated to
-      // "Details" only because it was a flex:1 pill sharing a row with up to
-      // three others, which is the constraint this layout removed.
-      label: accessPoint ? 'Access point details' : 'Details',
-      onPress: () => onOpenDetail(pin.detailRoute!),
-      accessibilityLabel: `Open ${pin.name}`,
-    });
-  }
-  if (pin.link) {
-    calloutRows.push({
-      key: 'link',
-      label: pin.link.label,
-      onPress: () => void Linking.openURL(pin.link!.url),
-      external: true,
-    });
-  }
-  // A gauge belongs to a river, and the river screen is where its history, its
-  // scale and Eddy's read on it live.
-  if (pin.riverSlug) {
-    calloutRows.push({
-      key: 'river',
-      label: 'View river',
-      onPress: () => onOpenRiver(pin.riverSlug!),
-    });
-  }
-
-  return (
-    <View style={[styles.callout, { backgroundColor: colors.card }, elevation(2)]}>
-      <View style={styles.calloutHead}>
-        {accessPoint && pin.imageUrl ? (
-          <View style={styles.calloutThumbWrap}>
-            <Image
-              source={{ uri: pin.imageUrl }}
-              style={styles.calloutThumb}
-              resizeMode="cover"
-              accessibilityElementsHidden
-              importantForAccessibility="no"
-              accessibilityIgnoresInvertColors
-            />
-            <View
-              style={[
-                styles.calloutThumbDot,
-                {
-                  backgroundColor: pin.color ?? layer?.color(colors) ?? colors.interactive,
-                  // White in BOTH schemes, and inline rather than in the
-                  // StyleSheet so it is a stated exception rather than a frozen
-                  // colour the theme guard has to allow. The ring separates the
-                  // dot from a PHOTOGRAPH, which is neither light nor dark —
-                  // the same reasoning as circleStrokeColor on the map layers.
-                  borderColor: '#FFFFFF',
-                },
-              ]}
-            />
-          </View>
-        ) : (
-          <View
-            style={[
-              styles.calloutDot,
-              { backgroundColor: pin.color ?? layer?.color(colors) ?? colors.interactive },
-            ]}
-          />
-        )}
-        <View style={styles.calloutText}>
-          <Text style={[styles.calloutName, { color: colors.text }]} numberOfLines={2}>
-            {pin.name}
-          </Text>
-          {pin.subtitle ? (
-            <Text style={[styles.calloutMeta, { color: colors.textMuted }]} numberOfLines={1}>
-              {pin.subtitle}
-            </Text>
-          ) : null}
-        </View>
-        {/* IN THE HEAD, not among the actions below. The star belongs to the
-            OBJECT, which is what this row names — the same relationship
-            RiverRow expresses by giving the star its own column beside the
-            name. It was never an action on the same footing as "Put in here",
-            and it would have taken width from one on the callouts that carry
-            both. */}
-        {onToggleStar ? (
-          <Pressable
-            onPress={onToggleStar}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel={starred ? `Unstar ${pin.name}` : `Star ${pin.name}`}
-          >
-            <Ionicons
-              name={starred ? 'star' : 'star-outline'}
-              size={19}
-              color={starred ? colors.warm : colors.textMuted}
-            />
-          </Pressable>
-        ) : null}
-        <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
-          <Ionicons name="close" size={19} color={colors.textMuted} />
-        </Pressable>
-      </View>
-
-      {/* WHAT THIS PLACE ACTUALLY IS. A point can carry several of the six
-          types at once — a boat ramp you can also camp at is a different day
-          out from a gravel bar — and until now the callout said only "Mile
-          12.4", with the pin's colour standing in for a category it could only
-          ever express one of.
-
-          Resolved through accessPointTypes so the `types` array wins and a row
-          that predates it still falls back to its single `type`. Rendered even
-          when there is one, because "Access" is information: it is the type
-          that means "somewhere to put a boat in and nothing more". */}
-      {accessPoint ? (
-        <View style={styles.calloutTypes}>
-          {accessPointTypes(accessPoint).map((type) => (
-            <View
-              key={type}
-              style={[styles.calloutType, { backgroundColor: colors.cardRaised }]}
-            >
-              <Text style={[styles.calloutTypeText, { color: colors.textMuted }]}>
-                {accessTypeLabel(type)}
-              </Text>
-            </View>
-          ))}
-          {accessPoint.feeRequired ? (
-            <View style={[styles.calloutType, { backgroundColor: colors.cardRaised }]}>
-              <Text style={[styles.calloutTypeText, { color: colors.textMuted }]}>Fee required</Text>
-            </View>
-          ) : null}
-        </View>
-      ) : null}
-
-      {/* The private notice, which is now the whole of the private signal at
-          this zoom — the pin itself no longer carries a padlock. Kept as a
-          NOTE rather than a lock: "permission may be required" is a thing to
-          go and ask about, and a padlock reads as a thing that is shut. */}
-      {accessPoint && !accessPoint.isPublic ? (
-        <View style={[styles.calloutPrivate, { backgroundColor: colors.cardRaised }]}>
-          <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
-          <Text style={[styles.calloutPrivateText, { color: colors.textMuted }]}>
-            Private access — permission may be required
-          </Text>
-        </View>
-      ) : null}
-
-      {/* The reading and its verdict on one line: a gauge's number means nothing
-          without the band it sits in, and the band means less without the
-          number. Same rule the river row is built on.
-
-          THE CHIP NO LONGER REQUIRES A CONDITION CODE. It used to, and the one
-          layer that carries a label without a code is the national gauge tier —
-          deliberately, because a flow band is a comparison to a station's own
-          history and never a verdict about floating. So the pin that most
-          needed its label explained was the only one that never showed it, and
-          a tapped reference gauge came back as a bare number. A code still
-          buys the condition tint; without one the chip is drawn in the pin's
-          own band colour, which is what the dot on the map is wearing. */}
-      {pin.value || pin.codeLabel ? (
-        <View style={styles.calloutReadingRow}>
-          {pin.value ? (
-            <Text
-              style={[
-                styles.calloutReading,
-                { color: pin.code ? conditionText(pin.code, isDark) : colors.text },
-              ]}
-            >
-              {pin.value}
-            </Text>
-          ) : null}
-          {pin.codeLabel ? (
-            <View
-              style={[
-                styles.calloutChip,
-                pin.code
-                  ? {
-                      backgroundColor: conditionBg(pin.code),
-                      borderColor: conditionChipBorder(pin.code),
-                    }
-                  : { backgroundColor: colors.cardRaised, borderColor: pin.color ?? colors.border },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.calloutChipText,
-                  { color: pin.code ? conditionInk(pin.code) : colors.textMuted },
-                ]}
-              >
-                {pin.codeLabel}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      ) : null}
-
-      {/* ── The water at this put-in ────────────────────────────────
-          Arrives after the callout is already open — see useAccessGaugeStatus
-          for why it is late and why it never blocks the buttons below.
-
-          Drawn in the SAME row a gauge pin uses, because it is the same kind
-          of fact and must not look like a different one. What it adds is the
-          station's name: this is the river's nearest at-or-upstream gauge
-          applied to the reach, not a sensor at this ramp, and naming it is the
-          difference between a reading and a measurement taken here. */}
-      {accessGauge ? (
-        <Pressable
-          onPress={() => onOpenGauge(accessGauge.usgsId)}
-          style={({ pressed }) => [styles.calloutAccessGauge, { opacity: pressed ? 0.6 : 1 }]}
-          accessibilityRole="button"
-          accessibilityLabel={`${accessGauge.gaugeName}, ${accessGauge.label}. Open the gauge`}
-        >
-          <View style={styles.calloutReadingRow}>
-            {accessGaugeReading ? (
-              <Text
-                style={[
-                  styles.calloutReading,
-                  { color: conditionText(accessGauge.level, isDark) },
-                ]}
-              >
-                {accessGaugeReading}
-              </Text>
-            ) : null}
-            <View
-              style={[
-                styles.calloutChip,
-                {
-                  backgroundColor: conditionBg(accessGauge.level),
-                  borderColor: conditionChipBorder(accessGauge.level),
-                },
-              ]}
-            >
-              <Text style={[styles.calloutChipText, { color: conditionInk(accessGauge.level) }]}>
-                {accessGauge.label}
-              </Text>
-            </View>
-          </View>
-          <Text style={[styles.calloutMeta, { color: colors.textMuted }]} numberOfLines={1}>
-            at {accessGauge.gaugeName}
-          </Text>
-        </Pressable>
-      ) : null}
-
-      {pin.body ? (
-        // Capped at four lines. A callout that grows to a hazard's full seasonal
-        // notes covers the river it is describing; the river screen has room.
-        <Text style={[styles.calloutBody, { color: colors.textMuted }]} numberOfLines={4}>
-          {pin.body}
-        </Text>
-      ) : null}
-
-      {/* ── One primary, one secondary, and rows for the rest ───────
-          This was seven equal pills in one flex row. Once Directions joined
-          them a typical access point carried four — flex 1/2/1/1 across a
-          332pt card, which is about 62pt each, and "Directions" at 14pt is
-          not 62pt wide. `flexWrap` could not rescue it either: flex:1 sets
-          flexBasis to 0, so no child ever exceeds its basis and the row
-          squeezes instead of wrapping.
-
-          The fix is the hierarchy the row never had. A callout has ONE thing
-          it is for — float from this put-in, read this gauge, drive to this
-          outfitter — and everything else on it is a way to somewhere else.
-          Actions get buttons; destinations get rows. Two buttons at flex 1
-          are 162pt each and a row is full width, so nothing has to be
-          abbreviated to fit, and both clear the 44pt touch floor the pills
-          missed at 41 (DESIGN.md §6). */}
-      {calloutButtons.length > 0 ? (
-        <View style={styles.calloutPrimaryRow}>
-          {calloutButtons.map((button) => {
-            const filled = button.tone === 'accent';
-            const ink = filled
-              ? colors.onAccent
-              : button.tone === 'interactive'
-                ? colors.interactive
-                : colors.text;
-            return (
-              <Pressable
-                key={button.key}
-                onPress={button.onPress}
-                style={({ pressed }) => [
-                  styles.calloutPrimary,
-                  {
-                    // accentFill, not accent: this is a SOLID CTA carrying
-                    // `onAccent` text, and onAccent is white. White on
-                    // accent[500] does not clear 4.5:1 — accentFill
-                    // (accent[700]) is the fill the white was chosen against,
-                    // and is what every other coral CTA in the app uses.
-                    backgroundColor: filled
-                      ? pressed
-                        ? colors.accentFillPressed
-                        : colors.accentFill
-                      : 'transparent',
-                    borderColor: filled
-                      ? pressed
-                        ? colors.accentFillPressed
-                        : colors.accentFill
-                      : button.tone === 'interactive'
-                        ? colors.interactive
-                        : colors.border,
-                    opacity: !filled && pressed ? 0.6 : 1,
-                  },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={button.accessibilityLabel}
-                accessibilityHint={button.hint}
-              >
-                {button.icon ? <Ionicons name={button.icon} size={15} color={ink} /> : null}
-                <Text style={[styles.calloutPrimaryText, { color: ink }]} numberOfLines={1}>
-                  {button.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
-
-      {calloutRows.length > 0 ? (
-        <View style={styles.calloutLinks}>
-          {calloutRows.map((row) => (
-            <Pressable
-              key={row.key}
-              onPress={row.onPress}
-              style={({ pressed }) => [styles.calloutLink, { opacity: pressed ? 0.6 : 1 }]}
-              accessibilityRole="button"
-              accessibilityLabel={row.accessibilityLabel}
-            >
-              <Text style={[styles.calloutLinkText, { color: colors.text }]} numberOfLines={1}>
-                {row.label}
-              </Text>
-              {/* An arrow that leaves the app for one that stays in it. The
-                  difference is worth a glyph: one of these opens Safari. */}
-              <Ionicons
-                name={row.external ? 'open-outline' : 'chevron-forward'}
-                size={16}
-                color={colors.textSubtle}
-              />
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-
-      {/* ── When it was measured ────────────────────────────────────
-          LAST, under the actions, in the quietest ink on the card. It is a
-          qualifier on everything above it rather than another fact beside them,
-          and putting it in the subtitle — where the curated tier used to keep
-          it — made the identification line carry two unrelated jobs while the
-          national tier carried neither.
-
-          Absent, not "unknown", when the station never reported a timestamp.
-          A row that says "Updated: unknown" is a row about the app. */}
-      {pin.updatedAt ? (
-        <Text style={[styles.calloutUpdated, { color: colors.textMuted }]} numberOfLines={1}>
-          {pin.updatedAt}
-        </Text>
-      ) : null}
-    </View>
   );
 }
 
@@ -2524,71 +2168,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   calloutWrap: { paddingHorizontal: 16 },
-  callout: { borderRadius: 14, padding: 13 },
-  calloutHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  calloutDot: { width: 10, height: 10, borderRadius: 999 },
-  calloutThumbWrap: { width: 64, height: 64 },
-  calloutThumb: { width: 64, height: 64, borderRadius: 9 },
-  // borderColor is applied INLINE at the call site, not here. StyleSheet.create
-  // runs once at import, so a colour written into it is frozen at whichever
-  // scheme the app launched with — the invariant app-theme.test.ts guards.
-  calloutThumbDot: {
-    position: 'absolute',
-    left: 5,
-    bottom: 5,
-    width: 10,
-    height: 10,
-    borderRadius: 999,
-    borderWidth: 1.5,
-  },
-  calloutText: { flex: 1, minWidth: 0 },
-  calloutName: { ...t.sm, fontFamily: fonts.semibold },
-  calloutMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 1 },
-  // Wraps, because six types is the ceiling and three is common. Quieter than
-  // calloutChip — a condition chip is a verdict, these are labels.
-  calloutTypes: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
-  calloutType: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
-  calloutTypeText: { ...t.sm, fontFamily: fonts.medium },
-  calloutPrivate: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    paddingHorizontal: 9,
-    paddingVertical: 7,
-    borderRadius: 9,
-    marginTop: 9,
-  },
-  calloutPrivateText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
-  calloutReadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9 },
-  // The access-point reading is one tap target covering the number, the chip
-  // and the station name, because all three are the same fact and they all
-  // lead to the same screen.
-  calloutAccessGauge: { marginTop: 0 },
-  calloutReading: { ...t.lg, fontFamily: fonts.mono },
-  calloutChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
-  calloutChipText: { ...t.sm, fontFamily: fonts.semibold },
-  calloutBody: { ...t.sm, fontFamily: fonts.body, marginTop: 9 },
-  calloutUpdated: { ...t.sm, fontFamily: fonts.body, marginTop: 10 },
-  // At most two, equal width. On the narrowest phone that is ~162pt each,
-  // which fits every label this callout has without abbreviating one.
-  calloutPrimaryRow: { flexDirection: 'row', gap: 8, marginTop: 11 },
-  calloutPrimary: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    // 44 is the touch floor from DESIGN.md §6 and is not negotiable. The pills
-    // this replaced were 41.
-    minHeight: 44,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  calloutPrimaryText: { ...t.sm, fontFamily: fonts.semibold },
-  calloutLinks: { marginTop: 4 },
-  calloutLink: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
-  calloutLinkText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
   planButton: {
     flexDirection: 'row',
     // 55% OF THE CLUSTER, which is now a real width — see planCluster. Right-

@@ -59,6 +59,7 @@ import type {
 import {
   accessPointTypes,
   accessTypeLabel,
+  campsiteAvailabilityLine,
   hasCoordinates,
   isCampground,
   PUBLIC_LAND_ACCESS_STYLE,
@@ -480,6 +481,14 @@ export function mapAccessPointPin(
 
 interface Props {
   /**
+   * Extra bottom padding for the camera, in points.
+   *
+   * The map sheet passes its settled height, so a selected pin frames into the
+   * part of the map still visible above it. Updated on SETTLE only — a
+   * per-frame version would be a native prop write on every frame of a drag.
+   */
+  cameraPaddingBottom?: number;
+  /**
    * The river in focus, or NULL when the map is showing the network and the
    * user has not picked one yet. Null is the opening state now, not an error:
    * everything river-scoped below simply does not render.
@@ -600,6 +609,7 @@ function featureCollection(pins: MapPin[], defaultColor: string) {
 }
 
 export function RiverMap({
+  cameraPaddingBottom,
   river,
   conditionCode,
   network,
@@ -749,9 +759,28 @@ export function RiverMap({
           id: `camp-service:${s.id}`,
           name: s.name,
           layer: 'campgrounds' as const,
-          subtitle: [s.city, s.state].filter(Boolean).join(', ') || 'Campground',
+          subtitle:
+            [
+              [s.city, s.state].filter(Boolean).join(', ') || 'Campground',
+              s.managingAgency,
+            ]
+              .filter(Boolean)
+              .join(' · '),
           coordinates: { lng: s.longitude as number, lat: s.latitude as number },
-          body: s.description,
+          // AVAILABILITY FIRST, when there is any. For somewhere to sleep this
+          // weekend it is the whole question, and the description below it is
+          // the same sentence it was last season. Most rows have none — Eddy
+          // reads the booking systems it can — and null is emphatically not
+          // "full", which is why the wording only ever comes from
+          // campsiteAvailabilityLine.
+          //
+          // This is where a Missouri State Park's inventory surfaces at all:
+          // campsite_facilities hangs off a nearby_services row, so a state
+          // park has no nps_campgrounds record and reaches the map through
+          // here or nowhere.
+          body: [campsiteAvailabilityLine(s.availability, s.name), s.description]
+            .filter(Boolean)
+            .join('\n\n') || null,
           link: serviceLink(s),
         })),
     ];
@@ -1603,7 +1632,17 @@ export function RiverMap({
         {...cameraProps}
         // Padding belongs on the root prop. Passing it inside `bounds` still
         // works but is deprecated in @rnmapbox/maps 10.
-        padding={{ paddingTop: 40, paddingBottom: 40, paddingLeft: 32, paddingRight: 32 }}
+        // paddingBottom is what keeps a selected pin OUT from under the sheet.
+        // Camera padding shifts the framing centre, so a sheet occupying the
+        // bottom third simply means the camera aims a third higher — no second
+        // coordinate system, and nothing to keep in sync with the sheet beyond
+        // one number.
+        padding={{
+          paddingTop: 40,
+          paddingBottom: 40 + (cameraPaddingBottom ?? 0),
+          paddingLeft: 32,
+          paddingRight: 32,
+        }}
       />
 
       {/* The bundled pin shapes. Registered once for the whole map — an

@@ -50,6 +50,13 @@ export interface StatewideNetwork {
    * whole line in order.
    */
   bySlug: ReadonlyMap<string, StatewideRiver>;
+  /**
+   * The raw readings, so a caller grading ONE river gauge by gauge can build
+   * the shared index rather than deriving a second one. Null until they land —
+   * which is a different state from an empty list, and readingsFailed below is
+   * how the difference is told.
+   */
+  readings: StatewideReading[] | null;
   loading: boolean;
   /**
    * True when the geometry arrived but the readings did not, so every line is
@@ -187,5 +194,7 @@ export function useStatewideNetwork(): StatewideNetwork {
     [rivers],
   );
 
-  return { collection, bounds, bySlug, loading: rivers === null, readingsFailed };
+  // The raw readings come out too, so a caller that needs to grade ONE river
+  // gauge by gauge can build the shared index rather than re-deriving one.
+  return { collection, bounds, bySlug, readings, loading: rivers === null, readingsFailed };
 }

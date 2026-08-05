@@ -400,6 +400,42 @@ export interface NpsCampgroundSummary {
   sitesReservable: number;
   sitesFirstCome: number;
   availability?: CampsiteAvailabilitySummary | null;
+
+  // ── Everything below has always been on the wire ──────────────────────
+  // getNPSCampgroundInfo in src/lib/access-points/detail.ts and toNpsCampground
+  // in src/lib/offline/shapes.ts both build the FULL record — fees, the site
+  // breakdown, amenities, hours and photos — and the app's client does no
+  // runtime stripping. This type was the only thing hiding them.
+  //
+  // Optional rather than required because the NPS API leaves plenty of them
+  // empty, and because a required field would break the offline bundle's
+  // parity test for rows that have never carried one.
+  //
+  // MIRRORS NPSCampgroundInfo in missouri-float-planner/src/types/api.ts field
+  // for field, and must keep doing so. The two cannot share one declaration:
+  // shippable web code must not import from outside missouri-float-planner/,
+  // because Vercel installs only that directory. The duplication is the
+  // deliberate cost of that constraint — the same one campsiteAvailabilityLine
+  // pays, with a parity test guarding it.
+  fees?: { cost: string; description: string; title: string }[];
+  sitesGroup?: number;
+  sitesTentOnly?: number;
+  sitesElectrical?: number;
+  sitesRvOnly?: number;
+  sitesWalkBoatTo?: number;
+  amenities?: {
+    toilets: string[];
+    showers: string[];
+    cellPhoneReception: string;
+    potableWater: string[];
+    campStore: string;
+    firewoodForSale: string;
+    dumpStation: string;
+    trashCollection: string;
+  };
+  operatingHours?: { description: string; name: string }[];
+  classification?: string | null;
+  images?: { url: string; title: string; altText: string; caption: string; credit: string }[];
 }
 
 /**
@@ -935,6 +971,37 @@ export interface RiverService {
   longitude: number | null;
   description: string | null;
   servicesOffered: string[];
+
+  // ── Campground fields ─────────────────────────────────────────────────
+  // Optional because they describe a campground and most rows here are
+  // outfitters, but NOT because the server is unsure: every one of these has
+  // been on the wire from GET /api/rivers/[slug]/services since the camping
+  // work landed, undeclared, and therefore unreachable by the app.
+  //
+  // This matters most for the places NPS does not run. A Missouri State Park —
+  // Meramec, Onondaga Cave, Washington — has no nps_campgrounds row at all, so
+  // npsCampground is null and every campground field the app knows about is
+  // empty for it. Its availability arrives HERE instead, because
+  // campsite_facilities links to a nearby_services row rather than to an access
+  // point. Leaving these undeclared is what made state park camping invisible.
+  /** Stable identifier for the directory row, for deep links. */
+  slug?: string | null;
+  /** Who runs it — 'State Park', 'MDC', 'USFS', 'Private' and so on. */
+  managingAgency?: string | null;
+  reservationUrl?: string | null;
+  bookingPlatform?: string | null;
+  tentSites?: number | null;
+  rvSites?: number | null;
+  cabinCount?: number | null;
+  feeRange?: string | null;
+  seasonOpenMonth?: number | null;
+  seasonCloseMonth?: number | null;
+  /**
+   * Live inventory for the coming weekend, when Eddy reads this place's booking
+   * system. Null for most rows, and null is not "full" — see
+   * campsiteAvailabilityLine, which is the only approved way to word it.
+   */
+  availability?: CampsiteAvailabilitySummary | null;
 }
 
 export interface ServicesResponse {
