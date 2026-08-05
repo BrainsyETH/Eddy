@@ -176,6 +176,66 @@ function peekTarget(available: number): number {
   return Math.min(PEEK_MAX, Math.round(available * PEEK_FRACTION));
 }
 
+/* ── The two helpers settleTarget calls, ABOVE settleTarget ────────────────
+   ORDER IS LOAD-BEARING HERE, and it is the only place in the app where that
+   is true. react-native-worklets/plugin turns a `function` declaration into a
+   `var` assigned from an immediately-invoked factory, and hands the closure to
+   that factory as arguments — so what a worklet can call is decided when its
+   line is EVALUATED, not when it runs:
+
+     var settleTarget = function …Factory(_ref) {…}({ …, stepFrom, nearest });
+
+   `var` hoists the binding and not the value, so these two sitting below
+   settleTarget were captured as `undefined` and stayed that way. Every slow
+   release of the sheet reached `nearest` and threw "undefined is not a
+   function" on the UI thread — invisible to tsc, to eslint and to the
+   production bundle, because all three see a perfectly ordinary hoisted call.
+
+   A worklet inside a component or a hook does not have this problem: the module
+   has finished evaluating before React ever creates it. Module scope is the
+   exception, and app-worklet-closures.test.ts is what keeps it from coming
+   back. */
+
+function nearest(order: Detent[], heights: Record<Detent, number>, height: number): number {
+  'worklet';
+  let best = 0;
+  let bestDistance = Infinity;
+  for (let i = 0; i < order.length; i += 1) {
+    const distance = Math.abs(heights[order[i]] - height);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/**
+ * One detent up (+1) or down (-1) from wherever the sheet currently sits.
+ *
+ * Deliberately NOT "nearest, then step": a flick that starts a few pixels above
+ * a detent and travels upward should reach the next one, and nearest-then-step
+ * would skip it. Steps from the detent the sheet has actually passed.
+ */
+function stepFrom(
+  order: Detent[],
+  heights: Record<Detent, number>,
+  height: number,
+  direction: 1 | -1,
+): Detent | null {
+  'worklet';
+  if (direction === 1) {
+    for (const detent of order) {
+      if (heights[detent] > height + 1) return detent;
+    }
+    return null;
+  }
+  for (let i = order.length - 1; i >= 0; i -= 1) {
+    if (heights[order[i]] < height - 1) return order[i];
+  }
+  return null;
+}
+
 /**
  * Where a release lands.
  *
@@ -225,46 +285,6 @@ export function settleTarget(
   if (height > largest) return order[order.length - 1];
 
   return order[nearest(order, heights, height)];
-}
-
-function nearest(order: Detent[], heights: Record<Detent, number>, height: number): number {
-  'worklet';
-  let best = 0;
-  let bestDistance = Infinity;
-  for (let i = 0; i < order.length; i += 1) {
-    const distance = Math.abs(heights[order[i]] - height);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      best = i;
-    }
-  }
-  return best;
-}
-
-/**
- * One detent up (+1) or down (-1) from wherever the sheet currently sits.
- *
- * Deliberately NOT "nearest, then step": a flick that starts a few pixels above
- * a detent and travels upward should reach the next one, and nearest-then-step
- * would skip it. Steps from the detent the sheet has actually passed.
- */
-function stepFrom(
-  order: Detent[],
-  heights: Record<Detent, number>,
-  height: number,
-  direction: 1 | -1,
-): Detent | null {
-  'worklet';
-  if (direction === 1) {
-    for (const detent of order) {
-      if (heights[detent] > height + 1) return detent;
-    }
-    return null;
-  }
-  for (let i = order.length - 1; i >= 0; i -= 1) {
-    if (heights[order[i]] < height - 1) return order[i];
-  }
-  return null;
 }
 
 /**
