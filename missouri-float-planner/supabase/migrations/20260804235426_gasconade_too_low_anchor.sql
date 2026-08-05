@@ -1,4 +1,4 @@
--- NOT YET APPLIED to production. See the checklist at the bottom.
+-- APPLIED to production 2026-08-04 as 20260804235426.
 --
 -- Give the Gasconade's primary gauge the bottom of its ladder. Closes
 -- `no_too_low_anchor` for river `gasconade`.
@@ -83,6 +83,7 @@ BEGIN
     END IF;
 END $$;
 
--- After applying, confirm the ledger agrees rather than trusting this file:
+-- Confirmed on production after applying, rather than trusted from this file:
 --   select * from public.validate_river_data()
 --    where river_slug = 'gasconade' and check_name in ('no_too_low_anchor','threshold_order');
+-- returned no rows. The stored ladder reads 70 / 100 / 200 / 1000 / 1000 / 3000.

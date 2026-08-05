@@ -1,4 +1,4 @@
--- NOT YET APPLIED to production. See the checklist at the bottom.
+-- APPLIED to production 2026-08-04 as 20260804235408.
 --
 -- Rewrite the ten admin-gated policies that inline the user_roles lookup so
 -- they call is_admin() instead. Closes the `admin_policies_use_is_admin`
@@ -163,6 +163,7 @@ BEGIN
     END IF;
 END $$;
 
--- After applying, confirm the ledger agrees rather than trusting this file:
+-- Confirmed on production after applying, rather than trusted from this file:
 --   select invariant_key, ok, detail from public.trust_schema_invariants()
 --    where invariant_key = 'admin_policies_use_is_admin';
+-- returned ok = true, 'every admin-gated policy calls is_admin()'.
