@@ -178,7 +178,7 @@ test('the interpolated sentences still read the way the admin page expects', () 
   const messages = issues.map((i) => i.message);
   assert.equal(messages.includes('Very low coordinate density (4 points)'), true);
   assert.equal(
-    messages.includes('Low coordinate density: 2.1 pts/mile of channel (under 5)'),
+    messages.includes('Low coordinate density: 2.1 pts/mile of channel (under 3)'),
     true,
   );
 });
@@ -223,27 +223,41 @@ test('geometryLengthMiles returns null when there is no line to measure', () => 
 
 test('a stale length_miles cannot flatter a sparse geometry', () => {
   // War Eagle Creek, as it stood on 2026-08-05: 261 vertices, a 68.1-mile line,
-  // and 33.17 in length_miles. Against the column it scored 7.9 pts/mile and
-  // passed; against its own line it is 3.8 — the sparsest river in the catalog.
+  // and 33.17 in length_miles. Against the column it scored 7.9 pts/mile — twice
+  // its real figure, and the reason the sparsest line in the catalog was the one
+  // river comfortably clear of the old threshold.
   assert.equal(coordsPerMileOf(261, 68.1), 3.8);
   assert.equal(coordsPerMileOf(261, 33.17), 7.9);
 
-  const measured = keys({
+  // What it is actually guilty of, now that both halves come from the line: the
+  // mileage column, not the vertex count. 3.8 is ordinary for this catalog.
+  const found = keys({
     coordinateCount: 261,
     coordsPerMile: coordsPerMileOf(261, 68.1),
     geometryLengthMiles: 68.1,
     lengthMiles: 33.17,
   });
-  assert.equal(measured.includes('coordinate_density_low'), true);
+  assert.equal(found.includes('length_miles_disagrees_geometry'), true);
+  assert.equal(found.includes('coordinate_density_low'), false);
+});
+
+test('the whole catalog does not fire on one import tolerance', () => {
+  // Every active river fell between 3.1 and 5.1 pts/mile on 2026-08-05, because
+  // they all came out of one Douglas-Peucker pass. At a threshold of 5 that was
+  // 22 findings describing one fact. Gasconade is the sparsest at 3.14.
+  assert.equal(keys({ coordsPerMile: 3.14 }).includes('coordinate_density_low'), false);
+  assert.equal(keys({ coordsPerMile: 5.1 }).includes('coordinate_density_low'), false);
+  // A placeholder line is still caught, which is what the rule is for.
+  assert.equal(keys({ coordsPerMile: 2.4 }).includes('coordinate_density_low'), true);
 });
 
 test('the density sentence states the threshold it actually enforces', () => {
   // It read "(recommend 10+)" while the rule fired below 5, so it asked for a
   // number the check does not enforce and nothing in between ever appeared.
-  const [issue] = deriveRiverGeometryIssues(metrics({ coordsPerMile: 3.6 })).filter(
+  const [issue] = deriveRiverGeometryIssues(metrics({ coordsPerMile: 2.4 })).filter(
     (i) => i.ruleKey === 'coordinate_density_low',
   );
-  assert.match(issue.message, /under 5/);
+  assert.match(issue.message, /under 3/);
   assert.doesNotMatch(issue.message, /10\+/);
 });
 
