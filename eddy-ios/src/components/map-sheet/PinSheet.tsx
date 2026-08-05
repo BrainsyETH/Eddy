@@ -23,7 +23,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSharedValue } from 'react-native-reanimated';
+import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import type {
   AccessPointDetailResponse,
   MapAccessPoint,
@@ -35,7 +35,7 @@ import { fonts, type as t } from '@/theme/typography';
 import type { MapPin } from '@/map/RiverMap';
 import { useAccessPointDetail } from '@/hooks/useAccessPointDetail';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
-import { MapSheet } from './MapSheet';
+import { MapSheet, type SheetMetrics } from './MapSheet';
 import { PinCallout } from './PinCallout';
 import { PlaceHead } from './PlaceHead';
 import { AccessGaugeReading, AccessTypeBadges } from './sections';
@@ -81,6 +81,8 @@ export interface PinSheetProps {
   width: number;
   /** Forwarded to MapSheet so the map can follow the sheet. */
   onDetentChange?: (detent: Detent, height: number) => void;
+  /** Forwarded to MapSheet so the floating controls can follow it per frame. */
+  metrics?: SharedValue<SheetMetrics>;
 }
 
 export function PinSheet(props: PinSheetProps) {
@@ -187,6 +189,7 @@ export function PinSheet(props: PinSheetProps) {
         label={`${pin.name} sheet`}
         onClose={props.onClose}
         onDetentChange={props.onDetentChange}
+        metrics={props.metrics}
         peek={<PinCallout {...props} />}
       />
     );
@@ -240,6 +243,7 @@ export function PinSheet(props: PinSheetProps) {
       label={`${pin.name} sheet`}
       onClose={props.onClose}
       onDetentChange={props.onDetentChange}
+      metrics={props.metrics}
       peek={<PinSheetHeader {...props} detail={detail} />}
     >
       <View onLayout={onChromeLayout}>

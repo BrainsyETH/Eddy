@@ -6,9 +6,9 @@
 // state a tabbed sheet needs. Same division as PinSheet and AccessTabs.
 import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
+import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import type { MapAccessPoint } from '@eddy/types';
-import { MapSheet } from './MapSheet';
+import { MapSheet, type SheetMetrics } from './MapSheet';
 import { SheetTabBar } from './SheetTabBar';
 import { SheetPager, mountedPages } from './SheetPager';
 import {
@@ -30,9 +30,18 @@ interface Props {
   onPlanPair: (putIn: MapAccessPoint, takeOut: MapAccessPoint) => void;
   width: number;
   onDetentChange?: (detent: Detent, height: number) => void;
+  /** Forwarded to MapSheet so the floating controls can follow it per frame. */
+  metrics?: SharedValue<SheetMetrics>;
 }
 
-export function RiverSheetPanel({ river, width, onClose, onDetentChange, ...handlers }: Props) {
+export function RiverSheetPanel({
+  river,
+  width,
+  onClose,
+  onDetentChange,
+  metrics,
+  ...handlers
+}: Props) {
   const tabs = useMemo(() => riverTabs(river), [river]);
   // Held by key for the reason PinSheet documents: the set can change under the
   // reader as access points and hazards arrive for a newly selected river.
@@ -74,6 +83,7 @@ export function RiverSheetPanel({ river, width, onClose, onDetentChange, ...hand
       label={`${river.name} sheet`}
       onClose={onClose}
       onDetentChange={onDetentChange}
+      metrics={metrics}
       peek={<RiverSheetHeader river={river} onClose={onClose} onOpenRiver={handlers.onOpenRiver} />}
     >
       <View onLayout={onChromeLayout}>

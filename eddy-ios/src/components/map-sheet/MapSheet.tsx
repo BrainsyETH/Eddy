@@ -25,11 +25,13 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withSpring,
   withTiming,
   interpolate,
   Extrapolation,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { GestureType } from 'react-native-gesture-handler';
@@ -87,6 +89,28 @@ interface Props {
    * defaulted to a generic word.
    */
   label: string;
+  /**
+   * Where the sheet is RIGHT NOW, written every frame on the UI thread.
+   *
+   * The companion to onDetentChange rather than a replacement for it, and the
+   * split is the point. Anything that must not run per frame — the Mapbox
+   * camera, the ornament positions, a React layout — reads the settled detent.
+   * Anything that should follow a finger reads this, in its own worklet,
+   * without waking React at all.
+   *
+   * `available` rides along because a consumer cannot otherwise tell how much
+   * map is left above the sheet, and the sheet is the only thing that measured
+   * it. Both in one value so they can never be read a frame apart.
+   */
+  metrics?: SharedValue<SheetMetrics>;
+}
+
+/** What a sheet publishes about itself every frame. See MapSheet.metrics. */
+export interface SheetMetrics {
+  /** Points of screen the sheet currently occupies, from the bottom up. */
+  height: number;
+  /** The whole band the sheet may occupy — the map area, as measured. */
+  available: number;
 }
 
 /** How each resting place is announced. Words, not fractions. */
@@ -103,6 +127,7 @@ export function MapSheet({
   peek,
   children,
   label,
+  metrics,
 }: Props) {
   const { colors, elevation } = useTheme();
   const insets = useSafeAreaInsets();
@@ -321,6 +346,19 @@ export function MapSheet({
   // there is nothing to adjust and announcing it as adjustable would promise a
   // gesture that does nothing. It can still be dismissed.
   const adjustable = detents.order.length > 1;
+
+  // A value that follows another value, which is what useDerivedValue is for —
+  // and it runs wherever translateY is written, so a drag, a spring and a
+  // VoiceOver adjustment all publish through the same line. No runOnJS: nothing
+  // here crosses into React, which is the whole reason this exists beside
+  // onDetentChange rather than instead of it.
+  useDerivedValue(() => {
+    if (!metrics) return;
+    metrics.value = {
+      height: Math.max(0, detents.available - translateY.value),
+      available: detents.available,
+    };
+  });
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],

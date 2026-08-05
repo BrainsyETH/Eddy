@@ -49,6 +49,12 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type {
@@ -126,6 +132,7 @@ import {
 import { PlanSheet } from '@/components/PlanSheet';
 import { PinSheet } from '@/components/map-sheet/PinSheet';
 import { RiverSheetPanel } from '@/components/map-sheet/RiverSheetPanel';
+import type { SheetMetrics } from '@/components/map-sheet/MapSheet';
 import { ORNAMENT_BAND } from '@/components/map-sheet/sheetGeometry';
 
 /**
@@ -157,6 +164,17 @@ const MAP_CHROME_BOTTOM = ORNAMENT_BAND;
  * rest — the point of riding the sheet is that the arrangement does not change.
  */
 const PLAN_CLUSTER_BOTTOM = 16;
+
+/**
+ * How much map has to be left above the sheet for the floating controls to be
+ * worth showing: their own floor, the 44pt button, and a gap above it.
+ *
+ * They fade out over the 60pt above this rather than vanishing at it, so the
+ * last part of a drag to the tallest detent takes them out smoothly instead of
+ * blinking them off on settle.
+ */
+const CONTROLS_ROOM_MIN = MAP_CHROME_BOTTOM + 44 + 12;
+const CONTROLS_ROOM_FADE = 60;
 
 /**
  * A camera target, tagged with the river it belongs to.
@@ -963,6 +981,43 @@ export default function MapScreen() {
     [],
   );
 
+  /**
+   * Where the sheet is between settles, for the things that should follow a
+   * finger rather than wait for it to lift.
+   *
+   * The controls used to jump: they were positioned from `sheet.height`, which
+   * is committed on settle, so through the whole of a drag they sat at the
+   * height the sheet USED to be and then teleported. The camera padding and the
+   * Mapbox ornaments still read the settled value — those are a native prop and
+   * two more native props, and none of them wants sixty writes a second — but a
+   * button's transform costs nothing on the UI thread and belongs on it.
+   */
+  const sheetMetrics = useSharedValue<SheetMetrics>({ height: 0, available: 0 });
+
+  /**
+   * Lift by exactly what the sheet occupies, and fade when the map runs out of
+   * room to hold them.
+   *
+   * `bottom` stays where it is and this is a TRANSFORM, which is the same rule
+   * the sheet itself follows: `bottom` is layout, and animating layout sixty
+   * times a second on the heaviest screen in the app is the thing MapSheet's
+   * header explains it was built to avoid.
+   */
+  const controlsStyle = useAnimatedStyle(() => {
+    const { height, available } = sheetMetrics.value;
+    if (available <= 0) return { opacity: 1, transform: [{ translateY: 0 }] };
+    const room = available - height;
+    return {
+      opacity: interpolate(
+        room,
+        [CONTROLS_ROOM_MIN, CONTROLS_ROOM_MIN + CONTROLS_ROOM_FADE],
+        [0, 1],
+        Extrapolation.CLAMP,
+      ),
+      transform: [{ translateY: -height }],
+    };
+  });
+
   const sheetOpen = Boolean(
     !search.active && (selectedPin || (riverSheetData && !selectedPin)),
   );
@@ -1693,24 +1748,32 @@ export default function MapScreen() {
             no callout the row sits flush at the ornament band and nothing adds
             phantom space. */}
         {/* ── The controls ride the sheet ────────────────────────────────
-            Lifted by however tall the sheet has settled, rather than hidden
-            under it. They were hidden because the sheet is a full-width
-            gesture surface and does not merely overlap them — it takes their
-            touches — but hiding cost you Locate and Plan a float for as long
-            as anything was selected.
+            Lifted by however tall the sheet is, rather than hidden under it.
+            They were hidden because the sheet is a full-width gesture surface
+            and does not merely overlap them — it takes their touches — but
+            hiding cost you Locate and Plan a float for as long as anything was
+            selected.
 
-            At the tallest detent there is no room left above the sheet, so
-            they do genuinely go away there and only there. */}
+            THE LIFT FOLLOWS THE FINGER. It used to come from the SETTLED
+            height, so for the whole of a drag these sat where the sheet had
+            been and then teleported when it landed. It is a transform off the
+            sheet's live height now — see controlsStyle — and `bottom` stays
+            put, because animating layout per frame on this screen is the thing
+            MapSheet's header explains it was built to avoid.
+
+            They keep the same offset they use at rest, now measured from the
+            sheet's top edge rather than the map's. It was a bare 12, which
+            cleared the sheet and nothing else; the ornaments ride the sheet
+            too now, so 12 would have landed the locate button on the (i).
+
+            At the tallest detent there is no room left above the sheet, so they
+            do genuinely go away there and only there — and that stays a settled
+            decision, because the fade has already taken them to nothing by the
+            time it happens and a per-frame pointerEvents would be a React write
+            on every frame of a drag. */}
         {sheetOpen && sheet.detent === 'full' ? null : (
-        <View
-          style={[
-            styles.bottomStack,
-            // The SAME offset it uses at rest, measured from the sheet's top
-            // edge instead of the map's. It was +12, which cleared the sheet
-            // and nothing else — and now that the ornaments ride the sheet too,
-            // 12 would sit the locate button straight on top of the (i).
-            sheetOpen ? { bottom: sheet.height + MAP_CHROME_BOTTOM } : null,
-          ]}
+        <Animated.View
+          style={[styles.bottomStack, sheetOpen ? controlsStyle : null]}
           pointerEvents="box-none"
         >
           <View style={styles.controlRow} pointerEvents="box-none">
@@ -1754,7 +1817,7 @@ export default function MapScreen() {
               Removed rather than moved: the map has no spare corner, and the
               layers sheet already carries the marks it toggles. */}
           </View>
-        </View>
+        </Animated.View>
         )}
 
         {/* ── The plan cluster ──────────────────────────────────────────
@@ -1769,11 +1832,8 @@ export default function MapScreen() {
             this. See planButton's maxWidth for the one thing that could put a
             long label back over the ornaments. */}
         {sheetOpen && sheet.detent === 'full' ? null : (
-        <View
-          style={[
-            styles.planCluster,
-            sheetOpen ? { bottom: sheet.height + PLAN_CLUSTER_BOTTOM } : null,
-          ]}
+        <Animated.View
+          style={[styles.planCluster, sheetOpen ? controlsStyle : null]}
           pointerEvents="box-none"
         >
           {/* CLEAR THE PLAN. The plan deliberately outlives its sheet — you
@@ -1835,7 +1895,7 @@ export default function MapScreen() {
               </Text>
             </Pressable>
           ) : null}
-        </View>
+        </Animated.View>
         )}
 
         {/* ── The sheet ─────────────────────────────────────────────────
@@ -1883,6 +1943,7 @@ export default function MapScreen() {
                 setPlanOpen(true);
               }}
               onDetentChange={onSheetDetentChange}
+              metrics={sheetMetrics}
             />
         ) : null}
 
@@ -1942,6 +2003,7 @@ export default function MapScreen() {
               campableIds={campableAccessIds}
               width={windowWidth}
               onDetentChange={onSheetDetentChange}
+              metrics={sheetMetrics}
             />
         ) : null}
       </View>
