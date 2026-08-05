@@ -4,8 +4,8 @@
 // Separate from RiverSheet.tsx only so that file stays what it is — the tab
 // bodies and the rules about which of them exist — while this one holds the
 // state a tabbed sheet needs. Same division as PinSheet and AccessTabs.
-import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import type { MapAccessPoint } from '@eddy/types';
 import { SheetTabBar } from './SheetTabBar';
@@ -37,6 +37,16 @@ export function RiverSheetPanel({ river, width, onClose, ...handlers }: Props) {
   const [seededFor, setSeededFor] = useState<string | null>(null);
   const progress = useSharedValue(0);
 
+  // Measured, because the header is two lines for some pins and four for
+  // others and the tab bar comes and goes. What is left over is what a page
+  // may fill before it has to scroll.
+  const [chromeHeight, setChromeHeight] = useState(0);
+  const onChromeLayout = useCallback(
+    (event: LayoutChangeEvent) => setChromeHeight(Math.round(event.nativeEvent.layout.height)),
+    [],
+  );
+
+
   if (seededFor !== river.slug) {
     setSeededFor(river.slug);
     setChosen(null);
@@ -57,23 +67,26 @@ export function RiverSheetPanel({ river, width, onClose, ...handlers }: Props) {
 
   return (
     <View>
-      <RiverSheetHeader river={river} onClose={onClose} onOpenRiver={handlers.onOpenRiver} />
+      <View onLayout={onChromeLayout}>
+        <RiverSheetHeader river={river} onClose={onClose} onOpenRiver={handlers.onOpenRiver} />
       {/* A river with no access points and no hazards is one tab, and one tab
           is not a tab bar. */}
-      {tabs.length > 1 ? (
-        <SheetTabBar
+        {tabs.length > 1 ? (
+          <SheetTabBar
           labels={tabs.map((tab) => tab.label)}
           index={activeIndex}
           onSelect={(i) => setChosen(tabs[i]?.key ?? null)}
           progress={progress}
         />
-      ) : null}
+        ) : null}
+      </View>
       <SheetPager
         count={tabs.length}
         index={activeIndex}
         onIndexChange={(i) => setChosen(tabs[i]?.key ?? null)}
         progress={progress}
         width={width}
+        chromeHeight={chromeHeight}
       >
         {tabs.map((tab, i) => (
           <View key={tab.key} style={styles.page}>

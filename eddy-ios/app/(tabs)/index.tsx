@@ -927,6 +927,16 @@ export default function MapScreen() {
     gaugeNameFor,
   ]);
 
+  /**
+   * True whenever a sheet covers the bottom of the map.
+   *
+   * Both sheets are full-width and bottom-anchored, so at every detent they own
+   * the band the floating controls live in — including the glance.
+   */
+  const sheetOpen = Boolean(
+    !search.active && (selectedPin || (riverSheetData && !selectedPin)),
+  );
+
   const onPlanToNearby = useCallback(
     (nearby: NearbyAccessPoint, from: MapAccessPoint) => {
       const other = drawnAccessPoints.find((entry) => entry.point.id === nearby.id)?.point;
@@ -1633,6 +1643,7 @@ export default function MapScreen() {
             `gap` rather than a margin: it applies only BETWEEN children, so with
             no callout the row sits flush at the ornament band and nothing adds
             phantom space. */}
+        {sheetOpen ? null : (
         <View style={styles.bottomStack} pointerEvents="box-none">
           <View style={styles.controlRow} pointerEvents="box-none">
           {/* Locate. The ONLY thing that ever asks for location permission on
@@ -1676,6 +1687,7 @@ export default function MapScreen() {
               layers sheet already carries the marks it toggles. */}
           </View>
         </View>
+        )}
 
         {/* ── The plan cluster ──────────────────────────────────────────
             IN THE CORNER, not in the stack above. Locate has to clear the
@@ -1688,6 +1700,7 @@ export default function MapScreen() {
             is a control row and a gap above MAP_CHROME_BOTTOM, well clear of
             this. See planButton's maxWidth for the one thing that could put a
             long label back over the ornaments. */}
+        {sheetOpen ? null : (
         <View style={styles.planCluster} pointerEvents="box-none">
           {/* CLEAR THE PLAN. The plan deliberately outlives its sheet — you
               build a float and dismiss the sheet to look at the water between
@@ -1749,6 +1762,7 @@ export default function MapScreen() {
             </Pressable>
           ) : null}
         </View>
+        )}
 
         {/* ── The sheet ─────────────────────────────────────────────────
             OUT of the bottom stack, which sized itself to the callout and
@@ -1756,10 +1770,17 @@ export default function MapScreen() {
             that column: it spans the whole map area and slides, so the stack
             now holds only the fixed chrome it was always about.
 
-            RENDERED LAST so it draws over the plan cluster and the locate
-            button. Those stay put rather than being hidden — at the glance
-            the sheet is short enough that they are still reachable, and
-            moving them as it drags would be motion nobody asked for. */}
+            RENDERED LAST, so it draws over the map's own controls — and
+            because it is a full-width gesture surface at the bottom of the
+            screen, it does not merely overlap them, it takes their touches.
+            An earlier version of this comment claimed they stayed reachable
+            at the glance. They do not: the peek occupies exactly the band
+            Locate and Plan a float sit in.
+
+            So they are HIDDEN while a sheet is open, rather than left under it
+            to be tapped at and not respond. Both remain a close away, and for
+            an access point the plan action is already on the sheet itself —
+            which is the more direct route to it than the floating button was. */}
         {/* ── The river sheet ───────────────────────────────────────────
             Shown when a river is selected and NO pin is. A pin belongs to a
             river, so both at once would be two sheets arguing about the same

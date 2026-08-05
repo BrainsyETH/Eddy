@@ -12,11 +12,12 @@
 //   swipe that moves the pages without moving the indicator is the thing this
 //   whole file exists to avoid.
 //
-//   FOUR LABELS DO NOT FIT AT flex: 1. On a 375pt screen four equal segments
-//   are ~86pt each, and "Conditions" at the 14pt floor this screen uses
-//   (typography.ts, and the note about outdoor legibility in the map screen)
-//   is close enough to that to be a coin toss. Underline tabs size to their
-//   label; segments cannot.
+//   THE LABELS DO NOT FIT AT flex: 1. An access point can carry five, and on
+//   a 375pt screen five equal segments are ~69pt each while "Conditions" at
+//   the 14pt floor this screen uses (typography.ts, and the note about outdoor
+//   legibility in the map screen) is wider than that on its own. Underline
+//   tabs size to their label; segments cannot. They still overflow a narrow
+//   phone, which is why the row scrolls — see below.
 //
 //   IT IS memo'd OVER PLAIN PROPS, with nowhere to take a SharedValue.
 //
@@ -25,7 +26,14 @@
 // announced itself differently from the app's other one-of-many control would
 // be a second dialect for no gain.
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
 import Animated, {
   interpolate,
   useAnimatedStyle,
@@ -73,7 +81,29 @@ export function SheetTabBar({ labels, index, onSelect, progress }: Props) {
 
   return (
     <View style={styles.bar}>
-      <View style={styles.row}>
+      {/* ── Scrollable, because five tabs do not fit ────────────────────────
+          An access point can carry Overview, Conditions, Float trips, Camping
+          and Details. At the 14pt floor this screen uses those labels are
+          ~280pt of text before the gaps, and a 320pt phone has 288pt of usable
+          width — so the last tab or two were simply clipped off the edge with
+          nothing to say they were there.
+
+          A horizontal ScrollView rather than shrinking the labels, because
+          "Conditions" abbreviated is not a word. It sits ABOVE the pager as a
+          sibling, not inside it, so its native scroll never competes with the
+          pager's pan; and the sheet's own pan fails on horizontal travel, so
+          it does not compete there either.
+
+          The indicator lives INSIDE the scrolled content, so it travels with
+          the tabs it is measuring rather than sliding off its own labels. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        // A row that fits should not be able to drift sideways.
+        alwaysBounceHorizontal={false}
+      >
+        <View style={styles.row}>
         {labels.map((label, i) => {
           const active = i === index;
           return (
@@ -100,13 +130,14 @@ export function SheetTabBar({ labels, index, onSelect, progress }: Props) {
             </Pressable>
           );
         })}
-      </View>
-      {/* Absolutely positioned so its width can be animated without the row
-          re-laying out under it forty times a second. */}
-      <Animated.View
-        style={[styles.indicator, { backgroundColor: colors.interactive }, indicatorStyle]}
-        pointerEvents="none"
-      />
+        </View>
+        {/* Absolutely positioned so its width can be animated without the row
+            re-laying out under it forty times a second. */}
+        <Animated.View
+          style={[styles.indicator, { backgroundColor: colors.interactive }, indicatorStyle]}
+          pointerEvents="none"
+        />
+      </ScrollView>
       <View style={[styles.rule, { backgroundColor: colors.border }]} pointerEvents="none" />
     </View>
   );
@@ -114,15 +145,23 @@ export function SheetTabBar({ labels, index, onSelect, progress }: Props) {
 
 const styles = StyleSheet.create({
   bar: { marginTop: 4 },
-  row: { flexDirection: 'row', paddingHorizontal: 16, gap: 18 },
-  // No flex: 1 — a tab is as wide as its label, which is what lets four of
-  // them fit on the narrowest phone without abbreviating one.
+  // Padding lives on the content, so the first and last tab clear the edges
+  // while the scrollable area itself still spans the full width.
+  scrollContent: { paddingHorizontal: 16 },
+  row: { flexDirection: 'row', gap: 18 },
+  // No flex: 1 — a tab is as wide as its label. Combined with the scroller
+  // above, that is what lets five of them exist without abbreviating one.
   tab: { paddingVertical: 9, minHeight: 44, justifyContent: 'center' },
   label: { ...t.sm },
+  // left: 0, NOT 16. Yoga positions an absolute child against its parent's
+  // content box, and scrollContent already carries the 16pt inset — so the
+  // indicator inherits it. Each tab's measured x is relative to the row inside
+  // that same box, which is exactly what translateX consumes. Adding the inset
+  // here too would slide every underline 16pt right of its own label.
   indicator: {
     position: 'absolute',
     bottom: 0,
-    left: 16,
+    left: 0,
     height: 2,
     borderRadius: 999,
   },

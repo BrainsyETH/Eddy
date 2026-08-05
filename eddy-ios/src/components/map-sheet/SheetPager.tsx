@@ -22,10 +22,12 @@
 // tracks a finger and animates on a tap through one code path rather than two
 // that have to be kept looking alike.
 import { useEffect, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useSheetScroll } from './sheetScroll';
 import Animated, {
   runOnJS,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
@@ -57,6 +59,12 @@ interface Props {
   width: number;
   /** One element per page, already in tab order. */
   children: React.ReactNode[];
+  /**
+   * How much room the sheet's chrome — its header and tab bar — already takes.
+   * Subtracted from the sheet's own height to cap a page, so a long one
+   * scrolls instead of running off the bottom of the screen.
+   */
+  chromeHeight: number;
 }
 
 export function SheetPager({
@@ -66,8 +74,10 @@ export function SheetPager({
   progress,
   width,
   children,
+  chromeHeight,
 }: Props) {
   const reducedMotion = useReducedMotion();
+  const sheet = useSheetScroll();
   const translateX = useSharedValue(0);
   const dragStart = useSharedValue(0);
 
@@ -133,13 +143,41 @@ export function SheetPager({
     transform: [{ translateX: translateX.value }],
   }));
 
+  // The ACTIVE page's offset, which is the only one the sheet's pan cares
+  // about. Every page writes to the same value and only the visible one is
+  // being touched, so there is nothing to disambiguate.
+  const onScroll = useAnimatedScrollHandler((event) => {
+    if (sheet) sheet.scrollY.value = event.contentOffset.y;
+  });
+
+  // maxHeight, not height: a SHORT page keeps its natural size, which is what
+  // lets the sheet still measure it and offer one detent instead of a tall
+  // mostly-empty card. Only a page with more to say than fits gets capped and
+  // scrolls.
+  const pageMaxHeight = Math.max(120, (sheet?.available ?? 0) - chromeHeight);
+
   return (
     <GestureDetector gesture={pan}>
       <Animated.View style={[styles.track, { width: width * count }, trackStyle]}>
         {children.map((page, i) => (
-          <View key={i} style={{ width }}>
+          <Animated.ScrollView
+            key={i}
+            ref={sheet?.scrollRefs[i] as never}
+            style={{ width, maxHeight: pageMaxHeight }}
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            // Only at the tallest detent. Below it a vertical drag is how you
+            // OPEN the sheet, and a scroller that ate it would strand the
+            // reader at the glance.
+            scrollEnabled={sheet?.atFull ?? false}
+            // iOS rubber-band drives contentOffset.y negative, which makes
+            // "at the top" ambiguous exactly when the hand-off to the sheet
+            // has to be crisp. The sheet supplies the rubber band instead.
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+          >
             {page}
-          </View>
+          </Animated.ScrollView>
         ))}
       </Animated.View>
     </GestureDetector>

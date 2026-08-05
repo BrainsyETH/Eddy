@@ -14,8 +14,15 @@
 // tailwater — and doing them here would have made this change about four types
 // at once. An access point with only one qualifying tab also lands here, which
 // is what stops a tab bar appearing over a single page.
-import { useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSharedValue } from 'react-native-reanimated';
 import type {
@@ -48,7 +55,7 @@ import {
   GaugeLevelsTab,
   GaugeNowTab,
   GaugeRiversTab,
-} from './GaugeTabs';
+} from './GaugeSheet';
 import { gaugeTabs, type GaugePinFacts, type GaugeTabKey } from './gaugeTabs';
 
 export interface PinSheetProps {
@@ -119,6 +126,16 @@ export function PinSheet(props: PinSheetProps) {
   const [seededFor, setSeededFor] = useState<string | null>(null);
   const progress = useSharedValue(0);
 
+  // Measured, because the header is two lines for some pins and four for
+  // others and the tab bar comes and goes. What is left over is what a page
+  // may fill before it has to scroll.
+  const [chromeHeight, setChromeHeight] = useState(0);
+  const onChromeLayout = useCallback(
+    (event: LayoutChangeEvent) => setChromeHeight(Math.round(event.nativeEvent.layout.height)),
+    [],
+  );
+
+
   if (seededFor !== pin.id) {
     // Render-time seed rather than an effect: an effect would paint one frame
     // of the previous pin's tab first.
@@ -186,19 +203,22 @@ export function PinSheet(props: PinSheetProps) {
 
   return (
     <View>
-      <PinSheetHeader {...props} detail={detail} />
-      <SheetTabBar
-        labels={activeTabs.map((tab) => tab.label)}
-        index={activeIndex}
-        onSelect={(i) => setChosen(activeTabs[i]?.key ?? null)}
-        progress={progress}
-      />
+      <View onLayout={onChromeLayout}>
+        <PinSheetHeader {...props} detail={detail} />
+        <SheetTabBar
+          labels={activeTabs.map((tab) => tab.label)}
+          index={activeIndex}
+          onSelect={(i) => setChosen(activeTabs[i]?.key ?? null)}
+          progress={progress}
+        />
+      </View>
       <SheetPager
         count={activeTabs.length}
         index={activeIndex}
         onIndexChange={(i) => setChosen(activeTabs[i]?.key ?? null)}
         progress={progress}
         width={width}
+        chromeHeight={chromeHeight}
       >
         {activeTabs.map((tab, i) => (
           <View key={tab.key} style={styles.page}>

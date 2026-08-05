@@ -1,4 +1,4 @@
-// eddy-ios/src/components/map-sheet/GaugeTabs.tsx
+// eddy-ios/src/components/map-sheet/GaugeSheet.tsx
 // What a gauge says, split by tab — and the tier decides the VOCABULARY, never
 // the layout.
 //
@@ -14,6 +14,14 @@
 // So the tab SETS differ: Levels exists only where a ladder does, Context only
 // where a percentile does. Everything else is common, because a reading is a
 // reading.
+//
+// ── The filename is load-bearing ──────────────────────────────────────────
+// This was GaugeTabs.tsx, one letter from gaugeTabs.ts beside it. On a
+// case-INSENSITIVE filesystem — which is every Mac by default, and this is an
+// iOS app — TypeScript resolves the two as one module and reports TS1149,
+// while Linux CI on a case-sensitive volume compiles it perfectly. Named to
+// match RiverSheet.tsx/riverTabs.ts so the pairing is obvious and cannot
+// collide again.
 import { Linking, StyleSheet, Text, View } from 'react-native';
 import type { GaugeDetail } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
