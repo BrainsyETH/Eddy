@@ -23,7 +23,11 @@
 // that have to be kept looking alike.
 import { useEffect, useMemo } from 'react';
 import { StyleSheet } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import {
+  Gesture,
+  GestureDetector,
+  ScrollView as GestureScrollView,
+} from 'react-native-gesture-handler';
 import { useSheetScroll } from './sheetScroll';
 import Animated, {
   runOnJS,
@@ -36,6 +40,11 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+
+// RNGH's ScrollView rather than React Native's, because only it takes
+// `simultaneousHandlers` — which is how a page tells the sheet's pan to run
+// alongside it instead of cancelling it.
+const PageScrollView = Animated.createAnimatedComponent(GestureScrollView);
 
 /** Horizontal travel that claims the gesture for the pager. */
 const ACTIVATE_X = 12;
@@ -149,8 +158,8 @@ export function SheetPager({
   //
   // ── Pull the shared value OUT of the context first ──────────────────────
   // This must not close over `sheet`. A worklet's closure is serialised onto
-  // the UI thread, and that object carries scrollRefs — React refs whose
-  // .current is a native component. Reanimated cannot make one shareable, and
+  // the UI thread, and that object used to carry an array of native element
+  // refs. Reanimated cannot make one of those shareable, and
   // it throws while the handler is being created, which is during render: the
   // sheet opened and the whole screen went to the error boundary a frame
   // later. A SharedValue is shareable; the object holding it is not.
@@ -173,9 +182,9 @@ export function SheetPager({
     <GestureDetector gesture={pan}>
       <Animated.View style={[styles.track, { width: width * count }, trackStyle]}>
         {children.map((page, i) => (
-          <Animated.ScrollView
+          <PageScrollView
             key={i}
-            ref={sheet?.scrollRefs[i] as never}
+            simultaneousHandlers={sheet?.panRef as never}
             style={{ width, maxHeight: pageMaxHeight }}
             onScroll={onScroll}
             scrollEventThrottle={16}
@@ -190,7 +199,7 @@ export function SheetPager({
             showsVerticalScrollIndicator={false}
           >
             {page}
-          </Animated.ScrollView>
+          </PageScrollView>
         ))}
       </Animated.View>
     </GestureDetector>

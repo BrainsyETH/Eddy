@@ -19,7 +19,7 @@
 // derived from the measured content height — so a sheet the reader had dragged
 // open collapsed the moment the detail request landed or they swiped to a taller
 // tab. A new SELECTION resets the sheet; new content does not.
-import { createRef, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -89,12 +89,9 @@ export function MapSheet({ resetKey, onClose, onDetentChange, children }: Props)
   const scrollY = useSharedValue(0);
   const entered = useSharedValue(false);
 
-  // A fixed pool, because the pan is memoised and has to name them before any
-  // page exists. Six is comfortably past the largest tab set (five), and an
-  // unused ref costs nothing. Simultaneous rather than blocking: blocking would
-  // make the scroller wait for the pan to fail, which kills scrolling outright
-  // at the full detent.
-  const scrollRefs = useMemo(() => Array.from({ length: 6 }, () => createRef<unknown>()), []);
+  // Handed to the pages so each can declare ITSELF simultaneous with this pan.
+  // Nothing native ever enters the context this way — see sheetScroll.
+  const panRef = useRef<unknown>(undefined);
 
   const largest = detents.order[detents.order.length - 1];
   const largestHeight = detents.height[largest];
@@ -163,15 +160,10 @@ export function MapSheet({ resetKey, onClose, onDetentChange, children }: Props)
         .failOffsetX([-12, 12])
         // Runs ALONGSIDE the content scroller rather than instead of it; the
         // worklet below decides which of the two a given frame belongs to.
-        // NOTE, and it wants confirming on a device: RNGH REWRITES this config
-        // in place, replacing the refs with resolved handler tags the first
-        // time the detector attaches. Pages mount later than the sheet does —
-        // there is no pager until a second tab qualifies — so that first
-        // resolve can find every ref still null and leave the relation empty.
-        // It recovers because this gesture is rebuilt whenever `detents`
-        // changes, and measuring a newly mounted page is exactly what changes
-        // it. Relying on that ordering is the fragile part.
-        .simultaneousWithExternalGesture(...(scrollRefs as never[]))
+        // The relation is declared on the SCROLLER instead — a page always
+        // mounts after this exists, whereas this cannot name pages that do not
+        // exist yet. See sheetScroll.panRef.
+        .withRef(panRef as never)
         .onBegin(() => {
           'worklet';
           dragStart.value = translateY.value;
@@ -222,7 +214,7 @@ export function MapSheet({ resetKey, onClose, onDetentChange, children }: Props)
       dragStart,
       translateY,
       scrollY,
-      scrollRefs,
+      panRef,
     ],
   );
 
@@ -252,8 +244,8 @@ export function MapSheet({ resetKey, onClose, onDetentChange, children }: Props)
   }, []);
 
   const scrollContext = useMemo(
-    () => ({ scrollY, scrollRefs, detent, atFull, available }),
-    [scrollY, scrollRefs, detent, atFull, available],
+    () => ({ scrollY, panRef, detent, atFull, available }),
+    [scrollY, panRef, detent, atFull, available],
   );
 
   return (

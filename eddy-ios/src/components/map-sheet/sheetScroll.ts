@@ -17,7 +17,7 @@
 //
 // A tiny context rather than props, and deliberately not exported from the
 // directory: it never crosses out of the sheet.
-import { createContext, useContext, type RefObject } from 'react';
+import { createContext, useContext, type MutableRefObject } from 'react';
 import type { SharedValue } from 'react-native-reanimated';
 import type { Detent } from './sheetGeometry';
 
@@ -31,15 +31,17 @@ export interface SheetScroll {
    */
   scrollY: SharedValue<number>;
   /**
-   * One ref per page, handed out by index.
+   * The sheet's own pan, so a scroller can declare itself simultaneous with it.
    *
-   * The sheet's pan declares itself simultaneous with all of them up front —
-   * RNGH resolves a ref when the gesture is handled rather than when it is
-   * built, so they can be empty at construction. Without the relation the pan
-   * CANCELS the scroller the moment it activates, and the content would refuse
-   * to scroll at the one detent where it is supposed to.
+   * DECLARED FROM THE SCROLLER'S SIDE, not the sheet's. The sheet used to name
+   * a pool of page refs up front, which was wrong twice over: RNGH rewrites
+   * that config in place on first attach, so refs still null then were dropped
+   * for good; and it put an array of NATIVE ELEMENT refs into this context,
+   * one careless capture away from the crash that shipped — a worklet closure
+   * is serialised, and a ReactNativeElement cannot be. A page mounts already
+   * knowing the pan, so it can simply say so itself.
    */
-  scrollRefs: RefObject<unknown>[];
+  panRef: MutableRefObject<unknown>;
   /** Scrolling is off at the smallest detent — there is nothing below the fold. */
   detent: Detent;
   /** True once the sheet is as open as this content allows. */

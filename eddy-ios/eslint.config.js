@@ -47,6 +47,22 @@ module.exports = defineConfig([
     files: ['src/components/map-sheet/**/*.{ts,tsx}'],
     rules: {
       'react-hooks/immutability': 'off',
+      // ── Gestures are BUILT during render, and they register their own ref ──
+      // Gesture.Pan().withRef(ref) is how react-native-gesture-handler lets one
+      // gesture be named by another component — here, how a scrolling tab page
+      // tells the sheet's pan to run alongside it rather than be cancelled by
+      // it. The builder chain runs inside a useMemo, which is RNGH's own
+      // documented shape for it, and the rule sees a ref crossing render.
+      //
+      // The alternative it is asking for does not exist: the sheet cannot name
+      // pages that have not mounted, and naming them by ref from the sheet's
+      // side is what shipped the ReactNativeElement crash — RNGH rewrites that
+      // config in place, and the refs went into a React context where a worklet
+      // closure eventually swallowed one.
+      //
+      // Scoped to this directory, like the rule above, so it keeps working
+      // everywhere it is right.
+      'react-hooks/refs': 'off',
     },
   },
 ]);
