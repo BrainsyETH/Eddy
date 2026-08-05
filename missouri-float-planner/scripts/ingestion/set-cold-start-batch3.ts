@@ -6,7 +6,7 @@
  *  gauge. This file drifted from it three ways at once — mulberry put
  *  "experts-only" at 8 ft above a 4.5 ft danger line, big-river credited
  *  Byrnesville as primary when Richwoods is, and bryant-creek's numbers matched
- *  no line in its ladder. Migration 20260804210000 corrected the rows; this
+ *  no line in its ladder. Migration 20260804204033 corrected the rows; this
  *  script is idempotent and would otherwise have reverted them on the next run.
  *  src/lib/trust/checks/float-summary.ts now fails when prose drifts again. Weather coords are already
  *  set by ingest-dossier. Does not touch `active`. Idempotent. */
