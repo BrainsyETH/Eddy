@@ -218,6 +218,7 @@ export function PinSheet(props: PinSheetProps) {
         onIndexChange={(i) => setChosen(activeTabs[i]?.key ?? null)}
         progress={progress}
         width={width}
+        pageKeys={activeTabs.map((tab) => tab.key)}
         chromeHeight={chromeHeight}
       >
         {activeTabs.map((tab, i) => (

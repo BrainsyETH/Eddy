@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  CONTENT_BOTTOM_PAD,
   DISMISS_FRACTION,
   FLICK_VELOCITY,
+  GRABBER_BLOCK,
   MIN_DETENT_GAP,
+  pageBudget,
   PEEK_MAX,
   resolveDetents,
   settleTarget,
@@ -135,4 +138,38 @@ test('downward travel is never rubber banded', () => {
   // Dismissal has to feel like a direction you can throw the sheet in.
   assert.equal(applyRubberBand(10, 500), 10);
   assert.equal(applyRubberBand(0, 500), 0);
+});
+
+test('a page never claims more room than the tallest detent can show', () => {
+  // The bug this exists for: a page capped at the whole available height
+  // believed its viewport ran to the bottom of the screen, so it stopped
+  // scrolling with the last inch of a long tab still below the fold.
+  const inset = 34;
+  const budget = pageBudget(TALL, inset);
+  const tallest = resolveDetents(TALL, TALL * 2).height.full;
+  assert.ok(budget > 0);
+  assert.ok(
+    budget + GRABBER_BLOCK + CONTENT_BOTTOM_PAD + inset <= tallest,
+    `budget ${budget} plus chrome exceeds the tallest detent ${tallest}`,
+  );
+});
+
+test('a page filling its budget makes a sheet that reaches, but does not exceed, full', () => {
+  // The budget and the detents have to agree, or the sheet either clips the
+  // page or grows past what it can show. Chrome here stands in for a header
+  // and tab bar; the page takes what is left.
+  const inset = 34;
+  const chrome = 180;
+  const page = pageBudget(TALL, inset) - chrome;
+  const content = chrome + page + CONTENT_BOTTOM_PAD + inset;
+  const d = resolveDetents(TALL, content + GRABBER_BLOCK);
+  assert.equal(d.height.full, content + GRABBER_BLOCK);
+  assert.ok(d.height.full <= TALL);
+});
+
+test('the page budget never goes negative on a small or unmeasured sheet', () => {
+  assert.equal(pageBudget(0, 34), 0);
+  assert.equal(pageBudget(-100, 34), 0);
+  // A phone whose insets exceed what the tallest detent offers.
+  assert.equal(pageBudget(40, 200), 0);
 });

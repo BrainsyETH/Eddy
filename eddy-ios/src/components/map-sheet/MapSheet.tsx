@@ -32,11 +32,15 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { GestureType } from 'react-native-gesture-handler';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import {
   applyRubberBand,
+  CONTENT_BOTTOM_PAD,
   DRAG_DEAD_ZONE,
+  GRABBER_BLOCK,
+  pageBudget,
   REDUCED_SETTLE,
   resolveDetents,
   SETTLE_SPRING,
@@ -75,8 +79,12 @@ export function MapSheet({ resetKey, onClose, onDetentChange, children }: Props)
   const [contentHeight, setContentHeight] = useState(0);
   const [detent, setDetent] = useState<Detent>('peek');
 
+  // The grabber is added back on because the sheet has to be tall enough for
+  // BOTH: it sits inside the card and outside the measured content, so a
+  // detent sized to the content alone clipped its last 16pt at every height,
+  // including the tallest.
   const detents = useMemo(
-    () => resolveDetents(available, contentHeight),
+    () => resolveDetents(available, contentHeight > 0 ? contentHeight + GRABBER_BLOCK : 0),
     [available, contentHeight],
   );
 
@@ -91,7 +99,7 @@ export function MapSheet({ resetKey, onClose, onDetentChange, children }: Props)
 
   // Handed to the pages so each can declare ITSELF simultaneous with this pan.
   // Nothing native ever enters the context this way — see sheetScroll.
-  const panRef = useRef<unknown>(undefined);
+  const panRef = useRef<GestureType | undefined>(undefined);
 
   const largest = detents.order[detents.order.length - 1];
   const largestHeight = detents.height[largest];
@@ -114,6 +122,10 @@ export function MapSheet({ resetKey, onClose, onDetentChange, children }: Props)
     if (available <= 0) return;
     const smallest = detents.order[0];
     const target = detents.available - detents.height[smallest];
+    // The pages this sheet is about to show are new ones (they are keyed by
+    // resetKey), so nothing is scrolled. Saying so keeps the pan's hand-off
+    // rule honest for the one frame before the first scroll event lands.
+    scrollY.value = 0;
     if (!entered.value) {
       // First paint: start off-screen and rise, so it reads as arriving.
       translateY.value = detents.available;
@@ -243,9 +255,11 @@ export function MapSheet({ resetKey, onClose, onDetentChange, children }: Props)
     setContentHeight(Math.round(event.nativeEvent.layout.height));
   }, []);
 
+  const budget = useMemo(() => pageBudget(available, insets.bottom), [available, insets.bottom]);
+
   const scrollContext = useMemo(
-    () => ({ scrollY, panRef, detent, atFull, available }),
-    [scrollY, panRef, detent, atFull, available],
+    () => ({ scrollY, panRef, detent, atFull, pageBudget: budget, resetKey }),
+    [scrollY, panRef, detent, atFull, budget, resetKey],
   );
 
   return (
@@ -276,7 +290,10 @@ export function MapSheet({ resetKey, onClose, onDetentChange, children }: Props)
           </View>
 
           <SheetScrollContext.Provider value={scrollContext}>
-            <View onLayout={onContentLayout} style={{ paddingBottom: insets.bottom + 12 }}>
+            <View
+              onLayout={onContentLayout}
+              style={{ paddingBottom: insets.bottom + CONTENT_BOTTOM_PAD }}
+            >
               {children}
             </View>
           </SheetScrollContext.Provider>
@@ -296,6 +313,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
   },
+  // 8 + 4 + 4 = GRABBER_BLOCK. Change one and change the other: the detent
+  // heights and the page budget are both sized around that constant.
   grabberRow: { alignItems: 'center', paddingTop: 8, paddingBottom: 4 },
   // 36x4 with a full radius, matching MapLayersSheet — the app already has a
   // grabber and a second dialect of the same control would read as a different

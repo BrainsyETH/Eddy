@@ -18,6 +18,7 @@
 // A tiny context rather than props, and deliberately not exported from the
 // directory: it never crosses out of the sheet.
 import { createContext, useContext, type MutableRefObject } from 'react';
+import type { GestureType } from 'react-native-gesture-handler';
 import type { SharedValue } from 'react-native-reanimated';
 import type { Detent } from './sheetGeometry';
 
@@ -25,9 +26,13 @@ export interface SheetScroll {
   /**
    * Offset of the page the reader is actually on, written on the UI thread.
    *
-   * ONE value for every page rather than one each. The sheet only ever cares
-   * about the page in front, and a map of offsets would have to be indexed
-   * inside a worklet on every frame of every drag.
+   * PUBLISHED BY WHICHEVER PAGE IS IN FRONT, and by no other. Every page keeps
+   * its own offset privately and copies it here when it becomes the front one.
+   * A single value that every page wrote to unconditionally was wrong in a way
+   * that only showed up two tabs in: scroll Details down, swipe to Camping —
+   * which sits at its top — and a pull down neither scrolled Camping, because
+   * it had nowhere to go, nor collapsed the sheet, because the sheet still
+   * believed the content was scrolled 300pt down.
    */
   scrollY: SharedValue<number>;
   /**
@@ -35,27 +40,34 @@ export interface SheetScroll {
    *
    * DECLARED FROM THE SCROLLER'S SIDE, not the sheet's. The sheet used to name
    * a pool of page refs up front, which was wrong twice over: RNGH rewrites
-   * that config in place on first attach, so refs still null then were dropped
-   * for good; and it put an array of NATIVE ELEMENT refs into this context,
-   * one careless capture away from the crash that shipped — a worklet closure
-   * is serialised, and a ReactNativeElement cannot be. A page mounts already
+   * that config in place on first attach (extractGestureRelations replaces the
+   * refs with resolved tags), so refs still null then were dropped for good;
+   * and it put an array of NATIVE ELEMENT refs into this context, one careless
+   * capture away from the crash that shipped — a worklet closure is
+   * serialised, and a ReactNativeElement cannot be. A page mounts already
    * knowing the pan, so it can simply say so itself.
    */
-  panRef: MutableRefObject<unknown>;
+  panRef: MutableRefObject<GestureType | undefined>;
   /** Scrolling is off at the smallest detent — there is nothing below the fold. */
   detent: Detent;
   /** True once the sheet is as open as this content allows. */
   atFull: boolean;
   /**
-   * The whole height the sheet may occupy.
+   * The tallest a page may be, before that page's own header and tab bar.
    *
-   * A page needs it to cap itself: uncapped, long content would make the sheet
-   * measure taller than the screen and the tail would be unreachable at any
-   * detent. Capped, a SHORT page still measures its natural height — which is
-   * what keeps a 115pt hazard callout a one-detent sheet instead of a mostly
-   * empty tall one.
+   * Already discounts everything a page does not get: the gap between the
+   * tallest detent and the full available height, the grabber, and the bottom
+   * inset. See sheetGeometry.pageBudget for why it is derived from `available`
+   * rather than from the detent the sheet actually settled on.
    */
-  available: number;
+  pageBudget: number;
+  /**
+   * Identity of what the sheet is showing. Pages are keyed by it, so a new
+   * selection gets fresh scrollers rather than ones still carrying the last
+   * pin's offsets — a native offset outlives a re-render, and the tab keys of
+   * two access points are the same strings.
+   */
+  resetKey: string;
 }
 
 export const SheetScrollContext = createContext<SheetScroll | null>(null);
