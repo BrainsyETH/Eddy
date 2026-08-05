@@ -63,11 +63,16 @@ export const RIVER_GEOMETRY_RULES = [
   'coordinate_count_very_low',
   'coordinate_density_low',
   'missing_length_miles',
+  'length_miles_disagrees_geometry',
   'direction_unverified',
   'headwaters_flag_unset',
   'no_gauges_linked',
   'no_gauges_near_geometry',
-  'bbox_outside_missouri',
+  // Was bbox_outside_missouri, which named a premise the catalog outgrew.
+  // Renaming changes the fingerprint, so the Caddo finding filed under the old
+  // key resolves on the next run rather than lingering — correct, since what it
+  // alleged (an Arkansas river is in the wrong place) was never true.
+  'bbox_outside_state',
 ] as const;
 
 export const EDDY_KNOWLEDGE_RULES = [
@@ -166,7 +171,7 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   // the misassociation class docs/gauge-alerting-misalignment-audit.md is about.
   gauge_dual_primary: 'high',
   no_gauges_near_geometry: 'high',
-  bbox_outside_missouri: 'high',
+  bbox_outside_state: 'high',
   // Defence in depth that is currently redundant — RLS is holding the line —
   // which is exactly why it reads high rather than critical. The argument for
   // fixing it is the one 20260731223406 makes: a table protected by one
@@ -198,6 +203,13 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   missing_timezone: 'medium',
   missing_state: 'medium',
   missing_length_miles: 'medium',
+  // Same band as the other mileage rules, and for the reason stated above them:
+  // mile markers are `length_miles * ST_LineLocatePoint(...)`, so a drifting
+  // column scales every marker on the river and the float distances read off
+  // them. It stops short of high because /api/plan returns a range and
+  // floatTime.ts refuses to estimate at all for dangerous water, so the error
+  // cannot compound into a go/no-go answer.
+  length_miles_disagrees_geometry: 'medium',
   coordinate_density_low: 'medium',
   geometry_missing: 'medium',
   geometry_unreadable: 'medium',

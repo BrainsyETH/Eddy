@@ -168,9 +168,17 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
   },
   coordinate_density_low: {
     kind: 'judgment',
-    action: 'Re-import at higher resolution if the line drives mileage.',
+    action: 'Lower SIMPLIFY_TOLERANCE_DEG and re-import, if the line drives mileage on this river.',
     where: 'scripts/import-nhd-rivers-from-tnm.ts',
-    method: 'Under 5 points per mile, ST_LineLocatePoint starts rounding access points onto the wrong bend.',
+    method:
+      'One cause, not one per river: the import thins every line with Douglas-Peucker at 0.0005 deg, which lands the whole catalog at 3-5 points per mile. ST_LineLocatePoint does not round to vertices — it interpolates along the nearest segment — so the risk is not a snapped point jumping to a vertex. It is that a ~400 m chord cuts the inside of a meander, which shortens measured channel distance and can put a point near a tight bend on the wrong chord entirely.',
+  },
+  length_miles_disagrees_geometry: {
+    kind: 'investigate',
+    action: 'Decide which is right — the stored mileage or the line — before changing either.',
+    where: 'select slug, length_miles, st_length(geom::geography)/1609.344 from rivers where slug = ...',
+    method:
+      'Do NOT blanket-write length_miles from the geometry. The column is only written on the import script\'s INSERT path, so a re-imported river keeps its original mileage and the LINE is usually right — but the same script walks connected NHD reaches and keeps the longest, which can over-capture a tributary, and then the line is the wrong half. War Eagle Creek is the case to check first: 33 mi stored against 68 mi of line is too wide a gap to be a measurement difference. Mile markers are assigned as length_miles * ST_LineLocatePoint(geom, point), so whichever half you move, re-run npm run db:correct-miles afterwards.',
   },
   missing_length_miles: {
     kind: 'mechanical',
@@ -214,12 +222,12 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     method:
       'A proxy gauge on a neighbouring river is a legitimate reason for this to fire and is not a defect — Courtois borrows Huzzah\'s gauge about five miles off its own line.',
   },
-  bbox_outside_missouri: {
+  bbox_outside_state: {
     kind: 'investigate',
-    action: 'Check whether the line picked up a wrong NHD reach, or the river genuinely leaves the state.',
+    action: 'Check whether the line picked up a wrong NHD reach, or the river genuinely leaves its state.',
     where: '/admin/geography',
     method:
-      'Out-of-state rivers are now real — Buffalo, Caddo, Mulberry, Kings, War Eagle. This bound predates them and may simply be wrong for that river.',
+      'Judged against the bounds for rivers.state, generously — crossing a state line is normal (the Kings River rises in Arkansas and ends in Missouri) and is not what this fires on. Confirm rivers.state is right before suspecting the geometry, and check STATE_BOUNDS covers that state at all.',
   },
 
   // ── multi-state readiness ────────────────────────────────────────────
