@@ -56,10 +56,14 @@ export const knownRegressionsCheck: TrustCheck = {
     // Snoozed counts as open here. An operator silencing a regressed
     // safety-critical defect has postponed it, not fixed it, and the gate asks
     // whether the defect is closed — not whether anyone wants to hear about it.
+    // last_seen_at is not decoration. An open finding whose last observation
+    // pre-dates the repair says nothing has looked since, not that the repair
+    // failed; assessBaseline() sorts those apart and this is the column it does
+    // it with. See the header there for the day this was learned.
     const open = await mustRows<OpenFindingKey>(
       ctx.supabase
         .from('trust_findings')
-        .select('check_id, rule_key, entity_key')
+        .select('check_id, rule_key, entity_key, last_seen_at')
         .in('status', ['open', 'snoozed']),
       'could not read open findings for the regression check',
     );

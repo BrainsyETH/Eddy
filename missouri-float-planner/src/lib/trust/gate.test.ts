@@ -89,6 +89,16 @@ test('only the three human dispositions are offerable', () => {
 
 // ── the safety-critical baseline ─────────────────────────────────
 
+/** An observation one hour after the entry's repair landed. */
+function seenAfterRepair(entry: (typeof SAFETY_BASELINE)[number]): string {
+  return new Date(Date.parse(entry.reappearsAs!.verifiedAt) + 3_600_000).toISOString();
+}
+
+/** An observation one hour before it — the shape of stale residue. */
+function seenBeforeRepair(entry: (typeof SAFETY_BASELINE)[number]): string {
+  return new Date(Date.parse(entry.reappearsAs!.verifiedAt) - 3_600_000).toISOString();
+}
+
 test('the register is non-empty and every entry is checkable or says why not', () => {
   // An empty register would report "all clear" forever — the confident-pass
   // shape this subsystem keeps finding in itself.
@@ -97,25 +107,131 @@ test('the register is non-empty and every entry is checkable or says why not', (
     assert.ok(e.reappearsAs || e.guardedBy, `${e.id} must be checkable or name its CI guard`);
     assert.ok(e.closedBy.length > 0, `${e.id} must say what closed it`);
     assert.ok(e.consequence.length > 40, `${e.id} must say why it mattered`);
+    // A signature without a repair instant cannot be compared against a
+    // finding's age, which is the whole rule below.
+    if (e.reappearsAs) {
+      assert.ok(
+        Number.isFinite(Date.parse(e.reappearsAs.verifiedAt)),
+        `${e.id} must date its repair to an instant`,
+      );
+    }
   }
 });
 
-test('a baseline defect that is open again is reported as regressed', () => {
+test('a baseline defect seen again AFTER its repair is reported as regressed', () => {
   const entry = SAFETY_BASELINE.find((e) => e.reappearsAs)!;
   const a = assessBaseline(SAFETY_BASELINE, [
-    { check_id: entry.reappearsAs!.checkId, rule_key: entry.reappearsAs!.ruleKey, entity_key: 'x' },
+    {
+      check_id: entry.reappearsAs!.checkId,
+      rule_key: entry.reappearsAs!.ruleKey,
+      entity_key: 'x',
+      last_seen_at: seenAfterRepair(entry),
+    },
   ]);
 
-  assert.equal(a.allClosed, false);
+  assert.equal(a.gateMet, false);
   assert.deepEqual(
     a.regressed.map((e) => e.id),
     [entry.id],
   );
 });
 
+// ── the 2026-08-04 false critical ────────────────────────────────
+//
+// feedback-public-write-grants was reported as regressed while the grants were
+// gone from production. schema_invariants raised the finding at 18:00, the
+// revoke landed at 18:15, and the check is DAILY — so nothing had re-examined
+// the grants when known_regressions, which is hourly, read that still-open row
+// at 21:00 and called the repair failed.
+test('a finding older than the repair is not a regression — nothing has looked since', () => {
+  const entry = SAFETY_BASELINE.find((e) => e.reappearsAs)!;
+  const a = assessBaseline(SAFETY_BASELINE, [
+    {
+      check_id: entry.reappearsAs!.checkId,
+      rule_key: entry.reappearsAs!.ruleKey,
+      entity_key: 'x',
+      last_seen_at: seenBeforeRepair(entry),
+    },
+  ]);
+
+  assert.deepEqual(a.regressed, []);
+  assert.deepEqual(
+    a.unverified.map((e) => e.id),
+    [entry.id],
+  );
+});
+
+test('stale evidence reports unproven, not passing — the gate is not told all-clear', () => {
+  // The direction that matters. Reporting `false` here would cry wolf; the
+  // worse failure is reporting `true` and certifying a repair nothing
+  // re-checked, so the answer is neither.
+  const entry = SAFETY_BASELINE.find((e) => e.reappearsAs)!;
+  const a = assessBaseline(SAFETY_BASELINE, [
+    {
+      check_id: entry.reappearsAs!.checkId,
+      rule_key: entry.reappearsAs!.ruleKey,
+      last_seen_at: seenBeforeRepair(entry),
+    },
+  ]);
+  assert.equal(a.gateMet, null);
+});
+
+test('no regression finding is filed for evidence that is merely stale', () => {
+  const entry = SAFETY_BASELINE.find((e) => e.reappearsAs)!;
+  assert.deepEqual(
+    deriveRegressionFindings([
+      {
+        check_id: entry.reappearsAs!.checkId,
+        rule_key: entry.reappearsAs!.ruleKey,
+        last_seen_at: seenBeforeRepair(entry),
+      },
+    ]),
+    [],
+  );
+});
+
+test('a regression outranks stale evidence for the same entry', () => {
+  // Two open rows can match one signature. One fresh observation is enough:
+  // the defect was seen after the repair, whatever else is lying around.
+  const entry = SAFETY_BASELINE.find((e) => e.reappearsAs)!;
+  const a = assessBaseline(SAFETY_BASELINE, [
+    {
+      check_id: entry.reappearsAs!.checkId,
+      rule_key: entry.reappearsAs!.ruleKey,
+      last_seen_at: seenBeforeRepair(entry),
+    },
+    {
+      check_id: entry.reappearsAs!.checkId,
+      rule_key: entry.reappearsAs!.ruleKey,
+      last_seen_at: seenAfterRepair(entry),
+    },
+  ]);
+
+  assert.deepEqual(
+    a.regressed.map((e) => e.id),
+    [entry.id],
+  );
+  assert.deepEqual(a.unverified, []);
+  assert.equal(a.gateMet, false);
+});
+
+test('an unreadable timestamp is treated as stale, not as a fresh sighting', () => {
+  const entry = SAFETY_BASELINE.find((e) => e.reappearsAs)!;
+  const a = assessBaseline(SAFETY_BASELINE, [
+    {
+      check_id: entry.reappearsAs!.checkId,
+      rule_key: entry.reappearsAs!.ruleKey,
+      last_seen_at: 'not a date',
+    },
+  ]);
+  assert.deepEqual(a.regressed, []);
+  assert.equal(a.gateMet, null);
+});
+
 test('a clean ledger reports closed, and does not claim the CI-guarded ones', () => {
   const a = assessBaseline(SAFETY_BASELINE, []);
-  assert.equal(a.allClosed, true);
+  assert.equal(a.gateMet, true);
+  assert.deepEqual(a.unverified, []);
   assert.ok(a.guardedElsewhere.length > 0, 'some defects no check can see');
   assert.equal(a.ledgerVisible, SAFETY_BASELINE.length - a.guardedElsewhere.length);
 });
@@ -123,7 +239,11 @@ test('a clean ledger reports closed, and does not claim the CI-guarded ones', ()
 test('a regression is filed as critical, separately from the rule that found it', () => {
   const entry = SAFETY_BASELINE.find((e) => e.reappearsAs)!;
   const findings = deriveRegressionFindings([
-    { check_id: entry.reappearsAs!.checkId, rule_key: entry.reappearsAs!.ruleKey },
+    {
+      check_id: entry.reappearsAs!.checkId,
+      rule_key: entry.reappearsAs!.ruleKey,
+      last_seen_at: seenAfterRepair(entry),
+    },
   ]);
 
   assert.equal(findings.length, 1);
@@ -133,15 +253,22 @@ test('a regression is filed as critical, separately from the rule that found it'
   // closed it originally. That is a different fact from the condition itself.
   assert.match(findings[0].detail, /has come back/);
   assert.match(findings[0].detail, new RegExp(entry.closedBy.split(' ')[0].slice(0, 20)));
+  // And it states the evidence standard it is claiming, because the false
+  // critical read identically to a real one.
+  assert.match(findings[0].detail, /observed again by a run that started after the repair/);
 });
 
 test('a snoozed regression still counts — silence is not a fix', () => {
   // known-regressions.ts reads status in ('open','snoozed') for this reason.
   const entry = SAFETY_BASELINE.find((e) => e.reappearsAs)!;
   const a = assessBaseline(SAFETY_BASELINE, [
-    { check_id: entry.reappearsAs!.checkId, rule_key: entry.reappearsAs!.ruleKey },
+    {
+      check_id: entry.reappearsAs!.checkId,
+      rule_key: entry.reappearsAs!.ruleKey,
+      last_seen_at: seenAfterRepair(entry),
+    },
   ]);
-  assert.equal(a.allClosed, false);
+  assert.equal(a.gateMet, false);
 });
 
 // ── the bounded queue ────────────────────────────────────────────
