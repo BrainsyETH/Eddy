@@ -2,14 +2,20 @@
 // Everything the server knows about a tapped put-in, fetched after the sheet is
 // already up.
 //
-// A generalisation of useAccessGaugeStatus, which asked this exact endpoint for
-// exactly one field. The sheet's tabs want the rest of it — the road, the
-// parking, the amenities, who runs it, and the neighbouring accesses that make
-// a float — and they all arrive in the SAME response, so one request feeds
-// every tab and adding a tab costs nothing at the network.
+// THE ONLY HOOK THAT ASKS THIS ENDPOINT, which took two goes to become true.
+// It began as a generalisation of useAccessGaugeStatus — that one asked the
+// same route for the single `gaugeStatus` field — and for a while both shipped:
+// the callout mounted one, the tabbed sheet mounted the other, and because the
+// sheet swapped between those two shells while opening, a tapped put-in issued
+// the request twice. Deleting it was possible only once the sheet stopped
+// swapping; see the header of PinSheet.
 //
-// The three properties that hook established are kept verbatim, because each of
-// them is load-bearing:
+// The tabs want the whole payload anyway — the road, the parking, the
+// amenities, who runs it, and the neighbouring accesses that make a float — and
+// it all arrives in ONE response, so adding a tab costs nothing at the network.
+//
+// The three properties the older hook established are kept verbatim, because
+// each of them is load-bearing:
 //
 //   LATE, NEVER BLOCKING. The sheet renders immediately from what the map
 //   already holds in memory; this lands underneath a moment later. Nothing
@@ -48,11 +54,11 @@ function slugsFromRoute(route: string | null | undefined): { river: string; acce
 /**
  * The payload, and WHICH KIND OF NOTHING it is when there is none.
  *
- * useAccessGaugeStatus folds "not an access point", "loading" and "failed" into
- * one null, on the grounds that the caller does the same thing in all three.
- * That was true of a callout showing a reading or not. It is not true of a tab:
- * waiting and having failed look identical if both render blank, and the reader
- * has no way to tell whether to wait or to stop waiting.
+ * The hook this replaced folded "not an access point", "loading" and "failed"
+ * into one null, on the grounds that the caller did the same thing in all
+ * three. That was true of a callout showing a reading or not. It is not true of
+ * a tab: waiting and having failed look identical if both render blank, and the
+ * reader has no way to tell whether to wait or to stop waiting.
  */
 export type DetailStatus = 'idle' | 'loading' | 'ready' | 'failed';
 

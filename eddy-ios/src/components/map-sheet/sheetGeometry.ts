@@ -63,6 +63,25 @@ export const GRABBER_BLOCK = 16;
 export const CONTENT_BOTTOM_PAD = 12;
 
 /**
+ * The band along the map's bottom edge that Mapbox's ornaments own.
+ *
+ * ── This one is a LEGAL constraint, not a layout preference ───────────────
+ * Mapbox's terms require the logo and the attribution to be visible on every
+ * map they render. They may be moved and they may not be hidden — see the block
+ * above `logoEnabled` in RiverMap. A full-width, bottom-anchored sheet covers
+ * exactly the band they sit in, so when the sheet is open they RIDE it, and the
+ * tallest detent has to leave enough room above itself for them to land in.
+ *
+ * 62 is measured, not chosen: the attribution is a 44pt tap frame at bottom 9,
+ * so it reaches 53pt up from whatever it is anchored to, and the remaining 9pt
+ * keeps it off the sheet's rounded top edge. The map screen's MAP_CHROME_BOTTOM
+ * is this same number for the same reason — it imports it rather than restating
+ * it, because two copies of a number this load-bearing is how one of them
+ * silently stops clearing the other.
+ */
+export const ORNAMENT_BAND = 62;
+
+/**
  * The tallest a scrolling page may be, before its own header and tab bar.
  *
  * ── Why not simply `available` ────────────────────────────────────────────
@@ -80,8 +99,27 @@ export const CONTENT_BOTTOM_PAD = 12;
  * would oscillate between two answers forever.
  */
 export function pageBudget(available: number, bottomInset: number): number {
-  const tallest = Math.round(Math.max(0, available) * FULL_FRACTION);
-  return Math.max(0, tallest - GRABBER_BLOCK - CONTENT_BOTTOM_PAD - Math.max(0, bottomInset));
+  return Math.max(
+    0,
+    fullTarget(available) - GRABBER_BLOCK - CONTENT_BOTTOM_PAD - Math.max(0, bottomInset),
+  );
+}
+
+/**
+ * The tallest the sheet may EVER be on a map area of this size.
+ *
+ * Shared by resolveDetents and pageBudget, which is the whole point of it
+ * existing: the budget derives the tallest detent from `available` alone
+ * (deliberately — see pageBudget) and the detents derive it again from
+ * `available` and the content. Two derivations of the same ceiling is two
+ * places to add a cap and one place to forget, and the failure that produces is
+ * a page that scrolls past what the sheet can show.
+ *
+ * Content is NOT considered here. This is the ceiling, not the height.
+ */
+function fullTarget(available: number): number {
+  const safe = Math.max(0, available);
+  return Math.min(Math.round(safe * FULL_FRACTION), Math.max(0, safe - ORNAMENT_BAND));
 }
 
 /**
@@ -148,6 +186,23 @@ export function resolveDetents(
    * strip. Measuring means peek ends exactly where the primary action does.
    */
   peekHeight?: number,
+  /**
+   * Whether the peek slot holds EVERYTHING this sheet has, rather than a glance
+   * authored to sit above the rest.
+   *
+   * The two are measured differently on purpose. A sheet with children put
+   * something specific in its peek — an identity, a reading, the action you
+   * would take — and it is worth exactly its own height, because ending the
+   * glance anywhere else means ending it half way through a control strip.
+   *
+   * A single-page callout has no such split: the peek slot is the whole
+   * callout, so measuring it means the glance is however long a hazard's
+   * seasonal notes happen to be. Clamped to the fraction instead, which puts
+   * the rest below the fold where the drag can reach it — and does nothing at
+   * all to a callout that already fits, since that one is shorter than the
+   * fraction to begin with.
+   */
+  wholeContentIsPeek = false,
 ): SheetDetents {
   const safeAvailable = Math.max(0, available);
   // A content height of 0 means "not measured yet". Fall back to the peek
@@ -155,12 +210,25 @@ export function resolveDetents(
   const content =
     contentHeight > 0 ? Math.min(contentHeight, safeAvailable) : peekTarget(safeAvailable);
 
-  const measured = peekHeight && peekHeight > 0 ? Math.min(peekHeight, safeAvailable) : null;
-  const peek = Math.min(content, measured ?? peekTarget(safeAvailable));
+  const target = peekTarget(safeAvailable);
+  const raw = peekHeight && peekHeight > 0 ? Math.min(peekHeight, safeAvailable) : null;
+  const measured = raw != null && wholeContentIsPeek ? Math.min(raw, target) : raw;
+  const peek = Math.min(content, measured ?? target);
   const height: Record<Detent, number> = {
     peek,
     half: Math.min(content, Math.round(safeAvailable * HALF_FRACTION)),
-    full: Math.min(content, Math.round(safeAvailable * FULL_FRACTION)),
+    // ── The ceiling that keeps the Mapbox ornaments on screen ─────────────
+    // FULL_FRACTION alone left 8% of the map, which on anything smaller than a
+    // 662pt map area is less than the attribution's own tap frame — so the
+    // ornaments had nowhere to be lifted to and stayed covered. Capping the
+    // tallest detent is what makes the lift always possible; ORNAMENT_BAND
+    // explains the number.
+    //
+    // Only `full` is capped. `half` is 55% of available and `peek` never
+    // exceeds 340, so on any map area big enough to draw a sheet at all both
+    // already clear the band by a wide margin — capping them would be dead
+    // arithmetic that read as though it were doing something.
+    full: Math.min(content, fullTarget(safeAvailable)),
   };
 
   const order: Detent[] = ['peek'];
