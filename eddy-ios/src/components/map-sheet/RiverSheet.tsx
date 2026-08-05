@@ -22,6 +22,7 @@
 // access sheet's Float trips tab uses. One planner, two ways in.
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { MapAccessPoint } from '@eddy/types';
 import type { RiverSheetData } from './riverTabs';
 import { criticalHazards, hazardTypeLabel, portageNote, severityLabel, sortHazards } from '@eddy/hazards';
@@ -244,15 +245,34 @@ export function RiverSheetHeader({
     <View style={styles.header}>
       <View style={styles.headRow}>
         <View style={styles.gaugeText}>
-          <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>
+          {/* The heading for this sheet, exactly as the place's name is for the
+              pin sheet. See PlaceHead. */}
+          <Text
+            style={[styles.name, { color: colors.text }]}
+            numberOfLines={2}
+            accessibilityRole="header"
+          >
             {river.name}
           </Text>
           <Text style={[styles.rowMeta, { color: colors.textMuted }]} numberOfLines={1}>
             {[river.region, `${river.accesses.length} access points`].filter(Boolean).join(' · ')}
           </Text>
         </View>
-        <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
-          <Text style={[styles.close, { color: colors.textMuted }]}>✕</Text>
+        {/* ── A REAL 44pt FRAME, and the pin sheet's glyph ─────────────────
+            This was a ✕ character with hitSlop 12, which is a ~17pt glyph in a
+            ~41pt target — under the floor DESIGN.md §6 sets, and reached by
+            padding rather than by being the right size, so it never lined up
+            with anything. The pin sheet's close is a 44x44 Ionicon (PlaceHead,
+            CONTROL) and these two sheets sit in the same corner of the same
+            screen seconds apart, so a reader who has learned where one is has
+            learned where the other is. */}
+        <Pressable
+          onPress={onClose}
+          style={({ pressed }) => [styles.close, { opacity: pressed ? 0.6 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
+          <Ionicons name="close" size={19} color={colors.textMuted} />
         </Pressable>
       </View>
       <View style={styles.headerLink}>
@@ -266,7 +286,17 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 16 },
   headRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   name: { ...t.sm, fontFamily: fonts.semibold },
-  close: { ...t.base, fontFamily: fonts.medium },
+  // 44x44, the touch floor from DESIGN.md §6 — the same square PlaceHead's
+  // controls occupy. The negative margin keeps the glyph optically where the
+  // ✕ used to sit rather than pushing the title in by the padding the frame
+  // added: a tap target is allowed to be bigger than what it looks like.
+  close: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: -10,
+  },
   headerLink: { marginTop: 2 },
   gaugeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
   gaugeText: { flex: 1, minWidth: 0 },

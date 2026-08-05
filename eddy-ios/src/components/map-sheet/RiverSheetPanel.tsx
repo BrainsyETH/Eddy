@@ -71,6 +71,7 @@ export function RiverSheetPanel({ river, width, onClose, onDetentChange, ...hand
   return (
     <MapSheet
       resetKey={river.slug}
+      label={`${river.name} sheet`}
       onClose={onClose}
       onDetentChange={onDetentChange}
       peek={<RiverSheetHeader river={river} onClose={onClose} onOpenRiver={handlers.onOpenRiver} />}

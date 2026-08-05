@@ -135,7 +135,17 @@ export function PlaceHead({
             rather than 18: t.lg carries a 29pt line height, and two lines of it
             would spend 58pt of a peek that is already negotiating with the map
             for the screen. */}
-        <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>
+        {/* A HEADING, and the sheet's only one. The rotor's heading list is how
+            a VoiceOver reader skips to what a surface is about instead of
+            swiping through it, and on this screen the sheet's subject changes
+            every time a pin is tapped while everything around it stays put — so
+            "which place am I reading now" is the exact question a heading
+            answers here. */}
+        <Text
+          style={[styles.name, { color: colors.text }]}
+          numberOfLines={2}
+          accessibilityRole="header"
+        >
           {pin.name}
         </Text>
         {pin.subtitle ? (

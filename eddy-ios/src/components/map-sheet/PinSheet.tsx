@@ -184,6 +184,7 @@ export function PinSheet(props: PinSheetProps) {
     return (
       <MapSheet
         resetKey={pin.id}
+        label={`${pin.name} sheet`}
         onClose={props.onClose}
         onDetentChange={props.onDetentChange}
         peek={<PinCallout {...props} />}
@@ -236,6 +237,7 @@ export function PinSheet(props: PinSheetProps) {
   return (
     <MapSheet
       resetKey={pin.id}
+      label={`${pin.name} sheet`}
       onClose={props.onClose}
       onDetentChange={props.onDetentChange}
       peek={<PinSheetHeader {...props} detail={detail} />}
