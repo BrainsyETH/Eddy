@@ -1430,10 +1430,31 @@ export default function MapScreen() {
         // What keeps that pin out from under the sheet is camera PADDING —
         // see cameraPaddingBottom on RiverMap — rather than a new centre.
         pendingAccessSelection.current = null;
+        // ── "Stays" has to be SAID, because null does not say it ────────────
+        //
+        // Leaving `focus` alone leaves it null, and null hands the camera to
+        // whichever fallback is live. Opening the sheet changes camera padding,
+        // and a padding change re-applies the camera stop — which in the bounds
+        // branch is a re-FIT rather than a re-aim. So tapping a gauge, a dam, a
+        // service or a landing on the river already shown zoomed the map out to
+        // the whole statewide network, or to a hundred miles of the selected
+        // river; and with location granted the opening focus claimed it instead
+        // and flew back to the user's position at zoom 8.5.
+        //
+        // Holding the current camera is what makes the paragraph above true.
+        // Only when no LIVE focus already claims it: an existing active focus is
+        // a coordinate somebody chose, and re-setting it is a no-op. A stale one
+        // — tagged for a river no longer selected — is deliberately replaced,
+        // since it is exactly what the bounds fallback would otherwise outlive.
+        //
+        // Before the first onMapIdle heldCamera has no viewport to hold and
+        // returns null, which leaves the old behaviour in place on a camera that
+        // has not settled anywhere yet.
+        setFocus(activeFocus ?? heldCamera());
       }
       setSelectedPin(pin);
     },
-    [accessPointForPin, selectedSlug, viewport?.zoom],
+    [accessPointForPin, selectedSlug, viewport?.zoom, activeFocus, heldCamera],
   );
 
   // The gauge behind a tapped gauge pin. Looked up rather than carried on
