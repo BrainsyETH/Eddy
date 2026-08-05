@@ -50,6 +50,41 @@ export const SETTLE_SPRING = { damping: 30, stiffness: 260, mass: 0.9 } as const
 export const REDUCED_SETTLE = { duration: 0 } as const;
 
 /**
+ * The grabber row, in full: 8pt above the bar, the 4pt bar, 4pt below it.
+ *
+ * It lives inside the card but OUTSIDE the measured content, so a sheet tall
+ * enough for its content is still 16pt short of showing it. Named here rather
+ * than left implicit in a style block because two different sums need it — the
+ * detent heights and the page budget below — and they have to agree.
+ */
+export const GRABBER_BLOCK = 16;
+
+/** Breathing room under the content, above the home indicator. */
+export const CONTENT_BOTTOM_PAD = 12;
+
+/**
+ * The tallest a scrolling page may be, before its own header and tab bar.
+ *
+ * ── Why not simply `available` ────────────────────────────────────────────
+ * A page capped at the whole available height believes its viewport reaches
+ * the bottom of the screen. The sheet never gets there: the tallest detent is
+ * FULL_FRACTION of available, and the grabber and the bottom inset eat into
+ * that again. The scroller therefore stopped short, and the last inch of a
+ * long tab was unreachable at every detent — content the scroller thought it
+ * had already shown.
+ *
+ * Derived from `available` and the inset ALONE, never from the measured
+ * content. Sizing it from the settled detent would be more direct and would
+ * also be a loop: the detent is derived from the content height, the content
+ * height from this cap, and a sheet that measured near a fraction boundary
+ * would oscillate between two answers forever.
+ */
+export function pageBudget(available: number, bottomInset: number): number {
+  const tallest = Math.round(Math.max(0, available) * FULL_FRACTION);
+  return Math.max(0, tallest - GRABBER_BLOCK - CONTENT_BOTTOM_PAD - Math.max(0, bottomInset));
+}
+
+/**
  * Peek's target, before the content gets a say.
  *
  * 0.32 rather than rail.tsx's exported 0.44 because that fraction is tuned for

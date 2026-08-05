@@ -5,8 +5,8 @@
 // ── Why this is a Pan gesture and not a paging ScrollView ─────────────────
 // A ScrollView with pagingEnabled is simpler and gives momentum and bounce for
 // free. It loses on the one point that decides it here: this pager sits INSIDE
-// a vertically-dragged sheet, and each page will eventually hold its own
-// vertical scroller. That is three nested native recognisers with no priority
+// a vertically-dragged sheet, and each page holds its own vertical
+// scroller. That is three nested native recognisers with no priority
 // API between them, and iOS resolves a slightly-diagonal drag by handing it to
 // the horizontal scroller — which is exactly the failure src/components/
 // SwipeRow.tsx documents about rows inside a FlatList.
@@ -23,11 +23,7 @@
 // that have to be kept looking alike.
 import { useEffect, useMemo } from 'react';
 import { StyleSheet } from 'react-native';
-import {
-  Gesture,
-  GestureDetector,
-  ScrollView as GestureScrollView,
-} from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, type GestureType } from 'react-native-gesture-handler';
 import { useSheetScroll } from './sheetScroll';
 import Animated, {
   runOnJS,
@@ -40,11 +36,6 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
-
-// RNGH's ScrollView rather than React Native's, because only it takes
-// `simultaneousHandlers` — which is how a page tells the sheet's pan to run
-// alongside it instead of cancelling it.
-const PageScrollView = Animated.createAnimatedComponent(GestureScrollView);
 
 /** Horizontal travel that claims the gesture for the pager. */
 const ACTIVATE_X = 12;
@@ -69,9 +60,20 @@ interface Props {
   /** One element per page, already in tab order. */
   children: React.ReactNode[];
   /**
+   * A stable id per page, in tab order.
+   *
+   * Pages are keyed by these and NOT by position. The tab set grows while the
+   * sheet is open and the order is fixed, so a late arrival inserts rather
+   * than appends — Camping moves from 1 to 3 when Conditions and Floats
+   * qualify. Keyed by index, the scroller that had been Camping's would stay
+   * mounted and become Details', carrying Camping's native scroll offset with
+   * it.
+   */
+  pageKeys: string[];
+  /**
    * How much room the sheet's chrome — its header and tab bar — already takes.
-   * Subtracted from the sheet's own height to cap a page, so a long one
-   * scrolls instead of running off the bottom of the screen.
+   * Subtracted from the page budget to cap a page, so a long one scrolls
+   * instead of running off the bottom of the screen.
    */
   chromeHeight: number;
 }
@@ -83,6 +85,7 @@ export function SheetPager({
   progress,
   width,
   children,
+  pageKeys,
   chromeHeight,
 }: Props) {
   const reducedMotion = useReducedMotion();
@@ -152,56 +155,123 @@ export function SheetPager({
     transform: [{ translateX: translateX.value }],
   }));
 
-  // The ACTIVE page's offset, which is the only one the sheet's pan cares
-  // about. Every page writes to the same value and only the visible one is
-  // being touched, so there is nothing to disambiguate.
-  //
-  // ── Pull the shared value OUT of the context first ──────────────────────
-  // This must not close over `sheet`. A worklet's closure is serialised onto
-  // the UI thread, and that object used to carry an array of native element
-  // refs. Reanimated cannot make one of those shareable, and
-  // it throws while the handler is being created, which is during render: the
-  // sheet opened and the whole screen went to the error boundary a frame
-  // later. A SharedValue is shareable; the object holding it is not.
-  const sheetScrollY = sheet?.scrollY ?? null;
-  const onScroll = useAnimatedScrollHandler(
-    (event) => {
-      'worklet';
-      if (sheetScrollY) sheetScrollY.value = event.contentOffset.y;
-    },
-    [sheetScrollY],
-  );
-
   // maxHeight, not height: a SHORT page keeps its natural size, which is what
   // lets the sheet still measure it and offer one detent instead of a tall
   // mostly-empty card. Only a page with more to say than fits gets capped and
   // scrolls.
-  const pageMaxHeight = Math.max(120, (sheet?.available ?? 0) - chromeHeight);
+  const pageMaxHeight = Math.max(120, (sheet?.pageBudget ?? 0) - chromeHeight);
 
   return (
     <GestureDetector gesture={pan}>
       <Animated.View style={[styles.track, { width: width * count }, trackStyle]}>
         {children.map((page, i) => (
-          <PageScrollView
-            key={i}
-            simultaneousHandlers={sheet?.panRef as never}
-            style={{ width, maxHeight: pageMaxHeight }}
-            onScroll={onScroll}
-            scrollEventThrottle={16}
+          // Keyed by the TAB and by the SELECTION, never by position. See the
+          // pageKeys prop for the first; the second is because two access
+          // points share tab keys, so without it a new pin inherits the last
+          // one's scrollers — and a native scroll offset outlives a re-render.
+          <SheetPage
+            key={`${sheet?.resetKey ?? ''}:${pageKeys[i] ?? i}`}
+            active={i === index}
+            width={width}
+            maxHeight={pageMaxHeight}
+            panRef={sheet?.panRef}
+            published={sheet?.scrollY ?? null}
             // Only at the tallest detent. Below it a vertical drag is how you
             // OPEN the sheet, and a scroller that ate it would strand the
             // reader at the glance.
             scrollEnabled={sheet?.atFull ?? false}
-            // iOS rubber-band drives contentOffset.y negative, which makes
-            // "at the top" ambiguous exactly when the hand-off to the sheet
-            // has to be crisp. The sheet supplies the rubber band instead.
-            bounces={false}
-            showsVerticalScrollIndicator={false}
           >
             {page}
-          </PageScrollView>
+          </SheetPage>
         ))}
       </Animated.View>
+    </GestureDetector>
+  );
+}
+
+interface PageProps {
+  /** Whether this is the page in front. Only that one publishes its offset. */
+  active: boolean;
+  width: number;
+  maxHeight: number;
+  panRef: SheetPagerPanRef;
+  /** The sheet's shared offset, or null when a page is rendered outside one. */
+  published: SharedValue<number> | null;
+  scrollEnabled: boolean;
+  children: React.ReactNode;
+}
+
+type SheetPagerPanRef = React.MutableRefObject<GestureType | undefined> | undefined;
+
+/**
+ * One tab's scroller.
+ *
+ * ── Why each page owns its own handler ────────────────────────────────────
+ * The pager used to build ONE useAnimatedScrollHandler and hand the same
+ * WorkletEventHandler to every page. That is a supported-but-fragile shape in
+ * Reanimated — one handler object registering itself against N view tags — and
+ * more importantly it made every page write to the sheet's single offset
+ * whether or not it was the page being touched. See SheetScroll.scrollY for
+ * what that broke.
+ *
+ * ── Why a Native gesture and not `simultaneousHandlers` ───────────────────
+ * The scroller has to run ALONGSIDE the sheet's pan rather than instead of it,
+ * or the sheet could not be pulled shut from a page scrolled to its top. The
+ * previous spelling of that was RNGH's own ScrollView (the only one taking a
+ * `simultaneousHandlers` prop) wrapped in Animated.createAnimatedComponent —
+ * an old-API native-view handler with Reanimated's animated-component
+ * machinery stacked on top of it. Gesture.Native() states the same
+ * relationship through the API the sheet's own pan already uses, and lets the
+ * page go back to Reanimated's ScrollView, which is the component
+ * useAnimatedScrollHandler is built for.
+ */
+function SheetPage({
+  active,
+  width,
+  maxHeight,
+  panRef,
+  published,
+  scrollEnabled,
+  children,
+}: PageProps) {
+  // This page's OWN offset, kept whether or not it is the one in front, so
+  // that becoming the front page can republish the truth about this page
+  // rather than leaving the last page's number standing.
+  const offset = useSharedValue(0);
+
+  const onScroll = useAnimatedScrollHandler(
+    (event) => {
+      'worklet';
+      offset.value = event.contentOffset.y;
+      if (active && published) published.value = event.contentOffset.y;
+    },
+    [active, offset, published],
+  );
+
+  useEffect(() => {
+    if (active && published) published.value = offset.value;
+  }, [active, published, offset]);
+
+  const native = useMemo(
+    () => (panRef ? Gesture.Native().simultaneousWithExternalGesture(panRef) : Gesture.Native()),
+    [panRef],
+  );
+
+  return (
+    <GestureDetector gesture={native}>
+      <Animated.ScrollView
+        style={{ width, maxHeight }}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        scrollEnabled={scrollEnabled}
+        // iOS rubber-band drives contentOffset.y negative, which makes "at the
+        // top" ambiguous exactly when the hand-off to the sheet has to be
+        // crisp. The sheet supplies the rubber band instead.
+        bounces={false}
+        showsVerticalScrollIndicator={false}
+      >
+        {children}
+      </Animated.ScrollView>
     </GestureDetector>
   );
 }
@@ -217,10 +287,12 @@ export function SheetPager({
  * render (which the compiler lint rejects, correctly) or state written in an
  * effect (which paints one frame short after every swipe).
  *
- * It costs nothing today: every access tab reads from one response that is
- * already in memory, and no tab scrolls on its own yet. Revisit when one does —
- * losing a reader's place in a long Details tab because they looked at Camping
- * would be a real regression, and that is the moment to pay for the state.
+ * What it costs, now that pages DO scroll: a page keeps its offset while it is
+ * mounted — itself and either neighbour — and starts at the top again if the
+ * reader wanders two tabs away and back. Every access tab reads from one
+ * response already in memory, so nothing is refetched; only the place in a long
+ * Details tab is lost, and only after passing two other tabs. That is the
+ * moment to pay for the state if it ever reads as a regression.
  */
 export function mountedPages(index: number, count: number): (i: number) => boolean {
   return (i) => i >= index - 1 && i <= index + 1 && i >= 0 && i < count;

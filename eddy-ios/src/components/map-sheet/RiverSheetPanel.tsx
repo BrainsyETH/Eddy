@@ -93,6 +93,7 @@ export function RiverSheetPanel({ river, width, onClose, onDetentChange, ...hand
         onIndexChange={(i) => setChosen(tabs[i]?.key ?? null)}
         progress={progress}
         width={width}
+        pageKeys={tabs.map((tab) => tab.key)}
         chromeHeight={chromeHeight}
       >
         {tabs.map((tab, i) => (
