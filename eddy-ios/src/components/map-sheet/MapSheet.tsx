@@ -163,6 +163,14 @@ export function MapSheet({ resetKey, onClose, onDetentChange, children }: Props)
         .failOffsetX([-12, 12])
         // Runs ALONGSIDE the content scroller rather than instead of it; the
         // worklet below decides which of the two a given frame belongs to.
+        // NOTE, and it wants confirming on a device: RNGH REWRITES this config
+        // in place, replacing the refs with resolved handler tags the first
+        // time the detector attaches. Pages mount later than the sheet does —
+        // there is no pager until a second tab qualifies — so that first
+        // resolve can find every ref still null and leave the relation empty.
+        // It recovers because this gesture is rebuilt whenever `detents`
+        // changes, and measuring a newly mounted page is exactly what changes
+        // it. Relying on that ordering is the fragile part.
         .simultaneousWithExternalGesture(...(scrollRefs as never[]))
         .onBegin(() => {
           'worklet';

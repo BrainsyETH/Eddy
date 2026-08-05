@@ -146,9 +146,22 @@ export function SheetPager({
   // The ACTIVE page's offset, which is the only one the sheet's pan cares
   // about. Every page writes to the same value and only the visible one is
   // being touched, so there is nothing to disambiguate.
-  const onScroll = useAnimatedScrollHandler((event) => {
-    if (sheet) sheet.scrollY.value = event.contentOffset.y;
-  });
+  //
+  // ── Pull the shared value OUT of the context first ──────────────────────
+  // This must not close over `sheet`. A worklet's closure is serialised onto
+  // the UI thread, and that object carries scrollRefs — React refs whose
+  // .current is a native component. Reanimated cannot make one shareable, and
+  // it throws while the handler is being created, which is during render: the
+  // sheet opened and the whole screen went to the error boundary a frame
+  // later. A SharedValue is shareable; the object holding it is not.
+  const sheetScrollY = sheet?.scrollY ?? null;
+  const onScroll = useAnimatedScrollHandler(
+    (event) => {
+      'worklet';
+      if (sheetScrollY) sheetScrollY.value = event.contentOffset.y;
+    },
+    [sheetScrollY],
+  );
 
   // maxHeight, not height: a SHORT page keeps its natural size, which is what
   // lets the sheet still measure it and offer one detent instead of a tall
