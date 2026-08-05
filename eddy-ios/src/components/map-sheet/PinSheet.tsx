@@ -15,14 +15,7 @@
 // at once. An access point with only one qualifying tab also lands here, which
 // is what stops a tab bar appearing over a single page.
 import { useCallback, useMemo, useState } from 'react';
-import {
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type LayoutChangeEvent,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSharedValue } from 'react-native-reanimated';
 import type {
@@ -30,15 +23,16 @@ import type {
   MapAccessPoint,
   NearbyAccessPoint,
 } from '@eddy/types';
-import { accessPointTypes, accessTypeLabel, campsiteAvailabilityLine } from '@eddy/types';
+import { campsiteAvailabilityLine } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import type { MapPin } from '@/map/RiverMap';
-import { MAP_LAYERS } from '@/map/layers';
 import { useAccessPointDetail } from '@/hooks/useAccessPointDetail';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { MapSheet } from './MapSheet';
 import { PinCallout } from './PinCallout';
+import { PlaceHead } from './PlaceHead';
+import { AccessTypeBadges } from './sections';
 import { SheetTabBar } from './SheetTabBar';
 import { SheetPager, mountedPages } from './SheetPager';
 import { accessTabs, initialTabKey, type TabKey } from './tabs';
@@ -273,7 +267,6 @@ function PinSheetHeader({
   detail,
 }: PinSheetProps & { detail: AccessPointDetailResponse | null }) {
   const { colors } = useTheme();
-  const layer = MAP_LAYERS.find((l) => l.key === pin.layer);
   const nps = detail?.accessPoint?.npsCampground ?? null;
   const availability = campsiteAvailabilityLine(nps?.availability, nps?.name ?? pin.name);
 
@@ -289,52 +282,13 @@ function PinSheetHeader({
 
   return (
     <View style={styles.header}>
-      <View style={styles.headRow}>
-        {accessPoint && pin.imageUrl ? (
-          <Image
-            source={{ uri: pin.imageUrl }}
-            style={styles.thumb}
-            resizeMode="cover"
-            accessibilityElementsHidden
-            importantForAccessibility="no"
-            accessibilityIgnoresInvertColors
-          />
-        ) : (
-          <View
-            style={[
-              styles.dot,
-              { backgroundColor: pin.color ?? layer?.color(colors) ?? colors.interactive },
-            ]}
-          />
-        )}
-        <View style={styles.headText}>
-          <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>
-            {pin.name}
-          </Text>
-          {pin.subtitle ? (
-            <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={1}>
-              {pin.subtitle}
-            </Text>
-          ) : null}
-        </View>
-        {onToggleStar ? (
-          <Pressable
-            onPress={onToggleStar}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel={starred ? `Unstar ${pin.name}` : `Star ${pin.name}`}
-          >
-            <Ionicons
-              name={starred ? 'star' : 'star-outline'}
-              size={19}
-              color={starred ? colors.warm : colors.textMuted}
-            />
-          </Pressable>
-        ) : null}
-        <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
-          <Ionicons name="close" size={19} color={colors.textMuted} />
-        </Pressable>
-      </View>
+      <PlaceHead
+        pin={pin}
+        accessPoint={accessPoint}
+        starred={starred}
+        onToggleStar={onToggleStar}
+        onClose={onClose}
+      />
 
       {/* THE ONE FACT THAT DECIDES WHETHER YOU CARE. A sentence, and it goes
           stale over a weekend, so it belongs where it can be read without a
@@ -405,23 +359,13 @@ function PinSheetDetail({
   return (
     <View style={styles.header}>
       {/* The tent among them is the point: whether a put-in is also somewhere
-          you can sleep is worth knowing once the sheet is open. */}
-      {accessPoint ? (
-        <View style={styles.chips}>
-          {accessPointTypes(accessPoint).map((type) => (
-            <View key={type} style={[styles.chip, { backgroundColor: colors.cardRaised }]}>
-              <Text style={[styles.chipText, { color: colors.textMuted }]}>
-                {accessTypeLabel(type)}
-              </Text>
-            </View>
-          ))}
-          {accessPoint.feeRequired ? (
-            <View style={[styles.chip, { backgroundColor: colors.cardRaised }]}>
-              <Text style={[styles.chipText, { color: colors.textMuted }]}>Fee required</Text>
-            </View>
-          ) : null}
-        </View>
-      ) : null}
+          you can sleep is worth knowing once the sheet is open.
+
+          THE ONLY PLACE THE TABBED SHEET SAYS THIS. Overview drew the same row
+          again from its own copy of the component, nine points below this one and
+          visible at the same time — the same six types, the same fee, plus a
+          "Private" pill duplicating the notice underneath. See AccessTabs. */}
+      {accessPoint ? <AccessTypeBadges accessPoint={accessPoint} /> : null}
 
       {accessPoint && !accessPoint.isPublic ? (
         <View style={[styles.private, { backgroundColor: colors.cardRaised }]}>
@@ -438,15 +382,6 @@ function PinSheetDetail({
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: 16 },
-  headRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  thumb: { width: 44, height: 44, borderRadius: 9 },
-  dot: { width: 10, height: 10, borderRadius: 999 },
-  headText: { flex: 1, minWidth: 0 },
-  name: { ...t.sm, fontFamily: fonts.semibold },
-  meta: { ...t.sm, fontFamily: fonts.body, marginTop: 1 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
-  chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
-  chipText: { ...t.sm, fontFamily: fonts.medium },
   private: {
     flexDirection: 'row',
     alignItems: 'center',

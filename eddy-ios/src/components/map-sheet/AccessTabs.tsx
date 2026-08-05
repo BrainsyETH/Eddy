@@ -18,7 +18,7 @@ import type {
   NearbyAccessPoint,
   NpsCampgroundSummary,
 } from '@eddy/types';
-import { accessPointTypes, accessTypeLabel, campsiteAvailabilityLine } from '@eddy/types';
+import { campsiteAvailabilityLine } from '@eddy/types';
 import { conditionBg, conditionChipBorder, conditionInk, conditionText } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -50,20 +50,22 @@ interface TabProps {
 
 /* ── Overview ───────────────────────────────────────────────────────────── */
 
+/**
+ * ── What this tab does NOT open with ──────────────────────────────────────
+ * The type pills. They were drawn here as well as in the sheet's own chrome —
+ * AccessTypeBadges, in the block above the tab bar — and the chrome is visible
+ * whichever tab you are on, so Overview's copy said the same six types, the same
+ * fee and a "Private" pill duplicating the notice beside it, nine points below
+ * the original. The chrome is the right home for them: they describe the PLACE,
+ * not this page of it, and a badge that changes with the tab is a badge nobody
+ * can rely on.
+ */
 export function AccessOverviewTab({ accessPoint, detail, onOpenDetail, onOpenRiver }: TabProps) {
   const point = detail?.accessPoint;
   const camping = nearbyCamping(detail);
 
   return (
     <View>
-      <Chips
-        labels={[
-          ...accessPointTypes(accessPoint).map(accessTypeLabel),
-          ...(accessPoint.feeRequired ? ['Fee required'] : []),
-          ...(accessPoint.isPublic ? [] : ['Private']),
-        ]}
-      />
-
       <Prose>{point?.description ?? accessPoint.description ?? null}</Prose>
 
       {/* ── Camping nearby ────────────────────────────────────────────────

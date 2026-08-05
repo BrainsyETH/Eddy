@@ -25,6 +25,16 @@
 // The sources are 1254px concept art with an off-white card baked in. These are
 // derived: see eddy-ios/scripts/build-eddy-icons.py, which cuts the background
 // and downscales to 300px. Do not hand-export into assets/eddy.
+//
+// ── THE CATALOG'S ASPECT RATIOS VARY, and `size` is the longest side ──────
+// The script trims each drawing to its own ink, so the boat ramp is 300x180, the
+// campground 300x240, the dam 300x300 and the POI pin 219x300. `size` bounds a
+// SQUARE box and the art is contained in it, so at size 36 a wide mark paints
+// 36x22 and a square one 36x36. Beside a label that is invisible — both are 36
+// wide. In a slot large enough to look at, it is not, and the fix is a fixed
+// well around the mark rather than a per-name size at the call site: see
+// PlaceHead, which holds the frame, the badge and the radius still and lets only
+// the drawing inside breathe.
 
 import { Image, StyleSheet, type ImageStyle, type StyleProp } from 'react-native';
 
@@ -34,6 +44,10 @@ const SYMBOLS = {
   gauge: require('../../assets/eddy/eddy-other-usgs-gauge.png'),
   dam: require('../../assets/eddy/eddy-dam.png'),
   accessPoint: require('../../assets/eddy/eddy-poi.png'),
+  // The two access types the catalog has drawn. Resolved by placeSymbol, which
+  // is what decides between them and the generic pin above; the map's own pins
+  // are a separate catalog (assets/map) and have no boat-ramp variant on
+  // purpose — six type icons on one pin is a legend test, not a map.
   boatRamp: require('../../assets/eddy/eddy-boat-ramp.png'),
   otherGauge: require('../../assets/eddy/eddy-other-usgs-gauge.png'),
   hazard: require('../../assets/eddy/eddy-hazard.png'),
