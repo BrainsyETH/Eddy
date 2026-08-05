@@ -1,6 +1,8 @@
 -- 20260805171500_meramec_sullivan_high_below_dangerous.sql
 --
--- NOT YET APPLIED. Run in the SQL editor, then record the version.
+-- APPLIED to production 2026-08-05 as 20260805171500, and recorded. Every
+-- assertion below passed on the way in, including the last one: validate_river_data()
+-- now returns threshold_order for jacks-fork only.
 --
 -- Clear the remaining threshold_order finding on meramec / "Meramec River near
 -- Sullivan, MO" (ft) by moving level_high, which is the line that is wrong.

@@ -1,6 +1,10 @@
 -- 20260804214409_meramec_cook_station_high_below_dangerous.sql
 --
--- NOT YET APPLIED. Run in the SQL editor, then record the version.
+-- APPLIED to production 2026-08-04 as 20260804214409, and recorded. The header
+-- said "NOT YET APPLIED" for a day after it was, which on a file whose whole
+-- subject is a threshold that did move is the one sentence it must not get wrong.
+-- Cook Station reads 4.00 / 4.01 / 5.50 in production; threshold_updated_at is
+-- 2026-08-04 22:01:27.
 --
 -- Clear the threshold_order finding on meramec / "Meramec River at Cook
 -- Station, MO" (ft) by moving level_high, which is the line that is wrong.
