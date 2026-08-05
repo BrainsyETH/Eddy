@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { MapAccessPoint } from '@eddy/types';
 import {
+  accessBadgeTypes,
   accessTypeSymbol,
   placeSymbol,
   type PlaceSymbolName,
@@ -74,6 +75,20 @@ test('a type with no art gets the generic pin, never an adjacent drawing', () =>
   assert.equal(accessTypeSymbol('campground'), 'campground');
   // An unmapped value from the database is a label, not a crash.
   assert.equal(accessTypeSymbol('low_water_crossing'), null);
+});
+
+test('the generic Access badge disappears when a more specific type answers', () => {
+  assert.deepEqual(accessBadgeTypes(point({ types: ['access'] })), ['access']);
+  assert.deepEqual(
+    accessBadgeTypes(point({ types: ['boat_ramp', 'access', 'campground'] })),
+    ['campground', 'boat_ramp'],
+  );
+  // Unknown future types are still true and still display; only the redundant
+  // generic label is removed.
+  assert.deepEqual(
+    accessBadgeTypes(point({ types: ['access', 'low_water_crossing'] })),
+    ['low_water_crossing'],
+  );
 });
 
 test('never null, for any pin the sheet can open', () => {

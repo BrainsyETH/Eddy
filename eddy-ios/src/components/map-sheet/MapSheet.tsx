@@ -20,7 +20,12 @@
 // open collapsed the moment the detail request landed or they swiped to a taller
 // tab. A new SELECTION resets the sheet; new content does not.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  type AccessibilityActionEvent,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
@@ -130,6 +135,47 @@ export function MapSheet({ resetKey, onClose, onDetentChange, peek, children }: 
       onDetentChange?.(next, detents.height[next]);
     },
     [detents, onDetentChange],
+  );
+
+  /**
+   * Move without a finger.
+   *
+   * The pan worklet owns gesture releases. VoiceOver's adjustable actions run
+   * on the JS thread, so they need the same visible settle and the same single
+   * detent commit without pretending to be a gesture or inventing a velocity.
+   */
+  const settleTo = useCallback(
+    (next: Detent) => {
+      const target = detents.available - detents.height[next];
+      translateY.value = reducedMotion
+        ? withTiming(target, REDUCED_SETTLE)
+        : withSpring(target, SETTLE_SPRING);
+      commit(next);
+    },
+    [commit, detents, reducedMotion, translateY],
+  );
+
+  const hasExpansion = detents.order.length > 1;
+  const onGrabberAccessibilityAction = useCallback(
+    (event: AccessibilityActionEvent) => {
+      const action = event.nativeEvent.actionName;
+      if (action === 'escape') {
+        onClose();
+        return;
+      }
+      const index = detents.order.indexOf(detent);
+      if (action === 'increment') {
+        const next = detents.order[index + 1];
+        if (next) settleTo(next);
+        return;
+      }
+      if (action === 'decrement') {
+        const next = detents.order[index - 1];
+        if (next) settleTo(next);
+        else onClose();
+      }
+    },
+    [detent, detents.order, onClose, settleTo],
   );
 
   // ── A NEW SELECTION resets the sheet ────────────────────────────────────
@@ -309,7 +355,37 @@ export function MapSheet({ resetKey, onClose, onDetentChange, peek, children }: 
           {/* The whole card is the drag surface, which is the Maps contract —
               you should not have to find a handle to move a sheet. The grabber
               is the AFFORDANCE for that, not the only way in. */}
-          <View style={styles.grabberRow}>
+          <View
+            style={styles.grabberRow}
+            accessible={hasExpansion}
+            accessibilityRole={hasExpansion ? 'adjustable' : undefined}
+            accessibilityLabel={hasExpansion ? 'Map details sheet' : undefined}
+            accessibilityHint={
+              hasExpansion ? 'Swipe up or down to expand or collapse the sheet' : undefined
+            }
+            accessibilityValue={
+              hasExpansion
+                ? {
+                    text:
+                      detent === 'peek'
+                        ? 'Collapsed'
+                        : detent === 'half'
+                          ? 'Half expanded'
+                          : 'Fully expanded',
+                  }
+                : undefined
+            }
+            accessibilityActions={
+              hasExpansion
+                ? [
+                    { name: 'increment', label: 'Expand' },
+                    { name: 'decrement', label: 'Collapse' },
+                    { name: 'escape', label: 'Close' },
+                  ]
+                : undefined
+            }
+            onAccessibilityAction={onGrabberAccessibilityAction}
+          >
             <View style={[styles.grabber, { backgroundColor: colors.border }]} />
           </View>
 

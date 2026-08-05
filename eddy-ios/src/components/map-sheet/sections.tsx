@@ -19,11 +19,11 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MapAccessPoint } from '@eddy/types';
-import { accessPointTypes, accessTypeLabel } from '@eddy/types';
+import { accessTypeLabel } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddySymbol } from '@/components/EddySymbol';
-import { accessTypeSymbol } from './placeSymbol';
+import { accessBadgeTypes, accessTypeSymbol } from './placeSymbol';
 
 export function Section({
   title,
@@ -101,7 +101,7 @@ export function Chips({ labels }: { labels: string[] }) {
  */
 export function AccessTypeBadges({ accessPoint }: { accessPoint: MapAccessPoint }) {
   const { colors } = useTheme();
-  const types = accessPointTypes(accessPoint);
+  const types = accessBadgeTypes(accessPoint);
   if (!types.length && !accessPoint.feeRequired) return null;
   return (
     <View style={styles.chips}>
@@ -109,7 +109,7 @@ export function AccessTypeBadges({ accessPoint }: { accessPoint: MapAccessPoint 
         const symbol = accessTypeSymbol(type);
         return (
           <View key={type} style={[styles.chip, { backgroundColor: colors.cardRaised }]}>
-            {symbol ? <EddySymbol name={symbol} size={14} /> : null}
+            {symbol ? <EddySymbol name={symbol} size={16} /> : null}
             <Text style={[styles.chipText, { color: colors.textMuted }]}>
               {accessTypeLabel(type)}
             </Text>

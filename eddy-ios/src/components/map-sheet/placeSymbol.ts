@@ -83,6 +83,20 @@ export function accessTypeSymbol(type: string): PlaceSymbolName | null {
 }
 
 /**
+ * The types worth spending badge space on.
+ *
+ * `access` is useful by itself: it says this is a plain put-in with none of the
+ * more specific roles the catalog knows. Beside Boat ramp, Campground, Bridge,
+ * Gravel bar or Park it says only that an access point is an access point — the
+ * sheet title and every one of those labels already said that. Keep the generic
+ * badge only when it is the whole answer.
+ */
+export function accessBadgeTypes(point: MapAccessPoint): string[] {
+  const types = accessPointTypes(point);
+  return types.length > 1 ? types.filter((type) => type !== 'access') : types;
+}
+
+/**
  * The mark for a tapped place: layer first, then its own types, then generic.
  *
  * Never null. Every pin the sheet can open is one of the things above or is an
