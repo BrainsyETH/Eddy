@@ -23,8 +23,6 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import type { MapPin } from '@/map/RiverMap';
-import { useAccessGaugeStatus } from '@/hooks/useAccessGaugeStatus';
-import { formatReading } from '@/lib/readingCopy';
 import { PlaceHead } from './PlaceHead';
 import { AccessTypeBadges } from './sections';
 import { confirmPlanAction, isDriveable, openDirections } from './sheetActions';
@@ -66,16 +64,6 @@ export function PinCallout({
   onToggleStar?: (() => void) | null;
 }) {
   const { colors, isDark } = useTheme();
-  // Access points only, and only ones with a detail route — the hook returns
-  // null for everything else, so no guard is needed here.
-  const accessGauge = useAccessGaugeStatus(accessPoint ? pin.detailRoute : null);
-  const accessGaugeReading = accessGauge
-    ? accessGauge.cfs != null
-      ? formatReading(accessGauge.cfs, 'cfs')
-      : accessGauge.heightFt != null
-        ? formatReading(accessGauge.heightFt, 'ft')
-        : null
-    : null;
   const planAsTakeOut = canSetTakeOut;
   const planActionLabel = planAsTakeOut ? 'Use as take-out' : 'Use as put-in';
   const performPlanAction = planAsTakeOut ? onSetTakeOut : onSetPutIn;
@@ -304,52 +292,14 @@ export function PinCallout({
         </View>
       ) : null}
 
-      {/* ── The water at this put-in ────────────────────────────────
-          Arrives after the callout is already open — see useAccessGaugeStatus
-          for why it is late and why it never blocks the buttons below.
-
-          Drawn in the SAME row a gauge pin uses, because it is the same kind
-          of fact and must not look like a different one. What it adds is the
-          station's name: this is the river's nearest at-or-upstream gauge
-          applied to the reach, not a sensor at this ramp, and naming it is the
-          difference between a reading and a measurement taken here. */}
-      {accessGauge ? (
-        <Pressable
-          onPress={() => onOpenGauge(accessGauge.usgsId)}
-          style={({ pressed }) => [styles.calloutAccessGauge, { opacity: pressed ? 0.6 : 1 }]}
-          accessibilityRole="button"
-          accessibilityLabel={`${accessGauge.gaugeName}, ${accessGauge.label}. Open the gauge`}
-        >
-          <View style={styles.calloutReadingRow}>
-            {accessGaugeReading ? (
-              <Text
-                style={[
-                  styles.calloutReading,
-                  { color: conditionText(accessGauge.level, isDark) },
-                ]}
-              >
-                {accessGaugeReading}
-              </Text>
-            ) : null}
-            <View
-              style={[
-                styles.calloutChip,
-                {
-                  backgroundColor: conditionBg(accessGauge.level),
-                  borderColor: conditionChipBorder(accessGauge.level),
-                },
-              ]}
-            >
-              <Text style={[styles.calloutChipText, { color: conditionInk(accessGauge.level) }]}>
-                {accessGauge.label}
-              </Text>
-            </View>
-          </View>
-          <Text style={[styles.calloutMeta, { color: colors.textMuted }]} numberOfLines={1}>
-            at {accessGauge.gaugeName}
-          </Text>
-        </Pressable>
-      ) : null}
+      {/* ── THE WATER AT A PUT-IN IS NOT DRAWN HERE ANY MORE ────────
+          It moved to the tabbed sheet's own header, where it is now the first
+          thing under the name — see AccessGaugeReading in sections.tsx. This
+          callout no longer renders for access points at all: PinSheet decides
+          the shell from what was TAPPED rather than from how many tabs have
+          qualified, so a put-in holds the tabbed shape from its first frame
+          and this is the non-access sheet. Keeping a copy here would have been
+          a second reading nobody could reach. */}
 
       {pin.body ? (
         // Capped at four lines. A callout that grows to a hazard's full seasonal
@@ -474,7 +424,6 @@ const styles = StyleSheet.create({
   callout: { paddingHorizontal: 16, paddingBottom: 4 },
   // The identity row's own styles left with it — see PlaceHead. So did the type
   // pills, which are AccessTypeBadges in sections.tsx now.
-  calloutMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 1 },
   calloutPrivate: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -486,10 +435,6 @@ const styles = StyleSheet.create({
   },
   calloutPrivateText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
   calloutReadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9 },
-  // The access-point reading is one tap target covering the number, the chip
-  // and the station name, because all three are the same fact and they all
-  // lead to the same screen.
-  calloutAccessGauge: { marginTop: 0 },
   calloutReading: { ...t.lg, fontFamily: fonts.mono },
   calloutChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
   calloutChipText: { ...t.sm, fontFamily: fonts.semibold },

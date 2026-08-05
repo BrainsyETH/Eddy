@@ -18,10 +18,12 @@
 // surface that is already competing with the map for the screen.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { MapAccessPoint } from '@eddy/types';
+import type { AccessPointGaugeStatus, MapAccessPoint } from '@eddy/types';
 import { accessPointTypes, accessTypeLabel } from '@eddy/types';
+import { conditionBg, conditionChipBorder, conditionInk, conditionText } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { formatReading } from '@/lib/readingCopy';
 import { EddySymbol } from '@/components/EddySymbol';
 import { accessTypeSymbol } from './placeSymbol';
 
@@ -126,6 +128,84 @@ export function AccessTypeBadges({ accessPoint }: { accessPoint: MapAccessPoint 
 }
 
 /**
+ * THE WATER AT A PUT-IN — the one fact that decides whether you drive there.
+ *
+ * ── Why this is shared, and where it is shown ─────────────────────────────
+ * It is drawn twice, in two places a reader sees seconds apart: at the top of
+ * the sheet's peek, where it is the reason the sheet is worth opening, and
+ * again on the Conditions tab with the trend and the timestamp under it. Two
+ * copies of a reading are two chances to disagree about what a number means,
+ * which is the exact failure shared/flow-band.ts exists to prevent.
+ *
+ * ── It is the RIVER's gauge, and it says so ───────────────────────────────
+ * The server grades this from the nearest at-or-upstream gauge applied to the
+ * reach — not from a sensor at this put-in, which does not exist. So the
+ * station's NAME is not decoration and is not droppable at small sizes: a
+ * reading with no station on it reads as measured here.
+ *
+ * ── Late, never blocking ──────────────────────────────────────────────────
+ * Absent until the detail request lands, and absent for good if it fails. The
+ * sheet is fully usable without it — Directions and "Use as put-in" are live
+ * from the first frame — so this appears underneath them rather than reserving
+ * a space that then has to be filled or explained.
+ */
+export function AccessGaugeReading({
+  status,
+  onOpenGauge,
+}: {
+  status: AccessPointGaugeStatus | null | undefined;
+  onOpenGauge: (siteId: string) => void;
+}) {
+  const { colors, isDark } = useTheme();
+  if (!status) return null;
+
+  const reading =
+    status.cfs != null
+      ? formatReading(status.cfs, 'cfs')
+      : status.heightFt != null
+        ? formatReading(status.heightFt, 'ft')
+        : null;
+
+  return (
+    <Pressable
+      onPress={() => onOpenGauge(status.usgsId)}
+      // One tap target over the number, the chip and the station name, because
+      // all three are the same fact and all three lead to the same screen.
+      style={({ pressed }) => [styles.readingBlock, { opacity: pressed ? 0.6 : 1 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`${status.gaugeName}, ${status.label}. Open the gauge`}
+    >
+      <View style={styles.readingRow}>
+        {reading ? (
+          <Text style={[styles.reading, { color: conditionText(status.level, isDark) }]}>
+            {reading}
+          </Text>
+        ) : null}
+        {/* The number and its verdict on one line: a reading means nothing
+            without the band it sits in, and the band means less without the
+            number. The same rule the river row is built on. */}
+        <View
+          style={[
+            styles.readingChip,
+            {
+              backgroundColor: conditionBg(status.level),
+              borderColor: conditionChipBorder(status.level),
+            },
+          ]}
+        >
+          <Text style={[styles.readingChipText, { color: conditionInk(status.level) }]}>
+            {status.label}
+          </Text>
+        </View>
+      </View>
+      <Text style={[styles.gaugeName, { color: colors.textMuted }]} numberOfLines={2}>
+        at {status.gaugeName}
+      </Text>
+    </Pressable>
+  );
+}
+
+/**
  * A tappable row. Chevron for somewhere in the app, the outward arrow for
  * somewhere that is not — the distinction is worth a glyph, because one of
  * them leaves for Safari or the phone app.
@@ -200,6 +280,16 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   chipText: { ...t.sm, fontFamily: fonts.medium },
+  // The reading's own chip is NOT the badge chip above it: it carries a
+  // condition tint and therefore a border, and its label is the verdict rather
+  // than a category. Same pill, different weight — kept apart so restyling the
+  // type badges cannot quietly restyle a condition.
+  readingBlock: { marginTop: 10 },
+  readingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  reading: { ...t.lg, fontFamily: fonts.mono },
+  readingChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
+  readingChipText: { ...t.sm, fontFamily: fonts.semibold },
+  gaugeName: { ...t.sm, fontFamily: fonts.body, marginTop: 3 },
   linkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   linkText: { flex: 1, minWidth: 0 },
   linkLabel: { ...t.sm, fontFamily: fonts.medium },

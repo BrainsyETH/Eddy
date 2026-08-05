@@ -6,14 +6,20 @@
 // selected, so no caller has to know that a gauge and a put-in are different
 // kinds of card.
 //
-// ── Only access points are tabbed, for now ────────────────────────────────
-// Gauges, dams, hazards and outfitters still render the single-page callout,
-// unchanged and inside the same draggable shell. Their tab sets are real work
-// of their own — a curated gauge and a national one must not share a
-// vocabulary, and a schedule-only dam has strictly less to say than one with a
-// tailwater — and doing them here would have made this change about four types
-// at once. An access point with only one qualifying tab also lands here, which
-// is what stops a tab bar appearing over a single page.
+// ── Access points and gauges are tabbed; dams and hazards are not ─────────
+// Dams, hazards and outfitters still render the single-page callout, unchanged
+// and inside the same draggable shell. Their tab sets are real work of their
+// own — a schedule-only dam has strictly less to say than one with a tailwater
+// — and doing them here would have made this change about four types at once.
+//
+// ── THE SHELL IS CHOSEN BY WHAT WAS TAPPED, NOT BY HOW MUCH LANDED ────────
+// It was chosen by tab count, and a tab count is not known on the first frame:
+// an access point qualifies for Overview alone until its detail request lands,
+// so every put-in opened as a callout and swapped its whole peek for the tabbed
+// header a moment later. What the reader saw was the sheet resettling under
+// their thumb for no reason they could name. A pin's TYPE is known the instant
+// it is tapped, so that is what decides the shape; the tab bar is the only
+// thing the late request is allowed to add.
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,7 +38,7 @@ import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { MapSheet } from './MapSheet';
 import { PinCallout } from './PinCallout';
 import { PlaceHead } from './PlaceHead';
-import { AccessTypeBadges } from './sections';
+import { AccessGaugeReading, AccessTypeBadges } from './sections';
 import { SheetTabBar } from './SheetTabBar';
 import { SheetPager, mountedPages } from './SheetPager';
 import { accessTabs, initialTabKey, type TabKey } from './tabs';
@@ -155,11 +161,26 @@ export function PinSheet(props: PinSheetProps) {
 
   const isMounted = mountedPages(activeIndex, activeTabs.length);
 
-  // One tab is not a tab bar. Hazards and outfitters land here always; so does
-  // an access point or a station that has not qualified for a second tab yet.
-  if (activeTabs.length <= 1) {
-    // All glance. The callout IS the peek, which is exactly how a hazard or an
-    // outfitter behaved before any of this existed.
+  // ── AN ACCESS POINT NEVER TAKES THIS PATH ───────────────────────────────
+  // It used to, for as long as Overview was its only qualifying tab — which is
+  // every access point, for the few hundred milliseconds before the detail
+  // request lands. So the sheet opened as a PinCallout and then, mid-glance,
+  // swapped its entire peek for PinSheetHeader: a different component, a
+  // different set of rows, a different measured height. MapSheet did exactly
+  // what it promises in that situation and followed its own detent to the new
+  // height over 180ms — which the reader sees as the sheet resettling under
+  // their thumb, for having done nothing at all.
+  //
+  // Now the shell is decided by WHAT WAS TAPPED, which is known on the first
+  // frame, rather than by how many tabs have qualified, which is not. The tab
+  // bar is what appears when the request lands; the peek does not move.
+  //
+  // Everything else still lands here and should: a hazard, an outfitter, a dam
+  // with nothing but a schedule. For those the callout IS the peek, exactly as
+  // it was before any of this existed. Gauges never reach it either — gaugeTabs
+  // always yields Now and About — so this is the non-access, single-page sheet
+  // and nothing else.
+  if (!accessPoint && activeTabs.length <= 1) {
     return (
       <MapSheet
         resetKey={pin.id}
@@ -178,7 +199,10 @@ export function PinSheet(props: PinSheetProps) {
       accessPoint,
       detail,
       onOpenGauge: props.onOpenGauge,
-      onOpenDetail: () => pin.detailRoute && props.onOpenDetail(pin.detailRoute),
+      // Null, not a closure that checks and does nothing — a tab decides
+      // whether to draw the row from this, and it now draws it on pins whose
+      // detail request has not landed. See TabProps.onOpenDetail.
+      onOpenDetail: pin.detailRoute ? () => props.onOpenDetail(pin.detailRoute!) : null,
       onOpenRiver: props.onOpenRiver,
       onPlanTo: props.onPlanTo,
       campableIds: props.campableIds,
@@ -218,12 +242,23 @@ export function PinSheet(props: PinSheetProps) {
     >
       <View onLayout={onChromeLayout}>
         <PinSheetDetail pin={pin} accessPoint={accessPoint} />
-        <SheetTabBar
-          labels={activeTabs.map((tab) => tab.label)}
-          index={activeIndex}
-          onSelect={(i) => setChosen(activeTabs[i]?.key ?? null)}
-          progress={progress}
-        />
+        {/* ONE TAB IS NOT A TAB BAR. An access point holds this shape from the
+            first frame, so for the moment before its detail lands there is a
+            single page and nothing to choose between — and a bar with one
+            entry is a control that cannot be operated.
+
+            It appears rather than the layout changing around it: everything
+            above is in the peek and does not move, and the pager below is
+            already the right width for one page. Measured either way, because
+            onChromeLayout wraps both and the page budget has to know. */}
+        {activeTabs.length > 1 ? (
+          <SheetTabBar
+            labels={activeTabs.map((tab) => tab.label)}
+            index={activeIndex}
+            onSelect={(i) => setChosen(activeTabs[i]?.key ?? null)}
+            progress={progress}
+          />
+        ) : null}
       </View>
       <SheetPager
         count={activeTabs.length}
@@ -261,6 +296,7 @@ function PinSheetHeader({
   onSetPutIn,
   onSetTakeOut,
   onOpenDetail,
+  onOpenGauge,
   onClose,
   starred = false,
   onToggleStar = null,
@@ -290,10 +326,22 @@ function PinSheetHeader({
         onClose={onClose}
       />
 
-      {/* THE ONE FACT THAT DECIDES WHETHER YOU CARE. A sentence, and it goes
-          stale over a weekend, so it belongs where it can be read without a
-          gesture. Absent, never "unknown" — campsiteAvailabilityLine returns
-          null when it should not appear. */}
+      {/* THE WATER, FIRST. This is the fact that decides whether anybody drives
+          to a put-in, so it belongs directly under the name and above the
+          action it qualifies — you would not tap "Use as put-in" without it.
+
+          It reaches the glance from `detail.gaugeStatus`, the same response
+          every tab is drawn from. It used to come from useAccessGaugeStatus,
+          a second hook asking the SAME endpoint for this one field, mounted by
+          the callout that the tabbed sheet replaced a moment later — so every
+          tapped access point issued that request twice. One shell, one
+          request. */}
+      <AccessGaugeReading status={detail?.gaugeStatus} onOpenGauge={onOpenGauge} />
+
+      {/* Then where you sleep. A sentence, and it goes stale over a weekend, so
+          it belongs where it can be read without a gesture. Absent, never
+          "unknown" — campsiteAvailabilityLine returns null when it should not
+          appear. */}
       {availability ? (
         <Text style={[styles.availability, { color: colors.text }]} numberOfLines={2}>
           {availability}
