@@ -186,6 +186,23 @@ export function resolveDetents(
    * strip. Measuring means peek ends exactly where the primary action does.
    */
   peekHeight?: number,
+  /**
+   * Whether the peek slot holds EVERYTHING this sheet has, rather than a glance
+   * authored to sit above the rest.
+   *
+   * The two are measured differently on purpose. A sheet with children put
+   * something specific in its peek — an identity, a reading, the action you
+   * would take — and it is worth exactly its own height, because ending the
+   * glance anywhere else means ending it half way through a control strip.
+   *
+   * A single-page callout has no such split: the peek slot is the whole
+   * callout, so measuring it means the glance is however long a hazard's
+   * seasonal notes happen to be. Clamped to the fraction instead, which puts
+   * the rest below the fold where the drag can reach it — and does nothing at
+   * all to a callout that already fits, since that one is shorter than the
+   * fraction to begin with.
+   */
+  wholeContentIsPeek = false,
 ): SheetDetents {
   const safeAvailable = Math.max(0, available);
   // A content height of 0 means "not measured yet". Fall back to the peek
@@ -193,8 +210,10 @@ export function resolveDetents(
   const content =
     contentHeight > 0 ? Math.min(contentHeight, safeAvailable) : peekTarget(safeAvailable);
 
-  const measured = peekHeight && peekHeight > 0 ? Math.min(peekHeight, safeAvailable) : null;
-  const peek = Math.min(content, measured ?? peekTarget(safeAvailable));
+  const target = peekTarget(safeAvailable);
+  const raw = peekHeight && peekHeight > 0 ? Math.min(peekHeight, safeAvailable) : null;
+  const measured = raw != null && wholeContentIsPeek ? Math.min(raw, target) : raw;
+  const peek = Math.min(content, measured ?? target);
   const height: Record<Detent, number> = {
     peek,
     half: Math.min(content, Math.round(safeAvailable * HALF_FRACTION)),

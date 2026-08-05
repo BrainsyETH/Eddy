@@ -119,14 +119,21 @@ export function MapSheet({
   // BOTH: it sits inside the card and outside the measured content, so a
   // detent sized to the content alone clipped its last 16pt at every height,
   // including the tallest.
+  // No children means the peek slot is the whole sheet — the single-page
+  // callout — and its measured height is then a fact about the content rather
+  // than an authored glance. resolveDetents needs to know which it is being
+  // handed; see its `wholeContentIsPeek`.
+  const glanceOnly = children == null;
+
   const detents = useMemo(
     () =>
       resolveDetents(
         available,
         contentHeight > 0 ? contentHeight + GRABBER_BLOCK : 0,
         peekHeight,
+        glanceOnly,
       ),
-    [available, contentHeight, peekHeight],
+    [available, contentHeight, peekHeight, glanceOnly],
   );
 
   // translateY is the DISTANCE THE SHEET IS PUSHED DOWN from fully open, so 0

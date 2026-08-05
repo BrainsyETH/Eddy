@@ -301,12 +301,24 @@ export function PinCallout({
           and this is the non-access sheet. Keeping a copy here would have been
           a second reading nobody could reach. */}
 
+      {/* ── NOT CAPPED AT FOUR LINES ANY MORE ──────────────────────────
+          It was, on the argument that a callout grown to a hazard's full
+          seasonal notes covers the river it is describing. True of a callout
+          that could only ever be one height; this one has detents. What the cap
+          actually did was make the rest of a hazard PERMANENTLY unreadable —
+          and a hazard's body is the portage instruction, the description and
+          the seasonal notes joined (see RiverMap), so four lines routinely cut
+          off two of the three. The river screen "has room" only if you know to
+          go there, which nothing here said.
+
+          The glance is defended by the DETENT instead, which is the thing that
+          was actually being asked for: a long body pushes the content below the
+          fold rather than lengthening the peek, and pushing content below the
+          fold is how this sheet earns its half and full heights. A short
+          body still fits inside the glance and still gets one detent, exactly
+          as before. See wholeContentIsPeek in sheetGeometry. */}
       {pin.body ? (
-        // Capped at four lines. A callout that grows to a hazard's full seasonal
-        // notes covers the river it is describing; the river screen has room.
-        <Text style={[styles.calloutBody, { color: colors.textMuted }]} numberOfLines={4}>
-          {pin.body}
-        </Text>
+        <Text style={[styles.calloutBody, { color: colors.textMuted }]}>{pin.body}</Text>
       ) : null}
 
       {/* ── One primary, one secondary, and rows for the rest ───────

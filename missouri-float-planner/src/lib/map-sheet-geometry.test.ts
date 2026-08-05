@@ -49,6 +49,35 @@ test('tall content earns all three detents, ascending', () => {
   assert.ok(d.height.half < d.height.full);
 });
 
+test('a single-page callout keeps its glance however long its body is', () => {
+  // A hazard's body is the portage instruction, the description and the
+  // seasonal notes joined, so it is routinely long. Uncapped it measures as a
+  // 500pt "peek", which is not a glance — the fraction takes over, and the rest
+  // goes below the fold where the drag reaches it.
+  const tallCallout = resolveDetents(TALL, 500, 500, true);
+  assert.equal(tallCallout.height.peek, Math.round(TALL * 0.32));
+  assert.ok(tallCallout.order.length > 1, 'a long callout must earn something to drag to');
+  assert.equal(tallCallout.height[tallCallout.order[tallCallout.order.length - 1]], 500);
+});
+
+test('a short callout is unchanged by that rule, and still one detent', () => {
+  // The hazard callout at ~115pt: shorter than the fraction, so the clamp has
+  // nothing to do and this behaves exactly as it did before.
+  const short = resolveDetents(TALL, 115, 115, true);
+  assert.deepEqual(short.order, ['peek']);
+  assert.equal(short.height.peek, 115);
+});
+
+test('an authored glance is measured as authored, not clamped', () => {
+  // The access sheet's peek ends exactly where its primary action does, which
+  // is the whole reason it is measured rather than taken from the fraction.
+  // Clamping it would reopen the bug that comment describes: a sheet opening on
+  // half a control strip.
+  const authored = resolveDetents(TALL, 900, 260);
+  assert.equal(authored.height.peek, 260);
+  assert.ok(260 > Math.round(TALL * 0.32), 'the fixture must exceed the fraction to prove anything');
+});
+
 test('the tallest detent always leaves the Mapbox ornaments somewhere to sit', () => {
   // Not a layout preference. The logo and the attribution are a term of the
   // licence, the sheet covers the band they live in, and the map screen lifts
