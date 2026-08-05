@@ -167,11 +167,11 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     method: 'A handful of vertices is a placeholder line, not a simplified one.',
   },
   coordinate_density_low: {
-    kind: 'judgment',
-    action: 'Lower SIMPLIFY_TOLERANCE_DEG and re-import, if the line drives mileage on this river.',
-    where: 'scripts/import-nhd-rivers-from-tnm.ts',
+    kind: 'investigate',
+    action: 'Check this is a placeholder line rather than the catalog-wide import tolerance.',
+    where: 'select st_npoints(geom) from rivers where slug = ...',
     method:
-      'One cause, not one per river: the import thins every line with Douglas-Peucker at 0.0005 deg, which lands the whole catalog at 3-5 points per mile. ST_LineLocatePoint does not round to vertices — it interpolates along the nearest segment — so the risk is not a snapped point jumping to a vertex. It is that a ~400 m chord cuts the inside of a meander, which shortens measured channel distance and can put a point near a tight bend on the wrong chord entirely.',
+      'The threshold is 3/mile, not the 5 it used to be, because 5 fired on 22 of 24 rivers — the import thins every line with Douglas-Peucker at 0.0005 deg and the whole catalog lands at 3-5 pts/mile, which is one fact filed 22 times. Below 3 is a different thing: a line nobody traced. If a re-import is ever on the table anyway, note that quartering the vertex count costs under 6% of channel length, so density is not where mileage accuracy is won. ST_LineLocatePoint does not round to vertices — it interpolates along the nearest segment — so the risk is a ~400 m chord cutting the inside of a meander, not a point jumping to a vertex.',
   },
   length_miles_disagrees_geometry: {
     kind: 'investigate',

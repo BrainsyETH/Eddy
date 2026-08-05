@@ -98,7 +98,46 @@ const STATE_BOUNDS: Readonly<Record<string, BoundingBox>> = {
 };
 
 const MIN_COORDINATE_COUNT = 10;
-const MIN_COORDS_PER_MILE = 5;
+
+/**
+ * Three, lowered from five, because five was measuring a defect that is not one.
+ *
+ * At five it fired on 22 of 24 active rivers — every one of them between 3.1 and
+ * 5.1 points per mile, because they all came out of one Douglas-Peucker pass at
+ * one tolerance in one import script. That is a single fact about the catalog,
+ * and filing it 22 times turns the console into the wall of standing complaints
+ * this whole framework exists to prevent.
+ *
+ * The question the rule should answer is whether the line traces the channel
+ * closely enough for mileage, and the answer at 4 pts/mile is yes, measured two
+ * ways that agree:
+ *
+ *   ST_Simplify to a QUARTER of the current vertex count — about 1.4 pts/mile —
+ *     costs only 2.8% to 5.6% of channel length (Gasconade 2.80, Meramec 3.70,
+ *     Current 3.97, Niangua 4.95, Jacks Fork 5.56). The curve through here is
+ *     flat, so the vertices being dropped are not where the length lives.
+ *
+ *   The import bounds deviation at 0.0005 deg, roughly 50 m, over chords of
+ *     roughly 400 m. A 50 m bulge on a 400 m chord is about 4% of arc length,
+ *     which caps the error independently of the measurement above.
+ *
+ * So the catalog understates true channel length by something like 2-4%. That is
+ * smaller than the 10% gap MAX_LENGTH_DISAGREEMENT already accepts as the
+ * legitimate difference between guide miles and a traced line, and float time is
+ * returned as a range that refuses to estimate at all for dangerous water — so
+ * it cannot reach a go/no-go answer.
+ *
+ * Three still catches what the rule is for: a placeholder line with a handful of
+ * vertices strung across a river. Below that, coordinate_count_very_low catches
+ * the truly degenerate ones on the absolute count.
+ *
+ * Re-importing all 24 rivers at a finer tolerance was the alternative and is the
+ * worse trade: it re-runs the machinery that leaves length_miles untouched on
+ * its UPDATE path, and whose longest-connected-component walk is the likeliest
+ * explanation for War Eagle Creek's 68-mile line. Chasing 3% through that risks
+ * considerably more than 3%.
+ */
+const MIN_COORDS_PER_MILE = 3;
 
 /**
  * How far `length_miles` may sit from the measured line before it is a finding.
