@@ -11,7 +11,8 @@ EXPORT_DIR := $(or $(TMPDIR),/tmp)/eddy-expo-export
 NODE_MAJOR := $(shell sed 's/[^0-9].*//' .nvmrc 2>/dev/null)
 
 .PHONY: help guard-node setup-web setup-mobile check-web check-mobile check-db \
-        bundle-mobile check dev preflight-eas build-ios testflight check-eas-env
+        bundle-mobile check dev preflight-eas build-ios testflight check-eas-env \
+        env-pull run-ios archive-ios
 
 help: ## List targets (default)
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  make %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -115,6 +116,46 @@ preflight-eas: guard-node
 	@python3 -m pip install --quiet pathspec \
 		|| python3 -m pip install --quiet --break-system-packages pathspec
 	python3 $(MOBILE)/scripts/check-easignore.py
+
+# ── BUILDING ON YOUR OWN MAC ───────────────────────────────────────────────
+#
+# None of the three targets below depends on preflight-eas, and that is the
+# whole point: preflight deletes eddy-ios/ios, which is exactly the directory a
+# local build lives in. Depending on it would delete the build tree before
+# every build. The deletion is still right for a CLOUD build — a checked-in
+# native project must never enter the EAS archive — so the two flows genuinely
+# want opposite things and are kept apart.
+#
+# WHY LOCAL AT ALL: the Free plan's iOS builds are monthly and run out, and
+# `eas build --local` has its own failure — it imports the distribution
+# certificate into a throwaway keychain and validates it there, which is
+# unreliable on recent macOS ("Distribution certificate ... hasn't been
+# imported successfully"). archive-ios sidesteps that entirely by letting Xcode
+# sign, using the identity already in your login keychain.
+
+env-pull: guard-node ## Pull EAS env vars into eddy-ios/.env for a local build
+	@echo "==> Writing eddy-ios/.env from the EAS 'production' environment"
+	@echo "    This file holds live keys. It is gitignored; keep it that way."
+	cd $(MOBILE) && npx eas-cli@latest env:pull --environment production
+
+# A cloud build gets EXPO_PUBLIC_* injected from the EAS environment. A local
+# one does not: Metro inlines them from the process, so without .env the app
+# builds clean and launches with no map, no auth and no purchases — a failure
+# that looks like a bug in the app rather than a missing file. Hence env-pull.
+run-ios: guard-node ## Local SIMULATOR build (no signing, no EAS build credit)
+	cd $(MOBILE) && npx expo run:ios
+
+archive-ios: guard-node ## Prebuild + pods, then open Xcode to archive and submit
+	cd $(MOBILE) && npx expo prebuild --clean --platform ios
+	cd $(MOBILE)/ios && pod install
+	@echo ""
+	@echo "  Xcode is opening. Product > Archive, then Distribute App."
+	@echo ""
+	@echo "  Signing lives in eddy-ios/ios/, which the next prebuild --clean"
+	@echo "  DELETES. That is why the certificate error keeps coming back —"
+	@echo "  it is not Xcode forgetting, it is the directory going away."
+	@echo ""
+	cd $(MOBILE)/ios && open *.xcworkspace
 
 build-ios: preflight-eas ## Safe EAS build for internal distribution (device testing)
 	cd $(MOBILE) && npx eas-cli@latest build --profile preview --platform ios

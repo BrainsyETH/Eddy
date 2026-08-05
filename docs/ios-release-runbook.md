@@ -303,6 +303,60 @@ cd eddy-ios
 npx eas-cli@latest build:inspect --platform ios --stage archive --output-dir /tmp/eas-archive
 ```
 
+### Building without a cloud build credit
+
+The Free plan's iOS builds are monthly and they run out. When they do, nothing
+about the app is wrong and there is nothing to wait for — the work moves to
+your Mac. Three targets, in the order you reach for them:
+
+| Target | Produces | Signing | Costs an EAS build |
+| --- | --- | --- | --- |
+| `make run-ios` | app on the simulator | none (ad-hoc) | no |
+| `make archive-ios` | .ipa via Xcode, submittable | Xcode, your login keychain | no |
+| `make build-ios` / `make testflight` | .ipa via EAS | EAS-held credentials | **yes** |
+
+**Pull the environment first, once per machine:**
+
+```bash
+make env-pull      # writes eddy-ios/.env from the EAS 'production' environment
+```
+
+This is the step with no error message. A cloud build has `EXPO_PUBLIC_*`
+injected by EAS; a local one does not, because Metro inlines them from the
+process. Skip it and the build succeeds, the app launches, and the map is an
+empty panel, auth never happens and the paywall says purchases are unavailable
+— which reads as several unrelated bugs rather than as one missing file. The
+table in §"What each variable costs you" is the same list of symptoms.
+
+`.env` holds live keys. `.gitignore` covers `.env` and every `.env.*`
+variant except the tracked `.env.example`, and `.easignore` denies them from
+the archive; neither of those is a reason to be casual with it.
+
+**Why `eas build --local` is not in that table.** It exists and it is the
+obvious thing to try, but it fails on recent macOS in a way that is not worth
+debugging under release pressure:
+
+```
+[PREPARE_CREDENTIALS] Importing distribution certificate into the keychain
+[PREPARE_CREDENTIALS] Validating whether the distribution certificate has been imported successfully
+Error: Distribution certificate with fingerprint ... hasn't been imported successfully
+```
+
+It creates a throwaway keychain, imports the `.p12` EAS holds, and validates
+it there. The certificate is fine — `security find-identity -v -p codesigning`
+will list it — it is the temporary-keychain round trip that is unreliable.
+`make archive-ios` avoids the whole path by letting Xcode sign with the
+identity already in your login keychain.
+
+It also needs fastlane on PATH (`brew install fastlane`, not `gem install`:
+macOS system Ruby is 2.6 and Apple-deprecated), and it fails
+`spawn fastlane ENOENT` without it.
+
+**`expo doctor` runs first and can stop a local build** over patch-level
+dependency drift that a cloud build tolerates. `npx expo install --check` is
+the fix, on Node 20, followed by `make check` — it rewrites
+`package-lock.json`, which is exactly the file `guard-node` exists to protect.
+
 ### Local builds and code signing
 
 A simulator build is signed ad-hoc and needs no certificate. A **local device**
