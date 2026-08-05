@@ -100,14 +100,28 @@ export interface SheetDetents {
  * is exactly how the callout behaves today, and is why adopting this does not
  * change how a short pin looks at rest.
  */
-export function resolveDetents(available: number, contentHeight: number): SheetDetents {
+export function resolveDetents(
+  available: number,
+  contentHeight: number,
+  /**
+   * The measured height of the sheet's peek slot, when it has one.
+   *
+   * PREFERRED OVER THE FRACTION, because a glance should be as tall as the
+   * thing being glanced at and no taller. The fraction lands wherever it lands
+   * — on a typical phone that was ~224pt, which is just past the header and
+   * straight into the tab bar, so the sheet opened showing half a control
+   * strip. Measuring means peek ends exactly where the primary action does.
+   */
+  peekHeight?: number,
+): SheetDetents {
   const safeAvailable = Math.max(0, available);
   // A content height of 0 means "not measured yet". Fall back to the peek
   // target so the first frame is not a zero-height sheet that then jumps.
   const content =
     contentHeight > 0 ? Math.min(contentHeight, safeAvailable) : peekTarget(safeAvailable);
 
-  const peek = Math.min(content, peekTarget(safeAvailable));
+  const measured = peekHeight && peekHeight > 0 ? Math.min(peekHeight, safeAvailable) : null;
+  const peek = Math.min(content, measured ?? peekTarget(safeAvailable));
   const height: Record<Detent, number> = {
     peek,
     half: Math.min(content, Math.round(safeAvailable * HALF_FRACTION)),

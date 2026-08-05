@@ -61,10 +61,22 @@ interface Props {
    * the map screen sixty times a second for no benefit.
    */
   onDetentChange?: (detent: Detent, height: number) => void;
-  children: React.ReactNode;
+  /**
+   * What a GLANCE shows, and the thing peek is measured against.
+   *
+   * Kept a separate slot rather than the first part of children so the split is
+   * declared rather than inferred from a pixel count. Whatever goes here is
+   * what the sheet is at rest: an identity, the one fact that decides whether
+   * you care, and the action you would take. Tabs, chips and detail belong
+   * below it — they are what dragging is FOR, and a sheet that already shows
+   * them at rest has spent the gesture before the reader made it.
+   */
+  peek: React.ReactNode;
+  /** Absent for a sheet that is all glance — a hazard, an outfitter. */
+  children?: React.ReactNode;
 }
 
-export function MapSheet({ resetKey, onClose, onDetentChange, children }: Props) {
+export function MapSheet({ resetKey, onClose, onDetentChange, peek, children }: Props) {
   const { colors, elevation } = useTheme();
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
@@ -73,11 +85,12 @@ export function MapSheet({ resetKey, onClose, onDetentChange, children }: Props)
   // stack, not the window, and the two differ by the tab bar and both insets.
   const [available, setAvailable] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
+  const [peekHeight, setPeekHeight] = useState(0);
   const [detent, setDetent] = useState<Detent>('peek');
 
   const detents = useMemo(
-    () => resolveDetents(available, contentHeight),
-    [available, contentHeight],
+    () => resolveDetents(available, contentHeight, peekHeight),
+    [available, contentHeight, peekHeight],
   );
 
   // translateY is the DISTANCE THE SHEET IS PUSHED DOWN from fully open, so 0
@@ -243,6 +256,11 @@ export function MapSheet({ resetKey, onClose, onDetentChange, children }: Props)
     setContentHeight(Math.round(event.nativeEvent.layout.height));
   }, []);
 
+  // Includes the grabber row above it, because that is on screen at rest too.
+  const onPeekLayout = useCallback((event: LayoutChangeEvent) => {
+    setPeekHeight(Math.round(event.nativeEvent.layout.height) + GRABBER_BLOCK);
+  }, []);
+
   const scrollContext = useMemo(
     () => ({ scrollY, panRef, detent, atFull, available }),
     [scrollY, panRef, detent, atFull, available],
@@ -277,6 +295,7 @@ export function MapSheet({ resetKey, onClose, onDetentChange, children }: Props)
 
           <SheetScrollContext.Provider value={scrollContext}>
             <View onLayout={onContentLayout} style={{ paddingBottom: insets.bottom + 12 }}>
+              <View onLayout={onPeekLayout}>{peek}</View>
               {children}
             </View>
           </SheetScrollContext.Provider>
@@ -285,6 +304,10 @@ export function MapSheet({ resetKey, onClose, onDetentChange, children }: Props)
     </View>
   );
 }
+
+// Grabber row: 8 top + 4 height + 4 bottom. A constant rather than a second
+// measurement, because it cannot change without this file changing.
+const GRABBER_BLOCK = 16;
 
 const styles = StyleSheet.create({
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },

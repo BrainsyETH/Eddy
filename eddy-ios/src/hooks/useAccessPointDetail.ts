@@ -46,22 +46,40 @@ function slugsFromRoute(route: string | null | undefined): { river: string; acce
 }
 
 /**
- * `null` covers "not an access point", "still loading" and "failed" alike.
+ * The payload, and WHICH KIND OF NOTHING it is when there is none.
  *
- * Deliberate, and the same choice useAccessGaugeStatus made: every tab does the
- * same thing in all three cases, which is to show what it can and leave out
- * what it cannot. A state that distinguished them would be state about the
- * request rather than about the place, and it would have to be rendered.
+ * useAccessGaugeStatus folds "not an access point", "loading" and "failed" into
+ * one null, on the grounds that the caller does the same thing in all three.
+ * That was true of a callout showing a reading or not. It is not true of a tab:
+ * waiting and having failed look identical if both render blank, and the reader
+ * has no way to tell whether to wait or to stop waiting.
  */
-export function useAccessPointDetail(
-  detailRoute: string | null | undefined,
-): AccessPointDetailResponse | null {
+export type DetailStatus = 'idle' | 'loading' | 'ready' | 'failed';
+
+export function useAccessPointDetail(detailRoute: string | null | undefined): {
+  detail: AccessPointDetailResponse | null;
+  /**
+   * Told apart deliberately. A tab that is waiting and a tab that asked and
+   * failed look identical if both just show nothing, and the reader cannot
+   * know whether to wait or to give up.
+   */
+  status: DetailStatus;
+} {
   const [held, setHeld] = useState<{
     route: string;
     detail: AccessPointDetailResponse | null;
+    failed: boolean;
   } | null>(null);
 
-  const detail = held && held.route === detailRoute ? held.detail : null;
+  const current = held && held.route === detailRoute ? held : null;
+  const detail = current?.detail ?? null;
+  const status: DetailStatus = !detailRoute
+    ? 'idle'
+    : current
+      ? current.failed
+        ? 'failed'
+        : 'ready'
+      : 'loading';
 
   useEffect(() => {
     const slugs = slugsFromRoute(detailRoute);
@@ -71,14 +89,17 @@ export function useAccessPointDetail(
     const route = detailRoute as string;
     void fetchAccessPointDetail(slugs.river, slugs.access, controller.signal)
       .then((response) => {
-        if (!controller.signal.aborted) setHeld({ route, detail: response ?? null });
+        if (!controller.signal.aborted) setHeld({ route, detail: response ?? null, failed: false });
       })
       .catch((err) => {
         // Non-fatal by construction — the sheet is usable without any of this.
-        if (!controller.signal.aborted) warn('map', 'access point detail failed', err);
+        if (!controller.signal.aborted) {
+          warn('map', 'access point detail failed', err);
+          setHeld({ route, detail: null, failed: true });
+        }
       });
     return () => controller.abort();
   }, [detailRoute]);
 
-  return detail;
+  return { detail, status };
 }

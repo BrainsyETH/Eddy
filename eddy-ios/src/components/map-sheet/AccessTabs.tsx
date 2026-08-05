@@ -25,6 +25,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { agencyLabel, parkingLabel, roadSurfaceLabel, stripHtml } from '@/lib/accessCopy';
 import { formatReading } from '@/lib/readingCopy';
 import { Absent, Chips, Fact, LinkRow, Prose, Section } from './sections';
+import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 
 interface TabProps {
   accessPoint: MapAccessPoint;
@@ -43,6 +44,8 @@ interface TabProps {
    * is the only place that can answer this without another request.
    */
   campableIds: Set<string>;
+  /** Whether the one request behind every tab is pending, done or failed. */
+  status: DetailStatus;
 }
 
 /* ── Overview ───────────────────────────────────────────────────────────── */
@@ -229,12 +232,12 @@ export function AccessFloatsTab({ detail, onPlanTo, campableIds }: TabProps) {
  * has no nps_campgrounds row at all, and a tab that keyed off that would have
  * shown nothing for exactly the sites that most need describing.
  */
-export function AccessCampingTab({ detail }: TabProps) {
+export function AccessCampingTab({ detail, status }: TabProps) {
   const point = detail?.accessPoint;
   const nps = point?.npsCampground ?? null;
   const availability = campsiteAvailabilityLine(nps?.availability, nps?.name ?? point?.name);
 
-  if (!point) return <Absent>Camping details are still loading.</Absent>;
+  if (!point) return <Absent>{waitingCopy(status, 'Camping details')}</Absent>;
 
   return (
     <View>
@@ -309,9 +312,9 @@ export function AccessCampingTab({ detail }: TabProps) {
 
 /* ── Details ────────────────────────────────────────────────────────────── */
 
-export function AccessDetailsTab({ detail, onOpenDetail }: TabProps) {
+export function AccessDetailsTab({ detail, onOpenDetail, status }: TabProps) {
   const point = detail?.accessPoint;
-  if (!point) return <Absent>Details are still loading.</Absent>;
+  if (!point) return <Absent>{waitingCopy(status, 'Details')}</Absent>;
 
   const road = point.roadSurface?.length
     ? point.roadSurface.map(roadSurfaceLabel).join(', ')
@@ -378,6 +381,19 @@ export function AccessDetailsTab({ detail, onOpenDetail }: TabProps) {
 }
 
 /* ── Shared derivations ─────────────────────────────────────────────────── */
+
+/**
+ * What a tab says while it has nothing, told apart by WHY.
+ *
+ * "Unavailable" on a request still in flight tells the reader to give up on
+ * something that is about to arrive; a spinner on a request that already failed
+ * asks them to wait for something that never will. Restrained on purpose —
+ * neither case is an error the reader caused or can do anything about.
+ */
+function waitingCopy(status: DetailStatus, subject: string): string {
+  if (status === 'failed') return `${subject} unavailable right now.`;
+  return `Loading ${subject.toLowerCase()}…`;
+}
 
 /** Absent for both "none" and "not recorded", which a camper reads the same. */
 function countOrNull(count: number | null | undefined): string | null {

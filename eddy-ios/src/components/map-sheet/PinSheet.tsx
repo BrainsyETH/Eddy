@@ -37,10 +37,12 @@ import type { MapPin } from '@/map/RiverMap';
 import { MAP_LAYERS } from '@/map/layers';
 import { useAccessPointDetail } from '@/hooks/useAccessPointDetail';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
+import { MapSheet } from './MapSheet';
 import { PinCallout } from './PinCallout';
 import { SheetTabBar } from './SheetTabBar';
 import { SheetPager, mountedPages } from './SheetPager';
 import { accessTabs, initialTabKey, type TabKey } from './tabs';
+import type { Detent } from './sheetGeometry';
 import { confirmPlanAction, isDriveable, openDirections } from './sheetActions';
 import {
   AccessCampingTab,
@@ -77,12 +79,14 @@ export interface PinSheetProps {
   campableIds: Set<string>;
   /** How wide a tab page is — the sheet's width, measured by the caller. */
   width: number;
+  /** Forwarded to MapSheet so the map can follow the sheet. */
+  onDetentChange?: (detent: Detent, height: number) => void;
 }
 
 export function PinSheet(props: PinSheetProps) {
   const { pin, accessPoint, width } = props;
   // One request, every tab. See useAccessPointDetail.
-  const detail = useAccessPointDetail(accessPoint ? pin.detailRoute : null);
+  const { detail, status } = useAccessPointDetail(accessPoint ? pin.detailRoute : null);
   // Gauges of BOTH tiers. Null for anything else, so the hook no-ops on a pin
   // that is not a station rather than the call being made conditionally.
   const isGaugePin = pin.layer === 'gauges' || pin.layer === 'allGauges';
@@ -160,7 +164,16 @@ export function PinSheet(props: PinSheetProps) {
   // One tab is not a tab bar. Hazards and outfitters land here always; so does
   // an access point or a station that has not qualified for a second tab yet.
   if (activeTabs.length <= 1) {
-    return <PinCallout {...props} />;
+    // All glance. The callout IS the peek, which is exactly how a hazard or an
+    // outfitter behaved before any of this existed.
+    return (
+      <MapSheet
+        resetKey={pin.id}
+        onClose={props.onClose}
+        onDetentChange={props.onDetentChange}
+        peek={<PinCallout {...props} />}
+      />
+    );
   }
 
   const renderAccessTab = (key: TabKey) => {
@@ -175,6 +188,7 @@ export function PinSheet(props: PinSheetProps) {
       onOpenRiver: props.onOpenRiver,
       onPlanTo: props.onPlanTo,
       campableIds: props.campableIds,
+      status,
     };
     if (key === 'overview') return <AccessOverviewTab {...shared} />;
     if (key === 'conditions') return <AccessConditionsTab {...shared} />;
@@ -202,9 +216,14 @@ export function PinSheet(props: PinSheetProps) {
     accessPoint ? renderAccessTab(key as TabKey) : renderGaugeTab(key as GaugeTabKey);
 
   return (
-    <View>
+    <MapSheet
+      resetKey={pin.id}
+      onClose={props.onClose}
+      onDetentChange={props.onDetentChange}
+      peek={<PinSheetHeader {...props} detail={detail} />}
+    >
       <View onLayout={onChromeLayout}>
-        <PinSheetHeader {...props} detail={detail} />
+        <PinSheetDetail pin={pin} accessPoint={accessPoint} />
         <SheetTabBar
           labels={activeTabs.map((tab) => tab.label)}
           index={activeIndex}
@@ -228,7 +247,7 @@ export function PinSheet(props: PinSheetProps) {
           </View>
         ))}
       </SheetPager>
-    </View>
+    </MapSheet>
   );
 }
 
@@ -316,41 +335,10 @@ function PinSheetHeader({
         </Pressable>
       </View>
 
-      {/* The tent among them is the point: whether a put-in is also somewhere
-          you can sleep is worth knowing BEFORE you drag the sheet open. */}
-      {accessPoint ? (
-        <View style={styles.chips}>
-          {accessPointTypes(accessPoint).map((type) => (
-            <View key={type} style={[styles.chip, { backgroundColor: colors.cardRaised }]}>
-              <Text style={[styles.chipText, { color: colors.textMuted }]}>
-                {accessTypeLabel(type)}
-              </Text>
-            </View>
-          ))}
-          {accessPoint.feeRequired ? (
-            <View style={[styles.chip, { backgroundColor: colors.cardRaised }]}>
-              <Text style={[styles.chipText, { color: colors.textMuted }]}>Fee required</Text>
-            </View>
-          ) : null}
-        </View>
-      ) : null}
-
-      {accessPoint && !accessPoint.isPublic ? (
-        <View style={[styles.private, { backgroundColor: colors.cardRaised }]}>
-          <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
-          <Text style={[styles.privateText, { color: colors.textMuted }]}>
-            Private access — permission may be required
-          </Text>
-        </View>
-      ) : null}
-
-      {/* ── The second perishable fact ───────────────────────────────────
-          The gauge reading is the first, and it lives in the Conditions tab
-          because it has a station name and a trend to carry with it. This one
-          is a single sentence and it goes stale over a weekend, so it earns a
-          place above the fold: deciding whether to drive somewhere to sleep is
-          not a decision worth burying two tabs deep. Absent, never "unknown" —
-          campsiteAvailabilityLine returns null when it should not appear. */}
+      {/* THE ONE FACT THAT DECIDES WHETHER YOU CARE. A sentence, and it goes
+          stale over a weekend, so it belongs where it can be read without a
+          gesture. Absent, never "unknown" — campsiteAvailabilityLine returns
+          null when it should not appear. */}
       {availability ? (
         <Text style={[styles.availability, { color: colors.text }]} numberOfLines={2}>
           {availability}
@@ -396,6 +384,53 @@ function PinSheetHeader({
           </Pressable>
         ) : null}
       </View>
+    </View>
+  );
+}
+
+/**
+ * Everything the glance deliberately leaves out.
+ *
+ * Chips, the private notice and the type detail are all true and none of them
+ * decide whether you keep looking. They begin at the half detent, which is what
+ * gives the drag something to reveal.
+ */
+function PinSheetDetail({
+  pin,
+  accessPoint,
+}: Pick<PinSheetProps, 'pin' | 'accessPoint'>) {
+  const { colors } = useTheme();
+  void pin;
+  return (
+    <View style={styles.header}>
+      {/* The tent among them is the point: whether a put-in is also somewhere
+          you can sleep is worth knowing once the sheet is open. */}
+      {accessPoint ? (
+        <View style={styles.chips}>
+          {accessPointTypes(accessPoint).map((type) => (
+            <View key={type} style={[styles.chip, { backgroundColor: colors.cardRaised }]}>
+              <Text style={[styles.chipText, { color: colors.textMuted }]}>
+                {accessTypeLabel(type)}
+              </Text>
+            </View>
+          ))}
+          {accessPoint.feeRequired ? (
+            <View style={[styles.chip, { backgroundColor: colors.cardRaised }]}>
+              <Text style={[styles.chipText, { color: colors.textMuted }]}>Fee required</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {accessPoint && !accessPoint.isPublic ? (
+        <View style={[styles.private, { backgroundColor: colors.cardRaised }]}>
+          <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
+          <Text style={[styles.privateText, { color: colors.textMuted }]}>
+            Private access — permission may be required
+          </Text>
+        </View>
+      ) : null}
+
     </View>
   );
 }

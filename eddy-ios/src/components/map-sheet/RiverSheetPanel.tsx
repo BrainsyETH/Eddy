@@ -8,6 +8,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import type { MapAccessPoint } from '@eddy/types';
+import { MapSheet } from './MapSheet';
 import { SheetTabBar } from './SheetTabBar';
 import { SheetPager, mountedPages } from './SheetPager';
 import {
@@ -18,6 +19,7 @@ import {
   RiverSheetHeader,
 } from './RiverSheet';
 import { riverTabs, type RiverSheetData, type RiverTabKey } from './riverTabs';
+import type { Detent } from './sheetGeometry';
 
 interface Props {
   river: RiverSheetData;
@@ -27,9 +29,10 @@ interface Props {
   onSelectAccess: (point: MapAccessPoint) => void;
   onPlanPair: (putIn: MapAccessPoint, takeOut: MapAccessPoint) => void;
   width: number;
+  onDetentChange?: (detent: Detent, height: number) => void;
 }
 
-export function RiverSheetPanel({ river, width, onClose, ...handlers }: Props) {
+export function RiverSheetPanel({ river, width, onClose, onDetentChange, ...handlers }: Props) {
   const tabs = useMemo(() => riverTabs(river), [river]);
   // Held by key for the reason PinSheet documents: the set can change under the
   // reader as access points and hazards arrive for a newly selected river.
@@ -66,9 +69,13 @@ export function RiverSheetPanel({ river, width, onClose, ...handlers }: Props) {
   };
 
   return (
-    <View>
+    <MapSheet
+      resetKey={river.slug}
+      onClose={onClose}
+      onDetentChange={onDetentChange}
+      peek={<RiverSheetHeader river={river} onClose={onClose} onOpenRiver={handlers.onOpenRiver} />}
+    >
       <View onLayout={onChromeLayout}>
-        <RiverSheetHeader river={river} onClose={onClose} onOpenRiver={handlers.onOpenRiver} />
       {/* A river with no access points and no hazards is one tab, and one tab
           is not a tab bar. */}
         {tabs.length > 1 ? (
@@ -94,7 +101,7 @@ export function RiverSheetPanel({ river, width, onClose, ...handlers }: Props) {
           </View>
         ))}
       </SheetPager>
-    </View>
+    </MapSheet>
   );
 }
 

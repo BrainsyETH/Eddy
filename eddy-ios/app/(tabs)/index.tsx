@@ -124,7 +124,6 @@ import {
   type GaugeFilterKey,
 } from '@/components/GaugeFilterBar';
 import { PlanSheet } from '@/components/PlanSheet';
-import { MapSheet } from '@/components/map-sheet/MapSheet';
 import { PinSheet } from '@/components/map-sheet/PinSheet';
 import { RiverSheetPanel } from '@/components/map-sheet/RiverSheetPanel';
 
@@ -209,7 +208,7 @@ export default function MapScreen() {
   // A tab page is exactly as wide as the sheet, which is full-bleed over the
   // map. Read from the window rather than measured so it survives a rotation
   // without a layout round-trip.
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [accessPoints, setAccessPoints] = useState<MapAccessPoint[]>([]);
   // Planner data is tagged separately from what the map is drawing. The map
   // deliberately keeps the previous river visible during a switch; the planner
@@ -933,6 +932,22 @@ export default function MapScreen() {
    * Both sheets are full-width and bottom-anchored, so at every detent they own
    * the band the floating controls live in — including the glance.
    */
+  /**
+   * How tall the sheet has settled, and at which detent.
+   *
+   * Committed on SETTLE only — MapSheet never reports mid-drag, because the
+   * two things that read this are a native camera prop and a layout offset,
+   * and neither wants sixty writes a second.
+   */
+  const [sheet, setSheet] = useState<{ detent: string; height: number }>({
+    detent: 'peek',
+    height: 0,
+  });
+  const onSheetDetentChange = useCallback(
+    (detent: string, height: number) => setSheet({ detent, height }),
+    [],
+  );
+
   const sheetOpen = Boolean(
     !search.active && (selectedPin || (riverSheetData && !selectedPin)),
   );
@@ -1406,6 +1421,14 @@ export default function MapScreen() {
           zoom: viewport?.zoom,
         });
       } else {
+        // ── THE CAMERA STAYS for a pin on the river already shown ──────────
+        // Deliberate, and the thing that makes browsing nearby pins feel
+        // continuous: the map holds still and only the sheet changes, dropping
+        // back to its glance for the new selection. Re-framing on every tap
+        // would fly the map a short distance for each dot you were comparing.
+        //
+        // What keeps that pin out from under the sheet is camera PADDING —
+        // see cameraPaddingBottom on RiverMap — rather than a new centre.
         pendingAccessSelection.current = null;
       }
       setSelectedPin(pin);
@@ -1550,6 +1573,13 @@ export default function MapScreen() {
           </View>
         ) : (
           <RiverMap
+            // Frame the selection into what the sheet leaves visible. Clamped
+            // to 55% of the map: past that Mapbox's framing gets unreliable,
+            // and at the tallest detent the map is not visible anyway, so
+            // there is nothing left to keep in view.
+            cameraPaddingBottom={
+              sheetOpen ? Math.min(sheet.height, Math.round(windowHeight * 0.55)) : 0
+            }
             river={mapRiver}
             conditionCode={conditionCode}
             network={network.collection}
@@ -1643,8 +1673,20 @@ export default function MapScreen() {
             `gap` rather than a margin: it applies only BETWEEN children, so with
             no callout the row sits flush at the ornament band and nothing adds
             phantom space. */}
-        {sheetOpen ? null : (
-        <View style={styles.bottomStack} pointerEvents="box-none">
+        {/* ── The controls ride the sheet ────────────────────────────────
+            Lifted by however tall the sheet has settled, rather than hidden
+            under it. They were hidden because the sheet is a full-width
+            gesture surface and does not merely overlap them — it takes their
+            touches — but hiding cost you Locate and Plan a float for as long
+            as anything was selected.
+
+            At the tallest detent there is no room left above the sheet, so
+            they do genuinely go away there and only there. */}
+        {sheetOpen && sheet.detent === 'full' ? null : (
+        <View
+          style={[styles.bottomStack, sheetOpen ? { bottom: sheet.height + 12 } : null]}
+          pointerEvents="box-none"
+        >
           <View style={styles.controlRow} pointerEvents="box-none">
           {/* Locate. The ONLY thing that ever asks for location permission on
               this screen — see useLocation for why the prompt is never spent on
@@ -1700,8 +1742,11 @@ export default function MapScreen() {
             is a control row and a gap above MAP_CHROME_BOTTOM, well clear of
             this. See planButton's maxWidth for the one thing that could put a
             long label back over the ornaments. */}
-        {sheetOpen ? null : (
-        <View style={styles.planCluster} pointerEvents="box-none">
+        {sheetOpen && sheet.detent === 'full' ? null : (
+        <View
+          style={[styles.planCluster, sheetOpen ? { bottom: sheet.height + 12 } : null]}
+          pointerEvents="box-none"
+        >
           {/* CLEAR THE PLAN. The plan deliberately outlives its sheet — you
               build a float and dismiss the sheet to look at the water between
               its ends — but nothing on the map could undo it. The only way
@@ -1793,10 +1838,6 @@ export default function MapScreen() {
             thing that appeared was a header chip whose one action was to leave
             the screen. */}
         {riverSheetData && !selectedPin && !search.active ? (
-          <MapSheet
-            resetKey={riverSheetData.slug}
-            onClose={clearRiver}
-          >
             <RiverSheetPanel
               river={riverSheetData}
               width={windowWidth}
@@ -1812,23 +1853,12 @@ export default function MapScreen() {
                 planner.chooseTakeOut(takeOut);
                 setPlanOpen(true);
               }}
+              onDetentChange={onSheetDetentChange}
             />
-          </MapSheet>
         ) : null}
 
         {selectedPin && !search.active ? (
-          <MapSheet
-            // A new pin is a new question. See MapSheet's resetKey.
-            resetKey={selectedPin.id}
-            // Dragging the sheet shut is the same act as pressing its close
-            // button, so both land here — including the camera hold, without
-            // which shutting a gauge bubble flies you to your own position.
-            onClose={() => {
-              setSelectedPin(null);
-              setFocus(heldCamera());
-            }}
-          >
-            <PinSheet
+          <PinSheet
               pin={selectedPin}
               accessPoint={pinAccessPoint}
               canSetTakeOut={
@@ -1882,8 +1912,8 @@ export default function MapScreen() {
               }}
               campableIds={campableAccessIds}
               width={windowWidth}
+              onDetentChange={onSheetDetentChange}
             />
-          </MapSheet>
         ) : null}
       </View>
 

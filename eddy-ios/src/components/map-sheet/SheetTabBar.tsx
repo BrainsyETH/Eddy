@@ -39,6 +39,7 @@ import Animated, {
   useAnimatedStyle,
   type SharedValue,
 } from 'react-native-reanimated';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -69,6 +70,15 @@ export function SheetTabBar({ labels, index, onSelect, progress }: Props) {
 
   const measured = spans.length === labels.length && spans.every(Boolean);
 
+  // Whether the row is wider than the space it has. Measured on the scroller
+  // rather than guessed from label lengths, because the answer depends on the
+  // reader's type size as much as on the words.
+  const [barWidth, setBarWidth] = useState(0);
+  const contentWidth = measured
+    ? spans[spans.length - 1].x + spans[spans.length - 1].width + 32
+    : 0;
+  const overflows = barWidth > 0 && contentWidth > barWidth;
+
   const indicatorStyle = useAnimatedStyle(() => {
     if (!measured) return { opacity: 0 };
     const input = labels.map((_, i) => i);
@@ -80,7 +90,10 @@ export function SheetTabBar({ labels, index, onSelect, progress }: Props) {
   });
 
   return (
-    <View style={styles.bar}>
+    <View
+      style={styles.bar}
+      onLayout={(event) => setBarWidth(Math.round(event.nativeEvent.layout.width))}
+    >
       {/* ── Scrollable, because five tabs do not fit ────────────────────────
           An access point can carry Overview, Conditions, Float trips, Camping
           and Details. At the 14pt floor this screen uses those labels are
@@ -138,13 +151,36 @@ export function SheetTabBar({ labels, index, onSelect, progress }: Props) {
           pointerEvents="none"
         />
       </ScrollView>
+      {/* ── The edge fade ─────────────────────────────────────────────────
+          A scrollable row that ends flush at the screen edge looks like a row
+          that ends. Bleeding the card colour over the last few points says
+          there is more without spending a chevron on it.
+
+          Drawn with react-native-svg, which is already a dependency — the app
+          carries no gradient library and this is not worth adding one for.
+          Shown only when the labels actually overflow: a fade over a row with
+          nothing behind it is a promise of tabs that do not exist. */}
+      {overflows ? (
+        <Svg style={styles.fade} width={FADE_WIDTH} height="100%" pointerEvents="none">
+          <Defs>
+            <LinearGradient id="tabFade" x1="0" y1="0" x2="1" y2="0">
+              <Stop offset="0" stopColor={colors.card} stopOpacity="0" />
+              <Stop offset="1" stopColor={colors.card} stopOpacity="1" />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width={FADE_WIDTH} height="100%" fill="url(#tabFade)" />
+        </Svg>
+      ) : null}
       <View style={[styles.rule, { backgroundColor: colors.border }]} pointerEvents="none" />
     </View>
   );
 }
 
+const FADE_WIDTH = 24;
+
 const styles = StyleSheet.create({
   bar: { marginTop: 4 },
+  fade: { position: 'absolute', right: 0, top: 0, bottom: 0 },
   // Padding lives on the content, so the first and last tab clear the edges
   // while the scrollable area itself still spans the full width.
   scrollContent: { paddingHorizontal: 16 },
