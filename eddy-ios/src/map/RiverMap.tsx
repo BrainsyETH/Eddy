@@ -1051,43 +1051,96 @@ export function RiverMap({
     return { casing: bySlug(4.5, 7), fill: bySlug(2.5, 4) };
   }, [river]);
 
+  /**
+   * The camera's padding, as a STABLE REFERENCE.
+   *
+   * @rnmapbox/maps rebuilds the entire camera stop when this object's IDENTITY
+   * changes rather than its contents — `nativeStop` is one useMemo over
+   * [centerCoordinate, bounds, zoomLevel, padding, …], handed to native as a
+   * `stop` prop — so an inline literal rebuilt, and re-applied, a stop on every
+   * render of this map. See cameraProps for what applying one costs.
+   */
+  const cameraPadding = useMemo(
+    () => ({
+      paddingTop: 40,
+      paddingBottom: 40 + (cameraPaddingBottom ?? 0),
+      paddingLeft: 32,
+      paddingRight: 32,
+    }),
+    [cameraPaddingBottom],
+  );
+
+  // Values, not the object: `focus` is rebuilt by the map screen on renders
+  // where the target has not moved (openingFocus is a fresh literal every
+  // time), so memoising on `focus` itself would memoise nothing.
+  const focusLng = focus?.lng;
+  const focusLat = focus?.lat;
+  const focusZoom = focus?.zoom;
+
+  /**
+   * What the camera is told to do.
+   *
+   * Focus wins over bounds while it is set: `bounds` and `centerCoordinate` are
+   * contradictory instructions to one camera, so exactly one is passed.
+   *
+   * ── Why this is memoised ───────────────────────────────────────────────────
+   *
+   * A camera stop that changes identity is a camera stop that gets APPLIED, and
+   * applying one is not a no-op just because the target is unchanged:
+   *
+   *   - in the bounds branch it RE-FITS, animationMode 'none', to the plan, the
+   *     selected river, or the whole statewide network;
+   *   - in the focus branch it flies back to the last target, which while
+   *     nothing is selected is the map screen's opening focus — the user's own
+   *     position at zoom 8.5.
+   *
+   * The user's pinches and pans live in the native camera and in no React state,
+   * so a re-applied stop holds nothing that remembers them. It throws them away.
+   *
+   * `centerCoordinate: [lng, lat]` is a fresh array on every render, and so was
+   * the padding above, which meant every re-render of this map re-asserted the
+   * camera — including a re-render that merely opened a sheet. Keyed on the
+   * numbers, the stop changes when the target does and not before.
+   */
+  const cameraProps = useMemo(() => {
+    if (focusLng !== undefined && focusLat !== undefined) {
+      return {
+        // defaultSettings for the same reason it is set in the bounds case: on
+        // first mount there is nothing for an update to move FROM, and a camera
+        // given only an update opens on the default world view.
+        defaultSettings: {
+          centerCoordinate: [focusLng, focusLat],
+          zoomLevel: focusZoom ?? 13,
+        },
+        centerCoordinate: [focusLng, focusLat],
+        zoomLevel: focusZoom ?? 13,
+        animationMode: 'flyTo' as const,
+        animationDuration: 700,
+      };
+    }
+    if (cameraBounds) {
+      return {
+        defaultSettings: { bounds: cameraBounds },
+        bounds: cameraBounds,
+        animationMode: 'none' as const,
+      };
+    }
+    return {
+      // Nothing to frame yet — neither a river nor the network has landed.
+      // An empty camera is NOT a still map: with no defaultSettings the map
+      // opens on the style's own default view, which is the whole globe.
+      defaultSettings: {
+        centerCoordinate: COLD_START_CENTER,
+        zoomLevel: COLD_START_ZOOM,
+      },
+    };
+  }, [focusLng, focusLat, focusZoom, cameraBounds]);
+
   // The caller is responsible for not rendering this when Mapbox is unavailable;
   // this guard is here so a mistake shows an empty map rather than a red screen.
   if (!Mapbox) return <View style={[styles.fill, { backgroundColor: colors.bg }]} />;
 
   const stroke = conditionColor(conditionCode);
-
-  // Focus wins over bounds while it is set: `bounds` and `centerCoordinate` are
-  // contradictory instructions to one camera, so exactly one is passed.
-  const cameraProps = focus
-    ? {
-        // defaultSettings for the same reason it is set in the bounds case: on
-        // first mount there is nothing for an update to move FROM, and a camera
-        // given only an update opens on the default world view.
-        defaultSettings: {
-          centerCoordinate: [focus.lng, focus.lat],
-          zoomLevel: focus.zoom ?? 13,
-        },
-        centerCoordinate: [focus.lng, focus.lat],
-        zoomLevel: focus.zoom ?? 13,
-        animationMode: 'flyTo' as const,
-        animationDuration: 700,
-      }
-    : cameraBounds
-      ? {
-          defaultSettings: { bounds: cameraBounds },
-          bounds: cameraBounds,
-          animationMode: 'none' as const,
-        }
-      : {
-          // Nothing to frame yet — neither a river nor the network has landed.
-          // An empty camera is NOT a still map: with no defaultSettings the map
-          // opens on the style's own default view, which is the whole globe.
-          defaultSettings: {
-            centerCoordinate: COLD_START_CENTER,
-            zoomLevel: COLD_START_ZOOM,
-          },
-        };
 
   const onNetworkPress = (event: { features?: { properties?: Record<string, unknown> }[] }) => {
     const slug = event.features?.[0]?.properties?.slug;
@@ -1637,12 +1690,10 @@ export function RiverMap({
         // bottom third simply means the camera aims a third higher — no second
         // coordinate system, and nothing to keep in sync with the sheet beyond
         // one number.
-        padding={{
-          paddingTop: 40,
-          paddingBottom: 40 + (cameraPaddingBottom ?? 0),
-          paddingLeft: 32,
-          paddingRight: 32,
-        }}
+        //
+        // A STABLE REFERENCE rather than a literal, because identity is what
+        // decides whether the stop is re-applied — see cameraPadding.
+        padding={cameraPadding}
       />
 
       {/* The bundled pin shapes. Registered once for the whole map — an
