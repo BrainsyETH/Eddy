@@ -46,9 +46,20 @@ Warm, supportive surfaces that feel like sun-baked riverbank sand. Used for trip
 ### Accent — Sunset Coral
 The attention-grabber. Used for primary CTAs, active states, and the Eddy brand signature color.
 
+> **Platform-scoped role — the one place this document is not shared.** On
+> **web**, coral is the primary CTA fill and `.btn-primary` means it. On
+> **native**, the primary CTA fill is Deep River Teal (`primary-700` light /
+> `primary-500` dark) and coral is reserved for Eddy's identity and non-action
+> emphasis — because the iOS condition ladder already owns red, orange, yellow,
+> lime, emerald and stone, so a coral button on a map full of safety colour reads
+> as the loudest warning on screen. Every other value in this document applies to
+> both platforms verbatim. See
+> [ADR 0007](../../docs/decisions/0007-cta-fill-is-teal-on-native-coral-on-web.md)
+> and the `accentFill` comment in `eddy-ios/src/theme/palette.ts`.
+
 | Swatch | Hex | Role |
 |:---|:---|:---|
-| **Accent 500** | **`#F07052`** | **Base — primary CTA buttons, Eddy branding color** |
+| **Accent 500** | **`#F07052`** | **Base — primary CTA buttons (web), Eddy branding color (both)** |
 | Accent 600 | `#E5573F` | Button hover, colored shadow |
 | Accent 400 | `#F48E76` | Active nav highlight on dark backgrounds |
 | Accent 300 | `#F7AC9A` | Focus ring for accent elements |

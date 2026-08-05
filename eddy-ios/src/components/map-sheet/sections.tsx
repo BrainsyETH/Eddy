@@ -1,10 +1,14 @@
 // eddy-ios/src/components/map-sheet/sections.tsx
-// The handful of shapes every tab is built from.
+// The handful of shapes the sheet is built from — its tabs and its chrome.
 //
 // Shared rather than repeated because the tabs are the same KIND of thing said
 // about different subjects: a heading with facts under it. Four tabs each
 // inventing their own spacing would read as four screens that happened to be
 // next to each other, which is the opposite of what a tab bar promises.
+//
+// AccessTypeBadges is here for the same reason one step up: the pill was drawn
+// three times — here, in PinSheet's chrome and again in PinCallout — and one of
+// those copies is the one a reader sees, so the other two were free to drift.
 //
 // ── Absent, never empty ───────────────────────────────────────────────────
 // Every component here returns null rather than a placeholder when it has
@@ -14,8 +18,12 @@
 // surface that is already competing with the map for the screen.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import type { MapAccessPoint } from '@eddy/types';
+import { accessPointTypes, accessTypeLabel } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { EddySymbol } from '@/components/EddySymbol';
+import { accessTypeSymbol } from './placeSymbol';
 
 export function Section({
   title,
@@ -65,6 +73,54 @@ export function Chips({ labels }: { labels: string[] }) {
           <Text style={[styles.chipText, { color: colors.textMuted }]}>{label}</Text>
         </View>
       ))}
+    </View>
+  );
+}
+
+/**
+ * WHAT THIS PLACE ACTUALLY IS. A point can carry several of the six types at
+ * once — a boat ramp you can also camp at is a different day out from a gravel
+ * bar — and the pin's colour can only ever express one of them.
+ *
+ * Resolved through accessPointTypes so the `types` array wins and a row that
+ * predates it still falls back to its single `type`. Rendered even when there is
+ * one, because "Access" is information: it is the type that means "somewhere to
+ * put a boat in and nothing more".
+ *
+ * ── Which badges get a mark, and which stay text ──────────────────────────
+ * A type is a CATEGORY of place, so it takes the catalog's mark where one
+ * exists — and the two that have art are the two that change the plan: a boat
+ * ramp means you can back a trailer down, a campground means you can sleep
+ * there. Gravel bar, bridge and park have no art yet and show the label alone
+ * rather than borrowing a drawing that means something else; see placeSymbol.
+ *
+ * A FEE IS NOT A CATEGORY. It is a caveat about a place that is already named,
+ * so it stays text however many marks the catalog grows — and "Private" is not
+ * here at all, because both callers already carry the notice that explains it,
+ * and a place does not need telling twice in nine points of vertical space.
+ */
+export function AccessTypeBadges({ accessPoint }: { accessPoint: MapAccessPoint }) {
+  const { colors } = useTheme();
+  const types = accessPointTypes(accessPoint);
+  if (!types.length && !accessPoint.feeRequired) return null;
+  return (
+    <View style={styles.chips}>
+      {types.map((type) => {
+        const symbol = accessTypeSymbol(type);
+        return (
+          <View key={type} style={[styles.chip, { backgroundColor: colors.cardRaised }]}>
+            {symbol ? <EddySymbol name={symbol} size={14} /> : null}
+            <Text style={[styles.chipText, { color: colors.textMuted }]}>
+              {accessTypeLabel(type)}
+            </Text>
+          </View>
+        );
+      })}
+      {accessPoint.feeRequired ? (
+        <View style={[styles.chip, { backgroundColor: colors.cardRaised }]}>
+          <Text style={[styles.chipText, { color: colors.textMuted }]}>Fee required</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -133,7 +189,16 @@ const styles = StyleSheet.create({
   factValue: { ...t.sm, fontFamily: fonts.body, flex: 1 },
   prose: { ...t.sm, fontFamily: fonts.body, marginTop: 4, lineHeight: 20 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-  chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  // A row, because a badge may carry a mark before its label. The gap does
+  // nothing on the ones that do not, so both kinds keep the same pill.
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
   chipText: { ...t.sm, fontFamily: fonts.medium },
   linkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   linkText: { flex: 1, minWidth: 0 },

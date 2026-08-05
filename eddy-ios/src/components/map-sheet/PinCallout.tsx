@@ -11,10 +11,9 @@
 // DRIVEABLE_LAYERS came with it: it was a module constant in the screen and is
 // used by nothing else there.
 
-import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MapAccessPoint } from '@eddy/types';
-import { accessPointTypes, accessTypeLabel } from '@eddy/types';
 import {
   conditionBg,
   conditionChipBorder,
@@ -24,9 +23,10 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import type { MapPin } from '@/map/RiverMap';
-import { MAP_LAYERS } from '@/map/layers';
 import { useAccessGaugeStatus } from '@/hooks/useAccessGaugeStatus';
 import { formatReading } from '@/lib/readingCopy';
+import { PlaceHead } from './PlaceHead';
+import { AccessTypeBadges } from './sections';
 import { confirmPlanAction, isDriveable, openDirections } from './sheetActions';
 
 /**
@@ -66,7 +66,6 @@ export function PinCallout({
   onToggleStar?: (() => void) | null;
 }) {
   const { colors, isDark } = useTheme();
-  const layer = MAP_LAYERS.find((l) => l.key === pin.layer);
   // Access points only, and only ones with a detail route — the hook returns
   // null for everything else, so no guard is needed here.
   const accessGauge = useAccessGaugeStatus(accessPoint ? pin.detailRoute : null);
@@ -105,10 +104,15 @@ export function PinCallout({
    * place, so the button row and the list below can never both render the
    * same destination.
    *
-   * Coral stays reserved for the float CTA — it is the app's one accent and it
+   * THE FILL is reserved for the float CTA — one solid pill per sheet, and it
    * means "this is what Eddy is for". Other primaries take the interactive
    * outline, which is the emphasis step this callout already used for Details
    * on an access point.
+   *
+   * The fill is `accentFill`, which is TEAL and not coral however the tone is
+   * spelled: coral collides with the condition ladder, and this row can sit
+   * directly beneath a `dangerous` reading. See palette.ts and ADR 0007 — the
+   * `tone: 'accent'` name below is about rank, not hue.
    */
   const calloutButtons: {
     key: string;
@@ -224,104 +228,19 @@ export function PinCallout({
 
   return (
     <View style={styles.callout}>
-      <View style={styles.calloutHead}>
-        {accessPoint && pin.imageUrl ? (
-          <View style={styles.calloutThumbWrap}>
-            <Image
-              source={{ uri: pin.imageUrl }}
-              style={styles.calloutThumb}
-              resizeMode="cover"
-              accessibilityElementsHidden
-              importantForAccessibility="no"
-              accessibilityIgnoresInvertColors
-            />
-            <View
-              style={[
-                styles.calloutThumbDot,
-                {
-                  backgroundColor: pin.color ?? layer?.color(colors) ?? colors.interactive,
-                  // White in BOTH schemes, and inline rather than in the
-                  // StyleSheet so it is a stated exception rather than a frozen
-                  // colour the theme guard has to allow. The ring separates the
-                  // dot from a PHOTOGRAPH, which is neither light nor dark —
-                  // the same reasoning as circleStrokeColor on the map layers.
-                  borderColor: '#FFFFFF',
-                },
-              ]}
-            />
-          </View>
-        ) : (
-          <View
-            style={[
-              styles.calloutDot,
-              { backgroundColor: pin.color ?? layer?.color(colors) ?? colors.interactive },
-            ]}
-          />
-        )}
-        <View style={styles.calloutText}>
-          <Text style={[styles.calloutName, { color: colors.text }]} numberOfLines={2}>
-            {pin.name}
-          </Text>
-          {pin.subtitle ? (
-            <Text style={[styles.calloutMeta, { color: colors.textMuted }]} numberOfLines={1}>
-              {pin.subtitle}
-            </Text>
-          ) : null}
-        </View>
-        {/* IN THE HEAD, not among the actions below. The star belongs to the
-            OBJECT, which is what this row names — the same relationship
-            RiverRow expresses by giving the star its own column beside the
-            name. It was never an action on the same footing as "Put in here",
-            and it would have taken width from one on the callouts that carry
-            both. */}
-        {onToggleStar ? (
-          <Pressable
-            onPress={onToggleStar}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel={starred ? `Unstar ${pin.name}` : `Star ${pin.name}`}
-          >
-            <Ionicons
-              name={starred ? 'star' : 'star-outline'}
-              size={19}
-              color={starred ? colors.warm : colors.textMuted}
-            />
-          </Pressable>
-        ) : null}
-        <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
-          <Ionicons name="close" size={19} color={colors.textMuted} />
-        </Pressable>
-      </View>
+      {/* The identity row is PlaceHead's, shared with the tabbed sheet's own
+          header. This callout IS the peek until the detail request qualifies a
+          second tab (see PinSheet), so the two are the same place seconds apart
+          and used to disagree about how big its photo was. */}
+      <PlaceHead
+        pin={pin}
+        accessPoint={accessPoint}
+        starred={starred}
+        onToggleStar={onToggleStar}
+        onClose={onClose}
+      />
 
-      {/* WHAT THIS PLACE ACTUALLY IS. A point can carry several of the six
-          types at once — a boat ramp you can also camp at is a different day
-          out from a gravel bar — and until now the callout said only "Mile
-          12.4", with the pin's colour standing in for a category it could only
-          ever express one of.
-
-          Resolved through accessPointTypes so the `types` array wins and a row
-          that predates it still falls back to its single `type`. Rendered even
-          when there is one, because "Access" is information: it is the type
-          that means "somewhere to put a boat in and nothing more". */}
-      {accessPoint ? (
-        <View style={styles.calloutTypes}>
-          {accessPointTypes(accessPoint).map((type) => (
-            <View
-              key={type}
-              style={[styles.calloutType, { backgroundColor: colors.cardRaised }]}
-            >
-              <Text style={[styles.calloutTypeText, { color: colors.textMuted }]}>
-                {accessTypeLabel(type)}
-              </Text>
-            </View>
-          ))}
-          {accessPoint.feeRequired ? (
-            <View style={[styles.calloutType, { backgroundColor: colors.cardRaised }]}>
-              <Text style={[styles.calloutTypeText, { color: colors.textMuted }]}>Fee required</Text>
-            </View>
-          ) : null}
-        </View>
-      ) : null}
+      {accessPoint ? <AccessTypeBadges accessPoint={accessPoint} /> : null}
 
       {/* The private notice, which is now the whole of the private signal at
           this zoom — the pin itself no longer carries a padlock. Kept as a
@@ -553,30 +472,9 @@ const styles = StyleSheet.create({
   // and a second one inside it read as a card on a card. Horizontal padding
   // matches the calloutWrap this replaced; the sheet supplies the rest.
   callout: { paddingHorizontal: 16, paddingBottom: 4 },
-  calloutHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  calloutDot: { width: 10, height: 10, borderRadius: 999 },
-  calloutThumbWrap: { width: 64, height: 64 },
-  calloutThumb: { width: 64, height: 64, borderRadius: 9 },
-  // borderColor is applied INLINE at the call site, not here. StyleSheet.create
-  // runs once at import, so a colour written into it is frozen at whichever
-  // scheme the app launched with — the invariant app-theme.test.ts guards.
-  calloutThumbDot: {
-    position: 'absolute',
-    left: 5,
-    bottom: 5,
-    width: 10,
-    height: 10,
-    borderRadius: 999,
-    borderWidth: 1.5,
-  },
-  calloutText: { flex: 1, minWidth: 0 },
-  calloutName: { ...t.sm, fontFamily: fonts.semibold },
+  // The identity row's own styles left with it — see PlaceHead. So did the type
+  // pills, which are AccessTypeBadges in sections.tsx now.
   calloutMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 1 },
-  // Wraps, because six types is the ceiling and three is common. Quieter than
-  // calloutChip — a condition chip is a verdict, these are labels.
-  calloutTypes: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
-  calloutType: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
-  calloutTypeText: { ...t.sm, fontFamily: fonts.medium },
   calloutPrivate: {
     flexDirection: 'row',
     alignItems: 'center',

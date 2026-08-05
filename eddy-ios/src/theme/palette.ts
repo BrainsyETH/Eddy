@@ -2,8 +2,20 @@
 // Eddy's brand palette, ported from missouri-float-planner/.stitch/DESIGN.md.
 //
 // Names and hex values are copied verbatim from that document so the app and the
-// website read as one product. If DESIGN.md changes, change this to match — it
-// is the design system of record, not this file.
+// website read as one product. If DESIGN.md changes, change this to match — it is
+// the design system of record for everything below except one role.
+//
+// ── THE ONE EXCEPTION, stated here rather than discovered later ───────────
+// DESIGN.md gives coral as the primary CTA fill and the WEBSITE means it
+// (.btn-primary). This app fills its CTAs with teal instead and keeps coral for
+// Eddy's identity — the condition ladder already owns every warm hue, so a coral
+// button on a map full of safety colour reads as the loudest warning on screen.
+// The full argument is under `accentFill` below; the decision is ADR 0007; and
+// DESIGN.md's own Accent section carries the same note, because a divergence
+// recorded on only one side of a border is indistinguishable from drift.
+//
+// Nothing else here departs from the doc, and a second exception needs a reason
+// of that size and a note in all three places.
 //
 // The families and their roles, per the doc:
 //   Primary   — Deep River Teal   (surfaces, headers, links, focus, and — see
@@ -149,6 +161,11 @@ export interface Palette {
    *
    * White on light's primary-700 is 8.5:1 and on dark's primary-500 is 5.1:1,
    * so `onAccent` stays white in both.
+   *
+   * THE WEBSITE DID NOT FOLLOW, and that is deliberate rather than pending:
+   * `.btn-primary` is still coral there, on pages where no condition ladder is
+   * in frame. Recorded as ADR 0007 and noted in DESIGN.md's Accent section, so
+   * neither half of the product can be read as the other's stale copy.
    */
   accentFill: string;
   accentFillPressed: string;
