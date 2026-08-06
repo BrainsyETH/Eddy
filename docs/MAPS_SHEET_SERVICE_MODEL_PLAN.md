@@ -166,8 +166,15 @@ reader actually distinguishes.
 ```
 outfitter | canoe_rental | shuttle   -> 'outfitter'   rentals and shuttles
 campground                           -> 'camping'     somewhere to pitch
-lodging   | cabin_lodge              -> 'stay'        a roof, booked by the night
+lodging   | cabin_lodge              -> 'lodging'     a roof, booked by the night
+(anything else)                      -> 'other'       see the fallback policy
 ```
+
+`'lodging'` rather than `'stay'`, deliberately. `lib/stays.ts` already owns the
+word "stay" for a *third-party* search around a coordinate — `STAY_SEARCH_LABEL`
+is "Search Airbnb nearby" — and a second meaning for it, this time naming rows in
+Eddy's own directory, is exactly the one-word-two-things the vocabulary split
+being fixed here already cost us once.
 
 **Where it lives.** `packages/eddy-types/index.ts`, beside `isCampground`. It is
 pure, it has no build step, and both `NearbyService` and `RiverService` are
@@ -178,23 +185,96 @@ two together. That is not a new pattern: it is exactly what
 `PUBLIC_LAND_ACCESS_STYLE` already does, for the same reason, documented at
 `layers.ts:501`.
 
+#### The type has to be made precise first
+
+`ServiceType` at `packages/eddy-types/index.ts:1079` ends in `| string`:
+
+```ts
+export type ServiceType =
+  | 'outfitter' | 'campground' | 'canoe_rental' | 'shuttle' | 'lodging'
+  | string;
+```
+
+A union with `string` in it **is** `string`. Every literal above is decorative:
+the compiler will accept any string as a `ServiceType`, and no `satisfies` clause
+or exhaustive switch over it can ever fail. So an acceptance criterion phrased as
+"adding an enum value fails the build" is unachievable as the types stand, and
+the `| string` cannot simply be deleted — it is there for the documented reason
+every added field on this wire type is optional, that a TestFlight build outlives
+the deploy it was cut against.
+
+Separate the two jobs instead:
+
+1. **A precise union for what Eddy knows.**
+   `type KnownServiceType = DirectoryServiceType | NearbyServiceType`, where
+   `DirectoryServiceType = 'outfitter' | 'campground' | 'cabin_lodge'` mirrors the
+   Postgres enum exactly and `NearbyServiceType` is already precise.
+2. **The mapping as a total table**, so a new member is a compile error:
+   ```ts
+   const SERVICE_GROUPS = {
+     outfitter: 'outfitter', canoe_rental: 'outfitter', shuttle: 'outfitter',
+     campground: 'camping',
+     lodging: 'lodging',    cabin_lodge: 'lodging',
+   } satisfies Record<KnownServiceType, ServiceGroup>;
+   ```
+3. **A decoder at the boundary.** `RiverService.type` stays `string` on the wire;
+   `serviceGroup(type: string): ServiceGroup` looks the string up and returns
+   `'other'` when it misses.
+4. **A fallback policy that is stated, not implied.** `'other'` is drawn — under
+   the outfitter tier, with the generic group label — and reported once per
+   distinct unknown value so the gap surfaces without waiting for a bug report.
+   Visible-but-generically-labelled beats invisible: `mappable.ts`'s "a wrong pin
+   is worse than none" is an argument about *location*, and a pin in the right
+   place under a broad heading is a different and much smaller claim.
+
+The compile-time check therefore guards the thing it can actually guard — the
+table is total over what Eddy has declared — and the runtime path is honest that
+a database enum can grow without the app being rebuilt. Conflating the two is
+what produced a filter list containing three values the directory has never held.
+
+#### The map row has to carry lodging, or none of this reaches the map
+
+Classifying `cabin_lodge` as `'lodging'` while the outfitters layer still filters
+`serviceGroup(...) === 'outfitter'` leaves all 41 rows exactly as invisible as
+they are today. The tier is not a follow-up decision; it is the part of W0 that
+makes the diagnosis actionable.
+
+So `outfitters` becomes a row with two tiers, using the machinery `gauges`
+already uses (`LayerDef.tiers`, `tierLabel`, `tierSymbol`):
+
+| | label | draws |
+| --- | --- | --- |
+| row | **Outfitters & lodging** | either tier |
+| tier | Outfitters & shuttles | `serviceGroup === 'outfitter'` (+ `'other'`) |
+| tier | Cabins & lodges | `serviceGroup === 'lodging'` |
+
+**Not "Services".** It reads as the honest generalisation and it is not one:
+campgrounds are services — 44 of the same 156 directory rows — and they have
+their own top-level row, so a row called "Services" that excludes the largest
+category of them overclaims. That is the same objection `layers.ts:296` already
+records for why the dam row is "Lakes & dams" and never "Dams".
+
+The new tier has no mark in the catalog, so it takes the documented `icon`
+fallback (`bed-outline`) until one is drawn — `LayerDef.symbol`'s comment already
+names that as the path a layer takes before the catalog has art for it.
+
 **Changes.**
 
-- `packages/eddy-types/index.ts` — add `ServiceGroup` and `serviceGroup(type)`.
-  Unknown values fall to `'outfitter'` rather than throwing: a directory that
-  grows a fourth enum value must degrade to a visible pin under a slightly wrong
-  heading, never to an invisible one.
-- `eddy-ios/src/map/layers.ts` — delete `OUTFITTER_SERVICE_TYPES`. Callers ask
-  `serviceGroup(s.type) === 'outfitter'`.
+- `packages/eddy-types/index.ts` — `ServiceGroup`, `KnownServiceType`,
+  `SERVICE_GROUPS`, `serviceGroup()`.
+- `eddy-ios/src/map/layers.ts` — delete `OUTFITTER_SERVICE_TYPES`; add the
+  `lodging` tier to the `outfitters` row; correct the row description, which
+  currently promises lodging the layer excludes.
 - `eddy-ios/src/map/RiverMap.tsx` and `eddy-ios/src/components/PlanNearby.tsx` —
-  collapse the two copies of `SERVICE_TYPE_LABELS` into one export that includes
-  `cabin_lodge: 'Cabin or lodge'`, and drop the `replace(/_/g, ' ')` fallback in
-  favour of a group label. A lowercase database token has no business on a map.
+  collapse the two copies of `SERVICE_TYPE_LABELS` into one export covering
+  `cabin_lodge`, and drop the `replace(/_/g, ' ')` fallback in favour of the
+  group label. A lowercase database token has no business on a map.
 
-**Acceptance.** Every value of the `service_type` enum and every value of
-`NearbyServiceType` resolves to a group, asserted by a test that enumerates both
-unions — so adding an enum value fails the build rather than silently vanishing
-from a layer. This is the whole scaling story for items 1 and 3.
+**Acceptance.** `SERVICE_GROUPS` is total over `KnownServiceType` — adding a
+member without a group is a type error. A runtime test asserts `serviceGroup()`
+returns `'other'` for an unknown string and that `'other'` still draws. A test
+enumerating the live `service_type` enum values pins the mirror in the web tree
+to the package's table, the same way `PUBLIC_LAND_ACCESS_STYLE` is pinned.
 
 ### W1 — Split the Place tab's service list
 
@@ -269,13 +349,38 @@ stays a renderer.
 Item 3's instinct is right and the mechanism is not `mappableService`. Three
 pieces, in this order.
 
-**W3a — Filter status before anything else.** Drop rows whose `status` is
-`permanently_closed` or `temporarily_closed` from the pin layers and from
-`layerCounts`. `unverified` stays drawn — it means nobody has confirmed the
-listing recently, not that the business is gone, and hiding it would remove nine
-of the 71 outfitters for a housekeeping flag. This is ~4 lines and it is
-**load-bearing for W3c**: a geocoding backfill without it puts a permanently
-closed outfitter on the map as a destination.
+**W3a — One eligibility predicate, used by every consumer.** Drop rows whose
+`status` is `permanently_closed` or `temporarily_closed`. `unverified` stays
+drawn — it means nobody has confirmed the listing recently, not that the business
+is gone, and hiding it would remove nine of the 71 outfitters for a housekeeping
+flag.
+
+The directory has **four** consumers, not two, and they already disagree about
+what a usable row is:
+
+| consumer | status | `mappableService` | contact required |
+| --- | --- | --- | --- |
+| `RiverMap` campgrounds | no | **yes** | no |
+| `RiverMap` outfitters | no | no | no |
+| `layerCounts` (`index.tsx:1323`) | no | no | no |
+| `PlanNearby` (`PlanNearby.tsx:69`) | no | no | **yes** (`phone \|\| website`) |
+
+`PlanNearby` is the one that makes this urgent. It recommends the nearest
+services under "Shuttles near the put-in" and computes a straight-line distance
+from the row's coordinates — so after a backfill a permanently closed outfitter
+is not merely a pin, it is a *recommendation with a mileage on it*. And because
+`PlanNearby` never calls `mappableService`, a row marked `centroid` would be
+recommended as "4.2 mi away" from a distance the map itself refuses to draw.
+
+So this is not a status check bolted onto two call sites. Export one predicate —
+`serviceEligible(s)` for status, `mappableService(s)` for location, with the
+contact requirement staying local to `PlanNearby` because a recommendation needs
+a way to act on it and a pin does not — and route all four through it. Four
+independent filters over one table is how they drifted in the first place.
+
+**Load-bearing for W3c** in both directions: the backfill must not create pins
+for ineligible rows, and the backfill's target is therefore not 128 rows but the
+eligible ones among them.
 
 **W3b — Tell the sheet what it is not showing.** The layers sheet already
 supports this: `renderLayerDetail` and the `LayerNote` component
@@ -283,41 +388,52 @@ supports this: `renderLayerDetail` and the `LayerNote` component
 sentence, and the radar row already uses them. So this is a call site, not a
 component.
 
-Under Outfitters, when the layer is on and the count is short of the total:
-`12 of 71 mapped — the rest have no confirmed location.` Under Campgrounds,
-likewise. The clause after the dash matters: without it the reader concludes
-Eddy's map is broken rather than that Eddy declined to guess, which is the exact
-argument `mappable.ts` opens with. Every one of them is still reachable — the
-river page's services directory lists all 156.
+**The denominator needs defining before the copy can be written.** After W3a and
+the lodging tier, "12 of 71" is three different numbers depending on what the 71
+means, and the raw directory total is the wrong one — it counts a row Eddy has
+decided never to show, so the note would silently blend closure policy into a
+sentence about location coverage. Define both sides against the same population:
 
-This needs the unfiltered total, which the map screen does not currently keep;
-`layerCounts` computes only the drawn figure. Add a sibling
-`layerTotals` memo rather than changing `layerCounts` — its `undefined`-means-
-not-loaded contract is documented and depended on, and overloading it to also
-mean "of N" would break the one rule that file is built around.
+```
+mapped = eligible && mappable && belongsToActiveTier
+total  = eligible &&              belongsToActiveTier
+```
 
-**W3c — Close the coverage gap.** 128 rows need coordinates. This is an
-ingestion task, not an app task: `scripts/ingestion/` per `docs/data-pipeline.md`,
+Which, on today's data:
+
+| tier / row | mapped | total | note reads |
+| --- | ---: | ---: | --- |
+| Outfitters & shuttles | 12 | 70 | 71 rows less 1 permanently closed |
+| Cabins & lodges | 2 | 41 | |
+| **Outfitters & lodging** (row) | **14** | **111** | |
+| Campgrounds (service half) | 14 | 44 | |
+
+So the note under an all-tiers Outfitters row reads `14 of 111 mapped — the rest
+have no confirmed location.` The clause after the dash matters: without it the
+reader concludes Eddy's map is broken rather than that Eddy declined to guess,
+which is the exact argument `mappable.ts` opens with. Every one of them is still
+reachable — the river page's services directory lists all 156.
+
+This needs the eligible total, which the map screen does not currently keep;
+`layerCounts` computes only the drawn figure. Add a sibling `layerTotals` memo
+rather than changing `layerCounts` — its `undefined`-means-not-loaded contract is
+documented and depended on, and overloading it to also mean "of N" would break
+the one rule that file is built around. `layerTotals` inherits the same contract:
+`undefined` until the layer has answered, never a zero it cannot stand behind.
+
+**W3c — Close the coverage gap.** 127 eligible rows need coordinates — 128 less
+the permanently closed one, which W3a has already decided not to draw and which
+therefore must not be geocoded either. This is an ingestion task, not an app
+task: `scripts/ingestion/` per `docs/data-pipeline.md`,
 writing `latitude`, `longitude`, `geocode_precision` and `geocode_source`, with
 `centroid` recorded honestly wherever the geocoder only resolved a town. That
 last part is what makes the existing precision guard start earning its keep — it
 currently rejects zero rows because no row has ever been marked. Dry-run and diff
 before any write; this is production data and the standing rule is inspect first.
 
-Also fold in, while touching this area: **`layerCounts` must call
-`mappableService`**, not just check for non-null coordinates
-(`app/(tabs)/index.tsx:1323`). `RiverMap`'s campground branch already does. The
-two agree today only because no row is a centroid — the first one W3c creates
-makes the sheet's number disagree with the map's pins, and the comment directly
-above that line promises it will not.
-
-**Should cabin/lodge get its own layer row?** Recommendation: **a tier under
-Outfitters, not a row.** The tier machinery exists (`LayerDef.tiers`, used by
-Gauges), the semantics fit — "which of these", not "also draw this" — and 41 rows
-with 2 geocoded does not carry a top-level row. It needs a `tierLabel` ("Cabins
-and lodges") and, since the catalog has no lodging mark, the documented
-`icon` fallback (`bed-outline`) until one is drawn. Worth its own decision; it is
-the one item here that changes what the map looks like rather than what it says.
+The `mappableService` inconsistency across the four consumers is W3a's table and
+is fixed there. It matters most here: today the four agree only because no row is
+a centroid, and W3c is the change that creates the first one.
 
 ### W4 — siteKind feeds the filters
 
@@ -335,14 +451,46 @@ kind produces tags the same way a declared type does. "Electric" and
 "Electric/Water" both hit the `ELECTRIC` matcher; "Walk-in" hits `WALK`; the
 `NONELECTRIC` precedence rule is untouched and still needed.
 
-One gap remains and should be stated rather than papered over: "Basic" means no
-hookup, and no substring in `TYPE_TAGS` matches it. Add `{ match: 'BASIC', tag:
-'No hookup' }` — it is the same fact `NONELECTRIC` already maps to, in another
-feed's words, which is the whole premise of that table.
+"Basic" means no hookup, and no substring in `TYPE_TAGS` matches it. Add
+`{ match: 'BASIC', tag: 'No hookup' }` — it is the same fact `NONELECTRIC`
+already maps to, in another feed's words, which is the whole premise of that
+table.
+
+**And `'No hookup'` must join `SITE_FILTERS`, which is a bigger gap than it
+looks.** `SITE_FILTERS` is `['Tent', 'RV', 'Electric', 'Walk-in', 'Group']` — no
+`'No hookup'`. Without adding it, the tag becomes a row label nobody can filter
+on, and on Meramec the *dominant* inventory stays unfilterable while Electric
+becomes selectable: a filter row that offers everything except the thing most of
+the list is.
+
+This is not a gap the `BASIC` matcher creates. `NONELECTRIC → 'No hookup'` has
+been in `TYPE_TAGS` since the file was written and has **never** been filterable
+— it fires on **581 sites across 28 recreation.gov facilities** today. Adding
+`BASIC` brings 168 state-park sites in behind it. So the filter row has been
+silently short one chip over **749 sites**, and W4 is the moment that becomes
+both visible and cheap to fix.
+
+Per-park effect, from the derived kinds:
+
+| park | sites | filters today | filters after W4 |
+| --- | ---: | --- | --- |
+| Meramec | 197 | none | Electric (146), No hookup (51) |
+| Montauk | 141 | none | Electric (113), No hookup (28) |
+| St. Francois | 109 | none | Electric (63), No hookup (46) |
+| Echo Bluff | 72 | none | Electric (60), Walk-in (12) |
+| Onondaga Cave | 64 | none | Electric (45), No hookup (19) |
+| Washington | 48 | none | Electric (22), No hookup (24), Tent (2) |
+
+One thing to accept rather than fix: the derived kinds have a long tail —
+Meramec has a single "Family Electric" site and St. Francois a single "Family
+Basic" — so `summariseByKind` will render a heading over one site. That is the
+feed being granular, not the split misfiring, and inventing a merge rule for
+"Family X" into "X" would erase a distinction the park itself draws.
 
 **Acceptance.** Extend `map-sheet-site-list.test.ts` with the real state-park
-names from the table above. This is the file's existing job and it runs in the
-web suite.
+names from the table above, and assert the `'No hookup'` chip appears with a
+non-zero count for both a `NONELECTRIC` recreation.gov site and a `Basic` state-
+park one. This is the file's existing job and it runs in the web suite.
 
 ### W5 — The glance contract for untabbed pins
 
@@ -376,52 +524,68 @@ the vocabulary fix, a tapped cabin/lodge pin says "Cabin or lodge" instead of
 ## Sequencing
 
 ```
-W0  vocabulary + labels        ─┬─> W1  Place tab split
-                                └─> W3b sheet says "12 of 71"
-W3a status filter              ───> W3c geocoding backfill   (hard order)
-W2  Overview promotion          (independent)
-W4  siteKind -> filters         (independent)
-W5  callout glance reorder      (independent)
+W0  precise types + classifier + lodging tier  ─┬─> W1  Place tab grouping
+                                                └─> W3b eligible totals + copy
+W3a shared eligibility (4 consumers)           ───> W3c geocoding backfill
+W2  Overview lead            (independent)
+W4  derived campsite filters (independent)
+W5  untabbed decision fact   (independent)
 ```
 
-Two orderings are not preferences:
+Three orderings are not preferences:
 
 - **W0 before W1 and W3b.** Fixing the heading or the count against the wrong
   vocabulary encodes the mismatch in two more places.
-- **W3a before W3c.** Geocoding first puts a permanently closed outfitter on the
-  map as a destination somebody drives to.
+- **W0's tier before W3b.** The denominator is defined per tier; there is no
+  coherent "of N" until the row knows it has two.
+- **W3a before W3c.** Geocoding first turns a permanently closed outfitter into a
+  pin, and — through `PlanNearby` — into a recommendation with a mileage on it.
 
-Suggested shipping order, smallest honest increments first: **W0 → W1 → W4 → W2 →
-W3a → W3b → W5 → W3c.** W3c is last because it is the only one that writes to
-production data and the only one whose value depends on every guard above it
-already being in place.
+Shipping order, smallest honest increments first:
+
+**W0 → W1 → W4 → W2 → W3a → W3b → W5 → W3c.**
+
+W3c is last because it is the only one that writes to production data and the
+only one whose value depends on every guard above it already being in place.
 
 ## Guardrails that keep this from recurring
 
 The point of W0 is not the three groups; it is that the next enum value cannot
 silently fall off a layer. Concretely:
 
-1. **Exhaustive union test.** `serviceGroup` is asserted over every member of
-   both unions. A fourth `service_type` fails the build until somebody decides
-   which group it joins. This is the single check that would have caught
-   `cabin_lodge` on the day it was added.
-2. **No membership lists in layer definitions.** A layer says which *group* it
+1. **A total mapping table over a precise union.** `SERVICE_GROUPS satisfies
+   Record<KnownServiceType, ServiceGroup>` fails the build when a declared type
+   has no group. This is the single check that would have caught `cabin_lodge` on
+   the day it was added — and it only works because `KnownServiceType` is free of
+   `| string`. Any wire type that ends in `| string` is `string`, and nothing
+   built on it can be exhaustive; keep the loose type at the boundary and the
+   precise one at the table.
+2. **Unknown values are a runtime policy, not a compile-time claim.** `'other'`
+   draws, is labelled generically, and is reported. A fallback that silently
+   masquerades as a known type is how a filter list came to contain three values
+   the directory has never held.
+3. **No membership lists in layer definitions.** A layer says which *group* it
    draws. Type-to-group is one table; group-to-layer is another. The bug was one
    list trying to be both.
-3. **A count beside a switch is a count of pins.** Already the documented rule in
-   `layerCounts`. W3b's addition is that when the pin count is short of the
-   truth, the sheet says so — silently drawing 12 of 71 is technically honest and
-   reads as broken.
-4. **Precision is recorded at ingest, not inferred at render.** `mappableService`
+4. **One eligibility predicate per table, not one per consumer.** Four call sites
+   filtering the same directory four different ways is what let a closed business
+   be excluded from the map and recommended by the planner in the same release.
+5. **A count beside a switch is a count of pins, and its denominator is the same
+   population.** Already half the documented rule in `layerCounts`. W3b's addition
+   is that when the pin count is short of the truth, the sheet says so — and that
+   the "of N" is eligible rows, so the sentence is about location coverage and
+   never smuggles closure policy into it.
+6. **Precision is recorded at ingest, not inferred at render.** `mappableService`
    currently rejects nothing because nothing is marked. W3c only counts as done
    if `centroid` is written wherever it is true.
-5. **Absent-never-empty gets a floor.** Overview's rule was "show nothing when
+7. **Absent-never-empty gets a floor.** Overview's rule was "show nothing when
    there is nothing", which is right for a section and wrong for a landing tab.
    W2 makes the tab-level rule: a tab that resolves to no content says so, in
    `waitingCopy`'s settled voice.
-6. **Derived display facts have one derivation.** `siteKind` is the app's answer
+8. **Derived display facts have one derivation.** `siteKind` is the app's answer
    to "what kind of site is this". W4 makes the filters ask it too, instead of
-   asking the raw column a third of the feed does not populate.
+   asking the raw column a third of the feed does not populate — and a tag with
+   no matching filter chip is half a derivation.
 
 ## Validation
 
