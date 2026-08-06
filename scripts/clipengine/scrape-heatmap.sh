@@ -18,6 +18,10 @@
 
 set -e
 
+# Shared river map (rivers.py) lives alongside this script; interpolated into the
+# python heredoc below so it can be imported no matter the caller's CWD.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 YOUTUBE_URL="$1"
 OUTPUT_DIR="${2:-.}"
 
@@ -150,26 +154,12 @@ if hm:
 # and the clip won't be posted. Computed BEFORE the no-peaks decision below so the
 # Tier-1 bypass can tell a known-river video apart from a generic one.
 description = info.get("description") or ""
-RIVERS = {
-    "big-piney": ["big piney"],
-    "courtois": ["courtois"],
-    "current": ["current river", "the current"],
-    "eleven-point": ["eleven point", "eleven-point", "11 point"],
-    "huzzah": ["huzzah"],
-    "jacks-fork": ["jacks fork", "jack's fork", "jacks-fork"],
-    "meramec": ["meramec"],
-    "niangua": ["niangua"],
-}
-_text = (title + " " + description).lower()
-_hits = []
-for _slug, _kws in RIVERS.items():
-    _found = [_text.find(k) for k in _kws if k in _text]
-    if _found:
-        _hits.append((min(_found), _slug))
-_hits.sort()
-river_slug = _hits[0][1] if _hits else ""
+sys.path.insert(0, "${SCRIPT_DIR}")
+from rivers import detect_all as _detect_rivers   # shared with detect-river.sh
+_hits = _detect_rivers(title + " " + description)
+river_slug = _hits[0] if _hits else ""
 print(f"  River: {river_slug or '(none detected — will not post)'}" +
-      (f"  [also matched: {[h[1] for h in _hits[1:]]}]" if len(_hits) > 1 else ""))
+      (f"  [also matched: {_hits[1:]}]" if len(_hits) > 1 else ""))
 
 if not peaks:
     if TIER1_HEATMAP_OPTIONAL and river_slug and duration > 0:

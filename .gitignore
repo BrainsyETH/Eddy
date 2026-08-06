@@ -6,3 +6,8 @@
 ._*
 Thumbs.db
 Desktop.ini
+
+# Byte-cache from the clipengine python helpers (rivers.py is imported by
+# scrape-heatmap.sh, so every scan run would otherwise leave this behind in the
+# runner's clone).
+__pycache__/
