@@ -352,6 +352,18 @@ export default function MapScreen() {
   const pendingAccessSelection = useRef<{
     id: string;
     riverSlug: string;
+    /**
+     * The layer the pin was TAPPED on, carried across the fetch.
+     *
+     * Without it this path rebuilt the selection as a generic `access` pin and
+     * threw away which icon the finger had landed on. The symptom was specific
+     * and looked like a loading bug: tap a campground on a river not yet
+     * selected, watch its calendar appear, and half a second later watch the
+     * calendar vanish and a gauge reading take its place — because the sheet
+     * had quietly become a put-in. Tapping the same pin again looked fine,
+     * since by then the river was already selected and this path never ran.
+     */
+    layer: LayerKey;
   } | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
 
@@ -564,7 +576,8 @@ export default function MapScreen() {
         const pending = pendingAccessSelection.current;
         if (pending?.riverSlug === slug) {
           const point = points.find((candidate) => candidate.id === pending.id);
-          if (point) setSelectedPin(mapAccessPointPin(point, slug));
+          // The TAPPED layer, not 'access'. See pendingAccessSelection.layer.
+          if (point) setSelectedPin(mapAccessPointPin(point, slug, pending.layer));
           // Found or stale, this request answered it. Never let a missing row
           // reopen unexpectedly when the person returns to the river later.
           pendingAccessSelection.current = null;
@@ -789,7 +802,13 @@ export default function MapScreen() {
       // shape of the bug the statewide layer would otherwise have introduced
       // into search. When the point was not already held, this is also what
       // opens it once the river's own response lands.
-      pendingAccessSelection.current = { id: result.id, riverSlug: result.riverSlug };
+      // 'access', and correctly so: a search result did not come from an icon,
+      // so there is no tapped layer to preserve.
+      pendingAccessSelection.current = {
+        id: result.id,
+        riverSlug: result.riverSlug,
+        layer: 'access',
+      };
     } else {
       pendingAccessSelection.current = null;
     }
@@ -1572,7 +1591,11 @@ export default function MapScreen() {
       // selected it. See the state's own comment.
       setRevealsRiverSheet(Boolean(selectedSlug) && newRiverSlug === null);
       if (newRiverSlug && entry) {
-        pendingAccessSelection.current = { id: entry.point.id, riverSlug: newRiverSlug };
+        pendingAccessSelection.current = {
+          id: entry.point.id,
+          riverSlug: newRiverSlug,
+          layer: pin.layer,
+        };
         setPickedSlug(newRiverSlug);
         setFocus({
           slug: newRiverSlug,

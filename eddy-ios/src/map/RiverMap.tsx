@@ -473,12 +473,24 @@ export interface MapPinAccessPoint {
 export function mapAccessPointPin(
   point: MapAccessPoint,
   riverSlug: string | null,
+  /**
+   * WHICH ICON THE FINGER LANDED ON, when the caller knows.
+   *
+   * Defaults to the generic access layer, which is right for a search result or
+   * a row in a list — neither came from an icon. It is NOT right for a
+   * re-selection: the campgrounds and access layers draw the same access point
+   * under different marks, and `layer` is the only record of which one was
+   * tapped. Rebuilding a tapped tent as an `access` pin silently changes the
+   * sheet's mark (placeSymbol), the tab it opens on (initialTabKey) and the fact
+   * its glance reserves room for (decisionSlot) — all three read this field.
+   */
+  layer: LayerKey = 'access',
 ): MapPin {
   return {
     id: `access:${point.id}`,
     name: point.name,
     label: accessLabel(point),
-    layer: 'access',
+    layer,
     subtitle: `Mile ${point.riverMile.toFixed(1)}`,
     coordinates: point.coordinates,
     privateAccess: !point.isPublic,
