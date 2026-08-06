@@ -493,8 +493,18 @@ export async function fetchCampsiteSites(
       `/api/campsites?facility=${encodeURIComponent(facilityId)}`,
       signal,
     );
-  } catch {
-    return null;
+  } catch (err) {
+    // ── A 404 is an answer; everything else is a failure ──────────────────
+    // The route answers 404 for a campground Eddy does not track sites for,
+    // which is most of them and is an ordinary state — the tab renders nothing,
+    // the same way the availability line does when it has nothing to say.
+    //
+    // EVERY OTHER ERROR RETHROWS. Swallowing them into the same null made a
+    // dead network indistinguishable from an untracked campground, and the hook
+    // read that null as a successful empty answer — so a reader with no signal
+    // sat on "Loading sites…" forever, with nothing left to resolve it.
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
   }
 }
 

@@ -613,6 +613,25 @@ export default function AccessPointDetailScreen() {
               <Text style={[styles.prose, { color: colors.textMuted }]}>{point.feeNotes}</Text>
             ) : null}
 
+            {/* ── OUTSIDE the NPS card, which is the whole point ──────────────
+                This lived inside the block below, so it rendered only for
+                campgrounds the National Park Service runs. Meramec, Onondaga
+                Cave, Montauk and Washington have no nps_campgrounds row — that
+                is the exact case the sibling `availability` field was added to
+                represent — so this screen showed them nothing while the map
+                sheet, fixed first, showed 59 of 197 open.
+
+                The NAME is passed, which it was not: it is interpolated only by
+                the backcountry-district wording, which covers eighteen of the
+                thirty enabled federal facilities — every Ozark gravel-bar loop.
+                Without it "12 backcountry sites open · Upper Current District"
+                lost its place. */}
+            <AvailabilityGlance
+              availability={accessAvailability(point)}
+              name={accessAvailabilityName(point)}
+              today={localToday()}
+            />
+
             {/* NPS campgrounds carry booking information nothing else here does,
                 and "can I reserve this or is it first-come" is the whole
                 question for a campground with a boat ramp. */}
@@ -636,21 +655,6 @@ export default function AccessPointDetailScreen() {
                     .filter(Boolean)
                     .join(' · ')}
                 </Text>
-                {/* Live availability, when the server has it. Absent for most
-                    campgrounds and for every build that predates the field, and
-                    absent means render nothing — the static counts above
-                    already say what the place holds.
-
-                    The NAME is passed, which it was not: it is interpolated
-                    only by the backcountry-district wording, and that covers
-                    eighteen of the thirty enabled federal facilities — every
-                    Ozark gravel-bar loop. Without it "12 backcountry sites
-                    open · Upper Current District" lost its place. */}
-                <AvailabilityGlance
-                  availability={accessAvailability(point)}
-                  name={accessAvailabilityName(point)}
-                  today={localToday()}
-                />
                 {point.npsCampground.reservationInfo ? (
                   <Text style={[styles.prose, { color: colors.textMuted }]}>
                     {point.npsCampground.reservationInfo}

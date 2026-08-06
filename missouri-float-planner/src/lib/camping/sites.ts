@@ -37,6 +37,15 @@ export const SITE_NIGHT_CODE: Record<UnitStatus, string> = {
 /** The night was not measured. Never rendered as "taken". */
 export const SITE_NIGHT_UNKNOWN = '-';
 
+/**
+ * Rows per request.
+ *
+ * Under PostgREST's default 1,000 ceiling on purpose. Asking for exactly the
+ * limit makes "a full page" and "the server truncated me" the same observation,
+ * and the whole point of paging here is to be able to tell those apart.
+ */
+const PAGE = 900;
+
 /** One individual campsite and its fortnight. */
 export interface CampsiteSiteInfo {
   id: string;
@@ -119,26 +128,45 @@ export async function loadFacilitySites(
   const sites = (siteRows ?? []) as SiteRow[];
   if (sites.length === 0) return null;
 
-  const { data: nightRows, error: nightsError } = await supabase
-    .from('campsite_site_availability')
-    .select('site_id, date, status, fetched_at')
-    .in(
-      'site_id',
-      sites.map((s) => s.id),
-    )
-    .in('date', window.nights);
+  // ── PAGED, because the cap is silent ──────────────────────────────────────
+  //
+  // PostgREST answers at most `db-max-rows` and says nothing about it: asked
+  // for 14,293 rows it returns 1,000, no error, no flag. Meramec is 197 sites
+  // across a fourteen-night horizon — 2,758 rows — so an unpaged read would
+  // drop 1,758 of them and every dropped night would decode as `-`, which this
+  // feature renders as "not measured".
+  //
+  // That is the precise failure the whole design is built to avoid: a gap means
+  // Eddy did not look, and a truncated response would put that claim against
+  // two thirds of a campground that was measured perfectly well. Silence about
+  // a fact is honest; inventing silence is not.
+  const nightRows: { site_id: string; date: string; status: string; fetched_at: string }[] = [];
+  const siteIds = sites.map((s) => s.id);
 
-  if (nightsError) throw new Error(`campsite_site_availability: ${nightsError.message}`);
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('campsite_site_availability')
+      .select('site_id, date, status, fetched_at')
+      .in('site_id', siteIds)
+      .in('date', window.nights)
+      // Ordered so the pages tile rather than overlap: without a total order
+      // the server may return the same row on two pages and omit another.
+      .order('site_id', { ascending: true })
+      .order('date', { ascending: true })
+      .range(from, from + PAGE - 1);
+
+    if (error) throw new Error(`campsite_site_availability: ${error.message}`);
+    const page = data ?? [];
+    nightRows.push(...(page as typeof nightRows));
+    // A short page is the last one. A full page might be the last one too, and
+    // costs one empty round trip to find out — cheaper than a wrong answer.
+    if (page.length < PAGE) break;
+  }
 
   const bySite = new Map<string, Map<string, UnitStatus>>();
   let fetchedAt: string | null = null;
 
-  for (const row of (nightRows ?? []) as {
-    site_id: string;
-    date: string;
-    status: string;
-    fetched_at: string;
-  }[]) {
+  for (const row of nightRows) {
     const nights = bySite.get(row.site_id) ?? new Map<string, UnitStatus>();
     nights.set(row.date, row.status as UnitStatus);
     bySite.set(row.site_id, nights);

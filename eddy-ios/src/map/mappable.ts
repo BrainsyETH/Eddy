@@ -24,6 +24,12 @@ import type { RiverService } from '@eddy/types';
 /**
  * A service with coordinates good enough to point at.
  *
+ * There is deliberately no looser sibling for "good enough to search around" —
+ * a ten-mile stays box really would tolerate a town centroid, but no surface
+ * asks for that yet and an exported function nothing calls is a claim the
+ * codebase cannot keep. The precision column supports it the day a caller
+ * exists; the threshold belongs in that commit, not this one.
+ *
  * Permissive by design: everything EXCEPT a known town centroid. The thirteen
  * services already on the map were entered before provenance was recorded and
  * carry no precision at all, and demanding `exact` would silently un-pin every
@@ -36,19 +42,4 @@ export function mappableService(
 ): boolean {
   if (service.latitude == null || service.longitude == null) return false;
   return service.geocodePrecision !== 'centroid';
-}
-
-/**
- * Coordinates good enough to search AROUND, which is a weaker requirement.
- *
- * A ten-mile "search Airbnb nearby" box does not care which end of town it
- * starts from, so a town centroid is a perfectly honest input to it even though
- * it must never be a pin. This is the whole reason precision is recorded rather
- * than coordinates simply being withheld: two surfaces, two thresholds, one
- * fact.
- */
-export function searchableService(
-  service: Pick<RiverService, 'latitude' | 'longitude'>,
-): boolean {
-  return service.latitude != null && service.longitude != null;
 }

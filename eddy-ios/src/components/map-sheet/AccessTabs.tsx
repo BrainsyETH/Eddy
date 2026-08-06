@@ -32,12 +32,10 @@ import {
   sitesOnNight,
   type SiteFilter,
 } from './siteList';
-import { conditionBg, conditionChipBorder, conditionInk, conditionText } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { agencyLabel, parkingLabel, roadSurfaceLabel, stripHtml } from '@/lib/accessCopy';
-import { formatReading } from '@/lib/readingCopy';
-import { Absent, Chips, Fact, LinkRow, Prose, Section } from './sections';
+import { Absent, AccessGaugeReading, Chips, Fact, LinkRow, Prose, Section } from './sections';
 import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 
 interface TabProps {
@@ -51,7 +49,16 @@ interface TabProps {
   active?: boolean;
   detail: AccessPointDetailResponse | null;
   onOpenGauge: (siteId: string) => void;
-  onOpenDetail: () => void;
+  /**
+   * The access point's own screen, or NULL when the map could not build a route
+   * to one — a put-in with no slug, which the detail route is composed from.
+   *
+   * Nullable rather than a no-op closure so a tab can leave the row out
+   * entirely. A row that does nothing when tapped is the "present and empty"
+   * this sheet is built to avoid, and it only became reachable once access
+   * points started rendering these tabs before their detail request lands.
+   */
+  onOpenDetail: (() => void) | null;
   onOpenRiver: (slug: string) => void;
   /** Hand a neighbouring access to the planner as the other end of a float. */
   onPlanTo: (nearby: NearbyAccessPoint) => void;
@@ -111,10 +118,29 @@ export function AccessOverviewTab({ accessPoint, detail, onOpenDetail, onOpenRiv
         </Section>
       ) : null}
 
-      {point?.river ? (
+      {/* ── The way out, whether or not the request landed ────────────────
+          This section used to hang entirely off `point.river`, which is only
+          known once the detail response arrives. That was invisible while the
+          callout carried the same two rows from the pin's own facts and was
+          shown for the whole of that wait — and it stopped being invisible the
+          moment access points started opening straight into these tabs. A
+          pending or failed request now leaves the reader on Overview with a
+          description and no route to the screen that has the rest.
+
+          So each row stands on its own condition. The river's needs its NAME,
+          which only the response carries; the details screen needs only a
+          route, which the map composed before the sheet opened. */}
+      {point?.river || onOpenDetail ? (
         <Section>
-          <LinkRow label={`View ${point.river.name}`} onPress={() => onOpenRiver(point.river.slug)} />
-          <LinkRow label="Access point details" onPress={onOpenDetail} />
+          {point?.river ? (
+            <LinkRow
+              label={`View ${point.river.name}`}
+              onPress={() => onOpenRiver(point.river.slug)}
+            />
+          ) : null}
+          {onOpenDetail ? (
+            <LinkRow label="Access point details" onPress={onOpenDetail} />
+          ) : null}
         </Section>
       ) : null}
     </View>
@@ -124,7 +150,6 @@ export function AccessOverviewTab({ accessPoint, detail, onOpenDetail, onOpenRiv
 /* ── Conditions ─────────────────────────────────────────────────────────── */
 
 export function AccessConditionsTab({ detail, onOpenGauge }: TabProps) {
-  const { colors, isDark } = useTheme();
   const status = detail?.gaugeStatus ?? null;
 
   if (!status) {
@@ -135,49 +160,14 @@ export function AccessConditionsTab({ detail, onOpenGauge }: TabProps) {
     );
   }
 
-  const reading =
-    status.cfs != null
-      ? formatReading(status.cfs, 'cfs')
-      : status.heightFt != null
-        ? formatReading(status.heightFt, 'ft')
-        : null;
-
   return (
     <View>
-      <Pressable
-        onPress={() => onOpenGauge(status.usgsId)}
-        style={({ pressed }) => [styles.readingBlock, { opacity: pressed ? 0.6 : 1 }]}
-        accessibilityRole="button"
-        accessibilityLabel={`${status.gaugeName}, ${status.label}. Open the gauge`}
-      >
-        <View style={styles.readingRow}>
-          {reading ? (
-            <Text style={[styles.reading, { color: conditionText(status.level, isDark) }]}>
-              {reading}
-            </Text>
-          ) : null}
-          <View
-            style={[
-              styles.chip,
-              {
-                backgroundColor: conditionBg(status.level),
-                borderColor: conditionChipBorder(status.level),
-              },
-            ]}
-          >
-            <Text style={[styles.chipText, { color: conditionInk(status.level) }]}>
-              {status.label}
-            </Text>
-          </View>
-        </View>
-        {/* The station's NAME, always. This is the river's nearest
-            at-or-upstream gauge applied to the reach, not a sensor at this
-            ramp — and a reading with no station on it reads as measured here.
-            Same rule useAccessGaugeStatus states. */}
-        <Text style={[styles.gaugeName, { color: colors.textMuted }]} numberOfLines={2}>
-          at {status.gaugeName}
-        </Text>
-      </Pressable>
+      {/* THE SAME BLOCK THE PEEK SHOWS, from the same component. This tab is
+          reached by swiping down from a sheet that is already displaying the
+          reading, so a second rendering of it that differed by a font weight or
+          a margin would read as a second, disagreeing measurement. What this
+          tab adds is underneath: the trend, and when it was taken. */}
+      <AccessGaugeReading status={status} onOpenGauge={onOpenGauge} />
 
       <Section>
         <Fact label="Trend" value={status.trend ? trendLabel(status.trend) : null} />
@@ -354,10 +344,16 @@ export function AccessCampingTab({ detail, status, active = false }: TabProps) {
                 </Text>
               ) : null}
             </>
+          ) : sitesStatus === 'failed' ? (
+            <Absent>Sites unavailable right now.</Absent>
+          ) : sitesStatus === 'ready' ? (
+            // Resolved, with nothing to list — an untracked campground, which
+            // is the common case. Absent, never a spinner: this used to fall
+            // through to "Loading sites…" and stay there for good, because
+            // nothing was still coming.
+            null
           ) : (
-            <Absent>
-              {sitesStatus === 'failed' ? 'Sites unavailable right now.' : 'Loading sites…'}
-            </Absent>
+            <Absent>Loading sites…</Absent>
           )}
         </Section>
       ) : null}
@@ -506,9 +502,11 @@ export function AccessDetailsTab({ detail, onOpenDetail, status }: TabProps) {
         </Section>
       ) : null}
 
-      <Section>
-        <LinkRow label="Open the full details screen" onPress={onOpenDetail} />
-      </Section>
+      {onOpenDetail ? (
+        <Section>
+          <LinkRow label="Open the full details screen" onPress={onOpenDetail} />
+        </Section>
+      ) : null}
     </View>
   );
 }
@@ -604,13 +602,9 @@ function nearbyCamping(detail: AccessPointDetailResponse | null) {
 }
 
 const styles = StyleSheet.create({
+  // The reading block's styles left with it — see AccessGaugeReading in
+  // sections.tsx. They were this file's only condition-tinted anything.
   checked: { ...t.xs, fontFamily: fonts.body, marginTop: 8 },
-  readingBlock: { marginTop: 10 },
-  readingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  reading: { ...t.lg, fontFamily: fonts.mono },
-  chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
-  chipText: { ...t.sm, fontFamily: fonts.semibold },
-  gaugeName: { ...t.sm, fontFamily: fonts.body, marginTop: 3 },
   floatRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
   floatText: { flex: 1, minWidth: 0 },
   floatName: { ...t.sm, fontFamily: fonts.medium },

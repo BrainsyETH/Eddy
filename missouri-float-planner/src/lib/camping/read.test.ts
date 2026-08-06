@@ -243,3 +243,101 @@ test('an unlinked facility is indexed nowhere rather than under undefined', asyn
   assert.equal(index.byNpsCampgroundId.size, 0);
   assert.equal(index.byNearbyServiceId.size, 0);
 });
+
+/* ── Paging, because the cap is silent ────────────────────────────────────── */
+//
+// PostgREST answers at most `db-max-rows` and says NOTHING about it: asked for
+// gauge_stations' 14,293 rows it returns exactly 1,000, no error, no flag. That
+// was measured against the live project, not assumed.
+//
+// Meramec is 197 sites over a fourteen-night horizon — 2,758 rows — so an
+// unpaged read drops 1,758 of them, and every dropped night decodes as `-`,
+// which this feature renders as "Eddy did not look". Truncation would put that
+// claim against two thirds of a campground that was measured perfectly well.
+
+test('the per-site read pages past the silent row cap', async () => {
+  const { loadFacilitySites } = await import('./sites');
+
+  const PAGE = 900;
+  const SITES = 200;
+  const NIGHTS = 14;
+  const all: { site_id: string; date: string; status: string; fetched_at: string }[] = [];
+  for (let s = 0; s < SITES; s++) {
+    for (let n = 0; n < NIGHTS; n++) {
+      all.push({
+        site_id: `s${String(s).padStart(3, '0')}`,
+        date: `2026-08-${String(6 + n).padStart(2, '0')}`,
+        status: 'open',
+        fetched_at: '2026-08-06T09:00:00Z',
+      });
+    }
+  }
+
+  let ranges = 0;
+  const client = {
+    from(table: string) {
+      if (table === 'campsite_facilities') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: {
+                    id: 'f1',
+                    display_name: 'Meramec',
+                    kind: 'campground',
+                    source: 'mo_state_parks',
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'campsite_sites') {
+        return {
+          select: () => ({
+            eq: async () => ({
+              data: Array.from({ length: SITES }, (_, i) => ({
+                id: `s${String(i).padStart(3, '0')}`,
+                name: `Site ${i}`,
+                loop: 'A',
+                site_type: null,
+                max_occupancy: null,
+                source_site_id: String(i),
+              })),
+              error: null,
+            }),
+          }),
+        };
+      }
+      // The paged one. Serves at most PAGE rows per call, exactly as PostgREST
+      // does — including answering a full page without saying there is more.
+      const q = {
+        select: () => q,
+        in: () => q,
+        order: () => q,
+        range: async (from: number, to: number) => {
+          ranges++;
+          return { data: all.slice(from, to + 1), error: null };
+        },
+      };
+      return q;
+    },
+  } as never;
+
+  const result = await loadFacilitySites(client, 'f1', new Date('2026-08-06T17:00:00Z'));
+
+  assert.ok(result, 'a 2,800-row campground must still load');
+  assert.ok(ranges > 1, `expected more than one page, made ${ranges} request(s)`);
+  // Every site measured on every night of the horizon: no site may come back
+  // with an unmeasured slot that the database actually holds.
+  const unmeasured = result!.sites.filter((s) => s.nights.includes('-'));
+  assert.equal(
+    unmeasured.length,
+    0,
+    `${unmeasured.length} sites lost nights to truncation — that renders as "not measured"`,
+  );
+  assert.equal(result!.sites.length, SITES);
+});

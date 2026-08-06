@@ -25,11 +25,13 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withSpring,
   withTiming,
   interpolate,
   Extrapolation,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { GestureType } from 'react-native-gesture-handler';
@@ -78,9 +80,55 @@ interface Props {
   peek: React.ReactNode;
   /** Absent for a sheet that is all glance — a hazard, an outfitter. */
   children?: React.ReactNode;
+  /**
+   * What this sheet is about, for VoiceOver.
+   *
+   * The grabber is the control that resizes the sheet, and "adjustable" alone
+   * announces as a slider with no subject. The name of the place is what makes
+   * "Currently half open" mean something, so it is required rather than
+   * defaulted to a generic word.
+   */
+  label: string;
+  /**
+   * Where the sheet is RIGHT NOW, written every frame on the UI thread.
+   *
+   * The companion to onDetentChange rather than a replacement for it, and the
+   * split is the point. Anything that must not run per frame — the Mapbox
+   * camera, the ornament positions, a React layout — reads the settled detent.
+   * Anything that should follow a finger reads this, in its own worklet,
+   * without waking React at all.
+   *
+   * `available` rides along because a consumer cannot otherwise tell how much
+   * map is left above the sheet, and the sheet is the only thing that measured
+   * it. Both in one value so they can never be read a frame apart.
+   */
+  metrics?: SharedValue<SheetMetrics>;
 }
 
-export function MapSheet({ resetKey, onClose, onDetentChange, peek, children }: Props) {
+/** What a sheet publishes about itself every frame. See MapSheet.metrics. */
+export interface SheetMetrics {
+  /** Points of screen the sheet currently occupies, from the bottom up. */
+  height: number;
+  /** The whole band the sheet may occupy — the map area, as measured. */
+  available: number;
+}
+
+/** How each resting place is announced. Words, not fractions. */
+const DETENT_VALUE: Record<Detent, string> = {
+  peek: 'Collapsed',
+  half: 'Half open',
+  full: 'Expanded',
+};
+
+export function MapSheet({
+  resetKey,
+  onClose,
+  onDetentChange,
+  peek,
+  children,
+  label,
+  metrics,
+}: Props) {
   const { colors, elevation } = useTheme();
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
@@ -96,14 +144,21 @@ export function MapSheet({ resetKey, onClose, onDetentChange, peek, children }: 
   // BOTH: it sits inside the card and outside the measured content, so a
   // detent sized to the content alone clipped its last 16pt at every height,
   // including the tallest.
+  // No children means the peek slot is the whole sheet — the single-page
+  // callout — and its measured height is then a fact about the content rather
+  // than an authored glance. resolveDetents needs to know which it is being
+  // handed; see its `wholeContentIsPeek`.
+  const glanceOnly = children == null;
+
   const detents = useMemo(
     () =>
       resolveDetents(
         available,
         contentHeight > 0 ? contentHeight + GRABBER_BLOCK : 0,
         peekHeight,
+        glanceOnly,
       ),
-    [available, contentHeight, peekHeight],
+    [available, contentHeight, peekHeight, glanceOnly],
   );
 
   // translateY is the DISTANCE THE SHEET IS PUSHED DOWN from fully open, so 0
@@ -248,6 +303,63 @@ export function MapSheet({ resetKey, onClose, onDetentChange, peek, children }: 
     ],
   );
 
+  /* ── The same two moves, without a finger ─────────────────────────────────
+     Everything above is driven by a pan, which VoiceOver never produces: it
+     replaces direct manipulation with a role and a set of actions, so a sheet
+     whose only way to change size is a drag is a sheet that cannot be opened at
+     all with the screen reader on. The grabber becomes that control, and these
+     are what it does.
+
+     They animate through the same spring the gesture settles with, and commit
+     through the same `commit`, so an adjusted sheet is in exactly the state a
+     dragged one would be — including for the map, which reads the settled
+     detent to pad its camera and lift the Mapbox ornaments. */
+
+  const settleTo = useCallback(
+    (next: Detent) => {
+      const target = detents.available - detents.height[next];
+      translateY.value = reducedMotion
+        ? withTiming(target, REDUCED_SETTLE)
+        : withSpring(target, SETTLE_SPRING);
+      commit(next);
+    },
+    [detents, reducedMotion, commit, translateY],
+  );
+
+  /** One detent up (+1) or down (-1). Silent at either end, like a slider. */
+  const stepDetent = useCallback(
+    (direction: 1 | -1) => {
+      const at = detents.order.indexOf(detent);
+      const next = detents.order[Math.max(0, at) + direction];
+      if (next) settleTo(next);
+    },
+    [detent, detents, settleTo],
+  );
+
+  const dismiss = useCallback(() => {
+    translateY.value = reducedMotion
+      ? withTiming(detents.available, REDUCED_SETTLE, () => runOnJS(onClose)())
+      : withSpring(detents.available, SETTLE_SPRING, () => runOnJS(onClose)());
+  }, [detents, reducedMotion, onClose, translateY]);
+
+  // A sheet whose content fits inside the glance has one resting place, so
+  // there is nothing to adjust and announcing it as adjustable would promise a
+  // gesture that does nothing. It can still be dismissed.
+  const adjustable = detents.order.length > 1;
+
+  // A value that follows another value, which is what useDerivedValue is for —
+  // and it runs wherever translateY is written, so a drag, a spring and a
+  // VoiceOver adjustment all publish through the same line. No runOnJS: nothing
+  // here crosses into React, which is the whole reason this exists beside
+  // onDetentChange rather than instead of it.
+  useDerivedValue(() => {
+    if (!metrics) return;
+    metrics.value = {
+      height: Math.max(0, detents.available - translateY.value),
+      available: detents.available,
+    };
+  });
+
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
   }));
@@ -305,11 +417,56 @@ export function MapSheet({ resetKey, onClose, onDetentChange, peek, children }: 
             elevation(2),
             sheetStyle,
           ]}
+          // The two-finger scrub, which is what a VoiceOver user reaches for to
+          // back out of anything. NOT accessibilityViewIsModal alongside it:
+          // this sheet deliberately leaves the map behind it live, because
+          // tapping another pin is how you change the selection, and claiming
+          // modality would hide the whole map from the rotor to describe a
+          // surface that never covered it.
+          onAccessibilityEscape={dismiss}
         >
           {/* The whole card is the drag surface, which is the Maps contract —
               you should not have to find a handle to move a sheet. The grabber
-              is the AFFORDANCE for that, not the only way in. */}
-          <View style={styles.grabberRow}>
+              is the AFFORDANCE for that, not the only way in.
+
+              ── AND THE ONLY WAY IN FOR VOICEOVER ─────────────────────────
+              "The whole card is the drag surface" is a statement about fingers.
+              A screen reader has no drag, so with it on there was no way to
+              reach anything below the glance: the tabs, the conditions, the
+              float trips and the details were all present, measured, and
+              unreachable. Adjustable is the role iOS resizes sheets with, and
+              its up/down swipes land on the same detents a drag settles to.
+
+              Dismiss is spelled out as an action as well as bound to the escape
+              gesture, because "swipe the sheet off the bottom of the screen" is
+              the other thing a pan does that a rotor cannot guess at. */}
+          <View
+            style={styles.grabberRow}
+            accessible
+            accessibilityRole={adjustable ? 'adjustable' : 'button'}
+            accessibilityLabel={label}
+            accessibilityValue={adjustable ? { text: DETENT_VALUE[detent] } : undefined}
+            accessibilityHint={
+              adjustable ? 'Swipe up or down with one finger to resize' : undefined
+            }
+            // increment/decrement are what VoiceOver's up and down swipes
+            // produce on an adjustable, so they carry no label of their own —
+            // the system names them. Dismiss does, because it is ours and
+            // appears in the actions rotor as whatever we call it.
+            accessibilityActions={
+              adjustable
+                ? [{ name: 'increment' }, { name: 'decrement' }, { name: 'dismiss', label: 'Dismiss' }]
+                : [{ name: 'dismiss', label: 'Dismiss' }]
+            }
+            onAccessibilityAction={(event) => {
+              const action = event.nativeEvent.actionName;
+              // Up is bigger, which is the direction the finger would have
+              // dragged to get the same result.
+              if (action === 'increment') stepDetent(1);
+              else if (action === 'decrement') stepDetent(-1);
+              else if (action === 'dismiss') dismiss();
+            }}
+          >
             <View style={[styles.grabber, { backgroundColor: colors.border }]} />
           </View>
 

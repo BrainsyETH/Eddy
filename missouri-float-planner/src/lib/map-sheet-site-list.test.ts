@@ -151,6 +151,30 @@ test('a filtered-out site is not reported as taken', () => {
   assert.equal(group.takenCount, 0);
 });
 
+test('the taken count describes the same sites the filter does', () => {
+  // The list and the count have to be about one set of sites. Filtering to RV
+  // while counting every booked TENT site as "+22 taken" tells the reader there
+  // are 22 RV sites they just missed.
+  const entries = sitesOnNight(
+    [
+      site({ id: '1', siteType: 'RV ELECTRIC', nights: 'AAA' }),
+      site({ id: '2', siteType: 'RV ELECTRIC', nights: 'RRR' }),
+      site({ id: '3', siteType: 'TENT ONLY', nights: 'RRR' }),
+      site({ id: '4', siteType: 'TENT ONLY', nights: 'RRR' }),
+    ],
+    NIGHTS,
+    NIGHTS[0],
+  );
+
+  const [all] = groupSites(entries);
+  assert.equal(all.open.length, 1);
+  assert.equal(all.takenCount, 3, 'unfiltered, every booked site counts');
+
+  const [rv] = groupSites(entries, ['RV']);
+  assert.equal(rv.open.length, 1);
+  assert.equal(rv.takenCount, 1, 'only the booked RV site, not the two tents');
+});
+
 test('a site with no loop sorts last, as the residue', () => {
   const entries = sitesOnNight(
     [

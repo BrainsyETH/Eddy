@@ -131,14 +131,16 @@ export function groupSites(
     const key = entry.site.loop ?? '';
     const group = byLoop.get(key) ?? { loop: entry.site.loop, open: [], takenCount: 0 };
 
+    // ── The filter decides what the WHOLE group is about ──────────────────
+    // Both halves are filtered, or the row lies. Filtering to RV and counting
+    // every booked tent site as "+22 taken" tells a reader there are 22 RV
+    // sites they just missed. The list and the count have to be describing the
+    // same set of sites, and that set is whatever the chips say.
+    const matches = filters.length === 0 || filters.some((f) => entry.tags.includes(f));
+    if (!matches) continue;
+
     if (isBookable(entry)) {
-      // A site the filter excludes is neither listed nor counted as taken. The
-      // chip's own count already says how many the filter matched, so adding it
-      // to "taken" would report a tent site as booked to somebody filtering for
-      // RVs.
-      if (filters.length === 0 || filters.some((f) => entry.tags.includes(f))) {
-        group.open.push(entry);
-      }
+      group.open.push(entry);
     } else if (entry.state !== 'unknown') {
       // Booked, closed and unreleased are all "not tonight" to a reader
       // scrolling for somewhere to sleep, and none of them is worth a row.

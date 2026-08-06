@@ -8,7 +8,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mappableService, searchableService } from '../../../eddy-ios/src/map/mappable';
+import { mappableService } from '../../../eddy-ios/src/map/mappable';
 import { accepts, milesBetween, nameScore } from '../../scripts/ingestion/geocode-services-dryrun';
 
 /* ── What may be drawn ────────────────────────────────────────────────────── */
@@ -51,14 +51,7 @@ test('no coordinates is never a pin, whatever the precision says', () => {
   assert.equal(mappableService({ latitude: 37.1, longitude: null }), false);
 });
 
-test('searching around a place is a weaker requirement than pointing at it', () => {
-  // A ten-mile "stays nearby" box does not care which end of town it starts
-  // from. Two surfaces, two thresholds, one recorded fact — which is the whole
-  // reason precision is stored rather than coordinates simply withheld.
-  const centroid = { latitude: 37.15, longitude: -91.35, geocodePrecision: 'centroid' as const };
-  assert.equal(mappableService(centroid), false);
-  assert.equal(searchableService(centroid), true);
-});
+
 
 /* ── What may be written ──────────────────────────────────────────────────── */
 
