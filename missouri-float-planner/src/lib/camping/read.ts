@@ -24,15 +24,29 @@ import type { CampingSource, FacilityKind } from './types';
 const MAX_AGE_MS = 72 * 60 * 60 * 1000;
 
 /**
- * How much of the horizon a facility must have before it is worth showing.
+ * How much of the horizon is worth DRAWING as a strip.
  *
  * A campground whose season ends inside the fortnight legitimately has no rows
  * for the tail of it, and a truncated sync legitimately leaves a few nights
  * short. Neither is a reason to say nothing. What IS a reason is a facility
  * with two nights out of fourteen, where a strip would be mostly gaps and the
  * eye would read the gaps as "full".
+ *
+ * ── This gates the STRIP, not the facility ────────────────────────────────
+ *
+ * It used to drop the whole row, which was a deploy hazard rather than a
+ * safeguard: the table holds two nights per facility until the first horizon
+ * sync runs, so shipping this code would have taken every availability line in
+ * the app dark until the next 09:00 cron — up to a day of a shipped feature
+ * looking broken, for want of data nobody had written yet.
+ *
+ * The sentence and the strip have different needs and now say so. The sentence
+ * needs the weekend it names, whole, and nothing more. The strip needs enough
+ * of the fortnight to read as a shape. Below the floor the row still carries
+ * its number and simply draws no strip, which is exactly what the app did
+ * before any of this existed.
  */
-const MIN_NIGHTS = 7;
+const MIN_STRIP_NIGHTS = 7;
 
 /** One measured night, as the app's strip draws it. */
 export interface CampsiteNight {
@@ -160,13 +174,6 @@ export async function loadAvailability(
   for (const { rows, meta, fetchedAt } of nightsByFacility.values()) {
     rows.sort((a, b) => a.date.localeCompare(b.date));
 
-    // ── Enough of the horizon to be worth drawing ───────────────────────────
-    // This used to be `rows.length !== window.nights.length` — all-or-nothing,
-    // which was right when the window WAS the sentence's two nights. Over
-    // fourteen it would drop almost everything: a season ending on day nine is
-    // ordinary, and so is a sync that ran out of budget with three nights left.
-    if (rows.length < MIN_NIGHTS) continue;
-
     // ── The sentence describes the WEEKEND, never the fortnight ─────────────
     // summarizeWindow takes the MINIMUM of sitesOpen across the nights it is
     // given, because "8 sites open Fri–Sun" has to mean eight you can book for
@@ -193,12 +200,18 @@ export async function loadAvailability(
       source: meta.source as CampingSource,
       fetchedAt,
       facilityId: meta.id,
-      nights: rows.map((night) => ({
-        date: night.date,
-        sitesOpen: night.sitesOpen,
-        sitesReservable: night.sitesReservable,
-        status: night.status,
-      })),
+      // Empty rather than sparse-to-the-point-of-meaningless: a client draws
+      // whatever arrives, and three bars among eleven gaps reads as a
+      // campground that is nearly full rather than as one barely measured.
+      nights:
+        rows.length >= MIN_STRIP_NIGHTS
+          ? rows.map((night) => ({
+              date: night.date,
+              sitesOpen: night.sitesOpen,
+              sitesReservable: night.sitesReservable,
+              status: night.status,
+            }))
+          : [],
     };
 
     if (meta.nps_campground_id) index.byNpsCampgroundId.set(meta.nps_campground_id, availability);

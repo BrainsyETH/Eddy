@@ -89,15 +89,35 @@ test('a season that ends mid-horizon still shows the nights it has', async () =>
 
   const availability = index.byNpsCampgroundId.get('cg-1');
   assert.ok(availability, 'nine nights of fourteen is worth drawing');
-  assert.equal(availability!.nights.length, 9);
+  assert.equal(availability!.nights.length, 9, 'nine bars and five gaps, not silence');
 });
 
-test('a facility with almost nothing measured says nothing', async () => {
-  // A strip that is mostly gaps reads as mostly full, so below the floor the
-  // honest answer is silence.
-  const rows = HORIZON.slice(0, 3).map((date) => night(date, 8));
+test('a facility with almost nothing measured keeps its number and drops the strip', async () => {
+  // Three bars among eleven gaps reads as a campground that is nearly full
+  // rather than as one barely measured, so below the floor there is no strip.
+  // But the SENTENCE only ever needed the weekend, and dropping the whole row
+  // for want of strip data is how shipping this would have taken every
+  // availability line dark until the first horizon sync ran.
+  const rows = [...WEEKEND, HORIZON[0]].map((date) => night(date, 8));
   const index = await loadAvailability(supabaseReturning(rows), NOW);
-  assert.equal(index.byNpsCampgroundId.get('cg-1'), undefined);
+
+  const availability = index.byNpsCampgroundId.get('cg-1');
+  assert.ok(availability, 'the weekend was measured, so the number stands');
+  assert.equal(availability!.sitesOpen, 8);
+  assert.deepEqual(availability!.nights, [], 'not enough of the fortnight to draw');
+});
+
+test('the two nights already in the table on deploy day still render', async () => {
+  // The table holds exactly the old two-night weekend until the first horizon
+  // sync. That is the state this code ships into, and it has to look like the
+  // app did yesterday rather than like a broken feature.
+  const rows = WEEKEND.map((date) => night(date, 8));
+  const index = await loadAvailability(supabaseReturning(rows), NOW);
+
+  const availability = index.byNpsCampgroundId.get('cg-1');
+  assert.ok(availability, 'deploying ahead of the sync must not go dark');
+  assert.equal(availability!.sitesOpen, 8);
+  assert.deepEqual(availability!.nights, []);
 });
 
 test('a missing weekend night drops the sentence rather than mislabelling it', async () => {
