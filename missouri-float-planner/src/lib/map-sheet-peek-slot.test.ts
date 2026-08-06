@@ -12,14 +12,26 @@ import { decisionSlot } from '../../../eddy-ios/src/components/map-sheet/peekSlo
 // arrives. What is asserted here is that the signature stays that way and that
 // every branch resolves to something with a reserved height.
 
-const pin = (layer: string) => ({ layer });
+const pin = (layer: string, hasAvailability = false) => ({ layer, hasAvailability });
 
-test('the campgrounds layer always reserves availability, never water', () => {
-  // The tent wins even on a well-gauged river. Somebody tapping a campground
-  // icon is asking where they sleep; the water is a swipe away on the same
-  // sheet. Same layer-wins precedence as placeSymbol and initialTabKey.
-  assert.equal(decisionSlot(pin('campgrounds'), { riverHasGauges: true }), 'availability');
-  assert.equal(decisionSlot(pin('campgrounds'), { riverHasGauges: false }), 'availability');
+test('a bookable campground reserves availability, even on a gauged river', () => {
+  // The tent wins where there is an answer. Somebody tapping a campground icon
+  // is asking where they sleep; the water is a swipe away on the same sheet.
+  // Same layer-wins precedence as placeSymbol and initialTabKey.
+  assert.equal(decisionSlot(pin('campgrounds', true), { riverHasGauges: true }), 'availability');
+  assert.equal(decisionSlot(pin('campgrounds', true), { riverHasGauges: false }), 'availability');
+});
+
+test('a campground Eddy cannot book falls through to the water', () => {
+  // THE COMMON CASE: 42 of 166 campground pins are linked to a booking system
+  // Eddy can read. Reserving the card for the other 124 spent the tallest block
+  // in the peek — on the surface with the least room to spare — to say there was
+  // nothing to say.
+  //
+  // It falls through rather than reserving nothing: a campground is still a
+  // place on a river, and the water is a real fact about it.
+  assert.equal(decisionSlot(pin('campgrounds', false), { riverHasGauges: true }), 'water');
+  assert.equal(decisionSlot(pin('campgrounds', false), { riverHasGauges: false }), 'none');
 });
 
 test('the access layer reserves water when the river has a gauge', () => {

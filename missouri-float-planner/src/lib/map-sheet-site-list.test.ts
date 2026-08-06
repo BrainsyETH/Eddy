@@ -15,7 +15,9 @@ import {
   filterCounts,
   groupSites,
   naturalCompare,
+  siteKind,
   sitesOnNight,
+  summariseByKind,
 } from '../../../eddy-ios/src/components/map-sheet/siteList';
 
 const NIGHTS = ['2026-08-06', '2026-08-07', '2026-08-08'];
@@ -71,7 +73,7 @@ test('walk-up sites are listed, because somebody can still sleep there', () => {
   const entries = sitesOnNight([site({ nights: 'WWW' })], NIGHTS, '2026-08-06');
   const groups = groupSites(entries);
   assert.equal(groups[0].open.length, 1);
-  assert.equal(groups[0].takenCount, 0);
+  assert.equal(groups[0].taken.length, 0);
 });
 
 /* ── Tags ─────────────────────────────────────────────────────────────────── */
@@ -128,7 +130,7 @@ test('taken sites collapse to a count instead of rows', () => {
   );
   const [group] = groupSites(entries);
   assert.deepEqual(group.open.map((e) => e.site.name), ['A2']);
-  assert.equal(group.takenCount, 2, 'booked and closed both mean "not tonight"');
+  assert.equal(group.taken.length, 2, 'booked and closed both mean "not tonight"');
 });
 
 test('an unmeasured night counts as neither open nor taken', () => {
@@ -148,7 +150,7 @@ test('a filtered-out site is not reported as taken', () => {
   );
   const [group] = groupSites(entries, ['RV']);
   assert.equal(group.open.length, 1);
-  assert.equal(group.takenCount, 0);
+  assert.equal(group.taken.length, 0);
 });
 
 test('the taken count describes the same sites the filter does', () => {
@@ -168,11 +170,11 @@ test('the taken count describes the same sites the filter does', () => {
 
   const [all] = groupSites(entries);
   assert.equal(all.open.length, 1);
-  assert.equal(all.takenCount, 3, 'unfiltered, every booked site counts');
+  assert.equal(all.taken.length, 3, 'unfiltered, every booked site counts');
 
   const [rv] = groupSites(entries, ['RV']);
   assert.equal(rv.open.length, 1);
-  assert.equal(rv.takenCount, 1, 'only the booked RV site, not the two tents');
+  assert.equal(rv.taken.length, 1, 'only the booked RV site, not the two tents');
 });
 
 test('a site with no loop sorts last, as the residue', () => {
@@ -201,4 +203,50 @@ test('filter counts only ever count bookable sites', () => {
     NIGHTS[0],
   );
   assert.equal(filterCounts(entries).Tent, 1, 'a booked tent site is not an option');
+});
+
+/* ── Kinds, for the feeds that name rather than type ──────────────────────── */
+
+test('a Missouri State Park site takes its kind from its name', () => {
+  // The whole reason siteKind exists. Every Onondaga and Meramec site arrives
+  // with a null site_type and a name like "Basic #001", so the type filters
+  // counted zero, every chip vanished, and 64 rows differed only by number.
+  assert.equal(siteKind({ name: 'Basic #001', siteType: null }), 'Basic');
+  assert.equal(siteKind({ name: 'Electric #012', siteType: null }), 'Electric');
+});
+
+test('a declared site type always beats the name', () => {
+  // recreation.gov fills site_type in, and it is the site's own claim about
+  // itself. Reading the name over it would be guessing at data we were given.
+  assert.equal(
+    siteKind({ name: 'A1', siteType: 'STANDARD NONELECTRIC' }),
+    'STANDARD NONELECTRIC',
+  );
+});
+
+test('a bare number yields no kind rather than a fake one', () => {
+  // "Site 14" splits to "Site ", which names nothing — better no kind than a
+  // heading that groups every site in the park under one meaningless word.
+  assert.equal(siteKind({ name: '14', siteType: null }), null);
+});
+
+test('the summary counts open against the whole kind, not just what is open', () => {
+  // "Basic 12 of 40" is a different claim from "Basic 12", and the denominator
+  // is the sites that are taken — which is why LoopGroup keeps them rather than
+  // only counting them.
+  const entries = sitesOnNight(
+    [
+      site({ id: '1', name: 'Basic #001', siteType: null, nights: 'ARR' }),
+      site({ id: '2', name: 'Basic #002', siteType: null, nights: 'RRR' }),
+      site({ id: '3', name: 'Electric #001', siteType: null, nights: 'ARR' }),
+    ],
+    NIGHTS,
+    NIGHTS[0],
+  );
+
+  const summaries = summariseByKind(entries);
+  assert.deepEqual(summaries, [
+    { kind: 'Basic', open: 1, total: 2 },
+    { kind: 'Electric', open: 1, total: 1 },
+  ]);
 });

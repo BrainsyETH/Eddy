@@ -388,6 +388,48 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
         />
       ) : null}
 
+      {/* ── THE WAY TO BOOK COMES BEFORE THE INVENTORY ────────────────────
+          This sat at the very bottom, under the site list, the whole "About
+          this campground" table, the amenity chips and the season notes. On
+          Onondaga that is sixty-four rows of scrolling before the only link
+          that can actually reserve any of them, and the report was simply that
+          there was no link — which is what a link nobody reaches amounts to.
+
+          The order now matches what a reader is doing: how many are open, on
+          which night, HOW TO TAKE ONE, and then the detail about the place.
+
+          `officialSiteUrl` is no longer gated on the absence of an NPS record.
+          It was, so a state park — which has no NPS row and therefore no
+          reservation URL either — depended on this single row, while a federal
+          site that had both showed only one of them. Both are worth having:
+          they are the booking system and the park's own page. */}
+      <Section title="Book">
+        {nps?.reservationUrl ? (
+          <LinkRow
+            label="Reserve a site"
+            external
+            symbol="campground"
+            onPress={() => void Linking.openURL(nps.reservationUrl as string)}
+          />
+        ) : null}
+        {point.officialSiteUrl ? (
+          <LinkRow
+            label={nps ? 'Park website' : 'Official site'}
+            external
+            onPress={() => void Linking.openURL(point.officialSiteUrl as string)}
+          />
+        ) : null}
+        {nps?.npsUrl ? (
+          <LinkRow
+            label="Campground page"
+            external
+            onPress={() => void Linking.openURL(nps.npsUrl as string)}
+          />
+        ) : null}
+      </Section>
+
+      <Prose>{nps?.reservationInfo ?? null}</Prose>
+
       {availability?.facilityId ? (
         <Section title="Sites">
           {sitesStatus === 'ready' && sites ? (
@@ -470,23 +512,10 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
         </Section>
       ) : null}
 
-      <Prose>{nps?.reservationInfo ?? null}</Prose>
-
       <Section>
-        {nps?.reservationUrl ? (
-          <LinkRow
-            label="Reserve a site"
-            external
-            onPress={() => void Linking.openURL(nps.reservationUrl as string)}
-          />
-        ) : null}
-        {nps?.npsUrl ? (
-          <LinkRow
-            label="Campground page"
-            external
-            onPress={() => void Linking.openURL(nps.npsUrl as string)}
-          />
-        ) : null}
+        {/* The booking links moved ABOVE the site inventory — see the Book
+            section. What stays down here is the one destination that points
+            somewhere else entirely. */}
         {/* ── When the campground is full, this is the next question ────────
             Last in the section on purpose: it points away from the place the
             reader opened, so it must never outrank the campground's own
@@ -499,13 +528,6 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
             detail={stayRadiusLabel()}
             external
             onPress={() => void Linking.openURL(stayUrl)}
-          />
-        ) : null}
-        {!nps && point.officialSiteUrl ? (
-          <LinkRow
-            label="Official site"
-            external
-            onPress={() => void Linking.openURL(point.officialSiteUrl as string)}
           />
         ) : null}
       </Section>

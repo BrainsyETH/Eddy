@@ -13,6 +13,7 @@ import {
   toNpsCampground,
   type AccessPointRow,
 } from '@/lib/offline/shapes';
+import { loadLiveAvailabilityIndex } from '@/lib/camping/live-index';
 
 // Force dynamic rendering (uses cookies for Supabase)
 export const dynamic = 'force-dynamic';
@@ -77,10 +78,18 @@ async function _GET(
 
     // Filter and format access points, excluding those with invalid coordinates
     const serviceBounds = await getServiceAreaBounds();
+    // One small query for the whole river. See LiveAvailabilityIndex for why a
+    // map payload carries a booking fact at all.
+    const liveAvailability = await loadLiveAvailabilityIndex(supabase);
 
     const formattedPoints = (accessPoints || [])
       .map((ap) => {
-        const point = toAccessPoint(ap as unknown as AccessPointRow, npsMap, serviceBounds);
+        const point = toAccessPoint(
+          ap as unknown as AccessPointRow,
+          npsMap,
+          serviceBounds,
+          liveAvailability,
+        );
         // Missing coordinates or coordinates outside the service area (active
         // rivers ∪ MO — a hardcoded Missouri box once silently dropped every
         // Arkansas Buffalo River point). Either way the point is not drawable,

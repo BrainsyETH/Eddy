@@ -168,6 +168,29 @@ export interface MapAccessPoint {
    * every consumer has to have a no-photo layout that is not an apology.
    */
   imageUrls?: string[];
+  /**
+   * Whether Eddy can read live campsite availability for this place.
+   *
+   * A BOOLEAN on the map payload, and the reason is the collapsed sheet: it
+   * reserves room for exactly one decision fact and has to pick which before any
+   * detail request, or it resizes under the reader's thumb when the answer
+   * lands. A campground that can be booked through Eddy earns the availability
+   * card; one that cannot gets the water reading like any other put-in.
+   *
+   * It carries its weight because the answer is usually no — 42 of 166
+   * campground pins are linked to a booking system Eddy can read, so without
+   * this the other 124 spent the largest block in the peek announcing that they
+   * had nothing to announce.
+   *
+   * The availability ITSELF is not here: the nights, the counts and the window
+   * are a per-facility read the detail endpoint already does. This says only
+   * which shape to hold.
+   *
+   * OPTIONAL, and absent means "not known to have any" — a client on an older
+   * bundle simply sees every campground as unbookable, which is the pre-existing
+   * behaviour rather than a wrong claim.
+   */
+  hasLiveAvailability?: boolean;
 }
 
 export interface AccessPointsResponse {

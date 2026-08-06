@@ -405,7 +405,16 @@ function PinSheetHeader({
   const availability = pin.availability ?? accessAvailability(point);
   const availabilityName = accessAvailabilityName(point, pin.name);
 
-  const slot = decisionSlot(pin, { riverHasGauges });
+  // Both halves come off the pin, never off `detail`. A service campground
+  // carries its availability on the pin outright; an access point carries the
+  // flag the map payload now ships. See LiveAvailabilityIndex on the web side.
+  const slot = decisionSlot(
+    {
+      layer: pin.layer,
+      hasAvailability: pin.availability != null || accessPoint?.hasLiveAvailability === true,
+    },
+    { riverHasGauges },
+  );
   // 'ready' means the question has been ANSWERED, not that the answer is
   // non-empty — a resolved-empty slot draws its terminal line rather than
   // waiting forever. 'idle' is a pin with no detail route, which is answered
