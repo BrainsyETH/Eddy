@@ -44,6 +44,7 @@ import { getServiceAreaBounds } from '@/lib/geo/region-bounds';
 import { fetchRiverReaches, type RiverReach } from '@/lib/data/river-reaches';
 import type { RiverType } from '@/lib/rivers/context';
 import type { NPSCampgroundInfo } from '@/types/api';
+import { loadLiveAvailabilityIndex } from '@/lib/camping/live-index';
 import {
   toAccessPoint,
   toHazard,
@@ -133,6 +134,11 @@ export async function buildOfflineBundle(): Promise<OfflineBundle> {
         .filter((id): id is string => Boolean(id)),
     ),
   ];
+  // Which of these places Eddy can read live campsite availability for. The map
+  // sheet decides what to reserve room for from this, before it asks for
+  // anything — see LiveAvailabilityIndex.
+  const liveAvailability = await loadLiveAvailabilityIndex(supabase);
+
   const npsById = new Map<string, NPSCampgroundInfo>();
   if (npsIds.length > 0) {
     const { data: campgrounds } = await supabase
@@ -174,7 +180,9 @@ export async function buildOfflineBundle(): Promise<OfflineBundle> {
         geometry.get(river.slug) ?? EMPTY_LINE,
       ),
       accessPoints: byRiver(accessPoints, river.id)
-        .map((ap) => toAccessPoint(ap as unknown as AccessPointRow, npsById, serviceBounds))
+        .map((ap) =>
+          toAccessPoint(ap as unknown as AccessPointRow, npsById, serviceBounds, liveAvailability),
+        )
         .filter((ap): ap is NonNullable<typeof ap> => ap !== null),
       hazards: byRiver(hazards, river.id).map((h) => toHazard(h as unknown as HazardRow)),
       reaches: reachesBySlug.get(river.slug) ?? [],

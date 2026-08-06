@@ -69,9 +69,22 @@
  */
 export type DecisionSlot = 'water' | 'availability' | 'none';
 
-/** Just the field the layer rule reads. Structural — see the header. */
+/** Just the fields the rules read. Structural — see the header. */
 interface LayerTapped {
   layer: string;
+  /**
+   * Whether this place can be booked through Eddy at all.
+   *
+   * From the PIN — `MapAccessPoint.hasLiveAvailability` for an access point, or
+   * the availability the campgrounds layer already carries for a service — so it
+   * is answerable on the first frame like everything else here.
+   *
+   * Without it a campground tap always reserved the card, and three quarters of
+   * campgrounds have no booking system Eddy can read: 124 of 166 pins spent the
+   * tallest block in the peek to say they had nothing to say, on the surface
+   * with the least room to spare.
+   */
+  hasAvailability: boolean;
 }
 
 /**
@@ -116,9 +129,14 @@ export interface SlotContext {
  */
 export function decisionSlot(pin: LayerTapped, context: SlotContext): DecisionSlot {
   // The tent wins over everything, including a point that is also a boat ramp on
-  // a well-gauged river. Somebody tapping a campground icon is asking where they
-  // sleep, and the water is a swipe away on the same sheet.
-  if (pin.layer === 'campgrounds') return 'availability';
-  if (pin.layer !== 'access') return 'none';
+  // a well-gauged river — somebody tapping a campground icon is asking where
+  // they sleep. But only when there is an answer: a campground Eddy cannot book
+  // FALLS THROUGH to the water rather than reserving a card to be empty in.
+  //
+  // That fall-through is why the flag has to be on the pin. Deciding it from the
+  // response would put the choice back after the sheet had settled, which is the
+  // one thing this module exists to prevent.
+  if (pin.layer === 'campgrounds' && pin.hasAvailability) return 'availability';
+  if (pin.layer !== 'campgrounds' && pin.layer !== 'access') return 'none';
   return context.riverHasGauges ? 'water' : 'none';
 }

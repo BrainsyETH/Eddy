@@ -155,10 +155,82 @@ export function toHazard(row: HazardRow) {
  * exists because a hardcoded Missouri box once silently dropped every Buffalo
  * River point in Arkansas.
  */
+/**
+ * Which places Eddy can read live campsite availability for.
+ *
+ * ── Why a MAP payload carries a booking fact ─────────────────────────────
+ *
+ * The iOS sheet reserves room in its collapsed glance for exactly one decision
+ * fact, and it has to choose which before any detail request — otherwise the
+ * sheet resizes under the reader's thumb when the answer lands. For a campground
+ * the fact worth reserving is availability, and for everything else it is the
+ * water. So "does this place have availability at all" must be knowable from the
+ * pin, which means it has to ride along with the pin.
+ *
+ * It matters because the answer is usually no: 42 of 166 campground pins are
+ * linked to a booking system Eddy can read. Without this flag the other 124
+ * spent the largest block in the peek saying they had nothing to say.
+ *
+ * A BOOLEAN, not the availability itself. The nights, the counts and the window
+ * are a per-facility read that the detail endpoint already does well; all the
+ * glance needs up front is which shape to hold.
+ */
+export interface LiveAvailabilityIndex {
+  accessPointIds: ReadonlySet<string>;
+  npsCampgroundIds: ReadonlySet<string>;
+}
+
+/** An index that claims nothing, for callers with no reason to ask. */
+export const NO_LIVE_AVAILABILITY: LiveAvailabilityIndex = {
+  accessPointIds: new Set(),
+  npsCampgroundIds: new Set(),
+};
+
+/**
+ * The enabled facilities, indexed by both of the keys they hang off.
+ *
+ * campsite_facilities reaches an access point two ways and needs both: directly
+ * through `access_point_id`, and through `nps_campground_id` for the federal
+ * sites, which is how a Missouri State Park with no NPS record still resolves.
+ * See the three-legged check in the app's tabs.ts for the same reason stated
+ * from the other end.
+ *
+ * Takes ROWS rather than a client, so this module stays what it is — pure
+ * shaping, no data access, testable without a database. Each caller runs the
+ * one-line query itself; it is the same select in both, and both are already
+ * doing their own fetching around it.
+ */
+export function buildLiveAvailabilityIndex(
+  rows: readonly LiveAvailabilityRow[] | null | undefined,
+): LiveAvailabilityIndex {
+  const accessPointIds = new Set<string>();
+  const npsCampgroundIds = new Set<string>();
+  for (const row of rows ?? []) {
+    if (row.access_point_id) accessPointIds.add(row.access_point_id);
+    if (row.nps_campground_id) npsCampgroundIds.add(row.nps_campground_id);
+  }
+  return { accessPointIds, npsCampgroundIds };
+}
+
+export interface LiveAvailabilityRow {
+  access_point_id: string | null;
+  nps_campground_id: string | null;
+}
+
+/** The select both callers run. One string, so they cannot drift. */
+export const LIVE_AVAILABILITY_SELECT = 'access_point_id, nps_campground_id';
+
 export function toAccessPoint(
   row: AccessPointRow,
   npsById: ReadonlyMap<string, NPSCampgroundInfo>,
   serviceBounds: GeoBounds,
+  /**
+   * Required rather than defaulted, deliberately. A caller that forgot it would
+   * report "no availability anywhere", which is indistinguishable from the truth
+   * for three quarters of campgrounds and would put the peek back exactly where
+   * this flag was added to move it from. Pass NO_LIVE_AVAILABILITY to opt out.
+   */
+  liveAvailability: LiveAvailabilityIndex,
 ) {
   // location_orig before location_snap: the snapped coordinates are snapped to
   // simplified seed geometry and are wrong until NHD import lands.
@@ -202,6 +274,12 @@ export function toAccessPoint(
     localTips: row.local_tips || null,
     nearbyServices: (row.nearby_services as NearbyService[] | null) || [],
     npsCampground: row.nps_campground_id ? npsById.get(row.nps_campground_id) || null : null,
+    // See LiveAvailabilityIndex: the map sheet needs this before it asks for
+    // anything, so it travels with the pin rather than with the detail.
+    hasLiveAvailability:
+      liveAvailability.accessPointIds.has(row.id) ||
+      (row.nps_campground_id != null &&
+        liveAvailability.npsCampgroundIds.has(row.nps_campground_id)),
   };
 }
 

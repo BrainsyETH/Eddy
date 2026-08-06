@@ -3,7 +3,13 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { etagFor } from './etag';
-import { toAccessPoint, toHazard, type AccessPointRow, type HazardRow } from './shapes';
+import {
+  NO_LIVE_AVAILABILITY,
+  toAccessPoint,
+  toHazard,
+  type AccessPointRow,
+  type HazardRow,
+} from './shapes';
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
 
@@ -160,8 +166,8 @@ const accessRow = (over: Partial<AccessPointRow> = {}): AccessPointRow => ({
 test('an access point outside the service area is dropped', () => {
   // A put-in is somewhere a person drives to. Bad coordinates are worse than
   // a missing row, so this one case IS filtered rather than shown.
-  assert.equal(toAccessPoint(accessRow({ location_orig: { coordinates: [12.4, 41.9] } }), new Map(), BOUNDS), null);
-  assert.equal(toAccessPoint(accessRow({ location_orig: null, location_snap: null }), new Map(), BOUNDS), null);
+  assert.equal(toAccessPoint(accessRow({ location_orig: { coordinates: [12.4, 41.9] } }), new Map(), BOUNDS, NO_LIVE_AVAILABILITY), null);
+  assert.equal(toAccessPoint(accessRow({ location_orig: null, location_snap: null }), new Map(), BOUNDS, NO_LIVE_AVAILABILITY), null);
 });
 
 test('an access point falls back to snapped coordinates when it has no original', () => {
@@ -169,6 +175,7 @@ test('an access point falls back to snapped coordinates when it has no original'
     accessRow({ location_orig: null, location_snap: { coordinates: [-91.5, 37.2] } }),
     new Map(),
     BOUNDS,
+    NO_LIVE_AVAILABILITY,
   );
   assert.deepEqual(mapped?.coordinates, { lng: -91.5, lat: 37.2 });
 });
@@ -176,5 +183,5 @@ test('an access point falls back to snapped coordinates when it has no original'
 test('an access point with no types list falls back to its single type', () => {
   // The app renders `types` and would show an untyped pin for every access
   // point predating the multi-type column.
-  assert.deepEqual(toAccessPoint(accessRow(), new Map(), BOUNDS)?.types, ['boat_ramp']);
+  assert.deepEqual(toAccessPoint(accessRow(), new Map(), BOUNDS, NO_LIVE_AVAILABILITY)?.types, ['boat_ramp']);
 });
