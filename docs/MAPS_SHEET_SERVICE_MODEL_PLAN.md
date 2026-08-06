@@ -15,11 +15,11 @@ figure is used and the difference is stated.
 - [What the data actually says](#what-the-data-actually-says)
 - [Workstreams](#workstreams)
   - [W0 — One service model (shipped)](#w0--one-service-model--shipped)
-  - [W1 — Split the Place tab's service list](#w1--split-the-place-tabs-service-list)
-  - [W2 — Overview always has something to say](#w2--overview-always-has-something-to-say)
+  - [W1 — Place tab split (shipped)](#w1--split-the-place-tabs-service-list--shipped)
+  - [W2 — Overview lead (shipped)](#w2--overview-always-has-something-to-say--shipped)
   - [W3 — Say what the map cannot draw](#w3--say-what-the-map-cannot-draw)
-  - [W4 — siteKind feeds the filters](#w4--sitekind-feeds-the-filters)
-  - [W5 — The glance contract for untabbed pins](#w5--the-glance-contract-for-untabbed-pins)
+  - [W4 — Campsite filters (shipped)](#w4--sitekind-feeds-the-filters--shipped)
+  - [W5 — Hazard instruction (shipped)](#w5--the-glance-contract-for-untabbed-pins--shipped)
 - [Sequencing](#sequencing)
 - [Guardrails that keep this from recurring](#guardrails-that-keep-this-from-recurring)
 
@@ -321,7 +321,7 @@ for keeping eligibility and location quality as separate predicates.
 in `eddy-ios`; `make bundle-mobile` exports a production iOS bundle and the
 `.easignore` allowlist check passes.
 
-### W1 — Split the Place tab's service list
+### W1 — Split the Place tab's service list — **SHIPPED**
 
 Cheapest real fix in the set, and after W0 it is a few lines.
 
@@ -353,7 +353,7 @@ no other Place fact.
 with a `lodging` entry now shows it under a heading that names it, and no access
 point shows the same campground on two tabs.
 
-### W2 — Overview always has something to say
+### W2 — Overview always has something to say — **SHIPPED**
 
 The measured shape of the problem — 80 of 81 have Place facts, 1 has nothing —
 argues against a generic empty state and for **promotion**.
@@ -435,7 +435,7 @@ independent filters over one table is how they drifted in the first place.
 for ineligible rows, and the backfill's target is therefore not 128 rows but the
 eligible ones among them.
 
-**W3b — Tell the sheet what it is not showing.** The layers sheet already
+**W3b — Tell the sheet what it is not showing. SHIPPED.** The layers sheet already
 supports this: `renderLayerDetail` and the `LayerNote` component
 (`MapLayersSheet.tsx:389`) exist for exactly a layer whose refinement is a
 sentence, and the radar row already uses them. So this is a call site, not a
@@ -452,17 +452,25 @@ mapped = eligible && mappable && belongsToActiveTier
 total  = eligible &&              belongsToActiveTier
 ```
 
-Which, on today's data:
+Which, on today's data — **read back from the live directory after shipping**,
+using the rule the app actually runs:
 
-| tier / row | mapped | total | note reads |
-| --- | ---: | ---: | --- |
-| Outfitters & shuttles | 12 | 70 | 71 rows less 1 permanently closed |
-| Cabins & lodges | 2 | 41 | |
-| **Outfitters & lodging** (row) | **14** | **111** | |
-| Campgrounds (service half) | 14 | 44 | |
+| tier | mapped | total |
+| --- | ---: | ---: |
+| Rentals & shuttles | 14 | 84 |
+| Cabins & lodges | 13 | 81 |
+| Campgrounds (service half) | 18 | 80 |
 
-So the note under an all-tiers Outfitters row reads `14 of 111 mapped — the rest
-have no confirmed location.` The clause after the dash matters: without it the
+**These are larger than the figures this document was first written with** (12 of
+70, 2 of 41, 14 of 44), and the difference is the capability model earning its
+keep rather than an error in either count. The originals were computed from
+`type` alone. The shipped `serviceTiers` also reads `services_offered`, so an
+outfitter that rents cabins now reaches the lodging tier — which takes its
+mappable rows from **2 to 13**, and campground services from 14 to 18. The
+reclassification did not only relabel pins; it put more of them on the map.
+
+So the note under the Rentals tier reads `14 of 84 mapped — the rest have no
+confirmed location.` The clause after the dash matters: without it the
 reader concludes Eddy's map is broken rather than that Eddy declined to guess,
 which is the exact argument `mappable.ts` opens with. Every one of them is still
 reachable — the river page's services directory lists all 156.
@@ -488,7 +496,7 @@ The `mappableService` inconsistency across the four consumers is W3a's table and
 is fixed there. It matters most here: today the four agree only because no row is
 a centroid, and W3c is the change that creates the first one.
 
-### W4 — siteKind feeds the filters
+### W4 — siteKind feeds the filters — **SHIPPED**
 
 Item 4 is clean, but verifying it surfaced this: `typeTags()`
 (`siteList.ts:57`) reads `site.siteType`, which is **null for all 631
@@ -545,10 +553,23 @@ names from the table above, and assert the `'No hookup'` chip appears with a
 non-zero count for both a `NONELECTRIC` recreation.gov site and a `Basic` state-
 park one. This is the file's existing job and it runs in the web suite.
 
-### W5 — The glance contract for untabbed pins
+### W5 — The glance contract for untabbed pins — **SHIPPED**
 
-Item 5 is correctly scoped as deliberate future work, and `PinSheet.tsx:10` says
-so. Recommendation: **do not build dam or hazard tabs in this pass** — the header
+**A correction first: dams were already right.** Item 5 said a dam's decision
+fact is still wherever the callout puts it. `damPins` sets `value` (release cfs)
+and `codeLabel` (Generating / Units idle), and `PinCallout` draws those in the
+reading row directly under `PlaceHead` — the type badges and the private notice
+are access-point-only, so nothing sits between them.
+
+The defect was the HAZARD, and it was a data-path bug rather than an ordering
+one: `RiverMap` joined the portage note onto the front of `body`, so the only
+sentence Eddy ever addresses to a paddler as an instruction was drawn by the slot
+built for descriptions. It is `MapPin.instruction` now, rendered as its own block
+in the text ink above the description — the same correction the availability line
+already got, in the same file.
+
+Item 5 is otherwise correctly scoped as deliberate future work, and
+`PinSheet.tsx:10` says so. Recommendation: **do not build dam or hazard tabs in this pass** — the header
 comment's reasoning still holds, a schedule-only dam has strictly less to say
 than one with a tailwater, and doing four pin types at once is how the last one
 of these got large.
