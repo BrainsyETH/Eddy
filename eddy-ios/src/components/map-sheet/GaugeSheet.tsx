@@ -33,87 +33,116 @@ import {
   conditionLongLabel,
   conditionText,
 } from '@/theme/conditions';
-import { flowBandLabel, flowBandSentence } from '@/theme/flow';
+// flowBandLabel is NOT imported any more: the band's words reach the sheet on
+// the pin as `codeLabel`, put there by the map screen's referencePins builder,
+// so re-deriving them here would be a second computation of the same string
+// from a source that arrives later. flowBandSentence still needs the detail.
+import { flowBandSentence } from '@/theme/flow';
 // The percentile -> band function itself, not the MapGaugeLite wrapper in
 // src/lib/gaugeFlow: a GaugeDetail carries the percentile directly.
 import { flowBand } from '@eddy/conditions/flow-band';
 import { GaugeChart } from '@/components/GaugeChart';
 import { Absent, Fact, LinkRow, Prose, Section } from './sections';
+import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 import type { GaugePinFacts } from './gaugeTabs';
 
 export interface GaugeTabProps {
   facts: GaugePinFacts;
   detail: GaugeDetail | null;
+  /** Whether the one request behind these tabs is pending, done or failed. */
+  status: DetailStatus;
   onOpenGauge: (siteId: string) => void;
   onOpenRiver: (slug: string) => void;
 }
 
-/* ── Now ────────────────────────────────────────────────────────────────── */
+/* ── The reading, which is the glance ───────────────────────────────────── */
 
-export function GaugeNowTab({ facts, detail }: GaugeTabProps) {
+/**
+ * A station's number and what it means, from data the PIN already carries.
+ *
+ * ── Why this takes `facts` and never `detail` ─────────────────────────────
+ *
+ * This is the gauge's decision fact, and it is drawn in the collapsed sheet
+ * where anything arriving late would move the top edge (see peekSlot.ts for the
+ * general rule). It does not have to: `GaugePinFacts` is built in PinSheet from
+ * the MapPin, and the map screen has already put BOTH tiers' words on that pin
+ * before the sheet opens — a curated station carries `code` + `codeLabel` from
+ * its ladder, and a reference station carries `codeLabel` holding the flow
+ * band's words with NO `code`, which is what keeps a comparison from being
+ * tinted like a verdict (see the referencePins builder on the map screen).
+ *
+ * So there is no request behind this row and no reservation needed for it. The
+ * things that genuinely are late — the percentile sentence, the ladder — live in
+ * About and Levels.
+ *
+ * ── Exactly one chip ──────────────────────────────────────────────────────
+ * A station with a ladder shows the verdict; one without shows the band. Never
+ * both: two chips side by side invite the reader to average them, and a
+ * percentile and a condition are not the same kind of claim at all.
+ */
+export function GaugeReadingRow({
+  facts,
+  compact = false,
+}: {
+  facts: GaugePinFacts;
+  /** One line for the peek. The tabs use the taller default. */
+  compact?: boolean;
+}) {
   const { colors, isDark } = useTheme();
-  const band = detail?.curated === false ? flowBand(detail.flowPercentile) : null;
 
   return (
-    <View>
-      <View style={styles.readingRow}>
-        {facts.reading ? (
-          <Text
-            style={[
-              styles.reading,
-              { color: facts.code ? conditionText(facts.code, isDark) : colors.text },
-            ]}
-          >
-            {facts.reading}
+    <View style={[styles.readingRow, compact ? styles.readingRowCompact : null]}>
+      {facts.reading ? (
+        <Text
+          style={[
+            compact ? styles.readingSmall : styles.reading,
+            { color: facts.code ? conditionText(facts.code, isDark) : colors.text },
+          ]}
+        >
+          {facts.reading}
+        </Text>
+      ) : null}
+      {facts.code && facts.codeLabel ? (
+        <View
+          style={[
+            styles.chip,
+            {
+              backgroundColor: conditionBg(facts.code),
+              borderColor: conditionChipBorder(facts.code),
+            },
+          ]}
+        >
+          <Text style={[styles.chipText, { color: conditionInk(facts.code) }]}>
+            {conditionLongLabel(facts.code)}
           </Text>
-        ) : null}
-        {/* Exactly one chip, and which one depends on the tier. A station that
-            has both a ladder and a percentile still shows the verdict only:
-            two chips side by side invite the reader to average them. */}
-        {facts.code && facts.codeLabel ? (
-          <View
-            style={[
-              styles.chip,
-              {
-                backgroundColor: conditionBg(facts.code),
-                borderColor: conditionChipBorder(facts.code),
-              },
-            ]}
-          >
-            <Text style={[styles.chipText, { color: conditionInk(facts.code) }]}>
-              {conditionLongLabel(facts.code)}
-            </Text>
-          </View>
-        ) : band ? (
-          <View style={[styles.chip, { backgroundColor: colors.cardRaised, borderColor: colors.border }]}>
-            <Text style={[styles.chipText, { color: colors.textMuted }]}>
-              {flowBandLabel(band)}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      {/* A percentile explained in words, and never beside a verdict. */}
-      {band ? <Prose>{flowBandSentence(band)}</Prose> : null}
-
-      <Section>
-        <Fact label="Updated" value={facts.updatedAt} />
-        <Fact label="Station" value={facts.siteId ? `USGS ${facts.siteId}` : null} />
-      </Section>
-
-      {/* The station's own caveat on today's number, when it published one. */}
-      {facts.qualifierNote ? <Prose>{facts.qualifierNote}</Prose> : null}
+        </View>
+      ) : facts.codeLabel ? (
+        <View style={[styles.chip, { backgroundColor: colors.cardRaised, borderColor: colors.border }]}>
+          <Text style={[styles.chipText, { color: colors.textMuted }]}>{facts.codeLabel}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
 
 /* ── Levels — curated only ──────────────────────────────────────────────── */
 
-export function GaugeLevelsTab({ facts, detail }: GaugeTabProps) {
+export function GaugeLevelsTab({ facts, detail, status, onOpenRiver }: GaugeTabProps) {
   const { colors } = useTheme();
   const links = detail?.thresholds ?? [];
+  // A river with no slug has no screen to open, so it is named by its ladder
+  // above without being offered as a row that does nothing.
+  const openable = links.filter((link) => link.riverSlug);
 
   if (!links.length) {
+    // ── TOLD APART BY WHY ─────────────────────────────────────────────────
+    // This tab now exists from the first frame for every curated station — see
+    // gaugeTabs — so it is on screen for the whole of its own request. Saying
+    // "not rated against a river yet" during that window would have every
+    // Eddy-rated gauge in the state deny its own ladder for half a second, and
+    // a reader who swiped here early would take that as the answer.
+    if (status === 'loading') return <Absent>Loading levels…</Absent>;
+    if (status === 'failed') return <Absent>Levels unavailable right now.</Absent>;
     return <Absent>Eddy has not rated this station against a river yet.</Absent>;
   }
 
@@ -147,6 +176,27 @@ export function GaugeLevelsTab({ facts, detail }: GaugeTabProps) {
         </Section>
       ) : null}
 
+      {/* ── WHAT THE RIVERS TAB USED TO BE ────────────────────────────────
+          A list of the rivers this station grades, which only appeared when
+          there was more than one of them — because with one, as its own comment
+          said, "a tab holding a single row the reader can see above is a wasted
+          swipe". The same argument finishes the thought: the ladders directly
+          above already name every one of these rivers, so the list is not a
+          separate subject at all. It is the way OUT of this subject, and it
+          belongs at the bottom of it whether there are two rivers or one. */}
+      {openable.length ? (
+        <Section title={openable.length > 1 ? 'Rivers this gauge grades' : undefined}>
+          {openable.map((link) => (
+            <LinkRow
+              key={link.riverSlug as string}
+              label={link.riverName}
+              symbol="river"
+              detail={link.isPrimary && openable.length > 1 ? 'Primary river for this gauge' : null}
+              onPress={() => onOpenRiver(link.riverSlug as string)}
+            />
+          ))}
+        </Section>
+      ) : null}
     </View>
   );
 }
@@ -173,38 +223,35 @@ export function GaugeHistoryTab({ facts, detail }: GaugeTabProps) {
   );
 }
 
-/* ── Rivers — curated, and only when it grades more than one ────────────── */
-
-export function GaugeRiversTab({ detail, onOpenRiver }: GaugeTabProps) {
-  // A river with no slug has no screen to open, so it is named without being
-  // offered as a link rather than given a row that does nothing.
-  const links = (detail?.thresholds ?? []).filter((link) => link.riverSlug);
-  if (!links.length) return <Absent>This station is not rated against a river.</Absent>;
-
-  return (
-    <Section>
-      {links.map((link) => (
-        <LinkRow
-          key={link.riverSlug as string}
-          label={link.riverName}
-          detail={link.isPrimary ? 'Primary river for this gauge' : null}
-          onPress={() => onOpenRiver(link.riverSlug as string)}
-        />
-      ))}
-    </Section>
-  );
-}
-
 /* ── About ─────────────────────────────────────────────────────────────── */
 
+/**
+ * The instrument, rather than the water.
+ *
+ * ── This absorbed what the Now tab had that the glance does not ───────────
+ * The reading and its chip are in the glance and always were available there —
+ * they ride on the pin. What Now genuinely owned was everything qualifying the
+ * number rather than stating it: the percentile in words for a reference
+ * station, when the reading was taken, which station it is, and the station's
+ * own caveat on today's value. All four are about the source, which is the
+ * question this tab answers.
+ */
 export function GaugeAboutTab({ facts, detail }: GaugeTabProps) {
   const publicUrl = detail?.publicUrl ?? null;
+  const band = detail?.curated === false ? flowBand(detail.flowPercentile) : null;
 
   return (
     <View>
+      {/* A percentile explained in words, and never beside a verdict — the
+          reason src/theme/flow.ts and shared/flow-band.ts exist. In the glance
+          this station shows its band as a NEUTRAL chip; here is where the
+          comparison gets its sentence. */}
+      {band ? <Prose>{flowBandSentence(band)}</Prose> : null}
+
       {detail?.stationNote ? <Prose>{detail.stationNote}</Prose> : null}
 
       <Section>
+        <Fact label="Updated" value={facts.updatedAt} />
         <Fact label="Station" value={facts.siteId ? `USGS ${facts.siteId}` : null} />
         <Fact
           label="Tier"
@@ -217,6 +264,9 @@ export function GaugeAboutTab({ facts, detail }: GaugeTabProps) {
           }
         />
       </Section>
+
+      {/* The station's own caveat on today's number, when it published one. */}
+      {facts.qualifierNote ? <Prose>{facts.qualifierNote}</Prose> : null}
 
       {publicUrl ? (
         <Section>
@@ -257,7 +307,12 @@ function stageText(value: number | null | undefined): string | null {
 
 const styles = StyleSheet.create({
   readingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  // The peek's own spacing comes from the header around it, and the row holds a
+  // floor so a station with no current reading still occupies a line rather than
+  // collapsing to nothing and then growing when one arrives.
+  readingRowCompact: { marginTop: 10, minHeight: 27 },
   reading: { ...t.lg, fontFamily: fonts.mono },
+  readingSmall: { ...t.sm, fontFamily: fonts.mono },
   chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
   chipText: { ...t.sm, fontFamily: fonts.semibold },
   source: { ...t.sm, fontFamily: fonts.body, marginTop: 8 },

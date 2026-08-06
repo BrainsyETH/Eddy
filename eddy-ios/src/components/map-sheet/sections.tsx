@@ -24,7 +24,7 @@ import { conditionBg, conditionChipBorder, conditionInk, conditionText } from '@
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
-import { EddySymbol } from '@/components/EddySymbol';
+import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { accessTypeSymbol } from './placeSymbol';
 
 export function Section({
@@ -143,20 +143,61 @@ export function AccessTypeBadges({ accessPoint }: { accessPoint: MapAccessPoint 
  * station's NAME is not decoration and is not droppable at small sizes: a
  * reading with no station on it reads as measured here.
  *
- * ── Late, never blocking ──────────────────────────────────────────────────
- * Absent until the detail request lands, and absent for good if it fails. The
- * sheet is fully usable without it — Directions and "Use as put-in" are live
- * from the first frame — so this appears underneath them rather than reserving
- * a space that then has to be filled or explained.
+ * ── Late, but no longer unannounced ───────────────────────────────────────
+ * Still absent until the detail request lands. What changed is that the PEEK no
+ * longer lets that absence move it: PeekSlot reserves the row's height from the
+ * first frame and this fades into it. The tabs, which scroll, keep the original
+ * behaviour of simply appearing.
+ *
+ * ── `compact` is a rank, not a size ───────────────────────────────────────
+ * The full block spends two lines — a 18pt mono reading with its chip, then the
+ * station underneath — which is right on a tab you swiped to in order to read
+ * the water. In the peek it was 50pt of the one surface competing with the map,
+ * directly above an availability card and an action row, for a fact the reader
+ * mostly wants to GLANCE at. Compact puts the same three things on one line and
+ * keeps the single tap target, so nothing is lost but the height.
  */
 export function AccessGaugeReading({
   status,
   onOpenGauge,
+  compact = false,
+  pending = false,
+  pendingLabel,
 }: {
   status: AccessPointGaugeStatus | null | undefined;
   onOpenGauge: (siteId: string) => void;
+  /** One line, for the peek. Two, for a tab. */
+  compact?: boolean;
+  /**
+   * Draw the row's SHAPE with nothing in it yet.
+   *
+   * The peek reserves this row's height by mounting it (see GlanceSlot), and a
+   * plain line of text would reserve the wrong thing: the row's height comes
+   * from the CHIP, which is taller than its own text by its padding and border.
+   * So the placeholder is a chip too.
+   */
+  pending?: boolean;
+  pendingLabel?: string;
 }) {
   const { colors, isDark } = useTheme();
+
+  if (pending) {
+    return (
+      <View style={[compact ? styles.readingCompact : styles.readingBlock, styles.readingRow]}>
+        <View
+          style={[
+            styles.readingChip,
+            { backgroundColor: colors.cardRaised, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.readingChipText, { color: colors.textSubtle }]} numberOfLines={1}>
+            {pendingLabel ?? 'Checking water…'}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   if (!status) return null;
 
   const reading =
@@ -171,13 +212,21 @@ export function AccessGaugeReading({
       onPress={() => onOpenGauge(status.usgsId)}
       // One tap target over the number, the chip and the station name, because
       // all three are the same fact and all three lead to the same screen.
-      style={({ pressed }) => [styles.readingBlock, { opacity: pressed ? 0.6 : 1 }]}
+      style={({ pressed }) => [
+        compact ? styles.readingCompact : styles.readingBlock,
+        { opacity: pressed ? 0.6 : 1 },
+      ]}
       accessibilityRole="button"
       accessibilityLabel={`${status.gaugeName}, ${status.label}. Open the gauge`}
     >
       <View style={styles.readingRow}>
         {reading ? (
-          <Text style={[styles.reading, { color: conditionText(status.level, isDark) }]}>
+          <Text
+            style={[
+              compact ? styles.readingSmall : styles.reading,
+              { color: conditionText(status.level, isDark) },
+            ]}
+          >
             {reading}
           </Text>
         ) : null}
@@ -197,10 +246,22 @@ export function AccessGaugeReading({
             {status.label}
           </Text>
         </View>
+        {/* Compact keeps the station on the SAME line and lets it truncate.
+            Dropping it instead would have been smaller and dishonest: this is
+            the reach's nearest at-or-upstream gauge, not a sensor at the put-in,
+            and a reading with no station on it reads as measured here. Truncated
+            is still attributed; absent is not. */}
+        {compact ? (
+          <Text style={[styles.gaugeNameInline, { color: colors.textMuted }]} numberOfLines={1}>
+            at {status.gaugeName}
+          </Text>
+        ) : null}
       </View>
-      <Text style={[styles.gaugeName, { color: colors.textMuted }]} numberOfLines={2}>
-        at {status.gaugeName}
-      </Text>
+      {compact ? null : (
+        <Text style={[styles.gaugeName, { color: colors.textMuted }]} numberOfLines={2}>
+          at {status.gaugeName}
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -209,17 +270,31 @@ export function AccessGaugeReading({
  * A tappable row. Chevron for somewhere in the app, the outward arrow for
  * somewhere that is not — the distinction is worth a glyph, because one of
  * them leaves for Safari or the phone app.
+ *
+ * ── `symbol` marks the DESTINATION, and only sometimes ────────────────────
+ * A leading Eddy mark says what kind of thing is on the other side of the tap —
+ * a river, a gauge, a place. That is worth drawing on rows that leave for
+ * somewhere, and it is emphatically not worth drawing on every row: a sheet
+ * where each fact has a picture beside it is a sticker sheet. Identity at the
+ * top and on destinations; everything else stays quiet and native.
+ *
+ * The mark is decorative, so it carries no accessibility text of its own — the
+ * label beside it already names where the row goes, and EddySymbol hides itself
+ * from the tree.
  */
 export function LinkRow({
   label,
   detail,
   external = false,
+  symbol,
   onPress,
   accessibilityLabel,
 }: {
   label: string;
   detail?: string | null;
   external?: boolean;
+  /** The kind of thing this row opens. Omit on rows that are not destinations. */
+  symbol?: EddySymbolName;
   onPress: () => void;
   accessibilityLabel?: string;
 }) {
@@ -231,6 +306,11 @@ export function LinkRow({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
     >
+      {symbol ? (
+        <View style={[styles.linkWell, { backgroundColor: colors.cardRaised }]}>
+          <EddySymbol name={symbol} size={16} />
+        </View>
+      ) : null}
       <View style={styles.linkText}>
         <Text style={[styles.linkLabel, { color: colors.text }]} numberOfLines={1}>
           {label}
@@ -285,12 +365,32 @@ const styles = StyleSheet.create({
   // than a category. Same pill, different weight — kept apart so restyling the
   // type badges cannot quietly restyle a condition.
   readingBlock: { marginTop: 10 },
+  // No marginTop: PeekSlot owns the spacing above it, and a second one here
+  // would be added to the reserved box rather than absorbed by it.
+  readingCompact: {},
   readingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   reading: { ...t.lg, fontFamily: fonts.mono },
+  // t.sm, so the row's height is the chip's and the whole thing fits
+  // WATER_SLOT_HEIGHT. The number keeps the mono face and the condition ink —
+  // it is the same fact at a different rank, not a different fact.
+  readingSmall: { ...t.sm, fontFamily: fonts.mono },
   readingChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
   readingChipText: { ...t.sm, fontFamily: fonts.semibold },
   gaugeName: { ...t.sm, fontFamily: fonts.body, marginTop: 3 },
+  // flexShrink so the station is what gives way on a narrow screen — the number
+  // and its verdict are fixed-width and must never be the thing that truncates.
+  gaugeNameInline: { ...t.sm, fontFamily: fonts.body, flexShrink: 1, minWidth: 0 },
   linkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  // A well rather than a bare mark, for the reason MapLayersSheet's rows use
+  // one: the catalog's aspect ratios vary, so an unframed drawing changes the
+  // row's optical left edge from one destination to the next.
+  linkWell: {
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   linkText: { flex: 1, minWidth: 0 },
   linkLabel: { ...t.sm, fontFamily: fonts.medium },
   linkDetail: { ...t.sm, fontFamily: fonts.body, marginTop: 1 },

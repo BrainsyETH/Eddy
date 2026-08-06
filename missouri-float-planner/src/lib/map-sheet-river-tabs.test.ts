@@ -40,11 +40,16 @@ function hazard(id: string): Hazard {
   } as Hazard;
 }
 
+function gauge(siteId: string, isPrimary = false): RiverSheetData['gauges'][number] {
+  return { siteId, name: `Gauge ${siteId}`, code: 'good', reading: '385 cfs', isPrimary };
+}
+
 function river(over: Partial<RiverSheetData> = {}): RiverSheetData {
   return {
     slug: 'current',
     name: 'Current River',
     region: 'Ozarks',
+    code: 'good',
     gauges: [],
     accesses: [],
     hazards: [],
@@ -54,9 +59,28 @@ function river(over: Partial<RiverSheetData> = {}): RiverSheetData {
 
 const keys = (r: RiverSheetData) => riverTabs(r).map((t) => t.key);
 
-test('a river Eddy knows nothing about is Conditions alone', () => {
-  // One tab is not a tab bar — the panel drops the bar entirely at this point.
-  assert.deepEqual(keys(river()), ['conditions']);
+test('a river Eddy knows nothing about has no tabs at all', () => {
+  // NEWLY REACHABLE, and not a bug. Conditions used to be unconditional, so the
+  // set could never be empty; it is gated on more than one gauge now because the
+  // glance carries the verdict and the primary station's reading.
+  //
+  // RiverSheetPanel renders a glance-only sheet for this — MapSheet reads absent
+  // children as glanceOnly — which is the honest outcome: everything such a
+  // river has to say already fits above the fold.
+  assert.deepEqual(keys(river()), []);
+});
+
+test('one gauge needs no Conditions tab', () => {
+  // The mirror of gaugeTabs' "ONE river needs no list". The glance shows this
+  // station's reading, so a page holding the same single row is a wasted swipe.
+  assert.ok(!keys(river({ gauges: [gauge('07064533', true)] })).includes('conditions'));
+});
+
+test('two gauges earn Conditions, because they can disagree', () => {
+  // The thing one row cannot show, and the only reason the tab still exists: a
+  // long river can be Good at one station and High at another.
+  const r = river({ gauges: [gauge('07064533', true), gauge('07067000')] });
+  assert.ok(keys(r).includes('conditions'));
 });
 
 test('one access point is a place to stand, not a float', () => {
@@ -77,14 +101,20 @@ test('hazards earn their tab only when there are some', () => {
 
 test('order is fixed', () => {
   const r = river({
+    gauges: [gauge('07064533', true), gauge('07067000')],
     accesses: [access('a', 0), access('b', 8)],
     hazards: [hazard('h1')],
   });
   assert.deepEqual(keys(r), ['conditions', 'floats', 'accesses', 'hazards']);
 });
 
-test('Conditions is always present, even with no gauge', () => {
-  // A river with no gauge still has something to say — that nothing grades it —
-  // and it is the tab the sheet opens on.
-  assert.equal(keys(river())[0], 'conditions');
+test('a single-gauge river with places to go still has tabs', () => {
+  // The empty case is specifically "one gauge AND nothing else". Losing
+  // Conditions must not cost a river its Floats or its Hazards.
+  const r = river({
+    gauges: [gauge('07064533', true)],
+    accesses: [access('a', 0), access('b', 8)],
+    hazards: [hazard('h1')],
+  });
+  assert.deepEqual(keys(r), ['floats', 'accesses', 'hazards']);
 });

@@ -77,6 +77,38 @@ export function RiverSheetPanel({
     return <RiverHazardsTab {...shared} />;
   };
 
+  const head = (
+    <RiverSheetHeader
+      river={river}
+      onClose={onClose}
+      onOpenRiver={handlers.onOpenRiver}
+      onOpenGauge={handlers.onOpenGauge}
+    />
+  );
+
+  // ── A RIVER CAN NOW HAVE NOTHING TO SWIPE TO ────────────────────────────
+  // Conditions used to be unconditional, so this panel always had at least one
+  // page. It is gated on more than one gauge now — the glance carries the
+  // verdict and the primary reading — so a single-gauge river with no mapped
+  // access points and no hazards yields no tabs at all.
+  //
+  // Passing no children is the right shape rather than a guard bolted onto the
+  // pager: MapSheet reads absent children as `glanceOnly` and clamps the peek to
+  // the detent fraction instead of measuring content that is not there. Same
+  // path a hazard takes through PinSheet.
+  if (tabs.length === 0) {
+    return (
+      <MapSheet
+        resetKey={river.slug}
+        label={`${river.name} sheet`}
+        onClose={onClose}
+        onDetentChange={onDetentChange}
+        metrics={metrics}
+        peek={head}
+      />
+    );
+  }
+
   return (
     <MapSheet
       resetKey={river.slug}
@@ -84,7 +116,7 @@ export function RiverSheetPanel({
       onClose={onClose}
       onDetentChange={onDetentChange}
       metrics={metrics}
-      peek={<RiverSheetHeader river={river} onClose={onClose} onOpenRiver={handlers.onOpenRiver} />}
+      peek={head}
     >
       <View onLayout={onChromeLayout}>
       {/* A river with no access points and no hazards is one tab, and one tab

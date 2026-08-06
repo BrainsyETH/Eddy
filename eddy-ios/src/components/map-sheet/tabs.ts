@@ -11,10 +11,10 @@
 //
 // ── The tab set GROWS, and not only on the right ──────────────────────────
 // The detail request lands after the sheet is already open, so a sheet that
-// starts with two tabs may finish with five — and because the order below is
+// starts with one tab may finish with four — and because the order below is
 // fixed, a late arrival INSERTS. A campground pin opens on [Overview, Camping]
-// and becomes [Overview, Conditions, Floats, Camping, Details] the moment the
-// request settles, which moves Camping from index 1 to index 3.
+// and becomes [Overview, Float trips, Camping, Place] the moment the request
+// settles, which moves Camping from index 1 to index 2.
 //
 // So THE ACTIVE TAB MUST BE TRACKED BY KEY, NEVER BY INDEX. A reader sitting
 // on Camping at index 1 would otherwise find themselves reading Conditions a
@@ -39,7 +39,16 @@ interface LayerTapped {
   layer: string;
 }
 
-export type TabKey = 'overview' | 'conditions' | 'floats' | 'camping' | 'details';
+/**
+ * ── THERE IS NO `conditions` KEY ANY MORE ─────────────────────────────────
+ *
+ * The peek carries the reading — see peekSlot.ts — and the tab was reached by
+ * swiping down from a sheet that was already showing it. What the tab added on
+ * top was a trend, a timestamp and an "Open gauge" row duplicating the tap
+ * target the reading block already was: a whole destination for two facts and a
+ * second copy of one link. The two facts are on Overview now.
+ */
+export type TabKey = 'overview' | 'floats' | 'camping' | 'details';
 
 export interface TabDef {
   key: TabKey;
@@ -48,10 +57,14 @@ export interface TabDef {
 
 const LABELS: Record<TabKey, string> = {
   overview: 'Overview',
-  conditions: 'Conditions',
   floats: 'Float trips',
   camping: 'Camping',
-  details: 'Details',
+  // PLACE, not Details. "Details" names how much there is rather than what it
+  // is about, which is why it read as a junk drawer and was where road surface,
+  // parking, facilities and somebody's river notes went to be forgotten. Every
+  // one of those is a fact about the PLACE, and a reader looking for whether
+  // they can get a trailer down there is looking for a place, not for details.
+  details: 'Place',
 };
 
 /**
@@ -61,7 +74,7 @@ const LABELS: Record<TabKey, string> = {
  * offer — and you tap a lot of pins in one session. Intent is honoured by which
  * tab the sheet OPENS on instead; see initialTabKey.
  */
-const ORDER: TabKey[] = ['overview', 'conditions', 'floats', 'camping', 'details'];
+const ORDER: TabKey[] = ['overview', 'floats', 'camping', 'details'];
 
 export function accessTabs(
   accessPoint: MapAccessPoint,
@@ -72,7 +85,6 @@ export function accessTabs(
 
   // Before the request lands there is nothing to qualify on, so the sheet opens
   // with Overview alone and grows. See the header for why that growth inserts.
-  if (detail?.gaugeStatus) keys.add('conditions');
   if (detail?.nearbyAccessPoints?.length) keys.add('floats');
 
   // ── Three legs ───────────────────────────────────────────────────────────

@@ -79,7 +79,7 @@ import {
   accessAvailability,
   accessAvailabilityName,
 } from '@/components/map-sheet/availabilitySource';
-import { AvailabilityGlance } from '@/components/map-sheet/AvailabilityGlance';
+import { CampgroundAvailability } from '@/components/map-sheet/CampgroundAvailability';
 import { localToday } from '@/components/map-sheet/availability';
 
 const TREND_ICON = {
@@ -626,7 +626,10 @@ export default function AccessPointDetailScreen() {
                 thirty enabled federal facilities — every Ozark gravel-bar loop.
                 Without it "12 backcountry sites open · Upper Current District"
                 lost its place. */}
-            <AvailabilityGlance
+            {/* The map sheet's card, verbatim. A reader arrives here from the
+                sheet — "Open the full details screen" is one row down from it —
+                and the flagship fact must not change costume on the way. */}
+            <CampgroundAvailability
               availability={accessAvailability(point)}
               name={accessAvailabilityName(point)}
               today={localToday()}

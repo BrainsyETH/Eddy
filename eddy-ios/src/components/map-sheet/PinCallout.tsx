@@ -26,9 +26,8 @@ import type { MapPin } from '@/map/RiverMap';
 import { PlaceHead } from './PlaceHead';
 import { AccessTypeBadges } from './sections';
 import { confirmPlanAction, isDriveable, openDirections } from './sheetActions';
-import { AvailabilityGlance } from './AvailabilityGlance';
+import { CampgroundAvailability } from './CampgroundAvailability';
 import { localToday } from './availability';
-import { STRIP_HEIGHT_SHORT } from './NightStrip';
 import { airbnbSearchUrl, STAY_SEARCH_LABEL } from '@/lib/stays';
 
 /**
@@ -342,12 +341,21 @@ export function PinCallout({
           this weekend it IS the question, and the prose below it is the same
           sentence it was last season. This is the only place a Missouri State
           Park's inventory appears at all — a state park has no
-          nps_campgrounds row and so never reaches the tabbed sheet's header. */}
-      <AvailabilityGlance
+          nps_campgrounds row and so never reaches the tabbed sheet's header.
+
+          THE SAME CARD THE TABBED SHEET DRAWS, and it must stay that way: a
+          reader tapping two campgrounds in a row cannot be shown the same fact
+          as a card on one and a caption on the other, and which shell they get
+          depends on whether the campground happens to also be an access point —
+          a distinction about Eddy's data model, not about the place.
+
+          No onPress here: the callout has no Camping tab to open, because a
+          service campground has no access-point detail behind it. The card is
+          the whole of what Eddy knows. */}
+      <CampgroundAvailability
         availability={pin.availability}
         name={pin.name}
         today={localToday()}
-        stripHeight={STRIP_HEIGHT_SHORT}
       />
 
       {pin.body ? (

@@ -82,10 +82,11 @@ import {
   fetchServices,
   fetchRivers,
 } from '@/api/client';
-import { conditionColor, conditionLabel, floatableRank } from '@/theme/conditions';
+import { floatableRank } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { mapAccessPointPin, RiverMap, type MapPin } from '@/map/RiverMap';
+import { placeSymbol } from '@/components/map-sheet/placeSymbol';
 import { mapUnavailableReason } from '@/map/runtime';
 import {
   drawnAsAccessPoint,
@@ -321,6 +322,30 @@ export default function MapScreen() {
   // layer reads it — everything else on this screen loads a bounded set up front.
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
+  /**
+   * Whether dismissing this pin will reveal a river sheet the reader was just
+   * looking at — which is what earns the Back control.
+   *
+   * ── Why this is not `Boolean(riverSheetData)` ────────────────────────────
+   *
+   * Because a river being selected does not mean the reader ever saw its sheet.
+   * `onSelectPin` SELECTS THE RIVER as a side effect when the pin sits on one
+   * nobody had chosen, so tapping a put-in from the statewide map leaves exactly
+   * the same state behind as tapping one while its river's sheet was open.
+   * Offering "‹ Jacks Fork" in the first case names a place the reader has never
+   * been.
+   *
+   * ── Why it is not a three-way source either ──────────────────────────────
+   *
+   * It was, briefly: 'map' | 'river-sheet' | 'search'. That distinction earned
+   * its keep only while × cleared the whole selection stack and the two cases
+   * therefore ended differently. Now that × pops one level, HOW the pin was
+   * selected stops mattering and only WHAT IS UNDERNEATH does — and a map tap
+   * onto an already-selected river genuinely does replace a river sheet that was
+   * on screen (`riverSheetData && !selectedPin` is what renders it). So the
+   * three-way record collapsed to the one fact that decides anything.
+   */
+  const [revealsRiverSheet, setRevealsRiverSheet] = useState(false);
   // Search results arrive before the selected river's access-point response.
   // Keep the identity across that fetch so choosing a result can finish by
   // opening its callout rather than merely dropping the camera nearby.
@@ -752,6 +777,9 @@ export default function MapScreen() {
       // bundle, on a river this session has not opened.
       const known = drawnAccessPoints.find((entry) => entry.point.id === result.id);
       if (known) {
+        // No Back: a result arrives from a query, and it switches the river
+        // below it, so whatever sheet was on screen is not what × should reveal.
+        setRevealsRiverSheet(false);
         setSelectedPin(mapAccessPointPin(known.point, known.riverSlug ?? result.riverSlug));
       }
       // Set in BOTH cases, and that is load-bearing. Choosing a result switches
@@ -869,17 +897,30 @@ export default function MapScreen() {
   );
 
   /**
-   * Which access points on the river you can sleep at.
+   * WHAT each access point on the river is, as the mark that draws it.
    *
    * The detail response names a put-in's neighbours but does not say what they
-   * ARE, and this screen already holds every access point with its types — so
-   * it is the only place that can answer "can I camp at the take-out" without
-   * a second request per neighbour.
+   * ARE — NearbyAccessPoint carries no types — and this screen already holds
+   * every access point with its types. So it is the only place that can answer
+   * "is the take-out a boat ramp, a campground or a bare landing" without a
+   * request per neighbour.
+   *
+   * Resolved through `placeSymbol` with a synthetic `access` layer, which is
+   * exactly right rather than a shortcut: that layer is the generic one and
+   * therefore the one that DEFERS to the point's own types, which is the only
+   * signal available here. A neighbour has no pin of its own on this list, so
+   * there is no tapped layer to honour.
+   *
+   * This replaced a Set of campable ids that answered one question and was drawn
+   * as an emoji after the name.
    */
-  const campableAccessIds = useMemo(
+  const nearbyAccessMarks = useMemo(
     () =>
-      new Set(
-        drawnAccessPoints.filter((entry) => isCampground(entry.point)).map((entry) => entry.point.id),
+      new Map(
+        drawnAccessPoints.map((entry) => [
+          entry.point.id,
+          placeSymbol({ layer: 'access' }, entry.point),
+        ]),
       ),
     [drawnAccessPoints],
   );
@@ -943,6 +984,21 @@ export default function MapScreen() {
       slug: river.slug,
       name: river.name,
       region: river.region,
+      // ── The river's own verdict ────────────────────────────────────────
+      // Curated list first, statewide collection second. This resolution used
+      // to live beside the header line drawn above the map — the one with the
+      // name, the dot and the chevron — which is gone now that the sheet owns
+      // river identity. Same two sources in the same order, so the sheet and
+      // the line the finger tapped cannot disagree.
+      //
+      // NOT derived from `gauges` below: those are graded against this river's
+      // ladder per station, and folding them into one verdict here would be a
+      // second opinion competing with the one the map is already drawing.
+      code:
+        selected?.currentCondition?.code ??
+        network.collection.features.find((feature) => feature.properties.slug === selectedSlug)
+          ?.properties.code ??
+        'unknown',
       gauges,
       accesses: drawnAccessPoints
         .filter((entry) => (entry.riverSlug ?? drawnSlug) === selectedSlug)
@@ -951,8 +1007,10 @@ export default function MapScreen() {
     };
   }, [
     selectedSlug,
+    selected,
     network.bySlug,
     network.readings,
+    network.collection,
     drawnAccessPoints,
     drawnHazards,
     drawnSlug,
@@ -1026,9 +1084,12 @@ export default function MapScreen() {
     (nearby: NearbyAccessPoint, from: MapAccessPoint) => {
       const other = drawnAccessPoints.find((entry) => entry.point.id === nearby.id)?.point;
       if (!other) return;
+      // ONE call, both ends. Calling choosePutIn then chooseTakeOut looks
+      // equivalent and is not: the second reads `putIn` from the render that has
+      // not been replaced yet, so it either skipped the calculation entirely or
+      // ran it against the previous put-in. See planFloat's header.
       const downstream = nearby.direction === 'downstream';
-      planner.choosePutIn(downstream ? from : other);
-      planner.chooseTakeOut(downstream ? other : from);
+      planner.planFloat(downstream ? from : other, downstream ? other : from);
       setSelectedPin(null);
       setPlanOpen(true);
     },
@@ -1307,28 +1368,23 @@ export default function MapScreen() {
   const conditionCode = drawn?.currentCondition?.code ?? 'unknown';
 
   /**
-   * The header line's river, WHICH IS NOT ALWAYS THE RIVER LIST'S.
+   * ── The selected river's NAME AND VERDICT NOW LIVE IN THE SHEET ──────────
    *
-   * `selected` is a lookup into /api/rivers, and that request is the one thing
-   * on this screen with nothing on disk behind it. Open the app with no signal,
-   * tap a river on the map, and the line goes heavy and the camera fits to it
-   * while `selected` stays null — so a header gated on `selected` disappeared
-   * exactly when a selection was hardest to undo, taking the only way out of it
-   * with it.
+   * They were resolved here for a header line drawn above the map, which has
+   * been removed — the river sheet is the one surface that owns a river
+   * selection. The resolution itself moved into `riverSheetData` unchanged and
+   * is still worth stating, because it is not obvious:
    *
-   * The statewide network is the fallback because it is the same source the map
-   * is DRAWING from: it comes off disk, it holds every river's name, and its
-   * per-river verdict is the colour already under the finger that tapped. Where
-   * both exist the river list wins, so the header cannot disagree with the
-   * Today tab over a river both can see.
+   * `selected` is a lookup into /api/rivers, the one request on this screen with
+   * nothing on disk behind it. Open the app with no signal, tap a river, and the
+   * line goes heavy and the camera fits to it while `selected` stays null — so
+   * anything gated on `selected` alone vanishes exactly when a selection is
+   * hardest to undo. The statewide network is the fallback because it is the
+   * same source the map is DRAWING from: off disk, every river's name, and the
+   * per-river verdict already under the finger that tapped. Where both exist the
+   * river list wins, so the sheet cannot disagree with the Today tab about a
+   * river both can see.
    */
-  const networkRiver = selectedSlug ? network.bySlug.get(selectedSlug) : undefined;
-  const headerName = selected?.name ?? networkRiver?.name ?? null;
-  const headerCode =
-    selected?.currentCondition?.code ??
-    network.collection.features.find((feature) => feature.properties.slug === selectedSlug)
-      ?.properties.code ??
-    'unknown';
   // A focus applies when it is tagged with the river on screen, OR when it is
   // tagged with no river at all.
   //
@@ -1449,6 +1505,32 @@ export default function MapScreen() {
   const pinAccessPoint = pinAccess?.point ?? null;
 
   /**
+   * Whether the tapped point's river carries any gauge at all.
+   *
+   * ── Asked HERE because here is where it can be answered in time ──────────
+   *
+   * The sheet's peek reserves a fixed box for one decision fact so that its top
+   * edge does not move when the detail request lands (see peekSlot.ts). Which
+   * box, though, depends on whether a reading is ever coming — and on a river
+   * Eddy grades with nothing, reserving 30pt and then taking it back is the same
+   * movement, merely delayed.
+   *
+   * The statewide network already carries every river's gauges and it is already
+   * loaded before any pin can be drawn, so this costs a Map lookup and is
+   * available on the frame the sheet opens. The detail response would answer it
+   * more precisely and half a second too late.
+   *
+   * `pinAccess.riverSlug` rather than `selectedSlug`: tapping a put-in on an
+   * unselected river sets the selection in the same breath, so for one render
+   * the two disagree — and the pin's own river is the right answer in both.
+   */
+  const riverHasGauges = useMemo(() => {
+    const slug = pinAccess?.riverSlug ?? selectedSlug;
+    if (!slug) return false;
+    return (network.bySlug.get(slug)?.gauges?.length ?? 0) > 0;
+  }, [pinAccess?.riverSlug, selectedSlug, network.bySlug]);
+
+  /**
    * Tapping a put-in selects the river it is on.
    *
    * The access layer is statewide now, so a tap can land on a river nobody has
@@ -1479,11 +1561,21 @@ export default function MapScreen() {
   const onSelectPin = useCallback(
     (pin: MapPin) => {
       const entry = accessPointForPin(pin);
-      if (entry?.riverSlug && entry.riverSlug !== selectedSlug) {
-        pendingAccessSelection.current = { id: entry.point.id, riverSlug: entry.riverSlug };
-        setPickedSlug(entry.riverSlug);
+      // The river this tap would newly select, or null when it selects none —
+      // either because the pin has no river or because that river is already
+      // the chosen one. Bound once so the narrowing holds below.
+      const newRiverSlug =
+        entry?.riverSlug && entry.riverSlug !== selectedSlug ? entry.riverSlug : null;
+      // ── Was the river sheet on screen a moment ago? ──────────────────────
+      // Recorded here because it is only answerable here: a river being
+      // selected NOW proves nothing, since the branch below may be what
+      // selected it. See the state's own comment.
+      setRevealsRiverSheet(Boolean(selectedSlug) && newRiverSlug === null);
+      if (newRiverSlug && entry) {
+        pendingAccessSelection.current = { id: entry.point.id, riverSlug: newRiverSlug };
+        setPickedSlug(newRiverSlug);
         setFocus({
-          slug: entry.riverSlug,
+          slug: newRiverSlug,
           lng: pin.coordinates.lng,
           lat: pin.coordinates.lat,
           // Hold the zoom. Falling through to the focus default of 13 would fly
@@ -1574,49 +1666,25 @@ export default function MapScreen() {
   // conditions — is free and always has been.
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
+      {/* ── ONE IDENTITY SURFACE, AND IT IS THE SHEET ──────────────────────
+          A selected river used to be announced twice at once: here, as a dot,
+          a name, a condition, a chevron to the river screen and a ✕; and again
+          in the river sheet, which carries the name, the region, the access
+          count, "Open {river}" and its own close. Two surfaces claiming the
+          same selection, one of them spending map height on it, and no way to
+          tell which owned it.
+
+          The sheet won, because it is the thing the selection produced. It now
+          carries identity, the condition and the way out — see RiverHead — and
+          its close clears the river rather than merely hiding the sheet.
+
+          This also retired a wrong-action bug of the kind PlaceHead documents:
+          the two controls here carried hitSlop 8 and hitSlop 14 across a 12pt
+          gap, so their expanded regions OVERLAPPED by 10pt, and iOS hit-tests
+          later siblings first — the clear ✕ won a band of taps aimed at the
+          chevron. */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Map</Text>
-        {/* ── The selected river, and the way back out of it ────────────
-            Selecting a river is one tap — a line, a put-in, a search result —
-            and until now there was NO gesture that undid it. The map fits to
-            that river's extent, its line is drawn heavier, the planner is
-            scoped to it, and the only exits anyone found were killing the app
-            or picking a different river, which is not the same thing as asking
-            for the whole network back.
-
-            So the header line is two controls rather than one: the name opens
-            the river, the × puts it down. Split rather than made a toggle
-            because they are opposite intentions and a single target that
-            sometimes navigates and sometimes clears is a target nobody can
-            aim. */}
-        {selectedSlug && headerName ? (
-          <View style={styles.headerMeta}>
-            <Pressable
-              onPress={() => router.push(`/river/${selectedSlug}`)}
-              style={styles.headerMetaMain}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={`${headerName} details`}
-            >
-              <View style={[styles.dot, { backgroundColor: conditionColor(headerCode) }]} />
-              <Text style={[styles.headerMetaText, { color: colors.textMuted }]} numberOfLines={1}>
-                {headerName} · {conditionLabel(headerCode)}
-              </Text>
-              <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
-            </Pressable>
-            <Pressable
-              onPress={clearRiver}
-              // hitSlop rather than padding: this row is one line tall by
-              // design and a 44pt box would push the map down by the height of
-              // the thing it is clearing.
-              hitSlop={14}
-              accessibilityRole="button"
-              accessibilityLabel={`Clear ${headerName} and show every river`}
-            >
-              <Ionicons name="close-circle" size={19} color={colors.textSubtle} />
-            </Pressable>
-          </View>
-        ) : null}
       </View>
 
       <View style={styles.searchRow}>
@@ -1851,8 +1919,21 @@ export default function MapScreen() {
             It still reads as below the selection: the callout's own bottom edge
             is a control row and a gap above MAP_CHROME_BOTTOM, well clear of
             this. See planButton's maxWidth for the one thing that could put a
-            long label back over the ornaments. */}
-        {sheetOpen && sheet.detent === 'full' ? null : (
+            long label back over the ornaments.
+
+            ── IT STANDS DOWN WHILE A SHEET IS OPEN, UNLESS A PLAN EXISTS ────
+            "Plan a float" is the generic way into the planner, and while a
+            selection is open it was competing with two specific ones about the
+            same task: the access sheet's "Use as put-in", and the Float trips
+            rows that build a whole float in one tap. Three entry points to one
+            flow, in one visual field, and the floating one — the only one with
+            no context — was riding on top.
+
+            `planner.plan` is the exception and is a different verb. Then the
+            button reads "View float" and RESUMES state the reader already
+            built, which competes with nothing: the sheet has no way back to an
+            existing plan, so hiding it there would strand it. */}
+        {sheetOpen && (sheet.detent === 'full' || !planner.plan) ? null : (
         <Animated.View
           style={[styles.planCluster, sheetOpen ? controlsStyle : null]}
           pointerEvents="box-none"
@@ -1899,6 +1980,10 @@ export default function MapScreen() {
                 },
               ]}
               accessibilityRole="button"
+              // The visible label is a compacted distance and duration, so
+              // VoiceOver would otherwise read "8.3 mi · up to ~4h" and leave
+              // the reader to infer what tapping it does.
+              accessibilityLabel={planner.plan ? 'View your float plan' : 'Plan a float'}
             >
               <Ionicons
                 name={planner.plan ? 'map-outline' : 'navigate-outline'}
@@ -1954,13 +2039,17 @@ export default function MapScreen() {
               onClose={clearRiver}
               onOpenGauge={onOpenGauge}
               onOpenRiver={(slug) => router.push(`/river/${slug}`)}
+              // No source argument any more. This selection is on the river
+              // already showing, so onSelectPin's own check — "did this tap pick
+              // a new river" — answers false and records that × returns here.
               onSelectAccess={(point) => {
                 const entry = drawnAccessPoints.find((e) => e.point.id === point.id);
                 onSelectPin(mapAccessPointPin(point, entry?.riverSlug ?? riverSheetData.slug));
               }}
+              // Both ends at once — see planFloat, and onPlanToNearby above,
+              // which had the same stale-closure bug from the same shape.
               onPlanPair={(putIn, takeOut) => {
-                planner.choosePutIn(putIn);
-                planner.chooseTakeOut(takeOut);
+                planner.planFloat(putIn, takeOut);
                 setPlanOpen(true);
               }}
               onDetentChange={onSheetDetentChange}
@@ -1977,6 +2066,7 @@ export default function MapScreen() {
                 pinAccessPoint != null &&
                 pinAccessPoint.riverMile > (planner.putIn?.riverMile ?? Infinity)
               }
+              riverHasGauges={riverHasGauges}
               onSetPutIn={() => {
                 if (!pinAccessPoint) return;
                 planner.choosePutIn(pinAccessPoint);
@@ -1993,11 +2083,41 @@ export default function MapScreen() {
               onOpenGauge={onOpenGauge}
               onOpenDam={onOpenDam}
               onOpenDetail={(route) => router.push(asHref(route))}
-              // Closing a callout drops the pin's camera override without
-              // handing the camera to anything else. It used to null the
-              // focus, which on a map with no river selected woke the opening
-              // focus and flew you to your own position for having shut a
-              // gauge bubble. See heldCamera.
+              // ── BACK NAMES WHERE × ALREADY GOES ──────────────────────────
+              // Both pop one level, and that is the point rather than an
+              // oversight: × is a 19pt glyph in a corner that names nothing,
+              // and "‹ Meramec River" is a 44pt target that says where it
+              // lands. The original complaint was that the icon communicated
+              // dismissal rather than Back — a labelled control beside it is
+              // the answer to that, not a second behaviour.
+              //
+              // Shown only when a river sheet was genuinely on screen before
+              // this pin. See revealsRiverSheet for the case that is not true
+              // despite a river being selected.
+              onBack={
+                revealsRiverSheet && riverSheetData
+                  ? () => {
+                      setSelectedPin(null);
+                      setFocus(heldCamera());
+                    }
+                  : null
+              }
+              backLabel={revealsRiverSheet ? riverSheetData?.name ?? null : null}
+              // ── × POPS ONE LEVEL. ALWAYS. ────────────────────────────────
+              // It used to clear the river as well when the pin had come from
+              // the river sheet, which made one glyph mean two things decided
+              // by state the reader could not see — the exact defect this whole
+              // change set out to remove, reintroduced one level down.
+              //
+              // Dismissing a pin now never destroys a river selection: that is
+              // a separate choice, made by a separate gesture, and the river
+              // sheet has its own × for it. Getting to a bare map is two taps,
+              // which is what "pops one level" implies.
+              //
+              // Dropping the pin's camera override without handing the camera to
+              // anything else. It used to null the focus, which on a map with no
+              // river selected woke the opening focus and flew you to your own
+              // position for having shut a gauge bubble. See heldCamera.
               onClose={() => {
                 setSelectedPin(null);
                 setFocus(heldCamera());
@@ -2021,7 +2141,7 @@ export default function MapScreen() {
               onPlanTo={(nearby) => {
                 if (pinAccessPoint) onPlanToNearby(nearby, pinAccessPoint);
               }}
-              campableIds={campableAccessIds}
+              nearbyMarks={nearbyAccessMarks}
               width={windowWidth}
               onDetentChange={onSheetDetentChange}
               metrics={sheetMetrics}

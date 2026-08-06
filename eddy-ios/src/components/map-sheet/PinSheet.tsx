@@ -34,9 +34,11 @@ import { fonts, type as t } from '@/theme/typography';
 import type { MapPin } from '@/map/RiverMap';
 import { useAccessPointDetail } from '@/hooks/useAccessPointDetail';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
-import { AvailabilityGlance } from './AvailabilityGlance';
-import { accessAvailability } from './availabilitySource';
+import { CampgroundAvailability } from './CampgroundAvailability';
+import { accessAvailability, accessAvailabilityName } from './availabilitySource';
 import { localToday } from './availability';
+import { decisionSlot } from './peekSlot';
+import { GlanceSlot } from './GlanceSlot';
 import { MapSheet, type SheetMetrics } from './MapSheet';
 import { PinCallout } from './PinCallout';
 import { PlaceHead } from './PlaceHead';
@@ -44,11 +46,12 @@ import { AccessGaugeReading, AccessTypeBadges } from './sections';
 import { SheetTabBar } from './SheetTabBar';
 import { SheetPager, mountedPages } from './SheetPager';
 import { accessTabs, initialTabKey, type TabKey } from './tabs';
+import type { PlaceSymbolName } from './placeSymbol';
+import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 import type { Detent } from './sheetGeometry';
 import { confirmPlanAction, isDriveable, openDirections } from './sheetActions';
 import {
   AccessCampingTab,
-  AccessConditionsTab,
   AccessDetailsTab,
   AccessFloatsTab,
   AccessOverviewTab,
@@ -57,8 +60,7 @@ import {
   GaugeAboutTab,
   GaugeHistoryTab,
   GaugeLevelsTab,
-  GaugeNowTab,
-  GaugeRiversTab,
+  GaugeReadingRow,
 } from './GaugeSheet';
 import { gaugeTabs, type GaugePinFacts, type GaugeTabKey } from './gaugeTabs';
 
@@ -66,19 +68,49 @@ export interface PinSheetProps {
   pin: MapPin;
   accessPoint: MapAccessPoint | null;
   canSetTakeOut: boolean;
+  /**
+   * Whether the river this pin sits on carries any gauge at all.
+   *
+   * Answered from the statewide network the map screen already holds, NOT from
+   * the detail response — it decides whether the peek reserves room for a
+   * reading, and a reservation made after the response has landed is the
+   * movement the reservation exists to prevent. See peekSlot.ts.
+   */
+  riverHasGauges: boolean;
   onSetPutIn: () => void;
   onSetTakeOut: () => void;
   onOpenRiver: (slug: string) => void;
   onOpenGauge: (siteId: string) => void;
   onOpenDam: (damId: string) => void;
   onOpenDetail: (route: string) => void;
+  /**
+   * ── BOTH POP ONE LEVEL. THE DIFFERENCE IS THAT ONE OF THEM SAYS SO ──────
+   *
+   * `onClose` briefly did two different things — dismiss the pin, or clear the
+   * whole selection — decided by how the pin had been selected. That is one
+   * glyph meaning two outcomes based on state the reader cannot see, which is
+   * the defect this sheet's navigation was reworked to remove, and it had been
+   * reintroduced one level down.
+   *
+   * onClose: dismisses the pin and nothing else. Whatever was underneath comes
+   * back. Clearing a river belongs to the river sheet's own ×.
+   *
+   * onBack: the same outcome, offered as a named 44pt target instead of a 19pt
+   * glyph in a corner — "‹ Meramec River" says where it lands and × does not.
+   * Null when nothing was underneath, which is not the same as "no river is
+   * selected": a pin tap can SELECT the river as a side effect, and then the
+   * river sheet was never on screen to return to.
+   */
+  onBack?: (() => void) | null;
+  /** The river Back returns to, so the control names its destination. */
+  backLabel?: string | null;
   onClose: () => void;
   starred?: boolean;
   onToggleStar?: (() => void) | null;
   /** Build a float from here to a neighbouring access. */
   onPlanTo: (nearby: NearbyAccessPoint) => void;
-  /** Ids of neighbouring accesses you can sleep at. See AccessTabs. */
-  campableIds: Set<string>;
+  /** What each neighbouring access IS, as its mark. See AccessTabs. */
+  nearbyMarks: Map<string, PlaceSymbolName>;
   /** How wide a tab page is — the sheet's width, measured by the caller. */
   width: number;
   /** Forwarded to MapSheet so the map can follow the sheet. */
@@ -94,7 +126,9 @@ export function PinSheet(props: PinSheetProps) {
   // Gauges of BOTH tiers. Null for anything else, so the hook no-ops on a pin
   // that is not a station rather than the call being made conditionally.
   const isGaugePin = pin.layer === 'gauges' || pin.layer === 'allGauges';
-  const gaugeDetail = useGaugeDetail(isGaugePin ? pin.siteId : null);
+  const { detail: gaugeDetail, status: gaugeStatus } = useGaugeDetail(
+    isGaugePin ? pin.siteId : null,
+  );
 
   const gaugeFacts: GaugePinFacts | null = useMemo(() => {
     if (!isGaugePin) return null;
@@ -109,9 +143,12 @@ export function PinSheet(props: PinSheetProps) {
       codeLabel: pin.codeLabel ?? null,
       updatedAt: pin.updatedAt ?? null,
       qualifierNote: null,
-      riverCount: gaugeDetail?.thresholds?.length ?? 0,
     };
-  }, [isGaugePin, pin, gaugeDetail]);
+    // gaugeDetail is deliberately NOT a dependency, and there is deliberately no
+    // field here that would need it. Every fact is on the pin, so `gTabs` below
+    // is settled on the first frame and the tab bar cannot rearrange itself
+    // while the reader is using it. See gaugeTabs' header.
+  }, [isGaugePin, pin]);
 
   const gTabs = useMemo(() => (gaugeFacts ? gaugeTabs(gaugeFacts) : []), [gaugeFacts]);
 
@@ -181,10 +218,20 @@ export function PinSheet(props: PinSheetProps) {
   //
   // Everything else still lands here and should: a hazard, an outfitter, a dam
   // with nothing but a schedule. For those the callout IS the peek, exactly as
-  // it was before any of this existed. Gauges never reach it either — gaugeTabs
-  // always yields Now and About — so this is the non-access, single-page sheet
-  // and nothing else.
-  if (!accessPoint && activeTabs.length <= 1) {
+  // it was before any of this existed.
+  //
+  // ── `!isGaugePin` IS LOad-BEARING, and it is new ────────────────────────
+  // This guard used to be safe on gauges by accident: gaugeTabs always returned
+  // Now and About, so a station could never fall to one tab. Now is gone — the
+  // glance is now — so a reference station with no site id qualifies for About
+  // alone and would be routed here, swapping the whole peek for a callout a
+  // moment after opening. That is precisely the shell swap the paragraph above
+  // describes being fixed for access points, arriving by a different door.
+  //
+  // A gauge keeps the tabbed shell whatever its tab count, and the
+  // `activeTabs.length > 1` check further down means a one-tab station simply
+  // shows no bar.
+  if (!accessPoint && !isGaugePin && activeTabs.length <= 1) {
     return (
       <MapSheet
         resetKey={pin.id}
@@ -211,11 +258,10 @@ export function PinSheet(props: PinSheetProps) {
       onOpenDetail: pin.detailRoute ? () => props.onOpenDetail(pin.detailRoute!) : null,
       onOpenRiver: props.onOpenRiver,
       onPlanTo: props.onPlanTo,
-      campableIds: props.campableIds,
+      nearbyMarks: props.nearbyMarks,
       status,
     };
     if (key === 'overview') return <AccessOverviewTab {...shared} />;
-    if (key === 'conditions') return <AccessConditionsTab {...shared} />;
     if (key === 'floats') return <AccessFloatsTab {...shared} />;
     // `active` gates the per-site request. SheetPager mounts the active page
     // and both neighbours, so Camping mounts alongside Floats on most pins —
@@ -232,13 +278,12 @@ export function PinSheet(props: PinSheetProps) {
     const shared = {
       facts: gaugeFacts,
       detail: gaugeDetail,
+      status: gaugeStatus,
       onOpenGauge: props.onOpenGauge,
       onOpenRiver: props.onOpenRiver,
     };
-    if (key === 'now') return <GaugeNowTab {...shared} />;
     if (key === 'levels') return <GaugeLevelsTab {...shared} />;
     if (key === 'history') return <GaugeHistoryTab {...shared} />;
-    if (key === 'rivers') return <GaugeRiversTab {...shared} />;
     return <GaugeAboutTab {...shared} />;
   };
 
@@ -249,10 +294,28 @@ export function PinSheet(props: PinSheetProps) {
     <MapSheet
       resetKey={pin.id}
       label={`${pin.name} sheet`}
-      onClose={props.onClose}
+      // ── A DRAG DOWN UNDOES ONE LEVEL, NOT THE WHOLE STACK ───────────────
+      // MapSheet's swipe-to-dismiss and its VoiceOver escape both land here.
+      // Where a Back exists this selection is a drill-down from the river
+      // sheet, and flinging it away should return there rather than clearing a
+      // river the reader chose several taps ago — the gesture is the cheapest
+      // control on the sheet and must therefore be the least destructive one.
+      onClose={props.onBack ?? props.onClose}
       onDetentChange={props.onDetentChange}
       metrics={props.metrics}
-      peek={<PinSheetHeader {...props} detail={detail} />}
+      peek={
+        <PinSheetHeader
+          {...props}
+          detail={detail}
+          status={status}
+          gaugeFacts={gaugeFacts}
+          backLabel={props.backLabel}
+          // The availability card is a shortcut to the tab that can be operated:
+          // the peek's fortnight is a chart because fourteen columns are twenty
+          // points each, and Camping draws the same nights as 44pt chips.
+          onOpenCamping={() => setChosen('camping')}
+        />
+      }
     >
       <View onLayout={onChromeLayout}>
         <PinSheetDetail pin={pin} accessPoint={accessPoint} />
@@ -307,18 +370,47 @@ function PinSheetHeader({
   pin,
   accessPoint,
   canSetTakeOut,
+  riverHasGauges,
   onSetPutIn,
   onSetTakeOut,
   onOpenDetail,
   onOpenGauge,
+  onBack = null,
   onClose,
   starred = false,
   onToggleStar = null,
   detail,
-}: PinSheetProps & { detail: AccessPointDetailResponse | null }) {
+  status,
+  gaugeFacts,
+  onOpenCamping,
+  backLabel,
+}: PinSheetProps & {
+  detail: AccessPointDetailResponse | null;
+  status: DetailStatus;
+  gaugeFacts: GaugePinFacts | null;
+  onOpenCamping: () => void;
+  /** The river the Back control returns to, named so the row is not a bare "‹". */
+  backLabel?: string | null;
+}) {
   const { colors } = useTheme();
   const point = detail?.accessPoint ?? null;
-  const availability = accessAvailability(point);
+
+  // ── The pin first, the response second ──────────────────────────────────
+  // A campground drawn from nearby_services carries its availability ON THE PIN
+  // (see the campgrounds layer in RiverMap), so for those the card fills on the
+  // first frame and the reserved box is never seen. A campground that is also an
+  // ACCESS POINT does not — MapAccessPoint has no availability field — so those
+  // still wait for the response. Preferring the pin costs nothing and skips the
+  // placeholder wherever it can.
+  const availability = pin.availability ?? accessAvailability(point);
+  const availabilityName = accessAvailabilityName(point, pin.name);
+
+  const slot = decisionSlot(pin, { riverHasGauges });
+  // 'ready' means the question has been ANSWERED, not that the answer is
+  // non-empty — a resolved-empty slot draws its terminal line rather than
+  // waiting forever. 'idle' is a pin with no detail route, which is answered
+  // too: nothing is coming.
+  const detailSettled = status === 'ready' || status === 'failed' || status === 'idle';
 
   const planAsTakeOut = canSetTakeOut;
   const performPlanAction = planAsTakeOut ? onSetTakeOut : onSetPutIn;
@@ -332,6 +424,35 @@ function PinSheetHeader({
 
   return (
     <View style={styles.header}>
+      {/* ── BACK, and only when there is somewhere to go back TO ───────────
+          Present only when a river sheet was genuinely on screen before this
+          pin — which is NOT the same as a river being selected, because a pin
+          tap can select the river itself. The caller records that at selection
+          time; see revealsRiverSheet on the Map tab.
+
+          A 44pt LAID-OUT target, not a 24pt row that looks like one. The
+          compact look is a styling choice and the target is not: this sheet
+          already carries a documented wrong-action bug from two controls that
+          were the right size only with hitSlop (PlaceHead's header). The
+          negative bottom margin recovers the spacing so the row still READS as
+          light — the same trick as PlaceHead's EDGE_BLEED — and it is negative
+          on the bottom rather than overlapping PlaceHead below, because iOS
+          hit-tests later siblings first and an overlap would be silently eaten
+          by the identity row. */}
+      {onBack ? (
+        <Pressable
+          onPress={onBack}
+          style={({ pressed }) => [styles.back, { opacity: pressed ? 0.6 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel={backLabel ? `Back to ${backLabel}` : 'Back'}
+        >
+          <Ionicons name="chevron-back" size={16} color={colors.interactive} />
+          <Text style={[styles.backText, { color: colors.interactive }]} numberOfLines={1}>
+            {backLabel ?? 'Back'}
+          </Text>
+        </Pressable>
+      ) : null}
+
       <PlaceHead
         pin={pin}
         accessPoint={accessPoint}
@@ -340,24 +461,71 @@ function PinSheetHeader({
         onClose={onClose}
       />
 
-      {/* THE WATER, FIRST. This is the fact that decides whether anybody drives
-          to a put-in, so it belongs directly under the name and above the
-          action it qualifies — you would not tap "Use as put-in" without it.
+      {/* ── ONE DECISION FACT, IN A BOX THAT DOES NOT MOVE ─────────────────
+          This used to be two stacked blocks — the water, then the campsite
+          availability — each of them absent until the detail request landed and
+          each of them then inserting itself above the action row. On a
+          campground that is also a put-in BOTH appeared, so the peek grew twice
+          and MapSheet followed its own detent to the new height each time. What
+          the reader saw was the sheet resettling under their thumb, twice, for
+          having done nothing.
 
-          It reaches the glance from `detail.gaugeStatus`, the same response
-          every tab is drawn from. */}
-      <AccessGaugeReading status={detail?.gaugeStatus} onOpenGauge={onOpenGauge} />
+          Now `decisionSlot` picks ONE fact from the layer that was tapped and
+          from whether the river has a gauge at all — both known on the first
+          frame — and GlanceSlot holds its height from that frame whether or not
+          anything has arrived. The tent's fortnight and the put-in's reading are
+          each still one swipe away on Camping and Overview.
 
-      {/* THEN WHERE YOU SLEEP, at the size that says so. It goes stale over a
-          weekend, so it belongs where it can be read without a gesture — and
-          the fortnight underneath answers "tonight?" and "the weekend after?"
-          without one either. Absent, never "unknown": AvailabilityGlance
-          renders nothing when it should not appear, which is the common case. */}
-      <AvailabilityGlance
-        availability={availability}
-        name={point?.npsCampground?.name ?? pin.name}
-        today={localToday()}
-      />
+          It never collapses either: a slot whose request resolves empty says so
+          rather than vanishing. See peekSlot.ts for why that is worth an
+          exception to absent-never-empty. */}
+      {slot === 'water' ? (
+        <GlanceSlot slot={slot} ready={detailSettled}>
+          {/* Three states, ONE component, so the box cannot change size between
+              them: a chip-shaped placeholder, the reading, or — when the request
+              settled with nothing — the terminal line. */}
+          {!detailSettled ? (
+            <AccessGaugeReading status={null} onOpenGauge={onOpenGauge} compact pending />
+          ) : detail?.gaugeStatus ? (
+            <AccessGaugeReading status={detail.gaugeStatus} onOpenGauge={onOpenGauge} compact />
+          ) : (
+            <AccessGaugeReading
+              status={null}
+              onOpenGauge={onOpenGauge}
+              compact
+              pending
+              pendingLabel="No gauge grades this stretch"
+            />
+          )}
+        </GlanceSlot>
+      ) : slot === 'availability' ? (
+        <GlanceSlot slot={slot} ready={availability != null || detailSettled}>
+          {availability ? (
+            <CampgroundAvailability
+              availability={availability}
+              name={availabilityName}
+              today={localToday()}
+              onPress={onOpenCamping}
+            />
+          ) : (
+            // Both the waiting and the settled-empty states are the card with
+            // nothing in it — same shape, so no movement either way in.
+            <CampgroundAvailability
+              availability={null}
+              name={availabilityName}
+              today={localToday()}
+              pending
+              pendingLabel={
+                detailSettled ? 'No live availability here' : undefined
+              }
+            />
+          )}
+        </GlanceSlot>
+      ) : gaugeFacts ? (
+        // A gauge needs no reservation: every word of this row is on the pin
+        // before the sheet opens. See GaugeReadingRow.
+        <GaugeReadingRow facts={gaugeFacts} compact />
+      ) : null}
 
       <View style={styles.actions}>
         {accessPoint ? (
@@ -441,6 +609,17 @@ function PinSheetDetail({
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: 16 },
+  // 44 laid out, ~34 spent. See the call site for why the target is real and
+  // why the margin is negative on the bottom rather than the top.
+  back: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    minHeight: 44,
+    marginBottom: -10,
+    marginLeft: -4,
+  },
+  backText: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1 },
   private: {
     flexDirection: 'row',
     alignItems: 'center',

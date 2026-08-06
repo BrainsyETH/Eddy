@@ -22,15 +22,14 @@
 // access sheet's Float trips tab uses. One planner, two ways in.
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import type { MapAccessPoint } from '@eddy/types';
 import type { RiverSheetData } from './riverTabs';
 import { criticalHazards, hazardTypeLabel, portageNote, severityLabel, sortHazards } from '@eddy/hazards';
-import { floatableHeadline } from '@eddy/conditions/floatable-headline';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { conditionBg, conditionChipBorder, conditionInk, conditionLabel } from '@/theme/conditions';
 import { Absent, Fact, LinkRow, Prose, Section } from './sections';
+import { RiverHead } from './RiverHead';
 
 // The registry and its shapes live in riverTabs.ts, which imports no React
 // Native at all so the web suite can load it. Re-exported here so callers that
@@ -48,11 +47,27 @@ export interface RiverTabProps {
 
 /* ── Conditions ─────────────────────────────────────────────────────────── */
 
+/**
+ * ── THIS TAB ONLY EXISTS ON A RIVER WITH MORE THAN ONE GAUGE ──────────────
+ *
+ * riverTabs gates it, because the glance now carries the river's verdict and its
+ * primary station's reading. What is left for a page to add is the DISAGREEMENT
+ * between stations — which is a real thing on a long river and is exactly what
+ * one row cannot show.
+ *
+ * ── The headline that used to be here was false ───────────────────────────
+ *
+ * It called `floatableHeadline(river.gauges.map(g => g.code))`. That helper
+ * counts a LIST OF RIVERS and says so in words, so three gauges on one river
+ * with two floatable rendered "2 of 3 rivers are floatable right now" — on a
+ * sheet whose heading is a single river's name. The comment above it claimed
+ * this kept the map and the Today list from disagreeing about the same water;
+ * in fact it made the map state something about a set of rivers that did not
+ * exist. Removed rather than reworded: the river's own verdict is in the glance,
+ * where it is drawn from the river's own condition code.
+ */
 export function RiverConditionsTab({ river, onOpenGauge }: RiverTabProps) {
   const { colors } = useTheme();
-  // The river's verdict in one sentence, from the same helper the Today list
-  // uses — so the map and the list cannot disagree about the same water.
-  const headline = floatableHeadline(river.gauges.map((g) => g.code));
 
   if (!river.gauges.length) {
     return <Absent>No gauge grades this river yet, so Eddy has no reading for it.</Absent>;
@@ -60,9 +75,7 @@ export function RiverConditionsTab({ river, onOpenGauge }: RiverTabProps) {
 
   return (
     <View>
-      {headline ? <Prose>{headline}</Prose> : null}
-
-      <Section title={river.gauges.length > 1 ? 'Gauges' : 'Gauge'}>
+      <Section title="Gauges">
         {river.gauges.map((gauge) => (
           <Pressable
             key={gauge.siteId}
@@ -231,52 +244,41 @@ export function RiverHazardsTab({ river }: RiverTabProps) {
 
 /* ── The header ─────────────────────────────────────────────────────────── */
 
+/**
+ * The glance: who, what the water is doing, and the way to the full screen.
+ *
+ * The identity row itself is RiverHead — a real sibling of PlaceHead rather than
+ * the 14pt string that used to sit here. What stays in this file is the one
+ * navigation row underneath it, which is river-sheet business rather than
+ * identity.
+ *
+ * ── "Open {river}" is no longer duplicated ────────────────────────────────
+ * The map screen used to draw its own selected-river line above the map with the
+ * name, the condition and a chevron to the very same screen this row opens. That
+ * line is gone (see the Map tab's header), so this is the only copy.
+ */
 export function RiverSheetHeader({
   river,
   onClose,
   onOpenRiver,
+  onOpenGauge,
 }: {
   river: RiverSheetData;
   onClose: () => void;
   onOpenRiver: (slug: string) => void;
+  onOpenGauge: (siteId: string) => void;
 }) {
-  const { colors } = useTheme();
   return (
-    <View style={styles.header}>
-      <View style={styles.headRow}>
-        <View style={styles.gaugeText}>
-          {/* The heading for this sheet, exactly as the place's name is for the
-              pin sheet. See PlaceHead. */}
-          <Text
-            style={[styles.name, { color: colors.text }]}
-            numberOfLines={2}
-            accessibilityRole="header"
-          >
-            {river.name}
-          </Text>
-          <Text style={[styles.rowMeta, { color: colors.textMuted }]} numberOfLines={1}>
-            {[river.region, `${river.accesses.length} access points`].filter(Boolean).join(' · ')}
-          </Text>
+    <View>
+      <RiverHead river={river} onClose={onClose} onOpenGauge={onOpenGauge} />
+      <View style={styles.header}>
+        <View style={styles.headerLink}>
+          <LinkRow
+            label={`Open ${river.name}`}
+            symbol="river"
+            onPress={() => onOpenRiver(river.slug)}
+          />
         </View>
-        {/* ── A REAL 44pt FRAME, and the pin sheet's glyph ─────────────────
-            This was a ✕ character with hitSlop 12, which is a ~17pt glyph in a
-            ~41pt target — under the floor DESIGN.md §6 sets, and reached by
-            padding rather than by being the right size, so it never lined up
-            with anything. The pin sheet's close is a 44x44 Ionicon (PlaceHead,
-            CONTROL) and these two sheets sit in the same corner of the same
-            screen seconds apart, so a reader who has learned where one is has
-            learned where the other is. */}
-        <Pressable
-          onPress={onClose}
-          style={({ pressed }) => [styles.close, { opacity: pressed ? 0.6 : 1 }]}
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-        >
-          <Ionicons name="close" size={19} color={colors.textMuted} />
-        </Pressable>
-      </View>
-      <View style={styles.headerLink}>
-        <LinkRow label={`Open ${river.name}`} onPress={() => onOpenRiver(river.slug)} />
       </View>
     </View>
   );
@@ -284,19 +286,8 @@ export function RiverSheetHeader({
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: 16 },
-  headRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  name: { ...t.sm, fontFamily: fonts.semibold },
-  // 44x44, the touch floor from DESIGN.md §6 — the same square PlaceHead's
-  // controls occupy. The negative margin keeps the glyph optically where the
-  // ✕ used to sit rather than pushing the title in by the padding the frame
-  // added: a tap target is allowed to be bigger than what it looks like.
-  close: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: -10,
-  },
+  // The identity row's own styles left with it — see RiverHead, which holds the
+  // 44pt frame, the heading scale and the close this file used to declare.
   headerLink: { marginTop: 2 },
   gaugeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
   gaugeText: { flex: 1, minWidth: 0 },
