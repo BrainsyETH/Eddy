@@ -22,6 +22,7 @@ figure is used and the difference is stated.
   - [W5 — Hazard instruction (shipped)](#w5--the-glance-contract-for-untabbed-pins--shipped)
 - [Sequencing](#sequencing)
 - [Guardrails that keep this from recurring](#guardrails-that-keep-this-from-recurring)
+- [What is left](#what-is-left)
 
 ## The finding underneath items 1 and 3
 
@@ -675,3 +676,41 @@ Per the audit's own closing note, and unchanged:
 Manual passes worth doing on device, in this order of likely breakage: an access
 point with a `lodging` embedded service (W1), one of the 81 with no description
 (W2), Meramec's Camping tab (W4), and the Outfitters layer switch (W3b).
+
+## What is left
+
+Everything in the workstreams above has shipped. What remains is either gated on
+a decision, gated on credentials, or a separate piece of work.
+
+### Needs authorisation — it writes to production
+
+- **W3c, the geocoding backfill.** 127 eligible rows need coordinates. Every
+  prerequisite is now in place: eligibility is shared, the route ships
+  `geocode_precision`, and `mappableService` is finally load-bearing on the map
+  rather than defeated by an omitted column. It wants its own dry run and diff.
+  `centroid` must be recorded honestly wherever the geocoder only resolved a
+  town, or the guard goes back to rejecting nothing.
+
+### Needs credentials this environment does not have
+
+- **`npm run db:gen-types`.** `src/types/database.ts` predates
+  `geocode_precision`, which is why `/api/services` carries an explicit
+  `ServiceRow` and an `unknown as` cast. Regenerating removes both.
+- **Running `npm run db:check-services` end to end.** Its logic was verified by
+  replicating the same rules in SQL against the live table — that is how the
+  invariant (0 rows in no tier) was confirmed and how three coverage figures in
+  this document were corrected — but the script itself has never executed.
+
+### Horizon 2, costed and not started
+
+Ordered, because 2c and 2d are gated on 2b:
+
+- **2b — promote the 30 orphans.** Embedded entries with no canonical row. Data
+  entry and verification; the long pole.
+- **2c — `access_point_services`.** Mirrors `service_rivers` exactly, which is
+  the same schema doing the same job for rivers.
+- **2d — drop `access_points.nearby_services`.** Backfill, verify parity, drop.
+
+`db:check-services` already prints all three drift figures (orphans, tier
+conflicts, entries pointing at closed rows), so progress through this is
+measurable rather than asserted.

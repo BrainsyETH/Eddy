@@ -204,7 +204,62 @@ async function main() {
   const centroids = rows.filter((r) => r.geocode_precision === 'centroid');
   console.log(`  ${'centroid'.padEnd(12)} ${String(centroids.length).padStart(3)} refused as too coarse to pin`);
 
-  /* ── 5. Drift between the directory and the embedded copies ────────────
+  /* ── 5. THE API AGREES WITH THE TABLE ──────────────────────────────────
+     The gap this script was blind to, and it cost a release.
+
+     Everything above reads the DATABASE. The app reads /api/services. For one
+     release those two disagreed badly — the route filtered to `active` and
+     already-geocoded rows and selected neither `status` nor
+     `geocode_precision`, so 28 of 156 reached the phone, `serviceEligible`
+     became a no-op and `mappableService` was defeated outright. Every check
+     above passed the whole time, because none of them had ever looked at what
+     the app is actually served.
+
+     A route-contract test now pins the SHAPE. This pins the POPULATION, which
+     is the half a source-level test cannot reach.
+
+     Skipped rather than failed when there is no base URL: this must stay
+     runnable against the database alone, and a check that cannot run is not a
+     check that failed. Set SERVICES_API_URL, or NEXT_PUBLIC_SITE_URL, to
+     include it. */
+  console.log('\nAPI agrees with the table');
+  const baseUrl = process.env.SERVICES_API_URL || process.env.NEXT_PUBLIC_SITE_URL;
+  if (!baseUrl) {
+    console.log('  – skipped (set SERVICES_API_URL or NEXT_PUBLIC_SITE_URL to include it)');
+  } else {
+    try {
+      const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/services`);
+      if (!res.ok) {
+        fail(`GET /api/services returned ${res.status}`);
+      } else {
+        const body = (await res.json()) as { services?: unknown[] };
+        const served = body.services ?? [];
+        // The route applies no policy of its own now, so this is the whole
+        // table. Anything less means a filter has crept back in, which is
+        // exactly how the coverage note became unrenderable last time.
+        if (served.length !== rows.length) {
+          fail(
+            `/api/services returned ${served.length} rows, the table holds ${rows.length}. ` +
+              `The route must not filter — eligibility and mappability are the app's decisions.`,
+          );
+        } else {
+          ok(`all ${served.length} rows reach the app`);
+        }
+        // And the two columns every client policy reads. A row that arrives
+        // without them is a row the app cannot judge, silently.
+        const first = served[0] as Record<string, unknown> | undefined;
+        for (const field of ['status', 'geocodePrecision'] as const) {
+          if (first && !(field in first)) {
+            fail(`/api/services omits '${field}' — the client policy that reads it becomes a no-op`);
+          }
+        }
+      }
+    } catch (err) {
+      warn(`could not reach ${baseUrl}/api/services: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  /* ── 6. Drift between the directory and the embedded copies ────────────
      access_points.nearby_services is a second, hand-curated service list with
      its own vocabulary. Every number here should trend to zero as those entries
      become references to canonical rows. */
