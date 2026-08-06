@@ -31,12 +31,53 @@ const source = readFileSync(ROUTE, 'utf8');
 // rules need to work. Same technique as api-cache-headers.test.ts, for the same
 // reason — a contract no runtime test in this suite can reach.
 
-test('the route selects the two columns the client policies read', () => {
+/**
+ * The columns the route actually asks Postgres for.
+ *
+ * ── PARSED, NOT GREPPED ───────────────────────────────────────────────────
+ *
+ * The first version of this test searched the WHOLE FILE for `status` and
+ * `geocode_precision`, which is close to no test at all: both words appear in
+ * the header comment, in the ServiceRow interface, and in the response mapping.
+ * Deleting either from the select would have left all three, and the test would
+ * have passed while the app went back to being unable to judge a single row.
+ *
+ * TypeScript cannot cover for it either — the route casts through
+ * `unknown as ServiceRow[]`, because `src/types/database.ts` predates the
+ * `geocode_precision` column, so a shorter select is not a type error.
+ *
+ * So: find the literal, split it, and assert on the members.
+ */
+function selectedColumns(): string[] {
+  const literal = source.match(/const SELECT_COLUMNS\s*=\s*\n?\s*'([^']+)'/);
+  assert.ok(literal, 'SELECT_COLUMNS must be a single-quoted string literal');
+  return literal[1].split(',').map((c) => c.trim());
+}
+
+test('the select asks for the two columns the client policies read', () => {
   // Without `status`, serviceEligible cannot tell a closed business from an
   // open one. Without `geocode_precision`, mappableService cannot tell a town
-  // centroid from a real location.
-  assert.match(source, /\bstatus\b/, 'status must be selected');
-  assert.match(source, /\bgeocode_precision\b/, 'geocode_precision must be selected');
+  // centroid from a real location — and absent reads as trusted, so the failure
+  // is a pin in the wrong place rather than a missing one.
+  const columns = selectedColumns();
+  assert.ok(columns.includes('status'), `status missing from: ${columns.join(', ')}`);
+  assert.ok(
+    columns.includes('geocode_precision'),
+    `geocode_precision missing from: ${columns.join(', ')}`,
+  );
+});
+
+test('the select asks for everything the response promises', () => {
+  // The other half of the same gap: a column dropped from the select but left
+  // in the mapping yields `undefined` for every row, silently. Derived from the
+  // response mapping rather than hand-listed, so a field added later is covered
+  // without anybody remembering this file.
+  const columns = new Set(selectedColumns());
+  const mapped = [...source.matchAll(/^\s*\w+:\s*(?:toNum\()?s\.(\w+)/gm)].map((m) => m[1]);
+  assert.ok(mapped.length >= 10, `expected the response mapping to be found, got ${mapped.length}`);
+  for (const column of mapped) {
+    assert.ok(columns.has(column), `the response maps s.${column}, which the select never asks for`);
+  }
 });
 
 test('the response carries them through to the client', () => {
@@ -75,8 +116,15 @@ test('the select is one string literal, never a concatenation', () => {
   // collapses it to `string` and every field degrades to GenericStringError —
   // which is a compile error rather than a silent bug, but an obscure one, and
   // the fix (splitting a long line) looks entirely innocent.
+  assert.doesNotMatch(
+    source,
+    /const SELECT_COLUMNS[^;]*\+/,
+    'SELECT_COLUMNS must not be built by concatenation',
+  );
+  // And the call site must pass that constant rather than an inline string, or
+  // the parser above is checking something the query does not use.
   // No `s` flag — the build targets ES2017, and `[^)]*` already spans newlines.
-  const select = source.match(/\.select\(([^)]*)\)/);
-  assert.ok(select, 'the route must have a .select()');
-  assert.doesNotMatch(select[1], /\+/, 'the select argument must not be concatenated');
+  const call = source.match(/\.select\(([^)]*)\)/);
+  assert.ok(call, 'the route must have a .select()');
+  assert.equal(call[1].trim(), 'SELECT_COLUMNS');
 });

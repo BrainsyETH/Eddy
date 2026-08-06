@@ -778,24 +778,46 @@ export default function MapScreen() {
   }, [wantsHazards, selectedSlug]);
 
   /**
-   * Every placed service in the state, fetched once when a layer wants them.
+   * Every service in the state, fetched once when a layer wants them.
    *
    * Was per-river and re-fetched on every selection, which made both layers
    * empty until a river was chosen and then two or three pins deep. One
-   * statewide request draws all of them — 25 in total, because 129 of the 154
-   * services on file have no coordinates and cannot be drawn by anyone. See
+   * statewide request draws all of them — and it now carries the un-geocoded
+   * rows too, because the coverage sentence under each tier counts them. See
    * /api/services, which says the same thing from the other end.
    *
    * A ref rather than a slug guard: the set is fixed and statewide, so once it
    * has been asked for there is nothing a change of selection could add.
-   * fetchServices already answers [] on failure, so there is no error branch.
+   *
+   * ── A FAILURE IS NOT AN EMPTY DIRECTORY ─────────────────────────────────
+   *
+   * `fetchServices` used to answer `[]` when the request failed, and the note
+   * here used to say that was why no error branch was needed. It was the
+   * reason one WAS: `services` became a non-null empty array, so three layers
+   * reported a confident `0` and the coverage lines vanished — a set of claims
+   * about a directory Eddy had never managed to read. It answers `null` now,
+   * `services` stays null, and every count stays `undefined`, which the sheet
+   * already draws as absent rather than as zero.
+   *
+   * And the ref is RELEASED on failure. Marking the request as made before it
+   * succeeds meant one flaky moment disabled these layers for the life of the
+   * screen. Releasing it lets the next layer toggle try again — no timer and no
+   * retry loop, because a map screen quietly re-requesting on a schedule is a
+   * bigger commitment than this needs. If it never succeeds, the layers stay
+   * honestly silent.
    */
   const wantsServices = layers.includes('campgrounds') || layers.includes('outfitters');
   const servicesRequested = useRef(false);
   useEffect(() => {
     if (!wantsServices || servicesRequested.current) return;
     servicesRequested.current = true;
-    void fetchServices().then(setServices);
+    void fetchServices().then((rows) => {
+      if (rows === null) {
+        servicesRequested.current = false;
+        return;
+      }
+      setServices(rows);
+    });
   }, [wantsServices]);
 
   // ── Search ──────────────────────────────────────────────────────
