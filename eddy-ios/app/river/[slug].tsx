@@ -44,7 +44,12 @@ import type {
   RiverVisualsResponse,
   DamSnapshot,
 } from '@eddy/types';
-import { accessPointTypes, accessTypeLabel, isCampground } from '@eddy/types';
+import {
+  accessPointTypes,
+  accessTypeLabel,
+  campsiteAvailabilityLine,
+  isCampground,
+} from '@eddy/types';
 import {
   criticalHazards,
   hazardConditionCode,
@@ -290,6 +295,17 @@ function ServiceRow({ service }: { service: RiverService }) {
             .filter(Boolean)
             .join(' · ')}
         </Text>
+        {/* Live inventory, for the campgrounds in the section above. The field
+            has been on the wire since availability shipped and this row was the
+            one campground surface that never read it — so the river screen
+            listed a state park by name and city while the map beside it knew
+            how many sites were free. Null for most rows, and null renders
+            nothing rather than "unknown". */}
+        {campsiteAvailabilityLine(service.availability, service.name) ? (
+          <Text style={[styles.serviceAvailability, { color: colors.text }]} numberOfLines={1}>
+            {campsiteAvailabilityLine(service.availability, service.name)}
+          </Text>
+        ) : null}
       </View>
       {service.phone ? (
         <Pressable
@@ -1700,6 +1716,7 @@ const styles = StyleSheet.create({
   serviceBody: { flex: 1 },
   serviceName: { ...t.sm, fontFamily: fonts.semibold },
   serviceMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  serviceAvailability: { ...t.xs, fontFamily: fonts.semibold, marginTop: 2 },
   footnote: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', paddingHorizontal: 24, marginTop: 6 },
   reportRow: {
     flexDirection: 'row',

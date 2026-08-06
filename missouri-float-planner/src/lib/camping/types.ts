@@ -42,6 +42,61 @@ export interface DailyAggregate {
   status: AvailabilityStatus;
 }
 
+/**
+ * What one individual site is doing on one night.
+ *
+ * Deliberately NOT `AvailabilityStatus`. That union describes a whole
+ * facility, where "full" is a statement about every site at once; a single site
+ * is never "full", it is taken. The distinction that matters most here is
+ * `walk_up`: Red Bluff's eight first-come sites are real inventory a person can
+ * sleep in, and they must be listable — but counting them would make the
+ * denominator lie, which is why foldNight excludes them. Storing the status
+ * rather than a boolean is what lets both be true at once.
+ */
+export type UnitStatus = 'open' | 'reserved' | 'walk_up' | 'closed' | 'not_yet_released';
+
+/**
+ * One individual site, as its booking system describes it.
+ *
+ * Both providers volunteer all of this in the SAME response as the
+ * availability — recreation.gov's month payload carries `site`, `loop`,
+ * `campsite_type` and `max_num_people` alongside the calendar, and UseDirect's
+ * grid carries `Units[].Name`. Neither needs a second API, a key, or a catalog
+ * join. (The documented RIDB API would add ADA flags and coordinates and
+ * nothing else this feature uses; see lib/usfs/ridb.ts, still uncalled.)
+ */
+export interface CampsiteRecord {
+  /** The provider's own id, unique within its facility. */
+  sourceSiteId: string;
+  /** What the booking page PRINTS — `RTL3`, `012`, `Electric 50 amp #178`. */
+  name: string | null;
+  /** Trimmed: recreation.gov ships both `Ridge Top Loop` and `Ridge Top Loop `. */
+  loop: string | null;
+  /** `STANDARD ELECTRIC`, `TENT ONLY`, … — the provider's vocabulary, verbatim. */
+  siteType: string | null;
+  maxOccupancy: number | null;
+}
+
+/** One night at one site, before anything is folded. */
+export interface SiteNight {
+  sourceSiteId: string;
+  date: string;
+  status: UnitStatus;
+}
+
+/**
+ * What an adapter answers with.
+ *
+ * All three come from ONE parse of ONE payload and must stay that way:
+ * `nights` is `siteNights` folded, and computing them independently is how a
+ * card ends up saying "8 open" above a list of six. See recgov.parseMonth.
+ */
+export interface FetchResult {
+  nights: DailyAggregate[];
+  sites: CampsiteRecord[];
+  siteNights: SiteNight[];
+}
+
 /** A row of the curated link table, as the adapters need it. */
 export interface FacilityLink {
   id: string;

@@ -389,6 +389,93 @@ export interface CampsiteAvailabilitySummary {
   kind: 'campground' | 'backcountry_district';
   source: 'recreation_gov' | 'mo_state_parks';
   fetchedAt: string;
+  /** Identifies the facility to `/api/campsites`, which lists its sites. */
+  facilityId?: string;
+  /**
+   * Every measured night of the stored horizon, ascending.
+   *
+   * SPARSE BY DESIGN. A date missing from this array was not measured — a
+   * season ending mid-horizon, or a sync that ran out of budget — and the strip
+   * must draw that as a gap. Rendering it as zero would turn "we did not look"
+   * into "fully booked", which are opposite instructions to a reader.
+   *
+   * The fields above summarise `window` ONLY, and this array must never be
+   * folded the same way: summarizeWindow takes a MINIMUM across its nights, so
+   * a fortnight containing one busy Saturday would report a campground with
+   * forty free sites on twelve nights as fully booked.
+   */
+  nights?: CampsiteNightSummary[];
+}
+
+/** One measured night, as the fortnight strip draws it. */
+export interface CampsiteNightSummary {
+  date: string;
+  sitesOpen: number;
+  sitesReservable: number;
+  status: 'open' | 'full' | 'closed' | 'not_yet_released';
+}
+
+/** What one site is doing on one night. */
+export type CampsiteNightState =
+  | 'open'
+  | 'reserved'
+  | 'walk_up'
+  | 'closed'
+  | 'not_yet_released'
+  /** Not measured. NOT the same as taken — a season ending mid-horizon is this. */
+  | 'unknown';
+
+/**
+ * The wire code for each state, one character per night.
+ *
+ * Meramec has 197 sites; a fortnight of `{date, status}` objects for all of
+ * them is ~40 KB of JSON where fourteen characters each is 2.7 KB. On a phone
+ * at a put-in that is the difference between a tab opening and a tab spinning.
+ *
+ * MIRRORS SITE_NIGHT_CODE in missouri-float-planner/src/lib/camping/sites.ts
+ * and must keep doing so. The two cannot share one declaration for the reason
+ * campsiteAvailabilityLine cannot: shippable web code must not import from
+ * outside missouri-float-planner/, because Vercel installs only that directory.
+ * A parity test in the web suite is the guard.
+ */
+export const CAMPSITE_NIGHT_CODES: Record<string, CampsiteNightState> = {
+  A: 'open',
+  R: 'reserved',
+  W: 'walk_up',
+  C: 'closed',
+  N: 'not_yet_released',
+  '-': 'unknown',
+};
+
+/** Decode one site's fortnight. Index matches `window.nights`. */
+export function decodeCampsiteNights(nights: string): CampsiteNightState[] {
+  return [...nights].map((code) => CAMPSITE_NIGHT_CODES[code] ?? 'unknown');
+}
+
+/** One individual campsite. */
+export interface CampsiteSite {
+  id: string;
+  /** What the booking page prints — `RTL3`, `Electric 50 amp #178`. */
+  name: string | null;
+  loop: string | null;
+  /**
+   * The provider's own vocabulary, unmapped: `STANDARD ELECTRIC`, `TENT ONLY`.
+   * Null for Missouri State Parks, which fold the type into the name.
+   */
+  siteType: string | null;
+  maxOccupancy: number | null;
+  /** Null for a provider with no per-site page — UseDirect books at park level. */
+  bookingUrl: string | null;
+  /** One character per night, aligned to `window.nights` by index. */
+  nights: string;
+}
+
+export interface CampsiteSitesResponse {
+  facility: { id: string; displayName: string; kind: string; source: string };
+  window: { startDate: string; endDate: string; label: string; nights: string[] };
+  /** The oldest night's timestamp — the weakest part of the answer. */
+  fetchedAt: string | null;
+  sites: CampsiteSite[];
 }
 
 export interface NpsCampgroundSummary {
@@ -537,6 +624,22 @@ export interface AccessPointDetail {
   path?: string;
   river: { id: string; name: string; slug: string };
   npsCampground: NpsCampgroundSummary | null;
+
+  /**
+   * Live availability, WHATEVER KIND OF CAMPGROUND THIS IS.
+   *
+   * A sibling of npsCampground rather than a field inside it, which is the
+   * whole point. A Missouri State Park — Meramec, Onondaga Cave, Washington —
+   * has no nps_campgrounds row, but campsite_facilities carries live
+   * availability for it through its OTHER foreign key. Nested inside
+   * npsCampground that was not merely absent, it was unrepresentable: see the
+   * paragraph in map-sheet/tabs.ts that sized this exact change.
+   *
+   * Optional for the reason `path` above is — a TestFlight build outlives its
+   * deploy. Read it as `availability ?? npsCampground?.availability`, in that
+   * order, so a NEW app against an OLDER deploy still finds the nested copy.
+   */
+  availability?: CampsiteAvailabilitySummary | null;
 }
 
 export interface AccessPointDetailResponse {
@@ -969,6 +1072,21 @@ export interface RiverService {
   /** Null when the service has no geocode — it then belongs in a list, not a map. */
   latitude: number | null;
   longitude: number | null;
+  /**
+   * How much to trust those coordinates.
+   *
+   * `exact` is the place itself, corroborated. `approximate` is the right road.
+   * `centroid` is THE TOWN ONLY and must never be drawn as a pin — a pin is a
+   * claim about where a place is, and somebody plans a drive around it.
+   *
+   * Null pre-dates the column and is treated as trusted, so the services
+   * already on the map do not vanish to make a point about provenance.
+   *
+   * Optional for the reason every other added field is: a TestFlight build
+   * outlives the deploy it was cut against. Absent means "not told", which
+   * `mappableService` reads the same as null.
+   */
+  geocodePrecision?: 'exact' | 'approximate' | 'centroid' | null;
   description: string | null;
   servicesOffered: string[];
 

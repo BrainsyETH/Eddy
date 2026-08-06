@@ -73,6 +73,7 @@ import type {
   RiverAlert,
   RiverAlertsResponse,
 } from '@eddy/types';
+import type { CampsiteSitesResponse } from '@eddy/types';
 import type { ServerStar } from '@eddy/sync';
 import type { StatewideReading, StatewideRiver } from '@/lib/statewideNetwork';
 import {
@@ -470,6 +471,43 @@ export async function fetchRiverAccessPoints(
  * screen was opened from a row that named it, so "this place does not exist" is
  * a real failure and the screen says so.
  */
+/**
+ * Every individual campsite at one campground, with its fortnight.
+ *
+ * Asked for only when the map sheet's Camping tab becomes the active one — a
+ * busy state park is nearly two hundred sites, and nobody who tapped a put-in
+ * to check the water should pay for them.
+ *
+ * Answers null on failure rather than throwing, unlike fetchAccessPointDetail.
+ * The distinction is the same one that file draws: a missing access point is a
+ * bad route and a real failure, while a campground with no site list is an
+ * ordinary state — most campgrounds are not linked to a booking system Eddy can
+ * read — and the tab above it is useful without this.
+ */
+export async function fetchCampsiteSites(
+  facilityId: string,
+  signal?: AbortSignal,
+): Promise<CampsiteSitesResponse | null> {
+  try {
+    return await get<CampsiteSitesResponse>(
+      `/api/campsites?facility=${encodeURIComponent(facilityId)}`,
+      signal,
+    );
+  } catch (err) {
+    // ── A 404 is an answer; everything else is a failure ──────────────────
+    // The route answers 404 for a campground Eddy does not track sites for,
+    // which is most of them and is an ordinary state — the tab renders nothing,
+    // the same way the availability line does when it has nothing to say.
+    //
+    // EVERY OTHER ERROR RETHROWS. Swallowing them into the same null made a
+    // dead network indistinguishable from an untracked campground, and the hook
+    // read that null as a successful empty answer — so a reader with no signal
+    // sat on "Loading sites…" forever, with nothing left to resolve it.
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
 export async function fetchAccessPointDetail(
   riverSlug: string,
   accessSlug: string,

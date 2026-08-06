@@ -47,7 +47,7 @@ async function _GET(
           id, name, slug, type,
           phone, phone_toll_free, email, website,
           address_line1, city, state, zip,
-          latitude, longitude,
+          latitude, longitude, geocode_precision,
           description, services_offered, seasonal_notes,
           nps_authorized, usfs_authorized,
           status, display_order,
@@ -98,6 +98,12 @@ async function _GET(
           city: s.city,
           state: s.state,
           zip: s.zip,
+          // How much to trust the coordinates, so a surface can decide for
+          // itself. A map pin must be right to a few hundred metres; a
+          // ten-mile "stays nearby" box does not care which end of town it
+          // starts from. Null pre-dates the column and stays trusted, so the
+          // thirteen services already on the map do not silently vanish.
+          geocodePrecision: (s as { geocode_precision?: string }).geocode_precision ?? null,
           latitude: s.latitude,
           longitude: s.longitude,
           description: s.description,

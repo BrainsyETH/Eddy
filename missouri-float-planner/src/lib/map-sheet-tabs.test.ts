@@ -83,8 +83,38 @@ test('an NPS campground earns it even when the type tags do not say so', () => {
 
 test('a state park campground earns it from its type tag alone', () => {
   // Meramec, Onondaga Cave, Washington: no nps_campgrounds row exists for any
-  // of them, so the tag is the only thing carrying them today.
+  // of them, so the tag used to be the only thing carrying them.
   const tabs = accessTabs(point({ type: 'campground', types: ['campground'] }), detail());
+  assert.ok(tabs.some((t) => t.key === 'camping'));
+});
+
+test('live availability alone earns the Camping tab', () => {
+  // THE THIRD LEG. A place with neither the tag nor an NPS record but with
+  // real inventory Eddy can read is exactly the Missouri State Park case, and
+  // it was unrepresentable while the server nested `availability` inside
+  // npsCampground — such a site got the tab only when somebody had remembered
+  // to tag it, while NPS sites looked fine the whole time.
+  const tabs = accessTabs(
+    point(),
+    detail({
+      accessPoint: {
+        availability: { sitesOpen: 8, sitesReservable: 54, status: 'open' },
+      },
+    }),
+  );
+  assert.ok(tabs.some((t) => t.key === 'camping'));
+});
+
+test('the nested copy still earns it, for an app ahead of its deploy', () => {
+  // A build cut today can be talking to a deploy that predates the sibling.
+  const tabs = accessTabs(
+    point(),
+    detail({
+      accessPoint: {
+        npsCampground: { name: 'Alley Spring', availability: { sitesOpen: 8 } },
+      },
+    }),
+  );
   assert.ok(tabs.some((t) => t.key === 'camping'));
 });
 

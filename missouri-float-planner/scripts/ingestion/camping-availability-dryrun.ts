@@ -14,13 +14,15 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { createLimiter } from '../../src/lib/camping/limiter';
-import { resolveWeekend } from '../../src/lib/camping/window';
+import { resolveHorizon, resolveWeekend } from '../../src/lib/camping/window';
 import { summarizeWindow, type CampingSource, type FacilityLink } from '../../src/lib/camping/types';
 import * as recgov from '../../src/lib/camping/recgov';
 import type { MonthCache } from '../../src/lib/camping/recgov';
 import * as usedirect from '../../src/lib/camping/usedirect';
 
 const FAST = process.argv.includes('--fast');
+/** One sample site list per source is enough to see the shape. */
+const shown = new Set<CampingSource>();
 const ONLY = process.argv.find((a) => a === 'recreation_gov' || a === 'mo_state_parks') as
   | CampingSource
   | undefined;
@@ -36,8 +38,13 @@ async function main() {
   if (!url || !key) throw new Error('Set NEXT_PUBLIC_SUPABASE_URL and a Supabase key.');
 
   const supabase = createClient(url, key);
-  const window = resolveWeekend();
-  console.log(`window: ${window.label}  (nights ${window.nights.join(', ')})\n`);
+  // What the cron stores. The weekend below is only what a CARD says about it,
+  // and printing both is the point: a horizon folded like a weekend is the
+  // mistake this script exists to make visible.
+  const window = resolveHorizon();
+  const weekend = resolveWeekend();
+  console.log(`horizon: ${window.label}  (${window.nights.length} nights)`);
+  console.log(`weekend: ${weekend.label}  (nights ${weekend.nights.join(', ')})\n`);
 
   const { data, error } = await supabase
     .from('campsite_facilities')
@@ -79,17 +86,43 @@ async function main() {
       };
 
       try {
-        const nights = await config.fetch(facility, window, limiter, cache);
-        const summary = summarizeWindow(nights);
-        const detail = nights
-          .map((n) => `${n.date.slice(5)} ${n.sitesOpen}/${n.sitesReservable} ${n.status}`)
-          .join('  ');
+        const result = await config.fetch(facility, window, limiter, cache);
+        const { nights, sites, siteNights } = result;
+
+        // Folded over the WEEKEND, never the horizon — the same slice the read
+        // path takes. summarizeWindow minimises across the nights it is given,
+        // so handing it fourteen reports one busy Saturday as "fully booked".
+        const inWeekend = new Set(weekend.nights);
+        const summary = summarizeWindow(nights.filter((n) => inWeekend.has(n.date)));
+
+        // A compact fortnight, so the strip's shape is visible in a terminal.
+        const strip = nights
+          .map((n) =>
+            n.status === 'closed' || n.status === 'not_yet_released'
+              ? '·'
+              : n.sitesOpen === 0
+                ? '0'
+                : '▁▂▃▄▅▆▇█'[
+                    Math.min(7, Math.floor((n.sitesOpen / Math.max(1, n.sitesReservable)) * 8))
+                  ],
+          )
+          .join('');
+
         console.log(
           `  ${facility.displayName.padEnd(30)} ` +
             (summary
-              ? `${String(summary.sitesOpen).padStart(3)}/${String(summary.sitesReservable).padEnd(4)} ${summary.status.padEnd(8)} ${detail}`
-              : 'no data'),
+              ? `${String(summary.sitesOpen).padStart(3)}/${String(summary.sitesReservable).padEnd(4)} ${summary.status.padEnd(8)}`
+              : ' no weekend data      ') +
+            ` ${strip.padEnd(16)} ${String(sites.length).padStart(3)} sites, ${siteNights.length} site-nights`,
         );
+
+        // The list a person will actually scroll, for the first facility that
+        // has one. Names come from the availability payload itself — no RIDB.
+        if (sites.length > 0 && !shown.has(source)) {
+          shown.add(source);
+          const sample = sites.slice(0, 4).map((s) => `${s.name ?? s.sourceSiteId}${s.siteType ? ` (${s.siteType})` : ''}${s.loop ? ` — ${s.loop}` : ''}`);
+          console.log(`      sample sites: ${sample.join(' | ')}`);
+        }
       } catch (err) {
         console.log(
           `  ${facility.displayName.padEnd(30)} FAILED — ${err instanceof Error ? err.message : String(err)}`,

@@ -29,12 +29,14 @@ import type {
   MapAccessPoint,
   NearbyAccessPoint,
 } from '@eddy/types';
-import { campsiteAvailabilityLine } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import type { MapPin } from '@/map/RiverMap';
 import { useAccessPointDetail } from '@/hooks/useAccessPointDetail';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
+import { AvailabilityGlance } from './AvailabilityGlance';
+import { accessAvailability } from './availabilitySource';
+import { localToday } from './availability';
 import { MapSheet, type SheetMetrics } from './MapSheet';
 import { PinCallout } from './PinCallout';
 import { PlaceHead } from './PlaceHead';
@@ -215,7 +217,13 @@ export function PinSheet(props: PinSheetProps) {
     if (key === 'overview') return <AccessOverviewTab {...shared} />;
     if (key === 'conditions') return <AccessConditionsTab {...shared} />;
     if (key === 'floats') return <AccessFloatsTab {...shared} />;
-    if (key === 'camping') return <AccessCampingTab {...shared} />;
+    // `active` gates the per-site request. SheetPager mounts the active page
+    // and both neighbours, so Camping mounts alongside Floats on most pins —
+    // firing on mount would request the sites of nearly every campground
+    // somebody taps, which is the whole reason that request is separate.
+    if (key === 'camping') {
+      return <AccessCampingTab {...shared} active={activeKey === 'camping'} />;
+    }
     return <AccessDetailsTab {...shared} />;
   };
 
@@ -309,8 +317,8 @@ function PinSheetHeader({
   detail,
 }: PinSheetProps & { detail: AccessPointDetailResponse | null }) {
   const { colors } = useTheme();
-  const nps = detail?.accessPoint?.npsCampground ?? null;
-  const availability = campsiteAvailabilityLine(nps?.availability, nps?.name ?? pin.name);
+  const point = detail?.accessPoint ?? null;
+  const availability = accessAvailability(point);
 
   const planAsTakeOut = canSetTakeOut;
   const performPlanAction = planAsTakeOut ? onSetTakeOut : onSetPutIn;
@@ -337,22 +345,19 @@ function PinSheetHeader({
           action it qualifies — you would not tap "Use as put-in" without it.
 
           It reaches the glance from `detail.gaugeStatus`, the same response
-          every tab is drawn from. It used to come from useAccessGaugeStatus,
-          a second hook asking the SAME endpoint for this one field, mounted by
-          the callout that the tabbed sheet replaced a moment later — so every
-          tapped access point issued that request twice. One shell, one
-          request. */}
+          every tab is drawn from. */}
       <AccessGaugeReading status={detail?.gaugeStatus} onOpenGauge={onOpenGauge} />
 
-      {/* Then where you sleep. A sentence, and it goes stale over a weekend, so
-          it belongs where it can be read without a gesture. Absent, never
-          "unknown" — campsiteAvailabilityLine returns null when it should not
-          appear. */}
-      {availability ? (
-        <Text style={[styles.availability, { color: colors.text }]} numberOfLines={2}>
-          {availability}
-        </Text>
-      ) : null}
+      {/* THEN WHERE YOU SLEEP, at the size that says so. It goes stale over a
+          weekend, so it belongs where it can be read without a gesture — and
+          the fortnight underneath answers "tonight?" and "the weekend after?"
+          without one either. Absent, never "unknown": AvailabilityGlance
+          renders nothing when it should not appear, which is the common case. */}
+      <AvailabilityGlance
+        availability={availability}
+        name={point?.npsCampground?.name ?? pin.name}
+        today={localToday()}
+      />
 
       <View style={styles.actions}>
         {accessPoint ? (
@@ -446,7 +451,6 @@ const styles = StyleSheet.create({
     marginTop: 9,
   },
   privateText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
-  availability: { ...t.sm, fontFamily: fonts.medium, marginTop: 9 },
   actions: { flexDirection: 'row', gap: 8, marginTop: 11 },
   primary: {
     flex: 1,
