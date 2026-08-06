@@ -60,7 +60,17 @@ export const REDUCED_SETTLE = { duration: 0 } as const;
 export const GRABBER_BLOCK = 16;
 
 /** Breathing room under the content, above the home indicator. */
-export const CONTENT_BOTTOM_PAD = 12;
+/**
+ * Air under the last row of a page.
+ *
+ * 28 rather than 12. The sheet's bottom edge is the tab bar's top edge, so this
+ * is the only thing between the final line of content and a hard chrome border —
+ * and at 12 the last row of a long list sat against it closely enough to read as
+ * clipped. It is added to the safe-area inset rather than replacing it, and
+ * pageBudget subtracts the same constant, so raising it costs a little scroll
+ * rather than hiding anything.
+ */
+export const CONTENT_BOTTOM_PAD = 28;
 
 /**
  * The band along the map's bottom edge that Mapbox's ornaments own.

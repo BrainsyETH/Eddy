@@ -82,6 +82,15 @@ interface TabProps {
   nearbyMarks: Map<string, PlaceSymbolName>;
   /** Whether the one request behind every tab is pending, done or failed. */
   status: DetailStatus;
+  /**
+   * Whether the Place tab qualified.
+   *
+   * Overview needs it to decide whether IT has to carry the route to the full
+   * details screen. Place owns that link whenever it exists — one destination,
+   * one strongest affordance — but Place is gated on having facts about the
+   * place, and a few access points have none at all.
+   */
+  hasPlaceTab: boolean;
 }
 
 /* ── Overview ───────────────────────────────────────────────────────────── */
@@ -96,7 +105,14 @@ interface TabProps {
  * not this page of it, and a badge that changes with the tab is a badge nobody
  * can rely on.
  */
-export function AccessOverviewTab({ accessPoint, detail, onOpenGauge, onOpenRiver }: TabProps) {
+export function AccessOverviewTab({
+  accessPoint,
+  detail,
+  onOpenDetail,
+  onOpenGauge,
+  onOpenRiver,
+  hasPlaceTab,
+}: TabProps) {
   const point = detail?.accessPoint;
   const camping = nearbyCamping(detail);
   const status = detail?.gaugeStatus ?? null;
@@ -166,13 +182,29 @@ export function AccessOverviewTab({ accessPoint, detail, onOpenGauge, onOpenRive
           The river row stands on its own condition rather than sharing the
           section's: it needs the river's NAME, which only the detail response
           carries, and this tab is drawn from the first frame. */}
-      {point?.river ? (
+      {point?.river || (onOpenDetail && !hasPlaceTab) ? (
         <Section>
-          <LinkRow
-            label={`View ${point.river.name}`}
-            symbol="river"
-            onPress={() => onOpenRiver(point.river.slug)}
-          />
+          {point?.river ? (
+            <LinkRow
+              label={`View ${point.river.name}`}
+              symbol="river"
+              onPress={() => onOpenRiver(point.river.slug)}
+            />
+          ) : null}
+          {/* ── ONLY WHEN PLACE IS NOT THERE TO CARRY IT ──────────────────
+              Removing this row was right — it opened exactly what Place's
+              "Open the full details screen" opens, one swipe apart, and a
+              reader has no way to know two rows are one destination. But Place
+              qualifies on having something to say about the place, and a
+              handful of access points have nothing: no road surface, no
+              parking, no facilities, no fee note, no tips. Those lost their
+              only route to their own screen.
+
+              So the rule is one link, not zero: Overview carries it exactly
+              when Place does not exist to. */}
+          {onOpenDetail && !hasPlaceTab ? (
+            <LinkRow label="Access point details" symbol="accessPoint" onPress={onOpenDetail} />
+          ) : null}
         </Section>
       ) : null}
     </View>
