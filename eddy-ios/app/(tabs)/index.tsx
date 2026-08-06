@@ -643,7 +643,27 @@ export default function MapScreen() {
   const drawnAccessPoints = useMemo(() => {
     const byId = new Map<string, { point: MapAccessPoint; riverSlug?: string | null }>();
     for (const entry of networkPlaces.accessPoints) byId.set(entry.point.id, entry);
-    for (const point of accessPoints) byId.set(point.id, { point, riverSlug: drawnSlug });
+    for (const point of accessPoints) {
+      // ── THE POINT'S OWN RIVER BEATS WHICHEVER ONE IS DRAWN ───────────────
+      //
+      // This used to write `riverSlug: drawnSlug` unconditionally, and the
+      // river-scoped `accessPoints` list is never cleared — its effect returns
+      // early when no river is selected, so it outlives the selection that
+      // fetched it. Clear a river and every one of its put-ins was rewritten
+      // with `riverSlug: null`, which is what mapAccessPointPin and the
+      // campgrounds layer build `detailRoute` from. A null route means the
+      // detail request is never made at all, so the sheet sat on
+      // "Loading campground details…" for ever, on a place whose data loads
+      // perfectly well from the API. Switching rivers was the same bug
+      // one step milder: the old river's points briefly wore the new one's slug
+      // and requested a route that 404s.
+      //
+      // The statewide network knows which river each point belongs to and is
+      // never wrong about it, so it wins. `drawnSlug` remains the fallback for a
+      // put-in the network has not got yet — one added since the last bundle.
+      const known = byId.get(point.id)?.riverSlug;
+      byId.set(point.id, { point, riverSlug: known ?? drawnSlug });
+    }
     return [...byId.values()];
   }, [networkPlaces.accessPoints, accessPoints, drawnSlug]);
 
