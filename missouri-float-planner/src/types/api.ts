@@ -195,6 +195,22 @@ export interface AccessPointDetail extends AccessPoint {
 
   // NPS campground data (available when access point is linked to an NPS campground)
   npsCampground: NPSCampgroundInfo | null;
+
+  /**
+   * Live availability, WHATEVER KIND OF CAMPGROUND THIS IS.
+   *
+   * A sibling of npsCampground rather than a field inside it, which is the
+   * whole point. A Missouri State Park — Meramec, Onondaga Cave, Washington —
+   * has no nps_campgrounds row, but campsite_facilities carries live
+   * availability for it through its other foreign key. Nested inside
+   * npsCampground that was not merely absent, it was UNREPRESENTABLE, and the
+   * app's tab registry says so in a comment sized for this exact change.
+   *
+   * NPSCampgroundInfo.availability still carries the same object and is not
+   * being removed in this change: a TestFlight build reads only the nested one,
+   * and outlives the deploy it was cut against.
+   */
+  availability?: CampsiteAvailabilityInfo | null;
 }
 
 /**
@@ -217,6 +233,29 @@ export interface CampsiteAvailabilityInfo {
   kind: 'campground' | 'backcountry_district';
   source: 'recreation_gov' | 'mo_state_parks';
   fetchedAt: string;
+  /** Identifies the facility to `/api/campsites`, which lists its sites. */
+  facilityId?: string;
+  /**
+   * Every measured night of the stored horizon, ascending.
+   *
+   * SPARSE BY DESIGN. A date missing from this array was not measured — a
+   * season that ends mid-horizon, or a sync that ran out of budget — and a
+   * client must draw that as a gap. Rendering it as zero would turn "we did not
+   * look" into "fully booked", which are opposite instructions to a reader.
+   *
+   * The fields above summarise `window` ONLY. Folding this whole array with
+   * summarizeWindow would take a minimum across a fortnight and report a
+   * campground with forty free sites on twelve nights as fully booked.
+   */
+  nights?: CampsiteNightInfo[];
+}
+
+/** One measured night. */
+export interface CampsiteNightInfo {
+  date: string;
+  sitesOpen: number;
+  sitesReservable: number;
+  status: 'open' | 'full' | 'closed' | 'not_yet_released';
 }
 
 /** NPS campground data enrichment for access point detail */

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { fetchWindow, foldNight, parseMonth, type MonthCache } from './recgov';
+import { fetchWindow, foldNight, parseMonth, parseMonthSites, type MonthCache } from './recgov';
 import { summarizeWindow, type FacilityLink } from './types';
 import { createLimiter } from './limiter';
 import { resolveWeekend } from './window';
@@ -162,7 +162,11 @@ test('a 404 yields no data without counting against the failure budget', async (
     const window = resolveWeekend(new Date('2026-08-03T17:00:00Z'));
 
     for (let i = 0; i < 4; i++) {
-      assert.deepEqual(await fetchWindow(facility, window, limiter), []);
+      assert.deepEqual(await fetchWindow(facility, window, limiter), {
+        nights: [],
+        sites: [],
+        siteNights: [],
+      });
     }
 
     assert.equal(limiter.stats().failures, 0, '404 must not count as a failure');
@@ -321,9 +325,120 @@ test('loops sharing a district cost one request, not one each', async () => {
 
     assert.equal(calls, 1, 'the second loop must be served from the cache');
     assert.equal(limiter.stats().attempts, 1);
-    assert.equal(powderMill[0].status, 'open');
-    assert.equal(logYard[0].status, 'full');
+    assert.equal(powderMill.nights[0].status, 'open');
+    assert.equal(logYard.nights[0].status, 'full');
+
+    // The loop filter has to reach the site list too, or a district's fortnight
+    // strip would agree with its campground while its site list showed all
+    // eight campgrounds behind the shared id.
+    assert.ok(
+      powderMill.sites.every((s) => s.loop === 'Powder Mill Campground'),
+      'sites must be filtered to the same loop as the counts',
+    );
+    assert.ok(
+      logYard.sites.every((s) => s.loop === 'Log Yard Campground'),
+      'sites must be filtered to the same loop as the counts',
+    );
   } finally {
     globalThis.fetch = original;
   }
+});
+
+/* ── Per-site parsing ─────────────────────────────────────────────────────── */
+//
+// Fixture transcribed from a live Red Bluff (232391) month payload. Every field
+// below was on the wire the whole time — the interface declared three of them,
+// which is why Eddy needed no second API to list sites and why it spent that
+// time counting picnic shelters.
+
+const RED_BLUFF = {
+  campsites: {
+    '16089': {
+      campsite_id: '16089',
+      site: 'RTL3',
+      loop: 'Ridge Top Loop',
+      campsite_type: 'STANDARD ELECTRIC',
+      type_of_use: 'Overnight',
+      max_num_people: 8,
+      availabilities: { '2026-09-05T00:00:00Z': 'Available' },
+    },
+    '16090': {
+      campsite_id: '16090',
+      site: 'RTL8',
+      // The SAME loop, spelled with a trailing space, inside one response.
+      loop: 'Ridge Top Loop ',
+      campsite_type: 'STANDARD NONELECTRIC',
+      type_of_use: 'Overnight',
+      availabilities: { '2026-09-05T00:00:00Z': 'Reserved' },
+    },
+    '16091': {
+      campsite_id: '16091',
+      site: 'PAV1 Electric',
+      loop: 'Pavilion 1',
+      campsite_type: 'GROUP SHELTER ELECTRIC',
+      type_of_use: 'Day',
+      availabilities: { '2026-09-05T00:00:00Z': 'Available' },
+    },
+  },
+};
+
+test('day-use inventory is not a campsite', () => {
+  // Red Bluff returns two group picnic shelters among its 62 entries, so the
+  // count said "36 of 54 sites open" where the honest answer was 35 of 52. A
+  // pavilion has a roof and no ground to pitch on. The state-park adapter has
+  // excluded these since the commit that stopped counting picnic shelters; the
+  // federal side could not, because type_of_use was never parsed.
+  const night = parseMonth(RED_BLUFF).get('2026-09-05');
+  assert.deepEqual(night, { sitesOpen: 1, sitesReservable: 2, status: 'open' });
+
+  const { sites } = parseMonthSites(RED_BLUFF);
+  assert.deepEqual(sites.map((s) => s.name), ['RTL3', 'RTL8']);
+});
+
+test('the site list and the count describe the same sites', () => {
+  // The failure this guards is "8 open" printed above a list of six, which
+  // reads as a bug in the app rather than in a feed. Both projections read one
+  // traversal, and this is the assertion that keeps it that way.
+  const night = parseMonth(RED_BLUFF).get('2026-09-05')!;
+  const { siteNights } = parseMonthSites(RED_BLUFF);
+  const open = siteNights.filter((n) => n.date === '2026-09-05' && n.status === 'open');
+  assert.equal(open.length, night.sitesOpen);
+});
+
+test('a loop is matched trimmed, because the feed spells it both ways', () => {
+  // 'Ridge Top Loop' and 'Ridge Top Loop ' arrive in one payload. Untrimmed,
+  // the district filter drops half a campground and the site list renders two
+  // groups of the same place.
+  const { sites } = parseMonthSites(RED_BLUFF, 'Ridge Top Loop');
+  assert.equal(sites.length, 2, 'both spellings must resolve to one loop');
+  assert.deepEqual([...new Set(sites.map((s) => s.loop))], ['Ridge Top Loop']);
+});
+
+test('every site carries what a person needs to choose one', () => {
+  const site = parseMonthSites(RED_BLUFF).sites[0];
+  assert.deepEqual(site, {
+    sourceSiteId: '16089',
+    name: 'RTL3',
+    loop: 'Ridge Top Loop',
+    siteType: 'STANDARD ELECTRIC',
+    maxOccupancy: 8,
+  });
+});
+
+test('walk-up sites are listable even though they are not in the denominator', () => {
+  // Both are true and they are not in tension: a first-come site is real
+  // inventory somebody can sleep in, and counting it would make "44 of 54"
+  // a promise the booking system cannot keep.
+  const payload = {
+    campsites: {
+      '1': {
+        campsite_id: '1',
+        site: 'A1',
+        type_of_use: 'Overnight',
+        availabilities: { '2026-09-05T00:00:00Z': 'Not Reservable' },
+      },
+    },
+  };
+  assert.equal(parseMonth(payload).get('2026-09-05')!.sitesReservable, 0);
+  assert.equal(parseMonthSites(payload).siteNights[0].status, 'walk_up');
 });

@@ -62,17 +62,19 @@ function nightsBetween(startDate: string, endDate: string): string[] {
   return out;
 }
 
-function formatLabel(startDate: string, endDate: string): string {
+/** `Aug 7–9`, or `Aug 28–Sep 1` when the span crosses month-end. */
+function formatSpan(startDate: string, endDate: string): string {
   const [sy, sm, sd] = startDate.split('-').map(Number);
   const [ey, em, ed] = endDate.split('-').map(Number);
 
-  const from = `${WEEKDAYS[weekdayOf(startDate)]}–${WEEKDAYS[weekdayOf(endDate)]}`;
-  const span =
-    sm === em && sy === ey
-      ? `${MONTHS[sm - 1]} ${sd}–${ed}`
-      : `${MONTHS[sm - 1]} ${sd}–${MONTHS[em - 1]} ${ed}`;
+  return sm === em && sy === ey
+    ? `${MONTHS[sm - 1]} ${sd}–${ed}`
+    : `${MONTHS[sm - 1]} ${sd}–${MONTHS[em - 1]} ${ed}`;
+}
 
-  return `${from}, ${span}`;
+function formatLabel(startDate: string, endDate: string): string {
+  const from = `${WEEKDAYS[weekdayOf(startDate)]}–${WEEKDAYS[weekdayOf(endDate)]}`;
+  return `${from}, ${formatSpan(startDate, endDate)}`;
 }
 
 /**
@@ -107,11 +109,50 @@ export function resolveWeekend(now: Date = new Date()): CampingWindow {
 }
 
 /**
+ * How many nights ahead Eddy stores and shows.
+ *
+ * Two weeks is the shortest horizon that answers all three questions the app is
+ * asked — "can I camp tonight", "is this weekend open", "what about the weekend
+ * after" — and it is deliberately short of the booking windows, which run far
+ * wider (Recreation.gov ~6 months, Missouri 270 days). Widening it is a cost
+ * paid in requests, not in code: see monthsSpanned.
+ */
+export const HORIZON_NIGHTS = 14;
+
+/**
+ * Every night Eddy keeps a number for, starting tonight.
+ *
+ * The weekend window above is what a CARD says; this is what the DATABASE
+ * holds and what the app's fortnight strip draws. They are deliberately
+ * different shapes: `resolveWeekend` names a stay and needs a stay's label,
+ * while a horizon is just a run of nights and its own start is arbitrary.
+ *
+ * A horizon always contains the weekend `resolveWeekend` would pick — the
+ * furthest that ever looks is Sunday reaching the following Friday, five days
+ * out — so one fetch serves both.
+ */
+export function resolveHorizon(now: Date = new Date(), nights = HORIZON_NIGHTS): CampingWindow {
+  const startDate = localDate(now);
+  const endDate = addDays(startDate, nights);
+
+  return {
+    startDate,
+    endDate,
+    nights: nightsBetween(startDate, endDate),
+    // No weekday pair: `Thu–Thu, Aug 6–20` would read as a nineteen-day stay.
+    label: formatSpan(startDate, endDate),
+  };
+}
+
+/**
  * The `YYYY-MM-01` month starts a window touches.
  *
  * Recreation.gov's availability endpoint is month-locked and insists on the
- * first of the month, so a weekend straddling month-end costs two requests
- * instead of one. Roughly one weekend in five: Oct 31 2026 is a Saturday.
+ * first of the month, so a window straddling month-end costs two requests
+ * instead of one. A two-night weekend does that roughly one week in five; a
+ * fourteen-night horizon does it on about thirteen days in thirty, which is
+ * why the federal source now gets a second cron slot to finish its queue.
+ * Neither ever spans three months — that would take a window of 32 nights.
  */
 export function monthsSpanned(window: CampingWindow): string[] {
   const seen = new Set<string>();

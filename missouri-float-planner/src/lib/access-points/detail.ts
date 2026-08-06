@@ -14,6 +14,7 @@ import type {
   NearbyAccessPoint,
   AccessPointGaugeStatus,
   NPSCampgroundInfo,
+  CampsiteAvailabilityInfo,
   RoadSurface,
   ManagingAgency,
   ParkingCapacity,
@@ -146,10 +147,17 @@ export async function getAccessPointDetail(
   // Get gauge status for this river (using access point's river mile for segment-aware selection)
   const gaugeStatus = await getGaugeStatus(supabase, river.id, currentMile);
 
-  // Get NPS campground data if linked
+  // Get NPS campground data if linked.
+  //
+  // The availability read is hoisted out of the helper so ONE index serves both
+  // the nested copy and the sibling on the detail itself. It stays behind the
+  // same `nps_campground_id` condition that already gated it, so a plain put-in
+  // costs exactly what it did before.
   let npsCampground: NPSCampgroundInfo | null = null;
+  let availability: CampsiteAvailabilityInfo | null = null;
   if (ap.nps_campground_id) {
-    npsCampground = await getNPSCampgroundInfo(supabase, ap.nps_campground_id);
+    availability = (await loadAvailability(supabase)).byNpsCampgroundId.get(ap.nps_campground_id) ?? null;
+    npsCampground = await getNPSCampgroundInfo(supabase, ap.nps_campground_id, availability);
   }
 
   // Format the access point detail
@@ -193,6 +201,9 @@ export async function getAccessPointDetail(
       slug: river.slug,
     },
     npsCampground,
+    // The sibling. Same object as npsCampground.availability today, and the
+    // only field a non-NPS campground could ever fill — see the type.
+    availability,
   };
 
   return {
@@ -345,10 +356,14 @@ async function getGaugeStatus(
   }
 }
 
-// Helper to get NPS campground info for an access point
+// Helper to get NPS campground info for an access point.
+// Availability is passed in rather than read here: the caller needs the same
+// value for the detail's own sibling field, and reading it twice would be two
+// queries describing one campground.
 async function getNPSCampgroundInfo(
   supabase: SupabaseServerClient,
-  npsCampgroundId: string
+  npsCampgroundId: string,
+  availability: CampsiteAvailabilityInfo | null
 ): Promise<NPSCampgroundInfo | null> {
   try {
     const { data: cg, error } = await supabase
@@ -412,8 +427,9 @@ async function getNPSCampgroundInfo(
       weatherOverview: cg.weather_overview,
       images: imagesData,
       // Cached rows only, and null whenever this campground is not linked to a
-      // booking system Eddy reads — which is most of them.
-      availability: (await loadAvailability(supabase)).byNpsCampgroundId.get(cg.id) ?? null,
+      // booking system Eddy reads — which is most of them. Kept alongside the
+      // detail's own sibling copy until builds that read only this one age out.
+      availability,
     };
   } catch (error) {
     console.error('Error fetching NPS campground info:', error);

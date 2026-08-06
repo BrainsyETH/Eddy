@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { monthsSpanned, resolveWeekend, weekdayOf } from './window';
+import { HORIZON_NIGHTS, monthsSpanned, resolveHorizon, resolveWeekend, weekdayOf } from './window';
 
 // August 2026 is the reference month throughout: Aug 7 is a Friday, so Aug 2 is
 // a Sunday and Jul 31 is the Friday before. Every instant below is expressed in
@@ -102,4 +102,58 @@ test('the resolver survives a DST transition', () => {
   assert.equal(w.startDate, '2026-10-30');
   assert.equal(w.endDate, '2026-11-01');
   assert.deepEqual(w.nights, ['2026-10-30', '2026-10-31']);
+});
+
+/* ── The horizon ──────────────────────────────────────────────────────────── */
+//
+// The stored window, as distinct from the described one. resolveWeekend names a
+// stay and needs a stay's label; a horizon is a run of nights starting tonight.
+
+test('the horizon starts tonight and runs the full fortnight', () => {
+  const horizon = resolveHorizon(new Date('2026-08-06T17:00:00Z'));
+  assert.equal(horizon.startDate, '2026-08-06');
+  assert.equal(horizon.nights.length, HORIZON_NIGHTS);
+  assert.equal(horizon.nights[0], '2026-08-06');
+  assert.equal(horizon.nights.at(-1), '2026-08-19');
+  assert.equal(horizon.endDate, '2026-08-20');
+});
+
+test('the horizon always contains the weekend a card describes', () => {
+  // The one relationship the whole feature rests on: ONE fetch serves both the
+  // strip and the sentence. The furthest resolveWeekend ever reaches is a
+  // Sunday looking to the following Friday, five days out.
+  for (let day = 0; day < 365; day++) {
+    const now = new Date(Date.UTC(2026, 0, 1, 17, 0) + day * 86_400_000);
+    const horizon = new Set(resolveHorizon(now).nights);
+    for (const night of resolveWeekend(now).nights) {
+      assert.ok(horizon.has(night), `${night} fell outside the horizon on day ${day}`);
+    }
+  }
+});
+
+test('a fortnight never costs three month payloads', () => {
+  // Reaching a third month would take a window longer than the shortest month.
+  // The budget in sync.ts is sized on this holding.
+  const seen = new Set<number>();
+  for (let day = 0; day < 365; day++) {
+    const now = new Date(Date.UTC(2026, 0, 1, 17, 0) + day * 86_400_000);
+    seen.add(monthsSpanned(resolveHorizon(now)).length);
+  }
+  assert.deepEqual([...seen].sort(), [1, 2]);
+});
+
+test('the horizon label does not pretend to be a stay', () => {
+  // `Thu–Thu, Aug 6–20` would read as a nineteen-night booking.
+  const horizon = resolveHorizon(new Date('2026-08-06T17:00:00Z'));
+  assert.equal(horizon.label, 'Aug 6–20');
+  assert.ok(!horizon.label.includes('–Thu'));
+});
+
+test('the horizon survives a DST transition', () => {
+  // Nov 1 2026 is the fall-back Sunday. A horizon crossing it must still be
+  // fourteen distinct, consecutive, ascending dates.
+  const horizon = resolveHorizon(new Date('2026-10-28T17:00:00Z'));
+  assert.equal(new Set(horizon.nights).size, HORIZON_NIGHTS);
+  assert.deepEqual(horizon.nights, [...horizon.nights].sort());
+  assert.ok(horizon.nights.includes('2026-11-01'));
 });

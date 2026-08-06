@@ -16,8 +16,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createLimiter, type Limiter } from './limiter';
-import { resolveWeekend, type CampingWindow } from './window';
-import type { CampingSource, DailyAggregate, FacilityLink } from './types';
+import { resolveHorizon, type CampingWindow } from './window';
+import type { CampingSource, FacilityLink, FetchResult } from './types';
 import * as recgov from './recgov';
 import type { MonthCache } from './recgov';
 import * as usedirect from './usedirect';
@@ -32,7 +32,7 @@ interface SourceConfig {
     window: CampingWindow,
     limiter: Limiter,
     cache?: MonthCache,
-  ) => Promise<DailyAggregate[]>;
+  ) => Promise<FetchResult>;
 }
 
 const SOURCES: Record<CampingSource, SourceConfig> = {
@@ -66,9 +66,83 @@ export interface SyncResult {
   facilitiesFailed: number;
   facilitiesRemaining: number;
   nightsWritten: number;
+  sitesWritten: number;
   requestsMade: number;
   durationMs: number;
   errors: string[];
+}
+
+/** Postgres takes a large upsert happily; a 20k-row one is still rude. */
+const WRITE_CHUNK = 500;
+
+async function upsertChunked<T>(
+  supabase: SupabaseClient,
+  table: string,
+  rows: T[],
+  onConflict: string,
+): Promise<void> {
+  for (let i = 0; i < rows.length; i += WRITE_CHUNK) {
+    const { error } = await supabase
+      .from(table)
+      .upsert(rows.slice(i, i + WRITE_CHUNK), { onConflict });
+    if (error) throw new Error(`${table}: ${error.message}`);
+  }
+}
+
+/**
+ * Persist one facility's individual sites and their nights.
+ *
+ * Two round trips, not two per site: the catalog goes up first so every row has
+ * an id, then the ids come back in one read and the calendar follows. A site
+ * Eddy has seen before keeps its uuid, so nothing downstream has to care that
+ * the catalog is rewritten nightly.
+ */
+async function writeSites(
+  supabase: SupabaseClient,
+  facilityId: string,
+  result: FetchResult,
+  fetchedAt: string,
+): Promise<number> {
+  if (result.sites.length === 0) return 0;
+
+  await upsertChunked(
+    supabase,
+    'campsite_sites',
+    result.sites.map((site) => ({
+      facility_id: facilityId,
+      source_site_id: site.sourceSiteId,
+      name: site.name,
+      loop: site.loop,
+      site_type: site.siteType,
+      max_occupancy: site.maxOccupancy,
+      last_seen_at: fetchedAt,
+    })),
+    'facility_id,source_site_id',
+  );
+
+  const { data, error } = await supabase
+    .from('campsite_sites')
+    .select('id, source_site_id')
+    .eq('facility_id', facilityId);
+
+  if (error) throw new Error(`campsite_sites read-back: ${error.message}`);
+
+  const idOf = new Map<string, string>();
+  for (const row of (data ?? []) as { id: string; source_site_id: string }[]) {
+    idOf.set(row.source_site_id, row.id);
+  }
+
+  const rows = result.siteNights
+    .filter((night) => idOf.has(night.sourceSiteId))
+    .map((night) => ({
+      site_id: idOf.get(night.sourceSiteId)!,
+      date: night.date,
+      status: night.status,
+      fetched_at: fetchedAt,
+    }));
+
+  await upsertChunked(supabase, 'campsite_site_availability', rows, 'site_id,date');
+  return rows.length;
 }
 
 interface FacilityRow {
@@ -106,7 +180,7 @@ export async function syncSource(
   const startedAt = Date.now();
   const budget = options.timeBudgetMs ?? TIME_BUDGET_MS;
   const config = SOURCES[source];
-  const window = resolveWeekend(options.now);
+  const window = resolveHorizon(options.now);
 
   const limiter = createLimiter({
     name: source,
@@ -133,6 +207,7 @@ export async function syncSource(
   let synced = 0;
   let failed = 0;
   let nightsWritten = 0;
+  let sitesWritten = 0;
   let index = 0;
 
   for (const row of facilities) {
@@ -140,10 +215,10 @@ export async function syncSource(
     index++;
 
     const facility = toLink(row);
-    let nights: DailyAggregate[];
+    let result: FetchResult;
 
     try {
-      nights = await config.fetchWindow(facility, window, limiter, monthCache);
+      result = await config.fetchWindow(facility, window, limiter, monthCache);
     } catch (err) {
       failed++;
       const message = err instanceof Error ? err.message : String(err);
@@ -155,10 +230,10 @@ export async function syncSource(
       continue;
     }
 
-    if (nights.length > 0) {
+    if (result.nights.length > 0) {
       const fetchedAt = new Date().toISOString();
       const { error: writeError } = await supabase.from('campsite_availability').upsert(
-        nights.map((night) => ({
+        result.nights.map((night) => ({
           facility_id: facility.id,
           date: night.date,
           sites_open: night.sitesOpen,
@@ -174,7 +249,19 @@ export async function syncSource(
         errors.push(`${facility.displayName}: write failed — ${writeError.message}`);
         continue;
       }
-      nightsWritten += nights.length;
+      nightsWritten += result.nights.length;
+
+      // The site list is an enhancement on top of the count, so it fails on its
+      // own terms: a facility whose sites could not be written keeps its
+      // aggregate and its cursor stamp rather than being retried forever for
+      // the sake of the tab nobody has opened yet.
+      try {
+        sitesWritten += await writeSites(supabase, facility.id, result, fetchedAt);
+      } catch (err) {
+        errors.push(
+          `${facility.displayName}: sites — ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
 
     // Stamped even when the facility returned nothing. A dead id that never
@@ -195,6 +282,7 @@ export async function syncSource(
     facilitiesFailed: failed,
     facilitiesRemaining: Math.max(0, facilities.length - index),
     nightsWritten,
+    sitesWritten,
     requestsMade: limiter.stats().attempts,
     durationMs: Date.now() - startedAt,
     errors,
@@ -216,5 +304,15 @@ export async function pruneOldNights(supabase: SupabaseClient, now = new Date())
     .lt('date', cutoff);
 
   if (error) throw new Error(`prune: ${error.message}`);
+
+  // Per-site nights need their own sweep. The cascade is on the SITE, not on
+  // the date, so a facility that keeps its sites keeps every night they ever
+  // had — and at ~1,250 sites a fortnight that is the table that would grow.
+  const { error: siteError } = await supabase
+    .from('campsite_site_availability')
+    .delete()
+    .lt('date', cutoff);
+
+  if (siteError) throw new Error(`prune sites: ${siteError.message}`);
   return count ?? 0;
 }

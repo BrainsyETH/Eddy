@@ -389,6 +389,30 @@ export interface CampsiteAvailabilitySummary {
   kind: 'campground' | 'backcountry_district';
   source: 'recreation_gov' | 'mo_state_parks';
   fetchedAt: string;
+  /** Identifies the facility to `/api/campsites`, which lists its sites. */
+  facilityId?: string;
+  /**
+   * Every measured night of the stored horizon, ascending.
+   *
+   * SPARSE BY DESIGN. A date missing from this array was not measured — a
+   * season ending mid-horizon, or a sync that ran out of budget — and the strip
+   * must draw that as a gap. Rendering it as zero would turn "we did not look"
+   * into "fully booked", which are opposite instructions to a reader.
+   *
+   * The fields above summarise `window` ONLY, and this array must never be
+   * folded the same way: summarizeWindow takes a MINIMUM across its nights, so
+   * a fortnight containing one busy Saturday would report a campground with
+   * forty free sites on twelve nights as fully booked.
+   */
+  nights?: CampsiteNightSummary[];
+}
+
+/** One measured night, as the fortnight strip draws it. */
+export interface CampsiteNightSummary {
+  date: string;
+  sitesOpen: number;
+  sitesReservable: number;
+  status: 'open' | 'full' | 'closed' | 'not_yet_released';
 }
 
 export interface NpsCampgroundSummary {
@@ -537,6 +561,22 @@ export interface AccessPointDetail {
   path?: string;
   river: { id: string; name: string; slug: string };
   npsCampground: NpsCampgroundSummary | null;
+
+  /**
+   * Live availability, WHATEVER KIND OF CAMPGROUND THIS IS.
+   *
+   * A sibling of npsCampground rather than a field inside it, which is the
+   * whole point. A Missouri State Park — Meramec, Onondaga Cave, Washington —
+   * has no nps_campgrounds row, but campsite_facilities carries live
+   * availability for it through its OTHER foreign key. Nested inside
+   * npsCampground that was not merely absent, it was unrepresentable: see the
+   * paragraph in map-sheet/tabs.ts that sized this exact change.
+   *
+   * Optional for the reason `path` above is — a TestFlight build outlives its
+   * deploy. Read it as `availability ?? npsCampground?.availability`, in that
+   * order, so a NEW app against an OLDER deploy still finds the nested copy.
+   */
+  availability?: CampsiteAvailabilitySummary | null;
 }
 
 export interface AccessPointDetailResponse {

@@ -7,21 +7,44 @@
 // `null` and the card renders no availability line at all.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { resolveWeekend } from './window';
+import { resolveHorizon, resolveWeekend } from './window';
 import { summarizeWindow, type AvailabilityStatus, type DailyAggregate } from './types';
 import type { CampingSource, FacilityKind } from './types';
 
 /**
  * How old a cached night may be before Eddy stops repeating it.
  *
- * Two nightly runs' worth of slack. One missed cron is invisible; a source
- * that has been failing for two days goes quiet rather than confidently
- * reporting last week's vacancies.
+ * Three nightly runs' worth of slack, widened from two when the stored window
+ * went from two nights to fourteen. A fortnight straddles a month boundary on
+ * roughly thirteen days in thirty, and on those days the federal source needs
+ * two month payloads per facility instead of one — enough to run past a single
+ * cron's time budget and leave the tail of the queue for the next slot. Two
+ * days of slack would have turned that into a campground going silent.
  */
-const MAX_AGE_MS = 48 * 60 * 60 * 1000;
+const MAX_AGE_MS = 72 * 60 * 60 * 1000;
+
+/**
+ * How much of the horizon a facility must have before it is worth showing.
+ *
+ * A campground whose season ends inside the fortnight legitimately has no rows
+ * for the tail of it, and a truncated sync legitimately leaves a few nights
+ * short. Neither is a reason to say nothing. What IS a reason is a facility
+ * with two nights out of fourteen, where a strip would be mostly gaps and the
+ * eye would read the gaps as "full".
+ */
+const MIN_NIGHTS = 7;
+
+/** One measured night, as the app's strip draws it. */
+export interface CampsiteNight {
+  date: string;
+  sitesOpen: number;
+  sitesReservable: number;
+  status: AvailabilityStatus;
+}
 
 /** What a card needs to render one availability line. */
 export interface CampsiteAvailability {
+  /** The nights `sitesOpen` describes — a stay, not the horizon. */
   window: { startDate: string; endDate: string; label: string };
   sitesOpen: number;
   sitesReservable: number;
@@ -29,6 +52,14 @@ export interface CampsiteAvailability {
   kind: FacilityKind;
   source: CampingSource;
   fetchedAt: string;
+  /** The facility, so a client can ask for its individual sites. */
+  facilityId: string;
+  /**
+   * Every measured night of the horizon, ascending. SPARSE BY DESIGN — a
+   * missing date means "not measured", which the strip must draw as a gap and
+   * never as zero.
+   */
+  nights: CampsiteNight[];
 }
 
 /** Availability keyed by the Eddy row it hangs off. */
@@ -70,6 +101,9 @@ export async function loadAvailability(
   supabase: SupabaseClient,
   now = new Date(),
 ): Promise<AvailabilityIndex> {
+  const horizon = resolveHorizon(now);
+  // What a SENTENCE describes, which is not what the table holds. See the fold
+  // below for why these must never be the same set of nights.
   const window = resolveWeekend(now);
 
   const { data, error } = await supabase
@@ -78,7 +112,7 @@ export async function loadAvailability(
       'date, sites_open, sites_reservable, status, fetched_at, ' +
         'campsite_facilities!inner(id, source, kind, enabled, nps_campground_id, nearby_service_id)',
     )
-    .in('date', window.nights)
+    .in('date', horizon.nights)
     .eq('campsite_facilities.enabled', true);
 
   if (error) {
@@ -121,11 +155,29 @@ export async function loadAvailability(
     byNearbyServiceId: new Map(),
   };
 
-  for (const { rows, meta, fetchedAt } of nightsByFacility.values()) {
-    // A partial window would describe a different stay than its own label.
-    if (rows.length !== window.nights.length) continue;
+  const wantedWeekend = new Set(window.nights);
 
-    const summary = summarizeWindow(rows);
+  for (const { rows, meta, fetchedAt } of nightsByFacility.values()) {
+    rows.sort((a, b) => a.date.localeCompare(b.date));
+
+    // ── Enough of the horizon to be worth drawing ───────────────────────────
+    // This used to be `rows.length !== window.nights.length` — all-or-nothing,
+    // which was right when the window WAS the sentence's two nights. Over
+    // fourteen it would drop almost everything: a season ending on day nine is
+    // ordinary, and so is a sync that ran out of budget with three nights left.
+    if (rows.length < MIN_NIGHTS) continue;
+
+    // ── The sentence describes the WEEKEND, never the fortnight ─────────────
+    // summarizeWindow takes the MINIMUM of sitesOpen across the nights it is
+    // given, because "8 sites open Fri–Sun" has to mean eight you can book for
+    // both nights. Handed fourteen nights that rule is catastrophic rather than
+    // conservative: one busy Saturday drags the minimum to zero and the card
+    // reads "Fully booked" for a campground with forty sites free on twelve of
+    // the fourteen. The horizon feeds the strip; only the weekend is folded.
+    const weekend = rows.filter((night) => wantedWeekend.has(night.date));
+    if (weekend.length !== window.nights.length) continue;
+
+    const summary = summarizeWindow(weekend);
     if (!summary) continue;
 
     // Nothing reservable and not closed means the feed had no bookable
@@ -140,6 +192,13 @@ export async function loadAvailability(
       kind: meta.kind as FacilityKind,
       source: meta.source as CampingSource,
       fetchedAt,
+      facilityId: meta.id,
+      nights: rows.map((night) => ({
+        date: night.date,
+        sitesOpen: night.sitesOpen,
+        sitesReservable: night.sitesReservable,
+        status: night.status,
+      })),
     };
 
     if (meta.nps_campground_id) index.byNpsCampgroundId.set(meta.nps_campground_id, availability);
