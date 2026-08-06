@@ -40,7 +40,13 @@ import {
 } from './siteList';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { agencyLabel, parkingLabel, roadSurfaceLabel, stripHtml } from '@/lib/accessCopy';
+import {
+  agencyLabel,
+  overviewLead,
+  parkingLabel,
+  roadSurfaceLabel,
+  stripHtml,
+} from '@/lib/accessCopy';
 import { Absent, AccessGaugeReading, Chips, Fact, LinkRow, Prose, Section } from './sections';
 import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 
@@ -99,14 +105,44 @@ interface TabProps {
  * not this page of it, and a badge that changes with the tab is a badge nobody
  * can rely on.
  */
-export function AccessOverviewTab({ accessPoint, detail, onOpenGauge, onOpenRiver }: TabProps) {
+export function AccessOverviewTab({
+  accessPoint,
+  detail,
+  onOpenGauge,
+  onOpenRiver,
+  status: detailStatus,
+}: TabProps) {
   const point = detail?.accessPoint;
   const camping = nearbyCamping(detail);
   const status = detail?.gaugeStatus ?? null;
 
+  const description = point?.description ?? accessPoint.description ?? null;
+  // Only consulted when there is no description; see overviewLead.
+  const lead = overviewLead(point ?? null);
+  // ── HAS THIS TAB GOT ANYTHING AT ALL? ─────────────────────────────────
+  // The river row is not counted. It is present on every access point in the
+  // database — all 406 carry a river_id — so counting it would mean this can
+  // never fire, and a lone link is precisely the state being reported as
+  // broken.
+  const settled = detailStatus === 'ready' || detailStatus === 'failed' || detailStatus === 'idle';
+  const bare = !description && !lead && !status && camping.length === 0;
+
   return (
     <View>
-      <Prose>{point?.description ?? accessPoint.description ?? null}</Prose>
+      {/* The description, or the strongest fact Eddy has instead of one. No
+          heading on either: they occupy the same slot and are the same kind of
+          sentence. See overviewLead for why 80 of the 81 undescribed access
+          points can answer this from data already in the response. */}
+      <Prose>{description ?? lead}</Prose>
+
+      {/* ── ABSENT-NEVER-EMPTY GETS A FLOOR AT THE TAB LEVEL ──────────────
+          That rule is right for a SECTION — a heading over nothing is a
+          promise unkept — and it is what left this tab as a single link. A
+          landing tab that resolves to nothing has to say so, in the same
+          settled voice every other tab uses when a request came back with
+          nothing (see waitingCopy). Only once the request has settled: before
+          that, silence is honest, because something may still arrive. */}
+      {bare && settled ? <Absent>Eddy has no description for this place yet.</Absent> : null}
 
       {/* ── WHAT THE CONDITIONS TAB USED TO BE ────────────────────────────
           Two facts, which is not a destination. The reading itself is in the
