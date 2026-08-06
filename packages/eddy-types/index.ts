@@ -1072,6 +1072,21 @@ export interface RiverService {
   /** Null when the service has no geocode — it then belongs in a list, not a map. */
   latitude: number | null;
   longitude: number | null;
+  /**
+   * How much to trust those coordinates.
+   *
+   * `exact` is the place itself, corroborated. `approximate` is the right road.
+   * `centroid` is THE TOWN ONLY and must never be drawn as a pin — a pin is a
+   * claim about where a place is, and somebody plans a drive around it.
+   *
+   * Null pre-dates the column and is treated as trusted, so the services
+   * already on the map do not vanish to make a point about provenance.
+   *
+   * Optional for the reason every other added field is: a TestFlight build
+   * outlives the deploy it was cut against. Absent means "not told", which
+   * `mappableService` reads the same as null.
+   */
+  geocodePrecision?: 'exact' | 'approximate' | 'centroid' | null;
   description: string | null;
   servicesOffered: string[];
 

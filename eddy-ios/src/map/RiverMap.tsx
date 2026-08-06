@@ -100,6 +100,7 @@ import {
   type PinLayerKey,
 } from './layers';
 import { warn } from '@/lib/monitoring';
+import { mappableService } from '@/map/mappable';
 
 const SERVICE_TYPE_LABELS: Record<string, string> = {
   outfitter: 'Outfitter',
@@ -759,6 +760,11 @@ export function RiverMap({
         .filter(
           (s) =>
             s.type === 'campground' &&
+            // Not merely "has coordinates" — has coordinates worth pointing at.
+            // A town centroid would put a private campground somewhere in the
+            // right county, and somebody plans a drive around a pin. See
+            // map/mappable.ts for the four wrong campgrounds that measured.
+            mappableService(s) &&
             s.latitude != null &&
             s.longitude != null &&
             !drawnAsAccessPoint(s, fromAccess.map((entry) => entry.point)),
