@@ -45,18 +45,40 @@ function deviceStorage(): MapPreferenceStorage {
   return require('@react-native-async-storage/async-storage').default as MapPreferenceStorage;
 }
 
-/** Every key the current build knows about, for validating what came off disk. */
-const KNOWN: ReadonlySet<string> = new Set<LayerKey>([
-  'access',
-  'campgrounds',
-  'gauges',
-  'allGauges',
-  'hazards',
-  'outfitters',
-  'dams',
-  'weatherRadar',
-  'publicLand',
-]);
+/**
+ * Every key the current build knows about, for validating what came off disk.
+ *
+ * ── A RECORD, NOT A SET, SO THE COMPILER MAINTAINS IT ────────────────────
+ *
+ * This was `new Set<LayerKey>([...])`, which type-checks a list that is MISSING
+ * members just as happily as a complete one — the annotation constrains what
+ * may go in, not what must. The lodging tier was added to LayerKey and not to
+ * here, so every phone that switched on Cabins & lodges had it silently
+ * stripped on the next launch: the layer did not fail, it just quietly
+ * un-chose itself, which is the hardest kind of bug to report.
+ *
+ * As a total Record, omitting a key is a compile error. Same technique as
+ * SERVICE_TIERS in @eddy/types, and for the same reason — a list of keys
+ * maintained by hand beside a union that already holds them is a second source
+ * of truth waiting to drift.
+ *
+ * The VALUES mean nothing; only the keys are read. `true` rather than a real
+ * payload because there is nothing else worth saying about a key here.
+ */
+const KNOWN_LAYERS: Record<LayerKey, true> = {
+  access: true,
+  campgrounds: true,
+  gauges: true,
+  allGauges: true,
+  hazards: true,
+  outfitters: true,
+  lodging: true,
+  dams: true,
+  weatherRadar: true,
+  publicLand: true,
+};
+
+const KNOWN: ReadonlySet<string> = new Set(Object.keys(KNOWN_LAYERS));
 
 /**
  * The stored layer set, or null when there is nothing usable to restore.

@@ -9,6 +9,7 @@ import {
 } from '@eddy/types';
 import {
   LAYER_SERVICE_TIER,
+  SERVICE_LAYER_KEYS,
   serviceOnLayer,
   serviceTypeLabel,
 } from '../../../eddy-ios/src/map/serviceLayers';
@@ -265,4 +266,39 @@ test('a service in two tiers is located in both', () => {
   });
   assert.equal(serviceOnLayer(cabinRentingOutfitter, 'outfitters'), true);
   assert.equal(serviceOnLayer(cabinRentingOutfitter, 'lodging'), true);
+});
+
+/* ── Which layers need the directory fetched at all ──────────────────────── */
+
+test('SERVICE_LAYER_KEYS covers every layer that draws services', () => {
+  // The map screen gates its ONE services request on this. Spelled out by hand
+  // it said `campgrounds || outfitters`, written before the lodging tier
+  // existed — so a phone restored with only Cabins & lodges switched on never
+  // fetched anything, and the layer sat visibly enabled and permanently empty:
+  // no pins, no count, and no coverage line to explain either.
+  //
+  // Derived from the tier table, so a fourth service layer cannot reintroduce
+  // that. This asserts the derivation rather than a hand-written list, because
+  // a hand-written list here would be the same bug one level up.
+  assert.deepEqual([...SERVICE_LAYER_KEYS].sort(), Object.keys(LAYER_SERVICE_TIER).sort());
+  assert.equal(SERVICE_LAYER_KEYS.length, 3);
+});
+
+test('every tier is reachable from some service layer key', () => {
+  // The round trip: each key maps to a tier, and between them the keys cover
+  // all three. A tier with no layer is a classification that sends pins
+  // nowhere; a layer with no tier cannot draw.
+  const covered = new Set(SERVICE_LAYER_KEYS.map((key) => LAYER_SERVICE_TIER[key]));
+  assert.deepEqual([...covered].sort(), ['camping', 'lodging', 'rentals']);
+});
+
+test('a lodging-only selection still wants the directory', () => {
+  // The reported scenario, as the screen actually evaluates it.
+  const wants = (layers: string[]) =>
+    SERVICE_LAYER_KEYS.some((key) => layers.includes(key));
+  assert.equal(wants(['lodging']), true, 'the case that shipped broken');
+  assert.equal(wants(['outfitters']), true);
+  assert.equal(wants(['campgrounds']), true);
+  // And nothing else triggers a fetch it has no use for.
+  assert.equal(wants(['access', 'gauges', 'hazards', 'dams', 'publicLand']), false);
 });

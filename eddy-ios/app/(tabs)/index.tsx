@@ -94,7 +94,7 @@ import { mapAccessPointPin, RiverMap, type MapPin } from '@/map/RiverMap';
 import { placeSymbol } from '@/components/map-sheet/placeSymbol';
 import { mapUnavailableReason } from '@/map/runtime';
 import { mappableService } from '@/map/mappable';
-import { serviceOnLayer } from '@/map/serviceLayers';
+import { serviceOnLayer, SERVICE_LAYER_KEYS } from '@/map/serviceLayers';
 import {
   drawnAsAccessPoint,
   PUBLIC_LAND_ATTRIBUTION,
@@ -806,7 +806,11 @@ export default function MapScreen() {
    * bigger commitment than this needs. If it never succeeds, the layers stay
    * honestly silent.
    */
-  const wantsServices = layers.includes('campgrounds') || layers.includes('outfitters');
+  // Every layer that draws services, read off the tier table rather than named
+  // here. Spelled out by hand, this said `campgrounds || outfitters` and was
+  // written before the lodging tier existed — so a phone restored with only
+  // Cabins & lodges on never fetched anything. See SERVICE_LAYER_KEYS.
+  const wantsServices = SERVICE_LAYER_KEYS.some((key) => layers.includes(key));
   const servicesRequested = useRef(false);
   useEffect(() => {
     if (!wantsServices || servicesRequested.current) return;

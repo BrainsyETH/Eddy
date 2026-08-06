@@ -69,6 +69,27 @@ export const LAYER_SERVICE_TIER: Record<ServiceLayerKey, ServiceTier> = {
   campgrounds: 'camping',
 };
 
+/**
+ * Every layer that needs the services directory, for callers that must ask
+ * "should I fetch it at all".
+ *
+ * ── DERIVED, BECAUSE THE HAND-WRITTEN VERSION WAS ALREADY WRONG ───────────
+ *
+ * The map screen gated its one services request on
+ * `layers.includes('campgrounds') || layers.includes('outfitters')`, written
+ * before the lodging tier existed and never revisited. A reader who switched on
+ * Cabins & lodges and switched off Rentals & shuttles — which the tier chips
+ * allow, independently — got a layer that was visibly ON and permanently empty:
+ * no pins, no count, and no coverage line to explain any of it, because the
+ * fetch that feeds all three never ran.
+ *
+ * Reading the keys off the table means a fourth service layer cannot
+ * reintroduce that. It is the same lesson as `OUTFITTER_SERVICE_TYPES`: a list
+ * of keys maintained by hand beside a table that already holds them is a second
+ * source of truth waiting to drift.
+ */
+export const SERVICE_LAYER_KEYS = Object.keys(LAYER_SERVICE_TIER) as ServiceLayerKey[];
+
 /** Whether a service belongs on a given layer. */
 export function serviceOnLayer(service: ServiceLike, layer: ServiceLayerKey): boolean {
   return serviceTiers(service).includes(LAYER_SERVICE_TIER[layer]);
