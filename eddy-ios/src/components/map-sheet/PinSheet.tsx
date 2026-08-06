@@ -260,6 +260,9 @@ export function PinSheet(props: PinSheetProps) {
       onPlanTo: props.onPlanTo,
       nearbyMarks: props.nearbyMarks,
       status,
+      // Overview carries the details link only when Place is not there to. See
+      // TabProps.hasPlaceTab.
+      hasPlaceTab: tabs.some((tab) => tab.key === 'details'),
     };
     if (key === 'overview') return <AccessOverviewTab {...shared} />;
     if (key === 'floats') return <AccessFloatsTab {...shared} />;

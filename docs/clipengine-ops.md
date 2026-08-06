@@ -84,11 +84,20 @@ Two layers, both against `clip_library`:
   Flag lives in the workflow scan-job env AND `clipengine-local/.env` — set
   `"0"` in both to revert.
 - **River validation:** the cloud path skips clips whose slug isn't in the live
-  `rivers` table (8 slugs). The `RIVERS` keyword map is duplicated in
-  `scrape-heatmap.sh` + `detect-river.sh` — edit both. Don't add new slugs
-  without adding the river to the DB first (orphaned `river_slug` breaks the
+  `rivers` table (25 slugs as of 2026-08-05). The `RIVERS` keyword map lives in
+  **`scripts/clipengine/rivers.py`** — the single source of truth, imported by
+  both `detect-river.sh` and `scrape-heatmap.sh`. (It used to be copy-pasted into
+  both; expanding it in one place only made the two gates disagree.) Don't add a
+  slug without adding the river to the DB first (orphaned `river_slug` breaks the
   Tier-1 CTA). **Exception:** `high_water` clips (below) are region-agnostic and
   bypass this gate.
+- **Matching rules** per river in `rivers.py`: `kw` (any names the river), `req`
+  (optional — at least one must ALSO appear), `not` (optional — none may appear).
+  `req`/`not` exist because several Ozark rivers share a name with a better-known
+  river elsewhere: Buffalo (TN/NY), James (VA), Kings (CA), Elk (WV), Black (WI),
+  North Fork (Feather/Payette), Caddo (TX lake). A wrong slug ships a wrong CTA,
+  so prefer detecting nothing over guessing — the two Spring Rivers both require
+  a landmark and bare "spring river" deliberately matches neither.
 
 ## Content categories
 

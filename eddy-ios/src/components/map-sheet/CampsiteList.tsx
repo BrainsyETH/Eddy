@@ -108,7 +108,22 @@ function KindSummaries({ group, date }: { group: LoopGroup; date: string }) {
   );
 }
 
-function Loop({ group, date }: { group: LoopGroup; date: string }) {
+function Loop({
+  group,
+  date,
+  showName,
+}: {
+  group: LoopGroup;
+  date: string;
+  /**
+   * A loop name earns its line only when there is another loop to tell it from.
+   *
+   * Onondaga has exactly one, called "Campground", so the tab read
+   * "Sites" / "CAMPGROUND" — a heading followed by a subheading that repeats it
+   * and divides nothing. Alley Spring has ten and needs every one of them.
+   */
+  showName: boolean;
+}) {
   const { colors } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const shown = expanded ? group.open : group.open.slice(0, VISIBLE_PER_LOOP);
@@ -124,7 +139,7 @@ function Loop({ group, date }: { group: LoopGroup; date: string }) {
 
   return (
     <View style={styles.loop}>
-      {group.loop ? (
+      {showName && group.loop ? (
         <Text style={[styles.loopName, { color: colors.textMuted }]}>{group.loop}</Text>
       ) : null}
 
@@ -180,7 +195,12 @@ export function CampsiteList({
   return (
     <View>
       {groups.map((group) => (
-        <Loop key={group.loop ?? '—'} group={group} date={date} />
+        <Loop
+          key={group.loop ?? '—'}
+          group={group}
+          date={date}
+          showName={groups.length > 1}
+        />
       ))}
       {!anyOpen ? (
         <Text style={[styles.taken, { color: colors.textMuted }]}>
