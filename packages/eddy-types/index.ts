@@ -1076,6 +1076,25 @@ export interface GaugeHistoryResponse {
 // the web response carries booking platforms, fee ranges and NPS site counts
 // for a detail page the phone does not have.
 
+/**
+ * What a service row calls itself ON THE WIRE, which is a looser claim than
+ * what Eddy knows.
+ *
+ * ── THE `| string` IS DELIBERATE, AND IT MAKES THIS TYPE `string` ──────────
+ *
+ * A union containing `string` IS `string`. Every literal above it is
+ * documentation, not a constraint: the compiler accepts any string here, and no
+ * `satisfies` clause or exhaustive switch over THIS type can ever fail.
+ *
+ * That is the right shape for a wire type — a TestFlight build outlives the
+ * deploy it was cut against, and a directory that grows an enum value must not
+ * break a phone in somebody's hand — but it is the wrong shape for a lookup
+ * table, and treating it as though it were precise is exactly how a map layer
+ * came to filter on three values the directory has never held.
+ *
+ * So: this stays loose, `KnownServiceType` below is the precise one, and the
+ * boundary between them is `serviceTiers`.
+ */
 export type ServiceType =
   | 'outfitter'
   | 'campground'
@@ -1084,10 +1103,207 @@ export type ServiceType =
   | 'lodging'
   | string;
 
+// ── What a service IS, what it DOES, and where it BELONGS ─────────────────
+//
+// Three different questions, and for a long time one `type` string answered all
+// three. It cannot: 42% of the services directory belongs in more than one
+// user-facing group, because an outfitter that rents cabins is both an outfitter
+// and somewhere to sleep. Measured, not supposed — 27 of 71 outfitters offer
+// `cabins` and 28 offer camping.
+//
+// The three questions are now three things:
+//
+//   KnownServiceType   what the row fundamentally is     (mutually exclusive)
+//   ServiceOffering    what you can actually do there    (a set)
+//   ServiceTier        where a surface should show it    (a set, derived)
+//
+// `serviceEligible` answers a fourth — whether Eddy should show it at all — and
+// is deliberately NOT part of this, because classification must never decide
+// whether something is safe to recommend.
+
+/**
+ * The directory's own enum, mirroring Postgres `service_type` exactly.
+ *
+ * `cabin_lodge`, not `lodging`. This is the vocabulary the `nearby_services`
+ * table speaks, and the whole reason this file now names both is that the map
+ * spent a release filtering these rows with the OTHER vocabulary's words.
+ */
+export type DirectoryServiceType = 'outfitter' | 'campground' | 'cabin_lodge';
+
+/**
+ * Every type string Eddy has actually declared, across both vocabularies.
+ *
+ * Free of `string`, which is the point — this is the union a lookup table can
+ * be total over, so adding a member without giving it a tier is a type error
+ * rather than a pin that quietly stops being drawn.
+ */
+export type KnownServiceType = DirectoryServiceType | NearbyServiceType;
+
+/**
+ * What a service can DO, mirroring Postgres `service_offering`.
+ *
+ * A curated 26-value enum that has been populated on 98% of the directory since
+ * before any of this — and read, until now, by exactly one component. It is the
+ * dimension that makes multi-tier membership expressible.
+ */
+export type ServiceOffering =
+  | 'canoe_rental'
+  | 'kayak_rental'
+  | 'raft_rental'
+  | 'tube_rental'
+  | 'jon_boat_rental'
+  | 'shuttle'
+  | 'camping_primitive'
+  | 'camping_rv'
+  | 'cabins'
+  | 'lodge_rooms'
+  | 'general_store'
+  | 'food_service'
+  | 'showers'
+  | 'fishing_supplies'
+  | 'horseback_riding'
+  | 'swimming_pool'
+  | 'wifi'
+  | 'potable_water'
+  | 'fire_rings'
+  | 'picnic_tables'
+  | 'boat_ramp'
+  | 'dump_station'
+  | 'flush_toilets'
+  | 'vault_toilets'
+  | 'laundry'
+  | 'playground';
+
+/**
+ * What a reader is looking for, which is never "a row of type cabin_lodge".
+ *
+ * Named for the INTENT rather than the business — somebody wants a boat, a
+ * patch of ground, or a roof — because that is the only grouping that survives a
+ * business offering all three.
+ */
+export type ServiceTier = 'rentals' | 'camping' | 'lodging';
+
+/** Offerings that put a service in a tier, whatever kind of business it is. */
+const TIER_OFFERINGS = {
+  rentals: [
+    'canoe_rental',
+    'kayak_rental',
+    'raft_rental',
+    'tube_rental',
+    'jon_boat_rental',
+    'shuttle',
+  ],
+  camping: ['camping_primitive', 'camping_rv'],
+  lodging: ['cabins', 'lodge_rooms'],
+} satisfies Record<ServiceTier, ServiceOffering[]>;
+
+/**
+ * The tier a service gets from WHAT IT IS, when its capabilities do not say.
+ *
+ * `satisfies Record<KnownServiceType, ServiceTier>` is the guard that matters:
+ * a new member of either vocabulary fails the build here rather than silently
+ * falling off a map layer, which is precisely what `cabin_lodge` did.
+ */
+const KIND_TIER = {
+  outfitter: 'rentals',
+  canoe_rental: 'rentals',
+  shuttle: 'rentals',
+  campground: 'camping',
+  lodging: 'lodging',
+  cabin_lodge: 'lodging',
+} satisfies Record<KnownServiceType, ServiceTier>;
+
+const TIER_ORDER: ServiceTier[] = ['rentals', 'camping', 'lodging'];
+
+/**
+ * Every tier this service belongs to.
+ *
+ * ── A SET, NOT ONE VALUE, AND THAT IS THE WHOLE POINT ─────────────────────
+ *
+ * Returning a single group would encode the mutual exclusivity that is the
+ * original defect. An outfitter that rents cabins belongs under rentals AND
+ * lodging; asking it to pick loses a real answer to a real question.
+ *
+ * ── Capability first, KIND AS THE FLOOR ───────────────────────────────────
+ *
+ * The kind's tier is always unioned in and never overridden. That is not
+ * belt-and-braces: 10 campgrounds in the directory record `showers` and
+ * `boat_ramp` but no `camping_*` offering at all, so a capability-PURE camping
+ * tier would silently drop them. Capability data is dense — 98% of rows, four
+ * offerings each — but tier membership needs completeness, and only the kind
+ * has that.
+ *
+ * ── Never empty ───────────────────────────────────────────────────────────
+ *
+ * An unrecognised type still lands in `rentals`, because a service Eddy cannot
+ * classify is better shown under a broad heading than not shown at all. That is
+ * NOT in tension with `mappableService`'s "a wrong pin is worse than none" —
+ * that rule is about LOCATION, and a pin in the right place under a general
+ * label is a far smaller claim than a pin in the wrong county. Callers that
+ * want to report the unknown value use `isKnownServiceType`.
+ */
+export function serviceTiers(service: {
+  type: string;
+  servicesOffered?: readonly string[] | null;
+}): ServiceTier[] {
+  const tiers = new Set<ServiceTier>();
+
+  const offerings = service.servicesOffered ?? [];
+  for (const tier of TIER_ORDER) {
+    if (offerings.some((o) => (TIER_OFFERINGS[tier] as readonly string[]).includes(o))) {
+      tiers.add(tier);
+    }
+  }
+
+  // The floor. Unioned in, never overriding — see the header.
+  tiers.add(isKnownServiceType(service.type) ? KIND_TIER[service.type] : 'rentals');
+
+  return TIER_ORDER.filter((tier) => tiers.has(tier));
+}
+
+/** Whether a wire string is a type Eddy has declared. The decoder half. */
+export function isKnownServiceType(type: string): type is KnownServiceType {
+  return Object.prototype.hasOwnProperty.call(KIND_TIER, type);
+}
+
+/**
+ * Whether Eddy should show this service AT ALL — which is not a question about
+ * what kind of thing it is.
+ *
+ * Kept apart from `serviceTiers` on purpose. Classification and eligibility got
+ * conflated once already and the result was four consumers of one table
+ * filtering it four different ways: the map dropped un-geocoded rows, the
+ * planner demanded a phone number, the layer counts asked for neither, and
+ * nothing anywhere checked whether the business was still open.
+ *
+ * `unverified` is ELIGIBLE. It means nobody has confirmed the listing recently,
+ * not that the business is gone, and hiding it would remove nine of the
+ * directory's seventy-one outfitters over a housekeeping flag.
+ */
+export function serviceEligible(service: { status?: string | null }): boolean {
+  const status = service.status;
+  return status !== 'permanently_closed' && status !== 'temporarily_closed';
+}
+
 export interface RiverService {
   id: string;
   name: string;
   type: ServiceType;
+  /**
+   * Whether the business is still trading — the input to `serviceEligible`.
+   *
+   * Optional the way the campground fields below are optional, and for the same
+   * reason it is worth saying out loud: this has been on the wire from
+   * GET /api/rivers/[slug]/services since that route was written, undeclared,
+   * and therefore unreachable by the app. So nothing on the phone has ever
+   * checked it, and a permanently closed outfitter was excluded from the map
+   * only by the accident of having no coordinates.
+   *
+   * A string rather than a union of the five enum values, because this is the
+   * wire and `serviceEligible` names the two that matter. Absent means "not
+   * told", which reads as eligible — the same rule `geocodePrecision` follows.
+   */
+  status?: string | null;
   phone: string | null;
   website: string | null;
   city: string | null;

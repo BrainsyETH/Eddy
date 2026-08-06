@@ -14,7 +14,7 @@ figure is used and the difference is stated.
 - [The finding underneath items 1 and 3](#the-finding-underneath-items-1-and-3)
 - [What the data actually says](#what-the-data-actually-says)
 - [Workstreams](#workstreams)
-  - [W0 — One service vocabulary](#w0--one-service-vocabulary-blocks-w1-and-w3)
+  - [W0 — One service model (shipped)](#w0--one-service-model--shipped)
   - [W1 — Split the Place tab's service list](#w1--split-the-place-tabs-service-list)
   - [W2 — Overview always has something to say](#w2--overview-always-has-something-to-say)
   - [W3 — Say what the map cannot draw](#w3--say-what-the-map-cannot-draw)
@@ -157,18 +157,39 @@ What it does surface is the defect next door — see W4.
 
 ## Workstreams
 
-### W0 — One service vocabulary (blocks W1 and W3)
+### W0 — One service model — **SHIPPED**
 
-The two vocabularies both stay; what is missing is a stated relationship between
-them. Add a pure classifier that maps either vocabulary onto the three groups a
-reader actually distinguishes.
+> Superseded in shape by the architecture review: the classifier is
+> **multi-valued and capability-aware**, not a single group per type. Rationale
+> and the horizon-2 plan are in the approved design note; what landed is below.
+
+Three concepts were compressed into one `type` string — what a business IS, what
+it DOES, and where a surface should SHOW it. They are three things now:
+
+| | | |
+| --- | --- | --- |
+| `KnownServiceType` | what it is | mutually exclusive |
+| `ServiceOffering` | what you can do there | a set (26-value enum, already 98% populated) |
+| `ServiceTier` | where it belongs on screen | a set, derived |
+| `serviceEligible` | whether to show it at all | deliberately separate |
 
 ```
-outfitter | canoe_rental | shuttle   -> 'outfitter'   rentals and shuttles
-campground                           -> 'camping'     somewhere to pitch
-lodging   | cabin_lodge              -> 'lodging'     a roof, booked by the night
-(anything else)                      -> 'other'       see the fallback policy
+serviceTiers({ type, servicesOffered }) -> ServiceTier[]
+
+  capability first   shuttle|*_rental -> rentals
+                     camping_*        -> camping
+                     cabins|lodge_rooms -> lodging
+  kind as the floor  always unioned in, never overridden
+  never empty        an unknown type still lands in rentals
 ```
+
+**Why a set.** 65 of 156 directory rows (42%) belong in two or more tiers — 27
+outfitters rent cabins, 28 offer camping. A single-valued group would encode the
+mutual exclusivity that is the original defect.
+
+**Why the kind is still the floor.** Ten campgrounds record `showers` or
+`boat_ramp` and no `camping_*` offering at all, so a capability-pure tier would
+silently drop them from the one layer that answers "where do I pitch".
 
 `'lodging'` rather than `'stay'`, deliberately. `lib/stays.ts` already owns the
 word "stay" for a *third-party* search around a coordinate — `STAY_SEARCH_LABEL`
@@ -232,49 +253,73 @@ table is total over what Eddy has declared — and the runtime path is honest th
 a database enum can grow without the app being rebuilt. Conflating the two is
 what produced a filter list containing three values the directory has never held.
 
-#### The map row has to carry lodging, or none of this reaches the map
+#### The map row carries lodging, as a tier
 
-Classifying `cabin_lodge` as `'lodging'` while the outfitters layer still filters
-`serviceGroup(...) === 'outfitter'` leaves all 41 rows exactly as invisible as
-they are today. The tier is not a follow-up decision; it is the part of W0 that
-makes the diagnosis actionable.
-
-So `outfitters` becomes a row with two tiers, using the machinery `gauges`
-already uses (`LayerDef.tiers`, `tierLabel`, `tierSymbol`):
+`outfitters` is now a row with two tiers, using the machinery `gauges` already
+uses:
 
 | | label | draws |
 | --- | --- | --- |
-| row | **Outfitters & lodging** | either tier |
-| tier | Outfitters & shuttles | `serviceGroup === 'outfitter'` (+ `'other'`) |
-| tier | Cabins & lodges | `serviceGroup === 'lodging'` |
+| row | **River services** | either tier |
+| tier | Rentals & shuttles | `serviceTiers(s).includes('rentals')` |
+| tier | Cabins & lodges | `serviceTiers(s).includes('lodging')` |
 
-**Not "Services".** It reads as the honest generalisation and it is not one:
-campgrounds are services — 44 of the same 156 directory rows — and they have
-their own top-level row, so a row called "Services" that excludes the largest
-category of them overclaims. That is the same objection `layers.ts:296` already
-records for why the dam row is "Lakes & dams" and never "Dams".
+The **Campgrounds row keeps all of camping** — it already merged access-point
+campgrounds with campground services, so it is the control a reader has learnt
+means "where do I sleep on the ground". Making camping a third tier here would
+have put two switches over one set of tents.
 
-The new tier has no mark in the catalog, so it takes the documented `icon`
-fallback (`bed-outline`) until one is drawn — `LayerDef.symbol`'s comment already
-names that as the path a layer takes before the catalog has art for it.
+**Not "Services".** Campgrounds are services too, and they have their own row —
+the same objection `layers.ts` records for why the dam row is "Lakes & dams".
 
-**Changes.**
+**The key stays `outfitters`**, because it is what every phone has in
+AsyncStorage and renaming it would discard everybody's stored layer choices.
 
-- `packages/eddy-types/index.ts` — `ServiceGroup`, `KnownServiceType`,
-  `SERVICE_GROUPS`, `serviceGroup()`.
-- `eddy-ios/src/map/layers.ts` — delete `OUTFITTER_SERVICE_TYPES`; add the
-  `lodging` tier to the `outfitters` row; correct the row description, which
-  currently promises lodging the layer excludes.
-- `eddy-ios/src/map/RiverMap.tsx` and `eddy-ios/src/components/PlanNearby.tsx` —
-  collapse the two copies of `SERVICE_TYPE_LABELS` into one export covering
-  `cabin_lodge`, and drop the `replace(/_/g, ' ')` fallback in favour of the
-  group label. A lowercase database token has no business on a map.
+**The tiers overlap; the pins must not.** An outfitter that rents cabins is in
+both tiers, so drawing each independently would put two pins on one coordinate —
+the failure `drawnAsAccessPoint` exists upstream to prevent. The lodging tier
+drops whatever the rentals tier is currently drawing, exactly as `allGauges`
+drops the curated stations. Pin ids are canonical (`service:{id}`) so a selection
+survives toggling a tier underneath it.
 
-**Acceptance.** `SERVICE_GROUPS` is total over `KnownServiceType` — adding a
-member without a group is a type error. A runtime test asserts `serviceGroup()`
-returns `'other'` for an unknown string and that `'other'` still draws. A test
-enumerating the live `service_type` enum values pins the mirror in the web tree
-to the package's table, the same way `PUBLIC_LAND_ACCESS_STYLE` is pinned.
+#### What landed
+
+| file | change |
+| --- | --- |
+| `packages/eddy-types/index.ts` | `ServiceTier`, `ServiceOffering`, `DirectoryServiceType`, `KnownServiceType`, `serviceTiers`, `isKnownServiceType`, `serviceEligible`; `status` declared on `RiverService` |
+| `eddy-ios/src/map/serviceLayers.ts` | **new, pure** — tier↔layer table, `serviceOnLayer`, `serviceTypeLabel`, `offeringLabel` |
+| `eddy-ios/src/map/layers.ts` | `OUTFITTER_SERVICE_TYPES` deleted; River services row + lodging tier; compile-time subset assertion |
+| `eddy-ios/src/map/RiverMap.tsx` | one `drawableServices` gate; rentals + lodging pin memos; shapes and render calls |
+| `eddy-ios/app/(tabs)/index.tsx` | `layerCounts` asks the same three questions the map asks |
+| `eddy-ios/src/components/PlanNearby.tsx` | asks the capability, not the type; eligibility and mappability applied |
+| `eddy-ios/app/river/[slug].tsx` | Outfitters section on the shared rule; offerings labelled |
+| `missouri-float-planner/src/lib/service-model.test.ts` | **new** — 18 tests |
+
+`serviceLayers.ts` is separate from `layers.ts` on purpose and the reason is
+structural: the web suite is the only runner the Expo app has, and it resolves
+`@/*` to its own `src/`. `layers.ts` imports the palette and `@expo/vector-icons`,
+so it cannot be reached from a test **even by a type-only import** — the module
+still has to resolve. Pure membership rules therefore live apart, exactly as
+`mappable.ts` does, and `layers.ts` asserts the subset relationship from its side
+because the dependency may only point that way.
+
+**A sixth consumer turned up during implementation.** `app/river/[slug].tsx`
+filtered its Outfitters section on the same broken constant — deliberately, with
+a comment saying a second definition is how surfaces come to disagree. It was
+right about the principle. It also printed `servicesOffered` raw, so the river
+screen has been rendering `canoe_rental · kayak_rental` on screen: the same
+lowercase database token that would have reached the map as "cabin lodge", in a
+different column. Both fixed.
+
+That section takes `serviceEligible` but **not** `mappableService` — a list is
+the one surface where a service with no coordinates still belongs, and it is
+where the 128 un-geocoded rows remain reachable. This is the clearest argument
+for keeping eligibility and location quality as separate predicates.
+
+**Verified:** `npm run typecheck` and `npm test` (1320 passing, 18 new) and
+`npm run lint` in the web tree; `npm run typecheck` and `npm run lint` (0 errors)
+in `eddy-ios`; `make bundle-mobile` exports a production iOS bundle and the
+`.easignore` allowlist check passes.
 
 ### W1 — Split the Place tab's service list
 
@@ -349,21 +394,29 @@ stays a renderer.
 Item 3's instinct is right and the mechanism is not `mappableService`. Three
 pieces, in this order.
 
-**W3a — One eligibility predicate, used by every consumer.** Drop rows whose
-`status` is `permanently_closed` or `temporarily_closed`. `unverified` stays
+**W3a — One eligibility predicate, used by every consumer. LANDED WITH W0.**
+`serviceEligible` in `@eddy/types` drops rows whose `status` is
+`permanently_closed` or `temporarily_closed`, and every consumer below now calls
+it. `unverified` stays
 drawn — it means nobody has confirmed the listing recently, not that the business
 is gone, and hiding it would remove nine of the 71 outfitters for a housekeeping
 flag.
 
-The directory has **four** consumers, not two, and they already disagree about
-what a usable row is:
+The directory had **five** consumers, not two — the fifth turned up during
+implementation — and they all disagreed about what a usable row is:
 
-| consumer | status | `mappableService` | contact required |
-| --- | --- | --- | --- |
-| `RiverMap` campgrounds | no | **yes** | no |
-| `RiverMap` outfitters | no | no | no |
-| `layerCounts` (`index.tsx:1323`) | no | no | no |
-| `PlanNearby` (`PlanNearby.tsx:69`) | no | no | **yes** (`phone \|\| website`) |
+| consumer | status | `mappableService` | contact | after |
+| --- | --- | --- | --- | --- |
+| `RiverMap` campgrounds | no | **yes** | no | all three |
+| `RiverMap` outfitters | no | no | no | all three |
+| `layerCounts` | no | no | no | all three |
+| `PlanNearby` | no | no | **yes** | all three + contact |
+| `river/[slug].tsx` Outfitters | no | no | no | eligible only — it is a list |
+
+The last row is the interesting one: a LIST must not apply `mappableService`,
+because 128 of 156 rows have no geocode and that section is where they stay
+reachable. Which is precisely why eligibility and location quality are two
+predicates rather than one "usable" flag.
 
 `PlanNearby` is the one that makes this urgent. It recommends the nearest
 services under "Shuttles near the put-in" and computes a straight-line distance

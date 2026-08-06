@@ -68,7 +68,12 @@ import type {
   RiverService,
   SearchResult,
 } from '@eddy/types';
-import { hasCoordinates, isCampground, PUBLIC_LAND_OWNERSHIP_NOTE } from '@eddy/types';
+import {
+  hasCoordinates,
+  isCampground,
+  PUBLIC_LAND_OWNERSHIP_NOTE,
+  serviceEligible,
+} from '@eddy/types';
 import {
   formatFloatTimeCeilingCompact,
   formatFloatTimeCompact,
@@ -88,9 +93,10 @@ import { fonts, type as t } from '@/theme/typography';
 import { mapAccessPointPin, RiverMap, type MapPin } from '@/map/RiverMap';
 import { placeSymbol } from '@/components/map-sheet/placeSymbol';
 import { mapUnavailableReason } from '@/map/runtime';
+import { mappableService } from '@/map/mappable';
+import { serviceOnLayer } from '@/map/serviceLayers';
 import {
   drawnAsAccessPoint,
-  OUTFITTER_SERVICE_TYPES,
   PUBLIC_LAND_ATTRIBUTION,
   RADAR_ATTRIBUTION,
   type LayerKey,
@@ -1317,10 +1323,22 @@ export default function MapScreen() {
    * map cannot draw is a count that makes the map look broken.
    */
   const layerCounts = useMemo<Partial<Record<LayerKey, number>>>(() => {
-    // The endpoint already drops services with no geocode, and this filters
-    // again rather than trusting it: a count that includes pins the map cannot
-    // draw is a count that makes the map look broken.
-    const placed = services?.filter((s) => s.latitude != null && s.longitude != null) ?? null;
+    // ── THE SAME THREE TESTS RIVERMAP APPLIES, IN THE SAME ORDER ──────────
+    // This used to ask only for non-null coordinates while RiverMap's campground
+    // branch also asked `mappableService`, and neither asked whether the
+    // business had closed. Three filters over one table, disagreeing — which is
+    // survivable only while no row is a centroid and every closed row happens to
+    // lack coordinates. The geocoding backfill ends both accidents, so the count
+    // and the pins ask one question now. A count that includes pins the map
+    // cannot draw is a count that makes the map look broken.
+    const placed =
+      services?.filter(
+        (s) =>
+          serviceEligible(s) &&
+          mappableService(s) &&
+          s.latitude != null &&
+          s.longitude != null,
+      ) ?? null;
     return {
       // Statewide now, and counted from what is actually drawn. It used to be
       // river-scoped and `undefined` until a river was chosen, which was the
@@ -1371,12 +1389,20 @@ export default function MapScreen() {
             const points = camps.map((entry) => entry.point);
             return (
               camps.length +
-              placed.filter((s) => s.type === 'campground' && !drawnAsAccessPoint(s, points))
-                .length
+              placed.filter(
+                (s) => serviceOnLayer(s, 'campgrounds') && !drawnAsAccessPoint(s, points),
+              ).length
             );
           })()
         : undefined,
-      outfitters: placed?.filter((s) => OUTFITTER_SERVICE_TYPES.includes(s.type)).length,
+      outfitters: placed?.filter((s) => serviceOnLayer(s, 'outfitters')).length,
+      // The complement, exactly as RiverMap draws it — a service in both tiers
+      // is one pin, and the count has to be a count of pins.
+      lodging: placed?.filter(
+        (s) =>
+          serviceOnLayer(s, 'lodging') &&
+          !(layers.includes('outfitters') && serviceOnLayer(s, 'outfitters')),
+      ).length,
       // Viewport-scoped, like allGauges above and with the same three-way
       // meaning: undefined before the layer has answered, 0 when we HAVE looked
       // and this view holds none, and a number otherwise.

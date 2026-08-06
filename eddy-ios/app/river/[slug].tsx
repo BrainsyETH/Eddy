@@ -49,6 +49,8 @@ import {
   accessTypeLabel,
   campsiteAvailabilityLine,
   isCampground,
+  serviceEligible,
+  serviceTiers,
 } from '@eddy/types';
 import {
   criticalHazards,
@@ -94,7 +96,7 @@ import { EddyTake } from '@/components/EddyTake';
 import { damForRiver } from '@/components/dam/RiverDamPanel';
 import { RiverReaches } from '@/components/river/RiverReaches';
 import { GaugeChart } from '@/components/GaugeChart';
-import { OUTFITTER_SERVICE_TYPES } from '@/map/layers';
+import { offeringLabel } from '@/map/serviceLayers';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { GaugePicker } from '@/components/GaugePicker';
@@ -290,7 +292,10 @@ function ServiceRow({ service }: { service: RiverService }) {
         <Text style={[styles.serviceMeta, { color: colors.textMuted }]} numberOfLines={1}>
           {[
             [service.city, service.state].filter(Boolean).join(', '),
-            ...service.servicesOffered.slice(0, 2),
+            // Eddy's words, not the enum's. This printed the raw tokens —
+            // "canoe_rental · kayak_rental" — which is the same lowercase
+            // database string that used to reach the map as "cabin lodge".
+            ...service.servicesOffered.slice(0, 2).map(offeringLabel),
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -821,7 +826,15 @@ export default function RiverDetailScreen() {
   // Not memoised: this is a filter over a list of a few dozen that only changes
   // when the fetch lands, and a useMemo below three early returns would be a
   // conditional hook. Same reason the sorted hazards above are computed inline.
-  const outfitters = services.filter((s) => OUTFITTER_SERVICE_TYPES.includes(s.type));
+  // ── ELIGIBLE, BUT NOT NECESSARILY MAPPABLE ──────────────────────────────
+  // A LIST is the one surface where a service with no coordinates still belongs:
+  // 128 of the directory's 156 rows have no geocode, and this section is where
+  // a reader can still reach them. So `serviceEligible` applies — a closed
+  // business is wrong here exactly as it is wrong on the map — and
+  // `mappableService` deliberately does not.
+  const outfitters = services.filter(
+    (s) => serviceTiers(s).includes('rentals') && serviceEligible(s),
+  );
 
   // ── The two halves of "where can I camp on this river" ──────────────────────
   // isCampground is the shared resolver in @eddy/types — the same one the map's
@@ -1417,11 +1430,17 @@ export default function RiverDetailScreen() {
             people are actually looking for when they look for an outfitter, and
             separating the two would put one name under two headings.
 
-            The membership test is OUTFITTER_SERVICE_TYPES, the same constant
-            the map's Outfitters layer filters on, rather than a list written
-            out again here. A second definition of "what counts as an outfitter"
-            is how the layer sheet and this section end up disagreeing about a
-            business that appears on one and not the other. */}
+            The membership test is the shared `serviceTiers`, the same rule the
+            map's own tier filters on, rather than a list written out again
+            here. A second definition of "what counts as an outfitter" is how
+            the layer sheet and this section end up disagreeing about a business
+            that appears on one and not the other.
+
+            It used to be a list of TYPE STRINGS, and it was wrong in a way
+            nothing reported: three of its four members were from the access
+            point's vocabulary and matched no directory row, while the campground
+            and cabin rows that actually run shuttles were excluded for being
+            filed under the wrong noun. The tier asks what a business DOES. */}
         {outfitters.length > 0 ? (
           <CollapsibleSection
             title="Outfitters"

@@ -11,6 +11,7 @@
 // purpose: a paddler who has learnt that red means "do not float" should read a
 // low-water dam the same way without being taught twice.
 
+import type { ServiceLayerKey } from './serviceLayers';
 import { neutral, primary, type Palette } from '@/theme/palette';
 import { conditionColor } from '@/theme/conditions';
 import { flowBandColor } from '@/theme/flow';
@@ -24,6 +25,7 @@ export type LayerKey =
   | 'allGauges'
   | 'hazards'
   | 'outfitters'
+  | 'lodging'
   | 'dams'
   | 'weatherRadar'
   | 'publicLand';
@@ -351,6 +353,13 @@ export const MAP_LAYERS: LayerDef[] = [
   {
     key: 'campgrounds',
     label: 'Campgrounds',
+    // ── THIS ROW OWNS ALL OF CAMPING, and that is a deliberate ruling ──────
+    // It already merged access points tagged `campground` with campground
+    // services, so it is the one control a reader has learnt means "where do I
+    // sleep on the ground". When services gained tier membership, camping could
+    // have become a tier of the row below instead — and then two switches would
+    // have drawn overlapping sets of the same tents. A service earns this layer
+    // by having a camping OFFERING or a campground kind, whoever runs it.
     description: 'Places to sleep on the river',
     icon: 'bonfire-outline',
     symbol: 'campground',
@@ -358,11 +367,52 @@ export const MAP_LAYERS: LayerDef[] = [
   },
   {
     key: 'outfitters',
-    label: 'Outfitters',
-    description: 'Rentals, shuttles and lodging',
+    // ── "River services", NOT "Services" ──────────────────────────────────
+    // Campgrounds are services too — 44 of the same 156 directory rows — and
+    // they have their own row above. A row called "Services" that excluded the
+    // largest category of them would overclaim in exactly the way the dam row
+    // guards against by being "Lakes & dams" rather than "Dams".
+    //
+    // The key stays `outfitters`. It is what a phone has in AsyncStorage from
+    // every release so far, and renaming it would throw away the layer choices
+    // of everyone who has ever opened the sheet. See mapPreferences.
+    label: 'River services',
+    description: 'Rentals, shuttles, cabins and lodges',
+    // Two tiers for the same reason Gauges has two: this is one question —
+    // "who can outfit this trip" — with a which underneath it, and a business
+    // may answer both. `serviceTiers` returns a SET, so an outfitter that rents
+    // cabins is drawn by whichever tier is on rather than having to pick.
+    tiers: ['outfitters', 'lodging'],
+    tierLabel: 'Rentals & shuttles',
     icon: 'boat-outline',
     symbol: 'outfitter',
     color: (c) => c.warm,
+  },
+  {
+    key: 'lodging',
+    label: 'Cabins & lodges',
+    tierLabel: 'Cabins & lodges',
+    // A TIER, never a row — the sibling of `allGauges` above. Forty-one rows of
+    // which two are geocoded does not carry a top-level switch, and the question
+    // it answers ("a roof rather than a tent") is a refinement of the row above
+    // rather than a separate layer of the map.
+    nested: true,
+    description: 'Cabins, lodge rooms and cottages',
+    icon: 'bed-outline',
+    // No `symbol`: the catalog has no lodging mark yet, and `icon` is the
+    // documented fallback a layer takes before one is drawn for it. When the
+    // mark lands this gains `tierSymbol` and nothing else changes.
+    //
+    // ── PROVISIONAL, and the reason is the palette, not taste ─────────────
+    // The obvious choice is a deeper step of the tan the row already wears, and
+    // the secondary scale has no such step — it is 500/200/100/50, and 500 IS
+    // `warm`. So this borrows the neutral stone instead, a clear step off the
+    // one `publicLand` uses, which keeps it out of the condition ladder (red,
+    // amber and green all mean something about water here) and out of coral
+    // (reserved for the float CTA). Revisit when the catalog draws the mark —
+    // a face tells these two tiers apart better than any hue can, which is the
+    // same argument the gauge tier strip already makes.
+    color: (c) => (c.scheme === 'dark' ? neutral[200] : neutral[500]),
   },
 ];
 
@@ -381,8 +431,23 @@ export function layerKeysFor(layer: LayerDef): LayerKey[] {
   return layer.tiers ?? [layer.key];
 }
 
-/** Service types that belong under the Outfitters row rather than Campgrounds. */
-export const OUTFITTER_SERVICE_TYPES = ['outfitter', 'canoe_rental', 'shuttle', 'lodging'];
+// Which layer draws which service, and what to call it, live in
+// `serviceLayers.ts` — pure, and therefore executable by the web suite, which is
+// the only runner the Expo app has. This module resolves colours through the
+// palette and so cannot be imported from a test at all, not even for a type.
+// See that file's header for why `OUTFITTER_SERVICE_TYPES` is gone.
+//
+// The keys it declares are a SUBSET of LayerKey, and this is where that is
+// enforced — the pure module cannot import this one, so the check has to live on
+// this side. A service layer renamed here without being renamed there stops
+// compiling, which is the whole point: the last time these two ideas drifted,
+// nothing failed and 41 rows quietly left the map.
+const _serviceLayersAreRealLayers: readonly LayerKey[] = [
+  'outfitters',
+  'lodging',
+  'campgrounds',
+] satisfies readonly ServiceLayerKey[];
+void _serviceLayersAreRealLayers;
 
 // ── One place, one pin ──────────────────────────────────────────────────────
 //

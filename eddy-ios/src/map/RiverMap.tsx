@@ -45,7 +45,7 @@
 // (as this once did) put white text inside a white halo on dark mode: a map full
 // of invisible labels.
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type {
   CampsiteAvailabilitySummary,
@@ -63,6 +63,7 @@ import {
   hasCoordinates,
   isCampground,
   PUBLIC_LAND_ACCESS_STYLE,
+  serviceEligible,
 } from '@eddy/types';
 import { boundsForLine } from '@eddy/geo';
 import {
@@ -93,7 +94,6 @@ import {
   MAX_RADAR_ZOOM,
   MIN_RADAR_ZOOM,
   ZOOM,
-  OUTFITTER_SERVICE_TYPES,
   RADAR_OPACITY,
   RADAR_TILE_URL,
   type LayerKey,
@@ -101,18 +101,7 @@ import {
 } from './layers';
 import { warn } from '@/lib/monitoring';
 import { mappableService } from '@/map/mappable';
-
-const SERVICE_TYPE_LABELS: Record<string, string> = {
-  outfitter: 'Outfitter',
-  canoe_rental: 'Canoe rental',
-  shuttle: 'Shuttle',
-  lodging: 'Lodging',
-  campground: 'Campground',
-};
-
-function serviceTypeLabel(type: string): string {
-  return SERVICE_TYPE_LABELS[type] ?? type.replace(/_/g, ' ');
-}
+import { serviceOnLayer, serviceTypeLabel } from '@/map/serviceLayers';
 
 /**
  * Ink for text drawn ON the map, in either app appearance.
@@ -695,6 +684,8 @@ export function RiverMap({
    * the public-land overlay does not rebuild three hundred access features.
    */
   const campgroundLayerOn = layers.includes('campgrounds');
+  /** Whether the rentals tier is drawing — the lodging tier is its complement. */
+  const outfitterLayerOn = layers.includes('outfitters');
 
   /**
    * ── ONE MEMO PER LAYER, not one for all six ───────────────────────────────
@@ -783,7 +774,16 @@ export function RiverMap({
       ...services
         .filter(
           (s) =>
-            s.type === 'campground' &&
+            // TIER, not type. A campground is anything you can sleep on the
+            // ground at — which includes the 28 outfitters that record a
+            // camping offering and would otherwise be missing from the one
+            // layer a reader uses to answer "where do I pitch". See
+            // serviceTiers in @eddy/types for why membership is a set.
+            serviceOnLayer(s, 'campgrounds') &&
+            // Still trading. Never checked anywhere before, and harmless only
+            // because closed rows happened to have no coordinates — which the
+            // geocoding backfill is about to change.
+            serviceEligible(s) &&
             // Not merely "has coordinates" — has coordinates worth pointing at.
             // A town centroid would put a private campground somewhere in the
             // right county, and somebody plans a drive around a pin. See
@@ -887,24 +887,82 @@ export function RiverMap({
         };
       }), [hazards]);
 
-  const outfitterPins: MapPin[] = useMemo(() => services
-      .filter(
-        (s) =>
-          OUTFITTER_SERVICE_TYPES.includes(s.type) && s.latitude != null && s.longitude != null,
-      )
-      .map((s) => ({
-        id: `outfitter:${s.id}`,
-        name: s.name,
-        layer: 'outfitters' as const,
-        subtitle: [serviceTypeLabel(s.type), [s.city, s.state].filter(Boolean).join(', ')]
-          .filter(Boolean)
-          .join(' · '),
-        coordinates: { lng: s.longitude as number, lat: s.latitude as number },
-        body: s.description,
-        link: serviceLink(s),
-      })), [services]);
+  /**
+   * One service, one pin, whichever tier of the River services row draws it.
+   *
+   * ── THE TIERS OVERLAP; THE PINS MUST NOT ────────────────────────────────
+   * An outfitter that rents cabins is in BOTH tiers — that is the whole point
+   * of `serviceTiers` returning a set — so drawing each tier independently
+   * would put two pins on one coordinate, which is exactly the failure
+   * `drawnAsAccessPoint` exists upstream to prevent. The lodging tier therefore
+   * drops whatever the rentals tier is currently drawing, the same way
+   * `allGauges` drops the curated stations so a rated gauge is never drawn
+   * twice.
+   *
+   * The id is canonical — `service:{id}`, not the tier's name — so a selected
+   * pin survives the reader toggling tiers underneath it. Same reasoning as the
+   * campgrounds layer keeping `access:{id}` while presenting a put-in as a tent.
+   */
+  const servicePin = useCallback(
+    (s: RiverService, layer: 'outfitters' | 'lodging'): MapPin => ({
+      id: `service:${s.id}`,
+      name: s.name,
+      layer,
+      subtitle: [serviceTypeLabel(s), [s.city, s.state].filter(Boolean).join(', ')]
+        .filter(Boolean)
+        .join(' · '),
+      coordinates: { lng: s.longitude as number, lat: s.latitude as number },
+      body: s.description,
+      link: serviceLink(s),
+    }),
+    [],
+  );
 
-  /** The five, as one object. References only — nothing is rebuilt here. */
+  /**
+   * Eligible, locatable, and on this tier — in that order.
+   *
+   * `serviceEligible` and `mappableService` are asked here for every service
+   * layer rather than by each one separately, which is the drift this replaced:
+   * campgrounds checked the geocode and outfitters did not, and nothing at all
+   * checked whether the business had closed.
+   */
+  const drawableServices = useMemo(
+    () =>
+      services.filter(
+        (s) =>
+          serviceEligible(s) &&
+          mappableService(s) &&
+          s.latitude != null &&
+          s.longitude != null,
+      ),
+    [services],
+  );
+
+  const outfitterPins: MapPin[] = useMemo(
+    () =>
+      drawableServices
+        .filter((s) => serviceOnLayer(s, 'outfitters'))
+        .map((s) => servicePin(s, 'outfitters')),
+    [drawableServices, servicePin],
+  );
+
+  const lodgingPins: MapPin[] = useMemo(
+    () =>
+      drawableServices
+        .filter(
+          (s) =>
+            serviceOnLayer(s, 'lodging') &&
+            // The complement, and only while the sibling tier is actually
+            // drawing — see the header. With rentals off, a cabin-renting
+            // outfitter is the reader's answer to "where is there a roof" and
+            // must appear.
+            !(outfitterLayerOn && serviceOnLayer(s, 'outfitters')),
+        )
+        .map((s) => servicePin(s, 'lodging')),
+    [drawableServices, outfitterLayerOn, servicePin],
+  );
+
+  /** The six, as one object. References only — nothing is rebuilt here. */
   const pins = useMemo(
     () => ({
       access: accessPins,
@@ -912,8 +970,9 @@ export function RiverMap({
       gauges: gaugePins,
       hazards: hazardPins,
       outfitters: outfitterPins,
+      lodging: lodgingPins,
     }),
-    [accessPins, campgroundPins, gaugePins, hazardPins, outfitterPins],
+    [accessPins, campgroundPins, gaugePins, hazardPins, outfitterPins, lodgingPins],
   );
 
   /**
@@ -941,6 +1000,10 @@ export function RiverMap({
     () => featureCollection(outfitterPins, layerColorFor('outfitters', colors)),
     [outfitterPins, colors],
   );
+  const lodgingShape = useMemo(
+    () => featureCollection(lodgingPins, layerColorFor('lodging', colors)),
+    [lodgingPins, colors],
+  );
   const campgroundShape = useMemo(
     () => featureCollection(campgroundPins, layerColorFor('campgrounds', colors)),
     [campgroundPins, colors],
@@ -963,6 +1026,7 @@ export function RiverMap({
       ({
         access: accessShape,
         outfitters: outfitterShape,
+        lodging: lodgingShape,
         campgrounds: campgroundShape,
         gauges: gaugeShape,
         hazards: hazardShape,
@@ -971,7 +1035,15 @@ export function RiverMap({
         // clustered source. Present so the record is total.
         allGauges: EMPTY_COLLECTION,
       }) as Record<PinLayerKey, ReturnType<typeof featureCollection>>,
-    [accessShape, outfitterShape, campgroundShape, gaugeShape, hazardShape, damShape],
+    [
+      accessShape,
+      outfitterShape,
+      lodgingShape,
+      campgroundShape,
+      gaugeShape,
+      hazardShape,
+      damShape,
+    ],
   );
 
 
@@ -1929,6 +2001,12 @@ export function RiverMap({
       {layerOn('access') ? accessLayer() : null}
       {layerOn('outfitters')
         ? pinLayer('outfitters', 'outfitter')
+        : null}
+      {/* The lodging tier borrows the outfitter mark until the catalog draws a
+          bed. Its pins are the ones the rentals tier is NOT already drawing —
+          see lodgingPins — so the two never stack on one coordinate. */}
+      {layerOn('lodging')
+        ? pinLayer('lodging', 'outfitter')
         : null}
       {layerOn('campgrounds')
         ? pinLayer('campgrounds', 'campground')
