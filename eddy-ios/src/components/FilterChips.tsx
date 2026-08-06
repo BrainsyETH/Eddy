@@ -80,6 +80,14 @@ function readableInk(background: string, darkInk: string, lightInk: string): str
 function FilterChipsComponent({ chips, active, onToggle, paddingHorizontal = 16 }: Props) {
   const { colors } = useTheme();
 
+  // ── NO CHIPS IS NO ROW ──────────────────────────────────────────────────
+  // The content container carries 10pt of padding top and bottom, so an empty
+  // chip list rendered as 20pt of nothing. That is invisible on a screen with
+  // room and obvious in a bottom sheet: the Camping tab's "Sites" heading sat
+  // above a blank band on every Missouri State Park, because those sites carry
+  // no site_type and no type filter could match one.
+  if (chips.length === 0) return null;
+
   return (
     <ScrollView
       horizontal
