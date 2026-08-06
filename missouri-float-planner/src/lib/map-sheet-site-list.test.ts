@@ -14,6 +14,7 @@ import { SITE_NIGHT_CODE, SITE_NIGHT_UNKNOWN } from './camping/sites';
 import {
   filterCounts,
   groupSites,
+  SITE_FILTERS,
   naturalCompare,
   siteKind,
   sitesOnNight,
@@ -96,14 +97,21 @@ test('a site type Eddy has never seen degrades to no tags', () => {
   assert.deepEqual(entries[0].tags, ['Sleeps 6']);
 });
 
-test('a state park with no site type still lists', () => {
+test('a state park with no site type is tagged from its NAME', () => {
   // UseDirect folds the type into the name and publishes no separate field.
+  //
+  // This used to assert NO tags, and that assertion was the bug written down:
+  // `typeTags` read `site.siteType` directly, which is null for all 631 sites
+  // Missouri State Parks publishes, so every one of them came back untagged —
+  // `filterCounts` returned zeros and the whole filter row disappeared on the
+  // six largest campgrounds Eddy has. `siteKind` already knew this site is
+  // "Electric"; it just was not being asked.
   const entries = sitesOnNight(
     [site({ siteType: null, maxOccupancy: null, name: 'Electric 50 amp #178' })],
     NIGHTS,
     NIGHTS[0],
   );
-  assert.deepEqual(entries[0].tags, []);
+  assert.deepEqual(entries[0].tags, ['Electric']);
   assert.equal(entries[0].site.name, 'Electric 50 amp #178');
 });
 
@@ -249,4 +257,84 @@ test('the summary counts open against the whole kind, not just what is open', ()
     { kind: 'Basic', open: 1, total: 2 },
     { kind: 'Electric', open: 1, total: 1 },
   ]);
+});
+
+/* ── State parks become filterable ────────────────────────────────────────── */
+
+test('the real Missouri State Parks kinds all produce tags', () => {
+  // Every distinct name head across the six mo_state_parks facilities, read out
+  // of the live table. These are 631 sites — Meramec's 197, Montauk's 141,
+  // St. Francois' 109, Echo Bluff's 72, Onondaga's 64, Washington's 48 — and
+  // before siteKind fed the tags, not one of them carried a single tag.
+  const cases: [string, string[]][] = [
+    ['Basic #001', ['No hookup']],
+    ['Family Basic #1', ['No hookup']],
+    ['Electric #012', ['Electric']],
+    ['Family Electric #3', ['Electric']],
+    ['Electric/Water #044', ['Electric']],
+    ['Family Electric/Water #2', ['Electric']],
+    ['Sewer/Electric/Water #019', ['Electric']],
+    ['Walk-in #7', ['Walk-in']],
+    ['Platform Tent Sites #02', ['Tent']],
+  ];
+  for (const [name, expected] of cases) {
+    const entries = sitesOnNight(
+      [site({ siteType: null, maxOccupancy: null, name })],
+      NIGHTS,
+      NIGHTS[0],
+    );
+    assert.deepEqual(entries[0].tags, expected, name);
+  }
+});
+
+test('Meramec gets a filter row where it had none', () => {
+  // The shape of the real facility: 146 electric of one flavour or another and
+  // 51 Basic. Both chips must have a non-zero count, or the row stays hidden —
+  // `SITE_FILTERS.filter((f) => counts[f] > 0)` is what draws it.
+  const sites = [
+    ...Array.from({ length: 3 }, (_, i) =>
+      site({ id: `e${i}`, siteType: null, maxOccupancy: null, name: `Electric #${i}` }),
+    ),
+    ...Array.from({ length: 2 }, (_, i) =>
+      site({ id: `b${i}`, siteType: null, maxOccupancy: null, name: `Basic #${i}` }),
+    ),
+  ];
+  const counts = filterCounts(sitesOnNight(sites, NIGHTS, NIGHTS[0]));
+  assert.equal(counts.Electric, 3);
+  assert.equal(counts['No hookup'], 2);
+  assert.ok(SITE_FILTERS.filter((f) => counts[f] > 0).length >= 2);
+});
+
+test('No hookup is offered as a filter, not merely as a label', () => {
+  // NONELECTRIC has mapped to this tag since the file was written and was never
+  // filterable — 581 recreation.gov sites across 28 facilities wearing a label
+  // nothing could select. That is the older half of this bug.
+  assert.ok((SITE_FILTERS as readonly string[]).includes('No hookup'));
+  const entries = sitesOnNight([site({ siteType: 'STANDARD NONELECTRIC' })], NIGHTS, NIGHTS[0]);
+  assert.ok(entries[0].tags.includes('No hookup'));
+  assert.equal(filterCounts(entries)['No hookup'], 1);
+});
+
+test('Basic never also counts as Electric', () => {
+  // The same precedence trap NONELECTRIC set: a substring table is only safe
+  // while the longer match wins, and 'Basic' must not drift into the electric
+  // count when a park names a loop "Basic Electric".
+  const entries = sitesOnNight(
+    [site({ siteType: null, maxOccupancy: null, name: 'Basic #7' })],
+    NIGHTS,
+    NIGHTS[0],
+  );
+  assert.equal(entries[0].tags.includes('Electric'), false);
+});
+
+test('recreation.gov keeps the type it declares', () => {
+  // siteKind returns siteType untouched when the feed provides one, so the 29
+  // recreation.gov facilities never reach the name-splitting branch and nothing
+  // about their tags changed.
+  const entries = sitesOnNight(
+    [site({ siteType: 'WALK TO', name: 'Walk-in: A #1' })],
+    NIGHTS,
+    NIGHTS[0],
+  );
+  assert.ok(entries[0].tags.includes('Walk-in'));
 });
