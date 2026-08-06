@@ -284,7 +284,27 @@ async function main() {
 
   let embedded = 0;
   let orphans = 0;
-  let typeConflicts = 0;
+  /**
+   * The embedded copy claims a tier the directory does NOT — a real
+   * disagreement about what a business is, and the only case worth an error.
+   *
+   * ── NOT "the two tier sets differ", WHICH IS WHAT THIS FIRST COUNTED ────
+   *
+   * That reported 19, and every one was benign. The embedded JSONB carries a
+   * `type` and no `servicesOffered`, so `serviceTiers` falls to the kind floor
+   * and returns one tier; the directory row for the same business has
+   * capabilities and returns two or three. Different, yes — but the embedded
+   * set is a strict SUBSET every time, which is a copy that knows less, not a
+   * copy that contradicts.
+   *
+   * Measured across all 27 matched entries: 27 subsets, 0 contradictions. That
+   * is the strongest argument for horizon 2 that this script can print — every
+   * embedded entry is strictly poorer than the row it duplicates, so replacing
+   * them with references loses nothing at all.
+   */
+  let contradictions = 0;
+  /** Thinner than the directory: informational, and the migration's case. */
+  let thinner = 0;
   let pointsAtClosed = 0;
   for (const ap of apData ?? []) {
     const list = (ap.nearby_services ?? []) as { name?: string; type?: string; phone?: string }[];
@@ -300,16 +320,27 @@ async function main() {
         continue;
       }
       // 'lodging' and 'cabin_lodge' are the same claim in two vocabularies —
-      // reconciled by serviceTiers, so agreeing tiers is agreement enough.
-      const embeddedTiers = serviceTiers({ type: entry.type ?? '' }).join(',');
-      const directoryTiers = serviceTiers(asService(match)).join(',');
-      if (embeddedTiers !== directoryTiers) typeConflicts++;
+      // reconciled by serviceTiers, so comparing tiers rather than types is
+      // what stops the alias reading as a disagreement.
+      const embeddedTiers = serviceTiers({ type: entry.type ?? '' });
+      const directoryTiers = new Set(serviceTiers(asService(match)));
+      const claimsMore = embeddedTiers.filter((tier) => !directoryTiers.has(tier));
+      if (claimsMore.length > 0) contradictions++;
+      else if (embeddedTiers.length < directoryTiers.size) thinner++;
       if (!serviceEligible(asService(match))) pointsAtClosed++;
     }
   }
   console.log(`  ${'entries'.padEnd(16)} ${String(embedded).padStart(3)}`);
   console.log(`  ${'orphans'.padEnd(16)} ${String(orphans).padStart(3)}  no canonical row — must be promoted before any join`);
-  console.log(`  ${'tier conflicts'.padEnd(16)} ${String(typeConflicts).padStart(3)}  the two copies disagree about what it is`);
+  console.log(`  ${'thinner'.padEnd(16)} ${String(thinner).padStart(3)}  the copy knows less than the row it duplicates`);
+  if (contradictions === 0) {
+    ok('no embedded entry claims a tier the directory denies');
+  } else {
+    fail(
+      `${contradictions} embedded entries claim a tier their directory row does not — ` +
+        `the two copies genuinely disagree about what the business is`,
+    );
+  }
   if (pointsAtClosed) {
     warn(
       `${pointsAtClosed} embedded entries point at a row the directory marks closed — ` +

@@ -1,7 +1,3 @@
-// src/types/database.ts
-// AUTO-GENERATED from the live Supabase schema (project: FloatMe / ilefwfpvphadsbptiaur).
-// Regenerate with: npm run db:gen-types  (see scripts) — do not edit by hand.
-
 export type Json =
   | string
   | number
@@ -335,6 +331,27 @@ export type Database = {
         }
         Relationships: []
       }
+      apple_refresh_tokens: {
+        Row: {
+          created_at: string
+          refresh_token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          refresh_token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          refresh_token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       blog_posts: {
         Row: {
           category: string
@@ -409,6 +426,220 @@ export type Database = {
             referencedColumns: ["slug"]
           },
         ]
+      }
+      campsite_availability: {
+        Row: {
+          date: string
+          facility_id: string
+          fetched_at: string
+          sites_open: number
+          sites_reservable: number
+          status: string
+        }
+        Insert: {
+          date: string
+          facility_id: string
+          fetched_at?: string
+          sites_open?: number
+          sites_reservable?: number
+          status?: string
+        }
+        Update: {
+          date?: string
+          facility_id?: string
+          fetched_at?: string
+          sites_open?: number
+          sites_reservable?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campsite_availability_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "campsite_facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campsite_facilities: {
+        Row: {
+          access_point_id: string | null
+          created_at: string
+          display_name: string
+          enabled: boolean
+          id: string
+          kind: string
+          last_synced_at: string | null
+          nearby_service_id: string | null
+          nps_campground_id: string | null
+          source: string
+          source_facility_id: string
+          source_loop: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_point_id?: string | null
+          created_at?: string
+          display_name: string
+          enabled?: boolean
+          id?: string
+          kind?: string
+          last_synced_at?: string | null
+          nearby_service_id?: string | null
+          nps_campground_id?: string | null
+          source: string
+          source_facility_id: string
+          source_loop?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_point_id?: string | null
+          created_at?: string
+          display_name?: string
+          enabled?: boolean
+          id?: string
+          kind?: string
+          last_synced_at?: string | null
+          nearby_service_id?: string | null
+          nps_campground_id?: string | null
+          source?: string
+          source_facility_id?: string
+          source_loop?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campsite_facilities_access_point_id_fkey"
+            columns: ["access_point_id"]
+            isOneToOne: false
+            referencedRelation: "access_points"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campsite_facilities_nearby_service_id_fkey"
+            columns: ["nearby_service_id"]
+            isOneToOne: false
+            referencedRelation: "nearby_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campsite_facilities_nps_campground_id_fkey"
+            columns: ["nps_campground_id"]
+            isOneToOne: false
+            referencedRelation: "nps_campgrounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campsite_site_availability: {
+        Row: {
+          date: string
+          fetched_at: string
+          site_id: string
+          status: string
+        }
+        Insert: {
+          date: string
+          fetched_at?: string
+          site_id: string
+          status: string
+        }
+        Update: {
+          date?: string
+          fetched_at?: string
+          site_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campsite_site_availability_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "campsite_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campsite_sites: {
+        Row: {
+          facility_id: string
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          loop: string | null
+          max_occupancy: number | null
+          name: string | null
+          site_type: string | null
+          source_site_id: string
+        }
+        Insert: {
+          facility_id: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          loop?: string | null
+          max_occupancy?: number | null
+          name?: string | null
+          site_type?: string | null
+          source_site_id: string
+        }
+        Update: {
+          facility_id?: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          loop?: string | null
+          max_occupancy?: number | null
+          name?: string | null
+          site_type?: string | null
+          source_site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campsite_sites_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "campsite_facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campsite_sync_log: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error_details: string | null
+          facilities_failed: number
+          facilities_synced: number
+          id: string
+          nights_written: number
+          requests_made: number
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error_details?: string | null
+          facilities_failed?: number
+          facilities_synced?: number
+          id?: string
+          nights_written?: number
+          requests_made?: number
+          source: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error_details?: string | null
+          facilities_failed?: number
+          facilities_synced?: number
+          id?: string
+          nights_written?: number
+          requests_made?: number
+          source?: string
+        }
+        Relationships: []
       }
       clip_library: {
         Row: {
@@ -1293,6 +1524,8 @@ export type Database = {
           metric: string | null
           mode: string
           one_shot: boolean
+          one_shot_fired_at: string | null
+          parent_subscription_id: string | null
           river_id: string | null
           scope: string
           threshold_value: number | null
@@ -1316,6 +1549,8 @@ export type Database = {
           metric?: string | null
           mode: string
           one_shot?: boolean
+          one_shot_fired_at?: string | null
+          parent_subscription_id?: string | null
           river_id?: string | null
           scope?: string
           threshold_value?: number | null
@@ -1339,6 +1574,8 @@ export type Database = {
           metric?: string | null
           mode?: string
           one_shot?: boolean
+          one_shot_fired_at?: string | null
+          parent_subscription_id?: string | null
           river_id?: string | null
           scope?: string
           threshold_value?: number | null
@@ -1359,6 +1596,13 @@ export type Database = {
             columns: ["gauge_station_id"]
             isOneToOne: false
             referencedRelation: "gauge_stations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gauge_alert_subscriptions_parent_subscription_id_fkey"
+            columns: ["parent_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "alert_subscriptions"
             referencedColumns: ["id"]
           },
           {
@@ -1712,6 +1956,9 @@ export type Database = {
           display_order: number | null
           email: string | null
           fee_range: string | null
+          geocode_precision: string | null
+          geocode_source: string | null
+          geocoded_at: string | null
           id: string
           latitude: number | null
           longitude: number | null
@@ -1754,6 +2001,9 @@ export type Database = {
           display_order?: number | null
           email?: string | null
           fee_range?: string | null
+          geocode_precision?: string | null
+          geocode_source?: string | null
+          geocoded_at?: string | null
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -1796,6 +2046,9 @@ export type Database = {
           display_order?: number | null
           email?: string | null
           fee_range?: string | null
+          geocode_precision?: string | null
+          geocode_source?: string | null
+          geocoded_at?: string | null
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -2190,6 +2443,51 @@ export type Database = {
           home_region?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      public_lands: {
+        Row: {
+          designation: string | null
+          first_seen_at: string
+          geometry: unknown
+          gis_acres: number | null
+          id: string
+          last_seen_at: string
+          manager_name: string | null
+          manager_type: string | null
+          padus_id: string
+          public_access: string | null
+          state_code: string | null
+          unit_name: string
+        }
+        Insert: {
+          designation?: string | null
+          first_seen_at?: string
+          geometry: unknown
+          gis_acres?: number | null
+          id?: string
+          last_seen_at?: string
+          manager_name?: string | null
+          manager_type?: string | null
+          padus_id: string
+          public_access?: string | null
+          state_code?: string | null
+          unit_name: string
+        }
+        Update: {
+          designation?: string | null
+          first_seen_at?: string
+          geometry?: unknown
+          gis_acres?: number | null
+          id?: string
+          last_seen_at?: string
+          manager_name?: string | null
+          manager_type?: string | null
+          padus_id?: string
+          public_access?: string | null
+          state_code?: string | null
+          unit_name?: string
         }
         Relationships: []
       }
@@ -2617,8 +2915,15 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
+          low_water_meaning: string | null
           name: string
+          primary_gauge_station_id: string | null
+          primary_hazards: string[] | null
+          rising_water_hazards: string | null
           river_id: string
+          river_mile_end: number | null
+          river_mile_start: number | null
+          river_type: string | null
           section_slug: string
           sort_order: number
         }
@@ -2626,8 +2931,15 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          low_water_meaning?: string | null
           name: string
+          primary_gauge_station_id?: string | null
+          primary_hazards?: string[] | null
+          rising_water_hazards?: string | null
           river_id: string
+          river_mile_end?: number | null
+          river_mile_start?: number | null
+          river_type?: string | null
           section_slug: string
           sort_order?: number
         }
@@ -2635,12 +2947,33 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          low_water_meaning?: string | null
           name?: string
+          primary_gauge_station_id?: string | null
+          primary_hazards?: string[] | null
+          rising_water_hazards?: string | null
           river_id?: string
+          river_mile_end?: number | null
+          river_mile_start?: number | null
+          river_type?: string | null
           section_slug?: string
           sort_order?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "river_sections_primary_gauge_station_id_fkey"
+            columns: ["primary_gauge_station_id"]
+            isOneToOne: false
+            referencedRelation: "gauge_snap_diagnostics"
+            referencedColumns: ["gauge_id"]
+          },
+          {
+            foreignKeyName: "river_sections_primary_gauge_station_id_fkey"
+            columns: ["primary_gauge_station_id"]
+            isOneToOne: false
+            referencedRelation: "gauge_stations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "river_sections_river_id_fkey"
             columns: ["river_id"]
@@ -3052,6 +3385,24 @@ export type Database = {
         }
         Relationships: []
       }
+      starred_dams: {
+        Row: {
+          created_at: string
+          dam_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dam_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dam_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       starred_gauges: {
         Row: {
           created_at: string
@@ -3110,6 +3461,128 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      trust_findings: {
+        Row: {
+          check_id: string
+          detail: string
+          entity_key: string
+          entity_type: string
+          evidence: Json
+          fingerprint: string
+          first_seen_at: string
+          id: string
+          last_run_id: string | null
+          last_seen_at: string
+          occurrences: number
+          resolution: string | null
+          resolved_at: string | null
+          rule_key: string
+          severity: string
+          severity_rank: number | null
+          snoozed_until: string | null
+          status: string
+          title: string
+        }
+        Insert: {
+          check_id: string
+          detail: string
+          entity_key: string
+          entity_type: string
+          evidence?: Json
+          fingerprint: string
+          first_seen_at?: string
+          id?: string
+          last_run_id?: string | null
+          last_seen_at?: string
+          occurrences?: number
+          resolution?: string | null
+          resolved_at?: string | null
+          rule_key: string
+          severity: string
+          severity_rank?: number | null
+          snoozed_until?: string | null
+          status?: string
+          title: string
+        }
+        Update: {
+          check_id?: string
+          detail?: string
+          entity_key?: string
+          entity_type?: string
+          evidence?: Json
+          fingerprint?: string
+          first_seen_at?: string
+          id?: string
+          last_run_id?: string | null
+          last_seen_at?: string
+          occurrences?: number
+          resolution?: string | null
+          resolved_at?: string | null
+          rule_key?: string
+          severity?: string
+          severity_rank?: number | null
+          snoozed_until?: string | null
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trust_findings_last_run_id_fkey"
+            columns: ["last_run_id"]
+            isOneToOne: false
+            referencedRelation: "trust_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trust_runs: {
+        Row: {
+          check_id: string
+          duration_ms: number | null
+          error_detail: string | null
+          findings_raised: number
+          findings_resolved: number
+          findings_touched: number
+          finished_at: string | null
+          git_sha: string | null
+          id: string
+          scope_count: number
+          started_at: string
+          status: string
+          suppressed_reason: string | null
+        }
+        Insert: {
+          check_id: string
+          duration_ms?: number | null
+          error_detail?: string | null
+          findings_raised?: number
+          findings_resolved?: number
+          findings_touched?: number
+          finished_at?: string | null
+          git_sha?: string | null
+          id?: string
+          scope_count?: number
+          started_at?: string
+          status: string
+          suppressed_reason?: string | null
+        }
+        Update: {
+          check_id?: string
+          duration_ms?: number | null
+          error_detail?: string | null
+          findings_raised?: number
+          findings_resolved?: number
+          findings_touched?: number
+          finished_at?: string | null
+          git_sha?: string | null
+          id?: string
+          scope_count?: number
+          started_at?: string
+          status?: string
+          suppressed_reason?: string | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -3554,6 +4027,7 @@ export type Database = {
           threshold_unit: string
         }[]
       }
+      get_river_geometry_json: { Args: { p_slug: string }; Returns: Json }
       get_river_pois: {
         Args: { p_river_id: string }
         Returns: {
@@ -3673,6 +4147,27 @@ export type Database = {
           state: string
         }[]
       }
+      public_lands_in_bbox: {
+        Args: {
+          p_east: number
+          p_limit?: number
+          p_north: number
+          p_south: number
+          p_tolerance?: number
+          p_west: number
+        }
+        Returns: {
+          designation: string
+          geojson: string
+          gis_acres: number
+          id: string
+          manager_name: string
+          manager_type: string
+          public_access: string
+          total: number
+          unit_name: string
+        }[]
+      }
       record_condition_transition: {
         Args: {
           p_expected_condition_code: string
@@ -3692,26 +4187,48 @@ export type Database = {
         }[]
       }
       release_cron_lock: { Args: { job_name: string }; Returns: undefined }
-      search_gauges: {
-        Args: {
-          p_limit?: number
-          p_near_lat?: number
-          p_near_lng?: number
-          p_query: string
-        }
-        Returns: {
-          curated: boolean
-          discharge_cfs: number
-          flow_percentile: number
-          gauge_height_ft: number
-          id: string
-          lat: number
-          lng: number
-          name: string
-          reading_timestamp: string
-          site_id: string
-        }[]
-      }
+      search_gauges:
+        | {
+            Args: {
+              p_limit?: number
+              p_near_lat?: number
+              p_near_lng?: number
+              p_query: string
+            }
+            Returns: {
+              curated: boolean
+              discharge_cfs: number
+              flow_percentile: number
+              gauge_height_ft: number
+              id: string
+              lat: number
+              lng: number
+              name: string
+              reading_timestamp: string
+              site_id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_limit: number
+              p_near_lat?: number
+              p_near_lng?: number
+              p_offset: number
+              p_query: string
+            }
+            Returns: {
+              curated: boolean
+              discharge_cfs: number
+              flow_percentile: number
+              gauge_height_ft: number
+              id: string
+              lat: number
+              lng: number
+              name: string
+              reading_timestamp: string
+              site_id: string
+            }[]
+          }
       set_access_point_miles_from_geometry: {
         Args: { p_force?: boolean; p_river_id: string }
         Returns: number
@@ -3722,6 +4239,15 @@ export type Database = {
           distance_from_original_meters: number
           river_mile: number
           snapped_point: unknown
+        }[]
+      }
+      trust_apply_reconcile: { Args: { p_payload: Json }; Returns: Json }
+      trust_schema_invariants: {
+        Args: never
+        Returns: {
+          detail: string
+          invariant_key: string
+          ok: boolean
         }[]
       }
       try_cron_lock: {
