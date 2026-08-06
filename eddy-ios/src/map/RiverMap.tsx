@@ -336,8 +336,24 @@ export interface MapPin {
   codeLabel?: string;
   /** The headline number: a gauge's reading, in its own unit. */
   value?: string | null;
-  /** Prose — a hazard's description and portage note. */
+  /** Prose — a hazard's description, a service's blurb, a gauge's qualifier. */
   body?: string | null;
+  /**
+   * The one thing on this pin that tells you to DO something.
+   *
+   * Today that is a hazard's portage note, and it used to be joined onto the
+   * front of `body` — so the only instruction Eddy ever gives a paddler was
+   * rendered by the slot built for descriptions: muted grey, body weight,
+   * directly above two more paragraphs written in the same ink. Sorting it
+   * first inside a joined string is not rank; it is a hope that the reader
+   * notices the first sentence.
+   *
+   * Its own field for exactly the reason `availability` became one — the note
+   * on that field says a fact smuggled through a renderer meant for prose is a
+   * data-path bug rather than a styling one, and this is the same bug in the
+   * same file.
+   */
+  instruction?: string | null;
   /**
    * Live campsite availability, for a campground pin that has any.
    *
@@ -881,9 +897,18 @@ export function RiverMap({
           color: conditionColor(code),
           code,
           codeLabel: severityLabel(h.severity),
-          // The portage instruction leads: it is the only part of a hazard that
-          // is an instruction rather than a description.
-          body: [portage, h.description, h.seasonalNotes].filter(Boolean).join('\n\n') || null,
+          // ── THE PORTAGE IS NOT A DESCRIPTION ─────────────────────────────
+          // It used to lead this joined string, on the argument that it is the
+          // only part of a hazard that is an instruction rather than a
+          // description. That argument was right and the mechanism was wrong:
+          // being first in a string handed to the prose renderer buys nothing
+          // but position, and the reader met "carry left of the chute" in the
+          // same muted grey as the two paragraphs under it.
+          //
+          // Its own field now, drawn as its own block. Same correction the
+          // availability line already got, in the same file — see MapPin.
+          instruction: portage,
+          body: [h.description, h.seasonalNotes].filter(Boolean).join('\n\n') || null,
         };
       }), [hazards]);
 

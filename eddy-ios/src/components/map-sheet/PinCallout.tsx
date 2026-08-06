@@ -358,6 +358,28 @@ export function PinCallout({
         today={localToday()}
       />
 
+      {/* ── THE ONE THING TO DO, ABOVE EVERYTHING TO KNOW ─────────────────
+          A hazard's portage note. It arrived joined onto the front of `body`
+          and was therefore drawn by the prose slot below — muted grey, body
+          weight, indistinguishable from the description and the seasonal notes
+          that followed it. Leading a joined string is position, not rank.
+
+          Its own block, in the text ink rather than the muted one, and above
+          the description rather than inside it. This is the only sentence Eddy
+          ever addresses to a paddler as an instruction, and on a low-water dam
+          it is the sentence the layer exists for.
+
+          No heading: "Portage" over one line would spend more height on naming
+          the fact than on the fact. The severity chip above already says what
+          kind of thing this is. */}
+      {pin.instruction ? (
+        <View style={[styles.calloutInstruction, { borderLeftColor: colors.border }]}>
+          <Text style={[styles.calloutInstructionText, { color: colors.text }]}>
+            {pin.instruction}
+          </Text>
+        </View>
+      ) : null}
+
       {pin.body ? (
         <Text style={[styles.calloutBody, { color: colors.textMuted }]}>{pin.body}</Text>
       ) : null}
@@ -492,6 +514,17 @@ const styles = StyleSheet.create({
   calloutChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
   calloutChipText: { ...t.sm, fontFamily: fonts.semibold },
   calloutBody: { ...t.sm, fontFamily: fonts.body, marginTop: 9 },
+  // A hairline spine rather than a filled card: this sits directly under a
+  // severity chip that is already tinted, and a second coloured block would
+  // compete with the one signal that carries the danger. The rule and the
+  // medium weight are enough to separate an instruction from the prose under
+  // it. Colours are applied inline from useTheme — see app-theme.test.ts.
+  calloutInstruction: {
+    marginTop: 10,
+    paddingLeft: 10,
+    borderLeftWidth: 2,
+  },
+  calloutInstructionText: { ...t.sm, fontFamily: fonts.medium },
   calloutUpdated: { ...t.sm, fontFamily: fonts.body, marginTop: 10 },
   // At most two, equal width. On the narrowest phone that is ~162pt each,
   // which fits every label this callout has without abbreviating one.
