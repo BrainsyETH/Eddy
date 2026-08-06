@@ -34,13 +34,33 @@
 // categorical in the strip is still SHAPE, for the reason NightStrip's header
 // gives at length.
 //
-// ── Fixed height on purpose ───────────────────────────────────────────────
+// ── ONE HEIGHT, WHATEVER THE DATA SAYS ────────────────────────────────────
 //
-// This is drawn in the collapsed sheet, inside PeekSlot's reservation. A card
-// that were 96pt on one campground and 130pt on the next would move the sheet's
-// top edge from pin to pin, which is the defect the slot exists to prevent — so
-// the strip is always drawn when there is a card at all, and the caption is one
-// line. See peekSlot.ts, AVAILABILITY_SLOT_HEIGHT.
+// This is drawn in the collapsed sheet inside GlanceSlot's reservation, and the
+// reservation is made by mounting THIS COMPONENT with placeholder content. That
+// only works if the card's height is independent of what it is showing, and the
+// first version was not — it had three:
+//
+//   count + caption            106pt
+//   no count + caption         109pt   (`full`, `not_yet_released`)
+//   no count, no caption        91pt   (`closed`)
+//
+// `availabilityHero` returns `count: null` for closed / not-yet-bookable /
+// fully-booked, which swapped the headline to a larger style, and `closed`
+// returns an empty caption, which removed a line. So the peek moved by a
+// different amount for each campground — and a declared constant could not have
+// been right for any of them, let alone at an accessibility text size.
+//
+// Three rules keep it to one height now, and each costs something small:
+//
+//   - ONE headline style. The no-count phrasing used to be a size larger; the
+//     well, the rail and the Fredoka count carry that rank already.
+//   - The caption line is ALWAYS rendered, falling back to a space so the line
+//     box exists. Do not "tidy" that away.
+//   - The strip's vertical space is always reserved. When there are no bars it
+//     is left blank rather than drawn as fourteen empty columns, because empty
+//     columns make a claim ("we looked and found nothing") that blank space
+//     does not. See NightStrip's header.
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -60,6 +80,8 @@ export function CampgroundAvailability({
   name,
   today,
   onPress,
+  pending = false,
+  pendingLabel,
 }: {
   availability: CampsiteAvailabilitySummary | null | undefined;
   name?: string;
@@ -67,15 +89,38 @@ export function CampgroundAvailability({
   today: string;
   /** Opens the tab where the nights are 44pt chips instead of a chart. */
   onPress?: () => void;
+  /**
+   * Draw the card's SHAPE with nothing in it yet.
+   *
+   * This is how GlanceSlot reserves height: it mounts the very component that
+   * will fill the space, so the reservation is right by construction at any text
+   * size instead of being a number somebody worked out once and got wrong. Every
+   * element that contributes height is still rendered.
+   */
+  pending?: boolean;
+  /**
+   * What the empty card says.
+   *
+   * Defaults to the waiting copy. The caller overrides it once the request has
+   * SETTLED with nothing, because "Checking campsites…" that never resolves is
+   * worse than the absence it replaced — most campgrounds are not linked to a
+   * booking system Eddy can read, and that is a fact about them rather than a
+   * stall.
+   */
+  pendingLabel?: string;
 }) {
   const { colors } = useTheme();
 
-  const hero = availabilityHero(availability, name);
-  if (!hero) return null;
+  const hero = pending ? null : availabilityHero(availability, name);
+  if (!pending && !hero) return null;
 
+  // Works for absent availability too: nightBars returns the fortnight with
+  // every mark 'none', which is a bare date ruler — weekday letters and no drawn
+  // columns. That is what makes the strip's height right in the pending state
+  // and at any text size, where a declared constant could only ever be right at
+  // one of them.
   const bars = nightBars(availability, today);
-  const hasStrip = bars.some((bar) => bar.mark !== 'none');
-  const spoken = availabilityVoiceOver(availability, today, name);
+  const spoken = pending ? null : availabilityVoiceOver(availability, today, name);
 
   const body = (
     <View style={[styles.card, { backgroundColor: colors.cardRaised }]}>
@@ -90,11 +135,14 @@ export function CampgroundAvailability({
             <EddySymbol name="campground" size={MARK} />
           </View>
 
-          {hero.count !== null ? (
+          {hero?.count != null ? (
             // allowFontScaling off on the count ALONE, as it was before this
             // card existed: at the largest accessibility size a 30pt numeral
             // grows tall enough to push the action row off the peek, and the
             // words beside it — which DO scale — already carry the meaning.
+            //
+            // Its absence cannot change the card's height: the words beside it
+            // are two lines and always taller than this one numeral.
             <Text style={[styles.count, { color: colors.text }]} allowFontScaling={false}>
               {hero.count}
             </Text>
@@ -102,29 +150,32 @@ export function CampgroundAvailability({
 
           <View style={styles.words}>
             <Text
-              style={[hero.count !== null ? styles.label : styles.phrase, { color: colors.text }]}
+              style={[styles.label, { color: pending ? colors.textSubtle : colors.text }]}
               numberOfLines={1}
             >
-              {hero.headline}
+              {hero ? hero.headline : (pendingLabel ?? 'Checking campsites…')}
             </Text>
-            {hero.detail || hero.caption ? (
-              <Text style={[styles.caption, { color: colors.textMuted }]} numberOfLines={1}>
-                {[hero.detail, hero.caption].filter(Boolean).join(' · ')}
-              </Text>
-            ) : null}
+            {/* ALWAYS RENDERED — see the header. The space is what keeps the
+                line box alive for `closed`, which carries neither a detail nor
+                a caption, and without it this card is a line shorter than the
+                one the slot reserved for it. */}
+            <Text style={[styles.caption, { color: colors.textMuted }]} numberOfLines={1}>
+              {(hero ? [hero.detail, hero.caption].filter(Boolean).join(' · ') : '') || ' '}
+            </Text>
           </View>
         </View>
 
-        {/* Nothing measured means nothing to draw. Fourteen empty columns would
-            say "we looked and found nothing", which is a different claim. */}
-        {hasStrip ? (
-          <NightStrip bars={bars} height={STRIP_HEIGHT_TALL} label={spoken} />
-        ) : null}
+        {/* Always drawn, and it does not overclaim when it has nothing: a bar
+            with mark 'none' paints no track and no dash, so an unmeasured
+            fortnight is weekday letters and empty air. That is different from
+            fourteen EMPTY TRACKS, which would say "we looked and every night is
+            taken" — see NightStrip, which encodes all four states in shape. */}
+        <NightStrip bars={bars} height={STRIP_HEIGHT_TALL} label={spoken} />
       </View>
     </View>
   );
 
-  if (!onPress) return body;
+  if (!onPress || pending) return body;
 
   return (
     <Pressable
@@ -134,7 +185,7 @@ export function CampgroundAvailability({
       // The card's whole utterance, then what tapping it does. NightStrip's own
       // label is suppressed by this element owning the subtree — one VoiceOver
       // stop for one object, never fourteen columns and a number.
-      accessibilityLabel={spoken ?? hero.headline}
+      accessibilityLabel={spoken ?? hero?.headline}
       accessibilityHint="Opens campsite availability"
     >
       {body}
@@ -156,8 +207,11 @@ const styles = StyleSheet.create({
   },
   count: { ...t['2xl'], fontFamily: fonts.display },
   words: { flex: 1, minWidth: 0 },
+  // ONE headline style for every state — "59 open", "Fully booked" and
+  // "Checking campsites…" are all drawn here. There used to be a larger
+  // `phrase` variant for the count-less states, which made the card 3pt taller
+  // on exactly the campgrounds that have no number, and the slot could not
+  // predict which it was about to get.
   label: { ...t.sm, fontFamily: fonts.semibold },
-  // No count means the headline IS the sentence, so it takes the larger size.
-  phrase: { ...t.base, fontFamily: fonts.heading },
   caption: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
 });

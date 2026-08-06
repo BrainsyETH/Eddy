@@ -38,7 +38,7 @@ import { CampgroundAvailability } from './CampgroundAvailability';
 import { accessAvailability, accessAvailabilityName } from './availabilitySource';
 import { localToday } from './availability';
 import { decisionSlot } from './peekSlot';
-import { GlanceSlot, GlanceSlotEmpty } from './GlanceSlot';
+import { GlanceSlot } from './GlanceSlot';
 import { MapSheet, type SheetMetrics } from './MapSheet';
 import { PinCallout } from './PinCallout';
 import { PlaceHead } from './PlaceHead';
@@ -64,17 +64,6 @@ import {
 } from './GaugeSheet';
 import { gaugeTabs, type GaugePinFacts, type GaugeTabKey } from './gaugeTabs';
 
-/**
- * Where a pin selection came from.
- *
- * Recorded at the point of selection rather than inferred later, because the
- * two things it distinguishes are indistinguishable afterwards: tapping an
- * access on the river sheet and tapping the same pin on the map both end with a
- * selected pin and a selected river. Only the first is a drill-down, and only
- * the first may offer Back.
- */
-export type PinSelectionSource = 'map' | 'river-sheet' | 'search';
-
 export interface PinSheetProps {
   pin: MapPin;
   accessPoint: MapAccessPoint | null;
@@ -95,20 +84,22 @@ export interface PinSheetProps {
   onOpenDam: (damId: string) => void;
   onOpenDetail: (route: string) => void;
   /**
-   * ── TWO CONTROLS, TWO OUTCOMES, NEVER ONE CALLBACK THAT GUESSES ─────────
+   * ── BOTH POP ONE LEVEL. THE DIFFERENCE IS THAT ONE OF THEM SAYS SO ──────
    *
-   * `onClose` used to be both. Selecting an access from the river sheet replaces
-   * it, so pressing × revealed the river sheet again — which the implementation
-   * treated as drill-down and the glyph announced as dismissal. The same control
-   * meant "go back" on one pin and "put this down" on the next, decided by state
-   * the reader could not see.
+   * `onClose` briefly did two different things — dismiss the pin, or clear the
+   * whole selection — decided by how the pin had been selected. That is one
+   * glyph meaning two outcomes based on state the reader cannot see, which is
+   * the defect this sheet's navigation was reworked to remove, and it had been
+   * reintroduced one level down.
    *
-   * onBack: null unless this selection came FROM the river sheet. Clears the pin
-   * and nothing else, so the river sheet it replaced comes back.
+   * onClose: dismisses the pin and nothing else. Whatever was underneath comes
+   * back. Clearing a river belongs to the river sheet's own ×.
    *
-   * onClose: clears the pin AND the river selection. It is the way to an
-   * unobstructed map, and since the header line above the map is gone it is now
-   * the only way to drop a river.
+   * onBack: the same outcome, offered as a named 44pt target instead of a 19pt
+   * glyph in a corner — "‹ Meramec River" says where it lands and × does not.
+   * Null when nothing was underneath, which is not the same as "no river is
+   * selected": a pin tap can SELECT the river as a side effect, and then the
+   * river sheet was never on screen to return to.
    */
   onBack?: (() => void) | null;
   /** The river Back returns to, so the control names its destination. */
@@ -135,7 +126,9 @@ export function PinSheet(props: PinSheetProps) {
   // Gauges of BOTH tiers. Null for anything else, so the hook no-ops on a pin
   // that is not a station rather than the call being made conditionally.
   const isGaugePin = pin.layer === 'gauges' || pin.layer === 'allGauges';
-  const gaugeDetail = useGaugeDetail(isGaugePin ? pin.siteId : null);
+  const { detail: gaugeDetail, status: gaugeStatus } = useGaugeDetail(
+    isGaugePin ? pin.siteId : null,
+  );
 
   const gaugeFacts: GaugePinFacts | null = useMemo(() => {
     if (!isGaugePin) return null;
@@ -150,9 +143,12 @@ export function PinSheet(props: PinSheetProps) {
       codeLabel: pin.codeLabel ?? null,
       updatedAt: pin.updatedAt ?? null,
       qualifierNote: null,
-      riverCount: gaugeDetail?.thresholds?.length ?? 0,
     };
-  }, [isGaugePin, pin, gaugeDetail]);
+    // gaugeDetail is deliberately NOT a dependency, and there is deliberately no
+    // field here that would need it. Every fact is on the pin, so `gTabs` below
+    // is settled on the first frame and the tab bar cannot rearrange itself
+    // while the reader is using it. See gaugeTabs' header.
+  }, [isGaugePin, pin]);
 
   const gTabs = useMemo(() => (gaugeFacts ? gaugeTabs(gaugeFacts) : []), [gaugeFacts]);
 
@@ -282,6 +278,7 @@ export function PinSheet(props: PinSheetProps) {
     const shared = {
       facts: gaugeFacts,
       detail: gaugeDetail,
+      status: gaugeStatus,
       onOpenGauge: props.onOpenGauge,
       onOpenRiver: props.onOpenRiver,
     };
@@ -428,9 +425,10 @@ function PinSheetHeader({
   return (
     <View style={styles.header}>
       {/* ── BACK, and only when there is somewhere to go back TO ───────────
-          Present only for a selection that came from the river sheet — see
-          PinSelectionSource, and why that cannot be inferred from a river
-          simply being selected.
+          Present only when a river sheet was genuinely on screen before this
+          pin — which is NOT the same as a river being selected, because a pin
+          tap can select the river itself. The caller records that at selection
+          time; see revealsRiverSheet on the Map tab.
 
           A 44pt LAID-OUT target, not a 24pt row that looks like one. The
           compact look is a styling choice and the target is not: this sheet
@@ -483,10 +481,21 @@ function PinSheetHeader({
           exception to absent-never-empty. */}
       {slot === 'water' ? (
         <GlanceSlot slot={slot} ready={detailSettled}>
-          {detail?.gaugeStatus ? (
+          {/* Three states, ONE component, so the box cannot change size between
+              them: a chip-shaped placeholder, the reading, or — when the request
+              settled with nothing — the terminal line. */}
+          {!detailSettled ? (
+            <AccessGaugeReading status={null} onOpenGauge={onOpenGauge} compact pending />
+          ) : detail?.gaugeStatus ? (
             <AccessGaugeReading status={detail.gaugeStatus} onOpenGauge={onOpenGauge} compact />
           ) : (
-            <GlanceSlotEmpty slot="water" />
+            <AccessGaugeReading
+              status={null}
+              onOpenGauge={onOpenGauge}
+              compact
+              pending
+              pendingLabel="No gauge grades this stretch"
+            />
           )}
         </GlanceSlot>
       ) : slot === 'availability' ? (
@@ -499,7 +508,17 @@ function PinSheetHeader({
               onPress={onOpenCamping}
             />
           ) : (
-            <GlanceSlotEmpty slot="availability" />
+            // Both the waiting and the settled-empty states are the card with
+            // nothing in it — same shape, so no movement either way in.
+            <CampgroundAvailability
+              availability={null}
+              name={availabilityName}
+              today={localToday()}
+              pending
+              pendingLabel={
+                detailSettled ? 'No live availability here' : undefined
+              }
+            />
           )}
         </GlanceSlot>
       ) : gaugeFacts ? (

@@ -161,13 +161,43 @@ export function AccessGaugeReading({
   status,
   onOpenGauge,
   compact = false,
+  pending = false,
+  pendingLabel,
 }: {
   status: AccessPointGaugeStatus | null | undefined;
   onOpenGauge: (siteId: string) => void;
   /** One line, for the peek. Two, for a tab. */
   compact?: boolean;
+  /**
+   * Draw the row's SHAPE with nothing in it yet.
+   *
+   * The peek reserves this row's height by mounting it (see GlanceSlot), and a
+   * plain line of text would reserve the wrong thing: the row's height comes
+   * from the CHIP, which is taller than its own text by its padding and border.
+   * So the placeholder is a chip too.
+   */
+  pending?: boolean;
+  pendingLabel?: string;
 }) {
   const { colors, isDark } = useTheme();
+
+  if (pending) {
+    return (
+      <View style={[compact ? styles.readingCompact : styles.readingBlock, styles.readingRow]}>
+        <View
+          style={[
+            styles.readingChip,
+            { backgroundColor: colors.cardRaised, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.readingChipText, { color: colors.textSubtle }]} numberOfLines={1}>
+            {pendingLabel ?? 'Checking water…'}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   if (!status) return null;
 
   const reading =

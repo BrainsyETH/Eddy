@@ -86,25 +86,25 @@ export interface SlotContext {
 }
 
 /**
- * How tall each slot reserves, in points.
+ * ── THERE ARE NO HEIGHT CONSTANTS HERE, AND THAT IS THE SECOND FIX ───────
  *
- * Declared here rather than in the component so the number is visible beside the
- * rule that needs it, and so a test can assert the reservation exists at all.
+ * This module used to export WATER_SLOT_HEIGHT and AVAILABILITY_SLOT_HEIGHT for
+ * GlanceSlot to reserve with, and both were wrong. The campground card measured
+ * 106pt against a declared 96, so the `minHeight` built from it was inert and
+ * the sheet moved anyway; and the card had three different heights depending on
+ * which state availabilityHero returned, so it moved by a different amount per
+ * campground.
  *
- * These are FLOORS the filled state must also honour: the reserved box and the
- * real content are given the same minHeight, so content shorter than the
- * reservation is padded rather than snapping the sheet shorter. Content TALLER
- * than the reservation would still move the peek, which is why the water row is
- * a single line by construction and the availability card is fixed-height.
+ * The deeper problem is that no number could have been right. The height being
+ * predicted depends on the reader's TEXT SIZE, which is a runtime property — a
+ * constant correct at the default is wrong at every accessibility size, in the
+ * direction that pushes the action row off the peek.
+ *
+ * GlanceSlot reserves by MOUNTING the real component in a pending mode instead,
+ * so the reservation is the thing it is reserving for. Deciding WHICH fact is
+ * still this module's job and is still detail-free; predicting how tall it will
+ * be never was answerable here.
  */
-export const WATER_SLOT_HEIGHT = 30;
-export const AVAILABILITY_SLOT_HEIGHT = 96;
-
-export function slotHeight(slot: DecisionSlot): number {
-  if (slot === 'water') return WATER_SLOT_HEIGHT;
-  if (slot === 'availability') return AVAILABILITY_SLOT_HEIGHT;
-  return 0;
-}
 
 /**
  * Which fact this pin's peek reserves room for.

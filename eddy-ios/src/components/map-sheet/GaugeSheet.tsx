@@ -43,11 +43,14 @@ import { flowBandSentence } from '@/theme/flow';
 import { flowBand } from '@eddy/conditions/flow-band';
 import { GaugeChart } from '@/components/GaugeChart';
 import { Absent, Fact, LinkRow, Prose, Section } from './sections';
+import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 import type { GaugePinFacts } from './gaugeTabs';
 
 export interface GaugeTabProps {
   facts: GaugePinFacts;
   detail: GaugeDetail | null;
+  /** Whether the one request behind these tabs is pending, done or failed. */
+  status: DetailStatus;
   onOpenGauge: (siteId: string) => void;
   onOpenRiver: (slug: string) => void;
 }
@@ -124,7 +127,7 @@ export function GaugeReadingRow({
 
 /* ── Levels — curated only ──────────────────────────────────────────────── */
 
-export function GaugeLevelsTab({ facts, detail, onOpenRiver }: GaugeTabProps) {
+export function GaugeLevelsTab({ facts, detail, status, onOpenRiver }: GaugeTabProps) {
   const { colors } = useTheme();
   const links = detail?.thresholds ?? [];
   // A river with no slug has no screen to open, so it is named by its ladder
@@ -132,6 +135,14 @@ export function GaugeLevelsTab({ facts, detail, onOpenRiver }: GaugeTabProps) {
   const openable = links.filter((link) => link.riverSlug);
 
   if (!links.length) {
+    // ── TOLD APART BY WHY ─────────────────────────────────────────────────
+    // This tab now exists from the first frame for every curated station — see
+    // gaugeTabs — so it is on screen for the whole of its own request. Saying
+    // "not rated against a river yet" during that window would have every
+    // Eddy-rated gauge in the state deny its own ladder for half a second, and
+    // a reader who swiped here early would take that as the answer.
+    if (status === 'loading') return <Absent>Loading levels…</Absent>;
+    if (status === 'failed') return <Absent>Levels unavailable right now.</Absent>;
     return <Absent>Eddy has not rated this station against a river yet.</Absent>;
   }
 

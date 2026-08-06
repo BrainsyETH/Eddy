@@ -87,7 +87,6 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { mapAccessPointPin, RiverMap, type MapPin } from '@/map/RiverMap';
 import { placeSymbol } from '@/components/map-sheet/placeSymbol';
-import type { PinSelectionSource } from '@/components/map-sheet/PinSheet';
 import { mapUnavailableReason } from '@/map/runtime';
 import {
   drawnAsAccessPoint,
@@ -324,19 +323,29 @@ export default function MapScreen() {
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   /**
-   * WHERE the current pin selection came from — recorded, never inferred.
+   * Whether dismissing this pin will reveal a river sheet the reader was just
+   * looking at — which is what earns the Back control.
    *
-   * The pin sheet offers Back only when it replaced the river sheet, and the
-   * tempting test for that is "is a river still selected". It is wrong: a reader
-   * can select a river and then tap a pin directly on the map, and both routes
-   * end in the same setSelectedPin with the same river held. Inferring would
-   * have offered Back to somebody who had never been on the river sheet, and
-   * sent them somewhere they had not come from.
+   * ── Why this is not `Boolean(riverSheetData)` ────────────────────────────
    *
-   * So the source is passed in at each entry point. There are three, and they
-   * are genuinely different intentions.
+   * Because a river being selected does not mean the reader ever saw its sheet.
+   * `onSelectPin` SELECTS THE RIVER as a side effect when the pin sits on one
+   * nobody had chosen, so tapping a put-in from the statewide map leaves exactly
+   * the same state behind as tapping one while its river's sheet was open.
+   * Offering "‹ Jacks Fork" in the first case names a place the reader has never
+   * been.
+   *
+   * ── Why it is not a three-way source either ──────────────────────────────
+   *
+   * It was, briefly: 'map' | 'river-sheet' | 'search'. That distinction earned
+   * its keep only while × cleared the whole selection stack and the two cases
+   * therefore ended differently. Now that × pops one level, HOW the pin was
+   * selected stops mattering and only WHAT IS UNDERNEATH does — and a map tap
+   * onto an already-selected river genuinely does replace a river sheet that was
+   * on screen (`riverSheetData && !selectedPin` is what renders it). So the
+   * three-way record collapsed to the one fact that decides anything.
    */
-  const [pinSource, setPinSource] = useState<PinSelectionSource>('map');
+  const [revealsRiverSheet, setRevealsRiverSheet] = useState(false);
   // Search results arrive before the selected river's access-point response.
   // Keep the identity across that fetch so choosing a result can finish by
   // opening its callout rather than merely dropping the camera nearby.
@@ -768,9 +777,9 @@ export default function MapScreen() {
       // bundle, on a river this session has not opened.
       const known = drawnAccessPoints.find((entry) => entry.point.id === result.id);
       if (known) {
-        // 'search', which gets no Back: a result came from a query, not from a
-        // sheet, so there is no surface underneath to return to.
-        setPinSource('search');
+        // No Back: a result arrives from a query, and it switches the river
+        // below it, so whatever sheet was on screen is not what × should reveal.
+        setRevealsRiverSheet(false);
         setSelectedPin(mapAccessPointPin(known.point, known.riverSlug ?? result.riverSlug));
       }
       // Set in BOTH cases, and that is load-bearing. Choosing a result switches
@@ -1550,14 +1559,23 @@ export default function MapScreen() {
    * of the screen and a pin selected near it ends up underneath.
    */
   const onSelectPin = useCallback(
-    (pin: MapPin, source: PinSelectionSource = 'map') => {
+    (pin: MapPin) => {
       const entry = accessPointForPin(pin);
-      setPinSource(source);
-      if (entry?.riverSlug && entry.riverSlug !== selectedSlug) {
-        pendingAccessSelection.current = { id: entry.point.id, riverSlug: entry.riverSlug };
-        setPickedSlug(entry.riverSlug);
+      // The river this tap would newly select, or null when it selects none —
+      // either because the pin has no river or because that river is already
+      // the chosen one. Bound once so the narrowing holds below.
+      const newRiverSlug =
+        entry?.riverSlug && entry.riverSlug !== selectedSlug ? entry.riverSlug : null;
+      // ── Was the river sheet on screen a moment ago? ──────────────────────
+      // Recorded here because it is only answerable here: a river being
+      // selected NOW proves nothing, since the branch below may be what
+      // selected it. See the state's own comment.
+      setRevealsRiverSheet(Boolean(selectedSlug) && newRiverSlug === null);
+      if (newRiverSlug && entry) {
+        pendingAccessSelection.current = { id: entry.point.id, riverSlug: newRiverSlug };
+        setPickedSlug(newRiverSlug);
         setFocus({
-          slug: entry.riverSlug,
+          slug: newRiverSlug,
           lng: pin.coordinates.lng,
           lat: pin.coordinates.lat,
           // Hold the zoom. Falling through to the focus default of 13 would fly
@@ -2021,16 +2039,12 @@ export default function MapScreen() {
               onClose={clearRiver}
               onOpenGauge={onOpenGauge}
               onOpenRiver={(slug) => router.push(`/river/${slug}`)}
-              // 'river-sheet' is what earns this selection a Back control. It
-              // is passed here and nowhere else — a map tap and a search result
-              // produce the same pin with the same river held, and neither came
-              // from a surface there is anything to return to.
+              // No source argument any more. This selection is on the river
+              // already showing, so onSelectPin's own check — "did this tap pick
+              // a new river" — answers false and records that × returns here.
               onSelectAccess={(point) => {
                 const entry = drawnAccessPoints.find((e) => e.point.id === point.id);
-                onSelectPin(
-                  mapAccessPointPin(point, entry?.riverSlug ?? riverSheetData.slug),
-                  'river-sheet',
-                );
+                onSelectPin(mapAccessPointPin(point, entry?.riverSlug ?? riverSheetData.slug));
               }}
               // Both ends at once — see planFloat, and onPlanToNearby above,
               // which had the same stale-closure bug from the same shape.
@@ -2069,25 +2083,36 @@ export default function MapScreen() {
               onOpenGauge={onOpenGauge}
               onOpenDam={onOpenDam}
               onOpenDetail={(route) => router.push(asHref(route))}
-              // ── BACK: only from the river sheet, and only up one level ────
-              // Gated on the recorded SOURCE, never on "is a river selected" —
-              // selecting a river and then tapping a pin on the map leaves the
-              // same state behind and is not a drill-down. See
-              // PinSelectionSource.
+              // ── BACK NAMES WHERE × ALREADY GOES ──────────────────────────
+              // Both pop one level, and that is the point rather than an
+              // oversight: × is a 19pt glyph in a corner that names nothing,
+              // and "‹ Meramec River" is a 44pt target that says where it
+              // lands. The original complaint was that the icon communicated
+              // dismissal rather than Back — a labelled control beside it is
+              // the answer to that, not a second behaviour.
+              //
+              // Shown only when a river sheet was genuinely on screen before
+              // this pin. See revealsRiverSheet for the case that is not true
+              // despite a river being selected.
               onBack={
-                pinSource === 'river-sheet' && riverSheetData
+                revealsRiverSheet && riverSheetData
                   ? () => {
                       setSelectedPin(null);
                       setFocus(heldCamera());
                     }
                   : null
               }
-              backLabel={pinSource === 'river-sheet' ? riverSheetData?.name ?? null : null}
-              // CLOSE: the whole selection stack, which is what an × on a sheet
-              // covering the map should mean. It clears the river too, now that
-              // the header line that used to own that is gone — otherwise a
-              // reader who dismissed everything would still be looking at one
-              // river's network with no visible way to widen it.
+              backLabel={revealsRiverSheet ? riverSheetData?.name ?? null : null}
+              // ── × POPS ONE LEVEL. ALWAYS. ────────────────────────────────
+              // It used to clear the river as well when the pin had come from
+              // the river sheet, which made one glyph mean two things decided
+              // by state the reader could not see — the exact defect this whole
+              // change set out to remove, reintroduced one level down.
+              //
+              // Dismissing a pin now never destroys a river selection: that is
+              // a separate choice, made by a separate gesture, and the river
+              // sheet has its own × for it. Getting to a bare map is two taps,
+              // which is what "pops one level" implies.
               //
               // Dropping the pin's camera override without handing the camera to
               // anything else. It used to null the focus, which on a map with no
@@ -2095,8 +2120,7 @@ export default function MapScreen() {
               // position for having shut a gauge bubble. See heldCamera.
               onClose={() => {
                 setSelectedPin(null);
-                if (pinSource === 'river-sheet') clearRiver();
-                else setFocus(heldCamera());
+                setFocus(heldCamera());
               }}
               starred={pinGauge ? isStarred('gauge', pinGauge.id) : false}
               onToggleStar={

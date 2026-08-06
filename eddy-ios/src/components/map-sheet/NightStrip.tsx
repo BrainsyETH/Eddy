@@ -57,8 +57,12 @@ export function NightStrip({
   return (
     <View
       style={styles.strip}
-      accessible
-      accessibilityRole="image"
+      // Only an element when it has something to say. With no label — an
+      // unmeasured fortnight, or the placeholder the card draws while its
+      // request is out — this is a bare date ruler, and an accessible node with
+      // no announcement is a stop on the VoiceOver path that says nothing.
+      accessible={label ? true : undefined}
+      accessibilityRole={label ? 'image' : undefined}
       accessibilityLabel={label ?? undefined}
     >
       <View style={[styles.row, { height }]}>

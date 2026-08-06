@@ -1,11 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  AVAILABILITY_SLOT_HEIGHT,
-  decisionSlot,
-  slotHeight,
-  WATER_SLOT_HEIGHT,
-} from '../../../eddy-ios/src/components/map-sheet/peekSlot';
+import { decisionSlot } from '../../../eddy-ios/src/components/map-sheet/peekSlot';
 
 // Covers eddy-ios/src/components/map-sheet/peekSlot.ts. The Expo app has no
 // runner of its own, and this rule is worth more than most: it is what keeps the
@@ -33,10 +28,9 @@ test('the access layer reserves water when the river has a gauge', () => {
 
 test('an ungauged river reserves nothing', () => {
   // The collapse case, designed out rather than animated. A river Eddy grades
-  // with nothing will never produce a reading, so reserving 30pt and then taking
-  // it back would be the same movement on a timer.
+  // with nothing will never produce a reading, so reserving space and then
+  // taking it back would be the same movement on a timer.
   assert.equal(decisionSlot(pin('access'), { riverHasGauges: false }), 'none');
-  assert.equal(slotHeight('none'), 0);
 });
 
 test('gauges, hazards and dams reserve nothing', () => {
@@ -53,21 +47,24 @@ test('an unknown layer reserves nothing rather than guessing', () => {
   assert.equal(decisionSlot(pin('somethingNew'), { riverHasGauges: true }), 'none');
 });
 
-test('every reserving slot has a non-zero height', () => {
-  // A reservation of zero is not a reservation. If either constant is ever set
-  // to 0, the peek starts moving again and nothing else in the suite would say
-  // so.
-  assert.ok(WATER_SLOT_HEIGHT > 0);
-  assert.ok(AVAILABILITY_SLOT_HEIGHT > 0);
-  assert.equal(slotHeight('water'), WATER_SLOT_HEIGHT);
-  assert.equal(slotHeight('availability'), AVAILABILITY_SLOT_HEIGHT);
-});
-
-test('the availability slot is the taller of the two', () => {
-  // It carries a headline and a fortnight of nights; the water slot is one line.
-  // If this ever inverts, one of them has stopped drawing what it claims to.
-  assert.ok(AVAILABILITY_SLOT_HEIGHT > WATER_SLOT_HEIGHT);
-});
+/*
+ * ── WHAT IS DELIBERATELY NOT TESTED HERE ─────────────────────────────────
+ *
+ * Two tests used to assert the slot HEIGHT constants were positive and ordered.
+ * They passed while the campground card was 106pt against a declared 96 — the
+ * peek moved ten points and every assertion in this file stayed green, because
+ * a constant being non-zero says nothing about whether it matches what renders.
+ *
+ * The constants are gone: GlanceSlot reserves by mounting the real component in
+ * a pending mode, so the reservation IS the thing being reserved for and there
+ * is no number left to get wrong. Nothing replaced those assertions, because
+ * nothing here can render React Native — this suite is node:test over pure .ts.
+ * The height claim is checked at run time instead, by the __DEV__ onLayout
+ * comparison in GlanceSlot, which runs on every device at every text size.
+ *
+ * If a height constant ever comes back into this module, it will need a much
+ * better answer than the two tests it deleted.
+ */
 
 test('the answer does not depend on anything that arrives late', () => {
   // THE POINT OF THE WHOLE MODULE, stated as a test rather than only as a
