@@ -1,14 +1,37 @@
 // eddy-ios/src/components/map-sheet/NightStrip.tsx
 // A fortnight of nights, as fourteen columns.
 //
-// ── Why there is no colour in this ────────────────────────────────────────
+// ── Colour, ON TOP OF the shapes rather than instead of them ──────────────
 //
-// Availability appears on the same surfaces as ConditionBadge, which owns a
-// learnable colour language: orange is high water, red is dangerous. A red
-// "fully booked" column beside a condition badge reads as a dangerous river.
-// So the strip borrows the interaction teal for FILL and encodes everything
-// else in shape — see NightMark in availability.ts. The web's AvailabilityChip
-// makes the same argument at greater length and reaches the same answer.
+// This was deliberately hueless, and the argument was good: availability shares
+// its surfaces with ConditionBadge, which owns a learnable colour language where
+// orange is high water and red is dangerous, so a red "fully booked" column
+// beside a condition badge reads as a dangerous river.
+//
+// WHAT CHANGED IS THE ADJACENCY, not the principle. The peek now reserves ONE
+// decision slot per pin (peekSlot.ts): tap a tent and you get this card and no
+// water reading, tap a put-in and you get the reading and no card. The two can
+// no longer appear together in the glance, which is where the collision was.
+// Where they still can share a screen — the access-point detail screen — the
+// condition is a bordered chip with a label on it and this is a row of small
+// bars, which is a much weaker confusion than two things sitting inches apart in
+// a peek.
+//
+// So green means open and red means booked out, which is what everyone reading a
+// booking calendar already expects.
+//
+// ── The shapes stay, and that is not belt-and-braces ──────────────────────
+//
+// Red and green are the single worst pair for the commonest colour blindness, so
+// colour is ADDED to the four marks rather than replacing them: an open night is
+// a partly filled track, a booked one is a full track, a night not offered is a
+// rule on the baseline, and an unmeasured one is blank. Read with no colour at
+// all, the strip still says everything it said before. Do not "simplify" the
+// marks away now that they are tinted.
+//
+// A closed night stays NEUTRAL. "This campground is not offering the night" and
+// "every site is taken" are different facts, and painting both red would throw
+// away a distinction the shapes are careful to keep.
 //
 // ── Why it is not tappable ────────────────────────────────────────────────
 //
@@ -70,7 +93,8 @@ export function NightStrip({
           <View key={bar.date} style={styles.column}>
             {bar.mark === 'none' ? null : bar.mark === 'dash' ? (
               // Nothing here to fill. A rule on the baseline, not an empty box:
-              // the campground is not offering this night at all.
+              // the campground is not offering this night at all. NEUTRAL on
+              // purpose — see the header for why this is not the red one.
               <View style={[styles.dash, { backgroundColor: colors.textSubtle }]} />
             ) : (
               <View
@@ -78,20 +102,29 @@ export function NightStrip({
                   styles.track,
                   {
                     backgroundColor: colors.cardRaised,
-                    // A drawn border is what separates "every site booked" from
-                    // "nothing here" without using a second colour: the empty
-                    // track is a container with nothing in it.
-                    borderColor: bar.mark === 'empty' ? colors.border : 'transparent',
+                    // ── AN OUTLINE, NOT A RED BLOCK ────────────────────────
+                    // Filling this solid was the obvious way to say "booked"
+                    // and it would have quietly broken the promise in the
+                    // header: a night with every site OPEN fills to 100%, so a
+                    // solid red column and a solid green one are the same
+                    // shape, and the strip would carry that distinction in hue
+                    // alone — the red/green pair, for the commonest colour
+                    // blindness. The empty outline is the shape that already
+                    // meant "the inventory exists and none of it is left";
+                    // colour only tells you faster.
+                    borderColor: bar.mark === 'empty' ? colors.error : 'transparent',
                   },
                 ]}
               >
                 {bar.mark === 'bar' ? (
+                  // Open, and HOW open — the fill is still proportional, so a
+                  // night with two sites left does not read like one with forty.
                   <View
                     style={[
                       styles.fill,
                       {
                         height: `${Math.round(bar.fill * 100)}%`,
-                        backgroundColor: colors.interactive,
+                        backgroundColor: colors.success,
                       },
                     ]}
                   />
@@ -137,7 +170,10 @@ const styles = StyleSheet.create({
     width: 8,
     height: '100%',
     borderRadius: 3,
-    borderWidth: 1,
+    // 1.5 rather than 1: this outline stopped being a hairline separator when it
+    // started carrying "booked out", and at eight points wide it is the whole of
+    // what that column says.
+    borderWidth: 1.5,
     justifyContent: 'flex-end',
     overflow: 'hidden',
   },
