@@ -20,8 +20,11 @@ import type {
   AccessPointDetailResponse,
   MapAccessPoint,
   NearbyAccessPoint,
+  NearbyService,
   NpsCampgroundSummary,
+  ServiceTier,
 } from '@eddy/types';
+import { serviceTiers } from '@eddy/types';
 import { AvailabilityGlance } from './AvailabilityGlance';
 import { localToday, nightChoices } from './availability';
 import { accessAvailability, accessAvailabilityName } from './availabilitySource';
@@ -546,6 +549,7 @@ export function AccessDetailsTab({ detail, onOpenDetail, status }: TabProps) {
     : null;
   const parking = parkingLabel(point.parkingCapacity);
   const tips = stripHtml(point.localTips);
+  const services = servicesByTier(detail);
 
   return (
     <View>
@@ -569,26 +573,46 @@ export function AccessDetailsTab({ detail, onOpenDetail, status }: TabProps) {
         />
       </Section>
 
-      {point.nearbyServices?.length ? (
+      {/* ── THE HEADING NOW MATCHES WHAT IS UNDER IT ──────────────────────
+          These two sections were one, titled "Outfitters and shuttles", drawn
+          from an unfiltered list — so every cabin rental Eddy has recorded
+          against a put-in was announced as a shuttle operator.
+
+          CAMPING IS NOT HERE AT ALL. Overview's "Camping nearby" draws the same
+          rows from the same field, and a reader met eleven of them twice in one
+          sheet, one swipe apart. Overview owns the question because that is
+          where it is asked; see its own note. */}
+      {services.rentals.length ? (
         <Section title="Outfitters and shuttles">
-          {point.nearbyServices.map((service) => (
-            <LinkRow
-              key={`${service.name}-${service.phone ?? service.website ?? ''}`}
-              label={service.name}
-              detail={service.phone ?? service.notes ?? null}
-              external
-              onPress={() => {
-                const url = service.phone
-                  ? `tel:${service.phone.replace(/[^\d+]/g, '')}`
-                  : service.website
-                    ? /^https?:\/\//i.test(service.website)
-                      ? service.website
-                      : `https://${service.website}`
-                    : null;
-                if (url) void Linking.openURL(url);
-              }}
-            />
-          ))}
+          {services.rentals.map((service) => {
+            const row = serviceRow(service);
+            return (
+              <LinkRow
+                key={row.key}
+                label={row.name}
+                detail={service.phone ?? row.detail}
+                external
+                onPress={row.onPress}
+              />
+            );
+          })}
+        </Section>
+      ) : null}
+
+      {services.lodging.length ? (
+        <Section title="Cabins and lodging">
+          {services.lodging.map((service) => {
+            const row = serviceRow(service);
+            return (
+              <LinkRow
+                key={row.key}
+                label={row.name}
+                detail={service.phone ?? row.detail}
+                external
+                onPress={row.onPress}
+              />
+            );
+          })}
         </Section>
       ) : null}
 
@@ -684,29 +708,65 @@ function present(value: string | null | undefined): boolean {
   return normalised !== '' && normalised !== 'no' && normalised !== 'none' && normalised !== 'unknown';
 }
 
-/** Places to sleep near this put-in, whoever runs them. */
-function nearbyCamping(detail: AccessPointDetailResponse | null) {
+/**
+ * How to reach a service: the phone if there is one, else the website.
+ *
+ * Phone first, which is the rule the whole app follows — at a put-in on one bar
+ * of signal a number you can tap beats a page you have to load. Written once
+ * because it was written twice, identically, in the two places that list these
+ * services, and a second copy is a second chance to disagree about whether a
+ * bare "example.com" needs a scheme.
+ */
+export function serviceUrl(service: NearbyService): string | null {
+  if (service.phone) return `tel:${service.phone.replace(/[^\d+]/g, '')}`;
+  if (!service.website) return null;
+  return /^https?:\/\//i.test(service.website) ? service.website : `https://${service.website}`;
+}
+
+/**
+ * The embedded services on this access point, split by what they DO.
+ *
+ * ── ONE HEADING WAS DOING THE WORK OF THREE ───────────────────────────────
+ *
+ * Place listed every entry under "Outfitters and shuttles" with no filter at
+ * all, and 28 of the 57 entries Eddy holds are not outfitters: 17 are lodging
+ * and 11 are campgrounds. So a cabin rental was announced as a shuttle
+ * operator, and — worse — the campgrounds appeared TWICE in one sheet, once
+ * here and once in Overview's "Camping nearby", which is exactly the
+ * duplication the tab consolidation existed to end.
+ *
+ * `serviceTiers` is the same rule the map layers ask. These entries carry a
+ * `type` and no `servicesOffered`, so it falls through to the kind floor — which
+ * is what that floor is for.
+ */
+function servicesByTier(detail: AccessPointDetailResponse | null) {
   const services = detail?.accessPoint?.nearbyServices ?? [];
-  return services
-    .filter((service) => service.type === 'campground')
-    .map((service) => {
-      const url = service.phone
-        ? `tel:${service.phone.replace(/[^\d+]/g, '')}`
-        : service.website
-          ? /^https?:\/\//i.test(service.website)
-            ? service.website
-            : `https://${service.website}`
-          : null;
-      return {
-        key: `service-${service.name}`,
-        name: service.name,
-        detail: [service.distance, service.notes].filter(Boolean).join(' · ') || null,
-        external: true,
-        onPress: () => {
-          if (url) void Linking.openURL(url);
-        },
-      };
-    });
+  const inTier = (tier: ServiceTier) =>
+    services.filter((service) => serviceTiers(service).includes(tier));
+  return {
+    rentals: inTier('rentals'),
+    lodging: inTier('lodging'),
+    camping: inTier('camping'),
+  };
+}
+
+/** A service as a row: name, whatever qualifies it, and a way to reach it. */
+function serviceRow(service: NearbyService) {
+  const url = serviceUrl(service);
+  return {
+    key: `service-${service.name}`,
+    name: service.name,
+    detail: [service.distance, service.notes].filter(Boolean).join(' · ') || null,
+    external: true,
+    onPress: () => {
+      if (url) void Linking.openURL(url);
+    },
+  };
+}
+
+/** Places to sleep near this put-in, whoever runs them. Overview's, and only. */
+function nearbyCamping(detail: AccessPointDetailResponse | null) {
+  return servicesByTier(detail).camping.map(serviceRow);
 }
 
 const styles = StyleSheet.create({

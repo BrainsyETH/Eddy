@@ -195,3 +195,44 @@ test('a tent pin whose Camping tab has not qualified yet lands on Overview', () 
   const tabs = accessTabs(point(), null);
   assert.equal(initialTabIndex(tabs, pin('campgrounds')), 0);
 });
+
+/* ── Place qualifies on what it draws ────────────────────────────────────── */
+
+test('a campground service alone no longer earns a Place tab', () => {
+  // Place stopped listing campgrounds when the service list was split by tier —
+  // Overview's "Camping nearby" draws them, and showing both was the exact
+  // duplication the tab consolidation existed to end. So an access point whose
+  // ONLY embedded service is a campground has nothing left for Place to draw,
+  // and a tab that promises a page and delivers an empty one is worse than no
+  // tab. Eleven access points are in this state.
+  const tabs = accessTabs(
+    point(),
+    detail({ accessPoint: { nearbyServices: [{ name: 'Bass River Resort', type: 'campground' }] } }),
+  );
+  assert.equal(tabs.some((t) => t.key === 'details'), false);
+});
+
+test('an outfitter or a lodging service still earns one', () => {
+  for (const type of ['outfitter', 'canoe_rental', 'shuttle', 'lodging']) {
+    const tabs = accessTabs(
+      point(),
+      detail({ accessPoint: { nearbyServices: [{ name: 'Akers Ferry Canoe Rental', type }] } }),
+    );
+    assert.equal(tabs.some((t) => t.key === 'details'), true, type);
+  }
+});
+
+test('a campground service beside a real Place fact still earns the tab', () => {
+  // The campground is not what qualifies it; the road surface is. Dropping the
+  // tab here would hide a fact Place is the only home for.
+  const tabs = accessTabs(
+    point(),
+    detail({
+      accessPoint: {
+        nearbyServices: [{ name: 'Bass River Resort', type: 'campground' }],
+        roadAccess: 'Gravel for the last two miles.',
+      },
+    }),
+  );
+  assert.equal(tabs.some((t) => t.key === 'details'), true);
+});

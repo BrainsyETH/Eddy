@@ -24,7 +24,7 @@
 // A tab with nothing behind it is worse than no tab: it is a promise the sheet
 // cannot keep, and the reader pays a swipe to find that out.
 import type { AccessPointDetailResponse, MapAccessPoint } from '@eddy/types';
-import { isCampground } from '@eddy/types';
+import { isCampground, serviceTiers } from '@eddy/types';
 import { accessAvailability } from './availabilitySource';
 
 /**
@@ -120,7 +120,13 @@ function hasDetails(point: NonNullable<AccessPointDetailResponse['accessPoint']>
       point.amenities?.length ||
       point.facilities ||
       point.feeNotes ||
-      point.nearbyServices?.length ||
+      // ── THE SERVICES PLACE ACTUALLY DRAWS, not all of them ───────────────
+      // Place stopped listing campgrounds — Overview owns them, and showing
+      // them in both was the duplication the tab split was for. So counting
+      // every service here would qualify the tab on rows it no longer draws,
+      // which is the "present and empty" this whole file is written to avoid.
+      // Eleven access points carry a campground and nothing else.
+      point.nearbyServices?.some((service) => !serviceTiers(service).includes('camping')) ||
       point.localTips,
   );
 }
