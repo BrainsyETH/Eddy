@@ -297,7 +297,7 @@ function checkedLine(fetchedAt: string): string {
  * has no nps_campgrounds row at all, and a tab that keyed off that would have
  * shown nothing for exactly the sites that most need describing.
  */
-export function AccessCampingTab({ detail, status, active = false }: TabProps) {
+export function AccessCampingTab({ accessPoint, detail, status, active = false }: TabProps) {
   const { colors } = useTheme();
   const point = detail?.accessPoint;
   const nps = point?.npsCampground ?? null;
@@ -313,7 +313,11 @@ export function AccessCampingTab({ detail, status, active = false }: TabProps) {
   const selectedDate = selected ?? availability?.window.startDate ?? nights[0]?.date ?? today;
 
   const [filters, setFilters] = useState<SiteFilter[]>([]);
-  const stayUrl = airbnbSearchUrl(point?.coordinates ?? null);
+  // The RESPONSE's coordinates, or the pin's. A stay search needs a point on the
+  // map and nothing else, so it has no reason to wait for a detail request —
+  // and it is the one thing still worth offering when that request brought back
+  // nothing at all.
+  const stayUrl = airbnbSearchUrl(point?.coordinates ?? accessPoint.coordinates ?? null);
 
   // Only asked for once this is the live tab — see PinSheet's call site.
   const { sites, status: sitesStatus } = useCampsiteSites(
@@ -327,7 +331,37 @@ export function AccessCampingTab({ detail, status, active = false }: TabProps) {
   );
   const counts = useMemo(() => filterCounts(entries), [entries]);
 
-  if (!point) return <Absent>{waitingCopy(status, 'Camping details')}</Absent>;
+  // ── WITHOUT THE RESPONSE, SHOW WHAT THE PIN KNOWS ───────────────────────
+  //
+  // This used to be a bare early return, so a tab that had qualified from the
+  // pin's own type tags — `isCampground(accessPoint)`, which needs no request —
+  // could offer a reader nothing at all but one line. When that line also said
+  // "Loading…" for a request that had already settled, the tab was permanently
+  // a dead end on a place Eddy plainly knows is a campground.
+  //
+  // The amenities are on the access point the map already holds, and the stay
+  // search needs only coordinates, which it also holds. Neither waits for
+  // anything. Live availability genuinely is not knowable here — it arrives only
+  // with the response — so the line below says so rather than leaving a gap.
+  if (!point) {
+    return (
+      <View>
+        <Chips labels={accessPoint.amenities ?? []} />
+        <Absent>{waitingCopy(status, 'campground details')}</Absent>
+        {stayUrl ? (
+          <Section>
+            <LinkRow
+              label={STAY_SEARCH_LABEL}
+              detail={stayRadiusLabel()}
+              external
+              symbol="campground"
+              onPress={() => void Linking.openURL(stayUrl)}
+            />
+          </Section>
+        ) : null}
+      </View>
+    );
+  }
 
   return (
     <View>
@@ -483,7 +517,7 @@ export function AccessCampingTab({ detail, status, active = false }: TabProps) {
 
 export function AccessDetailsTab({ detail, onOpenDetail, status }: TabProps) {
   const point = detail?.accessPoint;
-  if (!point) return <Absent>{waitingCopy(status, 'Details')}</Absent>;
+  if (!point) return <Absent>{waitingCopy(status, 'details')}</Absent>;
 
   const road = point.roadSurface?.length
     ? point.roadSurface.map(roadSurfaceLabel).join(', ')
@@ -562,8 +596,20 @@ export function AccessDetailsTab({ detail, onOpenDetail, status }: TabProps) {
  * neither case is an error the reader caused or can do anything about.
  */
 function waitingCopy(status: DetailStatus, subject: string): string {
-  if (status === 'failed') return `${subject} unavailable right now.`;
-  return `Loading ${subject.toLowerCase()}…`;
+  if (status === 'loading') return `Loading ${subject}…`;
+  if (status === 'failed') return `${sentence(subject)} unavailable right now.`;
+  // ── SETTLED, AND NOTHING IS COMING ──────────────────────────────────────
+  // 'idle' means no request was ever made — the pin carries no detail route —
+  // and 'ready' here means one was made and came back without an access point.
+  // Both used to fall through to "Loading…", which is a promise this tab cannot
+  // keep: the spinner-less wait never ends, and a reader watching it has no way
+  // to learn that. This is the reported bug.
+  return `Eddy has no ${subject} for this place.`;
+}
+
+/** Capitalised for the start of a sentence, since the subjects are noun phrases. */
+function sentence(subject: string): string {
+  return subject.charAt(0).toUpperCase() + subject.slice(1);
 }
 
 /** Absent for both "none" and "not recorded", which a camper reads the same. */
