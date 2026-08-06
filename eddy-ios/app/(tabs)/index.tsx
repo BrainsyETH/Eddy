@@ -1430,6 +1430,47 @@ export default function MapScreen() {
     publicLands.features,
   ]);
 
+  /**
+   * How many services each tier COULD draw, if every one of them had a location.
+   *
+   * ── A SIBLING OF layerCounts, NOT A FIELD IN IT ─────────────────────────
+   * That memo's contract is "a count of pins, and `undefined` until the layer
+   * has answered". Teaching it to also mean "of N" would overload the one rule
+   * the whole file is built around. This inherits the contract and answers a
+   * different question.
+   *
+   * ELIGIBLE BUT NOT MAPPABLE — that is the entire point. The denominator has to
+   * be the rows Eddy WOULD show if it knew where they were, so it excludes the
+   * permanently closed one (which is a policy decision, not a coverage fact) and
+   * includes the 128 with no geocode (which is exactly what the note is about).
+   * Mixing the two would smuggle closure policy into a sentence about locations.
+   *
+   * Statewide, like the services fetch itself — one call, gated on the layers
+   * rather than on a river — so these figures do not move as you pan.
+   */
+  const layerTotals = useMemo<Partial<Record<LayerKey, number>>>(() => {
+    const eligible = services?.filter(serviceEligible) ?? null;
+    if (!eligible) return {};
+    return {
+      outfitters: eligible.filter((s) => serviceOnLayer(s, 'outfitters')).length,
+      lodging: eligible.filter((s) => serviceOnLayer(s, 'lodging')).length,
+      // ── MIRRORS layerCounts' CAMPGROUND BRANCH, both halves ─────────────
+      // That row draws access points tagged `campground` as well as campground
+      // services, and every access point has coordinates. A denominator of
+      // services alone would therefore be SMALLER than the row's own count —
+      // "74 of 44" — so the note would silently never render and the coverage
+      // gap would stay invisible on the layer that has one.
+      //
+      // Un-geocoded duplicates cannot be detected (drawnAsAccessPoint needs a
+      // coordinate to compare), so this total is pessimistic by however many
+      // of the 30 un-geocoded campground services are the same place as a
+      // put-in. Pessimistic is the right direction: it under-claims coverage.
+      campgrounds:
+        drawnAccessPoints.filter((entry) => isCampground(entry.point)).length +
+        eligible.filter((s) => serviceOnLayer(s, 'campgrounds')).length,
+    };
+  }, [services, drawnAccessPoints]);
+
   const conditionCode = drawn?.currentCondition?.code ?? 'unknown';
 
   /**
@@ -2261,6 +2302,35 @@ export default function MapScreen() {
                 text={`${PUBLIC_LAND_OWNERSHIP_NOTE} ${PUBLIC_LAND_ATTRIBUTION}.`}
               />
             );
+          }
+          // ── WHAT THE LAYER IS NOT SHOWING ─────────────────────────────
+          // 128 of the 156 services in Eddy's directory have no confirmed
+          // location, so the Rentals tier draws 12 pins where somebody who
+          // knows the river expects 70. That is the CORRECT behaviour — see
+          // map/mappable.ts, which measured three geocoder near-misses that
+          // each landed on a real but DIFFERENT business, up to 71 miles away —
+          // but a layer that silently draws a sixth of what it promises reads
+          // as broken rather than as careful.
+          //
+          // The clause after the dash is the whole sentence's job. Without it
+          // the reader concludes Eddy's map is faulty instead of that Eddy
+          // declined to guess, and every one of these is still reachable in the
+          // river page's services directory.
+          //
+          // Per tier rather than per row, because renderLayerDetail already
+          // fires per tier and the two are not alike: rentals is 12 of 70 and
+          // cabins is 2 of 41. One combined figure would hide which is thin.
+          if (on && (key === 'outfitters' || key === 'lodging' || key === 'campgrounds')) {
+            const mapped = layerCounts[key];
+            const total = layerTotals[key];
+            // Both halves, or neither. A note comparing a loaded number to an
+            // unloaded one is a note that will change under the reader's eyes,
+            // which is the rule layerCounts already follows for its own zeroes.
+            return mapped != null && total != null && total > mapped ? (
+              <LayerNote
+                text={`${mapped} of ${total} mapped — the rest have no confirmed location.`}
+              />
+            ) : null;
           }
           return key === 'allGauges' && on ? (
             <GaugeFilterBar
