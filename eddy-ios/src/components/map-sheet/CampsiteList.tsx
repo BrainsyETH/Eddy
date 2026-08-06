@@ -19,7 +19,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { spokenWeekday } from './availability';
-import { groupSites, stateLabel, type LoopGroup, type SiteOnNight } from './siteList';
+import {
+  groupSites,
+  stateLabel,
+  summariseByKind,
+  type LoopGroup,
+  type SiteOnNight,
+} from './siteList';
 
 /** Rows per loop before the list asks whether you meant it. */
 const VISIBLE_PER_LOOP = 12;
@@ -66,11 +72,55 @@ function SiteRow({ entry, date }: { entry: SiteOnNight; date: string }) {
   );
 }
 
+/**
+ * The same inventory as counts, for a feed whose sites link nowhere.
+ *
+ * See summariseByKind. Two lines instead of sixty-four, and nothing is lost:
+ * the rows it replaces carried a number, a name repeated verbatim down the
+ * column, and no destination.
+ */
+function KindSummaries({ group, date }: { group: LoopGroup; date: string }) {
+  const { colors } = useTheme();
+  const summaries = summariseByKind([...group.open, ...group.taken]);
+  if (!summaries.length) return null;
+
+  return (
+    <View>
+      {summaries.map((summary) => (
+        <View key={summary.kind} style={styles.summaryRow}>
+          <Text style={[styles.rowLabel, { color: colors.text }]} numberOfLines={1}>
+            {summary.kind}
+          </Text>
+          <Text
+            style={[
+              styles.summaryCount,
+              { color: summary.open > 0 ? colors.success : colors.textSubtle },
+            ]}
+            // One utterance for the pair, or VoiceOver reads a name and a
+            // fragment as two unrelated stops.
+            accessibilityLabel={`${summary.kind}, ${summary.open} of ${summary.total} open ${spokenWeekday(date)}`}
+          >
+            {summary.open} of {summary.total} open
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function Loop({ group, date }: { group: LoopGroup; date: string }) {
   const { colors } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const shown = expanded ? group.open : group.open.slice(0, VISIBLE_PER_LOOP);
   const hidden = group.open.length - shown.length;
+
+  // ── A ROW IS A LINK. WITHOUT ONE IT IS A NUMBER ─────────────────────────
+  // Every site row here deep-links to that site's own booking page, which is
+  // what makes it worth a 44pt target. UseDirect — every Missouri State Park —
+  // publishes no per-unit URL, so those rows lead nowhere, and Onondaga rendered
+  // as dozens of untappable lines reading "Basic #001", "Basic #002". The counts
+  // say the same thing in two lines and are honest about what Eddy has.
+  const tappable = group.open.some((entry) => Boolean(entry.site.bookingUrl));
 
   return (
     <View style={styles.loop}>
@@ -78,11 +128,13 @@ function Loop({ group, date }: { group: LoopGroup; date: string }) {
         <Text style={[styles.loopName, { color: colors.textMuted }]}>{group.loop}</Text>
       ) : null}
 
-      {shown.map((entry) => (
-        <SiteRow key={entry.site.id} entry={entry} date={date} />
-      ))}
+      {!tappable ? <KindSummaries group={group} date={date} /> : null}
 
-      {hidden > 0 ? (
+      {tappable
+        ? shown.map((entry) => <SiteRow key={entry.site.id} entry={entry} date={date} />)
+        : null}
+
+      {tappable && hidden > 0 ? (
         <Pressable
           onPress={() => setExpanded(true)}
           style={({ pressed }) => [styles.more, { opacity: pressed ? 0.6 : 1 }]}
@@ -95,12 +147,14 @@ function Loop({ group, date }: { group: LoopGroup; date: string }) {
       ) : null}
 
       {/* Booked, closed and unreleased all mean "not tonight" to somebody
-          scrolling for a bed, and none of them is worth a row of its own. */}
-      {group.takenCount > 0 ? (
+          scrolling for a bed, and none of them is worth a row of its own.
+          Suppressed under the summary, which already carries them as its
+          denominator — "+28 taken" beneath "Basic 12 of 40" counts them twice. */}
+      {tappable && group.taken.length > 0 ? (
         <Text style={[styles.taken, { color: colors.textSubtle }]}>
           {group.open.length === 0
-            ? `All ${group.takenCount} taken`
-            : `+${group.takenCount} taken`}
+            ? `All ${group.taken.length} taken`
+            : `+${group.taken.length} taken`}
         </Text>
       ) : null}
     </View>
@@ -147,6 +201,16 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, minWidth: 0 },
   rowLabel: { ...t.sm, fontFamily: fonts.medium },
   rowDetail: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
+  // Not 44: these are not controls, and a facility with six kinds should not
+  // spend 264pt saying so.
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 10,
+    minHeight: 26,
+  },
+  summaryCount: { ...t.sm, fontFamily: fonts.semibold },
   more: { minHeight: 44, justifyContent: 'center' },
   moreText: { ...t.sm, fontFamily: fonts.semibold },
   taken: { ...t.xs, fontFamily: fonts.body, marginTop: 4 },

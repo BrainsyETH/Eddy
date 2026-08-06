@@ -100,8 +100,13 @@ export interface LoopGroup {
   /** Null becomes this, so a facility with no loops still renders one group. */
   loop: string | null;
   open: SiteOnNight[];
-  /** Booked, closed and unreleased collapse to counts — nobody scrolls those. */
-  takenCount: number;
+  /**
+   * Booked, closed and unreleased. Never rendered as rows — nobody scrolls
+   * those — but KEPT rather than only counted, because the per-kind summary
+   * needs a denominator: "Basic 12 of 40" is a different claim from "Basic 12",
+   * and the 28 it does not mention are exactly these.
+   */
+  taken: SiteOnNight[];
 }
 
 /**
@@ -129,7 +134,7 @@ export function groupSites(
 
   for (const entry of entries) {
     const key = entry.site.loop ?? '';
-    const group = byLoop.get(key) ?? { loop: entry.site.loop, open: [], takenCount: 0 };
+    const group = byLoop.get(key) ?? { loop: entry.site.loop, open: [], taken: [] };
 
     // ── The filter decides what the WHOLE group is about ──────────────────
     // Both halves are filtered, or the row lies. Filtering to RV and counting
@@ -144,7 +149,7 @@ export function groupSites(
     } else if (entry.state !== 'unknown') {
       // Booked, closed and unreleased are all "not tonight" to a reader
       // scrolling for somewhere to sleep, and none of them is worth a row.
-      group.takenCount++;
+      group.taken.push(entry);
     }
 
     byLoop.set(key, group);
@@ -158,13 +163,81 @@ export function groupSites(
   }
 
   return groups
-    .filter((group) => group.open.length > 0 || group.takenCount > 0)
+    .filter((group) => group.open.length > 0 || group.taken.length > 0)
     .sort((a, b) => {
       // A site with no loop sorts last: it is the residue, not the headline.
       if (a.loop === null) return 1;
       if (b.loop === null) return -1;
       return naturalCompare(a.loop, b.loop);
     });
+}
+
+/**
+ * What KIND of site this is, when the feed did not say.
+ *
+ * ── Why the name has to be read at all ───────────────────────────────────
+ *
+ * `site_type` is how a site declares itself and recreation.gov fills it in.
+ * Missouri State Parks does not: every one of Onondaga's 64 sites and every one
+ * of Meramec's 197 arrives with a null type and a name like "Basic #001" or
+ * "Electric #012". So the type filters counted zero, every chip disappeared, and
+ * the list rendered as dozens of rows distinguishable only by a number.
+ *
+ * The kind is in the name for those feeds, and reading it is the difference
+ * between a wall of numbers and "Basic — 12 open". Derived, never stored: this
+ * is a presentation guess about one source's naming, and a guess belongs at the
+ * point of display rather than in the database.
+ *
+ * Returns null when the name is only a number, which is what recreation.gov's
+ * own sites look like — those have a real `siteType` and never reach here.
+ */
+export function siteKind(site: { name: string | null; siteType: string | null }): string | null {
+  if (site.siteType) return site.siteType;
+  const name = site.name?.trim();
+  if (!name) return null;
+  // Everything before the first digit or '#', which is where the number starts.
+  const head = name.split(/[#\d]/)[0]?.trim();
+  return head && head.length > 1 ? head : null;
+}
+
+/** One kind of site, and how much of it is left. */
+export interface KindSummary {
+  kind: string;
+  open: number;
+  total: number;
+}
+
+/**
+ * The inventory as a handful of counts rather than a list of numbers.
+ *
+ * ── When a row stops being worth drawing ─────────────────────────────────
+ *
+ * A site row exists to be TAPPED — it deep-links to that exact site's booking
+ * page. UseDirect, which is every Missouri State Park, has no per-unit URL at
+ * all (see bookingUrl in the web tree), so those rows link nowhere: sixty-four
+ * numbers in a sheet, none of them a control, above the link that could actually
+ * book any of them.
+ *
+ * Counts per kind are what is left that is true and useful — "Basic 12 of 40" is
+ * the whole of what Eddy knows about that feed, said in one line instead of
+ * forty. CampsiteList picks this path when nothing in the group is tappable.
+ */
+export function summariseByKind(entries: SiteOnNight[]): KindSummary[] {
+  const byKind = new Map<string, KindSummary>();
+
+  for (const entry of entries) {
+    if (entry.state === 'unknown') continue;
+    const kind = siteKind(entry.site) ?? 'Sites';
+    const summary = byKind.get(kind) ?? { kind, open: 0, total: 0 };
+    summary.total++;
+    if (isBookable(entry)) summary.open++;
+    byKind.set(kind, summary);
+  }
+
+  // Most inventory first, so the kind somebody is most likely to get leads.
+  return [...byKind.values()].sort(
+    (a, b) => b.total - a.total || naturalCompare(a.kind, b.kind),
+  );
 }
 
 /** How many bookable sites each filter would leave, for the chip's count. */
