@@ -49,16 +49,19 @@ test('before the request lands there is only Overview', () => {
   assert.deepEqual(tabs.map((t) => t.key), ['overview']);
 });
 
-test('a gauge status earns the Conditions tab', () => {
+test('a gauge status earns no tab, because the reading is in the glance', () => {
+  // The peek reserves a slot for the reading and fills it in place (peekSlot.ts),
+  // and the peek is visible from every tab. What the Conditions tab added on top
+  // was a trend, a timestamp and an "Open gauge" row duplicating the tap target
+  // the reading block already was — two facts and a repeat, which is not a
+  // destination. The two facts are on Overview.
   const tabs = accessTabs(point(), detail({ gaugeStatus: { level: 'good' } }));
-  assert.ok(tabs.some((t) => t.key === 'conditions'));
-});
-
-test('no gauge means no Conditions tab at all', () => {
-  // Absent, not present-and-empty: many put-ins genuinely have no gauge, and a
-  // tab leading to "no reading" costs a swipe to learn nothing.
-  const tabs = accessTabs(point(), detail());
-  assert.ok(!tabs.some((t) => t.key === 'conditions'));
+  // Widened to string, because `key` is typed TabKey and 'conditions' has left
+  // that union — a compile error there is a real signal, but it would also stop
+  // this runtime assertion from ever running. Both halves matter: the union no
+  // longer offers the key, and the builder no longer emits it.
+  assert.ok(!tabs.some((t) => (t.key as string) === 'conditions'));
+  assert.deepEqual(tabs.map((t) => t.key), ['overview']);
 });
 
 test('neighbours earn the Float trips tab', () => {
@@ -123,10 +126,18 @@ test('an ordinary put-in gets no Camping tab', () => {
   assert.ok(!tabs.some((t) => t.key === 'camping'));
 });
 
-test('Details appears only when there is something to detail', () => {
+test('Place appears only when there is something to say about the place', () => {
   assert.ok(!accessTabs(point(), detail()).some((t) => t.key === 'details'));
   const withRoad = detail({ accessPoint: { roadSurface: ['gravel_maintained'] } });
   assert.ok(accessTabs(point(), withRoad).some((t) => t.key === 'details'));
+});
+
+test('the details tab is LABELLED Place', () => {
+  // The key stays `details` — renaming it would churn every call site for a
+  // string nobody sees — but "Details" named how much there was rather than what
+  // it was about, and read as a junk drawer for road surface and parking.
+  const withRoad = detail({ accessPoint: { roadSurface: ['gravel_maintained'] } });
+  assert.equal(accessTabs(point(), withRoad).find((t) => t.key === 'details')?.label, 'Place');
 });
 
 test('tab order is fixed regardless of what qualifies', () => {
@@ -141,30 +152,26 @@ test('tab order is fixed regardless of what qualifies', () => {
       accessPoint: { roadSurface: ['gravel_maintained'] },
     }),
   );
-  assert.deepEqual(tabs.map((t) => t.key), [
-    'overview',
-    'conditions',
-    'floats',
-    'camping',
-    'details',
-  ]);
+  assert.deepEqual(tabs.map((t) => t.key), ['overview', 'floats', 'camping', 'details']);
 });
 
 test('a late tab INSERTS rather than appending, which is why index is unsafe', () => {
   // The sheet is already open when the detail request lands, and the order is
-  // fixed — so Conditions arrives to the LEFT of Camping and shifts it right.
-  // A reader parked on Camping at index 1 would be handed Conditions.
+  // fixed — so Float trips arrives to the LEFT of Camping and shifts it right.
+  // A reader parked on Camping at index 1 would be handed Float trips.
   //
-  // This is the reason PinSheet holds the active tab by key. If this assertion
-  // ever starts failing because tabs genuinely only append, that constraint can
-  // be revisited; until then it must not be.
+  // This is the reason PinSheet holds the active tab by key. Losing the
+  // Conditions tab did NOT retire the hazard: any tab that qualifies late and
+  // sorts before another still displaces it. If this assertion ever starts
+  // failing because tabs genuinely only append, that constraint can be
+  // revisited; until then it must not be.
   const before = accessTabs(point({ types: ['access', 'campground'] }), null);
   const after = accessTabs(
     point({ types: ['access', 'campground'] }),
-    detail({ gaugeStatus: { level: 'good' } }),
+    detail({ nearbyAccessPoints: [{ id: 'b', direction: 'downstream' }] }),
   );
   assert.deepEqual(before.map((t) => t.key), ['overview', 'camping']);
-  assert.deepEqual(after.map((t) => t.key), ['overview', 'conditions', 'camping']);
+  assert.deepEqual(after.map((t) => t.key), ['overview', 'floats', 'camping']);
 
   // Camping moved. Tracking by index would have silently changed tab.
   const cameFrom = before.findIndex((t) => t.key === 'camping');

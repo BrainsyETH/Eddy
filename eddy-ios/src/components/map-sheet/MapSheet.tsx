@@ -439,7 +439,19 @@ export function MapSheet({
 
               Dismiss is spelled out as an action as well as bound to the escape
               gesture, because "swipe the sheet off the bottom of the screen" is
-              the other thing a pan does that a rotor cannot guess at. */}
+              the other thing a pan does that a rotor cannot guess at.
+
+              ── A 44pt TARGET AROUND A 16pt ROW ───────────────────────────
+              VoiceOver reaches this through the adjustable role, but Switch
+              Control and a plain finger have to actually acquire it, and 16pt
+              is well under the floor DESIGN.md §6 sets. The target is grown
+              with padding and the growth is then given back with a negative
+              margin, so the element is 44pt to the hit-tester and still spends
+              GRABBER_BLOCK of the sheet.
+
+              It has to be given back rather than absorbed: GRABBER_BLOCK is
+              what resolveDetents adds to the measured peek, and 28 more points
+              of real height on every sheet would come straight off the map. */}
           <View
             style={styles.grabberRow}
             accessible
@@ -495,9 +507,32 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
   },
-  // 8 + 4 + 4 = GRABBER_BLOCK. Change one and change the other: the detent
-  // heights and the page budget are both sized around that constant.
-  grabberRow: { alignItems: 'center', paddingTop: 8, paddingBottom: 4 },
+  // ── 44pt of TARGET, GRABBER_BLOCK of SPACE ──────────────────────────────
+  // The visible row is 8 + 4 + 4 = GRABBER_BLOCK, which is what resolveDetents
+  // and pageBudget are both sized around — change one and change the other.
+  //
+  // The extra 28pt is padding, so the hit-tester sees 44; the matching negative
+  // margins hand the layout back, so the sheet is no taller than it was. A tap
+  // target is allowed to be bigger than what it looks like — the same move
+  // PlaceHead's EDGE_BLEED and RiverHead's lastControl make horizontally.
+  //
+  // ── ALL OF THE GROWTH GOES DOWNWARD, and that is not arbitrary ──────────
+  // Splitting it evenly would put 14pt of the target ABOVE the card's own top
+  // edge, out over the map, where a view is outside its parent's bounds and
+  // whether it receives a touch at all stops being something this file decides.
+  // Growing down keeps the whole target on the sheet.
+  //
+  // It therefore overlaps the peek content by 28pt, which is harmless: iOS
+  // hit-tests later siblings first, so PlaceHead's star and close — and every
+  // other control in the header — keep every touch that lands on them. What is
+  // left for the grabber is the header's dead space, where a drag already
+  // resized the sheet because the whole card is the drag surface.
+  grabberRow: {
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 32,
+    marginBottom: -28,
+  },
   // 36x4 with a full radius, matching MapLayersSheet — the app already has a
   // grabber and a second dialect of the same control would read as a different
   // kind of sheet.

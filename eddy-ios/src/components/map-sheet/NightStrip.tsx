@@ -23,14 +23,23 @@ import { fonts, type as t } from '@/theme/typography';
 import type { NightBar } from './availability';
 
 /**
- * Track height, which the caller sets from the space it actually has.
+ * Track height.
  *
- * The peek is negotiating with the map for the screen and `resolveDetents`
- * drops any detent within 56pt of another, so a strip that is tall on a Pro Max
- * has to be short on an SE or it eats the half detent outright.
+ * ── There used to be two, and the reason there is now one ─────────────────
+ *
+ * A SHORT variant existed so the callout could spend less of the peek than the
+ * tabbed header did — the peek is negotiating with the map for the screen, and
+ * `resolveDetents` drops any detent within 56pt of another, so height here is
+ * genuinely contested.
+ *
+ * It went with CampgroundAvailability, which draws this at a FIXED height on
+ * every surface. That is not a simplification for its own sake: the card sits
+ * inside a reserved slot whose whole purpose is that the sheet's top edge does
+ * not move (peekSlot.ts), and a strip that were 26pt on one campground and 16pt
+ * on the next would move it from pin to pin. One height is what makes the
+ * reservation a number anybody can write down.
  */
 export const STRIP_HEIGHT_TALL = 26;
-export const STRIP_HEIGHT_SHORT = 16;
 
 export function NightStrip({
   bars,

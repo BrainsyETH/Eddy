@@ -43,7 +43,23 @@ export interface GaugePinFacts {
   riverCount: number;
 }
 
-export type GaugeTabKey = 'now' | 'levels' | 'history' | 'rivers' | 'about';
+/**
+ * ── THERE IS NO `now` TAB, AND THERE IS NO `rivers` TAB ───────────────────
+ *
+ * `now` went because the glance IS now. A gauge's reading and its meaning are
+ * carried on the MapPin — both tiers, before the sheet opens — so the sheet
+ * paints them in the collapsed detent with nothing outstanding, and a first tab
+ * whose job was to repeat them was a swipe charged for something already on
+ * screen. What that tab genuinely added — the percentile in words, the updated
+ * time, the station id, the station's own qualifier on today's number — is About,
+ * which is where a reader goes to ask about the instrument rather than the water.
+ *
+ * `rivers` went for the reason its own comment gave about the single-river case:
+ * a tab holding rows the reader can see elsewhere is a wasted swipe. The list is
+ * a section inside Levels now, which is the tab about what this station's
+ * numbers mean for named rivers — the same subject, one destination.
+ */
+export type GaugeTabKey = 'levels' | 'history' | 'about';
 
 export interface GaugeTabDef {
   key: GaugeTabKey;
@@ -51,18 +67,16 @@ export interface GaugeTabDef {
 }
 
 const LABELS: Record<GaugeTabKey, string> = {
-  now: 'Now',
   levels: 'Levels',
   history: 'History',
-  rivers: 'Rivers',
   about: 'About',
 };
 
 /** Fixed, so the bar reads the same from one station to the next. */
-const ORDER: GaugeTabKey[] = ['now', 'levels', 'history', 'rivers', 'about'];
+const ORDER: GaugeTabKey[] = ['levels', 'history', 'about'];
 
 export function gaugeTabs(facts: GaugePinFacts): GaugeTabDef[] {
-  const keys = new Set<GaugeTabKey>(['now']);
+  const keys = new Set<GaugeTabKey>();
 
   // Levels is the ladder, so it exists exactly where a ladder does. The check
   // is riverCount rather than `curated`, because a station can be curated and
@@ -73,10 +87,10 @@ export function gaugeTabs(facts: GaugePinFacts): GaugeTabDef[] {
   // Any station with an id has readings to chart, whichever tier it is in.
   if (facts.siteId) keys.add('history');
 
-  // ONE river needs no list — the Levels tab already names it, and a tab
-  // holding a single row the reader can see above is a wasted swipe.
-  if (facts.riverCount > 1) keys.add('rivers');
-
+  // ALWAYS, and it is what guarantees a gauge never falls to a single-tab or
+  // zero-tab set now that `now` is gone. A national station with no site id has
+  // only this one — see PinSheet's shell guard, which must not route a gauge to
+  // the callout on that basis.
   keys.add('about');
 
   return ORDER.filter((key) => keys.has(key)).map((key) => ({ key, label: LABELS[key] }));

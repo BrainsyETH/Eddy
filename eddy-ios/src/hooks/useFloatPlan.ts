@@ -54,6 +54,8 @@ export interface FloatPlanState {
   takeOutOptions: MapAccessPoint[];
   choosePutIn: (point: MapAccessPoint) => void;
   chooseTakeOut: (point: MapAccessPoint) => void;
+  /** Both ends at once, from a caller that already knows the pair. */
+  planFloat: (putIn: MapAccessPoint, takeOut: MapAccessPoint) => void;
   goToStep: (step: PlanStep) => void;
   reset: () => void;
 }
@@ -95,7 +97,17 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
 
   const calculate = useCallback(
     async (start: MapAccessPoint, end: MapAccessPoint) => {
-      if (!riverId) return;
+      // SAY SO rather than returning. A null riverId means the pair belongs to a
+      // river Eddy has not curated — /api/plan is scoped to one — and the silent
+      // return left the sheet on a spinner-less blank forever. Neither ending is
+      // good, but one of them can be read.
+      if (!riverId) {
+        setStep('result');
+        setPlan(null);
+        setCalculating(false);
+        setError('Eddy cannot plan a float on this river yet.');
+        return;
+      }
       const requestId = ++calculationId.current;
       setCalculating(true);
       setError(null);
@@ -143,6 +155,41 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
     [putIn, calculate],
   );
 
+  /**
+   * Both ends in one go, for a caller that already holds the pair.
+   *
+   * ── WHY THIS EXISTS AND choosePutIn+chooseTakeOut DOES NOT WORK ───────────
+   *
+   * The obvious way to fill a plan from a Float-trips row is to call both
+   * choosers in the handler. It is wrong, and it was shipped:
+   *
+   *   planner.choosePutIn(from);      // queues setPutIn
+   *   planner.chooseTakeOut(other);   // reads `putIn` from THIS render
+   *
+   * `chooseTakeOut` closes over `putIn` as it was when the component last
+   * rendered, and React has not committed `setPutIn` yet when the second line
+   * runs. So with no plan in progress the `if (putIn)` guard failed, nothing
+   * calculated, and the sheet opened on the take-out list with the intended row
+   * already highlighted — the reader had to tap the very same row a second time
+   * to get an answer. Worse, with a plan ALREADY in progress the guard passed
+   * and computed `oldPutIn -> newTakeOut`: a float between two points nobody
+   * asked for, under a breadcrumb naming the right ones.
+   *
+   * Taking both ends as ARGUMENTS is the fix, and it is not merely a tidier
+   * spelling: there is no render between the two facts, so there is nothing for
+   * a closure to be stale about. Do not reintroduce a `putIn`-reading variant
+   * for callers that know both ends.
+   */
+  const planFloat = useCallback(
+    (start: MapAccessPoint, end: MapAccessPoint) => {
+      setPutIn(start);
+      setTakeOut(end);
+      setPlan(null);
+      void calculate(start, end);
+    },
+    [calculate],
+  );
+
   const reset = useCallback(() => {
     calculationId.current += 1;
     setStep('put-in');
@@ -163,6 +210,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
     takeOutOptions,
     choosePutIn,
     chooseTakeOut,
+    planFloat,
     goToStep: setStep,
     reset,
   };

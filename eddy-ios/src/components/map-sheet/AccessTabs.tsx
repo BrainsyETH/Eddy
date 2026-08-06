@@ -13,6 +13,9 @@
 // question, and neither should hold up the tabs themselves.
 import { useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { EddySymbol } from '@/components/EddySymbol';
+import type { PlaceSymbolName } from './placeSymbol';
 import type {
   AccessPointDetailResponse,
   MapAccessPoint,
@@ -63,14 +66,20 @@ interface TabProps {
   /** Hand a neighbouring access to the planner as the other end of a float. */
   onPlanTo: (nearby: NearbyAccessPoint) => void;
   /**
-   * Which neighbouring accesses you can sleep at.
+   * WHAT each neighbouring access is, as the mark that draws it.
    *
-   * Passed in rather than derived here: the detail response describes THIS
-   * point and names its neighbours, but does not say what they are. The map
-   * screen already holds every access point on the river with its types, so it
-   * is the only place that can answer this without another request.
+   * Passed in rather than derived here, and this is not a convenience: the
+   * detail response describes THIS point and names its neighbours, but
+   * NearbyAccessPoint carries no types at all. The map screen already holds
+   * every access point on the river with its types, so it is the only place
+   * that can answer this without a request per neighbour — and it resolves them
+   * through `placeSymbol`, so a take-out is drawn here exactly as it is drawn
+   * when you tap it.
+   *
+   * This replaces a `campableIds: Set<string>` that answered only "can I sleep
+   * there" and was rendered as an emoji glued to the end of the name.
    */
-  campableIds: Set<string>;
+  nearbyMarks: Map<string, PlaceSymbolName>;
   /** Whether the one request behind every tab is pending, done or failed. */
   status: DetailStatus;
 }
@@ -87,13 +96,42 @@ interface TabProps {
  * not this page of it, and a badge that changes with the tab is a badge nobody
  * can rely on.
  */
-export function AccessOverviewTab({ accessPoint, detail, onOpenDetail, onOpenRiver }: TabProps) {
+export function AccessOverviewTab({ accessPoint, detail, onOpenGauge, onOpenRiver }: TabProps) {
   const point = detail?.accessPoint;
   const camping = nearbyCamping(detail);
+  const status = detail?.gaugeStatus ?? null;
 
   return (
     <View>
       <Prose>{point?.description ?? accessPoint.description ?? null}</Prose>
+
+      {/* ── WHAT THE CONDITIONS TAB USED TO BE ────────────────────────────
+          Two facts, which is not a destination. The reading itself is in the
+          peek and is visible from every tab, so a page that opened with a
+          second rendering of it — and then offered an "Open gauge" row under a
+          block that was already one big tap target to the gauge — was charging
+          a swipe for a trend and a timestamp.
+
+          They qualify the number above rather than replacing it, which is what
+          makes this the right home: Overview is where a reader goes for the
+          sentences about a place, and "rising, read twenty minutes ago" is a
+          sentence about the number they have already seen. */}
+      {status ? (
+        <Section title="Water">
+          {/* ── THE READING IS HERE TOO, and that is not the duplication the
+              Conditions tab was ────────────────────────────────────────────
+              What that tab repeated was the peek's block verbatim and then
+              offered a second link to the same gauge. This is the full block
+              under a heading, on a page reached by swiping — and it has to be,
+              because the peek does NOT always carry the water. Tap a pin on the
+              campgrounds layer and the reserved slot goes to availability
+              instead (peekSlot.ts), so without this the reader would meet
+              "Rising, updated 20 minutes ago" attached to no number at all. */}
+          <AccessGaugeReading status={status} onOpenGauge={onOpenGauge} />
+          <Fact label="Trend" value={status.trend ? trendLabel(status.trend) : null} />
+          <Fact label="Updated" value={status.lastUpdated} />
+        </Section>
+      ) : null}
 
       {/* ── Camping nearby ────────────────────────────────────────────────
           On EVERY access point, not only the ones that are themselves a
@@ -118,65 +156,25 @@ export function AccessOverviewTab({ accessPoint, detail, onOpenDetail, onOpenRiv
         </Section>
       ) : null}
 
-      {/* ── The way out, whether or not the request landed ────────────────
-          This section used to hang entirely off `point.river`, which is only
-          known once the detail response arrives. That was invisible while the
-          callout carried the same two rows from the pin's own facts and was
-          shown for the whole of that wait — and it stopped being invisible the
-          moment access points started opening straight into these tabs. A
-          pending or failed request now leaves the reader on Overview with a
-          description and no route to the screen that has the rest.
+      {/* ── ONE WAY OUT, NOT TWO ──────────────────────────────────────────
+          This used to offer "Access point details" as well, which opens exactly
+          what Place's "Open the full details screen" opens — two rows, the same
+          destination, one swipe apart, and the reader has no way to know they
+          are the same. Place kept it, because that is the tab the full screen
+          is an extension of.
 
-          So each row stands on its own condition. The river's needs its NAME,
-          which only the response carries; the details screen needs only a
-          route, which the map composed before the sheet opened. */}
-      {point?.river || onOpenDetail ? (
+          The river row stands on its own condition rather than sharing the
+          section's: it needs the river's NAME, which only the detail response
+          carries, and this tab is drawn from the first frame. */}
+      {point?.river ? (
         <Section>
-          {point?.river ? (
-            <LinkRow
-              label={`View ${point.river.name}`}
-              onPress={() => onOpenRiver(point.river.slug)}
-            />
-          ) : null}
-          {onOpenDetail ? (
-            <LinkRow label="Access point details" onPress={onOpenDetail} />
-          ) : null}
+          <LinkRow
+            label={`View ${point.river.name}`}
+            symbol="river"
+            onPress={() => onOpenRiver(point.river.slug)}
+          />
         </Section>
       ) : null}
-    </View>
-  );
-}
-
-/* ── Conditions ─────────────────────────────────────────────────────────── */
-
-export function AccessConditionsTab({ detail, onOpenGauge }: TabProps) {
-  const status = detail?.gaugeStatus ?? null;
-
-  if (!status) {
-    return (
-      <Absent>
-        No gauge grades this stretch yet, so Eddy has no reading to show for it.
-      </Absent>
-    );
-  }
-
-  return (
-    <View>
-      {/* THE SAME BLOCK THE PEEK SHOWS, from the same component. This tab is
-          reached by swiping down from a sheet that is already displaying the
-          reading, so a second rendering of it that differed by a font weight or
-          a margin would read as a second, disagreeing measurement. What this
-          tab adds is underneath: the trend, and when it was taken. */}
-      <AccessGaugeReading status={status} onOpenGauge={onOpenGauge} />
-
-      <Section>
-        <Fact label="Trend" value={status.trend ? trendLabel(status.trend) : null} />
-        <Fact label="Updated" value={status.lastUpdated} />
-      </Section>
-
-      <Section>
-        <LinkRow label="Open gauge" onPress={() => onOpenGauge(status.usgsId)} />
-      </Section>
     </View>
   );
 }
@@ -189,7 +187,30 @@ function trendLabel(trend: 'rising' | 'falling' | 'steady'): string {
 
 /* ── Float trips ────────────────────────────────────────────────────────── */
 
-export function AccessFloatsTab({ detail, onPlanTo, campableIds }: TabProps) {
+/**
+ * Where you can float from here, and what is at the other end.
+ *
+ * ── EACH ROW WEARS ITS DESTINATION'S OWN MARK ─────────────────────────────
+ *
+ * The only thing distinguishing these rows used to be a bare '⛺' appended to
+ * the name string on the ones you could sleep at — an emoji, rendered in the
+ * system font, in a product that draws every place in its own art. What the
+ * take-out IS changes the trip more than its distance does: a boat ramp means a
+ * trailer can meet you, a campground means the float can be two days.
+ *
+ * The mark comes from `nearbyMarks`, resolved by the map screen through the same
+ * `placeSymbol` precedence the pin sheet's own header uses, so a neighbour is
+ * drawn here exactly as it is drawn when you tap it. It has to come from there:
+ * NearbyAccessPoint is the wire shape and carries no types at all, while the map
+ * screen already holds every access point on the river with theirs.
+ *
+ * ── The direction glyphs are the section's, not the row's ─────────────────
+ * Downstream and upstream are a property of the GROUP — every row under one
+ * heading shares it — so drawing an arrow on each row would repeat the heading
+ * once per line. Ionicons rather than Eddy art: an arrow is a direction, not a
+ * thing, and the catalog is a catalog of things.
+ */
+export function AccessFloatsTab({ detail, onPlanTo, nearbyMarks }: TabProps) {
   const { colors } = useTheme();
   const nearby = detail?.nearbyAccessPoints ?? [];
 
@@ -199,37 +220,56 @@ export function AccessFloatsTab({ detail, onPlanTo, campableIds }: TabProps) {
 
   const downstream = nearby.filter((n) => n.direction === 'downstream');
   const upstream = nearby.filter((n) => n.direction === 'upstream');
-  const group = (title: string, entries: NearbyAccessPoint[], verb: string) =>
+
+  const group = (
+    title: string,
+    icon: 'arrow-down' | 'arrow-up',
+    entries: NearbyAccessPoint[],
+    verb: string,
+  ) =>
     entries.length ? (
-      <Section title={title}>
-        {entries.map((entry) => (
-          <Pressable
-            key={entry.id}
-            onPress={() => onPlanTo(entry)}
-            style={({ pressed }) => [styles.floatRow, { opacity: pressed ? 0.6 : 1 }]}
-            accessibilityRole="button"
-            accessibilityLabel={`${verb} ${entry.name}, ${entry.distanceMiles.toFixed(1)} miles`}
-          >
-            <View style={styles.floatText}>
-              <Text style={[styles.floatName, { color: colors.text }]} numberOfLines={1}>
-                {entry.name}
-                {campableIds.has(entry.id) ? '  ⛺' : ''}
-              </Text>
-              <Text style={[styles.floatMeta, { color: colors.textMuted }]} numberOfLines={1}>
-                {entry.distanceMiles.toFixed(1)} mi
-                {entry.estimatedFloatTime ? ` · ${entry.estimatedFloatTime}` : ''}
-              </Text>
-            </View>
-            <Text style={[styles.floatAction, { color: colors.interactive }]}>Plan</Text>
-          </Pressable>
-        ))}
-      </Section>
+      <View style={styles.group}>
+        <View style={styles.groupHead}>
+          <Ionicons name={icon} size={13} color={colors.textMuted} />
+          <Text style={[styles.groupTitle, { color: colors.textMuted }]}>{title}</Text>
+        </View>
+        {entries.map((entry) => {
+          const mark = nearbyMarks.get(entry.id) ?? 'accessPoint';
+          return (
+            <Pressable
+              key={entry.id}
+              onPress={() => onPlanTo(entry)}
+              style={({ pressed }) => [styles.floatRow, { opacity: pressed ? 0.6 : 1 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`${verb} ${entry.name}, ${entry.distanceMiles.toFixed(1)} miles`}
+            >
+              {/* A well, so the row's optical left edge holds still: the
+                  catalog's drawings are trimmed to their own ink and a wide mark
+                  would otherwise start further left than a square one. Same
+                  reasoning as PlaceHead's frame. */}
+              <View style={[styles.floatWell, { backgroundColor: colors.cardRaised }]}>
+                <EddySymbol name={mark} size={17} />
+              </View>
+              <View style={styles.floatText}>
+                <Text style={[styles.floatName, { color: colors.text }]} numberOfLines={1}>
+                  {entry.name}
+                </Text>
+                <Text style={[styles.floatMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                  {entry.distanceMiles.toFixed(1)} mi
+                  {entry.estimatedFloatTime ? ` · ${entry.estimatedFloatTime}` : ''}
+                </Text>
+              </View>
+              <Text style={[styles.floatAction, { color: colors.interactive }]}>Plan</Text>
+            </Pressable>
+          );
+        })}
+      </View>
     ) : null;
 
   return (
     <View>
-      {group('Downstream take-outs', downstream, 'Float to')}
-      {group('Upstream put-ins', upstream, 'Float from')}
+      {group('Downstream take-outs', 'arrow-down', downstream, 'Float to')}
+      {group('Upstream put-ins', 'arrow-up', upstream, 'Float from')}
     </View>
   );
 }
@@ -605,7 +645,19 @@ const styles = StyleSheet.create({
   // The reading block's styles left with it — see AccessGaugeReading in
   // sections.tsx. They were this file's only condition-tinted anything.
   checked: { ...t.xs, fontFamily: fonts.body, marginTop: 8 },
+  // Section's own spacing, restated here because the heading carries a glyph and
+  // Section takes a plain string title.
+  group: { marginTop: 14 },
+  groupHead: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 },
+  groupTitle: { ...t.sm, fontFamily: fonts.semibold },
   floatRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
+  floatWell: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   floatText: { flex: 1, minWidth: 0 },
   floatName: { ...t.sm, fontFamily: fonts.medium },
   floatMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 1 },
