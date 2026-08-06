@@ -76,13 +76,24 @@ export interface CampsiteAvailability {
   nights: CampsiteNight[];
 }
 
-/** Availability keyed by the Eddy row it hangs off. */
+/**
+ * Availability keyed by the Eddy row it hangs off.
+ *
+ * Three maps because Eddy stores the same physical campground in three place
+ * tables and a caller only ever holds one of those ids. Meramec is an access
+ * point AND a nearby_services row; Alley Spring is an access point AND an
+ * nps_campgrounds row. The facility is the one row that knows they are the
+ * same place, so it is indexed under every id it names.
+ */
 export interface AvailabilityIndex {
+  /** Preferred where a caller has one: it is the row the map pin came from. */
+  byAccessPointId: Map<string, CampsiteAvailability>;
   byNpsCampgroundId: Map<string, CampsiteAvailability>;
   byNearbyServiceId: Map<string, CampsiteAvailability>;
 }
 
 export const EMPTY_INDEX: AvailabilityIndex = {
+  byAccessPointId: new Map(),
   byNpsCampgroundId: new Map(),
   byNearbyServiceId: new Map(),
 };
@@ -98,6 +109,7 @@ interface JoinedRow {
     source: string;
     kind: string;
     enabled: boolean;
+    access_point_id: string | null;
     nps_campground_id: string | null;
     nearby_service_id: string | null;
   } | null;
@@ -124,7 +136,7 @@ export async function loadAvailability(
     .from('campsite_availability')
     .select(
       'date, sites_open, sites_reservable, status, fetched_at, ' +
-        'campsite_facilities!inner(id, source, kind, enabled, nps_campground_id, nearby_service_id)',
+        'campsite_facilities!inner(id, source, kind, enabled, access_point_id, nps_campground_id, nearby_service_id)',
     )
     .in('date', horizon.nights)
     .eq('campsite_facilities.enabled', true);
@@ -165,6 +177,7 @@ export async function loadAvailability(
   }
 
   const index: AvailabilityIndex = {
+    byAccessPointId: new Map(),
     byNpsCampgroundId: new Map(),
     byNearbyServiceId: new Map(),
   };
@@ -214,6 +227,10 @@ export async function loadAvailability(
           : [],
     };
 
+    // Every id this facility names, so a caller holding any one of them finds
+    // the same object. The maps are alternatives, not a precedence order —
+    // that lives at the call site, where it can be stated.
+    if (meta.access_point_id) index.byAccessPointId.set(meta.access_point_id, availability);
     if (meta.nps_campground_id) index.byNpsCampgroundId.set(meta.nps_campground_id, availability);
     if (meta.nearby_service_id) index.byNearbyServiceId.set(meta.nearby_service_id, availability);
   }

@@ -19,6 +19,7 @@ const FACILITY = {
   source: 'recreation_gov',
   kind: 'campground',
   enabled: true,
+  access_point_id: null,
   nps_campground_id: 'cg-1',
   nearby_service_id: null,
 };
@@ -175,4 +176,70 @@ test('nights arrive ascending, and carry the facility for the site request', asy
     HORIZON,
   );
   assert.equal(availability.facilityId, 'fac-1');
+});
+
+/* ── One campground, three names ──────────────────────────────────────────── */
+//
+// Eddy stores the same physical place in three tables and a caller only ever
+// holds one of those ids. Meramec is an access point AND a nearby_services row;
+// Alley Spring is an access point AND an nps_campgrounds row. Indexing under
+// every id the facility names is what lets any caller find it.
+
+function facilityNight(meta: Record<string, unknown>, date: string) {
+  return {
+    date,
+    sites_open: 8,
+    sites_reservable: 54,
+    status: 'open',
+    fetched_at: '2026-08-06T09:00:00Z',
+    campsite_facilities: {
+      id: 'fac-x',
+      source: 'mo_state_parks',
+      kind: 'campground',
+      enabled: true,
+      access_point_id: null,
+      nps_campground_id: null,
+      nearby_service_id: null,
+      ...meta,
+    },
+  };
+}
+
+test('a facility is findable by every id it names', async () => {
+  const rows = WEEKEND.map((date) =>
+    facilityNight(
+      { access_point_id: 'ap-9', nearby_service_id: 'svc-9', nps_campground_id: 'cg-9' },
+      date,
+    ),
+  );
+  const index = await loadAvailability(supabaseReturning(rows), NOW);
+
+  assert.ok(index.byAccessPointId.get('ap-9'), 'the id the map pin carries');
+  assert.ok(index.byNearbyServiceId.get('svc-9'), 'the id the services list carries');
+  assert.ok(index.byNpsCampgroundId.get('cg-9'), 'the id the NPS record carries');
+  // One object under three keys, not three readings that could drift.
+  assert.equal(index.byAccessPointId.get('ap-9'), index.byNearbyServiceId.get('svc-9'));
+});
+
+test('a state park reached only through a service row still resolves by access point', async () => {
+  // THE Meramec case. Its campsite_facilities row hangs off nearby_services and
+  // it has no nps_campgrounds row at all, so before the access_point_id link
+  // existed its Camping tab rendered static rows while the database held 68 of
+  // its 197 sites open.
+  const rows = WEEKEND.map((date) =>
+    facilityNight({ access_point_id: 'ap-meramec', nearby_service_id: 'svc-meramec' }, date),
+  );
+  const index = await loadAvailability(supabaseReturning(rows), NOW);
+
+  assert.ok(index.byAccessPointId.get('ap-meramec'));
+  assert.equal(index.byNpsCampgroundId.size, 0, 'no NPS row, and none invented');
+});
+
+test('an unlinked facility is indexed nowhere rather than under undefined', async () => {
+  const rows = WEEKEND.map((date) => facilityNight({}, date));
+  const index = await loadAvailability(supabaseReturning(rows), NOW);
+
+  assert.equal(index.byAccessPointId.size, 0);
+  assert.equal(index.byNpsCampgroundId.size, 0);
+  assert.equal(index.byNearbyServiceId.size, 0);
 });

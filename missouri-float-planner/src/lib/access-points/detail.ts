@@ -147,16 +147,37 @@ export async function getAccessPointDetail(
   // Get gauge status for this river (using access point's river mile for segment-aware selection)
   const gaugeStatus = await getGaugeStatus(supabase, river.id, currentMile);
 
-  // Get NPS campground data if linked.
+  // ── Availability, by whichever name this place goes under ────────────────
   //
-  // The availability read is hoisted out of the helper so ONE index serves both
-  // the nested copy and the sibling on the detail itself. It stays behind the
-  // same `nps_campground_id` condition that already gated it, so a plain put-in
-  // costs exactly what it did before.
+  // Read once and shared by the nested copy and the sibling below.
+  //
+  // Two lookups because Eddy stores the same campground twice. Alley Spring is
+  // an access point with an nps_campgrounds row; Meramec is an access point
+  // whose campsite_facilities row hangs off nearby_services instead, and for
+  // want of this first lookup its Camping tab rendered static rows while the
+  // database held 68 of its 197 sites open.
+  //
+  // The access-point id wins where both resolve: it is the row the map pin came
+  // from, so it is the place the reader actually tapped.
+  //
+  // Gated on being a campground at all — `types` carries the tag and an
+  // nps_campground_id is the other way in — so a plain put-in still costs
+  // nothing, which is the condition that used to be spelled `nps_campground_id`
+  // alone.
+  const campgroundish =
+    ap.nps_campground_id != null ||
+    (Array.isArray(ap.types) && (ap.types as string[]).includes('campground'));
+
   let npsCampground: NPSCampgroundInfo | null = null;
   let availability: CampsiteAvailabilityInfo | null = null;
+
+  if (campgroundish) {
+    const index = await loadAvailability(supabase);
+    availability =
+      index.byAccessPointId.get(ap.id) ??
+      (ap.nps_campground_id ? (index.byNpsCampgroundId.get(ap.nps_campground_id) ?? null) : null);
+  }
   if (ap.nps_campground_id) {
-    availability = (await loadAvailability(supabase)).byNpsCampgroundId.get(ap.nps_campground_id) ?? null;
     npsCampground = await getNPSCampgroundInfo(supabase, ap.nps_campground_id, availability);
   }
 
