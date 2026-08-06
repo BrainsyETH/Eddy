@@ -23,6 +23,7 @@ import { AvailabilityGlance } from './AvailabilityGlance';
 import { localToday, nightChoices } from './availability';
 import { accessAvailability, accessAvailabilityName } from './availabilitySource';
 import { CampsiteList } from './CampsiteList';
+import { airbnbSearchUrl, STAY_SEARCH_LABEL, stayRadiusLabel } from '@/lib/stays';
 import { FilterChips } from '@/components/FilterChips';
 import { useCampsiteSites } from '@/hooks/useCampsiteSites';
 import {
@@ -282,6 +283,7 @@ export function AccessCampingTab({ detail, status, active = false }: TabProps) {
   const selectedDate = selected ?? availability?.window.startDate ?? nights[0]?.date ?? today;
 
   const [filters, setFilters] = useState<SiteFilter[]>([]);
+  const stayUrl = airbnbSearchUrl(point?.coordinates ?? null);
 
   // Only asked for once this is the live tab — see PinSheet's call site.
   const { sites, status: sitesStatus } = useCampsiteSites(
@@ -413,6 +415,20 @@ export function AccessCampingTab({ detail, status, active = false }: TabProps) {
             label="Campground page"
             external
             onPress={() => void Linking.openURL(nps.npsUrl as string)}
+          />
+        ) : null}
+        {/* ── When the campground is full, this is the next question ────────
+            Last in the section on purpose: it points away from the place the
+            reader opened, so it must never outrank the campground's own
+            booking link. A search, never a count — Airbnb publishes no
+            listings API, and a badge reading "12 nearby" would promise a
+            number Eddy has not got. See lib/stays.ts. */}
+        {stayUrl ? (
+          <LinkRow
+            label={STAY_SEARCH_LABEL}
+            detail={stayRadiusLabel()}
+            external
+            onPress={() => void Linking.openURL(stayUrl)}
           />
         ) : null}
         {!nps && point.officialSiteUrl ? (

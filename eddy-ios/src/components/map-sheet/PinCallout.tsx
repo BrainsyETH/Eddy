@@ -31,6 +31,7 @@ import { confirmPlanAction, isDriveable, openDirections } from './sheetActions';
 import { AvailabilityGlance } from './AvailabilityGlance';
 import { localToday } from './availability';
 import { STRIP_HEIGHT_SHORT } from './NightStrip';
+import { airbnbSearchUrl, STAY_SEARCH_LABEL } from '@/lib/stays';
 
 /**
  * What a tapped pin is, and — for an access point — what to do with it.
@@ -172,6 +173,8 @@ export function PinCallout({
     });
   }
 
+  const stayUrl = airbnbSearchUrl(pin.coordinates);
+
   const promoted = new Set(calloutButtons.map((b) => b.key));
 
   /**
@@ -216,6 +219,20 @@ export function PinCallout({
       key: 'link',
       label: pin.link.label,
       onPress: () => void Linking.openURL(pin.link!.url),
+      external: true,
+    });
+  }
+  // ── Somewhere to sleep that is not a campsite ────────────────────────────
+  // Campgrounds only, and last among the outward links: it points away from the
+  // place the reader opened, so it must never outrank that place's own booking
+  // link. It earns its row most when the glance above says "Fully booked",
+  // which today is the end of the conversation while the app has known the
+  // coordinates the whole time. A search, never a count — see lib/stays.ts.
+  if (pin.layer === 'campgrounds' && stayUrl) {
+    calloutRows.push({
+      key: 'stays',
+      label: STAY_SEARCH_LABEL,
+      onPress: () => void Linking.openURL(stayUrl),
       external: true,
     });
   }
