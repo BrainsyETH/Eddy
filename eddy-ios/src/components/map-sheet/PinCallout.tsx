@@ -28,6 +28,9 @@ import { formatReading } from '@/lib/readingCopy';
 import { PlaceHead } from './PlaceHead';
 import { AccessTypeBadges } from './sections';
 import { confirmPlanAction, isDriveable, openDirections } from './sheetActions';
+import { AvailabilityGlance } from './AvailabilityGlance';
+import { localToday } from './availability';
+import { STRIP_HEIGHT_SHORT } from './NightStrip';
 
 /**
  * What a tapped pin is, and — for an access point — what to do with it.
@@ -350,6 +353,18 @@ export function PinCallout({
           </Text>
         </Pressable>
       ) : null}
+
+      {/* Availability outranks the description, because for somewhere to sleep
+          this weekend it IS the question, and the prose below it is the same
+          sentence it was last season. This is the only place a Missouri State
+          Park's inventory appears at all — a state park has no
+          nps_campgrounds row and so never reaches the tabbed sheet's header. */}
+      <AvailabilityGlance
+        availability={pin.availability}
+        name={pin.name}
+        today={localToday()}
+        stripHeight={STRIP_HEIGHT_SHORT}
+      />
 
       {pin.body ? (
         // Capped at four lines. A callout that grows to a hazard's full seasonal

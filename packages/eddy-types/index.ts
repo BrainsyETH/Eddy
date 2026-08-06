@@ -415,6 +415,69 @@ export interface CampsiteNightSummary {
   status: 'open' | 'full' | 'closed' | 'not_yet_released';
 }
 
+/** What one site is doing on one night. */
+export type CampsiteNightState =
+  | 'open'
+  | 'reserved'
+  | 'walk_up'
+  | 'closed'
+  | 'not_yet_released'
+  /** Not measured. NOT the same as taken — a season ending mid-horizon is this. */
+  | 'unknown';
+
+/**
+ * The wire code for each state, one character per night.
+ *
+ * Meramec has 197 sites; a fortnight of `{date, status}` objects for all of
+ * them is ~40 KB of JSON where fourteen characters each is 2.7 KB. On a phone
+ * at a put-in that is the difference between a tab opening and a tab spinning.
+ *
+ * MIRRORS SITE_NIGHT_CODE in missouri-float-planner/src/lib/camping/sites.ts
+ * and must keep doing so. The two cannot share one declaration for the reason
+ * campsiteAvailabilityLine cannot: shippable web code must not import from
+ * outside missouri-float-planner/, because Vercel installs only that directory.
+ * A parity test in the web suite is the guard.
+ */
+export const CAMPSITE_NIGHT_CODES: Record<string, CampsiteNightState> = {
+  A: 'open',
+  R: 'reserved',
+  W: 'walk_up',
+  C: 'closed',
+  N: 'not_yet_released',
+  '-': 'unknown',
+};
+
+/** Decode one site's fortnight. Index matches `window.nights`. */
+export function decodeCampsiteNights(nights: string): CampsiteNightState[] {
+  return [...nights].map((code) => CAMPSITE_NIGHT_CODES[code] ?? 'unknown');
+}
+
+/** One individual campsite. */
+export interface CampsiteSite {
+  id: string;
+  /** What the booking page prints — `RTL3`, `Electric 50 amp #178`. */
+  name: string | null;
+  loop: string | null;
+  /**
+   * The provider's own vocabulary, unmapped: `STANDARD ELECTRIC`, `TENT ONLY`.
+   * Null for Missouri State Parks, which fold the type into the name.
+   */
+  siteType: string | null;
+  maxOccupancy: number | null;
+  /** Null for a provider with no per-site page — UseDirect books at park level. */
+  bookingUrl: string | null;
+  /** One character per night, aligned to `window.nights` by index. */
+  nights: string;
+}
+
+export interface CampsiteSitesResponse {
+  facility: { id: string; displayName: string; kind: string; source: string };
+  window: { startDate: string; endDate: string; label: string; nights: string[] };
+  /** The oldest night's timestamp — the weakest part of the answer. */
+  fetchedAt: string | null;
+  sites: CampsiteSite[];
+}
+
 export interface NpsCampgroundSummary {
   name: string;
   npsUrl: string | null;

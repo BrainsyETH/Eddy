@@ -43,7 +43,7 @@ import type {
   NearbyAccessPoint,
   NearbyService,
 } from '@eddy/types';
-import { accessTypeLabel, campsiteAvailabilityLine } from '@eddy/types';
+import { accessTypeLabel } from '@eddy/types';
 import { ApiError, fetchAccessPointDetail } from '@/api/client';
 import {
   conditionBg,
@@ -75,6 +75,12 @@ import {
   roadSurfaceLabel,
   stripHtml,
 } from '@/lib/accessCopy';
+import {
+  accessAvailability,
+  accessAvailabilityName,
+} from '@/components/map-sheet/availabilitySource';
+import { AvailabilityGlance } from '@/components/map-sheet/AvailabilityGlance';
+import { localToday } from '@/components/map-sheet/availability';
 
 const TREND_ICON = {
   rising: 'arrow-up' as const,
@@ -630,15 +636,21 @@ export default function AccessPointDetailScreen() {
                     .filter(Boolean)
                     .join(' · ')}
                 </Text>
-                {/* Live availability for the coming weekend, when the server
-                    has it. Absent for most campgrounds and for every build that
-                    predates the field, and absent means render nothing — the
-                    static counts above already say what the place holds. */}
-                {campsiteAvailabilityLine(point.npsCampground.availability) ? (
-                  <Text style={[styles.npsAvailability, { color: colors.text }]}>
-                    {campsiteAvailabilityLine(point.npsCampground.availability)}
-                  </Text>
-                ) : null}
+                {/* Live availability, when the server has it. Absent for most
+                    campgrounds and for every build that predates the field, and
+                    absent means render nothing — the static counts above
+                    already say what the place holds.
+
+                    The NAME is passed, which it was not: it is interpolated
+                    only by the backcountry-district wording, and that covers
+                    eighteen of the thirty enabled federal facilities — every
+                    Ozark gravel-bar loop. Without it "12 backcountry sites
+                    open · Upper Current District" lost its place. */}
+                <AvailabilityGlance
+                  availability={accessAvailability(point)}
+                  name={accessAvailabilityName(point)}
+                  today={localToday()}
+                />
                 {point.npsCampground.reservationInfo ? (
                   <Text style={[styles.prose, { color: colors.textMuted }]}>
                     {point.npsCampground.reservationInfo}
@@ -907,7 +919,6 @@ const styles = StyleSheet.create({
   npsMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
   // Full-strength ink rather than the muted meta above it: this is the line
   // that decides whether the Reserve button is worth pressing.
-  npsAvailability: { ...t.xs, fontFamily: fonts.medium, marginTop: 8 },
   footnote: {
     ...t.xs,
     fontFamily: fonts.body,

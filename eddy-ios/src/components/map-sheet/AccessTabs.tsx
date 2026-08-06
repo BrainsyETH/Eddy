@@ -11,6 +11,7 @@
 // the hazards on this reach. Both want a second request (or state the map
 // screen holds), both are enhancements to a tab that already answers its
 // question, and neither should hold up the tabs themselves.
+import { useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import type {
   AccessPointDetailResponse,
@@ -18,7 +19,18 @@ import type {
   NearbyAccessPoint,
   NpsCampgroundSummary,
 } from '@eddy/types';
-import { campsiteAvailabilityLine } from '@eddy/types';
+import { AvailabilityGlance } from './AvailabilityGlance';
+import { localToday, nightChoices } from './availability';
+import { accessAvailability, accessAvailabilityName } from './availabilitySource';
+import { CampsiteList } from './CampsiteList';
+import { FilterChips } from '@/components/FilterChips';
+import { useCampsiteSites } from '@/hooks/useCampsiteSites';
+import {
+  filterCounts,
+  SITE_FILTERS,
+  sitesOnNight,
+  type SiteFilter,
+} from './siteList';
 import { conditionBg, conditionChipBorder, conditionInk, conditionText } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -29,6 +41,13 @@ import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 
 interface TabProps {
   accessPoint: MapAccessPoint;
+  /**
+   * Whether this tab is the one being looked at.
+   *
+   * Only Camping reads it, and only to gate a request: SheetPager mounts the
+   * active page and both neighbours, so "mounted" is not "being read".
+   */
+  active?: boolean;
   detail: AccessPointDetailResponse | null;
   onOpenGauge: (siteId: string) => void;
   onOpenDetail: () => void;
@@ -224,6 +243,19 @@ export function AccessFloatsTab({ detail, onPlanTo, campableIds }: TabProps) {
   );
 }
 
+/**
+ * How old the site list is, in the reader's own clock.
+ *
+ * A named site shown as open is a stronger claim than a count, and the sync
+ * runs once a night — so the list says when it was checked rather than
+ * implying it is live. The row itself opens the booking page, which is.
+ */
+function checkedLine(fetchedAt: string): string {
+  const at = new Date(fetchedAt);
+  if (Number.isNaN(at.getTime())) return 'Checked recently';
+  return `Checked ${at.toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+}
+
 /* ── Camping ────────────────────────────────────────────────────────────── */
 
 /**
@@ -234,18 +266,101 @@ export function AccessFloatsTab({ detail, onPlanTo, campableIds }: TabProps) {
  * has no nps_campgrounds row at all, and a tab that keyed off that would have
  * shown nothing for exactly the sites that most need describing.
  */
-export function AccessCampingTab({ detail, status }: TabProps) {
+export function AccessCampingTab({ detail, status, active = false }: TabProps) {
+  const { colors } = useTheme();
   const point = detail?.accessPoint;
   const nps = point?.npsCampground ?? null;
-  const availability = campsiteAvailabilityLine(nps?.availability, nps?.name ?? point?.name);
+  const availability = accessAvailability(point);
+  const name = accessAvailabilityName(point);
+
+  const today = localToday();
+  const nights = useMemo(() => nightChoices(availability, today), [availability, today]);
+
+  // Default to the weekend the hero describes, so the tab opens agreeing with
+  // the number above it rather than on an arbitrary night.
+  const [selected, setSelected] = useState<string | null>(null);
+  const selectedDate = selected ?? availability?.window.startDate ?? nights[0]?.date ?? today;
+
+  const [filters, setFilters] = useState<SiteFilter[]>([]);
+
+  // Only asked for once this is the live tab — see PinSheet's call site.
+  const { sites, status: sitesStatus } = useCampsiteSites(
+    active ? (availability?.facilityId ?? null) : null,
+  );
+
+  const entries = useMemo(
+    () =>
+      sites ? sitesOnNight(sites.sites, sites.window.nights, selectedDate) : [],
+    [sites, selectedDate],
+  );
+  const counts = useMemo(() => filterCounts(entries), [entries]);
 
   if (!point) return <Absent>{waitingCopy(status, 'Camping details')}</Absent>;
 
   return (
     <View>
-      {availability ? <Prose>{availability}</Prose> : null}
+      <AvailabilityGlance
+        availability={availability}
+        name={name}
+        today={today}
+        showStrip={false}
+      />
 
-      <Section>
+      {/* The fortnight, at a size that can be tapped. The peek draws the same
+          nights as a chart because fourteen columns is twenty points each and
+          nothing that small may be a control; here they are a real 44pt row. */}
+      {nights.some((night) => night.count !== null) ? (
+        <FilterChips
+          chips={nights.map((night) => ({
+            key: night.date,
+            label: night.label,
+            count: night.count ?? undefined,
+          }))}
+          active={[selectedDate]}
+          onToggle={setSelected}
+          paddingHorizontal={0}
+        />
+      ) : null}
+
+      {availability?.facilityId ? (
+        <Section title="Sites">
+          {sitesStatus === 'ready' && sites ? (
+            <>
+              <FilterChips
+                chips={SITE_FILTERS.filter((f) => counts[f] > 0).map((f) => ({
+                  key: f,
+                  label: f,
+                  count: counts[f],
+                }))}
+                active={filters}
+                onToggle={(key) =>
+                  setFilters((current) =>
+                    current.includes(key as SiteFilter)
+                      ? current.filter((f) => f !== key)
+                      : [...current, key as SiteFilter],
+                  )
+                }
+                paddingHorizontal={0}
+              />
+              <CampsiteList entries={entries} filters={filters} date={selectedDate} />
+              {/* Synced once a night, and a named site is a stronger claim than
+                  a count — so the reader is told how old it is, and the row
+                  itself opens the booking page that is authoritative. */}
+              {sites.fetchedAt ? (
+                <Text style={[styles.checked, { color: colors.textSubtle }]}>
+                  {checkedLine(sites.fetchedAt)}
+                </Text>
+              ) : null}
+            </>
+          ) : (
+            <Absent>
+              {sitesStatus === 'failed' ? 'Sites unavailable right now.' : 'Loading sites…'}
+            </Absent>
+          )}
+        </Section>
+      ) : null}
+
+      <Section title="About this campground">
         <Fact label="Managed by" value={point.managingAgency ? agencyLabel(point.managingAgency) : null} />
         <Fact
           label="Sites"
@@ -473,6 +588,7 @@ function nearbyCamping(detail: AccessPointDetailResponse | null) {
 }
 
 const styles = StyleSheet.create({
+  checked: { ...t.xs, fontFamily: fonts.body, marginTop: 8 },
   readingBlock: { marginTop: 10 },
   readingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   reading: { ...t.lg, fontFamily: fonts.mono },

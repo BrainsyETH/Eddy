@@ -48,6 +48,7 @@
 import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type {
+  CampsiteAvailabilitySummary,
   Hazard,
   MapAccessPoint,
   MapGauge,
@@ -59,7 +60,6 @@ import type {
 import {
   accessPointTypes,
   accessTypeLabel,
-  campsiteAvailabilityLine,
   hasCoordinates,
   isCampground,
   PUBLIC_LAND_ACCESS_STYLE,
@@ -348,6 +348,14 @@ export interface MapPin {
   value?: string | null;
   /** Prose — a hazard's description and portage note. */
   body?: string | null;
+  /**
+   * Live campsite availability, for a campground pin that has any.
+   *
+   * Its own field rather than a line prepended to `body`, so the callout can
+   * give it the rank it deserves instead of the prose slot's muted grey. Null
+   * is the common case and is emphatically not "full".
+   */
+  availability?: CampsiteAvailabilitySummary | null;
   /** A river to open from the callout, when the pin belongs to one. */
   riverSlug?: string | null;
   /**
@@ -767,20 +775,21 @@ export function RiverMap({
               .filter(Boolean)
               .join(' · '),
           coordinates: { lng: s.longitude as number, lat: s.latitude as number },
-          // AVAILABILITY FIRST, when there is any. For somewhere to sleep this
-          // weekend it is the whole question, and the description below it is
-          // the same sentence it was last season. Most rows have none — Eddy
-          // reads the booking systems it can — and null is emphatically not
-          // "full", which is why the wording only ever comes from
-          // campsiteAvailabilityLine.
+          // ── Availability is a FIELD now, not a paragraph ─────────────────
+          // It used to be joined onto the front of `body`, which meant the one
+          // fact that decides whether you care was rendered by the callout's
+          // prose slot: muted grey, at body weight, clipped at four lines, and
+          // glued to a description written last season. That was not a styling
+          // bug, it was a data-path bug — the sentence was being smuggled
+          // through a field whose renderer is for descriptions.
           //
-          // This is where a Missouri State Park's inventory surfaces at all:
-          // campsite_facilities hangs off a nearby_services row, so a state
-          // park has no nps_campgrounds record and reaches the map through
-          // here or nowhere.
-          body: [campsiteAvailabilityLine(s.availability, s.name), s.description]
-            .filter(Boolean)
-            .join('\n\n') || null,
+          // This is still where a Missouri State Park's inventory surfaces at
+          // all: campsite_facilities hangs off a nearby_services row, so a
+          // state park has no nps_campgrounds record and reaches the map
+          // through here or nowhere. Now it arrives as itself and the callout
+          // draws it the same way the tabbed sheet does.
+          availability: s.availability ?? null,
+          body: s.description ?? null,
           link: serviceLink(s),
         })),
     ];

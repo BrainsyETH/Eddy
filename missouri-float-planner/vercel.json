@@ -38,6 +38,10 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/cron/sync-availability?source=recreation_gov&slot=2",
+      "schedule": "40 9 * * *"
+    },
+    {
       "path": "/api/cron/sync-availability?source=mo_state_parks",
       "schedule": "20 9 * * *"
     },

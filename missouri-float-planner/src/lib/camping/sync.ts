@@ -13,6 +13,21 @@
 //
 // Everything else here exists to keep a bad night from turning into a bad
 // neighbour: a ceiling, a breaker, a time budget, and a cursor.
+//
+// ── Why recreation.gov has TWO cron slots ─────────────────────────────────
+//
+// Its endpoint is month-locked, so a window straddling month-end costs two
+// payloads per facility instead of one. A two-night weekend did that about one
+// week in five; a fourteen-night horizon does it on roughly thirteen days in
+// thirty. Fifteen unique federal ids × two months × ten seconds is 300s, past
+// both the budget below and Vercel's own ceiling.
+//
+// The cursor already handles it — a truncated run resumes where it stopped —
+// but at forty percent of nights the tail would routinely wait a full day, and
+// read.ts stops serving a row once it is stale. So vercel.json runs this source
+// twice each morning, forty minutes apart. The second slot needs no code: the
+// `last_synced_at` ordering means it picks up exactly what the first did not
+// reach, and finds nothing to do on the days one pass was enough.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createLimiter, type Limiter } from './limiter';

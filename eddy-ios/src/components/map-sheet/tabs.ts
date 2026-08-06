@@ -25,6 +25,7 @@
 // cannot keep, and the reader pays a swipe to find that out.
 import type { AccessPointDetailResponse, MapAccessPoint } from '@eddy/types';
 import { isCampground } from '@eddy/types';
+import { accessAvailability } from './availabilitySource';
 
 /**
  * Just the field the landing rule reads.
@@ -74,24 +75,23 @@ export function accessTabs(
   if (detail?.gaugeStatus) keys.add('conditions');
   if (detail?.nearbyAccessPoints?.length) keys.add('floats');
 
-  // ── Two legs, and it should be three ─────────────────────────────────────
+  // ── Three legs ───────────────────────────────────────────────────────────
   // isCampground() reads the TYPE TAGS and knows nothing about any campground
-  // record; npsCampground is the record and exists only for NPS sites. Either
-  // one alone would miss real campgrounds, so both are asked.
+  // record; npsCampground is the record and exists only for NPS sites; and
+  // `availability` is live inventory, which a place can have without being
+  // either. Any one alone would miss real campgrounds, so all three are asked.
   //
-  // The third leg cannot be written yet. A Missouri State Park — Meramec,
-  // Onondaga Cave, Washington — has no nps_campgrounds row, but campsite_
-  // facilities can and does carry live availability for it through its OTHER
-  // foreign key. That never reaches this type, because the API nests
-  // `availability` INSIDE npsCampground, so "has availability but is not NPS"
-  // is currently unrepresentable rather than merely absent. Adding
-  // `|| point?.availability != null` here is the one-line change once the
-  // server lifts that field to a sibling.
-  //
-  // Until then such a site still gets the tab whenever it is tagged
-  // 'campground', which is the common case — but it is a tag away from being
-  // missed, and NPS sites would have looked fine the whole time.
-  const camps = isCampground(accessPoint) || point?.npsCampground != null;
+  // The third leg used to be unwritable. A Missouri State Park — Meramec,
+  // Onondaga Cave, Washington — has no nps_campgrounds row, but
+  // campsite_facilities carries live availability for it through its OTHER
+  // foreign key, and the API nested `availability` INSIDE npsCampground, so
+  // "has availability but is not NPS" was unrepresentable rather than merely
+  // absent. Such a site got the tab only when it happened to be tagged
+  // 'campground' — the common case, but a tag away from being missed, while
+  // NPS sites looked fine the whole time. The server lifts the field to a
+  // sibling now; this is that one line.
+  const camps =
+    isCampground(accessPoint) || point?.npsCampground != null || accessAvailability(point) != null;
   if (camps) keys.add('camping');
 
   if (point && hasDetails(point)) keys.add('details');
