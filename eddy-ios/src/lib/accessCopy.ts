@@ -169,3 +169,44 @@ function nonEmpty(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed && trimmed.length > 0 ? trimmed : null;
 }
+
+/**
+ * What a tab says while it has nothing, told apart by WHY.
+ *
+ * "Unavailable" on a request still in flight tells the reader to give up on
+ * something that is about to arrive; a spinner on a request that already failed
+ * asks them to wait for something that never will. Restrained on purpose —
+ * neither case is an error the reader caused or can do anything about.
+ *
+ * ── MOVED HERE FROM AccessTabs.tsx, so it can be tested ──────────────────
+ *
+ * It is a string derived from a status and nothing else, and it lived in a
+ * component the web suite cannot import — that suite being the only runner the
+ * Expo app has. The distinction below then went un-guarded long enough for the
+ * tab-level empty line to be written WITHOUT it, reporting a failed request as
+ * "Eddy has no description for this place": a claim about the data made from a
+ * failure to load it. That is the case the tests now pin.
+ *
+ * `status` is structural rather than the imported DetailStatus for the reason
+ * `tabs.ts` gives for LayerTapped: an app-path import fails under the web
+ * suite's tsconfig, which resolves `@/*` to its own src/.
+ */
+export function waitingCopy(
+  status: 'idle' | 'loading' | 'ready' | 'failed',
+  subject: string,
+): string {
+  if (status === 'loading') return `Loading ${subject}…`;
+  if (status === 'failed') return `${sentence(subject)} unavailable right now.`;
+  // ── SETTLED, AND NOTHING IS COMING ──────────────────────────────────────
+  // 'idle' means no request was ever made — the pin carries no detail route —
+  // and 'ready' here means one was made and came back without an access point.
+  // Both used to fall through to "Loading…", which is a promise this tab cannot
+  // keep: the spinner-less wait never ends, and a reader watching it has no way
+  // to learn that. This is the reported bug.
+  return `Eddy has no ${subject} for this place.`;
+}
+
+/** Capitalised for the start of a sentence, since the subjects are noun phrases. */
+function sentence(subject: string): string {
+  return subject.charAt(0).toUpperCase() + subject.slice(1);
+}

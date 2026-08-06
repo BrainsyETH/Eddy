@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { overviewLead } from '../../../eddy-ios/src/lib/accessCopy';
+import { overviewLead, waitingCopy } from '../../../eddy-ios/src/lib/accessCopy';
 
 // Covers eddy-ios/src/lib/accessCopy.ts's overviewLead, run from here because
 // the Expo app has no runner of its own.
@@ -85,4 +85,40 @@ test('an empty local-tips document is not a lead', () => {
   // stripHtml returns null for markup that carries no text, so a `<p></p>` left
   // by a CMS must not count as a fact about the river.
   assert.equal(overviewLead({ description: null, localTips: '<p></p>' }), null);
+});
+
+/* ── A failed request is not an answer ───────────────────────────────────── */
+
+test('a failed request never claims Eddy has nothing', () => {
+  // The tab-level empty line was written without waitingCopy and so reported an
+  // ERRORED request as confirmed absence — a claim about the data made from a
+  // failure to load it. These are different facts and the reader can act on only
+  // one of them.
+  const failed = waitingCopy('failed', 'description');
+  assert.ok(!failed.includes('no description'), failed);
+  assert.match(failed, /unavailable right now/);
+  assert.match(failed, /^Description/, 'the subject is capitalised to start a sentence');
+});
+
+test('a settled, genuinely empty request says so plainly', () => {
+  // 'ready' means the request came back with nothing; 'idle' means no request
+  // was ever made because the pin carries no detail route. Both are answers.
+  for (const status of ['ready', 'idle'] as const) {
+    assert.equal(waitingCopy(status, 'description'), 'Eddy has no description for this place.');
+  }
+});
+
+test('a request still in flight promises nothing either way', () => {
+  assert.equal(waitingCopy('loading', 'description'), 'Loading description…');
+});
+
+test('every status produces a different sentence', () => {
+  // The whole point: four states, four things a reader can do about them. Any
+  // two collapsing is how "failed" came to read as "absent".
+  const said = new Set(
+    (['idle', 'loading', 'ready', 'failed'] as const).map((s) => waitingCopy(s, 'details')),
+  );
+  // idle and ready are deliberately the same sentence — both mean "settled with
+  // nothing" — so three distinct outcomes from four states is correct.
+  assert.equal(said.size, 3);
 });

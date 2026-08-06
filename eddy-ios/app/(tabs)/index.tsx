@@ -1448,28 +1448,43 @@ export default function MapScreen() {
    * Statewide, like the services fetch itself — one call, gated on the layers
    * rather than on a river — so these figures do not move as you pan.
    */
-  const layerTotals = useMemo<Partial<Record<LayerKey, number>>>(() => {
-    const eligible = services?.filter(serviceEligible) ?? null;
-    if (!eligible) return {};
-    return {
-      outfitters: eligible.filter((s) => serviceOnLayer(s, 'outfitters')).length,
-      lodging: eligible.filter((s) => serviceOnLayer(s, 'lodging')).length,
-      // ── MIRRORS layerCounts' CAMPGROUND BRANCH, both halves ─────────────
-      // That row draws access points tagged `campground` as well as campground
-      // services, and every access point has coordinates. A denominator of
-      // services alone would therefore be SMALLER than the row's own count —
-      // "74 of 44" — so the note would silently never render and the coverage
-      // gap would stay invisible on the layer that has one.
-      //
-      // Un-geocoded duplicates cannot be detected (drawnAsAccessPoint needs a
-      // coordinate to compare), so this total is pessimistic by however many
-      // of the 30 un-geocoded campground services are the same place as a
-      // put-in. Pessimistic is the right direction: it under-claims coverage.
-      campgrounds:
-        drawnAccessPoints.filter((entry) => isCampground(entry.point)).length +
-        eligible.filter((s) => serviceOnLayer(s, 'campgrounds')).length,
+  /**
+   * How many of each tier's services have a location, and how many exist.
+   *
+   * ── NOT DERIVED FROM `layerCounts`, AND THAT IS THE FIX ─────────────────
+   *
+   * The first version compared `layerCounts[tier]` against a total counted
+   * here, and those two are not the same population. `layerCounts` reports
+   * PINS, so the lodging tier subtracts whatever the rentals tier is already
+   * drawing — one service is one pin. The total did no such thing. With both
+   * tiers on, 10 of the 13 mappable lodging rows are also rentals, so the note
+   * would have read "3 of 81" where the truth is 13 of 81 — understating the
+   * very number it exists to be honest about.
+   *
+   * Coverage is a fact about the TIER'S DATA, not about which switches happen
+   * to be on, so both halves are counted per tier before any cross-tier
+   * deduplication. The count chip and this note therefore answer different
+   * questions and may differ; the note's wording says "have a confirmed
+   * location" rather than "mapped" so they do not read as contradicting.
+   */
+  const tierCoverage = useMemo<
+    Partial<Record<LayerKey, { located: number; total: number }>>
+  >(() => {
+    if (!services) return {};
+    const eligible = services.filter(serviceEligible);
+    const per = (layer: 'outfitters' | 'lodging' | 'campgrounds') => {
+      const inTier = eligible.filter((s) => serviceOnLayer(s, layer));
+      return { located: inTier.filter(mappableService).length, total: inTier.length };
     };
-  }, [services, drawnAccessPoints]);
+    return {
+      outfitters: per('outfitters'),
+      lodging: per('lodging'),
+      // Services only, unlike the count chip beside it. The access points this
+      // row also draws all have coordinates, so folding them in would dilute a
+      // figure that is entirely about the directory's geocoding gap.
+      campgrounds: per('campgrounds'),
+    };
+  }, [services]);
 
   const conditionCode = drawn?.currentCondition?.code ?? 'unknown';
 
@@ -2321,14 +2336,18 @@ export default function MapScreen() {
           // fires per tier and the two are not alike: rentals is 12 of 70 and
           // cabins is 2 of 41. One combined figure would hide which is thin.
           if (on && (key === 'outfitters' || key === 'lodging' || key === 'campgrounds')) {
-            const mapped = layerCounts[key];
-            const total = layerTotals[key];
-            // Both halves, or neither. A note comparing a loaded number to an
-            // unloaded one is a note that will change under the reader's eyes,
-            // which is the rule layerCounts already follows for its own zeroes.
-            return mapped != null && total != null && total > mapped ? (
+            const coverage = tierCoverage[key];
+            // Absent until the fetch lands, and silent when coverage is total —
+            // a layer drawing everything it knows about has nothing to explain.
+            return coverage && coverage.total > coverage.located ? (
+              // "have a confirmed location", not "mapped". The count chip on
+              // the row above is a count of PINS and this is a count of ROWS,
+              // and with both tiers on they legitimately differ — a
+              // cabin-renting outfitter is one pin under Rentals and still a
+              // located lodging row. Two different words for two different
+              // questions, so neither looks like it is contradicting the other.
               <LayerNote
-                text={`${mapped} of ${total} mapped — the rest have no confirmed location.`}
+                text={`${coverage.located} of ${coverage.total} have a confirmed location — the rest are listed on the river page.`}
               />
             ) : null;
           }

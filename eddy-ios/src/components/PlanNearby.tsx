@@ -23,7 +23,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { FloatPlan, RiverService } from '@eddy/types';
-import { serviceEligible, serviceTiers } from '@eddy/types';
+import { serviceEligible, serviceOffers } from '@eddy/types';
 import { fetchRiverServices } from '@/api/client';
 import { serviceTypeLabel } from '@/map/serviceLayers';
 import { mappableService } from '@/map/mappable';
@@ -60,12 +60,20 @@ export function PlanNearby({ plan }: { plan: FloatPlan }) {
       .filter(
         (s) =>
           // ── ASKS WHETHER IT SHUTTLES, NOT WHAT IT IS CALLED ─────────────
-          // This used to test the type against a list of four strings, three of
-          // which the services directory has never held. The website has always
-          // asked the capability instead (ShuttlePanel), so the two platforms
-          // disagreed about the same question: iOS recommended 3 outfitters that
-          // offer no shuttle and missed 10 campgrounds and lodges that do.
-          serviceTiers(s).includes('rentals') &&
+          //
+          // The capability, NOT the tier. `serviceTiers(...).includes('rentals')`
+          // looks like this question and is not it: the tier unions in the kind
+          // as a floor, so every `outfitter` qualifies whether or not it records
+          // a shuttle. That is right for a map layer and wrong for a heading
+          // that names one service — it recommended all 71 outfitters, three of
+          // which shuttle nobody.
+          //
+          // It also brings this level with the website, which has asked the
+          // capability all along (ShuttlePanel) — so the two platforms stop
+          // disagreeing about what a shuttle is. The 10 campgrounds and lodges
+          // that DO run shuttles now qualify, which the old type-based list
+          // could never express.
+          serviceOffers(s, 'shuttle') &&
           // Still trading. A closed business is the one recommendation that is
           // worse than none, and this is a recommendation with a mileage on it.
           serviceEligible(s) &&

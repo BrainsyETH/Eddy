@@ -842,9 +842,35 @@ export default function RiverDetailScreen() {
   // counts as a campground on the map counts as one here. Reading `type` alone
   // would miss every put-in tagged both, which is most of them.
   const campgroundPoints = accessPoints.filter(isCampground);
-  // Services excluded from Outfitters above. Until this section existed they
-  // were fetched on every river screen and drawn on none of them.
-  const campgroundServices = services.filter((s) => s.type === 'campground');
+  // ── THE CAMPING TIER, NOT THE `campground` TYPE ────────────────────────
+  //
+  // This read `s.type === 'campground'` and so missed 36 businesses that record
+  // a camping offering while being filed as something else — the canoe livery
+  // with thirty riverside sites is the common case, and it is exactly the place
+  // people ask this section about. It also kept closed rows, having never asked
+  // `serviceEligible`.
+  //
+  // ── AND IT NO LONGER EXCLUDES THE OUTFITTERS ABOVE ────────────────────
+  //
+  // The old comment here said "services excluded from Outfitters above", which
+  // was true while the two lists were mutually exclusive BY TYPE. They are not:
+  // 40 of these businesses are in both tiers, because they rent boats and have
+  // campsites. Both listings are true, and they answer different questions —
+  // "who shuttles me" and "where do I sleep" — so the same name appearing under
+  // both headings is the model working rather than a duplicate.
+  //
+  // That is a different thing from the duplication removed from the pin sheet,
+  // where a campground was listed under "Outfitters and shuttles" AND under
+  // "Camping nearby": there one of the two headings was simply wrong. Here each
+  // row prints its own offerings, so a livery under Campgrounds reading
+  // "Canoe rental · Primitive camping" explains itself.
+  //
+  // `mappableService` is deliberately NOT asked. This is a list, and a list is
+  // the one surface where a service with no geocode still belongs — 128 of 156
+  // have none, and this is where they stay reachable.
+  const campgroundServices = services.filter(
+    (s) => serviceTiers(s).includes('camping') && serviceEligible(s),
+  );
   const campgroundTotal = campgroundPoints.length + campgroundServices.length;
   // Says how many of them you can also put in at, because that is the thing
   // this section is otherwise silently repeating from the list above it.

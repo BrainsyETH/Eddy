@@ -46,6 +46,7 @@ import {
   parkingLabel,
   roadSurfaceLabel,
   stripHtml,
+  waitingCopy,
 } from '@/lib/accessCopy';
 import { Absent, AccessGaugeReading, Chips, Fact, LinkRow, Prose, Section } from './sections';
 import type { DetailStatus } from '@/hooks/useAccessPointDetail';
@@ -124,7 +125,13 @@ export function AccessOverviewTab({
   // database — all 406 carry a river_id — so counting it would mean this can
   // never fire, and a lone link is precisely the state being reported as
   // broken.
-  const settled = detailStatus === 'ready' || detailStatus === 'failed' || detailStatus === 'idle';
+  // ── A FAILED REQUEST IS NOT AN ANSWER ─────────────────────────────────
+  // This folded 'failed' into 'settled' and then said "Eddy has no description
+  // for this place yet" — a claim about the DATA made from a failure to load
+  // it. Eddy does not know that; the facts that would have filled this tab
+  // simply did not arrive. `waitingCopy` below already draws exactly this
+  // distinction, and the line just has to use it.
+  const settled = detailStatus === 'ready' || detailStatus === 'idle' || detailStatus === 'failed';
   const bare = !description && !lead && !status && camping.length === 0;
 
   return (
@@ -138,11 +145,16 @@ export function AccessOverviewTab({
       {/* ── ABSENT-NEVER-EMPTY GETS A FLOOR AT THE TAB LEVEL ──────────────
           That rule is right for a SECTION — a heading over nothing is a
           promise unkept — and it is what left this tab as a single link. A
-          landing tab that resolves to nothing has to say so, in the same
-          settled voice every other tab uses when a request came back with
-          nothing (see waitingCopy). Only once the request has settled: before
-          that, silence is honest, because something may still arrive. */}
-      {bare && settled ? <Absent>Eddy has no description for this place yet.</Absent> : null}
+          landing tab that resolves to nothing has to say so.
+
+          Through waitingCopy, so there is ONE voice rather than a second copy
+          of it — and so a failed request says "unavailable right now" instead
+          of claiming Eddy has nothing. Those are different facts and the reader
+          can act on only one of them.
+
+          Only once the request has settled: before that, silence is honest,
+          because something may still arrive. */}
+      {bare && settled ? <Absent>{waitingCopy(detailStatus, 'description')}</Absent> : null}
 
       {/* ── WHAT THE CONDITIONS TAB USED TO BE ────────────────────────────
           Two facts, which is not a destination. The reading itself is in the
@@ -669,30 +681,11 @@ export function AccessDetailsTab({ detail, onOpenDetail, status }: TabProps) {
 
 /* ── Shared derivations ─────────────────────────────────────────────────── */
 
-/**
- * What a tab says while it has nothing, told apart by WHY.
- *
- * "Unavailable" on a request still in flight tells the reader to give up on
- * something that is about to arrive; a spinner on a request that already failed
- * asks them to wait for something that never will. Restrained on purpose —
- * neither case is an error the reader caused or can do anything about.
- */
-function waitingCopy(status: DetailStatus, subject: string): string {
-  if (status === 'loading') return `Loading ${subject}…`;
-  if (status === 'failed') return `${sentence(subject)} unavailable right now.`;
-  // ── SETTLED, AND NOTHING IS COMING ──────────────────────────────────────
-  // 'idle' means no request was ever made — the pin carries no detail route —
-  // and 'ready' here means one was made and came back without an access point.
-  // Both used to fall through to "Loading…", which is a promise this tab cannot
-  // keep: the spinner-less wait never ends, and a reader watching it has no way
-  // to learn that. This is the reported bug.
-  return `Eddy has no ${subject} for this place.`;
-}
-
-/** Capitalised for the start of a sentence, since the subjects are noun phrases. */
-function sentence(subject: string): string {
-  return subject.charAt(0).toUpperCase() + subject.slice(1);
-}
+// `waitingCopy` moved to lib/accessCopy.ts — it is a string derived from a
+// status and nothing else, and this file cannot be imported by the web suite,
+// which is the only runner the Expo app has. Its distinction between "failed"
+// and "genuinely empty" is now testable, which it needed to be: the tab-level
+// empty line briefly reported a failed request as confirmed absence.
 
 /** Absent for both "none" and "not recorded", which a camper reads the same. */
 function countOrNull(count: number | null | undefined): string | null {

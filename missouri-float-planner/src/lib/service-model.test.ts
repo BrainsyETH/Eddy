@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   isKnownServiceType,
   serviceEligible,
+  serviceOffers,
   serviceTiers,
   type ServiceTier,
 } from '@eddy/types';
@@ -215,3 +216,53 @@ function offeringFor(tier: ServiceTier): string[] {
   if (tier === 'camping') return ['camping_primitive'];
   return ['cabins'];
 }
+
+/* ── A capability is not a tier ──────────────────────────────────────────── */
+
+test('serviceOffers asks what a business DOES, where a tier asks what it is', () => {
+  // The distinction the planner needed. Every `outfitter` is in the rentals
+  // tier through the kind floor — right for a map layer, wrong for a heading
+  // that names one service. 68 of the directory's 71 outfitters record a
+  // shuttle; three do not, and were recommended under "Shuttles near the
+  // put-in" until this predicate existed.
+  const noShuttle = svc({ type: 'outfitter', servicesOffered: ['canoe_rental'] });
+  assert.ok(serviceTiers(noShuttle).includes('rentals'), 'still an outfitter');
+  assert.equal(serviceOffers(noShuttle, 'shuttle'), false, 'but it shuttles nobody');
+});
+
+test('a campground that runs a shuttle qualifies as one', () => {
+  // Ten non-outfitters in the directory offer shuttles. The old type-based list
+  // could not express this at all.
+  assert.equal(
+    serviceOffers(svc({ type: 'campground', servicesOffered: ['shuttle'] }), 'shuttle'),
+    true,
+  );
+});
+
+test('serviceOffers has NO kind fallback, deliberately', () => {
+  // A fallback would re-admit exactly the rows this exists to exclude. Every
+  // outfitter in the directory records at least one capability, so it would
+  // protect nothing today — and a row that somehow has none should drop out of
+  // a RECOMMENDATION while staying listed and mapped everywhere else.
+  assert.equal(serviceOffers(svc({ type: 'outfitter', servicesOffered: [] }), 'shuttle'), false);
+  assert.equal(serviceOffers({ servicesOffered: null }, 'shuttle'), false);
+  assert.equal(serviceOffers({}, 'shuttle'), false);
+});
+
+/* ── Coverage is a fact about rows, not about drawn pins ─────────────────── */
+
+test('a service in two tiers is located in both', () => {
+  // The coverage bug: the lodging PIN count subtracts whatever the rentals tier
+  // is already drawing (one service, one pin), and the total did not. Ten of
+  // the thirteen mappable lodging rows are also rentals, so a note derived from
+  // the pin count read "3 of 81" where the truth is 13 of 81.
+  //
+  // Coverage is counted per tier BEFORE any cross-tier deduplication, so a
+  // cabin-renting outfitter counts as located under both.
+  const cabinRentingOutfitter = svc({
+    type: 'outfitter',
+    servicesOffered: ['shuttle', 'cabins'],
+  });
+  assert.equal(serviceOnLayer(cabinRentingOutfitter, 'outfitters'), true);
+  assert.equal(serviceOnLayer(cabinRentingOutfitter, 'lodging'), true);
+});

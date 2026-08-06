@@ -1267,6 +1267,38 @@ export function isKnownServiceType(type: string): type is KnownServiceType {
 }
 
 /**
+ * Whether this service actually DOES a specific thing.
+ *
+ * ── NOT THE SAME QUESTION AS `serviceTiers` ───────────────────────────────
+ *
+ * A tier is deliberately generous: the kind is unioned in as a floor, so every
+ * `outfitter` is in `rentals` whether or not it records a single capability.
+ * That is right for a map layer — somebody switching on "Rentals & shuttles"
+ * wants to see the outfitters — and WRONG for a specific claim.
+ *
+ * The case that forced this: the planner's "Shuttles near the put-in" asked
+ * `serviceTiers(s).includes('rentals')` and therefore recommended all 71
+ * outfitters, three of which record no shuttle at all. A heading naming one
+ * capability has to be filtered on that capability.
+ *
+ * ── NO KIND FALLBACK, AND THAT IS THE POINT ───────────────────────────────
+ *
+ * There is deliberately no "…or its kind implies it" clause. Adding one would
+ * re-admit exactly the rows this exists to exclude, and it would protect
+ * nothing: every outfitter in the directory records at least one capability, so
+ * the empty-capabilities case is hypothetical. If such a row ever appears it
+ * drops out of a RECOMMENDATION — the surface where a wrong answer costs a
+ * reader a phone call to a business that cannot help them — while staying
+ * listed and mapped everywhere else, which is the right way round.
+ */
+export function serviceOffers(
+  service: { servicesOffered?: readonly string[] | null },
+  offering: ServiceOffering,
+): boolean {
+  return (service.servicesOffered ?? []).includes(offering);
+}
+
+/**
  * Whether Eddy should show this service AT ALL — which is not a question about
  * what kind of thing it is.
  *
