@@ -1,4 +1,4 @@
--- 25 services geocoded by hand research. NOT YET APPLIED.
+-- 25 services geocoded by hand research. APPLIED 2026-08-07.
 --
 -- ── Where these came from, and why they are trustworthy ───────────────────
 --
@@ -188,6 +188,18 @@ UPDATE nearby_services SET latitude = 36.94861, longitude = -90.99306,
     geocode_precision = 'approximate', geocode_source = 'nps', geocoded_at = NOW()
 WHERE name = 'Big Spring Lodge & Cabins' AND latitude IS NULL;
 
--- After applying, `npm run db:check-services` should show coverage rise from
--- 14/84, 13/81, 18/80 to roughly 22/84, 15/81, 27/80, and `centroid` must stay
--- at 0. Nothing here is a town.
+-- ── WHAT IT ACTUALLY DID, and the prediction was wrong ───────────────────
+--
+-- Predicted roughly 22/84, 15/81, 27/80. Measured after applying:
+--
+--   outfitters    14 -> 34 of 84   (17% -> 40%)
+--   lodging       13 -> 28 of 81   (16% -> 35%)
+--   campgrounds   18 -> 48 of 80   (23% -> 60%)
+--
+-- The prediction assumed each geocoded row lifts ONE tier. It does not: 21 of
+-- these 32 rows are in two tiers or more, so a single coordinate lifts several
+-- at once. 20 of them reach rentals, 30 reach camping, 15 reach lodging — which
+-- is exactly 14+20, 18+30 and 13+15. The capability model compounds, and this
+-- is the clearest measurement of it so far.
+--
+-- `centroid` stayed at 0 and no coordinate landed outside the region.

@@ -1,4 +1,4 @@
--- Seven campgrounds that cleared both geocoding tests. NOT YET APPLIED.
+-- Seven campgrounds that cleared both geocoding tests. APPLIED 2026-08-07.
 --
 -- ── Where these came from ──────────────────────────────────────────────────
 --
