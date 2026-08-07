@@ -72,11 +72,11 @@ function ok(message: string) {
 }
 
 function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
   if (!url || !serviceKey) {
     throw new Error(
-      'Missing environment variables. Make sure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.',
+      'Set NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_KEY).',
     );
   }
   return createClient(url, serviceKey);
@@ -90,11 +90,7 @@ function asService(row: ServiceRow) {
     status: row.status,
     latitude: row.latitude,
     longitude: row.longitude,
-    geocodePrecision: row.geocode_precision as
-      | 'exact'
-      | 'approximate'
-      | 'centroid'
-      | null,
+    geocodePrecision: row.geocode_precision as 'exact' | 'approximate' | null,
   };
 }
 
@@ -198,11 +194,6 @@ async function main() {
       `  ${'excluded'.padEnd(12)} ${String(ineligible.length).padStart(3)} closed — not drawn, not counted, not geocoded`,
     );
   }
-
-  // A centroid is a town, never a place. Zero today; the moment a geocoding
-  // backfill records one honestly, this line starts reporting it.
-  const centroids = rows.filter((r) => r.geocode_precision === 'centroid');
-  console.log(`  ${'centroid'.padEnd(12)} ${String(centroids.length).padStart(3)} refused as too coarse to pin`);
 
   /* ── 5. THE API AGREES WITH THE TABLE ──────────────────────────────────
      The gap this script was blind to, and it cost a release.

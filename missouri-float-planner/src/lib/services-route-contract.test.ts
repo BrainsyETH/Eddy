@@ -18,10 +18,8 @@ const source = readFileSync(ROUTE, 'utf8');
 //     client's policy (draw `unverified`, drop closed) was silently replaced by
 //     a stricter server one, and the map and the planner saw different
 //     populations of one table.
-//   • `mappableService` was DEFEATED, because `geocode_precision` never
-//     arrived and absent reads as trusted. A row marked `centroid` — a town,
-//     never a place — would have been drawn as a pin, which is the single
-//     failure that file exists to prevent.
+//   • Provenance never arrived, because `geocode_precision` was not selected —
+//     so no client could tell a corroborated coordinate from a legacy one.
 //   • The layers sheet's coverage note could never render, because the rows it
 //     counts had been filtered out upstream.
 //
@@ -56,9 +54,8 @@ function selectedColumns(): string[] {
 
 test('the select asks for the two columns the client policies read', () => {
   // Without `status`, serviceEligible cannot tell a closed business from an
-  // open one. Without `geocode_precision`, mappableService cannot tell a town
-  // centroid from a real location — and absent reads as trusted, so the failure
-  // is a pin in the wrong place rather than a missing one.
+  // open one. Without `geocode_precision`, the client loses coordinate
+  // provenance — which column carries `exact` vs `approximate` vs legacy.
   const columns = selectedColumns();
   assert.ok(columns.includes('status'), `status missing from: ${columns.join(', ')}`);
   assert.ok(

@@ -800,10 +800,8 @@ export function RiverMap({
             // because closed rows happened to have no coordinates — which the
             // geocoding backfill is about to change.
             serviceEligible(s) &&
-            // Not merely "has coordinates" — has coordinates worth pointing at.
-            // A town centroid would put a private campground somewhere in the
-            // right county, and somebody plans a drive around a pin. See
-            // map/mappable.ts for the four wrong campgrounds that measured.
+            // The shared "drawable" predicate — see map/mappable.ts for why
+            // one definition serves every consumer.
             mappableService(s) &&
             s.latitude != null &&
             s.longitude != null &&

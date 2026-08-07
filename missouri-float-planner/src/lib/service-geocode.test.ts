@@ -20,41 +20,17 @@ import {
 
 /* ── What may be drawn ────────────────────────────────────────────────────── */
 
-test('a town centroid is never a pin', () => {
-  // The whole point. A centroid puts a private campground somewhere in the
-  // right county, and somebody plans a two-hour drive around a pin.
-  assert.equal(
-    mappableService({ latitude: 37.15, longitude: -91.35, geocodePrecision: 'centroid' }),
-    false,
-  );
-});
-
-test('a corroborated coordinate is a pin', () => {
-  assert.equal(
-    mappableService({ latitude: 37.15518, longitude: -91.36701, geocodePrecision: 'exact' }),
-    true,
-  );
-  assert.equal(
-    mappableService({ latitude: 37.15, longitude: -91.35, geocodePrecision: 'approximate' }),
-    true,
-  );
-});
-
-test('coordinates from before provenance was tracked stay on the map', () => {
-  // Thirteen services were entered before the column existed. Demanding
-  // 'exact' would have silently un-pinned every one of them to make a point.
+test('a coordinate is a pin, whatever its provenance', () => {
+  // Trust is enforced at WRITE time — the backfill corroborates every
+  // candidate against the service's river before a coordinate lands — so the
+  // map draws whatever the table holds. Rows from before provenance was
+  // tracked carry no precision at all and must not vanish.
+  assert.equal(mappableService({ latitude: 37.15518, longitude: -91.36701 }), true);
   assert.equal(mappableService({ latitude: 37.1, longitude: -91.3 }), true);
-  assert.equal(
-    mappableService({ latitude: 37.1, longitude: -91.3, geocodePrecision: null }),
-    true,
-  );
 });
 
-test('no coordinates is never a pin, whatever the precision says', () => {
-  assert.equal(
-    mappableService({ latitude: null, longitude: null, geocodePrecision: 'exact' }),
-    false,
-  );
+test('no coordinates is never a pin', () => {
+  assert.equal(mappableService({ latitude: null, longitude: null }), false);
   assert.equal(mappableService({ latitude: 37.1, longitude: null }), false);
 });
 
