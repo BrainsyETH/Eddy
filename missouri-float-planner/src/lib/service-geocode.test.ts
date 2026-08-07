@@ -9,7 +9,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { mappableService } from '../../../eddy-ios/src/map/mappable';
-import { accepts, milesBetween, nameScore } from '../../scripts/ingestion/geocode-services-dryrun';
+import {
+  accepts,
+  milesBetween,
+  nameScore,
+  pickBest,
+  POI_TAGS,
+  sweepBox,
+} from '../../scripts/ingestion/geocode-services-dryrun';
 
 /* ── What may be drawn ────────────────────────────────────────────────────── */
 
@@ -121,4 +128,109 @@ test('distance is in miles and symmetric', () => {
   assert.ok(Math.abs(milesBetween(EMINENCE, ALTON) - milesBetween(ALTON, EMINENCE)) < 1e-9);
   // Eminence to Alton is about 31 miles as the crow flies.
   assert.ok(Math.abs(milesBetween(EMINENCE, ALTON) - 31) < 4);
+});
+
+/* ── The search area follows the data ────────────────────────────────────── */
+
+test('the swept box contains every town it was built from', () => {
+  // It was a hardcoded '36.4,-92.6,38.6,-90.6' — the Missouri Ozarks. Eddy has
+  // since grown onto the Elk River and into Arkansas, and those rows fell
+  // outside it: never candidates at all, yet printed with a "match" 220 miles
+  // away that a reader could easily take for a near-miss.
+  const towns: [number, number][] = [
+    [37.15, -91.36], // Eminence, MO
+    [36.54, -94.49], // Noel, MO — Elk River, west of the old box
+    [34.4, -93.6], // Caddo Gap, AR — south of the old box
+    [36.23, -92.68], // Yellville, AR
+  ];
+  const [s, w, n, e] = sweepBox(towns).split(',').map(Number);
+  for (const [lat, lng] of towns) {
+    assert.ok(lat > s && lat < n, `${lat} outside ${s}..${n}`);
+    assert.ok(lng > w && lng < e, `${lng} outside ${w}..${e}`);
+  }
+});
+
+test('the box is padded by the distance test, not by a guess', () => {
+  // The swept area IS the area a candidate could be accepted in. Twelve miles
+  // is roughly 0.174 degrees of latitude; the pad must cover that and must not
+  // be wildly larger, or the sweep pulls in POIs that could never qualify.
+  const [s, , n] = sweepBox([[37.0, -91.0]]).split(',').map(Number);
+  const padDegrees = (n - s) / 2;
+  assert.ok(padDegrees >= 12 / 69, `pad ${padDegrees} is narrower than the distance test`);
+  assert.ok(padDegrees < 0.3, `pad ${padDegrees} is far wider than the distance test`);
+});
+
+test('longitude is padded wider than latitude, because degrees shrink', () => {
+  // At 37°N a degree of longitude is about four fifths of a degree of latitude.
+  // An unscaled pad is too narrow east-to-west — exactly where the Elk River
+  // rows sit relative to the rest of the roster.
+  const [s, w, n, e] = sweepBox([[37.0, -91.0]]).split(',').map(Number);
+  assert.ok(e - w > n - s);
+});
+
+test('a sweep with no geocoded towns refuses rather than inventing a box', () => {
+  assert.throws(() => sweepBox([]), /nothing to sweep/i);
+});
+
+/* ── Every type gets its own corpus ──────────────────────────────────────── */
+
+test('each service type sweeps tags that describe it', () => {
+  // Every type used to sweep tourism=camp_site, so asking for outfitters
+  // compared canoe liveries against campgrounds and printed matches that meant
+  // nothing at all.
+  assert.ok(POI_TAGS.campground.includes('tourism=camp_site'));
+  assert.ok(POI_TAGS.cabin_lodge.some((t) => t.startsWith('tourism=')));
+  assert.ok(POI_TAGS.outfitter.includes('amenity=boat_rental'));
+  assert.ok(!POI_TAGS.outfitter.includes('tourism=camp_site'), 'an outfitter is not a campground');
+  assert.ok(!POI_TAGS.cabin_lodge.includes('tourism=camp_site'), 'a lodge is not a campground');
+});
+
+test('the three directory types are all covered', () => {
+  // A type with no tags now throws in main() rather than silently sweeping the
+  // wrong corpus, so this is the list that keeps that from firing in practice.
+  for (const type of ['outfitter', 'campground', 'cabin_lodge']) {
+    assert.ok(POI_TAGS[type]?.length, `${type} has no OSM tags`);
+  }
+});
+
+/* ── A passing candidate is never hidden behind a distant namesake ───────── */
+
+test('a qualifying match outranks a perfect name in another county', () => {
+  // The bug: selection was by name score alone, so the 200-mile namesake won
+  // and the good match down the road was never printed. The row then read as
+  // "no candidate" when a fine one existed.
+  const town: [number, number] = [37.15, -91.36];
+  const best = pickBest('Circle B Campground & Resort', town, [
+    { name: 'Circle B Campground & Resort', lat: 39.5, lng: -94.5 }, // perfect, far
+    { name: 'Circle B Campground', lat: 37.16, lng: -91.37 }, // slightly lower, near
+  ]);
+  assert.ok(best);
+  assert.equal(best.verdict.ok, true);
+  assert.ok(best.verdict.miles < 12, `chose the one ${best.verdict.miles.toFixed(0)} mi away`);
+});
+
+test('with nothing qualifying, the distant namesake is still reported', () => {
+  // That line is worth printing — it is how a reader learns the only thing of
+  // this name is in another county — it just must not displace a real match.
+  const town: [number, number] = [36.7, -91.87]; // Alton, MO
+  const best = pickBest('Camp River Campground', town, [
+    { name: 'Two Rivers Campground', lat: 37.19, lng: -91.28 },
+  ]);
+  assert.ok(best);
+  assert.equal(best.verdict.ok, false);
+  assert.ok(best.verdict.miles > 12);
+});
+
+test('among equally bad candidates the nearer one is shown', () => {
+  const town: [number, number] = [37.15, -91.36];
+  const best = pickBest("Story's Creek Campground", town, [
+    { name: 'Hazel Creek Campground', lat: 39.9, lng: -92.9 },
+    { name: 'Hazel Creek Campground', lat: 37.4, lng: -91.5 },
+  ]);
+  assert.ok(best);
+  assert.ok(best.verdict.miles < 60);
+});
+
+test('no candidates at all yields null rather than a fabricated match', () => {
+  assert.equal(pickBest('Anything', [37, -91], []), null);
 });
