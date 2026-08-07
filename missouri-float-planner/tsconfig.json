@@ -45,10 +45,20 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
+  "_excludeComment": [
+    "check-service-model.ts is excluded for the reason the tests are, and it is",
+    "the same reason: it imports @eddy/types and eddy-ios source, and Vercel",
+    "installs only missouri-float-planner/ — so neither resolves during a",
+    "production build. It is a local audit CLI and is never part of the deploy.",
+    "tsconfig.test.json DOES check it, and package.json runs it with",
+    "--tsconfig tsconfig.test.json so the path aliases govern tsx as well as",
+    "tsc. See the header in tsconfig.test.json for why that second half matters."
+  ],
   "exclude": [
     "node_modules",
     "remotion",
     "**/*.test.ts",
-    "**/*.test.tsx"
+    "**/*.test.tsx",
+    "scripts/check-service-model.ts"
   ]
 }

@@ -68,7 +68,12 @@ import type {
   RiverService,
   SearchResult,
 } from '@eddy/types';
-import { hasCoordinates, isCampground, PUBLIC_LAND_OWNERSHIP_NOTE } from '@eddy/types';
+import {
+  hasCoordinates,
+  isCampground,
+  PUBLIC_LAND_OWNERSHIP_NOTE,
+  serviceEligible,
+} from '@eddy/types';
 import {
   formatFloatTimeCeilingCompact,
   formatFloatTimeCompact,
@@ -88,9 +93,10 @@ import { fonts, type as t } from '@/theme/typography';
 import { mapAccessPointPin, RiverMap, type MapPin } from '@/map/RiverMap';
 import { placeSymbol } from '@/components/map-sheet/placeSymbol';
 import { mapUnavailableReason } from '@/map/runtime';
+import { mappableService } from '@/map/mappable';
+import { serviceOnLayer, SERVICE_LAYER_KEYS } from '@/map/serviceLayers';
 import {
   drawnAsAccessPoint,
-  OUTFITTER_SERVICE_TYPES,
   PUBLIC_LAND_ATTRIBUTION,
   RADAR_ATTRIBUTION,
   type LayerKey,
@@ -772,24 +778,50 @@ export default function MapScreen() {
   }, [wantsHazards, selectedSlug]);
 
   /**
-   * Every placed service in the state, fetched once when a layer wants them.
+   * Every service in the state, fetched once when a layer wants them.
    *
    * Was per-river and re-fetched on every selection, which made both layers
    * empty until a river was chosen and then two or three pins deep. One
-   * statewide request draws all of them — 25 in total, because 129 of the 154
-   * services on file have no coordinates and cannot be drawn by anyone. See
+   * statewide request draws all of them — and it now carries the un-geocoded
+   * rows too, because the coverage sentence under each tier counts them. See
    * /api/services, which says the same thing from the other end.
    *
    * A ref rather than a slug guard: the set is fixed and statewide, so once it
    * has been asked for there is nothing a change of selection could add.
-   * fetchServices already answers [] on failure, so there is no error branch.
+   *
+   * ── A FAILURE IS NOT AN EMPTY DIRECTORY ─────────────────────────────────
+   *
+   * `fetchServices` used to answer `[]` when the request failed, and the note
+   * here used to say that was why no error branch was needed. It was the
+   * reason one WAS: `services` became a non-null empty array, so three layers
+   * reported a confident `0` and the coverage lines vanished — a set of claims
+   * about a directory Eddy had never managed to read. It answers `null` now,
+   * `services` stays null, and every count stays `undefined`, which the sheet
+   * already draws as absent rather than as zero.
+   *
+   * And the ref is RELEASED on failure. Marking the request as made before it
+   * succeeds meant one flaky moment disabled these layers for the life of the
+   * screen. Releasing it lets the next layer toggle try again — no timer and no
+   * retry loop, because a map screen quietly re-requesting on a schedule is a
+   * bigger commitment than this needs. If it never succeeds, the layers stay
+   * honestly silent.
    */
-  const wantsServices = layers.includes('campgrounds') || layers.includes('outfitters');
+  // Every layer that draws services, read off the tier table rather than named
+  // here. Spelled out by hand, this said `campgrounds || outfitters` and was
+  // written before the lodging tier existed — so a phone restored with only
+  // Cabins & lodges on never fetched anything. See SERVICE_LAYER_KEYS.
+  const wantsServices = SERVICE_LAYER_KEYS.some((key) => layers.includes(key));
   const servicesRequested = useRef(false);
   useEffect(() => {
     if (!wantsServices || servicesRequested.current) return;
     servicesRequested.current = true;
-    void fetchServices().then(setServices);
+    void fetchServices().then((rows) => {
+      if (rows === null) {
+        servicesRequested.current = false;
+        return;
+      }
+      setServices(rows);
+    });
   }, [wantsServices]);
 
   // ── Search ──────────────────────────────────────────────────────
@@ -1317,10 +1349,22 @@ export default function MapScreen() {
    * map cannot draw is a count that makes the map look broken.
    */
   const layerCounts = useMemo<Partial<Record<LayerKey, number>>>(() => {
-    // The endpoint already drops services with no geocode, and this filters
-    // again rather than trusting it: a count that includes pins the map cannot
-    // draw is a count that makes the map look broken.
-    const placed = services?.filter((s) => s.latitude != null && s.longitude != null) ?? null;
+    // ── THE SAME THREE TESTS RIVERMAP APPLIES, IN THE SAME ORDER ──────────
+    // This used to ask only for non-null coordinates while RiverMap's campground
+    // branch also asked `mappableService`, and neither asked whether the
+    // business had closed. Three filters over one table, disagreeing — which is
+    // survivable only while no row is a centroid and every closed row happens to
+    // lack coordinates. The geocoding backfill ends both accidents, so the count
+    // and the pins ask one question now. A count that includes pins the map
+    // cannot draw is a count that makes the map look broken.
+    const placed =
+      services?.filter(
+        (s) =>
+          serviceEligible(s) &&
+          mappableService(s) &&
+          s.latitude != null &&
+          s.longitude != null,
+      ) ?? null;
     return {
       // Statewide now, and counted from what is actually drawn. It used to be
       // river-scoped and `undefined` until a river was chosen, which was the
@@ -1371,12 +1415,20 @@ export default function MapScreen() {
             const points = camps.map((entry) => entry.point);
             return (
               camps.length +
-              placed.filter((s) => s.type === 'campground' && !drawnAsAccessPoint(s, points))
-                .length
+              placed.filter(
+                (s) => serviceOnLayer(s, 'campgrounds') && !drawnAsAccessPoint(s, points),
+              ).length
             );
           })()
         : undefined,
-      outfitters: placed?.filter((s) => OUTFITTER_SERVICE_TYPES.includes(s.type)).length,
+      outfitters: placed?.filter((s) => serviceOnLayer(s, 'outfitters')).length,
+      // The complement, exactly as RiverMap draws it — a service in both tiers
+      // is one pin, and the count has to be a count of pins.
+      lodging: placed?.filter(
+        (s) =>
+          serviceOnLayer(s, 'lodging') &&
+          !(layers.includes('outfitters') && serviceOnLayer(s, 'outfitters')),
+      ).length,
       // Viewport-scoped, like allGauges above and with the same three-way
       // meaning: undefined before the layer has answered, 0 when we HAVE looked
       // and this view holds none, and a number otherwise.
@@ -1403,6 +1455,62 @@ export default function MapScreen() {
     publicLands.loading,
     publicLands.features,
   ]);
+
+  /**
+   * How many services each tier COULD draw, if every one of them had a location.
+   *
+   * ── A SIBLING OF layerCounts, NOT A FIELD IN IT ─────────────────────────
+   * That memo's contract is "a count of pins, and `undefined` until the layer
+   * has answered". Teaching it to also mean "of N" would overload the one rule
+   * the whole file is built around. This inherits the contract and answers a
+   * different question.
+   *
+   * ELIGIBLE BUT NOT MAPPABLE — that is the entire point. The denominator has to
+   * be the rows Eddy WOULD show if it knew where they were, so it excludes the
+   * permanently closed one (which is a policy decision, not a coverage fact) and
+   * includes the 128 with no geocode (which is exactly what the note is about).
+   * Mixing the two would smuggle closure policy into a sentence about locations.
+   *
+   * Statewide, like the services fetch itself — one call, gated on the layers
+   * rather than on a river — so these figures do not move as you pan.
+   */
+  /**
+   * How many of each tier's services have a location, and how many exist.
+   *
+   * ── NOT DERIVED FROM `layerCounts`, AND THAT IS THE FIX ─────────────────
+   *
+   * The first version compared `layerCounts[tier]` against a total counted
+   * here, and those two are not the same population. `layerCounts` reports
+   * PINS, so the lodging tier subtracts whatever the rentals tier is already
+   * drawing — one service is one pin. The total did no such thing. With both
+   * tiers on, 10 of the 13 mappable lodging rows are also rentals, so the note
+   * would have read "3 of 81" where the truth is 13 of 81 — understating the
+   * very number it exists to be honest about.
+   *
+   * Coverage is a fact about the TIER'S DATA, not about which switches happen
+   * to be on, so both halves are counted per tier before any cross-tier
+   * deduplication. The count chip and this note therefore answer different
+   * questions and may differ; the note's wording says "have a confirmed
+   * location" rather than "mapped" so they do not read as contradicting.
+   */
+  const tierCoverage = useMemo<
+    Partial<Record<LayerKey, { located: number; total: number }>>
+  >(() => {
+    if (!services) return {};
+    const eligible = services.filter(serviceEligible);
+    const per = (layer: 'outfitters' | 'lodging' | 'campgrounds') => {
+      const inTier = eligible.filter((s) => serviceOnLayer(s, layer));
+      return { located: inTier.filter(mappableService).length, total: inTier.length };
+    };
+    return {
+      outfitters: per('outfitters'),
+      lodging: per('lodging'),
+      // Services only, unlike the count chip beside it. The access points this
+      // row also draws all have coordinates, so folding them in would dilute a
+      // figure that is entirely about the directory's geocoding gap.
+      campgrounds: per('campgrounds'),
+    };
+  }, [services]);
 
   const conditionCode = drawn?.currentCondition?.code ?? 'unknown';
 
@@ -2235,6 +2343,39 @@ export default function MapScreen() {
                 text={`${PUBLIC_LAND_OWNERSHIP_NOTE} ${PUBLIC_LAND_ATTRIBUTION}.`}
               />
             );
+          }
+          // ── WHAT THE LAYER IS NOT SHOWING ─────────────────────────────
+          // 128 of the 156 services in Eddy's directory have no confirmed
+          // location, so the Rentals tier draws 12 pins where somebody who
+          // knows the river expects 70. That is the CORRECT behaviour — see
+          // map/mappable.ts, which measured three geocoder near-misses that
+          // each landed on a real but DIFFERENT business, up to 71 miles away —
+          // but a layer that silently draws a sixth of what it promises reads
+          // as broken rather than as careful.
+          //
+          // The clause after the dash is the whole sentence's job. Without it
+          // the reader concludes Eddy's map is faulty instead of that Eddy
+          // declined to guess, and every one of these is still reachable in the
+          // river page's services directory.
+          //
+          // Per tier rather than per row, because renderLayerDetail already
+          // fires per tier and the two are not alike: rentals is 12 of 70 and
+          // cabins is 2 of 41. One combined figure would hide which is thin.
+          if (on && (key === 'outfitters' || key === 'lodging' || key === 'campgrounds')) {
+            const coverage = tierCoverage[key];
+            // Absent until the fetch lands, and silent when coverage is total —
+            // a layer drawing everything it knows about has nothing to explain.
+            return coverage && coverage.total > coverage.located ? (
+              // "have a confirmed location", not "mapped". The count chip on
+              // the row above is a count of PINS and this is a count of ROWS,
+              // and with both tiers on they legitimately differ — a
+              // cabin-renting outfitter is one pin under Rentals and still a
+              // located lodging row. Two different words for two different
+              // questions, so neither looks like it is contradicting the other.
+              <LayerNote
+                text={`${coverage.located} of ${coverage.total} have a confirmed location — the rest are listed on the river page.`}
+              />
+            ) : null;
           }
           return key === 'allGauges' && on ? (
             <GaugeFilterBar

@@ -105,3 +105,108 @@ export function stripHtml(html: string | null | undefined): string | null {
 
   return text.length > 0 ? text : null;
 }
+
+/**
+ * What Overview opens with when the place has no description.
+ *
+ * ── THE LANDING TAB WAS ROUTINELY ONE LINK ───────────────────────────────
+ *
+ * Overview is description + Water (only with a gauge) + Camping nearby (only
+ * with a campground service) + the river row. 81 of Eddy's 406 access points
+ * have no description at all, so a put-in with no gauge on its reach landed the
+ * reader on a single link and nothing else — which does not read as "Eddy knows
+ * little about this place", it reads as broken.
+ *
+ * The fix is not invented copy. Of those 81, EIGHTY carry a fact already in the
+ * same response — road access, parking, facilities, or somebody's river notes.
+ * Overview was empty not because Eddy knows nothing but because everything it
+ * knows was filed one tab to the right. Exactly one access point in the database
+ * is genuinely bare.
+ *
+ * ── The order is what a stranger needs first ─────────────────────────────
+ *
+ * How you get in leads: it is the most useful sentence about a put-in you have
+ * never driven to, and it is the one most likely to change whether you go.
+ * Parking, then facilities, then local notes.
+ *
+ * ── Returned as prose, and the caller draws it with no heading ───────────
+ *
+ * It goes in the description's own slot. It is the same kind of sentence in the
+ * same place, and a heading over it — "Getting in", borrowed from Place — would
+ * be Eddy explaining its own data model to somebody who asked about a river. The
+ * fact keeps its structured home on Place; this is duplication across a swipe
+ * rather than within a glance, which is the trade Overview's Water block already
+ * makes and defends.
+ */
+export function overviewLead(
+  point: {
+    description?: string | null;
+    roadAccess?: string | null;
+    parkingInfo?: string | null;
+    facilities?: string | null;
+    localTips?: string | null;
+  } | null,
+): string | null {
+  if (!point) return null;
+  // A description means there is nothing to promote — this is a fallback, never
+  // a supplement. Two paragraphs saying overlapping things is how the Place tab
+  // came to be a junk drawer in the first place.
+  if (nonEmpty(point.description)) return null;
+
+  return (
+    nonEmpty(point.roadAccess) ??
+    nonEmpty(point.parkingInfo) ??
+    nonEmpty(point.facilities) ??
+    // Last because it is the least predictable in register — local tips are
+    // somebody's notes rather than a fact about the place — and HTML, which is
+    // why it is the one field that has to be stripped.
+    stripHtml(point.localTips)
+  );
+}
+
+/** Trimmed, or null. A column holding '' or '   ' is a column holding nothing. */
+function nonEmpty(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * What a tab says while it has nothing, told apart by WHY.
+ *
+ * "Unavailable" on a request still in flight tells the reader to give up on
+ * something that is about to arrive; a spinner on a request that already failed
+ * asks them to wait for something that never will. Restrained on purpose —
+ * neither case is an error the reader caused or can do anything about.
+ *
+ * ── MOVED HERE FROM AccessTabs.tsx, so it can be tested ──────────────────
+ *
+ * It is a string derived from a status and nothing else, and it lived in a
+ * component the web suite cannot import — that suite being the only runner the
+ * Expo app has. The distinction below then went un-guarded long enough for the
+ * tab-level empty line to be written WITHOUT it, reporting a failed request as
+ * "Eddy has no description for this place": a claim about the data made from a
+ * failure to load it. That is the case the tests now pin.
+ *
+ * `status` is structural rather than the imported DetailStatus for the reason
+ * `tabs.ts` gives for LayerTapped: an app-path import fails under the web
+ * suite's tsconfig, which resolves `@/*` to its own src/.
+ */
+export function waitingCopy(
+  status: 'idle' | 'loading' | 'ready' | 'failed',
+  subject: string,
+): string {
+  if (status === 'loading') return `Loading ${subject}…`;
+  if (status === 'failed') return `${sentence(subject)} unavailable right now.`;
+  // ── SETTLED, AND NOTHING IS COMING ──────────────────────────────────────
+  // 'idle' means no request was ever made — the pin carries no detail route —
+  // and 'ready' here means one was made and came back without an access point.
+  // Both used to fall through to "Loading…", which is a promise this tab cannot
+  // keep: the spinner-less wait never ends, and a reader watching it has no way
+  // to learn that. This is the reported bug.
+  return `Eddy has no ${subject} for this place.`;
+}
+
+/** Capitalised for the start of a sentence, since the subjects are noun phrases. */
+function sentence(subject: string): string {
+  return subject.charAt(0).toUpperCase() + subject.slice(1);
+}

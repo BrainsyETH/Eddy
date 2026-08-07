@@ -908,16 +908,31 @@ export async function fetchRiverReaches(
  * directory record for one river, including services with no geocode, which a
  * map layer has no way to draw and no reason to hold.
  *
- * Answers [] on failure rather than throwing: an outfitter layer that draws
- * nothing is a fair outcome of a request that did not come back, and it must
- * not take the map down with it.
+ * ── NULL ON FAILURE, NEVER [] ─────────────────────────────────────────────
+ *
+ * This used to answer `[]`, on the argument that "an outfitter layer that draws
+ * nothing is a fair outcome of a request that did not come back". Drawing
+ * nothing is fair. SAYING nothing is not, and an empty array says something: it
+ * is indistinguishable from a directory that genuinely holds no services, so
+ * the layers sheet printed a confident `0` beside three rows for a question it
+ * had never got an answer to. That is the exact distinction that sheet's own
+ * header is emphatic about — "a layer that has never been fetched must not
+ * claim zero of anything" — and this function was quietly defeating it.
+ *
+ * It matters more now than it did: this one response drives the campground,
+ * rentals and lodging layers, their counts, and the coverage sentence under
+ * each. A failure that reads as emptiness makes all five wrong at once.
+ *
+ * Still does not throw. The map must survive this, and a null the caller can
+ * leave in place is how it does — every count stays `undefined`, which those
+ * components already render as absent rather than as zero.
  */
-export async function fetchServices(signal?: AbortSignal): Promise<RiverService[]> {
+export async function fetchServices(signal?: AbortSignal): Promise<RiverService[] | null> {
   try {
     const data = await get<ServicesResponse>('/api/services', signal);
     return data.services ?? [];
   } catch {
-    return [];
+    return null;
   }
 }
 

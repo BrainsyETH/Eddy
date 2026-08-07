@@ -20,8 +20,11 @@ import type {
   AccessPointDetailResponse,
   MapAccessPoint,
   NearbyAccessPoint,
+  NearbyService,
   NpsCampgroundSummary,
+  ServiceTier,
 } from '@eddy/types';
+import { serviceTiers } from '@eddy/types';
 import { AvailabilityGlance } from './AvailabilityGlance';
 import { localToday, nightChoices } from './availability';
 import { accessAvailability, accessAvailabilityName } from './availabilitySource';
@@ -37,7 +40,14 @@ import {
 } from './siteList';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { agencyLabel, parkingLabel, roadSurfaceLabel, stripHtml } from '@/lib/accessCopy';
+import {
+  agencyLabel,
+  overviewLead,
+  parkingLabel,
+  roadSurfaceLabel,
+  stripHtml,
+  waitingCopy,
+} from '@/lib/accessCopy';
 import { Absent, AccessGaugeReading, Chips, Fact, LinkRow, Prose, Section } from './sections';
 import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 
@@ -112,14 +122,50 @@ export function AccessOverviewTab({
   onOpenGauge,
   onOpenRiver,
   hasPlaceTab,
+  status: detailStatus,
 }: TabProps) {
   const point = detail?.accessPoint;
   const camping = nearbyCamping(detail);
   const status = detail?.gaugeStatus ?? null;
 
+  const description = point?.description ?? accessPoint.description ?? null;
+  // Only consulted when there is no description; see overviewLead.
+  const lead = overviewLead(point ?? null);
+  // ── HAS THIS TAB GOT ANYTHING AT ALL? ─────────────────────────────────
+  // The river row is not counted. It is present on every access point in the
+  // database — all 406 carry a river_id — so counting it would mean this can
+  // never fire, and a lone link is precisely the state being reported as
+  // broken.
+  // ── A FAILED REQUEST IS NOT AN ANSWER ─────────────────────────────────
+  // This folded 'failed' into 'settled' and then said "Eddy has no description
+  // for this place yet" — a claim about the DATA made from a failure to load
+  // it. Eddy does not know that; the facts that would have filled this tab
+  // simply did not arrive. `waitingCopy` below already draws exactly this
+  // distinction, and the line just has to use it.
+  const settled = detailStatus === 'ready' || detailStatus === 'idle' || detailStatus === 'failed';
+  const bare = !description && !lead && !status && camping.length === 0;
+
   return (
     <View>
-      <Prose>{point?.description ?? accessPoint.description ?? null}</Prose>
+      {/* The description, or the strongest fact Eddy has instead of one. No
+          heading on either: they occupy the same slot and are the same kind of
+          sentence. See overviewLead for why 80 of the 81 undescribed access
+          points can answer this from data already in the response. */}
+      <Prose>{description ?? lead}</Prose>
+
+      {/* ── ABSENT-NEVER-EMPTY GETS A FLOOR AT THE TAB LEVEL ──────────────
+          That rule is right for a SECTION — a heading over nothing is a
+          promise unkept — and it is what left this tab as a single link. A
+          landing tab that resolves to nothing has to say so.
+
+          Through waitingCopy, so there is ONE voice rather than a second copy
+          of it — and so a failed request says "unavailable right now" instead
+          of claiming Eddy has nothing. Those are different facts and the reader
+          can act on only one of them.
+
+          Only once the request has settled: before that, silence is honest,
+          because something may still arrive. */}
+      {bare && settled ? <Absent>{waitingCopy(detailStatus, 'description')}</Absent> : null}
 
       {/* ── WHAT THE CONDITIONS TAB USED TO BE ────────────────────────────
           Two facts, which is not a destination. The reading itself is in the
@@ -578,6 +624,7 @@ export function AccessDetailsTab({ detail, onOpenDetail, status }: TabProps) {
     : null;
   const parking = parkingLabel(point.parkingCapacity);
   const tips = stripHtml(point.localTips);
+  const services = servicesByTier(detail);
 
   return (
     <View>
@@ -601,26 +648,46 @@ export function AccessDetailsTab({ detail, onOpenDetail, status }: TabProps) {
         />
       </Section>
 
-      {point.nearbyServices?.length ? (
+      {/* ── THE HEADING NOW MATCHES WHAT IS UNDER IT ──────────────────────
+          These two sections were one, titled "Outfitters and shuttles", drawn
+          from an unfiltered list — so every cabin rental Eddy has recorded
+          against a put-in was announced as a shuttle operator.
+
+          CAMPING IS NOT HERE AT ALL. Overview's "Camping nearby" draws the same
+          rows from the same field, and a reader met eleven of them twice in one
+          sheet, one swipe apart. Overview owns the question because that is
+          where it is asked; see its own note. */}
+      {services.rentals.length ? (
         <Section title="Outfitters and shuttles">
-          {point.nearbyServices.map((service) => (
-            <LinkRow
-              key={`${service.name}-${service.phone ?? service.website ?? ''}`}
-              label={service.name}
-              detail={service.phone ?? service.notes ?? null}
-              external
-              onPress={() => {
-                const url = service.phone
-                  ? `tel:${service.phone.replace(/[^\d+]/g, '')}`
-                  : service.website
-                    ? /^https?:\/\//i.test(service.website)
-                      ? service.website
-                      : `https://${service.website}`
-                    : null;
-                if (url) void Linking.openURL(url);
-              }}
-            />
-          ))}
+          {services.rentals.map((service) => {
+            const row = serviceRow(service);
+            return (
+              <LinkRow
+                key={row.key}
+                label={row.name}
+                detail={service.phone ?? row.detail}
+                external
+                onPress={row.onPress}
+              />
+            );
+          })}
+        </Section>
+      ) : null}
+
+      {services.lodging.length ? (
+        <Section title="Cabins and lodging">
+          {services.lodging.map((service) => {
+            const row = serviceRow(service);
+            return (
+              <LinkRow
+                key={row.key}
+                label={row.name}
+                detail={service.phone ?? row.detail}
+                external
+                onPress={row.onPress}
+              />
+            );
+          })}
         </Section>
       ) : null}
 
@@ -641,30 +708,11 @@ export function AccessDetailsTab({ detail, onOpenDetail, status }: TabProps) {
 
 /* ── Shared derivations ─────────────────────────────────────────────────── */
 
-/**
- * What a tab says while it has nothing, told apart by WHY.
- *
- * "Unavailable" on a request still in flight tells the reader to give up on
- * something that is about to arrive; a spinner on a request that already failed
- * asks them to wait for something that never will. Restrained on purpose —
- * neither case is an error the reader caused or can do anything about.
- */
-function waitingCopy(status: DetailStatus, subject: string): string {
-  if (status === 'loading') return `Loading ${subject}…`;
-  if (status === 'failed') return `${sentence(subject)} unavailable right now.`;
-  // ── SETTLED, AND NOTHING IS COMING ──────────────────────────────────────
-  // 'idle' means no request was ever made — the pin carries no detail route —
-  // and 'ready' here means one was made and came back without an access point.
-  // Both used to fall through to "Loading…", which is a promise this tab cannot
-  // keep: the spinner-less wait never ends, and a reader watching it has no way
-  // to learn that. This is the reported bug.
-  return `Eddy has no ${subject} for this place.`;
-}
-
-/** Capitalised for the start of a sentence, since the subjects are noun phrases. */
-function sentence(subject: string): string {
-  return subject.charAt(0).toUpperCase() + subject.slice(1);
-}
+// `waitingCopy` moved to lib/accessCopy.ts — it is a string derived from a
+// status and nothing else, and this file cannot be imported by the web suite,
+// which is the only runner the Expo app has. Its distinction between "failed"
+// and "genuinely empty" is now testable, which it needed to be: the tab-level
+// empty line briefly reported a failed request as confirmed absence.
 
 /** Absent for both "none" and "not recorded", which a camper reads the same. */
 function countOrNull(count: number | null | undefined): string | null {
@@ -716,29 +764,65 @@ function present(value: string | null | undefined): boolean {
   return normalised !== '' && normalised !== 'no' && normalised !== 'none' && normalised !== 'unknown';
 }
 
-/** Places to sleep near this put-in, whoever runs them. */
-function nearbyCamping(detail: AccessPointDetailResponse | null) {
+/**
+ * How to reach a service: the phone if there is one, else the website.
+ *
+ * Phone first, which is the rule the whole app follows — at a put-in on one bar
+ * of signal a number you can tap beats a page you have to load. Written once
+ * because it was written twice, identically, in the two places that list these
+ * services, and a second copy is a second chance to disagree about whether a
+ * bare "example.com" needs a scheme.
+ */
+export function serviceUrl(service: NearbyService): string | null {
+  if (service.phone) return `tel:${service.phone.replace(/[^\d+]/g, '')}`;
+  if (!service.website) return null;
+  return /^https?:\/\//i.test(service.website) ? service.website : `https://${service.website}`;
+}
+
+/**
+ * The embedded services on this access point, split by what they DO.
+ *
+ * ── ONE HEADING WAS DOING THE WORK OF THREE ───────────────────────────────
+ *
+ * Place listed every entry under "Outfitters and shuttles" with no filter at
+ * all, and 28 of the 57 entries Eddy holds are not outfitters: 17 are lodging
+ * and 11 are campgrounds. So a cabin rental was announced as a shuttle
+ * operator, and — worse — the campgrounds appeared TWICE in one sheet, once
+ * here and once in Overview's "Camping nearby", which is exactly the
+ * duplication the tab consolidation existed to end.
+ *
+ * `serviceTiers` is the same rule the map layers ask. These entries carry a
+ * `type` and no `servicesOffered`, so it falls through to the kind floor — which
+ * is what that floor is for.
+ */
+function servicesByTier(detail: AccessPointDetailResponse | null) {
   const services = detail?.accessPoint?.nearbyServices ?? [];
-  return services
-    .filter((service) => service.type === 'campground')
-    .map((service) => {
-      const url = service.phone
-        ? `tel:${service.phone.replace(/[^\d+]/g, '')}`
-        : service.website
-          ? /^https?:\/\//i.test(service.website)
-            ? service.website
-            : `https://${service.website}`
-          : null;
-      return {
-        key: `service-${service.name}`,
-        name: service.name,
-        detail: [service.distance, service.notes].filter(Boolean).join(' · ') || null,
-        external: true,
-        onPress: () => {
-          if (url) void Linking.openURL(url);
-        },
-      };
-    });
+  const inTier = (tier: ServiceTier) =>
+    services.filter((service) => serviceTiers(service).includes(tier));
+  return {
+    rentals: inTier('rentals'),
+    lodging: inTier('lodging'),
+    camping: inTier('camping'),
+  };
+}
+
+/** A service as a row: name, whatever qualifies it, and a way to reach it. */
+function serviceRow(service: NearbyService) {
+  const url = serviceUrl(service);
+  return {
+    key: `service-${service.name}`,
+    name: service.name,
+    detail: [service.distance, service.notes].filter(Boolean).join(' · ') || null,
+    external: true,
+    onPress: () => {
+      if (url) void Linking.openURL(url);
+    },
+  };
+}
+
+/** Places to sleep near this put-in, whoever runs them. Overview's, and only. */
+function nearbyCamping(detail: AccessPointDetailResponse | null) {
+  return servicesByTier(detail).camping.map(serviceRow);
 }
 
 const styles = StyleSheet.create({

@@ -39,9 +39,13 @@ function useShuttleDistance(putInId: string, takeOutId: string) {
 export default function ShuttlePanel({ putInId, takeOutId, putInName, takeOutName, services }: ShuttlePanelProps) {
   const { data: shuttle, isLoading } = useShuttleDistance(putInId, takeOutId);
 
-  const shuttleOutfitters = services.filter(s =>
-    s.servicesOffered.includes('shuttle' as never)
-  );
+  // Asks the CAPABILITY, not the type — a campground or a lodge that runs a
+  // shuttle belongs here, and three of the directory's outfitters do not. This
+  // was `'shuttle' as never`, a cast left over from before `servicesOffered`
+  // was typed; `ServiceOffering` has covered it for a while. The iOS planner
+  // now asks the same question through serviceOffers in @eddy/types, so the two
+  // platforms agree about what a shuttle is.
+  const shuttleOutfitters = services.filter(s => s.servicesOffered.includes('shuttle'));
 
   if (!isLoading && !shuttle?.available && shuttleOutfitters.length === 0) return null;
 

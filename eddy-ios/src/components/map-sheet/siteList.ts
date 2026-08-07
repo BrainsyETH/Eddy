@@ -33,6 +33,11 @@ export interface SiteOnNight {
 const TYPE_TAGS: { match: string; tag: string }[] = [
   { match: 'ELECTRIC', tag: 'Electric' },
   { match: 'NONELECTRIC', tag: 'No hookup' },
+  // Missouri State Parks' word for the same thing recreation.gov calls
+  // NONELECTRIC. Both mean "bring everything"; that they are two words for one
+  // fact is the entire premise of this table. Without it the largest single
+  // category in the state-park feed — 168 sites — carries no tag at all.
+  { match: 'BASIC', tag: 'No hookup' },
   { match: 'TENT', tag: 'Tent' },
   { match: 'RV', tag: 'RV' },
   { match: 'WALK', tag: 'Walk-in' },
@@ -50,13 +55,47 @@ const TYPE_TAGS: { match: string; tag: string }[] = [
  * "Tent" that matches rows labelled "TENT ONLY" is two vocabularies for one
  * idea.
  */
-export const SITE_FILTERS = ['Tent', 'RV', 'Electric', 'Walk-in', 'Group'] as const;
+/**
+ * ── `No hookup` WAS MISSING, AND HAD BEEN SINCE THIS FILE WAS WRITTEN ─────
+ *
+ * `NONELECTRIC → 'No hookup'` has been in the table above from the start and
+ * was never offered as a filter — so 581 recreation.gov sites across 28
+ * facilities have always worn a tag nothing could select. Adding `BASIC` brings
+ * another 168 state-park sites in behind it, which makes 749 sites carrying a
+ * label with no chip, and on Meramec it is the second-largest kind. A filter row
+ * that offers everything except the thing most of the list IS reads as broken.
+ */
+export const SITE_FILTERS = [
+  'Tent',
+  'RV',
+  'Electric',
+  'No hookup',
+  'Walk-in',
+  'Group',
+] as const;
 export type SiteFilter = (typeof SITE_FILTERS)[number];
 
-/** `NONELECTRIC` contains `ELECTRIC`, so the longer match has to win. */
-function typeTags(siteType: string | null): string[] {
-  if (!siteType) return [];
-  const upper = siteType.toUpperCase();
+/**
+ * `NONELECTRIC` contains `ELECTRIC`, so the longer match has to win.
+ *
+ * ── FED BY siteKind, NOT BY site_type ────────────────────────────────────
+ *
+ * This read `site.siteType` directly, which is null for every one of the 631
+ * sites Missouri State Parks publishes. So `filterCounts` came back all zeros,
+ * `SITE_FILTERS.filter(count > 0)` came back empty, and the chip row VANISHED —
+ * on Meramec's 197 sites, Montauk's 141, St. Francois' 109 and three more. The
+ * six biggest campgrounds Eddy has were the six with no way to filter them.
+ *
+ * `siteKind` already knew those sites are "Basic", "Electric" and "Walk-in": it
+ * returns `siteType` when the feed gives one and reads the name when it does
+ * not. It was only ever used for display. Asking it here means a name-derived
+ * kind produces tags exactly as a declared type does, and recreation.gov —
+ * which types every site — is untouched.
+ */
+function typeTags(site: { name: string | null; siteType: string | null }): string[] {
+  const kind = siteKind(site);
+  if (!kind) return [];
+  const upper = kind.toUpperCase();
   const tags: string[] = [];
 
   for (const { match, tag } of TYPE_TAGS) {
@@ -79,7 +118,7 @@ export function sitesOnNight(
   if (index < 0) return [];
 
   return sites.map((site) => {
-    const tags = typeTags(site.siteType);
+    const tags = typeTags(site);
     if (site.maxOccupancy && site.maxOccupancy > 0) tags.push(`Sleeps ${site.maxOccupancy}`);
 
     return {

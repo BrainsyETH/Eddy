@@ -22,13 +22,42 @@
 // campground you cannot reach is an inconvenience; a low-water dam you cannot
 // see is not. See src/lib/offline/bundle.ts.
 //
-// ── Placed only, and that is most of the story ─────────────────────────────
+// ── EVERY ROW, AND THE APP DECIDES WHAT TO DRAW ────────────────────────────
 //
-// 129 of 154 services have no coordinates. They are not omitted here as a
-// judgement about them — they are simply not drawable, and a map layer whose
-// rows have no position would be a promise the pins cannot keep. They remain in
-// full on the river screen, which is a list and does not need a geocode. The
-// number worth moving is the 129, and that is a data job, not this route's.
+// This used to return only rows that were `active` AND already geocoded — 28 of
+// 156 — on the argument that "a map layer whose rows have no position would be a
+// promise the pins cannot keep". That was right about pins and wrong about the
+// response, and filtering here broke three things at once:
+//
+//   1. THE MAP COULD NOT SAY WHAT IT WAS NOT SHOWING. The layers sheet prints
+//      "13 of 81 have a confirmed location" under a tier, which needs the
+//      denominator. Rows filtered out server-side cannot be counted client-side,
+//      so that note could never render at all.
+//
+//   2. THE PRECISION GUARD WAS OFF. `geocode_precision` was not selected, so
+//      every row arrived with it undefined — which `mappableService` reads as
+//      "recorded before provenance was tracked", i.e. trusted. A row marked
+//      `centroid` (a TOWN, never a place) would therefore have been drawn as a
+//      pin, which is the single failure that file exists to prevent. Zero rows
+//      are centroids today; the geocoding backfill creates the first.
+//
+//   3. THE SERVER HELD A SECOND, STRICTER POLICY. `.eq('status', 'active')`
+//      dropped 11 `unverified` rows that `serviceEligible` in @eddy/types says
+//      to draw — unverified means nobody has re-confirmed the listing, not that
+//      the business is gone. So the map and the planner, which reads the
+//      per-river route, saw different populations of one table. That is exactly
+//      the many-consumers-disagreeing problem the shared predicate was written
+//      to end, and it was hiding in the one consumer that fetches from here.
+//
+// So: every row, plus the two columns the app needs to judge them —
+// `status` and `geocode_precision`. Eligibility and mappability are decided in
+// one place now (@eddy/types and map/mappable.ts), and this route's job is to
+// deliver the facts those functions read.
+//
+// The payload goes from 28 rows to ~156 — around 30 KB, on a route already
+// cached ten minutes at the edge with a day of stale-while-revalidate. The
+// fields stay narrow for the reason the header above gives: this is a pin and a
+// callout, not the river screen's directory record.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
@@ -51,12 +80,28 @@ interface MappedService {
   id: string;
   name: string;
   type: string;
+  /**
+   * Whether the business is still trading, for `serviceEligible`.
+   *
+   * The app drops `permanently_closed` and `temporarily_closed` and keeps
+   * `unverified`. That decision belongs on the client, with every other
+   * eligibility rule, rather than half here and half there.
+   */
+  status: string | null;
   phone: string | null;
   website: string | null;
   city: string | null;
   state: string | null;
   latitude: number | null;
   longitude: number | null;
+  /**
+   * How much to trust those coordinates, for `mappableService`.
+   *
+   * `centroid` is the town and must never become a pin. Omitting this column
+   * made every row read as trusted, which is the opposite of what the guard is
+   * for — see the header.
+   */
+  geocodePrecision: string | null;
   description: string | null;
   servicesOffered: string[];
 }
@@ -75,6 +120,9 @@ interface ServicesResponse {
 const S_MAXAGE = 600;
 const STALE_WHILE_REVALIDATE = 86400;
 
+const SELECT_COLUMNS =
+  'id, name, type, status, phone, website, city, state, latitude, longitude, geocode_precision, description, services_offered';
+
 export async function GET(request: NextRequest) {
   try {
     const limited = await rateLimit(`services-all:${getClientIp(request)}`, 60, 60 * 1000);
@@ -83,12 +131,12 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('nearby_services')
-      .select(
-        'id, name, type, phone, website, city, state, latitude, longitude, description, services_offered',
-      )
-      .eq('status', 'active')
-      .not('latitude', 'is', null)
-      .not('longitude', 'is', null)
+      // ONE STRING LITERAL, never a concatenation: supabase-js infers the row
+      // type by parsing it at compile time, and a `+` collapses it to `string`,
+      // which degrades every field below to GenericStringError.
+      .select(SELECT_COLUMNS)
+      // No status or coordinate filter — see the header. The app decides both,
+      // and it needs the rows it decides against in order to count them.
       .order('display_order', { ascending: true, nullsFirst: false });
 
     if (error) {
@@ -101,6 +149,7 @@ export async function GET(request: NextRequest) {
         id: s.id,
         name: s.name,
         type: s.type,
+        status: s.status ?? null,
         phone: s.phone ?? null,
         website: s.website ?? null,
         city: s.city ?? null,
@@ -109,6 +158,7 @@ export async function GET(request: NextRequest) {
         // longitude reaches a map as NaN rather than as an error.
         latitude: toNum(s.latitude),
         longitude: toNum(s.longitude),
+        geocodePrecision: s.geocode_precision ?? null,
         description: s.description ?? null,
         servicesOffered: s.services_offered ?? [],
       })),
