@@ -1,4 +1,4 @@
--- Three outfitters the dry run could not previously see. NOT YET APPLIED.
+-- Three outfitters the dry run could not previously see. APPLIED 2026-08-07.
 --
 -- ── Why these are new ─────────────────────────────────────────────────────
 --
@@ -43,5 +43,5 @@ UPDATE nearby_services SET latitude = 36.31527, longitude = -91.47799,
     geocode_precision = 'exact', geocode_source = 'osm', geocoded_at = NOW()
 WHERE name = 'RiverStop' AND latitude IS NULL;
 
--- After applying, rentals coverage should move from 34 to 37 of 84, and
--- `centroid` must stay at 0.
+-- Applied: rentals coverage moved 34 -> 37 of 84, and the directory as a whole
+-- 60 -> 63 of 156 located. `centroid` stayed at 0.
