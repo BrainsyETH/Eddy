@@ -25,7 +25,13 @@ import type {
   ServiceTier,
 } from '@eddy/types';
 import { serviceTiers } from '@eddy/types';
-import { localToday, nightChoices, nightPhrase, type NightChoice } from './availability';
+import {
+  defaultNight,
+  localToday,
+  nightChoices,
+  nightPhrase,
+  type NightChoice,
+} from './availability';
 import { accessAvailability } from './availabilitySource';
 import { bookingLine, siteMixLine } from './campgroundFacts';
 import { CampsiteList } from './CampsiteList';
@@ -430,14 +436,25 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
   const today = localToday();
   const nights = useMemo(() => nightChoices(availability, today), [availability, today]);
 
-  // Default to the weekend the peek's card describes, so the tab opens on the
-  // nights that made the pin worth tapping rather than on an arbitrary one.
+  // Only the nights that were measured are offered. An unmeasured one has no
+  // inventory behind it, so a chip for it is a promise this tab cannot keep and
+  // the reader pays a tap to find that out — the rule tabs.ts states for tabs,
+  // one level down. The strip in the peek still draws the gap, which is where
+  // "nothing is known about these nights" belongs.
+  const offered = useMemo(() => nights.filter((night) => night.mark !== 'none'), [nights]);
+
+  // Default to the weekend the peek's card describes — or, when that night was
+  // not measured, the first measured night AFTER it rather than the first
+  // measured night at all. See defaultNight: falling back to the earliest would
+  // walk the reader back to tonight while the peek above still described a
+  // weekend three days out.
   //
   // It is NOT the first chip, which is what makes the status line and
   // `scrollToActive` below load-bearing rather than polish: a default the
   // reader cannot see is indistinguishable from no default at all.
   const [selected, setSelected] = useState<string | null>(null);
-  const selectedDate = selected ?? availability?.window.startDate ?? nights[0]?.date ?? today;
+  const selectedDate =
+    selected ?? defaultNight(nights, availability?.window.startDate) ?? today;
   const selectedNight = useMemo(
     () => nights.find((night) => night.date === selectedDate) ?? null,
     [nights, selectedDate],
@@ -522,13 +539,32 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
           `scrollToActive` because the selection is NOT the first chip: it opens
           on the weekend the window describes, which starts life off-screen. See
           FilterChips. */}
-      {nights.some((night) => night.count !== null) ? (
+      {offered.length ? (
         <FilterChips
-          chips={nights.map((night) => ({
-            key: night.date,
-            label: night.label,
-            count: night.count ?? undefined,
-          }))}
+          chips={offered.map((night) => {
+            const phrase = nightPhrase(night);
+            return {
+              key: night.date,
+              label: night.label,
+              // ── A ZERO IS ONLY PRINTED WHERE IT IS TRUE ────────────────
+              // `empty` means the inventory exists and none of it is left, so
+              // "0" is the fact. `dash` means the campground is not offering
+              // the night at all — shut for the season, or not yet released —
+              // and there is no inventory for the zero to be OF. Printing one
+              // there tells a reader to keep refreshing for a cancellation
+              // that is not coming.
+              //
+              // A badgeless chip is unambiguous only because the unmeasured
+              // nights are gone from this row: `offered` is what makes the
+              // absence readable as "not offered" rather than "not known".
+              count: night.mark === 'dash' ? undefined : (night.count ?? undefined),
+              // The date AND the state. The visible chip carries the date in
+              // its label and the state in a badge the ear cannot see, so a
+              // listener given only the phrase would not know which night it
+              // described.
+              accessibilityLabel: phrase ? `${night.longLabel}. ${phrase}` : night.longLabel,
+            };
+          })}
           active={[selectedDate]}
           onToggle={setSelected}
           paddingHorizontal={0}

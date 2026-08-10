@@ -393,6 +393,36 @@ export function nightPhrase(choice: NightChoice): string | null {
   return `${choice.count ?? 0} of ${choice.total} sites open`;
 }
 
+/**
+ * Which night the Camping tab opens on.
+ *
+ * ── ON OR AFTER THE WINDOW, NEVER MERELY "THE FIRST MEASURED" ─────────────
+ *
+ * The tab wants the weekend the peek's card is describing, because that is the
+ * question the reader was answering when they tapped the pin. But an unmeasured
+ * night has no chip to select — offering one is a promise the tab cannot keep,
+ * which is the rule tabs.ts states — so the preferred date is not always
+ * available to open on.
+ *
+ * Falling back to the first measured night ANYWHERE would walk backwards, and
+ * usually all the way back to tonight: the reader would come for a weekend
+ * three days out and land on a Tuesday, with the peek above still describing
+ * the weekend. So the search runs FORWARD from the window and only gives up
+ * backwards when there is nothing ahead of it at all.
+ *
+ * ISO dates compare correctly as plain strings, which is why the horizon is
+ * `YYYY-MM-DD` everywhere in this module and never a Date.
+ */
+export function defaultNight(
+  nights: NightChoice[],
+  preferred: string | null | undefined,
+): string | null {
+  const measured = nights.filter((night) => night.mark !== 'none');
+  if (measured.length === 0) return null;
+  if (!preferred) return measured[0].date;
+  return (measured.find((night) => night.date >= preferred) ?? measured[0]).date;
+}
+
 /** `Fri`. Three letters, because a single initial is ambiguous on a chip. */
 function longWeekday(date: string): string {
   return WEEKDAY_NAMES[weekdayOf(date)].slice(0, 3);

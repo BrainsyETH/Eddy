@@ -21,6 +21,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { spokenWeekday } from './availability';
 import {
   groupSites,
+  listOutcome,
   stateLabel,
   summariseByKind,
   type LoopGroup,
@@ -200,10 +201,16 @@ export function CampsiteList({
 }) {
   const { colors } = useTheme();
   const groups = groupSites(entries, filters as never);
+  // ── NO EARLY RETURN ON AN EMPTY GROUPING ────────────────────────────────
+  // This used to be `if (groups.length === 0) return null`, which drew the
+  // section's heading — now naming a night — above nothing whatsoever. Three
+  // different facts arrive here as zero groups and only one of them is about
+  // the campground; see listOutcome, which keeps them apart.
+  const outcome = listOutcome(entries, groups, filters as never);
 
-  if (groups.length === 0) return null;
-
-  const anyOpen = groups.some((group) => group.open.length > 0);
+  // Lead with the night in every one of them. The copy used to end in "that
+  // night", pointing at a selection made two sections up the page.
+  const lead = dateLabel ?? 'That night';
 
   return (
     <View>
@@ -215,13 +222,18 @@ export function CampsiteList({
           showName={groups.length > 1}
         />
       ))}
-      {!anyOpen ? (
+      {outcome === 'sites' ? null : (
         <Text style={[styles.taken, { color: colors.textMuted }]}>
-          {filters.length > 0
-            ? `${dateLabel ? `${dateLabel} — no` : 'No'} sites match those filters.`
-            : `${dateLabel ? `${dateLabel} — nothing` : 'Nothing'} open.`}
+          {outcome === 'none_open'
+            ? `${lead} — nothing open.`
+            : outcome === 'filtered_out'
+              ? `${lead} — no sites match those filters.`
+              : // Not a claim about the campground. Most nights outside the
+                // feed's own window land here, and so does a night whose sites
+                // all decoded to 'unknown'.
+                `${lead} — availability was not measured.`}
         </Text>
-      ) : null}
+      )}
     </View>
   );
 }

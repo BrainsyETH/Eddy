@@ -43,6 +43,17 @@ export interface FilterChip {
   symbol?: EddySymbolName;
   count?: number;
   /**
+   * What VoiceOver says, instead of the `label, count` this builds by default.
+   *
+   * For a chip whose count does not carry its own meaning. The Camping tab's
+   * night chips are the case: three different facts arrive here as the number
+   * zero — every site taken, the campground shut for the season, next season
+   * not yet released — and "Sat Aug 8, 0" announces all three identically while
+   * telling a listener to keep refreshing for a cancellation that is not
+   * coming. See nightPhrase.
+   */
+  accessibilityLabel?: string;
+  /**
    * Overrides the interaction tint when active. Flow-band filters use it so
    * each chip remains a legend for the matching map markers.
    */
@@ -171,7 +182,8 @@ function FilterChipsComponent({
             accessibilityRole="button"
             accessibilityState={{ selected: on }}
             accessibilityLabel={
-              chip.count == null ? chip.label : `${chip.label}, ${chip.count}`
+              chip.accessibilityLabel ??
+              (chip.count == null ? chip.label : `${chip.label}, ${chip.count}`)
             }
           >
             {chip.symbol ? (

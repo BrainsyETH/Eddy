@@ -11,6 +11,7 @@ import type { CampsiteAvailabilitySummary } from '@eddy/types';
 import {
   availabilityHero,
   availabilityVoiceOver,
+  defaultNight,
   nightBars,
   nightChoices,
   nightPhrase,
@@ -177,6 +178,47 @@ test('a zero is phrased by what made it zero, never as "0 open"', () => {
 test('an unmeasured night has nothing honest to say', () => {
   // Null rather than a phrase: the day still draws, the count does not.
   assert.equal(nightPhrase(nightChoices(summary({ nights: [] }), TODAY)[0]), null);
+});
+
+test('the tab opens on the window the peek is describing', () => {
+  // The straightforward case: the weekend was measured, so it is chosen.
+  const nights = nightChoices(
+    summary({ nights: [night('2026-08-07', 8), night('2026-08-08', 3)] }),
+    TODAY,
+  );
+  assert.equal(defaultNight(nights, '2026-08-07'), '2026-08-07');
+});
+
+test('an unmeasured window falls FORWARD, never back to tonight', () => {
+  // The whole point. Falling back to the first measured night anywhere would
+  // land on the 6th — tonight — while the card above still described the
+  // weekend of the 7th to the 9th. The reader came for the weekend.
+  const nights = nightChoices(
+    summary({ nights: [night(TODAY, 12), night('2026-08-09', 4)] }),
+    TODAY,
+  );
+  assert.equal(defaultNight(nights, '2026-08-07'), '2026-08-09');
+});
+
+test('it walks backwards only when nothing ahead was measured', () => {
+  const nights = nightChoices(summary({ nights: [night(TODAY, 12)] }), TODAY);
+  assert.equal(defaultNight(nights, '2026-08-14'), TODAY);
+});
+
+test('a closed night is still a night to open on', () => {
+  // Measured is not the same as bookable. "Not offered this night" is an answer
+  // and the tab should be able to give it; only an UNMEASURED night has nothing
+  // behind it at all.
+  const nights = nightChoices(
+    summary({ nights: [night('2026-08-07', 0, 0, 'closed')] }),
+    TODAY,
+  );
+  assert.equal(defaultNight(nights, '2026-08-07'), '2026-08-07');
+});
+
+test('nothing measured at all has no night to offer', () => {
+  assert.equal(defaultNight(nightChoices(summary({ nights: [] }), TODAY), '2026-08-07'), null);
+  assert.equal(defaultNight([], '2026-08-07'), null);
 });
 
 test('an open night always has a real denominator behind it', () => {

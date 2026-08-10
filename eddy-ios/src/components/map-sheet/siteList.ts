@@ -307,3 +307,47 @@ export function stateLabel(state: CampsiteNightState): string | null {
       return null;
   }
 }
+
+/**
+ * What the site list has to say, when it has no rows to say it with.
+ *
+ * ── THREE WAYS TO HAVE NO GROUPS, AND THEY ARE NOT ONE FACT ───────────────
+ *
+ * CampsiteList used to return null whenever `groupSites` came back empty, so
+ * every one of these drew a heading — now naming a date — above nothing at all.
+ * They are different facts and only one of them is about the campground:
+ *
+ *   unmeasured    nothing is KNOWN about this night. Either the date falls
+ *                 outside the site feed's own window (sitesOnNight returns
+ *                 empty on `indexOf(date) < 0`, and that window comes from the
+ *                 server while the chips are built from the DEVICE's day), or
+ *                 every site decoded to 'unknown' — which groupSites drops into
+ *                 neither half, leaving the group empty and filtered away.
+ *   filtered_out  the night is measured and the chips excluded all of it.
+ *   none_open     the night is measured, the inventory is real, and every last
+ *                 site of it is taken. The only one that means "come back and
+ *                 look for a cancellation".
+ *
+ * Saying "Nothing open" for the first two is the same class of error as
+ * printing "0" on a closed night: a claim about the campground made from an
+ * absence of data about it.
+ */
+export type ListOutcome = 'sites' | 'none_open' | 'filtered_out' | 'unmeasured';
+
+export function listOutcome(
+  entries: SiteOnNight[],
+  groups: LoopGroup[],
+  filters: SiteFilter[] = [],
+): ListOutcome {
+  if (groups.length > 0) {
+    return groups.some((group) => group.open.length > 0) ? 'sites' : 'none_open';
+  }
+
+  // No groups, but something here was measured — so the filters are what
+  // emptied it. groupSites puts every non-'unknown' entry into open or taken,
+  // and keeps any group holding either, so a measured night cannot come back
+  // empty unless a filter excluded it.
+  if (entries.some((entry) => entry.state !== 'unknown')) return 'filtered_out';
+
+  return 'unmeasured';
+}
