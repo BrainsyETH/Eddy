@@ -77,9 +77,8 @@ export function PlanNearby({ plan }: { plan: FloatPlan }) {
           // Still trading. A closed business is the one recommendation that is
           // worse than none, and this is a recommendation with a mileage on it.
           serviceEligible(s) &&
-          // The distance below is only as good as the coordinate it is measured
-          // from — a town centroid would put "4.2 mi away" against a point the
-          // map itself refuses to draw.
+          // The same "drawable" predicate the map uses, so a recommendation is
+          // never computed from a coordinate the map would not draw.
           mappableService(s) &&
           s.latitude != null &&
           s.longitude != null &&

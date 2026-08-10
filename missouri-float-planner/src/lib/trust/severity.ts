@@ -82,6 +82,12 @@ export const EDDY_KNOWLEDGE_RULES = [
 
 export const GAUGE_WIRING_RULES = ['gauge_dual_primary'] as const;
 
+export const SERVICE_GEO_RULES = [
+  'service_far_from_linked_river',
+  'service_nearer_unlinked_river',
+  'service_no_river_link',
+] as const;
+
 /**
  * One per invariant in docs/legacy-schema-security-audit.md, prefixed so a
  * schema assertion can never collide with a river rule.
@@ -111,6 +117,7 @@ export const ALL_TRUST_RULES = [
   ...RIVER_GEOMETRY_RULES,
   ...EDDY_KNOWLEDGE_RULES,
   ...GAUGE_WIRING_RULES,
+  ...SERVICE_GEO_RULES,
   ...SCHEMA_INVARIANT_RULES,
   ...LEDGER_RULES,
 ] as const;
@@ -214,8 +221,26 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   geometry_missing: 'medium',
   geometry_unreadable: 'medium',
   no_gauges_linked: 'medium',
+  // A service pin somebody plans a drive around, too far from any water that
+  // business serves. Not high: services are deliberately left out of the
+  // offline bundle ("a campground you cannot reach is an inconvenience; a low
+  // water dam you cannot see is not"), and mappableService already gates what
+  // is drawn — so a misplaced outfitter cannot move a badge or a go/no-go the
+  // way a stale gauge can. Not low either, because a pin IS a claim: the
+  // near-misses this rule exists to catch were real, different businesses 35 to
+  // 71 miles away.
+  service_far_from_linked_river: 'medium',
+  // A located service linked to no river is in no per-river directory and on no
+  // layer fetched per river. Nothing is ambiguous here — the join is missing.
+  service_no_river_link: 'medium',
 
   // ── low: real, visible to nobody in danger ───────────────────────────
+  // Geometry has raised a question about an editorial fact, and the answer may
+  // well be that the link is right: a business is linked to the water it
+  // SERVES, not the water it is near, and an outfitter's storefront can sit on
+  // a different river from the one it guides. Filing it above low would put a
+  // question in the same list as defects.
+  service_nearer_unlinked_river: 'low',
   missing_weather_point: 'low',
   missing_alert_terms: 'low',
   knowledge_file_missing: 'low',

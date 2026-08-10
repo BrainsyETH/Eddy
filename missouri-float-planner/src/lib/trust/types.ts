@@ -15,8 +15,23 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * `repo` and `global` exist because not every problem belongs to a river:
  * a schema invariant that has drifted is a fact about the deployment, and a
  * check reporting on its own reconciliation is a fact about the ledger.
+ *
+ * `service` is a directory business, keyed by its `nearby_services.id`. It is
+ * not a river: one river carries dozens of services, and since the fingerprint
+ * hashes the entity key, filing them under the river would merge every service
+ * on the Current into a single finding.
+ *
+ * Mirrored by the `trust_findings_entity_type` CHECK constraint — widening this
+ * union alone is not enough, because trust_apply_reconcile() inserts the value
+ * unvalidated and the constraint is the only gate.
  */
-export type TrustEntityType = 'river' | 'gauge' | 'access_point' | 'repo' | 'global';
+export type TrustEntityType =
+  | 'river'
+  | 'gauge'
+  | 'access_point'
+  | 'service'
+  | 'repo'
+  | 'global';
 
 export interface TrustCheckContext {
   /** Service-role client. Untyped, matching createAdminClient()'s own signature. */

@@ -124,6 +124,30 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
       'Sharing a gauge is fine. What is not fine is two primaries with nothing to sort them by — shared/primary-river-link.ts then falls back to alphabetical order, which is stable but arbitrary.',
   },
 
+  // ── services against the rivers they serve ───────────────────────────
+  service_far_from_linked_river: {
+    kind: 'investigate',
+    action: 'Work out whether the pin is wrong or the river link is, before changing either.',
+    where: '/admin/services',
+    method:
+      'Do not assume the pin. Of the six divergences found in August 2026, two were the LINK (Gasconade Hills and Froggy\'s were filed against the Big Piney and sit a fifth of a mile from the Gasconade; one is named for it). Check the operator\'s own site for an address, then compare against the river the business advertises floats on. The write path accepts 10 miles, so anything past it was either hand-entered or has drifted.',
+  },
+  service_nearer_unlinked_river: {
+    kind: 'judgment',
+    action:
+      'Decide whether the business also serves the nearer river, or is filed against the wrong one.',
+    where: '/admin/services',
+    method:
+      'Geometry proposes; the link stays authoritative. A service is linked to the water it SERVES, not the water it is near — Steve Dally\'s shop is in Cotter on the White River and he guides Crooked Creek. Four of the six August cases were resolved by ADDING a link rather than moving one, because an Ozarks outfitter routinely runs two waters. One honest limit: "nearest" means nearest river Eddy carries, so a business on a river outside the catalog will always show something else as nearest.',
+  },
+  service_no_river_link: {
+    kind: 'mechanical',
+    action: 'Link the service to the river it serves.',
+    where: '/admin/services',
+    method:
+      'Without a service_rivers row the business appears in no per-river directory and on no map layer fetched per river — it is in the table and nowhere else. The finding names the nearest river as a starting candidate, not an answer.',
+  },
+
   // ── geometry and mileage ─────────────────────────────────────────────
   geometry_missing: {
     kind: 'investigate',
