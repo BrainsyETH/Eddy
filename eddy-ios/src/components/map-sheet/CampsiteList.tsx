@@ -180,10 +180,23 @@ export function CampsiteList({
   entries,
   filters,
   date,
+  dateLabel,
 }: {
   entries: SiteOnNight[];
   filters: string[];
   date: string;
+  /**
+   * The night in words — `Tonight`, `Friday, Aug 14`.
+   *
+   * The empty lines below used to end in "that night", which referred to a
+   * selection made two sections up the page and visible nowhere near here. A
+   * demonstrative needs something to point AT.
+   *
+   * Leads the sentence rather than being appended to it, because the three
+   * forms this takes do not share a grammar: "Nothing open on Friday, Aug 14"
+   * works and "Nothing open on Tonight" does not.
+   */
+  dateLabel?: string;
 }) {
   const { colors } = useTheme();
   const groups = groupSites(entries, filters as never);
@@ -205,8 +218,8 @@ export function CampsiteList({
       {!anyOpen ? (
         <Text style={[styles.taken, { color: colors.textMuted }]}>
           {filters.length > 0
-            ? 'No sites match those filters that night.'
-            : 'Nothing open that night.'}
+            ? `${dateLabel ? `${dateLabel} — no` : 'No'} sites match those filters.`
+            : `${dateLabel ? `${dateLabel} — nothing` : 'Nothing'} open.`}
         </Text>
       ) : null}
     </View>

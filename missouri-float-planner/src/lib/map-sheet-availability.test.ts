@@ -13,6 +13,7 @@ import {
   availabilityVoiceOver,
   nightBars,
   nightChoices,
+  nightPhrase,
 } from '../../../eddy-ios/src/components/map-sheet/availability';
 
 const TODAY = '2026-08-06'; // a Thursday
@@ -123,6 +124,68 @@ test('the ruler crosses a month without restarting the strip', () => {
   const bars = nightBars(summary(), '2026-08-25');
   assert.equal(bars.length, 14);
   assert.deepEqual(bars.slice(5, 9).map((b) => b.dayOfMonth), [30, 31, 1, 2]);
+});
+
+test('the month marks the crossing, and only the crossing', () => {
+  // `30 · 31 · 1 · 2` does not say which 1st. The marker takes that one column
+  // and no other — thirteen bare numbers and one word, not fourteen words.
+  const crossing = nightBars(summary(), '2026-08-25');
+  assert.deepEqual(
+    crossing.map((b) => b.monthLabel).filter(Boolean),
+    ['Sep'],
+  );
+  assert.equal(crossing[7].monthLabel, 'Sep', 'the 1st carries it');
+  assert.equal(crossing[6].monthLabel, null, 'the 31st does not');
+
+  // A fortnight that stays inside one month has crossed nothing.
+  assert.deepEqual(nightBars(summary(), TODAY).map((b) => b.monthLabel).filter(Boolean), []);
+});
+
+test('a strip that opens on the 1st has not crossed into anything', () => {
+  // `i > 0` is the whole of the rule: the first column is where the reader
+  // already is, not somewhere they have been carried.
+  const bars = nightBars(summary(), '2026-09-01');
+  assert.equal(bars[0].dayOfMonth, 1);
+  assert.equal(bars[0].monthLabel, null);
+});
+
+/* ── The night the Camping tab is showing ─────────────────────────────────── */
+
+test('the status line names the day in full while the chip abbreviates', () => {
+  // Two forms of one fact, derived together, so the line above the site list
+  // and the chip that selects it can never name different days.
+  const nights = nightChoices(summary(), TODAY);
+  assert.equal(nights[0].label, 'Tonight');
+  assert.equal(nights[0].longLabel, 'Tonight');
+  assert.equal(nights[2].label, 'Sat Aug 8');
+  assert.equal(nights[2].longLabel, 'Saturday, Aug 8');
+});
+
+test('a zero is phrased by what made it zero, never as "0 open"', () => {
+  // Three of the four marks produce sitesOpen: 0 and only one of them means
+  // "keep refreshing for a cancellation". This is the strip's shape language
+  // in words — see NightStrip.
+  const phraseFor = (nights: unknown[]) =>
+    nightPhrase(nightChoices(summary({ nights: nights as never }), TODAY)[0]);
+
+  assert.equal(phraseFor([night(TODAY, 0, 54, 'full')]), 'Fully booked');
+  assert.equal(phraseFor([night(TODAY, 0, 0, 'closed')]), 'Not offered this night');
+  assert.equal(phraseFor([night(TODAY, 0, 0, 'not_yet_released')]), 'Not offered this night');
+  assert.equal(phraseFor([night(TODAY, 8)]), '8 of 54 sites open');
+});
+
+test('an unmeasured night has nothing honest to say', () => {
+  // Null rather than a phrase: the day still draws, the count does not.
+  assert.equal(nightPhrase(nightChoices(summary({ nights: [] }), TODAY)[0]), null);
+});
+
+test('an open night always has a real denominator behind it', () => {
+  // nightBars only marks 'bar' when BOTH counts are above zero, so the phrase
+  // can print "of N" unguarded. A feed reporting openings against no inventory
+  // is marked 'empty' and never reaches that branch.
+  const choices = nightChoices(summary({ nights: [night(TODAY, 1, 0)] }), TODAY);
+  assert.equal(choices[0].mark, 'empty');
+  assert.equal(nightPhrase(choices[0]), 'Fully booked');
 });
 
 test('fill never exceeds the track', () => {

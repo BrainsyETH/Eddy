@@ -45,6 +45,10 @@
 // weekends book out first. Emphasising the selected window instead would spend
 // the same ink on something the card's own headline already states in words.
 //
+// Where the fortnight crosses into a new month the marker takes that column
+// instead of its number, because `30 · 31 · 1 · 2` does not say which 1st and a
+// fourteen-night horizon crosses a boundary about half the time.
+//
 // ── Why it is not tappable ────────────────────────────────────────────────
 //
 // Fourteen columns across a sheet is about twenty points each. The audit that
@@ -169,7 +173,11 @@ export function NightStrip({
               numberOfLines={1}
               adjustsFontSizeToFit
             >
-              {bar.dayOfMonth}
+              {/* The month REPLACES the number where the horizon crosses into
+                  one — see NightBar.monthLabel. `30 · 31 · Sep · 2` costs the
+                  one day a reader can infer unaided and buys the only thing
+                  bare numbers cannot say. */}
+              {bar.monthLabel ?? bar.dayOfMonth}
             </Text>
           </View>
         ))}

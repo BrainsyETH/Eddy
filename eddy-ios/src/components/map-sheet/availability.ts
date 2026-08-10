@@ -67,6 +67,20 @@ export interface NightBar {
    * this call one tab down, where the chips read `Fri 8`.
    */
   dayOfMonth: number;
+  /**
+   * `Sep`, on the first column of a month the horizon crosses INTO.
+   *
+   * Null everywhere else, including on the first column — a strip that opens on
+   * the 1st has crossed nothing and needs no marker. Bare numbers are unique
+   * within a month and ambiguous across one: `30 · 31 · 1 · 2` does not say
+   * which 1st, and a fortnight crosses a boundary about half the time.
+   *
+   * The marker REPLACES that column's number rather than sitting beside it.
+   * There is no room beside it — a column is about 24pt — and the day it hides
+   * is the only one in the strip a reader can infer without being told, because
+   * a month starts on its first.
+   */
+  monthLabel: string | null;
   /** 0..1 of the track's height. Never 0 when a single site is free. */
   fill: number;
   mark: NightMark;
@@ -139,6 +153,10 @@ export function nightBars(
     const date = addDays(today, i);
     const day = weekdayOf(date);
     const night = measured.get(date);
+    // Sliced rather than parsed through Date: `date` is already the ISO day this
+    // row is about, and re-parsing it would reintroduce the timezone question
+    // localToday exists to have settled.
+    const dayOfMonth = Number(date.slice(8, 10));
 
     let mark: NightMark = 'none';
     let fill = 0;
@@ -159,10 +177,10 @@ export function nightBars(
     bars.push({
       date,
       weekday: WEEKDAY_INITIALS[day],
-      // Sliced rather than parsed through Date: `date` is already the ISO day
-      // this row is about, and re-parsing it would reintroduce the timezone
-      // question localToday exists to have settled.
-      dayOfMonth: Number(date.slice(8, 10)),
+      dayOfMonth,
+      // `i > 0` is the whole of "crossed INTO": a strip whose first column is
+      // the 1st has not crossed anything.
+      monthLabel: i > 0 && dayOfMonth === 1 ? MONTHS[Number(date.slice(5, 7)) - 1] : null,
       fill: Math.min(1, fill),
       mark,
       isToday: i === 0,
@@ -266,10 +284,30 @@ export function availabilityVoiceOver(
 /** A night the selector offers, in the Camping tab. */
 export interface NightChoice {
   date: string;
-  /** `Tonight`, `Tomorrow`, or `Fri 8`. */
+  /** `Tonight`, `Tomorrow`, or `Fri 8`. Sized for a chip. */
   label: string;
+  /**
+   * `Tonight`, `Tomorrow`, or `Friday, Aug 14`. Sized for the status line.
+   *
+   * Two forms of one fact rather than two facts: both are derived here, from
+   * the same date, so the line above the list and the chip that selects it
+   * cannot name different days. A chip has a row to share and abbreviates; the
+   * status line is the sentence that says what the reader is looking at, and
+   * `Fri 8` is not a sentence.
+   */
+  longLabel: string;
   /** Sites open that night, or null when it was not measured. */
   count: number | null;
+  /** Sites the night offers at all — the denominator behind `count`. */
+  total: number;
+  /**
+   * How this night's bar is drawn.
+   *
+   * Carried so a caller can phrase a ZERO correctly. `count: 0` is three
+   * different facts — every site taken, the campground shut, the night not yet
+   * released — and "0 sites open" is only true of the first.
+   */
+  mark: NightMark;
   isWeekend: boolean;
 }
 
@@ -317,10 +355,42 @@ export function nightChoices(
             ? 'Tomorrow'
             : // The month only earns its place when the chip crosses into one.
               `${longWeekday(bar.date)} ${day === 1 || index === 2 ? `${MONTHS[month - 1]} ` : ''}${day}`,
+      longLabel:
+        index === 0
+          ? 'Tonight'
+          : index === 1
+            ? 'Tomorrow'
+            : `${WEEKDAY_NAMES[weekdayOf(bar.date)]}, ${MONTHS[month - 1]} ${day}`,
       count: bar.mark === 'none' ? null : bar.sitesOpen,
+      total: bar.sitesReservable,
+      mark: bar.mark,
       isWeekend: bar.isWeekend,
     };
   });
+}
+
+/**
+ * What the Camping tab says about the night it is showing.
+ *
+ * ── WHY THIS IS NOT `${count} sites open` ─────────────────────────────────
+ *
+ * Because three of the four marks produce a zero and only one of them means
+ * "every site is taken". A campground shut for the season and a night whose
+ * inventory has not been released yet both report `sitesOpen: 0`, and printing
+ * that as "0 sites open" tells a reader to keep refreshing for a cancellation
+ * that is not coming. The strip already keeps these four apart in SHAPE — see
+ * NightStrip — and this is the same distinction in words.
+ *
+ * Null when the night was never measured, which is the one case with nothing
+ * honest to say: the caller draws the day and stops there.
+ */
+export function nightPhrase(choice: NightChoice): string | null {
+  if (choice.mark === 'none') return null;
+  if (choice.mark === 'dash') return 'Not offered this night';
+  if (choice.mark === 'empty') return 'Fully booked';
+  // `bar` is the only mark left, and nightBars only assigns it when BOTH counts
+  // are above zero — so the denominator is always real here and needs no guard.
+  return `${choice.count ?? 0} of ${choice.total} sites open`;
 }
 
 /** `Fri`. Three letters, because a single initial is ambiguous on a chip. */

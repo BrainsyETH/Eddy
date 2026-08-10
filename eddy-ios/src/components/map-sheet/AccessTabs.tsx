@@ -25,9 +25,8 @@ import type {
   ServiceTier,
 } from '@eddy/types';
 import { serviceTiers } from '@eddy/types';
-import { AvailabilityGlance } from './AvailabilityGlance';
-import { localToday, nightChoices } from './availability';
-import { accessAvailability, accessAvailabilityName } from './availabilitySource';
+import { localToday, nightChoices, nightPhrase, type NightChoice } from './availability';
+import { accessAvailability } from './availabilitySource';
 import { bookingLine, siteMixLine } from './campgroundFacts';
 import { CampsiteList } from './CampsiteList';
 import { airbnbSearchUrl, STAY_SEARCH_LABEL, stayRadiusLabel } from '@/lib/stays';
@@ -102,15 +101,6 @@ interface TabProps {
    * place, and a few access points have none at all.
    */
   hasPlaceTab: boolean;
-  /**
-   * Whether the peek's reserved slot already went to the availability card.
-   *
-   * Camping needs it for the same reason Overview needs `status`, and with the
-   * opposite sign: the peek does NOT always carry availability, so the tab
-   * cannot simply drop its own headline, and it does not always LACK it either,
-   * so it cannot simply keep it. Resolved once by decisionSlot in PinSheet.
-   */
-  peekShowsAvailability: boolean;
 }
 
 /* ── Overview ───────────────────────────────────────────────────────────── */
@@ -385,26 +375,73 @@ function checkedLine(fetchedAt: string): string {
  * has no nps_campgrounds row at all, and a tab that keyed off that would have
  * shown nothing for exactly the sites that most need describing.
  */
-export function AccessCampingTab({
-  accessPoint,
-  detail,
-  status,
-  peekShowsAvailability,
-  active = false,
-}: TabProps) {
+/**
+ * The night this page is showing, said in words.
+ *
+ * ── THE PAGE STATES ITS OWN CONTEXT ───────────────────────────────────────
+ *
+ * Everything below this line — the chips, the filters, the site rows — is about
+ * ONE night, and until this existed the only thing on the page that named which
+ * was a chip that started off-screen. A reader met a list of campsites and had
+ * to infer the day from a control they could not see.
+ *
+ * So the day comes FIRST and the count second, which is the opposite order to
+ * the peek's card. That card is a glance deciding whether to open the sheet at
+ * all, and there the number is the point. Here the number is an answer to a
+ * question the reader has to know they asked.
+ *
+ * ── One utterance, not two ────────────────────────────────────────────────
+ * Two Texts would be two VoiceOver stops for one statement, and "Friday, Aug
+ * 14" followed later by "13 of 52 sites open" is a fragment and an orphan. The
+ * same reason NightStrip is a single element.
+ */
+function NightStatus({ night }: { night: NightChoice | null }) {
+  const { colors } = useTheme();
+  if (!night) return null;
+
+  // Null only when the night was never measured, which most campgrounds are.
+  // The day still draws: what the reader is looking at is true either way.
+  const phrase = nightPhrase(night);
+
+  return (
+    <View
+      style={styles.nightStatus}
+      accessible
+      accessibilityLabel={phrase ? `${night.longLabel}. ${phrase}` : night.longLabel}
+    >
+      <Text style={[styles.nightDay, { color: colors.text }]} numberOfLines={1}>
+        {night.longLabel}
+      </Text>
+      {phrase ? (
+        <Text style={[styles.nightPhrase, { color: colors.textMuted }]} numberOfLines={1}>
+          {phrase}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+export function AccessCampingTab({ accessPoint, detail, status, active = false }: TabProps) {
   const { colors } = useTheme();
   const point = detail?.accessPoint;
   const nps = point?.npsCampground ?? null;
   const availability = accessAvailability(point);
-  const name = accessAvailabilityName(point);
 
   const today = localToday();
   const nights = useMemo(() => nightChoices(availability, today), [availability, today]);
 
-  // Default to the weekend the hero describes, so the tab opens agreeing with
-  // the number above it rather than on an arbitrary night.
+  // Default to the weekend the peek's card describes, so the tab opens on the
+  // nights that made the pin worth tapping rather than on an arbitrary one.
+  //
+  // It is NOT the first chip, which is what makes the status line and
+  // `scrollToActive` below load-bearing rather than polish: a default the
+  // reader cannot see is indistinguishable from no default at all.
   const [selected, setSelected] = useState<string | null>(null);
   const selectedDate = selected ?? availability?.window.startDate ?? nights[0]?.date ?? today;
+  const selectedNight = useMemo(
+    () => nights.find((night) => night.date === selectedDate) ?? null,
+    [nights, selectedDate],
+  );
 
   const [filters, setFilters] = useState<SiteFilter[]>([]);
   // The RESPONSE's coordinates, or the pin's. A stay search needs a point on the
@@ -459,33 +496,32 @@ export function AccessCampingTab({
 
   return (
     <View>
-      {/* ── ONLY WHEN THE PEEK IS NOT ALREADY SAYING IT ──────────────────
-          `36 open · of 52 sites · Fri–Sun, Aug 14–16` was printed twice inside
-          one screen height: once on the peek's card and again here, from the
-          same availabilityHero. The peek does not scroll away — MapSheet lays
-          out the peek and the pages as one card and moves it by transform — so
-          both copies were legible at the same time, nine points apart.
+      {/* ── THE DAY THIS PAGE IS ABOUT, BEFORE ANY CONTROL ────────────────
+          This slot used to hold a copy of the peek's headline, suppressed when
+          the peek was already showing it. Suppression was the wrong shape: it
+          made the tab say nothing at all on exactly the pins where the peek
+          spoke, and it left the tab's real problem untouched — the SITE LIST
+          BELOW IS ONE NIGHT, and nothing on the page named which.
 
-          It cannot just be deleted, which is why this is a condition and not a
-          removal. The peek reserves availability only for a pin tapped on the
-          CAMPGROUNDS layer (peekSlot.ts); the identical place tapped as an
-          access point spends its slot on the water instead, and then this is
-          the only place the number appears at all.
+          Nothing did, because the two things that could have were both unable
+          to. The peek's headline describes the WINDOW — the server folds that
+          count over the weekend on purpose (availability.ts) — and the chip
+          that carries the selected night opened several chips along a
+          fourteen-wide scroller, off the right-hand edge.
 
-          Same shape as Overview's Water section, for the same reason in the
-          other direction — see the note there. */}
-      {peekShowsAvailability ? null : (
-        <AvailabilityGlance
-          availability={availability}
-          name={name}
-          today={today}
-          showStrip={false}
-        />
-      )}
+          So this is not the peek's sentence any more. The peek answers "is this
+          place worth considering at all", over its window; this answers "what
+          am I looking at", for one night. Two different facts, which is why it
+          no longer needs a condition to avoid being a second copy of one. */}
+      <NightStatus night={selectedNight} />
 
-      {/* The fortnight, at a size that can be tapped. The peek draws the same
+      {/* The fortnight, at a size that can be tapped — the peek draws the same
           nights as a chart because fourteen columns is twenty points each and
-          nothing that small may be a control; here they are a real 44pt row. */}
+          nothing that small may be a control.
+
+          `scrollToActive` because the selection is NOT the first chip: it opens
+          on the weekend the window describes, which starts life off-screen. See
+          FilterChips. */}
       {nights.some((night) => night.count !== null) ? (
         <FilterChips
           chips={nights.map((night) => ({
@@ -496,6 +532,7 @@ export function AccessCampingTab({
           active={[selectedDate]}
           onToggle={setSelected}
           paddingHorizontal={0}
+          scrollToActive
         />
       ) : null}
 
@@ -541,8 +578,18 @@ export function AccessCampingTab({
 
       <Prose>{nps?.reservationInfo ?? null}</Prose>
 
+      {/* ── THE HEADING NAMES THE NIGHT, because the list is one night ────
+          It read "Sites", full stop, above a list built for `selectedDate` —
+          and the control that sets that date is two sections up, on the far
+          side of Book and the reservation prose. Even a reader who knew a night
+          was selected could not see which one from here.
+
+          The night's own label, so the heading and the chip cannot name
+          different days; see NightChoice.longLabel. */}
       {availability?.facilityId ? (
-        <Section title="Sites">
+        <Section
+          title={selectedNight ? `Sites · ${selectedNight.longLabel}` : 'Sites'}
+        >
           {sitesStatus === 'ready' && sites ? (
             <>
               <FilterChips
@@ -561,7 +608,12 @@ export function AccessCampingTab({
                 }
                 paddingHorizontal={0}
               />
-              <CampsiteList entries={entries} filters={filters} date={selectedDate} />
+              <CampsiteList
+                entries={entries}
+                filters={filters}
+                date={selectedDate}
+                dateLabel={selectedNight?.longLabel}
+              />
               {/* Synced once a night, and a named site is a stronger claim than
                   a count — so the reader is told how old it is, and the row
                   itself opens the booking page that is authoritative. */}
@@ -856,6 +908,11 @@ const styles = StyleSheet.create({
   // The reading block's styles left with it — see AccessGaugeReading in
   // sections.tsx. They were this file's only condition-tinted anything.
   checked: { ...t.xs, fontFamily: fonts.body, marginTop: 8 },
+  nightStatus: { marginTop: 10 },
+  // t.base rather than the peek card's display face. This names the page's
+  // subject; it is not competing with the glance that decided you opened it.
+  nightDay: { ...t.base, fontFamily: fonts.heading },
+  nightPhrase: { ...t.sm, fontFamily: fonts.body, marginTop: 1 },
   // Section's own spacing, restated here because the heading carries a glyph and
   // Section takes a plain string title.
   group: { marginTop: 14 },
