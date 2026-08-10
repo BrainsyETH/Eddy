@@ -663,6 +663,34 @@ export interface AccessPointDetail {
    * order, so a NEW app against an OLDER deploy still finds the nested copy.
    */
   availability?: CampsiteAvailabilitySummary | null;
+
+  /**
+   * Where to book this campground, when the server holds a reservation URL.
+   *
+   * A SIBLING of `availability` rather than a field on it, because the two
+   * answer to different clocks: availability is this weekend's inventory and
+   * legitimately goes null when a sync is stale, while a reservation URL is a
+   * property of the place. Hanging the button off availability would have made
+   * it blink out with the freshness of scraped nights.
+   *
+   * Optional for the reason `path` and `availability` are — a TestFlight build
+   * outlives the deploy it was cut against, so its absence means "this deploy
+   * does not send one", never "this campground cannot be booked".
+   */
+  booking?: BookingLinkSummary | null;
+}
+
+/**
+ * The one link that takes a booking, and the system it belongs to.
+ *
+ * `source` is the FACILITY's source, which is constrained to two values, and
+ * deliberately not `nearby_services.booking_platform` — that column is free
+ * text carrying 26 spellings of a dozen platforms. It exists so the button can
+ * name its destination: "Book on Recreation.gov" rather than a bare "Book".
+ */
+export interface BookingLinkSummary {
+  url: string;
+  source: 'recreation_gov' | 'mo_state_parks';
 }
 
 export interface AccessPointDetailResponse {

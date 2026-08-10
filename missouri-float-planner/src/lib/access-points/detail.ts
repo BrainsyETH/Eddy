@@ -19,8 +19,10 @@ import type {
   ManagingAgency,
   ParkingCapacity,
   NearbyService,
+  BookingLinkInfo,
 } from '@/types/api';
 import { loadAvailability } from '@/lib/camping/read';
+import { loadBookingLink } from '@/lib/camping/booking';
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -170,12 +172,26 @@ export async function getAccessPointDetail(
 
   let npsCampground: NPSCampgroundInfo | null = null;
   let availability: CampsiteAvailabilityInfo | null = null;
+  // ── The booking link is read on its own clock ────────────────────────────
+  //
+  // Same facility row as availability, deliberately not the same read: see the
+  // header of camping/booking.ts. Availability going null because a sync ran
+  // late is not a reason to stop telling somebody where to book, and folding
+  // the two would have tied the button to the freshness of scraped nights.
+  //
+  // Concurrent because neither answer depends on the other, and gated on the
+  // same `campgroundish` test, so an ordinary put-in still costs nothing.
+  let booking: BookingLinkInfo | null = null;
 
   if (campgroundish) {
-    const index = await loadAvailability(supabase);
+    const [index, bookingLink] = await Promise.all([
+      loadAvailability(supabase),
+      loadBookingLink(supabase, ap.id),
+    ]);
     availability =
       index.byAccessPointId.get(ap.id) ??
       (ap.nps_campground_id ? (index.byNpsCampgroundId.get(ap.nps_campground_id) ?? null) : null);
+    booking = bookingLink;
   }
   if (ap.nps_campground_id) {
     npsCampground = await getNPSCampgroundInfo(supabase, ap.nps_campground_id, availability);
@@ -225,6 +241,11 @@ export async function getAccessPointDetail(
     // The sibling. Same object as npsCampground.availability today, and the
     // only field a non-NPS campground could ever fill — see the type.
     availability,
+    // The other sibling, and the only route by which a campground with no
+    // nps_campgrounds row can offer a booking at all: its reservation URL
+    // lives on the directory row, which nothing but campsite_facilities links
+    // to the access point.
+    booking,
   };
 
   return {

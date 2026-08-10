@@ -36,7 +36,11 @@
 // through the app alias or from a .tsx. Same constraint as tabs.ts, peekSlot.ts
 // and availability.ts — see their headers.
 
-import type { CampsiteAvailabilitySummary, NpsCampgroundSummary } from '@eddy/types';
+import type {
+  BookingLinkSummary,
+  CampsiteAvailabilitySummary,
+  NpsCampgroundSummary,
+} from '@eddy/types';
 
 /** A count worth printing, or nothing. Zero is not a fact about a campground. */
 function counted(count: number | null | undefined, label: string): string | null {
@@ -121,17 +125,68 @@ const PROVIDER: Record<CampsiteAvailabilitySummary['source'], string> = {
   mo_state_parks: 'at Missouri State Parks',
 };
 
+/** "Book on Recreation.gov", or the generic when nothing names the provider. */
+function label(source: CampsiteAvailabilitySummary['source'] | null | undefined): string {
+  return source ? `Book ${PROVIDER[source]}` : 'Book a site';
+}
+
 export function bookingAction(
   nps: NpsCampgroundSummary | null | undefined,
   source: CampsiteAvailabilitySummary['source'] | null | undefined,
+  booking?: BookingLinkSummary | null,
 ): BookingAction | null {
   // A real reservation URL always wins. It is the only field in the record that
   // is a booking system rather than a page about one.
   if (nps?.reservationUrl) {
-    return {
-      url: nps.reservationUrl,
-      label: source ? `Book ${PROVIDER[source]}` : 'Book a site',
-    };
+    return { url: nps.reservationUrl, label: label(source) };
+  }
+
+  // ── THE CAMPGROUNDS NPS DOES NOT RUN ─────────────────────────────────────
+  //
+  // This is the plumbing the fold below asked for, now that it exists.
+  //
+  // `booking` is `nearby_services.reservation_url` — the purpose-built column,
+  // reached through the campsite_facilities row that is the only thing linking
+  // an access point to its directory entry. Three kinds of place arrive here
+  // and none of them could offer a booking before:
+  //
+  //   Red Bluff Recreation Area   a federal campground with NO nps_campgrounds
+  //                               row, whose reservation URL is a working
+  //                               recreation.gov deep link. Pure gain: the URL
+  //                               was already on the row, labelled "Official
+  //                               site", and is now the button it always was.
+  //
+  //   Meramec, Onondaga Cave,     state parks, booking through icampmo.com.
+  //   Montauk                     Montauk carries no official_site_url at all,
+  //                               so its Camping tab had no outbound link of
+  //                               any kind while this database held its sites.
+  //
+  // ── WHAT THIS BUTTON PROMISES FOR A STATE PARK, EXACTLY ──────────────────
+  //
+  // `https://icampmo.com` is the booking system's front door, not a deep link
+  // to the park — the reader still picks the park there. That is a weaker
+  // promise than the federal case and worth stating plainly, but it is a
+  // DIFFERENT KIND of thing from what #1173 removed: icampmo takes bookings,
+  // and mostateparks.com/park/meramec-state-park does not.
+  //
+  // A per-park deep link was tried and rejected on evidence, not effort.
+  // UseDirect's own `search/place` response for PlaceId 60 publishes
+  // `Url: https://mostateparks.com/park/meramec-state-park` — the provider
+  // names the description page as the park's canonical URL and offers no
+  // booking URL of its own. The only remaining candidate was a reverse
+  // engineered `#!park/<PlaceId>` route out of the reservation site's
+  // JavaScript bundle, which is a third party's implementation detail rather
+  // than a contract: if it changes, every state-park button breaks silently and
+  // nothing in this repository would notice. The stored URL is the strongest
+  // destination Eddy can actually stand behind.
+  //
+  // TO IMPROVE IT, get a real per-park booking URL into
+  // `nearby_services.reservation_url` — verified by loading it, the way the six
+  // dead recreation.gov links were corrected in migration 20260803120000. This
+  // function needs no change for that: it already renders whatever the column
+  // holds.
+  if (booking?.url) {
+    return { url: booking.url, label: label(booking.source) };
   }
 
   // ── THE STATE-PARK CASE WAS A GUESS, AND THE DATA SAYS IT WAS WRONG ─────
@@ -160,11 +215,21 @@ export function bookingAction(
   // button's, so removing the button reveals the row rather than losing the
   // link.
   //
-  // TO BRING THE BUTTON BACK, plumb `nearby_services.reservation_url` and
-  // `booking_platform` through the access-detail response. That is a schema
-  // read and an API field, not a heuristic, and it is the only thing that
-  // turns this into a promise Eddy can keep. `officialSiteUrl` is no longer a
-  // parameter, because a function that takes a URL it must not use invites
+  // That fold once ended "TO BRING THE BUTTON BACK, plumb
+  // `nearby_services.reservation_url` and `booking_platform` through the
+  // access-detail response." The URL half is done and is the branch above.
+  //
+  // `booking_platform` was deliberately NOT plumbed, and the column is why: it
+  // is free text holding 26 distinct values across the directory, including
+  // both `fareharbor` and `FareHarbor`, both `recreation_gov` and
+  // `recreation.gov`, and one row whose platform is `camping.com`. Naming the
+  // destination off that column means eventually printing one of those
+  // spellings at a reader. `campsite_facilities.source` answers the same
+  // question with a CHECK constraint behind it, so that is what `PROVIDER` is
+  // keyed on and what BookingLinkSummary carries.
+  //
+  // `officialSiteUrl` is still not a parameter, and still for the reason it
+  // stopped being one: a function that takes a URL it must not use invites
   // somebody to use it.
   return null;
 }

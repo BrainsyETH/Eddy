@@ -211,6 +211,33 @@ export interface AccessPointDetail extends AccessPoint {
    * and outlives the deploy it was cut against.
    */
   availability?: CampsiteAvailabilityInfo | null;
+
+  /**
+   * Where to book this campground, when Eddy holds a reservation URL for it.
+   *
+   * A SIBLING OF `availability`, not a field on it, for the reason
+   * src/lib/camping/booking.ts gives at length: availability drops out for
+   * calendar reasons — stale nights, an uncovered weekend, nothing reservable
+   * in the window — and none of those are reasons to stop telling somebody
+   * where to book.
+   *
+   * Only ever `nearby_services.reservation_url`, never `officialSiteUrl`. See
+   * bookingAction in the app's campgroundFacts.ts for why that distinction is
+   * load-bearing rather than pedantic.
+   */
+  booking?: BookingLinkInfo | null;
+}
+
+/**
+ * The one link that takes a booking, and the system it belongs to.
+ *
+ * `source` names the provider so the app can say "Book on Recreation.gov"
+ * rather than "Book" — a button that leaves the app having told the reader
+ * nothing about where they are going is a surprise, not a link.
+ */
+export interface BookingLinkInfo {
+  url: string;
+  source: 'recreation_gov' | 'mo_state_parks';
 }
 
 /**
