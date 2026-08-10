@@ -127,7 +127,11 @@ SIZE = 300
 # drawing here makes them just as reproducible as the derived catalog: there is
 # still one source of truth, and nobody has to remember the crop/export settings
 # used by a one-off design file.
-GENERATED_SYMBOLS = ("eddy-dam",)
+GENERATED_SYMBOLS = (
+    "eddy-bridge",
+    "eddy-dam",
+    "eddy-gravel-bar",
+)
 
 # How far a pixel may sit from the corner it is being compared against and still
 # count as background. The card is nearly flat (250,249,250 to 252,251,251 across
@@ -258,9 +262,90 @@ def draw_dam() -> Image.Image:
     return art.quantize(colors=255, method=Image.FASTOCTREE)
 
 
+def finish_generated(canvas: Image.Image) -> Image.Image:
+    """Crop and normalize generated geometry like the concept-derived marks."""
+    box = canvas.getchannel("A").getbbox()
+    if box is None:
+        raise SystemExit("generated symbol is empty")
+    art = canvas.crop(box)
+    scale = SIZE / max(art.size)
+    art = art.resize(
+        (max(1, round(art.width * scale)), max(1, round(art.height * scale))),
+        Image.LANCZOS,
+    )
+    return art.quantize(colors=255, method=Image.FASTOCTREE)
+
+
+def generated_canvas() -> tuple[Image.Image, ImageDraw.ImageDraw, int]:
+    """A supersampled transparent canvas for the mascot-free utility template."""
+    scale = 4
+    canvas = Image.new("RGBA", (SIZE * scale, SIZE * scale), (0, 0, 0, 0))
+    return canvas, ImageDraw.Draw(canvas), scale
+
+
+def draw_bridge() -> Image.Image:
+    """Draw a two-span bridge over Eddy-blue water."""
+    canvas, draw, s = generated_canvas()
+    teal = "#073F4C"
+    coral = "#F26649"
+    blue = "#2099C8"
+    light = "#FAF8F2"
+
+    # Water sits behind the structure so the bridge remains a place on a river,
+    # not a generic road or building.
+    wave = [(12, 238), (54, 218), (96, 240), (138, 218), (180, 240), (222, 218), (288, 240)]
+    draw.line([(x * s, y * s) for x, y in wave], fill=teal, width=38 * s, joint="curve")
+    draw.line([(x * s, y * s) for x, y in wave], fill=blue, width=21 * s, joint="curve")
+
+    # Chunky deck, rail and piers. The pale rail gaps keep the silhouette from
+    # collapsing into a single coral bar at inline size.
+    draw.rounded_rectangle((12 * s, 72 * s, 288 * s, 120 * s), radius=14 * s, fill=teal)
+    draw.rounded_rectangle((24 * s, 82 * s, 276 * s, 108 * s), radius=7 * s, fill=coral)
+    for x in (54, 150, 246):
+        draw.rounded_rectangle(((x - 9) * s, 30 * s, (x + 9) * s, 78 * s), radius=6 * s, fill=teal)
+    draw.line([(45 * s, 48 * s), (255 * s, 48 * s)], fill=teal, width=13 * s)
+    draw.line([(62 * s, 48 * s), (238 * s, 48 * s)], fill=light, width=5 * s)
+
+    # Two broad arches and a centre pier: negative space remains open and blue.
+    for left, right in ((24, 150), (150, 276)):
+        draw.arc((left * s, 92 * s, right * s, 256 * s), 180, 360, fill=teal, width=24 * s)
+    draw.rounded_rectangle((137 * s, 104 * s, 163 * s, 238 * s), radius=9 * s, fill=teal)
+    draw.rounded_rectangle((28 * s, 104 * s, 52 * s, 230 * s), radius=8 * s, fill=teal)
+    draw.rounded_rectangle((248 * s, 104 * s, 272 * s, 230 * s), radius=8 * s, fill=teal)
+
+    return finish_generated(canvas)
+
+
+def draw_gravel_bar() -> Image.Image:
+    """Draw a low gravel island in moving water."""
+    canvas, draw, s = generated_canvas()
+    teal = "#073F4C"
+    blue = "#2099C8"
+    sand = "#F4C16E"
+
+    # A long, low island is the defining silhouette. Teal outline carries the
+    # same sticker edge as the rest of the catalog; warm sand is the only new
+    # fill and stays subordinate to the established coral/blue palette.
+    bar = [(24, 192), (66, 146), (122, 126), (186, 132), (238, 154), (278, 194), (252, 220), (48, 220)]
+    draw.polygon([(x * s, y * s) for x, y in bar], fill=teal)
+    inner = [(42, 190), (76, 160), (126, 144), (180, 148), (226, 166), (258, 194), (242, 204), (56, 204)]
+    draw.polygon([(x * s, y * s) for x, y in inner], fill=sand)
+
+    for y in (224, 260):
+        wave = [(10, y), (52, y - 18), (94, y), (136, y - 18), (178, y), (220, y - 18), (290, y)]
+        draw.line([(x * s, yy * s) for x, yy in wave], fill=teal, width=30 * s, joint="curve")
+        draw.line([(x * s, yy * s) for x, yy in wave], fill=blue, width=16 * s, joint="curve")
+
+    return finish_generated(canvas)
+
+
 def generate(name: str) -> Image.Image:
+    if name == "eddy-bridge":
+        return draw_bridge()
     if name == "eddy-dam":
         return draw_dam()
+    if name == "eddy-gravel-bar":
+        return draw_gravel_bar()
     raise SystemExit(f"unknown generated symbol: {name}")
 
 

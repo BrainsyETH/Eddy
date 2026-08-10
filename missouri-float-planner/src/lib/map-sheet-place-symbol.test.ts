@@ -54,30 +54,37 @@ test('a layer that answers overrides the point that disagrees', () => {
 test('the generic access layer falls through to the point own types', () => {
   assert.equal(placeSymbol({ layer: 'access' }, point({ type: 'boat_ramp' })), 'boatRamp');
   assert.equal(placeSymbol({ layer: 'access' }, point({ type: 'campground' })), 'campground');
-  // `access` sorts first and has no art of its own, so it must be stepped over
-  // rather than treated as the answer.
+  // `access` sorts first but is the broadest role, so it must be stepped over
+  // while a more specific drawn type is present.
   assert.equal(
     placeSymbol({ layer: 'access' }, point({ types: ['access', 'boat_ramp'] })),
     'boatRamp',
   );
 });
 
-test('a type with no art gets the generic pin, never an adjacent drawing', () => {
+test('each mapped access type gets its own Eddy mark', () => {
   // eddy-road is the road-access SECTION mark on the access-point screen. It is
   // close enough to a bridge to be tempting, and borrowing it would make one
   // drawing mean two things in the same product.
-  for (const type of ['gravel_bar', 'bridge', 'park']) {
-    assert.equal(placeSymbol({ layer: 'access' }, point({ type })), 'accessPoint');
-    assert.equal(accessTypeSymbol(type), null);
-  }
+  assert.equal(placeSymbol({ layer: 'access' }, point({ type: 'access' })), 'accessPoint');
+  assert.equal(placeSymbol({ layer: 'access' }, point({ type: 'gravel_bar' })), 'gravelBar');
+  assert.equal(placeSymbol({ layer: 'access' }, point({ type: 'bridge' })), 'bridge');
+  assert.equal(accessTypeSymbol('access'), 'accessPoint');
+  assert.equal(accessTypeSymbol('gravel_bar'), 'gravelBar');
+  assert.equal(accessTypeSymbol('bridge'), 'bridge');
   assert.equal(accessTypeSymbol('boat_ramp'), 'boatRamp');
   assert.equal(accessTypeSymbol('campground'), 'campground');
+  // Park still has no dedicated catalog art and keeps the honest generic pin.
+  assert.equal(placeSymbol({ layer: 'access' }, point({ type: 'park' })), 'accessPoint');
+  assert.equal(accessTypeSymbol('park'), null);
   // An unmapped value from the database is a label, not a crash.
   assert.equal(accessTypeSymbol('low_water_crossing'), null);
 });
 
 test('never null, for any pin the sheet can open', () => {
   assert.equal(placeSymbol({ layer: 'access' }, null), 'accessPoint');
+  // An access point whose optional `types` array is empty falls back to its
+  // legacy singular `type`, which intentionally reuses the POI mark.
   assert.equal(placeSymbol({ layer: 'access' }, point({ types: [] })), 'accessPoint');
   // A layer this file has never heard of still names the place.
   assert.equal(placeSymbol({ layer: 'publicLand' }, null), 'accessPoint');
@@ -95,10 +102,12 @@ test('every name it can return exists in the Eddy catalog', () => {
   const every: Record<PlaceSymbolName, true> = {
     accessPoint: true,
     boatRamp: true,
+    bridge: true,
     campground: true,
     dam: true,
     gauge: true,
     hazard: true,
+    gravelBar: true,
     outfitter: true,
   };
   const catalog = readFileSync(
