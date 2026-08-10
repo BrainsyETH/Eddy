@@ -61,7 +61,7 @@ import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import { driveBetweenUrl, driveToUrl, usgsGaugeUrl } from '@/lib/directions';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { PlanAlongRoute } from '@/components/PlanAlongRoute';
-import { PlanNearby } from '@/components/PlanNearby';
+import { PlanSupport } from '@/components/PlanSupport';
 import { EddySymbol } from '@/components/EddySymbol';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 
@@ -220,7 +220,7 @@ export function PlanResult({ plan, actions }: Props) {
 
       <PlanAlongRoute plan={plan} />
 
-      <PlanNearby plan={plan} />
+      <PlanSupport plan={plan} />
 
       <SafetyDisclaimer />
 

@@ -586,10 +586,14 @@ USGS, then *Getting there* — put-in, take-out and the shuttle leg, each handed
 Apple Maps (`src/lib/directions.ts`; Apple rather than Google because it is
 guaranteed present and so can never bounce to a web page). Below that: hazards on
 the stretch, the access points **between** the two ends — which are bail-outs, and
-are listed by miles from the put-in rather than from the headwaters — and the
-outfitters nearest the put-in with tap-to-call. `PlanAlongRoute` and `PlanNearby`
-fetch their own data so they work identically on the screen that opens a shared
-float, which holds a plan and nothing else.
+are listed by miles from the put-in rather than from the headwaters — and
+`PlanSupport`: the outfitters and campgrounds associated with each END of the
+float, under *Near the put-in* and *Near the take-out*, with the nearest
+unassociated shuttles below them. Its rules are pure and tested
+(`src/lib/planSupport.ts`); its three parallel requests degrade one lane at a
+time (`src/lib/loadPlanSupport.ts`). `PlanAlongRoute` and `PlanSupport` fetch
+their own data so they work identically on the screen that opens a shared float,
+which holds a plan and nothing else.
 
 **Saved floats** are local (`useSavedFloats`) because the server has no notion of
 "mine": `float_plans` is keyed by share code, and most users are anonymous. Only
