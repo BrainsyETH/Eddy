@@ -16,8 +16,8 @@
 // one is what stops a tent-tapper being handed a boat ramp.
 //
 // ── Absent, never substituted ────────────────────────────────────────────
-// Three of the six access types have no art yet — gravel bar, bridge, park —
-// and they resolve to the GENERIC access mark rather than to something adjacent.
+// Park has no dedicated art yet and resolves to the GENERIC access mark rather
+// than to something adjacent.
 // `eddy-road` is close enough to a bridge to be tempting and wrong: it is the
 // road-access section mark on the access-point screen, so borrowing it here
 // would make one drawing mean two things in the same product. The catalog gains
@@ -38,10 +38,12 @@ import { accessPointTypes } from '@eddy/types';
 export type PlaceSymbolName =
   | 'accessPoint'
   | 'boatRamp'
+  | 'bridge'
   | 'campground'
   | 'dam'
   | 'gauge'
   | 'hazard'
+  | 'gravelBar'
   | 'outfitter';
 
 /** Just the field the layer rule reads. Structural — see the header. */
@@ -68,8 +70,14 @@ const LAYER_SYMBOL: Record<string, PlaceSymbolName> = {
 
 /** What a single access type says, for the types the catalog has drawn. */
 const TYPE_SYMBOL: Record<string, PlaceSymbolName> = {
+  // Generic Access reuses the catalog's POI pin. It is the broad fallback
+  // place category, so drawing a second symbol would imply a distinction the
+  // data does not make.
+  access: 'accessPoint',
   boat_ramp: 'boatRamp',
+  bridge: 'bridge',
   campground: 'campground',
+  gravel_bar: 'gravelBar',
 };
 
 /**
@@ -96,13 +104,15 @@ export function placeSymbol(
   const byLayer = LAYER_SYMBOL[pin.layer];
   if (byLayer) return byLayer;
   if (!accessPoint) return 'accessPoint';
-  // ACCESS_POINT_TYPE_ORDER already sorts these most-specific-use first, so the
-  // first type with art is the one worth drawing: a point tagged both
-  // `campground` and `boat_ramp` reads as a campground, which is the order the
-  // website lists them in too.
-  for (const type of accessPointTypes(accessPoint)) {
+  const types = accessPointTypes(accessPoint);
+  // `access` is the broadest role even though the display list puts it first.
+  // Defer it until every specific type has had a chance, or a point tagged
+  // `access + boat_ramp` would gain a generic mark at the exact moment the
+  // catalog learned how to draw both.
+  for (const type of types.filter((type) => type !== 'access')) {
     const symbol = accessTypeSymbol(type);
     if (symbol) return symbol;
   }
+  if (types.includes('access')) return 'accessPoint';
   return 'accessPoint';
 }

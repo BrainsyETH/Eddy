@@ -44,11 +44,13 @@ const SYMBOLS = {
   gauge: require('../../assets/eddy/eddy-other-usgs-gauge.png'),
   dam: require('../../assets/eddy/eddy-dam.png'),
   accessPoint: require('../../assets/eddy/eddy-poi.png'),
-  // The two access types the catalog has drawn. Resolved by placeSymbol, which
-  // is what decides between them and the generic pin above; the map's own pins
-  // are a separate catalog (assets/map) and have no boat-ramp variant on
-  // purpose — six type icons on one pin is a legend test, not a map.
+  // The access types the catalog has drawn. Resolved by placeSymbol, which
+  // chooses the most useful specific role while the map itself still draws one
+  // contextual marker per physical place — six mini-icons on one pin would be
+  // a legend test, not a map.
   boatRamp: require('../../assets/eddy/eddy-boat-ramp.png'),
+  gravelBar: require('../../assets/eddy/eddy-gravel-bar.png'),
+  bridge: require('../../assets/eddy/eddy-bridge.png'),
   otherGauge: require('../../assets/eddy/eddy-other-usgs-gauge.png'),
   hazard: require('../../assets/eddy/eddy-hazard.png'),
   campground: require('../../assets/eddy/eddy-campground.png'),

@@ -34,6 +34,15 @@ isolated on an off-white background for easy review and future app integration.
 - `eddy-alert-watch.png`
 - `eddy-offline-map.png`
 
+## Generated utility icons
+
+Bridge and gravel-bar marks are reproducible geometry in
+`eddy-ios/scripts/build-eddy-icons.py`. The script applies the same utility-symbol
+palette, thick outline, transparency, crop, and 300px export template as the
+concept-derived icons and writes them directly to `eddy-ios/assets/eddy/`.
+Generic Access intentionally reuses `eddy-poi.png`: it is the broad fallback
+place category, not a visually distinct facility.
+
 ## Art direction
 
 - Neo-Brutalist mascot sticker style
