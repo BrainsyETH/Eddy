@@ -108,7 +108,12 @@ export default function EddyOutlookFooter({
           </div>
           <p className="text-sm font-medium leading-relaxed text-neutral-700">{sections.watchFor}</p>
           {isGuidance && (
-            <p className="mt-1 text-[10px] font-medium text-neutral-500">Weather outlook; future river levels are not predicted.</p>
+            {/* `isGuidance` means this river has no official hydrograph, so the
+                strip above is weather and nothing else. Kept because without it
+                a reader can take it for a level forecast. Must stay word for
+                word identical to the iOS twin in EddyTake.tsx — one claim, two
+                platforms. */}
+            <p className="mt-1 text-[10px] font-medium text-neutral-500">Weather only — no river-level forecast.</p>
           )}
         </article>
       </div>
