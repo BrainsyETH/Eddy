@@ -32,8 +32,31 @@ interface SessionValue {
   session: Session | null;
   /** False until the first restore-or-sign-in attempt settles. */
   ready: boolean;
-  /** True once we know an account is unavailable — local-only from here. */
+  /**
+   * True once we know an account is unavailable — local-only from here.
+   *
+   * ── THIS IS ABOUT THE ANONYMOUS BOOTSTRAP, NOT ABOUT SIGNING IN ─────────
+   * It goes true for three different reasons: Supabase is not configured,
+   * anonymous sign-ins are switched off in the dashboard (422), or the first
+   * launch had no signal. Only the FIRST of those says anything about whether
+   * a person could sign in with Apple — the other two are states in which
+   * `signInWithApple` works perfectly well, and the last one is transient and
+   * never reset for the life of the session.
+   *
+   * So do not gate a sign-in control on this. `accountsConfigured` is the flag
+   * for that question, and it exists because gating on this one hid the Apple
+   * button on the Alerts tab from anyone who opened the app offline once.
+   */
   unavailable: boolean;
+  /**
+   * Whether an account backend exists at all — the only honest gate on a
+   * sign-in control.
+   *
+   * Constant for the lifetime of the process: it reads the build's Supabase
+   * configuration and nothing else. False means `signInWithApple` can only ever
+   * throw "Accounts are unavailable right now", so a button is a dead end.
+   */
+  accountsConfigured: boolean;
   /** A fresh access token, or null. Refreshes if the cached one has expired. */
   getAccessToken: () => Promise<string | null>;
   /**
@@ -52,6 +75,7 @@ const SessionContext = createContext<SessionValue>({
   session: null,
   ready: false,
   unavailable: true,
+  accountsConfigured: false,
   getAccessToken: async () => null,
   isAnonymous: true,
   signInWithApple: async () => {},
@@ -289,6 +313,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       session,
       ready,
       unavailable,
+      // Not derived from `unavailable`: see its doc. This one answers "is there
+      // an account backend in this build", which never changes at runtime.
+      accountsConfigured: isSupabaseConfigured,
       getAccessToken,
       // Absent claim means anonymous: a session that predates the claim is not
       // a signed-in one, and treating an unknown as permanent would let it
