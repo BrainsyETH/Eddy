@@ -1,0 +1,80 @@
+// src/lib/map-sheet-campground-facts.test.ts
+// The app's campground inventory lines, run from the web suite.
+//
+// eddy-ios has no test runner of its own, so this reaches across and imports
+// the module directly — the same arrangement map-sheet-availability.test.ts has,
+// and the reason campgroundFacts.ts is pure `.ts` with no `@/` or `.tsx`
+// imports.
+
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import type { NpsCampgroundSummary } from '@eddy/types';
+import {
+  bookingLine,
+  siteMixLine,
+} from '../../../eddy-ios/src/components/map-sheet/campgroundFacts';
+
+function record(over: Partial<NpsCampgroundSummary> = {}): NpsCampgroundSummary {
+  return {
+    name: 'Alley Spring',
+    npsUrl: null,
+    reservationInfo: null,
+    reservationUrl: null,
+    totalSites: 0,
+    sitesReservable: 0,
+    sitesFirstCome: 0,
+    ...over,
+  };
+}
+
+/* ── Zero and absent are the same fact ────────────────────────────────────── */
+//
+// This is the rule the whole module rests on, and it is why these are lines
+// rather than rows. The NPS record leaves most of the breakdown empty, so a
+// line that printed its zeroes would be mostly zeroes — "RV 0 · group 0" is a
+// sentence about the database, not about the campground.
+
+test('the mix leads with the total and names only the kinds that exist', () => {
+  const line = siteMixLine(
+    record({ totalSites: 52, sitesRvOnly: 1, sitesElectrical: 42, sitesGroup: 8 }),
+  );
+  assert.equal(line, '52 · RV 1 · electric 42 · group 8');
+});
+
+test('a zero count is left out exactly as an absent one is', () => {
+  const zeroed = siteMixLine(record({ totalSites: 52, sitesTentOnly: 0, sitesGroup: 0 }));
+  const absent = siteMixLine(record({ totalSites: 52 }));
+  assert.equal(zeroed, '52');
+  assert.equal(zeroed, absent, 'a camper reads "none" and "not recorded" the same');
+});
+
+test('a record that breaks nothing down produces no row at all', () => {
+  // Most campgrounds. Fact renders nothing for a null value, so the label
+  // column does not appear either — absent, never "Sites: unknown".
+  assert.equal(siteMixLine(record()), null);
+  assert.equal(siteMixLine(null), null);
+  assert.equal(siteMixLine(undefined), null);
+});
+
+test('the mix survives a record with a breakdown but no total', () => {
+  // The two do not depend on each other: totalSites is the one number that is
+  // not a subset, and its absence is not a reason to withhold the rest.
+  assert.equal(siteMixLine(record({ sitesTentOnly: 12 })), 'tent 12');
+});
+
+/* ── The second axis ──────────────────────────────────────────────────────── */
+
+test('booking is its own line, and is not required to sum to the total', () => {
+  // 42 + 10 is 52 here by coincidence, not by rule: a site can be neither
+  // reservable nor first-come. Nothing in the module checks or implies it.
+  const line = bookingLine(record({ totalSites: 52, sitesReservable: 42, sitesFirstCome: 10 }));
+  assert.equal(line, '42 reservable · 10 first come');
+
+  assert.equal(bookingLine(record({ sitesReservable: 42 })), '42 reservable');
+  assert.equal(bookingLine(record({ sitesFirstCome: 4 })), '4 first come');
+});
+
+test('a campground with no booking counts says nothing about booking', () => {
+  assert.equal(bookingLine(record({ totalSites: 52 })), null);
+  assert.equal(bookingLine(null), null);
+});

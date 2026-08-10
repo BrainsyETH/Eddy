@@ -103,6 +103,28 @@ test('today is the first column and the weekend is Friday and Saturday', () => {
   assert.deepEqual([bars[1].weekday, bars[2].weekday], ['F', 'S']);
 });
 
+test('the ruler carries the date, because a fortnight repeats every weekday', () => {
+  // Fourteen nights print each initial twice — S M T W T F S S M T W T F S — so
+  // "the Saturday" is ambiguous and a reader counting columns to reach next
+  // weekend has to count which one they landed on. A day of the month is unique
+  // across a horizon this short.
+  const bars = nightBars(summary(), TODAY);
+  assert.deepEqual(
+    bars.slice(0, 4).map((b) => b.dayOfMonth),
+    [6, 7, 8, 9],
+  );
+
+  // The initials are still on the data. The number replaces what the strip
+  // DRAWS, not what the module knows — see NightBar.weekday.
+  assert.equal(bars[0].weekday, bars[7].weekday, 'a fortnight repeats every weekday');
+});
+
+test('the ruler crosses a month without restarting the strip', () => {
+  const bars = nightBars(summary(), '2026-08-25');
+  assert.equal(bars.length, 14);
+  assert.deepEqual(bars.slice(5, 9).map((b) => b.dayOfMonth), [30, 31, 1, 2]);
+});
+
 test('fill never exceeds the track', () => {
   const bar = nightBars(summary({ nights: [night(TODAY, 54, 54)] }), TODAY)[0];
   assert.equal(bar.fill, 1);

@@ -50,8 +50,23 @@ export type NightMark = 'bar' | 'empty' | 'dash' | 'none';
 
 export interface NightBar {
   date: string;
-  /** `T`, `F`, `S` — one letter under the bar. */
+  /**
+   * `T`, `F`, `S`.
+   *
+   * NO LONGER WHAT THE STRIP PRINTS — see `dayOfMonth`. Kept because it is the
+   * cheap form of the same fact and the spoken label may yet want it; a caller
+   * that needs a word rather than an initial has `spokenWeekday`.
+   */
   weekday: string;
+  /**
+   * Day of the month, which is what the ruler under the bars draws.
+   *
+   * A fortnight contains each weekday twice, so initials repeat — two Mondays
+   * both read `M`, and a reader counting columns to find next Saturday has to
+   * count twice to know which one they landed on. `nightChoices` already made
+   * this call one tab down, where the chips read `Fri 8`.
+   */
+  dayOfMonth: number;
   /** 0..1 of the track's height. Never 0 when a single site is free. */
   fill: number;
   mark: NightMark;
@@ -144,6 +159,10 @@ export function nightBars(
     bars.push({
       date,
       weekday: WEEKDAY_INITIALS[day],
+      // Sliced rather than parsed through Date: `date` is already the ISO day
+      // this row is about, and re-parsing it would reintroduce the timezone
+      // question localToday exists to have settled.
+      dayOfMonth: Number(date.slice(8, 10)),
       fill: Math.min(1, fill),
       mark,
       isToday: i === 0,
@@ -284,7 +303,8 @@ export function nightChoices(
   count = 14,
 ): NightChoice[] {
   return nightBars(availability, today, count).map((bar, index) => {
-    const [, month, day] = bar.date.split('-').map(Number);
+    const [, month] = bar.date.split('-').map(Number);
+    const day = bar.dayOfMonth;
 
     return {
       date: bar.date,

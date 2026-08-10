@@ -33,6 +33,18 @@
 // "every site is taken" are different facts, and painting both red would throw
 // away a distinction the shapes are careful to keep.
 //
+// ── The ruler is DATES, and the weight is still the weekend ───────────────
+//
+// It was weekday initials, which a fortnight prints twice: S M T W T F S S M T
+// W T F S. Two Mondays read the same, and somebody counting columns to reach
+// next Saturday had to count which Saturday they had reached. Day-of-month is
+// unique across the horizon and is the number a booking page will ask them for.
+//
+// The WEIGHT does not move with it. Friday and Saturday stay heavier and today
+// stays teal, because that is the pressure a person is reading the strip for —
+// weekends book out first. Emphasising the selected window instead would spend
+// the same ink on something the card's own headline already states in words.
+//
 // ── Why it is not tappable ────────────────────────────────────────────────
 //
 // Fourteen columns across a sheet is about twenty points each. The audit that
@@ -140,7 +152,7 @@ export function NightStrip({
           <View key={bar.date} style={styles.column}>
             <Text
               style={[
-                styles.weekday,
+                styles.ruler,
                 {
                   color: bar.isToday
                     ? colors.interactive
@@ -150,8 +162,14 @@ export function NightStrip({
                   fontFamily: bar.isToday || bar.isWeekend ? fonts.semibold : fonts.medium,
                 },
               ]}
+              // Two digits in a ~20pt flexed column, where one letter used to
+              // sit. At the largest accessibility size that overflows, and a
+              // wrapped ruler would push the strip taller than the height
+              // CampgroundAvailability's slot reserved for it.
+              numberOfLines={1}
+              adjustsFontSizeToFit
             >
-              {bar.weekday}
+              {bar.dayOfMonth}
             </Text>
           </View>
         ))}
@@ -179,5 +197,5 @@ const styles = StyleSheet.create({
   },
   fill: { width: '100%', borderRadius: 2 },
   dash: { width: 8, height: 2, borderRadius: 1 },
-  weekday: { ...t.xs, fontSize: 10, lineHeight: 14, marginTop: 3 },
+  ruler: { ...t.xs, fontSize: 10, lineHeight: 14, marginTop: 3 },
 });

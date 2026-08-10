@@ -106,21 +106,21 @@ export function AccessTypeBadges({ accessPoint }: { accessPoint: MapAccessPoint 
   const types = accessPointTypes(accessPoint);
   if (!types.length && !accessPoint.feeRequired) return null;
   return (
-    <View style={styles.chips}>
+    <View style={styles.types}>
       {types.map((type) => {
         const symbol = accessTypeSymbol(type);
         return (
-          <View key={type} style={[styles.chip, { backgroundColor: colors.cardRaised }]}>
+          <View key={type} style={styles.type}>
             {symbol ? <EddySymbol name={symbol} size={14} /> : null}
-            <Text style={[styles.chipText, { color: colors.textMuted }]}>
+            <Text style={[styles.typeText, { color: colors.textMuted }]}>
               {accessTypeLabel(type)}
             </Text>
           </View>
         );
       })}
       {accessPoint.feeRequired ? (
-        <View style={[styles.chip, { backgroundColor: colors.cardRaised }]}>
-          <Text style={[styles.chipText, { color: colors.textMuted }]}>Fee required</Text>
+        <View style={styles.type}>
+          <Text style={[styles.typeText, { color: colors.textMuted }]}>Fee required</Text>
         </View>
       ) : null}
     </View>
@@ -360,6 +360,25 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   chipText: { ...t.sm, fontFamily: fonts.medium },
+  // ── A METADATA ROW, NOT A SECOND TAB BAR ────────────────────────────────
+  // AccessTypeBadges used to borrow `chips`/`chip` above. In the tabbed sheet
+  // it lands directly on top of SheetTabBar, so a row of filled pills read as
+  // a second row of navigation: two horizontal bands of rounded things, only
+  // one of which moves you anywhere. The FILL and the RADIUS were the whole of
+  // that signal — the marks and the labels never were, so they stay.
+  //
+  // Kept apart from `chip` deliberately, not for tidiness. `Chips` draws the
+  // amenity tags on the Camping tab and those genuinely are tags; de-pilling
+  // them as a side effect of editing a shared style is the exact collateral
+  // the readingChip note below already warns about.
+  //
+  // Still wraps. A metadata LINE would have to truncate — PlaceHead's subtitle
+  // is numberOfLines={1} — and "campground" is the word that would go.
+  types: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 8 },
+  // A row, because a type may carry a mark before its label. The gap collapses
+  // to nothing on the three that have no art yet.
+  type: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  typeText: { ...t.sm, fontFamily: fonts.medium },
   // The reading's own chip is NOT the badge chip above it: it carries a
   // condition tint and therefore a border, and its label is the verdict rather
   // than a category. Same pill, different weight — kept apart so restyling the
