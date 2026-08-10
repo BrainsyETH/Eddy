@@ -15,6 +15,7 @@ import {
   filterCounts,
   groupSites,
   listOutcome,
+  listsRows,
   SITE_FILTERS,
   naturalCompare,
   siteKind,
@@ -381,4 +382,32 @@ test('filters emptying a measured night is its own answer', () => {
 test('rows to show is not an empty state at all', () => {
   const entries = sitesOnNight([site({ nights: 'AAA' })], NIGHTS, NIGHTS[0]);
   assert.equal(listOutcome(entries, groupSites(entries), []), 'sites');
+});
+
+/* ── When the filter chips are a second copy of the summary ───────────────── */
+
+test('a facility whose sites deep-link is filtered by rows, so the chips earn their place', () => {
+  const entries = sitesOnNight([site({ nights: 'AAA' })], NIGHTS, NIGHTS[0]);
+  assert.equal(listsRows(entries), true);
+});
+
+test('sites with no booking URL collapse to summaries, and the chips repeat them', () => {
+  // Every Missouri State Park: UseDirect publishes no per-unit URL, so the loop
+  // draws "Basic — 12 of 40 open" per kind. A chip row splitting the same sites
+  // by the same kinds is the same breakdown, in the version you have to operate.
+  const entries = sitesOnNight([site({ nights: 'AAA', bookingUrl: null })], NIGHTS, NIGHTS[0]);
+  assert.equal(listsRows(entries), false);
+});
+
+test('a fully booked night collapses even where the sites do deep-link', () => {
+  // The shape is a property of the NIGHT, not the facility — `Loop` reads it off
+  // `open`, which is empty here. This is why the filters are spent only while
+  // their row is on screen.
+  const entries = sitesOnNight([site({ nights: 'RRR' })], NIGHTS, NIGHTS[0]);
+  assert.equal(listsRows(entries), false);
+});
+
+test('an unmeasured night lists nothing, so it lists no rows', () => {
+  const entries = sitesOnNight([site({ nights: '---' })], NIGHTS, NIGHTS[0]);
+  assert.equal(listsRows(entries), false);
 });

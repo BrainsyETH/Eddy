@@ -33,13 +33,14 @@ import {
   type NightChoice,
 } from './availability';
 import { accessAvailability } from './availabilitySource';
-import { bookingLine, siteMixLine } from './campgroundFacts';
+import { bookingAction, bookingLine, siteMixLine, type BookingAction } from './campgroundFacts';
 import { CampsiteList } from './CampsiteList';
 import { airbnbSearchUrl, STAY_SEARCH_LABEL, stayRadiusLabel } from '@/lib/stays';
 import { FilterChips } from '@/components/FilterChips';
 import { useCampsiteSites } from '@/hooks/useCampsiteSites';
 import {
   filterCounts,
+  listsRows,
   SITE_FILTERS,
   sitesOnNight,
   type SiteFilter,
@@ -382,6 +383,45 @@ function checkedLine(fetchedAt: string): string {
  * shown nothing for exactly the sites that most need describing.
  */
 /**
+ * The tab's one call to action, and the only control on it that takes money.
+ *
+ * ── AN OUTLINE IS THE RANK, NOT A COMPROMISE ON IT ────────────────────────
+ *
+ * ADR 0007 gives the app one filled pill per screen — the form separation that
+ * lets a single object read as "the thing to press" — and on this tab the peek's
+ * "Use as put-in" already is it. The peek does not scroll away, so a filled
+ * Book would sit beside a filled put-in and the screen would have two primaries
+ * and therefore none.
+ *
+ * The border is 1.5 where the peek's outlined Directions is 1, which is what
+ * separates the page's own primary from a secondary action, and the label names
+ * where the tap lands because it lands outside the app.
+ */
+function BookButton({ action }: { action: BookingAction }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={() => void Linking.openURL(action.url)}
+      style={({ pressed }) => [
+        styles.book,
+        { borderColor: colors.accentFill, opacity: pressed ? 0.6 : 1 },
+      ]}
+      // A link, not a button: it leaves for the browser, and the role is how a
+      // VoiceOver reader knows that before they commit to it. Same distinction
+      // CampsiteList's rows make.
+      accessibilityRole="link"
+      accessibilityLabel={`${action.label}. Opens in the browser.`}
+    >
+      <Ionicons name="calendar-outline" size={16} color={colors.accentFill} />
+      <Text style={[styles.bookText, { color: colors.accentFill }]} numberOfLines={1}>
+        {action.label}
+      </Text>
+      <Ionicons name="open-outline" size={14} color={colors.accentFill} />
+    </Pressable>
+  );
+}
+
+/**
  * The night this page is showing, said in words.
  *
  * ── THE PAGE STATES ITS OWN CONTEXT ───────────────────────────────────────
@@ -467,6 +507,12 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
   // nothing at all.
   const stayUrl = airbnbSearchUrl(point?.coordinates ?? accessPoint.coordinates ?? null);
 
+  // The one link that takes a booking, and the two pages that do not.
+  const booking = bookingAction(nps, point?.officialSiteUrl, availability?.source);
+  const showOfficialSite = Boolean(
+    point?.officialSiteUrl && point.officialSiteUrl !== booking?.url,
+  );
+
   // Only asked for once this is the live tab — see PinSheet's call site.
   const { sites, status: sitesStatus } = useCampsiteSites(
     active ? (availability?.facilityId ?? null) : null,
@@ -478,6 +524,19 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
     [sites, selectedDate],
   );
   const counts = useMemo(() => filterCounts(entries), [entries]);
+
+  // ── HIDDEN CHIPS MUST NOT KEEP FILTERING ────────────────────────────────
+  // Whether the list draws rows is a property of the NIGHT, not the campground:
+  // a fully booked night has nothing in `open` and collapses to summaries even
+  // where every site carries a booking link. So a reader can filter to Electric,
+  // step to a booked-out night, and watch the chip row vanish with the filter
+  // still applied — narrowing a summary they can no longer see the control for.
+  //
+  // The filters are therefore spent only while their row is on screen. The state
+  // survives, so stepping back to a night with rows restores the selection
+  // rather than silently dropping it.
+  const showFilters = useMemo(() => listsRows(entries), [entries]);
+  const activeFilters = showFilters ? filters : [];
 
   // ── WITHOUT THE RESPONSE, SHOW WHAT THE PIN KNOWS ───────────────────────
   //
@@ -587,30 +646,43 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
           reservation URL either — depended on this single row, while a federal
           site that had both showed only one of them. Both are worth having:
           they are the booking system and the park's own page. */}
-      <Section title="Book">
-        {nps?.reservationUrl ? (
-          <LinkRow
-            label="Reserve a site"
-            external
-            symbol="campground"
-            onPress={() => void Linking.openURL(nps.reservationUrl as string)}
-          />
-        ) : null}
-        {point.officialSiteUrl ? (
-          <LinkRow
-            label={nps ? 'Park website' : 'Official site'}
-            external
-            onPress={() => void Linking.openURL(point.officialSiteUrl as string)}
-          />
-        ) : null}
-        {nps?.npsUrl ? (
-          <LinkRow
-            label="Campground page"
-            external
-            onPress={() => void Linking.openURL(nps.npsUrl as string)}
-          />
-        ) : null}
-      </Section>
+      {/* ── THE WAY TO PAY IS A BUTTON, NOT ONE OF THREE ROWS ─────────────
+          This was a "Book" section holding up to three LinkRows of identical
+          weight, of which exactly one took a booking — the other two are a park
+          website and an NPS page. A heading that promises booking over a list
+          where booking is one option in three makes the reader do the sorting.
+
+          Outlined rather than filled, deliberately. ADR 0007 gives the app one
+          filled pill per screen and the peek's "Use as put-in" already spends
+          it — and the peek never scrolls away, so a second fill would sit on
+          screen beside the first. A 1.5pt border reads heavier than the
+          outlined Directions beside that pill without competing with the fill.
+
+          See bookingAction for which link it takes and why the state-park case
+          is evidence rather than a guess. */}
+      {booking ? <BookButton action={booking} /> : null}
+
+      {/* What is left of that section: the pages ABOUT the place, which were
+          never the booking link and no longer sit under a heading claiming they
+          were. Whichever URL the button took is not repeated here. */}
+      {showOfficialSite || nps?.npsUrl ? (
+        <Section>
+          {showOfficialSite ? (
+            <LinkRow
+              label={nps ? 'Park website' : 'Official site'}
+              external
+              onPress={() => void Linking.openURL(point.officialSiteUrl as string)}
+            />
+          ) : null}
+          {nps?.npsUrl ? (
+            <LinkRow
+              label="Campground page"
+              external
+              onPress={() => void Linking.openURL(nps.npsUrl as string)}
+            />
+          ) : null}
+        </Section>
+      ) : null}
 
       <Prose>{nps?.reservationInfo ?? null}</Prose>
 
@@ -628,25 +700,33 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
         >
           {sitesStatus === 'ready' && sites ? (
             <>
-              <FilterChips
-                chips={SITE_FILTERS.filter((f) => counts[f] > 0).map((f) => ({
-                  key: f,
-                  label: f,
-                  count: counts[f],
-                }))}
-                active={filters}
-                onToggle={(key) =>
-                  setFilters((current) =>
-                    current.includes(key as SiteFilter)
-                      ? current.filter((f) => f !== key)
-                      : [...current, key as SiteFilter],
-                  )
-                }
-                paddingHorizontal={0}
-              />
+              {/* ── ONLY WHERE THE LIST IS ROWS ───────────────────────────
+                  Where it collapses to "Basic — 12 of 40 open" per kind, these
+                  chips split the same sites by the same kinds and print the
+                  same counts, and tapping Electric leaves the Electric line the
+                  reader was already reading. Two copies of one breakdown, of
+                  which only this one has to be operated. See listsRows. */}
+              {showFilters ? (
+                <FilterChips
+                  chips={SITE_FILTERS.filter((f) => counts[f] > 0).map((f) => ({
+                    key: f,
+                    label: f,
+                    count: counts[f],
+                  }))}
+                  active={filters}
+                  onToggle={(key) =>
+                    setFilters((current) =>
+                      current.includes(key as SiteFilter)
+                        ? current.filter((f) => f !== key)
+                        : [...current, key as SiteFilter],
+                    )
+                  }
+                  paddingHorizontal={0}
+                />
+              ) : null}
               <CampsiteList
                 entries={entries}
-                filters={filters}
+                filters={activeFilters}
                 date={selectedDate}
                 dateLabel={selectedNight?.longLabel}
               />
@@ -944,6 +1024,20 @@ const styles = StyleSheet.create({
   // The reading block's styles left with it — see AccessGaugeReading in
   // sections.tsx. They were this file's only condition-tinted anything.
   checked: { ...t.xs, fontFamily: fonts.body, marginTop: 8 },
+  book: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    // The 44pt touch floor from DESIGN.md §6, same as the peek's action row.
+    minHeight: 44,
+    marginTop: 14,
+    borderRadius: 10,
+    // 1.5 rather than 1: this is the page's primary and the outlined control it
+    // must out-rank — Directions, in the peek — is a hairline.
+    borderWidth: 1.5,
+  },
+  bookText: { ...t.sm, fontFamily: fonts.semibold },
   nightStatus: { marginTop: 10 },
   // t.base rather than the peek card's display face. This names the page's
   // subject; it is not competing with the glance that decided you opened it.

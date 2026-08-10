@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { NpsCampgroundSummary } from '@eddy/types';
 import {
+  bookingAction,
   bookingLine,
   siteMixLine,
 } from '../../../eddy-ios/src/components/map-sheet/campgroundFacts';
@@ -77,4 +78,49 @@ test('booking is its own line, and is not required to sum to the total', () => {
 test('a campground with no booking counts says nothing about booking', () => {
   assert.equal(bookingLine(record({ totalSites: 52 })), null);
   assert.equal(bookingLine(null), null);
+});
+
+/* ── The one link that takes a booking ────────────────────────────────────── */
+
+test('a reservation URL wins, and the button names where it lands', () => {
+  // The button leaves the app. "Book" alone tells nobody which account they
+  // will need on the other side.
+  assert.deepEqual(
+    bookingAction(
+      record({ reservationUrl: 'https://recreation.gov/camping/campgrounds/232while' }),
+      'https://nps.gov/ozar',
+      'recreation_gov',
+    ),
+    {
+      url: 'https://recreation.gov/camping/campgrounds/232while',
+      label: 'Book on Recreation.gov',
+    },
+  );
+});
+
+test('the state park case rests on the live source, not on having a website', () => {
+  // Meramec, Montauk, Onondaga: no nps_campgrounds row, so no reservationUrl,
+  // and they are the biggest campgrounds Eddy has. `source` is the evidence
+  // that the system behind that link is the one holding these numbers.
+  assert.deepEqual(
+    bookingAction(null, 'https://mostateparks.com/park/meramec-state-park', 'mo_state_parks'),
+    {
+      url: 'https://mostateparks.com/park/meramec-state-park',
+      label: 'Book at Missouri State Parks',
+    },
+  );
+});
+
+test('an official site alone is a page about a park, not a way to book it', () => {
+  // No reservation URL and no live source: a federal site whose record is
+  // missing the booking link gets no button rather than a guess. The link is
+  // still offered as a row.
+  assert.equal(bookingAction(null, 'https://nps.gov/ozar', null), null);
+  assert.equal(bookingAction(null, 'https://nps.gov/ozar', 'recreation_gov'), null);
+  assert.equal(bookingAction(record(), null, 'mo_state_parks'), null);
+});
+
+test('a reservation URL with no known provider still gets a button', () => {
+  const action = bookingAction(record({ reservationUrl: 'https://example.gov/book' }), null, null);
+  assert.equal(action?.label, 'Book a site');
 });

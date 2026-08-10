@@ -351,3 +351,29 @@ export function listOutcome(
 
   return 'unmeasured';
 }
+
+/**
+ * Whether the list will draw site ROWS rather than kind summaries.
+ *
+ * ── WHAT THE FILTER CHIPS ARE FOR, AND WHEN THEY ARE NOTHING ──────────────
+ *
+ * The list has two shapes. Where sites deep-link to their own booking page it
+ * draws a row each, and on a busy facility that is a hundred and ninety-seven
+ * of them — a filter row is how somebody finds the eight that take a camper.
+ * Where they do not, `Loop` collapses the whole loop into summariseByKind:
+ * "Basic — 12 of 40 open", one line per kind.
+ *
+ * In that second shape the chips are a second copy of the summary. Both split
+ * the same sites by the same kinds and print the same counts, and filtering to
+ * Electric leaves the Electric line the reader was already looking at. The chips
+ * are the version you have to operate.
+ *
+ * This is the same question `Loop` asks itself as `tappable`, asked across every
+ * group at once so the row above the list can be gated on it. It is a property
+ * of the NIGHT and not of the facility: a fully booked night has nothing in
+ * `open`, so it collapses to summaries even at a campground whose sites all
+ * carry booking links.
+ */
+export function listsRows(entries: SiteOnNight[]): boolean {
+  return entries.some((entry) => isBookable(entry) && Boolean(entry.site.bookingUrl));
+}

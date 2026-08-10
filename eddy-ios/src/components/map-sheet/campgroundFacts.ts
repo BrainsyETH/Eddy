@@ -36,7 +36,7 @@
 // through the app alias or from a .tsx. Same constraint as tabs.ts, peekSlot.ts
 // and availability.ts — see their headers.
 
-import type { NpsCampgroundSummary } from '@eddy/types';
+import type { CampsiteAvailabilitySummary, NpsCampgroundSummary } from '@eddy/types';
 
 /** A count worth printing, or nothing. Zero is not a fact about a campground. */
 function counted(count: number | null | undefined, label: string): string | null {
@@ -87,4 +87,67 @@ export function bookingLine(nps: NpsCampgroundSummary | null | undefined): strin
   ].filter(Boolean);
 
   return parts.length ? parts.join(' · ') : null;
+}
+
+/* ── The one link that takes a booking ────────────────────────────────────── */
+
+/**
+ * Where the reader goes, and what to call it.
+ *
+ * ── A BUTTON NEEDS EXACTLY ONE DESTINATION ────────────────────────────────
+ *
+ * "Book" was a section of up to three LinkRows — the reservation system, the
+ * park's own website, and the NPS campground page — and only the first of them
+ * takes a booking. Three rows of equal weight under one heading make the reader
+ * pick which is the way to pay, on the tab whose whole purpose is that they can.
+ * So the booking link becomes the tab's button and the other two stay rows.
+ *
+ * ── NAMING THE DESTINATION IS NOT DECORATION ──────────────────────────────
+ *
+ * This leaves the app. A button that says "Book" and hands somebody to Safari
+ * has told them nothing about where they are going or which account they will
+ * need; "Book on Recreation.gov" is the difference between a link and a
+ * surprise. `source` is a closed union of exactly two providers, so the name is
+ * always one Eddy actually knows.
+ */
+export interface BookingAction {
+  url: string;
+  label: string;
+}
+
+/** How each provider is named in a sentence, preposition and all. */
+const PROVIDER: Record<CampsiteAvailabilitySummary['source'], string> = {
+  recreation_gov: 'on Recreation.gov',
+  mo_state_parks: 'at Missouri State Parks',
+};
+
+export function bookingAction(
+  nps: NpsCampgroundSummary | null | undefined,
+  officialSiteUrl: string | null | undefined,
+  source: CampsiteAvailabilitySummary['source'] | null | undefined,
+): BookingAction | null {
+  // A real reservation URL always wins. It is the only field in the record that
+  // is a booking system rather than a page about one.
+  if (nps?.reservationUrl) {
+    return {
+      url: nps.reservationUrl,
+      label: source ? `Book ${PROVIDER[source]}` : 'Book a site',
+    };
+  }
+
+  // ── THE STATE-PARK CASE, AND WHY IT IS NOT A GUESS ──────────────────────
+  // A Missouri State Park has no nps_campgrounds row and therefore no
+  // reservationUrl, and those are Eddy's biggest campgrounds — Meramec's 197
+  // sites, Montauk's 141. Their official site IS the booking system, but only
+  // an official site is not evidence of that on its own.
+  //
+  // `source` is the evidence: it says Eddy is reading LIVE INVENTORY out of
+  // that provider, so somewhere behind that link is the system holding the
+  // numbers on this page. A federal site whose reservationUrl is missing gets
+  // no button rather than a guess — its official site is a park page.
+  if (officialSiteUrl && source === 'mo_state_parks') {
+    return { url: officialSiteUrl, label: `Book ${PROVIDER.mo_state_parks}` };
+  }
+
+  return null;
 }
