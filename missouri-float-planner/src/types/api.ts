@@ -692,8 +692,18 @@ export interface NearbyServiceDirectory {
   email: string | null;
   website: string | null;
   addressLine1: string | null;
-  city: string;
-  state: string;
+  /**
+   * Null for the NPS campgrounds this route synthesises into the directory:
+   * a campground inside a national riverway has no town of its own. The column
+   * is NOT NULL on `nearby_services`, but this type describes the WIRE, and the
+   * wire carries both. @eddy/types has always had it right.
+   *
+   * Display copy either way. Once a row has coordinates the pin is what says
+   * where it is — six rows were filed under the wrong town until 20260809120000,
+   * and four of those wrong towns put the business on the wrong river.
+   */
+  city: string | null;
+  state: string | null;
   zip: string | null;
   latitude: number | null;
   longitude: number | null;

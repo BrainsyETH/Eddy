@@ -17,44 +17,28 @@ import {
   POI_TAGS,
   sweepBox,
 } from '../../scripts/ingestion/geocode-services-dryrun';
+import {
+  dropContestedPlaceIds,
+  phoneDigits,
+  placeGate,
+  siteHost,
+  type PlaceCandidate,
+  type ServiceForMatch,
+} from '../../scripts/ingestion/propose-service-places';
 
 /* ── What may be drawn ────────────────────────────────────────────────────── */
 
-test('a town centroid is never a pin', () => {
-  // The whole point. A centroid puts a private campground somewhere in the
-  // right county, and somebody plans a two-hour drive around a pin.
-  assert.equal(
-    mappableService({ latitude: 37.15, longitude: -91.35, geocodePrecision: 'centroid' }),
-    false,
-  );
-});
-
-test('a corroborated coordinate is a pin', () => {
-  assert.equal(
-    mappableService({ latitude: 37.15518, longitude: -91.36701, geocodePrecision: 'exact' }),
-    true,
-  );
-  assert.equal(
-    mappableService({ latitude: 37.15, longitude: -91.35, geocodePrecision: 'approximate' }),
-    true,
-  );
-});
-
-test('coordinates from before provenance was tracked stay on the map', () => {
-  // Thirteen services were entered before the column existed. Demanding
-  // 'exact' would have silently un-pinned every one of them to make a point.
+test('a coordinate is a pin, whatever its provenance', () => {
+  // Trust is enforced at WRITE time — the backfill corroborates every
+  // candidate against the service's river before a coordinate lands — so the
+  // map draws whatever the table holds. Rows from before provenance was
+  // tracked carry no precision at all and must not vanish.
+  assert.equal(mappableService({ latitude: 37.15518, longitude: -91.36701 }), true);
   assert.equal(mappableService({ latitude: 37.1, longitude: -91.3 }), true);
-  assert.equal(
-    mappableService({ latitude: 37.1, longitude: -91.3, geocodePrecision: null }),
-    true,
-  );
 });
 
-test('no coordinates is never a pin, whatever the precision says', () => {
-  assert.equal(
-    mappableService({ latitude: null, longitude: null, geocodePrecision: 'exact' }),
-    false,
-  );
+test('no coordinates is never a pin', () => {
+  assert.equal(mappableService({ latitude: null, longitude: null }), false);
   assert.equal(mappableService({ latitude: 37.1, longitude: null }), false);
 });
 
@@ -233,4 +217,134 @@ test('among equally bad candidates the nearer one is shown', () => {
 
 test('no candidates at all yields null rather than a fabricated match', () => {
   assert.equal(pickBest('Anything', [37, -91], []), null);
+});
+
+/* ── The place-id gate ─────────────────────────────────────────────────────
+   A second accept rule beside the first, and for the same reason: the
+   thresholds were chosen from measured wrong matches, so a change that lets
+   any of them through is the change worth catching.
+
+   Google's terms permit retaining only `place_id`, so a wrong one is a stable
+   key pointed at the wrong business — the quarterly refresh would then report
+   somebody else's pulse forever. That makes this gate stricter than the
+   coordinate one, not looser. */
+
+const HIDDEN: ServiceForMatch = {
+  id: 'svc-1',
+  name: 'Hidden Ridge Cabins',
+  altNames: [],
+  phone: '573-291-5353',
+  website: null,
+  latitude: 37.1215659,
+  longitude: -91.3328944,
+};
+
+function candidate(overrides: Partial<PlaceCandidate> = {}): PlaceCandidate {
+  return {
+    placeId: 'ChIJexample',
+    displayName: 'Hidden Ridge Cabins',
+    formattedAddress: '16313 Hidden Ridge Rd, Eminence, MO',
+    phone: '(573) 291-5353',
+    websiteUri: null,
+    latitude: 37.1215659,
+    longitude: -91.3328944,
+    businessStatus: 'OPERATIONAL',
+    ...overrides,
+  };
+}
+
+test('a matching phone accepts, whatever the formatting', () => {
+  // Ours is 573-291-5353, theirs is (573) 291-5353. Comparing the last ten
+  // digits is the whole reason these agree.
+  assert.equal(placeGate(HIDDEN, candidate()).kind, 'accept');
+});
+
+test('a contradicting phone rejects a perfect name — the Arapaho case', () => {
+  // Arapaho Campground in Steelville matched "Arapaho Family Campground" with a
+  // different phone. A strong name pointing at another business is the most
+  // dangerous shape here, because it looks like success.
+  const verdict = placeGate(
+    { ...HIDDEN, name: 'Arapaho Campground', phone: '573-468-3218' },
+    candidate({ displayName: 'Arapaho Campground', phone: '573-468-8300' }),
+  );
+  assert.equal(verdict.kind, 'reject');
+  assert.match(verdict.reason, /contradicts/);
+});
+
+test('a weak name rejects before anything else is consulted', () => {
+  const verdict = placeGate(HIDDEN, candidate({ displayName: 'Two Rivers Campground' }));
+  assert.equal(verdict.kind, 'reject');
+  assert.match(verdict.reason, /name/);
+});
+
+test('an alias is scored, which is what alt_names bought', () => {
+  // Caddo River Cabins trades as Sundancer. Without the alias this is a reject;
+  // with it, the phone can corroborate and it accepts.
+  const caddo: ServiceForMatch = {
+    id: 'svc-2',
+    name: 'Caddo River Cabins',
+    altNames: ['Sundancer Caddo River Cabin Rental'],
+    phone: '(870) 718-3072',
+    website: null,
+    latitude: null,
+    longitude: null,
+  };
+  const sundancer = candidate({
+    displayName: 'Sundancer Caddo River Cabin Rental',
+    phone: '870-718-3072',
+  });
+  assert.equal(placeGate(caddo, sundancer).kind, 'accept');
+  assert.equal(placeGate({ ...caddo, altNames: [] }, sundancer).kind, 'reject');
+});
+
+test('a good name far from a coordinate we trust needs a human', () => {
+  // Song Dog Shuttles resolved to another company's building. The row had no
+  // pin then; where one exists, half a mile is the ceiling.
+  const verdict = placeGate(HIDDEN, candidate({ latitude: 37.3, longitude: -91.5 }));
+  assert.equal(verdict.kind, 'review');
+  assert.match(verdict.reason, /coordinate we already trust/);
+});
+
+test('nothing corroborating is a review, not an accept and not a reject', () => {
+  // Three-valued on purpose: "no phone on either side" is not evidence, and
+  // collapsing it into "disagrees" would discard matches a person could confirm
+  // in a minute.
+  const verdict = placeGate(
+    { ...HIDDEN, phone: null, website: null },
+    candidate({ phone: null, websiteUri: null }),
+  );
+  assert.equal(verdict.kind, 'review');
+  assert.match(verdict.reason, /nothing corroborates/);
+});
+
+test('websites corroborate when phones are absent', () => {
+  const svc = { ...HIDDEN, phone: null, website: 'https://www.example.com/cabins' };
+  assert.equal(
+    placeGate(svc, candidate({ phone: null, websiteUri: 'http://example.com' })).kind,
+    'accept',
+  );
+  assert.equal(
+    placeGate(svc, candidate({ phone: null, websiteUri: 'https://someoneelse.com' })).kind,
+    'reject',
+  );
+});
+
+test('a place id claimed by two services is withheld from both', () => {
+  // Two Eddy rows once matched the same "Current River Inn" node at 1.02 miles,
+  // inside every distance bound. Two businesses cannot share one building, and
+  // the tell is the double claim rather than the distance.
+  const { kept, contested } = dropContestedPlaceIds([
+    { placeId: 'ChIJshared', serviceName: 'Current River Canoe Rental' },
+    { placeId: 'ChIJshared', serviceName: 'Current River Campground' },
+    { placeId: 'ChIJunique', serviceName: 'Windy\'s Floats' },
+  ]);
+  assert.deepEqual(kept.map((k) => k.serviceName), ["Windy's Floats"]);
+  assert.equal(contested.length, 2);
+});
+
+test('phone and host normalisation reject junk rather than guessing', () => {
+  assert.equal(phoneDigits('555-1234'), null); // too short to identify anyone
+  assert.equal(phoneDigits('+1 (573) 291-5353'), '5732915353');
+  assert.equal(siteHost('not a url'), null);
+  assert.equal(siteHost('www.Example.COM/path'), 'example.com');
 });

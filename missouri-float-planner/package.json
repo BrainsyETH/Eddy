@@ -16,7 +16,7 @@
     "db:snap-access-points": "tsx scripts/snap-access-points.ts",
     "db:migrate": "tsx scripts/run-migrations.ts",
     "db:check-migrations": "tsx scripts/check-migration-drift.ts",
-    "db:gen-types": "npx supabase gen types typescript --project-id ilefwfpvphadsbptiaur --schema public > src/types/database.ts",
+    "db:gen-types": "npx supabase gen types typescript --project-id ilefwfpvphadsbptiaur --schema public > src/types/database.ts.tmp && grep -q '^export type Json' src/types/database.ts.tmp && mv src/types/database.ts.tmp src/types/database.ts || (rm -f src/types/database.ts.tmp; echo 'db:gen-types failed; src/types/database.ts left unchanged'; exit 1)",
     "db:import-mile-markers": "tsx scripts/import-mile-markers.ts",
     "db:correct-miles": "tsx scripts/correct-access-point-miles.ts",
     "db:verify-directions": "tsx scripts/verify-river-directions.ts",
@@ -111,6 +111,7 @@
   "overrides": {
     "postcss": "$postcss",
     "sharp": "$sharp",
-    "axios": "^1.18.1"
+    "axios": "^1.18.1",
+    "nanoid": "^3.3.17"
   }
 }

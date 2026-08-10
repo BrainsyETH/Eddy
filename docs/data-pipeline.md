@@ -39,6 +39,7 @@ the database you mutate.**
 | `check-dead-links.ts` | `npm run test:links` | Playwright crawl of a running server; ≥400 same-origin links fail. |
 | `mosw-smoke.ts` | direct (CI: `mosw-smoke.yml`) | Fixture-backed `/river-map` smoke suite; writes screenshots to `.smoke/` only. |
 | `mosw-pinch-check.ts` | direct, needs `--url` | Mobile pinch-zoom check against a live deploy. Not in any workflow. |
+| `check-service-model.ts` | `npm run db:check-services` (`-- --strict` to fail on warnings) | Audits the live services directory against the app's classifier: tiers, eligibility, geocode coverage, API parity. |
 | `run-migrations.ts` | `npm run db:migrate` | **Read-only despite the name** — reports applied status and prints CLI instructions. |
 | `run-seeds.ts` | direct | **Read-only despite the name** — prints seed-application instructions. |
 | `diagnose-map-alignment.sql` | paste into Supabase SQL editor | SELECT-only diagnostics for marker/river misalignment. |
@@ -76,6 +77,9 @@ when running the write phases.
 | `fetch-drainage-areas.ts` | direct | `gauge_stations.drainage_area_sqmi` update | dry-default, `--write` |
 | `fetch-nws-flood-stages.ts` | direct | `gauge_stations.nws_lid`, `river_gauges` flood/action stages (never curated bands) | dry-default, `--write` |
 | `import-outfitters-osm.ts` | direct | `points_of_interest` insert from Overpass | **write-default**, `--dry-run` |
+| `ingestion/geocode-services-dryrun.ts` | direct | none — proposes `nearby_services` coordinates from OSM; accepted rows go into a migration by hand | writes nothing, ever |
+| `ingestion/geocode-services-mapbox.ts` | direct, needs `MAPBOX_ACCESS_TOKEN` | none — proposes `nearby_services` coordinates via Mapbox v6 `permanent=true`; prints a river-validation query + migration block | writes nothing, ever |
+| `ingestion/propose-service-places.ts` | direct, needs `GOOGLE_PLACES_API_KEY` | none — proposes `nearby_services.google_place_id`; gate is name ≥ 0.86 (scored against `alt_names` too) **and** a corroborating phone or website, then a printed PostGIS river check. Retains only `place_id` | writes nothing, ever |
 | `snapshot-usgs-percentiles.ts` | direct | `usgs_daily_percentiles` upsert | **write-default**, `--dry-run` |
 | `sync-gauge-thresholds.ts` | `npm run db:sync-thresholds` | `river_gauges` threshold update from NWS AHPS | **write-default**, `--dry-run` |
 | `import-nhd-rivers.ts` | `npm run db:import-rivers` | `rivers` insert (skips existing slugs) | **NONE** |

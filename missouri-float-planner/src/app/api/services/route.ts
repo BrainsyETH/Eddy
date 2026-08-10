@@ -34,12 +34,12 @@
 //      denominator. Rows filtered out server-side cannot be counted client-side,
 //      so that note could never render at all.
 //
-//   2. THE PRECISION GUARD WAS OFF. `geocode_precision` was not selected, so
-//      every row arrived with it undefined — which `mappableService` reads as
-//      "recorded before provenance was tracked", i.e. trusted. A row marked
-//      `centroid` (a TOWN, never a place) would therefore have been drawn as a
-//      pin, which is the single failure that file exists to prevent. Zero rows
-//      are centroids today; the geocoding backfill creates the first.
+//   2. PROVENANCE WAS INVISIBLE. `geocode_precision` was not selected, so
+//      every row arrived with it undefined and no client could tell a
+//      corroborated coordinate from a legacy one. Trust is enforced when the
+//      backfill WRITES a coordinate (corroborated against the service's
+//      river), so the column is provenance, not a render-time filter — but it
+//      still has to reach the client to be worth anything.
 //
 //   3. THE SERVER HELD A SECOND, STRICTER POLICY. `.eq('status', 'active')`
 //      dropped 11 `unverified` rows that `serviceEligible` in @eddy/types says
@@ -95,11 +95,9 @@ interface MappedService {
   latitude: number | null;
   longitude: number | null;
   /**
-   * How much to trust those coordinates, for `mappableService`.
-   *
-   * `centroid` is the town and must never become a pin. Omitting this column
-   * made every row read as trusted, which is the opposite of what the guard is
-   * for — see the header.
+   * How the coordinates were obtained (`exact` / `approximate` / null for
+   * legacy rows). Provenance only — trust is enforced when a coordinate is
+   * written, not at render. See the header for why it must still ship.
    */
   geocodePrecision: string | null;
   description: string | null;
