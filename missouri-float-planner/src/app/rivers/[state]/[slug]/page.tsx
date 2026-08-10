@@ -271,7 +271,12 @@ export default async function RiverGuidePage({ params }: Props) {
     ...(river.region && {
       address: {
         '@type': 'PostalAddress',
-        addressRegion: 'MO',
+        // The river's own state, not a literal. Everything else on this page
+        // was already state-correct — the breadcrumb calls stateName(river.state)
+        // and the canonical calls riverPath(river.state, …) — while the one
+        // line a search engine actually reads asserted Missouri for all seven
+        // Arkansas rivers.
+        addressRegion: river.state,
         addressCountry: 'US',
       },
     }),

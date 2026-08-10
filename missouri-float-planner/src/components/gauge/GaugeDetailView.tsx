@@ -21,6 +21,7 @@ import GaugeWeather from '@/components/ui/GaugeWeather';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import ThresholdTable from '@/components/gauge/ThresholdTable';
 import { buildZones } from '@/lib/gauge/threshold-zones';
+import { stateName } from '@/lib/navigation/states';
 import SiteFooter from '@/components/ui/SiteFooter';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import { EddyIcon } from '@/components/ui/EddyIcon';
@@ -294,7 +295,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
           <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500">
             <span className="flex items-center gap-1.5">
               <EddyIcon name="gauge" size={16} />
-              Gauge near {primaryRiver?.riverName || 'Unknown'}, Missouri
+              Gauge near {primaryRiver?.riverName || 'Unknown'}
+              {primaryRiver?.riverState ? `, ${stateName(primaryRiver.riverState)}` : ''}
             </span>
             <span className="text-neutral-300">&middot;</span>
             <a

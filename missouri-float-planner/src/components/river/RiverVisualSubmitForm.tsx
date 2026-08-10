@@ -10,6 +10,7 @@ import ConditionBadge from '@/components/ui/ConditionBadge';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
 import type { AccessPoint } from '@/types/api';
 import { EddyIcon } from '@/components/ui/EddyIcon';
+import { isValidEarthCoordinate } from '@/lib/reports/location';
 import {
   COMMUNITY_UPLOAD_INPUT_MAX_BYTES,
   COMMUNITY_UPLOAD_MAX_BYTES,
@@ -21,10 +22,15 @@ function toDateInputValue(d: Date): string {
   return local.toISOString().slice(0, 10);
 }
 
-/** Matches the server-side Missouri bounds check in /api/reports. */
-function withinMissouri(lat: number, lng: number): boolean {
-  return lat >= 35 && lat <= 41 && lng >= -97 && lng <= -88;
-}
+// The client's only job here is to reject EXIF junk before offering to pin a
+// photo. The corridor check — is this actually on the river you say it is —
+// happens server-side in /api/reports, which is where it belongs.
+//
+// This was a Missouri bounding box whose docstring claimed to mirror the
+// server. It no longer did: /api/reports moved to isValidEarthCoordinate, so
+// the client had quietly become the stricter of the two. At `lat >= 35` it
+// excluded the Caddo entirely (34.2–34.6°N), so a geotagged Caddo photo lost
+// the "pin it where I took the photo" option with no explanation.
 
 // Vercel's serverless functions reject request bodies larger than ~4.5 MB
 // before they ever reach /api/upload, so a 5–10 MB phone photo (allowed by the
@@ -356,16 +362,11 @@ export default function RiverVisualSubmitForm({
         await selectDate(toDateInputValue(taken), taken.toISOString());
       }
 
-      // Read the photo's GPS. If it's inside Missouri (a real on-water shot),
-      // offer to pin the visual exactly there — off by default, the submitter
-      // opts in with the toggle.
+      // Read the photo's GPS. If it is a real coordinate, offer to pin the
+      // visual exactly there — off by default, the submitter opts in with the
+      // toggle. Whether it is on the right river is /api/reports' question.
       const gps = await exifr.gps(file).catch(() => null);
-      if (
-        gps &&
-        typeof gps.latitude === 'number' &&
-        typeof gps.longitude === 'number' &&
-        withinMissouri(gps.latitude, gps.longitude)
-      ) {
+      if (gps && isValidEarthCoordinate(gps.latitude, gps.longitude)) {
         setPhotoGps({ lat: gps.latitude, lng: gps.longitude });
       } else {
         setPhotoGps(null);

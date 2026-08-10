@@ -412,9 +412,12 @@ export async function resolveAccessPointImage(
         agency === 'State Park' ? 'state-park' :
         agency === 'Private' ? 'private' :
         (agency || 'other').toLowerCase().replace(/\s+/g, '-');
-      const credit =
-        agency === 'State Park' ? 'Missouri State Parks' :
-        host || null;
+      // The photo's own host, not an assumed agency name. This string is
+      // STORED with the image, so a wrong one outlives the code that wrote it —
+      // and "Missouri State Parks" was being attached to Arkansas state park
+      // photos. The host is what actually served the image, which is the only
+      // thing this function knows for certain.
+      const credit = host || null;
       const img = await resolveOgImage(url, source, credit);
       if (img) return done(img, `${agency || 'site'} og:image`);
       return done(null, 'no og:image on official site');

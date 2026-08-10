@@ -4,6 +4,7 @@
 
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
+import { getServiceAreaBounds } from '@/lib/geo/region-bounds';
 import PlanPageClient from './PlanPageClient';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
@@ -180,5 +181,25 @@ export default async function PlanPage({ searchParams }: Props) {
     if (guide) guidePost = guide;
   }
 
-  return <PlanPageClient initialRiverSlug={slug} guidePost={guidePost} />;
+  // The default map frame when no river is chosen. Derived from the live
+  // catalog rather than a constant: the previous hardcoded box started at
+  // 36.4°N, which put the Buffalo, Caddo and Mulberry below the first thing a
+  // new visitor sees on the "where can I float?" screen. getServiceAreaBounds
+  // unions the active rivers with the historic Missouri box, so it can only
+  // grow as the catalog does.
+  const area = await getServiceAreaBounds();
+  const defaultBounds: [number, number, number, number] = [
+    area.minLng,
+    area.minLat,
+    area.maxLng,
+    area.maxLat,
+  ];
+
+  return (
+    <PlanPageClient
+      initialRiverSlug={slug}
+      guidePost={guidePost}
+      defaultBounds={defaultBounds}
+    />
+  );
 }
