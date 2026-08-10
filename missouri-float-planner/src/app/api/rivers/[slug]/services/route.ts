@@ -24,9 +24,11 @@ async function _GET(
     const supabase = await createClient();
 
     // Get river ID
+    // `state` is selected for the synthetic NPS campground rows below, which
+    // used to hardcode 'MO' — see the comment there.
     const { data: river, error: riverError } = await supabase
       .from('rivers')
-      .select('id')
+      .select('id, state')
       .eq('slug', slug)
       .single();
 
@@ -178,7 +180,13 @@ async function _GET(
           website: cg.reservation_url || cg.nps_url || null,
           addressLine1: null,
           city: null,
-          state: 'MO',
+          // The river's state, not 'MO'. Eddy carried only Missouri rivers when
+          // this block was written; it now carries Arkansas ones, and eleven
+          // Buffalo National River campgrounds were reaching the directory
+          // labelled Missouri. A campground has no town of its own here — that
+          // is why city is null — but the state is knowable and was being
+          // asserted rather than read.
+          state: river.state ?? null,
           zip: null,
           latitude: cg.latitude,
           longitude: cg.longitude,
