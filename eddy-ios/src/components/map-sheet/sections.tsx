@@ -27,11 +27,35 @@ import { formatReading } from '@/lib/readingCopy';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { accessTypeSymbol } from './placeSymbol';
 
+/**
+ * ── `symbol` IS NOT AVAILABLE TO EVERY HEADING, on purpose ────────────────
+ *
+ * Three sections take one — Getting in, Parking, Facilities — and they are the
+ * same three the full access-point screen marks
+ * (app/river/[slug]/access/[accessSlug].tsx). That is the whole rule: the sheet
+ * and the screen it links to must not teach different marks for the same
+ * heading, and the screen's own note says why the set stops there — giving
+ * every heading a sticker turns a scannable column of text into a column of
+ * noise.
+ *
+ * Camping and Outfitters deliberately do NOT take one even though the catalog
+ * has both drawings: their rows already carry the mark, in the LinkRow well, so
+ * a heading mark would draw the same tent twice nine points apart.
+ *
+ * ── `children` IS NOT A CONTENT CHECK ─────────────────────────────────────
+ * `if (!children)` catches null and undefined and nothing else. A Section whose
+ * children are `[<Fact/>, <Prose/>]` has a truthy array however many of them
+ * render null, so it draws a heading over a gap. Callers that assemble a section
+ * from optional facts must gate the whole Section themselves — see the merged
+ * Overview tab, which is where this stopped being theoretical.
+ */
 export function Section({
   title,
+  symbol,
   children,
 }: {
   title?: string;
+  symbol?: EddySymbolName;
   children: React.ReactNode;
 }) {
   const { colors } = useTheme();
@@ -39,7 +63,10 @@ export function Section({
   return (
     <View style={styles.section}>
       {title ? (
-        <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>{title}</Text>
+        <View style={styles.sectionHead}>
+          {symbol ? <EddySymbol name={symbol} size={15} /> : null}
+          <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>{title}</Text>
+        </View>
       ) : null}
       {children}
     </View>
@@ -286,6 +313,7 @@ export function LinkRow({
   label,
   detail,
   external = false,
+  externalTint,
   symbol,
   onPress,
   accessibilityLabel,
@@ -293,6 +321,17 @@ export function LinkRow({
   label: string;
   detail?: string | null;
   external?: boolean;
+  /**
+   * A colour for the outbound glyph, where the DESTINATION has one.
+   *
+   * The glyph only. Not the label, not the row — see AIRBNB_LINK_COLOR in
+   * lib/stays.ts for the contrast arithmetic that draws the line exactly there,
+   * and for why a third party's hex does not belong in the palette. Omitted
+   * everywhere else, which is nearly everywhere: `colors.textSubtle` is the
+   * default because an outbound arrow is chrome, and a row that is not going
+   * somewhere branded has no business being tinted.
+   */
+  externalTint?: string;
   /** The kind of thing this row opens. Omit on rows that are not destinations. */
   symbol?: EddySymbolName;
   onPress: () => void;
@@ -324,7 +363,7 @@ export function LinkRow({
       <Ionicons
         name={external ? 'open-outline' : 'chevron-forward'}
         size={16}
-        color={colors.textSubtle}
+        color={external && externalTint ? externalTint : colors.textSubtle}
       />
     </Pressable>
   );
@@ -343,7 +382,12 @@ export function Absent({ children }: { children: string }) {
 
 const styles = StyleSheet.create({
   section: { marginTop: 14 },
-  sectionTitle: { ...t.sm, fontFamily: fonts.semibold, marginBottom: 6 },
+  // The mark sits on the heading's row, and the row carries the margin the
+  // title used to. Keeping `marginBottom` on the text as well would double it
+  // for a marked heading and leave marked and unmarked sections on different
+  // rhythms down one scroll.
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 },
+  sectionTitle: { ...t.sm, fontFamily: fonts.semibold },
   fact: { flexDirection: 'row', gap: 10, marginTop: 4 },
   factLabel: { ...t.sm, fontFamily: fonts.medium, width: 96 },
   factValue: { ...t.sm, fontFamily: fonts.body, flex: 1 },

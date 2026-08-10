@@ -50,12 +50,7 @@ import type { PlaceSymbolName } from './placeSymbol';
 import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 import type { Detent } from './sheetGeometry';
 import { confirmPlanAction, isDriveable, openDirections } from './sheetActions';
-import {
-  AccessCampingTab,
-  AccessDetailsTab,
-  AccessFloatsTab,
-  AccessOverviewTab,
-} from './AccessTabs';
+import { AccessCampingTab, AccessFloatsTab, AccessOverviewTab } from './AccessTabs';
 import {
   GaugeAboutTab,
   GaugeHistoryTab,
@@ -260,11 +255,7 @@ export function PinSheet(props: PinSheetProps) {
       onPlanTo: props.onPlanTo,
       nearbyMarks: props.nearbyMarks,
       status,
-      // Overview carries the details link only when Place is not there to. See
-      // TabProps.hasPlaceTab.
-      hasPlaceTab: tabs.some((tab) => tab.key === 'details'),
     };
-    if (key === 'overview') return <AccessOverviewTab {...shared} />;
     if (key === 'floats') return <AccessFloatsTab {...shared} />;
     // `active` gates the per-site request. SheetPager mounts the active page
     // and both neighbours, so Camping mounts alongside Floats on most pins —
@@ -273,7 +264,10 @@ export function PinSheet(props: PinSheetProps) {
     if (key === 'camping') {
       return <AccessCampingTab {...shared} active={activeKey === 'camping'} />;
     }
-    return <AccessDetailsTab {...shared} />;
+    // Overview is the fallback rather than an explicit branch: it is the one
+    // key accessTabs always emits, so an unreachable `return null` below it
+    // would be the only dead line in this dispatch.
+    return <AccessOverviewTab {...shared} />;
   };
 
   const renderGaugeTab = (key: GaugeTabKey) => {
