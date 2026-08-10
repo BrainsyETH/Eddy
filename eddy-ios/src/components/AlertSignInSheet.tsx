@@ -18,14 +18,12 @@
 // and the RLS policy in migration 00183 enforces a permanent user independently
 // of anything the app does. So this is not a tier — it is the address.
 
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import * as AppleAuthentication from 'expo-apple-authentication';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
-import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
+import { AppleSignInButton } from '@/components/AppleSignInButton';
 
 interface Props {
   visible: boolean;
@@ -38,26 +36,11 @@ interface Props {
 
 export function AlertSignInSheet({ visible, riverName, onSignedIn, onDismiss }: Props) {
   const { colors } = useTheme();
-  const { signInWithApple } = useSession();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSignIn = useCallback(async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await signInWithApple();
-      onSignedIn();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not sign in.';
-      // A cancel is a decision, not a failure. Showing an error for it tells
-      // someone something went wrong when they are the thing that stopped it.
-      if (message !== APPLE_SIGN_IN_CANCELLED) setError(message);
-    } finally {
-      setBusy(false);
-    }
-  }, [signInWithApple, onSignedIn]);
-
+  // The busy/cancel/error handling this sheet used to own now lives in
+  // AppleSignInButton — it was about to be written a fourth time. "Not right
+  // now" no longer disables while signing in: the button replaces itself with a
+  // spinner, so there is nothing to double-tap, and a dismiss during the Apple
+  // sheet is a thing somebody is entitled to do.
   return (
     <Modal
       visible={visible}
@@ -95,27 +78,12 @@ export function AlertSignInSheet({ visible, riverName, onSignedIn, onDismiss }: 
             />
           </View>
 
-          {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
         </View>
 
         <View style={[styles.footer, { borderTopColor: colors.border }]}>
-          {busy ? (
-            <ActivityIndicator color={colors.interactive} style={styles.busy} />
-          ) : (
-            <AppleAuthentication.AppleAuthenticationButton
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-              buttonStyle={
-                colors.scheme === 'dark'
-                  ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-                  : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-              }
-              cornerRadius={12}
-              style={styles.appleButton}
-              onPress={() => void handleSignIn()}
-            />
-          )}
+          <AppleSignInButton onSignedIn={onSignedIn} />
 
-          <Pressable onPress={onDismiss} disabled={busy} style={styles.secondary}>
+          <Pressable onPress={onDismiss} style={styles.secondary}>
             <Text style={[styles.secondaryText, { color: colors.textMuted }]}>Not right now</Text>
           </Pressable>
         </View>
@@ -149,10 +117,7 @@ const styles = StyleSheet.create({
   points: { alignSelf: 'stretch', gap: 14, marginTop: 26 },
   point: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   pointText: { ...t.sm, fontFamily: fonts.body, flex: 1 },
-  error: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 22 },
   footer: { padding: 20, borderTopWidth: 1, gap: 10 },
-  appleButton: { height: 50 },
-  busy: { height: 50, justifyContent: 'center' },
   secondary: { paddingVertical: 12, alignItems: 'center' },
   secondaryText: { ...t.sm, fontFamily: fonts.medium },
 });

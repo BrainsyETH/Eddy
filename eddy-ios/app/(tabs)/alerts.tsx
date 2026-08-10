@@ -90,6 +90,7 @@ import type { Palette } from '@/theme/palette';
 import { readingAge } from '@/lib/readingCopy';
 import { EddyScene } from '@/components/EddyScene';
 import { AlertRuleRow } from '@/components/AlertRuleRow';
+import { AppleSignInButton } from '@/components/AppleSignInButton';
 import { QuietHoursRow } from '@/components/QuietHoursRow';
 import { SwipeRow } from '@/components/SwipeRow';
 import { groupAlertRules, isGatedByParent, type AlertRuleGroup } from '@/lib/alertGroups';
@@ -543,6 +544,30 @@ export default function AlertsScreen() {
                       ? 'Alerts are free, but they need an account so Eddy knows which phone to notify.'
                       : 'Get a notification when a river becomes floatable, turns dangerous, or hits a level you pick.'}
                   </Text>
+                  {/* ── THE WAY OUT OF THE SIGNED-OUT STATE, ON THE SCREEN ────
+                      This tab named the requirement and then offered no way to
+                      meet it: the only affordance was the header's +, which
+                      leads to a create flow that raises the sign-in sheet from
+                      the far end. So the screen that says "sign in" was the one
+                      screen you could not sign in from.
+
+                      `rules === null` ONLY. An empty list belongs to somebody
+                      who is already signed in, and putting a login button under
+                      "No alerts yet" would offer them an account they have — the
+                      + above is their next step, not this.
+
+                      refresh() is not optional. The rules effect keys on
+                      session.user.id, and Apple sign-in UPGRADES the anonymous
+                      session in place — same id — so it does not re-fire. See
+                      useSession, where an id change is the anomaly worth a
+                      warn(). Without this the list stays empty until the app is
+                      backgrounded. */}
+                  {rules === null ? (
+                    <AppleSignInButton
+                      onSignedIn={() => void refreshRules()}
+                      style={styles.emptySignIn}
+                    />
+                  ) : null}
                 </>
               )}
             </View>
@@ -837,6 +862,9 @@ const styles = StyleSheet.create({
   caption: { ...t.xs, fontFamily: fonts.body, marginTop: 10, lineHeight: 16 },
   errorText: { ...t.sm, fontFamily: fonts.body, marginTop: 10 },
   empty: { alignItems: 'center', paddingHorizontal: 40, paddingTop: 30 },
+  // Stretched, so Apple's button matches the width of the copy above it rather
+  // than shrinking to its own label inside a centred column.
+  emptySignIn: { alignSelf: 'stretch', marginTop: 22 },
   emptyTitle: { ...t.lg, fontFamily: fonts.semibold, marginTop: 10 },
   emptyBody: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },
   row: {

@@ -126,18 +126,37 @@ test('an ordinary put-in gets no Camping tab', () => {
   assert.ok(!tabs.some((t) => t.key === 'camping'));
 });
 
-test('Place appears only when there is something to say about the place', () => {
-  assert.ok(!accessTabs(point(), detail()).some((t) => t.key === 'details'));
-  const withRoad = detail({ accessPoint: { roadSurface: ['gravel_maintained'] } });
-  assert.ok(accessTabs(point(), withRoad).some((t) => t.key === 'details'));
+test('there is no Place tab, however much there is to say about the place', () => {
+  // Place merged into Overview. Its facts — road surface, parking, facilities,
+  // outfitters, lodging, river notes — are all still drawn; they are drawn one
+  // scroll below the description instead of one swipe sideways. See tabs.ts.
+  const withEverything = detail({
+    accessPoint: {
+      roadSurface: ['gravel_maintained'],
+      roadAccess: 'Gravel for the last two miles.',
+      parkingInfo: 'Room for a dozen trailers.',
+      facilities: 'Vault toilet.',
+      localTips: '<p>Watch the second riffle.</p>',
+      nearbyServices: [{ name: 'Akers Ferry Canoe Rental', type: 'outfitter' }],
+    },
+  });
+  assert.deepEqual(accessTabs(point(), withEverything).map((t) => t.key), ['overview']);
 });
 
-test('the details tab is LABELLED Place', () => {
-  // The key stays `details` — renaming it would churn every call site for a
-  // string nobody sees — but "Details" named how much there was rather than what
-  // it was about, and read as a junk drawer for road surface and parking.
-  const withRoad = detail({ accessPoint: { roadSurface: ['gravel_maintained'] } });
-  assert.equal(accessTabs(point(), withRoad).find((t) => t.key === 'details')?.label, 'Place');
+test('the tab set is exactly overview, floats and camping', () => {
+  // A guard on the union itself, so a fourth tab cannot reappear without this
+  // failing and somebody rereading why the last two were removed.
+  const tabs = accessTabs(
+    point({ types: ['access', 'campground'] }),
+    detail({
+      gaugeStatus: { level: 'good' },
+      nearbyAccessPoints: [{ id: 'b', direction: 'downstream' }],
+      accessPoint: { roadSurface: ['gravel_maintained'] },
+    }),
+  );
+  const keys = tabs.map((t) => t.key);
+  assert.deepEqual(keys, ['overview', 'floats', 'camping']);
+  assert.ok(!keys.includes('details' as never), 'the Place key is gone, not merely unlabelled');
 });
 
 test('tab order is fixed regardless of what qualifies', () => {
@@ -149,10 +168,9 @@ test('tab order is fixed regardless of what qualifies', () => {
     detail({
       gaugeStatus: { level: 'good' },
       nearbyAccessPoints: [{ id: 'b', direction: 'downstream' }],
-      accessPoint: { roadSurface: ['gravel_maintained'] },
     }),
   );
-  assert.deepEqual(tabs.map((t) => t.key), ['overview', 'floats', 'camping', 'details']);
+  assert.deepEqual(tabs.map((t) => t.key), ['overview', 'floats', 'camping']);
 });
 
 test('a late tab INSERTS rather than appending, which is why index is unsafe', () => {
@@ -196,43 +214,19 @@ test('a tent pin whose Camping tab has not qualified yet lands on Overview', () 
   assert.equal(initialTabIndex(tabs, pin('campgrounds')), 0);
 });
 
-/* ── Place qualifies on what it draws ────────────────────────────────────── */
+/* ── Service facts no longer move the tab set ────────────────────────────── */
 
-test('a campground service alone no longer earns a Place tab', () => {
-  // Place stopped listing campgrounds when the service list was split by tier —
-  // Overview's "Camping nearby" draws them, and showing both was the exact
-  // duplication the tab consolidation existed to end. So an access point whose
-  // ONLY embedded service is a campground has nothing left for Place to draw,
-  // and a tab that promises a page and delivers an empty one is worse than no
-  // tab. Eleven access points are in this state.
-  const tabs = accessTabs(
-    point(),
-    detail({ accessPoint: { nearbyServices: [{ name: 'Bass River Resort', type: 'campground' }] } }),
-  );
-  assert.equal(tabs.some((t) => t.key === 'details'), false);
-});
-
-test('an outfitter or a lodging service still earns one', () => {
-  for (const type of ['outfitter', 'canoe_rental', 'shuttle', 'lodging']) {
+test('services of every tier leave the tab set alone', () => {
+  // These used to decide whether Place existed, with a carve-out excluding
+  // campground-tier services because Place did not draw them. Overview draws all
+  // three tiers now, so no service qualifies a tab — and a campground service in
+  // particular must not, or an ordinary put-in beside a resort would sprout a
+  // Camping tab about somebody else's campground.
+  for (const type of ['campground', 'outfitter', 'canoe_rental', 'shuttle', 'lodging']) {
     const tabs = accessTabs(
       point(),
-      detail({ accessPoint: { nearbyServices: [{ name: 'Akers Ferry Canoe Rental', type }] } }),
+      detail({ accessPoint: { nearbyServices: [{ name: 'Bass River Resort', type }] } }),
     );
-    assert.equal(tabs.some((t) => t.key === 'details'), true, type);
+    assert.deepEqual(tabs.map((t) => t.key), ['overview'], type);
   }
-});
-
-test('a campground service beside a real Place fact still earns the tab', () => {
-  // The campground is not what qualifies it; the road surface is. Dropping the
-  // tab here would hide a fact Place is the only home for.
-  const tabs = accessTabs(
-    point(),
-    detail({
-      accessPoint: {
-        nearbyServices: [{ name: 'Bass River Resort', type: 'campground' }],
-        roadAccess: 'Gravel for the last two miles.',
-      },
-    }),
-  );
-  assert.equal(tabs.some((t) => t.key === 'details'), true);
 });

@@ -9,6 +9,7 @@ import test from 'node:test';
 import {
   airbnbSearchUrl,
   boundingBox,
+  staySearchAreaLabel,
   STAY_SEARCH_RADIUS_MILES,
 } from '../../../eddy-ios/src/lib/stays';
 
@@ -44,12 +45,13 @@ test('longitude is widened by latitude, or the box is a third too narrow', () =>
   );
 });
 
-test('ten miles is ten miles, north-south', () => {
-  // 10 miles / 69.05 miles-per-degree ≈ 0.1448°, so a 10-mile radius is a
-  // ~0.2897° tall box. Wrong units here would be invisible in the URL and
-  // obvious on the map.
-  const box = boundingBox(AKERS, 10);
-  assert.ok(Math.abs(box.neLat - box.swLat - 0.28965) < 0.001);
+test('the radius is a radius, so the box is twice it north-south', () => {
+  // 5 miles / 69.05 miles-per-degree ≈ 0.0724°, so a 5-mile RADIUS is a
+  // ~0.1448° tall box — about ten miles across. Wrong units here would be
+  // invisible in the URL and obvious on the map, and confusing the radius for
+  // the diameter would halve or double the search area silently.
+  const box = boundingBox(AKERS, 5);
+  assert.ok(Math.abs(box.neLat - box.swLat - 0.14483) < 0.001);
 });
 
 test('a bigger radius makes a bigger box, in both directions', () => {
@@ -84,10 +86,29 @@ test('a place with no geocode gets no button', () => {
   assert.equal(airbnbSearchUrl({ lat: Number.NaN, lng: -91 }), null);
 });
 
-test('the default radius is the one the copy promises', () => {
-  // stayRadiusLabel() renders this number into the row. If the constant moves
-  // and the box does not, the row states a distance it is not searching.
+test('the default radius is the one the box is built from', () => {
   const box = boundingBox(AKERS);
   const explicit = boundingBox(AKERS, STAY_SEARCH_RADIUS_MILES);
   assert.deepEqual(box, explicit);
+});
+
+test('the copy states the DIAMETER, and derives it from the radius', () => {
+  // The row says "About 10 miles across" while the constant is a 5-mile radius,
+  // and those agree only because the label multiplies. Writing the number by
+  // hand is how a row comes to state a distance it is not searching — which is
+  // the failure this asserts against, not the arithmetic.
+  assert.equal(staySearchAreaLabel(), `About ${STAY_SEARCH_RADIUS_MILES * 2} miles across`);
+  assert.equal(staySearchAreaLabel(), 'About 10 miles across');
+  assert.equal(staySearchAreaLabel(25), 'About 50 miles across');
+});
+
+test('no zoom parameter is sent, documented or otherwise', () => {
+  // Airbnb publishes `search_by_map` and the four bounds; it publishes no zoom
+  // parameter. Guessing one is how a link starts depending on undocumented
+  // behaviour that can change without notice — and the bounds already say
+  // everything a zoom would.
+  const q = params(airbnbSearchUrl(AKERS)!);
+  for (const key of [...q.keys()]) {
+    assert.ok(!/zoom/i.test(key), `unexpected zoom-ish parameter: ${key}`);
+  }
 });

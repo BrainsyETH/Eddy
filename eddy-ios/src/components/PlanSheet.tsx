@@ -23,6 +23,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -39,6 +40,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
+import { placeSymbol } from '@/components/map-sheet/placeSymbol';
 import { Otter } from '@/components/Otter';
 import { PlanResult } from '@/components/PlanResult';
 import type { FloatPlanState } from '@/hooks/useFloatPlan';
@@ -579,14 +581,45 @@ function AccessPointList({
             accessibilityRole="button"
             accessibilityState={{ selected }}
           >
-            {/* Eddy's pin, on every access point. The padlock that used to
-                stand in for a private one is gone: swapping the mark made
-                permission look like a different KIND of place rather than a
-                condition on this one, and it cost the row the brand at the same
-                time. "Private" is still on the meta line below, which is where a
-                caveat belongs — in words that can be read, not a glyph that has
-                to be decoded. */}
-            <EddySymbol name="accessPoint" size={17} />
+            {/* WHAT IT LOOKS LIKE, on the screen where a put-in is being
+                chosen. The name is a label and the river mile is a coordinate;
+                neither answers the question somebody has standing in a driveway
+                with a boat on the roof, which is whether they can get down
+                there. The photo does, and it has been on the wire the whole
+                time — see imageUrls on MapAccessPoint.
+
+                ── ONE WELL, PHOTO OR NOT ────────────────────────────────────
+                The river screen puts a 52pt photo where a 17pt glyph would go,
+                so its rows change shape down the list as coverage comes and
+                goes. Coverage is partial by nature and this list is long, so
+                the frame is fixed here and only its CONTENTS vary. A row
+                without a photo is plain; it is not a different row.
+
+                Through placeSymbol with a synthetic `access` layer, which is
+                what the map screen's own search results do — so a campground
+                picked as a put-in draws the tent it draws everywhere else,
+                from one derivation rather than a second guess at the call
+                site.
+
+                The padlock that used to stand in for a private point is gone
+                and is not coming back here: swapping the mark made permission
+                look like a different KIND of place rather than a condition on
+                this one. "Private" is on the meta line below, which is where a
+                caveat belongs — in words, not a glyph that has to be
+                decoded. */}
+            <View style={[styles.optionWell, { backgroundColor: colors.cardRaised }]}>
+              {point.imageUrls?.[0] ? (
+                <Image
+                  source={{ uri: point.imageUrls[0] }}
+                  style={styles.optionPhoto}
+                  // Required by RN's a11y lint: a photograph must not be
+                  // colour-inverted by Smart Invert, unlike UI chrome.
+                  accessibilityIgnoresInvertColors
+                />
+              ) : (
+                <EddySymbol name={placeSymbol({ layer: 'access' }, point)} size={22} />
+              )}
+            </View>
             <View style={styles.optionBody}>
               <Text style={[styles.optionName, { color: colors.text }]} numberOfLines={1}>
                 {point.name}
@@ -670,6 +703,18 @@ const styles = StyleSheet.create({
   crumbValue: { ...t.sm, fontFamily: fonts.medium },
   list: { padding: 16, gap: 8 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 13, borderRadius: 12 },
+  // Fixed, so the row keeps one height whether or not the point has a photo.
+  // The radius is the card's own, one step in — a thumbnail nested inside a
+  // rounded row reads wrong with square corners or with the same radius.
+  optionWell: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  optionPhoto: { width: '100%', height: '100%', resizeMode: 'cover' },
   optionBody: { flex: 1, minWidth: 0 },
   optionName: { ...t.sm, fontFamily: fonts.semibold },
   optionMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },

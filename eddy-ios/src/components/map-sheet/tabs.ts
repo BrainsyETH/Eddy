@@ -11,10 +11,10 @@
 //
 // ── The tab set GROWS, and not only on the right ──────────────────────────
 // The detail request lands after the sheet is already open, so a sheet that
-// starts with one tab may finish with four — and because the order below is
+// starts with one tab may finish with three — and because the order below is
 // fixed, a late arrival INSERTS. A campground pin opens on [Overview, Camping]
-// and becomes [Overview, Float trips, Camping, Place] the moment the request
-// settles, which moves Camping from index 1 to index 2.
+// and becomes [Overview, Float trips, Camping] the moment the request settles,
+// which moves Camping from index 1 to index 2.
 //
 // So THE ACTIVE TAB MUST BE TRACKED BY KEY, NEVER BY INDEX. A reader sitting
 // on Camping at index 1 would otherwise find themselves reading Conditions a
@@ -24,7 +24,7 @@
 // A tab with nothing behind it is worse than no tab: it is a promise the sheet
 // cannot keep, and the reader pays a swipe to find that out.
 import type { AccessPointDetailResponse, MapAccessPoint } from '@eddy/types';
-import { isCampground, serviceTiers } from '@eddy/types';
+import { isCampground } from '@eddy/types';
 import { accessAvailability } from './availabilitySource';
 
 /**
@@ -47,8 +47,26 @@ interface LayerTapped {
  * top was a trend, a timestamp and an "Open gauge" row duplicating the tap
  * target the reading block already was: a whole destination for two facts and a
  * second copy of one link. The two facts are on Overview now.
+ *
+ * ── AND THERE IS NO `details` KEY ('Place') EITHER ────────────────────────
+ *
+ * It went the same way and for the same reason. Place held road surface,
+ * parking, facilities, outfitters, lodging and river notes; Overview held the
+ * description, the water and camping. Nothing about that split was legible from
+ * the outside — both tabs answered "what is this place", so which one held a
+ * given fact was a coin toss the reader had to pay a swipe to resolve. Worse,
+ * the split was what forced `hasPlaceTab`: whichever tab existed had to take
+ * custody of the link to the full detail screen, so a link's presence depended
+ * on a tab's existence.
+ *
+ * Overview holds all of it now, in one scroll, in the order somebody standing
+ * in a driveway asks: what is this, what is the water doing, can I get down
+ * there, can I park, what is there, where do I sleep, who rents boats, anything
+ * else. The duplication risk the split was meant to solve is handled where it
+ * belongs — `servicesByTier` partitions camping out of rentals and lodging, so
+ * a campground can only appear once no matter how many sections render.
  */
-export type TabKey = 'overview' | 'floats' | 'camping' | 'details';
+export type TabKey = 'overview' | 'floats' | 'camping';
 
 export interface TabDef {
   key: TabKey;
@@ -59,12 +77,6 @@ const LABELS: Record<TabKey, string> = {
   overview: 'Overview',
   floats: 'Float trips',
   camping: 'Camping',
-  // PLACE, not Details. "Details" names how much there is rather than what it
-  // is about, which is why it read as a junk drawer and was where road surface,
-  // parking, facilities and somebody's river notes went to be forgotten. Every
-  // one of those is a fact about the PLACE, and a reader looking for whether
-  // they can get a trailer down there is looking for a place, not for details.
-  details: 'Place',
 };
 
 /**
@@ -74,7 +86,7 @@ const LABELS: Record<TabKey, string> = {
  * offer — and you tap a lot of pins in one session. Intent is honoured by which
  * tab the sheet OPENS on instead; see initialTabKey.
  */
-const ORDER: TabKey[] = ['overview', 'floats', 'camping', 'details'];
+const ORDER: TabKey[] = ['overview', 'floats', 'camping'];
 
 export function accessTabs(
   accessPoint: MapAccessPoint,
@@ -106,29 +118,7 @@ export function accessTabs(
     isCampground(accessPoint) || point?.npsCampground != null || accessAvailability(point) != null;
   if (camps) keys.add('camping');
 
-  if (point && hasDetails(point)) keys.add('details');
-
   return ORDER.filter((key) => keys.has(key)).map((key) => ({ key, label: LABELS[key] }));
-}
-
-function hasDetails(point: NonNullable<AccessPointDetailResponse['accessPoint']>): boolean {
-  return Boolean(
-    point.roadSurface?.length ||
-      point.roadAccess ||
-      point.parkingInfo ||
-      point.parkingCapacity ||
-      point.amenities?.length ||
-      point.facilities ||
-      point.feeNotes ||
-      // ── THE SERVICES PLACE ACTUALLY DRAWS, not all of them ───────────────
-      // Place stopped listing campgrounds — Overview owns them, and showing
-      // them in both was the duplication the tab split was for. So counting
-      // every service here would qualify the tab on rows it no longer draws,
-      // which is the "present and empty" this whole file is written to avoid.
-      // Eleven access points carry a campground and nothing else.
-      point.nearbyServices?.some((service) => !serviceTiers(service).includes('camping')) ||
-      point.localTips,
-  );
 }
 
 /**

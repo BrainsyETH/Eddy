@@ -132,6 +132,18 @@ const SECTION_LINE_HEIGHT = t.sm.lineHeight;
 const SECTION_TEXT_MARGIN_TOP = 5;
 
 /**
+ * How soft the corners of a frosted block are.
+ *
+ * Small on purpose. The wrap clips the PROSE to this shape as well as the frost
+ * — see the styles below for why it has to — so the radius is also how much of
+ * the paragraph's corners get cut. At 8 against a 20pt line the arc clears the
+ * glyph ink: the first line's ink starts a few points down from the box on its
+ * leading, and the last line of a locked section is short enough that the
+ * bottom corners are whitespace. Going much past this starts shaving letters.
+ */
+const BLUR_RADIUS = 8;
+
+/**
  * What to smear when the server sent no text at all for a section.
  *
  * Only reachable on the locked card, and only when the payload is short of a
@@ -523,10 +535,18 @@ export function EddyTake({
                 )}
                 {/* Kept sharp even when locked: it is a disclaimer about what
                     the forecast strip above — which is free — does and does not
-                    predict, not part of the writing being sold. */}
+                    predict, not part of the writing being sold.
+
+                    `isGuidance` means this river has no official hydrograph, so
+                    the strip is weather and nothing else. Without this line a
+                    reader can take it for a level forecast, which is the one
+                    claim Eddy must not make by omission — river-guide-style.md
+                    puts it as "a planning input, not the safety authority".
+                    Says the same thing as the sentence it replaced, in the
+                    `[state] — [what it means]` idiom the app already speaks. */}
                 {outlook.isGuidance ? (
                   <Text style={[styles.caveat, { color: colors.textSubtle }]}>
-                    Weather outlook; future river levels are not predicted.
+                    Weather only — no river-level forecast.
                   </Text>
                 ) : null}
               </View>
@@ -689,8 +709,22 @@ const styles = StyleSheet.create({
   // The blur is absolutely positioned over the prose, so the wrapper is what
   // gives it a box to fill. Overflow hidden keeps the frost inside the section
   // rather than bleeding over the rule below it.
-  blurWrap: { position: 'relative', overflow: 'hidden' },
-  blurOverlay: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  //
+  // ── THE RADIUS IS ON BOTH, and that is not belt-and-braces ────────────────
+  // Rounding the overlay ALONE would carve four corners out of the frost and
+  // leave the prose under them sharp — dimmed to BLURRED_TEXT_OPACITY, but
+  // legible, which is the one thing this component exists to prevent. The wrap's
+  // `overflow: 'hidden'` is what clips the text to the same shape, so the
+  // corners lose the paragraph rather than uncovering it. Change one, change
+  // both.
+  blurWrap: { position: 'relative', overflow: 'hidden', borderRadius: BLUR_RADIUS },
+  blurOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: BLUR_RADIUS,
+  },
   caveat: { ...t.xs, fontFamily: fonts.body, marginTop: 6 },
   attribution: { ...t.xs, fontFamily: fonts.body, marginTop: 12, textAlign: 'right' },
 });

@@ -57,8 +57,15 @@ export function agencyLabel(agency: string): string {
  * The bucket values are words and the rest are counts, so this cannot simply
  * template a number in — '50+' and 'roadside' would come out as "Parking for
  * roadside".
+ *
+ * Takes `undefined` as well as null because the merged Overview tab reads this
+ * off an access point that may not have arrived yet (`point?.parkingCapacity`).
+ * The guard below already answers both the same way, so this is the signature
+ * catching up with the body rather than a widening that costs anything.
  */
-export function parkingLabel(capacity: ParkingCapacity | string | null): string | null {
+export function parkingLabel(
+  capacity: ParkingCapacity | string | null | undefined,
+): string | null {
   if (!capacity || capacity === 'unknown') return null;
   if (capacity === 'roadside') return 'Roadside parking';
   if (capacity === 'limited') return 'Limited parking';

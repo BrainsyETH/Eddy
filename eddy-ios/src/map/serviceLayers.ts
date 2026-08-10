@@ -98,8 +98,8 @@ export function serviceOnLayer(service: ServiceLike, layer: ServiceLayerKey): bo
 /**
  * Eddy's words for a service's type, in one table rather than three.
  *
- * There were two copies of this — `RiverMap` and `PlanNearby` — and NEITHER had
- * a key for `cabin_lodge`, so the directory's own third type fell through to
+ * There were two copies of this — `RiverMap` and the planner strip — and NEITHER
+ * had a key for `cabin_lodge`, so the directory's own third type fell through to
  * `type.replace(/_/g, ' ')` and would have been drawn on the map as the
  * lowercase string "cabin lodge". The website has said "Cabin & Lodge" the whole
  * time (see NearbyServices.tsx), which makes it a drift rather than a gap.
