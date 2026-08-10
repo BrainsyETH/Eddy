@@ -57,6 +57,18 @@ function matches(row: Row, filters: Filter[]): boolean {
 /** Stands in for the tables' `default now()`. */
 const NOW_DEFAULT = '2026-08-04T00:00:00.000Z';
 
+/**
+ * Stands in for the `now()` that trust_apply_reconcile() stamps finished_at
+ * with — the database clock at finalize, not the instant the caller passed in.
+ *
+ * It has to be a SECOND constant, strictly after NOW_DEFAULT, because the thing
+ * being modelled is an ordering: a run finishes after its row was inserted.
+ * Reusing the payload's `now` is exactly the bug 20260810200000 repairs — that
+ * instant is captured once per tick, before any check runs, so it lands before
+ * every started_at in the drain and identically on all of them.
+ */
+const FINALIZE_DEFAULT = '2026-08-04T00:00:01.000Z';
+
 let idCounter = 0;
 function nextId(prefix: string): string {
   idCounter += 1;
@@ -351,7 +363,7 @@ function applyReconcile(store: Map<string, Row[]>, payload: Row): Row {
   if (!runRow) throw new Error(`trust_apply_reconcile: no trust_runs row ${runId}`);
   Object.assign(runRow, {
     status: run.status,
-    finished_at: nowIso,
+    finished_at: FINALIZE_DEFAULT,
     suppressed_reason: run.suppressed_reason ?? null,
     scope_count: run.scope_count ?? 0,
     findings_raised: raised,

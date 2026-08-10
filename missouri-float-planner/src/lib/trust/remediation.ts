@@ -124,6 +124,53 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
       'Sharing a gauge is fine. What is not fine is two primaries with nothing to sort them by — shared/primary-river-link.ts then falls back to alphabetical order, which is stable but arbitrary.',
   },
 
+  // ── Eddy against USGS ────────────────────────────────────────────────
+  //
+  // The first rules here whose fix is "take the source's answer" rather than
+  // "decide what is true". That makes three of the four mechanical, which is
+  // unusual in this file — and it is a property of source drift, not a sign
+  // these were graded generously: USGS is authoritative for its own station
+  // metadata, so there is no judgement to exercise about the value.
+  //
+  // The two station-death rules are the exception, and both are `investigate`
+  // rather than `judgment` because the first question is not what to do but
+  // what happened.
+  usgs_site_unknown: {
+    kind: 'investigate',
+    action: 'Find out what this site id was meant to be.',
+    where: 'https://waterdata.usgs.gov/monitoring-location/<site id>/',
+    method:
+      'USGS has no monitoring location under this number, which is narrower than it sounds: USGS keeps the location record after telemetry ends, so a station that merely stopped reporting would still be found and would file usgs_site_record_ended instead. This is a wrong or retired identifier — a transcription error, or a number reassigned upstream. Check the river\'s other gauges for a near-miss digit. Correcting the id changes the finding\'s fingerprint, so this row resolves and any real drift on the corrected station is raised fresh.',
+  },
+  usgs_site_record_ended: {
+    kind: 'investigate',
+    action: 'Decide whether the river needs a different primary gauge.',
+    where: 'https://waterdata.usgs.gov/monitoring-location/<site id>/',
+    method:
+      'The station is still listed by USGS; what has ended is its published discharge/stage record. Confirm on the station page that the period of record is genuinely over rather than a long outage. If it is over and the station is primary for a river, that river is being graded on a gauge that will never report again — pick a replacement from the river\'s remaining links and move is_primary, minding the distance_from_section_miles tiebreak shared/primary-river-link.ts uses. If it is a secondary, deactivating the station is enough. Expect stale_gauge to be open on the same station at critical; this is the finding that says waiting will not fix it.',
+  },
+  usgs_site_moved: {
+    kind: 'mechanical',
+    action: "Re-import the station so its coordinate matches the source's.",
+    where: 'npx tsx scripts/import-usgs-gauges.ts',
+    method:
+      'The import upserts name, location, drainage area and the administrative codes from monitoring-locations, so it closes this and the other two drift rules together. Check the distance in the evidence first: a move of a few hundred metres is a re-survey and taking the new value is right, but a move of miles is more likely a site id pointing at the wrong station, which the import would happily make consistent and wrong.',
+  },
+  usgs_site_renamed: {
+    kind: 'mechanical',
+    action: 'Re-import the station to take the published name.',
+    where: 'npx tsx scripts/import-usgs-gauges.ts',
+    method:
+      'Names are stored verbatim from USGS by design — import-usgs-gauges does not title-case, because that mangles "MO." and every NR/BL/AB abbreviation in the corpus. So the fix is to take the new string, not to edit it into house style.',
+  },
+  usgs_site_drainage_changed: {
+    kind: 'mechanical',
+    action: 'Re-import the station to take the published drainage area.',
+    where: 'npx tsx scripts/import-usgs-gauges.ts',
+    method:
+      'USGS re-delineates basins occasionally and publishes the revision. Nothing downstream reads this today — src/lib/usgs/drainage.ts has no callers — so this is keeping a stored fact true rather than fixing a visible defect.',
+  },
+
   // ── services against the rivers they serve ───────────────────────────
   service_far_from_linked_river: {
     kind: 'investigate',

@@ -82,6 +82,19 @@ export const EDDY_KNOWLEDGE_RULES = [
 
 export const GAUGE_WIRING_RULES = ['gauge_dual_primary'] as const;
 
+/**
+ * Rules the usgs_site_drift check emits — the only ones in this file that
+ * describe a disagreement with a SOURCE rather than an inconsistency inside
+ * Eddy.
+ */
+export const USGS_SITE_DRIFT_RULES = [
+  'usgs_site_unknown',
+  'usgs_site_record_ended',
+  'usgs_site_moved',
+  'usgs_site_renamed',
+  'usgs_site_drainage_changed',
+] as const;
+
 export const SERVICE_GEO_RULES = [
   'service_far_from_linked_river',
   'service_nearer_unlinked_river',
@@ -117,6 +130,7 @@ export const ALL_TRUST_RULES = [
   ...RIVER_GEOMETRY_RULES,
   ...EDDY_KNOWLEDGE_RULES,
   ...GAUGE_WIRING_RULES,
+  ...USGS_SITE_DRIFT_RULES,
   ...SERVICE_GEO_RULES,
   ...SCHEMA_INVARIANT_RULES,
   ...LEDGER_RULES,
@@ -177,6 +191,17 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   // A gauge that is primary for two rivers makes find(isPrimary) arbitrary —
   // the misassociation class docs/gauge-alerting-misalignment-audit.md is about.
   gauge_dual_primary: 'high',
+  // A stored site id USGS has no record of. Nothing will ever read from it, so
+  // the gauge is inert whatever the rest of the row says.
+  usgs_site_unknown: 'high',
+  // USGS's published flow/stage record for a wired station is over. High rather
+  // than critical on purpose: the surface consequence is a badge quoting a dead
+  // gauge, and stale_gauge already owns that at critical, so two criticals here
+  // would double-count one condition in every gate that counts them. What this
+  // adds is not earlier warning — stale_gauge fires within a day and this waits
+  // a fortnight — but the distinction between a transient outage and a station
+  // that is not coming back.
+  usgs_site_record_ended: 'high',
   no_gauges_near_geometry: 'high',
   bbox_outside_state: 'high',
   // Defence in depth that is currently redundant — RLS is holding the line —
@@ -201,6 +226,11 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   // all for dangerous water — so the error cannot compound into a go/no-go.
   access_point_offline: 'medium',
   access_point_not_snapped: 'medium',
+  // A station that has physically moved beyond survey noise. It puts the map
+  // pin in the wrong place and shifts the station relative to the river line,
+  // which is the input no_gauges_near_geometry judges — but it does not change
+  // what the gauge reads, so the badge stays correct.
+  usgs_site_moved: 'medium',
   mileage_order_mismatch: 'medium',
   mileage_equals_length: 'medium',
   missing_river_type: 'medium',
@@ -248,6 +278,15 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   direction_unverified: 'low',
   headwaters_flag_unset: 'low',
   coordinate_count_very_low: 'low',
+  // A rename is usually cosmetic and the stored name is what people match
+  // against on the USGS site, so it is a signal rather than a defect — but it
+  // is also how a station re-designation first appears, which is why it is
+  // recorded rather than ignored.
+  usgs_site_renamed: 'low',
+  // Drainage area feeds the scaling estimate for flow at an ungauged reach.
+  // src/lib/usgs/drainage.ts has no callers today, so nothing downstream is
+  // wrong yet; when it acquires one this belongs a band higher.
+  usgs_site_drainage_changed: 'low',
   // Nothing is broken — the invariant passes. But an exception left behind is a
   // standing permission to break it again with the finding arriving
   // pre-accepted, so it belongs in the list rather than in nobody's memory.

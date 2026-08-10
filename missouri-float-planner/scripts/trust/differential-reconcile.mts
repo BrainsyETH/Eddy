@@ -181,6 +181,14 @@ cmp(
 // while the fake uses the run's injected `now`, so the absolute values differ by
 // construction. Its PRESERVATION across a resolve-and-return cycle is what
 // matters, and ledger-wiring.test.ts asserts that directly.
+//
+// finished_at is excluded for the same reason and is worth naming separately,
+// because it used to be comparable and that was the bug: both sides stamped it
+// with the payload's `now`, so they agreed exactly while both were wrong. Since
+// 20260810200000 Postgres uses now() at finalize and the fake uses a constant
+// after its insert default. What matters is the ORDERING against started_at,
+// which the SQL enforces with a CHECK constraint and ledger-wiring.test.ts
+// asserts on the fake.
 cmp('findings (fingerprint|status|occurrences|snoozed)', realRows, fakeRows);
 cmp('runs (id|status|raised|touched|resolved)', realRuns, fakeRuns);
 

@@ -461,3 +461,29 @@ test('a governed finding does not resurrect an operator reopen', async () => {
   await run(supabase, check({ scopeCount: 7, findings: [governed] }));
   assert.equal(supabase.rows('trust_findings')[0].status, 'open');
 });
+
+test('a completed run finishes after it started', async () => {
+  // The regression this prevents: trust_apply_reconcile() stamped finished_at
+  // with the instant the CALLER passed in. That instant is captured once per
+  // tick, before any check runs, so it landed before the run row's own
+  // started_at default and identically on every check in the drain. On
+  // production all 469 rows written between 2026-08-04 and 2026-08-10 finished
+  // one to eight seconds before they began.
+  //
+  // Nothing read the column, which is why it survived a week. The cost was a
+  // systematically false timestamp in the subsystem whose entire product is a
+  // record that can be believed. Repaired and constrained by
+  // 20260810200000_trust_runs_finished_at_is_an_observation.sql; asserted here
+  // because a CHECK constraint on production cannot fail CI.
+  const supabase = createFakeSupabase({ trust_runs: [], trust_findings: [] });
+
+  const summary = await run(supabase, check({ scopeCount: 13, findings: [finding()] }));
+  assert.equal(summary.status, 'ok');
+
+  const row = supabase.rows('trust_runs').at(-1)!;
+  assert.ok(row.finished_at, 'a completed run records when it finished');
+  assert.ok(
+    new Date(row.finished_at as string).getTime() >= new Date(row.started_at as string).getTime(),
+    `finished_at ${row.finished_at} precedes started_at ${row.started_at}`,
+  );
+});
