@@ -37,7 +37,7 @@ import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { CampgroundAvailability } from './CampgroundAvailability';
 import { accessAvailability, accessAvailabilityName } from './availabilitySource';
 import { localToday } from './availability';
-import { decisionSlot } from './peekSlot';
+import { decisionSlot, type DecisionSlot } from './peekSlot';
 import { GlanceSlot } from './GlanceSlot';
 import { MapSheet, type SheetMetrics } from './MapSheet';
 import { PinCallout } from './PinCallout';
@@ -157,6 +157,29 @@ export function PinSheet(props: PinSheetProps) {
     [accessPoint, detail],
   );
 
+  // ── DECIDED ONCE HERE, READ IN TWO PLACES ───────────────────────────────
+  // The peek reserves exactly one fact and peekSlot.ts picks which. The header
+  // used to ask for itself, when it was the only thing asking — but the Camping
+  // tab now has to know the same answer, because it draws the same headline and
+  // must not draw it a second time under the one the reader already has. Two
+  // callers of one rule means the rule is resolved above both of them.
+  //
+  // Every input is on the pin or on the map's own state, so this is settled on
+  // the first frame. That is the guarantee peekSlot's signature makes by having
+  // no `detail` parameter, and lifting the call does not spend it.
+  //
+  // Both halves of `hasAvailability` come off the pin, never off `detail`. A
+  // service campground carries its availability on the pin outright; an access
+  // point carries the flag the map payload now ships. See LiveAvailabilityIndex
+  // on the web side.
+  const slot = decisionSlot(
+    {
+      layer: pin.layer,
+      hasAvailability: pin.availability != null || accessPoint?.hasLiveAvailability === true,
+    },
+    { riverHasGauges: props.riverHasGauges },
+  );
+
   // ── Held BY KEY, never by index ─────────────────────────────────────────
   // The tab set grows while the sheet is open and the order is fixed, so a
   // late arrival inserts rather than appends: a campground pin opens on
@@ -263,6 +286,9 @@ export function PinSheet(props: PinSheetProps) {
       // Overview carries the details link only when Place is not there to. See
       // TabProps.hasPlaceTab.
       hasPlaceTab: tabs.some((tab) => tab.key === 'details'),
+      // Camping draws the same headline the peek's card does, and must not draw
+      // it twice under the copy the reader already has. See TabProps.
+      peekShowsAvailability: slot === 'availability',
     };
     if (key === 'overview') return <AccessOverviewTab {...shared} />;
     if (key === 'floats') return <AccessFloatsTab {...shared} />;
@@ -312,6 +338,7 @@ export function PinSheet(props: PinSheetProps) {
           detail={detail}
           status={status}
           gaugeFacts={gaugeFacts}
+          slot={slot}
           backLabel={props.backLabel}
           // The availability card is a shortcut to the tab that can be operated:
           // the peek's fortnight is a chart because fourteen columns are twenty
@@ -373,7 +400,6 @@ function PinSheetHeader({
   pin,
   accessPoint,
   canSetTakeOut,
-  riverHasGauges,
   onSetPutIn,
   onSetTakeOut,
   onOpenDetail,
@@ -385,12 +411,21 @@ function PinSheetHeader({
   detail,
   status,
   gaugeFacts,
+  slot,
   onOpenCamping,
   backLabel,
 }: PinSheetProps & {
   detail: AccessPointDetailResponse | null;
   status: DetailStatus;
   gaugeFacts: GaugePinFacts | null;
+  /**
+   * Which fact this peek reserves room for.
+   *
+   * Resolved by the PARENT, not here — the Camping tab needs the same answer to
+   * know whether its own headline would be a second copy of this one, and one
+   * rule with two readers belongs above both. See PinSheet.
+   */
+  slot: DecisionSlot;
   onOpenCamping: () => void;
   /** The river the Back control returns to, named so the row is not a bare "‹". */
   backLabel?: string | null;
@@ -408,16 +443,6 @@ function PinSheetHeader({
   const availability = pin.availability ?? accessAvailability(point);
   const availabilityName = accessAvailabilityName(point, pin.name);
 
-  // Both halves come off the pin, never off `detail`. A service campground
-  // carries its availability on the pin outright; an access point carries the
-  // flag the map payload now ships. See LiveAvailabilityIndex on the web side.
-  const slot = decisionSlot(
-    {
-      layer: pin.layer,
-      hasAvailability: pin.availability != null || accessPoint?.hasLiveAvailability === true,
-    },
-    { riverHasGauges },
-  );
   // 'ready' means the question has been ANSWERED, not that the answer is
   // non-empty — a resolved-empty slot draws its terminal line rather than
   // waiting forever. 'idle' is a pin with no detail route, which is answered

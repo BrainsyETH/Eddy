@@ -28,6 +28,7 @@ import { serviceTiers } from '@eddy/types';
 import { AvailabilityGlance } from './AvailabilityGlance';
 import { localToday, nightChoices } from './availability';
 import { accessAvailability, accessAvailabilityName } from './availabilitySource';
+import { bookingLine, siteMixLine } from './campgroundFacts';
 import { CampsiteList } from './CampsiteList';
 import { airbnbSearchUrl, STAY_SEARCH_LABEL, stayRadiusLabel } from '@/lib/stays';
 import { FilterChips } from '@/components/FilterChips';
@@ -101,6 +102,15 @@ interface TabProps {
    * place, and a few access points have none at all.
    */
   hasPlaceTab: boolean;
+  /**
+   * Whether the peek's reserved slot already went to the availability card.
+   *
+   * Camping needs it for the same reason Overview needs `status`, and with the
+   * opposite sign: the peek does NOT always carry availability, so the tab
+   * cannot simply drop its own headline, and it does not always LACK it either,
+   * so it cannot simply keep it. Resolved once by decisionSlot in PinSheet.
+   */
+  peekShowsAvailability: boolean;
 }
 
 /* ── Overview ───────────────────────────────────────────────────────────── */
@@ -375,7 +385,13 @@ function checkedLine(fetchedAt: string): string {
  * has no nps_campgrounds row at all, and a tab that keyed off that would have
  * shown nothing for exactly the sites that most need describing.
  */
-export function AccessCampingTab({ accessPoint, detail, status, active = false }: TabProps) {
+export function AccessCampingTab({
+  accessPoint,
+  detail,
+  status,
+  peekShowsAvailability,
+  active = false,
+}: TabProps) {
   const { colors } = useTheme();
   const point = detail?.accessPoint;
   const nps = point?.npsCampground ?? null;
@@ -443,12 +459,29 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
 
   return (
     <View>
-      <AvailabilityGlance
-        availability={availability}
-        name={name}
-        today={today}
-        showStrip={false}
-      />
+      {/* ── ONLY WHEN THE PEEK IS NOT ALREADY SAYING IT ──────────────────
+          `36 open · of 52 sites · Fri–Sun, Aug 14–16` was printed twice inside
+          one screen height: once on the peek's card and again here, from the
+          same availabilityHero. The peek does not scroll away — MapSheet lays
+          out the peek and the pages as one card and moves it by transform — so
+          both copies were legible at the same time, nine points apart.
+
+          It cannot just be deleted, which is why this is a condition and not a
+          removal. The peek reserves availability only for a pin tapped on the
+          CAMPGROUNDS layer (peekSlot.ts); the identical place tapped as an
+          access point spends its slot on the water instead, and then this is
+          the only place the number appears at all.
+
+          Same shape as Overview's Water section, for the same reason in the
+          other direction — see the note there. */}
+      {peekShowsAvailability ? null : (
+        <AvailabilityGlance
+          availability={availability}
+          name={name}
+          today={today}
+          showStrip={false}
+        />
+      )}
 
       {/* The fortnight, at a size that can be tapped. The peek draws the same
           nights as a chart because fourteen columns is twenty points each and
@@ -554,27 +587,20 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
 
       <Section title="About this campground">
         <Fact label="Managed by" value={point.managingAgency ? agencyLabel(point.managingAgency) : null} />
-        <Fact
-          label="Sites"
-          value={nps && nps.totalSites > 0 ? String(nps.totalSites) : null}
-        />
-        <Fact
-          label="Reservable"
-          value={nps && nps.sitesReservable > 0 ? String(nps.sitesReservable) : null}
-        />
-        <Fact
-          label="First come"
-          value={nps && nps.sitesFirstCome > 0 ? String(nps.sitesFirstCome) : null}
-        />
-        {/* The mix, when the record breaks it down. What decides a trip is not
-            how many sites there are but whether one of them takes a camper or
-            can only be reached by boat. Zero and absent are both left out —
-            "RV sites: 0" is a sentence about the database. */}
-        <Fact label="Tent only" value={countOrNull(nps?.sitesTentOnly)} />
-        <Fact label="RV only" value={countOrNull(nps?.sitesRvOnly)} />
-        <Fact label="Electric" value={countOrNull(nps?.sitesElectrical)} />
-        <Fact label="Group" value={countOrNull(nps?.sitesGroup)} />
-        <Fact label="Walk or boat in" value={countOrNull(nps?.sitesWalkBoatTo)} />
+        {/* ── ONE ROW PER AXIS, NOT ONE ROW PER NUMBER ──────────────────────
+            These were eight labelled rows carrying one integer each — Sites,
+            Reservable, First come, and then the five-way mix — which is most of
+            a screen of scrolling on any site whose record is complete, for
+            reference a reader reaches only after they have decided they want
+            the place. What decides a trip is still in here: whether a camper
+            fits, whether there is power, whether you have to carry in. It is
+            the LABEL COLUMN that was not earning its keep, once per fact.
+
+            Zero and absent are still both left out, which is the rule the old
+            per-row countOrNull applied and campgroundFacts now applies inside
+            the line. See its header for why the two axes stay apart. */}
+        <Fact label="Sites" value={siteMixLine(nps)} />
+        <Fact label="Booking" value={bookingLine(nps)} />
         <Fact label="Fees" value={feeLine(nps, point)} />
       </Section>
 
@@ -714,10 +740,11 @@ export function AccessDetailsTab({ detail, onOpenDetail, status }: TabProps) {
 // and "genuinely empty" is now testable, which it needed to be: the tab-level
 // empty line briefly reported a failed request as confirmed absence.
 
-/** Absent for both "none" and "not recorded", which a camper reads the same. */
-function countOrNull(count: number | null | undefined): string | null {
-  return count && count > 0 ? String(count) : null;
-}
+// `countOrNull` moved to campgroundFacts.ts as `counted`, for the same reason
+// waitingCopy moved to lib/accessCopy.ts: it is a string derived from a number
+// and nothing else, this file cannot be imported by the web suite, and the rule
+// it encodes — that zero and absent are the same fact about a campground — is
+// now asserted rather than assumed.
 
 /**
  * What it costs, preferring the campground's own fee table over the access
