@@ -21,10 +21,20 @@
 // ── What is NOT handled here, and why ────────────────────────────────────────
 // `isAvailableAsync()`. Nothing in this app has ever called it and nothing
 // should: Expo SDK 57's deployment target is well past iOS 13, so Sign in with
-// Apple is present on every device that can run the binary. The gate that IS
-// real is `unavailable` — Supabase not configured — which no caller checked
-// before this, and which would otherwise show a button whose only outcome is
-// "Accounts are unavailable right now."
+// Apple is present on every device that can run the binary.
+//
+// ── THE GATE IS `accountsConfigured`, NEVER `unavailable` ────────────────────
+// This shipped gated on `unavailable` and that was wrong. useSession raises
+// that flag for three unrelated reasons — Supabase unconfigured, anonymous
+// sign-ins switched off in the dashboard, and the first launch having no signal
+// — and it is never lowered again for the life of the session. Apple sign-in
+// works fine in the last two. So one offline cold start removed the button from
+// the Alerts tab AND emptied the sign-in sheet, leaving a screen that says
+// "Sign in to set alerts" with nothing to press, until the app was killed.
+//
+// `accountsConfigured` answers the only question this control cares about:
+// is there an account backend in this build at all. It is constant, so it
+// cannot strand anybody mid-session.
 
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -53,7 +63,7 @@ export function AppleSignInButton({
   style?: StyleProp<ViewStyle>;
 }) {
   const { colors } = useTheme();
-  const { signInWithApple, unavailable } = useSession();
+  const { signInWithApple, accountsConfigured } = useSession();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,9 +81,11 @@ export function AppleSignInButton({
     }
   }, [signInWithApple, onSignedIn]);
 
-  // No accounts, no button. Drawing one whose only possible outcome is an error
-  // is worse than the screen's own signed-out copy standing alone.
-  if (unavailable) return null;
+  // No account backend in this build, no button — drawing one whose only
+  // possible outcome is "Accounts are unavailable right now" is worse than the
+  // screen's own signed-out copy standing alone. A transient failure is NOT
+  // this: see the header.
+  if (!accountsConfigured) return null;
 
   return (
     <View style={style}>

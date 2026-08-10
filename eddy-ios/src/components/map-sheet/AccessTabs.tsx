@@ -607,8 +607,10 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
   // nothing at all.
   const stayUrl = airbnbSearchUrl(point?.coordinates ?? accessPoint.coordinates ?? null);
 
-  // The one link that takes a booking, and the two pages that do not.
-  const booking = bookingAction(nps, point?.officialSiteUrl, availability?.source);
+  // The one link that takes a booking, and the pages that do not. The official
+  // site is no longer offered to bookingAction: it is a park page in every row
+  // Eddy holds, so it can only ever become the "Official site" row below.
+  const booking = bookingAction(nps, availability?.source);
   const showOfficialSite = Boolean(
     point?.officialSiteUrl && point.officialSiteUrl !== booking?.url,
   );
