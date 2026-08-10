@@ -152,6 +152,15 @@ export interface GaugeStation {
     riverId: string;
     riverName: string;
     riverSlug: string | null;
+    /**
+     * Two-letter code for the river this threshold rates.
+     *
+     * Carried because the gauge detail page printed "Gauge near {river},
+     * Missouri" as a literal, which has been wrong for every Arkansas gauge
+     * since the catalog stopped being Missouri-only. Nullable for the reason
+     * every added wire field is.
+     */
+    riverState: string | null;
     isPrimary: boolean;
     /**
      * Miles from the rated section. The tiebreak when one gauge is primary for
@@ -365,6 +374,7 @@ async function _GET(request: NextRequest) {
           id,
           name,
           slug,
+          state,
           active
         )`;
 
@@ -395,13 +405,20 @@ async function _GET(request: NextRequest) {
     const thresholdsByGauge = new Map<string, GaugeStation['thresholds']>();
     if (riverGauges) {
       for (const rg of riverGauges) {
-        const river = rg.rivers as unknown as { id: string; name: string; slug?: string; active?: boolean };
+        const river = rg.rivers as unknown as {
+          id: string;
+          name: string;
+          slug?: string;
+          state?: string;
+          active?: boolean;
+        };
         // Skip gauge-river associations for inactive rivers
         if (river.active === false) continue;
         const threshold = {
           riverId: river.id,
           riverName: river.name,
           riverSlug: river.slug || null,
+          riverState: river.state || null,
           isPrimary: rg.is_primary as boolean,
           distanceFromSectionMiles: (rg.distance_from_section_miles as number) ?? null,
           thresholdUnit: ((rg.threshold_unit as string) || 'ft') as 'ft' | 'cfs',

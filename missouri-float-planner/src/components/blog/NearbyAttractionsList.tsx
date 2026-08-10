@@ -8,13 +8,20 @@ import type { NearbyAttraction } from '@/types/blog';
 
 interface Props {
   attractions: NearbyAttraction[];
+  /**
+   * The guide's river state. Was the literal "Missouri", so an Arkansas guide's
+   * attractions searched the wrong state. Optional: without it the search is
+   * unqualified, which is vaguer but never wrong.
+   */
+  riverState?: string | null;
 }
 
-function mapsUrl(name: string): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name + ' Missouri')}`;
+function mapsUrl(name: string, state: string | null | undefined): string {
+  const query = state ? `${name} ${state}` : name;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
-export default function NearbyAttractionsList({ attractions }: Props) {
+export default function NearbyAttractionsList({ attractions, riverState }: Props) {
   if (attractions.length === 0) return null;
 
   return (
@@ -87,7 +94,7 @@ export default function NearbyAttractionsList({ attractions }: Props) {
                   </a>
                 )}
                 <a
-                  href={mapsUrl(a.name)}
+                  href={mapsUrl(a.name, riverState)}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-primary-600)', textDecoration: 'none' }}

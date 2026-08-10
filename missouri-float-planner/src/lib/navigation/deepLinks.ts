@@ -349,7 +349,12 @@ export function getAgencyFullName(agency: string | null): string {
     'NPS': 'National Park Service',
     'USFS': 'U.S. Forest Service',
     'COE': 'U.S. Army Corps of Engineers',
-    'State Park': 'Missouri State Parks',
+    // Generic, matching eddy-ios/src/lib/accessCopy.ts. `MDC` names a Missouri
+    // agency and is correctly specific; `State Park` is a *kind* of manager,
+    // and two Arkansas access points carry it — they were being credited to
+    // Missouri State Parks. The iOS app has read it generically since it was
+    // written; the platforms had simply diverged.
+    'State Park': 'State Park',
     'County': 'County',
     'Municipal': 'Municipal',
     'Private': 'Private',

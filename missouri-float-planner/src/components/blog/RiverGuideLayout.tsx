@@ -90,14 +90,20 @@ interface ApInfo {
 // lets sections with no explicit `photo` fall back to access-point imagery.
 // Look up a river's state code so we can build canonical /rivers/[state]/[slug]
 // links (legacy 1-segment links still 301 to these, but we skip the redirect).
-async function getRiverState(riverSlug: string): Promise<string | null> {
+// `name` rides along for the drive-time tiles, whose Maps destination used to
+// fall back to the literal "Current River Missouri" — one river's name, on
+// every guide, in the wrong state for seven of them.
+async function getRiverMeta(
+  riverSlug: string,
+): Promise<{ state: string | null; name: string | null }> {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from('rivers')
-    .select('state')
+    .select('state, name')
     .eq('slug', riverSlug)
     .single();
-  return (data as { state: string } | null)?.state ?? null;
+  const row = data as { state: string | null; name: string | null } | null;
+  return { state: row?.state ?? null, name: row?.name ?? null };
 }
 
 async function resolveAccessPoints(
@@ -199,7 +205,10 @@ export default async function RiverGuideLayout({ post }: Props) {
   const toc = buildToc(post);
   const grouped = groupSectionsBySegment(g.sections, g.segments);
   const aps = await resolveAccessPoints(slug, g.sections);
-  const riverState = post.river_slug ? await getRiverState(post.river_slug) : null;
+  const riverMeta = post.river_slug
+    ? await getRiverMeta(post.river_slug)
+    : { state: null, name: null };
+  const riverState = riverMeta.state;
   const reportHref = post.river_slug
     ? (riverState ? riverPath(riverState, post.river_slug) : `/rivers/${post.river_slug}`)
     : '/blog';
@@ -672,7 +681,11 @@ export default async function RiverGuideLayout({ post }: Props) {
               <SectionTitle id="drive" eyebrow="Getting there">
                 Drive times
               </SectionTitle>
-              <DriveTimesStrip driveTimes={g.drive_times} />
+              <DriveTimesStrip
+                driveTimes={g.drive_times}
+                riverState={riverState}
+                riverName={riverMeta.name}
+              />
             </>
           )}
 
@@ -775,7 +788,10 @@ export default async function RiverGuideLayout({ post }: Props) {
               <SectionTitle id="nearby" eyebrow="In the area">
                 Nearby attractions
               </SectionTitle>
-              <NearbyAttractionsList attractions={g.nearby_attractions} />
+              <NearbyAttractionsList
+                attractions={g.nearby_attractions}
+                riverState={riverState}
+              />
             </>
           )}
 

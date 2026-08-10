@@ -9,6 +9,16 @@ import type { DriveTime } from '@/types/blog';
 
 interface Props {
   driveTimes: DriveTime[];
+  /**
+   * The guide's river state, used to disambiguate the destination for Maps.
+   *
+   * Was the literal "Missouri", which sent every Arkansas guide's drive-time
+   * tile to the wrong state — a "Jasper, AR" destination deep-linked to
+   * Jasper, Missouri. Optional so a caller without it degrades to an
+   * unqualified search rather than a confidently wrong one.
+   */
+  riverState?: string | null;
+  riverName?: string | null;
 }
 
 function parseDestination(hours: string, fallbackDest: string): string {
@@ -17,13 +27,13 @@ function parseDestination(hours: string, fallbackDest: string): string {
   return fallbackDest;
 }
 
-function directionsHref(rawDest: string): string {
-  const dest = encodeURIComponent(`${rawDest}, Missouri`);
+function directionsHref(rawDest: string, state: string | null | undefined): string {
+  const dest = encodeURIComponent(state ? `${rawDest}, ${state}` : rawDest);
   // Omitting `origin` makes Maps default to the user's current location.
   return `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`;
 }
 
-export default function DriveTimesStrip({ driveTimes }: Props) {
+export default function DriveTimesStrip({ driveTimes, riverState, riverName }: Props) {
   if (driveTimes.length === 0) return null;
 
   return (
@@ -41,7 +51,10 @@ export default function DriveTimesStrip({ driveTimes }: Props) {
       }}
     >
       {driveTimes.map((d, i) => {
-        const dest = parseDestination(d.hours, 'Current River Missouri');
+        // The fallback was the literal "Current River Missouri" — one river's
+        // name, on every guide. Use the guide's own river when the hours string
+        // does not name a destination.
+        const dest = parseDestination(d.hours, riverName ?? d.city);
         return (
           <div
             key={d.city}
@@ -76,7 +89,7 @@ export default function DriveTimesStrip({ driveTimes }: Props) {
               {d.hours}
             </div>
             <a
-              href={directionsHref(dest)}
+              href={directionsHref(dest, riverState)}
               target="_blank"
               rel="noopener noreferrer"
               style={{

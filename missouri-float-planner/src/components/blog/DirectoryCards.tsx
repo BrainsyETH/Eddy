@@ -286,9 +286,11 @@ function ServiceCard({ item, accent }: { item: DirectoryItem; accent: string }) 
 export default async function DirectoryCards({ riverSlug }: Props) {
   const supabase = createAdminClient();
 
+  // `state` is selected for the synthetic NPS campground rows below, which used
+  // to hardcode 'MO' — see the comment there.
   const { data: river } = await supabase
     .from('rivers')
-    .select('id')
+    .select('id, state')
     .eq('slug', riverSlug)
     .single();
 
@@ -369,7 +371,12 @@ export default async function DirectoryCards({ riverSlug }: Props) {
           type: 'campground' as ServiceType,
           status: 'active',
           city: null,
-          state: 'MO',
+          // The river's state, not 'MO'. A campground inside a national
+          // riverway has no town of its own, which is why city is null — but
+          // the state is knowable, and asserting it sent every Buffalo
+          // National River campground's Directions link to Missouri via
+          // mapUrl() above.
+          state: river.state ?? null,
           phone: null,
           website: cg.reservation_url || cg.nps_url,
           reservationUrl: cg.reservation_url,

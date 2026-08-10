@@ -65,9 +65,14 @@ const RiverPhotoMarkers = dynamic(() => import('@/components/map/RiverPhotoMarke
 const HazardMarkers = dynamic(() => import('@/components/map/HazardMarkers'), { ssr: false });
 const FlowParticlesLayer = dynamic(() => import('@/components/map/FlowParticlesLayer'), { ssr: false });
 
-// Roughly the bounding box covering all Missouri Ozark float rivers we plan
-// — used as the default map view when no river is selected yet.
-const OZARKS_BOUNDS: [number, number, number, number] = [-93.5, 36.4, -90.4, 38.6];
+// Last-resort frame if the server could not compute the service area.
+//
+// It is NOT the default view — `defaultBounds` is, and it comes from
+// getServiceAreaBounds() on the server. This constant is what that box used to
+// be, and it is kept only so a failed RPC still renders a map: at minLat 36.4
+// it excluded the Buffalo, Caddo and Mulberry, which is exactly the falling-
+// behind that moving the real value server-side is meant to end.
+const FALLBACK_BOUNDS: [number, number, number, number] = [-93.5, 36.4, -90.4, 38.6];
 
 // localStorage key for the Filters panel's layer choices (versioned so a
 // future shape change can just bump the suffix instead of migrating).
@@ -76,9 +81,15 @@ const FILTERS_STORAGE_KEY = 'eddy-plan-map-filters-v1';
 interface PlanPageClientProps {
   initialRiverSlug: string | null;
   guidePost?: { slug: string; title: string } | null;
+  /** [minLng, minLat, maxLng, maxLat] covering every active river. */
+  defaultBounds?: [number, number, number, number];
 }
 
-export default function PlanPageClient({ initialRiverSlug, guidePost = null }: PlanPageClientProps) {
+export default function PlanPageClient({
+  initialRiverSlug,
+  guidePost = null,
+  defaultBounds = FALLBACK_BOUNDS,
+}: PlanPageClientProps) {
   const searchParams = useSearchParams();
 
   const urlRiver = searchParams.get('river') ?? initialRiverSlug;
@@ -626,7 +637,7 @@ export default function PlanPageClient({ initialRiverSlug, guidePost = null }: P
   if (!riverSlug) {
     return (
       <div className="relative bg-neutral-100 plan-viewport-h">
-        <MapContainer initialBounds={OZARKS_BOUNDS} showLegend={false}>
+        <MapContainer initialBounds={defaultBounds} showLegend={false}>
           {/* Every river in its live condition color — click one to start
               planning it (no river excluded here since none is selected). */}
           <ConditionNetworkLayer showLabels={showRiverNames} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />

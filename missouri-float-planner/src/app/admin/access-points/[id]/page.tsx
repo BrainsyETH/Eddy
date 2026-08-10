@@ -103,7 +103,10 @@ const MANAGING_AGENCY_OPTIONS = [
   { value: 'NPS', label: 'NPS - National Park Service' },
   { value: 'USFS', label: 'USFS - U.S. Forest Service' },
   { value: 'COE', label: 'COE - Army Corps of Engineers' },
-  { value: 'State Park', label: 'Missouri State Parks' },
+  // Generic, matching what the access point page now displays. MDC above is
+  // correctly Missouri-specific because MDC is a Missouri agency; a state park
+  // is a kind of manager, and Eddy has Arkansas ones.
+  { value: 'State Park', label: 'State Park' },
   { value: 'County', label: 'County' },
   { value: 'Municipal', label: 'Municipal' },
   { value: 'Private', label: 'Private' },
