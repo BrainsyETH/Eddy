@@ -258,17 +258,38 @@ deliberate and correct for `last_seen_at` and `resolved_at`, which need to be
 comparable within a run; `finished_at` is the one column that must be an
 observation rather than an intention.
 
-**The loose grants are still open.** `TRUST_LEDGER_V1_PLAN.md` flagged them as
-predating the work and deserving their own change. Verified on production
-2026-08-10: `try_cron_lock`, `release_cron_lock`, `validate_river_data` and
-`get_river_geometry_json` are EXECUTE-able by PUBLIC, `anon` and
-`authenticated`; `cron_runs` grants both `anon` and `authenticated`
-INSERT/UPDATE/DELETE/TRUNCATE. Nothing is exploitable — `cron_runs` has RLS
-enabled with zero policies, which denies everything to a non-bypassing role — but
-that is one mechanism holding, and the whole argument of `20260731223406` and
-`20260804181529` is that this is not a reason to leave the second one open. A
-cron lock is a better target than most: holding `trust_tick` or the gauge update
-stops the safety-relevant path without breaking anything visibly.
+**The loose grants are still open — but on three objects, not four.**
+`TRUST_LEDGER_V1_PLAN.md` flagged them as predating the work and deserving their
+own change. Verified on production 2026-08-10: `try_cron_lock`,
+`release_cron_lock`, `validate_river_data` and `get_river_geometry_json` are
+EXECUTE-able by PUBLIC, `anon` and `authenticated`; `cron_runs` grants both
+`anon` and `authenticated` INSERT/UPDATE/DELETE/TRUNCATE. Nothing is
+exploitable — `cron_runs` has RLS enabled with zero policies, which denies
+everything to a non-bypassing role — but that is one mechanism holding, and the
+whole argument of `20260731223406` and `20260804181529` is that this is not a
+reason to leave the second one open. A cron lock is a better target than most:
+holding `trust_tick` or the gauge update stops the safety-relevant path without
+breaking anything visibly.
+
+**`get_river_geometry_json` does not belong on that list, and checking the call
+sites is what showed it.** `/api/rivers/[slug]` is the public river detail
+endpoint and calls it through `createClient()`, which builds an SSR client on
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` — so it executes as `anon`. Revoking that grant
+would make PostgREST return an error object, which that route handles by falling
+back to `rivers.geom` and logging a warning: every public river page would
+quietly lose the function it was written to use, on the same code path whose
+earlier silent failure is baseline defect `geometry-rpc-missing`. `anon` EXECUTE
+on it is correct by design — a read-only geometry getter, SECURITY INVOKER, with
+RLS on `rivers` still governing the result. The plan grouped four objects by the
+shape of their ACL; only three of them share a fix.
+
+A second claim worth correcting, because it is the kind that gets repeated: the
+service role does **not** bypass grants. `service_role` has `rolbypassrls` true
+and `rolsuper` **false**, and BYPASSRLS bypasses row-level security only. What
+lets the crons work is an explicit `service_role=EXECUTE` on each function and
+explicit table grants on `cron_runs`. Any revoke here must name `public`, `anon`
+and `authenticated` specifically; a broader one would stop every cron in the
+repo, and RLS-bypass would not save it.
 
 ## Open operational items
 
