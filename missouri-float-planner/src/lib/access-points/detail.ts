@@ -22,7 +22,7 @@ import type {
   BookingLinkInfo,
 } from '@/types/api';
 import { loadAvailability } from '@/lib/camping/read';
-import { loadBookingLink } from '@/lib/camping/booking';
+import { bookingUrlFor, loadBookingLink } from '@/lib/camping/booking';
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -437,7 +437,12 @@ async function getNPSCampgroundInfo(
       name: cg.name,
       npsUrl: cg.nps_url,
       reservationInfo: cg.reservation_info,
-      reservationUrl: cg.reservation_url,
+      // Held to the same standard as the directory's URL, because it feeds the
+      // same button under the same provider-naming label. All 30 rows carrying
+      // one are already www.recreation.gov, so this changes nothing today and
+      // catches the day the NPS feed publishes a concessioner's site instead —
+      // where "Book on Recreation.gov" would be the wrong sentence.
+      reservationUrl: bookingUrlFor('recreation_gov', cg.reservation_url),
       fees: feesData.map((f: { cost?: string; description?: string; title?: string }) => ({
         cost: f.cost || '0.00',
         description: f.description || '',

@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { loadBookingLink } from './booking';
+import { bookingUrlFor, loadBookingLink } from './booking';
 
 /**
  * Just enough of the client for the one query loadBookingLink makes.
@@ -90,6 +90,111 @@ test('a failed read costs the button, not the page', async () => {
   // so a page that cannot read it renders as it did before the button existed.
   assert.equal(
     await loadBookingLink(supabaseReturning(null, { message: 'boom' }), 'ap-4'),
+    null,
+  );
+});
+
+/* ── The URL has to be the provider the button names ──────────────────────── */
+
+test('the real stored URLs all survive, which is the point of the list', () => {
+  // Every reservation URL currently reachable from a booking button. If a
+  // future host list breaks one of these, it has broken a working button.
+  assert.equal(
+    bookingUrlFor('recreation_gov', 'https://www.recreation.gov/camping/campgrounds/232391'),
+    'https://www.recreation.gov/camping/campgrounds/232391',
+  );
+  assert.equal(bookingUrlFor('mo_state_parks', 'https://icampmo.com'), 'https://icampmo.com');
+  // The host icampmo.com actually resolves to, so a row storing the resolved
+  // URL is the same booking system and not a stranger.
+  assert.equal(
+    bookingUrlFor('mo_state_parks', 'https://icampmo.usedirect.com/MSPWeb/'),
+    'https://icampmo.usedirect.com/MSPWeb/',
+  );
+});
+
+test('a park page in the reservation column is refused, which is #1173 in one line', () => {
+  // The failure this whole check exists for, and the one an https-and-parses
+  // check would have waved through: well-formed, https, and takes no bookings.
+  assert.equal(
+    bookingUrlFor('mo_state_parks', 'https://mostateparks.com/park/meramec-state-park'),
+    null,
+  );
+});
+
+test("another provider's booking link cannot wear this provider's label", () => {
+  // The directory holds all of these on rows that are legitimate booking links
+  // for the outfitter they belong to. Under a button reading "Book on
+  // Recreation.gov" every one of them is a lie about the destination, and only
+  // a facility join separates those rows from these.
+  for (const url of [
+    'https://fareharbor.com/embeds/book/someoutfitter/',
+    'https://www.vrbo.com/1234567',
+    'https://www.hipcamp.com/en-US/land/missouri-somewhere',
+    'https://www.roverpass.com/c/some-campground',
+    'https://reserve.arkansasstateparks.com/',
+  ]) {
+    assert.equal(bookingUrlFor('recreation_gov', url), null, url);
+  }
+});
+
+test('a lookalike host does not pass as a subdomain', () => {
+  // The suffix bug: endsWith('recreation.gov') alone would accept both of
+  // these, and the second is a registrable domain somebody else can hold.
+  assert.equal(bookingUrlFor('recreation_gov', 'https://notrecreation.gov/camping'), null);
+  assert.equal(bookingUrlFor('recreation_gov', 'https://recreation.gov.example.com/'), null);
+  // A real subdomain still passes — this is not an exact-match check.
+  assert.equal(
+    bookingUrlFor('recreation_gov', 'https://www.recreation.gov/'),
+    'https://www.recreation.gov/',
+  );
+});
+
+test('the host match ignores case, since a URL host is case-insensitive', () => {
+  assert.equal(
+    bookingUrlFor('recreation_gov', 'https://WWW.Recreation.GOV/camping/campgrounds/232391'),
+    'https://WWW.Recreation.GOV/camping/campgrounds/232391',
+  );
+});
+
+test('cleartext and credentialed URLs are refused', () => {
+  // http: the one thing this button does is send somebody to type payment
+  // details. Upgrading the scheme silently would be inventing a URL nobody
+  // verified, so it is refused rather than rewritten.
+  assert.equal(bookingUrlFor('recreation_gov', 'http://www.recreation.gov/camping'), null);
+  // user:pass@ is a phishing shape before it is anything else, and the host
+  // check alone would have accepted this one.
+  assert.equal(
+    bookingUrlFor('recreation_gov', 'https://evil.example.com@www.recreation.gov/'),
+    null,
+  );
+});
+
+test('a non-URL and a non-web scheme are refused', () => {
+  assert.equal(bookingUrlFor('recreation_gov', 'recreation.gov/camping'), null);
+  assert.equal(bookingUrlFor('recreation_gov', 'not a url at all'), null);
+  // Linking.openURL hands a scheme it does not recognise to the OS, so a
+  // booking column is not a place to let one through.
+  assert.equal(bookingUrlFor('mo_state_parks', 'javascript:alert(1)'), null);
+  assert.equal(bookingUrlFor('mo_state_parks', 'itms-apps://apps.apple.com/app/id1'), null);
+});
+
+test('absent stays absent, without a complaint in the log', () => {
+  assert.equal(bookingUrlFor('recreation_gov', null), null);
+  assert.equal(bookingUrlFor('recreation_gov', undefined), null);
+  assert.equal(bookingUrlFor('recreation_gov', ''), null);
+});
+
+test('a directory row pointing somewhere else produces no link at all', async () => {
+  // End to end: the read refuses it rather than handing the app a URL the
+  // label would misdescribe.
+  assert.equal(
+    await loadBookingLink(
+      supabaseReturning({
+        source: 'recreation_gov',
+        nearby_services: { reservation_url: 'https://www.vrbo.com/1234567' },
+      }),
+      'ap-mislinked',
+    ),
     null,
   );
 });
