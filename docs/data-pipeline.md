@@ -79,6 +79,7 @@ when running the write phases.
 | `import-outfitters-osm.ts` | direct | `points_of_interest` insert from Overpass | **write-default**, `--dry-run` |
 | `ingestion/geocode-services-dryrun.ts` | direct | none — proposes `nearby_services` coordinates from OSM; accepted rows go into a migration by hand | writes nothing, ever |
 | `ingestion/geocode-services-mapbox.ts` | direct, needs `MAPBOX_ACCESS_TOKEN` | none — proposes `nearby_services` coordinates via Mapbox v6 `permanent=true`; prints a river-validation query + migration block | writes nothing, ever |
+| `ingestion/propose-service-places.ts` | direct, needs `GOOGLE_PLACES_API_KEY` | none — proposes `nearby_services.google_place_id`; gate is name ≥ 0.86 (scored against `alt_names` too) **and** a corroborating phone or website, then a printed PostGIS river check. Retains only `place_id` | writes nothing, ever |
 | `snapshot-usgs-percentiles.ts` | direct | `usgs_daily_percentiles` upsert | **write-default**, `--dry-run` |
 | `sync-gauge-thresholds.ts` | `npm run db:sync-thresholds` | `river_gauges` threshold update from NWS AHPS | **write-default**, `--dry-run` |
 | `import-nhd-rivers.ts` | `npm run db:import-rivers` | `rivers` insert (skips existing slugs) | **NONE** |

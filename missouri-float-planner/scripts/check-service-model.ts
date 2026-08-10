@@ -52,6 +52,8 @@ interface ServiceRow {
   longitude: number | null;
   geocode_precision: string | null;
   services_offered: string[] | null;
+  last_verified_at: string | null;
+  google_place_id: string | null;
 }
 
 let errors = 0;
@@ -100,7 +102,9 @@ async function main() {
 
   const { data, error } = await supabase
     .from('nearby_services')
-    .select('id, name, type, status, phone, latitude, longitude, geocode_precision, services_offered');
+    .select(
+      'id, name, type, status, phone, latitude, longitude, geocode_precision, services_offered, last_verified_at, google_place_id',
+    );
   if (error) throw new Error(`Could not read nearby_services: ${error.message}`);
   const rows = (data ?? []) as ServiceRow[];
 
@@ -194,6 +198,35 @@ async function main() {
       `  ${'excluded'.padEnd(12)} ${String(ineligible.length).padStart(3)} closed — not drawn, not counted, not geocoded`,
     );
   }
+
+  /* ── 4b. Verification age — the work queue ─────────────────────────────
+     `verified_source` has recorded HOW a row was confirmed since 00072, and
+     until 20260810010000 nothing recorded WHEN. So a row confirmed against a
+     2019 review and one confirmed last week were the same claim, and the only
+     way to find the stale ones was to re-check all of them.
+
+     Printed rather than raised as a finding: this is a backlog to work
+     through, not a defect to fix, and a hundred identical low-severity
+     findings is the list nobody reads. The count is the useful shape. */
+  const openRows = rows.filter((r) => serviceEligible(asService(r)));
+  const neverVerified = openRows.filter((r) => !r.last_verified_at);
+  const withPlaceId = openRows.filter((r) => r.google_place_id);
+  console.log('\nVerification');
+  console.log(
+    `  ${'dated'.padEnd(12)} ${String(openRows.length - neverVerified.length).padStart(3)} of ${String(openRows.length).padStart(3)} carry a last_verified_at`,
+  );
+  console.log(
+    `  ${'never'.padEnd(12)} ${String(neverVerified.length).padStart(3)} have never been re-confirmed` +
+      (neverVerified.length
+        ? ` — e.g. ${neverVerified.slice(0, 3).map((r) => r.name).join(', ')}`
+        : ''),
+  );
+  console.log(
+    `  ${'place id'.padEnd(12)} ${String(withPlaceId.length).padStart(3)} can be refreshed automatically` +
+      (withPlaceId.length === 0
+        ? ' — none yet; run scripts/ingestion/propose-service-places.ts'
+        : ''),
+  );
 
   /* ── 5. THE API AGREES WITH THE TABLE ──────────────────────────────────
      The gap this script was blind to, and it cost a release.
