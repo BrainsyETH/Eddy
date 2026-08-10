@@ -21,6 +21,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { spokenWeekday } from './availability';
 import {
   groupSites,
+  listOutcome,
   stateLabel,
   summariseByKind,
   type LoopGroup,
@@ -180,17 +181,36 @@ export function CampsiteList({
   entries,
   filters,
   date,
+  dateLabel,
 }: {
   entries: SiteOnNight[];
   filters: string[];
   date: string;
+  /**
+   * The night in words — `Tonight`, `Friday, Aug 14`.
+   *
+   * The empty lines below used to end in "that night", which referred to a
+   * selection made two sections up the page and visible nowhere near here. A
+   * demonstrative needs something to point AT.
+   *
+   * Leads the sentence rather than being appended to it, because the three
+   * forms this takes do not share a grammar: "Nothing open on Friday, Aug 14"
+   * works and "Nothing open on Tonight" does not.
+   */
+  dateLabel?: string;
 }) {
   const { colors } = useTheme();
   const groups = groupSites(entries, filters as never);
+  // ── NO EARLY RETURN ON AN EMPTY GROUPING ────────────────────────────────
+  // This used to be `if (groups.length === 0) return null`, which drew the
+  // section's heading — now naming a night — above nothing whatsoever. Three
+  // different facts arrive here as zero groups and only one of them is about
+  // the campground; see listOutcome, which keeps them apart.
+  const outcome = listOutcome(entries, groups, filters as never);
 
-  if (groups.length === 0) return null;
-
-  const anyOpen = groups.some((group) => group.open.length > 0);
+  // Lead with the night in every one of them. The copy used to end in "that
+  // night", pointing at a selection made two sections up the page.
+  const lead = dateLabel ?? 'That night';
 
   return (
     <View>
@@ -202,13 +222,18 @@ export function CampsiteList({
           showName={groups.length > 1}
         />
       ))}
-      {!anyOpen ? (
+      {outcome === 'sites' ? null : (
         <Text style={[styles.taken, { color: colors.textMuted }]}>
-          {filters.length > 0
-            ? 'No sites match those filters that night.'
-            : 'Nothing open that night.'}
+          {outcome === 'none_open'
+            ? `${lead} — nothing open.`
+            : outcome === 'filtered_out'
+              ? `${lead} — no sites match those filters.`
+              : // Not a claim about the campground. Most nights outside the
+                // feed's own window land here, and so does a night whose sites
+                // all decoded to 'unknown'.
+                `${lead} — availability was not measured.`}
         </Text>
-      ) : null}
+      )}
     </View>
   );
 }

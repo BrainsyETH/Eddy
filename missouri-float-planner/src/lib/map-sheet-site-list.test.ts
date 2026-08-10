@@ -14,6 +14,7 @@ import { SITE_NIGHT_CODE, SITE_NIGHT_UNKNOWN } from './camping/sites';
 import {
   filterCounts,
   groupSites,
+  listOutcome,
   SITE_FILTERS,
   naturalCompare,
   siteKind,
@@ -337,4 +338,47 @@ test('recreation.gov keeps the type it declares', () => {
     NIGHTS[0],
   );
   assert.ok(entries[0].tags.includes('Walk-in'));
+});
+
+/* ── Why the list has nothing to show ─────────────────────────────────────── */
+//
+// Three different facts used to leave CampsiteList returning null, under a
+// heading that now names a night. Only one of them is about the campground, and
+// telling a reader "nothing open" when nothing was MEASURED is the same class
+// of error as printing "0" on a night the place is shut.
+
+test('every site taken is the only outcome that means "nothing open"', () => {
+  const entries = sitesOnNight([site({ nights: 'RRR' })], NIGHTS, NIGHTS[0]);
+  assert.equal(listOutcome(entries, groupSites(entries), []), 'none_open');
+});
+
+test('an unmeasured night does not claim the campground is full', () => {
+  // '-' is "not measured". groupSites drops these into neither half, so the
+  // group empties and falls away — indistinguishable from a booked-out night
+  // until this told them apart.
+  const entries = sitesOnNight([site({ nights: '---' })], NIGHTS, NIGHTS[0]);
+  assert.deepEqual(groupSites(entries), []);
+  assert.equal(listOutcome(entries, groupSites(entries), []), 'unmeasured');
+});
+
+test('a date outside the feed’s own window is unmeasured, not empty', () => {
+  // sitesOnNight returns [] on indexOf(date) < 0. That window comes from the
+  // server while the night chips are built from the DEVICE's day, so a phone an
+  // hour either side of America/Chicago can select a night the feed never sent
+  // — and it may be a night with plenty of room.
+  const entries = sitesOnNight([site({ nights: 'AAA' })], NIGHTS, '2026-08-20');
+  assert.deepEqual(entries, []);
+  assert.equal(listOutcome(entries, groupSites(entries), []), 'unmeasured');
+});
+
+test('filters emptying a measured night is its own answer', () => {
+  const entries = sitesOnNight([site({ nights: 'AAA' })], NIGHTS, NIGHTS[0]);
+  const filters = ['RV'] as never;
+  assert.deepEqual(groupSites(entries, filters), []);
+  assert.equal(listOutcome(entries, groupSites(entries, filters), filters), 'filtered_out');
+});
+
+test('rows to show is not an empty state at all', () => {
+  const entries = sitesOnNight([site({ nights: 'AAA' })], NIGHTS, NIGHTS[0]);
+  assert.equal(listOutcome(entries, groupSites(entries), []), 'sites');
 });
