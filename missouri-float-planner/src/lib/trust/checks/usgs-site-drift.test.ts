@@ -4,12 +4,13 @@ import type { NationalSiteMeta } from '@/lib/usgs/national-sites';
 import {
   DRAINAGE_TOLERANCE_FRACTION,
   MOVE_TOLERANCE_METERS,
+  RECORD_STALE_DAYS,
   deriveSiteDriftFindings,
   foldStationRows,
   usgsSiteDriftCheck,
 } from './usgs-site-drift';
 import type { StoredSite } from './usgs-site-drift';
-import { severityForRule } from '../severity';
+import { USGS_SITE_DRIFT_RULES, isRuleClassified, severityForRule } from '../severity';
 
 // ── why this file exists ─────────────────────────────────────────────
 //
@@ -44,11 +45,25 @@ function remote(over: Partial<NationalSiteMeta> = {}): NationalSiteMeta {
   };
 }
 
-function derive(stored: StoredSite[], source: NationalSiteMeta[], unreached: string[] = []) {
+const NOW = new Date('2026-08-10T12:00:00Z');
+
+/** A record end recent enough that usgs_site_record_ended stays quiet. */
+const FRESH = new Date('2026-08-10T06:30:00Z');
+
+function derive(
+  stored: StoredSite[],
+  source: NationalSiteMeta[],
+  unreached: string[] = [],
+  recordEnds?: Map<string, Date | null>,
+) {
   return deriveSiteDriftFindings({
     stored,
     source: new Map(source.map((s) => [s.siteId, s])),
     unreached: new Set(unreached),
+    // Default every stored site to a fresh record so tests about the other
+    // rules are not silently also testing this one.
+    recordEnds: recordEnds ?? new Map(stored.map((s) => [s.siteId, FRESH])),
+    now: NOW,
   });
 }
 
@@ -60,16 +75,16 @@ test('a station that matches the source raises nothing', () => {
 
 // ── the rule that matters most, and the way it goes wrong ────────────
 
-test('a site the source does not know about is reported absent', () => {
+test('a site the source does not know about is reported as an unknown id', () => {
   const findings = derive([HUZZAH], []);
   assert.equal(findings.length, 1);
-  assert.equal(findings[0].ruleKey, 'usgs_site_absent');
+  assert.equal(findings[0].ruleKey, 'usgs_site_unknown');
   assert.equal(findings[0].entityKey, '07014000');
   // The operator needs to know it is a primary gauge to judge the urgency.
   assert.deepEqual(findings[0].evidence?.primaryForSlugs, ['courtois', 'huzzah']);
 });
 
-test('a site whose request FAILED is never reported absent', () => {
+test('a site whose request FAILED is never reported as unknown', () => {
   // The regression this prevents, and the reason fetchSitesByIds returns
   // `unreached` at all. A timeout would otherwise be indistinguishable from a
   // decommission, and the ledger would file a high-severity notice claiming
@@ -85,6 +100,68 @@ test('an unreached site is skipped entirely, not just for absence', () => {
   // the ones that would fire off stale stored values alone.
   const findings = derive([HUZZAH], [remote({ name: 'Something Else' })], ['07014000']);
   assert.deepEqual(findings, []);
+});
+
+// ── the record ending, which is what a dead station actually looks like ──
+
+test('a station USGS still lists but stopped publishing is reported', () => {
+  // The correction this file exists to record. The first version of this check
+  // read "no monitoring-location record" as "decommissioned", which would have
+  // made the headline rule almost entirely silent: USGS KEEPS the location
+  // record after telemetry ends. Verified against three stations this repo has
+  // already buried — 06928900, 07014100 and 05497485 — every one of which still
+  // returns a full monitoring-location record today.
+  //
+  // The death is in the time series, not the location.
+  const ends = new Map([['07014000', new Date('2025-07-26T00:00:00Z')]]);
+  const findings = derive([HUZZAH], [remote()], [], ends);
+
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].ruleKey, 'usgs_site_record_ended');
+  assert.equal(findings[0].evidence?.lastPublishedAt, '2025-07-26T00:00:00.000Z');
+  assert.ok((findings[0].evidence?.daysSincePublished as number) > 300);
+});
+
+test('a station with no flow or stage series at all is reported', () => {
+  // Present in the map with a null end: USGS answered, and the answer is that
+  // there is no discharge or gage-height record. Eddy is wired to a station it
+  // can never read.
+  const findings = derive([HUZZAH], [remote()], [], new Map([['07014000', null]]));
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].ruleKey, 'usgs_site_record_ended');
+  assert.equal(findings[0].evidence?.lastPublishedAt, null);
+});
+
+test('a station missing from the record map is NOT reported', () => {
+  // The distinction that makes the rule safe. Absent from the map means the
+  // time-series request did not answer about it — which must never be read as
+  // "the record ended", the same way an unreached location must never be read
+  // as "the id is unknown". A null entry is an answer; a missing entry is not.
+  const findings = derive([HUZZAH], [remote()], [], new Map());
+  assert.deepEqual(findings, []);
+});
+
+test('a routine outage inside the window is not a death', () => {
+  // stale_gauge already reports silence within a day. This rule answers a
+  // different question — is it coming back — so it has to outlast the outages
+  // where the answer is yes.
+  const recent = new Date(NOW.getTime() - (RECORD_STALE_DAYS - 4) * 24 * 60 * 60 * 1000);
+  assert.deepEqual(derive([HUZZAH], [remote()], [], new Map([['07014000', recent]])), []);
+});
+
+test('the boundary is exclusive, so a station exactly at the threshold is quiet', () => {
+  const exactly = new Date(NOW.getTime() - RECORD_STALE_DAYS * 24 * 60 * 60 * 1000);
+  assert.deepEqual(derive([HUZZAH], [remote()], [], new Map([['07014000', exactly]])), []);
+});
+
+test('an unknown id does not also claim the record ended', () => {
+  // Two rules about one station would be two fingerprints for what is really a
+  // single defect, and resolving one would leave the other open forever. When
+  // USGS has no location record, the id is the finding and nothing else is
+  // knowable.
+  const findings = derive([HUZZAH], [], [], new Map([['07014000', null]]));
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].ruleKey, 'usgs_site_unknown');
 });
 
 // ── movement ─────────────────────────────────────────────────────────
@@ -178,7 +255,7 @@ test('one station can drift in more than one way and each is its own finding', (
   );
 });
 
-test('an absent site raises exactly one finding, not four', () => {
+test('an unknown site raises exactly one finding, not several', () => {
   // Nothing is known about the station, so the other three comparisons have no
   // input. Emitting them would be three findings asserting a disagreement with
   // a value that was never received.
@@ -271,19 +348,28 @@ test('a row with no site id or no coordinate is dropped from scope', () => {
 // ── registration ─────────────────────────────────────────────────────
 
 test('every rule this check emits is classified', () => {
-  // severityForRule falls back to 'high' for anything unmapped, so an
-  // unclassified rule does not throw — it quietly files at the wrong severity.
-  const emitted = [
-    'usgs_site_absent',
-    'usgs_site_moved',
-    'usgs_site_renamed',
-    'usgs_site_drainage_changed',
-  ];
-  for (const rule of emitted) {
-    assert.ok(severityForRule(rule), `${rule} has no severity`);
+  // Driven off the exported constant rather than a list retyped here, so a rule
+  // added to the check and to severity.ts cannot pass a test that still checks
+  // the old four. severityForRule falls back to 'high' for anything unmapped,
+  // so an unclassified rule does not throw — it quietly files at the wrong
+  // severity, which is the failure this guards.
+  for (const rule of USGS_SITE_DRIFT_RULES) {
+    assert.ok(isRuleClassified(rule), `${rule} has no severity mapping`);
   }
-  assert.equal(severityForRule('usgs_site_absent'), 'high');
+
+  assert.equal(severityForRule('usgs_site_unknown'), 'high');
+  assert.equal(severityForRule('usgs_site_record_ended'), 'high');
   assert.equal(severityForRule('usgs_site_moved'), 'medium');
+});
+
+test('the two station-death rules are high, never critical', () => {
+  // Deliberate, and worth pinning. stale_gauge owns the surface consequence — a
+  // badge quoting a gauge that is not reporting — and rates it critical. Either
+  // of these at critical would double-count one condition in every gate that
+  // counts criticals, and the Trust MVP gate counts them.
+  assert.equal(severityForRule('stale_gauge'), 'critical');
+  assert.equal(severityForRule('usgs_site_unknown'), 'high');
+  assert.equal(severityForRule('usgs_site_record_ended'), 'high');
 });
 
 test('the check runs daily', () => {

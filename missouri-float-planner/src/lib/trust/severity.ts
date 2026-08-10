@@ -88,7 +88,8 @@ export const GAUGE_WIRING_RULES = ['gauge_dual_primary'] as const;
  * Eddy.
  */
 export const USGS_SITE_DRIFT_RULES = [
-  'usgs_site_absent',
+  'usgs_site_unknown',
+  'usgs_site_record_ended',
   'usgs_site_moved',
   'usgs_site_renamed',
   'usgs_site_drainage_changed',
@@ -190,13 +191,17 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   // A gauge that is primary for two rivers makes find(isPrimary) arbitrary —
   // the misassociation class docs/gauge-alerting-misalignment-audit.md is about.
   gauge_dual_primary: 'high',
-  // USGS no longer publishes a station Eddy is wired to. High rather than
-  // critical on purpose: the surface consequence is a badge quoting a dead
-  // gauge, and stale_gauge already owns that at critical. Two criticals about
-  // one condition would double-count it in every gate that counts them. This is
-  // the LEADING indicator — it fires from the source before the readings dry
-  // up, which is the whole reason a source check earns its outbound request.
-  usgs_site_absent: 'high',
+  // A stored site id USGS has no record of. Nothing will ever read from it, so
+  // the gauge is inert whatever the rest of the row says.
+  usgs_site_unknown: 'high',
+  // USGS's published flow/stage record for a wired station is over. High rather
+  // than critical on purpose: the surface consequence is a badge quoting a dead
+  // gauge, and stale_gauge already owns that at critical, so two criticals here
+  // would double-count one condition in every gate that counts them. What this
+  // adds is not earlier warning — stale_gauge fires within a day and this waits
+  // a fortnight — but the distinction between a transient outage and a station
+  // that is not coming back.
+  usgs_site_record_ended: 'high',
   no_gauges_near_geometry: 'high',
   bbox_outside_state: 'high',
   // Defence in depth that is currently redundant — RLS is holding the line —

@@ -132,14 +132,22 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
   // these were graded generously: USGS is authoritative for its own station
   // metadata, so there is no judgement to exercise about the value.
   //
-  // usgs_site_absent is the exception, and it is `investigate` rather than
-  // `judgment` because the first question is not what to do but what happened.
-  usgs_site_absent: {
+  // The two station-death rules are the exception, and both are `investigate`
+  // rather than `judgment` because the first question is not what to do but
+  // what happened.
+  usgs_site_unknown: {
     kind: 'investigate',
-    action: 'Find out whether the station was decommissioned or the site id is wrong.',
+    action: 'Find out what this site id was meant to be.',
     where: 'https://waterdata.usgs.gov/monitoring-location/<site id>/',
     method:
-      'Load the station page on waterdata.usgs.gov. A decommissioned station says so and has a period of record that ended; a bad site id 404s. If it is decommissioned and the station is primary for a river, that river needs a new primary gauge before stale_gauge fires at critical — which it will, roughly a day after the last reading. If the id is wrong, fix it on the station and expect the fingerprint to change.',
+      'USGS has no monitoring location under this number, which is narrower than it sounds: USGS keeps the location record after telemetry ends, so a station that merely stopped reporting would still be found and would file usgs_site_record_ended instead. This is a wrong or retired identifier — a transcription error, or a number reassigned upstream. Check the river\'s other gauges for a near-miss digit. Correcting the id changes the finding\'s fingerprint, so this row resolves and any real drift on the corrected station is raised fresh.',
+  },
+  usgs_site_record_ended: {
+    kind: 'investigate',
+    action: 'Decide whether the river needs a different primary gauge.',
+    where: 'https://waterdata.usgs.gov/monitoring-location/<site id>/',
+    method:
+      'The station is still listed by USGS; what has ended is its published discharge/stage record. Confirm on the station page that the period of record is genuinely over rather than a long outage. If it is over and the station is primary for a river, that river is being graded on a gauge that will never report again — pick a replacement from the river\'s remaining links and move is_primary, minding the distance_from_section_miles tiebreak shared/primary-river-link.ts uses. If it is a secondary, deactivating the station is enough. Expect stale_gauge to be open on the same station at critical; this is the finding that says waiting will not fix it.',
   },
   usgs_site_moved: {
     kind: 'mechanical',

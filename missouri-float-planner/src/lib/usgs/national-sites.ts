@@ -300,12 +300,12 @@ export async function fetchRegionLatest(bbox: Bbox): Promise<NationalSiteReading
  * partial import is repaired by the next idempotent upsert.
  *
  * The opposite is required here. This feeds a trust check, and for a check
- * "USGS did not answer" and "USGS says this station is gone" are OPPOSITE
- * facts that a degrading fetch renders identical — the first silently becomes
- * the second, and the ledger files a decommission notice about a station that
- * is fine because a request timed out. That is precisely the failure mode this
- * subsystem was built to catch, recorded twice in TRUST_LEDGER_V1_PLAN.md
- * about the ledger's own first day.
+ * "USGS did not answer" and "USGS has no such record" are OPPOSITE facts that
+ * a degrading fetch renders identical — the first silently becomes the second,
+ * and the ledger files a notice about a station that is fine because a request
+ * timed out. That is precisely the failure mode this subsystem was built to
+ * catch, recorded twice in TRUST_LEDGER_V1_PLAN.md about the ledger's own first
+ * day.
  *
  * So `unreached` carries the site ids whose batch failed. A caller may conclude
  * a site is absent ONLY if it appears in neither `found` nor `unreached`.
@@ -317,14 +317,35 @@ export interface SiteMetadataLookup {
 }
 
 /**
- * How many site numbers go in one request.
+ * How many sites go in one request.
  *
  * The filter is a comma-joined query parameter, so the ceiling is URL length
- * rather than anything USGS documents. Fifty keeps the URL near 700 characters
- * with room for the rest of the query, and the whole curated set is one or two
- * requests at that size.
+ * rather than anything USGS documents. Fifty keeps the URL near 900 characters
+ * with room for the rest of the query, and the whole curated set is one request
+ * at that size.
  */
 const SITE_BATCH = 50;
+
+/**
+ * Headroom on `limit` above the batch size, and why it is not zero.
+ *
+ * The first version set `limit` to exactly the batch size, which is a
+ * truncation bug waiting for its input: any batch that matches more features
+ * than sites requested pushes the surplus onto a page this function never
+ * reads, and the sites on that page come back as `found`-misses — which a
+ * caller is entitled to read as "USGS has no such record". A silent absence
+ * manufactured by pagination is the worst possible failure for this function.
+ *
+ * Filtering by the fully-qualified feature id makes a surplus unlikely, so this
+ * is belt and braces; the truncation check below is the part that actually
+ * refuses to guess.
+ */
+const LIMIT_HEADROOM = 4;
+
+/** '07019000' → 'USGS-07019000'. The identity USGS actually keys on. */
+function toUsgsFeatureId(siteId: string): string {
+  return siteId.startsWith('USGS-') ? siteId : `USGS-${siteId}`;
+}
 
 export async function fetchSitesByIds(siteIds: string[]): Promise<SiteMetadataLookup> {
   const found = new Map<string, NationalSiteMeta>();
@@ -338,8 +359,23 @@ export async function fetchSitesByIds(siteIds: string[]): Promise<SiteMetadataLo
     const batch = unique.slice(i, i + SITE_BATCH);
     const url = new URL(`${MODERN_BASE}/monitoring-locations/items`);
     url.searchParams.set('f', 'json');
-    url.searchParams.set('monitoring_location_number', batch.join(','));
-    url.searchParams.set('limit', String(batch.length));
+
+    // ── Query the fully-qualified id, not the bare number ────────────────
+    //
+    // A monitoring location's identity is agency_code + monitoring_location_number,
+    // and the collection's feature id is that pair as `USGS-07014000`. Querying
+    // the bare number asks a question whose answer is not guaranteed unique:
+    // another agency using the same number would come back too, and since
+    // results were keyed by number alone, whichever arrived last would win —
+    // silently replacing a USGS station's coordinates with someone else's.
+    //
+    // agency_code is set as well. Belt and braces again: it makes the intent
+    // legible in the request, and it means a future change to how ids are
+    // formatted degrades to over-fetching rather than to cross-agency
+    // contamination.
+    url.searchParams.set('id', batch.map(toUsgsFeatureId).join(','));
+    url.searchParams.set('agency_code', 'USGS');
+    url.searchParams.set('limit', String(batch.length + LIMIT_HEADROOM));
 
     try {
       // Station metadata changes on the order of years. The same 24 hours
@@ -354,10 +390,18 @@ export async function fetchSitesByIds(siteIds: string[]): Promise<SiteMetadataLo
 
       // A batch that answers 200 with zero features when it was asked about
       // real site ids is far more likely to be a filter USGS silently ignored
-      // or changed than fifty simultaneous decommissions. Treating it as
-      // "nothing was learned" costs one stale day; treating it as absence
-      // would file fifty false decommission notices at once.
+      // or changed than fifty simultaneous retirements. Treating it as "nothing
+      // was learned" costs one stale day; treating it as absence would file
+      // fifty false findings at once.
       if (features.length === 0) {
+        unreached.push(...batch);
+        continue;
+      }
+
+      // Hit the ceiling: there may be more matches on a page this function does
+      // not read, so any site missing from `found` might be on it. Nothing was
+      // reliably learned about this batch.
+      if (features.length >= batch.length + LIMIT_HEADROOM) {
         unreached.push(...batch);
         continue;
       }
@@ -365,6 +409,14 @@ export async function fetchSitesByIds(siteIds: string[]): Promise<SiteMetadataLo
       for (const f of features) {
         const props = f.properties as Record<string, unknown> | null | undefined;
         if (!props) continue;
+
+        // Re-asserted rather than trusted. A silently-ignored query parameter
+        // is how the region importer would have taken 1.5M non-stream sites
+        // without a single error (see fetchRegionSites), and the same posture
+        // applies to a filter that is load-bearing for identity.
+        const agency = typeof props.agency_code === 'string' ? props.agency_code : null;
+        if (agency !== 'USGS') continue;
+
         const siteId =
           typeof props.monitoring_location_number === 'string'
             ? props.monitoring_location_number
@@ -388,7 +440,7 @@ export async function fetchSitesByIds(siteIds: string[]): Promise<SiteMetadataLo
           county: typeof props.county_name === 'string' ? props.county_name : null,
           huc: typeof props.hydrologic_unit_code === 'string' ? props.hydrologic_unit_code : null,
           siteTypeCode: typeof props.site_type_code === 'string' ? props.site_type_code : null,
-          agencyCode: typeof props.agency_code === 'string' ? props.agency_code : null,
+          agencyCode: agency,
           drainageAreaSqMi: numOrNull(props.drainage_area),
         });
       }
@@ -398,4 +450,109 @@ export async function fetchSitesByIds(siteIds: string[]): Promise<SiteMetadataLo
   }
 
   return { found, unreached };
+}
+
+/**
+ * When each station's published record for the parameters Eddy reads last ended.
+ *
+ * ── Why this is a second request against a different collection ─────────
+ *
+ * Because monitoring-locations cannot answer the question. USGS KEEPS a
+ * location record after telemetry stops — verified against three stations this
+ * repository has already marked dead (06928900, 07014100 and 05497485, all
+ * deactivated by 00153, and 00077's header says outright that 07014100 "exists
+ * as a USGS monitoring location but has no data"): every one still returns a
+ * full monitoring-location record today.
+ *
+ * So absence from that collection means the IDENTIFIER is unknown, which is a
+ * real but different defect. Whether a station is still publishing lives in
+ * time-series-metadata, in the `end` of its series.
+ *
+ * ── Scoped to 00060 and 00065 ───────────────────────────────────────────
+ *
+ * Discharge and gage height are what Eddy reads. A station still publishing
+ * water temperature while its discharge series ended is, for this product,
+ * not publishing — and asking for every parameter would return roughly ten
+ * series per station instead of two.
+ */
+export interface SiteRecordEnds {
+  /** Newest series end per site. A site present with `null` publishes no such series. */
+  ends: Map<string, Date | null>;
+  unreached: string[];
+}
+
+const RECORD_PARAMETERS = [PARAM_DISCHARGE, PARAM_GAGE_HEIGHT];
+
+/**
+ * Series per station for the two parameters, times the batch, plus headroom.
+ *
+ * A station typically has one Points, one Daily and one Water Year series per
+ * parameter, so six is generous. The truncation guard below is what makes an
+ * underestimate safe rather than silently wrong.
+ */
+const SERIES_PER_SITE = 6;
+
+export async function fetchSiteRecordEnds(siteIds: string[]): Promise<SiteRecordEnds> {
+  const ends = new Map<string, Date | null>();
+  const unreached: string[] = [];
+  const unique = [...new Set(siteIds.filter((id) => id && id.trim().length > 0))];
+
+  for (let i = 0; i < unique.length; i += SITE_BATCH) {
+    const batch = unique.slice(i, i + SITE_BATCH);
+    const limit = batch.length * SERIES_PER_SITE * RECORD_PARAMETERS.length;
+    const url = new URL(`${MODERN_BASE}/time-series-metadata/items`);
+    url.searchParams.set('f', 'json');
+    url.searchParams.set('monitoring_location_id', batch.map(toUsgsFeatureId).join(','));
+    url.searchParams.set('parameter_code', RECORD_PARAMETERS.join(','));
+    url.searchParams.set('limit', String(limit));
+
+    try {
+      // One hour. Unlike station metadata this moves continuously on a live
+      // station, and the check reading it runs daily — a day-old answer would
+      // put the freshness question a day behind the thing it is asking about.
+      const res = await fetch(url, { next: { revalidate: 3600 }, headers: modernHeaders() });
+      if (!res.ok) {
+        unreached.push(...batch);
+        continue;
+      }
+      const data = (await res.json()) as OgcCollection;
+      const features = data.features ?? [];
+
+      // Hit the ceiling: a station's newest series may be on a page this
+      // function never read, so every `end` in this batch is a possible
+      // under-estimate — and an under-estimate here reads as "this station
+      // died", which is the finding that must never be manufactured.
+      if (features.length >= limit) {
+        unreached.push(...batch);
+        continue;
+      }
+
+      // Every site in a reached batch gets an entry, defaulting to null. That
+      // is what distinguishes "USGS publishes no discharge or stage series for
+      // this station" from "this station was never asked about".
+      for (const id of batch) ends.set(id, null);
+
+      for (const f of features) {
+        const props = f.properties as Record<string, unknown> | null | undefined;
+        if (!props) continue;
+        const locId = props.monitoring_location_id;
+        if (typeof locId !== 'string') continue;
+        const siteId = fromLocationId(locId);
+        if (!ends.has(siteId)) continue;
+
+        const rawEnd = props.end;
+        if (typeof rawEnd !== 'string') continue;
+        const parsed = new Date(rawEnd);
+        if (Number.isNaN(parsed.getTime())) continue;
+
+        const current = ends.get(siteId) ?? null;
+        if (current === null || parsed.getTime() > current.getTime()) ends.set(siteId, parsed);
+      }
+    } catch {
+      unreached.push(...batch);
+      for (const id of batch) ends.delete(id);
+    }
+  }
+
+  return { ends, unreached };
 }

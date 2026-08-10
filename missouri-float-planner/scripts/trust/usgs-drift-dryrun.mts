@@ -15,7 +15,7 @@
 // The scope file is the output of trust_usgs_site_scope() as JSON.
 
 import { readFileSync } from 'node:fs';
-import { fetchSitesByIds } from '../../src/lib/usgs/national-sites';
+import { fetchSiteRecordEnds, fetchSitesByIds } from '../../src/lib/usgs/national-sites';
 import { deriveSiteDriftFindings, foldStationRows } from '../../src/lib/trust/checks/usgs-site-drift';
 import { severityForRule } from '../../src/lib/trust/severity';
 
@@ -26,14 +26,26 @@ const rows = JSON.parse(readFileSync(scopeFile, 'utf8'));
 const stored = foldStationRows(rows);
 console.log(`scope: ${rows.length} links -> ${stored.length} stations`);
 
+const siteIds = stored.map((s) => s.siteId);
 const started = Date.now();
-const { found, unreached } = await fetchSitesByIds(stored.map((s) => s.siteId));
-console.log(`usgs:  ${found.size} found, ${unreached.length} unreached, ${Date.now() - started}ms`);
+const { found, unreached } = await fetchSitesByIds(siteIds);
+const { ends, unreached: endsUnreached } = await fetchSiteRecordEnds(siteIds);
+console.log(
+  `usgs:  locations ${found.size} found / ${unreached.length} unreached; ` +
+    `series ${ends.size} answered / ${endsUnreached.length} unreached; ${Date.now() - started}ms`,
+);
+
+const noSeries = [...ends].filter(([, e]) => e === null).map(([id]) => id);
+const oldest = [...ends].filter(([, e]) => e !== null).sort((a, b) => a[1]!.getTime() - b[1]!.getTime())[0];
+console.log(`       stations with no 00060/00065 series: ${noSeries.length}${noSeries.length ? ' -> ' + noSeries.join(', ') : ''}`);
+if (oldest) console.log(`       oldest record end: ${oldest[0]} @ ${oldest[1]!.toISOString().slice(0, 10)}`);
 
 const findings = deriveSiteDriftFindings({
   stored,
   source: found,
   unreached: new Set(unreached),
+  recordEnds: ends,
+  now: new Date(),
 });
 
 console.log(`\nfindings: ${findings.length}`);
@@ -64,15 +76,23 @@ if (process.argv.includes('--sabotage')) {
       drainageAreaSqMi: (stored[2].drainageAreaSqMi ?? 100) * 1.5,
     },
     { ...stored[3], siteId: '99999999' },
+    { ...stored[4] },
   ];
 
   const sabotageFindings = deriveSiteDriftFindings({
     stored: sabotaged,
     source: found,
     unreached: new Set(unreached),
+    // A record end well outside the window, so the death rule fires against the
+    // real response rather than being defaulted quiet.
+    recordEnds: new Map([
+      ...ends,
+      [sabotaged[4]?.siteId ?? '', new Date('2024-01-01T00:00:00Z')],
+    ]),
+    now: new Date(),
   });
 
-  console.log(`\n── sabotage: ${sabotageFindings.length} findings from 4 perturbed stations ──`);
+  console.log(`\n── sabotage: ${sabotageFindings.length} findings from 5 perturbed stations ──`);
   for (const f of sabotageFindings) {
     console.log(`  [${severityForRule(f.ruleKey)}] ${f.ruleKey}: ${f.title}`);
   }
@@ -82,7 +102,8 @@ if (process.argv.includes('--sabotage')) {
     'usgs_site_renamed',
     'usgs_site_moved',
     'usgs_site_drainage_changed',
-    'usgs_site_absent',
+    'usgs_site_unknown',
+    'usgs_site_record_ended',
   ];
   const missed = expected.filter((r) => !rules.has(r));
   console.log(

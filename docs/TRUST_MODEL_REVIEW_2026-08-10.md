@@ -94,11 +94,11 @@ true of the subsystem as a whole with respect to the outside world.
 
 ### What `usgs_site_drift` covers, and what it does not
 
-The first source check compares the USGS monitoring-locations collection against
-`gauge_stations` for the 43 stations wired to active rivers, daily. It reports
-four things: a station USGS no longer publishes (`usgs_site_absent`, high), one
-that has moved more than 100 m (`usgs_site_moved`, medium), a rename, and a
-drainage-area revision.
+The first source check compares USGS against `gauge_stations` for the 43
+stations wired to active rivers, daily, across five rules: an identifier USGS
+has no record of (`usgs_site_unknown`, high), a station whose published record
+has ended (`usgs_site_record_ended`, high), a move beyond 100 m
+(`usgs_site_moved`, medium), a rename, and a drainage-area revision.
 
 The gap it fills is real and narrow. Nothing on a schedule had ever re-read this
 data: `gauge_stations` metadata is written by `scripts/import-usgs-gauges.ts`, a
@@ -107,17 +107,34 @@ data: `gauge_stations` metadata is written by `scripts/import-usgs-gauges.ts`, a
 re-surveyed or decommissioned kept its original row until somebody happened to
 re-run an import by hand.
 
-`usgs_site_absent` is the rule that earns the outbound request. A decommissioned
-primary gauge becomes a stale badge, which `stale_gauge` already reports at
-critical — but only about a day later, after the readings stop and after the
-badge has been quoting a dead station. This sees it at the source. It is graded
-high rather than critical precisely so it does not double-count the condition
-`stale_gauge` owns.
+**A station's death is not its absence, and the first version of this check got
+that wrong.** It read "no monitoring-location record" as "decommissioned". USGS
+*keeps* the location record after telemetry ends — verified against three
+stations this repository has already buried (`06928900`, `07014100`, `05497485`,
+all deactivated by `00153`), every one of which still returns a full record
+today. `00077`'s own header says as much about `07014100`. A check keyed on
+absence would have sat silent through exactly the event it was written for.
 
-On its first dry run against the live API all 43 stations agreed with USGS —
-zero findings. Zero is also what a check that cannot see reports, so the same
-comparison was re-run against deliberately perturbed stored values and all four
-rules fired (`scripts/trust/usgs-drift-dryrun.mts --sabotage`).
+Period of record lives in `time-series-metadata`, in the `end` of each series.
+So there are two rules because there are two facts: `usgs_site_unknown` is a
+wrong or retired identifier, and `usgs_site_record_ended` is the death — no
+current discharge or gage-height series, or a newest `end` more than 14 days old.
+
+**What that adds over `stale_gauge`, stated honestly:** not earlier warning.
+`stale_gauge` fires after 24 hours of silence and will always be first. What it
+adds is the difference between *transient* and *permanent* — a silent gauge is a
+sensor glitch, a comms outage, or a station that is never coming back, and
+`stale_gauge` cannot tell those apart. When both are open on one station, the
+answer is not "wait": the river needs a different primary gauge. Both are graded
+high rather than critical so they do not double-count the condition
+`stale_gauge` owns at critical.
+
+On the dry run against the live API all 43 wired stations agreed with USGS and
+all had a current record — zero findings. Zero is also what a check that cannot
+see reports, so the same comparison was re-run against deliberately perturbed
+values and all five rules fired, and again against two of the known-dead
+stations, which are now correctly reported — one as "no series at all", one as
+"ended 380 days ago" (`scripts/trust/usgs-drift-dryrun.mts --sabotage`).
 
 **What is still not covered.** NPS closures, USFS status, Recreation.gov
 availability and weather all flow in through their own crons and nothing
@@ -298,6 +315,18 @@ whose purpose is a trustworthy record. Sharing one `now` across a tick is
 deliberate and correct for `last_seen_at` and `resolved_at`, which need to be
 comparable within a run; `finished_at` is the one column that must be an
 observation rather than an intention.
+
+> **The first fix for this was also wrong, in the way that hides itself.** It
+> used `now()`, which is the enclosing *transaction's* start and is fixed for
+> its duration — so it recorded the instant reconciliation BEGAN, before the
+> raise, touch and resolve loops it is supposed to bracket. The ordering
+> constraint added alongside it would still have passed, because transaction
+> start is comfortably after the run row's insert in an earlier transaction. A
+> check passing for the wrong reason, inside the migration written to repair an
+> instance of exactly that. It is `clock_timestamp()` now, and the migration
+> carries a `DO` block that runs the function with a measurable delay and
+> asserts the finish lands after the transaction began — an assertion that fails
+> under `now()` and passes under `clock_timestamp()`.
 
 **The loose grants are still open — but on three objects, not four.**
 `TRUST_LEDGER_V1_PLAN.md` flagged them as predating the work and deserving their

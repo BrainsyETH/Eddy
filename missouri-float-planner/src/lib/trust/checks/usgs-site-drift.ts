@@ -17,33 +17,51 @@
 // renames, relocates, re-surveys or decommissions keeps its original row until
 // somebody happens to re-run an import by hand.
 //
-// ── Why absence is the finding that needs the most care ──────────────────
+// ── A station's death is not its absence ────────────────────────────────
 //
-// `usgs_site_absent` is the valuable rule and the dangerous one. A primary gauge
-// USGS has stopped publishing will go stale, and stale_gauge will eventually
-// report it at critical — but only after the readings dry up, which is a day
-// later and after the condition badge has already been quoting a dead station.
-// This sees it at the source.
+// The first version of this check read "no monitoring-location record" as
+// "decommissioned". That is wrong, and it would have made the headline rule
+// almost completely silent.
 //
-// The danger is the inverse: a request that failed, read as "USGS says this
-// station is gone". fetchSitesByIds keeps those apart and this check refuses to
-// conclude absence for any site id in `unreached` — which is also why a batch
-// that returns zero features is treated as a failed request rather than as a
-// mass decommission.
+// USGS KEEPS the location record after telemetry ends. Verified against three
+// stations this repository has already buried — 06928900, 07014100 and
+// 05497485, all deactivated by 00153, and 00077's own header states that
+// 07014100 "exists as a USGS monitoring location but has no data". Every one
+// still returns a full record today. A check keyed on absence would have waited
+// for stale_gauge to fire and contributed nothing.
 //
-// ── Why absent is high and not critical ─────────────────────────────────
+// So there are two rules, because there are two facts:
+//
+//   usgs_site_unknown         USGS has no record of this identifier at all.
+//                             Not a decommission — a wrong or retired id.
+//   usgs_site_record_ended    USGS publishes no current discharge or gage-height
+//                             series for this station. This is the death.
+//
+// The second reads `end` from time-series-metadata, which is where period of
+// record actually lives.
+//
+// ── What this adds over stale_gauge, stated honestly ────────────────────
+//
+// Not earlier warning. stale_gauge fires after 24 hours of silence and this
+// waits for a fortnight, so stale_gauge is first and will stay first.
+//
+// What this adds is the DIFFERENCE BETWEEN TRANSIENT AND PERMANENT. A silent
+// gauge is a sensor glitch, a comms outage, or a station that is never coming
+// back, and stale_gauge cannot tell those apart — it reports silence. When both
+// are open on one station, the answer is not "wait": the river needs a new
+// primary gauge. That is the operator-facing decision this rule exists to
+// support, and it is why the two are not duplicates.
+//
+// ── Why both are high and not critical ──────────────────────────────────
 //
 // Severity is by consequence at the surface, and the surface consequence of a
-// decommissioned station is a stale badge — which stale_gauge already owns and
-// already rates critical. Two critical findings about one condition would
-// double-count it in every gate that counts criticals. This is the leading
-// indicator: it should be loud enough to act on before stale_gauge fires, and
-// not so loud that it competes with the thing that means the badge is wrong
-// right now.
+// dead station is a stale badge — which stale_gauge already owns and already
+// rates critical. Two criticals about one condition would double-count it in
+// every gate that counts them.
 
 import { haversineMiles } from '@/lib/rivers/filters';
 import type { NationalSiteMeta } from '@/lib/usgs/national-sites';
-import { fetchSitesByIds } from '@/lib/usgs/national-sites';
+import { fetchSiteRecordEnds, fetchSitesByIds } from '@/lib/usgs/national-sites';
 import type { RawFinding, TrustCheck, TrustCheckContext, TrustCheckResult } from '../types';
 
 /** What Eddy stores about a station, narrowed to the fields USGS also publishes. */
@@ -80,7 +98,22 @@ export const MOVE_TOLERANCE_METERS = 100;
  */
 export const DRAINAGE_TOLERANCE_FRACTION = 0.01;
 
+/**
+ * How long a station's published record may have been over before it counts as
+ * ended.
+ *
+ * Not a race with stale_gauge, which fires after 24 hours and will always be
+ * first. This answers a different question — is the station coming back — and
+ * that question needs a window long enough to survive a routine multi-day
+ * outage, a seasonal service visit, and whatever lag USGS has between the last
+ * reading and the metadata that describes it. A fortnight clears all three, and
+ * a station whose discharge record has been over for two weeks is not
+ * experiencing a glitch.
+ */
+export const RECORD_STALE_DAYS = 14;
+
 const METERS_PER_MILE = 1609.344;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
  * Names are compared loosely on purpose.
@@ -117,8 +150,20 @@ function describeWiring(site: StoredSite): string {
 export interface DriftInput {
   stored: StoredSite[];
   source: Map<string, NationalSiteMeta>;
-  /** Site ids nothing was learned about. Never reported as absent. */
+  /** Site ids nothing was learned about. Never reported as unknown. */
   unreached: Set<string>;
+  /**
+   * Newest published series end per site, from time-series-metadata.
+   *
+   * A site PRESENT with `null` publishes no discharge or gage-height series at
+   * all. A site ABSENT from the map was not asked or the answer did not come
+   * back — the same distinction `unreached` makes for the other collection, and
+   * it matters for the same reason: an absent entry must never be read as a
+   * record that ended.
+   */
+  recordEnds: Map<string, Date | null>;
+  /** When the check ran. Passed in so the rule is pure and testable. */
+  now: Date;
 }
 
 /**
@@ -143,13 +188,15 @@ export function deriveSiteDriftFindings(input: DriftInput): RawFinding[] {
       findings.push({
         entityType: 'gauge',
         entityKey: site.siteId,
-        ruleKey: 'usgs_site_absent',
-        title: `USGS no longer publishes site ${site.siteId}`,
+        ruleKey: 'usgs_site_unknown',
+        title: `USGS has no monitoring location numbered ${site.siteId}`,
         detail:
-          `${site.name} (${wiring}) is stored as an active USGS station, but the ` +
-          `monitoring-locations collection returns no record for it. Either the ` +
-          `station was decommissioned or the site id is wrong. Readings will stop ` +
-          `if they have not already.`,
+          `${site.name} (${wiring}) is stored as an active USGS station, but ` +
+          `USGS-${site.siteId} returns no record from the monitoring-locations ` +
+          `collection. This is a wrong or retired identifier rather than a ` +
+          `decommission — USGS keeps the location record after telemetry ends, so ` +
+          `a station that merely stopped reporting would still be found here. ` +
+          `Nothing will ever read from this id.`,
         evidence: {
           siteId: site.siteId,
           storedName: site.name,
@@ -158,6 +205,46 @@ export function deriveSiteDriftFindings(input: DriftInput): RawFinding[] {
         },
       });
       continue;
+    }
+
+    // ── has the published record ended? ──────────────────────────────
+    //
+    // `has` rather than a truthy check: an entry present and null means USGS
+    // publishes no discharge or gage-height series for this station, which is
+    // the finding. An entry MISSING means nothing was learned, which is not.
+    if (input.recordEnds.has(site.siteId)) {
+      const end = input.recordEnds.get(site.siteId) ?? null;
+      const daysSince =
+        end === null ? null : Math.floor((input.now.getTime() - end.getTime()) / MS_PER_DAY);
+
+      if (end === null || (daysSince !== null && daysSince > RECORD_STALE_DAYS)) {
+        findings.push({
+          entityType: 'gauge',
+          entityKey: site.siteId,
+          ruleKey: 'usgs_site_record_ended',
+          title:
+            end === null
+              ? `USGS publishes no flow or stage record for site ${site.siteId}`
+              : `USGS stopped publishing site ${site.siteId} ${daysSince} days ago`,
+          detail:
+            (end === null
+              ? `${site.name} (${wiring}) has no discharge (00060) or gage-height ` +
+                `(00065) time series in USGS's record at all.`
+              : `${site.name} (${wiring}) last published on ` +
+                `${end.toISOString().slice(0, 10)}, ${daysSince} days ago.`) +
+            ` The station is still listed by USGS, so this is the record ending ` +
+            `rather than a bad id. stale_gauge reports the silence within a day; ` +
+            `what this adds is that the silence is permanent — the river needs a ` +
+            `different primary gauge rather than a wait.`,
+          evidence: {
+            siteId: site.siteId,
+            lastPublishedAt: end === null ? null : end.toISOString(),
+            daysSincePublished: daysSince,
+            primaryForSlugs: site.primaryForSlugs,
+            thresholdDays: RECORD_STALE_DAYS,
+          },
+        });
+      }
     }
 
     if (remote.lat !== null && remote.lng !== null) {
@@ -333,7 +420,14 @@ export const usgsSiteDriftCheck: TrustCheck = {
       return { scopeCount: 0, findings: [] };
     }
 
-    const { found, unreached } = await fetchSitesByIds(stored.map((s) => s.siteId));
+    const siteIds = stored.map((s) => s.siteId);
+
+    // Two collections, because they answer two questions and only one of them
+    // can be answered by monitoring-locations. Sequential rather than
+    // concurrent: the whole scope is one batch each, the check runs daily, and
+    // a second in-flight request buys nothing worth the extra failure mode.
+    const { found, unreached } = await fetchSitesByIds(siteIds);
+    const { ends, unreached: endsUnreached } = await fetchSiteRecordEnds(siteIds);
 
     // Every batch failed. That is a check that learned nothing, and reporting
     // it as a clean pass over N stations is the exact confident-pass failure
@@ -345,8 +439,18 @@ export const usgsSiteDriftCheck: TrustCheck = {
       );
     }
 
-    const unreachedSet = new Set(unreached);
-    const findings = deriveSiteDriftFindings({ stored, source: found, unreached: unreachedSet });
+    // A station is only fully examined when BOTH collections answered about it.
+    // Counting one-sided answers would let a total time-series outage look like
+    // a complete pass in which no station's record had ended — silence again,
+    // read as health.
+    const unreachedSet = new Set([...unreached, ...endsUnreached]);
+    const findings = deriveSiteDriftFindings({
+      stored,
+      source: found,
+      unreached: new Set(unreached),
+      recordEnds: ends,
+      now: ctx.now,
+    });
 
     // scopeCount counts stations an answer was actually obtained about, and
     // `partial` covers the rest. Without the flag, a partial outage would look
@@ -356,7 +460,7 @@ export const usgsSiteDriftCheck: TrustCheck = {
     return {
       scopeCount: examined,
       findings,
-      partial: unreached.length > 0,
+      partial: unreachedSet.size > 0,
     };
   },
 };

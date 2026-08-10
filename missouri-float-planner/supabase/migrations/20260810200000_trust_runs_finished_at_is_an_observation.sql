@@ -42,9 +42,33 @@
 -- the pass. It is a claim about when this function got here, and only this
 -- function knows that. So it comes from the database clock — the same clock
 -- started_at's default uses, which is what makes the interval between them mean
--- anything at all. now() inside a plpgsql function is the enclosing
--- transaction's start; this function is one statement, so that is the finalize
--- instant to within the time it takes to run.
+-- anything at all.
+--
+-- ── clock_timestamp(), NOT now() ─────────────────────────────────────────
+--
+-- The first version of this migration used now(), on the reasoning that the
+-- function is one statement so the transaction's start is the finalize instant
+-- "to within the time it takes to run". That reasoning is wrong, and it is
+-- wrong in the direction that hides itself.
+--
+-- now() is the start of the enclosing TRANSACTION and is fixed for its whole
+-- duration. Everything this function does — the raise loop, the touch loop, the
+-- resolve, the anomaly branch — happens BEFORE the update below. So now() here
+-- is the instant the reconcile RPC BEGAN, and finished_at would systematically
+-- under-report by exactly the reconciliation work it is supposed to bracket.
+--
+-- What makes that worse than a plain inaccuracy is that the constraint added at
+-- the bottom of this file would still pass: transaction start is comfortably
+-- after the run row's insert in an earlier transaction, so the ordering holds
+-- and the column looks repaired while still meaning the wrong thing. A check
+-- that passes for the wrong reason is the failure this subsystem exists to
+-- catch, and it nearly shipped inside the migration written to fix an instance
+-- of it.
+--
+-- clock_timestamp() reads the actual wall clock at the moment of evaluation,
+-- which is what "when did this finish" requires. The DO block at the end of
+-- this file asserts the difference: it fails under now() and passes under
+-- clock_timestamp().
 --
 -- ── Why a backfill is possible, and what it is worth ────────────────────
 --
@@ -249,18 +273,22 @@ begin
     -- describes them, or it holds neither and the row keeps the pessimistic
     -- 'run did not complete' it was opened with.
     --
-    -- finished_at is now(), NOT v_now. Every other timestamp written by this
-    -- function is a statement about the pass and shares the caller's instant
-    -- deliberately. This one is a statement about when the pass ENDED, which
-    -- the caller cannot know at the moment it captures `now` — and did not: the
-    -- tick's instant is taken once, before any check runs, so v_now here landed
-    -- before the run row's own started_at default and identically on every
-    -- check in the drain. Using the database clock also puts finished_at on the
-    -- same clock as started_at, which is what makes the interval meaningful
-    -- rather than a comparison across two hosts.
+    -- finished_at is clock_timestamp(), NOT v_now and NOT now(). Every other
+    -- timestamp written by this function is a statement about the pass and
+    -- shares the caller's instant deliberately. This one is a statement about
+    -- when the pass ENDED, which the caller cannot know at the moment it
+    -- captures `now` — and did not: the tick's instant is taken once, before
+    -- any check runs, so v_now here landed before the run row's own started_at
+    -- default and identically on every check in the drain.
+    --
+    -- now() would be the enclosing transaction's start, which is before every
+    -- loop above and therefore before the work this timestamp is meant to
+    -- bracket. clock_timestamp() is the wall clock as of this statement. Both
+    -- satisfy the ordering constraint, which is exactly why the wrong one is
+    -- worth naming here.
     update public.trust_runs
        set status            = p_payload #>> '{run,status}',
-           finished_at       = now(),
+           finished_at       = clock_timestamp(),
            suppressed_reason = p_payload #>> '{run,suppressed_reason}',
            scope_count       = coalesce((p_payload #>> '{run,scope_count}')::integer, 0),
            findings_raised   = v_raised,
@@ -304,3 +332,60 @@ update public.trust_runs
 alter table public.trust_runs
   add constraint trust_runs_finished_after_started
   check (finished_at is null or finished_at >= started_at);
+
+-- ── the assertion the constraint cannot make ─────────────────────────────
+--
+-- The constraint above catches finished_at BEFORE started_at. It cannot catch
+-- finished_at being the wrong instant in the right order, which is precisely
+-- what now() would produce: the transaction's start, taken before the raise,
+-- touch and resolve loops, and comfortably after the run row's insert in an
+-- earlier transaction. Ordering holds; the meaning is wrong.
+--
+-- So this runs the function for real, with a measurable delay between opening
+-- the run row and finalizing it, and asserts finished_at lands AFTER the
+-- transaction began. Under now() the two are equal by definition and this
+-- raises. Under clock_timestamp() it passes.
+--
+-- The caller's `now` is deliberately set to 2026-01-01 — a date far from any
+-- real clock — so a regression that reinstates v_now fails here too rather
+-- than passing because the tick happened to be recent.
+do $$
+declare
+    v_run_id     uuid := gen_random_uuid();
+    v_txn_start  timestamptz := now();
+    v_started    timestamptz;
+    v_finished   timestamptz;
+begin
+    insert into public.trust_runs (id, check_id, status, error_detail)
+    values (v_run_id, '__finished_at_self_test__', 'error', 'run did not complete');
+
+    perform pg_sleep(0.25);
+
+    perform public.trust_apply_reconcile(jsonb_build_object(
+        'run_id',   v_run_id,
+        'check_id', '__finished_at_self_test__',
+        'now',      '2026-01-01T00:00:00Z',
+        'run',      jsonb_build_object('status', 'ok', 'scope_count', 1, 'duration_ms', 250)
+    ));
+
+    select started_at, finished_at into v_started, v_finished
+      from public.trust_runs where id = v_run_id;
+
+    if v_finished is null then
+        raise exception 'finished_at self-test: a completed run recorded no finish time';
+    end if;
+
+    if v_finished < v_started then
+        raise exception 'finished_at self-test: % precedes started_at %', v_finished, v_started;
+    end if;
+
+    if v_finished <= v_txn_start then
+        raise exception
+            'finished_at self-test: % is not after this transaction''s start % — '
+            'trust_apply_reconcile is using now() (or the caller''s instant) rather '
+            'than clock_timestamp(), so it records when reconciliation BEGAN',
+            v_finished, v_txn_start;
+    end if;
+
+    delete from public.trust_runs where id = v_run_id;
+end $$;
