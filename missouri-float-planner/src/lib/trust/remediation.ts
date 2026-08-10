@@ -124,6 +124,45 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
       'Sharing a gauge is fine. What is not fine is two primaries with nothing to sort them by — shared/primary-river-link.ts then falls back to alphabetical order, which is stable but arbitrary.',
   },
 
+  // ── Eddy against USGS ────────────────────────────────────────────────
+  //
+  // The first rules here whose fix is "take the source's answer" rather than
+  // "decide what is true". That makes three of the four mechanical, which is
+  // unusual in this file — and it is a property of source drift, not a sign
+  // these were graded generously: USGS is authoritative for its own station
+  // metadata, so there is no judgement to exercise about the value.
+  //
+  // usgs_site_absent is the exception, and it is `investigate` rather than
+  // `judgment` because the first question is not what to do but what happened.
+  usgs_site_absent: {
+    kind: 'investigate',
+    action: 'Find out whether the station was decommissioned or the site id is wrong.',
+    where: 'https://waterdata.usgs.gov/monitoring-location/<site id>/',
+    method:
+      'Load the station page on waterdata.usgs.gov. A decommissioned station says so and has a period of record that ended; a bad site id 404s. If it is decommissioned and the station is primary for a river, that river needs a new primary gauge before stale_gauge fires at critical — which it will, roughly a day after the last reading. If the id is wrong, fix it on the station and expect the fingerprint to change.',
+  },
+  usgs_site_moved: {
+    kind: 'mechanical',
+    action: "Re-import the station so its coordinate matches the source's.",
+    where: 'npx tsx scripts/import-usgs-gauges.ts',
+    method:
+      'The import upserts name, location, drainage area and the administrative codes from monitoring-locations, so it closes this and the other two drift rules together. Check the distance in the evidence first: a move of a few hundred metres is a re-survey and taking the new value is right, but a move of miles is more likely a site id pointing at the wrong station, which the import would happily make consistent and wrong.',
+  },
+  usgs_site_renamed: {
+    kind: 'mechanical',
+    action: 'Re-import the station to take the published name.',
+    where: 'npx tsx scripts/import-usgs-gauges.ts',
+    method:
+      'Names are stored verbatim from USGS by design — import-usgs-gauges does not title-case, because that mangles "MO." and every NR/BL/AB abbreviation in the corpus. So the fix is to take the new string, not to edit it into house style.',
+  },
+  usgs_site_drainage_changed: {
+    kind: 'mechanical',
+    action: 'Re-import the station to take the published drainage area.',
+    where: 'npx tsx scripts/import-usgs-gauges.ts',
+    method:
+      'USGS re-delineates basins occasionally and publishes the revision. Nothing downstream reads this today — src/lib/usgs/drainage.ts has no callers — so this is keeping a stored fact true rather than fixing a visible defect.',
+  },
+
   // ── services against the rivers they serve ───────────────────────────
   service_far_from_linked_river: {
     kind: 'investigate',

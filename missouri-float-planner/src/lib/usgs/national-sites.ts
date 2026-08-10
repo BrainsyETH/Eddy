@@ -280,3 +280,122 @@ export async function fetchRegionLatest(bbox: Bbox): Promise<NationalSiteReading
 
   return out;
 }
+
+/**
+ * Station metadata for specific site ids, with failure kept separate from
+ * absence.
+ *
+ * ── Why this exists next to fetchRegionSites rather than in its caller ───
+ *
+ * Same collection, different question: that one asks "what is in this box",
+ * this one asks "what does USGS currently say about these particular sites".
+ * Putting it here is the rule no-legacy-urls.test.ts enforces — the host and
+ * the collection path are named in one place, so the next deprecation is a
+ * single-file change rather than an archaeology exercise.
+ *
+ * ── Why it does NOT reuse fetchAllFeatures ──────────────────────────────
+ *
+ * That helper never throws, by design: its callers are bulk regional passes
+ * where one bad region should degrade that region and not the run, and a
+ * partial import is repaired by the next idempotent upsert.
+ *
+ * The opposite is required here. This feeds a trust check, and for a check
+ * "USGS did not answer" and "USGS says this station is gone" are OPPOSITE
+ * facts that a degrading fetch renders identical — the first silently becomes
+ * the second, and the ledger files a decommission notice about a station that
+ * is fine because a request timed out. That is precisely the failure mode this
+ * subsystem was built to catch, recorded twice in TRUST_LEDGER_V1_PLAN.md
+ * about the ledger's own first day.
+ *
+ * So `unreached` carries the site ids whose batch failed. A caller may conclude
+ * a site is absent ONLY if it appears in neither `found` nor `unreached`.
+ */
+export interface SiteMetadataLookup {
+  found: Map<string, NationalSiteMeta>;
+  /** Site ids whose request failed. NOT known to be absent — nothing was learned. */
+  unreached: string[];
+}
+
+/**
+ * How many site numbers go in one request.
+ *
+ * The filter is a comma-joined query parameter, so the ceiling is URL length
+ * rather than anything USGS documents. Fifty keeps the URL near 700 characters
+ * with room for the rest of the query, and the whole curated set is one or two
+ * requests at that size.
+ */
+const SITE_BATCH = 50;
+
+export async function fetchSitesByIds(siteIds: string[]): Promise<SiteMetadataLookup> {
+  const found = new Map<string, NationalSiteMeta>();
+  const unreached: string[] = [];
+
+  // Duplicates would inflate the batch and produce a `found` map that already
+  // deduplicates itself, so the count of requests would not match the input.
+  const unique = [...new Set(siteIds.filter((id) => id && id.trim().length > 0))];
+
+  for (let i = 0; i < unique.length; i += SITE_BATCH) {
+    const batch = unique.slice(i, i + SITE_BATCH);
+    const url = new URL(`${MODERN_BASE}/monitoring-locations/items`);
+    url.searchParams.set('f', 'json');
+    url.searchParams.set('monitoring_location_number', batch.join(','));
+    url.searchParams.set('limit', String(batch.length));
+
+    try {
+      // Station metadata changes on the order of years. The same 24 hours
+      // fetchRegionSites uses, for the same reason.
+      const res = await fetch(url, { next: { revalidate: 86400 }, headers: modernHeaders() });
+      if (!res.ok) {
+        unreached.push(...batch);
+        continue;
+      }
+      const data = (await res.json()) as OgcCollection;
+      const features = data.features ?? [];
+
+      // A batch that answers 200 with zero features when it was asked about
+      // real site ids is far more likely to be a filter USGS silently ignored
+      // or changed than fifty simultaneous decommissions. Treating it as
+      // "nothing was learned" costs one stale day; treating it as absence
+      // would file fifty false decommission notices at once.
+      if (features.length === 0) {
+        unreached.push(...batch);
+        continue;
+      }
+
+      for (const f of features) {
+        const props = f.properties as Record<string, unknown> | null | undefined;
+        if (!props) continue;
+        const siteId =
+          typeof props.monitoring_location_number === 'string'
+            ? props.monitoring_location_number
+            : typeof f.id === 'string'
+              ? fromLocationId(f.id)
+              : null;
+        if (!siteId) continue;
+
+        const { lng, lat } = coordsOf(f);
+        found.set(siteId, {
+          siteId,
+          name:
+            typeof props.monitoring_location_name === 'string'
+              ? props.monitoring_location_name
+              : null,
+          lng,
+          lat,
+          stateCode: stateCodeFromName(
+            typeof props.state_name === 'string' ? props.state_name : null,
+          ),
+          county: typeof props.county_name === 'string' ? props.county_name : null,
+          huc: typeof props.hydrologic_unit_code === 'string' ? props.hydrologic_unit_code : null,
+          siteTypeCode: typeof props.site_type_code === 'string' ? props.site_type_code : null,
+          agencyCode: typeof props.agency_code === 'string' ? props.agency_code : null,
+          drainageAreaSqMi: numOrNull(props.drainage_area),
+        });
+      }
+    } catch {
+      unreached.push(...batch);
+    }
+  }
+
+  return { found, unreached };
+}

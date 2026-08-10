@@ -27,11 +27,17 @@ Fix Data    Flag Review    Enrich Data
 | Layer | State |
 | --- | --- |
 | Sources | **Built.** Five ingest crons pull real sources into the database |
-| Observer | **Built, and pointed inward.** Detects errors and gaps well; does not detect change |
+| Observer | **Built. Was pointed inward; the first source check landed with this review** |
 | Reasoning | **Not built.** A rule→severity lookup table and a memory, by deliberate v1 choice |
 | Fix Data | **Not built.** Advice is rendered, never executed |
 | Flag Review | **Built.** The strongest surface in the subsystem |
 | Enrich Data | **Not connected.** The machinery exists; no finding reaches it |
+
+> **What changed on 2026-08-10.** This document was written against nine checks,
+> none of which made an outbound call. `usgs_site_drift` is the tenth and the
+> first that asks a source what is true. The rest of the review stands as
+> written; the *Detect changes* section below records what the gap was and what
+> now covers part of it.
 
 Three of six. That is not a failure — it is roughly what
 `TRUST_LEDGER_V1_PLAN.md` scoped, which explicitly deferred actions, model
@@ -83,8 +89,41 @@ The consequence is specific and worth stating plainly: **if a source changes and
 our copy does not, the database remains perfectly self-consistent and the ledger
 reports an all-clear.** That is the exact shape of failure this subsystem was
 built to catch — a check that cannot see reports a confident pass — recorded
-twice in `TRUST_LEDGER_V1_PLAN.md` about the subsystem's own first day. It is
-now true of the subsystem as a whole with respect to the outside world.
+twice in `TRUST_LEDGER_V1_PLAN.md` about the subsystem's own first day. It was
+true of the subsystem as a whole with respect to the outside world.
+
+### What `usgs_site_drift` covers, and what it does not
+
+The first source check compares the USGS monitoring-locations collection against
+`gauge_stations` for the 43 stations wired to active rivers, daily. It reports
+four things: a station USGS no longer publishes (`usgs_site_absent`, high), one
+that has moved more than 100 m (`usgs_site_moved`, medium), a rename, and a
+drainage-area revision.
+
+The gap it fills is real and narrow. Nothing on a schedule had ever re-read this
+data: `gauge_stations` metadata is written by `scripts/import-usgs-gauges.ts`, a
+**manual** script, while the scheduled gauge jobs (`update-gauges`,
+`sync-gauge-latest`) write readings only. So a station USGS renamed, relocated,
+re-surveyed or decommissioned kept its original row until somebody happened to
+re-run an import by hand.
+
+`usgs_site_absent` is the rule that earns the outbound request. A decommissioned
+primary gauge becomes a stale badge, which `stale_gauge` already reports at
+critical — but only about a day later, after the readings stop and after the
+badge has been quoting a dead station. This sees it at the source. It is graded
+high rather than critical precisely so it does not double-count the condition
+`stale_gauge` owns.
+
+On its first dry run against the live API all 43 stations agreed with USGS —
+zero findings. Zero is also what a check that cannot see reports, so the same
+comparison was re-run against deliberately perturbed stored values and all four
+rules fired (`scripts/trust/usgs-drift-dryrun.mts --sabotage`).
+
+**What is still not covered.** NPS closures, USFS status, Recreation.gov
+availability and weather all flow in through their own crons and nothing
+compares any of them against what we serve. Access points are the most valuable
+of those and the least mechanical: a closed ramp is a go/no-go fact, and NPS
+does not publish it in a form as clean as a monitoring-location record.
 
 ## Reasoning — not built
 
@@ -224,13 +263,15 @@ diagram.
 
 ## Recommended order
 
-**1. Source-vs-store checks.** Close the observer's blind spot. This is what
-"detect changes" means, it is the only layer whose absence can produce a
-confidently wrong answer on a float day, and it is a precondition for the
-reasoning layer being worth building — confidence is worth computing when there
-is a disagreement to be confident about. First outbound HTTP in the ledger, so
-it needs a fetch budget, and failure semantics where an unreachable source
-resolves nothing (the `check_error` path already does exactly this).
+**1. Source-vs-store checks.** *Started — `usgs_site_drift` shipped with this
+review; NPS, USFS and availability are still open.* This is what "detect
+changes" means, it is the only layer whose absence can produce a confidently
+wrong answer on a float day, and it is a precondition for the reasoning layer
+being worth building — confidence is worth computing when there is a
+disagreement to be confident about. The pattern to copy is the one that check
+established: keep "the source did not answer" and "the source says it is gone"
+as different facts all the way through, because a degrading fetch turns the
+first silently into the second.
 
 **2. Wire the Fix arm.** `isMechanical()` exists and is unused. A re-run button
 on the console for the thirteen mechanical rules, then auto-apply for the safest
@@ -244,7 +285,7 @@ already correct — which is how a 0% false-positive rate becomes a worse one.
 
 ---
 
-## Two defects found while reviewing
+## Three defects found while reviewing
 
 **`trust_runs.finished_at` is wrong on every row.** `trust_apply_reconcile()`
 sets `finished_at = v_now`, where `v_now` is the single `Date` captured once at
@@ -290,6 +331,18 @@ lets the crons work is an explicit `service_role=EXECUTE` on each function and
 explicit table grants on `cron_runs`. Any revoke here must name `public`, `anon`
 and `authenticated` specifically; a broader one would stop every cron in the
 repo, and RLS-bypass would not save it.
+
+**A test suite that had never run.** `package.json` lists every test file
+explicitly — there is no glob — so a file nobody remembers to add does not fail,
+it simply never executes, and that is indistinguishable from passing.
+`src/lib/trust/checks/service-geo-consistency.test.ts` shipped in `82680ab`, a
+commit titled *"Make the service pin check something that runs, not something we
+remember"*, and was never added to the script. Its fourteen assertions had never
+executed. They pass — which is the unsettling part, because nothing would have
+said so if they did not. Registered, along with a guard
+(`src/lib/trust/registered-tests.test.ts`) that fails when a test file exists on
+disk and is not named in the script, and when the script names a file that no
+longer exists. It was the only such file in the repository.
 
 ## Open operational items
 
