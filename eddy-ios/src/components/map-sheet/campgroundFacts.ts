@@ -123,7 +123,6 @@ const PROVIDER: Record<CampsiteAvailabilitySummary['source'], string> = {
 
 export function bookingAction(
   nps: NpsCampgroundSummary | null | undefined,
-  officialSiteUrl: string | null | undefined,
   source: CampsiteAvailabilitySummary['source'] | null | undefined,
 ): BookingAction | null {
   // A real reservation URL always wins. It is the only field in the record that
@@ -135,19 +134,37 @@ export function bookingAction(
     };
   }
 
-  // ── THE STATE-PARK CASE, AND WHY IT IS NOT A GUESS ──────────────────────
-  // A Missouri State Park has no nps_campgrounds row and therefore no
-  // reservationUrl, and those are Eddy's biggest campgrounds — Meramec's 197
-  // sites, Montauk's 141. Their official site IS the booking system, but only
-  // an official site is not evidence of that on its own.
+  // ── THE STATE-PARK CASE WAS A GUESS, AND THE DATA SAYS IT WAS WRONG ─────
   //
-  // `source` is the evidence: it says Eddy is reading LIVE INVENTORY out of
-  // that provider, so somewhere behind that link is the system holding the
-  // numbers on this page. A federal site whose reservationUrl is missing gets
-  // no button rather than a guess — its official site is a park page.
-  if (officialSiteUrl && source === 'mo_state_parks') {
-    return { url: officialSiteUrl, label: `Book ${PROVIDER.mo_state_parks}` };
-  }
-
+  // This used to return `officialSiteUrl` with a "Book at Missouri State Parks"
+  // label whenever `source === 'mo_state_parks'`, arguing that live inventory
+  // from a provider proves the official site is that provider's booking system.
+  // The inference is wrong, and every row in the database disproves it: the two
+  // state parks Eddy holds carry
+  // `https://mostateparks.com/park/meramec-state-park` and its Onondaga twin,
+  // which are park DESCRIPTION pages. Missouri's actual reservation system is
+  // https://icampmo.com, and Eddy already knows that — it is stored as
+  // `nearby_services.reservation_url` with `booking_platform = 'icampmo'`
+  // (migration 00084). It has simply never been on the wire.
+  //
+  // Reading live inventory out of a provider is evidence that the PROVIDER
+  // takes bookings. It is not evidence about where a particular URL points, and
+  // those are the two different claims this conflated. A button promising a
+  // booking and landing on a park page is worse than no button: the reader has
+  // spent the one affordance the tab exists for and arrives somewhere that
+  // cannot take their money.
+  //
+  // So: no button without a real reservation URL. The official site still
+  // renders, as the "Official site" row it always was — see the Camping tab,
+  // where `showOfficialSite` is gated only on the URL differing from the
+  // button's, so removing the button reveals the row rather than losing the
+  // link.
+  //
+  // TO BRING THE BUTTON BACK, plumb `nearby_services.reservation_url` and
+  // `booking_platform` through the access-detail response. That is a schema
+  // read and an API field, not a heuristic, and it is the only thing that
+  // turns this into a promise Eddy can keep. `officialSiteUrl` is no longer a
+  // parameter, because a function that takes a URL it must not use invites
+  // somebody to use it.
   return null;
 }

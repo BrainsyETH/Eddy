@@ -11,7 +11,7 @@
 // in a list, not on the map.
 //
 // Still a named predicate rather than an inline null-check because five
-// consumers (RiverMap twice, layerCounts, tierCoverage, PlanNearby) must agree
+// consumers (RiverMap twice, layerCounts, tierCoverage, planSupport) must agree
 // on what "drawable" means — four independent filters over one table is how
 // the map and the planner once came to disagree.
 

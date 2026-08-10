@@ -35,7 +35,12 @@ import {
 import { accessAvailability } from './availabilitySource';
 import { bookingAction, bookingLine, siteMixLine, type BookingAction } from './campgroundFacts';
 import { CampsiteList } from './CampsiteList';
-import { airbnbSearchUrl, STAY_SEARCH_LABEL, stayRadiusLabel } from '@/lib/stays';
+import {
+  AIRBNB_LINK_COLOR,
+  airbnbSearchUrl,
+  STAY_SEARCH_LABEL,
+  staySearchAreaLabel,
+} from '@/lib/stays';
 import { FilterChips } from '@/components/FilterChips';
 import { useCampsiteSites } from '@/hooks/useCampsiteSites';
 import {
@@ -99,15 +104,6 @@ interface TabProps {
   nearbyMarks: Map<string, PlaceSymbolName>;
   /** Whether the one request behind every tab is pending, done or failed. */
   status: DetailStatus;
-  /**
-   * Whether the Place tab qualified.
-   *
-   * Overview needs it to decide whether IT has to carry the route to the full
-   * details screen. Place owns that link whenever it exists — one destination,
-   * one strongest affordance — but Place is gated on having facts about the
-   * place, and a few access points have none at all.
-   */
-  hasPlaceTab: boolean;
 }
 
 /* ── Overview ───────────────────────────────────────────────────────────── */
@@ -128,16 +124,37 @@ export function AccessOverviewTab({
   onOpenDetail,
   onOpenGauge,
   onOpenRiver,
-  hasPlaceTab,
   status: detailStatus,
 }: TabProps) {
   const point = detail?.accessPoint;
   const camping = nearbyCamping(detail);
   const status = detail?.gaugeStatus ?? null;
+  const services = servicesByTier(detail);
 
   const description = point?.description ?? accessPoint.description ?? null;
   // Only consulted when there is no description; see overviewLead.
   const lead = overviewLead(point ?? null);
+
+  // ── THE PLACE FACTS, each section gated on its OWN content ──────────────
+  // Section's `if (!children)` catches null and undefined, not an array of
+  // children that all render null — so `<Section><Fact/><Prose/></Section>`
+  // draws a bare heading over a gap whenever both are empty. That was survivable
+  // while these lived on the Place tab, because `hasDetails` kept the whole tab
+  // away from a point with none of them. Overview always renders, so without
+  // these three flags every access point in the database would grow three empty
+  // headings.
+  const road = point?.roadSurface?.length
+    ? point.roadSurface.map(roadSurfaceLabel).join(', ')
+    : null;
+  const parking = parkingLabel(point?.parkingCapacity);
+  const tips = stripHtml(point?.localTips);
+  const managedBy = point?.managingAgency ? agencyLabel(point.managingAgency) : null;
+
+  const hasGettingIn = Boolean(road || point?.roadAccess);
+  const hasParking = Boolean(parking || point?.parkingInfo);
+  const hasFacilities = Boolean(
+    point?.amenities?.length || point?.facilities || point?.feeNotes || managedBy,
+  );
   // ── HAS THIS TAB GOT ANYTHING AT ALL? ─────────────────────────────────
   // The river row is not counted. It is present on every access point in the
   // database — all 406 carry a river_id — so counting it would mean this can
@@ -150,7 +167,22 @@ export function AccessOverviewTab({
   // simply did not arrive. `waitingCopy` below already draws exactly this
   // distinction, and the line just has to use it.
   const settled = detailStatus === 'ready' || detailStatus === 'idle' || detailStatus === 'failed';
-  const bare = !description && !lead && !status && camping.length === 0;
+  // ── THIS COUNTS EVERY SECTION THE TAB CAN DRAW ────────────────────────
+  // It has to. When Place merged in, a point with a road surface and no
+  // description would otherwise meet "Eddy has no description for this place
+  // yet" sitting directly above a populated Getting in section — a claim the
+  // page in front of them disproves.
+  const bare =
+    !description &&
+    !lead &&
+    !status &&
+    camping.length === 0 &&
+    !hasGettingIn &&
+    !hasParking &&
+    !hasFacilities &&
+    !services.rentals.length &&
+    !services.lodging.length &&
+    !tips;
 
   return (
     <View>
@@ -202,6 +234,34 @@ export function AccessOverviewTab({
         </Section>
       ) : null}
 
+      {/* ── EVERYTHING BELOW WAS THE PLACE TAB ────────────────────────────
+          Ordered the way somebody standing in a driveway with a boat on the
+          roof asks: can I get down there, can I park, what is there, where do I
+          sleep, who rents boats, anything else. See tabs.ts for why the split
+          ended. */}
+      {hasGettingIn ? (
+        <Section title="Getting in" symbol="road">
+          <Fact label="Road" value={road} />
+          <Prose>{point?.roadAccess}</Prose>
+        </Section>
+      ) : null}
+
+      {hasParking ? (
+        <Section title="Parking" symbol="parking">
+          <Fact label="Capacity" value={parking} />
+          <Prose>{point?.parkingInfo}</Prose>
+        </Section>
+      ) : null}
+
+      {hasFacilities ? (
+        <Section title="Facilities" symbol="facilities">
+          <Chips labels={point?.amenities ?? []} />
+          <Prose>{point?.facilities}</Prose>
+          <Fact label="Fees" value={point?.feeNotes} />
+          <Fact label="Managed by" value={managedBy} />
+        </Section>
+      ) : null}
+
       {/* ── Camping nearby ────────────────────────────────────────────────
           On EVERY access point, not only the ones that are themselves a
           campground. "Where do I sleep the night before?" is asked at the
@@ -210,7 +270,14 @@ export function AccessOverviewTab({
 
           Name, distance and who runs it — no site counts, no fees. Those exist
           for NPS sites and not for most others, and a list that showed them
-          where it could would read as though the rest had none. */}
+          where it could would read as though the rest had none.
+
+          ── AND IT IS STILL DRAWN EXACTLY ONCE ─────────────────────────────
+          The two service sections below take `rentals` and `lodging` from the
+          same `servicesByTier` call that produced this one, and the tiers
+          partition — so merging Place in could not reintroduce the duplicate
+          that split them in the first place. That property is the reason the
+          merge is safe, and it lives in servicesByTier rather than here. */}
       {camping.length ? (
         <Section title="Camping nearby">
           {camping.map((entry) => (
@@ -225,17 +292,61 @@ export function AccessOverviewTab({
         </Section>
       ) : null}
 
-      {/* ── ONE WAY OUT, NOT TWO ──────────────────────────────────────────
-          This used to offer "Access point details" as well, which opens exactly
-          what Place's "Open the full details screen" opens — two rows, the same
-          destination, one swipe apart, and the reader has no way to know they
-          are the same. Place kept it, because that is the tab the full screen
-          is an extension of.
+      {services.rentals.length ? (
+        <Section title="Outfitters and shuttles">
+          {services.rentals.map((service) => {
+            const row = serviceRow(service);
+            return (
+              <LinkRow
+                key={row.key}
+                label={row.name}
+                detail={service.phone ?? row.detail}
+                external
+                onPress={row.onPress}
+              />
+            );
+          })}
+        </Section>
+      ) : null}
+
+      {services.lodging.length ? (
+        <Section title="Cabins and lodging">
+          {services.lodging.map((service) => {
+            const row = serviceRow(service);
+            return (
+              <LinkRow
+                key={row.key}
+                label={row.name}
+                detail={service.phone ?? row.detail}
+                external
+                onPress={row.onPress}
+              />
+            );
+          })}
+        </Section>
+      ) : null}
+
+      {tips ? (
+        <Section title="River notes">
+          <Prose>{tips}</Prose>
+        </Section>
+      ) : null}
+
+      {/* ── ONE WAY OUT, AND NOW IT IS UNCONDITIONAL ──────────────────────
+          There used to be two rows to one destination — Overview's "Access
+          point details" and Place's "Open the full details screen" — so the
+          rule became "Overview carries it exactly when Place does not", spelled
+          `hasPlaceTab`. With one tab there is one row, and the branch that
+          decided which tab owned it is gone with the tab.
+
+          It is `onOpenDetail` alone that gates it now, which is the honest
+          condition: null means the map could not compose a route, not that
+          another tab has the link.
 
           The river row stands on its own condition rather than sharing the
           section's: it needs the river's NAME, which only the detail response
           carries, and this tab is drawn from the first frame. */}
-      {point?.river || (onOpenDetail && !hasPlaceTab) ? (
+      {point?.river || onOpenDetail ? (
         <Section>
           {point?.river ? (
             <LinkRow
@@ -244,18 +355,7 @@ export function AccessOverviewTab({
               onPress={() => onOpenRiver(point.river.slug)}
             />
           ) : null}
-          {/* ── ONLY WHEN PLACE IS NOT THERE TO CARRY IT ──────────────────
-              Removing this row was right — it opened exactly what Place's
-              "Open the full details screen" opens, one swipe apart, and a
-              reader has no way to know two rows are one destination. But Place
-              qualifies on having something to say about the place, and a
-              handful of access points have nothing: no road surface, no
-              parking, no facilities, no fee note, no tips. Those lost their
-              only route to their own screen.
-
-              So the rule is one link, not zero: Overview carries it exactly
-              when Place does not exist to. */}
-          {onOpenDetail && !hasPlaceTab ? (
+          {onOpenDetail ? (
             <LinkRow label="Access point details" symbol="accessPoint" onPress={onOpenDetail} />
           ) : null}
         </Section>
@@ -507,8 +607,10 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
   // nothing at all.
   const stayUrl = airbnbSearchUrl(point?.coordinates ?? accessPoint.coordinates ?? null);
 
-  // The one link that takes a booking, and the two pages that do not.
-  const booking = bookingAction(nps, point?.officialSiteUrl, availability?.source);
+  // The one link that takes a booking, and the pages that do not. The official
+  // site is no longer offered to bookingAction: it is a park page in every row
+  // Eddy holds, so it can only ever become the "Official site" row below.
+  const booking = bookingAction(nps, availability?.source);
   const showOfficialSite = Boolean(
     point?.officialSiteUrl && point.officialSiteUrl !== booking?.url,
   );
@@ -557,11 +659,15 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
         <Absent>{waitingCopy(status, 'campground details')}</Absent>
         {stayUrl ? (
           <Section>
+            {/* No `symbol`. This row used to carry the campground mark and the
+                settled row below never did, so one pin drew the same link two
+                ways depending on whether a request had landed — and the mark was
+                wrong either way: the row opens Airbnb, not a campground. */}
             <LinkRow
               label={STAY_SEARCH_LABEL}
-              detail={stayRadiusLabel()}
+              detail={staySearchAreaLabel()}
               external
-              symbol="campground"
+              externalTint={AIRBNB_LINK_COLOR}
               onPress={() => void Linking.openURL(stayUrl)}
             />
           </Section>
@@ -797,8 +903,9 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
         {stayUrl ? (
           <LinkRow
             label={STAY_SEARCH_LABEL}
-            detail={stayRadiusLabel()}
+            detail={staySearchAreaLabel()}
             external
+            externalTint={AIRBNB_LINK_COLOR}
             onPress={() => void Linking.openURL(stayUrl)}
           />
         ) : null}
@@ -807,100 +914,12 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
   );
 }
 
-/* ── Details ────────────────────────────────────────────────────────────── */
-
-export function AccessDetailsTab({ detail, onOpenDetail, status }: TabProps) {
-  const point = detail?.accessPoint;
-  if (!point) return <Absent>{waitingCopy(status, 'details')}</Absent>;
-
-  const road = point.roadSurface?.length
-    ? point.roadSurface.map(roadSurfaceLabel).join(', ')
-    : null;
-  const parking = parkingLabel(point.parkingCapacity);
-  const tips = stripHtml(point.localTips);
-  const services = servicesByTier(detail);
-
-  return (
-    <View>
-      <Section title="Getting in">
-        <Fact label="Road" value={road} />
-        <Prose>{point.roadAccess}</Prose>
-      </Section>
-
-      <Section title="Parking">
-        <Fact label="Capacity" value={parking} />
-        <Prose>{point.parkingInfo}</Prose>
-      </Section>
-
-      <Section title="Facilities">
-        <Chips labels={point.amenities ?? []} />
-        <Prose>{point.facilities}</Prose>
-        <Fact label="Fees" value={point.feeNotes} />
-        <Fact
-          label="Managed by"
-          value={point.managingAgency ? agencyLabel(point.managingAgency) : null}
-        />
-      </Section>
-
-      {/* ── THE HEADING NOW MATCHES WHAT IS UNDER IT ──────────────────────
-          These two sections were one, titled "Outfitters and shuttles", drawn
-          from an unfiltered list — so every cabin rental Eddy has recorded
-          against a put-in was announced as a shuttle operator.
-
-          CAMPING IS NOT HERE AT ALL. Overview's "Camping nearby" draws the same
-          rows from the same field, and a reader met eleven of them twice in one
-          sheet, one swipe apart. Overview owns the question because that is
-          where it is asked; see its own note. */}
-      {services.rentals.length ? (
-        <Section title="Outfitters and shuttles">
-          {services.rentals.map((service) => {
-            const row = serviceRow(service);
-            return (
-              <LinkRow
-                key={row.key}
-                label={row.name}
-                detail={service.phone ?? row.detail}
-                external
-                onPress={row.onPress}
-              />
-            );
-          })}
-        </Section>
-      ) : null}
-
-      {services.lodging.length ? (
-        <Section title="Cabins and lodging">
-          {services.lodging.map((service) => {
-            const row = serviceRow(service);
-            return (
-              <LinkRow
-                key={row.key}
-                label={row.name}
-                detail={service.phone ?? row.detail}
-                external
-                onPress={row.onPress}
-              />
-            );
-          })}
-        </Section>
-      ) : null}
-
-      {tips ? (
-        <Section title="River notes">
-          <Prose>{tips}</Prose>
-        </Section>
-      ) : null}
-
-      {onOpenDetail ? (
-        <Section>
-          <LinkRow label="Open the full details screen" onPress={onOpenDetail} />
-        </Section>
-      ) : null}
-    </View>
-  );
-}
-
 /* ── Shared derivations ─────────────────────────────────────────────────── */
+
+// AccessDetailsTab ('Place') is gone. Its sections were merged into Overview in
+// full — the two tabs both answered "what is this place", so which one held a
+// given fact was a coin toss the reader paid a swipe to resolve. tabs.ts carries
+// the reasoning; nothing it drew was dropped.
 
 // `waitingCopy` moved to lib/accessCopy.ts — it is a string derived from a
 // status and nothing else, and this file cannot be imported by the web suite,

@@ -28,7 +28,7 @@ import { AccessTypeBadges } from './sections';
 import { confirmPlanAction, isDriveable, openDirections } from './sheetActions';
 import { CampgroundAvailability } from './CampgroundAvailability';
 import { localToday } from './availability';
-import { airbnbSearchUrl, STAY_SEARCH_LABEL } from '@/lib/stays';
+import { AIRBNB_LINK_COLOR, airbnbSearchUrl, STAY_SEARCH_LABEL } from '@/lib/stays';
 
 /**
  * What a tapped pin is, and — for an access point — what to do with it.
@@ -176,6 +176,8 @@ export function PinCallout({
     label: string;
     onPress: () => void;
     external?: boolean;
+    /** Glyph only, where the destination has a colour. See lib/stays.ts. */
+    externalTint?: string;
     accessibilityLabel?: string;
   }[] = [];
 
@@ -221,6 +223,7 @@ export function PinCallout({
       label: STAY_SEARCH_LABEL,
       onPress: () => void Linking.openURL(stayUrl),
       external: true,
+      externalTint: AIRBNB_LINK_COLOR,
     });
   }
   // A gauge belongs to a river, and the river screen is where its history, its
@@ -463,11 +466,13 @@ export function PinCallout({
                 {row.label}
               </Text>
               {/* An arrow that leaves the app for one that stays in it. The
-                  difference is worth a glyph: one of these opens Safari. */}
+                  difference is worth a glyph: one of these opens Safari. The
+                  tint, where a row carries one, names WHOSE Safari page — glyph
+                  only, for the contrast reason in lib/stays.ts. */}
               <Ionicons
                 name={row.external ? 'open-outline' : 'chevron-forward'}
                 size={16}
-                color={colors.textSubtle}
+                color={row.external && row.externalTint ? row.externalTint : colors.textSubtle}
               />
             </Pressable>
           ))}
