@@ -3,6 +3,8 @@ import test from 'node:test';
 import type { NationalSiteMeta } from '@/lib/usgs/national-sites';
 import {
   DRAINAGE_TOLERANCE_FRACTION,
+  MASS_RECORD_ENDED_FLOOR,
+  MASS_RECORD_ENDED_SHARE,
   MOVE_TOLERANCE_METERS,
   RECORD_STALE_DAYS,
   deriveSiteDriftFindings,
@@ -377,4 +379,42 @@ test('the check runs daily', () => {
   // detection: USGS station metadata changes on the order of years.
   assert.equal(usgsSiteDriftCheck.cadence, 'daily');
   assert.equal(usgsSiteDriftCheck.id, 'usgs_site_drift');
+});
+
+// ── the second guard: an implausible mass death ──────────────────────
+
+test('the mass-death thresholds mirror the mass_resolve guard', () => {
+  // Same shape as reconcile.ts, and the same argument with the sign flipped: a
+  // sudden all-clear is a claim that has to be earned, and so is a sudden mass
+  // failure. Pinned because loosening either one silently re-opens the failure
+  // mode the classifier ladder was extracted to close.
+  assert.equal(MASS_RECORD_ENDED_SHARE, 0.5);
+  assert.equal(MASS_RECORD_ENDED_FLOOR, 5);
+});
+
+test('a majority of the scope going dark is refused, but a handful is not', () => {
+  // The residual case the response classifier cannot see: a filter that
+  // HALF-works returns a structurally fine response that is silently missing
+  // most of its rows, so every guard about feature counts passes and the
+  // conclusion is still wrong. This guard keys on the implausibility of the
+  // conclusion instead.
+  //
+  // Expressed against the constants rather than the run() method, which needs a
+  // Supabase stub and a network; the arithmetic is the part that decides.
+  const refuses = (ended: number, examined: number) =>
+    ended > MASS_RECORD_ENDED_FLOOR && ended > examined * MASS_RECORD_ENDED_SHARE;
+
+  // The shape of the real failure: 43 wired gauges, all reported dead.
+  assert.equal(refuses(43, 43), true);
+  assert.equal(refuses(30, 43), true);
+
+  // Two genuinely decommissioned gauges must stay reportable — that is the
+  // whole point of the check, and a guard that swallowed them would be worse
+  // than the bug it prevents.
+  assert.equal(refuses(2, 43), false);
+  assert.equal(refuses(5, 43), false);
+
+  // The floor governs a small scope: a majority of six is not evidence of
+  // anything.
+  assert.equal(refuses(4, 6), false);
 });

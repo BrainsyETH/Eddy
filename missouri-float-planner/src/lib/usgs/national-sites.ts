@@ -347,6 +347,171 @@ function toUsgsFeatureId(siteId: string): string {
   return siteId.startsWith('USGS-') ? siteId : `USGS-${siteId}`;
 }
 
+
+// ── Classifying a response, as a pure function ──────────────────────────
+//
+// Both lookups below ask USGS about a batch of stations and must answer one
+// question honestly before anything else: did we LEARN something about this
+// batch, or not? For a trust check those are not degrees of the same thing.
+// "USGS says this station has no flow record" is a high-severity finding.
+// "The response was not usable" must produce silence.
+//
+// This lived inline in each fetch, and the two drifted immediately: the site
+// lookup treated a 200-with-zero-features as unusable and the time-series
+// lookup did not — written in the same commit, one guard apart. That gap meant
+// a silently-changed filter or a degraded endpoint would set every station in
+// the batch to "no series", and the check would file usgs_site_record_ended at
+// high severity for all 43 wired gauges at once. A mass false decommission, out
+// of a 200 OK.
+//
+// So the ladder is one implementation, applied by both, and it is pure — these
+// semantics are the safety-critical part and they should be testable without
+// standing up a fake network.
+
+/** Why a batch produced nothing usable. */
+export type BatchRefusal = 'empty_response' | 'limit_saturated' | 'no_batch_matches';
+
+export type BatchOutcome<T> =
+  | { reached: false; refusal: BatchRefusal }
+  | { reached: true; data: T };
+
+/**
+ * The guard ladder. Returns a refusal, or null when the response is usable.
+ *
+ * - `empty_response`: 200 with no features at all. Indistinguishable from a
+ *   filter USGS silently stopped honouring, and the production batch is known
+ *   to contain live gauges — so "everything we asked about has no data" is far
+ *   more likely to be a broken request than a true answer.
+ * - `limit_saturated`: as many features as we allowed, so more may sit on a
+ *   page nobody read. Every value derived from this batch is a possible
+ *   under-estimate, and under-estimating here reads as "this station died".
+ * - `no_batch_matches`: features came back, but not one of them is about a
+ *   station we asked about. That is a filter doing something other than what
+ *   the query said.
+ *
+ * What it deliberately does NOT do is refuse a PARTIAL match. A batch where
+ * some stations answer and others do not is the normal shape of a real answer —
+ * refusing it would make the rules unable to fire at all. The residual risk is
+ * a filter that half-works; nothing in the response distinguishes that from
+ * genuine absence, and the check carries a second, independent guard against
+ * the mass case for exactly that reason.
+ */
+export function classifyBatchResponse(
+  featureCount: number,
+  limit: number,
+  matchedSites: number,
+): BatchRefusal | null {
+  if (featureCount === 0) return 'empty_response';
+  if (featureCount >= limit) return 'limit_saturated';
+  if (matchedSites === 0) return 'no_batch_matches';
+  return null;
+}
+
+/**
+ * Pure: features from monitoring-locations → station metadata for this batch.
+ *
+ * Agency is re-asserted per feature rather than trusted from the query. A
+ * silently-ignored parameter is how the region importer would have taken 1.5M
+ * non-stream sites without a single error (see fetchRegionSites), and here the
+ * filter is load-bearing for identity: a monitoring location is agency_code +
+ * monitoring_location_number, so accepting another agency's row under the same
+ * number would overwrite a USGS station's coordinates with someone else's.
+ */
+export function classifySiteMetadataResponse(
+  batch: string[],
+  features: OgcFeature[],
+  limit: number,
+): BatchOutcome<Map<string, NationalSiteMeta>> {
+  const wanted = new Set(batch);
+  const found = new Map<string, NationalSiteMeta>();
+
+  for (const f of features) {
+    const props = f.properties as Record<string, unknown> | null | undefined;
+    if (!props) continue;
+
+    const agency = typeof props.agency_code === 'string' ? props.agency_code : null;
+    if (agency !== 'USGS') continue;
+
+    const siteId =
+      typeof props.monitoring_location_number === 'string'
+        ? props.monitoring_location_number
+        : typeof f.id === 'string'
+          ? fromLocationId(f.id)
+          : null;
+    if (!siteId || !wanted.has(siteId)) continue;
+
+    const { lng, lat } = coordsOf(f);
+    found.set(siteId, {
+      siteId,
+      name:
+        typeof props.monitoring_location_name === 'string'
+          ? props.monitoring_location_name
+          : null,
+      lng,
+      lat,
+      stateCode: stateCodeFromName(typeof props.state_name === 'string' ? props.state_name : null),
+      county: typeof props.county_name === 'string' ? props.county_name : null,
+      huc: typeof props.hydrologic_unit_code === 'string' ? props.hydrologic_unit_code : null,
+      siteTypeCode: typeof props.site_type_code === 'string' ? props.site_type_code : null,
+      agencyCode: agency,
+      drainageAreaSqMi: numOrNull(props.drainage_area),
+    });
+  }
+
+  const refusal = classifyBatchResponse(features.length, limit, found.size);
+  return refusal ? { reached: false, refusal } : { reached: true, data: found };
+}
+
+/**
+ * Pure: features from time-series-metadata → newest series end per station.
+ *
+ * Every station in a REACHED batch gets an entry, defaulting to null, because
+ * null is the answer "USGS publishes no discharge or gage-height series for
+ * this station" and the caller needs to tell it from "not asked". That default
+ * is only safe behind the ladder above — it is precisely what turned a
+ * 200-with-no-features into 43 false findings before the ladder was shared.
+ *
+ * Scoped to `batch` rather than to an accumulating map: keying off a map that
+ * grows across batches lets a feature in batch two overwrite a station answered
+ * in batch one.
+ */
+export function classifyRecordEndsResponse(
+  batch: string[],
+  features: OgcFeature[],
+  limit: number,
+): BatchOutcome<Map<string, Date | null>> {
+  const ends = new Map<string, Date | null>(batch.map((id) => [id, null]));
+  const matched = new Set<string>();
+
+  for (const f of features) {
+    const props = f.properties as Record<string, unknown> | null | undefined;
+    if (!props) continue;
+
+    const locId = props.monitoring_location_id;
+    if (typeof locId !== 'string') continue;
+    const siteId = fromLocationId(locId);
+    if (!ends.has(siteId)) continue;
+
+    // A feature that is about a station we asked about COUNTS as a match even
+    // if its `end` is unparseable. The alternative would let a response full of
+    // malformed timestamps look like a filter failure and be refused, when what
+    // it actually is — USGS answered, the values are junk — leaves every
+    // station legitimately at null.
+    matched.add(siteId);
+
+    const rawEnd = props.end;
+    if (typeof rawEnd !== 'string') continue;
+    const parsed = new Date(rawEnd);
+    if (Number.isNaN(parsed.getTime())) continue;
+
+    const current = ends.get(siteId) ?? null;
+    if (current === null || parsed.getTime() > current.getTime()) ends.set(siteId, parsed);
+  }
+
+  const refusal = classifyBatchResponse(features.length, limit, matched.size);
+  return refusal ? { reached: false, refusal } : { reached: true, data: ends };
+}
+
 export async function fetchSitesByIds(siteIds: string[]): Promise<SiteMetadataLookup> {
   const found = new Map<string, NationalSiteMeta>();
   const unreached: string[] = [];
@@ -357,6 +522,7 @@ export async function fetchSitesByIds(siteIds: string[]): Promise<SiteMetadataLo
 
   for (let i = 0; i < unique.length; i += SITE_BATCH) {
     const batch = unique.slice(i, i + SITE_BATCH);
+    const limit = batch.length + LIMIT_HEADROOM;
     const url = new URL(`${MODERN_BASE}/monitoring-locations/items`);
     url.searchParams.set('f', 'json');
 
@@ -368,14 +534,9 @@ export async function fetchSitesByIds(siteIds: string[]): Promise<SiteMetadataLo
     // another agency using the same number would come back too, and since
     // results were keyed by number alone, whichever arrived last would win —
     // silently replacing a USGS station's coordinates with someone else's.
-    //
-    // agency_code is set as well. Belt and braces again: it makes the intent
-    // legible in the request, and it means a future change to how ids are
-    // formatted degrades to over-fetching rather than to cross-agency
-    // contamination.
     url.searchParams.set('id', batch.map(toUsgsFeatureId).join(','));
     url.searchParams.set('agency_code', 'USGS');
-    url.searchParams.set('limit', String(batch.length + LIMIT_HEADROOM));
+    url.searchParams.set('limit', String(limit));
 
     try {
       // Station metadata changes on the order of years. The same 24 hours
@@ -386,64 +547,12 @@ export async function fetchSitesByIds(siteIds: string[]): Promise<SiteMetadataLo
         continue;
       }
       const data = (await res.json()) as OgcCollection;
-      const features = data.features ?? [];
-
-      // A batch that answers 200 with zero features when it was asked about
-      // real site ids is far more likely to be a filter USGS silently ignored
-      // or changed than fifty simultaneous retirements. Treating it as "nothing
-      // was learned" costs one stale day; treating it as absence would file
-      // fifty false findings at once.
-      if (features.length === 0) {
+      const outcome = classifySiteMetadataResponse(batch, data.features ?? [], limit);
+      if (!outcome.reached) {
         unreached.push(...batch);
         continue;
       }
-
-      // Hit the ceiling: there may be more matches on a page this function does
-      // not read, so any site missing from `found` might be on it. Nothing was
-      // reliably learned about this batch.
-      if (features.length >= batch.length + LIMIT_HEADROOM) {
-        unreached.push(...batch);
-        continue;
-      }
-
-      for (const f of features) {
-        const props = f.properties as Record<string, unknown> | null | undefined;
-        if (!props) continue;
-
-        // Re-asserted rather than trusted. A silently-ignored query parameter
-        // is how the region importer would have taken 1.5M non-stream sites
-        // without a single error (see fetchRegionSites), and the same posture
-        // applies to a filter that is load-bearing for identity.
-        const agency = typeof props.agency_code === 'string' ? props.agency_code : null;
-        if (agency !== 'USGS') continue;
-
-        const siteId =
-          typeof props.monitoring_location_number === 'string'
-            ? props.monitoring_location_number
-            : typeof f.id === 'string'
-              ? fromLocationId(f.id)
-              : null;
-        if (!siteId) continue;
-
-        const { lng, lat } = coordsOf(f);
-        found.set(siteId, {
-          siteId,
-          name:
-            typeof props.monitoring_location_name === 'string'
-              ? props.monitoring_location_name
-              : null,
-          lng,
-          lat,
-          stateCode: stateCodeFromName(
-            typeof props.state_name === 'string' ? props.state_name : null,
-          ),
-          county: typeof props.county_name === 'string' ? props.county_name : null,
-          huc: typeof props.hydrologic_unit_code === 'string' ? props.hydrologic_unit_code : null,
-          siteTypeCode: typeof props.site_type_code === 'string' ? props.site_type_code : null,
-          agencyCode: agency,
-          drainageAreaSqMi: numOrNull(props.drainage_area),
-        });
-      }
+      for (const [siteId, meta] of outcome.data) found.set(siteId, meta);
     } catch {
       unreached.push(...batch);
     }
@@ -487,8 +596,8 @@ const RECORD_PARAMETERS = [PARAM_DISCHARGE, PARAM_GAGE_HEIGHT];
  * Series per station for the two parameters, times the batch, plus headroom.
  *
  * A station typically has one Points, one Daily and one Water Year series per
- * parameter, so six is generous. The truncation guard below is what makes an
- * underestimate safe rather than silently wrong.
+ * parameter, so six is generous. classifyBatchResponse()'s saturation guard is
+ * what makes an underestimate safe rather than silently wrong.
  */
 const SERIES_PER_SITE = 6;
 
@@ -516,38 +625,12 @@ export async function fetchSiteRecordEnds(siteIds: string[]): Promise<SiteRecord
         continue;
       }
       const data = (await res.json()) as OgcCollection;
-      const features = data.features ?? [];
-
-      // Hit the ceiling: a station's newest series may be on a page this
-      // function never read, so every `end` in this batch is a possible
-      // under-estimate — and an under-estimate here reads as "this station
-      // died", which is the finding that must never be manufactured.
-      if (features.length >= limit) {
+      const outcome = classifyRecordEndsResponse(batch, data.features ?? [], limit);
+      if (!outcome.reached) {
         unreached.push(...batch);
         continue;
       }
-
-      // Every site in a reached batch gets an entry, defaulting to null. That
-      // is what distinguishes "USGS publishes no discharge or stage series for
-      // this station" from "this station was never asked about".
-      for (const id of batch) ends.set(id, null);
-
-      for (const f of features) {
-        const props = f.properties as Record<string, unknown> | null | undefined;
-        if (!props) continue;
-        const locId = props.monitoring_location_id;
-        if (typeof locId !== 'string') continue;
-        const siteId = fromLocationId(locId);
-        if (!ends.has(siteId)) continue;
-
-        const rawEnd = props.end;
-        if (typeof rawEnd !== 'string') continue;
-        const parsed = new Date(rawEnd);
-        if (Number.isNaN(parsed.getTime())) continue;
-
-        const current = ends.get(siteId) ?? null;
-        if (current === null || parsed.getTime() > current.getTime()) ends.set(siteId, parsed);
-      }
+      for (const [siteId, end] of outcome.data) ends.set(siteId, end);
     } catch {
       unreached.push(...batch);
       for (const id of batch) ends.delete(id);

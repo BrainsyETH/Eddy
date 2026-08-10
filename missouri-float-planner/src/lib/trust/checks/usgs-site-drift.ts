@@ -112,6 +112,36 @@ export const DRAINAGE_TOLERANCE_FRACTION = 0.01;
  */
 export const RECORD_STALE_DAYS = 14;
 
+/**
+ * Above this share of the examined scope, a mass `usgs_site_record_ended` is
+ * treated as a broken answer rather than a true one.
+ *
+ * The same shape as reconcile.ts's mass_resolve guard, and the same argument
+ * with the sign flipped: a sudden all-clear is a claim that has to be earned,
+ * and so is a sudden mass failure. Every station in scope is wired to an active
+ * river and was live at the last import; more than half of them going dark
+ * between two daily runs is not something that happens to rivers, it is
+ * something that happens to responses.
+ *
+ * This is deliberately a SECOND guard. classifyBatchResponse() already refuses
+ * an empty, saturated or unmatched response, which covers the all-or-nothing
+ * failures. What it cannot see is a filter that half-works — a response that
+ * looks structurally fine and is silently missing most of its rows. This
+ * catches that, and it catches whatever the next unanticipated shape turns out
+ * to be, because it keys on the implausibility of the CONCLUSION rather than on
+ * any property of the response.
+ */
+export const MASS_RECORD_ENDED_SHARE = 0.5;
+
+/**
+ * Below this many findings, the share is not meaningful.
+ *
+ * Mirrors mass_resolve's absolute floor for the same reason: on a small scope a
+ * majority is one or two stations, and two genuinely decommissioned gauges must
+ * still be reportable.
+ */
+export const MASS_RECORD_ENDED_FLOOR = 5;
+
 const METERS_PER_MILE = 1609.344;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -452,11 +482,29 @@ export const usgsSiteDriftCheck: TrustCheck = {
       now: ctx.now,
     });
 
+    // Refuse an implausible mass death. See MASS_RECORD_ENDED_SHARE: every
+    // station in scope is wired to an active river and was live at the last
+    // import, so a majority going dark between two daily runs describes a
+    // broken response far better than it describes the rivers.
+    //
+    // Throwing rather than filing a meta-finding, because the check_error path
+    // already exists, is already tested, and does the one thing that matters
+    // here — records the failure and resolves nothing. A run that filed 40
+    // false high-severity findings would be far more expensive to undo than a
+    // run that recorded an error.
+    const ended = findings.filter((f) => f.ruleKey === 'usgs_site_record_ended').length;
+    const examined = stored.filter((s) => !unreachedSet.has(s.siteId)).length;
+    if (ended > MASS_RECORD_ENDED_FLOOR && ended > examined * MASS_RECORD_ENDED_SHARE) {
+      throw new Error(
+        `${ended} of ${examined} wired stations reported no current USGS record. ` +
+          `That is a broken response, not a mass decommission — refusing to file it.`,
+      );
+    }
+
     // scopeCount counts stations an answer was actually obtained about, and
     // `partial` covers the rest. Without the flag, a partial outage would look
     // like silence about the unreached stations, and silence is what
     // reconciliation reads as "fixed".
-    const examined = stored.filter((s) => !unreachedSet.has(s.siteId)).length;
     return {
       scopeCount: examined,
       findings,

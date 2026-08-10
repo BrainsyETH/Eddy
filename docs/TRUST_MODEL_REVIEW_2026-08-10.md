@@ -129,6 +129,29 @@ answer is not "wait": the river needs a different primary gauge. Both are graded
 high rather than critical so they do not double-count the condition
 `stale_gauge` owns at critical.
 
+**The second collection needed the first one's guard, and did not have it.**
+`fetchSitesByIds` treated a 200-with-zero-features as unusable — a filter USGS
+might have silently stopped honouring is indistinguishable from a true empty
+answer, and the batch is known to contain live gauges. `fetchSiteRecordEnds`,
+written in the same commit, defaulted every station in the batch to `null`
+*before* checking anything, and `null` is the authoritative answer "USGS
+publishes no flow or stage series". So one degraded response would have filed
+`usgs_site_record_ended` at high severity for all 43 wired gauges at once.
+
+The guard ladder is now one pure function both lookups run through
+(`classifyBatchResponse`), which refuses an empty response, a saturated one, and
+one whose features are about nobody in the batch. It is pure precisely so these
+semantics are testable without mocking a network — the assertions that could not
+be written while the logic lived inline in two `fetch` calls.
+
+A partial answer is deliberately *not* refused: some stations answering and
+others not is the normal shape of a real response, and refusing it would make
+the rules unable to fire at all. The residual risk — a filter that half-works —
+is covered by a second, independent guard in the check itself, which refuses to
+file `usgs_site_record_ended` for more than half the examined scope. That mirrors
+`reconcile.ts`'s `mass_resolve` with the sign flipped: a sudden all-clear is a
+claim that has to be earned, and so is a sudden mass failure.
+
 On the dry run against the live API all 43 wired stations agreed with USGS and
 all had a current record — zero findings. Zero is also what a check that cannot
 see reports, so the same comparison was re-run against deliberately perturbed
