@@ -13,6 +13,7 @@ import { riverGeometryCheck } from './checks/river-geometry';
 import { eddyKnowledgeCheck } from './checks/eddy-knowledge';
 import { floatSummaryCheck } from './checks/float-summary';
 import { gaugeWiringCheck } from './checks/gauge-wiring';
+import { serviceGeoConsistencyCheck } from './checks/service-geo-consistency';
 import { schemaInvariantsCheck } from './checks/schema-invariants';
 import { ledgerHeartbeatCheck } from './checks/ledger-heartbeat';
 import { knownRegressionsCheck } from './checks/known-regressions';
@@ -23,6 +24,7 @@ export const TRUST_CHECKS: readonly TrustCheck[] = [
   eddyKnowledgeCheck,
   floatSummaryCheck,
   gaugeWiringCheck,
+  serviceGeoConsistencyCheck,
   schemaInvariantsCheck,
   ledgerHeartbeatCheck,
   knownRegressionsCheck,
