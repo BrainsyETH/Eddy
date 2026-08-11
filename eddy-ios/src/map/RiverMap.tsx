@@ -62,7 +62,6 @@ import {
   accessTypeLabel,
   hasCoordinates,
   PUBLIC_LAND_ACCESS_STYLE,
-  serviceEligible,
 } from '@eddy/types';
 import { boundsForLine } from '@eddy/geo';
 import {
@@ -98,9 +97,15 @@ import {
   type PinLayerKey,
 } from './layers';
 import { warn } from '@/lib/monitoring';
-import { mappableService } from '@/map/mappable';
-import { activeRoles, resolveAccessMarkers, roleCues, ROLE_LAYER } from '@/map/accessLayers';
-import { serviceOnLayer, serviceTypeLabel } from '@/map/serviceLayers';
+import {
+  activeRoles,
+  resolveAccessMarkers,
+  roleCues,
+  ROLE_LAYER,
+  serviceCues,
+  type ResolvedServiceMarker,
+} from '@/map/accessLayers';
+import { serviceTypeLabel, type ServiceLayerKey } from '@/map/serviceLayers';
 
 /**
  * Ink for text drawn ON the map, in either app appearance.
@@ -718,8 +723,8 @@ export function RiverMap({
   const accessLayerOn = layers.includes('access');
   const campgroundLayerOn = layers.includes('campgrounds');
   const boatRampLayerOn = layers.includes('boatRamps');
-  /** Whether the rentals tier is drawing — the lodging tier is its complement. */
   const outfitterLayerOn = layers.includes('outfitters');
+  const lodgingLayerOn = layers.includes('lodging');
 
   /**
    * The access family's live layers, in the vocabulary the resolver speaks.
@@ -760,9 +765,24 @@ export function RiverMap({
    * result. Gauges, hazards, outfitters and lodging keep their own memos and
    * their own independence.
    */
+  /**
+   * The service layers that are live, in the resolver's vocabulary.
+   *
+   * Passed alongside the roles so ONE call answers ownership for both families.
+   * Rentals and lodging used to filter the directory themselves; that is what
+   * let a campground with canoes draw twice — see SERVICE_MARK_PRIORITY.
+   */
+  const liveServiceLayers = useMemo(() => {
+    const on = new Set<ServiceLayerKey>();
+    if (campgroundLayerOn) on.add('campgrounds');
+    if (outfitterLayerOn) on.add('outfitters');
+    if (lodgingLayerOn) on.add('lodging');
+    return on;
+  }, [campgroundLayerOn, outfitterLayerOn, lodgingLayerOn]);
+
   const accessFamily = useMemo(
-    () => resolveAccessMarkers({ accessPoints, services }, accessRoles),
-    [accessPoints, services, accessRoles],
+    () => resolveAccessMarkers({ accessPoints, services }, accessRoles, liveServiceLayers),
+    [accessPoints, services, accessRoles, liveServiceLayers],
   );
 
   /**
@@ -874,13 +894,33 @@ export function RiverMap({
       // drawnAsAccessPoint — along with the closed, the unlocatable and the
       // rows on no camping tier, so what arrives here is what draws.
       ...accessFamily.serviceMarkers
-        .map((s) => ({
-          id: `camp-service:${s.id}`,
+        .filter((marker) => marker.owner === 'campground')
+        .map(({ service: s, layers: serviceLayers }) => ({
+          // ── ONE ID NAMESPACE FOR A SERVICE, WHATEVER MARK IT WEARS ─────
+          //
+          // This was `camp-service:{id}` while rentals and lodging used
+          // `service:{id}`, so one directory row had two identities and the two
+          // branches could each draw it without noticing the other. Canonical
+          // now, exactly as the access family keeps `access:{id}` through a
+          // change of mark — so a selection survives toggling the layer
+          // underneath it, which it previously did not across these three.
+          id: `service:${s.id}`,
           name: s.name,
           layer: 'campgrounds' as const,
+          // ── AND THE ROWS THIS TENT IS HIDING ─────────────────────────
+          //
+          // No type label leads here — the tent has already said "campground" —
+          // so the cues lead instead, exactly as the access family's campground
+          // pin reads `Camp · River access · Mile 12.3`. A campground that also
+          // rents cabins now reads `Camp · Cabins · Salem, MO` rather than
+          // drawing a tent and letting the cabins vanish, which is what
+          // resolving ownership across the three tiers would otherwise have
+          // cost. `Camp` is passed rather than excluded for that reason: it is
+          // the only thing naming the mark.
           subtitle:
             [
-              [s.city, s.state].filter(Boolean).join(', ') || 'Campground',
+              ...serviceCues(serviceLayers),
+              [s.city, s.state].filter(Boolean).join(', '),
               s.managingAgency,
             ]
               .filter(Boolean)
@@ -994,62 +1034,68 @@ export function RiverMap({
    * campgrounds layer keeping `access:{id}` while presenting a put-in as a tent.
    */
   const servicePin = useCallback(
-    (s: RiverService, layer: 'outfitters' | 'lodging'): MapPin => ({
+    (marker: ResolvedServiceMarker, layer: 'outfitters' | 'lodging'): MapPin => {
+      const s = marker.service;
+      return {
       id: `service:${s.id}`,
       name: s.name,
       layer,
-      subtitle: [serviceTypeLabel(s), [s.city, s.state].filter(Boolean).join(', ')]
+      // ── AND THE ROWS THIS MARK IS HIDING ───────────────────────────────
+      //
+      // Resolving ownership across the three tiers stopped a place drawing
+      // twice and, on its own, would have made it draw once while saying
+      // nothing about the row it stopped answering: a canoe outfitter that also
+      // rents cabins wore a canoe and the cabins vanished. That is the same
+      // defect the access family's caption was fixed for, arriving in the
+      // service family by the same mechanism.
+      //
+      // `serviceTypeLabel` still leads — it says what the BUSINESS is, which is
+      // finer than the tier, so `serviceCues` is asked only for what the mark
+      // is hiding. See its header for why that is not symmetric with roleCues.
+      subtitle: [
+        serviceTypeLabel(s),
+        ...serviceCues(marker.layers, marker.owner),
+        [s.city, s.state].filter(Boolean).join(', '),
+      ]
         .filter(Boolean)
         .join(' · '),
       coordinates: { lng: s.longitude as number, lat: s.latitude as number },
       body: s.description,
       link: serviceLink(s),
-    }),
+      };
+    },
     [],
   );
 
-  /**
-   * Eligible, locatable, and on this tier — in that order.
-   *
-   * `serviceEligible` and `mappableService` are asked here for every service
-   * layer rather than by each one separately, which is the drift this replaced:
-   * campgrounds checked the geocode and outfitters did not, and nothing at all
-   * checked whether the business had closed.
-   */
-  const drawableServices = useMemo(
-    () =>
-      services.filter(
-        (s) =>
-          serviceEligible(s) &&
-          mappableService(s) &&
-          s.latitude != null &&
-          s.longitude != null,
-      ),
-    [services],
-  );
-
+  // ── Both tiers now read the ONE resolved list ──────────────────────────
+  //
+  // `drawableServices` lived here and applied `serviceEligible`, `mappableService`
+  // and the coordinate check for every service layer — one gate rather than
+  // three, which was the right fix for the drift it replaced. The resolver
+  // applies exactly those three tests now, in the same order, for the same
+  // reason; keeping a second copy here would have re-created the drift in the
+  // shape of a filter that agreed today and diverged later.
+  //
+  // These used to filter `drawableServices` themselves, which is what let a
+  // camping-and-rentals row draw twice: this branch minted `service:{id}` while
+  // the campgrounds branch minted `camp-service:{id}`, so neither could see the
+  // other. `lodgingPins`' hand-written complement is gone too — SERVICE_MARK_
+  // PRIORITY expresses the same rule (rentals beats lodging) in the same place
+  // as every other precedence, and now covers camping as well.
   const outfitterPins: MapPin[] = useMemo(
     () =>
-      drawableServices
-        .filter((s) => serviceOnLayer(s, 'outfitters'))
-        .map((s) => servicePin(s, 'outfitters')),
-    [drawableServices, servicePin],
+      accessFamily.serviceMarkers
+        .filter((marker) => marker.owner === 'rentals')
+        .map((marker) => servicePin(marker, 'outfitters')),
+    [accessFamily, servicePin],
   );
 
   const lodgingPins: MapPin[] = useMemo(
     () =>
-      drawableServices
-        .filter(
-          (s) =>
-            serviceOnLayer(s, 'lodging') &&
-            // The complement, and only while the sibling tier is actually
-            // drawing — see the header. With rentals off, a cabin-renting
-            // outfitter is the reader's answer to "where is there a roof" and
-            // must appear.
-            !(outfitterLayerOn && serviceOnLayer(s, 'outfitters')),
-        )
-        .map((s) => servicePin(s, 'lodging')),
-    [drawableServices, outfitterLayerOn, servicePin],
+      accessFamily.serviceMarkers
+        .filter((marker) => marker.owner === 'lodging')
+        .map((marker) => servicePin(marker, 'lodging')),
+    [accessFamily, servicePin],
   );
 
   /** The seven, as one object. References only — nothing is rebuilt here. */

@@ -8,11 +8,16 @@ import {
   MARK_PRIORITY,
   placeRoles,
   PLACE_ROLES,
+  accessOverlapNote,
   resolveAccessMarkers,
   roleCues,
   ROLE_LAYER,
+  serviceCues,
+  SERVICE_MARK_PRIORITY,
   type PlaceRole,
+  type ServiceMarkOwner,
 } from '../../../eddy-ios/src/map/accessLayers';
+import type { ServiceLayerKey } from '../../../eddy-ios/src/map/serviceLayers';
 
 // Covers eddy-ios/src/map/accessLayers.ts. The Expo app has no runner of its
 // own, and this is the module that decides which of the access family's three
@@ -325,7 +330,7 @@ test('a service campground somewhere else is its own marker', () => {
     { accessPoints: ALL, services: [elsewhere] },
     activeRoles(['campgrounds']),
   );
-  assert.deepEqual(serviceMarkers.map((s) => s.id), ['far']);
+  assert.deepEqual(serviceMarkers.map((m) => m.service.id), ['far']);
   assert.equal(statsByRole.campground.totalMatches, 3);
   assert.equal(statsByRole.campground.ownedMarkers, 3);
 });
@@ -356,7 +361,7 @@ test('the same three tests the map applies, asked once', () => {
     { accessPoints: [], services },
     activeRoles(['campgrounds']),
   );
-  assert.deepEqual(serviceMarkers.map((s) => s.id), ['ok']);
+  assert.deepEqual(serviceMarkers.map((m) => m.service.id), ['ok']);
   assert.equal(statsByRole.campground.totalMatches, 1);
 });
 
@@ -372,7 +377,7 @@ test('an outfitter that records camping is a campground, by tier not by type', (
     { accessPoints: [], services: [camping] },
     activeRoles(['campgrounds']),
   );
-  assert.deepEqual(serviceMarkers.map((s) => s.id), ['outfitter-with-sites']);
+  assert.deepEqual(serviceMarkers.map((m) => m.service.id), ['outfitter-with-sites']);
 });
 
 test('a directory that has not landed is not an empty directory', () => {
@@ -479,4 +484,269 @@ test('an absorbed service makes the pin say camp as well as river access', () =>
   assert.deepEqual(roleCues(markers[0].roles), ['Camp', 'River access']);
   // Still the role and nothing else: the source record is handed back untouched.
   assert.equal(markers[0].entry.point, plain.point);
+});
+
+// ── One service, one pin, across all three service layers ──────────────────
+//
+// 52 of the directory's 138 mapped rows are on the camping tier AND at least
+// one other. Before ownership was resolved across the three together, every one
+// of them drew twice: `camp-service:{id}` from the campgrounds branch and
+// `service:{id}` from rentals or lodging, two id namespaces for one row.
+
+/** Every on/off combination of the three SERVICE layers. */
+const SERVICE_COMBINATIONS: ServiceLayerKey[][] = (() => {
+  const keys: ServiceLayerKey[] = ['campgrounds', 'outfitters', 'lodging'];
+  const out: ServiceLayerKey[][] = [];
+  for (let mask = 0; mask < 8; mask += 1) {
+    out.push(keys.filter((_, index) => (mask & (1 << index)) !== 0));
+  }
+  return out;
+})();
+
+function resolveServices(services: RiverService[], layers: ServiceLayerKey[]) {
+  return resolveAccessMarkers(
+    { accessPoints: [], services },
+    activeRoles(layers),
+    new Set(layers),
+  );
+}
+
+/** A campground that also rents canoes — the shape 40 directory rows have. */
+const CAMP_AND_RENTALS = service({
+  id: 'camp-rentals',
+  name: 'Twin Bridges Canoe & Campground',
+  type: 'campground',
+  servicesOffered: ['canoe_rental'],
+  latitude: 38.9,
+  longitude: -90.1,
+});
+
+/** A campground with cabins — 35 rows. */
+const CAMP_AND_CABINS = service({
+  id: 'camp-cabins',
+  name: 'Huzzah Valley Resort',
+  type: 'campground',
+  servicesOffered: ['cabins'],
+  latitude: 38.8,
+  longitude: -90.2,
+});
+
+test('a service on two tiers draws ONE marker, in every combination', () => {
+  for (const layers of SERVICE_COMBINATIONS) {
+    const { serviceMarkers } = resolveServices([CAMP_AND_RENTALS, CAMP_AND_CABINS], layers);
+    const ids = serviceMarkers.map((m) => m.service.id);
+    assert.equal(new Set(ids).size, ids.length, `duplicate service marker with [${layers}]`);
+  }
+});
+
+test('the campground mark wins a service, then rentals, then lodging', () => {
+  const all = service({
+    id: 'everything',
+    type: 'campground',
+    servicesOffered: ['canoe_rental', 'cabins'],
+    latitude: 38.9,
+    longitude: -90.1,
+  });
+  const owner = (layers: ServiceLayerKey[]) =>
+    resolveServices([all], layers).serviceMarkers[0]?.owner;
+
+  assert.equal(owner(['campgrounds', 'outfitters', 'lodging']), 'campground');
+  assert.equal(owner(['outfitters', 'lodging']), 'rentals');
+  assert.equal(owner(['lodging']), 'lodging');
+  assert.equal(owner([]), undefined);
+  // Declared, not an accident of loop order — and rentals-before-lodging is
+  // exactly what lodgingPins' hand-written complement used to do.
+  assert.deepEqual([...SERVICE_MARK_PRIORITY], ['campground', 'rentals', 'lodging']);
+});
+
+test('a service absorbed by an access point draws on NO layer', () => {
+  // Akers Ferry Canoe Rental, absorbed into Akers Ferry and then drawn again by
+  // rentals anyway — fourteen rows were in this state. Absorption used to
+  // remove a row from the campgrounds layer alone.
+  const akers = {
+    point: point({ id: 'akers', types: ['access'], coordinates: { lng: -91.2301, lat: 37.2789 } }),
+    riverSlug: 'current-river',
+  };
+  const onTop = service({
+    id: 'akers-canoe',
+    type: 'campground',
+    servicesOffered: ['canoe_rental'],
+    latitude: 37.2789,
+    longitude: -91.2301,
+  });
+  for (const layers of SERVICE_COMBINATIONS) {
+    const { markers, serviceMarkers } = resolveAccessMarkers(
+      { accessPoints: [akers], services: [onTop] },
+      activeRoles(['access', ...layers]),
+      new Set(layers),
+    );
+    assert.equal(serviceMarkers.length, 0, `absorbed row still drew with [${layers}]`);
+    assert.ok(markers.length <= 1);
+  }
+});
+
+test('a service row count does not move when a neighbouring row is toggled', () => {
+  // The disease the access family was cured of, arriving in the service family
+  // the moment Campgrounds could own a rentals row's marker. A pin count would
+  // have dropped by every camping-and-rentals row.
+  const services = [CAMP_AND_RENTALS, CAMP_AND_CABINS, service({
+    id: 'rentals-only',
+    type: 'outfitter',
+    latitude: 38.7,
+    longitude: -90.3,
+  })];
+  const expected: Record<ServiceMarkOwner, number> = { campground: 2, rentals: 2, lodging: 1 };
+  for (const layers of SERVICE_COMBINATIONS) {
+    const { statsByServiceOwner } = resolveServices(services, layers);
+    for (const owner of SERVICE_MARK_PRIORITY) {
+      assert.equal(
+        statsByServiceOwner[owner].totalMatches,
+        expected[owner],
+        `${owner} total moved with [${layers}]`,
+      );
+    }
+  }
+});
+
+test('the four buckets balance for services too, in every combination', () => {
+  const services = [CAMP_AND_RENTALS, CAMP_AND_CABINS];
+  for (const layers of SERVICE_COMBINATIONS) {
+    const { statsByServiceOwner } = resolveServices(services, layers);
+    for (const owner of SERVICE_MARK_PRIORITY) {
+      const s = statsByServiceOwner[owner];
+      assert.equal(
+        s.ownedMarkers + s.representedElsewhere + s.notShown,
+        s.totalMatches,
+        `${owner} does not balance with [${layers}]`,
+      );
+    }
+  }
+});
+
+test('the overlap note names the service row a place went to', () => {
+  // "River services · 84" holding still is only honest if the sheet says where
+  // those places went — otherwise the reader counts canoes and finds forty
+  // fewer.
+  const { statsByServiceOwner } = resolveServices(
+    [CAMP_AND_RENTALS, service({ id: 'rentals-only', type: 'outfitter', latitude: 38.7, longitude: -90.3 })],
+    ['campgrounds', 'outfitters'],
+  );
+  assert.equal(
+    accessOverlapNote('rentals', statsByServiceOwner.rentals),
+    '1 drawn as rentals & shuttles · 1 as campgrounds',
+  );
+  // And with nothing to explain, no sentence at all.
+  const clean = resolveServices([CAMP_AND_RENTALS], ['campgrounds']);
+  assert.equal(accessOverlapNote('campground', clean.statsByServiceOwner.campground), null);
+});
+
+test('the Campgrounds row still counts access points and services together', () => {
+  // The row's population is both halves, and a camping row drawn as a rental is
+  // represented elsewhere rather than missing.
+  const camp = { point: point({ id: 'camp', types: ['access', 'campground'] }), riverSlug: 'x' };
+  const { statsByRole } = resolveAccessMarkers(
+    { accessPoints: [camp], services: [CAMP_AND_RENTALS] },
+    activeRoles(['access', 'outfitters']),
+    new Set<ServiceLayerKey>(['outfitters']),
+  );
+  assert.equal(statsByRole.campground.totalMatches, 2, 'one access point + one service');
+  assert.equal(statsByRole.campground.ownedMarkers, 0, 'Campgrounds is off');
+  assert.equal(statsByRole.campground.representedElsewhere, 2);
+  assert.deepEqual(statsByRole.campground.representedBy, { access: 1, rentals: 1 });
+});
+
+test('a service on no layer Eddy draws is not a marker and not a count', () => {
+  const { serviceMarkers, statsByServiceOwner } = resolveServices(
+    [service({ id: 'nowhere', latitude: null, longitude: null })],
+    ['campgrounds', 'outfitters', 'lodging'],
+  );
+  assert.equal(serviceMarkers.length, 0);
+  for (const owner of SERVICE_MARK_PRIORITY) {
+    assert.equal(statsByServiceOwner[owner].totalMatches, 0, owner);
+  }
+});
+
+test('every service matching an active layer is represented somewhere', () => {
+  // The service family's half of the visibility matrix, and the assertion that
+  // fails the day ownership DROPS a row rather than reassigning it. "One marker
+  // per place" is only half a contract; this is the other half, and without it
+  // a resolver that quietly lost every camping-and-cabins row under one
+  // combination would still have passed every test in this file.
+  const cases: { svc: RiverService; held: ServiceMarkOwner[] }[] = [
+    { svc: CAMP_AND_RENTALS, held: ['campground', 'rentals'] },
+    { svc: CAMP_AND_CABINS, held: ['campground', 'lodging'] },
+    {
+      svc: service({ id: 'rentals-only', type: 'outfitter', latitude: 38.7, longitude: -90.3 }),
+      held: ['rentals'],
+    },
+    {
+      svc: service({ id: 'cabins-only', type: 'cabin_lodge', latitude: 38.6, longitude: -90.4 }),
+      held: ['lodging'],
+    },
+  ];
+  const services = cases.map((c) => c.svc);
+
+  for (const layers of SERVICE_COMBINATIONS) {
+    const active = new Set<ServiceMarkOwner>(
+      layers.map((l) => (l === 'campgrounds' ? 'campground' : l === 'outfitters' ? 'rentals' : 'lodging')),
+    );
+    const { serviceMarkers } = resolveServices(services, layers);
+    const drawn = new Set(serviceMarkers.map((m) => m.service.id));
+    for (const { svc, held } of cases) {
+      const matches = held.some((owner) => active.has(owner));
+      assert.equal(drawn.has(svc.id), matches, `${svc.id} with [${layers}]`);
+    }
+  }
+});
+
+test('a service pin names the rows its mark is hiding', () => {
+  // Resolving ownership stopped the double pin and, on its own, would have made
+  // a camping-and-cabins row draw a tent while the cabins vanished — the same
+  // defect the access family's caption was fixed for.
+  const cues = (layers: ServiceLayerKey[]) => {
+    const marker = resolveServices([CAMP_AND_CABINS], layers).serviceMarkers[0];
+    return { all: serviceCues(marker.layers), hidden: serviceCues(marker.layers, marker.owner) };
+  };
+
+  // Both rows on: the tent owns it, and the caption still says cabins.
+  assert.deepEqual(cues(['campgrounds', 'lodging']).all, ['Camp', 'Cabins']);
+  assert.deepEqual(cues(['campgrounds', 'lodging']).hidden, ['Cabins']);
+
+  // One row on: nothing is hidden, and the pin reads as it always has.
+  assert.deepEqual(cues(['campgrounds']).all, ['Camp']);
+  assert.deepEqual(cues(['campgrounds']).hidden, []);
+  assert.deepEqual(cues(['lodging']).all, ['Cabins']);
+  assert.deepEqual(cues(['lodging']).hidden, []);
+});
+
+test('a cue never names a row the reader switched off', () => {
+  // Live layers, not held ones — advertising a row that is off would be the
+  // mirror of hiding one that is on.
+  const marker = resolveServices([CAMP_AND_RENTALS], ['campgrounds']).serviceMarkers[0];
+  assert.deepEqual(serviceCues(marker.layers), ['Camp']);
+  assert.equal(serviceCues(marker.layers).includes('Rentals'), false);
+});
+
+test('the hidden set is always the tail of the priority order', () => {
+  // A consequence of ownership following SERVICE_MARK_PRIORITY, asserted because
+  // the subtitle's shape depends on it: a lodging-owned pin can hide nothing, so
+  // no caller has to handle a cue landing before its own type label.
+  const all = service({
+    id: 'all-three',
+    type: 'campground',
+    servicesOffered: ['canoe_rental', 'cabins'],
+    latitude: 38.9,
+    longitude: -90.1,
+  });
+  for (const layers of SERVICE_COMBINATIONS) {
+    const marker = resolveServices([all], layers).serviceMarkers[0];
+    if (!marker) continue;
+    const ownerIndex = SERVICE_MARK_PRIORITY.indexOf(marker.owner);
+    for (const other of marker.layers) {
+      assert.ok(
+        SERVICE_MARK_PRIORITY.indexOf(other) >= ownerIndex,
+        `${other} outranks the owner ${marker.owner} with [${layers}]`,
+      );
+    }
+  }
 });

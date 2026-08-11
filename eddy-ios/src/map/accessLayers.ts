@@ -60,7 +60,7 @@ import {
   type RiverService,
 } from '@eddy/types';
 import { mappableService } from './mappable';
-import { serviceOnLayer } from './serviceLayers';
+import { serviceOnLayer, type ServiceLayerKey } from './serviceLayers';
 
 /**
  * What a place OFFERS, as against what layer happens to be drawing it.
@@ -72,6 +72,66 @@ import { serviceOnLayer } from './serviceLayers';
  * accepts.
  */
 export type PlaceRole = 'access' | 'campground' | 'boatRamp';
+
+/**
+ * What a DIRECTORY service offers, in the same currency as a place's roles.
+ *
+ * Named for the tier rather than the layer key so `campground` is one word here
+ * and in `PlaceRole` — a campground is a campground whether Eddy learnt about it
+ * from an access point or from the directory, and two spellings of it is how the
+ * access family got into trouble the first time.
+ */
+export type ServiceMarkOwner = 'campground' | 'rentals' | 'lodging';
+
+/**
+ * Every mark a place can wear, across both families.
+ *
+ * The two vocabularies meet here and only here, because a count has to be able
+ * to say where its places went and "3 drawn as rentals & shuttles" is a sentence
+ * about a campground service. `campground` is deliberately shared: it is the one
+ * mark both families can wear, which is exactly why a service sitting on an
+ * access point is absorbed rather than drawn twice.
+ */
+export type MarkOwner = PlaceRole | 'rentals' | 'lodging';
+
+/**
+ * WHICH LAYER OWNS A SERVICE'S ONE MARKER.
+ *
+ * ── THE BUG THIS CLOSES ──────────────────────────────────────────────────
+ *
+ * 52 of the directory's 138 mapped rows (38%) are on the camping tier AND at
+ * least one other — 40 camping-and-rentals, 35 camping-and-lodging. Every one of
+ * them drew TWICE with Campgrounds and River services both on, because the
+ * campgrounds branch minted `camp-service:{id}` while the rentals and lodging
+ * branches minted `service:{id}`: two id namespaces for one row, so nothing
+ * downstream could even notice they were the same place.
+ *
+ * Fourteen were worse still. A camping service absorbed by an access point was
+ * dropped from the campgrounds layer and then drawn anyway by rentals — Akers
+ * Ferry Canoe Rental absorbed into Akers Ferry, and a second pin on top of it.
+ * Absorption only ever removed a service from ONE of the three places that draw
+ * services.
+ *
+ * ── THE ORDER ────────────────────────────────────────────────────────────
+ *
+ * Campground first, for the reason MARK_PRIORITY gives: somebody who switched
+ * Campgrounds on is asking where they sleep, and a tent is the answer. Rentals
+ * before lodging preserves exactly what the map already did — `lodgingPins` has
+ * always dropped whatever the rentals tier was drawing — so this reorganises the
+ * rule without changing that half of its answer.
+ */
+export const SERVICE_MARK_PRIORITY: readonly ServiceMarkOwner[] = [
+  'campground',
+  'rentals',
+  'lodging',
+];
+
+/** The layer each service mark is switched by. */
+const SERVICE_OWNER_LAYER: Record<ServiceMarkOwner, ServiceLayerKey> = {
+  campground: 'campgrounds',
+  rentals: 'outfitters',
+  lodging: 'lodging',
+};
 
 /**
  * The layer keys that draw access-family places — NOT imported from `layers.ts`.
@@ -343,21 +403,51 @@ export interface RoleStats {
    * rather than in the component, so the note and the count cannot come from two
    * different passes over the data.
    */
-  representedBy: Readonly<Partial<Record<PlaceRole, number>>>;
+  representedBy: Readonly<Partial<Record<MarkOwner, number>>>;
+}
+
+/**
+ * One directory service and the single mark it wears.
+ *
+ * `layers` is every LIVE service layer this row answers, `owner`'s included —
+ * the same fact `ResolvedAccessMarker.roles` carries and for the same reason: a
+ * campground that also rents canoes now draws once, and the pin is the only
+ * thing that can say it is both.
+ */
+export interface ResolvedServiceMarker {
+  service: RiverService;
+  owner: ServiceMarkOwner;
+  layers: ReadonlySet<ServiceMarkOwner>;
 }
 
 export interface ResolvedAccessLayers {
   /** Zero or one marker per access point, never two. */
   markers: ResolvedAccessMarker[];
   /**
-   * The campground services that draw, after the same-place dedupe.
+   * The directory services that draw, one marker each, after the same-place
+   * dedupe and after tier ownership.
    *
-   * Only when the campground role is active. RiverMap builds their pins itself —
-   * they carry availability, a booking link and a description an access point
-   * does not have.
+   * ── NOW ALL THREE SERVICE LAYERS, NOT JUST CAMPING ─────────────────────
+   *
+   * This used to be the camping half only, and rentals and lodging were filtered
+   * out of `services` independently in RiverMap — which is how a campground that
+   * rents canoes came to draw two pins under two different id namespaces. One
+   * list, one marker per row, and the owning layer stated. RiverMap still builds
+   * the pins themselves: a service carries availability, a booking link and a
+   * description an access point does not have.
    */
-  serviceMarkers: RiverService[];
+  serviceMarkers: ResolvedServiceMarker[];
   statsByRole: Record<PlaceRole, RoleStats>;
+  /**
+   * The four buckets again, for the directory's own rows.
+   *
+   * Separate from `statsByRole` because the populations differ: the Campgrounds
+   * ROW counts access points and services together (`statsByRole.campground`),
+   * while the River services row counts only the directory. `campground` here is
+   * the SERVICE half alone, which is what makes the two composable rather than
+   * double-counted.
+   */
+  statsByServiceOwner: Record<ServiceMarkOwner, RoleStats>;
   /**
    * Whether the services directory had landed when this was resolved.
    *
@@ -396,17 +486,41 @@ export function resolveAccessMarkers(
     services: readonly RiverService[] | null;
   },
   roles: ReadonlySet<PlaceRole>,
+  /**
+   * The service layers that are switched on.
+   *
+   * Optional, and defaulted from `roles`, so a caller that only cares about the
+   * access family keeps the behaviour it had. Passing it is what lets one
+   * resolver own the whole "one place, one marker" question instead of leaving
+   * rentals and lodging to filter the same directory a second and third time.
+   */
+  serviceLayers: ReadonlySet<ServiceLayerKey> = new Set(
+    roles.has('campground') ? (['campgrounds'] as ServiceLayerKey[]) : [],
+  ),
 ): ResolvedAccessLayers {
   const stats: Record<PlaceRole, RoleStats> = {
     access: emptyStats(),
     campground: emptyStats(),
     boatRamp: emptyStats(),
   };
-  const representedBy: Record<PlaceRole, Partial<Record<PlaceRole, number>>> = {
+  const representedBy: Record<PlaceRole, Partial<Record<MarkOwner, number>>> = {
     access: {},
     campground: {},
     boatRamp: {},
   };
+  const serviceStats: Record<ServiceMarkOwner, RoleStats> = {
+    campground: emptyStats(),
+    rentals: emptyStats(),
+    lodging: emptyStats(),
+  };
+  const serviceRepresentedBy: Record<ServiceMarkOwner, Partial<Record<MarkOwner, number>>> = {
+    campground: {},
+    rentals: {},
+    lodging: {},
+  };
+  const activeServiceOwners = new Set<ServiceMarkOwner>(
+    SERVICE_MARK_PRIORITY.filter((owner) => serviceLayers.has(SERVICE_OWNER_LAYER[owner])),
+  );
 
   // ── Pass 1: what each access point says about itself ────────────────────
   const held = input.accessPoints.map((entry) => new Set(placeRoles(entry.point)));
@@ -452,14 +566,30 @@ export function resolveAccessMarkers(
   // the identity links are for. This is the same trade the campground-tagged
   // case has made since the radius was written; what changes here is that it is
   // no longer conditional on a tag.
-  const serviceMarkers: RiverService[] = [];
+  //
+  // ── AND ABSORPTION NOW REMOVES THE ROW FROM EVERY SERVICE LAYER ────────
+  //
+  // It used to remove it from the campgrounds layer alone, because that was the
+  // only layer this loop knew about. Fourteen rows were absorbed into an access
+  // point and then drawn anyway by rentals or lodging — Akers Ferry Canoe Rental
+  // absorbed into Akers Ferry, and a second pin on top of it. A place that is
+  // the same place as an access point is that place on EVERY layer, so the loop
+  // walks the whole drawable directory rather than the camping slice of it.
+  const serviceMarkers: ResolvedServiceMarker[] = [];
   for (const service of input.services ?? []) {
-    if (!serviceOnLayer(service, 'campgrounds')) continue;
     if (!serviceEligible(service)) continue;
     if (!mappableService(service)) continue;
     if (service.latitude == null || service.longitude == null) continue;
 
-    const absorbedBy = samePlaceIndex(service, points);
+    // Which service marks this row could wear at all, whatever is switched on.
+    const held_ = new Set<ServiceMarkOwner>(
+      SERVICE_MARK_PRIORITY.filter((owner) =>
+        serviceOnLayer(service, SERVICE_OWNER_LAYER[owner]),
+      ),
+    );
+    if (held_.size === 0) continue;
+
+    const absorbedBy = held_.has('campground') ? samePlaceIndex(service, points) : -1;
     if (absorbedBy >= 0) {
       // Not counted separately either: it is not a second place drawn under
       // someone else's mark, it is the same place seeded twice, and counting it
@@ -468,12 +598,44 @@ export function resolveAccessMarkers(
       continue;
     }
 
-    stats.campground.totalMatches += 1;
-    if (roles.has('campground')) {
-      stats.campground.ownedMarkers += 1;
-      serviceMarkers.push(service);
-    } else {
-      stats.campground.notShown += 1;
+    // One mark, by declared precedence — the same three-line rule the access
+    // family uses, over the service family's own priority.
+    const owner = SERVICE_MARK_PRIORITY.find(
+      (candidate) => held_.has(candidate) && activeServiceOwners.has(candidate),
+    ) ?? null;
+    if (owner) {
+      const live = new Set<ServiceMarkOwner>(
+        SERVICE_MARK_PRIORITY.filter(
+          (candidate) => held_.has(candidate) && activeServiceOwners.has(candidate),
+        ),
+      );
+      serviceMarkers.push({ service, owner, layers: live });
+    }
+
+    for (const mark of held_) {
+      const bucket = serviceStats[mark];
+      bucket.totalMatches += 1;
+      if (owner === null) bucket.notShown += 1;
+      else if (owner === mark) bucket.ownedMarkers += 1;
+      else {
+        bucket.representedElsewhere += 1;
+        serviceRepresentedBy[mark][owner] = (serviceRepresentedBy[mark][owner] ?? 0) + 1;
+      }
+    }
+
+    // The Campgrounds ROW counts access points and services together, so the
+    // service half is folded into `statsByRole.campground` here — membership
+    // first, then where this row's marker actually went. Unchanged in meaning
+    // from when this loop only knew about camping; what is new is that "drawn
+    // as a rental" is now a possible answer, and the note can say so.
+    if (held_.has('campground')) {
+      stats.campground.totalMatches += 1;
+      if (owner === 'campground') stats.campground.ownedMarkers += 1;
+      else if (owner === null) stats.campground.notShown += 1;
+      else {
+        stats.campground.representedElsewhere += 1;
+        representedBy.campground[owner] = (representedBy.campground[owner] ?? 0) + 1;
+      }
     }
   }
 
@@ -505,21 +667,38 @@ export function resolveAccessMarkers(
   });
 
   for (const role of PLACE_ROLES) stats[role].representedBy = representedBy[role];
+  for (const owner of SERVICE_MARK_PRIORITY) {
+    serviceStats[owner].representedBy = serviceRepresentedBy[owner];
+  }
 
   return {
     markers,
     serviceMarkers,
     statsByRole: stats,
+    statsByServiceOwner: serviceStats,
     servicesKnown: input.services != null,
   };
 }
 
-/** What a role is called in a sentence about the map. */
-const ROLE_NOUN: Record<PlaceRole, string> = {
+/** What a mark is called in a sentence about the map. */
+const ROLE_NOUN: Record<MarkOwner, string> = {
   access: 'access points',
   campground: 'campgrounds',
   boatRamp: 'boat ramps',
+  // The two service marks, worded as the layer rows word themselves — a reader
+  // matching "2 as cabins & lodges" against the sheet has to find that row.
+  rentals: 'rentals & shuttles',
+  lodging: 'cabins & lodges',
 };
+
+/** Every mark, in the order a sentence should name them. */
+const MARK_ORDER: readonly MarkOwner[] = [
+  'campground',
+  'boatRamp',
+  'access',
+  'rentals',
+  'lodging',
+];
 
 /**
  * What a role is called ON A PIN — singular, and what a paddler calls it.
@@ -557,6 +736,54 @@ export function roleCues(roles: ReadonlySet<PlaceRole>): string[] {
 }
 
 /**
+ * What a SERVICE mark is called on a pin.
+ *
+ * A fifth vocabulary table, and the same defence as `ROLE_CUE`: `ROLE_NOUN` is
+ * plural and describes a layer, `serviceTypeLabel` says what the BUSINESS is
+ * ("Outfitter", "Cabin or lodge") which is a different question from which rows
+ * this pin is answering, and neither is a word to hang on a marker beside a
+ * town name.
+ *
+ * `Cabins` rather than `Cabins & lodges`: the row is named for a population and
+ * a pin is one place, so the plural-and-ampersand form reads as a category
+ * label where a noun belongs.
+ */
+const SERVICE_CUE: Record<ServiceMarkOwner, string> = {
+  campground: 'Camp',
+  rentals: 'Rentals',
+  lodging: 'Cabins',
+};
+
+/**
+ * What one service pin says it is, strongest first.
+ *
+ * ── WHY `exclude` EXISTS, AND WHY IT IS NOT SYMMETRIC WITH roleCues ──────
+ *
+ * An access point drawn as a campground has a bare name for a label, so its
+ * subtitle is the only place any role can appear and it names all of them. A
+ * service pin's subtitle already LEADS with `serviceTypeLabel` — "Outfitter",
+ * "Cabin or lodge" — which is a finer-grained fact than the tier it owns, and
+ * replacing it with "Rentals" would trade information for symmetry.
+ *
+ * So that caller passes its owner and gets only the rows the mark is HIDING,
+ * which is the thing that was missing. The campground branch has no type label
+ * in its subtitle and passes nothing, so it reads `Camp · Cabins · Salem, MO`
+ * exactly as the access family reads `Camp · River access · Mile 12.3`.
+ *
+ * Because ownership follows SERVICE_MARK_PRIORITY, the excluded set is always
+ * the tail: a rentals-owned pin can only be hiding lodging, and a lodging-owned
+ * pin can be hiding nothing at all.
+ */
+export function serviceCues(
+  layers: ReadonlySet<ServiceMarkOwner>,
+  exclude?: ServiceMarkOwner,
+): string[] {
+  return SERVICE_MARK_PRIORITY.filter(
+    (owner) => layers.has(owner) && owner !== exclude,
+  ).map((owner) => SERVICE_CUE[owner]);
+}
+
+/**
  * The line under a layer row saying where its places actually went.
  *
  * ── WHY THE ROW NEEDS IT AT ALL ──────────────────────────────────────────
@@ -575,10 +802,10 @@ export function roleCues(roles: ReadonlySet<PlaceRole>): string[] {
  * number on the row come from one pass. A note recomputed beside the count is
  * two derivations of one fact, which is the whole failure this module replaced.
  */
-export function accessOverlapNote(role: PlaceRole, stats: RoleStats): string | null {
+export function accessOverlapNote(role: MarkOwner, stats: RoleStats): string | null {
   if (stats.representedElsewhere === 0 && stats.notShown === 0) return null;
   const parts = [`${stats.ownedMarkers} drawn as ${ROLE_NOUN[role]}`];
-  for (const other of MARK_PRIORITY) {
+  for (const other of MARK_ORDER) {
     const count = stats.representedBy[other];
     if (count) parts.push(`${count} as ${ROLE_NOUN[other]}`);
   }
