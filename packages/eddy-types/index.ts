@@ -805,11 +805,13 @@ export interface MapGauge {
    * to `siteId` is a separate refactor. Pair it with the station's provider
    * before building any provider-specific URL.
    *
-   * NULLABLE, and not hypothetically: gauge_stations keeps the id in
-   * `usgs_site_id` OR `site_id_external` depending on provider, both columns
-   * are nullable, and /api/gauges sends whichever it finds. A station carrying
-   * neither arrives here as null — which is how the Search tab crashed on
-   * `.toLowerCase()` of a USACE dam's id. Nothing may assume a string.
+   * NULLABLE: gauge_stations keeps the id in `usgs_site_id` OR
+   * `site_id_external` depending on provider, both columns are nullable, and
+   * /api/gauges sends whichever it finds. Only a station carrying NEITHER
+   * arrives here as null. A USACE dam is no longer that case — the coalesce is
+   * why Clearwater arrives as 'swl-clearwater-dam' and opens like any other
+   * station — but the Search tab did once crash on `.toLowerCase()` of a null
+   * that this field promised could not happen. Nothing may assume a string.
    */
   usgsSiteId: string | null;
   /**

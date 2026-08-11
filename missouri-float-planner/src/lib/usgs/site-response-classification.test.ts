@@ -144,6 +144,31 @@ test('end_utc wins over the station-local compatibility timestamp', () => {
   assert.equal(outcome.data.get('07014000')?.toISOString(), '2026-08-10T09:30:00.000Z');
 });
 
+test('the shapes USGS actually sends parse to the instant they name', () => {
+  // Fixtures elsewhere in this file abbreviate the offset as 'Z'. The live
+  // time-series-metadata collection does not: it answers
+  //   "end":     "2026-08-09T00:00:00.000001"      (station-local, no zone)
+  //   "end_utc": "2026-08-09T05:00:00+00:00"       (explicit +00:00)
+  // Both the microsecond tail and the spelled-out zero offset have to survive,
+  // so at least one case asserts against the real wire shape rather than a
+  // tidied one — the zone-detection regex is what this is really testing.
+  const outcome = classifyRecordEndsResponse(
+    ['07014000', '07019000'],
+    [
+      seriesFeature('07014000', '2026-08-09T00:00:00.000001', '2026-08-09T05:00:00+00:00'),
+      // The same station-local value with no end_utc beside it: the fallback
+      // reads it as UTC, which is what makes the check TZ-independent.
+      seriesFeature('07019000', '2026-08-09T00:00:00.000001', undefined),
+    ],
+    12,
+  );
+
+  assert.equal(outcome.reached, true);
+  if (!outcome.reached) return;
+  assert.equal(outcome.data.get('07014000')?.toISOString(), '2026-08-09T05:00:00.000Z');
+  assert.equal(outcome.data.get('07019000')?.toISOString(), '2026-08-09T00:00:00.000Z');
+});
+
 test('a legacy timezone-less end is deterministic when end_utc is absent', () => {
   const outcome = classifyRecordEndsResponse(
     ['07014000'],

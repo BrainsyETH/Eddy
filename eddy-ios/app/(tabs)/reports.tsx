@@ -674,7 +674,12 @@ export default function ReportsScreen() {
           kind: 'gauge' as const,
           id: s.entityId,
           name: s.name,
-          subtitle: stationCaption(s.provider, s.usgsSiteId ?? '') ?? 'Gauge',
+          // A star saved before 1.1 carries no provider, and for a signed-out
+          // user it never will — nothing syncs one down. So the caption falls
+          // back to the site number rather than to the word "Gauge", which
+          // would strip the only identifying detail off every gauge somebody
+          // saved. A slug still prints nothing; see shared/station-caption.
+          subtitle: stationCaption(s.provider, s.usgsSiteId) ?? 'Gauge',
           riverId: null,
           riverName: null,
           riverSlug: s.slug || null,

@@ -24,7 +24,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MapGauge, RiverListItem, SearchResult, SearchResultKind } from '@eddy/types';
 import { searchEddy } from '@/api/client';
-import { providerLabel, stationCaption } from '@/lib/gaugeProvider';
+import { stationCaption } from '@/lib/gaugeProvider';
 
 /** Matches the server's floor — below this a query matches most of the data. */
 const MIN_QUERY_LENGTH = 2;
@@ -151,10 +151,13 @@ export function gaugeToSearchResult(g: MapGauge): SearchResult {
   // A station can grade more than one river; the primary association is the
   // one whose map the app should open.
   const link = g.thresholds?.find((t) => t.isPrimary) ?? g.thresholds?.[0] ?? null;
+  // `?? 'usgs'` is a floor for a payload cached before /api/gauges started
+  // sending provider, NOT a guess: that endpoint has sent it for every station
+  // — Clearwater included — since before this field existed on the wire.
   const provider = g.provider ?? 'usgs';
-  const providerCaption = g.usgsSiteId
-    ? stationCaption(provider, g.usgsSiteId)
-    : providerLabel(provider);
+  // Same caption the server builds for the same station, which is the point of
+  // sharing the rule: this list renders rows from both paths at once.
+  const providerCaption = stationCaption(provider, g.usgsSiteId);
   return {
     kind: 'gauge' as const,
     id: g.id,

@@ -25,6 +25,7 @@ import { createClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
 import { toNum } from '@/lib/utils/num';
+import { stationCaption } from '@shared/station-caption';
 
 export const dynamic = 'force-dynamic';
 
@@ -192,22 +193,6 @@ const ACCESS_TYPE_LABELS: Record<string, string> = {
 function accessTypeLabel(type: string | null): string {
   if (!type) return 'Access';
   return ACCESS_TYPE_LABELS[type] ?? type.replace(/_/g, ' ');
-}
-
-/** Provider attribution for a gauge search subtitle. */
-export function gaugeProviderCaption(provider: string | null, siteId: string | null): string {
-  switch (provider) {
-    case 'usgs':
-      return siteId ? `USGS ${siteId}` : 'USGS gauge';
-    case 'nws':
-      return 'NWS gauge';
-    case 'usace':
-      // A USACE site id is an internal Eddy dam slug, not a public station
-      // number. Name the operator without presenting the slug as a citation.
-      return 'USACE release';
-    default:
-      return 'Gauge';
-  }
 }
 
 function coordsOf(row: {
@@ -553,9 +538,14 @@ async function _GET(request: NextRequest) {
         kind: 'gauge' as const,
         id: g.id,
         name: g.name ?? g.site_id ?? 'Gauge',
-        subtitle: [river?.name, gaugeProviderCaption(g.provider, g.site_id)]
-          .filter(Boolean)
-          .join(' · '),
+        // "Gauge" is the LAST resort, not the unknown-provider answer: a station
+        // whose publisher this deployment cannot name still prints its site
+        // number when the id is one (see shared/station-caption). That is what
+        // keeps a code-before-migration deploy at 1.0's copy instead of blanking
+        // every site id in search.
+        subtitle:
+          [river?.name, stationCaption(g.provider, g.site_id)].filter(Boolean).join(' · ') ||
+          'Gauge',
         riverId: river?.id ?? null,
         riverName: river?.name ?? null,
         riverSlug: river?.slug ?? null,

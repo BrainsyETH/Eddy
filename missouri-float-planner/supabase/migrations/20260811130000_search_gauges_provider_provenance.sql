@@ -6,15 +6,55 @@
 -- station's provenance while its optional wire field remains compatible with
 -- a 1.0 backend during a staggered deploy.
 --
--- The national USGS snapshot lives in gauge_latest. Curated non-USGS stations
--- may only have gauge_readings, so the lateral fallback also prevents an
--- otherwise-current release from arriving as an empty search result. The API
--- still overlays loadCurrentReadings for curated stations because that tier can
--- be fresher even when gauge_latest has a row.
+-- ── The reading join is unchanged, deliberately ────────────────────────────
+-- An earlier draft of this migration added a lateral fallback onto
+-- gauge_readings for stations with no gauge_latest row, on the theory that a
+-- curated non-USGS release would otherwise search as an empty row. It would
+-- not: BOTH callers of this function already merge the two tiers in the API.
+-- /api/search overlays loadCurrentReadings for every curated row, and
+-- /api/gauges/[siteId] calls it unconditionally — and loadCurrentReadings reads
+-- gauge_latest AND gauge_readings and keeps the newer timestamp. So the
+-- fallback covered a population that was already covered; it could require
+-- correlated lookups across the browse path's candidate rows, which is the one
+-- query where every active station is a candidate; and it had no age bound, so
+-- a station whose gauge_latest row disappeared could surface an arbitrarily old
+-- reading as its search number. The first and third of those are certain from
+-- reading the callers. The middle one is a planner question nobody measured —
+-- which is itself the argument, since the redundancy means there was never a
+-- reason to spend an EXPLAIN finding out.
+--
+-- This migration changes one thing: the provider column. If a station ever does
+-- need a second reading tier here, it belongs in the ingestion that leaves
+-- gauge_latest empty, not in the read path that works around it.
 --
 -- Return columns changed, so PostgreSQL requires dropping both overloads before
--- recreating them. p_offset stays required on the five-argument implementation;
--- defaulting it makes PostgREST unable to distinguish these overloads.
+-- recreating them.
+--
+-- ── p_offset MUST NOT BE GIVEN A DEFAULT ───────────────────────────────────
+-- Carried forward verbatim in substance from 00207, because this file now IS
+-- the definition anyone will read, and the invariant is not a style choice.
+--
+-- PostgREST resolves an RPC by ARGUMENT NAME, keeping a candidate only when
+-- every parameter the caller omitted has a default:
+--
+--   {p_query, p_limit}            -> the 4-arg form only; the 5-arg needs
+--                                    p_offset, so it is not a candidate
+--   {p_query, p_limit, p_offset}  -> the 5-arg form only; the 4-arg has no
+--                                    parameter by that name
+--
+-- Both are unambiguous, which is why /api/search's paged call and
+-- /api/gauges/[siteId]'s two-argument lookup can share one function name.
+--
+-- Default p_offset to 0 and {p_query, p_limit} suddenly matches BOTH. PostgREST
+-- cannot choose, and it fails the request — taking out /api/search AND the
+-- gauge detail screen at once, the latter of which answers 500 rather than
+-- degrading. If a default ever looks tempting, add a separately named function
+-- instead.
+--
+-- The same care does not extend to POSITIONAL callers, and must not start:
+-- `search_gauges('x', 10, 0, 1.0)` resolves to the FIVE-argument form, because
+-- an untyped `0` matches p_offset's integer exactly. Every caller today goes
+-- through PostgREST with named arguments. Keep it that way.
 
 drop function if exists public.search_gauges(
   text, integer, double precision, double precision
@@ -56,24 +96,16 @@ as $$
         gs.curated,
         st_x(gs.location) as lng,
         st_y(gs.location) as lat,
-        coalesce(gl.discharge_cfs, historical.discharge_cfs) as discharge_cfs,
-        coalesce(gl.gauge_height_ft, historical.gauge_height_ft) as gauge_height_ft,
-        coalesce(gl.reading_timestamp, historical.reading_timestamp) as reading_timestamp,
+        gl.discharge_cfs,
+        gl.gauge_height_ft,
+        gl.reading_timestamp,
         gl.flow_percentile
     from public.gauge_stations gs
     left join public.gauge_latest gl on gl.gauge_station_id = gs.id
-    left join lateral (
-        select
-            gr.discharge_cfs,
-            gr.gauge_height_ft,
-            gr.reading_timestamp
-        from public.gauge_readings gr
-        where gl.gauge_station_id is null
-          and gr.gauge_station_id = gs.id
-        order by gr.reading_timestamp desc
-        limit 1
-    ) historical on true
     where gs.active
+      -- Empty or null query = browse. Stated as a branch rather than left to
+      -- `ilike '%%'`, so the intent is legible and a future index hint has
+      -- somewhere to go.
       and (
             coalesce(p_query, '') = ''
          or gs.name ilike '%' || p_query || '%'
@@ -89,6 +121,9 @@ as $$
             )::geography
         end nulls last,
         gs.name,
+        -- A total order, so paging cannot repeat or skip a row. Name alone is
+        -- not unique — the USGS has several "Dry Creek" — and an unstable tail
+        -- on page 3 shows the same station twice and hides another.
         gs.id
     limit greatest(1, least(p_limit, 100))
     offset greatest(0, coalesce(p_offset, 0));
@@ -97,7 +132,7 @@ $$;
 comment on function public.search_gauges(
   text, integer, integer, double precision, double precision
 ) is
-  'Searches active stations with publisher provenance and the latest available reading.';
+  'Active stations with publisher provenance and their gauge_latest snapshot — the only reading tier this function consults. A curated station may have a newer reading in gauge_readings; the API overlays it via loadCurrentReadings rather than joining it here.';
 
 grant execute on function public.search_gauges(
   text, integer, integer, double precision, double precision

@@ -56,10 +56,15 @@ export interface GaugeSeed {
    * NULL means "this source did not say", not "usgs" — the same posture
    * `curated` takes below, and for the same reason. Older search deployments
    * and the star store carry no provider, and Clearwater Dam is reachable
-   * through both, so
-   * defaulting them to 'usgs' would flash "USGS swl-clearwater-dam" for the one
-   * frame before the detail fetch corrects it. A screen that does not know must
-   * print nothing rather than guess.
+   * through both, so defaulting them to 'usgs' would flash
+   * "USGS swl-clearwater-dam" for the one frame before the detail fetch
+   * corrects it. A screen that does not know must print nothing rather than
+   * guess — or, when the id is a USGS site number and therefore says nothing
+   * about a publisher on its own, print the number. See shared/station-caption.
+   *
+   * This is the WIRE null, and it is not the database's: a null provider COLUMN
+   * is a legacy row and the server resolves it to 'usgs' before answering. Only
+   * an absent field is unknown.
    */
   provider: string | null;
   /**
@@ -139,9 +144,12 @@ export function recallGauge(siteId: string | null | undefined): GaugeSeed | null
 /**
  * A curated gauge, from /api/gauges.
  *
- * Returns NULL when the station has no site id. That is not hypothetical — a
- * USACE dam keeps its id in a different column and arrives here as null, which
- * is what once took down the Search tab on a `.toLowerCase()`. Without a site id
+ * Returns NULL when the station has no site id. That USED TO describe a USACE
+ * dam, whose id lives in `site_id_external` and arrived here as null — which is
+ * what once took down the Search tab on a `.toLowerCase()`. It does not any
+ * more: /api/gauges now sends `usgs_site_id ?? site_id_external`, so Clearwater
+ * arrives as 'swl-clearwater-dam' and opens like any other station. The guard
+ * stays for a station registered with neither column set; without a site id
  * there is no gauge screen to open, and the caller must not offer one.
  */
 export function seedFromMapGauge(gauge: MapGauge): GaugeSeed | null {
@@ -149,6 +157,12 @@ export function seedFromMapGauge(gauge: MapGauge): GaugeSeed | null {
   return {
     id: gauge.id,
     siteId: gauge.usgsSiteId,
+    // A floor for a payload cached before this field existed, NOT the "absent
+    // means unknown" rule the seed's `provider` doc states. /api/gauges has
+    // always sent a provider for every station it returns, Clearwater included,
+    // so nothing reaching here is genuinely unknown — which is what makes this
+    // the right seed for the Search tab's rated rows, where the local record is
+    // authoritative even when an older search backend sends no provenance.
     provider: gauge.provider ?? 'usgs',
     // No list endpoint sends it; the detail fetch fills it in.
     publicUrl: null,

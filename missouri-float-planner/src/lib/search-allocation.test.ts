@@ -3,7 +3,6 @@ import test from 'node:test';
 import {
   allocateByKind,
   escapeLike,
-  gaugeProviderCaption,
   type SearchResult,
   type SearchResultKind,
 } from '@/app/api/search/route';
@@ -142,9 +141,6 @@ test('escapeLike leaves an ordinary place name alone', () => {
   assert.equal(escapeLike("Devil's Elbow"), "Devil's Elbow");
 });
 
-test('gauge captions attribute readings without presenting internal ids as citations', () => {
-  assert.equal(gaugeProviderCaption('usgs', '07071500'), 'USGS 07071500');
-  assert.equal(gaugeProviderCaption('nws', 'VBUM7'), 'NWS gauge');
-  assert.equal(gaugeProviderCaption('usace', 'swl-clearwater-dam'), 'USACE release');
-  assert.equal(gaugeProviderCaption(null, 'swl-clearwater-dam'), 'Gauge');
-});
+// Gauge caption attribution moved to shared/station-caption.test.ts when the
+// rule stopped being a private function of this route — the iOS app held a
+// second copy of it, and the two had drifted.

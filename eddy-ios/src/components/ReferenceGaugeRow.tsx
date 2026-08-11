@@ -76,9 +76,7 @@ function ReferenceGaugeRowComponent({
   const band = flowBand(reading?.flowPercentile);
   const value = referenceReading(reading);
   const age = readingAge(reading?.readingAgeHours);
-  const meta = [siteId ? stationCaption(provider, siteId) : null, age]
-    .filter(Boolean)
-    .join(' · ');
+  const meta = [stationCaption(provider, siteId), age].filter(Boolean).join(' · ');
 
   return (
     <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>

@@ -472,7 +472,8 @@ export default function GaugeDetailScreen() {
         {/* Attribution, and only where it is earned. A USGS site number is a
             public identifier worth printing; a USACE dam's id is an Eddy slug,
             so that station is credited by operator alone. An unknown provider
-            prints neither rather than claiming one. See src/lib/gaugeProvider.ts.
+            falls back to the site number when the id is one and prints nothing
+            when it is not. See shared/station-caption.ts.
 
             "Not rated by Eddy" is likewise withheld from a dam release: it is
             true, but it reads as an omission when the real reason is that a
@@ -489,7 +490,10 @@ export default function GaugeDetailScreen() {
                 ? link?.riverName
                 : supportsFlowBand(gauge.provider)
                   ? 'Not rated by Eddy'
-                  : 'Dam release',
+                  : // The caption already says "USACE release", which is the
+                    // only way to reach this branch. Saying it twice on one
+                    // line is what a second copy of the rule used to hide.
+                    null,
           ]
             .filter(Boolean)
             .join(' · ')}

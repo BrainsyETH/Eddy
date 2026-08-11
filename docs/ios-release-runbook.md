@@ -15,7 +15,13 @@ device behavior and store metadata can drift between releases.
 
 - [ ] Apply `20260811130000_search_gauges_provider_provenance.sql` and verify
       both `search_gauges` overloads. The four-argument form keeps 1.0 working;
-      the five-argument form serves paged 1.1 search.
+      the five-argument form serves paged 1.1 search. The migration adds one
+      column and changes no reading semantics, so a rollback is a re-apply of
+      00207.
+- [ ] Confirm a saved USGS gauge still shows its site number in Reports before
+      any account syncs. A star written by 1.0 carries no provider, and for a
+      signed-out user nothing will ever fill one in — the caption has to fall
+      back to the site number rather than to a bare "Gauge".
 - [ ] Apply `20260810202000_trust_usgs_site_scope.sql`, confirm it with
       `npm run db:check-migrations`, then rerun `usgs_site_drift`. The live
       check currently calls this RPC with no readable scope and refuses
@@ -23,6 +29,10 @@ device behavior and store metadata can drift between releases.
 - [ ] Deploy the web/API changes, then confirm the exact Clearwater Dam search
       result says **USACE release**, carries `provider: "usace"`, and never
       exposes `swl-clearwater-dam` as though it were a public station number.
+      Migration-first is still the intended order, but it is no longer a gate:
+      an unknown provider now falls back to the site number when the id is one,
+      so code-before-migration lands on 1.0's copy instead of blanking every
+      site id in search. See `shared/station-caption.ts`.
 - [ ] Confirm Clearwater detail qualifier copy says **USACE**, not USGS.
 - [x] Run the USGS site-drift regression suite in both UTC and
       `America/Chicago`; the official `end_utc` field must win.
