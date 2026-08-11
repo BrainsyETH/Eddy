@@ -9,6 +9,7 @@ import {
   placeRoles,
   PLACE_ROLES,
   resolveAccessMarkers,
+  roleCues,
   ROLE_LAYER,
   type PlaceRole,
 } from '../../../eddy-ios/src/map/accessLayers';
@@ -405,4 +406,77 @@ test('a service with no geocode is never the same place as anything', () => {
     ]),
     false,
   );
+});
+
+// ── What one pin says it is ────────────────────────────────────────────────
+
+test('one pin names every LIVE row it is answering for', () => {
+  // Cedargrove, as production actually holds it: one access_points row, four
+  // types, no boat ramp. It is a river access AND a campground, it draws one
+  // marker, and the caption is the only thing on the map that can say so.
+  const cedargrove = {
+    point: point({
+      id: 'cedargrove',
+      name: 'Cedargrove',
+      types: ['access', 'campground', 'gravel_bar', 'bridge'],
+    }),
+    riverSlug: 'current-river',
+  };
+  assert.equal(placeRoles(cedargrove.point).has('boatRamp'), false);
+
+  const marker = (layers: string[]) =>
+    resolveAccessMarkers({ accessPoints: [cedargrove], services: [] }, activeRoles(layers))
+      .markers[0];
+
+  const both = marker(['access', 'campgrounds']);
+  assert.equal(both.owner, 'campground');
+  assert.deepEqual(roleCues(both.roles), ['Camp', 'River access']);
+
+  // Campgrounds alone: the Access row is OFF, so the pin must not advertise a
+  // row the reader has switched off — and a place answering one row reads
+  // exactly as it always has.
+  assert.deepEqual(roleCues(marker(['campgrounds']).roles), ['Camp']);
+  assert.deepEqual(roleCues(marker(['access']).roles), ['River access']);
+});
+
+test('a cue is only ever the roles the place actually holds', () => {
+  const plain = { point: point({ id: 'plain', types: ['access'] }), riverSlug: 'x' };
+  const all = resolveAccessMarkers(
+    { accessPoints: [plain], services: [] },
+    activeRoles(['access', 'campgrounds', 'boatRamps']),
+  );
+  assert.deepEqual(roleCues(all.markers[0].roles), ['River access']);
+});
+
+test('the cue reads strongest-first, matching the mark the pin wears', () => {
+  const everything = {
+    point: point({ id: 'all', types: ['access', 'campground', 'boat_ramp'] }),
+    riverSlug: 'x',
+  };
+  const { markers } = resolveAccessMarkers(
+    { accessPoints: [everything], services: [] },
+    activeRoles(['access', 'campgrounds', 'boatRamps']),
+  );
+  assert.equal(markers[0].owner, 'campground');
+  assert.deepEqual(roleCues(markers[0].roles), ['Camp', 'Ramp', 'River access']);
+  // The cue's order is MARK_PRIORITY's, so the first word is always the mark.
+  assert.equal(roleCues(markers[0].roles)[0], 'Camp');
+});
+
+test('an absorbed service makes the pin say camp as well as river access', () => {
+  // Absorption grants the campground ROLE (and only the role), so the caption
+  // has to follow it — otherwise the place the directory knows camps draws a
+  // tent that never mentions the put-in underneath it.
+  const plain = {
+    point: point({ id: 'plain', types: ['access'], coordinates: { lng: -91.2301, lat: 37.2789 } }),
+    riverSlug: 'x',
+  };
+  const onTop = service({ id: 'dup', latitude: 37.2789, longitude: -91.2301 });
+  const { markers } = resolveAccessMarkers(
+    { accessPoints: [plain], services: [onTop] },
+    activeRoles(['access', 'campgrounds']),
+  );
+  assert.deepEqual(roleCues(markers[0].roles), ['Camp', 'River access']);
+  // Still the role and nothing else: the source record is handed back untouched.
+  assert.equal(markers[0].entry.point, plain.point);
 });

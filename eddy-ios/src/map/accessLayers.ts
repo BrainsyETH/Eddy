@@ -263,6 +263,34 @@ export interface ResolvedAccessMarker {
   entry: AccessPointEntry;
   /** The role whose mark this place is drawn with, per MARK_PRIORITY. */
   owner: PlaceRole;
+  /**
+   * Every LIVE role this one pin is standing in for, `owner` included.
+   *
+   * Held roles intersected with the active ones — so it names the rows this pin
+   * is currently answering, never the ones the reader has switched off.
+   *
+   * ── WHY A PIN HAS TO SAY THIS ────────────────────────────────────────────
+   *
+   * One place, one marker is the rule, and it is right. What it costs is that a
+   * place wearing its strongest mark stops saying what else it is: Cedargrove is
+   * a river access AND a campground, and with both rows on it draws a tent
+   * captioned `Camp · Mile 12.3`. Nothing on the map then says the put-in is
+   * there — so asking for campgrounds appears to have REMOVED the access point,
+   * which is exactly how the confusion was reported.
+   *
+   * The asymmetry is the tell: with Campgrounds OFF the same place draws
+   * `Campground · Cedargrove`, because `accessLabel` prefixes the strongest
+   * type. The generic mark cues the speciality and the specialised mark drops
+   * the generic one, so the fact is available in exactly one of the two states a
+   * reader can be in.
+   *
+   * `accessOverlapNote` already says this for a ROW ("3 drawn as campgrounds");
+   * this is the same fact for a PLACE, which is where the reader is looking when
+   * they conclude a pin is missing. Membership, not a second derivation — the
+   * resolver computed it in pass 1 and used to discard everything but the
+   * winner.
+   */
+  roles: ReadonlySet<PlaceRole>;
 }
 
 /**
@@ -453,7 +481,16 @@ export function resolveAccessMarkers(
   const markers: ResolvedAccessMarker[] = [];
   input.accessPoints.forEach((entry, index) => {
     const owner = MARK_PRIORITY.find((role) => held[index].has(role) && roles.has(role)) ?? null;
-    if (owner) markers.push({ entry, owner });
+    if (owner) {
+      // The same intersection `owner` is the first pick out of, kept whole
+      // instead of collapsed to its winner. Built in MARK_PRIORITY order so the
+      // cue reads strongest-first and matches the mark the pin is wearing.
+      const live = new Set<PlaceRole>();
+      for (const role of MARK_PRIORITY) {
+        if (held[index].has(role) && roles.has(role)) live.add(role);
+      }
+      markers.push({ entry, owner, roles: live });
+    }
 
     for (const role of held[index]) {
       const bucket = stats[role];
@@ -483,6 +520,41 @@ const ROLE_NOUN: Record<PlaceRole, string> = {
   campground: 'campgrounds',
   boatRamp: 'boat ramps',
 };
+
+/**
+ * What a role is called ON A PIN — singular, and what a paddler calls it.
+ *
+ * A FOURTH order-and-vocabulary table, and worth the same defence
+ * `MARK_PRIORITY` makes against `ACCESS_POINT_TYPE_ORDER`: `ROLE_NOUN` above is
+ * plural and belongs to a sentence about a LAYER ("3 drawn as campgrounds"), so
+ * reusing it here would caption a single pin "access points".
+ *
+ * `River access` rather than `ACCESS_POINT_TYPE_LABELS.access`, which is bare
+ * "Access". That table labels a TYPE BADGE, where the surrounding sheet has
+ * already established what kind of thing is being described; a cue floating in a
+ * subtitle beside a river mile has no such context, and "Camp · Access · Mile
+ * 12.3" reads as a fragment. This is the one place the word appears without that
+ * context, which is why it is the one place it is spelled out — and it is spelled
+ * out HERE, in a table, so the next surface that needs it does not invent a
+ * fifth wording.
+ */
+const ROLE_CUE: Record<PlaceRole, string> = {
+  access: 'River access',
+  campground: 'Camp',
+  boatRamp: 'Ramp',
+};
+
+/**
+ * What one pin says it is, strongest first.
+ *
+ * Returns every live role, `owner` included, so the caller joins one list rather
+ * than special-casing the mark it is already drawing. A place answering a single
+ * row yields a single cue and reads exactly as it always has — which is what
+ * keeps this from being a redesign of every campground pin on the map.
+ */
+export function roleCues(roles: ReadonlySet<PlaceRole>): string[] {
+  return MARK_PRIORITY.filter((role) => roles.has(role)).map((role) => ROLE_CUE[role]);
+}
 
 /**
  * The line under a layer row saying where its places actually went.
