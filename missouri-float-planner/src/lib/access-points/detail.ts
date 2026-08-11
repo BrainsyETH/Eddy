@@ -23,6 +23,7 @@ import type {
 } from '@/types/api';
 import { loadAvailability } from '@/lib/camping/read';
 import { bookingUrlFor, loadBookingLink } from '@/lib/camping/booking';
+import { loadLinkedServices, withLinkedServices } from '@/lib/access-points/linked-services';
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -166,9 +167,26 @@ export async function getAccessPointDetail(
   // nps_campground_id is the other way in — so a plain put-in still costs
   // nothing, which is the condition that used to be spelled `nps_campground_id`
   // alone.
+  //
+  // ── AND A LINK IS A THIRD WAY OF BEING ONE ────────────────────────────
+  //
+  // Washington State Park Access is the case that forced this. Its `types` are
+  // EMPTY and it has no nps_campground_id — correctly, because it is a boat
+  // launch and not a campground — so the gate said "plain put-in" and skipped
+  // the block. But it is `located_at` the park's campground, which has 19 nights
+  // of live availability, and the whole point of that link is to put those
+  // nights on the sheet a reader taps. A gate that reads only the access point's
+  // own row can never see a fact about two records.
+  //
+  // So the links are read FIRST and unconditionally: one indexed lookup by
+  // access_point_id, on a page that already makes several. Gating the gate on
+  // the query it gates is a circle, and the query is cheaper than the circle.
+  const linked = await loadLinkedServices(supabase, ap.id);
+
   const campgroundish =
     ap.nps_campground_id != null ||
-    (Array.isArray(ap.types) && (ap.types as string[]).includes('campground'));
+    (Array.isArray(ap.types) && (ap.types as string[]).includes('campground')) ||
+    linked.length > 0;
 
   let npsCampground: NPSCampgroundInfo | null = null;
   let availability: CampsiteAvailabilityInfo | null = null;
@@ -186,11 +204,34 @@ export async function getAccessPointDetail(
   if (campgroundish) {
     const [index, bookingLink] = await Promise.all([
       loadAvailability(supabase),
-      loadBookingLink(supabase, ap.id),
+      loadBookingLink(
+        supabase,
+        ap.id,
+        linked.map((service) => service.id),
+      ),
     ]);
+    // ── AND A THIRD WAY IN: the service this place is linked to ───────────
+    //
+    // The two lookups above cover the ids the access point carries ITSELF —
+    // its own, and the nps_campgrounds row it points at. Neither reaches a
+    // facility that hangs off `nearby_services` unless somebody also set
+    // `campsite_facilities.access_point_id`, and for ten facilities nobody
+    // has: Alley Spring, Round Spring, Washington State Park and seven more
+    // name their directory row and no access point, so their availability
+    // could not reach the sheet a reader actually taps.
+    //
+    // `access_point_services` is the join that closes it, and this is the
+    // first thing to read it — until now the table recorded a relationship and
+    // routed nothing. Last in the chain, deliberately: the ids on the access
+    // point are the rows the map pin came from, and a link is a statement
+    // about two records rather than one.
     availability =
       index.byAccessPointId.get(ap.id) ??
-      (ap.nps_campground_id ? (index.byNpsCampgroundId.get(ap.nps_campground_id) ?? null) : null);
+      (ap.nps_campground_id ? (index.byNpsCampgroundId.get(ap.nps_campground_id) ?? null) : null) ??
+      linked.reduce<CampsiteAvailabilityInfo | null>(
+        (found, service) => found ?? index.byNearbyServiceId.get(service.id) ?? null,
+        null,
+      );
     booking = bookingLink;
   }
   if (ap.nps_campground_id) {
@@ -225,7 +266,14 @@ export async function getAccessPointDetail(
     managingAgency: ap.managing_agency as ManagingAgency | null,
     officialSiteUrl: ap.official_site_url,
     localTips: ap.local_tips,
-    nearbyServices: (ap.nearby_services as unknown as NearbyService[]) || [],
+    // The hand-curated entries, with the canonical rows this place is linked to
+    // folded in — so a pin that absorbed a business finally carries that
+    // business's phone and website rather than leaving them on the record it
+    // dropped. See withLinkedServices for why this is one list and not two.
+    nearbyServices: withLinkedServices(
+      ((ap.nearby_services as unknown as NearbyService[]) || []),
+      linked,
+    ) as NearbyService[],
     drivingLat: ap.driving_lat != null ? parseFloat(String(ap.driving_lat)) : null,
     drivingLng: ap.driving_lng != null ? parseFloat(String(ap.driving_lng)) : null,
     // 'MO' is the same fallback getRivers uses for a row with no state, so a

@@ -7,20 +7,31 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { bookingUrlFor, loadBookingLink } from './booking';
 
 /**
  * Just enough of the client for the one query loadBookingLink makes.
  *
  * Mirrors the shape read.test.ts uses: chainable builder, terminal call
- * resolves. `maybeSingle` is the terminal here because at most one facility can
- * name a given access point — `campsite_facilities_access_point_unique`.
+ * resolves.
+ *
+ * ── THE TERMINAL IS `eq`, AND IT RESOLVES A LIST ─────────────────────────
+ *
+ * It was `maybeSingle`, because at most one facility could name a given access
+ * point — `campsite_facilities_access_point_unique`. The query matches linked
+ * directory rows as well now, and several facilities can name the services of
+ * one place, so the read returns rows and picks. A single fixture is wrapped
+ * rather than making every caller pass an array: these tests are about which
+ * URL survives the allowlist, and only the two below are about the picking.
  */
 function supabaseReturning(data: unknown, error: { message: string } | null = null) {
+  const rows = data == null ? [] : Array.isArray(data) ? data : [data];
   const builder = {
     select: () => builder,
-    eq: () => builder,
-    maybeSingle: () => Promise.resolve({ data, error }),
+    or: () => builder,
+    eq: () => Promise.resolve({ data: error ? null : rows, error }),
   };
   return { from: () => builder } as never;
 }
@@ -197,4 +208,88 @@ test('a directory row pointing somewhere else produces no link at all', async ()
     ),
     null,
   );
+});
+
+// ── Linked services reach the button ───────────────────────────────────────
+
+test('the query asks for facilities by access point OR by linked service', () => {
+  // Ten facilities name a directory row and no access point — Alley Spring and
+  // Round Spring among them — so a reader tapping that put-in got no button for
+  // a campground Eddy scrapes nightly. `access_point_services` is the join that
+  // closes it, and the OR is where it lands.
+  const source = readFileSync(
+    join(process.cwd(), 'src/lib/camping/booking.ts'),
+    'utf8',
+  );
+  assert.match(source, /access_point_id\.eq\.\$\{accessPointId\}/);
+  assert.match(source, /nearby_service_id\.in\.\(\$\{serviceIds\.join\(','\)\}\)/);
+  // And the provider still comes off the facility, never off the service — the
+  // allowlist checks the host against `source`, and a URL with no provider to
+  // check against is exactly what this file exists to refuse.
+  assert.match(source, /const source = preferred\.source as CampingSource/);
+  assert.match(source, /bookingUrlFor\(source, preferred\.nearby_services\?\.reservation_url\)/);
+});
+
+test('a facility naming this access point directly beats a linked one', () => {
+  // Same precedence as the availability lookup: the access point's own row is
+  // the one the map pin came from, and a link is a statement about two records
+  // yielding to one about this one.
+  const source = readFileSync(
+    join(process.cwd(), 'src/lib/camping/booking.ts'),
+    'utf8',
+  );
+  assert.match(
+    source,
+    /rows\.find\(\(row\) => row\.access_point_id === accessPointId\) \?\? rows\[0\]/,
+  );
+});
+
+test('a linked facility carries the button when the access point has none', async () => {
+  // Alley Spring in miniature: the facility names the directory row and no
+  // access point, so before `access_point_services` was read the put-in a
+  // reader taps offered no booking for a campground Eddy scrapes nightly.
+  const link = await loadBookingLink(
+    supabaseReturning([
+      {
+        source: 'recreation_gov',
+        access_point_id: null,
+        nearby_services: { reservation_url: 'https://www.recreation.gov/camping/campgrounds/234046' },
+      },
+    ]),
+    'ap-alley-spring',
+    ['svc-alley-spring'],
+  );
+
+  assert.deepEqual(link, {
+    url: 'https://www.recreation.gov/camping/campgrounds/234046',
+    source: 'recreation_gov',
+  });
+});
+
+test('the access point own row wins when both match', async () => {
+  const link = await loadBookingLink(
+    supabaseReturning([
+      {
+        source: 'recreation_gov',
+        access_point_id: null,
+        nearby_services: { reservation_url: 'https://www.recreation.gov/camping/campgrounds/111' },
+      },
+      {
+        source: 'recreation_gov',
+        access_point_id: 'ap-1',
+        nearby_services: { reservation_url: 'https://www.recreation.gov/camping/campgrounds/999' },
+      },
+    ]),
+    'ap-1',
+    ['svc-a'],
+  );
+
+  assert.equal(link?.url, 'https://www.recreation.gov/camping/campgrounds/999');
+});
+
+test('no linked services means the query never asks for them', async () => {
+  // An ordinary put-in must not pay for an `in.()` clause with an empty list,
+  // which PostgREST reads as a syntax error rather than as "match nothing".
+  const source = readFileSync(join(process.cwd(), 'src/lib/camping/booking.ts'), 'utf8');
+  assert.match(source, /if \(serviceIds\.length > 0\)/);
 });

@@ -141,6 +141,7 @@ export interface BookingLink {
 
 interface FacilityRow {
   source: string;
+  access_point_id: string | null;
   // PostgREST embeds a to-one FK as an object; typed loosely because the
   // generated row type does not describe embeds.
   nearby_services: { reservation_url: string | null } | null;
@@ -153,19 +154,37 @@ interface FacilityRow {
  * points have no facility row at all, and a facility can be linked for
  * availability while its directory row holds no reservation URL.
  *
- * At most one row can match — `campsite_facilities_access_point_unique` is a
- * unique index on `access_point_id` — so this is a `maybeSingle`.
+ * ── TWO WAYS IN, AND THE ACCESS POINT'S OWN ROW WINS ─────────────────────
+ *
+ * `access_point_id` is the direct link and at most one row can carry it —
+ * `campsite_facilities_access_point_unique` is a unique index on it. But ten
+ * facilities name a directory row and NO access point, Alley Spring and Round
+ * Spring among them, so a reader tapping that put-in got no button for a
+ * campground Eddy scrapes nightly.
+ *
+ * `serviceIds` are the directory rows `access_point_services` says belong to
+ * this place. Passing them here rather than resolving a URL in the caller is
+ * deliberate: `source` comes off `campsite_facilities`, and `source` is what
+ * the allowlist above checks the host against. A reservation URL taken straight
+ * off a linked `nearby_services` row would arrive with no provider to check it
+ * against, and the whole argument of this file is that a booking button which
+ * names a provider must be verified to reach one.
  */
 export async function loadBookingLink(
   supabase: SupabaseClient,
   accessPointId: string,
+  serviceIds: readonly string[] = [],
 ): Promise<BookingLink | null> {
+  const filters = [`access_point_id.eq.${accessPointId}`];
+  if (serviceIds.length > 0) {
+    filters.push(`nearby_service_id.in.(${serviceIds.join(',')})`);
+  }
+
   const { data, error } = await supabase
     .from('campsite_facilities')
-    .select('source, nearby_services(reservation_url)')
-    .eq('access_point_id', accessPointId)
-    .eq('enabled', true)
-    .maybeSingle();
+    .select('source, access_point_id, nearby_services(reservation_url)')
+    .or(filters.join(','))
+    .eq('enabled', true);
 
   if (error) {
     // A booking button is an enhancement. A page that cannot read this renders
@@ -174,13 +193,19 @@ export async function loadBookingLink(
     return null;
   }
 
-  const row = data as unknown as FacilityRow | null;
-  if (!row) return null;
+  const rows = (data ?? []) as unknown as FacilityRow[];
+  if (rows.length === 0) return null;
 
-  const source = row.source as CampingSource;
+  // The row naming this access point directly wins, for the reason the
+  // availability lookup gives: it is the row the map pin came from. A linked
+  // row is a statement about two records and yields to one about this one.
+  const preferred =
+    rows.find((row) => row.access_point_id === accessPointId) ?? rows[0];
+
+  const source = preferred.source as CampingSource;
   // Checked, not merely present: the label this URL is about to appear under
   // names a provider, and nothing upstream guarantees the row agrees.
-  const url = bookingUrlFor(source, row.nearby_services?.reservation_url);
+  const url = bookingUrlFor(source, preferred.nearby_services?.reservation_url);
   if (!url) return null;
 
   return { url, source };
