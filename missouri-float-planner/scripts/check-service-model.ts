@@ -56,6 +56,24 @@ const METRES_PER_MILE = 1609.344;
  */
 const SAME_PLACE_METRES = 222;
 
+/**
+ * How far apart a `same_place` pair may sit before one of them is simply wrong.
+ *
+ * NOT `SAME_PLACE_METRES`. That is the map's proximity box — the distance below
+ * which two records are assumed to be one place with no evidence at all — and
+ * measuring a VERIFIED link against it flags every link for the exact reason it
+ * was written. Patrick Bridge is 281 m apart because one record was pinned at
+ * the boat ramp and the other at the campsites, inside one MDC area somebody
+ * checked; reporting that as drift is reporting the success.
+ *
+ * A kilometre is the bar for "these cannot both be at one arrival point". Beyond
+ * it, either the link is wrong or a coordinate is, and a person should look
+ * again — which is a warning rather than an error, because the link is evidence
+ * from a human and the geometry is evidence from a geocoder, and this check is
+ * not entitled to decide between them.
+ */
+const IDENTITY_DRIFT_METRES = 1000;
+
 /** How close two access points have to be before their names are worth reading. */
 const NEAR_DUPLICATE_METRES = 400;
 
@@ -464,6 +482,7 @@ async function main() {
   // The links, if the table has landed. A missing table is the state before the
   // migration and is worth saying once, not throwing over.
   const identity = new Map<string, string>();
+  const linkedPairs = new Set<string>();
   const locatedAt: IdentityLinkRow[] = [];
   const unverifiedIdentity: IdentityLinkRow[] = [];
   const { data: linkRows, error: linkError } = await supabase
@@ -473,6 +492,12 @@ async function main() {
     warn(`access_point_services is unreadable (${linkError.message}) — link checks skipped`);
   } else {
     for (const link of (linkRows ?? []) as IdentityLinkRow[]) {
+      // Every recorded relationship, whatever it is, is a pair somebody has
+      // already ruled on — so it must not come back as a candidate. Reporting a
+      // decided `located_at` under "confirm each shares ONE arrival point" asks
+      // for a decision that has been made, and buries the pairs that genuinely
+      // have not.
+      linkedPairs.add(`${link.access_point_id}:${link.nearby_service_id}`);
       if (link.relationship === 'same_place') {
         identity.set(link.nearby_service_id, link.access_point_id);
         if (!link.verified_at) unverifiedIdentity.push(link);
@@ -523,7 +548,7 @@ async function main() {
       // The link says one arrival point and the geometry disagrees. Not a
       // duplicate pin — the resolver absorbs it — but one of the two rows is
       // pinned somewhere its own place is not, and only a person can say which.
-      if (metres > SAME_PLACE_METRES) {
+      if (metres > IDENTITY_DRIFT_METRES) {
         driftedLinks.push(`${svc.name} ←→ ${target.row.name} (${metres} m apart, same_place)`);
       }
       continue;
@@ -535,6 +560,7 @@ async function main() {
       // report; outside it, the reader is looking at two pins for what the
       // names say is one place.
       if (metres <= SAME_PLACE_METRES) continue;
+      if (linkedPairs.has(`${match.row.id}:${svc.id}`)) continue;
       const tagged = (match.row.types ?? []).includes('campground');
       unlinkedCandidates.push(
         `${svc.name} ←→ ${match.row.name} (${metres} m apart` +
@@ -556,15 +582,22 @@ async function main() {
   if (driftedLinks.length === 0) {
     ok('every same_place link has both rows in the same place');
   } else {
-    fail(`${driftedLinks.length} same_place links whose rows have drifted apart:`);
-    for (const line of driftedLinks) console.error(`      ${line}`);
+    warn(
+      `${driftedLinks.length} same_place links whose rows sit more than ` +
+        `${IDENTITY_DRIFT_METRES} m apart — one of the two coordinates is wrong:`,
+    );
+    for (const line of driftedLinks) console.warn(`      ${line}`);
   }
 
   // The verification queue. These route availability today and draw two markers,
   // which is the CORRECT behaviour until somebody says otherwise — printed with
   // the distance because that is the fact the decision turns on.
+  // The register of decided `located_at` pairs, not a queue: two markers is the
+  // right answer for these, and `verified` says whether a person said so or the
+  // facility table implied it. A pair here is finished unless somebody decides
+  // the two ends share one arrival point after all.
   if (locatedAt.length > 0) {
-    console.log('  awaiting verification (located_at — two markers, correctly, for now):');
+    console.log('  located_at — two markers by design:');
     for (const link of locatedAt) {
       const target = apById.get(link.access_point_id);
       const svc = serviceById.get(link.nearby_service_id);
@@ -572,7 +605,8 @@ async function main() {
       const metres = Math.round(
         milesBetween({ lat: svc.latitude, lng: svc.longitude }, target.pin) * METRES_PER_MILE,
       );
-      console.log(`      ${svc.name} ←→ ${target.row.name} (${metres} m apart)`);
+      const mark = link.verified_at ? 'verified' : 'derived, unconfirmed';
+      console.log(`      ${svc.name} ←→ ${target.row.name} (${metres} m apart, ${mark})`);
     }
   }
 
