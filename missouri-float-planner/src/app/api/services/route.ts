@@ -100,6 +100,16 @@ interface MappedService {
    * written, not at render. See the header for why it must still ship.
    */
   geocodePrecision: string | null;
+  /**
+   * The access point this row is the same place as, or null.
+   *
+   * `same_place` only — see IDENTITY_RELATIONSHIP. The app prefers this over its
+   * proximity radius and collapses the two into one marker, so a row that
+   * reaches the phone with a merely-nearby id here erases a real place from the
+   * map. That is why the filter is server-side: an older build cannot re-apply
+   * it.
+   */
+  accessPointId: string | null;
   description: string | null;
   servicesOffered: string[];
 }
@@ -120,6 +130,108 @@ const STALE_WHILE_REVALIDATE = 86400;
 
 const SELECT_COLUMNS =
   'id, name, type, status, phone, website, city, state, latitude, longitude, geocode_precision, description, services_offered';
+
+/**
+ * The one relationship that means "the same physical place you drive to".
+ *
+ * `located_at` and `nearby` are deliberately excluded, and the distinction is
+ * load-bearing rather than pedantic. `located_at` says a campground and an
+ * access point belong to one facility — true of Meramec State Park, whose two
+ * rows are 2 956 m apart. Shipping that here would have the app collapse them
+ * into one marker, which does not merely merge two pins: it removes the
+ * campground's real location from the map and sends anybody looking for it to a
+ * boat ramp three kilometres away. A duplicate pin is the lesser harm.
+ *
+ * So the app is told about identity and nothing else, and the two weaker
+ * relationships stay server-side where they can route availability without
+ * touching a marker.
+ */
+const IDENTITY_RELATIONSHIP = 'same_place';
+
+interface IdentityLinkRow {
+  access_point_id: string;
+  nearby_service_id: string;
+}
+
+/**
+ * service id → the access point it is the same place as.
+ *
+ * ── A SEPARATE READ, and a cast, both for stated reasons ─────────────────
+ *
+ * Separate rather than embedded in SELECT_COLUMNS because that has to stay one
+ * string literal for supabase-js to infer the row type, and an embedded
+ * resource inside it would widen every field on the service row through the
+ * join. Two small reads behind a ten-minute edge cache is the cheaper trade.
+ *
+ * Cast because `access_point_services` is newer than the last `db:gen-types`
+ * run, so the typed client does not know the table. The row shape is declared
+ * above and asserted at this one call site; hand-editing the generated
+ * `database.ts` is what CLAUDE.md forbids and the next regeneration would undo.
+ *
+ * ── AND verified_at IS ASKED FOR TWICE, ON PURPOSE ──────────────────────
+ *
+ * A `same_place` row without a verified_at cannot exist — the database rejects
+ * it (access_point_services_same_place_is_verified). This filter is therefore
+ * asking for something already guaranteed, which is exactly when a filter is
+ * worth having: it is the half that survives the constraint being dropped, a
+ * restore from a backup that predates it, or a future relationship value added
+ * without thinking this through. The cost is one predicate; the failure it
+ * guards against is a marker silently deleted from the map.
+ *
+ * ── FAILURE IS DEGRADATION, NOT A 500 ────────────────────────────────────
+ *
+ * A missing or unreadable link table returns an empty map and the app falls
+ * back to its proximity radius, which is exactly how it behaved before these
+ * links existed. The map going down because an identity table is unavailable
+ * would be strictly worse than the duplicate pins it prevents — but it is
+ * logged, because silently drawing two pins for one place is the bug this whole
+ * path exists to fix and it must not become invisible.
+ */
+async function loadIdentityLinks(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<Map<string, string>> {
+  const byService = new Map<string, string>();
+  try {
+    const { data, error } = await (
+      supabase as unknown as {
+        from: (table: string) => {
+          select: (columns: string) => {
+            eq: (
+              column: string,
+              value: string,
+            ) => {
+              not: (
+                column: string,
+                operator: string,
+                value: null,
+              ) => Promise<{
+                data: IdentityLinkRow[] | null;
+                error: { message: string } | null;
+              }>;
+            };
+          };
+        };
+      }
+    )
+      .from('access_point_services')
+      .select('access_point_id, nearby_service_id')
+      .eq('relationship', IDENTITY_RELATIONSHIP)
+      .not('verified_at', 'is', null);
+
+    if (error) {
+      console.error('[services] Could not read access_point_services:', error.message);
+      return byService;
+    }
+    for (const link of data ?? []) {
+      if (link.nearby_service_id && link.access_point_id) {
+        byService.set(link.nearby_service_id, link.access_point_id);
+      }
+    }
+  } catch (err) {
+    console.error('[services] Could not read access_point_services:', err);
+  }
+  return byService;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -142,6 +254,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Could not fetch services' }, { status: 500 });
     }
 
+    const accessPointByService = await loadIdentityLinks(supabase);
+
     const response: ServicesResponse = {
       services: (data ?? []).map((s) => ({
         id: s.id,
@@ -157,6 +271,7 @@ export async function GET(request: NextRequest) {
         latitude: toNum(s.latitude),
         longitude: toNum(s.longitude),
         geocodePrecision: s.geocode_precision ?? null,
+        accessPointId: accessPointByService.get(s.id) ?? null,
         description: s.description ?? null,
         servicesOffered: s.services_offered ?? [],
       })),

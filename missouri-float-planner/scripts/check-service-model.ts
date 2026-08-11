@@ -39,8 +39,83 @@ import {
   serviceTypeLabel,
 } from '../../eddy-ios/src/map/serviceLayers';
 import { mappableService } from '../../eddy-ios/src/map/mappable';
+import { milesBetween, type Coords } from '@eddy/geo';
 
 const TIERS: ServiceTier[] = ['rentals', 'camping', 'lodging'];
+
+const METRES_PER_MILE = 1609.344;
+
+/**
+ * The map's own same-place box, in metres.
+ *
+ * SAME_PLACE_DEGREES is 0.002° of latitude — about 222 m — and is a square box
+ * rather than a circle, so this is an approximation of it and deliberately so:
+ * the audit's job is to surface pairs a human should look at, and a pair sitting
+ * exactly on the boundary is worth a look either way. The resolver remains the
+ * only thing that decides what draws.
+ */
+const SAME_PLACE_METRES = 222;
+
+/**
+ * How far apart a `same_place` pair may sit before one of them is simply wrong.
+ *
+ * NOT `SAME_PLACE_METRES`. That is the map's proximity box — the distance below
+ * which two records are assumed to be one place with no evidence at all — and
+ * measuring a VERIFIED link against it flags every link for the exact reason it
+ * was written. Patrick Bridge is 281 m apart because one record was pinned at
+ * the boat ramp and the other at the campsites, inside one MDC area somebody
+ * checked; reporting that as drift is reporting the success.
+ *
+ * A kilometre is the bar for "these cannot both be at one arrival point". Beyond
+ * it, either the link is wrong or a coordinate is, and a person should look
+ * again — which is a warning rather than an error, because the link is evidence
+ * from a human and the geometry is evidence from a geocoder, and this check is
+ * not entitled to decide between them.
+ */
+const IDENTITY_DRIFT_METRES = 1000;
+
+/** How close two access points have to be before their names are worth reading. */
+const NEAR_DUPLICATE_METRES = 400;
+
+interface AccessPointGeoRow {
+  id: string;
+  name: string;
+  types: string[] | null;
+  approved: boolean | null;
+  river_id: string | null;
+  location_orig: unknown;
+  location_snap: unknown;
+}
+
+interface IdentityLinkRow {
+  access_point_id: string;
+  nearby_service_id: string;
+  relationship: string;
+  verified_at: string | null;
+}
+
+/** PostGIS geometry arrives from PostgREST as GeoJSON — same read as shapes.ts. */
+function geomCoords(geom: unknown): number[] | undefined {
+  return (geom as { coordinates?: number[] } | null)?.coordinates;
+}
+
+/**
+ * A name reduced to the part that identifies the PLACE.
+ *
+ * "Alley Spring Campground" and "Alley Spring" are one place under two names,
+ * and "Cedargrove" and "Cedar Grove" are one place under two spellings — the
+ * same normalisation 00039_match_nps_campgrounds_to_access_points.sql already
+ * does in SQL, restated here because this script reads through PostgREST.
+ *
+ * A blunt instrument on purpose. It is allowed false positives because every
+ * one of them is printed for a person to reject; it must not MERGE on them.
+ */
+function placeCore(name: string): string {
+  return name
+    .replace(/\s+(Campground|Camping|Recreation Area|Access|Camp)$/i, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
 
 interface ServiceRow {
   id: string;
@@ -372,6 +447,232 @@ async function main() {
     );
   } else {
     ok('no embedded entry points at a closed business');
+  }
+
+  /* ── 7. One place, two records ─────────────────────────────────────────
+     The map draws one marker per place and decides "same place" with a ~222 m
+     box, because for most rows that is the only evidence it has. This section
+     reports where that is wrong in both directions: places the box cannot reach
+     that are one place anyway, and links that exist but whose rows have drifted.
+
+     PROPOSES, NEVER MERGES — and note what "confirm" costs here. Promoting a
+     pair to `same_place` collapses two markers into one, which removes the
+     losing record's location from the map. At Meramec's 2 956 m that would send
+     somebody looking for a campground to a boat ramp 3 km away. So the bar is
+     not "are these related" but "is this ONE ARRIVAL POINT", and only a person
+     can answer it. */
+  console.log('\nOne place, two records');
+
+  const { data: apRows, error: apGeoError } = await supabase
+    .from('access_points')
+    .select('id, name, types, approved, river_id, location_orig, location_snap')
+    .eq('approved', true);
+  if (apGeoError) throw new Error(`Could not read access_points: ${apGeoError.message}`);
+
+  /** The coordinate the MAP pins, so these distances describe the pins a reader sees. */
+  const pinOf = (row: AccessPointGeoRow): Coords | null => {
+    const c = geomCoords(row.location_orig) ?? geomCoords(row.location_snap);
+    return c && c.length >= 2 ? { lat: c[1], lng: c[0] } : null;
+  };
+  const accessPoints = ((apRows as AccessPointGeoRow[] | null) ?? [])
+    .map((row) => ({ row, pin: pinOf(row), core: placeCore(row.name) }))
+    .filter((p): p is { row: AccessPointGeoRow; pin: Coords; core: string } => p.pin !== null);
+  const apById = new Map(accessPoints.map((p) => [p.row.id, p]));
+
+  // The links, if the table has landed. A missing table is the state before the
+  // migration and is worth saying once, not throwing over.
+  const identity = new Map<string, string>();
+  const linkedPairs = new Set<string>();
+  const locatedAt: IdentityLinkRow[] = [];
+  const unverifiedIdentity: IdentityLinkRow[] = [];
+  const { data: linkRows, error: linkError } = await supabase
+    .from('access_point_services')
+    .select('access_point_id, nearby_service_id, relationship, verified_at');
+  if (linkError) {
+    warn(`access_point_services is unreadable (${linkError.message}) — link checks skipped`);
+  } else {
+    for (const link of (linkRows ?? []) as IdentityLinkRow[]) {
+      // Every recorded relationship, whatever it is, is a pair somebody has
+      // already ruled on — so it must not come back as a candidate. Reporting a
+      // decided `located_at` under "confirm each shares ONE arrival point" asks
+      // for a decision that has been made, and buries the pairs that genuinely
+      // have not.
+      linkedPairs.add(`${link.access_point_id}:${link.nearby_service_id}`);
+      if (link.relationship === 'same_place') {
+        identity.set(link.nearby_service_id, link.access_point_id);
+        if (!link.verified_at) unverifiedIdentity.push(link);
+      } else if (link.relationship === 'located_at') {
+        locatedAt.push(link);
+      }
+    }
+    console.log(
+      `  ${'same_place'.padEnd(22)} ${String(identity.size).padStart(3)}  collapses a marker`,
+    );
+    console.log(
+      `  ${'located_at'.padEnd(22)} ${String(locatedAt.length).padStart(3)}  routes data, draws both`,
+    );
+  }
+
+  // A same_place link nobody signed off on. The schema cannot forbid it, and it
+  // is the one row in this table that can delete a place from the map.
+  if (unverifiedIdentity.length > 0) {
+    fail(
+      `${unverifiedIdentity.length} same_place links have no verified_at — a marker is being ` +
+        'collapsed on evidence nobody confirmed',
+    );
+  } else if (!linkError) {
+    ok('every same_place link was confirmed by a person');
+  }
+
+  const drawnServices = rows.filter(
+    (row) =>
+      serviceEligible(asService(row)) &&
+      mappableService(asService(row)) &&
+      serviceTiers(asService(row)).includes('camping') &&
+      row.latitude != null &&
+      row.longitude != null,
+  );
+  const serviceById = new Map(drawnServices.map((r) => [r.id, r]));
+
+  // (a) Same-name pairs the radius cannot reach and no link covers.
+  // (b) Identity links whose two rows have drifted apart.
+  const unlinkedCandidates: string[] = [];
+  const driftedLinks: string[] = [];
+  for (const svc of drawnServices) {
+    const here: Coords = { lat: svc.latitude as number, lng: svc.longitude as number };
+    const linkedTo = identity.get(svc.id);
+    if (linkedTo) {
+      const target = apById.get(linkedTo);
+      if (!target) continue;
+      const metres = Math.round(milesBetween(here, target.pin) * METRES_PER_MILE);
+      // The link says one arrival point and the geometry disagrees. Not a
+      // duplicate pin — the resolver absorbs it — but one of the two rows is
+      // pinned somewhere its own place is not, and only a person can say which.
+      if (metres > IDENTITY_DRIFT_METRES) {
+        driftedLinks.push(`${svc.name} ←→ ${target.row.name} (${metres} m apart, same_place)`);
+      }
+      continue;
+    }
+    const core = placeCore(svc.name);
+    for (const match of accessPoints.filter((p) => p.core === core)) {
+      const metres = Math.round(milesBetween(here, match.pin) * METRES_PER_MILE);
+      // Inside the box the map already draws one pin, so there is nothing to
+      // report; outside it, the reader is looking at two pins for what the
+      // names say is one place.
+      if (metres <= SAME_PLACE_METRES) continue;
+      if (linkedPairs.has(`${match.row.id}:${svc.id}`)) continue;
+      const tagged = (match.row.types ?? []).includes('campground');
+      unlinkedCandidates.push(
+        `${svc.name} ←→ ${match.row.name} (${metres} m apart` +
+          `${tagged ? '' : ', access point NOT tagged campground'})`,
+      );
+    }
+  }
+
+  if (unlinkedCandidates.length === 0) {
+    ok('no same-name campground draws a second pin beside its access point');
+  } else {
+    warn(
+      `${unlinkedCandidates.length} same-name pairs draw two pins — confirm each shares ONE ` +
+        'arrival point before linking it same_place:',
+    );
+    for (const line of unlinkedCandidates) console.warn(`      ${line}`);
+  }
+
+  if (driftedLinks.length === 0) {
+    ok('every same_place link has both rows in the same place');
+  } else {
+    warn(
+      `${driftedLinks.length} same_place links whose rows sit more than ` +
+        `${IDENTITY_DRIFT_METRES} m apart — one of the two coordinates is wrong:`,
+    );
+    for (const line of driftedLinks) console.warn(`      ${line}`);
+  }
+
+  // The verification queue. These route availability today and draw two markers,
+  // which is the CORRECT behaviour until somebody says otherwise — printed with
+  // the distance because that is the fact the decision turns on.
+  // The register of decided `located_at` pairs, not a queue: two markers is the
+  // right answer for these, and `verified` says whether a person said so or the
+  // facility table implied it. A pair here is finished unless somebody decides
+  // the two ends share one arrival point after all.
+  if (locatedAt.length > 0) {
+    console.log('  located_at — two markers by design:');
+    for (const link of locatedAt) {
+      const target = apById.get(link.access_point_id);
+      const svc = serviceById.get(link.nearby_service_id);
+      if (!target || !svc || svc.latitude == null || svc.longitude == null) continue;
+      const metres = Math.round(
+        milesBetween({ lat: svc.latitude, lng: svc.longitude }, target.pin) * METRES_PER_MILE,
+      );
+      const mark = link.verified_at ? 'verified' : 'derived, unconfirmed';
+      console.log(`      ${svc.name} ←→ ${target.row.name} (${metres} m apart, ${mark})`);
+    }
+  }
+
+  // (c) Two ACCESS POINTS for one place. Deliberately not fixable by the
+  // resolver: deduping access points on proximity is the record merge ADR 0008
+  // forbids, and several of these pairs are genuinely two places (Wilderness
+  // Ridge Resort and Peck's Last Resort are 74 m apart and are two businesses).
+  //
+  // ── AND A CONFLUENCE IS NOT A DUPLICATE ────────────────────────────────
+  //
+  // Two Rivers is the one place where the Jacks Fork meets the Current, and Eddy
+  // holds it twice — mile 52.5 of the Current and mile 44.3 of the Jacks Fork,
+  // 150 m apart. That is not a record to retire. `access_points` carries ONE
+  // river_id and ONE river mile, and the float planner needs a put-in on each
+  // river's mile system, so a confluence destination genuinely requires a row
+  // per river. Naming the rivers is what stops the next reader "fixing" it by
+  // deleting one and breaking three float segments.
+  const sameRiver: string[] = [];
+  const acrossRivers: string[] = [];
+  for (let i = 0; i < accessPoints.length; i += 1) {
+    for (let j = i + 1; j < accessPoints.length; j += 1) {
+      const a = accessPoints[i];
+      const b = accessPoints[j];
+      if (a.core !== b.core) continue;
+      const metres = Math.round(milesBetween(a.pin, b.pin) * METRES_PER_MILE);
+      if (metres > NEAR_DUPLICATE_METRES) continue;
+      const line = `${a.row.name} ←→ ${b.row.name} (${metres} m apart)`;
+      if (a.row.river_id && b.row.river_id && a.row.river_id !== b.row.river_id) {
+        acrossRivers.push(line);
+      } else {
+        sameRiver.push(line);
+      }
+    }
+  }
+  if (sameRiver.length === 0) {
+    ok('no two access points on one river share a name within a few hundred metres');
+  } else {
+    warn(`${sameRiver.length} access-point pairs on ONE river may be one place recorded twice:`);
+    for (const line of sameRiver) console.warn(`      ${line}`);
+  }
+  if (acrossRivers.length > 0) {
+    console.log(
+      `  ${'confluences'.padEnd(22)} ${String(acrossRivers.length).padStart(3)}  ` +
+        'one destination, one row per river — expected, not a duplicate',
+    );
+    for (const line of acrossRivers) console.log(`      ${line}`);
+  }
+
+  // (d) A facility that knows its service but not its access point. Half a link:
+  // enough to find availability from a service row, not enough for the sheet to
+  // reach it from the access point the reader tapped.
+  const { data: facilities, error: facilityError } = await supabase
+    .from('campsite_facilities')
+    .select('display_name, access_point_id, nearby_service_id')
+    .not('nearby_service_id', 'is', null)
+    .is('access_point_id', null);
+  if (facilityError) {
+    warn(`Could not read campsite_facilities: ${facilityError.message}`);
+  } else if ((facilities ?? []).length === 0) {
+    ok('every facility that names a service also names its access point');
+  } else {
+    const names = (facilities ?? []).map((f) => (f as { display_name: string }).display_name);
+    warn(
+      `${names.length} facilities name a service but no access point — ` +
+        `their availability cannot reach an access-point sheet: ${names.join(', ')}`,
+    );
   }
 
   console.log(

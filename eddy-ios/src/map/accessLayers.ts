@@ -620,6 +620,9 @@ export function resolveAccessMarkers(
   // absorbed into Akers Ferry, and a second pin on top of it. A place that is
   // the same place as an access point is that place on EVERY layer, so the loop
   // walks the whole drawable directory rather than the camping slice of it.
+  const indexById = new Map<string, number>();
+  points.forEach((point, index) => indexById.set(point.id, index));
+
   const serviceMarkers: ResolvedServiceMarker[] = [];
   for (const service of input.services ?? []) {
     if (!serviceEligible(service)) continue;
@@ -634,7 +637,35 @@ export function resolveAccessMarkers(
     );
     if (held_.size === 0) continue;
 
-    const absorbedBy = held_.has('campground') ? samePlaceIndex(service, points) : -1;
+    // ── AN EXPLICIT LINK IS CONSULTED FIRST, AND IT IS THE LAST WORD ──────
+    //
+    // `accessPointId` is `access_point_services` on the wire, and only ever its
+    // `same_place` rows — the database saying these two records are one arrival
+    // point. Where it is set, proximity is not consulted at all: not as a
+    // tiebreak, not as a sanity check.
+    //
+    // That is not tidiness. Meramec State Park's two rows are 3 km apart and
+    // Onondaga Cave's 1 km; no radius reaches either, and one that did would
+    // swallow genuinely distinct neighbours 74 m apart. The link is the only
+    // evidence that can cross that distance, so it has to outrank the geometry
+    // it contradicts.
+    //
+    // The inverse case is why it must also SUPPRESS the radius: if the linked
+    // access point is not in this list (another river, an unapproved row), the
+    // service draws on its own. Falling back to proximity there would absorb it
+    // into whichever put-in happened to be nearby — a stated identity overruled
+    // by a guess, which is worse than the duplicate.
+    //
+    // Absent — an older server, a row nobody has linked, or a pair recorded as
+    // `located_at` because the two ends are one facility but two destinations —
+    // the radius decides exactly as it did before.
+    const linkedTo = service.accessPointId;
+    const absorbedBy =
+      linkedTo != null
+        ? indexById.get(linkedTo) ?? -1
+        : held_.has('campground')
+          ? samePlaceIndex(service, points)
+          : -1;
     if (absorbedBy >= 0) {
       // ── EVERY MARK CROSSES, NOT JUST `campground` ───────────────────────
       //

@@ -878,3 +878,153 @@ test('absorption still carries marks and never content', () => {
   assert.equal(markers[0].entry.point, AKERS.point);
   assert.equal(placeRoles(AKERS.point).has('campground'), false);
 });
+
+// ── Identity links: what the radius could never reach ──────────────────────
+
+test('an explicit link absorbs a service its coordinates put miles away', () => {
+  // Meramec State Park's real geometry: the access point and the directory row
+  // are 3 km apart, both correct about themselves. No radius reaches this, and
+  // one that did would swallow real neighbours 74 m apart.
+  const meramec = {
+    point: point({
+      id: 'meramec',
+      name: 'Meramec State Park',
+      types: ['access', 'campground'],
+      coordinates: { lng: -91.1, lat: 38.2 },
+    }),
+    riverSlug: 'meramec',
+  };
+  // ~3 km north.
+  const linked = service({
+    id: 'svc-meramec',
+    accessPointId: 'meramec',
+    latitude: 38.227,
+    longitude: -91.1,
+  });
+
+  // The fixture is only meaningful if proximity genuinely fails on it.
+  assert.equal(drawnAsAccessPoint(linked, [meramec.point]), false);
+
+  const { markers, serviceMarkers, statsByRole } = resolveAccessMarkers(
+    { accessPoints: [meramec], services: [linked] },
+    activeRoles(['access', 'campgrounds']),
+    new Set<ServiceLayerKey>(['campgrounds']),
+  );
+  assert.equal(markers.length, 1, 'one place, one marker');
+  assert.equal(serviceMarkers.length, 0);
+  // One campground, not two — the same place seeded twice.
+  assert.equal(statsByRole.campground.totalMatches, 1);
+});
+
+test('a link is the last word: it is never overruled by a closer neighbour', () => {
+  // The inverse failure, and the reason a link SUPPRESSES the radius rather than
+  // merely being tried first. The linked access point is not in this list
+  // (another river, an unapproved row) while a different put-in sits directly
+  // underneath the service. Falling back to proximity would absorb it into a
+  // place the database never said it was.
+  const neighbour = {
+    point: point({ id: 'neighbour', types: ['access'], coordinates: { lng: -91.1, lat: 38.2 } }),
+    riverSlug: 'x',
+  };
+  const linkedElsewhere = service({
+    id: 'svc',
+    accessPointId: 'not-in-this-list',
+    latitude: 38.2,
+    longitude: -91.1,
+  });
+
+  const { markers, serviceMarkers } = resolveAccessMarkers(
+    { accessPoints: [neighbour], services: [linkedElsewhere] },
+    activeRoles(['access', 'campgrounds']),
+    new Set<ServiceLayerKey>(['campgrounds']),
+  );
+  assert.deepEqual(serviceMarkers.map((m) => m.service.id), ['svc'], 'draws on its own');
+  // And the neighbour did not quietly become a campground.
+  assert.equal(markers[0].owner, 'access');
+});
+
+test('a link absorbs a service on every layer, not only camping', () => {
+  // A linked row is that place whatever mark it would have worn — otherwise the
+  // absorbed campground reappears as a canoe on the rentals layer, which is the
+  // fourteen-row bug the service resolver fixed for proximity and which a link
+  // must not reintroduce.
+  const ap = {
+    point: point({ id: 'ap', types: ['access'], coordinates: { lng: -91.1, lat: 38.2 } }),
+    riverSlug: 'x',
+  };
+  const linked = service({
+    id: 'svc',
+    type: 'campground',
+    servicesOffered: ['canoe_rental', 'cabins'],
+    accessPointId: 'ap',
+    latitude: 38.227,
+    longitude: -91.1,
+  });
+  for (const layers of SERVICE_COMBINATIONS) {
+    const { serviceMarkers } = resolveAccessMarkers(
+      { accessPoints: [ap], services: [linked] },
+      activeRoles(['access', ...layers]),
+      new Set(layers),
+    );
+    assert.equal(serviceMarkers.length, 0, `linked row still drew with [${layers}]`);
+  }
+});
+
+test('an unlinked service still absorbs on proximity, exactly as before', () => {
+  // The backward-compatible half: an older server sends no accessPointId, and
+  // most rows will never be linked. The radius stays in charge for both.
+  const camp = {
+    point: point({ id: 'camp', types: ['access'], coordinates: { lng: -91.2301, lat: 37.2789 } }),
+    riverSlug: 'x',
+  };
+  const onTop = service({ id: 'dup', latitude: 37.2789 + 0.001, longitude: -91.2301 });
+  assert.equal(onTop.accessPointId, undefined, 'fixture carries no link');
+
+  const { markers, serviceMarkers } = resolveAccessMarkers(
+    { accessPoints: [camp], services: [onTop] },
+    activeRoles(['access', 'campgrounds']),
+    new Set<ServiceLayerKey>(['campgrounds']),
+  );
+  assert.equal(markers.length, 1);
+  assert.equal(serviceMarkers.length, 0);
+  assert.equal(markers[0].owner, 'campground');
+});
+
+test('the four buckets still balance once links are in play', () => {
+  // The invariant that fails if a link ever drops a place instead of absorbing
+  // it. Run over a mix: linked-and-present, linked-and-absent, unlinked-near,
+  // unlinked-far.
+  const here = {
+    point: point({ id: 'here', types: ['access'], coordinates: { lng: -91.1, lat: 38.2 } }),
+    riverSlug: 'x',
+  };
+  const services = [
+    service({ id: 'linked-here', accessPointId: 'here', latitude: 38.227, longitude: -91.1 }),
+    service({ id: 'linked-gone', accessPointId: 'gone', latitude: 39.0, longitude: -90.0 }),
+    service({ id: 'near', latitude: 38.2005, longitude: -91.1 }),
+    service({ id: 'far', latitude: 40.0, longitude: -89.0 }),
+  ];
+  for (const layers of SERVICE_COMBINATIONS) {
+    const { statsByRole, statsByServiceOwner } = resolveAccessMarkers(
+      { accessPoints: [here], services },
+      activeRoles(['access', ...layers]),
+      new Set(layers),
+    );
+    for (const role of PLACE_ROLES) {
+      const s = statsByRole[role];
+      assert.equal(
+        s.ownedMarkers + s.representedElsewhere + s.notShown,
+        s.totalMatches,
+        `${role} does not balance with [${layers}]`,
+      );
+    }
+    for (const owner of SERVICE_MARK_PRIORITY) {
+      const s = statsByServiceOwner[owner];
+      assert.equal(
+        s.ownedMarkers + s.representedElsewhere + s.notShown,
+        s.totalMatches,
+        `${owner} does not balance with [${layers}]`,
+      );
+    }
+  }
+});

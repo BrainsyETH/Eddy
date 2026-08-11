@@ -120,8 +120,52 @@ test('the select is one string literal, never a concatenation', () => {
   );
   // And the call site must pass that constant rather than an inline string, or
   // the parser above is checking something the query does not use.
-  // No `s` flag — the build targets ES2017, and `[^)]*` already spans newlines.
-  const call = source.match(/\.select\(([^)]*)\)/);
-  assert.ok(call, 'the route must have a .select()');
+  //
+  // ANCHORED ON THE TABLE, not on being the first `.select()` in the file. The
+  // route reads a second table now — access_point_services, for the identity
+  // links — and its select is legitimately an inline literal, being two columns
+  // with no shared constant. A positional match made "add a query" fail a test
+  // about nearby_services, which is the wrong thing to defend.
+  // No `s` flag — the build targets ES2017, and `[\s\S]` spans newlines anyway.
+  const call = source.match(/\.from\('nearby_services'\)[\s\S]*?\.select\(([^)]*)\)/);
+  assert.ok(call, 'the route must select from nearby_services');
   assert.equal(call[1].trim(), 'SELECT_COLUMNS');
+});
+
+test('only same_place links reach the app', () => {
+  // The distinction the relationship column exists for. `located_at` says a
+  // campground and an access point are one FACILITY — true of Meramec, whose two
+  // rows are 2 956 m apart. The app collapses whatever arrives in accessPointId
+  // into a single marker, so shipping a located_at link would delete a real
+  // campground's location from the map and point a reader at a boat ramp 3 km
+  // away. The filter is server-side because an older build cannot re-apply it.
+  const relationship = source.match(/const IDENTITY_RELATIONSHIP\s*=\s*'([^']+)'/);
+  assert.ok(relationship, 'the route must declare which relationship it trusts');
+  assert.equal(relationship[1], 'same_place');
+  assert.match(
+    source,
+    /\.eq\('relationship',\s*IDENTITY_RELATIONSHIP\)/,
+    'the link query must filter on that constant, not select the whole table',
+  );
+});
+
+test('an unverified same_place link never reaches the app', () => {
+  // Belt and braces over a database CHECK that already makes the row
+  // impossible. Worth both: the constraint is the guarantee, and this is the
+  // half that survives the constraint being dropped, a restore from a backup
+  // that predates it, or a fourth relationship value added without thinking it
+  // through. What it guards is a marker silently deleted from the map.
+  assert.match(
+    source,
+    /\.not\('verified_at',\s*'is',\s*null\)/,
+    'the link query must require a human verification',
+  );
+});
+
+test('every service carries its access point link, even when there is none', () => {
+  // Absent must mean "not linked", never "not told". The field is optional on
+  // the wire so an older build degrades to the proximity radius, which makes a
+  // missing key indistinguishable from an unlinked row — so the route always
+  // emits it, and `null` is the honest value.
+  assert.match(source, /accessPointId:\s*accessPointByService\.get\(s\.id\)\s*\?\?\s*null/);
 });
