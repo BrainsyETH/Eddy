@@ -10,9 +10,9 @@ import {
   PLACE_ROLES,
   accessOverlapNote,
   resolveAccessMarkers,
-  roleCues,
+  COMPOSED_MARK_PRIORITY,
+  markCues,
   ROLE_LAYER,
-  serviceCues,
   SERVICE_MARK_PRIORITY,
   type PlaceRole,
   type ServiceMarkOwner,
@@ -435,13 +435,13 @@ test('one pin names every LIVE row it is answering for', () => {
 
   const both = marker(['access', 'campgrounds']);
   assert.equal(both.owner, 'campground');
-  assert.deepEqual(roleCues(both.roles), ['Camp', 'River access']);
+  assert.deepEqual(markCues(both.roles), ['Camp', 'River access']);
 
   // Campgrounds alone: the Access row is OFF, so the pin must not advertise a
   // row the reader has switched off — and a place answering one row reads
   // exactly as it always has.
-  assert.deepEqual(roleCues(marker(['campgrounds']).roles), ['Camp']);
-  assert.deepEqual(roleCues(marker(['access']).roles), ['River access']);
+  assert.deepEqual(markCues(marker(['campgrounds']).roles), ['Camp']);
+  assert.deepEqual(markCues(marker(['access']).roles), ['River access']);
 });
 
 test('a cue is only ever the roles the place actually holds', () => {
@@ -450,7 +450,7 @@ test('a cue is only ever the roles the place actually holds', () => {
     { accessPoints: [plain], services: [] },
     activeRoles(['access', 'campgrounds', 'boatRamps']),
   );
-  assert.deepEqual(roleCues(all.markers[0].roles), ['River access']);
+  assert.deepEqual(markCues(all.markers[0].roles), ['River access']);
 });
 
 test('the cue reads strongest-first, matching the mark the pin wears', () => {
@@ -463,9 +463,9 @@ test('the cue reads strongest-first, matching the mark the pin wears', () => {
     activeRoles(['access', 'campgrounds', 'boatRamps']),
   );
   assert.equal(markers[0].owner, 'campground');
-  assert.deepEqual(roleCues(markers[0].roles), ['Camp', 'Ramp', 'River access']);
+  assert.deepEqual(markCues(markers[0].roles), ['Camp', 'Ramp', 'River access']);
   // The cue's order is MARK_PRIORITY's, so the first word is always the mark.
-  assert.equal(roleCues(markers[0].roles)[0], 'Camp');
+  assert.equal(markCues(markers[0].roles)[0], 'Camp');
 });
 
 test('an absorbed service makes the pin say camp as well as river access', () => {
@@ -481,7 +481,7 @@ test('an absorbed service makes the pin say camp as well as river access', () =>
     { accessPoints: [plain], services: [onTop] },
     activeRoles(['access', 'campgrounds']),
   );
-  assert.deepEqual(roleCues(markers[0].roles), ['Camp', 'River access']);
+  assert.deepEqual(markCues(markers[0].roles), ['Camp', 'River access']);
   // Still the role and nothing else: the source record is handed back untouched.
   assert.equal(markers[0].entry.point, plain.point);
 });
@@ -705,7 +705,7 @@ test('a service pin names the rows its mark is hiding', () => {
   // defect the access family's caption was fixed for.
   const cues = (layers: ServiceLayerKey[]) => {
     const marker = resolveServices([CAMP_AND_CABINS], layers).serviceMarkers[0];
-    return { all: serviceCues(marker.layers), hidden: serviceCues(marker.layers, marker.owner) };
+    return { all: markCues(marker.layers), hidden: markCues(marker.layers, marker.owner) };
   };
 
   // Both rows on: the tent owns it, and the caption still says cabins.
@@ -723,8 +723,8 @@ test('a cue never names a row the reader switched off', () => {
   // Live layers, not held ones — advertising a row that is off would be the
   // mirror of hiding one that is on.
   const marker = resolveServices([CAMP_AND_RENTALS], ['campgrounds']).serviceMarkers[0];
-  assert.deepEqual(serviceCues(marker.layers), ['Camp']);
-  assert.equal(serviceCues(marker.layers).includes('Rentals'), false);
+  assert.deepEqual(markCues(marker.layers), ['Camp']);
+  assert.equal(markCues(marker.layers).includes('Rentals'), false);
 });
 
 test('the hidden set is always the tail of the priority order', () => {
@@ -749,4 +749,132 @@ test('the hidden set is always the tail of the priority order', () => {
       );
     }
   }
+});
+
+// ── A composed place: one access record plus what it absorbed ──────────────
+//
+// The gap the previous matrix could not see. It called the resolver with
+// `accessPoints: []`, so absorption was unreachable from every case in it, and
+// the one absorption test asserted `serviceMarkers.length === 0` and
+// `markers.length <= 1` — both of which are satisfied when the place vanishes
+// entirely. The bug lived exactly where the tests could not look.
+
+/** Akers Ferry, and the canoe rental that sits on it. One place, two records. */
+const AKERS = {
+  point: point({
+    id: 'akers',
+    name: 'Akers Ferry',
+    types: ['access'],
+    coordinates: { lng: -91.2301, lat: 37.2789 },
+  }),
+  riverSlug: 'current-river',
+};
+const AKERS_CANOE = service({
+  id: 'akers-canoe',
+  name: 'Akers Ferry Canoe Rental',
+  type: 'campground',
+  servicesOffered: ['canoe_rental', 'camping_primitive'],
+  latitude: 37.2789 + 0.001,
+  longitude: -91.2301,
+});
+
+/** Every on/off combination of Access, Campgrounds and Rentals. */
+const PLACE_COMBINATIONS: string[][] = (() => {
+  const keys = ['access', 'campgrounds', 'outfitters'];
+  const out: string[][] = [];
+  for (let mask = 0; mask < 8; mask += 1) {
+    out.push(keys.filter((_, index) => (mask & (1 << index)) !== 0));
+  }
+  return out;
+})();
+
+function resolveComposed(layers: string[]) {
+  return resolveAccessMarkers(
+    { accessPoints: [AKERS], services: [AKERS_CANOE] },
+    activeRoles(layers),
+    new Set(layers.filter((l) => l !== 'access') as ServiceLayerKey[]),
+  );
+}
+
+test('a composed place draws exactly one marker whenever any of its rows is live', () => {
+  // The assertion the old pair could not make. Akers holds `access` from its own
+  // row and `campground` + `rentals` from the business it absorbed, so every one
+  // of the three switches should reach it — and never more than once.
+  for (const layers of PLACE_COMBINATIONS) {
+    const { markers, serviceMarkers } = resolveComposed(layers);
+    const drawn = markers.length + serviceMarkers.length;
+    assert.equal(drawn, layers.length === 0 ? 0 : 1, `drew ${drawn} with [${layers}]`);
+  }
+});
+
+test('rentals alone still finds the rental that sits on a put-in', () => {
+  // The regression in the flesh. This drew NOTHING before: the service was
+  // absorbed and dropped, and the access point had no rentals mark to be found
+  // by, so asking the map for canoe rental hid the one at the put-in.
+  const { markers, serviceMarkers } = resolveComposed(['outfitters']);
+  assert.equal(serviceMarkers.length, 0, 'the business is not a second pin');
+  assert.equal(markers.length, 1, 'the place must be somewhere');
+  assert.equal(markers[0].owner, 'rentals');
+  assert.deepEqual(markCues(markers[0].roles), ['Rentals']);
+});
+
+test('a composed place keeps every membership it holds, in both records', () => {
+  // Counts are membership, so all three totals stand whatever is switched on —
+  // and each is counted ONCE, by the place, never twice by the two records that
+  // make it up.
+  for (const layers of PLACE_COMBINATIONS) {
+    const { statsByRole, statsByServiceOwner } = resolveComposed(layers);
+    assert.equal(statsByRole.access.totalMatches, 1, `access with [${layers}]`);
+    assert.equal(statsByRole.campground.totalMatches, 1, `campground with [${layers}]`);
+    assert.equal(statsByServiceOwner.rentals.totalMatches, 1, `rentals with [${layers}]`);
+    assert.equal(statsByRole.boatRamp.totalMatches, 0);
+    // One place, so the campground row must not count the access record and the
+    // absorbed business separately.
+    assert.equal(statsByServiceOwner.campground.totalMatches, 0, 'absorbed, not standalone');
+  }
+});
+
+test('the four buckets balance across both families for a composed place', () => {
+  for (const layers of PLACE_COMBINATIONS) {
+    const { statsByRole, statsByServiceOwner } = resolveComposed(layers);
+    for (const s of [...Object.values(statsByRole), ...Object.values(statsByServiceOwner)]) {
+      assert.equal(
+        s.ownedMarkers + s.representedElsewhere + s.notShown,
+        s.totalMatches,
+        `does not balance with [${layers}]`,
+      );
+    }
+  }
+});
+
+test('the mark a composed place wears follows one declared order', () => {
+  const owner = (layers: string[]) => resolveComposed(layers).markers[0]?.owner;
+  assert.equal(owner(['access', 'campgrounds', 'outfitters']), 'campground');
+  assert.equal(owner(['access', 'outfitters']), 'rentals');
+  assert.equal(owner(['access']), 'access');
+  // Both original orders survive inside it, so nothing that held before flips.
+  const order = [...COMPOSED_MARK_PRIORITY];
+  const isSubsequence = (sub: readonly string[]) => {
+    let i = 0;
+    for (const mark of order) if (mark === sub[i]) i += 1;
+    return i === sub.length;
+  };
+  assert.ok(isSubsequence(MARK_PRIORITY), 'MARK_PRIORITY must survive');
+  assert.ok(isSubsequence(SERVICE_MARK_PRIORITY), 'SERVICE_MARK_PRIORITY must survive');
+});
+
+test('the caption names every live row the composed place answers', () => {
+  const cues = (layers: string[]) => markCues(resolveComposed(layers).markers[0].roles);
+  assert.deepEqual(cues(['access', 'campgrounds', 'outfitters']), ['Camp', 'Rentals', 'River access']);
+  assert.deepEqual(cues(['access', 'outfitters']), ['Rentals', 'River access']);
+  assert.deepEqual(cues(['campgrounds']), ['Camp']);
+});
+
+test('absorption still carries marks and never content', () => {
+  // The half of ADR 0008 that does not move. A phone number attached to the
+  // wrong campground is worse than no phone number, and ~200 m is evidence
+  // rather than proof — so the access point's own record comes back untouched.
+  const { markers } = resolveComposed(['access', 'campgrounds', 'outfitters']);
+  assert.equal(markers[0].entry.point, AKERS.point);
+  assert.equal(placeRoles(AKERS.point).has('campground'), false);
 });

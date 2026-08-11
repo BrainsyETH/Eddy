@@ -99,10 +99,12 @@ export interface LayerRowGroup<K extends string, S extends string> {
  *
  * ── WHAT THIS MAY AND MAY NOT DO ─────────────────────────────────────────
  *
- * It reorders nothing and drops nothing. Every row goes in exactly one group,
- * ungrouped rows keep their position at the top, and within a group the rows
- * keep their catalog order — so a heading changes what a reader is told about
- * the rows and never which rows there are. That is the whole difference between
+ * It drops nothing, and it reorders only by moving whole sections: every row
+ * goes in exactly one group, ungrouped rows keep their position at the top, and
+ * WITHIN a group the rows keep their catalog order. Collecting a section's rows
+ * together is the one rearrangement it makes and the entire reason it exists —
+ * so a heading changes what a reader is told about the rows, and never which
+ * rows there are. That is the whole difference between
  * a heading and a filter, and it is the property worth testing: a grouping that
  * silently dropped a row would take a layer off the sheet while leaving it on
  * the map, which is precisely the "switched on and drawing nothing" failure the

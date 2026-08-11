@@ -126,6 +126,42 @@ export const SERVICE_MARK_PRIORITY: readonly ServiceMarkOwner[] = [
   'lodging',
 ];
 
+/**
+ * WHICH SINGLE MARK A COMPOSED PLACE WEARS.
+ *
+ * ── WHY THERE HAS TO BE ONE ORDER ────────────────────────────────────────
+ *
+ * An access point that has absorbed a service holds marks from both families at
+ * once — Akers Ferry is a put-in AND the canoe rental sitting on it — so
+ * `MARK_PRIORITY` and `SERVICE_MARK_PRIORITY` can no longer each pick a winner
+ * for it. Two orders would give two answers, and a place with two answers draws
+ * twice, which is the failure this whole module exists to prevent.
+ *
+ * BOTH EXISTING ORDERS SURVIVE AS SUBSEQUENCES, deliberately, so nothing that
+ * held before is reversed here:
+ *
+ *   MARK_PRIORITY          campground → boatRamp →                      access
+ *   SERVICE_MARK_PRIORITY  campground →            rentals → lodging
+ *   this                   campground → boatRamp → rentals → lodging → access
+ *
+ * `access` stays last for the reason MARK_PRIORITY gives — it is the broad
+ * category every one of these places is already in — and the service marks slot
+ * between the ramp and it because "you can rent a boat here" is more specific
+ * than "you can get on the water here" and less specific than the two physical
+ * facts above it.
+ */
+function isPlaceRole(mark: MarkOwner): mark is PlaceRole {
+  return mark === 'access' || mark === 'campground' || mark === 'boatRamp';
+}
+
+export const COMPOSED_MARK_PRIORITY: readonly MarkOwner[] = [
+  'campground',
+  'boatRamp',
+  'rentals',
+  'lodging',
+  'access',
+];
+
 /** The layer each service mark is switched by. */
 const SERVICE_OWNER_LAYER: Record<ServiceMarkOwner, ServiceLayerKey> = {
   campground: 'campgrounds',
@@ -321,8 +357,8 @@ export interface AccessPointEntry {
  */
 export interface ResolvedAccessMarker {
   entry: AccessPointEntry;
-  /** The role whose mark this place is drawn with, per MARK_PRIORITY. */
-  owner: PlaceRole;
+  /** The mark this place is drawn with, per COMPOSED_MARK_PRIORITY. */
+  owner: MarkOwner;
   /**
    * Every LIVE role this one pin is standing in for, `owner` included.
    *
@@ -350,7 +386,7 @@ export interface ResolvedAccessMarker {
    * resolver computed it in pass 1 and used to discard everything but the
    * winner.
    */
-  roles: ReadonlySet<PlaceRole>;
+  roles: ReadonlySet<MarkOwner>;
 }
 
 /**
@@ -523,7 +559,16 @@ export function resolveAccessMarkers(
   );
 
   // ── Pass 1: what each access point says about itself ────────────────────
-  const held = input.accessPoints.map((entry) => new Set(placeRoles(entry.point)));
+  //
+  // ── AND IT IS A SET OF MARKS, NOT OF ROLES ────────────────────────────
+  //
+  // An access point that absorbs a service takes on that service's marks too,
+  // so this holds the union rather than what the access-point row says by
+  // itself. See the absorption note in pass 2 for what may and may not be
+  // carried across.
+  const held = input.accessPoints.map(
+    (entry) => new Set<MarkOwner>(placeRoles(entry.point)),
+  );
   const points = input.accessPoints.map((entry) => entry.point);
 
   // ── Pass 2: the directory's campgrounds, and the ones that are already here ─
@@ -591,10 +636,31 @@ export function resolveAccessMarkers(
 
     const absorbedBy = held_.has('campground') ? samePlaceIndex(service, points) : -1;
     if (absorbedBy >= 0) {
+      // ── EVERY MARK CROSSES, NOT JUST `campground` ───────────────────────
+      //
+      // Only the campground mark used to, which quietly deleted the rest: a
+      // camping-and-rentals row absorbed here lost its rentals membership
+      // outright — no pin under Rentals & shuttles, and nothing in that row's
+      // count. Fourteen rows were in that state, Akers Ferry Canoe Rental among
+      // them, and with Access off and Rentals on the place drew NOTHING AT ALL.
+      // One place one marker had become one place no marker.
+      //
+      // A mark is a membership fact used to pick an icon and count a row, which
+      // is the class of thing ADR 0008 says the radius MAY carry ("what the
+      // radius may carry is the ROLE, and only the role"). It says campground
+      // because campground was the only case; the argument was never about
+      // which mark.
+      //
+      // WHAT STILL DOES NOT CROSS is the service's CONTENT — its phone number,
+      // booking link, availability and description. Those are claims about a
+      // business, ~200 m is evidence rather than proof, and attaching them to
+      // the wrong record is the harm ADR 0008 actually names. Carrying content
+      // needs a verified identity link, not a radius.
+      for (const mark of held_) held[absorbedBy].add(mark);
       // Not counted separately either: it is not a second place drawn under
       // someone else's mark, it is the same place seeded twice, and counting it
-      // would make one campground two.
-      held[absorbedBy].add('campground');
+      // would make one campground two. Its marks are counted once, as the
+      // composed place's, in pass 3.
       continue;
     }
 
@@ -623,11 +689,12 @@ export function resolveAccessMarkers(
       }
     }
 
-    // The Campgrounds ROW counts access points and services together, so the
-    // service half is folded into `statsByRole.campground` here — membership
-    // first, then where this row's marker actually went. Unchanged in meaning
-    // from when this loop only knew about camping; what is new is that "drawn
-    // as a rental" is now a possible answer, and the note can say so.
+    // The Campgrounds ROW counts access points and services together, so a
+    // STANDALONE camping service is folded into `statsByRole.campground` here.
+    // An ABSORBED one is not: it reached `held` in the branch above and is
+    // counted once as the composed place's, in pass 3. Counting it here as well
+    // would make one campground two, which is the arithmetic the absorption
+    // exists to fix.
     if (held_.has('campground')) {
       stats.campground.totalMatches += 1;
       if (owner === 'campground') stats.campground.ownedMarkers += 1;
@@ -639,29 +706,42 @@ export function resolveAccessMarkers(
     }
   }
 
-  // ── Pass 3: ownership and the four buckets, over the settled roles ──────
+  // ── Pass 3: ownership and the four buckets, over the COMPOSED place ─────
+  //
+  // Every mark the place holds, from its own row and from anything it absorbed,
+  // against every mark that is live — so a put-in that absorbed a canoe rental
+  // draws under Rentals & shuttles when that is the only row switched on, and
+  // draws ONCE when several are.
+  const activeMarks = new Set<MarkOwner>([...roles, ...activeServiceOwners]);
   const markers: ResolvedAccessMarker[] = [];
   input.accessPoints.forEach((entry, index) => {
-    const owner = MARK_PRIORITY.find((role) => held[index].has(role) && roles.has(role)) ?? null;
+    const owner =
+      COMPOSED_MARK_PRIORITY.find((mark) => held[index].has(mark) && activeMarks.has(mark)) ??
+      null;
     if (owner) {
       // The same intersection `owner` is the first pick out of, kept whole
-      // instead of collapsed to its winner. Built in MARK_PRIORITY order so the
-      // cue reads strongest-first and matches the mark the pin is wearing.
-      const live = new Set<PlaceRole>();
-      for (const role of MARK_PRIORITY) {
-        if (held[index].has(role) && roles.has(role)) live.add(role);
+      // instead of collapsed to its winner. Built in priority order so the cue
+      // reads strongest-first and its first word is the mark being worn.
+      const live = new Set<MarkOwner>();
+      for (const mark of COMPOSED_MARK_PRIORITY) {
+        if (held[index].has(mark) && activeMarks.has(mark)) live.add(mark);
       }
       markers.push({ entry, owner, roles: live });
     }
 
-    for (const role of held[index]) {
-      const bucket = stats[role];
+    // Each mark counted once, into whichever family's row asks about it. The
+    // two records stay separate because the two rows do — Access points counts
+    // places, River services counts what the directory offers — but a composed
+    // place contributes to both, which is the point.
+    for (const mark of held[index]) {
+      const bucket = isPlaceRole(mark) ? stats[mark] : serviceStats[mark];
+      const by = isPlaceRole(mark) ? representedBy[mark] : serviceRepresentedBy[mark];
       bucket.totalMatches += 1;
       if (owner === null) bucket.notShown += 1;
-      else if (owner === role) bucket.ownedMarkers += 1;
+      else if (owner === mark) bucket.ownedMarkers += 1;
       else {
         bucket.representedElsewhere += 1;
-        representedBy[role][owner] = (representedBy[role][owner] ?? 0) + 1;
+        by[owner] = (by[owner] ?? 0) + 1;
       }
     }
   });
@@ -701,86 +781,56 @@ const MARK_ORDER: readonly MarkOwner[] = [
 ];
 
 /**
- * What a role is called ON A PIN — singular, and what a paddler calls it.
+ * What a mark is called ON A PIN — singular, and what a paddler calls it.
  *
- * A FOURTH order-and-vocabulary table, and worth the same defence
- * `MARK_PRIORITY` makes against `ACCESS_POINT_TYPE_ORDER`: `ROLE_NOUN` above is
- * plural and belongs to a sentence about a LAYER ("3 drawn as campgrounds"), so
- * reusing it here would caption a single pin "access points".
+ * ── ONE TABLE, because a composed place wears marks from both families ───
  *
- * `River access` rather than `ACCESS_POINT_TYPE_LABELS.access`, which is bare
- * "Access". That table labels a TYPE BADGE, where the surrounding sheet has
- * already established what kind of thing is being described; a cue floating in a
- * subtitle beside a river mile has no such context, and "Camp · Access · Mile
- * 12.3" reads as a fragment. This is the one place the word appears without that
- * context, which is why it is the one place it is spelled out — and it is spelled
- * out HERE, in a table, so the next surface that needs it does not invent a
- * fifth wording.
- */
-const ROLE_CUE: Record<PlaceRole, string> = {
-  access: 'River access',
-  campground: 'Camp',
-  boatRamp: 'Ramp',
-};
-
-/**
- * What one pin says it is, strongest first.
+ * This was two — `ROLE_CUE` over PlaceRole and `SERVICE_CUE` over
+ * ServiceMarkOwner — which was right while the two families could not meet on
+ * one pin. An absorbed service puts them on the same marker, so a second table
+ * would mean a caller picking which vocabulary to ask, and the answer for a
+ * put-in that rents canoes would be "both".
  *
- * Returns every live role, `owner` included, so the caller joins one list rather
- * than special-casing the mark it is already drawing. A place answering a single
- * row yields a single cue and reads exactly as it always has — which is what
- * keeps this from being a redesign of every campground pin on the map.
- */
-export function roleCues(roles: ReadonlySet<PlaceRole>): string[] {
-  return MARK_PRIORITY.filter((role) => roles.has(role)).map((role) => ROLE_CUE[role]);
-}
-
-/**
- * What a SERVICE mark is called on a pin.
- *
- * A fifth vocabulary table, and the same defence as `ROLE_CUE`: `ROLE_NOUN` is
- * plural and describes a layer, `serviceTypeLabel` says what the BUSINESS is
- * ("Outfitter", "Cabin or lodge") which is a different question from which rows
- * this pin is answering, and neither is a word to hang on a marker beside a
- * town name.
+ * Still not `ROLE_NOUN`, which is plural and belongs to a sentence about a
+ * LAYER ("3 drawn as campgrounds") — captioning one pin "access points" is what
+ * that reuse would produce. Still not `ACCESS_POINT_TYPE_LABELS`, whose bare
+ * "Access" labels a badge with a sheet around it and reads as a fragment beside
+ * a river mile. And still not `serviceTypeLabel`, which says what the BUSINESS
+ * is rather than which rows the pin answers.
  *
  * `Cabins` rather than `Cabins & lodges`: the row is named for a population and
  * a pin is one place, so the plural-and-ampersand form reads as a category
  * label where a noun belongs.
  */
-const SERVICE_CUE: Record<ServiceMarkOwner, string> = {
+const MARK_CUE: Record<MarkOwner, string> = {
+  access: 'River access',
   campground: 'Camp',
+  boatRamp: 'Ramp',
   rentals: 'Rentals',
   lodging: 'Cabins',
 };
 
 /**
- * What one service pin says it is, strongest first.
+ * What one pin says it is, strongest first.
  *
- * ── WHY `exclude` EXISTS, AND WHY IT IS NOT SYMMETRIC WITH roleCues ──────
+ * Returns every live mark, `owner` included by default, so the caller joins one
+ * list rather than special-casing the mark it is already drawing. A place
+ * answering a single row yields a single cue and reads exactly as it always
+ * has — which is what keeps this from being a redesign of every pin on the map.
  *
- * An access point drawn as a campground has a bare name for a label, so its
- * subtitle is the only place any role can appear and it names all of them. A
- * service pin's subtitle already LEADS with `serviceTypeLabel` — "Outfitter",
- * "Cabin or lodge" — which is a finer-grained fact than the tier it owns, and
- * replacing it with "Rentals" would trade information for symmetry.
+ * ── `exclude` IS FOR A CALLER WHOSE SUBTITLE ALREADY LEADS ───────────────
  *
- * So that caller passes its owner and gets only the rows the mark is HIDING,
- * which is the thing that was missing. The campground branch has no type label
- * in its subtitle and passes nothing, so it reads `Camp · Cabins · Salem, MO`
- * exactly as the access family reads `Camp · River access · Mile 12.3`.
- *
- * Because ownership follows SERVICE_MARK_PRIORITY, the excluded set is always
- * the tail: a rentals-owned pin can only be hiding lodging, and a lodging-owned
- * pin can be hiding nothing at all.
+ * A standalone service pin opens with `serviceTypeLabel` — "Outfitter", "Cabin
+ * or lodge" — which is finer-grained than the tier it owns, so replacing it
+ * with "Rentals" would trade information for symmetry. That caller passes its
+ * owner and gets only the rows the mark is HIDING. An access-family pin has a
+ * bare name for a label, so its subtitle is the only place any mark can appear
+ * and it names all of them.
  */
-export function serviceCues(
-  layers: ReadonlySet<ServiceMarkOwner>,
-  exclude?: ServiceMarkOwner,
-): string[] {
-  return SERVICE_MARK_PRIORITY.filter(
-    (owner) => layers.has(owner) && owner !== exclude,
-  ).map((owner) => SERVICE_CUE[owner]);
+export function markCues(marks: ReadonlySet<MarkOwner>, exclude?: MarkOwner): string[] {
+  return COMPOSED_MARK_PRIORITY.filter(
+    (mark) => marks.has(mark) && mark !== exclude,
+  ).map((mark) => MARK_CUE[mark]);
 }
 
 /**
