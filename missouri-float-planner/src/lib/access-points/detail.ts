@@ -19,8 +19,10 @@ import type {
   ManagingAgency,
   ParkingCapacity,
   NearbyService,
+  BookingLinkInfo,
 } from '@/types/api';
 import { loadAvailability } from '@/lib/camping/read';
+import { bookingUrlFor, loadBookingLink } from '@/lib/camping/booking';
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -170,12 +172,26 @@ export async function getAccessPointDetail(
 
   let npsCampground: NPSCampgroundInfo | null = null;
   let availability: CampsiteAvailabilityInfo | null = null;
+  // ── The booking link is read on its own clock ────────────────────────────
+  //
+  // Same facility row as availability, deliberately not the same read: see the
+  // header of camping/booking.ts. Availability going null because a sync ran
+  // late is not a reason to stop telling somebody where to book, and folding
+  // the two would have tied the button to the freshness of scraped nights.
+  //
+  // Concurrent because neither answer depends on the other, and gated on the
+  // same `campgroundish` test, so an ordinary put-in still costs nothing.
+  let booking: BookingLinkInfo | null = null;
 
   if (campgroundish) {
-    const index = await loadAvailability(supabase);
+    const [index, bookingLink] = await Promise.all([
+      loadAvailability(supabase),
+      loadBookingLink(supabase, ap.id),
+    ]);
     availability =
       index.byAccessPointId.get(ap.id) ??
       (ap.nps_campground_id ? (index.byNpsCampgroundId.get(ap.nps_campground_id) ?? null) : null);
+    booking = bookingLink;
   }
   if (ap.nps_campground_id) {
     npsCampground = await getNPSCampgroundInfo(supabase, ap.nps_campground_id, availability);
@@ -225,6 +241,11 @@ export async function getAccessPointDetail(
     // The sibling. Same object as npsCampground.availability today, and the
     // only field a non-NPS campground could ever fill — see the type.
     availability,
+    // The other sibling, and the only route by which a campground with no
+    // nps_campgrounds row can offer a booking at all: its reservation URL
+    // lives on the directory row, which nothing but campsite_facilities links
+    // to the access point.
+    booking,
   };
 
   return {
@@ -416,7 +437,12 @@ async function getNPSCampgroundInfo(
       name: cg.name,
       npsUrl: cg.nps_url,
       reservationInfo: cg.reservation_info,
-      reservationUrl: cg.reservation_url,
+      // Held to the same standard as the directory's URL, because it feeds the
+      // same button under the same provider-naming label. All 30 rows carrying
+      // one are already www.recreation.gov, so this changes nothing today and
+      // catches the day the NPS feed publishes a concessioner's site instead —
+      // where "Book on Recreation.gov" would be the wrong sentence.
+      reservationUrl: bookingUrlFor('recreation_gov', cg.reservation_url),
       fees: feesData.map((f: { cost?: string; description?: string; title?: string }) => ({
         cost: f.cost || '0.00',
         description: f.description || '',

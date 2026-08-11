@@ -610,7 +610,12 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
   // The one link that takes a booking, and the pages that do not. The official
   // site is no longer offered to bookingAction: it is a park page in every row
   // Eddy holds, so it can only ever become the "Official site" row below.
-  const booking = bookingAction(nps, availability?.source);
+  //
+  // `point.booking` is the server's reservation URL for campgrounds with no NPS
+  // record — the state parks, and Red Bluff. It is read from `point` rather
+  // than from `availability` on purpose: a stale sync empties availability, and
+  // where to book is not a fact that goes stale with this weekend's numbers.
+  const booking = bookingAction(nps, availability?.source, point?.booking);
   const showOfficialSite = Boolean(
     point?.officialSiteUrl && point.officialSiteUrl !== booking?.url,
   );
