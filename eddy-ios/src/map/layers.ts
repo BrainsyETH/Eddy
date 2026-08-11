@@ -83,22 +83,29 @@ export interface LayerDef {
    */
   tiers?: LayerKey[];
   /**
-   * True when this row's tiers draw from ONE population rather than splitting it.
+   * True when this row's tiers REFINE one population rather than splitting it.
    *
    * ── A COUNT IS ONLY SUMMABLE WHEN THE SETS ARE DISJOINT ─────────────────
    *
    * Every other tiered row partitions its members: a gauge is rated or it is
    * not, and a service is one pin under whichever tier claims it (see
    * lodgingPins, which drops what rentals already draws). Adding those tiers up
-   * gives the row's total, which is what `sumCounts` does.
+   * gives the row's total.
    *
    * Access points do not work that way. A boat ramp IS an access point — the
    * Boat ramps tier marks a SUBSET of the row's own population rather than a
-   * slice taken out of it — so summing the two would count every ramp twice and
-   * put a number beside the row larger than the number of places it holds. This
-   * flag is what makes the row read its own key instead.
+   * slice taken out of it — so summing the two would count every ramp twice.
+   *
+   * ── SO THE TIERS ARE ORDERED, OUTERMOST FIRST ───────────────────────────
+   *
+   * Each refining tier is contained by the one before it, which is what lets
+   * the row report the outermost LIVE tier — see layerRowCount. The order is
+   * load-bearing rather than cosmetic: reading the row's own key instead would
+   * be wrong in the state where the chips leave "All access" off and "Boat
+   * ramps" on, which is reachable because a chip toggles independently of its
+   * row, and which draws ten places under a row that would claim fifty.
    */
-  tiersOverlap?: boolean;
+  tiersRefine?: boolean;
   /** How this layer is named inside a tier strip, where the row is the context. */
   tierLabel?: string;
   /**
@@ -265,10 +272,10 @@ export const MAP_LAYERS: LayerDef[] = [
     // apart by its MARK, which is the argument the gauge tier strip already
     // makes ("a face tells these two tiers apart better than any hue can").
     //
-    // The tiers OVERLAP rather than partition, unlike every other tiered row —
-    // see tiersOverlap.
+    // The tiers REFINE rather than partition, unlike every other tiered row,
+    // and are therefore listed outermost first — see tiersRefine.
     tiers: ['access', 'boatRamps'],
-    tiersOverlap: true,
+    tiersRefine: true,
     tierLabel: 'All access',
     // A destination is map content, not an action. Teal keeps coral reserved
     // for Plan a float and the plan endpoint the user explicitly chose.

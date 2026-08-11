@@ -156,6 +156,10 @@ export function activeRoles(layers: readonly string[]): ReadonlySet<PlaceRole> {
  * `isCampground` is called rather than restated: it is the campground predicate
  * the planner's overnight logic already uses, and a second copy would be a
  * second answer.
+ *
+ * This is what the POINT says about itself. The resolver may add `campground` on
+ * top, for a place the directory knows camps and the access-point row does not
+ * say so — see the absorption note in resolveAccessMarkers.
  */
 export function placeRoles(point: MapAccessPoint): ReadonlySet<PlaceRole> {
   const roles = new Set<PlaceRole>(['access']);
@@ -189,7 +193,7 @@ export function placeRoles(point: MapAccessPoint): ReadonlySet<PlaceRole> {
 const SAME_PLACE_DEGREES = 0.002;
 
 /**
- * Is this service the same place as one of these access points?
+ * Which of these access points is the same place as this service, if any.
  *
  * Position, not name. "Red Bluff Campground" and "Red Bluff Recreation Area" are
  * one place under two names, and the reverse trap exists too — matching on names
@@ -201,22 +205,35 @@ const SAME_PLACE_DEGREES = 0.002;
  * degree of longitude is about four fifths of a degree of latitude, and an
  * unscaled comparison would quietly make the box wider than it is tall.
  *
+ * Returns the INDEX rather than a boolean because the caller does not merely
+ * drop the duplicate — it has to know which access point absorbed it. First
+ * match wins; two access points inside one 200 m box is not a case this dataset
+ * has, and picking between them would be a guess either way.
+ *
  * Moved here from `layers.ts`, where it could not be tested at all: this is the
  * same "one place, one marker" decision the resolver below exists to own, and it
  * was the one part of it living in the module the web suite cannot load.
  */
-export function drawnAsAccessPoint(
+export function samePlaceIndex(
   service: { latitude: number | null; longitude: number | null },
   points: readonly { coordinates: { lng: number; lat: number } }[],
-): boolean {
+): number {
   const { latitude, longitude } = service;
-  if (latitude == null || longitude == null) return false;
+  if (latitude == null || longitude == null) return -1;
   const lngScale = Math.max(0.2, Math.cos((latitude * Math.PI) / 180));
-  return points.some(
+  return points.findIndex(
     (point) =>
       Math.abs(point.coordinates.lat - latitude) <= SAME_PLACE_DEGREES &&
       Math.abs(point.coordinates.lng - longitude) <= SAME_PLACE_DEGREES / lngScale,
   );
+}
+
+/** The predicate half of `samePlaceIndex`, for callers that only need the answer. */
+export function drawnAsAccessPoint(
+  service: { latitude: number | null; longitude: number | null },
+  points: readonly { coordinates: { lng: number; lat: number } }[],
+): boolean {
+  return samePlaceIndex(service, points) >= 0;
 }
 
 /**
@@ -363,43 +380,65 @@ export function resolveAccessMarkers(
     boatRamp: {},
   };
 
-  const markers: ResolvedAccessMarker[] = [];
-  const campgroundPoints: MapAccessPoint[] = [];
+  // ── Pass 1: what each access point says about itself ────────────────────
+  const held = input.accessPoints.map((entry) => new Set(placeRoles(entry.point)));
+  const points = input.accessPoints.map((entry) => entry.point);
 
-  for (const entry of input.accessPoints) {
-    const held = placeRoles(entry.point);
-    if (held.has('campground')) campgroundPoints.push(entry.point);
-
-    const owner = MARK_PRIORITY.find((role) => held.has(role) && roles.has(role)) ?? null;
-    if (owner) markers.push({ entry, owner });
-
-    for (const role of held) {
-      const bucket = stats[role];
-      bucket.totalMatches += 1;
-      if (owner === null) bucket.notShown += 1;
-      else if (owner === role) bucket.ownedMarkers += 1;
-      else {
-        bucket.representedElsewhere += 1;
-        representedBy[role][owner] = (representedBy[role][owner] ?? 0) + 1;
-      }
-    }
-  }
-
-  // ── The directory's campgrounds ─────────────────────────────────────────
+  // ── Pass 2: the directory's campgrounds, and the ones that are already here ─
   //
   // Eligible, locatable and on the camping tier, in that order — the same three
   // tests, asked once, that the pins and the counts used to ask separately and
-  // differently. A service that IS one of the access points above is dropped
-  // here rather than counted as represented elsewhere: it is not a second place
-  // being drawn under someone else's mark, it is the same place seeded twice,
-  // and counting it would make one campground two.
+  // differently.
+  //
+  // ── A SERVICE ON TOP OF AN ACCESS POINT IS ABSORBED, NOT JUST DROPPED ──
+  //
+  // The dedupe used to run against the access points ALREADY TAGGED
+  // `campground`, which quietly made the tag a precondition for noticing the
+  // duplicate. A place the directory knows is a campground whose access-point
+  // row is tagged only `access` therefore drew TWICE, two hundred metres apart,
+  // with Access and Campgrounds both on — the exact failure the radius exists to
+  // prevent, surviving in the one case where the two records disagree about what
+  // the place is. Which is the normal case for a disagreement.
+  //
+  // So the absorbing access point gains the CAMPGROUND ROLE. Dropping the
+  // service without it would be worse than the duplicate: the place would then
+  // be missing from the Campgrounds layer entirely, and "ask the map for
+  // campgrounds and not be shown Red Bluff" is the failure the campgrounds
+  // branch was rewritten to fix.
+  //
+  // ── WHAT IS CARRIED, AND WHAT IS EMPHATICALLY NOT ─────────────────────
+  //
+  // The role, and only the role: a membership fact, used to pick a mark and
+  // count a row. The service's phone number, availability, booking link and
+  // description stay on the service record and are NOT attached to the access
+  // point, because those are claims about a business and ~200 m is evidence
+  // rather than proof (ADR 0008). Presentation may be decided on proximity; a
+  // record merge may not. Reuniting the two records properly — so the absorbed
+  // campground's phone number survives — needs the `access_point_services`
+  // identity links, which are horizon 2c and a production write.
+  //
+  // The booking link and availability are not gone from the app in the meantime:
+  // the absorbing pin opens the access point's sheet, whose camping section
+  // renders that access point's own `nearbyServices`. What is not guaranteed is
+  // that the absorbed row is one of them, and closing that gap is exactly what
+  // the identity links are for. This is the same trade the campground-tagged
+  // case has made since the radius was written; what changes here is that it is
+  // no longer conditional on a tag.
   const serviceMarkers: RiverService[] = [];
   for (const service of input.services ?? []) {
     if (!serviceOnLayer(service, 'campgrounds')) continue;
     if (!serviceEligible(service)) continue;
     if (!mappableService(service)) continue;
     if (service.latitude == null || service.longitude == null) continue;
-    if (drawnAsAccessPoint(service, campgroundPoints)) continue;
+
+    const absorbedBy = samePlaceIndex(service, points);
+    if (absorbedBy >= 0) {
+      // Not counted separately either: it is not a second place drawn under
+      // someone else's mark, it is the same place seeded twice, and counting it
+      // would make one campground two.
+      held[absorbedBy].add('campground');
+      continue;
+    }
 
     stats.campground.totalMatches += 1;
     if (roles.has('campground')) {
@@ -409,6 +448,24 @@ export function resolveAccessMarkers(
       stats.campground.notShown += 1;
     }
   }
+
+  // ── Pass 3: ownership and the four buckets, over the settled roles ──────
+  const markers: ResolvedAccessMarker[] = [];
+  input.accessPoints.forEach((entry, index) => {
+    const owner = MARK_PRIORITY.find((role) => held[index].has(role) && roles.has(role)) ?? null;
+    if (owner) markers.push({ entry, owner });
+
+    for (const role of held[index]) {
+      const bucket = stats[role];
+      bucket.totalMatches += 1;
+      if (owner === null) bucket.notShown += 1;
+      else if (owner === role) bucket.ownedMarkers += 1;
+      else {
+        bucket.representedElsewhere += 1;
+        representedBy[role][owner] = (representedBy[role][owner] ?? 0) + 1;
+      }
+    }
+  });
 
   for (const role of PLACE_ROLES) stats[role].representedBy = representedBy[role];
 

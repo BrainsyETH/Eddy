@@ -88,6 +88,21 @@ A real merge needs explicit identity links with a stated relationship
 `MAPS_SHEET_SERVICE_MODEL_PLAN.md` (`access_point_services`), it is a production
 write, and it is therefore out of this arc entirely.
 
+**What the radius may carry is the ROLE, and only the role.** A directory
+campground sitting on an access point is absorbed by it: one marker, and the
+absorbing place gains `campground` so it still answers the Campgrounds row. That
+is a membership fact used to pick a mark and count a row — the same class of
+decision as not drawing two dots. The service's phone number, availability,
+booking link and description stay on the service record and are never grafted on.
+
+The dedupe was previously run only against access points **already tagged**
+`campground`, which made the tag a precondition for noticing a duplicate — so a
+place the directory knew camps and the access-point row did not drew twice, two
+hundred metres apart. Dropping such a service without carrying the role would be
+worse than the duplicate: the place would vanish from the Campgrounds layer, and
+"ask the map for campgrounds and not be shown Red Bluff" is the failure the
+campgrounds branch was rewritten to fix.
+
 ## Counts describe representation, not pins
 
 Guardrail 5 said "a count beside a switch is a count of **pins**". Checking the
@@ -115,6 +130,18 @@ also a number that cannot be checked.
 
 **This is a visible change to a row nobody asked to change**: the Access points
 count used to drop when Campgrounds came on. It now stays and gains a line.
+
+**A row's figure is a projection, and the projection has its own rule.** The
+counts describe populations; what the sheet prints is what a row's *live tiers*
+account for. Partitioning tiers (gauges, river services) are disjoint and sum.
+Refining tiers (access points) nest, are listed outermost first, and the row
+reports the outermost live one — reading the row's own key unconditionally puts
+fifty beside a row that draws ten, because a chip toggles independently of its
+row and "All access off, Boat ramps on" is reachable. Nothing live means no
+figure, for both shapes, rather than a fallback that makes the number jump up as
+the row is switched off. The rule lives in `map/layerRows.ts` rather than in the
+sheet component precisely so it can be tested: the resolver's algebra can be
+exactly right while the sheet prints the wrong one of its numbers.
 
 ## Consequences
 

@@ -53,14 +53,36 @@ function service(over: Partial<RiverService> = {}): RiverService {
   } as RiverService;
 }
 
-/** One of each shape the resolver has to tell apart. */
-const PLAIN = point({ id: 'plain', name: 'Cedar Grove', types: ['access'] });
-const RAMP = point({ id: 'ramp', name: 'Pulltite', types: ['access', 'boat_ramp'] });
-const CAMP = point({ id: 'camp', name: 'Round Spring', types: ['access', 'campground'] });
+/**
+ * One of each shape the resolver has to tell apart.
+ *
+ * Miles apart on purpose. Four fixtures on one coordinate would make every
+ * same-place test pass by accident, which is the trap the untagged-overlap case
+ * below was hiding in.
+ */
+const PLAIN = point({
+  id: 'plain',
+  name: 'Cedar Grove',
+  types: ['access'],
+  coordinates: { lng: -91.23, lat: 37.27 },
+});
+const RAMP = point({
+  id: 'ramp',
+  name: 'Pulltite',
+  types: ['access', 'boat_ramp'],
+  coordinates: { lng: -91.33, lat: 37.37 },
+});
+const CAMP = point({
+  id: 'camp',
+  name: 'Round Spring',
+  types: ['access', 'campground'],
+  coordinates: { lng: -91.43, lat: 37.47 },
+});
 const BOTH = point({
   id: 'both',
   name: 'Red Bluff',
   types: ['access', 'campground', 'boat_ramp'],
+  coordinates: { lng: -91.53, lat: 37.57 },
 });
 
 const ALL = [PLAIN, RAMP, CAMP, BOTH].map((p) => ({ point: p, riverSlug: 'current-river' }));
@@ -224,6 +246,76 @@ test('a service campground on top of an access point is one marker, not two', ()
   // And it is not counted as a second campground represented elsewhere: it is
   // the same place seeded twice, and counting it would make one campground two.
   assert.equal(statsByRole.campground.totalMatches, 1);
+});
+
+test('two services on one access point still make one place', () => {
+  const camp = { point: point({ id: 'camp', types: ['access', 'campground'] }), riverSlug: 'x' };
+  const { markers, statsByRole } = resolveAccessMarkers(
+    {
+      accessPoints: [camp],
+      services: [
+        service({ id: 'a', latitude: 37.2789, longitude: -91.2301 }),
+        service({ id: 'b', latitude: 37.2789 + 0.0005, longitude: -91.2301 }),
+      ],
+    },
+    activeRoles(['campgrounds']),
+  );
+  assert.equal(markers.length, 1);
+  assert.equal(statsByRole.campground.totalMatches, 1);
+});
+
+test('an UNTAGGED access point absorbs the campground service on top of it', () => {
+  // The case the tagged fixture above sidesteps, and the one that matters:
+  // the directory says this place is a campground and the access-point row is
+  // tagged only `access`. Deduping against tagged points alone made the tag a
+  // precondition for noticing the duplicate, so with both layers on this drew
+  // twice — two markers a hundred metres apart for one physical place.
+  const plain = { point: point({ id: 'plain', types: ['access'] }), riverSlug: 'x' };
+  const onTop = service({ id: 'dup', latitude: 37.2789 + 0.001, longitude: -91.2301 });
+  const resolved = (layers: string[]) =>
+    resolveAccessMarkers({ accessPoints: [plain], services: [onTop] }, activeRoles(layers));
+
+  const both = resolved(['access', 'campgrounds']);
+  assert.equal(both.markers.length, 1, 'one place, one marker');
+  assert.equal(both.serviceMarkers.length, 0);
+  // And the marker is the TENT, because the place camps — dropping the service
+  // without carrying the role would have deleted it from the campgrounds layer
+  // altogether, which is worse than the duplicate it was fixing.
+  assert.equal(both.markers[0].owner, 'campground');
+  // Counted once by each row that legitimately holds it, never twice by either.
+  assert.equal(both.statsByRole.campground.totalMatches, 1);
+  assert.equal(both.statsByRole.access.totalMatches, 1);
+
+  // With camping off it is a put-in again, and the campground row still knows.
+  const accessOnly = resolved(['access']);
+  assert.equal(accessOnly.markers.length, 1);
+  assert.equal(accessOnly.markers[0].owner, 'access');
+  assert.equal(accessOnly.statsByRole.campground.representedElsewhere, 1);
+  assert.equal(accessOnly.statsByRole.campground.notShown, 0);
+});
+
+test('absorption carries the role and nothing else', () => {
+  // ~200 m is evidence, not proof (ADR 0008). It may decide which marker draws;
+  // it may never attach a business's phone number to an access point.
+  const plain = { point: point({ id: 'plain', types: ['access'] }), riverSlug: 'x' };
+  const onTop = service({
+    id: 'dup',
+    phone: '573-555-0100',
+    website: 'https://example.com',
+    latitude: 37.2789,
+    longitude: -91.2301,
+  });
+  const { markers } = resolveAccessMarkers(
+    { accessPoints: [plain], services: [onTop] },
+    activeRoles(['campgrounds']),
+  );
+  // The access point's own record is handed back untouched — the same object,
+  // so there is nowhere for a phone number or a booking link to have landed.
+  assert.equal(markers[0].entry.point, plain.point);
+  // And the source row is not mutated on the way through: the role lives in the
+  // resolver's own pass, never written back onto the record. `isCampground`
+  // reads the tags, and the tags are still what the database said.
+  assert.equal(placeRoles(plain.point).has('campground'), false);
 });
 
 test('a service campground somewhere else is its own marker', () => {

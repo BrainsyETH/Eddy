@@ -43,6 +43,7 @@ import {
   layerKeysFor,
   type LayerKey,
 } from '@/map/layers';
+import { layerRowCount } from '@/map/layerRows';
 
 /**
  * How far an off layer's mark fades.
@@ -75,29 +76,6 @@ interface Props {
    * the layer it narrows rather than to the row that happens to contain it.
    */
   renderLayerDetail?: (key: LayerKey, on: boolean) => React.ReactNode;
-}
-
-/**
- * A row's total across its live tiers, or `undefined` if any of them is unknown.
- *
- * `undefined` propagates deliberately. A count is only worth printing when the
- * whole of it has arrived — "1" beside a row whose second tier is still
- * fetching is a number that will change under the reader's eyes, and this sheet
- * has never shown a figure it cannot stand behind. No live tiers means nothing
- * to total, which is also `undefined` rather than a zero.
- */
-function sumCounts(
-  keys: LayerKey[],
-  counts: Partial<Record<LayerKey, number>> | undefined,
-): number | undefined {
-  if (keys.length === 0) return undefined;
-  let total = 0;
-  for (const key of keys) {
-    const value = counts?.[key];
-    if (value == null) return undefined;
-    total += value;
-  }
-  return total;
 }
 
 /** True when the live selection is the one the app opens with. */
@@ -162,19 +140,12 @@ export function MapLayersSheet({
             // vaguer answer to a question the strip answers exactly.
             const on = keys.some((key) => active.includes(key));
             const tint = layer.color(colors);
-            // Summed across the tiers, and `undefined` the moment ANY live tier
-            // has not answered yet — a row that adds a loaded tier to an
-            // unloaded one would print a total it cannot stand behind, which is
-            // the rule the per-layer counts already follow.
-            //
-            // EXCEPT where the tiers overlap. Boat ramps are a subset of the
-            // access points rather than a slice taken out of them, so summing
-            // the two would count every ramp twice; that row reports its own
-            // key, which is the whole population. See LayerDef.tiersOverlap.
-            const count =
-              layer.tiers && !layer.tiersOverlap
-                ? sumCounts(layer.tiers.filter((key) => active.includes(key)), counts)
-                : counts?.[layer.key];
+            // What this row's LIVE tiers account for — summed when they
+            // partition, the outermost live one when they nest, `undefined`
+            // when nothing of the row is drawing or a tier has not answered
+            // yet. The rule and its reasoning live in map/layerRows.ts, where
+            // the web suite can execute them.
+            const count = layerRowCount(layer, active, counts);
             return (
               <View key={layer.key}>
               <Pressable

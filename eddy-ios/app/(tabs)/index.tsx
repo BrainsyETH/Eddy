@@ -1426,8 +1426,8 @@ export default function MapScreen() {
           ? accessFamily.statsByRole.access.totalMatches
           : undefined,
       // Every put-in tagged `boat_ramp`, a SUBSET of the row above rather than
-      // a slice taken out of it — which is why the Access row reads its own
-      // count instead of summing its tiers. See LayerDef.tiersOverlap.
+      // a slice taken out of it — which is why the Access row reports its
+      // outermost live tier instead of summing them. See LayerDef.tiersRefine.
       boatRamps:
         drawnAccessPoints.length > 0
           ? accessFamily.statsByRole.boatRamp.totalMatches
