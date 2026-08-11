@@ -31,11 +31,14 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading, readingAge } from '@/lib/readingCopy';
 import { KindMark } from '@/components/KindMark';
+import { stationCaption } from '@/lib/gaugeProvider';
 
 interface Props {
   name: string;
   /** The site id, printed because it is how half of these are known. */
   siteId: string | null;
+  /** Publisher registry id. Absent on responses from older deployments. */
+  provider?: string | null;
   /** Live reading, when the search result carried one. Null is ordinary. */
   reading: SearchResultGauge | null;
   starred: boolean;
@@ -62,6 +65,7 @@ function referenceReading(reading: SearchResultGauge | null): string | null {
 function ReferenceGaugeRowComponent({
   name,
   siteId,
+  provider,
   reading,
   starred,
   onPress,
@@ -72,7 +76,9 @@ function ReferenceGaugeRowComponent({
   const band = flowBand(reading?.flowPercentile);
   const value = referenceReading(reading);
   const age = readingAge(reading?.readingAgeHours);
-  const meta = [siteId ? `USGS ${siteId}` : null, age].filter(Boolean).join(' · ');
+  const meta = [siteId ? stationCaption(provider, siteId) : null, age]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>

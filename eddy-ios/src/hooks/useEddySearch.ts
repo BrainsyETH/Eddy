@@ -24,6 +24,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MapGauge, RiverListItem, SearchResult, SearchResultKind } from '@eddy/types';
 import { searchEddy } from '@/api/client';
+import { providerLabel, stationCaption } from '@/lib/gaugeProvider';
 
 /** Matches the server's floor — below this a query matches most of the data. */
 const MIN_QUERY_LENGTH = 2;
@@ -150,11 +151,15 @@ export function gaugeToSearchResult(g: MapGauge): SearchResult {
   // A station can grade more than one river; the primary association is the
   // one whose map the app should open.
   const link = g.thresholds?.find((t) => t.isPrimary) ?? g.thresholds?.[0] ?? null;
+  const provider = g.provider ?? 'usgs';
+  const providerCaption = g.usgsSiteId
+    ? stationCaption(provider, g.usgsSiteId)
+    : providerLabel(provider);
   return {
     kind: 'gauge' as const,
     id: g.id,
     name: g.name,
-    subtitle: [link?.riverName ?? 'USGS gauge', g.usgsSiteId].filter(Boolean).join(' · '),
+    subtitle: [link?.riverName, providerCaption].filter(Boolean).join(' · '),
     riverId: link?.riverId ?? null,
     riverName: link?.riverName ?? null,
     riverSlug: link?.riverSlug ?? null,
@@ -166,6 +171,7 @@ export function gaugeToSearchResult(g: MapGauge): SearchResult {
     // only row in the list that could not be opened — the gauge screen keys
     // off siteId — which would make the fast path the broken one.
     siteId: g.usgsSiteId,
+    provider,
     gauge: {
       // Everything in /api/gauges is rated by definition; that endpoint has
       // been curated-only since the national tier got its own route.

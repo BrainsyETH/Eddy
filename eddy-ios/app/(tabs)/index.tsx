@@ -2329,6 +2329,7 @@ export default function MapScreen() {
                         slug:
                           pinGauge.thresholds?.find((link) => link.isPrimary)?.riverSlug ?? '',
                         usgsSiteId: pinGauge.usgsSiteId,
+                        provider: pinGauge.provider,
                       })
                   : null
               }

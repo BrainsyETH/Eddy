@@ -44,13 +44,14 @@ function locationFeature(siteId: string, over: Record<string, unknown> = {}): Og
   } as unknown as OgcFeature;
 }
 
-function seriesFeature(siteId: string, end: unknown): OgcFeature {
+function seriesFeature(siteId: string, end: unknown, endUtc: unknown = end): OgcFeature {
   return {
     id: `${siteId}-series`,
     properties: {
       monitoring_location_id: `USGS-${siteId}`,
       parameter_code: '00060',
       end,
+      end_utc: endUtc,
     },
   } as unknown as OgcFeature;
 }
@@ -116,10 +117,10 @@ test('a saturated response is refused rather than under-reporting', () => {
 
 test('a real answer keeps the newest end per station', () => {
   const outcome = classifyRecordEndsResponse(BATCH, [
-    seriesFeature('07014000', '2024-01-01T00:00:00'),
-    seriesFeature('07014000', '2026-08-10T06:30:00'),
-    seriesFeature('07014000', '2025-05-05T00:00:00'),
-    seriesFeature('07019000', '2026-08-09T00:00:00'),
+    seriesFeature('07014000', '2023-12-31T18:00:00', '2024-01-01T00:00:00Z'),
+    seriesFeature('07014000', '2026-08-10T01:30:00', '2026-08-10T06:30:00Z'),
+    seriesFeature('07014000', '2025-05-04T19:00:00', '2025-05-05T00:00:00Z'),
+    seriesFeature('07019000', '2026-08-08T19:00:00', '2026-08-09T00:00:00Z'),
   ], 36);
 
   assert.equal(outcome.reached, true);
@@ -131,6 +132,30 @@ test('a real answer keeps the newest end per station', () => {
   assert.equal(outcome.data.size, 3, 'every station in a reached batch gets an entry');
 });
 
+test('end_utc wins over the station-local compatibility timestamp', () => {
+  const outcome = classifyRecordEndsResponse(
+    ['07014000'],
+    [seriesFeature('07014000', '2026-08-10T01:30:00', '2026-08-10T09:30:00Z')],
+    12,
+  );
+
+  assert.equal(outcome.reached, true);
+  if (!outcome.reached) return;
+  assert.equal(outcome.data.get('07014000')?.toISOString(), '2026-08-10T09:30:00.000Z');
+});
+
+test('a legacy timezone-less end is deterministic when end_utc is absent', () => {
+  const outcome = classifyRecordEndsResponse(
+    ['07014000'],
+    [seriesFeature('07014000', '2026-08-10T06:30:00', undefined)],
+    12,
+  );
+
+  assert.equal(outcome.reached, true);
+  if (!outcome.reached) return;
+  assert.equal(outcome.data.get('07014000')?.toISOString(), '2026-08-10T06:30:00.000Z');
+});
+
 test('a malformed end is ignored without discarding the station', () => {
   // USGS answered about this station; the timestamp is junk. That is not a
   // filter failure — counting it as one would refuse a response that is
@@ -138,7 +163,7 @@ test('a malformed end is ignored without discarding the station', () => {
   // of "we have no usable end for it".
   const outcome = classifyRecordEndsResponse(BATCH, [
     seriesFeature('07014000', 'not-a-date'),
-    seriesFeature('07019000', '2026-08-09T00:00:00'),
+    seriesFeature('07019000', '2026-08-08T19:00:00', '2026-08-09T00:00:00Z'),
   ], 36);
 
   assert.equal(outcome.reached, true);
@@ -152,7 +177,7 @@ test('a non-string end, a missing end and a null property are all survivable', (
     seriesFeature('07014000', 1723276800000),
     seriesFeature('07019000', undefined),
     { id: 'x', properties: null } as unknown as OgcFeature,
-    seriesFeature('07067000', '2026-08-01T00:00:00'),
+    seriesFeature('07067000', '2026-07-31T19:00:00', '2026-08-01T00:00:00Z'),
   ], 36);
 
   assert.equal(outcome.reached, true);

@@ -54,8 +54,9 @@ export interface GaugeSeed {
    * percentile because one on a regulated release would mislead.
    *
    * NULL means "this source did not say", not "usgs" — the same posture
-   * `curated` takes below, and for the same reason. Search and the star store
-   * carry no provider, and Clearwater Dam is reachable through both, so
+   * `curated` takes below, and for the same reason. Older search deployments
+   * and the star store carry no provider, and Clearwater Dam is reachable
+   * through both, so
    * defaulting them to 'usgs' would flash "USGS swl-clearwater-dam" for the one
    * frame before the detail fetch corrects it. A screen that does not know must
    * print nothing rather than guess.
@@ -207,9 +208,9 @@ export function seedFromSearchResult(result: SearchResult): GaugeSeed | null {
   return {
     id: result.id,
     siteId: result.siteId,
-    // /api/search does not carry a provider, and a USACE dam is reachable
-    // through search — so this is genuinely unknown, not USGS.
-    provider: null,
+    // Optional for compatibility with the 1.0 backend. Unknown stays unknown;
+    // a USACE slug must never be guessed to be a USGS station.
+    provider: result.provider ?? null,
     // No list endpoint sends it; the detail fetch fills it in.
     publicUrl: null,
     stationNote: null,
@@ -263,13 +264,15 @@ export function seedFromStar(star: {
    * "cannot be opened" case as a station that has none.
    */
   usgsSiteId?: string | null;
+  /** Optional across stars created or synced before 1.1. */
+  provider?: string | null;
 }): GaugeSeed | null {
   if (!star.usgsSiteId) return null;
   return {
     id: star.entityId,
     siteId: star.usgsSiteId,
-    // The store does not record it — same posture as `curated` below.
-    provider: null,
+    // Older star records do not carry it; unknown stays unknown.
+    provider: star.provider ?? null,
     // No list endpoint sends it; the detail fetch fills it in.
     publicUrl: null,
     stationNote: null,

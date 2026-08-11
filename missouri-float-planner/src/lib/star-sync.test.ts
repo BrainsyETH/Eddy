@@ -289,6 +289,22 @@ test('a v3 payload round-trips, gauges included', () => {
   assert.equal(migrated[0].usgsSiteId, '07055607');
 });
 
+test('a gauge star round-trips provider provenance', () => {
+  const migrated = migrateStars([
+    {
+      kind: 'gauge',
+      entityId: 'clearwater',
+      name: 'Black River below Clearwater Dam',
+      slug: 'black',
+      updatedAt: EARLY,
+      starred: true,
+      usgsSiteId: 'swl-clearwater-dam',
+      provider: 'usace',
+    },
+  ]);
+  assert.equal(migrated[0].provider, 'usace');
+});
+
 test('an entry with an unrecognised kind is treated as a river, not dropped', () => {
   // Same posture as everything else here: losing a star is bad, and a store
   // that refuses to parse is worse. Anything that is not 'gauge' is a river,

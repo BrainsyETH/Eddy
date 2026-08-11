@@ -121,7 +121,8 @@ import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useLocation, type Coords } from '@/hooks/useLocation';
 import { riverMilesByGauge } from '@/lib/riverDistance';
 import { gaugeLink } from '@/lib/gaugeCondition';
-import { rememberGauge, seedFromSearchResult } from '@/lib/gaugeSeed';
+import { stationCaption } from '@/lib/gaugeProvider';
+import { rememberGauge, seedFromMapGauge, seedFromSearchResult } from '@/lib/gaugeSeed';
 import { primaryReading } from '@/lib/readingCopy';
 import { useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
@@ -673,13 +674,14 @@ export default function ReportsScreen() {
           kind: 'gauge' as const,
           id: s.entityId,
           name: s.name,
-          subtitle: s.usgsSiteId ? `USGS ${s.usgsSiteId}` : 'USGS gauge',
+          subtitle: stationCaption(s.provider, s.usgsSiteId ?? '') ?? 'Gauge',
           riverId: null,
           riverName: null,
           riverSlug: s.slug || null,
           riverMile: null,
           coordinates: null,
           siteId: s.usgsSiteId ?? null,
+          provider: s.provider ?? null,
           // No reading held for a station the rated list does not carry — the
           // national tier is fetched by viewport, not by star. Null rather than
           // zeroes: the row renders "no reading", which is true.
@@ -691,9 +693,11 @@ export default function ReportsScreen() {
   const visibleGauges = useMemo(() => {
     if (gaugeFilter === 'all') return gaugeResults;
     if (gaugeFilter === 'starred') return starredGaugeResults;
-    if (gaugeFilter === 'eddy') return gaugeResults.filter((r) => r.gauge?.curated === true);
+    if (gaugeFilter === 'eddy') {
+      return gaugeResults.filter((r) => curatedById.has(r.id) || r.gauge?.curated === true);
+    }
     return gaugeResults.filter((r) => flowBand(r.gauge?.flowPercentile) === gaugeFilter);
-  }, [gaugeResults, gaugeFilter, starredGaugeResults]);
+  }, [gaugeResults, gaugeFilter, starredGaugeResults, curatedById]);
 
   const accessResults = useMemo(
     () => search.results.filter((r) => r.kind === 'access_point'),
@@ -730,7 +734,7 @@ export default function ReportsScreen() {
   const gaugeRow = useCallback(
     (result: SearchResult): SearchRow => {
       const local = curatedById.get(result.id);
-      return result.gauge?.curated && local
+      return local
         ? { kind: 'gauge' as const, key: `gauge:${result.id}`, gauge: local, result }
         : { kind: 'refgauge' as const, key: `refgauge:${result.id}`, result };
     },
@@ -1360,7 +1364,10 @@ export default function ReportsScreen() {
                 onPress={
                   gauge.usgsSiteId
                     ? () => {
-                        rememberGauge(seedFromSearchResult(item.result));
+                        // The local rated record carries the authoritative
+                        // provider and ladder even when an older search backend
+                        // does not yet return provider provenance.
+                        rememberGauge(seedFromMapGauge(gauge));
                         router.push(`/gauge/${encodeURIComponent(gauge.usgsSiteId!)}`);
                       }
                     : null
@@ -1372,6 +1379,7 @@ export default function ReportsScreen() {
                     name: gauge.name,
                     slug: link?.riverSlug ?? '',
                     usgsSiteId: gauge.usgsSiteId,
+                    provider: gauge.provider,
                   })
                 }
               />
@@ -1384,6 +1392,7 @@ export default function ReportsScreen() {
               <ReferenceGaugeRow
                 name={result.name}
                 siteId={result.siteId ?? null}
+                provider={result.provider}
                 reading={result.gauge ?? null}
                 starred={isStarred('gauge', result.id)}
                 onPress={
@@ -1406,6 +1415,7 @@ export default function ReportsScreen() {
                     // a guess — the store treats it as "nowhere to tap through".
                     slug: result.riverSlug ?? '',
                     usgsSiteId: result.siteId ?? null,
+                    provider: result.provider ?? null,
                   })
                 }
               />

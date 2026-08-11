@@ -31,19 +31,24 @@ export interface QualifierStatus {
   note: string | null;
 }
 
-/** Classifies USGS qualifier codes into a user-facing status. */
-export function classifyQualifiers(qualifiers: string[] | null | undefined): QualifierStatus {
+/** Classifies provider qualifier codes into a user-facing status. */
+export function classifyQualifiers(
+  qualifiers: string[] | null | undefined,
+  provider: string | null | undefined = 'usgs',
+): QualifierStatus {
   const codes = qualifiers ?? [];
   const suspect = codes.some((c) => SUSPECT_QUALIFIERS.has(c));
   const provisional = codes.includes('P');
+  const publisher =
+    provider === 'usace' ? 'USACE' : provider === 'nws' ? 'NWS' : provider === 'usgs' ? 'USGS' : 'provider';
   let note: string | null = null;
   if (suspect) {
     if (codes.includes('Ice')) note = 'Ice-affected reading — may be inaccurate';
     else if (codes.includes('e')) note = 'Estimated reading — may be inaccurate';
     else if (codes.includes('Eqp')) note = 'Sensor malfunction — reading suspect';
-    else note = 'Reading flagged by USGS — may be inaccurate';
+    else note = `Reading flagged by ${publisher} — may be inaccurate`;
   } else if (provisional) {
-    note = 'Provisional USGS data';
+    note = `Provisional ${publisher} data`;
   }
   return { provisional, suspect, note };
 }

@@ -1574,6 +1574,13 @@ export interface SearchResult {
    * the client must fall back to selecting it rather than pushing a screen.
    */
   siteId?: string | null;
+  /**
+   * Registry id for the station's publisher. Gauge results only.
+   *
+   * Optional because 1.0 may talk to a backend deployed before provider
+   * provenance was added to search. An absent value is unknown, never USGS.
+   */
+  provider?: string | null;
   /** Gauge results only; null when the station has no stored reading. */
   gauge?: SearchResultGauge | null;
   /**
@@ -1844,6 +1851,8 @@ export interface StarredGaugeEntry {
   gaugeId: string;
   gaugeName: string;
   usgsSiteId: string;
+  /** Registry id for the station's publisher. Optional across a 1.0 server. */
+  provider?: string | null;
   /** The river this gauge is PRIMARY for, when it is primary for one. */
   riverName: string | null;
   riverSlug: string | null;

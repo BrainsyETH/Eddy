@@ -319,6 +319,7 @@ export async function fetchStarredGauges(
       name: entry.gaugeName,
       slug: entry.riverSlug ?? '',
       usgsSiteId: entry.usgsSiteId,
+      provider: entry.provider ?? null,
       starredAt: entry.starredAt,
     }));
   } catch {

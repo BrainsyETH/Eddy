@@ -60,8 +60,10 @@ export interface LocalStar {
    * screen, keyed on `entityId`, not a river's.
    */
   slug: string;
-  /** Gauges only: the USGS site behind the reading. */
+  /** Gauges only: the provider-native site id behind the reading. */
   usgsSiteId?: string | null;
+  /** Gauges only: registry id for the station's publisher. */
+  provider?: string | null;
   /** ISO. When the USER last changed this entity's state — not when it synced. */
   updatedAt: string;
   /** false is a tombstone: deliberately unstarred, not merely unknown. */
@@ -81,6 +83,7 @@ export interface ServerStar {
   name: string;
   slug: string;
   usgsSiteId?: string | null;
+  provider?: string | null;
   starredAt: string;
 }
 
@@ -166,6 +169,7 @@ export function mergeStars(local: LocalStar[], server: ServerStar[], kind: StarK
       name: row.name || mine?.name || '',
       slug: row.slug || mine?.slug || '',
       usgsSiteId: row.usgsSiteId ?? mine?.usgsSiteId ?? null,
+      provider: row.provider ?? mine?.provider ?? null,
       // Preserve the local edit time when this device already had it starred,
       // so a later unstar elsewhere can still be compared meaningfully.
       updatedAt: mine?.starred ? mine.updatedAt : row.starredAt,
@@ -206,7 +210,10 @@ export function visibleStars(local: LocalStar[]): LocalStar[] {
  */
 export function toggleLocal(
   local: LocalStar[],
-  entity: Pick<LocalStar, 'kind' | 'entityId' | 'name' | 'slug'> & { usgsSiteId?: string | null },
+  entity: Pick<LocalStar, 'kind' | 'entityId' | 'name' | 'slug'> & {
+    usgsSiteId?: string | null;
+    provider?: string | null;
+  },
   now: string,
 ): LocalStar[] {
   const key = starKey(entity.kind, entity.entityId);
@@ -237,7 +244,10 @@ export function toggleLocal(
 export function addStars(
   local: LocalStar[],
   entities: Array<
-    Pick<LocalStar, 'kind' | 'entityId' | 'name' | 'slug'> & { usgsSiteId?: string | null }
+    Pick<LocalStar, 'kind' | 'entityId' | 'name' | 'slug'> & {
+      usgsSiteId?: string | null;
+      provider?: string | null;
+    }
   >,
   now: string,
 ): LocalStar[] {
@@ -314,6 +324,7 @@ export function migrateStars(raw: unknown): LocalStar[] {
       name: typeof record.name === 'string' ? record.name : '',
       slug: typeof record.slug === 'string' ? record.slug : '',
       usgsSiteId: typeof record.usgsSiteId === 'string' ? record.usgsSiteId : null,
+      provider: typeof record.provider === 'string' ? record.provider : null,
       updatedAt: record.updatedAt ?? record.starredAt ?? new Date(0).toISOString(),
       // Only v1 lacks the field entirely, and in v1 presence meant starred.
       starred: typeof record.starred === 'boolean' ? record.starred : true,

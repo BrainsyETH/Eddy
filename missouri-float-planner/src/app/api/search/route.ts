@@ -130,6 +130,8 @@ export interface SearchResult {
    * (/api/gauges/:siteId, its /history) keys off this, not off `id`.
    */
   siteId?: string | null;
+  /** Registry id for the station's publisher. Gauge results only. */
+  provider?: string | null;
   /** Gauge results only; null when the station has no stored reading. */
   gauge?: SearchResultGauge | null;
   /**
@@ -190,6 +192,22 @@ const ACCESS_TYPE_LABELS: Record<string, string> = {
 function accessTypeLabel(type: string | null): string {
   if (!type) return 'Access';
   return ACCESS_TYPE_LABELS[type] ?? type.replace(/_/g, ' ');
+}
+
+/** Provider attribution for a gauge search subtitle. */
+export function gaugeProviderCaption(provider: string | null, siteId: string | null): string {
+  switch (provider) {
+    case 'usgs':
+      return siteId ? `USGS ${siteId}` : 'USGS gauge';
+    case 'nws':
+      return 'NWS gauge';
+    case 'usace':
+      // A USACE site id is an internal Eddy dam slug, not a public station
+      // number. Name the operator without presenting the slug as a citation.
+      return 'USACE release';
+    default:
+      return 'Gauge';
+  }
 }
 
 function coordsOf(row: {
@@ -469,6 +487,7 @@ async function _GET(request: NextRequest) {
     interface SearchGaugeRow {
       id: string;
       site_id: string | null;
+      provider: string | null;
       name: string | null;
       curated: boolean;
       lng: number | null;
@@ -534,10 +553,9 @@ async function _GET(request: NextRequest) {
         kind: 'gauge' as const,
         id: g.id,
         name: g.name ?? g.site_id ?? 'Gauge',
-        // "USGS gauge" for anything with no river association, which is now the
-        // common case rather than the exception — a national station is a real
-        // answer to a search, it just is not one Eddy has rated.
-        subtitle: [river ? river.name : 'USGS gauge', g.site_id].filter(Boolean).join(' · '),
+        subtitle: [river?.name, gaugeProviderCaption(g.provider, g.site_id)]
+          .filter(Boolean)
+          .join(' · '),
         riverId: river?.id ?? null,
         riverName: river?.name ?? null,
         riverSlug: river?.slug ?? null,
@@ -549,6 +567,7 @@ async function _GET(request: NextRequest) {
         coordinates:
           g.lng !== null && g.lat !== null ? { lng: g.lng, lat: g.lat } : null,
         siteId: g.site_id,
+        provider: g.provider,
         // Null when the station has no stored reading at all — a real state for
         // a site that reports seasonally, and one the client must render as
         // "no reading" rather than as a zero.

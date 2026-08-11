@@ -499,9 +499,21 @@ export function classifyRecordEndsResponse(
     // station legitimately at null.
     matched.add(siteId);
 
-    const rawEnd = props.end;
+    // `end` is the station's LOCAL wall-clock time. USGS keeps it only for
+    // backwards compatibility; `end_utc` is the same observation with the
+    // timezone made explicit. Reading `end` with `new Date()` made this check
+    // depend on the server timezone and shifted every station outside UTC.
+    // Prefer the field whose meaning survives deployment geography.
+    const rawEnd = props.end_utc ?? props.end;
     if (typeof rawEnd !== 'string') continue;
-    const parsed = new Date(rawEnd);
+    // A legacy response may omit end_utc. Keep that response usable and make
+    // the fallback deterministic: a timezone-less ISO value is interpreted as
+    // UTC rather than as whichever timezone happens to run the worker. The
+    // fallback can be a few hours less precise than end_utc, but the check's
+    // record-ended horizon is measured in days and the result no longer moves
+    // between GitHub Actions, Vercel and a Chicago development machine.
+    const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(rawEnd);
+    const parsed = new Date(hasTimezone ? rawEnd : `${rawEnd}Z`);
     if (Number.isNaN(parsed.getTime())) continue;
 
     const current = ends.get(siteId) ?? null;

@@ -1010,6 +1010,8 @@ export interface StarredGaugeEntry {
   gaugeId: string;
   gaugeName: string;
   usgsSiteId: string;
+  /** Registry id for the station's publisher. */
+  provider: string;
   /** The river this gauge is PRIMARY for, when it is primary for one. */
   riverName: string | null;
   riverSlug: string | null;

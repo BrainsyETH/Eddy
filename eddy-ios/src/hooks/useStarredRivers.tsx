@@ -66,6 +66,7 @@ export interface StarredItem {
   /** The river route this opens. Empty for a gauge that rates no river. */
   slug: string;
   usgsSiteId?: string | null;
+  provider?: string | null;
   starredAt: string;
 }
 
@@ -365,6 +366,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
         name: entry.name,
         slug: entry.slug,
         usgsSiteId: entry.usgsSiteId ?? null,
+        provider: entry.provider ?? null,
         starredAt: entry.updatedAt,
       })),
       ready,

@@ -429,6 +429,7 @@ export default function GaugeDetailScreen() {
       // for the national tier, which rates none — an honest empty, not a guess.
       slug: pickPrimaryRiverLink(gauge.thresholds)?.riverSlug ?? '',
       usgsSiteId: gauge.siteId,
+      provider: gauge.provider,
     });
   };
 

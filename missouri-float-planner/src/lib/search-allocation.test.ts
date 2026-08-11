@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   allocateByKind,
   escapeLike,
+  gaugeProviderCaption,
   type SearchResult,
   type SearchResultKind,
 } from '@/app/api/search/route';
@@ -139,4 +140,11 @@ test('escapeLike leaves an ordinary place name alone', () => {
   assert.equal(escapeLike("Anna M. Adams"), 'Anna M. Adams');
   assert.equal(escapeLike('Big Piney'), 'Big Piney');
   assert.equal(escapeLike("Devil's Elbow"), "Devil's Elbow");
+});
+
+test('gauge captions attribute readings without presenting internal ids as citations', () => {
+  assert.equal(gaugeProviderCaption('usgs', '07071500'), 'USGS 07071500');
+  assert.equal(gaugeProviderCaption('nws', 'VBUM7'), 'NWS gauge');
+  assert.equal(gaugeProviderCaption('usace', 'swl-clearwater-dam'), 'USACE release');
+  assert.equal(gaugeProviderCaption(null, 'swl-clearwater-dam'), 'Gauge');
 });
