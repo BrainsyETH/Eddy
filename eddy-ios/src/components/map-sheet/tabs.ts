@@ -25,6 +25,7 @@
 // cannot keep, and the reader pays a swipe to find that out.
 import type { AccessPointDetailResponse, MapAccessPoint } from '@eddy/types';
 import { isCampground } from '@eddy/types';
+import { accessRoleForLayer } from '../../map/accessLayers';
 import { accessAvailability } from './availabilitySource';
 
 /**
@@ -125,16 +126,26 @@ export function accessTabs(
  * Which tab to land on.
  *
  * Tapping a TENT and being shown a put-in's road surface is answering a
- * question nobody asked. The campgrounds layer presents the very same access
- * point under a different icon — RiverMap keeps the canonical `access:{id}`
+ * question nobody asked. The access family presents the very same access point
+ * under whichever of its marks won — RiverMap keeps the canonical `access:{id}`
  * identity while doing it — so `pin.layer` is a clean record of which icon the
  * finger actually landed on, and the only intent signal available.
+ *
+ * ── THE ROLE, not the layer key ──────────────────────────────────────────
+ *
+ * The question is "did they tap a camping mark", and it was being asked as
+ * `pin.layer === 'campgrounds'` — a fact about the map standing in for a fact
+ * about intent. Asked through the role vocabulary it survives a fourth access
+ * mark: a boat ramp resolves to `boatRamp` and lands on Overview, which is
+ * right, and it does so because the rule says what it means rather than because
+ * a string happened not to match.
  *
  * Falls back to 0 whenever the preferred tab is not in the set, including
  * during the window before the detail request has qualified it.
  */
 export function initialTabKey(tabs: TabDef[], pin: LayerTapped): TabKey | null {
-  if (pin.layer === 'campgrounds' && tabs.some((tab) => tab.key === 'camping')) return 'camping';
+  const tapped = accessRoleForLayer(pin.layer);
+  if (tapped === 'campground' && tabs.some((tab) => tab.key === 'camping')) return 'camping';
   return tabs[0]?.key ?? null;
 }
 

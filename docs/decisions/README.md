@@ -14,3 +14,4 @@ successor), `historical` (context only), `open` (recorded but not yet decided).
 | [0005](0005-gauge-alert-one-shot-spend.md) | A gauge alert's one shot is spent by delivery, not evaluation | active |
 | [0006](0006-gauge-alerts-belong-to-a-river-alert.md) | A gauge alert can name the river alert it was created from, and is gated by it | active |
 | [0007](0007-cta-fill-is-teal-on-native-coral-on-web.md) | The primary CTA fill is teal on native and coral on web | active |
+| [0008](0008-map-features-have-kinds-and-roles.md) | A map feature has a kind and roles; a layer key is not either of them | active |

@@ -6,19 +6,26 @@ import { Alert, Linking } from 'react-native';
 import type { MapAccessPoint } from '@eddy/types';
 import type { MapPin } from '@/map/RiverMap';
 import type { LayerKey } from '@/map/layers';
+import { accessRoleForLayer } from '@/map/accessLayers';
 import { driveToUrl } from '@/lib/directions';
 
 /**
- * Layers whose pins are somewhere you get in a car and go.
+ * Layers OUTSIDE the access family whose pins are somewhere you drive to.
  *
  * THE EXCLUSIONS ARE THE POINT. A hazard is emphatically not a destination — a
  * Directions button under a strainer is an invitation — and a gauge is a sensor
  * on a bridge rail, not a place.
+ *
+ * The access family is not listed here. "Access, campgrounds, outfitters" was a
+ * list of the marks that existed when it was written, so a fourth access mark
+ * silently dropped Directions from the pins wearing it — a place you can put a
+ * boat in is a place you drive to whichever icon it happens to be showing, and
+ * that is a question about the PLACE. `isDriveable` asks it that way now.
  */
-export const DRIVEABLE_LAYERS = new Set<LayerKey>(['access', 'campgrounds', 'outfitters']);
+export const DRIVEABLE_SERVICE_LAYERS = new Set<LayerKey>(['outfitters']);
 
 export function isDriveable(pin: MapPin): boolean {
-  return DRIVEABLE_LAYERS.has(pin.layer);
+  return accessRoleForLayer(pin.layer) !== null || DRIVEABLE_SERVICE_LAYERS.has(pin.layer);
 }
 
 /** Coordinates, never the name: see src/lib/directions.ts. */

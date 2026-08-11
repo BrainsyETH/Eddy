@@ -23,6 +23,7 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import type { MapPin } from '@/map/RiverMap';
+import { accessRoleForLayer } from '@/map/accessLayers';
 import { PlaceHead } from './PlaceHead';
 import { AccessTypeBadges } from './sections';
 import { confirmPlanAction, isDriveable, openDirections } from './sheetActions';
@@ -217,7 +218,13 @@ export function PinCallout({
   // link. It earns its row most when the glance above says "Fully booked",
   // which today is the end of the conversation while the app has known the
   // coordinates the whole time. A search, never a count — see lib/stays.ts.
-  if (pin.layer === 'campgrounds' && stayUrl) {
+  //
+  // The TAPPED MARK decides, not the place's tags — the same rule the peek's
+  // reserved fact follows, and for the same reason. Somebody who tapped a boat
+  // ramp is choosing where to put a boat in; offering them a night's lodging
+  // three rows down is answering a question they did not ask. Asked through the
+  // role so a fourth camping mark is carried automatically.
+  if (accessRoleForLayer(pin.layer) === 'campground' && stayUrl) {
     calloutRows.push({
       key: 'stays',
       label: STAY_SEARCH_LABEL,

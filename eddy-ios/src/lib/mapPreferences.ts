@@ -67,6 +67,7 @@ function deviceStorage(): MapPreferenceStorage {
  */
 const KNOWN_LAYERS: Record<LayerKey, true> = {
   access: true,
+  boatRamps: true,
   campgrounds: true,
   gauges: true,
   allGauges: true,

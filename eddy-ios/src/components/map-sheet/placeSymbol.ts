@@ -66,6 +66,11 @@ const LAYER_SYMBOL: Record<string, PlaceSymbolName> = {
   hazards: 'hazard',
   outfitters: 'outfitter',
   campgrounds: 'campground',
+  // Present for the same reason `campgrounds` is: the access family draws one
+  // place under whichever of its marks won, and the sheet's header has to show
+  // the mark that was tapped. A ramp tap resolving to the generic access pin
+  // would be the tent-tapper problem in the header's own words.
+  boatRamps: 'boatRamp',
 };
 
 /** What a single access type says, for the types the catalog has drawn. */

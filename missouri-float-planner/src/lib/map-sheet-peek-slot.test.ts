@@ -38,6 +38,19 @@ test('the access layer reserves water when the river has a gauge', () => {
   assert.equal(decisionSlot(pin('access'), { riverHasGauges: true }), 'water');
 });
 
+test('a boat ramp is an access point and reserves the water like one', () => {
+  // The rule used to be spelt `layer !== 'campgrounds' && layer !== 'access'`,
+  // which is a list of the marks that existed when it was written. A ramp would
+  // have fallen through to `none` and silently lost its reading — the failure
+  // ADR 0008 records, in the one module where it is invisible until somebody
+  // taps a ramp on a gauged river.
+  assert.equal(decisionSlot(pin('boatRamps'), { riverHasGauges: true }), 'water');
+  assert.equal(decisionSlot(pin('boatRamps'), { riverHasGauges: false }), 'none');
+  // And a ramp is not a campground, whatever the place is also tagged: the
+  // reserved fact follows the mark that was tapped.
+  assert.equal(decisionSlot(pin('boatRamps', true), { riverHasGauges: true }), 'water');
+});
+
 test('an ungauged river reserves nothing', () => {
   // The collapse case, designed out rather than animated. A river Eddy grades
   // with nothing will never produce a reading, so reserving space and then

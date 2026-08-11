@@ -166,9 +166,15 @@ export function MapLayersSheet({
             // has not answered yet — a row that adds a loaded tier to an
             // unloaded one would print a total it cannot stand behind, which is
             // the rule the per-layer counts already follow.
-            const count = layer.tiers
-              ? sumCounts(layer.tiers.filter((key) => active.includes(key)), counts)
-              : counts?.[layer.key];
+            //
+            // EXCEPT where the tiers overlap. Boat ramps are a subset of the
+            // access points rather than a slice taken out of them, so summing
+            // the two would count every ramp twice; that row reports its own
+            // key, which is the whole population. See LayerDef.tiersOverlap.
+            const count =
+              layer.tiers && !layer.tiersOverlap
+                ? sumCounts(layer.tiers.filter((key) => active.includes(key)), counts)
+                : counts?.[layer.key];
             return (
               <View key={layer.key}>
               <Pressable

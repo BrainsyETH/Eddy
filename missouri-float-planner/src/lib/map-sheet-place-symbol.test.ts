@@ -34,6 +34,12 @@ test('the layer decides, because it is the icon the finger landed on', () => {
   const campableRamp = point({ types: ['boat_ramp', 'campground'] });
   assert.equal(placeSymbol({ layer: 'campgrounds' }, campableRamp), 'campground');
   assert.equal(placeSymbol({ layer: 'access' }, campableRamp), 'campground');
+  // The third mark of the same family. A place that camps AND ramps is drawn as
+  // a tent when Campgrounds is on (MARK_PRIORITY) and as a ramp when it is not —
+  // the header has to show whichever one was actually under the finger, or the
+  // sheet contradicts the map.
+  assert.equal(placeSymbol({ layer: 'boatRamps' }, campableRamp), 'boatRamp');
+  assert.equal(placeSymbol({ layer: 'boatRamps' }, point({ types: ['access'] })), 'boatRamp');
 
   assert.equal(placeSymbol({ layer: 'gauges' }, null), 'gauge');
   // Both tiers share one mark: the tier is a vocabulary, not a different object.
