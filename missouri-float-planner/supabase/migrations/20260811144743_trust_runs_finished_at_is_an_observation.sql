@@ -1,7 +1,8 @@
--- NOT YET APPLIED. Apply by hand, then confirm the recorded version with
--- `npm run db:check-migrations` and rename this file if Supabase records a
--- different one — the repo's rule is that the filename matches the version
--- actually recorded, not the version we hoped for.
+-- APPLIED to production (ilefwfpvphadsbptiaur) 2026-08-11, recorded as version
+-- 20260811144743, which is why this file carries that name rather than the one
+-- it was written under — the repo's rule is that the filename matches the
+-- version actually recorded, not the version we hoped for. The self-test at the
+-- foot of this file passed, and 0 rows now violate the new constraint.
 --
 -- Makes trust_runs.finished_at an observation instead of an intention, repairs
 -- the rows written while it was neither, and adds the constraint that would

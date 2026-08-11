@@ -1,5 +1,7 @@
--- NOT YET APPLIED. Apply by hand, then confirm the recorded version with
--- `npm run db:check-migrations` and rename this file to match.
+-- APPLIED to production (ilefwfpvphadsbptiaur) 2026-08-11, recorded as version
+-- 20260811144902, which is why this file carries that name. Verified after:
+-- zero remaining PUBLIC/anon/authenticated grants on the three functions or on
+-- cron_runs.
 --
 -- Closes the grant shape TRUST_LEDGER_V1_PLAN.md flagged while checking
 -- trust_apply_reconcile's ACL and deliberately left alone: "Not fixed here — it

@@ -1,5 +1,7 @@
--- NOT YET APPLIED. Apply by hand, then confirm the recorded version with
--- `npm run db:check-migrations` and rename this file to match.
+-- APPLIED to production (ilefwfpvphadsbptiaur) 2026-08-11, recorded as version
+-- 20260811145054, which is why this file carries that name. Verified after: the
+-- function returns 44 station-river rows, so usgs_site_drift now has the
+-- readable scope whose absence made it refuse reconciliation as check_error.
 --
 -- One row per station-river link for the USGS stations Eddy actually depends
 -- on, with the coordinate unpacked from PostGIS. Read by the usgs_site_drift

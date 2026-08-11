@@ -13,19 +13,31 @@ device behavior and store metadata can drift between releases.
 
 ### 1.1 delta gates found in the August 11 repository audit
 
-- [ ] Apply `20260811130000_search_gauges_provider_provenance.sql` and verify
+- [x] Apply `20260811145131_search_gauges_provider_provenance.sql` and verify
       both `search_gauges` overloads. The four-argument form keeps 1.0 working;
       the five-argument form serves paged 1.1 search. The migration adds one
       column and changes no reading semantics, so a rollback is a re-apply of
-      00207.
+      00207. **Applied 2026-08-11.** Both overloads return `provider`, and both
+      answer identically for `clearwater`: `swl-clearwater-dam` / `usace`.
 - [ ] Confirm a saved USGS gauge still shows its site number in Reports before
       any account syncs. A star written by 1.0 carries no provider, and for a
       signed-out user nothing will ever fill one in — the caption has to fall
-      back to the site number rather than to a bare "Gauge".
-- [ ] Apply `20260810202000_trust_usgs_site_scope.sql`, confirm it with
-      `npm run db:check-migrations`, then rerun `usgs_site_drift`. The live
-      check currently calls this RPC with no readable scope and refuses
-      reconciliation as `check_error`.
+      back to the site number rather than to a bare "Gauge". **Device check;
+      still open.**
+- [x] Apply `20260811145054_trust_usgs_site_scope.sql`. **Applied 2026-08-11**;
+      the function returns 44 station-river rows, so the `check_error` cause is
+      gone.
+- [ ] Rerun `usgs_site_drift` against the now-readable scope and review whatever
+      it raises. Applying the RPC only removed the reason it could not run.
+- [x] Apply `20260811144743_trust_runs_finished_at_is_an_observation.sql` and
+      `20260811144902_revoke_public_grants_on_cron_lock_and_validation.sql`.
+      **Applied 2026-08-11.** Both were pending and neither is a 1.1 gate; they
+      are recorded here because they went in during the same pass. The first
+      repaired every `trust_runs` row whose `finished_at` preceded its
+      `started_at` and added the constraint; its self-test passed and 0 rows now
+      violate it. The second left zero PUBLIC/anon/authenticated grants on
+      `try_cron_lock`, `release_cron_lock`, `validate_river_data` or
+      `cron_runs`.
 - [ ] Deploy the web/API changes, then confirm the exact Clearwater Dam search
       result says **USACE release**, carries `provider: "usace"`, and never
       exposes `swl-clearwater-dam` as though it were a public station number.
@@ -56,7 +68,10 @@ all six safety-baseline findings still closed), but it is not release-green:
 
 - **Critical — `usgs_site_drift`:** the run failed with `check_error` and an
   empty scope (`scopeCount: 0`), so reconciliation correctly refused to close
-  its one existing finding. The check depends on the explicitly not-yet-applied
+  its one existing finding. **The `trust_usgs_site_scope()` migration is applied
+  as of 2026-08-11 and the function returns 44 rows**, so the check can now read
+  a scope; the rerun below is what turns that into a known state. Historic text
+  follows. The check depends on the explicitly not-yet-applied
   `trust_usgs_site_scope()` migration above; apply it, confirm a non-empty scope,
   and rerun before treating station-drift state as known.
 - **Critical — Jacks Fork threshold order (snoozed):** inspect the CFS ladder in

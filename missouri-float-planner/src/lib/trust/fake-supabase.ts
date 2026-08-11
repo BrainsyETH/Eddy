@@ -63,7 +63,7 @@ const NOW_DEFAULT = '2026-08-04T00:00:00.000Z';
  *
  * It has to be a SECOND constant, strictly after NOW_DEFAULT, because the thing
  * being modelled is an ordering: a run finishes after its row was inserted.
- * Reusing the payload's `now` is exactly the bug 20260810200000 repairs — that
+ * Reusing the payload's `now` is exactly the bug 20260811144743 repairs — that
  * instant is captured once per tick, before any check runs, so it lands before
  * every started_at in the drain and identically on all of them.
  */

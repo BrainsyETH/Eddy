@@ -473,7 +473,7 @@ test('a completed run finishes after it started', async () => {
   // Nothing read the column, which is why it survived a week. The cost was a
   // systematically false timestamp in the subsystem whose entire product is a
   // record that can be believed. Repaired and constrained by
-  // 20260810200000_trust_runs_finished_at_is_an_observation.sql; asserted here
+  // 20260811144743_trust_runs_finished_at_is_an_observation.sql; asserted here
   // because a CHECK constraint on production cannot fail CI.
   const supabase = createFakeSupabase({ trust_runs: [], trust_findings: [] });
 
