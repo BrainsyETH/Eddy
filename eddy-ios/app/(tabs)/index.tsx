@@ -1363,6 +1363,7 @@ export default function MapScreen() {
       resolveAccessMarkers(
         { accessPoints: drawnAccessPoints, services },
         activeRoles(layers),
+        new Set(SERVICE_LAYER_KEYS.filter((key) => layers.includes(key))),
       ),
     [drawnAccessPoints, services, layers],
   );
@@ -1390,22 +1391,9 @@ export default function MapScreen() {
    * `publicLand` depend on and that the resolver has no concept of.
    */
   const layerCounts = useMemo<Partial<Record<LayerKey, number>>>(() => {
-    // ── THE SAME THREE TESTS RIVERMAP APPLIES, IN THE SAME ORDER ──────────
-    // This used to ask only for non-null coordinates while RiverMap's campground
-    // branch also asked `mappableService`, and neither asked whether the
-    // business had closed. Three filters over one table, disagreeing — which is
-    // survivable only while no row is a centroid and every closed row happens to
-    // lack coordinates. The geocoding backfill ends both accidents, so the count
-    // and the pins ask one question now. A count that includes pins the map
-    // cannot draw is a count that makes the map look broken.
-    const placed =
-      services?.filter(
-        (s) =>
-          serviceEligible(s) &&
-          mappableService(s) &&
-          s.latitude != null &&
-          s.longitude != null,
-      ) ?? null;
+    // The three tests this used to apply here — eligible, mappable, located —
+    // are the resolver's now, asked once for every service layer. A local copy
+    // agreeing with it today is how the four filters that preceded it drifted.
     return {
       // Statewide now, and counted from every put-in Eddy holds. It used to be
       // river-scoped and `undefined` until a river was chosen, which was the
@@ -1463,14 +1451,25 @@ export default function MapScreen() {
       campgrounds: accessFamily.servicesKnown
         ? accessFamily.statsByRole.campground.totalMatches
         : undefined,
-      outfitters: placed?.filter((s) => serviceOnLayer(s, 'outfitters')).length,
-      // The complement, exactly as RiverMap draws it — a service in both tiers
-      // is one pin, and the count has to be a count of pins.
-      lodging: placed?.filter(
-        (s) =>
-          serviceOnLayer(s, 'lodging') &&
-          !(layers.includes('outfitters') && serviceOnLayer(s, 'outfitters')),
-      ).length,
+      // ── MEMBERSHIP, for the same reason the access rows count membership ──
+      //
+      // These were counts of PINS, which worked only while rentals and lodging
+      // were the sole claimants of a service. Now that Campgrounds can own the
+      // marker of a camping-and-rentals row — 40 of the directory's rows are
+      // both — a pin count would drop by up to forty the moment Campgrounds was
+      // switched on, for a reason the sheet never stated and that has nothing to
+      // do with rentals. That is precisely the disease the access family was
+      // cured of; the cure is the same, and `accessOverlapNote` says where the
+      // places went.
+      //
+      // `undefined` until the directory lands, exactly as `campgrounds` above:
+      // half a total is a number that grows under the reader.
+      outfitters: accessFamily.servicesKnown
+        ? accessFamily.statsByServiceOwner.rentals.totalMatches
+        : undefined,
+      lodging: accessFamily.servicesKnown
+        ? accessFamily.statsByServiceOwner.lodging.totalMatches
+        : undefined,
       // Viewport-scoped, like allGauges above and with the same three-way
       // meaning: undefined before the layer has answered, 0 when we HAVE looked
       // and this view holds none, and a number otherwise.
@@ -1489,7 +1488,6 @@ export default function MapScreen() {
     gauges,
     mappableGauges,
     dams,
-    services,
     layers,
     referenceGauges.belowMinZoom,
     referenceGauges.loading,
@@ -2379,6 +2377,18 @@ export default function MapScreen() {
             role && known ? accessOverlapNote(role, accessFamily.statsByRole[role]) : null;
           if (key === 'access' || key === 'boatRamps') {
             return overlap ? <LayerNote text={overlap} /> : null;
+          }
+          // ── The service rows need the same sentence, for the same reason ──
+          // Their counts are membership now too, so "River services · 84" holds
+          // still while Campgrounds owns the marker of every row that also
+          // camps. Without the note the reader counts canoes, finds forty
+          // fewer, and concludes the layer is broken.
+          if ((key === 'outfitters' || key === 'lodging') && on) {
+            const owner = key === 'outfitters' ? 'rentals' : 'lodging';
+            const note = accessFamily.servicesKnown
+              ? accessOverlapNote(owner, accessFamily.statsByServiceOwner[owner])
+              : null;
+            return note ? <LayerNote text={note} /> : null;
           }
           // ── The one layer a downloaded river cannot carry ──────────────
           // Radar streams PNGs from a third party. An offline pack holds the
