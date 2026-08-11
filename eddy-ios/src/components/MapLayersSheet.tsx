@@ -39,11 +39,12 @@ import { fonts, type as t } from '@/theme/typography';
 import {
   DEFAULT_LAYERS,
   MAP_LAYERS,
+  LAYER_SECTIONS,
   SHEET_LAYERS,
   layerKeysFor,
   type LayerKey,
 } from '@/map/layers';
-import { layerRowCount } from '@/map/layerRows';
+import { groupLayerRows, layerRowCount } from '@/map/layerRows';
 
 /**
  * How far an off layer's mark fades.
@@ -132,7 +133,19 @@ export function MapLayersSheet({
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.rows}>
-          {SHEET_LAYERS.map((layer) => {
+          {/* ── HEADINGS, NOT A FILTER ────────────────────────────────────
+              A section groups rows and does nothing else: it has no switch, no
+              count and no population, and `groupLayerRows` reorders nothing and
+              drops nothing. Camping and Cabins & lodges stay two independent
+              switches over two overlapping sets — a place that answers both is
+              counted by both rows and still draws one marker, which is why
+              nothing here adds the two figures together. */}
+          {groupLayerRows(SHEET_LAYERS, LAYER_SECTIONS).map((group) => (
+          <View key={group.label ?? 'ungrouped'}>
+          {group.label ? (
+            <Text style={[styles.sectionHead, { color: colors.textMuted }]}>{group.label}</Text>
+          ) : null}
+          {(group.rows as typeof SHEET_LAYERS).map((layer) => {
             const keys = layerKeysFor(layer);
             // A row with tiers is on when ANY of them is drawing. There is no
             // third "partly on" state to express: the strip below already says
@@ -335,6 +348,8 @@ export function MapLayersSheet({
               </View>
             );
           })}
+          </View>
+          ))}
         </ScrollView>
 
         <Pressable
@@ -432,6 +447,19 @@ const styles = StyleSheet.create({
   // Capped so a future sixth layer scrolls rather than pushing Done off screen.
   scroll: { maxHeight: 340 },
   rows: { paddingVertical: 4 },
+  // A heading, sized so it reads as a label over the rows rather than as a row
+  // itself — the sheet has one title already and a second thing at title weight
+  // would compete with it. Top padding only on the following groups, which the
+  // first group does not need because the sheet's own title sits above it.
+  sectionHead: {
+    ...t.xs,
+    fontFamily: fonts.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    paddingHorizontal: 4,
+    paddingTop: 14,
+    paddingBottom: 2,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

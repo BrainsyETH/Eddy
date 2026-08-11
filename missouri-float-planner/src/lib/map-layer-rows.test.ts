@@ -8,7 +8,7 @@ import {
   resolveAccessMarkers,
   type RoleStats,
 } from '../../../eddy-ios/src/map/accessLayers';
-import { layerRowCount } from '../../../eddy-ios/src/map/layerRows';
+import { groupLayerRows, layerRowCount } from '../../../eddy-ios/src/map/layerRows';
 import type { MapAccessPoint } from '@eddy/types';
 
 // The three shapes of row the sheet draws, as the count rule sees them.
@@ -219,4 +219,85 @@ test('the sheet asks the resolver for the note rather than recomputing it', () =
     screen.includes('accessOverlapNote('),
     'the map screen should render the resolver’s note',
   );
+});
+
+// ── Sections: a heading groups rows and does nothing else ──────────────────
+
+const SHEET = [
+  { key: 'access' },
+  { key: 'gauges' },
+  { key: 'publicLand' },
+  { key: 'campgrounds', section: 'stay' },
+  { key: 'outfitters', section: 'services' },
+  { key: 'lodging', section: 'stay' },
+] as const;
+
+const SECTIONS = [
+  { key: 'stay', label: 'Places to stay' },
+  { key: 'services', label: 'Services' },
+] as const;
+
+test('ungrouped rows come first, then sections in declared order', () => {
+  const groups = groupLayerRows(SHEET, SECTIONS);
+  assert.deepEqual(
+    groups.map((g) => g.label),
+    [null, 'Places to stay', 'Services'],
+  );
+  assert.deepEqual(groups[1].rows.map((r) => r.key), ['campgrounds', 'lodging']);
+  assert.deepEqual(groups[2].rows.map((r) => r.key), ['outfitters']);
+});
+
+test('grouping drops nothing and duplicates nothing', () => {
+  // The property that makes this a heading rather than a filter. A grouping
+  // that silently lost a row would take a layer off the sheet while leaving it
+  // on the map — a switch the reader cannot find for pins they can see, which is
+  // the failure this sheet exists to prevent.
+  const groups = groupLayerRows(SHEET, SECTIONS);
+  const placed = groups.flatMap((g) => g.rows.map((r) => r.key));
+  assert.equal(placed.length, SHEET.length);
+  assert.deepEqual([...placed].sort(), SHEET.map((r) => r.key).sort());
+});
+
+test('catalog order is preserved inside every group', () => {
+  // Reordering is not a heading's job either. `lodging` follows `campgrounds`
+  // here because the catalog says so, not because the section rearranged them.
+  const reordered = [
+    { key: 'lodging', section: 'stay' },
+    { key: 'campgrounds', section: 'stay' },
+  ] as const;
+  assert.deepEqual(
+    groupLayerRows(reordered, SECTIONS)[0].rows.map((r) => r.key),
+    ['lodging', 'campgrounds'],
+  );
+});
+
+test('an empty section is omitted, never drawn as a bare heading', () => {
+  const groups = groupLayerRows([{ key: 'access' }, { key: 'campgrounds', section: 'stay' }] as const, SECTIONS);
+  assert.deepEqual(groups.map((g) => g.label), [null, 'Places to stay']);
+});
+
+test('a sheet with no ungrouped rows draws no empty leading block', () => {
+  const groups = groupLayerRows([{ key: 'campgrounds', section: 'stay' }] as const, SECTIONS);
+  assert.deepEqual(groups.map((g) => g.label), ['Places to stay']);
+});
+
+test('a section has no count of its own — the rows keep theirs', () => {
+  // Camping and Cabins overlap: 35 of the directory's mapped rows are both. A
+  // section total would either double-count them or force a place to pick a
+  // side, which is exactly what serviceTiers returning a SET exists to avoid.
+  // So `groupLayerRows` returns rows and a label, and nothing else — there is
+  // no field here for a total to live in.
+  const group = groupLayerRows(SHEET, SECTIONS)[1];
+  assert.deepEqual(Object.keys(group).sort(), ['label', 'rows']);
+});
+
+test('each grouped row still counts on its own key, unsummed', () => {
+  // The row-level half of the same rule, through the real count function: with
+  // lodging promoted out of the River services row, neither row has tiers, so
+  // each reports its own membership and nothing adds them.
+  const counts = { campgrounds: 77, lodging: 81, outfitters: 84 };
+  const active = ['campgrounds', 'lodging', 'outfitters'] as const;
+  assert.equal(layerRowCount({ key: 'campgrounds' }, active, counts), 77);
+  assert.equal(layerRowCount({ key: 'lodging' }, active, counts), 81);
+  assert.equal(layerRowCount({ key: 'outfitters' }, active, counts), 84);
 });
