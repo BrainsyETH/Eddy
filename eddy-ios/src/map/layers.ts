@@ -122,6 +122,26 @@ export interface LayerDef {
   /** True when the layer only ever appears as a tier and never as a row. */
   nested?: boolean;
   /**
+   * Which heading this row sits under, or none for the ungrouped rows above.
+   *
+   * ── A HEADING, AND EMPHATICALLY NOT A FILTER ─────────────────────────────
+   *
+   * It groups rows on screen and does nothing else. There is no parent switch,
+   * no combined count, no `placesToStay` layer key, no population of its own —
+   * a section cannot be toggled, cannot be counted, and never reaches the
+   * resolver. Camping and Cabins stay two independent, non-exclusive switches
+   * over two overlapping populations, which is why summing them would be wrong
+   * and why nothing here sums them.
+   *
+   * The distinction is worth stating because the obvious next step is not: an
+   * aggregate "Places to stay" toggle would need one population, and camping and
+   * lodging genuinely overlap — 35 of the directory's mapped rows are both — so
+   * that population would either double-count or force a place to pick a side.
+   * The whole point of `serviceTiers` returning a SET is that it does not have
+   * to.
+   */
+  section?: LayerSectionKey;
+  /**
    * True when the layer draws IMAGERY rather than places.
    *
    * Two things follow from it and neither is cosmetic. A raster has no count —
@@ -192,6 +212,48 @@ export interface LayerDef {
  * The full station marks and labels arrive only when the camera is closer.
  */
 export const DEFAULT_LAYERS: LayerKey[] = ['access', 'gauges', 'allGauges'];
+
+/**
+ * The headings the layers sheet groups its last rows under.
+ *
+ * ── WHY GROUP AT ALL, AND WHY ONLY THESE ─────────────────────────────────
+ *
+ * A reader arrives with a question, and two of this sheet's rows answer the
+ * same one. "Where do I sleep" is Camping OR Cabins & lodges, and a flat list
+ * put them either side of a row about canoe rental — so a reader who found
+ * Camping had no reason to believe anything else on the sheet was about sleeping
+ * at all. The rows were already right; their adjacency was not.
+ *
+ * Only the last rows are grouped. Access points, Gauges, Hazards, Lakes & dams,
+ * Rain and Public land each answer a question nothing else on the sheet answers,
+ * so a heading over any of them would be a heading over one row — a label
+ * pretending to be a category. Grouping arrives exactly where there is something
+ * to group.
+ *
+ * ── THE ORDER IS THE READING ORDER ───────────────────────────────────────
+ *
+ * `stay` before `services`: where you sleep decides a trip and who rents you a
+ * canoe follows from it, which is the same priority MARK_PRIORITY encodes when
+ * one place has to pick a mark.
+ */
+export type LayerSectionKey = 'stay' | 'services';
+
+export const LAYER_SECTIONS: readonly { key: LayerSectionKey; label: string }[] = [
+  { key: 'stay', label: 'Places to stay' },
+  // ── "Services" IS ALLOWED HERE, and was not allowed as a ROW label ──────
+  //
+  // The `outfitters` row carried a comment refusing the word: a row called
+  // "Services" that excluded campgrounds would overclaim, campgrounds being 44
+  // of the same directory. That objection was about a ROW, and it still holds —
+  // which is why the row below is now named for what it draws, "Rentals &
+  // shuttles", and no longer claims the whole word.
+  //
+  // A heading is a different kind of thing. It names a GROUP OF QUESTIONS
+  // rather than a population, it draws nothing, and it counts nothing. Nobody
+  // reads "Services" here and concludes that camping is not one — they read it
+  // after "Places to stay" has already answered that question.
+  { key: 'services', label: 'Services' },
+];
 
 /**
  * ── THE ZOOM LADDER ─────────────────────────────────────────────────────────
@@ -419,7 +481,14 @@ export const MAP_LAYERS: LayerDef[] = [
   },
   {
     key: 'campgrounds',
-    label: 'Campgrounds',
+    // "Camping", not "Campgrounds", and the row's own comment is why: its
+    // population is every place you can sleep on the ground — access points
+    // tagged `campground` and directory rows with a camping offering, whoever
+    // runs them. "Campgrounds" named the smaller of those two and undersold the
+    // row it labelled. The KEY stays `campgrounds`; see the note on `outfitters`
+    // about what a rename would throw away.
+    label: 'Camping',
+    section: 'stay',
     // ── THIS ROW OWNS ALL OF CAMPING, and that is a deliberate ruling ──────
     // It already merged access points tagged `campground` with campground
     // services, so it is the one control a reader has learnt means "where do I
@@ -434,23 +503,28 @@ export const MAP_LAYERS: LayerDef[] = [
   },
   {
     key: 'outfitters',
-    // ── "River services", NOT "Services" ──────────────────────────────────
-    // Campgrounds are services too — 44 of the same 156 directory rows — and
-    // they have their own row above. A row called "Services" that excluded the
-    // largest category of them would overclaim in exactly the way the dam row
-    // guards against by being "Lakes & dams" rather than "Dams".
+    // ── IT NAMES WHAT IT DRAWS NOW, WHICH IT DID NOT BEFORE ───────────────
+    //
+    // This was "River services" with two tiers, and the label carried a comment
+    // refusing to be called "Services" because campgrounds are services too and
+    // have their own row. That reasoning was right and it applied to a row that
+    // had swallowed cabins along with canoes.
+    //
+    // Cabins & lodges is its own row under "Places to stay" now — where a reader
+    // looking for a roof will actually find it — so this row draws rentals and
+    // shuttles and nothing else, and says so. The heading above it may use the
+    // broad word precisely because this row no longer does; see LAYER_SECTIONS.
     //
     // The key stays `outfitters`. It is what a phone has in AsyncStorage from
     // every release so far, and renaming it would throw away the layer choices
     // of everyone who has ever opened the sheet. See mapPreferences.
-    label: 'River services',
-    description: 'Rentals, shuttles, cabins and lodges',
-    // Two tiers for the same reason Gauges has two: this is one question —
-    // "who can outfit this trip" — with a which underneath it, and a business
-    // may answer both. `serviceTiers` returns a SET, so an outfitter that rents
-    // cabins is drawn by whichever tier is on rather than having to pick.
-    tiers: ['outfitters', 'lodging'],
-    tierLabel: 'Rentals & shuttles',
+    label: 'Rentals & shuttles',
+    section: 'services',
+    description: 'Canoe, kayak and raft rental, and shuttles',
+    // No `tiers`: with lodging promoted this row switches one layer, so
+    // layerRowCount falls through to its own key. Nothing sums, which is the
+    // only correct arithmetic here — a business in both rows is one place, and
+    // adding the two rows' membership counts would report it twice.
     icon: 'boat-outline',
     symbol: 'outfitter',
     color: (c) => c.warm,
@@ -458,12 +532,29 @@ export const MAP_LAYERS: LayerDef[] = [
   {
     key: 'lodging',
     label: 'Cabins & lodges',
-    tierLabel: 'Cabins & lodges',
-    // A TIER, never a row — the sibling of `allGauges` above. Forty-one rows of
-    // which two are geocoded does not carry a top-level switch, and the question
-    // it answers ("a roof rather than a tent") is a refinement of the row above
-    // rather than a separate layer of the map.
-    nested: true,
+    section: 'stay',
+    // ── A ROW NOW, AND THE REASON IT WAS NOT IS SPENT ─────────────────────
+    //
+    // This said: "A TIER, never a row — forty-one rows of which two are geocoded
+    // does not carry a top-level switch, and the question it answers ('a roof
+    // rather than a tent') is a refinement of the row above."
+    //
+    // Both halves have expired, and the second is the important one.
+    //
+    // The count was computed from `type` alone. The shipped `serviceTiers` also
+    // reads `services_offered`, so every outfitter that rents cabins reaches
+    // this tier — 13 mapped of 81 eligible, not 2 of 41 (see W3b in
+    // docs/MAPS_SHEET_SERVICE_MODEL_PLAN.md, which measured it after the
+    // classifier landed). Six times the pins it was judged on.
+    //
+    // And "a refinement of the row above" was only true while the row above was
+    // "River services". A roof is not a refinement of a canoe rental; it is an
+    // answer to the question Camping answers, given differently. Filed under
+    // rentals, it was reachable only by a reader who had already decided to look
+    // at outfitters — which is the wrong two clicks for somebody deciding where
+    // to sleep. Its neighbour is Camping, and it sits there now.
+    //
+    // No `tierLabel`: a row is its own context, so `label` says it once.
     description: 'Cabins, lodge rooms and cottages',
     icon: 'bed-outline',
     // No `symbol`: the catalog has no lodging mark yet, and `icon` is the

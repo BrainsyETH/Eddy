@@ -79,3 +79,54 @@ export function layerRowCount<K extends string>(
   }
   return total;
 }
+
+/** Just the fields the grouping rule reads. Structural — see the header. */
+export interface SectionableRow<K extends string, S extends string> {
+  key: K;
+  /** The heading this row sits under, or absent for the ungrouped rows. */
+  section?: S;
+}
+
+/** A heading and the rows beneath it. `label` is null for the ungrouped block. */
+export interface LayerRowGroup<K extends string, S extends string> {
+  label: string | null;
+  rows: SectionableRow<K, S>[];
+}
+
+/**
+ * The sheet's rows, in the order they are drawn, under the headings they belong
+ * to.
+ *
+ * ── WHAT THIS MAY AND MAY NOT DO ─────────────────────────────────────────
+ *
+ * It reorders nothing and drops nothing. Every row goes in exactly one group,
+ * ungrouped rows keep their position at the top, and within a group the rows
+ * keep their catalog order — so a heading changes what a reader is told about
+ * the rows and never which rows there are. That is the whole difference between
+ * a heading and a filter, and it is the property worth testing: a grouping that
+ * silently dropped a row would take a layer off the sheet while leaving it on
+ * the map, which is precisely the "switched on and drawing nothing" failure the
+ * sheet exists to prevent.
+ *
+ * An empty section is omitted rather than drawn as a bare heading, for the same
+ * absent-never-empty reason the pin sheet's sections follow.
+ *
+ * Pure, and free of `LayerDef` and of the section table itself, so the web suite
+ * can execute it — same constraint and same solution as `layerRowCount` above.
+ */
+export function groupLayerRows<K extends string, S extends string>(
+  rows: readonly SectionableRow<K, S>[],
+  sections: readonly { key: S; label: string }[],
+): LayerRowGroup<K, S>[] {
+  const groups: LayerRowGroup<K, S>[] = [];
+
+  const ungrouped = rows.filter((row) => row.section == null);
+  if (ungrouped.length > 0) groups.push({ label: null, rows: ungrouped });
+
+  for (const section of sections) {
+    const inSection = rows.filter((row) => row.section === section.key);
+    if (inSection.length > 0) groups.push({ label: section.label, rows: inSection });
+  }
+
+  return groups;
+}
