@@ -168,6 +168,16 @@ interface IdentityLinkRow {
  * above and asserted at this one call site; hand-editing the generated
  * `database.ts` is what CLAUDE.md forbids and the next regeneration would undo.
  *
+ * ── AND verified_at IS ASKED FOR TWICE, ON PURPOSE ──────────────────────
+ *
+ * A `same_place` row without a verified_at cannot exist — the database rejects
+ * it (access_point_services_same_place_is_verified). This filter is therefore
+ * asking for something already guaranteed, which is exactly when a filter is
+ * worth having: it is the half that survives the constraint being dropped, a
+ * restore from a backup that predates it, or a future relationship value added
+ * without thinking this through. The cost is one predicate; the failure it
+ * guards against is a marker silently deleted from the map.
+ *
  * ── FAILURE IS DEGRADATION, NOT A 500 ────────────────────────────────────
  *
  * A missing or unreadable link table returns an empty map and the app falls
@@ -189,14 +199,24 @@ async function loadIdentityLinks(
             eq: (
               column: string,
               value: string,
-            ) => Promise<{ data: IdentityLinkRow[] | null; error: { message: string } | null }>;
+            ) => {
+              not: (
+                column: string,
+                operator: string,
+                value: null,
+              ) => Promise<{
+                data: IdentityLinkRow[] | null;
+                error: { message: string } | null;
+              }>;
+            };
           };
         };
       }
     )
       .from('access_point_services')
       .select('access_point_id, nearby_service_id')
-      .eq('relationship', IDENTITY_RELATIONSHIP);
+      .eq('relationship', IDENTITY_RELATIONSHIP)
+      .not('verified_at', 'is', null);
 
     if (error) {
       console.error('[services] Could not read access_point_services:', error.message);

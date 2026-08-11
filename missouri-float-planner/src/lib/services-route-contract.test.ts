@@ -149,6 +149,19 @@ test('only same_place links reach the app', () => {
   );
 });
 
+test('an unverified same_place link never reaches the app', () => {
+  // Belt and braces over a database CHECK that already makes the row
+  // impossible. Worth both: the constraint is the guarantee, and this is the
+  // half that survives the constraint being dropped, a restore from a backup
+  // that predates it, or a fourth relationship value added without thinking it
+  // through. What it guards is a marker silently deleted from the map.
+  assert.match(
+    source,
+    /\.not\('verified_at',\s*'is',\s*null\)/,
+    'the link query must require a human verification',
+  );
+});
+
 test('every service carries its access point link, even when there is none', () => {
   // Absent must mean "not linked", never "not told". The field is optional on
   // the wire so an older build degrades to the proximity radius, which makes a
