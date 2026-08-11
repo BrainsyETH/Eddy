@@ -61,6 +61,8 @@
 // through the app alias or from a .tsx. Same constraint as tabs.ts and
 // placeSymbol.ts — see their headers.
 
+import { accessRoleForLayer } from '../../map/accessLayers';
+
 /**
  * The one fact the collapsed sheet holds room for.
  *
@@ -128,6 +130,17 @@ export interface SlotContext {
  * has neither fact.
  */
 export function decisionSlot(pin: LayerTapped, context: SlotContext): DecisionSlot {
+  // ── ASKED THROUGH THE ROLE, not the layer key ──────────────────────────
+  //
+  // "Is this an access-family place" was written as `layer !== 'campgrounds' &&
+  // layer !== 'access'`, which is a list of the marks that existed when it was
+  // written. A boat ramp is an access point and its peek must reserve the water
+  // reading like any other put-in — under the old spelling it would have fallen
+  // to `none` and silently lost it, which is the class of breakage a new mark
+  // caused every time. `accessRoleForLayer` returns null for gauges, hazards,
+  // dams and services, which is the same answer this always gave them.
+  const tapped = accessRoleForLayer(pin.layer);
+
   // The tent wins over everything, including a point that is also a boat ramp on
   // a well-gauged river — somebody tapping a campground icon is asking where
   // they sleep. But only when there is an answer: a campground Eddy cannot book
@@ -136,7 +149,7 @@ export function decisionSlot(pin: LayerTapped, context: SlotContext): DecisionSl
   // That fall-through is why the flag has to be on the pin. Deciding it from the
   // response would put the choice back after the sheet had settled, which is the
   // one thing this module exists to prevent.
-  if (pin.layer === 'campgrounds' && pin.hasAvailability) return 'availability';
-  if (pin.layer !== 'campgrounds' && pin.layer !== 'access') return 'none';
+  if (tapped === 'campground' && pin.hasAvailability) return 'availability';
+  if (tapped === null) return 'none';
   return context.riverHasGauges ? 'water' : 'none';
 }

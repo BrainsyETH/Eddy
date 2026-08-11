@@ -296,6 +296,10 @@ def main() -> None:
         "eddy-access": "eddy-poi",
         "eddy-hazard": "eddy-hazard",
         "eddy-campground": "eddy-campground",
+        # The boat-ramp tier's mark. Full-colour like its siblings — the map's
+        # place layers are `sdf: false` and only the route endpoints are SDF, so
+        # a mark generated the other way would draw as a flat silhouette.
+        "eddy-boat-ramp": "eddy-boat-ramp",
         "eddy-outfitter": "eddy-outfitter",
         "eddy-dam": "eddy-dam",
     }

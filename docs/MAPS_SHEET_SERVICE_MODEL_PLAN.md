@@ -645,11 +645,25 @@ silently fall off a layer. Concretely:
 4. **One eligibility predicate per table, not one per consumer.** Four call sites
    filtering the same directory four different ways is what let a closed business
    be excluded from the map and recommended by the planner in the same release.
-5. **A count beside a switch is a count of pins, and its denominator is the same
-   population.** Already half the documented rule in `layerCounts`. W3b's addition
-   is that when the pin count is short of the truth, the sheet says so — and that
-   the "of N" is eligible rows, so the sentence is about location coverage and
-   never smuggles closure policy into it.
+5. **A count beside a switch says which population it counts, and its
+   denominator is that same population.** W3b's addition is that when the count
+   is short of the truth, the sheet says so — and that the "of N" is eligible
+   rows, so the sentence is about location coverage and never smuggles closure
+   policy into it.
+
+   *Amended (ADR 0008).* This rule used to say "a count of **pins**", and that
+   was never achievable: below `ZOOM.cluster` access pins collapse into bubbles,
+   between `ZOOM.cluster` and `ZOOM.places` every access-family feature draws as
+   the same 4.5 px circle with no role mark at all, and labels collide-suppress
+   independently. So the ACCESS FAMILY — access points, campgrounds, boat ramps,
+   which are one population under three overlapping questions — counts
+   MEMBERSHIP, which holds still when a neighbouring row is toggled, and the
+   sheet prints a line underneath saying where those places went
+   (`accessOverlapNote`). Every other row still counts what it draws, one
+   service being one pin, and `allGauges` / `publicLand` keep their three-state
+   `undefined` / `0` / `n` contract. The half of the rule that did not change is
+   the important half: whatever a row counts, it must say so, and its "of N" must
+   be the same population.
 6. **Precision is recorded at ingest, not inferred at render.** `mappableService`
    currently rejects nothing because nothing is marked. W3c only counts as done
    if `centroid` is written wherever it is true.

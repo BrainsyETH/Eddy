@@ -70,7 +70,6 @@ import type {
 } from '@eddy/types';
 import {
   hasCoordinates,
-  isCampground,
   PUBLIC_LAND_OWNERSHIP_NOTE,
   serviceEligible,
 } from '@eddy/types';
@@ -94,9 +93,15 @@ import { mapAccessPointPin, RiverMap, type MapPin } from '@/map/RiverMap';
 import { placeSymbol } from '@/components/map-sheet/placeSymbol';
 import { mapUnavailableReason } from '@/map/runtime';
 import { mappableService } from '@/map/mappable';
+import {
+  accessOverlapNote,
+  activeRoles,
+  LAYER_ROLE,
+  resolveAccessMarkers,
+  type AccessLayerKey,
+} from '@/map/accessLayers';
 import { serviceOnLayer, SERVICE_LAYER_KEYS } from '@/map/serviceLayers';
 import {
-  drawnAsAccessPoint,
   PUBLIC_LAND_ATTRIBUTION,
   RADAR_ATTRIBUTION,
   type LayerKey,
@@ -1340,13 +1345,49 @@ export default function MapScreen() {
   );
 
   /**
+   * The access family, resolved for the sheet's numbers and its overlap notes.
+   *
+   * ── THE SAME PURE FUNCTION THE MAP CALLS, not a second copy of the rule ──
+   *
+   * This is where the drift used to live: `layerCounts` re-derived the access
+   * and campground populations with its own filters while RiverMap derived them
+   * with its own, and the two agreed only for as long as somebody kept them
+   * agreeing. Guardrail 3 is about one RULE, and a second CALL to one pure
+   * function cannot disagree with the first the way two hand-written filters
+   * did. The alternative — resolving here and threading markers into the map —
+   * would make the screen own the map's rendering decisions to save an O(n)
+   * pass over three hundred points.
+   */
+  const accessFamily = useMemo(
+    () =>
+      resolveAccessMarkers(
+        { accessPoints: drawnAccessPoints, services },
+        activeRoles(layers),
+      ),
+    [drawnAccessPoints, services, layers],
+  );
+
+  /**
    * How many of each thing we hold, for the layers sheet.
    *
    * `undefined` is load-bearing: it means the layer has never been fetched, and
    * the sheet renders no number at all rather than a zero it cannot stand behind.
-   * The campground and outfitter tallies mirror RiverMap's own filtering,
-   * including dropping services with no geocode — a count that includes pins the
-   * map cannot draw is a count that makes the map look broken.
+   * The outfitter tallies mirror RiverMap's own filtering, including dropping
+   * services with no geocode — a count that includes pins the map cannot draw is
+   * a count that makes the map look broken.
+   *
+   * ── THE ACCESS FAMILY COUNTS MEMBERSHIP; THE REST COUNT PINS ────────────
+   *
+   * Access points, campgrounds and boat ramps are one population under three
+   * questions — a ramp you can sleep at is all three — so "how many pins does
+   * this row draw" has no stable answer: it changes when a NEIGHBOURING row is
+   * switched on. Those three report how many places match the row, which holds
+   * still, and the sheet says underneath where they went (see the overlap note
+   * in renderLayerDetail).
+   *
+   * Everything else is unchanged and keeps its own computation, including the
+   * three-state `undefined` / `0` / `n` contract that `allGauges` and
+   * `publicLand` depend on and that the resolver has no concept of.
    */
   const layerCounts = useMemo<Partial<Record<LayerKey, number>>>(() => {
     // ── THE SAME THREE TESTS RIVERMAP APPLIES, IN THE SAME ORDER ──────────
@@ -1366,22 +1407,30 @@ export default function MapScreen() {
           s.longitude != null,
       ) ?? null;
     return {
-      // Statewide now, and counted from what is actually drawn. It used to be
+      // Statewide now, and counted from every put-in Eddy holds. It used to be
       // river-scoped and `undefined` until a river was chosen, which was the
       // honest reading of a layer that genuinely held nothing until then; the
       // layer holds every river's put-ins from launch, so the sheet can report
       // a real number on the opening screen. Still `undefined` while empty —
       // that is the bundle not having landed, not a state with no landings.
       //
-      // MINUS THE CAMPGROUNDS, but only while the Campgrounds row has them.
-      // The two rows partition the put-ins between them when both are on (see
-      // campgroundPins in RiverMap), and a sheet whose two counts add up to
-      // more pins than the map draws is a sheet arguing with the map.
+      // ── AND IT NO LONGER DROPS WHEN CAMPGROUNDS COMES ON ────────────────
+      // It used to subtract the campgrounds while that row was drawing them,
+      // so the number beside "Access points" fell by forty for a reason the
+      // sheet never stated and that had nothing to do with access points. They
+      // did not stop being put-ins; they changed which mark they wear. The
+      // count is the row's population now and the line underneath says where
+      // they went, which is the honest version of the same fact.
       access:
         drawnAccessPoints.length > 0
-          ? layers.includes('campgrounds')
-            ? drawnAccessPoints.filter((entry) => !isCampground(entry.point)).length
-            : drawnAccessPoints.length
+          ? accessFamily.statsByRole.access.totalMatches
+          : undefined,
+      // Every put-in tagged `boat_ramp`, a SUBSET of the row above rather than
+      // a slice taken out of it — which is why the Access row reports its
+      // outermost live tier instead of summing them. See LayerDef.tiersRefine.
+      boatRamps:
+        drawnAccessPoints.length > 0
+          ? accessFamily.statsByRole.boatRamp.totalMatches
           : undefined,
       gauges: gauges ? mappableGauges.length : undefined,
       // Viewport-scoped, so it moves as you pan — and `undefined` until the
@@ -1402,24 +1451,17 @@ export default function MapScreen() {
       // Statewide, like access above: the count is what the layer draws, and
       // what it draws is every hazard Eddy has rather than one river's.
       hazards: drawnHazards.length > 0 ? drawnHazards.filter(hasCoordinates).length : undefined,
-      // A COUNT OF PINS, which is the only thing a count beside a switch can
-      // honestly be. Both halves mirror RiverMap's campgrounds branch exactly:
-      // every drawn put-in tagged `campground`, plus the campground services
-      // that are not already one of them. Adding the two raw totals double-
-      // counted every place that exists in both tables — which after the
-      // coordinate correction is every one of them that ever mattered, since
-      // the duplicates used to be miles apart and now sit on top of each other.
-      campgrounds: placed
-        ? (() => {
-            const camps = drawnAccessPoints.filter((entry) => isCampground(entry.point));
-            const points = camps.map((entry) => entry.point);
-            return (
-              camps.length +
-              placed.filter(
-                (s) => serviceOnLayer(s, 'campgrounds') && !drawnAsAccessPoint(s, points),
-              ).length
-            );
-          })()
+      // Both halves, from the same resolver the map draws from: every put-in
+      // tagged `campground`, plus the campground services that are not already
+      // one of them. Adding the two raw totals double-counted every place that
+      // exists in both tables — which after the coordinate correction is every
+      // one of them that ever mattered, since the duplicates used to be miles
+      // apart and now sit on top of each other.
+      //
+      // `undefined` until the directory lands, because half of this population
+      // comes from it and half a total is a number that grows under the reader.
+      campgrounds: accessFamily.servicesKnown
+        ? accessFamily.statsByRole.campground.totalMatches
         : undefined,
       outfitters: placed?.filter((s) => serviceOnLayer(s, 'outfitters')).length,
       // The complement, exactly as RiverMap draws it — a service in both tiers
@@ -1441,6 +1483,7 @@ export default function MapScreen() {
         : undefined,
     };
   }, [
+    accessFamily,
     drawnAccessPoints,
     drawnHazards,
     gauges,
@@ -2317,6 +2360,25 @@ export default function MapScreen() {
         // button on the map. Rendered only while the layer is ON, because
         // chips that narrow a layer nobody is drawing narrow nothing.
         renderLayerDetail={(key, on) => {
+          // ── WHERE THIS ROW'S PLACES ACTUALLY WENT ─────────────────────
+          // The access family's counts are membership, so "Boat ramps · 10"
+          // stays 10 while three of those ten wear tents. A number that holds
+          // still is only honest if the sheet says what happened behind it;
+          // otherwise the reader counts ramp marks, finds seven, and concludes
+          // the map is broken. Built by the resolver rather than recomputed
+          // here, so the sentence and the count come from one pass — see
+          // accessOverlapNote.
+          //
+          // Silent when there is nothing to explain, which is most of the time:
+          // every place wearing its own mark needs no sentence.
+          const role = on ? LAYER_ROLE[key as AccessLayerKey] : undefined;
+          const known =
+            role === 'campground' ? accessFamily.servicesKnown : drawnAccessPoints.length > 0;
+          const overlap =
+            role && known ? accessOverlapNote(role, accessFamily.statsByRole[role]) : null;
+          if (key === 'access' || key === 'boatRamps') {
+            return overlap ? <LayerNote text={overlap} /> : null;
+          }
           // ── The one layer a downloaded river cannot carry ──────────────
           // Radar streams PNGs from a third party. An offline pack holds the
           // basemap and our own geometry and nothing else, so switching this
@@ -2365,17 +2427,35 @@ export default function MapScreen() {
             const coverage = tierCoverage[key];
             // Absent until the fetch lands, and silent when coverage is total —
             // a layer drawing everything it knows about has nothing to explain.
-            return coverage && coverage.total > coverage.located ? (
-              // "have a confirmed location", not "mapped". The count chip on
-              // the row above is a count of PINS and this is a count of ROWS,
-              // and with both tiers on they legitimately differ — a
-              // cabin-renting outfitter is one pin under Rentals and still a
-              // located lodging row. Two different words for two different
-              // questions, so neither looks like it is contradicting the other.
-              <LayerNote
-                text={`${coverage.located} of ${coverage.total} have a confirmed location — the rest are listed on the river page.`}
-              />
-            ) : null;
+            const gap = coverage && coverage.total > coverage.located ? coverage : null;
+            if (!gap && !overlap) return null;
+            // Campgrounds can carry BOTH lines, and they are different facts: one
+            // is about the directory's geocoding, the other about which mark a
+            // place that Eddy CAN place ended up wearing. Coverage first — a row
+            // that is missing places has a bigger problem than a row whose places
+            // moved.
+            //
+            // The second line is silent TODAY, and wired anyway: the campground
+            // role is first in MARK_PRIORITY, so while this row is on it owns
+            // every place it matches and has nothing to explain. That is a fact
+            // about a constant in another module, and a sheet that went quiet if
+            // somebody reordered it is the drift this whole change is about.
+            return (
+              <>
+                {gap ? (
+                  // "have a confirmed location", not "mapped". The count chip on
+                  // the row above counts places and this counts ROWS, and they
+                  // legitimately differ — a cabin-renting outfitter is one pin
+                  // under Rentals and still a located lodging row. Two different
+                  // words for two different questions, so neither looks like it
+                  // is contradicting the other.
+                  <LayerNote
+                    text={`${gap.located} of ${gap.total} have a confirmed location — the rest are listed on the river page.`}
+                  />
+                ) : null}
+                {overlap ? <LayerNote text={overlap} /> : null}
+              </>
+            );
           }
           return key === 'allGauges' && on ? (
             <GaugeFilterBar

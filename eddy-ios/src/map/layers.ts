@@ -12,6 +12,7 @@
 // low-water dam the same way without being taught twice.
 
 import type { ServiceLayerKey } from './serviceLayers';
+import type { AccessLayerKey } from './accessLayers';
 import { neutral, primary, type Palette } from '@/theme/palette';
 import { conditionColor } from '@/theme/conditions';
 import { flowBandColor } from '@/theme/flow';
@@ -20,6 +21,7 @@ import type { Ionicons } from '@expo/vector-icons';
 
 export type LayerKey =
   | 'access'
+  | 'boatRamps'
   | 'campgrounds'
   | 'gauges'
   | 'allGauges'
@@ -80,6 +82,30 @@ export interface LayerDef {
    * and merging them into one layer key would merge those too.
    */
   tiers?: LayerKey[];
+  /**
+   * True when this row's tiers REFINE one population rather than splitting it.
+   *
+   * ── A COUNT IS ONLY SUMMABLE WHEN THE SETS ARE DISJOINT ─────────────────
+   *
+   * Every other tiered row partitions its members: a gauge is rated or it is
+   * not, and a service is one pin under whichever tier claims it (see
+   * lodgingPins, which drops what rentals already draws). Adding those tiers up
+   * gives the row's total.
+   *
+   * Access points do not work that way. A boat ramp IS an access point — the
+   * Boat ramps tier marks a SUBSET of the row's own population rather than a
+   * slice taken out of it — so summing the two would count every ramp twice.
+   *
+   * ── SO THE TIERS ARE ORDERED, OUTERMOST FIRST ───────────────────────────
+   *
+   * Each refining tier is contained by the one before it, which is what lets
+   * the row report the outermost LIVE tier — see layerRowCount. The order is
+   * load-bearing rather than cosmetic: reading the row's own key instead would
+   * be wrong in the state where the chips leave "All access" off and "Boat
+   * ramps" on, which is reachable because a chip toggles independently of its
+   * row, and which draws ten places under a row that would claim fifty.
+   */
+  tiersRefine?: boolean;
   /** How this layer is named inside a tier strip, where the row is the context. */
   tierLabel?: string;
   /**
@@ -232,10 +258,51 @@ export const MAP_LAYERS: LayerDef[] = [
     label: 'Access points',
     description: 'Put-ins and ramps on every river',
     icon: 'location',
+    // ── Boat ramps are a TIER here, not a ninth row ────────────────────────
+    // EddySymbol's own ruling says the map catalog carries no boat-ramp mark
+    // "on purpose — six type icons on one pin is a legend test, not a map",
+    // and this row's description has claimed ramps since it was written. A
+    // ramp is a REFINEMENT of the question this row already asks, which is the
+    // shape gauges/allGauges and outfitters/lodging already have.
+    //
+    // It is also the shape that fits the palette. A dedicated row needs a
+    // colour that dodges the condition ladder, coral, access teal, campground
+    // green, outfitter tan and both neutral stones, and there is no clean one
+    // left — while a tier legitimately shares its parent's colour and is told
+    // apart by its MARK, which is the argument the gauge tier strip already
+    // makes ("a face tells these two tiers apart better than any hue can").
+    //
+    // The tiers REFINE rather than partition, unlike every other tiered row,
+    // and are therefore listed outermost first — see tiersRefine.
+    tiers: ['access', 'boatRamps'],
+    tiersRefine: true,
+    tierLabel: 'All access',
     // A destination is map content, not an action. Teal keeps coral reserved
     // for Plan a float and the plan endpoint the user explicitly chose.
     // Shape still separates this pin from the gauge droplet.
     symbol: 'accessPoint',
+    color: (c) => c.interactive,
+  },
+  {
+    key: 'boatRamps',
+    label: 'Boat ramps',
+    tierLabel: 'Boat ramps',
+    // A TIER, never a row — the sibling of `allGauges` and `lodging` above.
+    nested: true,
+    // Says where the fact comes from. Eddy does not measure a ramp's surface or
+    // its slope, so the row may not imply it knows what a trailer will manage.
+    description: 'Put-ins tagged as boat ramps',
+    // Unused while `symbol` is set — `icon` is the documented fallback a layer
+    // takes before the catalog draws its mark, and this one is already drawn.
+    icon: 'boat-outline',
+    symbol: 'boatRamp',
+    // ── THE SAME TEAL AS THE ROW ABOVE, deliberately ──────────────────────
+    // A ramp IS an access point, and this file's rule is that a row is only a
+    // legend if its colour is literally the colour of the pins it toggles.
+    // Ramp pins are drawn in the access family's teal — below ZOOM.places they
+    // are the same 4.5px teal circle as every other put-in, and the ramp mark
+    // is what appears above it. A second hue would be a legend for a
+    // distinction the map does not draw in colour.
     color: (c) => c.interactive,
   },
   {
@@ -449,61 +516,27 @@ const _serviceLayersAreRealLayers: readonly LayerKey[] = [
 ] satisfies readonly ServiceLayerKey[];
 void _serviceLayersAreRealLayers;
 
+// The access family's keys are checked the same way, from the same side, for the
+// same reason: `accessLayers.ts` owns which places each of these three draws and
+// which mark each place wears, and it cannot import this module (palette) even
+// for a type. Rename a key here without renaming it there and this stops
+// compiling.
+const _accessLayersAreRealLayers: readonly LayerKey[] = [
+  'access',
+  'campgrounds',
+  'boatRamps',
+] satisfies readonly AccessLayerKey[];
+void _accessLayersAreRealLayers;
+
 // ── One place, one pin ──────────────────────────────────────────────────────
 //
-// A campground can reach the map from two tables. `access_points` holds the ones
-// you can also put in at — Red Bluff, Hazel Creek, Montauk — tagged `campground`
-// among their types. `nearby_services` holds campgrounds as businesses, and
-// several of them are the SAME PLACE as an access point, seeded separately years
-// apart from different sources.
-//
-// That was survivable for exactly as long as the two copies disagreed about
-// where the place is, because the duplicate landed miles away and read as a
-// second campground. It is not survivable once they agree: two pins on one
-// coordinate, one of them carrying the access point's planner actions and photo
-// and one of them carrying a phone number, with no way to tell which is on top.
-//
-// So a service that sits on top of a drawn access point is dropped, and the
-// access point — the richer record, and the one the planner can use — wins.
-
-/**
- * How close counts as "the same place", in degrees of latitude.
- *
- * ~0.002° is a little over 200 m. Generous on purpose: the two records were
- * geocoded independently, and a campground is an area rather than a point — a
- * service pinned at the entrance and an access point pinned at the ramp are one
- * place even though they are two hundred metres apart. Nothing legitimate is
- * lost at this radius; two DIFFERENT campgrounds that close together on one
- * river do not exist in this dataset.
- */
-const SAME_PLACE_DEGREES = 0.002;
-
-/**
- * Is this service already on the map as an access point?
- *
- * Position, not name. "Red Bluff Campground" and "Red Bluff Recreation Area"
- * are one place under two names, and the reverse trap exists too — matching on
- * names would eventually collapse two genuinely different places that share a
- * creek's name. What the reader is being spared is two pins in one spot, which
- * is a question about coordinates.
- *
- * Longitude is scaled by latitude so the box is square on the ground. At 37°N a
- * degree of longitude is about four fifths of a degree of latitude, and an
- * unscaled comparison would quietly make the box wider than it is tall.
- */
-export function drawnAsAccessPoint(
-  service: { latitude: number | null; longitude: number | null },
-  points: readonly { coordinates: { lng: number; lat: number } }[],
-): boolean {
-  const { latitude, longitude } = service;
-  if (latitude == null || longitude == null) return false;
-  const lngScale = Math.max(0.2, Math.cos((latitude * Math.PI) / 180));
-  return points.some(
-    (point) =>
-      Math.abs(point.coordinates.lat - latitude) <= SAME_PLACE_DEGREES &&
-      Math.abs(point.coordinates.lng - longitude) <= SAME_PLACE_DEGREES / lngScale,
-  );
-}
+// `drawnAsAccessPoint` used to live here. It is the rule that stops a campground
+// reaching the map twice — once from `access_points`, once from `nearby_services`
+// as a business, seeded years apart from different sources — and it moved into
+// `accessLayers.ts` with the rest of the one-place-one-marker decision, where the
+// web suite can finally execute it. Nothing in this module needs it: a layer
+// DEFINITION says what a row is called and coloured, and which places it claims
+// is a membership question.
 
 // ── Weather radar tiles ─────────────────────────────────────────────────────
 //
