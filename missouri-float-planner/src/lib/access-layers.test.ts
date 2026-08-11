@@ -12,6 +12,7 @@ import {
   resolveAccessMarkers,
   roleCues,
   ROLE_LAYER,
+  serviceCues,
   SERVICE_MARK_PRIORITY,
   type PlaceRole,
   type ServiceMarkOwner,
@@ -662,5 +663,90 @@ test('a service on no layer Eddy draws is not a marker and not a count', () => {
   assert.equal(serviceMarkers.length, 0);
   for (const owner of SERVICE_MARK_PRIORITY) {
     assert.equal(statsByServiceOwner[owner].totalMatches, 0, owner);
+  }
+});
+
+test('every service matching an active layer is represented somewhere', () => {
+  // The service family's half of the visibility matrix, and the assertion that
+  // fails the day ownership DROPS a row rather than reassigning it. "One marker
+  // per place" is only half a contract; this is the other half, and without it
+  // a resolver that quietly lost every camping-and-cabins row under one
+  // combination would still have passed every test in this file.
+  const cases: { svc: RiverService; held: ServiceMarkOwner[] }[] = [
+    { svc: CAMP_AND_RENTALS, held: ['campground', 'rentals'] },
+    { svc: CAMP_AND_CABINS, held: ['campground', 'lodging'] },
+    {
+      svc: service({ id: 'rentals-only', type: 'outfitter', latitude: 38.7, longitude: -90.3 }),
+      held: ['rentals'],
+    },
+    {
+      svc: service({ id: 'cabins-only', type: 'cabin_lodge', latitude: 38.6, longitude: -90.4 }),
+      held: ['lodging'],
+    },
+  ];
+  const services = cases.map((c) => c.svc);
+
+  for (const layers of SERVICE_COMBINATIONS) {
+    const active = new Set<ServiceMarkOwner>(
+      layers.map((l) => (l === 'campgrounds' ? 'campground' : l === 'outfitters' ? 'rentals' : 'lodging')),
+    );
+    const { serviceMarkers } = resolveServices(services, layers);
+    const drawn = new Set(serviceMarkers.map((m) => m.service.id));
+    for (const { svc, held } of cases) {
+      const matches = held.some((owner) => active.has(owner));
+      assert.equal(drawn.has(svc.id), matches, `${svc.id} with [${layers}]`);
+    }
+  }
+});
+
+test('a service pin names the rows its mark is hiding', () => {
+  // Resolving ownership stopped the double pin and, on its own, would have made
+  // a camping-and-cabins row draw a tent while the cabins vanished — the same
+  // defect the access family's caption was fixed for.
+  const cues = (layers: ServiceLayerKey[]) => {
+    const marker = resolveServices([CAMP_AND_CABINS], layers).serviceMarkers[0];
+    return { all: serviceCues(marker.layers), hidden: serviceCues(marker.layers, marker.owner) };
+  };
+
+  // Both rows on: the tent owns it, and the caption still says cabins.
+  assert.deepEqual(cues(['campgrounds', 'lodging']).all, ['Camp', 'Cabins']);
+  assert.deepEqual(cues(['campgrounds', 'lodging']).hidden, ['Cabins']);
+
+  // One row on: nothing is hidden, and the pin reads as it always has.
+  assert.deepEqual(cues(['campgrounds']).all, ['Camp']);
+  assert.deepEqual(cues(['campgrounds']).hidden, []);
+  assert.deepEqual(cues(['lodging']).all, ['Cabins']);
+  assert.deepEqual(cues(['lodging']).hidden, []);
+});
+
+test('a cue never names a row the reader switched off', () => {
+  // Live layers, not held ones — advertising a row that is off would be the
+  // mirror of hiding one that is on.
+  const marker = resolveServices([CAMP_AND_RENTALS], ['campgrounds']).serviceMarkers[0];
+  assert.deepEqual(serviceCues(marker.layers), ['Camp']);
+  assert.equal(serviceCues(marker.layers).includes('Rentals'), false);
+});
+
+test('the hidden set is always the tail of the priority order', () => {
+  // A consequence of ownership following SERVICE_MARK_PRIORITY, asserted because
+  // the subtitle's shape depends on it: a lodging-owned pin can hide nothing, so
+  // no caller has to handle a cue landing before its own type label.
+  const all = service({
+    id: 'all-three',
+    type: 'campground',
+    servicesOffered: ['canoe_rental', 'cabins'],
+    latitude: 38.9,
+    longitude: -90.1,
+  });
+  for (const layers of SERVICE_COMBINATIONS) {
+    const marker = resolveServices([all], layers).serviceMarkers[0];
+    if (!marker) continue;
+    const ownerIndex = SERVICE_MARK_PRIORITY.indexOf(marker.owner);
+    for (const other of marker.layers) {
+      assert.ok(
+        SERVICE_MARK_PRIORITY.indexOf(other) >= ownerIndex,
+        `${other} outranks the owner ${marker.owner} with [${layers}]`,
+      );
+    }
   }
 });

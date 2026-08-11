@@ -97,7 +97,14 @@ import {
   type PinLayerKey,
 } from './layers';
 import { warn } from '@/lib/monitoring';
-import { activeRoles, resolveAccessMarkers, roleCues, ROLE_LAYER } from '@/map/accessLayers';
+import {
+  activeRoles,
+  resolveAccessMarkers,
+  roleCues,
+  ROLE_LAYER,
+  serviceCues,
+  type ResolvedServiceMarker,
+} from '@/map/accessLayers';
 import { serviceTypeLabel, type ServiceLayerKey } from '@/map/serviceLayers';
 
 /**
@@ -888,7 +895,7 @@ export function RiverMap({
       // rows on no camping tier, so what arrives here is what draws.
       ...accessFamily.serviceMarkers
         .filter((marker) => marker.owner === 'campground')
-        .map(({ service: s }) => ({
+        .map(({ service: s, layers: serviceLayers }) => ({
           // ── ONE ID NAMESPACE FOR A SERVICE, WHATEVER MARK IT WEARS ─────
           //
           // This was `camp-service:{id}` while rentals and lodging used
@@ -900,9 +907,20 @@ export function RiverMap({
           id: `service:${s.id}`,
           name: s.name,
           layer: 'campgrounds' as const,
+          // ── AND THE ROWS THIS TENT IS HIDING ─────────────────────────
+          //
+          // No type label leads here — the tent has already said "campground" —
+          // so the cues lead instead, exactly as the access family's campground
+          // pin reads `Camp · River access · Mile 12.3`. A campground that also
+          // rents cabins now reads `Camp · Cabins · Salem, MO` rather than
+          // drawing a tent and letting the cabins vanish, which is what
+          // resolving ownership across the three tiers would otherwise have
+          // cost. `Camp` is passed rather than excluded for that reason: it is
+          // the only thing naming the mark.
           subtitle:
             [
-              [s.city, s.state].filter(Boolean).join(', ') || 'Campground',
+              ...serviceCues(serviceLayers),
+              [s.city, s.state].filter(Boolean).join(', '),
               s.managingAgency,
             ]
               .filter(Boolean)
@@ -1016,17 +1034,36 @@ export function RiverMap({
    * campgrounds layer keeping `access:{id}` while presenting a put-in as a tent.
    */
   const servicePin = useCallback(
-    (s: RiverService, layer: 'outfitters' | 'lodging'): MapPin => ({
+    (marker: ResolvedServiceMarker, layer: 'outfitters' | 'lodging'): MapPin => {
+      const s = marker.service;
+      return {
       id: `service:${s.id}`,
       name: s.name,
       layer,
-      subtitle: [serviceTypeLabel(s), [s.city, s.state].filter(Boolean).join(', ')]
+      // ── AND THE ROWS THIS MARK IS HIDING ───────────────────────────────
+      //
+      // Resolving ownership across the three tiers stopped a place drawing
+      // twice and, on its own, would have made it draw once while saying
+      // nothing about the row it stopped answering: a canoe outfitter that also
+      // rents cabins wore a canoe and the cabins vanished. That is the same
+      // defect the access family's caption was fixed for, arriving in the
+      // service family by the same mechanism.
+      //
+      // `serviceTypeLabel` still leads — it says what the BUSINESS is, which is
+      // finer than the tier, so `serviceCues` is asked only for what the mark
+      // is hiding. See its header for why that is not symmetric with roleCues.
+      subtitle: [
+        serviceTypeLabel(s),
+        ...serviceCues(marker.layers, marker.owner),
+        [s.city, s.state].filter(Boolean).join(', '),
+      ]
         .filter(Boolean)
         .join(' · '),
       coordinates: { lng: s.longitude as number, lat: s.latitude as number },
       body: s.description,
       link: serviceLink(s),
-    }),
+      };
+    },
     [],
   );
 
@@ -1049,7 +1086,7 @@ export function RiverMap({
     () =>
       accessFamily.serviceMarkers
         .filter((marker) => marker.owner === 'rentals')
-        .map(({ service }) => servicePin(service, 'outfitters')),
+        .map((marker) => servicePin(marker, 'outfitters')),
     [accessFamily, servicePin],
   );
 
@@ -1057,7 +1094,7 @@ export function RiverMap({
     () =>
       accessFamily.serviceMarkers
         .filter((marker) => marker.owner === 'lodging')
-        .map(({ service }) => servicePin(service, 'lodging')),
+        .map((marker) => servicePin(marker, 'lodging')),
     [accessFamily, servicePin],
   );
 

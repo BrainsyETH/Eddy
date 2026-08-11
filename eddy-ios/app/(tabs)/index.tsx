@@ -2373,22 +2373,28 @@ export default function MapScreen() {
           const role = on ? LAYER_ROLE[key as AccessLayerKey] : undefined;
           const known =
             role === 'campground' ? accessFamily.servicesKnown : drawnAccessPoints.length > 0;
-          const overlap =
-            role && known ? accessOverlapNote(role, accessFamily.statsByRole[role]) : null;
-          if (key === 'access' || key === 'boatRamps') {
-            return overlap ? <LayerNote text={overlap} /> : null;
-          }
           // ── The service rows need the same sentence, for the same reason ──
           // Their counts are membership now too, so "River services · 84" holds
           // still while Campgrounds owns the marker of every row that also
           // camps. Without the note the reader counts canoes, finds forty
           // fewer, and concludes the layer is broken.
-          if ((key === 'outfitters' || key === 'lodging') && on) {
-            const owner = key === 'outfitters' ? 'rentals' : 'lodging';
-            const note = accessFamily.servicesKnown
-              ? accessOverlapNote(owner, accessFamily.statsByServiceOwner[owner])
-              : null;
-            return note ? <LayerNote text={note} /> : null;
+          //
+          // Folded into `overlap` rather than returned early, and that is not a
+          // tidying: the coverage line below ("13 of 81 have a confirmed
+          // location") fires for these same two keys, so an early return here
+          // would answer the overlap question by DELETING the geocoding one.
+          // Two facts, two lines, one row — which is exactly the shape the
+          // campgrounds branch below already handles.
+          const serviceOwner =
+            on && key === 'outfitters' ? 'rentals' : on && key === 'lodging' ? 'lodging' : null;
+          const overlap =
+            role && known
+              ? accessOverlapNote(role, accessFamily.statsByRole[role])
+              : serviceOwner && accessFamily.servicesKnown
+                ? accessOverlapNote(serviceOwner, accessFamily.statsByServiceOwner[serviceOwner])
+                : null;
+          if (key === 'access' || key === 'boatRamps') {
+            return overlap ? <LayerNote text={overlap} /> : null;
           }
           // ── The one layer a downloaded river cannot carry ──────────────
           // Radar streams PNGs from a third party. An offline pack holds the
@@ -2440,7 +2446,8 @@ export default function MapScreen() {
             // a layer drawing everything it knows about has nothing to explain.
             const gap = coverage && coverage.total > coverage.located ? coverage : null;
             if (!gap && !overlap) return null;
-            // Campgrounds can carry BOTH lines, and they are different facts: one
+            // All three service rows can carry BOTH lines, and they are different
+            // facts: one
             // is about the directory's geocoding, the other about which mark a
             // place that Eddy CAN place ended up wearing. Coverage first — a row
             // that is missing places has a bigger problem than a row whose places

@@ -736,6 +736,54 @@ export function roleCues(roles: ReadonlySet<PlaceRole>): string[] {
 }
 
 /**
+ * What a SERVICE mark is called on a pin.
+ *
+ * A fifth vocabulary table, and the same defence as `ROLE_CUE`: `ROLE_NOUN` is
+ * plural and describes a layer, `serviceTypeLabel` says what the BUSINESS is
+ * ("Outfitter", "Cabin or lodge") which is a different question from which rows
+ * this pin is answering, and neither is a word to hang on a marker beside a
+ * town name.
+ *
+ * `Cabins` rather than `Cabins & lodges`: the row is named for a population and
+ * a pin is one place, so the plural-and-ampersand form reads as a category
+ * label where a noun belongs.
+ */
+const SERVICE_CUE: Record<ServiceMarkOwner, string> = {
+  campground: 'Camp',
+  rentals: 'Rentals',
+  lodging: 'Cabins',
+};
+
+/**
+ * What one service pin says it is, strongest first.
+ *
+ * ── WHY `exclude` EXISTS, AND WHY IT IS NOT SYMMETRIC WITH roleCues ──────
+ *
+ * An access point drawn as a campground has a bare name for a label, so its
+ * subtitle is the only place any role can appear and it names all of them. A
+ * service pin's subtitle already LEADS with `serviceTypeLabel` — "Outfitter",
+ * "Cabin or lodge" — which is a finer-grained fact than the tier it owns, and
+ * replacing it with "Rentals" would trade information for symmetry.
+ *
+ * So that caller passes its owner and gets only the rows the mark is HIDING,
+ * which is the thing that was missing. The campground branch has no type label
+ * in its subtitle and passes nothing, so it reads `Camp · Cabins · Salem, MO`
+ * exactly as the access family reads `Camp · River access · Mile 12.3`.
+ *
+ * Because ownership follows SERVICE_MARK_PRIORITY, the excluded set is always
+ * the tail: a rentals-owned pin can only be hiding lodging, and a lodging-owned
+ * pin can be hiding nothing at all.
+ */
+export function serviceCues(
+  layers: ReadonlySet<ServiceMarkOwner>,
+  exclude?: ServiceMarkOwner,
+): string[] {
+  return SERVICE_MARK_PRIORITY.filter(
+    (owner) => layers.has(owner) && owner !== exclude,
+  ).map((owner) => SERVICE_CUE[owner]);
+}
+
+/**
  * The line under a layer row saying where its places actually went.
  *
  * ── WHY THE ROW NEEDS IT AT ALL ──────────────────────────────────────────
