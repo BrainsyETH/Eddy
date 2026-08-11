@@ -21,6 +21,7 @@
 
 import { calculateBounds, type GeoBounds } from '@/lib/utils/geo';
 import { inBounds } from '@/lib/geo/region-bounds';
+import { bookingUrlFor } from '@/lib/camping/booking';
 import type {
   AccessPointType,
   HazardSeverity,
@@ -303,7 +304,11 @@ export function toNpsCampground(row: Record<string, unknown>): NPSCampgroundInfo
     name: row.name as string,
     npsUrl: row.nps_url as string,
     reservationInfo: row.reservation_info as string,
-    reservationUrl: row.reservation_url as string,
+    // Same gate the online path applies in access-points/detail.ts. Without it
+    // the offline pack would be the one way an unchecked URL still reached the
+    // button, and a packed URL outlives the download by however long the phone
+    // keeps it.
+    reservationUrl: bookingUrlFor('recreation_gov', row.reservation_url as string | null),
     fees: fees.map((f) => ({
       cost: f.cost || '0.00',
       description: f.description || '',

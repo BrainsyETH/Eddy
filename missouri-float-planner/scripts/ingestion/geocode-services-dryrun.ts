@@ -263,6 +263,19 @@ async function main() {
     .select('id, name, city, state, type')
     .eq('type', type)
     .is('latitude', null)
+    // A CLOSED BUSINESS IS NOT A GEOCODING PROBLEM. This filter was absent, so
+    // every run swept `permanently_closed` rows too — Eminence Canoe Rental and
+    // Steele River Kayaks and Boards among them — and printed them for review
+    // beside the live ones, indistinguishable. Two costs, and the second is the
+    // one this file already argues about at length: it spends Overpass budget
+    // and a reader's attention on rows nobody wants a pin for, and the whole
+    // point of a coordinate here is to draw one. A pin on a business that shut
+    // is the "confidently wrong" case the header opens with, arrived at from a
+    // different direction.
+    //
+    // geocode-services-mapbox.ts, written later, has filtered these out since
+    // it landed. This is that same rule, arriving where it was missing.
+    .neq('status', 'permanently_closed')
     .order('name');
   if (error) throw new Error(error.message);
 

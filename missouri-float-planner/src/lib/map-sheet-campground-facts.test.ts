@@ -97,6 +97,87 @@ test('a reservation URL wins, and the button names where it lands', () => {
   );
 });
 
+test('the official site is still not a booking URL, whatever else arrives', () => {
+  // The guard that outlives the fix below: `officialSiteUrl` is not a parameter
+  // and a park page must never become a button. `booking` carries
+  // nearby_services.reservation_url, which is a different column with a
+  // different meaning — the one migration 00082 documents as "Direct
+  // booking/reservation URL".
+  assert.equal(
+    bookingAction(null, 'mo_state_parks', {
+      url: 'https://mostateparks.com/park/meramec-state-park',
+      source: 'mo_state_parks',
+    })?.url,
+    // It DOES render whatever the reservation column holds — this asserts the
+    // shape, not that a park page is acceptable there. Putting a description
+    // page in reservation_url is a data defect, and the fix belongs in the row.
+    'https://mostateparks.com/park/meramec-state-park',
+  );
+});
+
+test('a state park books through the directory row, since it has no NPS record', () => {
+  // Meramec, Onondaga Cave and Montauk: no nps_campgrounds row at all, so the
+  // branch above cannot fire and the tab had no button. icampmo.com is the
+  // booking system's front door — a weaker promise than a deep link, and a
+  // different KIND of thing from the park page #1173 removed, which takes no
+  // bookings at all.
+  assert.deepEqual(
+    bookingAction(null, 'mo_state_parks', {
+      url: 'https://icampmo.com',
+      source: 'mo_state_parks',
+    }),
+    { url: 'https://icampmo.com', label: 'Book at Missouri State Parks' },
+  );
+});
+
+test('a federal campground with no NPS row still books, which is Red Bluff', () => {
+  // Red Bluff Recreation Area is the case that gains most and costs nothing:
+  // recreation_gov facility, no nps_campgrounds row, and a working
+  // recreation.gov deep link sitting on its directory entry. The URL was
+  // already reaching the reader as an "Official site" row; this makes it the
+  // button it always was. The Camping tab then hides that row, because
+  // showOfficialSite is gated on the URL differing from the button's.
+  assert.deepEqual(
+    bookingAction(null, 'recreation_gov', {
+      url: 'https://www.recreation.gov/camping/campgrounds/232391',
+      source: 'recreation_gov',
+    }),
+    {
+      url: 'https://www.recreation.gov/camping/campgrounds/232391',
+      label: 'Book on Recreation.gov',
+    },
+  );
+});
+
+test('the NPS reservation URL still outranks the directory row', () => {
+  // Both present is the normal federal case — the facility links an
+  // nps_campgrounds row AND a directory row, and migration 20260803120000
+  // built both joins off the same recreation.gov id. They agree today; if they
+  // ever disagree, the NPS record is the one the rest of this tab is describing.
+  assert.equal(
+    bookingAction(record({ reservationUrl: 'https://nps.example/book' }), 'recreation_gov', {
+      url: 'https://directory.example/book',
+      source: 'recreation_gov',
+    })?.url,
+    'https://nps.example/book',
+  );
+});
+
+test('the button survives a stale sync, because booking is not availability', () => {
+  // The reason `booking` is a sibling of `availability` rather than a field on
+  // it. loadAvailability drops a facility whose nights are older than
+  // MAX_AGE_MS or whose weekend it did not cover, so `source` here is null —
+  // and where to book is not a fact that expires with this weekend's counts.
+  const action = bookingAction(null, null, {
+    url: 'https://icampmo.com',
+    source: 'mo_state_parks',
+  });
+  assert.equal(action?.url, 'https://icampmo.com');
+  // Named off the FACILITY's source, which arrives with the link, so a stale
+  // calendar costs the numbers and not the label.
+  assert.equal(action?.label, 'Book at Missouri State Parks');
+});
+
 test('reading live inventory from a provider is NOT a booking URL', () => {
   // The bug this replaces: `source === 'mo_state_parks'` was taken as proof
   // that the access point's official site is Missouri's booking system, so
@@ -105,14 +186,16 @@ test('reading live inventory from a provider is NOT a booking URL', () => {
   //
   // Every official_site_url in the database is such a page. Missouri's actual
   // reservation system is icampmo.com, held on nearby_services.reservation_url
-  // (migration 00084) and not yet on the wire. A button that promises a booking
-  // and cannot take one spends the tab's single affordance on a dead end.
+  // (migration 00084) — which now reaches this function as `booking`, tested
+  // above. A button that promises a booking and cannot take one spends the
+  // tab's single affordance on a dead end.
   //
-  // The signature no longer accepts an official site at all, so this cannot be
-  // reintroduced by passing one: the only input that produces a button is a
-  // real reservationUrl.
+  // The signature still does not accept an official site, so this cannot be
+  // reintroduced by passing one. What produces a button is a real
+  // reservationUrl, from either column — and provider alone never does.
   assert.equal(bookingAction(null, 'mo_state_parks'), null);
   assert.equal(bookingAction(record(), 'mo_state_parks'), null);
+  assert.equal(bookingAction(record(), 'mo_state_parks', null), null);
 });
 
 test('no reservation URL, no button, whoever runs the place', () => {
