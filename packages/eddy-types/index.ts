@@ -1384,6 +1384,25 @@ export interface RiverService {
    * outlives the deploy it was cut against.
    */
   geocodePrecision?: 'exact' | 'approximate' | null;
+  /**
+   * The access point this row IS — same place, same arrival point.
+   *
+   * From `access_point_services`, and ONLY from its `same_place` rows.
+   * `located_at` (same facility, different arrival point) and `nearby` are
+   * filtered out server-side and never reach here, because this field collapses
+   * a marker: a `located_at` value would delete a campground's true location
+   * from the map and point a reader at a river access up to 3 km away.
+   *
+   * Distinct in kind from every other field here: the rest describe the
+   * business, this one says which OTHER record is the same place. The resolver
+   * treats it as the last word, above the proximity radius — which is the only
+   * way two rows that disagree about their own coordinates collapse to one pin.
+   *
+   * Optional for the reason every added field is: a TestFlight build outlives
+   * the deploy it was cut against, and absent must read as "not told" rather
+   * than "not linked" — an older server simply leaves the radius in charge.
+   */
+  accessPointId?: string | null;
   description: string | null;
   servicesOffered: string[];
 
