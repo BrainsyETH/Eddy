@@ -99,7 +99,7 @@ import {
 } from './layers';
 import { warn } from '@/lib/monitoring';
 import { mappableService } from '@/map/mappable';
-import { activeRoles, resolveAccessMarkers, ROLE_LAYER } from '@/map/accessLayers';
+import { activeRoles, resolveAccessMarkers, roleCues, ROLE_LAYER } from '@/map/accessLayers';
 import { serviceOnLayer, serviceTypeLabel } from '@/map/serviceLayers';
 
 /**
@@ -835,7 +835,7 @@ export function RiverMap({
     const campgrounds: MapPin[] = [
       ...accessFamily.markers
         .filter((marker) => marker.owner === 'campground')
-        .map(({ entry }) => ({
+        .map(({ entry, roles }) => ({
           // Keep the canonical access identity even while it is being presented
           // through the campground layer. If the user enables Access with this
           // callout open, the tent becomes a pin without losing selection.
@@ -847,7 +847,23 @@ export function RiverMap({
           // this layer has always drawn; they are stated here because the pin
           // is otherwise the shared builder's, field for field.
           label: entry.point.name,
-          subtitle: `Camp · Mile ${entry.point.riverMile.toFixed(1)}`,
+          // ── AND THE MILE LINE NAMES EVERY ROW THIS PIN IS ANSWERING ────
+          //
+          // `Camp · Mile 12.3` was true and half the story. Cedargrove is a
+          // river access AND a campground; with both rows on it draws one tent,
+          // and the caption used to drop the access half — so switching
+          // Campgrounds on read as though it had REMOVED the access point, when
+          // all it did was change which mark the one place wears.
+          //
+          // Note the asymmetry this closes rather than creates: with Campgrounds
+          // OFF the same place already says `Campground · Cedargrove`, because
+          // accessLabel prefixes the strongest type. The fact was available in
+          // one of the two states a reader can be in.
+          //
+          // `roles` is LIVE roles, so a row the reader has switched off is never
+          // advertised, and a place answering one row still reads exactly as it
+          // did — `Camp · Mile 12.3`, unchanged.
+          subtitle: [...roleCues(roles), `Mile ${entry.point.riverMile.toFixed(1)}`].join(' · '),
         })),
       // A service campground is somewhere to sleep that is NOT a put-in — which
       // is what makes it worth drawing, and also what makes the ones that ARE
