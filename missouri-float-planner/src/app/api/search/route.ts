@@ -25,6 +25,7 @@ import { createClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
 import { toNum } from '@/lib/utils/num';
+import { stationCaption } from '@shared/station-caption';
 
 export const dynamic = 'force-dynamic';
 
@@ -130,6 +131,8 @@ export interface SearchResult {
    * (/api/gauges/:siteId, its /history) keys off this, not off `id`.
    */
   siteId?: string | null;
+  /** Registry id for the station's publisher. Gauge results only. */
+  provider?: string | null;
   /** Gauge results only; null when the station has no stored reading. */
   gauge?: SearchResultGauge | null;
   /**
@@ -469,6 +472,7 @@ async function _GET(request: NextRequest) {
     interface SearchGaugeRow {
       id: string;
       site_id: string | null;
+      provider: string | null;
       name: string | null;
       curated: boolean;
       lng: number | null;
@@ -534,10 +538,14 @@ async function _GET(request: NextRequest) {
         kind: 'gauge' as const,
         id: g.id,
         name: g.name ?? g.site_id ?? 'Gauge',
-        // "USGS gauge" for anything with no river association, which is now the
-        // common case rather than the exception — a national station is a real
-        // answer to a search, it just is not one Eddy has rated.
-        subtitle: [river ? river.name : 'USGS gauge', g.site_id].filter(Boolean).join(' · '),
+        // "Gauge" is the LAST resort, not the unknown-provider answer: a station
+        // whose publisher this deployment cannot name still prints its site
+        // number when the id is one (see shared/station-caption). That is what
+        // keeps a code-before-migration deploy at 1.0's copy instead of blanking
+        // every site id in search.
+        subtitle:
+          [river?.name, stationCaption(g.provider, g.site_id)].filter(Boolean).join(' · ') ||
+          'Gauge',
         riverId: river?.id ?? null,
         riverName: river?.name ?? null,
         riverSlug: river?.slug ?? null,
@@ -549,6 +557,7 @@ async function _GET(request: NextRequest) {
         coordinates:
           g.lng !== null && g.lat !== null ? { lng: g.lng, lat: g.lat } : null,
         siteId: g.site_id,
+        provider: g.provider,
         // Null when the station has no stored reading at all — a real state for
         // a site that reports seasonally, and one the client must render as
         // "no reading" rather than as a zero.

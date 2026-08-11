@@ -496,7 +496,7 @@ async function _GET(request: NextRequest) {
         readingAgeHours = (now - readingTime) / (1000 * 60 * 60);
       }
 
-      const qual = classifyQualifiers(reading?.qualifiers);
+      const qual = classifyQualifiers(reading?.qualifiers, station.provider ?? 'usgs');
 
       return {
         id: station.id,

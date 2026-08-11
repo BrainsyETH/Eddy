@@ -16,45 +16,25 @@
 //
 // So provenance is read, never assumed. `null` means the source did not say,
 // and a caller that does not know must print nothing rather than guess.
+//
+// ── The caption rule itself lives in shared/, not here ─────────────────────
+// It used to live here AND in the web search route, and the two copies had
+// already drifted — this side answered 'USACE' where the server answered
+// 'USACE release', and the Search tab renders both in one list. The rule is now
+// stated once in @eddy/conditions/station-caption and re-exported here so this
+// module stays the app's single answer to "what may I say about this station".
+// Everything below the re-export is app behaviour rather than copy, which is
+// why it does not move with it.
 
-/** Registry ids from the backend's flow-provider registry. */
-export type ProviderId = 'usgs' | 'nws' | 'usace';
-
-/**
- * How to name the operator in a caption.
- *
- * Null for an unknown provider — the caption drops to the station name alone,
- * which is always true, rather than attributing it to somebody.
- */
-export function providerLabel(provider: string | null | undefined): string | null {
-  switch (provider) {
-    case 'usgs':
-      return 'USGS';
-    case 'nws':
-      return 'NWS';
-    case 'usace':
-      return 'USACE';
-    default:
-      return null;
-  }
-}
-
-/**
- * The caption under a station's name.
- *
- * A USGS site number is a real public identifier people cross-reference, so it
- * is printed. A USACE dam's id is an EDDY SLUG ('swl-clearwater-dam') that
- * exists nowhere else — printing it would look like a citation while naming
- * nothing the reader could look up, so the operator is named without it.
- */
-export function stationCaption(
-  provider: string | null | undefined,
-  siteId: string
-): string | null {
-  const label = providerLabel(provider);
-  if (!label) return null;
-  return provider === 'usgs' ? `${label} ${siteId}` : label;
-}
+// `looksLikeUsgsSiteId` moves with them: the caption's unknown-provider
+// fallback IS that shape test, so a second copy of the regex here would be the
+// same drift in miniature.
+export type { ProviderId } from '@eddy/conditions/station-caption';
+export {
+  looksLikeUsgsSiteId,
+  providerLabel,
+  stationCaption,
+} from '@eddy/conditions/station-caption';
 
 /**
  * Whether a station's reading may be described with the flow-band vocabulary.
@@ -89,15 +69,3 @@ export function isUsgsSite(provider: string | null | undefined): boolean {
   return provider === 'usgs';
 }
 
-/**
- * Whether an id has the SHAPE of a USGS site number, for the one case with no
- * record to read a provider from: the not-found screen.
- *
- * USGS site numbers are 8-15 digits and nothing else. A USACE dam is an Eddy
- * slug ('swl-clearwater-dam') and an NWS station is a five-letter LID, so both
- * fail this cleanly. Use it ONLY where a provider is genuinely unavailable —
- * everywhere else, read the record.
- */
-export function looksLikeUsgsSiteId(siteId: string | null | undefined): boolean {
-  return !!siteId && /^\d{8,15}$/.test(siteId);
-}

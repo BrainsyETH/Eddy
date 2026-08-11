@@ -5,9 +5,17 @@ brand and layout questions on the tabbed pin sheet. The five items below are wha
 it left open, plus one thing none of them named that turns out to be the reason
 two of them exist.
 
-Every count here was read from the live database on 2026-08-06, not estimated.
-Where a reported figure differed from what the tables actually hold, the measured
-figure is used and the difference is stated.
+Unless an August 11 update is called out, counts are the live 2026-08-06 baseline
+that drove the implementation, not current inventory. Where a reported figure
+differed from what the tables actually held, the measured figure is used and the
+difference is stated.
+
+> **Production update — 2026-08-11.** The public service API now returns 153
+> eligible rows: 138 mapped and 15 without coordinates. Coverage by the shipped
+> tier rules is 75 of 82 rentals, 77 of 80 camping, and 75 of 81 lodging. Of the
+> 138 mapped rows, 27 still have no coordinate provenance; they should be audited
+> rather than assumed exact. These figures supersede the old 127-row geocoding
+> backlog below, while preserving it as the historical baseline.
 
 ## Contents
 
@@ -483,10 +491,11 @@ documented and depended on, and overloading it to also mean "of N" would break
 the one rule that file is built around. `layerTotals` inherits the same contract:
 `undefined` until the layer has answered, never a zero it cannot stand behind.
 
-**W3c — Close the coverage gap.** 127 eligible rows need coordinates — 128 less
-the permanently closed one, which W3a has already decided not to draw and which
-therefore must not be geocoded either. This is an ingestion task, not an app
-task: `scripts/ingestion/` per `docs/data-pipeline.md`,
+**W3c — Close the coverage gap.** At the August 6 baseline, 127 eligible rows
+needed coordinates — 128 less the permanently closed one, which W3a had already
+decided not to draw. The August 11 production snapshot reduces that queue to 15,
+plus 27 mapped rows whose coordinate provenance is still null. This remains an
+ingestion task, not an app task: `scripts/ingestion/` per `docs/data-pipeline.md`,
 writing `latitude`, `longitude`, `geocode_precision` and `geocode_source`, with
 `centroid` recorded honestly wherever the geocoder only resolved a town. That
 last part is what makes the existing precision guard start earning its keep — it
@@ -698,12 +707,12 @@ a decision, gated on credentials, or a separate piece of work.
 
 ### Needs authorisation — it writes to production
 
-- **W3c, the geocoding backfill.** 127 eligible rows need coordinates. Every
-  prerequisite is now in place: eligibility is shared, the route ships
-  `geocode_precision`, and `mappableService` is finally load-bearing on the map
-  rather than defeated by an omitted column. It wants its own dry run and diff.
-  `centroid` must be recorded honestly wherever the geocoder only resolved a
-  town, or the guard goes back to rejecting nothing.
+- **W3c, finish and verify the geocoding backfill.** The August 11 public
+  production snapshot has 15 eligible rows without coordinates, down from 127.
+  Another 27 are mapped but have null coordinate provenance. Account for both
+  groups in a dry run and diff; `centroid`/`approximate` must be recorded
+  honestly wherever the geocoder only resolved an area, or the guard cannot
+  distinguish a verified point from a guess.
 
 ### Needs credentials this environment does not have
 

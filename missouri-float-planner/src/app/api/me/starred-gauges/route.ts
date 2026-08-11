@@ -42,7 +42,9 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('starred_gauges')
-      .select('gauge_station_id, created_at, gauge_stations!inner(name, usgs_site_id, active)')
+      .select(
+        'gauge_station_id, created_at, gauge_stations!inner(name, usgs_site_id, site_id_external, provider, active)'
+      )
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -53,7 +55,13 @@ export async function GET(request: NextRequest) {
 
     // Untyped client: PostgREST types the to-one embed as an array; at
     // runtime it's a single object. Normalize either shape.
-    type GaugeEmbed = { name: string; usgs_site_id: string; active: boolean | null };
+    type GaugeEmbed = {
+      name: string;
+      usgs_site_id: string | null;
+      site_id_external: string | null;
+      provider: string | null;
+      active: boolean | null;
+    };
     type StarredRow = {
       gauge_station_id: string;
       created_at: string;
@@ -91,7 +99,10 @@ export async function GET(request: NextRequest) {
         return {
           gaugeId: row.gauge_station_id,
           gaugeName: gauge?.name ?? '',
-          usgsSiteId: gauge?.usgs_site_id ?? '',
+          // Kept under its 1.0 wire name for compatibility; since 1.1 it is the
+          // provider-native site id and may be a USACE slug or NWS LID.
+          usgsSiteId: gauge?.usgs_site_id ?? gauge?.site_id_external ?? '',
+          provider: gauge?.provider ?? 'usgs',
           riverName: river?.name ?? null,
           riverSlug: river?.slug ?? null,
           starredAt: row.created_at,

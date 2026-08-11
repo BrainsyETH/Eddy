@@ -19,13 +19,13 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { AccessPointGaugeStatus, MapAccessPoint } from '@eddy/types';
-import { accessPointTypes, accessTypeLabel } from '@eddy/types';
+import { accessTypeLabel } from '@eddy/types';
 import { conditionBg, conditionChipBorder, conditionInk, conditionText } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
-import { accessTypeSymbol } from './placeSymbol';
+import { accessBadgeTypes, accessTypeSymbol } from './placeSymbol';
 
 /**
  * ── `symbol` IS NOT AVAILABLE TO EVERY HEADING, on purpose ────────────────
@@ -118,10 +118,8 @@ export function Chips({ labels }: { labels: string[] }) {
  *
  * ── Which badges get a mark, and which stay text ──────────────────────────
  * A type is a CATEGORY of place, so it takes the catalog's mark where one
- * exists — and the two that have art are the two that change the plan: a boat
- * ramp means you can back a trailer down, a campground means you can sleep
- * there. Gravel bar, bridge and park have no art yet and show the label alone
- * rather than borrowing a drawing that means something else; see placeSymbol.
+ * exists. Park has no dedicated art yet and shows the label alone rather than
+ * borrowing a drawing that means something else; see placeSymbol.
  *
  * A FEE IS NOT A CATEGORY. It is a caveat about a place that is already named,
  * so it stays text however many marks the catalog grows — and "Private" is not
@@ -130,7 +128,7 @@ export function Chips({ labels }: { labels: string[] }) {
  */
 export function AccessTypeBadges({ accessPoint }: { accessPoint: MapAccessPoint }) {
   const { colors } = useTheme();
-  const types = accessPointTypes(accessPoint);
+  const types = accessBadgeTypes(accessPoint);
   if (!types.length && !accessPoint.feeRequired) return null;
   return (
     <View style={styles.types}>
@@ -138,7 +136,7 @@ export function AccessTypeBadges({ accessPoint }: { accessPoint: MapAccessPoint 
         const symbol = accessTypeSymbol(type);
         return (
           <View key={type} style={styles.type}>
-            {symbol ? <EddySymbol name={symbol} size={14} /> : null}
+            {symbol ? <EddySymbol name={symbol} size={16} /> : null}
             <Text style={[styles.typeText, { color: colors.textMuted }]}>
               {accessTypeLabel(type)}
             </Text>

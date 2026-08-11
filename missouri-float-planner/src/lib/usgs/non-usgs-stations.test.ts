@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { withUsgsGaugesOnly, type MODatasetRaw } from './mo-statewide-data';
 import { usgsSiteIds } from '../flow-providers/usgs';
+import { classifyQualifiers } from './gauges';
 
 // ── Non-USGS stations must never reach waterservices.usgs.gov ──────────
 //
@@ -96,4 +97,18 @@ test('usgsSiteIds strips the entries that poison a batch', () => {
 test('usgsSiteIds keeps a list that is already clean, in order', () => {
   const clean = ['07064533', '07066510', '07068000'];
   assert.deepEqual(usgsSiteIds(clean), clean);
+});
+
+test('provisional qualifier copy names the station provider', () => {
+  assert.equal(classifyQualifiers(['P'], 'usgs').note, 'Provisional USGS data');
+  assert.equal(classifyQualifiers(['P'], 'usace').note, 'Provisional USACE data');
+  assert.equal(classifyQualifiers(['P'], 'nws').note, 'Provisional NWS data');
+});
+
+test('unknown provider copy does not guess USGS', () => {
+  assert.equal(classifyQualifiers(['P'], null).note, 'Provisional provider data');
+  assert.equal(
+    classifyQualifiers(['Rat'], null).note,
+    'Reading flagged by provider — may be inaccurate',
+  );
 });

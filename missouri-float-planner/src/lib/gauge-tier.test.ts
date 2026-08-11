@@ -143,6 +143,17 @@ test('the three seeds that cannot carry a ladder never claim the reference tier'
   assert.equal(gaugeTier(lite), 'unknown');
 });
 
+test('a stored gauge star preserves provider provenance offline', () => {
+  const starred = seedFromStar({
+    entityId: 'clearwater',
+    name: 'Clearwater Dam release',
+    usgsSiteId: 'swl-clearwater-dam',
+    provider: 'usace',
+  });
+  assert.ok(starred);
+  assert.equal(starred.provider, 'usace');
+});
+
 test('a lite row that says it is NOT curated still resolves immediately', () => {
   // The other half of the previous test: withholding the band from the ~14,000
   // reference stations would trade one wrong frame for a slower right one on
@@ -161,4 +172,18 @@ test('a lite row that says it is NOT curated still resolves immediately', () => 
     flowPercentile: 62,
   } as Parameters<typeof seedFromMapGaugeLite>[0]);
   assert.equal(gaugeTier(lite), 'reference');
+});
+
+test('search preserves provider provenance in the navigation seed', () => {
+  const found = seedFromSearchResult({
+    kind: 'gauge',
+    id: 'clearwater',
+    name: 'Clearwater Dam release',
+    siteId: 'swl-clearwater-dam',
+    provider: 'usace',
+    coordinates: null,
+  } as Parameters<typeof seedFromSearchResult>[0]);
+
+  assert.ok(found);
+  assert.equal(found.provider, 'usace');
 });

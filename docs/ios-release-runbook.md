@@ -1,5 +1,83 @@
 # Eddy for iOS — release runbook
 
+## Current release
+
+- **Live App Store version:** 1.0
+- **Release in progress:** 1.1 (`eddy-ios/app.json` is `1.1.0`)
+- **Status confirmed:** 2026-08-11
+
+The checkboxes below are the evidence checklist for **1.1**. They are deliberately
+not inferred from the fact that 1.0 shipped: enrolment, signing and the App Store
+record necessarily existed, but credentials, environment values, migrations,
+device behavior and store metadata can drift between releases.
+
+### 1.1 delta gates found in the August 11 repository audit
+
+- [ ] Apply `20260811130000_search_gauges_provider_provenance.sql` and verify
+      both `search_gauges` overloads. The four-argument form keeps 1.0 working;
+      the five-argument form serves paged 1.1 search. The migration adds one
+      column and changes no reading semantics, so a rollback is a re-apply of
+      00207.
+- [ ] Confirm a saved USGS gauge still shows its site number in Reports before
+      any account syncs. A star written by 1.0 carries no provider, and for a
+      signed-out user nothing will ever fill one in — the caption has to fall
+      back to the site number rather than to a bare "Gauge".
+- [ ] Apply `20260810202000_trust_usgs_site_scope.sql`, confirm it with
+      `npm run db:check-migrations`, then rerun `usgs_site_drift`. The live
+      check currently calls this RPC with no readable scope and refuses
+      reconciliation as `check_error`.
+- [ ] Deploy the web/API changes, then confirm the exact Clearwater Dam search
+      result says **USACE release**, carries `provider: "usace"`, and never
+      exposes `swl-clearwater-dam` as though it were a public station number.
+      Migration-first is still the intended order, but it is no longer a gate:
+      an unknown provider now falls back to the site number when the id is one,
+      so code-before-migration lands on 1.0's copy instead of blanking every
+      site id in search. See `shared/station-caption.ts`.
+- [ ] Confirm Clearwater detail qualifier copy says **USACE**, not USGS.
+- [x] Run the USGS site-drift regression suite in both UTC and
+      `America/Chicago`; the official `end_utc` field must win.
+- [ ] Review every critical/high Trust Ledger finding after the August 11
+      snoozes expire. Resolve only after the invariant passes; do not extend a
+      snooze as a substitute for remediation.
+- [ ] Run `npm run db:check-services` against production and account for every
+      eligible service without coordinates before calling the Maps service
+      model complete.
+- [ ] Exercise access-point badges on device: plain access keeps **Access**;
+      `access + boat ramp/campground/bridge/gravel bar/park` drops the redundant
+      generic badge.
+- [x] Run the complete web and iOS automated checks.
+- [ ] Smoke-test the 1.0 production app before TestFlight so the staggered
+      backend rollout proves backward compatibility.
+
+### Live production backlog inspected August 11
+
+The Trust Ledger is operating (day 6 of 28, 0% false positives among 35 reviewed,
+all six safety-baseline findings still closed), but it is not release-green:
+
+- **Critical — `usgs_site_drift`:** the run failed with `check_error` and an
+  empty scope (`scopeCount: 0`), so reconciliation correctly refused to close
+  its one existing finding. The check depends on the explicitly not-yet-applied
+  `trust_usgs_site_scope()` migration above; apply it, confirm a non-empty scope,
+  and rerun before treating station-drift state as known.
+- **Critical — Jacks Fork threshold order (snoozed):** inspect the CFS ladder in
+  `/admin/gauges`. An inverted pair is a live badge error; an equal
+  high/dangerous pair is latent but still needs a strictly increasing value.
+- **High — Courtois gauge proximity (snoozed):** Courtois intentionally borrows
+  Huzzah's gauge about five miles away. Encode or accept that governed proxy
+  relationship instead of repeatedly snoozing a geometry warning.
+- **Medium — unsnapped access points:** run the idempotent
+  `npm run db:snap-access-points` for Mother Nature's Riverfront Retreat
+  (Niangua) and Montauk State Park (Current), then rerun validation.
+- **Medium — War Eagle Creek length:** investigate the 33.17-mile stored length
+  versus the 68.1-mile line before changing either. After the correct half is
+  fixed, run `npm run db:correct-miles`; do not blanket-copy geometry lengths.
+
+The public production service API currently reports 153 eligible services, 138
+mapped and 15 missing coordinates. Twenty-seven mapped services still lack
+coordinate provenance. The full authenticated `db:check-services` run remains a
+release gate because the public endpoint does not expose verification timestamps,
+Google place IDs, or embedded-service drift.
+
 Everything between a green `make check` and an app on someone's phone. None of
 it is verifiable from a checkout, which is exactly why it is written down: the
 app degrades *silently* when any of it is missing, so a misconfigured build

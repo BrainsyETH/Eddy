@@ -307,7 +307,7 @@ async function _GET(
       }
     }
 
-    const { suspect, note } = classifyQualifiers(qualifiers);
+    const { suspect, note } = classifyQualifiers(qualifiers, provider);
 
     type LinkRow = {
       is_primary: boolean | null;

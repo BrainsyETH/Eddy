@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { MapAccessPoint } from '@eddy/types';
 import {
+  accessBadgeTypes,
   accessTypeSymbol,
   placeSymbol,
   type PlaceSymbolName,
@@ -85,6 +86,15 @@ test('each mapped access type gets its own Eddy mark', () => {
   assert.equal(accessTypeSymbol('park'), null);
   // An unmapped value from the database is a label, not a crash.
   assert.equal(accessTypeSymbol('low_water_crossing'), null);
+});
+
+test('generic Access is only a badge when it is the whole answer', () => {
+  assert.deepEqual(accessBadgeTypes(point({ types: ['access'] })), ['access']);
+  assert.deepEqual(accessBadgeTypes(point({ types: ['access', 'boat_ramp'] })), ['boat_ramp']);
+  assert.deepEqual(
+    accessBadgeTypes(point({ types: ['access', 'campground', 'boat_ramp'] })),
+    ['campground', 'boat_ramp'],
+  );
 });
 
 test('never null, for any pin the sheet can open', () => {

@@ -140,3 +140,7 @@ test('escapeLike leaves an ordinary place name alone', () => {
   assert.equal(escapeLike('Big Piney'), 'Big Piney');
   assert.equal(escapeLike("Devil's Elbow"), "Devil's Elbow");
 });
+
+// Gauge caption attribution moved to shared/station-caption.test.ts when the
+// rule stopped being a private function of this route — the iOS app held a
+// second copy of it, and the two had drifted.

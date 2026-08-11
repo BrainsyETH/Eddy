@@ -805,11 +805,13 @@ export interface MapGauge {
    * to `siteId` is a separate refactor. Pair it with the station's provider
    * before building any provider-specific URL.
    *
-   * NULLABLE, and not hypothetically: gauge_stations keeps the id in
-   * `usgs_site_id` OR `site_id_external` depending on provider, both columns
-   * are nullable, and /api/gauges sends whichever it finds. A station carrying
-   * neither arrives here as null — which is how the Search tab crashed on
-   * `.toLowerCase()` of a USACE dam's id. Nothing may assume a string.
+   * NULLABLE: gauge_stations keeps the id in `usgs_site_id` OR
+   * `site_id_external` depending on provider, both columns are nullable, and
+   * /api/gauges sends whichever it finds. Only a station carrying NEITHER
+   * arrives here as null. A USACE dam is no longer that case — the coalesce is
+   * why Clearwater arrives as 'swl-clearwater-dam' and opens like any other
+   * station — but the Search tab did once crash on `.toLowerCase()` of a null
+   * that this field promised could not happen. Nothing may assume a string.
    */
   usgsSiteId: string | null;
   /**
@@ -1574,6 +1576,13 @@ export interface SearchResult {
    * the client must fall back to selecting it rather than pushing a screen.
    */
   siteId?: string | null;
+  /**
+   * Registry id for the station's publisher. Gauge results only.
+   *
+   * Optional because 1.0 may talk to a backend deployed before provider
+   * provenance was added to search. An absent value is unknown, never USGS.
+   */
+  provider?: string | null;
   /** Gauge results only; null when the station has no stored reading. */
   gauge?: SearchResultGauge | null;
   /**
@@ -1844,6 +1853,8 @@ export interface StarredGaugeEntry {
   gaugeId: string;
   gaugeName: string;
   usgsSiteId: string;
+  /** Registry id for the station's publisher. Optional across a 1.0 server. */
+  provider?: string | null;
   /** The river this gauge is PRIMARY for, when it is primary for one. */
   riverName: string | null;
   riverSlug: string | null;
