@@ -100,9 +100,8 @@ import { warn } from '@/lib/monitoring';
 import {
   activeRoles,
   resolveAccessMarkers,
-  roleCues,
+  markCues,
   ROLE_LAYER,
-  serviceCues,
   type ResolvedServiceMarker,
 } from '@/map/accessLayers';
 import { serviceTypeLabel, type ServiceLayerKey } from '@/map/serviceLayers';
@@ -819,9 +818,23 @@ export function RiverMap({
     () =>
       accessFamily.markers
         .filter((marker) => marker.owner === 'boatRamp')
-        .map(({ entry }) =>
-          mapAccessPointPin(entry.point, entry.riverSlug ?? riverSlug, 'boatRamps'),
-        ),
+        .map(({ entry, roles }) => ({
+          ...mapAccessPointPin(entry.point, entry.riverSlug ?? riverSlug, 'boatRamps'),
+          // ── THE RAMP MARK CAN HIDE THINGS NOW, WHICH IT COULD NOT BEFORE ──
+          //
+          // A ramp-owned marker used to be able to hide only `access`, and
+          // `accessLabel` said "Boat ramp · Pulltite" so the mark was named
+          // either way. Composition puts service marks below the ramp in the
+          // priority order, so this pin can now be standing in for a canoe
+          // rental as well — and a caption that dropped it would repeat the bug
+          // the campground pin was fixed for, one layer over.
+          //
+          // Label becomes the bare name for the same reason the campground pin's
+          // did: the cue says "Ramp" already, and accessLabel's prefix would say
+          // it twice.
+          label: entry.point.name,
+          subtitle: [...markCues(roles), `Mile ${entry.point.riverMile.toFixed(1)}`].join(' · '),
+        })),
     [accessFamily, riverSlug],
   );
 
@@ -883,7 +896,7 @@ export function RiverMap({
           // `roles` is LIVE roles, so a row the reader has switched off is never
           // advertised, and a place answering one row still reads exactly as it
           // did — `Camp · Mile 12.3`, unchanged.
-          subtitle: [...roleCues(roles), `Mile ${entry.point.riverMile.toFixed(1)}`].join(' · '),
+          subtitle: [...markCues(roles), `Mile ${entry.point.riverMile.toFixed(1)}`].join(' · '),
         })),
       // A service campground is somewhere to sleep that is NOT a put-in — which
       // is what makes it worth drawing, and also what makes the ones that ARE
@@ -919,7 +932,7 @@ export function RiverMap({
           // the only thing naming the mark.
           subtitle:
             [
-              ...serviceCues(serviceLayers),
+              ...markCues(serviceLayers),
               [s.city, s.state].filter(Boolean).join(', '),
               s.managingAgency,
             ]
@@ -1054,7 +1067,7 @@ export function RiverMap({
       // is hiding. See its header for why that is not symmetric with roleCues.
       subtitle: [
         serviceTypeLabel(s),
-        ...serviceCues(marker.layers, marker.owner),
+        ...markCues(marker.layers, marker.owner),
         [s.city, s.state].filter(Boolean).join(', '),
       ]
         .filter(Boolean)
@@ -1082,20 +1095,51 @@ export function RiverMap({
   // other. `lodgingPins`' hand-written complement is gone too — SERVICE_MARK_
   // PRIORITY expresses the same rule (rentals beats lodging) in the same place
   // as every other precedence, and now covers camping as well.
+  /**
+   * A put-in that absorbed a business, drawn on that business's layer.
+   *
+   * ── WHY AN ACCESS POINT APPEARS UNDER RENTALS AT ALL ────────────────────
+   *
+   * Because it is the same place. Akers Ferry Canoe Rental sits on Akers Ferry
+   * and the resolver composes the two into one place holding both marks; with
+   * only Rentals & shuttles on, that place has to draw SOMEWHERE or asking the
+   * map for canoe rental hides the one at the put-in you are looking at. It
+   * used to draw nothing at all.
+   *
+   * It keeps `access:{id}` and its detail route, exactly as the campground
+   * layer has always done with a put-in wearing a tent — the layer decides
+   * which mark, never which record.
+   */
+  const composedServicePins = useCallback(
+    (owner: 'rentals' | 'lodging', layer: 'outfitters' | 'lodging'): MapPin[] =>
+      accessFamily.markers
+        .filter((marker) => marker.owner === owner)
+        .map(({ entry, roles }) => ({
+          ...mapAccessPointPin(entry.point, entry.riverSlug ?? riverSlug, layer),
+          label: entry.point.name,
+          subtitle: [...markCues(roles), `Mile ${entry.point.riverMile.toFixed(1)}`].join(' · '),
+        })),
+    [accessFamily, riverSlug],
+  );
+
   const outfitterPins: MapPin[] = useMemo(
-    () =>
-      accessFamily.serviceMarkers
+    () => [
+      ...accessFamily.serviceMarkers
         .filter((marker) => marker.owner === 'rentals')
         .map((marker) => servicePin(marker, 'outfitters')),
-    [accessFamily, servicePin],
+      ...composedServicePins('rentals', 'outfitters'),
+    ],
+    [accessFamily, servicePin, composedServicePins],
   );
 
   const lodgingPins: MapPin[] = useMemo(
-    () =>
-      accessFamily.serviceMarkers
+    () => [
+      ...accessFamily.serviceMarkers
         .filter((marker) => marker.owner === 'lodging')
         .map((marker) => servicePin(marker, 'lodging')),
-    [accessFamily, servicePin],
+      ...composedServicePins('lodging', 'lodging'),
+    ],
+    [accessFamily, servicePin, composedServicePins],
   );
 
   /** The seven, as one object. References only — nothing is rebuilt here. */
