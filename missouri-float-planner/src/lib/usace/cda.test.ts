@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { bucketedNow, changeOver, WINDOW_BUCKET_MS, type TimeseriesPoint } from './cda';
+import {
+  bucketedNow,
+  changeOver,
+  fetchLatestValue,
+  WINDOW_BUCKET_MS,
+  type TimeseriesPoint,
+} from './cda';
 
 // changeOver reads a window the caller already holds — fetchLatestValue fetches
 // eight hours and returns one point — and turns it into the movement figure the
@@ -119,4 +125,55 @@ test('flooring never reaches forward past the real clock', () => {
     assert.ok(bucketedNow(now).getTime() <= now, `bucket ran ahead at +${offset}ms`);
     assert.ok(now - bucketedNow(now).getTime() < WINDOW_BUCKET_MS, 'and never lags a full bucket');
   }
+});
+
+/**
+ * Capture the URL fetchLatestValue builds, without touching the network.
+ *
+ * Asserting on the URL rather than on a helper is the point: the bucket only
+ * matters because it lands in a query string, and a test of the arithmetic
+ * alone would keep passing if the call site stopped using it.
+ */
+async function capturedUrl(options?: { skipCache?: boolean }): Promise<URL> {
+  const original = globalThis.fetch;
+  let seen = '';
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    seen = typeof input === 'string' ? input : input.toString();
+    return new Response(JSON.stringify({ values: [[Date.now(), 1, 0]] }), { status: 200 });
+  }) as typeof fetch;
+  try {
+    await fetchLatestValue('SWL', 'Some_Dam.Flow-Res Out.Ave.1Hour.1Hour.Regi-Comp', 'cfs', 8, options);
+  } finally {
+    globalThis.fetch = original;
+  }
+  return new URL(seen);
+}
+
+test('a cached read asks for a bucketed window', () => {
+  // The whole reason bucketing exists: the URL has to be one another read can
+  // match. Sub-bucket precision in `end` made every request unique.
+  return capturedUrl().then((url) => {
+    const end = Date.parse(url.searchParams.get('end')!);
+    assert.equal(end % WINDOW_BUCKET_MS, 0, `end ${url.searchParams.get('end')} is not on a bucket`);
+  });
+});
+
+test('skipCache asks for the real clock, not the bucket', () => {
+  // The gauge-update cron passes skipCache to ingest what the Corps published a
+  // moment ago. Flooring the window there would exclude a point stamped after
+  // the boundary while ALSO having bypassed the cache the flooring serves —
+  // all of the cost, none of the benefit. Harmless while these series publish
+  // hourly; a sub-hourly series would lose readings silently.
+  const before = Date.now();
+  return capturedUrl({ skipCache: true }).then((url) => {
+    const end = Date.parse(url.searchParams.get('end')!);
+    assert.ok(end >= before, 'end must be the real clock, not a floored one');
+    assert.ok(
+      end - bucketedNow(end).getTime() >= 0,
+      'sanity: the real clock is at or after its own bucket'
+    );
+    // The lookback still hangs off that same end, so the window is not skewed.
+    const begin = Date.parse(url.searchParams.get('begin')!);
+    assert.equal(end - begin, 8 * 3_600_000, 'an 8-hour window, measured from the real end');
+  });
 });

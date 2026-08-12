@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { SUMMARY_METRICS, DETAIL_METRICS } from '@/lib/data/dams';
+import { SUMMARY_METRICS, DETAIL_METRICS, buildSnapshot } from '@/lib/data/dams';
+import { USACE_DAMS } from '@/lib/flow-providers/usace-registry';
 
 // What /api/dams is allowed to stop sending.
 //
@@ -20,10 +21,19 @@ import { SUMMARY_METRICS, DETAIL_METRICS } from '@/lib/data/dams';
 // the same reason: eddy-ios has no test runner, so anything checkable is
 // checked from here.
 
-/** Paths are relative to missouri-float-planner/, where the runner starts. */
+/**
+ * Every iOS surface fed by the SUMMARY payload — /api/dams, not /api/dams/[id].
+ *
+ * The map screen is the easy one to forget: it is not a "dam component", it
+ * calls fetchDams() itself and reads dam.metrics.release inline among a
+ * thousand lines of map code. It was missed on the first pass of this test.
+ *
+ * Paths are relative to missouri-float-planner/, where the runner starts.
+ */
 const IOS_LIST_SURFACES = [
   '../eddy-ios/src/components/dam/DamRow.tsx',
   '../eddy-ios/src/components/dam/RiverDamPanel.tsx',
+  '../eddy-ios/app/(tabs)/index.tsx',
 ];
 
 /** Comments discuss fields they do not read — `dam.metrics.inflow` in prose. */
@@ -95,30 +105,47 @@ test('the summary stays small enough to be worth splitting', () => {
   );
 });
 
-test('the iOS row reads only snapshot fields the summary carries', () => {
-  // metrics are checked above; these are the top-level fields. Listed rather
-  // than derived because they come from the registry rather than from a fetch,
-  // so the risk is not that they go missing — it is that a future summary
-  // builder starts omitting them to save bytes.
-  const CARRIED = new Set([
-    'id',
-    'name',
-    'lakeName',
-    'state',
-    'generating',
-    'schedule',
-    'metrics',
-    'tailwaterFishery',
-    'tailwater',
-    'sources',
-    'hasTurbines',
-    'nameplate',
-    'infoPhone',
-    'lat',
-    'lon',
+test('every top-level field the iOS row reads is one the payload emits', () => {
+  // Asserted against what buildSnapshot ACTUALLY returns, not against a
+  // hand-written list. A list can only check the names someone remembered to
+  // put in it; it cannot notice the server quietly ceasing to carry one, which
+  // is the failure that reaches a phone. buildSnapshot is pure, so the field
+  // set is answerable with no network.
+  //
+  // Table Rock rather than an arbitrary dam because it populates every optional
+  // field — nameplate, tailwaterFishery, infoPhone — so the emitted key set is
+  // the widest the builder produces. `tailwater` is optional and absent there,
+  // so Clearwater is folded in for it.
+  const emitted = new Set([
+    ...Object.keys(buildSnapshot(USACE_DAMS['swl-table-rock-dam'], {}, [])),
+    ...Object.keys(buildSnapshot(USACE_DAMS['swl-clearwater-dam'], {}, [])),
   ]);
-  const source = stripComments(readFileSync(IOS_LIST_SURFACES[0], 'utf8'));
-  for (const m of source.matchAll(/\bdam\.([A-Za-z]+)/g)) {
-    assert.ok(CARRIED.has(m[1]), `DamRow reads dam.${m[1]}, which is not a snapshot field`);
+
+  for (const path of IOS_LIST_SURFACES) {
+    const source = stripComments(readFileSync(path, 'utf8'));
+    for (const m of source.matchAll(/\bdam\.([A-Za-z]+)/g)) {
+      // `metrics` is checked per-key by the tests above.
+      if (m[1] === 'metrics') continue;
+      assert.ok(
+        emitted.has(m[1]),
+        `${path} reads dam.${m[1]}, which buildSnapshot does not emit`
+      );
+    }
   }
+});
+
+test('the payload still carries the identity fields a list cannot render without', () => {
+  // The other direction, and the one a name-checking test cannot see: the
+  // builder dropping a field. These are not metrics — they come from the
+  // registry and cost nothing to send — so their absence would be a mistake
+  // rather than a trade-off, and it would reach installed clients as a blank
+  // row rather than an error.
+  const snapshot = buildSnapshot(USACE_DAMS['swl-clearwater-dam'], {}, []);
+  for (const field of ['id', 'name', 'lakeName', 'state', 'generating', 'schedule', 'metrics']) {
+    assert.ok(field in snapshot, `buildSnapshot stopped emitting ${field}`);
+  }
+  // `generating` is null-not-absent by contract: null means "this dam publishes
+  // no turbine flow", which a client must render as nothing rather than "idle".
+  assert.equal(snapshot.generating, null);
+  assert.equal(snapshot.tailwater?.riverSlug, 'black', 'the tailwater link survives assembly');
 });

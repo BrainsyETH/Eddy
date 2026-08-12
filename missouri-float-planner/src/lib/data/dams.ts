@@ -390,6 +390,26 @@ async function fetchSnapshot(
     readSchedule(dam, options.scheduleDays).catch(() => [] as DamScheduleDay[]),
   ]);
 
+  return buildSnapshot(dam, metrics, schedule);
+}
+
+/**
+ * Assemble the wire payload. Pure — every field comes from the registry entry
+ * or from what was already read.
+ *
+ * ── Why this is separate from the fetching ─────────────────────────────────
+ * So the payload's FIELD SET can be asserted without a network call. The
+ * consumer of /api/dams is a shipped iOS binary, and the failure that matters
+ * is a field quietly ceasing to be carried; a contract test that hand-lists the
+ * expected fields can only check the names it was told about, not what this
+ * function actually emits. See dams-route-contract.test.ts, which calls this
+ * with no metrics and no schedule and asserts on the keys.
+ */
+export function buildSnapshot(
+  dam: UsaceDam,
+  metrics: Partial<Record<UsaceMetric, DamMetricValue>>,
+  schedule: DamScheduleDay[]
+): DamSnapshot {
   const gen = metrics.generationFlow;
   const generating =
     gen && dam.generationOnCfs !== undefined ? gen.value > dam.generationOnCfs : null;
@@ -526,6 +546,7 @@ export async function fetchRiverDam(riverSlug: string): Promise<RiverDamContext 
   if (!entry) return null;
 
   const series = entry.series.releaseForecast;
+  const forecastWindowNow = bucketedNow().getTime();
 
   const [dam, forecastResult] = await Promise.all([
     // The river hub's dam panel shows release, the schedule and a link out to
@@ -538,10 +559,12 @@ export async function fetchRiverDam(riverSlug: string): Promise<RiverDamContext 
           entry.office,
           series.tsId,
           series.unit,
-          // Both ends off one bucketed instant, so the forecast window is
-          // stable between renders and the response can actually be cached.
-          new Date(bucketedNow().getTime() - 12 * 60 * 60 * 1000),
-          new Date(bucketedNow().getTime() + 14 * 24 * 60 * 60 * 1000)
+          // ONE bucketed instant for both ends. Calling bucketedNow() twice
+          // would straddle a boundary whenever the two calls fell either side
+          // of one, producing exactly the unique URL the bucketing exists to
+          // avoid — rarely, and therefore invisibly.
+          new Date(forecastWindowNow - 12 * 60 * 60 * 1000),
+          new Date(forecastWindowNow + 14 * 24 * 60 * 60 * 1000)
         ).catch(() => null)
       : Promise.resolve(null),
   ]);

@@ -169,7 +169,14 @@ export async function fetchLatestValue(
   lookbackHours = 8,
   options?: { skipCache?: boolean }
 ): Promise<TimeseriesPoint | null> {
-  const end = bucketedNow();
+  // `skipCache` means the caller wants the freshest reading the Corps has, not
+  // a cheaper one — the gauge-update cron passes it precisely to ingest what
+  // was published a moment ago. Flooring the window would then exclude any
+  // point stamped after the bucket boundary while ALSO having bypassed the
+  // cache the flooring exists to serve: all of the cost, none of the benefit.
+  // Harmless today because these series publish hourly; a sub-hourly series
+  // would silently lose readings.
+  const end = options?.skipCache ? new Date() : bucketedNow();
   const begin = new Date(end.getTime() - lookbackHours * 60 * 60 * 1000);
   const result = await fetchTimeseries(office, tsId, unit, begin, end, options);
   if (!result || result.points.length === 0) return null;
