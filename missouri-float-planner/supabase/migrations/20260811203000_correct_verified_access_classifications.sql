@@ -38,21 +38,26 @@
 --
 -- ── Production slugs are not the seed's slugs ─────────────────────────────
 --
--- Two of these four records answer to a different slug in production than the
--- seed and 00076 give them:
+-- Two of these four records answered to a different slug in production than in
+-- the checkout:
 --
---   seed / 00076                  production
+--   00076                         production
 --   mother-natures-retreat        mother-nature-s-riverfront-retreat
 --   ha-ha-tonka                   ha-ha-tonka-state-park
 --
--- So each statement matches the slugs BOTH environments use. That is not
--- belt-and-braces, it is the only predicate that hits the row in production
--- and in a rebuilt database — and it is why matching on `name`, which this
+-- So each statement matches the slugs BOTH give. That is not belt-and-braces,
+-- it is the only predicate that hits the row in production and in a database
+-- rebuilt through 00076 — and it is why matching on `name`, which this
 -- migration originally did for exactly these two rows, was not the mistake it
--- looked like. The divergence itself is real and outlives this file: a rebuilt
--- database serves different /access/<slug> URLs than production. Reconciling
--- it means renaming a live slug, which breaks URLs, so it is deliberately not
--- done here.
+-- looked like.
+--
+-- The audit this prompted found the drift was nineteen rows across six rivers,
+-- not two. `supabase/seed/access_points.sql` has since been corrected to
+-- production's slugs and `npm run db:check-access-slugs` now fails on any new
+-- divergence, so the seed is no longer a second answer to what a place is
+-- called. 00076 is history and keeps its old slugs, which is why both are still
+-- matched here. Renaming a live slug would break indexed /access/<slug> URLs,
+-- so production was not touched.
 --
 -- ── And why every statement is checked ────────────────────────────────────
 --
