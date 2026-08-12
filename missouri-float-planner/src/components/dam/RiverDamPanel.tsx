@@ -52,7 +52,18 @@ function toDailyPeaks(points: RiverDamContext['forecast']) {
   return Array.from(byDay.values()).slice(0, 7);
 }
 
-export default function RiverDamPanel({ context }: { context: RiverDamContext | null }) {
+export default function RiverDamPanel({
+  context,
+  /**
+   * The controlled reach's slug, CONFIRMED to exist on this page — see the
+   * page's controlledReach. Not read off the registry here: this renders a hash
+   * link, and a hash to an id nothing emitted looks live and scrolls nowhere.
+   */
+  controlledReachSlug,
+}: {
+  context: RiverDamContext | null;
+  controlledReachSlug?: string | null;
+}) {
   if (!context) return null;
 
   const { dam, forecast, forecastIsDaily } = context;
@@ -142,9 +153,9 @@ export default function RiverDamPanel({ context }: { context: RiverDamContext | 
           the web dam PAGE has no equivalent link: /rivers/[state]/[slug] needs a
           state this dam layer cannot resolve without a database read it
           deliberately does not do. */}
-      {dam.tailwater?.sectionSlug && (
+      {controlledReachSlug && (
         <a
-          href={`#${reachAnchorId(dam.tailwater.sectionSlug)}`}
+          href={`#${reachAnchorId(controlledReachSlug)}`}
           className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:text-primary-800"
         >
           See the reach it controls

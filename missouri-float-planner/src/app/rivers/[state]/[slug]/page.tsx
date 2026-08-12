@@ -211,6 +211,25 @@ export default async function RiverGuidePage({ params }: Props) {
     getRiverAlerts(slug).catch(() => []),
   ]);
 
+  /**
+   * The reach this river's dam actually controls, confirmed to exist.
+   *
+   * ── One boundary where registry and database drift is resolved ────────────
+   * `tailwater.sectionSlug` is a hand-written constant in usace-registry.ts;
+   * the reaches come from river_sections. Nothing keeps them in step, so a
+   * renamed section, a deleted one, a typo, or a reaches query that simply
+   * failed all leave a slug pointing at nothing.
+   *
+   * Resolving it HERE means the highlight and the panel's anchor link cannot
+   * disagree: both are fed this one verified value. The highlight already
+   * failed closed on its own, but a hash link does not — it renders, it looks
+   * live, and it scrolls nowhere.
+   */
+  const controlledReach =
+    riverReaches?.find(
+      (reach) => reach.sectionSlug === riverDam?.dam.tailwater?.sectionSlug
+    ) ?? null;
+
   const conditionCode = condRowsResult?.data?.[0]?.condition_code || 'unknown';
   const guidePost = guideResult.data || null;
 
@@ -452,7 +471,8 @@ export default async function RiverGuidePage({ params }: Props) {
                   reader and no client component — the page already knows. */}
               <RiverReaches
                 reaches={riverReaches}
-                highlightSlug={riverDam?.dam.tailwater?.sectionSlug ?? null}
+                highlightSlug={controlledReach?.sectionSlug ?? null}
+                damName={riverDam?.dam.name ?? null}
               />
             </section>
           )}
@@ -463,7 +483,7 @@ export default async function RiverGuidePage({ params }: Props) {
               <h2 className="mb-3 text-xl font-bold text-neutral-900 md:text-2xl" style={{ fontFamily: 'var(--font-display)' }}>
                 Dam release
               </h2>
-              <RiverDamPanel context={riverDam} />
+              <RiverDamPanel context={riverDam} controlledReachSlug={controlledReach?.sectionSlug ?? null} />
             </section>
           )}
 

@@ -59,9 +59,17 @@ export function RiverReaches({
    * them past the panel's own explanation of why the halves differ.
    */
   highlightSlug,
+  /**
+   * The dam doing the controlling, when known. Named in the label because
+   * "Controlled by Clearwater Dam" is scannable and stays true read cold —
+   * "the dam above" only makes sense to someone who remembers arriving from
+   * one, and this panel is often read by someone who did not.
+   */
+  damName,
 }: {
   reaches: RiverReach[];
   highlightSlug?: string | null;
+  damName?: string | null;
 }) {
   const { colors, elevation } = useTheme();
 
@@ -96,7 +104,7 @@ export function RiverReaches({
           </View>
           {isHighlighted ? (
             <Text style={[styles.arrivedFrom, { color: colors.interactive }]}>
-              The reach the dam above controls
+              {damName ? `Controlled by ${damName}` : 'Controlled by the dam above'}
             </Text>
           ) : null}
 

@@ -53,19 +53,29 @@ export function reachAnchorId(sectionSlug: string): string {
 export default function RiverReaches({
   reaches,
   /**
-   * The reach the reader arrived for, when the referrer knew — a dam passing
-   * `tailwater.sectionSlug`.
+   * The reach a dam controls, VERIFIED to exist — see the page's
+   * controlledReach. Mirrors the iOS panel.
    *
-   * Mirrors the iOS panel. Highlighting rather than scrolling for the same
-   * reason: a reader arriving from Clearwater Dam lands on a river page that
-   * leads with the spring-fed Lesterville float, which the dam has no bearing
-   * on, and the question is WHICH half they came for — not how to get down the
-   * page to it.
+   * This marks the reach; it is not on its own the answer to "which water am I
+   * looking at". The headline reading above still belongs to whichever gauge
+   * the river calls primary, and on the Black that is deliberately not the
+   * dam's — migration 00198 attaches Clearwater's release with
+   * is_primary = false. iOS closes that by preselecting the gauge picker on
+   * arrival; on web the reader chose this page rather than being sent to it,
+   * so the panel qualifies the headline rather than replacing it.
    */
   highlightSlug,
+  /**
+   * The dam doing the controlling, when known. Named in the label because
+   * "Controlled by Clearwater Dam" is scannable and stays true read cold —
+   * "the dam above" only makes sense to someone who remembers arriving from
+   * one, and this panel is mostly read by people who did not.
+   */
+  damName,
 }: {
   reaches: RiverReach[];
   highlightSlug?: string | null;
+  damName?: string | null;
 }) {
   if (reaches.length < 2) return null;
 
@@ -101,7 +111,7 @@ export default function RiverReaches({
             >
               {reach.sectionSlug === highlighted && (
                 <p className="mb-1 text-xs font-semibold text-primary-700">
-                  The reach the dam above controls
+                  {damName ? `Controlled by ${damName}` : 'Controlled by the dam above'}
                 </p>
               )}
               <div className="flex flex-wrap items-center gap-2 mb-1.5">

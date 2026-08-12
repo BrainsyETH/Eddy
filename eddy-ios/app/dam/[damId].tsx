@@ -204,6 +204,11 @@ export default function DamDetailScreen() {
                     ...(dam.tailwater!.sectionSlug
                       ? { section: dam.tailwater!.sectionSlug }
                       : {}),
+                    // The station that reads THIS dam's tailwater, so the river
+                    // screen opens on the water below the dam rather than on
+                    // whichever gauge the river calls primary — which on the
+                    // Black is deliberately not this one.
+                    gauge: dam.tailwater!.gaugeSiteId,
                   },
                 })
               }
