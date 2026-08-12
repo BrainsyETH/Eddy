@@ -17,6 +17,13 @@
 >   predates this dossier pipeline; use **this** file for the data flow and keep
 >   the playbook for the site-review checklist and the recommended-rivers list).
 
+> **Tailwaters are a separate path.** A dam-controlled fishing reach must not
+> be forced through the ordinary river threshold ladder. Start with
+> `TAILWATER-INGESTION.md` and hand the research pass
+> `research-prompt-tailwater.md`. The two paths share identifier, provenance,
+> access-coordinate, and activation gates; they do not share condition
+> semantics.
+
 ---
 
 ## The pipeline in one line
