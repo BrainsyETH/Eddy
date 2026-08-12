@@ -126,24 +126,29 @@ ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 -- ============================================
 
 -- Montauk State Park
+-- `types` is set explicitly. It is the roles axis of ADR 0008, and a row that
+-- leaves it at the '{}' default never says it camps — the exact gap
+-- 20260811150000 had to repair for Patrick Bridge, and the reason
+-- DEPLOYMENT-STATUS lists "0 empty/mismatched types" as a post-apply invariant.
 INSERT INTO access_points (
-    river_id, name, slug, location_orig, type, is_public, ownership,
+    river_id, name, slug, location_orig, type, types, is_public, ownership,
     description, amenities, parking_info, fee_required, fee_notes, approved
 )
-SELECT 
+SELECT
     r.id,
     'Montauk State Park',
     'montauk-state-park',
-    ST_SetSRID(ST_MakePoint(-91.4867, 37.3956), 4326),
+    ST_SetSRID(ST_MakePoint(-91.6866657, 37.4505347), 4326),
     'park',
+    ARRAY['park', 'campground'],
     true,
     'state_park',
-    'Headwaters of the Current River. Famous trout fishing. Upper float put-in.',
+    'State park and campground at the Current River headwaters. This record is not a put-in or take-out: Missouri State Parks puts designated canoe access outside the park''s southeast boundary, and NPS designates Tan Vat, which Eddy carries as a separate access. Private vessels float free within Ozark National Scenic Riverways.',
     ARRAY['parking', 'restrooms', 'camping', 'picnic'],
     'Large parking area near lodge',
     true,
-    'State park fee',
-    true
+    'No launch fee — there is no river launch here. Camping and lodging are paid; see mostateparks.com for current rates.',
+    false
 FROM rivers r WHERE r.slug = 'current'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 
@@ -992,13 +997,13 @@ INSERT INTO access_points (
 SELECT
     r.id, 'Whistle Bridge', 'whistle-bridge',
     ST_SetSRID(ST_MakePoint(-92.8343, 37.9410), 4326),
-    'bridge', ARRAY['bridge', 'access'], true, 'county',
-    'Low-lying concrete causeway on Tunnel Dam Road, 0.5 mi north of Edith, MO. Only usable when dry channel below Tunnel Dam has water. Good gravel area. 13.3 miles downstream to Ha Ha Tonka State Park.',
-    ARRAY['parking'],
-    'Roadside parking near crossing. Very limited.',
+    'bridge', ARRAY['bridge', 'access'], false, 'county',
+    'Low-water concrete crossing at Whistle Road and Tunnel Dam Road. Usable only when the channel below Tunnel Dam is carrying water. It can serve as a river access, but there is no public parking and the surrounding land is private. Use only for a lawful drop-off/pickup and do not enter adjacent property.',
+    ARRAY[]::text[],
+    'No public parking. Drop-off or pickup only where lawful; do not park on or cross adjacent private property.',
     'Junction of Whistle Road and Tunnel Dam Road, near Edith, MO, off State Road U (meets Hwy 54 between Camdenton and Macks Creek).',
-    'Low-water crossing only. No amenities.',
-    false, ARRAY['gravel_maintained']::text[], '5', 'County',
+    'Low-water crossing only. No public parking or other amenities.',
+    false, ARRAY['gravel_maintained']::text[], NULL, 'County',
     68.0, true
 FROM rivers r WHERE r.slug = 'niangua'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
@@ -1012,16 +1017,16 @@ INSERT INTO access_points (
 )
 SELECT
     r.id, 'Mother Nature''s Riverfront Retreat', 'mother-natures-retreat',
-    ST_SetSRID(ST_MakePoint(-92.8240, 37.9550), 4326),
-    'campground', ARRAY['campground', 'access'], false, 'private',
-    '300-acre campground, concert venue, and float operation on Big Niangua channel. ~2 miles float from Whistle Bridge. Previously Tunnel Dam Gardens (since 1999). Float trips, camping, camper rentals, RV hookups, lodge, bunkhouse.',
-    ARRAY['parking', 'restrooms', 'camping', 'picnic'],
-    'Campground parking. Ample space on 300-acre property.',
+    ST_SetSRID(ST_MakePoint(-92.8622596, 37.9520605), 4326),
+    'campground', ARRAY['campground', 'access', 'boat_ramp', 'gravel_bar'], false, 'private',
+    'Mother Nature''s private Family Side access, about two river miles below Whistle Bridge. The riverfront campground has a gravel beach, boat ramp, primitive camping, electric/RV sites, rentals and shuttle service. This is separate from the operator''s Wild Side take-out farther downstream.',
+    ARRAY['parking', 'restrooms', 'camping', 'boat_ramp'],
+    'Private campground parking at the Family Side access. Parking, beach access and shuttles may require a fee; arrange access with the operator.',
     'Off Tunnel Dam Road in Camden County, 1 mi down Gardens Road at Tunnel Dam Garden Center sign. Address: 878 Gardens Rd, Macks Creek, MO 65786.',
-    'Campgrounds, camper rentals, RV hookups, lodge, bunkhouse. Convenience store, canoe/kayak rental, shuttle, shower house.',
-    true, 'Camping and rental fees apply. Beach pass fees may apply.',
+    'Gravel beach and boat ramp; primitive campsites; electric and full-hookup RV sites; shower house; rentals and shuttle service.',
+    true, 'Private access. Camping, parking, beach access, rentals and shuttle fees may apply; call ahead.',
     ARRAY['gravel_maintained']::text[], '50+', 'Private',
-    'https://mothernaturesriverfrontretreat.com/',
+    'https://www.mothernaturesriverfrontretreat.com/',
     70.0, true
 FROM rivers r WHERE r.slug = 'niangua'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
@@ -1052,20 +1057,20 @@ ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 INSERT INTO access_points (
     river_id, name, slug, location_orig, type, types, is_public, ownership,
     description, amenities, parking_info, road_access, facilities,
-    fee_required, road_surface, parking_capacity, managing_agency,
+    fee_required, fee_notes, road_surface, parking_capacity, managing_agency,
     official_site_url, river_mile_downstream, approved
 )
 SELECT
     r.id, 'Ha Ha Tonka State Park', 'ha-ha-tonka',
     ST_SetSRID(ST_MakePoint(-92.7683, 37.9595), 4326),
     'park', ARRAY['park', 'access'], true, 'state_park',
-    'State park where the Niangua merges into Lake of the Ozarks. Kayak launch with steps and rail at spring area. Big Niangua River Trail (13.3-mile paddle upstream to Whistle Bridge). Boat dock from Lake of the Ozarks at 14.5-mile marker. Famous castle ruins, spring, geology.',
+    'Free carry-in kayak access at the spring, the Lake of the Ozarks/Big Niangua River Trail terminus and 13.3 miles downstream of Whistle Bridge. The park provides stone kayak-launch steps and a launch rail, not a boat ramp; the first portion upstream is lake paddling. The castle ruins, spring and geology are the park''s draw.',
     ARRAY['parking', 'restrooms', 'picnic'],
     'Multiple parking areas. Spring parking lot for kayak launch.',
     'State Highway D south from Camdenton. Kayak launch: Tonka Spring Road, left from spring parking lot at Lakeside Picnic Shelter.',
-    'Kayak steps and launch rail, boat docks (24-ft limit), restrooms, hiking trails, nature exhibits. No camping.',
-    false, ARRAY['paved']::text[], '50+', 'State Park',
-    'https://mostateparks.com/park/ha-ha-tonka-state-park',
+    'Stone kayak-launch steps and launch rail; courtesy docks (24-foot limit); restrooms, picnic areas and trails. No boat ramp and no camping.',
+    false, 'No launch fee.', ARRAY['paved']::text[], '50+', 'State Park',
+    'https://mostateparks.com/park/ha-ha-tonka/boating',
     79.5, true
 FROM rivers r WHERE r.slug = 'niangua'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
