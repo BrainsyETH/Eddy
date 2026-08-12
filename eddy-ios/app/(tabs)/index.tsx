@@ -73,6 +73,7 @@ import {
   PUBLIC_LAND_OWNERSHIP_NOTE,
   serviceEligible,
 } from '@eddy/types';
+import { boundsForLine } from '@eddy/geo';
 import {
   formatFloatTimeCeilingCompact,
   formatFloatTimeCompact,
@@ -89,7 +90,13 @@ import {
 import { floatableRank } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { mapAccessPointPin, RiverMap, type MapPin } from '@/map/RiverMap';
+import { mapAccessPointPin, RiverMap, type InitialMapCamera, type MapPin } from '@/map/RiverMap';
+import {
+  cameraCommandFor,
+  planFramingDecision,
+  type MapCameraAction,
+  type MapCameraCommand,
+} from '@/map/cameraBehavior';
 import { placeSymbol } from '@/components/map-sheet/placeSymbol';
 import { mapUnavailableReason } from '@/map/runtime';
 import { mappableService } from '@/map/mappable';
@@ -187,23 +194,6 @@ const PLAN_CLUSTER_BOTTOM = 16;
  */
 const CONTROLS_ROOM_MIN = MAP_CHROME_BOTTOM + 44 + 12;
 const CONTROLS_ROOM_FADE = 60;
-
-/**
- * A camera target, tagged with the river it belongs to.
- *
- * `slug` is nullable because the map now opens with no river selected, and
- * "show me where I am" is if anything MORE useful in that state. Tagging it
- * null rather than '' matters: activeFocus compares this against selectedSlug,
- * and an empty string would never equal a null selection, which quietly turned
- * the locate button into a no-op on the opening screen.
- */
-interface Focus {
-  slug: string | null;
-  lng: number;
-  lat: number;
-  /** Omitted for pin/search focus, which wants the map's default close zoom. */
-  zoom?: number;
-}
 
 /**
  * A per-river layer's data, tagged with the river it was fetched for.
@@ -328,7 +318,16 @@ export default function MapScreen() {
   // Not persisted, for the same reason the condition filter is not: a filter
   // restored from last week reads as gauges having gone missing.
   const [gaugeFilter, setGaugeFilter] = useState<ReadonlySet<GaugeFilterKey>>(() => new Set());
-  const [focus, setFocus] = useState<Focus | null>(null);
+  const cameraCommandId = useRef(0);
+  const [cameraCommand, setCameraCommand] = useState<MapCameraCommand | null>(null);
+  /** Issues a navigation request, and returns its id so a caller can cancel it. */
+  const issueCameraCommand = useCallback((action: MapCameraAction): number | null => {
+    cameraCommandId.current += 1;
+    const command = cameraCommandFor(action, cameraCommandId.current);
+    if (!command) return null;
+    setCameraCommand(command);
+    return command.id;
+  }, []);
   // The camera, as of the last time it stopped moving. Only the national gauge
   // layer reads it — everything else on this screen loads a bounded set up front.
   const [viewport, setViewport] = useState<Viewport | null>(null);
@@ -620,6 +619,66 @@ export default function MapScreen() {
   const drawn = selected;
 
   /**
+   * The ONLY place the selected river changes, and the only place setPickedSlug
+   * is called. Enforced by a test — see app-camera-stop.test.ts.
+   *
+   * ── Why the intent is required, and why it cannot have a default ───────────
+   *
+   * Framing used to be derived from state: RiverMap held a bounds chain and any
+   * path that changed the selection got a fit for free, whether or not its
+   * author had thought about the camera. Moving to one-shot commands made that
+   * implicit coverage explicit — and immediately lost two paths that had been
+   * relying on it. Selecting a river from search stopped moving the map (river
+   * results carry no coordinates, so the branch that issued a command was
+   * simply false for them), and picking one in the Plan sheet never issued a
+   * command at all.
+   *
+   * A REQUIRED parameter with no default is what makes that class of omission a
+   * type error rather than a silent no-op: a new call site does not compile
+   * until its author says what the camera does. `'hold'` is a real answer, and
+   * the point is that it has to be given out loud.
+   */
+  type RiverCameraIntent =
+    /** Frame the whole river. The river IS what the reader asked to see. */
+    | { camera: 'fitRiver' }
+    /** A searched point on it; the river selection is a side effect. */
+    | { camera: 'searchResult'; lng: number; lat: number }
+    /** A tapped pin on it; likewise, and it keeps the current zoom. */
+    | { camera: 'pin'; lng: number; lat: number }
+    /** Deliberately nothing. Dismissal is not navigation. */
+    | { camera: 'hold' };
+
+  const selectRiver = useCallback(
+    (slug: string | null, intent: RiverCameraIntent) => {
+      setPickedSlug(slug);
+      switch (intent.camera) {
+        case 'fitRiver': {
+          // Clearing a selection has no river to frame; `hold` is the honest
+          // intent there, and this guard only catches the accidental pairing.
+          if (!slug) return;
+          const river = network.bySlug.get(slug);
+          const bounds = river ? riverBounds(river) : null;
+          if (bounds) issueCameraCommand({ type: 'riverSelected', bounds });
+          return;
+        }
+        case 'searchResult':
+          issueCameraCommand({
+            type: 'searchResultSelected',
+            lng: intent.lng,
+            lat: intent.lat,
+          });
+          return;
+        case 'pin':
+          issueCameraCommand({ type: 'poiSelected', lng: intent.lng, lat: intent.lat });
+          return;
+        case 'hold':
+          return;
+      }
+    },
+    [network.bySlug, issueCameraCommand],
+  );
+
+  /**
    * The selected river as the map and the offline planner need it.
    *
    * Straight out of the statewide dataset: slug, name, the line, and an extent
@@ -870,31 +929,39 @@ export default function MapScreen() {
       pendingAccessSelection.current = null;
     }
 
-    if (result.riverSlug) setPickedSlug(result.riverSlug);
-
     // A gauge or an access point is a POINT, so the camera goes to it rather
     // than refitting the whole river — otherwise choosing "Cedar Grove Access"
     // and watching the map fit ninety miles of Current River is indistinguish-
     // able from nothing happening.
     //
-    // COORDINATES ARE THE ONLY REQUIREMENT. This used to demand a riverSlug as
-    // well, which silently excluded the entire national tier: an uncurated USGS
-    // station has no river_gauges row, so its slug is null — while /api/search
-    // has returned st_x/st_y for it since 00196. Choosing "Bush Kill at
-    // Shoemakers" cleared the field and moved nothing, which is indistinguish-
-    // able from a broken search box.
+    // COORDINATES ARE THE ONLY REQUIREMENT for that. This used to demand a
+    // riverSlug as well, which silently excluded the entire national tier: an
+    // uncurated USGS station has no river_gauges row, so its slug is null —
+    // while /api/search has returned st_x/st_y for it since 00196. Choosing
+    // "Bush Kill at Shoemakers" cleared the field and moved nothing, which is
+    // indistinguishable from a broken search box.
     //
-    // The slug is a TAG, not a precondition: it says which river's camera rules
-    // this target belongs to, and null means "no river's" — see activeFocus,
-    // which lets an untagged focus through unconditionally.
-    if (result.coordinates) {
-      setFocus({
-        slug: result.riverSlug ?? null,
+    // ── And a RIVER result is the case with no point at all ──────────────────
+    //
+    // /api/search sets `coordinates: null` on every river row — a river is a
+    // line, not a place — so a coordinates-only rule leaves the commonest search
+    // in the app doing nothing to the camera. Selecting the river is what that
+    // result means, and fitting it is what the reader asked for.
+    if (result.riverSlug) {
+      selectRiver(
+        result.riverSlug,
+        result.coordinates
+          ? { camera: 'searchResult', lng: result.coordinates.lng, lat: result.coordinates.lat }
+          : { camera: 'fitRiver' },
+      );
+    } else if (result.coordinates) {
+      // A national-tier station: a point that belongs to no curated river, so
+      // there is no selection to make — only somewhere to go.
+      issueCameraCommand({
+        type: 'searchResultSelected',
         lng: result.coordinates.lng,
         lat: result.coordinates.lat,
       });
-    } else {
-      setFocus(null);
     }
 
     // Turn on the layer the result lives in, so what was searched for is
@@ -913,7 +980,7 @@ export default function MapScreen() {
     } else if (result.kind === 'access_point') {
       setLayers((prev) => (prev.includes('access') ? prev : [...prev, 'access']));
     }
-  }, [drawnAccessPoints, clearSearch]);
+  }, [drawnAccessPoints, clearSearch, selectRiver, issueCameraCommand]);
 
   // ── Float plan ──────────────────────────────────────────────────
   const plannerAccessPoints =
@@ -1573,85 +1640,160 @@ export default function MapScreen() {
    * river list wins, so the sheet cannot disagree with the Today tab about a
    * river both can see.
    */
-  // A focus applies when it is tagged with the river on screen, OR when it is
-  // tagged with no river at all.
-  //
-  // The tag exists so a camera target computed for one river cannot survive into
-  // the next — pick an access point on the Current, switch to the Meramec, and
-  // the stale target must not fire. An UNTAGGED focus makes no claim about a
-  // river, so there is nothing for it to be stale against: it is a coordinate
-  // somebody just chose. Requiring `null === selectedSlug` made two things
-  // no-ops the moment any river was selected — the locate button, and every
-  // national-tier gauge picked out of search.
-  const activeFocus = focus && (focus.slug === null || focus.slug === selectedSlug) ? focus : null;
-
   // ── Where the map opens ────────────────────────────────────────────────────
   // Nothing selected, so: the user's own position if location was ALREADY
   // granted on a previous run (useLocation resolves that without prompting),
   // otherwise the whole network. Never a river nobody picked.
   //
-  // Only while no river is selected and no focus is set — after that the
-  // ordinary camera rules take over, and re-centring on the user mid-plan would
-  // yank the map out from under them.
-  const openingFocus: Focus | null =
-    !selectedSlug && !activeFocus && location.coords
-      ? {
-          slug: null,
-          lng: location.coords.lng,
-          lat: location.coords.lat,
-          // Regional, not local. The question this answers is "which rivers are
-          // near me", and that is unanswerable at street zoom.
-          zoom: 8.5,
-        }
+  // This is handed to Mapbox as defaultSettings only. A later render can never
+  // replay it over a gesture or selection.
+  const initialCamera: InitialMapCamera | null = location.coords
+    ? {
+        type: 'center',
+        lng: location.coords.lng,
+        lat: location.coords.lat,
+        // Regional, not local. The question this answers is "which rivers are
+        // near me", and that is unanswerable at street zoom.
+        zoom: 8.5,
+      }
+    : network.bounds
+      ? { type: 'bounds', bounds: network.bounds }
       : null;
 
   /**
-   * Leave the camera exactly where it is.
+   * "Open near me" when the location arrives AFTER the map already opened.
    *
-   * ── The bug this is the fix for ────────────────────────────────────────────
+   * ── The race this closes ───────────────────────────────────────────────────
    *
-   * Closing a river — or closing a pin's callout with no river selected — set
-   * `focus` to null, and null is not "stay". It is "I have no opinion", and two
-   * things downstream do have one. `openingFocus` becomes live again the moment
-   * nothing is selected and no focus is set, so putting a river down flew the
-   * map back to the user's own position at zoom 8.5; and with location denied
-   * the camera fell through to the network bounds and snapped to the whole
-   * state instead. Either way the answer to "close this" was "and here is
-   * somewhere else", after the user had panned to exactly where they wanted.
+   * `initialCamera` is only ever read once, by RiverMap, on its first render —
+   * and RiverMap does not mount until the statewide collection has features.
+   * useLocation starts at null and resolves asynchronously, so which of the two
+   * lands first decides what the map opens on. When the network won, the map
+   * opened statewide and the coordinates that arrived 200ms later had nowhere to
+   * go: the comment above promised "your position if location was already
+   * granted", and the reader got the whole state.
    *
-   * A focus on the current centre is a flyTo to where the camera already is,
-   * which is no movement at all, and being non-null is what keeps the two
-   * fallbacks above from claiming the camera. Tagged `slug: null` so it makes no
-   * claim about a river and cannot go stale against one — see activeFocus.
+   * So it becomes a command — but an OPPORTUNISTIC one, which is why it is the
+   * only command in the app that checks before issuing. It fires exactly once,
+   * and only while nothing else has claimed the camera: no river selected, no
+   * command ever issued, and no gesture ever made.
    *
-   * Returns null before the first onMapIdle, when there is no viewport to hold.
-   * The caller then falls back to the old behaviour, which is the right thing on
-   * a camera that has not settled anywhere yet.
+   * `hasGestured` is LATCHED rather than read live for the reason this whole
+   * effect exists — it is late. RiverMap's gesture handling cancels a command
+   * that is pending while a finger is down, which answers a different question:
+   * by the time these coordinates arrive the reader may have panned, lifted, and
+   * started reading. `isGestureActive` is false by then and would wave it
+   * through, on top of the map they had just positioned themselves.
    */
-  const heldCamera = useCallback((): Focus | null => {
-    if (!viewport) return null;
-    const [west, south, east, north] = viewport.bounds;
-    return {
-      slug: null,
-      lng: (west + east) / 2,
-      lat: (south + north) / 2,
-      zoom: viewport.zoom,
-    };
-  }, [viewport]);
+  const hasGestured = useRef(false);
+  const openedWithoutLocation = useRef(false);
+  const startupLocationSettled = useRef(false);
+  const onUserGesture = useCallback(() => {
+    hasGestured.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (startupLocationSettled.current) return;
+    // Nothing to decide until the map is on screen: this mirrors the condition
+    // the map is rendered under below, and effects run child-first, so RiverMap
+    // has already latched its defaultSettings by the time this runs.
+    if (unavailable || !network.collection.features.length) return;
+    if (!location.coords) {
+      openedWithoutLocation.current = true;
+      return;
+    }
+    startupLocationSettled.current = true;
+    // The coordinates were in hand when the map mounted, so defaultSettings
+    // already used them. Flying to where we opened is not a fix, it is a jolt.
+    if (!openedWithoutLocation.current) return;
+    if (selectedSlug || hasGestured.current || cameraCommandId.current > 0) return;
+    issueCameraCommand({
+      type: 'locationRequested',
+      lng: location.coords.lng,
+      lat: location.coords.lat,
+      // The same regional framing initialCamera would have used.
+      zoom: 8.5,
+    });
+  }, [
+    unavailable,
+    network.collection.features.length,
+    location.coords,
+    selectedSlug,
+    issueCameraCommand,
+  ]);
+
+  /**
+   * Frame a float plan while the reader is looking at it.
+   *
+   * ── Why this keys off the sheet being OPEN, not the route arriving ─────────
+   *
+   * It used to frame on arrival, which put an asynchronous result in competition
+   * with everything the reader had done since asking for it: start a plan, close
+   * the sheet, pan somewhere, and the response landed and framed over them.
+   * Command ids do not answer that — they say a command is not a replay, not
+   * that it is still wanted.
+   *
+   * Gating on `planOpen` dissolves the race rather than refereeing it. PlanSheet
+   * is a pageSheet modal, so while it is up the map cannot be touched at all;
+   * the window in which this frames is exactly the window in which no competing
+   * intent can be formed. Depending on BOTH values is what covers the two cases
+   * that matter — a route landing while the sheet is already open, and a
+   * finished plan being reopened, which frames again because opening it is
+   * fresh intent.
+   *
+   * The alternative was an interaction epoch captured when calculation starts
+   * and compared on arrival. It works, but it is bookkeeping over every gesture
+   * and every navigation in the app, kept in order to adjudicate a conflict this
+   * rule makes impossible.
+   */
+  const planGeometry = planner.plan?.route?.geometry ?? null;
+  const framedRoute = useRef<typeof planGeometry>(null);
+  const planFrameCommandId = useRef<number | null>(null);
+
+  useEffect(() => {
+    const decision = planFramingDecision(planOpen, planGeometry, framedRoute.current);
+    if (decision === 'idle') return;
+
+    if (decision === 'endSession') {
+      framedRoute.current = null;
+      // Cancel a frame issued in the instant before the sheet went away. Without
+      // this the command outlives the viewing session it belongs to — and any
+      // future `waitForSheet` on it would make that a certainty rather than a
+      // sub-frame edge.
+      const pending = planFrameCommandId.current;
+      planFrameCommandId.current = null;
+      if (pending !== null) {
+        setCameraCommand((current) => (current && current.id === pending ? null : current));
+      }
+      return;
+    }
+
+    if (!planGeometry) return;
+    const bounds = boundsForLine(planGeometry.coordinates);
+    if (!bounds) return;
+    framedRoute.current = planGeometry;
+    planFrameCommandId.current = issueCameraCommand({ type: 'planRouteFramed', bounds });
+  }, [planOpen, planGeometry, issueCameraCommand]);
+
+  const onCameraCommandConsumed = useCallback((id: number) => {
+    // Dropped so a REMOUNT cannot replay it. RiverMap's applied-id is a ref and
+    // dies with the component; this state does not, and the map is unmounted for
+    // its spinner whenever the statewide collection momentarily empties.
+    setCameraCommand((current) => (current && current.id === id ? null : current));
+  }, []);
 
   // Tapping a river on the network selects it, which is the whole point of
   // drawing it: the map is now a way of CHOOSING a river, not just of looking
   // at one you already chose. Any open callout belongs to the old river.
   //
-  // Focus IS cleared here, unlike the two below: choosing a river is a request
-  // to be shown it, and RiverMap's bounds chain framing the new selection is
-  // the whole answer.
-  const onSelectNetworkRiver = useCallback((slug: string) => {
-    setPickedSlug(slug);
-    setSelectedPin(null);
-    pendingAccessSelection.current = null;
-    setFocus(null);
-  }, []);
+  const onSelectNetworkRiver = useCallback(
+    (slug: string) => {
+      selectRiver(slug, { camera: 'fitRiver' });
+      setSelectedPin(null);
+      pendingAccessSelection.current = null;
+    },
+    [selectRiver],
+  );
 
   /**
    * Put the selected river down and go back to the whole network.
@@ -1666,14 +1808,13 @@ export default function MapScreen() {
    * THE CAMERA STAYS. Closing a river is a statement about the river, not a
    * request to be taken somewhere; the map used to re-frame on the user's
    * position or on the whole network, which is a hundred miles of pan away from
-   * whatever the user was actually looking at. See heldCamera.
+   * whatever the user was actually looking at.
    */
   const clearRiver = useCallback(() => {
-    setPickedSlug(null);
+    selectRiver(null, { camera: 'hold' });
     setSelectedPin(null);
     pendingAccessSelection.current = null;
-    setFocus(heldCamera());
-  }, [heldCamera]);
+  }, [selectRiver]);
 
   const onLocate = useCallback(async () => {
     // Recorded BEFORE the request, not after it. This is what mounts the puck,
@@ -1686,8 +1827,15 @@ export default function MapScreen() {
     // Declining the dialog then still recentres the map roughly where you are,
     // instead of the button doing visibly nothing.
     const coords = (await location.request()) ?? location.coords;
-    if (coords) setFocus({ slug: selectedSlug, lng: coords.lng, lat: coords.lat });
-  }, [location, selectedSlug]);
+    if (coords) {
+      issueCameraCommand({
+        type: 'locationRequested',
+        lng: coords.lng,
+        lat: coords.lat,
+        zoom: 10.5,
+      });
+    }
+  }, [location, issueCameraCommand]);
 
   const pinAccess = accessPointForPin(selectedPin);
   const pinAccessPoint = pinAccess?.point ?? null;
@@ -1759,56 +1907,28 @@ export default function MapScreen() {
       // selected NOW proves nothing, since the branch below may be what
       // selected it. See the state's own comment.
       setRevealsRiverSheet(Boolean(selectedSlug) && newRiverSlug === null);
+      // A POI owns the centre, never the zoom. The command waits for the sheet's
+      // peek height and then eases the point into the visible map without using
+      // the last onMapIdle zoom, which may belong to the statewide view if a
+      // river animation was still moving when this tap landed.
+      const { lng, lat } = pin.coordinates;
       if (newRiverSlug && entry) {
         pendingAccessSelection.current = {
           id: entry.point.id,
           riverSlug: newRiverSlug,
           layer: pin.layer,
         };
-        setPickedSlug(newRiverSlug);
-        setFocus({
-          slug: newRiverSlug,
-          lng: pin.coordinates.lng,
-          lat: pin.coordinates.lat,
-          // Hold the zoom. Falling through to the focus default of 13 would fly
-          // in from a statewide view for somebody who only asked what a dot was.
-          zoom: viewport?.zoom,
-        });
+        selectRiver(newRiverSlug, { camera: 'pin', lng, lat });
       } else {
-        // ── THE CAMERA STAYS for a pin on the river already shown ──────────
-        // Deliberate, and the thing that makes browsing nearby pins feel
-        // continuous: the map holds still and only the sheet changes, dropping
-        // back to its glance for the new selection. Re-framing on every tap
-        // would fly the map a short distance for each dot you were comparing.
-        //
-        // What keeps that pin out from under the sheet is camera PADDING —
-        // see cameraPaddingBottom on RiverMap — rather than a new centre.
+        // NOT selectRiver(null, …): this pin selects no river, which is a
+        // different thing from clearing the one already selected. Tapping a
+        // gauge on the Current must not put the Current down.
         pendingAccessSelection.current = null;
-        // ── "Stays" has to be SAID, because null does not say it ────────────
-        //
-        // Leaving `focus` alone leaves it null, and null hands the camera to
-        // whichever fallback is live. Opening the sheet changes camera padding,
-        // and a padding change re-applies the camera stop — which in the bounds
-        // branch is a re-FIT rather than a re-aim. So tapping a gauge, a dam, a
-        // service or a landing on the river already shown zoomed the map out to
-        // the whole statewide network, or to a hundred miles of the selected
-        // river; and with location granted the opening focus claimed it instead
-        // and flew back to the user's position at zoom 8.5.
-        //
-        // Holding the current camera is what makes the paragraph above true.
-        // Only when no LIVE focus already claims it: an existing active focus is
-        // a coordinate somebody chose, and re-setting it is a no-op. A stale one
-        // — tagged for a river no longer selected — is deliberately replaced,
-        // since it is exactly what the bounds fallback would otherwise outlive.
-        //
-        // Before the first onMapIdle heldCamera has no viewport to hold and
-        // returns null, which leaves the old behaviour in place on a camera that
-        // has not settled anywhere yet.
-        setFocus(activeFocus ?? heldCamera());
+        issueCameraCommand({ type: 'poiSelected', lng, lat });
       }
       setSelectedPin(pin);
     },
-    [accessPointForPin, selectedSlug, viewport?.zoom, activeFocus, heldCamera],
+    [accessPointForPin, selectedSlug, selectRiver, issueCameraCommand],
   );
 
   // The gauge behind a tapped gauge pin. Looked up rather than carried on
@@ -1938,7 +2058,6 @@ export default function MapScreen() {
             river={mapRiver}
             conditionCode={conditionCode}
             network={network.collection}
-            networkBounds={network.bounds}
             onSelectRiverSlug={onSelectNetworkRiver}
             accessPoints={drawnAccessPoints}
             gauges={mappableGauges}
@@ -1947,18 +2066,15 @@ export default function MapScreen() {
             dams={damPins}
             onViewportChange={setViewport}
             onZoomToCluster={(point) =>
-              setFocus({
-                slug: null,
-                lng: point.lng,
-                lat: point.lat,
-                // Two levels in reliably splits a cluster at clusterRadius 50.
-                zoom: Math.min(16, (viewport?.zoom ?? 10) + 2),
-              })
+              issueCameraCommand({ type: 'clusterSelected', lng: point.lng, lat: point.lat })
             }
             hazards={drawnHazards}
             services={services ?? []}
             layers={layers}
-            focus={activeFocus ?? openingFocus}
+            initialCamera={initialCamera}
+            cameraCommand={cameraCommand}
+            onCameraCommandConsumed={onCameraCommandConsumed}
+            onUserGesture={onUserGesture}
             // `locateAsked` first: the puck is a native location consumer of
             // its own, so it waits for an explicit ask rather than for a status
             // that can arrive on its own. See the state's declaration.
@@ -2290,7 +2406,6 @@ export default function MapScreen() {
                 revealsRiverSheet && riverSheetData
                   ? () => {
                       setSelectedPin(null);
-                      setFocus(heldCamera());
                     }
                   : null
               }
@@ -2306,14 +2421,9 @@ export default function MapScreen() {
               // sheet has its own × for it. Getting to a bare map is two taps,
               // which is what "pops one level" implies.
               //
-              // Dropping the pin's camera override without handing the camera to
-              // anything else. It used to null the focus, which on a map with no
-              // river selected woke the opening focus and flew you to your own
-              // position for having shut a gauge bubble. See heldCamera.
-              onClose={() => {
-                setSelectedPin(null);
-                setFocus(heldCamera());
-              }}
+              // Dismissal is not navigation. The native camera stays exactly
+              // where the reader left it; no old target or bounds can wake up.
+              onClose={() => setSelectedPin(null)}
               starred={pinGauge ? isStarred('gauge', pinGauge.id) : false}
               onToggleStar={
                 pinGauge
@@ -2507,13 +2617,18 @@ export default function MapScreen() {
         rivers={plannerRivers}
         river={selected}
         riverDistances={plannerDistances}
+        // Picking a river here frames it, same as tapping its line on the map.
+        // This used to rely on RiverMap's bounds chain noticing the selection
+        // had changed, so when framing became a command it silently stopped
+        // moving the map at all — the reader chose a river and the map stayed
+        // on wherever they had been.
         onSelectRiver={(river) => {
           setSelectedPin(null);
-          setPickedSlug(river.slug);
+          selectRiver(river.slug, { camera: 'fitRiver' });
         }}
         onClearRiver={() => {
           planner.reset();
-          setPickedSlug(null);
+          selectRiver(null, { camera: 'hold' });
           setPlannerAccess(null);
           setSelectedPin(null);
         }}
