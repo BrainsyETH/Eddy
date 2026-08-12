@@ -123,8 +123,44 @@ export interface UsaceDam {
    * the whole river — on the Black, the river page opens on the spring-fed
    * Lesterville float, which is not the water this dam controls. Optional: a
    * tailwater that is its own river needs no reach.
+   *
+   * ── Two signals, two fields ───────────────────────────────────────────────
+   * This carried a single `gaugeSiteId` while exactly one tailwater existed,
+   * and on the Black the two roles happen to collapse: Clearwater releases,
+   * and 07063000 measures that release 40 river miles down, 5% apart. Bull
+   * Shoals is where they come apart. Its release is published by the Corps at
+   * the dam; the nearest USGS stage gauge is 45 miles down and BELOW the North
+   * Fork confluence, so it reads Bull Shoals plus Norfork; the next one is 62
+   * miles down. One field cannot say which of those a caller wants, and a
+   * caller that guesses wrong attributes another dam's water to this one.
+   *
+   *   releaseStationId       what this dam let out, measured at the dam
+   *   downstreamGaugeSiteIds what the river reads, NEAREST FIRST
+   *
+   * Both are required on a tailwater, because choosing them is the decision —
+   * a tailwater that names neither has not been thought about yet.
    */
-  tailwater?: { riverSlug: string; gaugeSiteId: string; sectionSlug?: string };
+  tailwater?: {
+    riverSlug: string;
+    /**
+     * The dam's release as a gauge station: `provider='usace'`, with this id
+     * as `site_id_external`. Same value as the dam's own id, by construction
+     * — named here anyway so the registry states which release drives THIS
+     * river rather than leaving it to be inferred from a naming convention.
+     */
+    releaseStationId: string;
+    /**
+     * Gauges that measure the water below, nearest first. Nearest first is
+     * load-bearing: `[0]` is what the river hub links to, and "nearest" is the
+     * only ordering that stays correct as more are added.
+     *
+     * A gauge here is NOT thereby endorsed as representative of the whole
+     * reach. Distance and intervening inflows are recorded in the dossier and
+     * in river_gauges, not flattened away by appearing in this list.
+     */
+    downstreamGaugeSiteIds: string[];
+    sectionSlug?: string;
+  };
   /**
    * NAMEPLATE generating capacity — deliberately not SWPA's number.
    *
@@ -237,7 +273,12 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     // The one tailwater Eddy currently carries. Poplar Bluff (07063000) sits
     // BELOW the dam and is release-driven; Annapolis (07061500) sits above the
     // lake and is not, so it gets no dam treatment.
-    tailwater: { riverSlug: 'black', gaugeSiteId: '07063000', sectionSlug: 'lower-markham-hammer' },
+    tailwater: {
+      riverSlug: 'black',
+      releaseStationId: 'swl-clearwater-dam',
+      downstreamGaugeSiteIds: ['07063000'],
+      sectionSlug: 'lower-markham-hammer',
+    },
     // Flood control only — no powerhouse, hence no SWPA code, no generation
     // flow and no tailwater temperature. Its release is steady, which is why a
     // daily forecast figure is honest here in a way it isn't for a hydro dam.

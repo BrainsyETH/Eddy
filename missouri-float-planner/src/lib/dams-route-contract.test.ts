@@ -173,6 +173,30 @@ test('sectionSlug survives the registry into the payload', () => {
   assert.equal(snapshot.tailwater?.gaugeSiteId, '07063000');
 });
 
+test('the registry splits release from downstream gauges; the wire does not', () => {
+  // The wire deliberately stayed narrower than the registry when those two
+  // roles were split apart. A shipped iOS build opens a gauge screen from
+  // `tailwater.gaugeSiteId`, so that key keeps its name and its single value —
+  // the nearest downstream gauge — while the registry carries the release
+  // station and the full list beside it.
+  //
+  // Both directions are asserted because both have failed before. Dropping a
+  // field at this boundary lost sectionSlug for a release; ADDING one is just
+  // as silent, and would publish registry internals as API the moment someone
+  // reaches for a spread again.
+  const registry = USACE_DAMS['swl-clearwater-dam'];
+  assert.equal(registry.tailwater?.releaseStationId, 'swl-clearwater-dam');
+  assert.deepEqual(registry.tailwater?.downstreamGaugeSiteIds, ['07063000']);
+
+  const snapshot = buildSnapshot(registry, {}, []);
+  assert.equal(snapshot.tailwater?.gaugeSiteId, registry.tailwater?.downstreamGaugeSiteIds[0]);
+  assert.deepEqual(
+    Object.keys(snapshot.tailwater!).sort(),
+    ['gaugeSiteId', 'riverSlug', 'sectionSlug'],
+    'the wire grew a key — a client contract changed, so decide it deliberately',
+  );
+});
+
 test('a dam with no reach carries no sectionSlug rather than an empty one', () => {
   // Most tailwaters are their own river and need no reach. Absent must stay
   // absent: RiverReaches highlights on an exact match, and an empty string

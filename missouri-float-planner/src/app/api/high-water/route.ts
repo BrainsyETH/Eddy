@@ -44,7 +44,7 @@ import type { ConditionCode } from '@shared/condition-system';
 import { classifyReading } from '@shared/condition-ladder';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getRivers } from '@/lib/data/rivers';
-import { fetchTailwaterDams } from '@/lib/data/dams';
+import { fetchTailwaterDams, tailwaterGaugeSiteIds } from '@/lib/data/dams';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { toNum } from '@/lib/utils/num';
@@ -150,11 +150,20 @@ export async function GET(request: NextRequest) {
     const elevatedSiteIds = new Set(
       gauges.map((g) => g.siteId).filter((id): id is string => Boolean(id)),
     );
+    // ANY gauge on the tailwater, not just the nearest one the wire carries.
+    // A long tailwater can be quiet at the top and up at the bottom — the Black
+    // has one gauge and cannot show this, but a reach with a gauge at mile 45
+    // and another at mile 62 has two different answers, and a dam whose lower
+    // river is running high is still a dam worth listing.
     const damEntries: HighWaterEntry[] = dams
-      .filter((d) => d.tailwater?.gaugeSiteId && elevatedSiteIds.has(d.tailwater.gaugeSiteId))
-      .map((d) => {
+      .map((d) => ({ dam: d, siteIds: tailwaterGaugeSiteIds(d.id).filter((id) => elevatedSiteIds.has(id)) }))
+      .filter(({ siteIds }) => siteIds.length > 0)
+      .map(({ dam: d, siteIds }) => {
         const release = d.metrics.release;
-        const station = gauges.find((g) => g.siteId === d.tailwater!.gaugeSiteId);
+        // Nearest elevated gauge, since siteIds preserves the registry's
+        // nearest-first order — the reading shown should be the one closest to
+        // the release the row is about.
+        const station = gauges.find((g) => g.siteId === siteIds[0]);
         return {
           kind: 'dam' as const,
           id: `dam:${d.id}`,
@@ -166,7 +175,9 @@ export async function GET(request: NextRequest) {
           readingUnit: release ? 'cfs' : (station?.readingUnit ?? null),
           readingAgeHours: station?.readingAgeHours ?? null,
           riverSlug: d.tailwater?.riverSlug ?? null,
-          siteId: d.tailwater?.gaugeSiteId ?? null,
+          // The gauge that actually put this row on the list, which is not
+          // necessarily the nearest one the wire advertises.
+          siteId: siteIds[0],
           damId: d.id,
         };
       });

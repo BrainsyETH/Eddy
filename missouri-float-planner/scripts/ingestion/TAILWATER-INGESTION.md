@@ -15,6 +15,7 @@ audit existing Eddy support
   → independent identifier/current-fact verification
   → approve topology and supported claims
   → register dam + live/forecast series
+  → import river geometry (NHD)
   → ingest stable fishery/reference facts
   → map regulation geometry [human]
   → verify access/ramp coordinates [human]
@@ -124,10 +125,25 @@ water quality, local reach gauge, post-confluence gauge, tributary gauge, or
 far-downstream gauge. A post-confluence gauge may represent a lower reach while
 being prohibited from describing upstream water.
 
-Prefer explicit identifiers such as `releaseStationId` and
-`downstreamGaugeSiteIds` over overloading one `gaugeSiteId` with both meanings.
-If the current contract permits only one field, document the temporary meaning
-and required refactor rather than silently choosing a mixed downstream gauge.
+The registry carries those roles in separate fields —
+`UsaceDam.tailwater.releaseStationId` and `.downstreamGaugeSiteIds` (nearest
+first) — so a tailwater states which release drives it and which gauges measure
+it, rather than leaving one field to mean both. Both are required. Listing a
+gauge does not endorse it as representative of the whole reach; distance and
+intervening inflows live in the dossier and in `river_gauges`.
+
+The wire is deliberately narrower: `DamTailwater.gaugeSiteId` carries the
+nearest downstream gauge only, because a shipped iOS build opens a gauge screen
+from that exact key. Server-side callers that need the whole set use
+`tailwaterGaugeSiteIds()`.
+
+Know what each field switches on before choosing it. `/api/high-water` lists a
+dam only when one of its downstream gauges is graded elevated — so a tailwater
+whose gauges carry no ladder never appears there, silently, no matter how much
+water the dam is releasing. That is a defensible launch state; it is not a
+defensible surprise. Decide it, write it down, and check the surface after
+activation rather than assuming a dam with a release feed shows up everywhere a
+dam can show up.
 
 **Gate:** unsupported claims get no condition code, threshold, notification, or
 AI prompt language.
@@ -179,6 +195,31 @@ location, staleness state, and missing-data behavior for every registered
 series.
 
 ## Phase 6 — Ingest stable/reference information
+
+### First: the river row itself must be able to activate
+
+Two columns block activation outright and neither is about the fishery, so
+both are easy to leave for later and discover at the end:
+
+- **`rivers.river_type` must be `dam_tailwater`.** It is a required column
+  (`missing_river_type` is an error), it is already in the table's CHECK
+  constraint, and regime-aware validation keys off it — a tailwater typed
+  anything else gets graded as an ordinary river and fails on a ladder it
+  should never have had.
+- **`rivers.geom` must be populated.** `missing_geometry` is an error too.
+  Geometry comes from NHD, the same way an ordinary river gets it: add the
+  river to the `RIVERS` list in `scripts/import-nhd-rivers-from-tnm.ts` (NHD HR
+  HUC8, multi-HUC supported) and run it with `--apply`. Then verify the
+  endpoints against the real boundaries and the length against a published
+  figure before trusting it — an earlier import shipped a 47 km junk polyline
+  that had to be redone.
+
+A tailwater's endpoints are worth checking twice, because its extent is a
+management decision rather than a natural feature: the flowline runs to the
+confluence, while the reach Eddy launched may stop at a bridge named in a
+regulation.
+
+### Then the reference facts
 
 Stable facts may include canonical names, operator, fishery extent, verified
 species, stable reach descriptions, official source links, and verified
@@ -288,13 +329,34 @@ idle, and previously released water remains downstream.
 
 ## Phase 10 — Regime-aware validation and activation
 
-The ordinary river validator currently expects an active primary gauge and a
-condition threshold ladder. A primary gauge with no thresholds may be an
-activation-blocking `missing_thresholds` error—not merely a set of warnings.
-Inspect the live function before every launch.
+The ordinary river validator expects an active primary gauge and a condition
+threshold ladder. A ladder-less tailwater does not merely warn — it cannot
+activate at all, and **both** ways out are errors, which is why this reads as a
+puzzle rather than a wall the first time:
+
+```
+primary gauge, no thresholds  →  missing_thresholds   error
+gauges but none primary       →  no_primary_gauge     error
+```
+
+`activate-rivers.ts` auto-rolls-back on either. The three anchor checks added
+in migration `00164` (`no_dangerous_anchor`, `no_optimal_max_anchor`,
+`no_too_low_anchor`) are only warnings AND carry a ladder guard, so they fire on
+a partial ladder and stay silent on an absent one — reading them alone suggests
+the situation is milder than it is.
+
+`20260812220000_regime_aware_validation_for_dam_tailwaters` resolves this for
+`river_type = 'dam_tailwater'`: the four ladder checks stop applying, and four
+others replace them in the same gate — `tailwater_no_release_source` (error),
+`tailwater_release_stale` (warning, 12h), `tailwater_badge_ungated` (warning),
+and `primary_gauge_no_flow_params` (error, every regime — a station publishing
+neither 00060 nor 00065 cannot feed the condition system at all).
+
+Inspect the live function before every launch anyway; the paragraph above is
+true as written and will stop being true the day someone changes it.
 
 Do not accept permanent validation errors/warnings and do not add fabricated
-thresholds to make the validator green. Implement regime-aware validation:
+thresholds to make the validator green. The regimes:
 
 - ordinary rivers retain primary-gauge and ladder checks;
 - dam tailwaters require an active release source, verified unit/location,
@@ -306,6 +368,14 @@ thresholds to make the validator green. Implement regime-aware validation:
 
 Exempting a tailwater from irrelevant ladder checks is acceptable only when the
 tailwater-specific checks replace them in the same launch gate.
+
+**The last of those is not enforced by validation, and cannot currently be.**
+`computeCondition()` has no concept of `river_type`; it grades whatever
+thresholds it is handed. So a tailwater whose primary gauge carries thresholds
+IS being graded, with float-condition vocabulary, over release-at-dam numbers.
+`tailwater_badge_ungated` names that hazard; it does not prevent it. Making the
+badge itself regime-aware is a rendering change in `shared/condition-system.ts`,
+and until it exists, "the badge stays off" is a human commitment, not a gate.
 
 Before activation, test:
 
@@ -351,6 +421,8 @@ an official source to a blog or distant gauge.
 ## Launch checklist
 
 - [ ] Four system boundaries are explicit.
+- [ ] `rivers.river_type` is `dam_tailwater` and `rivers.geom` is imported and
+      endpoint-checked — both are activation errors, neither is about fish.
 - [ ] Existing Eddy support audited and every relevant capability classified as
       reuse, extend, correct, or missing.
 - [ ] Exact primary-source URLs and identifiers independently verified.
@@ -378,6 +450,9 @@ an official source to a blog or distant gauge.
 - [ ] MW, MWh, cfs, generator count, stage, and elevation remain distinct.
 - [ ] Missing or seasonal metrics render as unknown/absent, never zero.
 - [ ] Generation-idle periods are not labeled “water off” or “wading windows.”
+- [ ] Release station and downstream gauges are separate registry fields, and
+      every surface keyed off them (high-water especially) was checked after
+      activation rather than assumed.
 - [ ] Regime-aware validation replaces inapplicable ladder checks and passes
       without permanent errors or warnings.
 - [ ] Live and failure-path smoke tests pass.

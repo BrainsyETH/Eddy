@@ -439,7 +439,23 @@ export function buildSnapshot(
     // client holding the dam list can answer "does this river have a dam above
     // it" without a second round trip — which is what lets the iOS river screen
     // show a dam panel with no /api/rivers/[slug]/dam route existing.
-    ...(dam.tailwater ? { tailwater: dam.tailwater } : {}),
+    //
+    // Field-by-field, and the registry is now WIDER than the wire. It splits
+    // the dam's release from the gauges below it; the wire keeps carrying one
+    // `gaugeSiteId`, because a shipped iOS build reads exactly that key to open
+    // a gauge screen and would lose the link if it were renamed. Nothing on any
+    // client needs the second gauge yet, and the last time this was a spread
+    // the type boundary silently DROPPED a field (sectionSlug) — a spread can
+    // just as easily add one, publishing registry internals as API.
+    ...(dam.tailwater
+      ? {
+          tailwater: {
+            riverSlug: dam.tailwater.riverSlug,
+            gaugeSiteId: dam.tailwater.downstreamGaugeSiteIds[0],
+            ...(dam.tailwater.sectionSlug ? { sectionSlug: dam.tailwater.sectionSlug } : {}),
+          },
+        }
+      : {}),
     metrics,
     generating,
     schedule,
@@ -507,12 +523,25 @@ export async function fetchAllDamSummaries(): Promise<DamSnapshot[]> {
  */
 export async function fetchTailwaterDams(): Promise<DamSnapshot[]> {
   const ids = Object.values(USACE_DAMS)
-    .filter((d) => d.tailwater?.gaugeSiteId)
+    .filter((d) => d.tailwater?.downstreamGaugeSiteIds.length)
     .map((d) => d.id);
   const results = await mapWithConcurrency(ids, 4, (id) =>
     fetchSnapshot(id, { metrics: HIGH_WATER_METRICS, scheduleDays: 0 })
   );
   return results.filter((d): d is DamSnapshot => d !== null);
+}
+
+/**
+ * Every gauge that measures this dam's tailwater, nearest first.
+ *
+ * The wire carries only the nearest one, so a server-side caller that needs
+ * the whole set has to come back to the registry — /api/high-water does, to
+ * decide whether a tailwater is running high. Asking about the nearest gauge
+ * alone would miss a reach whose upper gauge is quiet while a lower one is up,
+ * and on a long tailwater those are different questions.
+ */
+export function tailwaterGaugeSiteIds(damId: string): string[] {
+  return getUsaceDam(damId)?.tailwater?.downstreamGaugeSiteIds ?? [];
 }
 
 export function listDamIds(): string[] {
@@ -587,7 +616,9 @@ export async function fetchRiverDam(riverSlug: string): Promise<RiverDamContext 
 
   return {
     dam,
-    tailwaterGaugeSiteId: entry.tailwater!.gaugeSiteId,
+    // Nearest gauge: this drives the river hub's one dam panel, and the reach
+    // a reader is standing on is the one closest to the release.
+    tailwaterGaugeSiteId: entry.tailwater!.downstreamGaugeSiteIds[0],
     forecast,
     forecastIsDaily: series ? series.tsId.includes('~1Day') : false,
   };

@@ -126,6 +126,17 @@ export interface DamScheduleDay {
  */
 export interface DamTailwater {
   riverSlug: string;
+  /**
+   * The NEAREST gauge below the dam.
+   *
+   * The registry behind this splits two things the wire does not: the dam's
+   * own release, and the list of gauges measuring the water below it. A
+   * shipped iOS build reads this exact key to open a gauge screen, so it keeps
+   * its name and stays single-valued; a server-side caller that needs the full
+   * list asks the registry (`tailwaterGaugeSiteIds`). Widen this only when a
+   * client actually has something to do with the second gauge — an extra key
+   * no screen reads is a contract to maintain for nothing.
+   */
   gaugeSiteId: string;
   /**
    * The `river_sections` reach the release actually lands in, when the river

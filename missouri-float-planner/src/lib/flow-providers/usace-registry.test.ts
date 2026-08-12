@@ -156,8 +156,54 @@ test('tailwater links point at a dam that actually reports a release', () => {
   for (const dam of Object.values(USACE_DAMS)) {
     if (!dam.tailwater) continue;
     assert.ok(dam.tailwater.riverSlug, `${dam.id} tailwater has no riverSlug`);
-    assert.ok(dam.tailwater.gaugeSiteId, `${dam.id} tailwater has no gaugeSiteId`);
+    assert.ok(
+      dam.tailwater.downstreamGaugeSiteIds.length > 0,
+      `${dam.id} tailwater names no downstream gauge`,
+    );
     assert.ok(dam.series.release, `${dam.id} claims a tailwater but reports no release`);
+  }
+});
+
+test('a tailwater names its release station, and it is this dam', () => {
+  // The two halves of the split have to stay attached to the right dam. A
+  // releaseStationId pointing at a neighbouring project would attribute one
+  // dam's water to another — and on the White River, where Bull Shoals and
+  // Norfork release into the same river 45 miles apart, that is a mistake the
+  // numbers alone would not reveal.
+  for (const dam of Object.values(USACE_DAMS)) {
+    if (!dam.tailwater) continue;
+    assert.equal(
+      dam.tailwater.releaseStationId,
+      dam.id,
+      `${dam.id} tailwater names another project's release station`,
+    );
+    assert.ok(
+      USACE_RELEASE_SITE_IDS.includes(dam.tailwater.releaseStationId),
+      `${dam.id} names a release station that publishes no release series`,
+    );
+  }
+});
+
+test('downstream tailwater gauges are distinct from the release station', () => {
+  // The overload this split removed: one field held "the release" and "the
+  // gauge below" at once, and nothing stopped a dam id being written where a
+  // USGS site belongs. They are different measurements — release is what the
+  // powerhouse let out, a downstream gauge is what the river is doing after
+  // travel, tributaries and time.
+  for (const dam of Object.values(USACE_DAMS)) {
+    if (!dam.tailwater) continue;
+    for (const siteId of dam.tailwater.downstreamGaugeSiteIds) {
+      assert.notEqual(
+        siteId,
+        dam.tailwater.releaseStationId,
+        `${dam.id} lists its own release station as a downstream gauge`,
+      );
+    }
+    assert.equal(
+      new Set(dam.tailwater.downstreamGaugeSiteIds).size,
+      dam.tailwater.downstreamGaugeSiteIds.length,
+      `${dam.id} lists a downstream gauge twice`,
+    );
   }
 });
 
