@@ -51,8 +51,10 @@ export type PinLayerKey = Exclude<LayerKey, 'weatherRadar' | 'publicLand'>;
 export interface LayerDef {
   key: LayerKey;
   label: string;
-  /** One line under the label, saying what the layer actually shows. */
-  description: string;
+  /** Optional supporting copy shown under a filter row and read as its hint. */
+  description?: string;
+  /** Extra context for assistive technology when the visible label is enough. */
+  accessibilityHint?: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
   /**
    * Eddy's own mark for this layer. Every layer has one.
@@ -318,7 +320,7 @@ export const MAP_LAYERS: LayerDef[] = [
   {
     key: 'access',
     label: 'Access points',
-    description: 'Put-ins and ramps on every river',
+    description: 'Put-ins and boat ramps',
     icon: 'location',
     // ── Boat ramps are a TIER here, not a ninth row ────────────────────────
     // EddySymbol's own ruling says the map catalog carries no boat-ramp mark
@@ -374,8 +376,8 @@ export const MAP_LAYERS: LayerDef[] = [
     // tiers are still named for what separates them (see tierLabel below and on
     // the row after this one), because that distinction is the whole point:
     // both hold USGS gauges, and only one of them carries a verdict.
-    label: 'Gauges',
-    description: 'Live USGS readings on the water',
+    label: 'USGS gauges',
+    accessibilityHint: 'Live USGS readings on the water',
     tiers: ['gauges', 'allGauges'],
     tierLabel: 'Eddy-rated',
     icon: 'speedometer-outline',
@@ -417,7 +419,7 @@ export const MAP_LAYERS: LayerDef[] = [
   {
     key: 'hazards',
     label: 'Hazards',
-    description: 'Low-water dams, strainers, portages',
+    accessibilityHint: 'Low-water dams, strainers, and portages',
     icon: 'warning-outline',
     symbol: 'hazard',
     color: () => conditionColor('dangerous'),
@@ -432,7 +434,7 @@ export const MAP_LAYERS: LayerDef[] = [
     // with a safety consequence — so the label names the lake, which is what
     // actually distinguishes these ten.
     label: 'Lakes & dams',
-    description: 'USACE releases, lake levels and generation',
+    accessibilityHint: 'USACE releases, lake levels, and generation',
     icon: 'water-outline',
     // A dedicated spillway mark, separate from both the gauge instrument and
     // the dangerous low-water-dam hazard mark above.
@@ -444,10 +446,8 @@ export const MAP_LAYERS: LayerDef[] = [
   },
   {
     key: 'weatherRadar',
-    label: 'Rain',
-    // Says what it IS and, by saying "live", what it is not: the one layer here
-    // that a downloaded river cannot carry.
-    description: 'Where it is raining now',
+    label: 'Rain radar',
+    accessibilityHint: 'Shows where it is raining now and requires a connection',
     icon: 'rainy-outline',
     // Already in the bundled catalog — this is the mark the weather panel on
     // the river screen uses, so the two agree about what weather looks like.
@@ -461,12 +461,8 @@ export const MAP_LAYERS: LayerDef[] = [
   {
     key: 'publicLand',
     label: 'Public land',
-    // SAYS WHAT IT IS NOT, in the one line the sheet gives it. A boundary here
-    // is ownership; it is not a right to land, camp or portage, and someone
-    // switching this on to answer "can I sleep on that gravel bar" has to meet
-    // that sentence before they meet the fill. The longer version renders under
-    // the switch (PUBLIC_LAND_OWNERSHIP_NOTE) and again in the callout.
-    description: 'Agency boundaries — ownership, not permission',
+    description: 'Agency boundaries',
+    accessibilityHint: 'Shows agency ownership boundaries, not permission to access, camp, or portage',
     icon: 'map-outline',
     // No `symbol`: the catalog has no mark for public land, and `icon` is the
     // documented fallback for a layer before one is drawn for it.
@@ -496,7 +492,7 @@ export const MAP_LAYERS: LayerDef[] = [
     // have become a tier of the row below instead — and then two switches would
     // have drawn overlapping sets of the same tents. A service earns this layer
     // by having a camping OFFERING or a campground kind, whoever runs it.
-    description: 'Places to sleep on the river',
+    accessibilityHint: 'Places to sleep outdoors near the river',
     icon: 'bonfire-outline',
     symbol: 'campground',
     color: (c) => c.success,
@@ -520,7 +516,7 @@ export const MAP_LAYERS: LayerDef[] = [
     // of everyone who has ever opened the sheet. See mapPreferences.
     label: 'Rentals & shuttles',
     section: 'services',
-    description: 'Canoe, kayak and raft rental, and shuttles',
+    accessibilityHint: 'Canoe, kayak, and raft rentals and shuttle services',
     // No `tiers`: with lodging promoted this row switches one layer, so
     // layerRowCount falls through to its own key. Nothing sums, which is the
     // only correct arithmetic here — a business in both rows is one place, and
@@ -555,7 +551,7 @@ export const MAP_LAYERS: LayerDef[] = [
     // to sleep. Its neighbour is Camping, and it sits there now.
     //
     // No `tierLabel`: a row is its own context, so `label` says it once.
-    description: 'Cabins, lodge rooms and cottages',
+    accessibilityHint: 'Cabins, lodge rooms, and cottages',
     icon: 'bed-outline',
     tierSymbol: 'lodging',
     // ── The cabin mark distinguishes the tier; colour stays neutral ───────
