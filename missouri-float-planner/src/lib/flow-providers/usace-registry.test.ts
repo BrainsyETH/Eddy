@@ -220,12 +220,41 @@ test('nameplate capacity is never SWPA scheduling capacity', () => {
     ['swl-table-rock-dam', 200, 230],
     ['swl-beaver-dam', 112, 128],
     ['nwk-truman-dam', 160, 184],
+    // Bull Shoals is the sharpest case: 340 installed, 391 scheduled, and it
+    // sat here as 380 — a figure matching neither — until the Corps' Feb 2026
+    // MER fact sheet was read.
+    ['swl-bull-shoals-dam', 340, 391],
   ];
   for (const [id, nameplate, swpa] of mismatches) {
     const dam = getUsaceDam(id)!;
     assert.equal(dam.nameplate?.megawatts, nameplate, `${id} nameplate`);
     assert.equal(SWPA_PROJECTS[dam.swpaCode!].capacityMw, swpa, `${id} SWPA capacity`);
     assert.notEqual(dam.nameplate?.megawatts, SWPA_PROJECTS[dam.swpaCode!].capacityMw);
+  }
+});
+
+test('a planned uprate sits between installed nameplate and SWPA capability', () => {
+  // The ordering is what makes the three numbers legible as three numbers
+  // rather than a disagreement: a plant generates `megawatts` today, will
+  // generate `plannedMegawatts` once its rehabilitation lands, and is
+  // SCHEDULED against a higher short-term figure throughout. Any dam that
+  // records a planned uprate has to keep that order, or one of the three has
+  // been filled in from the wrong document.
+  const withPlan = Object.values(USACE_DAMS).filter((d) => d.nameplate?.plannedMegawatts);
+  assert.ok(withPlan.length > 0, 'at least one dam records a planned uprate');
+
+  for (const dam of withPlan) {
+    const { megawatts, plannedMegawatts } = dam.nameplate!;
+    assert.ok(
+      plannedMegawatts! > megawatts,
+      `${dam.id}: planned ${plannedMegawatts} must exceed installed ${megawatts}`,
+    );
+    if (dam.swpaCode) {
+      assert.ok(
+        plannedMegawatts! <= SWPA_PROJECTS[dam.swpaCode].capacityMw,
+        `${dam.id}: planned ${plannedMegawatts} exceeds SWPA scheduling capability`,
+      );
+    }
   }
 });
 

@@ -426,7 +426,13 @@ export function buildSnapshot(
     lat: dam.lat,
     lon: dam.lon,
     hasTurbines: Boolean(dam.swpaCode),
-    ...(dam.nameplate ? { nameplate: dam.nameplate } : {}),
+    // Field-by-field, not a spread of dam.nameplate: the registry also carries
+    // plannedMegawatts (a plant mid-rehabilitation), which nothing renders and
+    // which would otherwise ride onto the wire silently, past a shared type
+    // that documents exactly two fields.
+    ...(dam.nameplate
+      ? { nameplate: { units: dam.nameplate.units, megawatts: dam.nameplate.megawatts } }
+      : {}),
     ...(dam.tailwaterFishery ? { tailwaterFishery: dam.tailwaterFishery } : {}),
     ...(dam.infoPhone ? { infoPhone: dam.infoPhone } : {}),
     // The reach this dam controls, when Eddy carries it. On the wire so a

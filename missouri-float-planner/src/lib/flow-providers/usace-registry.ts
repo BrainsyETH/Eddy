@@ -134,8 +134,28 @@ export interface UsaceDam {
    * their own purpose, so describe the plant with THIS and convert megawatts
    * to cfs with SWPA's pair (see megawattsToCfs) — the conversion needs both
    * halves to come from the same table to stay internally consistent.
+   *
+   * ── Three numbers, not two ────────────────────────────────────────────────
+   * A plant under rehabilitation has a THIRD figure, and Bull Shoals is the
+   * case that proved the two-field shape wrong. It shipped here as 380 MW,
+   * which matches none of its real values. The Corps' own Major Equipment
+   * Replacement fact sheet (Little Rock District, as of 02/27/2026) reads:
+   * "an 8-unit hydroelectric plant with a combined installed power capacity of
+   * 340 MW. This project will increase the power capacity to 362 MW." SWPA
+   * schedules the same plant against 391.
+   *
+   *   megawatts        340  what the plant can generate today
+   *   plannedMegawatts 362  what the MER project raises it to
+   *   SWPA capacityMw  391  scheduling capability, in swpa.ts, paired with
+   *                         fullPowerCfs and never to be separated from it
+   *
+   * `plannedMegawatts` is registry-only and deliberately off the wire: nothing
+   * renders it, and an unexplained second number beside the first would read
+   * as a contradiction. It is here so the next person to "correct" 340 finds
+   * the upgrade already recorded, with its source, instead of guessing which
+   * of three published figures is the plant.
    */
-  nameplate?: { units: number; megawatts: number };
+  nameplate?: { units: number; megawatts: number; plannedMegawatts?: number };
   /**
    * What lives in the water below the dam.
    *
@@ -250,7 +270,10 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     office: 'SWL',
     cdaLocation: 'Bull_Shoals_Dam',
     swpaCode: 'BSD',
-    nameplate: { units: 8, megawatts: 380 },
+    // 340 today, 362 after the Major Equipment Replacement project; SWPA
+    // schedules against 391. See the nameplate field's note — the 380 that
+    // stood here matched none of the three.
+    nameplate: { units: 8, megawatts: 340, plannedMegawatts: 362 },
     tailwaterFishery: 'trout' as const,
     infoPhone: '870-431-5311',
     generationOnCfs: 100,
