@@ -192,7 +192,21 @@ export default function DamDetailScreen() {
               Eddy does not carry has no river screen to offer. */}
           {dam.tailwater ? (
             <Pressable
-              onPress={() => router.push(`/river/${dam.tailwater!.riverSlug}`)}
+              // `section` names the reach this dam actually controls, when the
+              // river carries more than one. Without it the Black opens on the
+              // spring-fed Lesterville float — rain-driven water Clearwater has
+              // no bearing on — and nothing marks which half you came for.
+              onPress={() =>
+                router.push({
+                  pathname: '/river/[slug]',
+                  params: {
+                    slug: dam.tailwater!.riverSlug,
+                    ...(dam.tailwater!.sectionSlug
+                      ? { section: dam.tailwater!.sectionSlug }
+                      : {}),
+                  },
+                })
+              }
               style={({ pressed }) => [
                 styles.action,
                 {

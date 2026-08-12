@@ -149,3 +149,40 @@ test('the payload still carries the identity fields a list cannot render without
   assert.equal(snapshot.generating, null);
   assert.equal(snapshot.tailwater?.riverSlug, 'black', 'the tailwater link survives assembly');
 });
+
+test('sectionSlug survives the registry into the payload', () => {
+  // It has been lost once. `DamTailwater` originally declared only riverSlug
+  // and gaugeSiteId, so the registry's sectionSlug was dropped at the type
+  // boundary and never reached a client — invisibly, because a spread of a
+  // wider object raises no excess-property error.
+  //
+  // Two consumers depend on it now: the iOS dam screen pushes it as `section`,
+  // and the web river hub feeds it to RiverReaches as `highlightSlug`. Losing
+  // it again would not break either — they would just quietly stop marking
+  // which reach the dam controls, which is the whole reason the field exists.
+  const registry = USACE_DAMS['swl-clearwater-dam'];
+  assert.equal(
+    registry.tailwater?.sectionSlug,
+    'lower-markham-hammer',
+    'registry entry changed — update this test with it, do not delete the assertion'
+  );
+
+  const snapshot = buildSnapshot(registry, {}, []);
+  assert.equal(snapshot.tailwater?.sectionSlug, registry.tailwater?.sectionSlug);
+  assert.equal(snapshot.tailwater?.riverSlug, 'black');
+  assert.equal(snapshot.tailwater?.gaugeSiteId, '07063000');
+});
+
+test('a dam with no reach carries no sectionSlug rather than an empty one', () => {
+  // Most tailwaters are their own river and need no reach. Absent must stay
+  // absent: RiverReaches highlights on an exact match, and an empty string
+  // would match nothing while still reading as "a reach was specified".
+  for (const dam of Object.values(USACE_DAMS)) {
+    if (!dam.tailwater) continue;
+    const carried = buildSnapshot(dam, {}, []).tailwater;
+    assert.equal(carried?.sectionSlug, dam.tailwater.sectionSlug);
+    if ('sectionSlug' in dam.tailwater) {
+      assert.notEqual(carried?.sectionSlug, '', `${dam.id} carries an empty sectionSlug`);
+    }
+  }
+});

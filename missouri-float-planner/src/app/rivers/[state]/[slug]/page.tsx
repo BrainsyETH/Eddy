@@ -445,7 +445,15 @@ export default async function RiverGuidePage({ params }: Props) {
               <h2 className="mb-3 text-xl font-bold text-neutral-900 md:text-2xl" style={{ fontFamily: 'var(--font-display)' }}>
                 Reaches
               </h2>
-              <RiverReaches reaches={riverReaches} />
+              {/* When a dam controls one of these reaches, say which. The chip
+                  already marks a reach as dam-controlled; this names it as THE
+                  one the panel below is about, which is the connection a reader
+                  arriving from that dam is missing. Server-side, so no hash
+                  reader and no client component — the page already knows. */}
+              <RiverReaches
+                reaches={riverReaches}
+                highlightSlug={riverDam?.dam.tailwater?.sectionSlug ?? null}
+              />
             </section>
           )}
 

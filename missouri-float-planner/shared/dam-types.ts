@@ -135,6 +135,12 @@ export interface DamTailwater {
    * which is NOT the water Clearwater controls — so a dam panel that linked the
    * river alone would point a reader at a reach the dam has no bearing on.
    * Optional: a tailwater that is its own river needs no reach.
+   *
+   * CONSUMED, in two places, and neither is obvious from here: the iOS dam
+   * screen passes it as `section` when pushing the river screen, and the web
+   * river hub feeds it to RiverReaches as `highlightSlug`. It was dropped from
+   * this type once already and silently lost on the wire, which is why
+   * dams-route-contract.test.ts asserts it survives assembly.
    */
   sectionSlug?: string;
 }

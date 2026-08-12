@@ -337,7 +337,10 @@ function ServiceRow({ service }: { service: RiverService }) {
 }
 
 export default function RiverDetailScreen() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  // `section` is optional and set only when the reader arrived from somewhere
+  // that knows which reach they came for — today the dam screen, passing
+  // tailwater.sectionSlug. An unknown or absent value highlights nothing.
+  const { slug, section } = useLocalSearchParams<{ slug: string; section?: string }>();
   const router = useRouter();
   const { colors, elevation } = useTheme();
   const { getAccessToken } = useSession();
@@ -1114,7 +1117,7 @@ export default function RiverDetailScreen() {
         {/* The river's own stretches, each with the gauge that actually reads
             it. Directly under the status card because a reach IS the river —
             everything below this point interprets it. */}
-        <RiverReaches reaches={reaches} />
+        <RiverReaches reaches={reaches} highlightSlug={section} />
 
         {/* ── What it means. Directly under the status card, because the card
                above says what the river IS and this says what to do about it.
