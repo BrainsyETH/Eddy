@@ -996,7 +996,10 @@ INSERT INTO access_points (
 )
 SELECT
     r.id, 'Whistle Bridge', 'whistle-bridge',
-    ST_SetSRID(ST_MakePoint(-92.8343, 37.9410), 4326),
+    -- Was -92.8343, 37.9410 here — 3.7 km from the pin production has been
+    -- serving. The live coordinate is the one that has been in front of
+    -- readers, so the seed is corrected to it rather than the other way round.
+    ST_SetSRID(ST_MakePoint(-92.8758980, 37.9379563), 4326),
     'bridge', ARRAY['bridge', 'access'], false, 'county',
     'Low-water concrete crossing at Whistle Road and Tunnel Dam Road. Usable only when the channel below Tunnel Dam is carrying water. It can serve as a river access, but there is no public parking and the surrounding land is private. Use only for a lawful drop-off/pickup and do not enter adjacent property.',
     ARRAY[]::text[],
