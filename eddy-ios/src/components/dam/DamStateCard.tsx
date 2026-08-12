@@ -24,7 +24,12 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
-import { relativeAge, nextScheduleChangeSentence } from '@eddy/conditions/dam-schedule-copy';
+import {
+  relativeAge,
+  nextScheduleChangeSentence,
+  tailwaterMovementSentence,
+  SCHEDULE_CHANGE_NOTE,
+} from '@eddy/conditions/dam-schedule-copy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -32,32 +37,23 @@ function formatCfs(value: number): string {
   return `${Math.round(value).toLocaleString()} cfs`;
 }
 
-/**
- * A metric's recent movement, as a signed number rather than a verdict.
- *
- * The rounding IS the threshold: a change that rounds to 0.0 ft renders nothing,
- * so there is no invented "steady" band to be wrong about. See the measurement
- * note on DamMetricValue.trend for why a rising/falling label cannot be made
- * honest — idle and generating periods overlap across the whole range a
- * threshold could sit in.
- */
-function trendLabel(trend: { hours: number; delta: number } | undefined): string | null {
-  if (!trend) return null;
-  const rounded = Math.round(trend.delta * 10) / 10;
-  if (rounded === 0) return null;
-  return `${rounded > 0 ? '+' : '−'}${Math.abs(rounded).toFixed(1)} ft in ${trend.hours}h`;
-}
-
 interface StatProps {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
   value: string;
+  /**
+   * A qualifier that belongs ON the value line but must not compete with the
+   * number for weight — "elevation" beside 703.95 ft. Kept out of `value`
+   * because at full display weight it wrapped onto its own line and read as a
+   * second, unlabelled figure.
+   */
+  suffix?: string;
   sub?: string | null;
   /** A stale reading stays visible and loses emphasis. */
   dim?: boolean;
 }
 
-function Stat({ icon, label, value, sub, dim }: StatProps) {
+function Stat({ icon, label, value, suffix, sub, dim }: StatProps) {
   const { colors } = useTheme();
   return (
     <View style={styles.stat}>
@@ -67,6 +63,9 @@ function Stat({ icon, label, value, sub, dim }: StatProps) {
       </View>
       <Text style={[styles.statValue, { color: dim ? colors.textMuted : colors.text }]}>
         {value}
+        {suffix ? (
+          <Text style={[styles.statSuffix, { color: colors.textSubtle }]}> {suffix}</Text>
+        ) : null}
       </Text>
       {sub ? <Text style={[styles.statSub, { color: colors.textSubtle }]}>{sub}</Text> : null}
     </View>
@@ -133,11 +132,19 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
         </View>
       ) : null}
 
+      {/* The note is not decoration and must not be dropped to save a line: it
+          carries SWPA's "subject to change" and the fact that water downstream
+          lags the dam, and on a list surface there is no schedule block below to
+          carry either. */}
       {nextChange ? (
-        <View style={styles.nextChangeRow}>
-          <Ionicons name="time-outline" size={13} color={colors.interactive} />
-          <Text style={[styles.nextChange, { color: colors.interactive }]}>{nextChange}</Text>
-          <Text style={[styles.nextChangeAside, { color: colors.textSubtle }]}>(scheduled)</Text>
+        <View>
+          <View style={styles.nextChangeRow}>
+            <Ionicons name="time-outline" size={13} color={colors.interactive} />
+            <Text style={[styles.nextChange, { color: colors.interactive }]}>{nextChange}</Text>
+          </View>
+          <Text style={[styles.nextChangeAside, { color: colors.textSubtle }]}>
+            {SCHEDULE_CHANGE_NOTE}
+          </Text>
         </View>
       ) : null}
 
@@ -158,18 +165,23 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
           />
         ) : null}
 
-        {/* Stage below the dam, with how far it has moved in three hours.
-            Measured 2026-08-12, this swings 8.19 ft at Table Rock and 7.67 ft
-            at Bull Shoals between idle and full generation — and unlike the
-            schedule it also catches water nobody announced. It is an elevation
-            above sea level, so the movement carries the meaning rather than the
-            absolute number. */}
+        {/* Level below the dam, with how far it moved in three hours. Measured
+            2026-08-12, this swings 8.19 ft at Table Rock and 7.67 ft at Bull
+            Shoals between idle and full generation — and unlike the schedule it
+            also catches water nobody announced.
+
+            "elevation" is spelled in the value rather than left as a bare
+            "710.79 ft": this is height above a vertical datum, and a number that
+            size labelled "stage" reads as depth to anyone who has waded a river.
+
+            Movement and age travel together — see tailwaterMovementSentence. */}
         {tailwaterStage ? (
           <Stat
             icon="resize-outline"
-            label="Tailwater stage"
+            label="Water level below dam"
             value={`${tailwaterStage.value.toFixed(2)} ft`}
-            sub={trendLabel(tailwaterStage.trend) ?? relativeAge(tailwaterStage.at)}
+            suffix="elevation"
+            sub={tailwaterMovementSentence(tailwaterStage)}
             dim={tailwaterStage.staleness === 'stale'}
           />
         ) : null}
@@ -206,7 +218,13 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
             icon="enter-outline"
             label={inflow.dailyMean ? 'Inflow (daily avg)' : 'Inflow'}
             value={formatCfs(inflow.value)}
-            sub={inflow.dailyMean ? 'daily average into the lake' : 'into the lake'}
+            // Age included for the same reason as the tailwater reading: this
+            // shipped with only "into the lake" beneath it and no indication of
+            // when it was measured, which on the two St. Louis dams is a daily
+            // mean about a day in arrears.
+            sub={[inflow.dailyMean ? 'daily average into the lake' : 'into the lake', relativeAge(inflow.at)]
+              .filter(Boolean)
+              .join(' · ')}
             dim={inflow.staleness === 'stale'}
           />
         ) : null}
@@ -259,6 +277,7 @@ const styles = StyleSheet.create({
   statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statLabel: { ...t.xs, fontFamily: fonts.semibold, textTransform: 'uppercase' },
   statValue: { ...t.xl, fontFamily: fonts.heading },
+  statSuffix: { ...t.sm, fontFamily: fonts.medium },
   statSub: { ...t.xs },
   plant: { ...t.xs },
 });

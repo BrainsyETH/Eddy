@@ -151,18 +151,23 @@ export function DayBars({ day, compact = false }: Props) {
 }
 
 /**
- * "Generating now" / "Water off now", or null when the day is not today.
+ * "Generating now" / "Generation off now", or null when the day is not today.
  *
  * Lives here beside the marker because it is the SAME fact said in words, and
  * the bar row is hidden from VoiceOver — without this line the marker exists
  * only for people who can see it.
+ *
+ * That is also why the subject is the plant and not the water. This string is
+ * the ONLY form of the fact a VoiceOver user gets, so it carries the whole
+ * burden of not implying the river downstream is off — see idleWindowSentence
+ * in shared/dam-schedule-copy.ts.
  */
 export function nowSentence(day: DamScheduleDay): string | null {
   const hoursElapsed = scheduleHoursElapsed(day.scheduleDate);
   if (hoursElapsed === null) return null;
   const hour = day.hours.find((h) => h.hourEnding === hourEndingNow(hoursElapsed));
   if (!hour) return null;
-  return hour.megawatts > 0 ? 'Generating now' : 'Water off now';
+  return hour.megawatts > 0 ? 'Generating now' : 'Generation off now';
 }
 
 const styles = StyleSheet.create({

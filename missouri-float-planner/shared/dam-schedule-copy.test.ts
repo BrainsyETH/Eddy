@@ -14,6 +14,9 @@ import {
   hourEndingNow,
   scheduleStateNow,
   nextScheduleChangeSentence,
+  SCHEDULE_CHANGE_NOTE,
+  tailwaterMovementLabel,
+  tailwaterMovementSentence,
 } from './dam-schedule-copy';
 
 /**
@@ -52,13 +55,13 @@ test('a full day of generation says so rather than going quiet', () => {
   // An empty window list must not render as absence — "no data" and "the units
   // never stop" are opposite facts for someone deciding whether to wade.
   assert.equal(idleWindowSentence([]), 'Generating every hour — no break in the schedule.');
-  assert.equal(idleWindowSentence([{ from: 1, to: 6 }]), 'Water off: midnight – 6 AM');
+  assert.equal(idleWindowSentence([{ from: 1, to: 6 }]), 'Generation off: midnight – 6 AM');
   assert.equal(
     idleWindowSentence([
       { from: 1, to: 6 },
       { from: 20, to: 24 },
     ]),
-    'Water off: midnight – 6 AM, 7 PM – midnight'
+    'Generation off: midnight – 6 AM, 7 PM – midnight'
   );
 });
 
@@ -173,7 +176,7 @@ test('an idle dam reports when the water comes on', () => {
   assert.equal(state?.generating, false);
   assert.equal(state?.change?.hourEnding, 16);
   assert.equal(state?.change?.generating, true, 'it changes INTO generating');
-  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Water on at 3 PM');
+  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Generation scheduled to start at 3 PM');
 });
 
 test('a generating dam reports when the water goes off', () => {
@@ -185,7 +188,7 @@ test('a generating dam reports when the water goes off', () => {
   const state = scheduleStateNow(schedule, NOON_CENTRAL);
   assert.equal(state?.generating, true);
   assert.equal(state?.change?.hourEnding, 22, 'the first idle hour, not the last loaded one');
-  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Water off at 9 PM');
+  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Generation scheduled to stop at 9 PM');
 });
 
 test('the change is found in the hour running now, not the wall-clock hour', () => {
@@ -197,7 +200,7 @@ test('the change is found in the hour running now, not the wall-clock hour', () 
   const schedule = [day('2026-07-28', { 13: 35, 14: 35, 15: 35 })];
   const state = scheduleStateNow(schedule, NOON_CENTRAL);
   assert.equal(state?.generating, true, 'hour ending 13 is the hour running at noon');
-  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Water off at 3 PM');
+  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Generation scheduled to stop at 3 PM');
 });
 
 test('a change after midnight is named as tomorrow', () => {
@@ -206,14 +209,14 @@ test('a change after midnight is named as tomorrow', () => {
   const schedule = [day('2026-07-28', {}), day('2026-07-29', { 7: 35, 8: 35 })];
   const state = scheduleStateNow(schedule, NOON_CENTRAL);
   assert.equal(state?.change?.dayOffset, 1);
-  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Water on at 6 AM tomorrow');
+  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Generation scheduled to start at 6 AM tomorrow');
 });
 
 test('a change two days out is named by weekday', () => {
   const schedule = [day('2026-07-28', {}), day('2026-07-29', {}), day('2026-07-30', { 15: 35 })];
   // 2026-07-30 is a Thursday. "tomorrow" would be wrong and a bare "2 PM"
   // would read as today.
-  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Water on at 2 PM Thursday');
+  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Generation scheduled to start at 2 PM Thursday');
 });
 
 test('a gap in the loaded days is never walked across', () => {
@@ -230,7 +233,7 @@ test('a gap in the loaded days is never walked across', () => {
 
 test('no schedule for today means no claim at all', () => {
   // Absent is not idle. A dam whose file failed to fetch must render nothing
-  // here rather than "Water on at ..." derived from some other day.
+  // here rather than a transition derived from some other day.
   assert.equal(scheduleStateNow([], NOON_CENTRAL), null);
   assert.equal(scheduleStateNow([day('2026-07-29', { 7: 35 })], NOON_CENTRAL), null);
   assert.equal(nextScheduleChangeSentence([day('2026-07-29', { 7: 35 })], NOON_CENTRAL), null);
@@ -248,10 +251,10 @@ test('a day that never changes state reports no change', () => {
 });
 
 test('a midnight change is called midnight, not 12 AM', () => {
-  // Hour ending 1 is the release running from midnight. "Water on at 12 AM
+  // Hour ending 1 is the release running from midnight. "...at 12 AM
   // tomorrow" is correct but reads as a typo next to windowLabel's "midnight".
   const schedule = [day('2026-07-28', {}), day('2026-07-29', { 1: 35, 2: 35 })];
-  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Water on at midnight tomorrow');
+  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Generation scheduled to start at midnight tomorrow');
 });
 
 test('the change is read at the dam, not on the viewer phone', () => {
@@ -262,4 +265,115 @@ test('the change is read at the dam, not on the viewer phone', () => {
   const state = scheduleStateNow(schedule, lateNight);
   assert.equal(state?.generating, true);
   assert.equal(state?.change, null, 'the schedule ends still generating');
+});
+
+// ── Saying what the source said, at the place it said it ───────────────────
+// Every string below is read by someone deciding whether to stand in a river.
+
+test('no schedule copy claims to describe the water', () => {
+  // "Water off at 10 PM" shipped, and it turns a fact about a powerhouse into a
+  // claim about a river miles downstream — where the recession limb keeps the
+  // level up long after the units come off. The subject has to be the plant
+  // until travel time is built (docs/TAILWATER_PLAN.md).
+  const idle = [day('2026-07-28', { 16: 35 })];
+  const running = [day('2026-07-28', { 1: 35, 12: 35, 13: 35, 14: 35 })];
+
+  const strings = [
+    nextScheduleChangeSentence(idle, NOON_CENTRAL)!,
+    nextScheduleChangeSentence(running, NOON_CENTRAL)!,
+    idleWindowSentence([{ from: 1, to: 6 }]),
+    idleWindowSentence([]),
+  ];
+  for (const s of strings) {
+    assert.ok(s, 'expected a sentence to check');
+    assert.ok(
+      !/\bwater\b/i.test(s),
+      `schedule copy must not make a claim about water: ${JSON.stringify(s)}`
+    );
+  }
+});
+
+test('a scheduled change is hedged inside its own sentence', () => {
+  // The note is a separate string a caller can forget to render. The modality
+  // therefore lives in the sentence too, so the worst case is a line missing
+  // its location rather than a line asserting an unconditional future.
+  const schedule = [day('2026-07-28', { 16: 35, 17: 35 })];
+  const sentence = nextScheduleChangeSentence(schedule, NOON_CENTRAL)!;
+  assert.match(sentence, /scheduled/i);
+  assert.equal(sentence, 'Generation scheduled to start at 3 PM');
+});
+
+test('the change note carries location, revisability and lag', () => {
+  // WATER_REGIMES_STRATEGY.md requires SWPA's disclaimer to travel with the
+  // schedule everywhere it appears, and /dams renders the change line with no
+  // schedule block — so this note is the only caveat on that page.
+  assert.match(SCHEDULE_CHANGE_NOTE, /at the dam/i);
+  assert.match(SCHEDULE_CHANGE_NOTE, /subject to change/i);
+  assert.match(SCHEDULE_CHANGE_NOTE, /downstream/i);
+});
+
+// ── Movement never appears without its age ─────────────────────────────────
+
+const READING_AT = '2026-08-12T18:00:00Z';
+const AT_PLUS = (minutes: number) => Date.parse(READING_AT) + minutes * 60_000;
+
+test('a fresh reading shows movement and age together', () => {
+  const sentence = tailwaterMovementSentence(
+    { at: READING_AT, staleness: 'fresh', trend: { hours: 3, delta: -2.57 } },
+    AT_PLUS(18)
+  );
+  assert.equal(sentence, '−2.6 ft over 3h · 18 minutes ago');
+});
+
+test('a lagging reading locates the window it actually measured', () => {
+  // changeOver measures the three hours ending at the LATEST OBSERVATION. On a
+  // lagging series that window closed hours ago, and printing it beside a bare
+  // age would still invite reading it as the three hours ending now.
+  const sentence = tailwaterMovementSentence(
+    { at: READING_AT, staleness: 'lagging', trend: { hours: 3, delta: 2.1 } },
+    AT_PLUS(4 * 60)
+  );
+  assert.equal(sentence, '+2.1 ft over 3h ending 4 hours ago');
+});
+
+test('a stale reading drops the movement entirely', () => {
+  // Past six hours the movement describes a stretch of river that has since
+  // been through a whole generation cycle. The age alone is the honest answer.
+  const sentence = tailwaterMovementSentence(
+    { at: READING_AT, staleness: 'stale', trend: { hours: 3, delta: 2.1 } },
+    AT_PLUS(9 * 60)
+  );
+  assert.equal(sentence, '9 hours ago');
+});
+
+test('movement is never rendered without an age', () => {
+  // The defect this function exists to prevent, stated as an invariant: if the
+  // timestamp cannot be read there is no sentence at all, rather than a
+  // movement figure floating free of when it was measured.
+  assert.equal(
+    tailwaterMovementSentence(
+      { at: 'not a date', staleness: 'fresh', trend: { hours: 3, delta: 2.1 } },
+      AT_PLUS(0)
+    ),
+    null
+  );
+  // And with no trend, the age still shows.
+  assert.equal(
+    tailwaterMovementSentence({ at: READING_AT, staleness: 'fresh' }, AT_PLUS(18)),
+    '18 minutes ago'
+  );
+});
+
+test('movement rounds to a tenth, and a rounded zero renders nothing', () => {
+  // The rounding IS the "steady" threshold — see the measurement note. Clearwater
+  // read -0.01 ft over three hours on 2026-08-12: flood control, no powerhouse,
+  // release steady for days.
+  assert.equal(tailwaterMovementLabel({ hours: 3, delta: -0.01 }), null);
+  assert.equal(tailwaterMovementLabel({ hours: 3, delta: 0.04 }), null);
+  assert.equal(tailwaterMovementLabel({ hours: 3, delta: 2.57 }), '+2.6 ft over 3h');
+  assert.equal(tailwaterMovementLabel({ hours: 3, delta: -3.59 }), '−3.6 ft over 3h');
+  assert.equal(tailwaterMovementLabel(undefined), null);
+  // The window is stated rather than assumed — the river gauge card renders its
+  // own delta with no window at all, and these must not read as comparable.
+  assert.match(tailwaterMovementLabel({ hours: 6, delta: 1 })!, /over 6h/);
 });

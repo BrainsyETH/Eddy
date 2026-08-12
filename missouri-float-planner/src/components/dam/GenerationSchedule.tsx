@@ -70,7 +70,11 @@ function DayRow({ day }: { day: DamScheduleDay }) {
 
       {day.idle.length > 0 ? (
         <p className="mt-2 text-sm text-neutral-700">
-          <span className="font-medium">Water off:</span>{' '}
+          {/* "Generation off", not "Water off" — the schedule describes the
+              powerhouse, and the river below stays up on the recession limb
+              after the units come off. Kept in step with idleWindowSentence in
+              shared/, which the iOS surfaces render from. */}
+          <span className="font-medium">Generation off:</span>{' '}
           {day.idle.map((w) => windowLabel(w.from, w.to)).join(', ')}
         </p>
       ) : (

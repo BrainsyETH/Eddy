@@ -1,8 +1,20 @@
 // shared/dam-schedule-copy.ts
 //
-// How a generation schedule is put into words. Shared between the web dam page
-// and the eddy-ios dam screen, because getting any of it wrong is a safety
-// problem rather than a cosmetic one.
+// How a generation schedule — and the readings shown beside it — are put into
+// words. Shared between the web dam page and the eddy-ios dam screen, because
+// getting any of it wrong is a safety problem rather than a cosmetic one.
+//
+// ── The rule this file exists to enforce ───────────────────────────────────
+// SAY WHAT THE SOURCE SAID, AT THE PLACE IT SAID IT.
+//
+// Two ways that gets violated, and both shipped here before being caught:
+//   - Wrong SUBJECT. "Water off at 10 PM" turns a fact about a powerhouse into
+//     a claim about a river twenty miles downstream. See idleWindowSentence.
+//   - Missing TIME. Movement rendered in place of a reading's age presents a
+//     window that closed hours ago as if it closed now. See
+//     tailwaterMovementSentence.
+// Both are the same mistake as an hour-ending off-by-one: a true number,
+// attached to the wrong place or the wrong moment.
 //
 // ── Why this is shared and not reimplemented per platform ───────────────────
 // SWPA posts in "hour ending" terms: hour 14 is the release running 1:00pm to
@@ -42,10 +54,23 @@ export function windowLabel(from: number, to: number): string {
  * flow — not on the cfs estimate, which is ~±10% at steady state and worse on a
  * ramp hour. An empty list means the units run all day, and saying so plainly
  * is better than printing nothing and letting it read as "no data".
+ *
+ * ── Why "Generation off" and not "Water off" ───────────────────────────────
+ * Because the schedule establishes the first and not the second. SWPA says when
+ * the UNITS run at the DAM. It says nothing about the river at an access twenty
+ * miles down, where the water arrives late on a start and — the dangerous half —
+ * stays high long after a stop, riding the recession limb. "Water off" invites a
+ * reader standing downstream to treat a machinery fact as a river fact, and this
+ * is the string they read before deciding to wade.
+ *
+ * The naming discipline is the same one hourEndingLabel enforces on the clock:
+ * say precisely what the source said, and let the reader do the extrapolating
+ * knowingly. Travel time is what would let Eddy make that claim honestly, and it
+ * is not built — see docs/TAILWATER_PLAN.md.
  */
 export function idleWindowSentence(idle: Array<{ from: number; to: number }>): string {
   if (idle.length === 0) return 'Generating every hour — no break in the schedule.';
-  return `Water off: ${idle.map((w) => windowLabel(w.from, w.to)).join(', ')}`;
+  return `Generation off: ${idle.map((w) => windowLabel(w.from, w.to)).join(', ')}`;
 }
 
 /**
@@ -230,7 +255,32 @@ export function scheduleStateNow(
 }
 
 /**
- * The one forward-looking line a tailwater angler wants: when the water changes.
+ * The qualifier that MUST render adjacent to a scheduled-change line.
+ *
+ * Three claims are packed in, and each is load-bearing:
+ *
+ * - "at the dam" — the transition is a fact about the powerhouse, not about the
+ *   river where somebody is standing.
+ * - "subject to change" — WATER_REGIMES_STRATEGY.md requires SWPA's own
+ *   disclaimer to travel with the schedule EVERYWHERE it appears, and /dams
+ *   renders these lines with no schedule block and therefore no other caveat on
+ *   the page at all.
+ * - "downstream water lags" — the travel-time gap. Asymmetric, and the reason
+ *   this is not merely pedantic: a START understates when water arrives
+ *   downstream, so a reader who leaves early is still safe, but a STOP
+ *   overstates when downstream is safe to stand in, because the recession limb
+ *   keeps the river up well after the units come off.
+ */
+export const SCHEDULE_CHANGE_NOTE = 'at the dam · subject to change · downstream water lags';
+
+/**
+ * The one forward-looking line a tailwater angler wants: when generation changes.
+ *
+ * ── Why the subject is GENERATION and not WATER ────────────────────────────
+ * "Water off at 10 PM" is a claim about a river, and the schedule cannot
+ * support it — see idleWindowSentence. The subject here is the plant, the
+ * modality ("scheduled") is inside the sentence so it survives even if a caller
+ * drops SCHEDULE_CHANGE_NOTE, and the note carries location and lag.
  *
  * ── Why a clock time and never a countdown ─────────────────────────────────
  * Both dam surfaces are ISR'd at 300 seconds, so this string can be up to five
@@ -271,7 +321,9 @@ export function nextScheduleChangeSentence(
     when = `${clock} ${weekday}`;
   }
 
-  return generating ? `Water on at ${when}` : `Water off at ${when}`;
+  return generating
+    ? `Generation scheduled to start at ${when}`
+    : `Generation scheduled to stop at ${when}`;
 }
 
 /**
@@ -299,6 +351,73 @@ export function relativeAge(iso: string | null | undefined, now = Date.now()): s
   if (hours < 24) return `${Math.round(hours)} hours ago`;
   const days = Math.round(hours / 24);
   return days === 1 ? 'yesterday' : `${days} days ago`;
+}
+
+/**
+ * How far the tailwater moved, as a signed number in feet.
+ *
+ * ── Why a number and not "rising" / "falling" ──────────────────────────────
+ * Measured over 7 days of hourly stage at Table Rock, Bull Shoals, Norfork,
+ * Greers Ferry and Beaver (2026-08-12): the 3-hour change while the units were
+ * IDLE reached 4.0 ft at p99 — the recession limb after a shutdown — while 25%
+ * of GENERATING hours moved under 0.23 ft, because steady generation holds the
+ * tailwater high and flat. The distributions overlap across the whole range a
+ * threshold could sit in, so any verdict would be confidently wrong a good part
+ * of the time.
+ *
+ * The rounding IS the threshold. A change that rounds to 0.0 ft returns null and
+ * renders nothing, so there is no invented "steady" band to be wrong about.
+ *
+ * Feet is hardcoded because the only metric carrying a trend is tailwater
+ * elevation. Widen deliberately if that changes — a signed number with the wrong
+ * unit is worse than no number.
+ */
+export function tailwaterMovementLabel(
+  trend: { hours: number; delta: number } | undefined | null
+): string | null {
+  if (!trend) return null;
+  const rounded = Math.round(trend.delta * 10) / 10;
+  if (rounded === 0) return null;
+  const sign = rounded > 0 ? '+' : '−';
+  return `${sign}${Math.abs(rounded).toFixed(1)} ft over ${trend.hours}h`;
+}
+
+/**
+ * The line under the tailwater reading: how far it moved AND how old it is.
+ *
+ * ── Why the age can never be dropped ───────────────────────────────────────
+ * changeOver() is correct by construction — it measures the window ending at the
+ * LATEST OBSERVATION, and returns null rather than silently shrinking the window
+ * when the series cannot support it. What it cannot know is how long ago that
+ * observation was. Rendering the movement in place of the age (which is what
+ * this surface did first) presents a window that ended hours ago as if it ended
+ * now, on a number someone wades against.
+ *
+ * So the three staleness bands read differently, and none of them is silent:
+ *
+ *   fresh   (<=2h)  "+2.1 ft over 3h · 18 minutes ago"
+ *   lagging (<=6h)  "+2.1 ft over 3h ending 4 hours ago"   — window located
+ *   stale   (>6h)   "6 hours ago"                          — movement dropped
+ *
+ * Null only when the timestamp itself cannot be read. That renders nothing at
+ * all rather than movement without an age, which is the failure this exists to
+ * prevent.
+ */
+export function tailwaterMovementSentence(
+  reading: {
+    at: string;
+    staleness: 'fresh' | 'lagging' | 'stale';
+    trend?: { hours: number; delta: number };
+  },
+  now = Date.now()
+): string | null {
+  const age = relativeAge(reading.at, now);
+  if (!age) return null;
+
+  const movement = tailwaterMovementLabel(reading.trend);
+  if (!movement || reading.staleness === 'stale') return age;
+  if (reading.staleness === 'lagging') return `${movement} ending ${age}`;
+  return `${movement} · ${age}`;
 }
 
 /**
