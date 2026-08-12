@@ -557,19 +557,14 @@ export const MAP_LAYERS: LayerDef[] = [
     // No `tierLabel`: a row is its own context, so `label` says it once.
     description: 'Cabins, lodge rooms and cottages',
     icon: 'bed-outline',
-    // No `symbol`: the catalog has no lodging mark yet, and `icon` is the
-    // documented fallback a layer takes before one is drawn for it. When the
-    // mark lands this gains `tierSymbol` and nothing else changes.
-    //
-    // ── PROVISIONAL, and the reason is the palette, not taste ─────────────
+    tierSymbol: 'lodging',
+    // ── The cabin mark distinguishes the tier; colour stays neutral ───────
     // The obvious choice is a deeper step of the tan the row already wears, and
     // the secondary scale has no such step — it is 500/200/100/50, and 500 IS
     // `warm`. So this borrows the neutral stone instead, a clear step off the
     // one `publicLand` uses, which keeps it out of the condition ladder (red,
     // amber and green all mean something about water here) and out of coral
-    // (reserved for the float CTA). Revisit when the catalog draws the mark —
-    // a face tells these two tiers apart better than any hue can, which is the
-    // same argument the gauge tier strip already makes.
+    // (reserved for the float CTA).
     color: (c) => (c.scheme === 'dark' ? neutral[200] : neutral[500]),
   },
 ];

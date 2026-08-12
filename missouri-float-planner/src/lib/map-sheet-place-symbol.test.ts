@@ -48,6 +48,7 @@ test('the layer decides, because it is the icon the finger landed on', () => {
   assert.equal(placeSymbol({ layer: 'dams' }, null), 'dam');
   assert.equal(placeSymbol({ layer: 'hazards' }, null), 'hazard');
   assert.equal(placeSymbol({ layer: 'outfitters' }, null), 'outfitter');
+  assert.equal(placeSymbol({ layer: 'lodging' }, null), 'lodging');
 });
 
 test('a layer that answers overrides the point that disagrees', () => {
@@ -124,6 +125,7 @@ test('every name it can return exists in the Eddy catalog', () => {
     gauge: true,
     hazard: true,
     gravelBar: true,
+    lodging: true,
     outfitter: true,
   };
   const catalog = readFileSync(

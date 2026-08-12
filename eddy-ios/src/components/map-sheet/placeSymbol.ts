@@ -44,6 +44,7 @@ export type PlaceSymbolName =
   | 'gauge'
   | 'hazard'
   | 'gravelBar'
+  | 'lodging'
   | 'outfitter';
 
 /** Just the field the layer rule reads. Structural — see the header. */
@@ -65,6 +66,7 @@ const LAYER_SYMBOL: Record<string, PlaceSymbolName> = {
   dams: 'dam',
   hazards: 'hazard',
   outfitters: 'outfitter',
+  lodging: 'lodging',
   campgrounds: 'campground',
   // Present for the same reason `campgrounds` is: the access family draws one
   // place under whichever of its marks won, and the sheet's header has to show

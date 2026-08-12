@@ -301,6 +301,7 @@ def main() -> None:
         # a mark generated the other way would draw as a flat silhouette.
         "eddy-boat-ramp": "eddy-boat-ramp",
         "eddy-outfitter": "eddy-outfitter",
+        "eddy-lodging": "eddy-lodging",
         "eddy-dam": "eddy-dam",
     }
     for name, source_name in themed.items():

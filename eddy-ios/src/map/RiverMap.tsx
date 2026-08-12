@@ -125,6 +125,7 @@ type PinShape =
   | 'campground'
   | 'boatRamp'
   | 'outfitter'
+  | 'lodging'
   | 'dam';
 
 /**
@@ -151,6 +152,7 @@ const PIN_ICONS: Record<PinShape, { image: string; anchor: 'center' | 'bottom'; 
   // the map-marker silhouette whose tip is the location.
   boatRamp: { image: 'eddy-boat-ramp-map', anchor: 'center', labelOffset: 1.4, themed: true },
   outfitter: { image: 'eddy-outfitter-map', anchor: 'center', labelOffset: 1.4, themed: true },
+  lodging: { image: 'eddy-lodging-map', anchor: 'center', labelOffset: 1.4, themed: true },
   dam: { image: 'eddy-dam-map', anchor: 'center', labelOffset: 1.4, themed: true },
 };
 
@@ -165,6 +167,7 @@ const PIN_IMAGES = {
   // draw it as a solid silhouette in whatever colour the layer last set.
   'eddy-boat-ramp-map': { image: require('../../assets/map/eddy-boat-ramp.png'), sdf: false, scale: 3 },
   'eddy-outfitter-map': { image: require('../../assets/map/eddy-outfitter.png'), sdf: false, scale: 3 },
+  'eddy-lodging-map': { image: require('../../assets/map/eddy-lodging.png'), sdf: false, scale: 3 },
   'eddy-dam-map': { image: require('../../assets/map/eddy-dam.png'), sdf: false, scale: 3 },
   'route-start': { image: require('../../assets/map/route-start.png'), sdf: true, scale: 3 },
   'route-finish': { image: require('../../assets/map/route-finish.png'), sdf: true, scale: 3 },
@@ -2281,11 +2284,8 @@ export function RiverMap({
       {layerOn('outfitters')
         ? pinLayer('outfitters', 'outfitter')
         : null}
-      {/* The lodging tier borrows the outfitter mark until the catalog draws a
-          bed. Its pins are the ones the rentals tier is NOT already drawing —
-          see lodgingPins — so the two never stack on one coordinate. */}
       {layerOn('lodging')
-        ? pinLayer('lodging', 'outfitter')
+        ? pinLayer('lodging', 'lodging')
         : null}
       {layerOn('campgrounds')
         ? pinLayer('campgrounds', 'campground')

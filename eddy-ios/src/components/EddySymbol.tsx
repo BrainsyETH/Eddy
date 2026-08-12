@@ -55,6 +55,7 @@ const SYMBOLS = {
   hazard: require('../../assets/eddy/eddy-hazard.png'),
   campground: require('../../assets/eddy/eddy-campground.png'),
   outfitter: require('../../assets/eddy/eddy-outfitter.png'),
+  lodging: require('../../assets/eddy/eddy-lodging.png'),
   river: require('../../assets/eddy/eddy-river.png'),
   alertWatch: require('../../assets/eddy/eddy-alert-watch.png'),
   water: require('../../assets/eddy/eddy-water-droplet.png'),

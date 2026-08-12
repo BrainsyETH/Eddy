@@ -30,6 +30,7 @@ isolated on an off-white background for easy review and future app integration.
 - `eddy-hazard.png`
 - `eddy-campground.png`
 - `eddy-outfitter.png`
+- `eddy-lodging.png`
 - `eddy-river.png`
 - `eddy-alert-watch.png`
 - `eddy-offline-map.png`
@@ -53,7 +54,7 @@ place category, not a visually distinct facility.
 - No words, watermarks, detailed scenery, or photorealistic elements
 
 The AI assistant, weather, water droplet, POI, boat ramp, USGS gauge, hazard,
-campground, outfitter, river, alert/watch, and offline-map icons are mascot-free utility
+campground, outfitter, lodging, river, alert/watch, and offline-map icons are mascot-free utility
 symbols that use the same palette and bold sticker treatment without depicting
 Eddy.
 
