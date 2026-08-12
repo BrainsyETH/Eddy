@@ -45,7 +45,7 @@
 // (as this once did) put white text inside a white halo on dark mode: a map full
 // of invisible labels.
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type {
   CampsiteAvailabilitySummary,
@@ -82,8 +82,7 @@ import {
   gaugeRiverSlug,
 } from '@/lib/gaugeCondition';
 import type { NetworkCollection } from '@/lib/statewideNetwork';
-import { loadMapbox } from './runtime';
-import { STYLE_URL } from './runtime';
+import { loadMapbox, STYLE_URL } from './runtime';
 import {
   GAUGE_DETAIL_ZOOM,
   MAP_LAYERS,
@@ -105,6 +104,7 @@ import {
   type ResolvedServiceMarker,
 } from '@/map/accessLayers';
 import { serviceTypeLabel, type ServiceLayerKey } from '@/map/serviceLayers';
+import type { MapBounds, MapCameraCommand } from '@/map/cameraBehavior';
 
 /**
  * Ink for text drawn ON the map, in either app appearance.
@@ -286,10 +286,27 @@ const CLUSTER_CONDITION_COLOR: unknown[] = [
  */
 type MapIdleState = {
   properties?: {
+    center?: number[];
     bounds?: { ne?: number[]; sw?: number[] };
     zoom?: number;
   };
+  gestures?: { isGestureActive?: boolean };
 };
+
+interface MapCameraRef {
+  setCamera: (stop: {
+    centerCoordinate?: [number, number];
+    bounds?: { ne: [number, number]; sw: [number, number] };
+    zoomLevel?: number;
+    padding?: { paddingTop: number; paddingBottom: number; paddingLeft: number; paddingRight: number };
+    animationMode?: 'easeTo';
+    animationDuration?: number;
+  }) => void;
+}
+
+export type InitialMapCamera =
+  | { type: 'center'; lng: number; lat: number; zoom: number }
+  | { type: 'bounds'; bounds: MapBounds };
 
 /**
  * Where the map sits before it knows anything.
@@ -561,7 +578,7 @@ interface Props {
   conditionCode: string;
   /** Every curated river, condition-coloured. Drawn under the selected one. */
   network?: NetworkCollection | null;
-  /** Fit this instead of a river, when nothing is selected. [w, s, e, n]. */
+  /** Fit this at cold start when no location is already available. [w, s, e, n]. */
   networkBounds?: [number, number, number, number] | null;
   onSelectRiverSlug?: (slug: string) => void;
   /**
@@ -602,22 +619,16 @@ interface Props {
    * frame and would need throttling before it could be used at all.
    */
   onViewportChange?: (viewport: { bounds: [number, number, number, number]; zoom: number }) => void;
-  /** A tapped cluster: the caller sets `focus` here at a closer zoom. */
+  /** A tapped cluster: the caller issues a one-shot closer camera command. */
   onZoomToCluster?: (point: { lng: number; lat: number }) => void;
   hazards: Hazard[];
   services: RiverService[];
   /** Which layers are switched on. Anything absent is not fetched into GeoJSON. */
   layers: LayerKey[];
-  /**
-   * Centres and zooms here instead of fitting the river. Cleared by the caller.
-   *
-   * `zoom` defaults to 13, which is right for the thing that usually sets a
-   * focus — a tapped search result or pin, where you want to see the bank.
-   * Opening on the user's own position wants far less: at 13 someone thirty
-   * miles from the nearest river sees an empty field, so that caller passes a
-   * regional zoom instead.
-   */
-  focus?: { lng: number; lat: number; zoom?: number } | null;
+  /** Used only for the map's first native camera settings. */
+  initialCamera?: InitialMapCamera | null;
+  /** A navigation request applied exactly once, identified by its monotonic id. */
+  cameraCommand?: MapCameraCommand | null;
   /**
    * Draw the blue dot. Only ever true once the user has granted location, which
    * the screen asks for on an explicit tap — see useLocation.
@@ -683,7 +694,8 @@ export function RiverMap({
   hazards,
   services,
   layers,
-  focus,
+  initialCamera,
+  cameraCommand,
   showUserLocation,
   planRoute,
   planEndpoints,
@@ -1278,21 +1290,6 @@ export function RiverMap({
     };
   }, [planEndpoints]);
 
-  // Fit the PLANNED stretch when there is one — a twelve-mile float inside a
-  // hundred-mile river is invisible at river zoom — and the whole river
-  // otherwise.
-  const cameraBounds = useMemo(() => {
-    const planBounds = routeFeature?.geometry.coordinates?.length
-      ? boundsForLine(routeFeature.geometry.coordinates)
-      : null;
-    // Narrowest meaningful frame first: the planned stretch, then the selected
-    // river, then the whole network. The last is the opening state — the map
-    // shows every river it knows rather than guessing at one.
-    const b = planBounds ?? river?.bounds ?? networkBounds ?? null;
-    if (!b) return null;
-    return { ne: [b[2], b[3]], sw: [b[0], b[1]] };
-  }, [routeFeature, river, networkBounds]);
-
   // ── Why the two river sources are never unmounted ───────────────────────────
   //
   // "Layer 'network-fill' is not in style", thrown by updateLayer.
@@ -1364,7 +1361,7 @@ export function RiverMap({
    * changes rather than its contents — `nativeStop` is one useMemo over
    * [centerCoordinate, bounds, zoomLevel, padding, …], handed to native as a
    * `stop` prop — so an inline literal rebuilt, and re-applied, a stop on every
-   * render of this map. See cameraProps for what applying one costs.
+   * render of this map.
    */
   const cameraPadding = useMemo(
     () => ({
@@ -1376,71 +1373,93 @@ export function RiverMap({
     [cameraPaddingBottom],
   );
 
-  // Values, not the object: `focus` is rebuilt by the map screen on renders
-  // where the target has not moved (openingFocus is a fresh literal every
-  // time), so memoising on `focus` itself would memoise nothing.
-  const focusLng = focus?.lng;
-  const focusLat = focus?.lat;
-  const focusZoom = focus?.zoom;
-
   /**
-   * What the camera is told to do.
+   * Startup framing and navigation are deliberately different channels.
    *
-   * Focus wins over bounds while it is set: `bounds` and `centerCoordinate` are
-   * contradictory instructions to one camera, so exactly one is passed.
-   *
-   * ── Why this is memoised ───────────────────────────────────────────────────
-   *
-   * A camera stop that changes identity is a camera stop that gets APPLIED, and
-   * applying one is not a no-op just because the target is unchanged:
-   *
-   *   - in the bounds branch it RE-FITS, animationMode 'none', to the plan, the
-   *     selected river, or the whole statewide network;
-   *   - in the focus branch it flies back to the last target, which while
-   *     nothing is selected is the map screen's opening focus — the user's own
-   *     position at zoom 8.5.
-   *
-   * The user's pinches and pans live in the native camera and in no React state,
-   * so a re-applied stop holds nothing that remembers them. It throws them away.
-   *
-   * `centerCoordinate: [lng, lat]` is a fresh array on every render, and so was
-   * the padding above, which meant every re-render of this map re-asserted the
-   * camera — including a re-render that merely opened a sheet. Keyed on the
-   * numbers, the stop changes when the target does and not before.
+   * `defaultSettings` answers only the first paint. Everything after that is an
+   * imperative command carrying a monotonic id, applied once below. A river,
+   * point, or plan therefore cannot remain attached to the Camera as a prop and
+   * wake back up when a sheet changes padding or an unrelated request lands.
    */
-  const cameraProps = useMemo(() => {
-    if (focusLng !== undefined && focusLat !== undefined) {
+  const [defaultCameraSettings] = useState(() => {
+    const initial: InitialMapCamera =
+      initialCamera ??
+      (networkBounds
+        ? { type: 'bounds', bounds: networkBounds }
+        : {
+            type: 'center',
+            lng: COLD_START_CENTER[0],
+            lat: COLD_START_CENTER[1],
+            zoom: COLD_START_ZOOM,
+          });
+    if (initial.type === 'center') {
       return {
-        // defaultSettings for the same reason it is set in the bounds case: on
-        // first mount there is nothing for an update to move FROM, and a camera
-        // given only an update opens on the default world view.
-        defaultSettings: {
-          centerCoordinate: [focusLng, focusLat],
-          zoomLevel: focusZoom ?? 13,
-        },
-        centerCoordinate: [focusLng, focusLat],
-        zoomLevel: focusZoom ?? 13,
-        animationMode: 'flyTo' as const,
-        animationDuration: 700,
+        centerCoordinate: [initial.lng, initial.lat] as [number, number],
+        zoomLevel: initial.zoom,
       };
     }
-    if (cameraBounds) {
-      return {
-        defaultSettings: { bounds: cameraBounds },
-        bounds: cameraBounds,
-        animationMode: 'none' as const,
-      };
+    const bounds = initial.bounds;
+    return { bounds: { ne: [bounds[2], bounds[3]], sw: [bounds[0], bounds[1]] } };
+  });
+
+  const cameraRef = useRef<MapCameraRef | null>(null);
+  const appliedCommandId = useRef<number | null>(null);
+  const liveCamera = useRef<{ center: [number, number]; zoom: number; gestureActive: boolean } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!cameraCommand || appliedCommandId.current === cameraCommand.id || !cameraRef.current) {
+      return;
     }
-    return {
-      // Nothing to frame yet — neither a river nor the network has landed.
-      // An empty camera is NOT a still map: with no defaultSettings the map
-      // opens on the style's own default view, which is the whole globe.
-      defaultSettings: {
-        centerCoordinate: COLD_START_CENTER,
-        zoomLevel: COLD_START_ZOOM,
-      },
-    };
-  }, [focusLng, focusLat, focusZoom, cameraBounds]);
+    if ('waitForSheet' in cameraCommand && cameraCommand.waitForSheet && !cameraPaddingBottom) {
+      return;
+    }
+
+    appliedCommandId.current = cameraCommand.id;
+    if (cameraCommand.type === 'showPoint') {
+      const zoomLevel =
+        cameraCommand.zoomDelta !== undefined
+          ? Math.min(
+              cameraCommand.maxZoom ?? Number.POSITIVE_INFINITY,
+              (liveCamera.current?.zoom ?? 10) + cameraCommand.zoomDelta,
+            )
+          : cameraCommand.zoom;
+      cameraRef.current.setCamera({
+        centerCoordinate: [cameraCommand.lng, cameraCommand.lat],
+        // Undefined is intentional for a POI: Mapbox then changes the centre
+        // without changing the live native zoom, even if a river fit is still
+        // moving and onMapIdle has not published its final value yet.
+        zoomLevel,
+        padding: cameraPadding,
+        animationMode: 'easeTo',
+        animationDuration: cameraCommand.duration,
+      });
+      return;
+    }
+
+    const bounds = cameraCommand.bounds;
+    cameraRef.current.setCamera({
+      bounds: { ne: [bounds[2], bounds[3]], sw: [bounds[0], bounds[1]] },
+      padding: cameraPadding,
+      animationMode: 'easeTo',
+      animationDuration: cameraCommand.duration,
+    });
+  }, [cameraCommand, cameraPadding, cameraPaddingBottom]);
+
+  const framedRoute = useRef<RiverGeometry | null>(null);
+  useEffect(() => {
+    if (!planRoute || framedRoute.current === planRoute || !cameraRef.current) return;
+    framedRoute.current = planRoute;
+    const bounds = boundsForLine(planRoute.coordinates);
+    if (!bounds) return;
+    cameraRef.current.setCamera({
+      bounds: { ne: [bounds[2], bounds[3]], sw: [bounds[0], bounds[1]] },
+      padding: cameraPadding,
+      animationMode: 'easeTo',
+      animationDuration: 550,
+    });
+  }, [planRoute, cameraPadding]);
 
   // The caller is responsible for not rendering this when Mapbox is unavailable;
   // this guard is here so a mistake shows an empty map rather than a red screen.
@@ -1991,24 +2010,34 @@ export function RiverMap({
             }
           : undefined
       }
+      // Ref-only: this event fires on every animation frame and must not render
+      // React. It gives cluster expansion the actual live zoom, while a POI
+      // preserves zoom by omitting it from the camera command altogether.
+      onCameraChanged={(state: MapIdleState) => {
+        const center = state.properties?.center;
+        const zoom = state.properties?.zoom;
+        if (!center || typeof zoom !== 'number') return;
+        const gestureActive = Boolean(state.gestures?.isGestureActive);
+        if (gestureActive && cameraCommand) {
+          // A gesture wins even over a command waiting for sheet measurement.
+          // Marking it consumed prevents the delayed command from snapping the
+          // map back after the reader has already taken control.
+          appliedCommandId.current = cameraCommand.id;
+        }
+        liveCamera.current = {
+          center: [center[0], center[1]],
+          zoom,
+          gestureActive,
+        };
+      }}
     >
       {/* defaultSettings is not optional in the bounds case. `bounds` alone is
           applied as an UPDATE, and on first mount there is nothing to update
           from — the map opens on the default world view and stays there, which
           looks like a spinning globe rather than a river. */}
       <Mapbox.Camera
-        {...cameraProps}
-        // Padding belongs on the root prop. Passing it inside `bounds` still
-        // works but is deprecated in @rnmapbox/maps 10.
-        // paddingBottom is what keeps a selected pin OUT from under the sheet.
-        // Camera padding shifts the framing centre, so a sheet occupying the
-        // bottom third simply means the camera aims a third higher — no second
-        // coordinate system, and nothing to keep in sync with the sheet beyond
-        // one number.
-        //
-        // A STABLE REFERENCE rather than a literal, because identity is what
-        // decides whether the stop is re-applied — see cameraPadding.
-        padding={cameraPadding}
+        ref={cameraRef}
+        defaultSettings={defaultCameraSettings}
       />
 
       {/* The bundled pin shapes. Registered once for the whole map — an
