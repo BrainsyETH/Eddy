@@ -15,30 +15,51 @@
 -- USGS work, and Roselle/ROZM7 was confirmed live before this migration was
 -- written (the 2026-08-11 reading is present in gauge_readings).
 --
--- ── Why the coordinates are HERE and not only in the seed ─────────────────
+-- ── The coordinates are already live; the SEED was the stale copy ─────────
 --
--- Two of these records carry a wrong pin, and `supabase/seed/access_points.sql`
--- cannot fix a live one: every insert there ends
--- `ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved`,
--- so re-seeding a populated database syncs approval and nothing else. A
--- coordinate that lives only in the seed is a coordinate that only a database
--- built from scratch will ever see. The seed and this file now carry the same
--- two points, and this is the copy production gets.
+-- Checked against production before this was written: Montauk and Mother
+-- Nature's both already carry the coordinates this branch adds to
+-- supabase/seed/access_points.sql, identical to seven decimal places, 0.0 m
+-- apart. The pins were corrected in the database at some point and the seed
+-- never caught up, so the seed edit is a back-port TO the seed, not a fix
+-- heading for production.
 --
--- Moving `location_orig` is enough: `access_points_auto_snap` (00003, function
--- last rewritten in 00121) fires BEFORE UPDATE OF location_orig and recomputes
--- `location_snap` + `snap_distance_m`, snapping only within 1500 m and leaving
--- `location_snap` NULL beyond it. `river_mile_downstream` is deliberately NOT
--- touched by that trigger — mile markers stay hand-maintained — so the miles
--- these rows already carry survive the move.
+-- The two `location_orig` writes below are therefore no-ops against today's
+-- production, and they stay anyway: they make this file say what the row must
+-- be rather than what it happened to be, and a from-scratch build gets the
+-- same pin without depending on the seed. `access_points_auto_snap` (00003,
+-- function last rewritten in 00121) recomputes `location_snap` and
+-- `snap_distance_m` on any write to `location_orig`, and leaves
+-- `river_mile_downstream` alone — mile markers are hand-maintained.
+--
+-- Whistle Bridge is the one coordinate that genuinely disagrees: the seed sits
+-- 3.7 km from the live pin. The live pin is the one that has been serving, so
+-- the seed is corrected to match it and nothing here moves the row.
+--
+-- ── Production slugs are not the seed's slugs ─────────────────────────────
+--
+-- Two of these four records answer to a different slug in production than the
+-- seed and 00076 give them:
+--
+--   seed / 00076                  production
+--   mother-natures-retreat        mother-nature-s-riverfront-retreat
+--   ha-ha-tonka                   ha-ha-tonka-state-park
+--
+-- So each statement matches the slugs BOTH environments use. That is not
+-- belt-and-braces, it is the only predicate that hits the row in production
+-- and in a rebuilt database — and it is why matching on `name`, which this
+-- migration originally did for exactly these two rows, was not the mistake it
+-- looked like. The divergence itself is real and outlives this file: a rebuilt
+-- database serves different /access/<slug> URLs than production. Reconciling
+-- it means renaming a live slug, which breaks URLs, so it is deliberately not
+-- done here.
 --
 -- ── And why every statement is checked ────────────────────────────────────
 --
 -- An UPDATE whose WHERE matches nothing SUCCEEDS. A one-shot data correction
--- that silently corrects nothing is the failure mode worth guarding, so each
--- row is matched on `slug` — the half of `UNIQUE(river_id, slug)` that is the
--- identity — and the block at the bottom refuses to commit unless all four
--- landed and the two moved pins actually reached the river.
+-- that silently corrects nothing is the failure mode worth guarding, so the
+-- block at the bottom refuses to commit unless all four corrections are
+-- actually present afterwards. It is what caught the slug drift above.
 
 -- Montauk State Park is a park/campground near the Current headwaters, not a
 -- river landing. Missouri State Parks puts canoe access outside the park's
@@ -63,14 +84,11 @@
 -- not take it out of the picker today. Teaching the planner to respect the
 -- role is the follow-up that lets this row come back approved.
 --
--- The pin also moves. The old coordinate sits about 19 km southeast of the
--- park, out near Salem; the park's own directory row (00073) is at
--- 37.4407, -91.6739, nowhere near it. Whatever `river_mile_downstream` this
--- row carries was derived from that wrong pin and survives the move, because
--- the trigger will not touch a hand-maintained mile. It is left alone
--- knowingly: an unapproved park record is not an endpoint, nothing orders a
--- float by it, and validate_river_data() skips unapproved rows. If this row is
--- ever approved again, its mile has to be re-derived first.
+-- The pin is restated, not moved: production already sits at this coordinate,
+-- and only the seed still carried the old one ~19 km southeast, out near
+-- Salem. `river_mile_downstream` is left at its live 0.10 — the trigger will
+-- not touch a hand-maintained mile, and a headwaters park record that is not
+-- an endpoint has nothing ordering a float by it.
 UPDATE public.access_points ap
    SET approved = FALSE,
        type = 'park',
@@ -122,15 +140,11 @@ UPDATE public.access_points ap
 -- but no source publishes a verified coordinate for it, so this migration does
 -- not invent a second pin.
 --
--- Matched on slug, not name: `name` carries an apostrophe, is not unique, and
--- is not the identity — and a WHERE that misses would have corrected nothing
--- while reporting success.
---
--- The pin moves about 2.5 km WEST of Whistle Bridge while Ha Ha Tonka, the next
--- point downstream, lies east of both. That is what the Tunnel Dam meander
--- looks like from above, and it is also what a wrong pin looks like, so the
--- block at the bottom makes the river geometry settle it rather than this
--- comment. `river_mile_downstream` stays at the hand-set 70.0.
+-- The pin is restated, not moved — production already carries it, 0.0 m from
+-- the value the seed now shows. It sits about 2.5 km WEST of Whistle Bridge
+-- while Ha Ha Tonka, the next point downstream, lies east of both, which is
+-- what the Tunnel Dam meander looks like from above. `river_mile_downstream`
+-- stays at the hand-set 70.0.
 UPDATE public.access_points ap
    SET type = 'campground',
        types = ARRAY['campground', 'access', 'boat_ramp', 'gravel_bar']::text[],
@@ -148,7 +162,7 @@ UPDATE public.access_points ap
   FROM public.rivers r
  WHERE ap.river_id = r.id
    AND r.slug = 'niangua'
-   AND ap.slug = 'mother-natures-retreat';
+   AND ap.slug IN ('mother-nature-s-riverfront-retreat', 'mother-natures-retreat');
 
 -- Ha Ha Tonka provides free stone kayak-launch steps and a launch rail at the
 -- lake/river-trail terminus. It does not provide a boat ramp. Keep it selectable
@@ -169,13 +183,14 @@ UPDATE public.access_points ap
   FROM public.rivers r
  WHERE ap.river_id = r.id
    AND r.slug = 'niangua'
-   AND ap.slug = 'ha-ha-tonka';
+   AND ap.slug IN ('ha-ha-tonka-state-park', 'ha-ha-tonka');
 
 -- ── The migration proves its own claims before it commits ─────────────────
 --
--- Four rows had to change and two pins had to land on a river. Neither is
--- something a plain UPDATE reports, and both are things a later reader will
--- assume happened because this file exists.
+-- Four rows had to change. That is not something a plain UPDATE reports, and it
+-- is what a later reader will assume happened because this file exists. This
+-- block is what caught the slug drift documented in the header.
+--
 -- Conditional on the river already having access points, because "matched
 -- nothing" is the CORRECT outcome on a from-scratch rebuild: `supabase db
 -- reset` runs every migration against an empty access_points table and lands
@@ -185,20 +200,20 @@ UPDATE public.access_points ap
 DO $$
 DECLARE
   wrong TEXT;
-  mn_found BOOLEAN;
-  mn_snap NUMERIC;
-  montauk_snap NUMERIC;
+  offline TEXT;
 BEGIN
   -- Each row is checked on the value its statement exists to set, so this
   -- catches a WHERE that matched nothing AND a correction that did not stick.
-  SELECT string_agg(want.slug || ' (expected ' || want.expected || ')', ', ' ORDER BY want.slug)
+  -- `slugs` is an array because production and the seed disagree on two of
+  -- them; see the header.
+  SELECT string_agg(want.label || ' (expected ' || want.expected || ')', ', ' ORDER BY want.label)
     INTO wrong
     FROM (VALUES
-      ('current', 'montauk-state-park',     'approved false'),
-      ('niangua', 'whistle-bridge',         'ownership ''county'', is_public false'),
-      ('niangua', 'mother-natures-retreat', '''boat_ramp'' in types'),
-      ('niangua', 'ha-ha-tonka',            'fee_notes ''No launch fee.''')
-    ) AS want(river_slug, slug, expected)
+      ('current', 'montauk',     ARRAY['montauk-state-park'],                                        'approved false'),
+      ('niangua', 'whistle',     ARRAY['whistle-bridge'],                                            'ownership ''county'', is_public false'),
+      ('niangua', 'mothernature',ARRAY['mother-nature-s-riverfront-retreat','mother-natures-retreat'],'''boat_ramp'' in types'),
+      ('niangua', 'hahatonka',   ARRAY['ha-ha-tonka-state-park','ha-ha-tonka'],                       'fee_notes ''No launch fee.''')
+    ) AS want(river_slug, label, slugs, expected)
    WHERE EXISTS (
      SELECT 1
        FROM public.access_points ap
@@ -210,55 +225,47 @@ BEGIN
        FROM public.access_points ap
        JOIN public.rivers r ON r.id = ap.river_id
       WHERE r.slug = want.river_slug
-        AND ap.slug = want.slug
-        AND CASE want.slug
-              WHEN 'montauk-state-park'     THEN ap.approved IS FALSE
-              WHEN 'whistle-bridge'         THEN ap.ownership = 'county' AND ap.is_public IS FALSE
-              WHEN 'mother-natures-retreat' THEN 'boat_ramp' = ANY(ap.types)
-              WHEN 'ha-ha-tonka'            THEN ap.fee_notes = 'No launch fee.'
+        AND ap.slug = ANY(want.slugs)
+        AND CASE want.label
+              WHEN 'montauk'      THEN ap.approved IS FALSE
+              WHEN 'whistle'      THEN ap.ownership = 'county' AND ap.is_public IS FALSE
+              WHEN 'mothernature' THEN 'boat_ramp' = ANY(ap.types)
+              WHEN 'hahatonka'    THEN ap.fee_notes = 'No launch fee.'
             END
    );
 
   IF wrong IS NOT NULL THEN
     RAISE EXCEPTION
-      'access correction did not land for: %. Every statement here is keyed on (rivers.slug, access_points.slug); a slug that has drifted must be reconciled before this migration means anything.',
+      'access correction did not land for: %. Each statement is keyed on the slugs production and the seed use; a slug that has drifted again must be reconciled before this migration means anything.',
       wrong;
   END IF;
 
-  -- snap_distance_m is written by access_points_auto_snap on the UPDATE above.
-  -- NULL means the trigger refused to snap — the point is more than 1500 m from
-  -- its river's geometry, which for a river access is a wrong coordinate rather
-  -- than an unusual one.
-  SELECT TRUE, ap.snap_distance_m INTO mn_found, mn_snap
+  -- ── Reported, never enforced ────────────────────────────────────────────
+  --
+  -- auto_snap_access_point stores the distance in `snap_distance_m` ALWAYS and
+  -- clears `location_snap` past 1500 m, so `location_snap IS NULL` — not a null
+  -- distance — is the trigger's way of saying it refused to snap.
+  --
+  -- All four of these rows were already past 1500 m before this migration, and
+  -- they are the only unsnapped approved points in the dataset: Montauk 2236 m
+  -- at the Current headwaters, Ha Ha Tonka 7765 m out on the lake arm, and
+  -- Whistle Bridge 1769 m / Mother Nature's 1525 m around the Tunnel Dam
+  -- meander. Every other river's worst point is comfortably inside the
+  -- threshold. That is a river-geometry gap at four honest locations, it
+  -- predates this correction, and nothing here moves any of them — so it is
+  -- surfaced at apply time and never allowed to block a text fix.
+  SELECT string_agg(ap.slug || ' ' || round(ap.snap_distance_m) || ' m', ', ' ORDER BY ap.slug)
+    INTO offline
     FROM public.access_points ap
     JOIN public.rivers r ON r.id = ap.river_id
-   WHERE r.slug = 'niangua' AND ap.slug = 'mother-natures-retreat';
+   WHERE r.slug IN ('current', 'niangua')
+     AND ap.slug IN ('montauk-state-park', 'whistle-bridge', 'ha-ha-tonka-state-park',
+                     'ha-ha-tonka', 'mother-nature-s-riverfront-retreat', 'mother-natures-retreat')
+     AND ap.location_snap IS NULL;
 
-  IF COALESCE(mn_found, FALSE) THEN
-    IF mn_snap IS NULL THEN
-      RAISE EXCEPTION
-        'Mother Nature''s new coordinate (-92.8622596, 37.9520605) is more than 1500 m from the Niangua geometry, so auto_snap_access_point left location_snap NULL. The pin is wrong, or rivers.geom does not cover this reach — resolve before correcting the record.';
-    END IF;
-
-    -- 500 m is what validate_river_data() reports as access_point_offline.
-    -- Worth saying out loud at apply time; not worth refusing the correction over.
-    IF mn_snap > 500 THEN
-      RAISE WARNING
-        'Mother Nature''s is % m from the Niangua line — validate_river_data() will report access_point_offline. Confirm the pin against the channel.',
-        round(mn_snap);
-    END IF;
-  END IF;
-
-  -- Montauk is a headwaters park record rather than a landing, and is left
-  -- unapproved, so validate_river_data() will not look at it. Reported, not
-  -- enforced: a park's buildings legitimately sit off the mapped line.
-  SELECT ap.snap_distance_m INTO montauk_snap
-    FROM public.access_points ap
-    JOIN public.rivers r ON r.id = ap.river_id
-   WHERE r.slug = 'current' AND ap.slug = 'montauk-state-park';
-
-  IF FOUND THEN
-    RAISE NOTICE 'Montauk corrected pin is % m from the Current geometry (was ~19 km southeast of the park).',
-      COALESCE(round(montauk_snap)::text, 'more than 1500');
+  IF offline IS NOT NULL THEN
+    RAISE WARNING
+      'Still off the river line and unsnapped (pre-existing, not moved here): %. validate_river_data() reports access_point_not_snapped for the approved ones.',
+      offline;
   END IF;
 END $$;
