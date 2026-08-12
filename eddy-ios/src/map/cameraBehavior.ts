@@ -35,12 +35,12 @@ export type MapCameraAction =
   | { type: 'locationRequested'; lng: number; lat: number; zoom: number }
   | { type: 'clusterSelected'; lng: number; lat: number }
   /**
-   * A finished float plan, framed once when its route lands.
+   * A float plan, framed while the reader is looking at it.
    *
    * Goes through the command system rather than straight to setCamera, which is
-   * what it used to do. A route arrives asynchronously, so the direct call was
-   * the one path that could still overrule a reader who had panned away while
-   * it was in flight — the exact failure this module exists to prevent.
+   * what it used to do — the direct call sat outside command ids, sheet waiting
+   * and gesture cancellation. Issued on the decision below rather than on the
+   * route's arrival, for the reason given there.
    */
   | { type: 'planRouteFramed'; bounds: MapBounds };
 
@@ -104,9 +104,61 @@ export function cameraCommandFor(action: MapCameraAction, id: number): MapCamera
         type: 'fitBounds',
         bounds: action.bounds,
         duration: 550,
-        // A finished plan always has the plan sheet over it, and a twelve-mile
-        // float framed into the whole map is a float half-hidden by the sheet.
-        waitForSheet: true,
+        // ── No waitForSheet, unlike every other fit ────────────────────────
+        //
+        // It said `true`, justified as "a finished plan always has the plan
+        // sheet over it". Wrong sheet: the gate reads cameraPaddingBottom,
+        // which the MAP sheet drives — the Plan sheet is a separate pageSheet
+        // modal and contributes nothing to it. So with no map sheet open the
+        // frame did not run, it QUEUED, and fired whenever a sheet next
+        // happened to open, long after the reader had moved on.
+        //
+        // There is also nothing to wait for. The other fits wait because the
+        // sheet they must clear is opening as a result of the same tap, and has
+        // not been measured yet. Nothing opens here: the map sheet is already
+        // whatever it was, so the current padding is the final padding.
       };
   }
+}
+
+/**
+ * Whether a float plan should move the map right now.
+ *
+ * ── Why viewing, and not arrival ────────────────────────────────────────────
+ *
+ * Framing when the ROUTE LANDS makes an asynchronous result compete with
+ * whatever the reader has done since they asked for it: start a plan, close the
+ * sheet, pan somewhere, and the response arrives and frames over them. Command
+ * ids do not help — they establish that a command is not a replay, not that it
+ * is still wanted.
+ *
+ * Framing while the plan is BEING VIEWED removes the conflict instead of
+ * adjudicating it. The Plan sheet is a pageSheet modal, so for exactly as long
+ * as it is open the reader cannot touch the map: there is no competing intent
+ * to be stale against. The alternative — an interaction epoch captured at
+ * request time and compared on arrival — is bookkeeping over every unrelated
+ * gesture and navigation in the app, to resolve a race that cannot occur.
+ *
+ * The four rules, in order of the branches below:
+ *
+ *   - closed: never frame, and end the viewing session
+ *   - open, route arrives: frame — the reader is looking at it
+ *   - open, already framed this route this session: leave the camera alone
+ *   - REOPENED: frame again, because opening it is fresh intent
+ *
+ * `route` is compared by identity and never read, so this stays honest about
+ * what it is: a decision, with no opinion on geometry.
+ */
+export type PlanFramingDecision = 'frame' | 'endSession' | 'idle';
+
+export function planFramingDecision(
+  planOpen: boolean,
+  route: object | null,
+  framedRoute: object | null,
+): PlanFramingDecision {
+  // Not just "do nothing": closing forgets what was framed, so reopening frames
+  // again, and cancels a frame issued in the instant before the sheet went away.
+  if (!planOpen) return 'endSession';
+  if (!route || route === framedRoute) return 'idle';
+  return 'frame';
 }

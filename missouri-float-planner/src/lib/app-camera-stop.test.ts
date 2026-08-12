@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { cameraCommandFor } from '../../../eddy-ios/src/map/cameraBehavior';
+import { cameraCommandFor, planFramingDecision } from '../../../eddy-ios/src/map/cameraBehavior';
 import type { MapCameraCommand } from '../../../eddy-ios/src/map/cameraBehavior';
 
 // Map navigation must be a one-time response to an explicit action.
@@ -191,13 +191,18 @@ test('explicit navigation owns zoom while POIs preserve the live zoom', () => {
 // so it was the one path left that could still overrule a reader who had panned
 // away while it was in flight.
 test('a finished plan route is framed as a command, not a direct camera call', () => {
-  assert.deepEqual(cameraCommandFor({ type: 'planRouteFramed', bounds: [-92, 36, -91, 38] }, 13), {
+  const command = cameraCommandFor({ type: 'planRouteFramed', bounds: [-92, 36, -91, 38] }, 13);
+  assert.deepEqual(command, {
     id: 13,
     type: 'fitBounds',
     bounds: [-92, 36, -91, 38],
     duration: 550,
-    waitForSheet: true,
   });
+  // Absent, and deliberately unlike every other fit. The gate reads the MAP
+  // sheet's padding, which a pageSheet Plan modal does not contribute to — so
+  // `waitForSheet: true` did not delay this frame until the sheet was measured,
+  // it queued it until some unrelated sheet next opened.
+  assert.equal(command && 'waitForSheet' in command, false);
 
   const map = readFileSync(MAP, 'utf8');
   assert.doesNotMatch(
@@ -215,5 +220,70 @@ test('a finished plan route is framed as a command, not a direct camera call', (
     2,
     'a setCamera call was added or removed. Every camera move must go through the ' +
       'single command effect, whose two branches are the only legitimate calls.',
+  );
+});
+
+// ── The late-plan-response race ──────────────────────────────────────────────
+//
+// Framing on arrival let an asynchronous result outrank newer intent: start a
+// plan, close the sheet, pan or pick another POI, and the response landed and
+// framed the route over wherever the reader had gone. Command ids do not catch
+// it — they establish that a command is not a replay, not that it is still
+// wanted.
+//
+// The rule is now that the plan moves the map only while the plan is being
+// looked at, which is enforceable rather than adjudicated: PlanSheet is a
+// pageSheet modal, so the map cannot be touched while it is open.
+test('a plan frames only while its sheet is open', () => {
+  const route = { coordinates: [] };
+  const other = { coordinates: [] };
+
+  // Arrives while open — the reader is looking at it.
+  assert.equal(planFramingDecision(true, route, null), 'frame');
+  // Already framed, and the sheet is still up: leave the camera alone rather
+  // than re-fitting on every unrelated re-render.
+  assert.equal(planFramingDecision(true, route, route), 'idle');
+  // A different plan, same viewing session.
+  assert.equal(planFramingDecision(true, other, route), 'frame');
+  // Open with nothing calculated yet.
+  assert.equal(planFramingDecision(true, null, null), 'idle');
+});
+
+test('a plan response that lands after the sheet closes never moves the map', () => {
+  const route = { coordinates: [] };
+
+  // THE RACE. The sheet is closed and the response has just arrived; on the old
+  // arrival-driven rule this issued a command over the reader's newer camera.
+  assert.equal(planFramingDecision(false, route, null), 'endSession');
+  // And it stays refused for as long as the sheet is shut.
+  assert.equal(planFramingDecision(false, route, route), 'endSession');
+});
+
+test('reopening a finished plan frames it again', () => {
+  const route = { coordinates: [] };
+
+  // Closing ends the viewing session, which is what forgets the framed route —
+  // `endSession` is not a synonym for "do nothing". Reopening is fresh intent,
+  // so the same route frames a second time.
+  assert.equal(planFramingDecision(false, route, route), 'endSession');
+  assert.equal(planFramingDecision(true, route, null), 'frame');
+});
+
+test('closing cancels a frame issued in the instant before dismissal', () => {
+  const screen = readFileSync(SCREEN, 'utf8');
+
+  // `endSession` has to DO something: clear the remembered route and drop a
+  // command that has been issued but not yet applied. Without the second half a
+  // frame outlives the session that asked for it.
+  assert.match(
+    screen,
+    /decision === 'endSession'[\s\S]{0,700}setCameraCommand\(\(current\) =>[\s\S]{0,120}pending/,
+    'closing the Plan sheet no longer cancels a pending plan-frame command',
+  );
+  assert.match(
+    screen,
+    /planFramingDecision\(planOpen, planGeometry, framedRoute\.current\)/,
+    'plan framing is no longer decided by the pure rule — an effect deciding for ' +
+      'itself is how the arrival-driven race got in',
   );
 });

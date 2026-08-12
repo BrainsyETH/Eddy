@@ -93,6 +93,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { mapAccessPointPin, RiverMap, type InitialMapCamera, type MapPin } from '@/map/RiverMap';
 import {
   cameraCommandFor,
+  planFramingDecision,
   type MapCameraAction,
   type MapCameraCommand,
 } from '@/map/cameraBehavior';
@@ -319,10 +320,13 @@ export default function MapScreen() {
   const [gaugeFilter, setGaugeFilter] = useState<ReadonlySet<GaugeFilterKey>>(() => new Set());
   const cameraCommandId = useRef(0);
   const [cameraCommand, setCameraCommand] = useState<MapCameraCommand | null>(null);
-  const issueCameraCommand = useCallback((action: MapCameraAction) => {
+  /** Issues a navigation request, and returns its id so a caller can cancel it. */
+  const issueCameraCommand = useCallback((action: MapCameraAction): number | null => {
     cameraCommandId.current += 1;
     const command = cameraCommandFor(action, cameraCommandId.current);
-    if (command) setCameraCommand(command);
+    if (!command) return null;
+    setCameraCommand(command);
+    return command.id;
   }, []);
   // The camera, as of the last time it stopped moving. Only the national gauge
   // layer reads it — everything else on this screen loads a bounded set up front.
@@ -1719,22 +1723,57 @@ export default function MapScreen() {
   ]);
 
   /**
-   * Frame a finished float plan, once, when its route lands.
+   * Frame a float plan while the reader is looking at it.
    *
-   * This lived inside RiverMap as a direct setCamera call, outside command ids,
-   * sheet waiting and gesture cancellation. A route arrives asynchronously, so
-   * that was the one remaining path that could overrule a reader who had panned
-   * away while it was in flight — the precise failure the command system exists
-   * to prevent, reintroduced by the component that implements it.
+   * ── Why this keys off the sheet being OPEN, not the route arriving ─────────
+   *
+   * It used to frame on arrival, which put an asynchronous result in competition
+   * with everything the reader had done since asking for it: start a plan, close
+   * the sheet, pan somewhere, and the response landed and framed over them.
+   * Command ids do not answer that — they say a command is not a replay, not
+   * that it is still wanted.
+   *
+   * Gating on `planOpen` dissolves the race rather than refereeing it. PlanSheet
+   * is a pageSheet modal, so while it is up the map cannot be touched at all;
+   * the window in which this frames is exactly the window in which no competing
+   * intent can be formed. Depending on BOTH values is what covers the two cases
+   * that matter — a route landing while the sheet is already open, and a
+   * finished plan being reopened, which frames again because opening it is
+   * fresh intent.
+   *
+   * The alternative was an interaction epoch captured when calculation starts
+   * and compared on arrival. It works, but it is bookkeeping over every gesture
+   * and every navigation in the app, kept in order to adjudicate a conflict this
+   * rule makes impossible.
    */
   const planGeometry = planner.plan?.route?.geometry ?? null;
   const framedRoute = useRef<typeof planGeometry>(null);
+  const planFrameCommandId = useRef<number | null>(null);
+
   useEffect(() => {
-    if (!planGeometry || framedRoute.current === planGeometry) return;
-    framedRoute.current = planGeometry;
+    const decision = planFramingDecision(planOpen, planGeometry, framedRoute.current);
+    if (decision === 'idle') return;
+
+    if (decision === 'endSession') {
+      framedRoute.current = null;
+      // Cancel a frame issued in the instant before the sheet went away. Without
+      // this the command outlives the viewing session it belongs to — and any
+      // future `waitForSheet` on it would make that a certainty rather than a
+      // sub-frame edge.
+      const pending = planFrameCommandId.current;
+      planFrameCommandId.current = null;
+      if (pending !== null) {
+        setCameraCommand((current) => (current && current.id === pending ? null : current));
+      }
+      return;
+    }
+
+    if (!planGeometry) return;
     const bounds = boundsForLine(planGeometry.coordinates);
-    if (bounds) issueCameraCommand({ type: 'planRouteFramed', bounds });
-  }, [planGeometry, issueCameraCommand]);
+    if (!bounds) return;
+    framedRoute.current = planGeometry;
+    planFrameCommandId.current = issueCameraCommand({ type: 'planRouteFramed', bounds });
+  }, [planOpen, planGeometry, issueCameraCommand]);
 
   const onCameraCommandConsumed = useCallback((id: number) => {
     // Dropped so a REMOUNT cannot replay it. RiverMap's applied-id is a ref and
