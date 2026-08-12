@@ -12,7 +12,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import SiteFooter from '@/components/ui/SiteFooter';
 import DamStateCard from '@/components/dam/DamStateCard';
-import { fetchAllDamSnapshots } from '@/lib/data/dams';
+import { fetchAllDamSummaries } from '@/lib/data/dams';
 import { groupDamsForIndex } from '@/lib/data/dam-grouping';
 
 export const revalidate = 300; // ISR every 5 minutes
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 };
 
 export default async function DamsPage() {
-  const dams = await fetchAllDamSnapshots();
+  const dams = await fetchAllDamSummaries();
   const groups = groupDamsForIndex(dams);
 
   return (

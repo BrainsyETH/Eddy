@@ -40,7 +40,12 @@
 // ALLOWLIST rather than a ranking, so no aggregate can represent "right now"
 // however fresh its metadata claims to be.
 
-import { fetchLatestValue, fetchTimeseries, type TimeseriesPoint } from '@/lib/usace/cda';
+import {
+  bucketedNow,
+  fetchLatestValue,
+  fetchTimeseries,
+  type TimeseriesPoint,
+} from '@/lib/usace/cda';
 import type { UsaceMetric } from '@/lib/flow-providers/usace-registry';
 
 const CDA_BASE = 'https://cwms-data.usace.army.mil/cwms-data';
@@ -414,12 +419,17 @@ const defaultProbe: SeriesProbe = async (office, { tsId, unit, forecast }) => {
   if (!forecast) return fetchLatestValue(office, tsId, unit, PROBE_LOOKBACK_HOURS);
 
   const now = Date.now();
+  // The WINDOW is bucketed so repeated probes of the same candidate share a
+  // URL and can be cached; the freshness check below still uses the real clock,
+  // because whether a point is in the future is a question about now and not
+  // about the bucket.
+  const windowNow = bucketedNow().getTime();
   const result = await fetchTimeseries(
     office,
     tsId,
     unit,
-    new Date(now - 6 * 3_600_000),
-    new Date(now + FORECAST_HORIZON_DAYS * 86_400_000)
+    new Date(windowNow - 6 * 3_600_000),
+    new Date(windowNow + FORECAST_HORIZON_DAYS * 86_400_000)
   );
   const points = result?.points ?? [];
   if (!hasFuturePoint(points, now)) return null;

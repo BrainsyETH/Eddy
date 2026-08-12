@@ -25,6 +25,7 @@
 // powerhouse", and the UI must render nothing rather than "0 cfs" or a dash.
 
 import {
+  bucketedNow,
   changeOver,
   fetchLatestValue,
   fetchTimeseries,
@@ -42,22 +43,52 @@ import {
 } from '@/lib/flow-providers/usace-registry';
 
 /**
- * Metrics read for a dam page, in display priority order.
+ * What a LIST surface needs, and nothing else.
+ *
+ * The hierarchy a tailwater angler scans a list by: is it generating, what
+ * happens next, how much is coming out, is the water below moving. Pool level,
+ * flood pool, temperature and inflow answer none of those and belong behind the
+ * tap — a twenty-dam index that repeats a detail page twenty times is not
+ * scannable.
+ *
+ * ── generationFlow is load-bearing, not display ────────────────────────────
+ * `DamSnapshot.generating` is DERIVED from it (turbine flow above the dam's
+ * generationOnCfs floor). Drop it from this set to save a request and every
+ * generating chip on every list silently becomes null — the one fact the
+ * hierarchy leads with, gone, with no error anywhere. Pinned by
+ * dams-route-contract.test.ts.
+ */
+export const SUMMARY_METRICS: UsaceMetric[] = [
+  'release',
+  'generationFlow',
+  'tailwaterElevation',
+];
+
+/**
+ * Everything a dam's own page shows, in display priority order.
  *
  * `tailwaterElevation` and `inflow` were declared in the registry and resolvable
  * from the CWMS catalog from the beginning, and read by nothing — the stage
  * below the dam is the number a wading angler actually stands in, and it was
  * the one thing this feature could already fetch and never showed.
  */
-const SNAPSHOT_METRICS: UsaceMetric[] = [
-  'release',
-  'generationFlow',
-  'tailwaterElevation',
+export const DETAIL_METRICS: UsaceMetric[] = [
+  ...SUMMARY_METRICS,
   'tailwaterTempF',
   'poolElevation',
   'pctFloodPool',
   'inflow',
 ];
+
+/**
+ * What /api/high-water needs: a release figure and whether the units are running.
+ *
+ * That route filters to dams whose tailwater gauge is running high, which the
+ * registry can answer with no requests at all — see fetchTailwaterDams. It reads
+ * no schedule and no lake state, so fetching them was work whose only
+ * destination was the garbage collector.
+ */
+const HIGH_WATER_METRICS: UsaceMetric[] = ['release', 'generationFlow'];
 
 /**
  * Metrics published with their recent movement attached.
@@ -241,10 +272,13 @@ export function publishableValue(
   return value >= FLOOD_POOL_ZERO_BAND ? 0 : null;
 }
 
-async function readMetrics(dam: UsaceDam): Promise<Partial<Record<UsaceMetric, DamMetricValue>>> {
+async function readMetrics(
+  dam: UsaceDam,
+  requested: UsaceMetric[]
+): Promise<Partial<Record<UsaceMetric, DamMetricValue>>> {
   if (!dam.office || !dam.cdaLocation) return {};
 
-  const asked = SNAPSHOT_METRICS.filter((m) => !dam.suppressMetrics?.includes(m));
+  const asked = requested.filter((m) => !dam.suppressMetrics?.includes(m));
   const resolved = await seriesFor(dam, asked);
   const wanted = asked.filter((m) => resolved[m]);
   if (wanted.length === 0) return {};
@@ -269,7 +303,9 @@ async function readMetrics(dam: UsaceDam): Promise<Partial<Record<UsaceMetric, D
       // not at the ten Tulsa ones, for a reason no reader could see. One extra
       // request per resolver-backed dam buys a surface that behaves the same
       // everywhere.
-      const end = new Date();
+      // Bucketed, so this window matches the one fetchLatestValue would have
+      // built for the same series and the two share a cache entry.
+      const end = bucketedNow();
       const window = await fetchTimeseries(
         dam.office!,
         series.tsId,
@@ -312,6 +348,10 @@ async function readMetrics(dam: UsaceDam): Promise<Partial<Record<UsaceMetric, D
 }
 
 async function readSchedule(dam: UsaceDam, days: number): Promise<DamScheduleDay[]> {
+  // Zero days is a caller saying it does not render a schedule at all — see
+  // fetchTailwaterDams. Distinct from a dam with no SWPA code, but the answer is
+  // the same and the contract is unchanged: an empty schedule renders nothing.
+  if (days <= 0) return [];
   if (!dam.swpaCode) return [];
   const schedules = await fetchProjectSchedule(dam.swpaCode, days);
   return schedules.map((s) => ({
@@ -323,22 +363,31 @@ async function readSchedule(dam: UsaceDam, days: number): Promise<DamScheduleDay
 }
 
 /**
- * Everything a dam page needs. Never throws — a source that fails simply
- * contributes nothing, because a dam with a pool level but no schedule is
- * still worth a page.
+ * One dam, reading exactly the metrics asked for. Never throws — a source that
+ * fails simply contributes nothing, because a dam with a pool level but no
+ * schedule is still worth a page.
+ *
+ * ── One reader, three appetites ────────────────────────────────────────────
+ * The metric set is a PARAMETER rather than a second implementation. Everything
+ * that makes this awkward — per-district timeseries ids, catalog resolution,
+ * daily-mean detection, flood-pool suppression, the trend window — is the same
+ * work whoever is asking, and a summary path that reimplemented any of it would
+ * drift from the detail path in exactly the ways this file's comments record.
+ *
+ * Prefer the named wrappers below; they are what the call sites should read as.
  */
-export async function fetchDamSnapshot(
+async function fetchSnapshot(
   damId: string,
-  options?: { scheduleDays?: number }
+  options: { metrics: UsaceMetric[]; scheduleDays: number }
 ): Promise<DamSnapshot | null> {
   const dam = getUsaceDam(damId);
   if (!dam) return null;
 
   const [metrics, schedule] = await Promise.all([
-    readMetrics(dam).catch(
+    readMetrics(dam, options.metrics).catch(
       () => ({}) as Partial<Record<UsaceMetric, DamMetricValue>>
     ),
-    readSchedule(dam, options?.scheduleDays ?? 2).catch(() => [] as DamScheduleDay[]),
+    readSchedule(dam, options.scheduleDays).catch(() => [] as DamScheduleDay[]),
   ]);
 
   const gen = metrics.generationFlow;
@@ -372,24 +421,70 @@ export async function fetchDamSnapshot(
   };
 }
 
+/** A dam's own page: every metric, three days of schedule. */
+export async function fetchDamDetail(
+  damId: string,
+  options?: { scheduleDays?: number }
+): Promise<DamSnapshot | null> {
+  return fetchSnapshot(damId, {
+    metrics: DETAIL_METRICS,
+    scheduleDays: options?.scheduleDays ?? 3,
+  });
+}
+
 /**
- * Snapshots for every dam, for the index page.
+ * One dam as a list surface needs it — SUMMARY_METRICS only.
  *
- * Schedules are fetched per project, but SWPA serves one file per weekday
- * holding ALL projects — Next's fetch cache collapses those to one request per
- * day across the whole page, so this is far cheaper than the call count
- * suggests.
- *
- * TWO days rather than one, because the index card now names the next change in
- * the schedule and most of these projects are peaking plants that go idle
- * overnight. With a single day loaded, every dam whose next start falls after
- * midnight could say nothing at all — which is most of them, most evenings. The
- * second day costs one more HTTP request for the whole page, not one per dam.
+ * TWO days of schedule rather than one, because the card names the next change
+ * and most of these are peaking plants that go idle overnight. With a single day
+ * loaded, every dam whose next start falls after midnight says nothing at all —
+ * which is most of them, most evenings. SWPA serves one file per weekday holding
+ * ALL projects and that fetch IS cached, so the second day costs one more
+ * request for a whole page rather than one per dam.
  */
-export async function fetchAllDamSnapshots(): Promise<DamSnapshot[]> {
+export async function fetchDamSummary(
+  damId: string,
+  options?: { scheduleDays?: number }
+): Promise<DamSnapshot | null> {
+  return fetchSnapshot(damId, {
+    metrics: SUMMARY_METRICS,
+    scheduleDays: options?.scheduleDays ?? 2,
+  });
+}
+
+/**
+ * Every dam, for the index and /api/dams.
+ *
+ * Reads three metrics rather than seven. Measured against the registry, that is
+ * 19 declared timeseries reads and 35 unresolved slots instead of 43 and 81 —
+ * The difference is paid on the first render of each bucket; repeat reads of
+ * the same series now share a URL (see bucketedNow in cda.ts).
+ */
+export async function fetchAllDamSummaries(): Promise<DamSnapshot[]> {
   const ids = Object.keys(USACE_DAMS);
+  const results = await mapWithConcurrency(ids, 4, (id) => fetchDamSummary(id));
+  return results.filter((d): d is DamSnapshot => d !== null);
+}
+
+/**
+ * Only the dams that control a reach Eddy carries, for /api/high-water.
+ *
+ * That route lists dams whose tailwater gauge is running high, then reads a
+ * release figure and whether the units are turning. It touches no schedule and
+ * no lake state — so this reads neither.
+ *
+ * The filter runs in the REGISTRY, before any request is made. `tailwater` is a
+ * static property of a dam, so asking the Corps about nineteen projects in order
+ * to discard nineteen of them was work with no destination. Exactly one dam
+ * qualifies today (Clearwater), which turns roughly 120 uncached requests into
+ * two.
+ */
+export async function fetchTailwaterDams(): Promise<DamSnapshot[]> {
+  const ids = Object.values(USACE_DAMS)
+    .filter((d) => d.tailwater?.gaugeSiteId)
+    .map((d) => d.id);
   const results = await mapWithConcurrency(ids, 4, (id) =>
-    fetchDamSnapshot(id, { scheduleDays: 2 })
+    fetchSnapshot(id, { metrics: HIGH_WATER_METRICS, scheduleDays: 0 })
   );
   return results.filter((d): d is DamSnapshot => d !== null);
 }
@@ -433,14 +528,20 @@ export async function fetchRiverDam(riverSlug: string): Promise<RiverDamContext 
   const series = entry.series.releaseForecast;
 
   const [dam, forecastResult] = await Promise.all([
-    fetchDamSnapshot(entry.id, { scheduleDays: 2 }),
+    // The river hub's dam panel shows release, the schedule and a link out to
+    // the dam page — never lake state — so a summary is the whole of what it
+    // renders. The iOS panel is already summary-fed: it finds its dam in the
+    // /api/dams list rather than fetching one.
+    fetchDamSummary(entry.id),
     series && entry.office
       ? fetchTimeseries(
           entry.office,
           series.tsId,
           series.unit,
-          new Date(Date.now() - 12 * 60 * 60 * 1000),
-          new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+          // Both ends off one bucketed instant, so the forecast window is
+          // stable between renders and the response can actually be cached.
+          new Date(bucketedNow().getTime() - 12 * 60 * 60 * 1000),
+          new Date(bucketedNow().getTime() + 14 * 24 * 60 * 60 * 1000)
         ).catch(() => null)
       : Promise.resolve(null),
   ]);

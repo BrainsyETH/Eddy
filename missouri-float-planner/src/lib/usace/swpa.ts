@@ -201,7 +201,7 @@ export function parseScheduleDate(text: string): string | null {
  * value stays pinned across repeated requests), so reading the header is what
  * keeps this honest across the cache.
  *
- * It is also wrong in a second way: fetchAllDamSnapshots parses one cached body
+ * It is also wrong in a second way: fetchAllDamSummaries parses one cached body
  * once per dam, so Date.now() would stamp ten different times for a single
  * retrieval. A header value is identical by construction — confirmed live, all
  * nine scheduled dams reporting one timestamp.

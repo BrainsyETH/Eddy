@@ -125,6 +125,40 @@ export async function fetchTimeseries(
 }
 
 /**
+ * How coarsely a "now" window is rounded before it goes into a URL.
+ *
+ * ── The cache that never hit ───────────────────────────────────────────────
+ * `begin` and `end` are serialised with `toISOString()`, to the millisecond. A
+ * window built from a bare `new Date()` is therefore a URL nobody will ever
+ * request twice, so `next: { revalidate }` above had nothing to match and every
+ * read went to the Corps — across the index and every dam page, across
+ * /api/dams and /api/high-water, across every repeat request from the app.
+ *
+ * Flooring the window makes repeated reads of the same series collapse onto one
+ * URL. It does NOT help within a single render: each (dam, metric) pair has its
+ * own timeseries id, so twenty dams are twenty distinct URLs however they are
+ * rounded. The win is across surfaces and across requests, which is where the
+ * duplication actually is.
+ *
+ * Five minutes rather than the full 900s revalidate, because the window is also
+ * what bounds "latest": flooring `end` means the newest point CDA has may sit
+ * outside it. These series publish hourly, so five minutes costs nothing real
+ * while still collapsing the repeat traffic that matters.
+ */
+export const WINDOW_BUCKET_MS = 5 * 60 * 1000;
+
+/**
+ * Now, floored to the bucket — the right-hand end of any live window.
+ *
+ * Use this instead of `new Date()` wherever a window means "up to now". A
+ * genuinely historical window (a forecast horizon, a backfill) should NOT be
+ * bucketed: it is already stable, and rounding it would move the data.
+ */
+export function bucketedNow(now = Date.now()): Date {
+  return new Date(Math.floor(now / WINDOW_BUCKET_MS) * WINDOW_BUCKET_MS);
+}
+
+/**
  * The most recent non-null point in a lookback window, or null.
  * `lookbackHours` covers the series interval plus publication lag.
  */
@@ -135,7 +169,7 @@ export async function fetchLatestValue(
   lookbackHours = 8,
   options?: { skipCache?: boolean }
 ): Promise<TimeseriesPoint | null> {
-  const end = new Date();
+  const end = bucketedNow();
   const begin = new Date(end.getTime() - lookbackHours * 60 * 60 * 1000);
   const result = await fetchTimeseries(office, tsId, unit, begin, end, options);
   if (!result || result.points.length === 0) return null;
