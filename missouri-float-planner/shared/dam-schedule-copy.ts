@@ -133,6 +133,147 @@ export function hourEndingNow(hoursElapsed: number): number {
   return Math.floor(hoursElapsed) + 1;
 }
 
+/** The calendar day after `dayKey`, both as `YYYY-MM-DD`. */
+function nextDayKey(dayKey: string): string {
+  const [y, m, d] = dayKey.split('-').map(Number);
+  // UTC arithmetic on a bare calendar date. Adding 24h to a Central-time
+  // instant would land on the same day twice each November and skip one each
+  // March; a calendar day has no DST because it has no clock attached.
+  const next = new Date(Date.UTC(y, m - 1, d) + 86_400_000);
+  return next.toISOString().slice(0, 10);
+}
+
+/** A scheduled flip between generating and idle. */
+export interface ScheduleChange {
+  /** SWPA hour-ending the new state begins at. Render with hourEndingLabel. */
+  hourEnding: number;
+  /** The Central calendar day it falls on, `YYYY-MM-DD`. */
+  scheduleDate: string;
+  /** 0 = today at the dam, 1 = tomorrow, 2 = the day after. */
+  dayOffset: number;
+  /** The state the dam moves INTO. */
+  generating: boolean;
+}
+
+export interface ScheduleState {
+  /** True when SWPA has load scheduled for the hour running right now. */
+  generating: boolean;
+  /** The next flip, or NULL when the posted schedule never flips again. */
+  change: ScheduleChange | null;
+}
+
+/**
+ * What SWPA has the units doing right now, and when that next changes.
+ *
+ * ── Scheduled, not observed ────────────────────────────────────────────────
+ * This reads the SCHEDULE. `DamSnapshot.generating` reads CWMS turbine flow and
+ * is an OBSERVATION. They can legitimately disagree — a unit trips, a schedule
+ * is revised after Eddy fetched it — so the two must never be presented as one
+ * fact. The card states the observation; this states the plan.
+ *
+ * ── Fails closed, twice ────────────────────────────────────────────────────
+ * Null when today's schedule is not in `schedule` at all, and null when the
+ * current hour is missing from it. Both mean "we do not know what the dam is
+ * doing", which is not the same as "the dam is idle" — and this feeds a line
+ * someone may wade against.
+ *
+ * Days are only walked while they are CONSECUTIVE. `fetchProjectSchedule` drops
+ * a day whose file has not refreshed yet, so `schedule` can hold today and the
+ * day after tomorrow with a hole between them. Walking across that hole would
+ * report Thursday's 6 AM start as Wednesday's.
+ */
+export function scheduleStateNow(
+  schedule: Array<{ scheduleDate: string; hours: Array<{ hourEnding: number; megawatts: number }> }>,
+  now = Date.now()
+): ScheduleState | null {
+  const today = centralDayKey(now);
+  const startIndex = schedule.findIndex((d) => d.scheduleDate === today);
+  if (startIndex === -1) return null;
+
+  const elapsed = scheduleHoursElapsed(today, now);
+  if (elapsed === null) return null;
+  const startHour = hourEndingNow(elapsed);
+
+  const currentHour = schedule[startIndex].hours.find((h) => h.hourEnding === startHour);
+  if (!currentHour) return null;
+  const generating = currentHour.megawatts > 0;
+
+  let expectedDate = today;
+  for (let i = startIndex; i < schedule.length; i += 1) {
+    const day = schedule[i];
+    if (day.scheduleDate !== expectedDate) break; // A gap — see the note above.
+    // Walked by hour NUMBER rather than array order: the first flip has to be
+    // the earliest one, and reading it off iteration order would quietly depend
+    // on the parser emitting 1..24 sorted.
+    const from = i === startIndex ? startHour : 1;
+    for (let h = from; h <= 24; h += 1) {
+      const hour = day.hours.find((x) => x.hourEnding === h);
+      if (!hour) continue;
+      if (hour.megawatts > 0 !== generating) {
+        return {
+          generating,
+          change: {
+            hourEnding: h,
+            scheduleDate: day.scheduleDate,
+            // Index offset equals calendar-day offset because the walk stops
+            // at the first non-consecutive date.
+            dayOffset: i - startIndex,
+            generating: !generating,
+          },
+        };
+      }
+    }
+    expectedDate = nextDayKey(expectedDate);
+  }
+
+  return { generating, change: null };
+}
+
+/**
+ * The one forward-looking line a tailwater angler wants: when the water changes.
+ *
+ * ── Why a clock time and never a countdown ─────────────────────────────────
+ * Both dam surfaces are ISR'd at 300 seconds, so this string can be up to five
+ * minutes old by the time it is read — and the iOS app can hold a cached
+ * response far longer. "in 2 hours" silently decays into a false claim; "at
+ * 3 PM" stays true no matter how stale the render is. The worst this can be is
+ * up to five minutes late announcing a flip that already happened, which is the
+ * failure direction that leaves someone waiting on the bank rather than
+ * standing in the river.
+ *
+ * Returns null when nothing can be said — no schedule for today, or no flip
+ * left in it. A caller renders nothing; the schedule section below carries the
+ * full picture either way.
+ */
+export function nextScheduleChangeSentence(
+  schedule: Array<{ scheduleDate: string; hours: Array<{ hourEnding: number; megawatts: number }> }>,
+  now = Date.now()
+): string | null {
+  const state = scheduleStateNow(schedule, now);
+  if (!state?.change) return null;
+
+  const { hourEnding, scheduleDate, dayOffset, generating } = state.change;
+  // hourEndingLabel gives the hour the water STARTS moving, which is exactly
+  // the instant the flip happens — hour ending 16 is the release running from
+  // 3 PM, so the change is at 3 PM.
+  const time = hourEndingLabel(hourEnding);
+  const clock = time === '12 AM' ? 'midnight' : time;
+
+  let when: string;
+  if (dayOffset === 0) when = clock;
+  else if (dayOffset === 1) when = `${clock} tomorrow`;
+  else {
+    const [y, m, d] = scheduleDate.split('-').map(Number);
+    const weekday = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
+      weekday: 'long',
+      timeZone: 'UTC',
+    });
+    when = `${clock} ${weekday}`;
+  }
+
+  return generating ? `Water on at ${when}` : `Water off at ${when}`;
+}
+
 /**
  * How long ago an ISO timestamp was, phrased for a person.
  *
@@ -149,7 +290,10 @@ export function relativeAge(iso: string | null | undefined, now = Date.now()): s
   // Clock skew between us and a CDN edge can put a timestamp slightly ahead.
   // "in 30 seconds" would be nonsense; treat anything not yet past as current.
   if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${Math.round(minutes)} minutes ago`;
+  if (minutes < 60) {
+    const whole = Math.round(minutes);
+    return whole === 1 ? 'a minute ago' : `${whole} minutes ago`;
+  }
   const hours = minutes / 60;
   if (hours < 2) return 'an hour ago';
   if (hours < 24) return `${Math.round(hours)} hours ago`;

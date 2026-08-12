@@ -25,13 +25,15 @@
 // powerhouse", and the UI must render nothing rather than "0 cfs" or a dash.
 
 import {
+  changeOver,
   fetchLatestValue,
   fetchTimeseries,
   stalenessOf,
+  type TimeseriesChange,
   type TimeseriesPoint,
 } from '@/lib/usace/cda';
 import { fetchProjectSchedule, idleWindows } from '@/lib/usace/swpa';
-import { resolveSeries, type ResolvedSeries } from '@/lib/usace/resolve';
+import { parseTsId, resolveSeries, type ResolvedSeries } from '@/lib/usace/resolve';
 import {
   USACE_DAMS,
   getUsaceDam,
@@ -39,14 +41,44 @@ import {
   type UsaceMetric,
 } from '@/lib/flow-providers/usace-registry';
 
-/** Metrics read for a dam page, in display priority order. */
+/**
+ * Metrics read for a dam page, in display priority order.
+ *
+ * `tailwaterElevation` and `inflow` were declared in the registry and resolvable
+ * from the CWMS catalog from the beginning, and read by nothing — the stage
+ * below the dam is the number a wading angler actually stands in, and it was
+ * the one thing this feature could already fetch and never showed.
+ */
 const SNAPSHOT_METRICS: UsaceMetric[] = [
   'release',
   'generationFlow',
+  'tailwaterElevation',
+  'tailwaterTempF',
   'poolElevation',
   'pctFloodPool',
-  'tailwaterTempF',
+  'inflow',
 ];
+
+/**
+ * Metrics published with their recent movement attached.
+ *
+ * Only the tailwater stage, deliberately. It is the one metric whose CHANGE is
+ * the fact rather than a decoration: it swings 8.19 ft at Table Rock and 7.67 ft
+ * at Bull Shoals between idle and full generation (measured over 48 hours,
+ * 2026-08-12), and it moves on unscheduled releases too — so it is the only
+ * signal here that catches water the schedule never announced.
+ */
+const TREND_METRICS: UsaceMetric[] = ['tailwaterElevation'];
+
+/**
+ * The window a trend is measured over.
+ *
+ * Three hours because a generation ramp takes one to two hours to express
+ * downstream, so a shorter window straddles the ramp and reads as noise. It
+ * also sits inside the default 8-hour lookback, which is what keeps the trend
+ * free of an extra request.
+ */
+const TREND_HOURS = 3;
 
 /** Parallel CDA requests across a whole page render. */
 const FETCH_CONCURRENCY = 6;
@@ -142,10 +174,35 @@ async function seriesFor(
     out[metric as UsaceMetric] = {
       tsId: hit.tsId,
       unit: hit.unit,
+      // A DECLARED daily series is flagged by hand in the registry; a RESOLVED
+      // one has nobody to flag it, so the interval in its own id has to. The
+      // resolver's specs admit `~1Day` for release and inflow, and Wappapello's
+      // inflow resolves to exactly that — without this, a day-old average would
+      // render as a reading taken just now, which is the correctness bug the
+      // registry's own `dailyMean` note exists to prevent.
+      ...dailyIntervalHints(hit.tsId),
       ...(hit.probed ? { probed: hit.probed } : {}),
     };
   }
   return out;
+}
+
+/**
+ * How far back a daily series has to be read, in hours.
+ *
+ * Mirrors the 72 the registry sets by hand for the two St. Louis dams: a daily
+ * mean is published roughly a day in arrears, so the default 8-hour window
+ * finds nothing at all.
+ */
+const DAILY_LOOKBACK_HOURS = 72;
+
+/** `dailyMean` and a matching lookback, when a resolved id names a daily interval. */
+export function dailyIntervalHints(
+  tsId: string
+): Pick<MetricSource, 'dailyMean' | 'lookbackHours'> {
+  const parsed = parseTsId(tsId);
+  if (!parsed || !/1Day/i.test(parsed.interval)) return {};
+  return { dailyMean: true, lookbackHours: DAILY_LOOKBACK_HOURS };
 }
 
 /**
@@ -194,15 +251,45 @@ async function readMetrics(dam: UsaceDam): Promise<Partial<Record<UsaceMetric, D
 
   const results = await mapWithConcurrency(wanted, FETCH_CONCURRENCY, async (metric) => {
     const series = resolved[metric]!;
-    // A resolved series arrives with its value already read — see MetricSource.
-    const point =
-      series.probed ??
-      (await fetchLatestValue(
+    const lookbackHours = series.lookbackHours ?? 8;
+
+    let point: TimeseriesPoint | null;
+    let trend: TimeseriesChange | null = null;
+
+    if (TREND_METRICS.includes(metric)) {
+      // Read the WINDOW rather than just its last point. fetchLatestValue
+      // already fetches exactly this window and discards all but the newest
+      // reading, so for a declared series the trend costs nothing but the
+      // arithmetic.
+      //
+      // The `probed` shortcut is deliberately NOT taken here, and it is the one
+      // place in this file that spends a request it could avoid. A resolved
+      // series arrives with a single point, which cannot carry a trend — so
+      // reusing it would show the stage moving at the six Little Rock dams and
+      // not at the ten Tulsa ones, for a reason no reader could see. One extra
+      // request per resolver-backed dam buys a surface that behaves the same
+      // everywhere.
+      const end = new Date();
+      const window = await fetchTimeseries(
         dam.office!,
         series.tsId,
         series.unit,
-        series.lookbackHours ?? 8
-      ));
+        new Date(end.getTime() - lookbackHours * 60 * 60 * 1000),
+        end
+      );
+      const points = window?.points ?? [];
+      point =
+        points.length > 0
+          ? points.reduce((a, b) => (b.timestamp > a.timestamp ? b : a))
+          : null;
+      trend = changeOver(points, TREND_HOURS);
+    } else {
+      // A resolved series arrives with its value already read — see MetricSource.
+      point =
+        series.probed ??
+        (await fetchLatestValue(dam.office!, series.tsId, series.unit, lookbackHours));
+    }
+
     if (!point) return null;
     const published = publishableValue(dam, metric, point.value);
     if (published === null) return null;
@@ -212,6 +299,7 @@ async function readMetrics(dam: UsaceDam): Promise<Partial<Record<UsaceMetric, D
       at: new Date(point.timestamp).toISOString(),
       staleness: stalenessOf(point.timestamp),
       ...(series.dailyMean ? { dailyMean: true } : {}),
+      ...(trend ? { trend } : {}),
     };
     return [metric, value] as const;
   });
@@ -291,11 +379,17 @@ export async function fetchDamSnapshot(
  * holding ALL projects — Next's fetch cache collapses those to one request per
  * day across the whole page, so this is far cheaper than the call count
  * suggests.
+ *
+ * TWO days rather than one, because the index card now names the next change in
+ * the schedule and most of these projects are peaking plants that go idle
+ * overnight. With a single day loaded, every dam whose next start falls after
+ * midnight could say nothing at all — which is most of them, most evenings. The
+ * second day costs one more HTTP request for the whole page, not one per dam.
  */
 export async function fetchAllDamSnapshots(): Promise<DamSnapshot[]> {
   const ids = Object.keys(USACE_DAMS);
   const results = await mapWithConcurrency(ids, 4, (id) =>
-    fetchDamSnapshot(id, { scheduleDays: 1 })
+    fetchDamSnapshot(id, { scheduleDays: 2 })
   );
   return results.filter((d): d is DamSnapshot => d !== null);
 }

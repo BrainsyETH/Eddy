@@ -2,6 +2,7 @@
 
 **Status: active** — strategy, not a commitment. Written July 2026 alongside the first USACE dam integration.
 **Companions:** `EDDY_IOS_STRATEGY.md`, `MULTI_STATE_SCALING_PLAN.md`, `RIVER_SCALING_PLAYBOOK.md`.
+**Execution plan:** `TAILWATER_PLAN.md` carries steps 3–5 of the sequence below as concrete work, plus the August 2026 measurements that decided how they get built. This document stays the *why*; that one is the *what next*.
 
 ---
 
@@ -152,8 +153,8 @@ A different thing wearing the same name. A release calendar is the *same primiti
 
 | # | Step | Why now |
 |---|---|---|
-| 1 | Ship the two-source dam layer (CDA + SWPA) | In flight. Proves the split between reading and schedule. |
-| 2 | **Replace hardcoded timeseries IDs with the catalog resolver** | Cheap at 8 dams, expensive at 80. Also self-heals renames. |
+| 1 | ~~Ship the two-source dam layer (CDA + SWPA)~~ **done** | Proved the split between reading and schedule. 20 projects across four districts. |
+| 2 | ~~**Replace hardcoded timeseries IDs with the catalog resolver**~~ **done** | `src/lib/usace/resolve.ts`. Declared ids still win; the resolver fills gaps. |
 | 3 | `regime` on the reach + the `ScheduleProvider` registry | Unlocks every regime below rain-fed. |
 | 4 | Onboard the Ozark trout tailwaters as real reaches | Revenue-adjacent and counter-seasonal. |
 | 5 | NID hazard overlay; release calendars | Opportunistic; the hazard half is a safety win for all users. |

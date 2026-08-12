@@ -24,12 +24,28 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
-import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
+import { relativeAge, nextScheduleChangeSentence } from '@eddy/conditions/dam-schedule-copy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
 function formatCfs(value: number): string {
   return `${Math.round(value).toLocaleString()} cfs`;
+}
+
+/**
+ * A metric's recent movement, as a signed number rather than a verdict.
+ *
+ * The rounding IS the threshold: a change that rounds to 0.0 ft renders nothing,
+ * so there is no invented "steady" band to be wrong about. See the measurement
+ * note on DamMetricValue.trend for why a rising/falling label cannot be made
+ * honest — idle and generating periods overlap across the whole range a
+ * threshold could sit in.
+ */
+function trendLabel(trend: { hours: number; delta: number } | undefined): string | null {
+  if (!trend) return null;
+  const rounded = Math.round(trend.delta * 10) / 10;
+  if (rounded === 0) return null;
+  return `${rounded > 0 ? '+' : '−'}${Math.abs(rounded).toFixed(1)} ft in ${trend.hours}h`;
 }
 
 interface StatProps {
@@ -64,7 +80,18 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
   const pool = dam.metrics.poolElevation;
   const floodPool = dam.metrics.pctFloodPool;
   const tailwaterTemp = dam.metrics.tailwaterTempF;
+  const tailwaterStage = dam.metrics.tailwaterElevation;
+  const inflow = dam.metrics.inflow;
   const generationFlow = dam.metrics.generationFlow;
+
+  // What SWPA says happens NEXT. A different claim from the chip above it,
+  // which reads CWMS turbine flow and is an observation — the two can honestly
+  // disagree when a unit trips or a schedule is revised after Eddy fetched it,
+  // so this states only the scheduled transition, never the present state.
+  //
+  // It is also the only live line Stockton and Truman can carry: the Kansas
+  // City district publishes no timeseries at all, so those two have no chip.
+  const nextChange = nextScheduleChangeSentence(dam.schedule);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
@@ -106,6 +133,16 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
         </View>
       ) : null}
 
+      {nextChange ? (
+        <View style={styles.nextChangeRow}>
+          <Ionicons name="time-outline" size={13} color={colors.interactive} />
+          <Text style={[styles.nextChange, { color: colors.interactive }]}>{nextChange}</Text>
+          <Text style={[styles.nextChangeAside, { color: colors.textSubtle }]}>(scheduled)</Text>
+        </View>
+      ) : null}
+
+      {/* Tailwater facts lead, lake facts follow. The water below the dam is
+          what someone is standing in; the pool is context. */}
       <View style={styles.statGrid}>
         {release ? (
           <Stat
@@ -121,6 +158,32 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
           />
         ) : null}
 
+        {/* Stage below the dam, with how far it has moved in three hours.
+            Measured 2026-08-12, this swings 8.19 ft at Table Rock and 7.67 ft
+            at Bull Shoals between idle and full generation — and unlike the
+            schedule it also catches water nobody announced. It is an elevation
+            above sea level, so the movement carries the meaning rather than the
+            absolute number. */}
+        {tailwaterStage ? (
+          <Stat
+            icon="resize-outline"
+            label="Tailwater stage"
+            value={`${tailwaterStage.value.toFixed(2)} ft`}
+            sub={trendLabel(tailwaterStage.trend) ?? relativeAge(tailwaterStage.at)}
+            dim={tailwaterStage.staleness === 'stale'}
+          />
+        ) : null}
+
+        {tailwaterTemp ? (
+          <Stat
+            icon="thermometer-outline"
+            label="Tailwater temp"
+            value={`${tailwaterTemp.value.toFixed(1)} °F`}
+            sub={tailwaterTemp.value < 60 ? 'cold release' : null}
+            dim={tailwaterTemp.staleness === 'stale'}
+          />
+        ) : null}
+
         {pool ? (
           <Stat
             icon="analytics-outline"
@@ -133,13 +196,18 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
           />
         ) : null}
 
-        {tailwaterTemp ? (
+        {/* Inflow against release is what says whether the lake is filling, and
+            so whether the Corps will have to run water in the days ahead.
+            Stated as a bare number rather than a verdict: turning the pair into
+            "the lake is rising" would ignore rainfall, evaporation and the pool
+            the operator is actually targeting. */}
+        {inflow ? (
           <Stat
-            icon="thermometer-outline"
-            label="Tailwater"
-            value={`${tailwaterTemp.value.toFixed(1)} °F`}
-            sub={tailwaterTemp.value < 60 ? 'cold release' : null}
-            dim={tailwaterTemp.staleness === 'stale'}
+            icon="enter-outline"
+            label={inflow.dailyMean ? 'Inflow (daily avg)' : 'Inflow'}
+            value={formatCfs(inflow.value)}
+            sub={inflow.dailyMean ? 'daily average into the lake' : 'into the lake'}
+            dim={inflow.staleness === 'stale'}
           />
         ) : null}
 
@@ -181,6 +249,9 @@ const styles = StyleSheet.create({
   },
   chipText: { ...t.sm, fontFamily: fonts.semibold },
   chipAside: { ...t.sm, flexShrink: 1 },
+  nextChangeRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 5 },
+  nextChange: { ...t.sm, fontFamily: fonts.semibold },
+  nextChangeAside: { ...t.xs },
   statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
   // A floor rather than a fixed width, so two stats share a row on a phone and
   // four fit on a tablet without a breakpoint.

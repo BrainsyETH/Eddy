@@ -140,6 +140,54 @@ export async function fetchLatestValue(
   return result.points.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
 }
 
+export interface TimeseriesChange {
+  /** The window actually asked for, in hours. */
+  hours: number;
+  /** Signed change over that window, newest minus oldest. */
+  delta: number;
+}
+
+/**
+ * How close to the requested window a point has to sit to stand in for it.
+ *
+ * Wide enough to absorb a missed hourly reading is NOT the goal — a 45-minute
+ * slack admits the 1Hour, 30Minutes and 15Minutes series CWMS publishes (all of
+ * which land exactly on the mark) while rejecting a gappy series where the
+ * nearest point is an hour or more off. A "3-hour change" measured over 4 hours
+ * is a different number wearing the same label.
+ */
+const CHANGE_WINDOW_TOLERANCE_MS = 45 * 60 * 1000;
+
+/**
+ * The change across the last `hours` of a series, or null when it cannot be
+ * measured honestly.
+ *
+ * Reads a window the caller already has in hand. `fetchLatestValue` fetches
+ * eight hours and returns one point, so for any metric already being read this
+ * costs nothing beyond the arithmetic.
+ *
+ * Returns null rather than a smaller window when the series is too short or too
+ * gappy. A trend is a nice-to-have; a mislabelled one on a surface someone
+ * wades against is not.
+ */
+export function changeOver(
+  points: TimeseriesPoint[],
+  hours: number
+): TimeseriesChange | null {
+  if (points.length < 2) return null;
+
+  const latest = points.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
+  const target = latest.timestamp - hours * 60 * 60 * 1000;
+
+  const oldest = points.reduce((best, p) =>
+    Math.abs(p.timestamp - target) < Math.abs(best.timestamp - target) ? p : best
+  );
+  if (Math.abs(oldest.timestamp - target) > CHANGE_WINDOW_TOLERANCE_MS) return null;
+  if (oldest.timestamp === latest.timestamp) return null;
+
+  return { hours, delta: latest.value - oldest.value };
+}
+
 /** How live a reading is, decided server-side so every surface agrees. */
 export type Staleness = 'fresh' | 'lagging' | 'stale';
 

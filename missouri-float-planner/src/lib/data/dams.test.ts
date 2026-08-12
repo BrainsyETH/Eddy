@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { publishableValue } from './dams';
+import { dailyIntervalHints, publishableValue } from './dams';
 
 // `%-Flood Pool` is the one dam metric whose meaning is local rather than
 // universal, and both surfaces render it unguarded as
@@ -48,4 +48,42 @@ test('other metrics are never clamped or dropped for being negative', () => {
   // would be a data fault worth surfacing, not something to quietly hide.
   assert.equal(publishableValue({}, 'release', -5), -5);
   assert.equal(publishableValue({}, 'tailwaterTempF', -1), -1);
+});
+
+// ── Daily-interval detection on a RESOLVED series ──────────────────────────
+// A declared series is flagged `dailyMean` by hand in the registry. A resolved
+// one has nobody to flag it, and the resolver's specs admit `~1Day` for both
+// release and inflow — Wappapello's and Mark Twain's inflow resolve to exactly
+// that. Rendering a day-old average as a reading taken just now is the
+// correctness bug the registry's own note warns about.
+
+test('a resolved daily series is flagged and given a longer lookback', () => {
+  // The live resolution, verbatim from the resolver log on 2026-08-12.
+  assert.deepEqual(
+    dailyIntervalHints('Wappapello Lk-St Francis.Flow-In.Ave.~1Day.1Day.lakerep-rev'),
+    { dailyMean: true, lookbackHours: 72 }
+  );
+  // A daily mean is published about a day in arrears, so the default 8-hour
+  // window would find nothing at all — which is how it would present as an
+  // absent metric rather than a labelled one.
+  assert.equal(
+    dailyIntervalHints('Mark Twain Lk-Salt.Flow-In.Ave.~1Day.1Day.lakerep-rev').lookbackHours,
+    72
+  );
+});
+
+test('an hourly series is left entirely alone', () => {
+  // The six Little Rock dams and every Tulsa project resolve to 1Hour. Flagging
+  // one of these would put a "daily average" label on a spot reading.
+  assert.deepEqual(dailyIntervalHints('Table_Rock_Dam.Flow-Res Out.Ave.1Hour.1Hour.Regi-Comp'), {});
+  assert.deepEqual(dailyIntervalHints('TENK.Flow-Res In.Ave.1Hour.1Hour.Rev-Regi-Computed'), {});
+  assert.deepEqual(dailyIntervalHints('TENK.Elev-Tailwater.Inst.1Hour.0.Ccp-Rev'), {});
+});
+
+test('the INTERVAL decides, not the rest of the id', () => {
+  // `1Day` appears in the duration field of every daily series and in the
+  // version string of some others. Matching the whole id would flag an hourly
+  // series whose version happens to contain the word.
+  assert.deepEqual(dailyIntervalHints('Some_Dam.Flow-Out.Ave.1Hour.1Hour.1Day-RunAve'), {});
+  assert.deepEqual(dailyIntervalHints('not a timeseries id'), {});
 });

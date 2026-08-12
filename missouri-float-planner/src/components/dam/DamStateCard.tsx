@@ -15,14 +15,29 @@
 //  - Stale readings drop their emphasis rather than being hidden — a number
 //    with an honest age beats no number.
 
-import { Waves, Zap, Thermometer, Droplets, Fish } from 'lucide-react';
+import { Waves, Zap, Thermometer, Droplets, Fish, Ruler, Clock } from 'lucide-react';
 import type { DamSnapshot } from '@/lib/data/dams';
 // One freshness voice across the dam surfaces, and across web and iOS. See
 // shared/dam-schedule-copy.ts for why the hour arithmetic lives there.
-import { relativeAge } from '@shared/dam-schedule-copy';
+import { relativeAge, nextScheduleChangeSentence } from '@shared/dam-schedule-copy';
 
 function formatCfs(value: number): string {
   return `${Math.round(value).toLocaleString()} cfs`;
+}
+
+/**
+ * A metric's recent movement, as a signed number rather than a verdict.
+ *
+ * The rounding IS the threshold. A change that rounds to 0.0 ft renders nothing
+ * at all, so there is no invented "steady" band to be wrong about — see the
+ * measurement note on DamMetricValue.trend for why a rising/falling label
+ * cannot be made honest here.
+ */
+function trendLabel(trend: { hours: number; delta: number } | undefined): string | null {
+  if (!trend) return null;
+  const rounded = Math.round(trend.delta * 10) / 10;
+  if (rounded === 0) return null;
+  return `${rounded > 0 ? '+' : '−'}${Math.abs(rounded).toFixed(1)} ft in ${trend.hours}h`;
 }
 
 function Stat({
@@ -57,10 +72,21 @@ export default function DamStateCard({ dam }: { dam: DamSnapshot }) {
   const pool = metrics.poolElevation;
   const floodPool = metrics.pctFloodPool;
   const tailwaterTemp = metrics.tailwaterTempF;
+  const tailwaterStage = metrics.tailwaterElevation;
+  const inflow = metrics.inflow;
 
   // Only a dam that actually reports turbine flow can claim a generating
   // state. `null` means "we don't know", which is different from "idle".
   const generating = dam.generating;
+
+  // What SWPA says happens NEXT — a different claim from the chip beside it,
+  // which reads CWMS turbine flow and is an observation. The two can honestly
+  // disagree (a unit trips, a schedule is revised after Eddy fetched it), so
+  // this states only the scheduled transition and never the present state.
+  //
+  // It is also the only live line the two Kansas City projects can have at all:
+  // that district publishes no timeseries, so Stockton and Truman have no chip.
+  const nextChange = nextScheduleChangeSentence(dam.schedule);
 
   return (
     <div className="rounded-xl border-2 border-t-4 border-primary-800 bg-white p-5 shadow-[4px_4px_0_var(--color-primary-200)]">
@@ -96,6 +122,16 @@ export default function DamStateCard({ dam }: { dam: DamSnapshot }) {
         </div>
       )}
 
+      {nextChange && (
+        <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary-800">
+          <Clock className="h-3.5 w-3.5" />
+          {nextChange}
+          <span className="font-normal text-neutral-500">(scheduled)</span>
+        </p>
+      )}
+
+      {/* Tailwater facts lead, lake facts follow. The water below the dam is
+          what someone is standing in; the pool is context. */}
       <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         {release && (
           <Stat
@@ -110,6 +146,30 @@ export default function DamStateCard({ dam }: { dam: DamSnapshot }) {
             dim={release.staleness === 'stale'}
           />
         )}
+        {/* Stage below the dam, with how far it has moved in three hours.
+            Measured 2026-08-12, this swings 8.19 ft at Table Rock and 7.67 ft at
+            Bull Shoals between idle and full generation — and unlike the
+            schedule it also catches water nobody announced. It is an elevation
+            above sea level, so the movement carries the meaning, not the
+            absolute number. */}
+        {tailwaterStage && (
+          <Stat
+            icon={<Ruler className="h-3.5 w-3.5" />}
+            label="Tailwater stage"
+            value={`${tailwaterStage.value.toFixed(2)} ft`}
+            sub={trendLabel(tailwaterStage.trend) ?? relativeAge(tailwaterStage.at)}
+            dim={tailwaterStage.staleness === 'stale'}
+          />
+        )}
+        {tailwaterTemp && (
+          <Stat
+            icon={<Thermometer className="h-3.5 w-3.5" />}
+            label="Tailwater temp"
+            value={`${tailwaterTemp.value.toFixed(1)} °F`}
+            sub={tailwaterTemp.value < 60 ? 'cold release' : null}
+            dim={tailwaterTemp.staleness === 'stale'}
+          />
+        )}
         {pool && (
           <Stat
             icon={<Droplets className="h-3.5 w-3.5" />}
@@ -119,13 +179,18 @@ export default function DamStateCard({ dam }: { dam: DamSnapshot }) {
             dim={pool.staleness === 'stale'}
           />
         )}
-        {tailwaterTemp && (
+        {/* Inflow against release is what says whether the lake is filling, and
+            so whether the Corps will have to run water in the days ahead. Stated
+            as a bare number rather than a verdict: turning the pair into "the
+            lake is rising" would ignore rainfall, evaporation and the pool the
+            operator is actually targeting. */}
+        {inflow && (
           <Stat
-            icon={<Thermometer className="h-3.5 w-3.5" />}
-            label="Tailwater"
-            value={`${tailwaterTemp.value.toFixed(1)} °F`}
-            sub={tailwaterTemp.value < 60 ? 'cold release' : null}
-            dim={tailwaterTemp.staleness === 'stale'}
+            icon={<Droplets className="h-3.5 w-3.5" />}
+            label={inflow.dailyMean ? 'Inflow (daily avg)' : 'Inflow'}
+            value={formatCfs(inflow.value)}
+            sub={inflow.dailyMean ? 'daily average into the lake' : 'into the lake'}
+            dim={inflow.staleness === 'stale'}
           />
         )}
         {/* Declared in the registry, not inferred from the temperature reading.

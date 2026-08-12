@@ -12,7 +12,27 @@ import {
   centralDayKey,
   scheduleHoursElapsed,
   hourEndingNow,
+  scheduleStateNow,
+  nextScheduleChangeSentence,
 } from './dam-schedule-copy';
+
+/**
+ * A day of scheduled megawatts from a sparse `{ hourEnding: mw }` map — every
+ * hour not named is idle. Written this way so a case reads as the shape of the
+ * day rather than as 24 numbers.
+ */
+function day(scheduleDate: string, mwByHour: Record<number, number>) {
+  return {
+    scheduleDate,
+    hours: Array.from({ length: 24 }, (_, i) => ({
+      hourEnding: i + 1,
+      megawatts: mwByHour[i + 1] ?? 0,
+    })),
+  };
+}
+
+// 17:00 UTC is noon Central in July (CDT), which is hour ending 13.
+const NOON_CENTRAL = Date.parse('2026-07-28T17:00:00Z');
 
 test('hour ending names the hour the water starts moving', () => {
   // SWPA's own convention: hour 14 is the release running 1pm-2pm. This is the
@@ -53,6 +73,9 @@ test('relative age is coarse past a day', () => {
   const ago = (ms: number) => new Date(now - ms).toISOString();
 
   assert.equal(relativeAge(ago(30_000), now), 'just now');
+  // Between 30 and 90 seconds this rounds to one, and "1 minutes ago" shipped
+  // on the dam schedule freshness line.
+  assert.equal(relativeAge(ago(75_000), now), 'a minute ago');
   assert.equal(relativeAge(ago(12 * 60_000), now), '12 minutes ago');
   assert.equal(relativeAge(ago(90 * 60_000), now), 'an hour ago');
   assert.equal(relativeAge(ago(5 * 3_600_000), now), '5 hours ago');
@@ -136,4 +159,107 @@ test('centralDayKey survives the DST boundary', () => {
   assert.equal(centralDayKey(Date.parse('2026-01-15T06:30:00Z')), '2026-01-15');
   // 05:30 UTC in January is 23:30 CST the previous day.
   assert.equal(centralDayKey(Date.parse('2026-01-15T05:30:00Z')), '2026-01-14');
+});
+
+// ── The next scheduled change ──────────────────────────────────────────────
+// The forward-looking half of the schedule: not "what is the water doing" —
+// the card's CWMS-backed chip answers that — but "when does it change".
+
+test('an idle dam reports when the water comes on', () => {
+  // Units scheduled 3 PM to 9 PM, i.e. hours ending 16-21. At noon the dam is
+  // idle and the next thing that happens is the 3 PM start.
+  const schedule = [day('2026-07-28', { 16: 35, 17: 35, 18: 35, 19: 35, 20: 35, 21: 35 })];
+  const state = scheduleStateNow(schedule, NOON_CENTRAL);
+  assert.equal(state?.generating, false);
+  assert.equal(state?.change?.hourEnding, 16);
+  assert.equal(state?.change?.generating, true, 'it changes INTO generating');
+  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Water on at 3 PM');
+});
+
+test('a generating dam reports when the water goes off', () => {
+  // Running since 6 AM and scheduled to stop after hour ending 21 — the last
+  // hour of load — so the water is off from 9 PM.
+  const schedule = [
+    day('2026-07-28', { 7: 35, 8: 35, 9: 35, 10: 35, 11: 35, 12: 35, 13: 35, 14: 35, 15: 35, 16: 35, 17: 35, 18: 35, 19: 35, 20: 35, 21: 35 }),
+  ];
+  const state = scheduleStateNow(schedule, NOON_CENTRAL);
+  assert.equal(state?.generating, true);
+  assert.equal(state?.change?.hourEnding, 22, 'the first idle hour, not the last loaded one');
+  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Water off at 9 PM');
+});
+
+test('the change is found in the hour running now, not the wall-clock hour', () => {
+  // The off-by-one this module exists to pin, in its most dangerous form. At
+  // noon the hour RUNNING is hour ending 13. A schedule that starts generating
+  // at hour ending 13 is already generating — reading the wall-clock hour 12
+  // instead would report the dam as idle with the water about to come on, and
+  // send someone into a river the units are already running into.
+  const schedule = [day('2026-07-28', { 13: 35, 14: 35, 15: 35 })];
+  const state = scheduleStateNow(schedule, NOON_CENTRAL);
+  assert.equal(state?.generating, true, 'hour ending 13 is the hour running at noon');
+  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Water off at 3 PM');
+});
+
+test('a change after midnight is named as tomorrow', () => {
+  // Idle for the rest of today, units on at 6 AM the next morning. The answer
+  // spans two schedule files, which is why the index page loads two days.
+  const schedule = [day('2026-07-28', {}), day('2026-07-29', { 7: 35, 8: 35 })];
+  const state = scheduleStateNow(schedule, NOON_CENTRAL);
+  assert.equal(state?.change?.dayOffset, 1);
+  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Water on at 6 AM tomorrow');
+});
+
+test('a change two days out is named by weekday', () => {
+  const schedule = [day('2026-07-28', {}), day('2026-07-29', {}), day('2026-07-30', { 15: 35 })];
+  // 2026-07-30 is a Thursday. "tomorrow" would be wrong and a bare "2 PM"
+  // would read as today.
+  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Water on at 2 PM Thursday');
+});
+
+test('a gap in the loaded days is never walked across', () => {
+  // fetchProjectSchedule drops a day whose file has not refreshed yet, so the
+  // array can hold today and the day AFTER tomorrow with a hole between them.
+  // Walking the hole would report Thursday's 6 AM start as Wednesday's — a
+  // whole day early, on a line someone plans a wade around.
+  const schedule = [day('2026-07-28', {}), day('2026-07-30', { 7: 35 })];
+  const state = scheduleStateNow(schedule, NOON_CENTRAL);
+  assert.equal(state?.generating, false, 'today is still readable');
+  assert.equal(state?.change, null, 'but tomorrow is unknown, so nothing is claimed');
+  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), null);
+});
+
+test('no schedule for today means no claim at all', () => {
+  // Absent is not idle. A dam whose file failed to fetch must render nothing
+  // here rather than "Water on at ..." derived from some other day.
+  assert.equal(scheduleStateNow([], NOON_CENTRAL), null);
+  assert.equal(scheduleStateNow([day('2026-07-29', { 7: 35 })], NOON_CENTRAL), null);
+  assert.equal(nextScheduleChangeSentence([day('2026-07-29', { 7: 35 })], NOON_CENTRAL), null);
+});
+
+test('a day that never changes state reports no change', () => {
+  // Generating every hour, and idle every hour. Both are real: the Arkansas
+  // River navigation dams run around the clock, and a project on outage sits
+  // idle for days. Neither has anything to announce.
+  assert.equal(nextScheduleChangeSentence([day('2026-07-28', {})], NOON_CENTRAL), null);
+  const allOn = day('2026-07-28', Object.fromEntries(Array.from({ length: 24 }, (_, i) => [i + 1, 35])));
+  const state = scheduleStateNow([allOn], NOON_CENTRAL);
+  assert.equal(state?.generating, true);
+  assert.equal(state?.change, null);
+});
+
+test('a midnight change is called midnight, not 12 AM', () => {
+  // Hour ending 1 is the release running from midnight. "Water on at 12 AM
+  // tomorrow" is correct but reads as a typo next to windowLabel's "midnight".
+  const schedule = [day('2026-07-28', {}), day('2026-07-29', { 1: 35, 2: 35 })];
+  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Water on at midnight tomorrow');
+});
+
+test('the change is read at the dam, not on the viewer phone', () => {
+  // 03:30 UTC on the 29th is 22:30 Central on the 28th — hour ending 23. A
+  // viewer in another timezone asking when the water changes means at the dam.
+  const lateNight = Date.parse('2026-07-29T03:30:00Z');
+  const schedule = [day('2026-07-28', { 23: 35, 24: 35 })];
+  const state = scheduleStateNow(schedule, lateNight);
+  assert.equal(state?.generating, true);
+  assert.equal(state?.change, null, 'the schedule ends still generating');
 });
