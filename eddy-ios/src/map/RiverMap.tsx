@@ -63,7 +63,6 @@ import {
   hasCoordinates,
   PUBLIC_LAND_ACCESS_STYLE,
 } from '@eddy/types';
-import { boundsForLine } from '@eddy/geo';
 import {
   hazardConditionCode,
   hazardTypeLabel,
@@ -578,8 +577,6 @@ interface Props {
   conditionCode: string;
   /** Every curated river, condition-coloured. Drawn under the selected one. */
   network?: NetworkCollection | null;
-  /** Fit this at cold start when no location is already available. [w, s, e, n]. */
-  networkBounds?: [number, number, number, number] | null;
   onSelectRiverSlug?: (slug: string) => void;
   /**
    * Every access point to draw, each tagged with the river it is on.
@@ -629,6 +626,33 @@ interface Props {
   initialCamera?: InitialMapCamera | null;
   /** A navigation request applied exactly once, identified by its monotonic id. */
   cameraCommand?: MapCameraCommand | null;
+  /**
+   * This command will never be acted on again — drop it.
+   *
+   * Fired when a command is applied AND when a gesture cancels one still waiting
+   * for the sheet. Both are "consumed"; the distinction does not survive out
+   * here, and the caller's job is the same either way.
+   *
+   * ── Why the caller has to clear it, and a ref could not ────────────────────
+   *
+   * `appliedCommandId` is a ref, so it dies with this component. The command
+   * itself lives in the screen's state and does not. A remount — which happens
+   * whenever the statewide collection momentarily empties and the screen swaps
+   * this map for its spinner — therefore came back with an empty applied-id and
+   * a still-populated command, and replayed the last navigation over wherever
+   * the reader had since moved to.
+   */
+  onCameraCommandConsumed?: (id: number) => void;
+  /**
+   * The reader has touched the map. Fired once, on the first gesture only.
+   *
+   * Latched rather than live because the thing it guards against is late: an
+   * opportunistic camera move deciding, half a second after the reader panned
+   * and lifted their finger, that nobody was using the map. `isGestureActive` is
+   * false by then and answers a different question — whether a finger is down
+   * NOW, not whether one ever was.
+   */
+  onUserGesture?: () => void;
   /**
    * Draw the blue dot. Only ever true once the user has granted location, which
    * the screen asks for on an explicit tap — see useLocation.
@@ -682,7 +706,6 @@ export function RiverMap({
   river,
   conditionCode,
   network,
-  networkBounds,
   onSelectRiverSlug,
   accessPoints,
   gauges,
@@ -696,6 +719,8 @@ export function RiverMap({
   layers,
   initialCamera,
   cameraCommand,
+  onCameraCommandConsumed,
+  onUserGesture,
   showUserLocation,
   planRoute,
   planEndpoints,
@@ -1382,16 +1407,17 @@ export function RiverMap({
    * wake back up when a sheet changes padding or an unrelated request lands.
    */
   const [defaultCameraSettings] = useState(() => {
-    const initial: InitialMapCamera =
-      initialCamera ??
-      (networkBounds
-        ? { type: 'bounds', bounds: networkBounds }
-        : {
-            type: 'center',
-            lng: COLD_START_CENTER[0],
-            lat: COLD_START_CENTER[1],
-            zoom: COLD_START_ZOOM,
-          });
+    // ONE fallback, not two. There used to be a `networkBounds` prop tried
+    // before this, and it never fired: the screen resolves location → network
+    // bounds → null before handing over `initialCamera`, so a null one meant
+    // networkBounds was null too. Two places owning one decision, the second
+    // unreachable. The prop is gone; the screen alone decides where to open.
+    const initial: InitialMapCamera = initialCamera ?? {
+      type: 'center',
+      lng: COLD_START_CENTER[0],
+      lat: COLD_START_CENTER[1],
+      zoom: COLD_START_ZOOM,
+    };
     if (initial.type === 'center') {
       return {
         centerCoordinate: [initial.lng, initial.lat] as [number, number],
@@ -1408,6 +1434,60 @@ export function RiverMap({
     null,
   );
 
+  // Mirrored into a ref so onCameraChanged can read the live command without
+  // taking it as a dependency. See that callback for why identity matters here.
+  //
+  // In an effect rather than straight down the render body: a ref written during
+  // render is a render with a side effect, which React may discard and re-run.
+  // Committed is soon enough — the only reader is a native callback, and a
+  // gesture cannot reach it before the commit that issued the command.
+  const pendingCommand = useRef<MapCameraCommand | null>(null);
+  useEffect(() => {
+    pendingCommand.current = cameraCommand ?? null;
+  }, [cameraCommand]);
+  const gestureLatched = useRef(false);
+
+  /**
+   * The camera moved. Ref-only, and STABLE.
+   *
+   * Fires on every animation frame, so nothing in here may render React. It is
+   * also the only source of live zoom — cluster expansion adds its delta to
+   * whatever is on screen right now, rather than to a value onMapIdle published
+   * before the last animation finished.
+   *
+   * Stable because an inline arrow is a new prop value on every render of a map
+   * that re-renders on every sheet movement, and this one crosses the native
+   * bridge. `cameraCommand` is read through a ref for exactly that reason.
+   */
+  const onCameraChanged = useCallback(
+    (state: MapIdleState) => {
+      const center = state.properties?.center;
+      const zoom = state.properties?.zoom;
+      if (!center || typeof zoom !== 'number') return;
+      const gestureActive = Boolean(state.gestures?.isGestureActive);
+      if (gestureActive) {
+        if (!gestureLatched.current) {
+          gestureLatched.current = true;
+          onUserGesture?.();
+        }
+        const command = pendingCommand.current;
+        // A gesture wins even over a command waiting for sheet measurement.
+        // Marking it consumed prevents the delayed command from snapping the
+        // map back after the reader has already taken control.
+        if (command && appliedCommandId.current !== command.id) {
+          appliedCommandId.current = command.id;
+          onCameraCommandConsumed?.(command.id);
+        }
+      }
+      liveCamera.current = {
+        center: [center[0], center[1]],
+        zoom,
+        gestureActive,
+      };
+    },
+    [onCameraCommandConsumed, onUserGesture],
+  );
+
   useEffect(() => {
     if (!cameraCommand || appliedCommandId.current === cameraCommand.id || !cameraRef.current) {
       return;
@@ -1417,13 +1497,21 @@ export function RiverMap({
     }
 
     appliedCommandId.current = cameraCommand.id;
+    onCameraCommandConsumed?.(cameraCommand.id);
     if (cameraCommand.type === 'showPoint') {
       const zoomLevel =
         cameraCommand.zoomDelta !== undefined
-          ? Math.min(
-              cameraCommand.maxZoom ?? Number.POSITIVE_INFINITY,
-              (liveCamera.current?.zoom ?? 10) + cameraCommand.zoomDelta,
-            )
+          ? // No live zoom means onCameraChanged has not fired yet, and there is
+            // nothing to add a delta TO. Leaving this undefined preserves the
+            // current zoom, so a cluster tap re-centres without expanding —
+            // visibly incomplete. Assuming a zoom (this once assumed 10) instead
+            // lands somewhere plausible and wrong, which is the harder bug.
+            liveCamera.current
+            ? Math.min(
+                cameraCommand.maxZoom ?? Number.POSITIVE_INFINITY,
+                liveCamera.current.zoom + cameraCommand.zoomDelta,
+              )
+            : undefined
           : cameraCommand.zoom;
       cameraRef.current.setCamera({
         centerCoordinate: [cameraCommand.lng, cameraCommand.lat],
@@ -1445,21 +1533,7 @@ export function RiverMap({
       animationMode: 'easeTo',
       animationDuration: cameraCommand.duration,
     });
-  }, [cameraCommand, cameraPadding, cameraPaddingBottom]);
-
-  const framedRoute = useRef<RiverGeometry | null>(null);
-  useEffect(() => {
-    if (!planRoute || framedRoute.current === planRoute || !cameraRef.current) return;
-    framedRoute.current = planRoute;
-    const bounds = boundsForLine(planRoute.coordinates);
-    if (!bounds) return;
-    cameraRef.current.setCamera({
-      bounds: { ne: [bounds[2], bounds[3]], sw: [bounds[0], bounds[1]] },
-      padding: cameraPadding,
-      animationMode: 'easeTo',
-      animationDuration: 550,
-    });
-  }, [planRoute, cameraPadding]);
+  }, [cameraCommand, cameraPadding, cameraPaddingBottom, onCameraCommandConsumed]);
 
   // The caller is responsible for not rendering this when Mapbox is unavailable;
   // this guard is here so a mistake shows an empty map rather than a red screen.
@@ -2010,26 +2084,7 @@ export function RiverMap({
             }
           : undefined
       }
-      // Ref-only: this event fires on every animation frame and must not render
-      // React. It gives cluster expansion the actual live zoom, while a POI
-      // preserves zoom by omitting it from the camera command altogether.
-      onCameraChanged={(state: MapIdleState) => {
-        const center = state.properties?.center;
-        const zoom = state.properties?.zoom;
-        if (!center || typeof zoom !== 'number') return;
-        const gestureActive = Boolean(state.gestures?.isGestureActive);
-        if (gestureActive && cameraCommand) {
-          // A gesture wins even over a command waiting for sheet measurement.
-          // Marking it consumed prevents the delayed command from snapping the
-          // map back after the reader has already taken control.
-          appliedCommandId.current = cameraCommand.id;
-        }
-        liveCamera.current = {
-          center: [center[0], center[1]],
-          zoom,
-          gestureActive,
-        };
-      }}
+      onCameraChanged={onCameraChanged}
     >
       {/* defaultSettings is not optional in the bounds case. `bounds` alone is
           applied as an UPDATE, and on first mount there is nothing to update
