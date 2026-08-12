@@ -54,7 +54,13 @@ import { createWriteStream, existsSync, readFileSync, mkdirSync, writeFileSync }
 import { join } from 'path';
 import { pipeline } from 'stream/promises';
 import { createClient } from '@supabase/supabase-js';
-import { simplify, lineString as turfLine, length as turfLength } from '@turf/turf';
+import {
+  simplify,
+  lineString as turfLine,
+  length as turfLength,
+  lineSlice,
+  point as turfPoint,
+} from '@turf/turf';
 import type { Feature, LineString } from 'geojson';
 
 // Per-river spec: which GNIS names to match (NHD sometimes carries name
@@ -70,6 +76,22 @@ interface RiverSpec {
   gnisNames: string[];
   hucs: string[];
   mode: 'update' | 'insert';
+  /**
+   * Clip the dissolved chain to a reach, `[lon, lat]` each.
+   *
+   * For a natural river the HUC set IS the extent and this stays absent. A
+   * DAM TAILWATER is different in kind: its extent is a management decision,
+   * not a watershed. NHD knows nothing about either end of it — the flowline
+   * runs continuously through the reservoir above and past the downstream
+   * boundary below, so an untrimmed import of "White River" over HUCs
+   * 11010003+11010004 produces a line that starts up in Bull Shoals Lake and
+   * runs well past Guion. Both endpoints wrong, and wrong in the direction
+   * that makes a river page claim water it does not describe.
+   *
+   * Points need not sit exactly on the line; the nearest point on the chain is
+   * used. They DO need to be sourced and recorded like any other coordinate.
+   */
+  trim?: { start: [number, number]; end: [number, number] };
 }
 
 const RIVERS: RiverSpec[] = [
@@ -100,6 +122,23 @@ const RIVERS: RiverSpec[] = [
   { slug: 'bryant-creek',    gnisNames: ['Bryant Creek'],     hucs: ['11010006'], mode: 'insert' },
   { slug: 'caddo-river',     gnisNames: ['Caddo River'],      hucs: ['08040102'], mode: 'insert' },
   { slug: 'war-eagle-creek', gnisNames: ['War Eagle Creek'],  hucs: ['11010001'], mode: 'update' },
+  // 2026-08 — first DAM TAILWATER. HUC8s are the huc_cd on the reach's own USGS
+  // sites: the dam-area stations (07054501/02/27) read 11010003, and both live
+  // downstream gauges (07057370 Norfork, 07060500 Calico Rock) read 11010004.
+  //
+  // trim.start  Bull Shoals Dam (USACE, via the dam registry). The FISHERY
+  //             starts 100 yd below the dam; the WATER starts at it, and this
+  //             is the water.
+  // trim.end    AR 58 bridge over the White River at Guion — the downstream
+  //             end of the AGFC-managed trout fishery, confirmed on the AGFC
+  //             page 2026-08-12 as "the Arkansas Highway 58 Bridge at Guion."
+  //             The coordinate is OSM's (way tagged highway=secondary,
+  //             ref="AR 58", bridge, 65 m from the mapped river centerline;
+  //             the two other AR 58 bridges within the search box sit 512 m
+  //             and 4.5 km off it). OSM is a map, not an agency: good enough
+  //             to cut a line at, and NOT a source for anything published.
+  { slug: 'white-river-bull-shoals', gnisNames: ['White River'], hucs: ['11010003', '11010004'], mode: 'insert',
+    trim: { start: [-92.574845, 36.3657191], end: [-91.9479309, 35.9243379] } },
   { slug: 'big-river',       gnisNames: ['Big River'],        hucs: ['07140104'], mode: 'insert' },
   // 2026-07 — Missouri Spring River (distinct from the AR 'spring-river' above; different
   // HUC). Carthage→Kansas-line float; gnis 'Spring River' within HUC 11070207 is the mainstem.
@@ -377,7 +416,28 @@ async function main() {
     if (!matches.length) { log(`  ${river.slug}: no perennial matches in HUC(s) ${river.hucs.join('+')}`); continue; }
     const merged = dissolveLongest(matches);
     if (merged.length < 2) { log(`  ${river.slug}: dissolve produced no chain`); continue; }
-    const ls: Feature<LineString> = turfLine(merged);
+    let ls: Feature<LineString> = turfLine(merged);
+
+    if (river.trim) {
+      const full = turfLength(ls, { units: 'miles' });
+      const sliced = lineSlice(
+        turfPoint(river.trim.start),
+        turfPoint(river.trim.end),
+        ls,
+      ) as Feature<LineString>;
+      const cut = turfLength(sliced, { units: 'miles' });
+      // A trim that keeps everything means the endpoints did not land where
+      // they were meant to — most likely the chain never reached them, so
+      // lineSlice clamped to the line's own ends and silently returned the
+      // whole river. Say so rather than importing it.
+      if (cut >= full - 0.5) {
+        log(`  ${river.slug}: TRIM DID NOTHING (${full.toFixed(1)} mi in, ${cut.toFixed(1)} mi out) — check the endpoints are on this chain`);
+        continue;
+      }
+      log(`  ${river.slug}: trimmed ${full.toFixed(1)} mi → ${cut.toFixed(1)} mi`);
+      ls = sliced;
+    }
+
     const lengthMi = turfLength(ls, { units: 'miles' });
     const simplified = simplify(ls, {
       tolerance: SIMPLIFY_TOLERANCE_DEG,

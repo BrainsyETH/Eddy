@@ -318,6 +318,19 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     tailwaterFishery: 'trout' as const,
     infoPhone: '870-431-5311',
     generationOnCfs: 100,
+    // The second tailwater Eddy carries, and the reason release and downstream
+    // gauge became separate fields. Nothing here measures the trophy water:
+    // 07057370 is ~45 river miles down and BELOW the North Fork confluence, so
+    // it reads Bull Shoals plus Norfork (drainage 8,040 sq mi against this
+    // dam's 6,050); 07060500 is ~62 miles down. Between the dam and Rim Shoals
+    // there is no live stage or discharge gauge at all — the three USGS
+    // stations below the dam publish only temperature and dissolved oxygen.
+    // Verified 2026-08-12; see dossiers/verified-identifiers-white-river-bull-shoals.md.
+    tailwater: {
+      riverSlug: 'white-river-bull-shoals',
+      releaseStationId: 'swl-bull-shoals-dam',
+      downstreamGaugeSiteIds: ['07057370', '07060500'],
+    },
     series: swlSeries('Bull_Shoals_Dam', { turbines: true, tailwaterTemp: true }),
   },
   'swl-beaver-dam': {

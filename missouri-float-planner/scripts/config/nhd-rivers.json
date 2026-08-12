@@ -272,6 +272,17 @@
       "state": "MO",
       "timezone": "America/Chicago",
       "riverType": "rain_flashy"
+    },
+    {
+      "name": "White River (Bull Shoals Tailwater)",
+      "slug": "white-river-bull-shoals",
+      "nhdFeatureId": "UNKNOWN",
+      "description": "The coldwater White River below Bull Shoals Dam, managed by AGFC as a trout fishery from the dam to the Highway 58 bridge at Guion. Its level is the Corps' release, not the weather: the river can rise several feet with no rain when the powerhouse starts.",
+      "difficultyRating": "Class I",
+      "region": "Ozarks",
+      "state": "AR",
+      "timezone": "America/Chicago",
+      "riverType": "dam_tailwater"
     }
   ]
 }
