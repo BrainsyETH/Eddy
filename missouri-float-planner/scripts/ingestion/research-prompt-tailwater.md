@@ -13,6 +13,24 @@ Replace every `<PLACEHOLDER>` before starting:
 - Suspected operator: `<OPERATOR_OR_UNKNOWN>`
 - Initial official and local source leads: `<SOURCE_URLS>`
 
+## Preflight: audit what Eddy already ships
+
+Before researching the outside world, inspect the current repository and
+production inventory. Do not write the dossier as if this is a greenfield
+system. Record what already exists for the dam/tailwater in:
+
+- the dam registry, CWMS resolver, schedule provider, and shared dam types;
+- gauge stations, gauge readings, river links, sections, and migrations;
+- web/API/iOS dam and river surfaces, alerts, and AI condition wording;
+- existing river dossiers, access artifacts, and
+  `verified-identifiers-<slug>.md` files;
+- `validate_river_data()` and the activation script.
+
+For each existing capability return its path or database identity, current
+behavior, and whether this onboarding reuses, extends, corrects, or replaces it.
+Existing implementation proves a mechanism is available; it does not by itself
+prove that the same signal meaning or safety claim is valid for this tailwater.
+
 ## Objective
 
 Produce a source-complete evidence dossier that lets Eddy build a
@@ -61,6 +79,18 @@ one.
 10. **Separate textual verification from map verification.** An official legal
     boundary description is not a mapped line or polygon until its landmarks
     have been placed and reviewed.
+11. **Reuse Eddy's identifier gate.** Research may propose identifiers, but it
+    may not self-certify them. The independent pass must record every accepted
+    USGS site, CWMS office/location/series, schedule code, park/agency ID, and
+    other production identifier in the existing
+    `verified-identifiers-<slug>.md` artifact (or its future shared successor).
+    If the repository already verifies an ID, cite that artifact and confirm
+    that the station/series is still active rather than creating a second
+    verification convention.
+12. **Assign signal roles.** A dam release station, upper-tailwater water-quality
+    sensor, tributary gauge, post-confluence gauge, and far-downstream gauge are
+    not interchangeable “representative gauges.” Give every signal one or more
+    explicit roles and state which reaches it must not represent.
 
 ## Required research
 
@@ -68,13 +98,18 @@ one.
 
 Research the dam, reservoir, river, operator, hydropower marketer, purposes,
 coordinates, official identifiers, powerhouse presence, current installed
-capacity, number of units, planned capacity changes, release phone, timezone,
-and operating agencies.
+nameplate capacity, number of units, planned capacity changes, schedule/load
+capability, release phone, timezone, and operating agencies.
 
-Current and planned capacity must be separate facts. Reject nameplate values
-that come only from a secondary source when a current operator document exists.
-Historic or promotional engineering facts should remain in evidence unless
-they materially help a fisherman understand the water.
+Current installed nameplate, planned post-project nameplate, and the power
+marketer's short-term scheduling capability must be separate facts. They may all
+be correct while carrying different numbers. Any schedule-to-cfs conversion
+must keep the marketer's published scheduling MW paired with its own published
+full-power discharge; substituting installed nameplate into only one half
+silently changes every estimate. Reject nameplate values that come only from a
+secondary source when a current operator document exists. Historic or
+promotional engineering facts should remain in evidence unless they materially
+help a fisherman understand the water.
 
 ### B. Live and forecast data feeds
 
@@ -95,16 +130,34 @@ Inventory every candidate source series for:
 For each series return provider, office, exact identifier, exact URL/API route,
 parameters, units, datum, cadence, latency, active/seasonal/discontinued status,
 forecast/observation status, geographic position, reach represented, and known
-limitations. Verify each identifier on the primary source independently of the
-page that first mentioned it.
+limitations. Also assign `signal_role` from `dam_release`, `generation`,
+`schedule`, `water_quality`, `local_stage_discharge`, `post_confluence`,
+`tributary`, or `far_downstream`, plus `must_not_represent` reaches. Verify each
+identifier on the primary source independently of the page that first mentioned
+it, and route it through Eddy's identifier-verification artifact.
 
 Explicitly answer:
 
 - Is there a live stage/discharge gauge in the principal fishing reach?
 - Which gauges are water-quality-only?
 - Which gauges are discontinued?
+- What is the nearest active stage/discharge gauge below the dam, and which
+  major tributaries or other dam releases enter before it?
 - Does the schedule exclude spillway or non-power releases?
 - Can “not generating” coexist with a material total release?
+
+For every researched metric, classify current product support:
+
+- `supported_existing` — Eddy already stores or renders it correctly;
+- `requires_feed_registration` — the product supports the metric but this
+  source is not registered;
+- `requires_schema_ui` — the source publishes it, but Eddy has no honest storage
+  or presentation concept yet;
+- `evidence_only` — useful research context with no production destination.
+
+For example, finding dissolved oxygen does not make it ingestible if Eddy has no
+DO field or UI. Record the feed as evidence and mark `requires_schema_ui`; do not
+force it into temperature, stage, or discharge columns.
 
 ### C. Tailwater topology
 
@@ -115,6 +168,12 @@ Reach boundaries must correspond to a real change such as:
 - a change in the representative gauge;
 - a materially different fishing mode or water character;
 - an official management boundary that changes the user decision.
+
+Explicitly inspect the nearest downstream gauge for intervening tributaries and
+other dam-controlled inflows. A gauge immediately below a major confluence can
+be valuable for the lower reach while being disqualified from representing the
+upper tailwater. Record that as a known bias, not as a reason to discard the
+gauge or silently apply it upstream.
 
 Do not make every regulation zone a hydrologic reach. Return regulation zones
 as independent overlays. A major confluence that changes both hydrology and
@@ -267,26 +326,49 @@ wade-depth verdict. A zero-generation interval is a **generation-idle window**,
 not a “wading window”: total/non-power release may continue, and water already
 released may still be moving through downstream reaches.
 
+### I. Activation and validation fit
+
+Inspect the current activation and validation code and state exactly how this
+tailwater would pass it. Do not assume “no threshold ladder” means warnings
+only: the current ordinary-river validator may treat a primary gauge with no
+thresholds as an activation-blocking error.
+
+Return:
+
+- which existing checks apply unchanged;
+- which checks are ordinary-river-only and inapplicable;
+- which tailwater-specific checks must replace them;
+- whether a migration or validator change is required before activation;
+- which unsupported condition badge, alert, or AI paths must remain disabled.
+
+Do not recommend accepting permanent validation errors or warnings. A
+ladder-less tailwater needs regime-aware validation: verify an active release
+source, correct location/unit/timestamp handling, forecast labeling, missing and
+stale behavior, and the absence of unsupported local-safety inference.
+
 ## Required output
 
 Return one Markdown dossier with these sections in order:
 
 1. Executive recommendation
-2. Source register
-3. Accepted atomic facts (JSON)
-4. Candidate facts (JSON)
-5. Conflicts and resolutions
-6. Human decisions required
-7. Proposed hydrologic/fishing topology
-8. Regulation-zone overlays
-9. Gauge and feed inventory (JSON)
-10. Access-point, boat-ramp, and campground inventory (JSON)
-11. Current regulations and permits
-12. Stable fishing profile
-13. Release-propagation evidence
-14. Condition-system supportability matrix
-15. Machine-readable handoff
-16. Explicit `do_not_ingest` list
+2. Existing Eddy support inventory
+3. Source register
+4. Accepted atomic facts (JSON)
+5. Candidate facts (JSON)
+6. Conflicts and resolutions
+7. Human/configuration decisions required
+8. Proposed hydrologic/fishing topology
+9. Regulation-zone overlays
+10. Gauge and feed inventory with signal roles (JSON)
+11. Product-support matrix by metric
+12. Access-point, boat-ramp, and campground inventory (JSON)
+13. Current regulations and permits
+14. Stable fishing profile
+15. Release-propagation evidence
+16. Condition-system supportability matrix
+17. Activation and regime-aware validation plan
+18. Machine-readable handoff
+19. Explicit `do_not_ingest` list
 
 The machine-readable handoff must retain `source_ids`, verification status, and
 last-verified dates. Candidate access must use `public_status: "candidate"` or
