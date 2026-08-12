@@ -382,6 +382,47 @@ export function tailwaterMovementLabel(
   return `${sign}${Math.abs(rounded).toFixed(1)} ft over ${trend.hours}h`;
 }
 
+/** Bands for how live a reading is. Same vocabulary the wire uses. */
+export type ReadingStaleness = 'fresh' | 'lagging' | 'stale';
+
+/** Past this many hours a reading is no longer "now". */
+export const READING_LAGGING_AFTER_HOURS = 2;
+/** Past this many hours it describes a river that has since changed. */
+export const READING_STALE_AFTER_HOURS = 6;
+
+/**
+ * How live a reading is, computed HERE from its own timestamp.
+ *
+ * ── Why not DamMetricValue.staleness ───────────────────────────────────────
+ * Because that field is stamped when the SERVER assembles the snapshot and then
+ * frozen on the wire, while the reader's clock keeps moving. The iOS dam screen
+ * fetches once in a useEffect with no refetch on focus and no AppState
+ * listener, so a screen opened, backgrounded and resumed renders that same
+ * payload hours later. Its age is computed on the device and is therefore
+ * correct and live; its band is not. The two disagree, and the disagreement
+ * lands on exactly the guard meant to suppress movement:
+ *
+ *   "+2.1 ft over 3h · 9 hours ago"   — band still says fresh, so it printed
+ *
+ * The wire field is retained because installed clients read it, but nothing in
+ * this repo should display from it. Derive from `at`, which cannot go stale
+ * because it describes an instant rather than a duration.
+ *
+ * Null when the timestamp cannot be read at all — never a guess.
+ */
+export function readingStaleness(
+  at: string | number,
+  now = Date.now()
+): ReadingStaleness | null {
+  const ms = typeof at === 'number' ? at : Date.parse(at);
+  if (!Number.isFinite(ms)) return null;
+  const hours = (now - ms) / (60 * 60 * 1000);
+  // A timestamp slightly ahead of us (CDN clock skew) is current, not ancient.
+  if (hours <= READING_LAGGING_AFTER_HOURS) return 'fresh';
+  if (hours <= READING_STALE_AFTER_HOURS) return 'lagging';
+  return 'stale';
+}
+
 /**
  * The line under the tailwater reading: how far it moved AND how old it is.
  *
@@ -399,24 +440,33 @@ export function tailwaterMovementLabel(
  *   lagging (<=6h)  "+2.1 ft over 3h ending 4 hours ago"   — window located
  *   stale   (>6h)   "6 hours ago"                          — movement dropped
  *
+ * ── Why the band is NOT a parameter ────────────────────────────────────────
+ * `staleness` used to be read off the reading, and a caller passing a
+ * DamMetricValue straight through was handing over a band the server stamped
+ * hours earlier — see readingStaleness. Both halves of this sentence now come
+ * from the same clock, so they cannot contradict each other. The band is
+ * deliberately absent from the parameter type rather than merely ignored, so
+ * the mistake cannot be made a second time by someone wiring it back up.
+ *
  * Null only when the timestamp itself cannot be read. That renders nothing at
  * all rather than movement without an age, which is the failure this exists to
  * prevent.
  */
 export function tailwaterMovementSentence(
-  reading: {
-    at: string;
-    staleness: 'fresh' | 'lagging' | 'stale';
-    trend?: { hours: number; delta: number };
-  },
+  reading: { at: string; trend?: { hours: number; delta: number } },
   now = Date.now()
 ): string | null {
   const age = relativeAge(reading.at, now);
   if (!age) return null;
 
   const movement = tailwaterMovementLabel(reading.trend);
-  if (!movement || reading.staleness === 'stale') return age;
-  if (reading.staleness === 'lagging') return `${movement} ending ${age}`;
+  const band = readingStaleness(reading.at, now);
+  if (!movement || band !== 'fresh') {
+    // `lagging` still shows movement, but only with the window LOCATED. Any
+    // other band — stale, or a timestamp too broken to classify — drops it.
+    if (movement && band === 'lagging') return `${movement} ending ${age}`;
+    return age;
+  }
   return `${movement} · ${age}`;
 }
 

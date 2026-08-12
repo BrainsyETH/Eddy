@@ -26,7 +26,11 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
-import { idleWindowSentence, relativeAge } from '@eddy/conditions/dam-schedule-copy';
+import {
+  idleWindowSentence,
+  relativeAge,
+  readingStaleness,
+} from '@eddy/conditions/dam-schedule-copy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -75,7 +79,11 @@ export function RiverDamPanel({ dam }: { dam: DamSnapshot | null }) {
               // "releasing now" would be a correctness bug.
               release.dailyMean ? 'daily average release' : 'releasing now',
               relativeAge(release.at),
-              release.staleness !== 'fresh' ? 'reading is lagging' : null,
+              // From the timestamp, not the wire's `staleness` — that band is
+              // stamped at snapshot assembly and frozen, so a payload held on
+              // this device keeps claiming freshness as it ages, contradicting
+              // the age printed beside it. See readingStaleness in shared/.
+              readingStaleness(release.at) !== 'fresh' ? 'reading is lagging' : null,
             ]
               .filter(Boolean)
               .join(' · ')}

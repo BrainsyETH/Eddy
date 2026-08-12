@@ -17,6 +17,7 @@ import {
   SCHEDULE_CHANGE_NOTE,
   tailwaterMovementLabel,
   tailwaterMovementSentence,
+  readingStaleness,
 } from './dam-schedule-copy';
 
 /**
@@ -319,7 +320,7 @@ const AT_PLUS = (minutes: number) => Date.parse(READING_AT) + minutes * 60_000;
 
 test('a fresh reading shows movement and age together', () => {
   const sentence = tailwaterMovementSentence(
-    { at: READING_AT, staleness: 'fresh', trend: { hours: 3, delta: -2.57 } },
+    { at: READING_AT, trend: { hours: 3, delta: -2.57 } },
     AT_PLUS(18)
   );
   assert.equal(sentence, '−2.6 ft over 3h · 18 minutes ago');
@@ -330,7 +331,7 @@ test('a lagging reading locates the window it actually measured', () => {
   // lagging series that window closed hours ago, and printing it beside a bare
   // age would still invite reading it as the three hours ending now.
   const sentence = tailwaterMovementSentence(
-    { at: READING_AT, staleness: 'lagging', trend: { hours: 3, delta: 2.1 } },
+    { at: READING_AT, trend: { hours: 3, delta: 2.1 } },
     AT_PLUS(4 * 60)
   );
   assert.equal(sentence, '+2.1 ft over 3h ending 4 hours ago');
@@ -340,7 +341,7 @@ test('a stale reading drops the movement entirely', () => {
   // Past six hours the movement describes a stretch of river that has since
   // been through a whole generation cycle. The age alone is the honest answer.
   const sentence = tailwaterMovementSentence(
-    { at: READING_AT, staleness: 'stale', trend: { hours: 3, delta: 2.1 } },
+    { at: READING_AT, trend: { hours: 3, delta: 2.1 } },
     AT_PLUS(9 * 60)
   );
   assert.equal(sentence, '9 hours ago');
@@ -352,14 +353,14 @@ test('movement is never rendered without an age', () => {
   // movement figure floating free of when it was measured.
   assert.equal(
     tailwaterMovementSentence(
-      { at: 'not a date', staleness: 'fresh', trend: { hours: 3, delta: 2.1 } },
+      { at: 'not a date', trend: { hours: 3, delta: 2.1 } },
       AT_PLUS(0)
     ),
     null
   );
   // And with no trend, the age still shows.
   assert.equal(
-    tailwaterMovementSentence({ at: READING_AT, staleness: 'fresh' }, AT_PLUS(18)),
+    tailwaterMovementSentence({ at: READING_AT }, AT_PLUS(18)),
     '18 minutes ago'
   );
 });
@@ -376,4 +377,54 @@ test('movement rounds to a tenth, and a rounded zero renders nothing', () => {
   // The window is stated rather than assumed — the river gauge card renders its
   // own delta with no window at all, and these must not read as comparable.
   assert.match(tailwaterMovementLabel({ hours: 6, delta: 1 })!, /over 6h/);
+});
+
+test('the band comes from the timestamp, not from a value the server stamped', () => {
+  // The defect: DamMetricValue.staleness is computed when the SERVER assembles
+  // the snapshot and then frozen on the wire. The iOS dam screen fetches once
+  // on mount with no refetch on focus, so a screen backgrounded and resumed
+  // nine hours later still carries `staleness: 'fresh'` — while the age beside
+  // it, computed on the device, correctly reads "9 hours ago". Trusting the
+  // wire printed movement next to that age.
+  //
+  // Passing a whole DamMetricValue still type-checks (structural typing), so
+  // the guard is that the band is IGNORED, not merely absent from the type.
+  const wireSaysFresh = {
+    at: READING_AT,
+    staleness: 'fresh' as const,
+    trend: { hours: 3, delta: 2.1 },
+  };
+  assert.equal(
+    tailwaterMovementSentence(wireSaysFresh, AT_PLUS(9 * 60)),
+    '9 hours ago',
+    'movement must be suppressed on the real age, whatever the wire claims'
+  );
+  // And the inverse: a wire band of `stale` must not suppress a reading that is
+  // genuinely current, which would hide live movement on a resumed screen.
+  const wireSaysStale = {
+    at: READING_AT,
+    staleness: 'stale' as const,
+    trend: { hours: 3, delta: 2.1 },
+  };
+  assert.equal(
+    tailwaterMovementSentence(wireSaysStale, AT_PLUS(18)),
+    '+2.1 ft over 3h · 18 minutes ago'
+  );
+});
+
+test('the staleness bands sit where the server put them', () => {
+  // Same 2h/6h boundaries stalenessOf used before it delegated here, so a
+  // reading does not change band by being classified on the other side.
+  const at = Date.parse(READING_AT);
+  const hoursOn = (h: number) => readingStaleness(READING_AT, at + h * 3_600_000);
+  assert.equal(hoursOn(0), 'fresh');
+  assert.equal(hoursOn(2), 'fresh', 'the boundary belongs to the fresher band');
+  assert.equal(hoursOn(2.1), 'lagging');
+  assert.equal(hoursOn(6), 'lagging');
+  assert.equal(hoursOn(6.1), 'stale');
+  // Clock skew against a CDN edge puts a timestamp slightly ahead of us.
+  assert.equal(hoursOn(-0.5), 'fresh', 'a future timestamp is current, not ancient');
+  // Epoch millis and ISO agree, because stalenessOf passes a number.
+  assert.equal(readingStaleness(at, at + 9 * 3_600_000), 'stale');
+  assert.equal(readingStaleness('not a date'), null, 'unreadable is never a guess');
 });

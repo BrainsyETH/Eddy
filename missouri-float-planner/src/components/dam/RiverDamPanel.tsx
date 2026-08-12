@@ -19,6 +19,7 @@
 import Link from 'next/link';
 import { Waves, ExternalLink } from 'lucide-react';
 import type { RiverDamContext } from '@/lib/data/dams';
+import { readingStaleness } from '@shared/dam-schedule-copy';
 
 function cfs(n: number): string {
   return Math.round(n).toLocaleString();
@@ -94,7 +95,10 @@ export default function RiverDamPanel({ context }: { context: RiverDamContext | 
           </div>
           <div className="text-sm text-neutral-600">
             {release.dailyMean ? 'daily average release' : 'releasing now'}
-            {release.staleness !== 'fresh' && ' · reading is lagging'}
+            {/* From the timestamp, not the wire's `staleness` — that band is
+                stamped at snapshot assembly and frozen, so a held payload keeps
+                claiming freshness as it ages. See readingStaleness in shared/. */}
+            {readingStaleness(release.at) !== 'fresh' && ' · reading is lagging'}
           </div>
         </div>
       )}

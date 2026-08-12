@@ -18,6 +18,8 @@
 //
 // Responses put nulls inside `values`, so every accessor filters before use.
 
+import { readingStaleness, type ReadingStaleness } from '@shared/dam-schedule-copy';
+
 const CDA_BASE = 'https://cwms-data.usace.army.mil/cwms-data';
 const CDA_HEADERS = { Accept: 'application/json;version=2' } as const;
 
@@ -188,12 +190,22 @@ export function changeOver(
   return { hours, delta: latest.value - oldest.value };
 }
 
-/** How live a reading is, decided server-side so every surface agrees. */
-export type Staleness = 'fresh' | 'lagging' | 'stale';
+/**
+ * How live a reading is AT THE MOMENT THE SNAPSHOT IS ASSEMBLED.
+ *
+ * Delegates to shared/ rather than restating the thresholds, because the
+ * display surfaces derive the same bands from the reading's timestamp on the
+ * reader's own clock (see readingStaleness) and two copies of 2-and-6 is two
+ * chances for them to drift apart.
+ *
+ * This value still goes on the wire for installed clients, but it is a
+ * point-in-time stamp, not a live fact: a payload cached on a phone keeps this
+ * band while its actual age grows. Nothing in this repo should display from it.
+ */
+export type Staleness = ReadingStaleness;
 
 export function stalenessOf(timestamp: number, now = Date.now()): Staleness {
-  const hours = (now - timestamp) / (60 * 60 * 1000);
-  if (hours <= 2) return 'fresh';
-  if (hours <= 6) return 'lagging';
-  return 'stale';
+  // A non-finite timestamp cannot be classified; treat it as the worst case
+  // rather than quietly calling it fresh.
+  return readingStaleness(timestamp, now) ?? 'stale';
 }

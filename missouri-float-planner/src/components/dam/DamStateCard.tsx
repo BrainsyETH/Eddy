@@ -23,11 +23,23 @@ import {
   relativeAge,
   nextScheduleChangeSentence,
   tailwaterMovementSentence,
+  readingStaleness,
   SCHEDULE_CHANGE_NOTE,
 } from '@shared/dam-schedule-copy';
 
 function formatCfs(value: number): string {
   return `${Math.round(value).toLocaleString()} cfs`;
+}
+
+/**
+ * Whether a reading has aged out of usefulness, from its own timestamp.
+ *
+ * Deliberately not `metric.staleness`: that band is stamped when the server
+ * assembles the snapshot and then frozen, so a payload held on a device keeps
+ * claiming to be fresh as it ages. See readingStaleness in shared/.
+ */
+function isStale(metric: { at: string }): boolean {
+  return readingStaleness(metric.at) === 'stale';
 }
 
 function Stat({
@@ -150,7 +162,7 @@ export default function DamStateCard({ dam }: { dam: DamSnapshot }) {
                 ? ['daily average', relativeAge(release.at)].filter(Boolean).join(', ')
                 : relativeAge(release.at)
             }
-            dim={release.staleness === 'stale'}
+            dim={isStale(release)}
           />
         )}
         {/* Level below the dam, with how far it moved in three hours.
@@ -172,7 +184,7 @@ export default function DamStateCard({ dam }: { dam: DamSnapshot }) {
             value={`${tailwaterStage.value.toFixed(2)} ft`}
             suffix="elevation"
             sub={tailwaterMovementSentence(tailwaterStage)}
-            dim={tailwaterStage.staleness === 'stale'}
+            dim={isStale(tailwaterStage)}
           />
         )}
         {tailwaterTemp && (
@@ -181,7 +193,7 @@ export default function DamStateCard({ dam }: { dam: DamSnapshot }) {
             label="Tailwater temp"
             value={`${tailwaterTemp.value.toFixed(1)} °F`}
             sub={tailwaterTemp.value < 60 ? 'cold release' : null}
-            dim={tailwaterTemp.staleness === 'stale'}
+            dim={isStale(tailwaterTemp)}
           />
         )}
         {pool && (
@@ -190,7 +202,7 @@ export default function DamStateCard({ dam }: { dam: DamSnapshot }) {
             label="Lake level"
             value={`${pool.value.toFixed(2)} ft`}
             sub={floodPool ? `${floodPool.value.toFixed(0)}% flood pool` : relativeAge(pool.at)}
-            dim={pool.staleness === 'stale'}
+            dim={isStale(pool)}
           />
         )}
         {/* Inflow against release is what says whether the lake is filling, and
@@ -210,7 +222,7 @@ export default function DamStateCard({ dam }: { dam: DamSnapshot }) {
             sub={[inflow.dailyMean ? 'daily average into the lake' : 'into the lake', relativeAge(inflow.at)]
               .filter(Boolean)
               .join(' · ')}
-            dim={inflow.staleness === 'stale'}
+            dim={isStale(inflow)}
           />
         )}
         {/* Declared in the registry, not inferred from the temperature reading.

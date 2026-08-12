@@ -28,6 +28,7 @@ import {
   relativeAge,
   nextScheduleChangeSentence,
   tailwaterMovementSentence,
+  readingStaleness,
   SCHEDULE_CHANGE_NOTE,
 } from '@eddy/conditions/dam-schedule-copy';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -35,6 +36,19 @@ import { fonts, type as t } from '@/theme/typography';
 
 function formatCfs(value: number): string {
   return `${Math.round(value).toLocaleString()} cfs`;
+}
+
+/**
+ * Whether a reading has aged out of usefulness, from its own timestamp.
+ *
+ * Deliberately not `metric.staleness`. That band is stamped when the SERVER
+ * assembles the snapshot and then frozen on the wire, and this screen fetches
+ * once on mount with no refetch on focus — so a screen backgrounded and resumed
+ * hours later would still be told the reading is fresh while the age beside it,
+ * computed on this device, correctly reads "9 hours ago". See readingStaleness.
+ */
+function isStale(metric: { at: string }): boolean {
+  return readingStaleness(metric.at) === 'stale';
 }
 
 interface StatProps {
@@ -161,7 +175,7 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
                 ? ['daily average', relativeAge(release.at)].filter(Boolean).join(', ')
                 : relativeAge(release.at)
             }
-            dim={release.staleness === 'stale'}
+            dim={isStale(release)}
           />
         ) : null}
 
@@ -182,7 +196,7 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
             value={`${tailwaterStage.value.toFixed(2)} ft`}
             suffix="elevation"
             sub={tailwaterMovementSentence(tailwaterStage)}
-            dim={tailwaterStage.staleness === 'stale'}
+            dim={isStale(tailwaterStage)}
           />
         ) : null}
 
@@ -192,7 +206,7 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
             label="Tailwater temp"
             value={`${tailwaterTemp.value.toFixed(1)} °F`}
             sub={tailwaterTemp.value < 60 ? 'cold release' : null}
-            dim={tailwaterTemp.staleness === 'stale'}
+            dim={isStale(tailwaterTemp)}
           />
         ) : null}
 
@@ -204,7 +218,7 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
             sub={
               floodPool ? `${floodPool.value.toFixed(0)}% flood pool` : relativeAge(pool.at)
             }
-            dim={pool.staleness === 'stale'}
+            dim={isStale(pool)}
           />
         ) : null}
 
@@ -225,7 +239,7 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
             sub={[inflow.dailyMean ? 'daily average into the lake' : 'into the lake', relativeAge(inflow.at)]
               .filter(Boolean)
               .join(' · ')}
-            dim={inflow.staleness === 'stale'}
+            dim={isStale(inflow)}
           />
         ) : null}
 
