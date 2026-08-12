@@ -40,8 +40,50 @@ function milesLabel(start: number | null, end: number | null): string | null {
   return `miles ${start}–${end}`;
 }
 
-export default function RiverReaches({ reaches }: { reaches: RiverReach[] }) {
+/**
+ * A stable id for one reach, so it can be linked to directly.
+ *
+ * Exported because a linker and a target that disagree produce a hash that
+ * scrolls nowhere, which is indistinguishable from a working link.
+ */
+export function reachAnchorId(sectionSlug: string): string {
+  return `reach-${sectionSlug}`;
+}
+
+export default function RiverReaches({
+  reaches,
+  /**
+   * The reach a dam controls, VERIFIED to exist — see the page's
+   * controlledReach. Mirrors the iOS panel.
+   *
+   * This marks the reach; it is not on its own the answer to "which water am I
+   * looking at". The headline reading above still belongs to whichever gauge
+   * the river calls primary, and on the Black that is deliberately not the
+   * dam's — migration 00198 attaches Clearwater's release with
+   * is_primary = false. iOS closes that by preselecting the gauge picker on
+   * arrival; on web the reader chose this page rather than being sent to it,
+   * so the panel qualifies the headline rather than replacing it.
+   */
+  highlightSlug,
+  /**
+   * The dam doing the controlling, when known. Named in the label because
+   * "Controlled by Clearwater Dam" is scannable and stays true read cold —
+   * "the dam above" only makes sense to someone who remembers arriving from
+   * one, and this panel is mostly read by people who did not.
+   */
+  damName,
+}: {
+  reaches: RiverReach[];
+  highlightSlug?: string | null;
+  damName?: string | null;
+}) {
   if (reaches.length < 2) return null;
+
+  // Only when it matches something. A slug for a reach this river does not
+  // carry highlights nothing rather than defaulting to the first.
+  const highlighted = reaches.some((r) => r.sectionSlug === highlightSlug)
+    ? highlightSlug
+    : null;
 
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
@@ -56,7 +98,22 @@ export default function RiverReaches({ reaches }: { reaches: RiverReach[] }) {
         {reaches.map((reach) => {
           const miles = milesLabel(reach.riverMileStart, reach.riverMileEnd);
           return (
-            <li key={reach.sectionSlug} className="px-4 py-4">
+            <li
+              key={reach.sectionSlug}
+              // Deep-linkable, and `scroll-mt` clears the hub's sticky section
+              // nav so a hash landing does not park the heading underneath it.
+              id={reachAnchorId(reach.sectionSlug)}
+              className={
+                reach.sectionSlug === highlighted
+                  ? 'scroll-mt-24 border-l-4 border-primary-700 bg-primary-50/40 px-4 py-4'
+                  : 'scroll-mt-24 px-4 py-4'
+              }
+            >
+              {reach.sectionSlug === highlighted && (
+                <p className="mb-1 text-xs font-semibold text-primary-700">
+                  {damName ? `Controlled by ${damName}` : 'Controlled by the dam above'}
+                </p>
+              )}
               <div className="flex flex-wrap items-center gap-2 mb-1.5">
                 <h3 className="font-semibold text-neutral-900">{reach.name}</h3>
                 <ConditionBadge code={reach.conditionCode} size="sm" uppercase />

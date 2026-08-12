@@ -44,7 +44,7 @@ import type { ConditionCode } from '@shared/condition-system';
 import { classifyReading } from '@shared/condition-ladder';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getRivers } from '@/lib/data/rivers';
-import { fetchAllDamSnapshots } from '@/lib/data/dams';
+import { fetchTailwaterDams } from '@/lib/data/dams';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { toNum } from '@/lib/utils/num';
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
         console.error('[high-water] gauges failed:', err);
         return [];
       }),
-      fetchAllDamSnapshots().catch((err) => {
+      fetchTailwaterDams().catch((err) => {
         console.error('[high-water] dams failed:', err);
         return [];
       }),

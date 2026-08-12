@@ -44,12 +44,42 @@ function riverTypeLabel(type: string): string {
   }
 }
 
-export function RiverReaches({ reaches }: { reaches: RiverReach[] }) {
+export function RiverReaches({
+  reaches,
+  /**
+   * The reach the reader arrived for, when they came from somewhere that knows
+   * — today, a dam screen passing `tailwater.sectionSlug`.
+   *
+   * ── Why this is a highlight and not a scroll ───────────────────────────────
+   * The problem is not that the reach is hard to reach on the page; it is that
+   * a reader arriving from Clearwater Dam lands on a river screen that leads
+   * with the spring-fed Lesterville float — rain-driven water the dam has no
+   * bearing on — and nothing says which half they came for. Scrolling somebody
+   * to a card without telling them why answers the wrong question, and it drops
+   * them past the panel's own explanation of why the halves differ.
+   */
+  highlightSlug,
+  /**
+   * The dam doing the controlling, when known. Named in the label because
+   * "Controlled by Clearwater Dam" is scannable and stays true read cold —
+   * "the dam above" only makes sense to someone who remembers arriving from
+   * one, and this panel is often read by someone who did not.
+   */
+  damName,
+}: {
+  reaches: RiverReach[];
+  highlightSlug?: string | null;
+  damName?: string | null;
+}) {
   const { colors, elevation } = useTheme();
 
   // Nothing to explain unless at least two reaches and a real difference. The
   // API already gates on this; re-checking keeps the component honest on its own.
   if (reaches.length < 2 || !reaches.some((r) => r.differsFromRiver)) return null;
+
+  // Only when it actually matches. A slug for a reach this river does not carry
+  // must highlight nothing rather than the first one.
+  const highlighted = reaches.some((r) => r.sectionSlug === highlightSlug) ? highlightSlug : null;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
@@ -58,17 +88,25 @@ export function RiverReaches({ reaches }: { reaches: RiverReach[] }) {
         its own. Check the one you are actually floating.
       </Text>
 
-      {reaches.map((reach, i) => (
+      {reaches.map((reach, i) => {
+        const isHighlighted = reach.sectionSlug === highlighted;
+        return (
         <View
           key={reach.sectionSlug}
           style={[
             styles.reach,
             i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+            isHighlighted && { borderLeftWidth: 3, borderLeftColor: colors.interactive, paddingLeft: 9 },
           ]}
         >
           <View style={styles.headRow}>
             <Text style={[styles.name, { color: colors.text }]}>{reach.name}</Text>
           </View>
+          {isHighlighted ? (
+            <Text style={[styles.arrivedFrom, { color: colors.interactive }]}>
+              {damName ? `Controlled by ${damName}` : 'Controlled by the dam above'}
+            </Text>
+          ) : null}
 
           <View style={styles.chipRow}>
             <View style={[styles.chip, { backgroundColor: conditionBg(reach.conditionCode) }]}>
@@ -109,7 +147,8 @@ export function RiverReaches({ reaches }: { reaches: RiverReach[] }) {
               .join(' · ')}
           </Text>
         </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -119,6 +158,7 @@ const styles = StyleSheet.create({
   intro: { ...t.sm, fontFamily: fonts.body, marginBottom: 4 },
   reach: { paddingTop: 10, gap: 5 },
   headRow: { flexDirection: 'row', alignItems: 'center' },
+  arrivedFrom: { ...t.xs, fontFamily: fonts.semibold },
   name: { ...t.base, fontFamily: fonts.semibold, flex: 1 },
   chipRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   chip: {

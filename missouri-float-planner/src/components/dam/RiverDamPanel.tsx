@@ -19,6 +19,8 @@
 import Link from 'next/link';
 import { Waves, ExternalLink } from 'lucide-react';
 import type { RiverDamContext } from '@/lib/data/dams';
+import { readingStaleness } from '@shared/dam-schedule-copy';
+import { reachAnchorId } from '@/components/river/RiverReaches';
 
 function cfs(n: number): string {
   return Math.round(n).toLocaleString();
@@ -50,7 +52,18 @@ function toDailyPeaks(points: RiverDamContext['forecast']) {
   return Array.from(byDay.values()).slice(0, 7);
 }
 
-export default function RiverDamPanel({ context }: { context: RiverDamContext | null }) {
+export default function RiverDamPanel({
+  context,
+  /**
+   * The controlled reach's slug, CONFIRMED to exist on this page — see the
+   * page's controlledReach. Not read off the registry here: this renders a hash
+   * link, and a hash to an id nothing emitted looks live and scrolls nowhere.
+   */
+  controlledReachSlug,
+}: {
+  context: RiverDamContext | null;
+  controlledReachSlug?: string | null;
+}) {
   if (!context) return null;
 
   const { dam, forecast, forecastIsDaily } = context;
@@ -94,7 +107,10 @@ export default function RiverDamPanel({ context }: { context: RiverDamContext | 
           </div>
           <div className="text-sm text-neutral-600">
             {release.dailyMean ? 'daily average release' : 'releasing now'}
-            {release.staleness !== 'fresh' && ' · reading is lagging'}
+            {/* From the timestamp, not the wire's `staleness` — that band is
+                stamped at snapshot assembly and frozen, so a held payload keeps
+                claiming freshness as it ages. See readingStaleness in shared/. */}
+            {readingStaleness(release.at) !== 'fresh' && ' · reading is lagging'}
           </div>
         </div>
       )}
@@ -129,6 +145,21 @@ export default function RiverDamPanel({ context }: { context: RiverDamContext | 
             </p>
           )}
         </div>
+      )}
+
+      {/* Which reach, by name, when the river carries more than one. Same-page
+          hash, so this needs no route change and no knowledge of the river's
+          state segment — the panel is already ON the river page. That is why
+          the web dam PAGE has no equivalent link: /rivers/[state]/[slug] needs a
+          state this dam layer cannot resolve without a database read it
+          deliberately does not do. */}
+      {controlledReachSlug && (
+        <a
+          href={`#${reachAnchorId(controlledReachSlug)}`}
+          className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:text-primary-800"
+        >
+          See the reach it controls
+        </a>
       )}
 
       <p className="mt-4 border-t border-neutral-200 pt-3 text-xs text-neutral-500">

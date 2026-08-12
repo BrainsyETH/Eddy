@@ -24,7 +24,13 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
-import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
+import {
+  relativeAge,
+  nextScheduleChangeSentence,
+  tailwaterMovementSentence,
+  readingStaleness,
+  SCHEDULE_CHANGE_NOTE,
+} from '@eddy/conditions/dam-schedule-copy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -32,16 +38,36 @@ function formatCfs(value: number): string {
   return `${Math.round(value).toLocaleString()} cfs`;
 }
 
+/**
+ * Whether a reading has aged out of usefulness, from its own timestamp.
+ *
+ * Deliberately not `metric.staleness`. That band is stamped when the SERVER
+ * assembles the snapshot and then frozen on the wire, and this screen fetches
+ * once on mount with no refetch on focus — so a screen backgrounded and resumed
+ * hours later would still be told the reading is fresh while the age beside it,
+ * computed on this device, correctly reads "9 hours ago". See readingStaleness.
+ */
+function isStale(metric: { at: string }): boolean {
+  return readingStaleness(metric.at) === 'stale';
+}
+
 interface StatProps {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
   value: string;
+  /**
+   * A qualifier that belongs ON the value line but must not compete with the
+   * number for weight — "elevation" beside 703.95 ft. Kept out of `value`
+   * because at full display weight it wrapped onto its own line and read as a
+   * second, unlabelled figure.
+   */
+  suffix?: string;
   sub?: string | null;
   /** A stale reading stays visible and loses emphasis. */
   dim?: boolean;
 }
 
-function Stat({ icon, label, value, sub, dim }: StatProps) {
+function Stat({ icon, label, value, suffix, sub, dim }: StatProps) {
   const { colors } = useTheme();
   return (
     <View style={styles.stat}>
@@ -51,6 +77,9 @@ function Stat({ icon, label, value, sub, dim }: StatProps) {
       </View>
       <Text style={[styles.statValue, { color: dim ? colors.textMuted : colors.text }]}>
         {value}
+        {suffix ? (
+          <Text style={[styles.statSuffix, { color: colors.textSubtle }]}> {suffix}</Text>
+        ) : null}
       </Text>
       {sub ? <Text style={[styles.statSub, { color: colors.textSubtle }]}>{sub}</Text> : null}
     </View>
@@ -64,7 +93,18 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
   const pool = dam.metrics.poolElevation;
   const floodPool = dam.metrics.pctFloodPool;
   const tailwaterTemp = dam.metrics.tailwaterTempF;
+  const tailwaterStage = dam.metrics.tailwaterElevation;
+  const inflow = dam.metrics.inflow;
   const generationFlow = dam.metrics.generationFlow;
+
+  // What SWPA says happens NEXT. A different claim from the chip above it,
+  // which reads CWMS turbine flow and is an observation — the two can honestly
+  // disagree when a unit trips or a schedule is revised after Eddy fetched it,
+  // so this states only the scheduled transition, never the present state.
+  //
+  // It is also the only live line Stockton and Truman can carry: the Kansas
+  // City district publishes no timeseries at all, so those two have no chip.
+  const nextChange = nextScheduleChangeSentence(dam.schedule);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
@@ -106,6 +146,24 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
         </View>
       ) : null}
 
+      {/* The note is not decoration and must not be dropped to save a line: it
+          carries SWPA's "subject to change" and the fact that water downstream
+          lags the dam, and on a list surface there is no schedule block below to
+          carry either. */}
+      {nextChange ? (
+        <View>
+          <View style={styles.nextChangeRow}>
+            <Ionicons name="time-outline" size={13} color={colors.interactive} />
+            <Text style={[styles.nextChange, { color: colors.interactive }]}>{nextChange}</Text>
+          </View>
+          <Text style={[styles.nextChangeAside, { color: colors.textSubtle }]}>
+            {SCHEDULE_CHANGE_NOTE}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Tailwater facts lead, lake facts follow. The water below the dam is
+          what someone is standing in; the pool is context. */}
       <View style={styles.statGrid}>
         {release ? (
           <Stat
@@ -117,7 +175,38 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
                 ? ['daily average', relativeAge(release.at)].filter(Boolean).join(', ')
                 : relativeAge(release.at)
             }
-            dim={release.staleness === 'stale'}
+            dim={isStale(release)}
+          />
+        ) : null}
+
+        {/* Level below the dam, with how far it moved in three hours. Measured
+            2026-08-12, this swings 8.19 ft at Table Rock and 7.67 ft at Bull
+            Shoals between idle and full generation — and unlike the schedule it
+            also catches water nobody announced.
+
+            "elevation" is spelled in the value rather than left as a bare
+            "710.79 ft": this is height above a vertical datum, and a number that
+            size labelled "stage" reads as depth to anyone who has waded a river.
+
+            Movement and age travel together — see tailwaterMovementSentence. */}
+        {tailwaterStage ? (
+          <Stat
+            icon="resize-outline"
+            label="Water level below dam"
+            value={`${tailwaterStage.value.toFixed(2)} ft`}
+            suffix="elevation"
+            sub={tailwaterMovementSentence(tailwaterStage)}
+            dim={isStale(tailwaterStage)}
+          />
+        ) : null}
+
+        {tailwaterTemp ? (
+          <Stat
+            icon="thermometer-outline"
+            label="Tailwater temp"
+            value={`${tailwaterTemp.value.toFixed(1)} °F`}
+            sub={tailwaterTemp.value < 60 ? 'cold release' : null}
+            dim={isStale(tailwaterTemp)}
           />
         ) : null}
 
@@ -129,17 +218,28 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
             sub={
               floodPool ? `${floodPool.value.toFixed(0)}% flood pool` : relativeAge(pool.at)
             }
-            dim={pool.staleness === 'stale'}
+            dim={isStale(pool)}
           />
         ) : null}
 
-        {tailwaterTemp ? (
+        {/* Inflow against release is what says whether the lake is filling, and
+            so whether the Corps will have to run water in the days ahead.
+            Stated as a bare number rather than a verdict: turning the pair into
+            "the lake is rising" would ignore rainfall, evaporation and the pool
+            the operator is actually targeting. */}
+        {inflow ? (
           <Stat
-            icon="thermometer-outline"
-            label="Tailwater"
-            value={`${tailwaterTemp.value.toFixed(1)} °F`}
-            sub={tailwaterTemp.value < 60 ? 'cold release' : null}
-            dim={tailwaterTemp.staleness === 'stale'}
+            icon="enter-outline"
+            label={inflow.dailyMean ? 'Inflow (daily avg)' : 'Inflow'}
+            value={formatCfs(inflow.value)}
+            // Age included for the same reason as the tailwater reading: this
+            // shipped with only "into the lake" beneath it and no indication of
+            // when it was measured, which on the two St. Louis dams is a daily
+            // mean about a day in arrears.
+            sub={[inflow.dailyMean ? 'daily average into the lake' : 'into the lake', relativeAge(inflow.at)]
+              .filter(Boolean)
+              .join(' · ')}
+            dim={isStale(inflow)}
           />
         ) : null}
 
@@ -181,6 +281,9 @@ const styles = StyleSheet.create({
   },
   chipText: { ...t.sm, fontFamily: fonts.semibold },
   chipAside: { ...t.sm, flexShrink: 1 },
+  nextChangeRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 5 },
+  nextChange: { ...t.sm, fontFamily: fonts.semibold },
+  nextChangeAside: { ...t.xs },
   statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
   // A floor rather than a fixed width, so two stats share a row on a phone and
   // four fit on a tablet without a breakpoint.
@@ -188,6 +291,7 @@ const styles = StyleSheet.create({
   statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statLabel: { ...t.xs, fontFamily: fonts.semibold, textTransform: 'uppercase' },
   statValue: { ...t.xl, fontFamily: fonts.heading },
+  statSuffix: { ...t.sm, fontFamily: fonts.medium },
   statSub: { ...t.xs },
   plant: { ...t.xs },
 });

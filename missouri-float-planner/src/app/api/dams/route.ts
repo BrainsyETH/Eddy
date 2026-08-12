@@ -10,14 +10,14 @@
 
 import { NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
-import { fetchAllDamSnapshots } from '@/lib/data/dams';
+import { fetchAllDamSummaries } from '@/lib/data/dams';
 import { withX402Route } from '@/lib/x402-config';
 
 export const dynamic = 'force-dynamic';
 
 async function _GET() {
   try {
-    const dams = await fetchAllDamSnapshots();
+    const dams = await fetchAllDamSummaries();
     return NextResponse.json(
       { dams },
       { headers: cdnCacheHeaders(900, 3600) }

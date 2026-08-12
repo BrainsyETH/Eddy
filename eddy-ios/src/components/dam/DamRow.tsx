@@ -15,7 +15,7 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
-import { idleWindowSentence } from '@eddy/conditions/dam-schedule-copy';
+import { idleWindowSentence, SCHEDULE_CHANGE_NOTE } from '@eddy/conditions/dam-schedule-copy';
 import { DayBars } from '@/components/dam/DayBars';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -134,13 +134,23 @@ function DamRowComponent({
           The bars are the same component the dam screen draws, so a pattern
           learned there is readable here. The idle-window sentence carries it for
           VoiceOver, which the bar row is deliberately hidden from — and it is
-          the more useful of the two anyway: "Water off: midnight – 6 AM" is the
-          answer, the bars are the picture of it. */}
+          the more useful of the two anyway: "Generation off: midnight – 6 AM" is
+          the answer, the bars are the picture of it. */}
       {today ? (
         <View style={styles.schedule}>
           <DayBars day={today} compact />
           <Text style={[styles.idle, { color: colors.textMuted }]} numberOfLines={1}>
             {idleWindowSentence(today.idle)}
+          </Text>
+          {/* Every other surface that renders a schedule carries this: both
+              GenerationSchedule components and both RiverDamPanels. Favorites is
+              the only place a schedule appears, and WATER_REGIMES_STRATEGY.md
+              requires SWPA's disclaimer to travel with it EVERYWHERE — so a
+              compact row is not an exemption. Two lines rather than one so the
+              note cannot truncate: a half-rendered safety caveat is worse than
+              an honest one that wraps. */}
+          <Text style={[styles.scheduleNote, { color: colors.textSubtle }]} numberOfLines={2}>
+            {SCHEDULE_CHANGE_NOTE}
           </Text>
         </View>
       ) : null}
@@ -164,6 +174,7 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   schedule: { marginTop: 8 },
   idle: { ...t.xs, marginTop: 4 },
+  scheduleNote: { ...t.xs, marginTop: 2 },
   main: { flex: 1, gap: 2 },
   name: { ...t.base, fontFamily: fonts.semibold },
   meta: { ...t.xs },

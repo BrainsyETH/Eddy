@@ -49,6 +49,30 @@ export interface DamMetricValue {
    * correctness bug, not a cosmetic one.
    */
   dailyMean?: boolean;
+  /**
+   * How much the value moved over the preceding `hours`, when the series is
+   * dense enough to say. Absent means it could not be computed, never "flat".
+   *
+   * ── Why a signed number and not "rising" / "falling" ───────────────────────
+   * Because a categorical label needs a threshold, and there is no threshold
+   * that works. Measured over 7 days of hourly tailwater stage at Table Rock,
+   * Bull Shoals, Norfork, Greers Ferry and Beaver (2026-08-12), the 3-hour
+   * change while the units were IDLE reached 4.0 ft at p99 — the recession limb
+   * after a shutdown — while 25% of GENERATING hours moved less than 0.23 ft,
+   * because steady generation holds the tailwater high and flat. The two
+   * distributions overlap across the whole range a threshold could sit in, so
+   * any "rising/steady/falling" verdict would be confidently wrong a good part
+   * of the time.
+   *
+   * A number cannot be wrong that way. "+2.1 ft in 3h" also tells a wading
+   * angler strictly more than "rising" does.
+   */
+  trend?: {
+    /** Window the change was measured over. */
+    hours: number;
+    /** Signed change in the metric's own unit, latest minus oldest. */
+    delta: number;
+  };
 }
 
 /** One hour of a project's schedule, in SWPA's own "hour ending" terms. */
@@ -103,6 +127,22 @@ export interface DamScheduleDay {
 export interface DamTailwater {
   riverSlug: string;
   gaugeSiteId: string;
+  /**
+   * The `river_sections` reach the release actually lands in, when the river
+   * carries more than one.
+   *
+   * On the Black, the river page opens on the spring-fed Lesterville float,
+   * which is NOT the water Clearwater controls — so a dam panel that linked the
+   * river alone would point a reader at a reach the dam has no bearing on.
+   * Optional: a tailwater that is its own river needs no reach.
+   *
+   * CONSUMED, in two places, and neither is obvious from here: the iOS dam
+   * screen passes it as `section` when pushing the river screen, and the web
+   * river hub feeds it to RiverReaches as `highlightSlug`. It was dropped from
+   * this type once already and silently lost on the wire, which is why
+   * dams-route-contract.test.ts asserts it survives assembly.
+   */
+  sectionSlug?: string;
 }
 
 export interface DamSnapshot {

@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
-import { fetchDamSnapshot } from '@/lib/data/dams';
+import { fetchDamDetail } from '@/lib/data/dams';
 import { withX402Route } from '@/lib/x402-config';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,7 @@ async function _GET(
 ) {
   try {
     const { damId } = await params;
-    const dam = await fetchDamSnapshot(damId, { scheduleDays: 3 });
+    const dam = await fetchDamDetail(damId);
 
     if (!dam) {
       return NextResponse.json({ error: 'Dam not found' }, { status: 404 });

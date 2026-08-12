@@ -1,8 +1,20 @@
 // shared/dam-schedule-copy.ts
 //
-// How a generation schedule is put into words. Shared between the web dam page
-// and the eddy-ios dam screen, because getting any of it wrong is a safety
-// problem rather than a cosmetic one.
+// How a generation schedule — and the readings shown beside it — are put into
+// words. Shared between the web dam page and the eddy-ios dam screen, because
+// getting any of it wrong is a safety problem rather than a cosmetic one.
+//
+// ── The rule this file exists to enforce ───────────────────────────────────
+// SAY WHAT THE SOURCE SAID, AT THE PLACE IT SAID IT.
+//
+// Two ways that gets violated, and both shipped here before being caught:
+//   - Wrong SUBJECT. "Water off at 10 PM" turns a fact about a powerhouse into
+//     a claim about a river twenty miles downstream. See idleWindowSentence.
+//   - Missing TIME. Movement rendered in place of a reading's age presents a
+//     window that closed hours ago as if it closed now. See
+//     tailwaterMovementSentence.
+// Both are the same mistake as an hour-ending off-by-one: a true number,
+// attached to the wrong place or the wrong moment.
 //
 // ── Why this is shared and not reimplemented per platform ───────────────────
 // SWPA posts in "hour ending" terms: hour 14 is the release running 1:00pm to
@@ -42,10 +54,23 @@ export function windowLabel(from: number, to: number): string {
  * flow — not on the cfs estimate, which is ~±10% at steady state and worse on a
  * ramp hour. An empty list means the units run all day, and saying so plainly
  * is better than printing nothing and letting it read as "no data".
+ *
+ * ── Why "Generation off" and not "Water off" ───────────────────────────────
+ * Because the schedule establishes the first and not the second. SWPA says when
+ * the UNITS run at the DAM. It says nothing about the river at an access twenty
+ * miles down, where the water arrives late on a start and — the dangerous half —
+ * stays high long after a stop, riding the recession limb. "Water off" invites a
+ * reader standing downstream to treat a machinery fact as a river fact, and this
+ * is the string they read before deciding to wade.
+ *
+ * The naming discipline is the same one hourEndingLabel enforces on the clock:
+ * say precisely what the source said, and let the reader do the extrapolating
+ * knowingly. Travel time is what would let Eddy make that claim honestly, and it
+ * is not built — see docs/TAILWATER_PLAN.md.
  */
 export function idleWindowSentence(idle: Array<{ from: number; to: number }>): string {
   if (idle.length === 0) return 'Generating every hour — no break in the schedule.';
-  return `Water off: ${idle.map((w) => windowLabel(w.from, w.to)).join(', ')}`;
+  return `Generation off: ${idle.map((w) => windowLabel(w.from, w.to)).join(', ')}`;
 }
 
 /**
@@ -133,6 +158,174 @@ export function hourEndingNow(hoursElapsed: number): number {
   return Math.floor(hoursElapsed) + 1;
 }
 
+/** The calendar day after `dayKey`, both as `YYYY-MM-DD`. */
+function nextDayKey(dayKey: string): string {
+  const [y, m, d] = dayKey.split('-').map(Number);
+  // UTC arithmetic on a bare calendar date. Adding 24h to a Central-time
+  // instant would land on the same day twice each November and skip one each
+  // March; a calendar day has no DST because it has no clock attached.
+  const next = new Date(Date.UTC(y, m - 1, d) + 86_400_000);
+  return next.toISOString().slice(0, 10);
+}
+
+/** A scheduled flip between generating and idle. */
+export interface ScheduleChange {
+  /** SWPA hour-ending the new state begins at. Render with hourEndingLabel. */
+  hourEnding: number;
+  /** The Central calendar day it falls on, `YYYY-MM-DD`. */
+  scheduleDate: string;
+  /** 0 = today at the dam, 1 = tomorrow, 2 = the day after. */
+  dayOffset: number;
+  /** The state the dam moves INTO. */
+  generating: boolean;
+}
+
+export interface ScheduleState {
+  /** True when SWPA has load scheduled for the hour running right now. */
+  generating: boolean;
+  /** The next flip, or NULL when the posted schedule never flips again. */
+  change: ScheduleChange | null;
+}
+
+/**
+ * What SWPA has the units doing right now, and when that next changes.
+ *
+ * ── Scheduled, not observed ────────────────────────────────────────────────
+ * This reads the SCHEDULE. `DamSnapshot.generating` reads CWMS turbine flow and
+ * is an OBSERVATION. They can legitimately disagree — a unit trips, a schedule
+ * is revised after Eddy fetched it — so the two must never be presented as one
+ * fact. The card states the observation; this states the plan.
+ *
+ * ── Fails closed, twice ────────────────────────────────────────────────────
+ * Null when today's schedule is not in `schedule` at all, and null when the
+ * current hour is missing from it. Both mean "we do not know what the dam is
+ * doing", which is not the same as "the dam is idle" — and this feeds a line
+ * someone may wade against.
+ *
+ * Days are only walked while they are CONSECUTIVE. `fetchProjectSchedule` drops
+ * a day whose file has not refreshed yet, so `schedule` can hold today and the
+ * day after tomorrow with a hole between them. Walking across that hole would
+ * report Thursday's 6 AM start as Wednesday's.
+ */
+export function scheduleStateNow(
+  schedule: Array<{ scheduleDate: string; hours: Array<{ hourEnding: number; megawatts: number }> }>,
+  now = Date.now()
+): ScheduleState | null {
+  const today = centralDayKey(now);
+  const startIndex = schedule.findIndex((d) => d.scheduleDate === today);
+  if (startIndex === -1) return null;
+
+  const elapsed = scheduleHoursElapsed(today, now);
+  if (elapsed === null) return null;
+  const startHour = hourEndingNow(elapsed);
+
+  const currentHour = schedule[startIndex].hours.find((h) => h.hourEnding === startHour);
+  if (!currentHour) return null;
+  const generating = currentHour.megawatts > 0;
+
+  let expectedDate = today;
+  for (let i = startIndex; i < schedule.length; i += 1) {
+    const day = schedule[i];
+    if (day.scheduleDate !== expectedDate) break; // A gap — see the note above.
+    // Walked by hour NUMBER rather than array order: the first flip has to be
+    // the earliest one, and reading it off iteration order would quietly depend
+    // on the parser emitting 1..24 sorted.
+    const from = i === startIndex ? startHour : 1;
+    for (let h = from; h <= 24; h += 1) {
+      const hour = day.hours.find((x) => x.hourEnding === h);
+      if (!hour) continue;
+      if (hour.megawatts > 0 !== generating) {
+        return {
+          generating,
+          change: {
+            hourEnding: h,
+            scheduleDate: day.scheduleDate,
+            // Index offset equals calendar-day offset because the walk stops
+            // at the first non-consecutive date.
+            dayOffset: i - startIndex,
+            generating: !generating,
+          },
+        };
+      }
+    }
+    expectedDate = nextDayKey(expectedDate);
+  }
+
+  return { generating, change: null };
+}
+
+/**
+ * The qualifier that MUST render adjacent to a scheduled-change line.
+ *
+ * Three claims are packed in, and each is load-bearing:
+ *
+ * - "at the dam" — the transition is a fact about the powerhouse, not about the
+ *   river where somebody is standing.
+ * - "subject to change" — WATER_REGIMES_STRATEGY.md requires SWPA's own
+ *   disclaimer to travel with the schedule EVERYWHERE it appears, and /dams
+ *   renders these lines with no schedule block and therefore no other caveat on
+ *   the page at all.
+ * - "downstream water lags" — the travel-time gap. Asymmetric, and the reason
+ *   this is not merely pedantic: a START understates when water arrives
+ *   downstream, so a reader who leaves early is still safe, but a STOP
+ *   overstates when downstream is safe to stand in, because the recession limb
+ *   keeps the river up well after the units come off.
+ */
+export const SCHEDULE_CHANGE_NOTE = 'at the dam · subject to change · downstream water lags';
+
+/**
+ * The one forward-looking line a tailwater angler wants: when generation changes.
+ *
+ * ── Why the subject is GENERATION and not WATER ────────────────────────────
+ * "Water off at 10 PM" is a claim about a river, and the schedule cannot
+ * support it — see idleWindowSentence. The subject here is the plant, the
+ * modality ("scheduled") is inside the sentence so it survives even if a caller
+ * drops SCHEDULE_CHANGE_NOTE, and the note carries location and lag.
+ *
+ * ── Why a clock time and never a countdown ─────────────────────────────────
+ * Both dam surfaces are ISR'd at 300 seconds, so this string can be up to five
+ * minutes old by the time it is read — and the iOS app can hold a cached
+ * response far longer. "in 2 hours" silently decays into a false claim; "at
+ * 3 PM" stays true no matter how stale the render is. The worst this can be is
+ * up to five minutes late announcing a flip that already happened, which is the
+ * failure direction that leaves someone waiting on the bank rather than
+ * standing in the river.
+ *
+ * Returns null when nothing can be said — no schedule for today, or no flip
+ * left in it. A caller renders nothing; the schedule section below carries the
+ * full picture either way.
+ */
+export function nextScheduleChangeSentence(
+  schedule: Array<{ scheduleDate: string; hours: Array<{ hourEnding: number; megawatts: number }> }>,
+  now = Date.now()
+): string | null {
+  const state = scheduleStateNow(schedule, now);
+  if (!state?.change) return null;
+
+  const { hourEnding, scheduleDate, dayOffset, generating } = state.change;
+  // hourEndingLabel gives the hour the water STARTS moving, which is exactly
+  // the instant the flip happens — hour ending 16 is the release running from
+  // 3 PM, so the change is at 3 PM.
+  const time = hourEndingLabel(hourEnding);
+  const clock = time === '12 AM' ? 'midnight' : time;
+
+  let when: string;
+  if (dayOffset === 0) when = clock;
+  else if (dayOffset === 1) when = `${clock} tomorrow`;
+  else {
+    const [y, m, d] = scheduleDate.split('-').map(Number);
+    const weekday = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
+      weekday: 'long',
+      timeZone: 'UTC',
+    });
+    when = `${clock} ${weekday}`;
+  }
+
+  return generating
+    ? `Generation scheduled to start at ${when}`
+    : `Generation scheduled to stop at ${when}`;
+}
+
 /**
  * How long ago an ISO timestamp was, phrased for a person.
  *
@@ -149,12 +342,132 @@ export function relativeAge(iso: string | null | undefined, now = Date.now()): s
   // Clock skew between us and a CDN edge can put a timestamp slightly ahead.
   // "in 30 seconds" would be nonsense; treat anything not yet past as current.
   if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${Math.round(minutes)} minutes ago`;
+  if (minutes < 60) {
+    const whole = Math.round(minutes);
+    return whole === 1 ? 'a minute ago' : `${whole} minutes ago`;
+  }
   const hours = minutes / 60;
   if (hours < 2) return 'an hour ago';
   if (hours < 24) return `${Math.round(hours)} hours ago`;
   const days = Math.round(hours / 24);
   return days === 1 ? 'yesterday' : `${days} days ago`;
+}
+
+/**
+ * How far the tailwater moved, as a signed number in feet.
+ *
+ * ── Why a number and not "rising" / "falling" ──────────────────────────────
+ * Measured over 7 days of hourly stage at Table Rock, Bull Shoals, Norfork,
+ * Greers Ferry and Beaver (2026-08-12): the 3-hour change while the units were
+ * IDLE reached 4.0 ft at p99 — the recession limb after a shutdown — while 25%
+ * of GENERATING hours moved under 0.23 ft, because steady generation holds the
+ * tailwater high and flat. The distributions overlap across the whole range a
+ * threshold could sit in, so any verdict would be confidently wrong a good part
+ * of the time.
+ *
+ * The rounding IS the threshold. A change that rounds to 0.0 ft returns null and
+ * renders nothing, so there is no invented "steady" band to be wrong about.
+ *
+ * Feet is hardcoded because the only metric carrying a trend is tailwater
+ * elevation. Widen deliberately if that changes — a signed number with the wrong
+ * unit is worse than no number.
+ */
+export function tailwaterMovementLabel(
+  trend: { hours: number; delta: number } | undefined | null
+): string | null {
+  if (!trend) return null;
+  const rounded = Math.round(trend.delta * 10) / 10;
+  if (rounded === 0) return null;
+  const sign = rounded > 0 ? '+' : '−';
+  return `${sign}${Math.abs(rounded).toFixed(1)} ft over ${trend.hours}h`;
+}
+
+/** Bands for how live a reading is. Same vocabulary the wire uses. */
+export type ReadingStaleness = 'fresh' | 'lagging' | 'stale';
+
+/** Past this many hours a reading is no longer "now". */
+export const READING_LAGGING_AFTER_HOURS = 2;
+/** Past this many hours it describes a river that has since changed. */
+export const READING_STALE_AFTER_HOURS = 6;
+
+/**
+ * How live a reading is, computed HERE from its own timestamp.
+ *
+ * ── Why not DamMetricValue.staleness ───────────────────────────────────────
+ * Because that field is stamped when the SERVER assembles the snapshot and then
+ * frozen on the wire, while the reader's clock keeps moving. The iOS dam screen
+ * fetches once in a useEffect with no refetch on focus and no AppState
+ * listener, so a screen opened, backgrounded and resumed renders that same
+ * payload hours later. Its age is computed on the device and is therefore
+ * correct and live; its band is not. The two disagree, and the disagreement
+ * lands on exactly the guard meant to suppress movement:
+ *
+ *   "+2.1 ft over 3h · 9 hours ago"   — band still says fresh, so it printed
+ *
+ * The wire field is retained because installed clients read it, but nothing in
+ * this repo should display from it. Derive from `at`, which cannot go stale
+ * because it describes an instant rather than a duration.
+ *
+ * Null when the timestamp cannot be read at all — never a guess.
+ */
+export function readingStaleness(
+  at: string | number,
+  now = Date.now()
+): ReadingStaleness | null {
+  const ms = typeof at === 'number' ? at : Date.parse(at);
+  if (!Number.isFinite(ms)) return null;
+  const hours = (now - ms) / (60 * 60 * 1000);
+  // A timestamp slightly ahead of us (CDN clock skew) is current, not ancient.
+  if (hours <= READING_LAGGING_AFTER_HOURS) return 'fresh';
+  if (hours <= READING_STALE_AFTER_HOURS) return 'lagging';
+  return 'stale';
+}
+
+/**
+ * The line under the tailwater reading: how far it moved AND how old it is.
+ *
+ * ── Why the age can never be dropped ───────────────────────────────────────
+ * changeOver() is correct by construction — it measures the window ending at the
+ * LATEST OBSERVATION, and returns null rather than silently shrinking the window
+ * when the series cannot support it. What it cannot know is how long ago that
+ * observation was. Rendering the movement in place of the age (which is what
+ * this surface did first) presents a window that ended hours ago as if it ended
+ * now, on a number someone wades against.
+ *
+ * So the three staleness bands read differently, and none of them is silent:
+ *
+ *   fresh   (<=2h)  "+2.1 ft over 3h · 18 minutes ago"
+ *   lagging (<=6h)  "+2.1 ft over 3h ending 4 hours ago"   — window located
+ *   stale   (>6h)   "6 hours ago"                          — movement dropped
+ *
+ * ── Why the band is NOT a parameter ────────────────────────────────────────
+ * `staleness` used to be read off the reading, and a caller passing a
+ * DamMetricValue straight through was handing over a band the server stamped
+ * hours earlier — see readingStaleness. Both halves of this sentence now come
+ * from the same clock, so they cannot contradict each other. The band is
+ * deliberately absent from the parameter type rather than merely ignored, so
+ * the mistake cannot be made a second time by someone wiring it back up.
+ *
+ * Null only when the timestamp itself cannot be read. That renders nothing at
+ * all rather than movement without an age, which is the failure this exists to
+ * prevent.
+ */
+export function tailwaterMovementSentence(
+  reading: { at: string; trend?: { hours: number; delta: number } },
+  now = Date.now()
+): string | null {
+  const age = relativeAge(reading.at, now);
+  if (!age) return null;
+
+  const movement = tailwaterMovementLabel(reading.trend);
+  const band = readingStaleness(reading.at, now);
+  if (!movement || band !== 'fresh') {
+    // `lagging` still shows movement, but only with the window LOCATED. Any
+    // other band — stale, or a timestamp too broken to classify — drops it.
+    if (movement && band === 'lagging') return `${movement} ending ${age}`;
+    return age;
+  }
+  return `${movement} · ${age}`;
 }
 
 /**

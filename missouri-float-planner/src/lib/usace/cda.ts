@@ -18,6 +18,8 @@
 //
 // Responses put nulls inside `values`, so every accessor filters before use.
 
+import { readingStaleness, type ReadingStaleness } from '@shared/dam-schedule-copy';
+
 const CDA_BASE = 'https://cwms-data.usace.army.mil/cwms-data';
 const CDA_HEADERS = { Accept: 'application/json;version=2' } as const;
 
@@ -123,6 +125,40 @@ export async function fetchTimeseries(
 }
 
 /**
+ * How coarsely a "now" window is rounded before it goes into a URL.
+ *
+ * ── The cache that never hit ───────────────────────────────────────────────
+ * `begin` and `end` are serialised with `toISOString()`, to the millisecond. A
+ * window built from a bare `new Date()` is therefore a URL nobody will ever
+ * request twice, so `next: { revalidate }` above had nothing to match and every
+ * read went to the Corps — across the index and every dam page, across
+ * /api/dams and /api/high-water, across every repeat request from the app.
+ *
+ * Flooring the window makes repeated reads of the same series collapse onto one
+ * URL. It does NOT help within a single render: each (dam, metric) pair has its
+ * own timeseries id, so twenty dams are twenty distinct URLs however they are
+ * rounded. The win is across surfaces and across requests, which is where the
+ * duplication actually is.
+ *
+ * Five minutes rather than the full 900s revalidate, because the window is also
+ * what bounds "latest": flooring `end` means the newest point CDA has may sit
+ * outside it. These series publish hourly, so five minutes costs nothing real
+ * while still collapsing the repeat traffic that matters.
+ */
+export const WINDOW_BUCKET_MS = 5 * 60 * 1000;
+
+/**
+ * Now, floored to the bucket — the right-hand end of any live window.
+ *
+ * Use this instead of `new Date()` wherever a window means "up to now". A
+ * genuinely historical window (a forecast horizon, a backfill) should NOT be
+ * bucketed: it is already stable, and rounding it would move the data.
+ */
+export function bucketedNow(now = Date.now()): Date {
+  return new Date(Math.floor(now / WINDOW_BUCKET_MS) * WINDOW_BUCKET_MS);
+}
+
+/**
  * The most recent non-null point in a lookback window, or null.
  * `lookbackHours` covers the series interval plus publication lag.
  */
@@ -133,19 +169,84 @@ export async function fetchLatestValue(
   lookbackHours = 8,
   options?: { skipCache?: boolean }
 ): Promise<TimeseriesPoint | null> {
-  const end = new Date();
+  // `skipCache` means the caller wants the freshest reading the Corps has, not
+  // a cheaper one — the gauge-update cron passes it precisely to ingest what
+  // was published a moment ago. Flooring the window would then exclude any
+  // point stamped after the bucket boundary while ALSO having bypassed the
+  // cache the flooring exists to serve: all of the cost, none of the benefit.
+  // Harmless today because these series publish hourly; a sub-hourly series
+  // would silently lose readings.
+  const end = options?.skipCache ? new Date() : bucketedNow();
   const begin = new Date(end.getTime() - lookbackHours * 60 * 60 * 1000);
   const result = await fetchTimeseries(office, tsId, unit, begin, end, options);
   if (!result || result.points.length === 0) return null;
   return result.points.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
 }
 
-/** How live a reading is, decided server-side so every surface agrees. */
-export type Staleness = 'fresh' | 'lagging' | 'stale';
+export interface TimeseriesChange {
+  /** The window actually asked for, in hours. */
+  hours: number;
+  /** Signed change over that window, newest minus oldest. */
+  delta: number;
+}
+
+/**
+ * How close to the requested window a point has to sit to stand in for it.
+ *
+ * Wide enough to absorb a missed hourly reading is NOT the goal — a 45-minute
+ * slack admits the 1Hour, 30Minutes and 15Minutes series CWMS publishes (all of
+ * which land exactly on the mark) while rejecting a gappy series where the
+ * nearest point is an hour or more off. A "3-hour change" measured over 4 hours
+ * is a different number wearing the same label.
+ */
+const CHANGE_WINDOW_TOLERANCE_MS = 45 * 60 * 1000;
+
+/**
+ * The change across the last `hours` of a series, or null when it cannot be
+ * measured honestly.
+ *
+ * Reads a window the caller already has in hand. `fetchLatestValue` fetches
+ * eight hours and returns one point, so for any metric already being read this
+ * costs nothing beyond the arithmetic.
+ *
+ * Returns null rather than a smaller window when the series is too short or too
+ * gappy. A trend is a nice-to-have; a mislabelled one on a surface someone
+ * wades against is not.
+ */
+export function changeOver(
+  points: TimeseriesPoint[],
+  hours: number
+): TimeseriesChange | null {
+  if (points.length < 2) return null;
+
+  const latest = points.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
+  const target = latest.timestamp - hours * 60 * 60 * 1000;
+
+  const oldest = points.reduce((best, p) =>
+    Math.abs(p.timestamp - target) < Math.abs(best.timestamp - target) ? p : best
+  );
+  if (Math.abs(oldest.timestamp - target) > CHANGE_WINDOW_TOLERANCE_MS) return null;
+  if (oldest.timestamp === latest.timestamp) return null;
+
+  return { hours, delta: latest.value - oldest.value };
+}
+
+/**
+ * How live a reading is AT THE MOMENT THE SNAPSHOT IS ASSEMBLED.
+ *
+ * Delegates to shared/ rather than restating the thresholds, because the
+ * display surfaces derive the same bands from the reading's timestamp on the
+ * reader's own clock (see readingStaleness) and two copies of 2-and-6 is two
+ * chances for them to drift apart.
+ *
+ * This value still goes on the wire for installed clients, but it is a
+ * point-in-time stamp, not a live fact: a payload cached on a phone keeps this
+ * band while its actual age grows. Nothing in this repo should display from it.
+ */
+export type Staleness = ReadingStaleness;
 
 export function stalenessOf(timestamp: number, now = Date.now()): Staleness {
-  const hours = (now - timestamp) / (60 * 60 * 1000);
-  if (hours <= 2) return 'fresh';
-  if (hours <= 6) return 'lagging';
-  return 'stale';
+  // A non-finite timestamp cannot be classified; treat it as the worst case
+  // rather than quietly calling it fresh.
+  return readingStaleness(timestamp, now) ?? 'stale';
 }

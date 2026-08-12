@@ -337,7 +337,15 @@ function ServiceRow({ service }: { service: RiverService }) {
 }
 
 export default function RiverDetailScreen() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  // Set only when the reader arrived from somewhere that knows which water they
+  // came for — today the dam screen. `section` names the reach to mark in the
+  // reaches panel; `gauge` is the provider-native site id that reads it. Both
+  // are optional, and an unknown value for either does nothing.
+  const { slug, section, gauge: gaugeParam } = useLocalSearchParams<{
+    slug: string;
+    section?: string;
+    gauge?: string;
+  }>();
   const router = useRouter();
   const { colors, elevation } = useTheme();
   const { getAccessToken } = useSession();
@@ -406,6 +414,40 @@ export default function RiverDetailScreen() {
    * opens exactly as it did before anyone touched the picker.
    */
   const [pickedGaugeId, setPickedGaugeId] = useState<string | null>(null);
+
+  /**
+   * The gauge the reader arrived on, when a dam sent them to a specific one.
+   *
+   * DERIVED, not stored. Writing it into pickedGaugeId from the fetch callback
+   * meant the arrival was a side effect racing the load, and it re-entered the
+   * outlook effect without being one of its dependencies. Derived, it is simply
+   * a lower-priority default: an explicit pick always wins, and there is no
+   * moment where the two disagree.
+   *
+   * No match means this river does not carry that station, and the primary
+   * reading stands.
+   */
+  const arrivalGaugeId = gaugeParam
+    ? (gauges.find((g) => g.usgsSiteId === gaugeParam)?.id ?? null)
+    : null;
+
+  /**
+   * Which gauge the whole panel below reads — condition, scale, 72-hour strip,
+   * weather and Eddy's report all follow it.
+   *
+   * This is what makes "open the river below this dam" true rather than merely
+   * marked further down the page. It matters most on the river the feature
+   * exists for: migration 00198 attaches Clearwater's release with
+   * is_primary = false ON PURPOSE and get_river_condition filters
+   * is_primary = TRUE, so the Black's headline is a gauge that is NOT the dam's
+   * — and 00204 calls reading the above-dam gauge below the dam "the worst
+   * place to be wrong".
+   *
+   * The picker sits visibly above the card and writes pickedGaugeId, so an
+   * arrival is a starting position the reader can see and change, never a
+   * hidden override.
+   */
+  const shownGaugeId = pickedGaugeId ?? arrivalGaugeId;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -625,7 +667,7 @@ export default function RiverDetailScreen() {
 
   useEffect(() => {
     if (!slug) return;
-    const askedFor = pickedGaugeId && pickedGaugeId !== primaryGaugeId ? pickedGaugeId : null;
+    const askedFor = shownGaugeId && shownGaugeId !== primaryGaugeId ? shownGaugeId : null;
     const key = askedFor ?? '';
 
     const cached = outlookCache.current.get(key);
@@ -662,7 +704,7 @@ export default function RiverDetailScreen() {
       });
 
     return () => controller.abort();
-  }, [slug, pickedGaugeId, primaryGaugeId]);
+  }, [slug, shownGaugeId, primaryGaugeId]);
 
   /**
    * Does this person already have alerts on for this river?
@@ -771,7 +813,7 @@ export default function RiverDetailScreen() {
   // not move: the chip on the rivers list, the alerts and Eddy's take are all
   // still the primary gauge's verdict. This is a second opinion on a specific
   // stretch, which is the thing a five-gauge river could not previously give.
-  const pickedGauge = pickedGaugeId ? gauges.find((g) => g.id === pickedGaugeId) ?? null : null;
+  const pickedGauge = shownGaugeId ? gauges.find((g) => g.id === shownGaugeId) ?? null : null;
   // THIS river's ladder for that station, not the station's primary one — a
   // gauge shared between two rivers grades differently for each.
   const pickedLink = pickedGauge ? gaugeLink(pickedGauge, slug) : null;
@@ -977,7 +1019,7 @@ export default function RiverDetailScreen() {
         <GaugePicker
           gauges={gauges}
           riverSlug={slug}
-          selectedId={pickedGaugeId ?? gauges.find((g) => gaugeLink(g, slug)?.isPrimary)?.id ?? ''}
+          selectedId={shownGaugeId ?? gauges.find((g) => gaugeLink(g, slug)?.isPrimary)?.id ?? ''}
           onSelect={setPickedGaugeId}
         />
 
@@ -1114,7 +1156,7 @@ export default function RiverDetailScreen() {
         {/* The river's own stretches, each with the gauge that actually reads
             it. Directly under the status card because a reach IS the river —
             everything below this point interprets it. */}
-        <RiverReaches reaches={reaches} />
+        <RiverReaches reaches={reaches} highlightSlug={section} damName={dam?.name ?? null} />
 
         {/* ── What it means. Directly under the status card, because the card
                above says what the river IS and this says what to do about it.

@@ -12,7 +12,7 @@ import { ChevronLeft } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 import DamStateCard from '@/components/dam/DamStateCard';
 import GenerationSchedule from '@/components/dam/GenerationSchedule';
-import { fetchDamSnapshot, listDamIds } from '@/lib/data/dams';
+import { fetchDamDetail, listDamIds } from '@/lib/data/dams';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
 
 export const revalidate = 300;
@@ -39,7 +39,7 @@ export async function generateMetadata({
 
 export default async function DamPage({ params }: { params: Promise<{ damId: string }> }) {
   const { damId } = await params;
-  const dam = await fetchDamSnapshot(damId, { scheduleDays: 3 });
+  const dam = await fetchDamDetail(damId);
   if (!dam) notFound();
 
   return (
