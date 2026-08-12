@@ -39,20 +39,24 @@
 -- ── Production slugs are not the seed's slugs ─────────────────────────────
 --
 -- Two of these four records answer to a different slug in production than the
--- seed and 00076 give them:
+-- migration that created them:
 --
---   seed / 00076                  production
+--   00076 / the seed              production
 --   mother-natures-retreat        mother-nature-s-riverfront-retreat
 --   ha-ha-tonka                   ha-ha-tonka-state-park
 --
--- So each statement matches the slugs BOTH environments use. That is not
--- belt-and-braces, it is the only predicate that hits the row in production
--- and in a rebuilt database — and it is why matching on `name`, which this
--- migration originally did for exactly these two rows, was not the mistake it
--- looked like. The divergence itself is real and outlives this file: a rebuilt
--- database serves different /access/<slug> URLs than production. Reconciling
--- it means renaming a live slug, which breaks URLs, so it is deliberately not
--- done here.
+-- This file originally matched those two on `name` for exactly that reason, and
+-- that was correct. A review talked it into matching on `slug` — the identity
+-- half of UNIQUE(river_id, slug), and the obviously right key — which would
+-- have matched nothing in production and corrected nothing, silently, because
+-- an UPDATE whose WHERE matches nothing SUCCEEDS. So each statement now matches
+-- the slugs BOTH environments use: production's, and the one 00076 inserts,
+-- which is still what a `supabase db reset` produces.
+--
+-- The wider divergence is nineteen rows across six rivers and is NOT addressed
+-- here. Reconciling it means migrating rows the old migrations create and
+-- proving it with a reset test; see branch claude/access-slug-reconciliation
+-- and the header of supabase/seed/access_points.sql.
 --
 -- ── And why every statement is checked ────────────────────────────────────
 --
@@ -189,14 +193,18 @@ UPDATE public.access_points ap
 --
 -- Four rows had to change. That is not something a plain UPDATE reports, and it
 -- is what a later reader will assume happened because this file exists. This
--- block is what caught the slug drift documented in the header.
+-- block is what caught the slug problem described in the header.
 --
--- Conditional on the river already having access points, because "matched
--- nothing" is the CORRECT outcome on a from-scratch rebuild: `supabase db
--- reset` runs every migration against an empty access_points table and lands
--- supabase/seed/access_points.sql afterwards. So this is a hard check against a
--- populated database and a no-op against an empty one — which is also why the
--- seed has to carry these same values itself, and now does.
+-- On `supabase db reset` the table is NOT empty by the time this runs: 00055,
+-- 00056, 00068, 00074, 00076 and 00145 have already inserted these rows under
+-- their original slugs, and supabase/seed/access_points.sql lands afterwards.
+-- So the check is live in both environments, which is the point — it is the
+-- reset path, where the slugs differ from production's, that most needs it.
+--
+-- The guard on the river having any access points at all is for the degenerate
+-- case only: a database where these rivers carry no accesses has nothing for
+-- this migration to correct, and failing there would block a bootstrap rather
+-- than catch a mistake.
 DO $$
 DECLARE
   wrong TEXT;

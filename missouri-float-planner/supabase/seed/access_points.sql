@@ -5,6 +5,38 @@
 -- - Missouri Department of Conservation (MDC)
 -- - National Park Service (Ozark National Scenic Riverways)
 -- - Local outfitters and float trip guides
+--
+-- ── THIS FILE IS NOT WHAT BUILT PRODUCTION ─────────────────────────────────
+--
+-- 78 access points live here; production holds ~290, about 190 of them on these
+-- same eight rivers. The migrations and the ingestion pipeline built that, not
+-- this file. It is a from-scratch convenience, not the source of truth, and it
+-- has to be read that way — an earlier attempt to "sync the seed with
+-- production" started from the opposite assumption and was wrong about which
+-- copy was stale.
+--
+-- Every INSERT ends `ON CONFLICT (river_id, slug) DO UPDATE SET approved`, so
+-- against a populated database this file syncs approval and nothing else. The
+-- rest of each row only ever lands on a database built from scratch.
+--
+-- ── KNOWN, UNFIXED: THE SLUGS HERE ARE NOT PRODUCTION'S ────────────────────
+--
+-- Nineteen rows across six rivers answer to a different slug in production than
+-- the one below — production says ha-ha-tonka-state-park where this says
+-- ha-ha-tonka, mcdowell-access where this says mcdowell, and so on. Eight more
+-- name a place production has under no matching name at all.
+--
+-- The slugs below deliberately match what migrations 00055, 00056, 00068,
+-- 00074, 00076, 00145 and 20260803014706 INSERT, because those run first on
+-- `supabase db reset` and this file's ON CONFLICT is keyed on
+-- (river_id, slug). Changing a slug here without changing it there does not
+-- update that row — it creates a SECOND one. Do not "fix" these in isolation.
+--
+-- Reconciling it properly means deciding what the identity is, migrating the
+-- rows the old migrations create, and proving it with a reset test. That is its
+-- own change; see branch claude/access-slug-reconciliation. Until then, a
+-- migration that has to find one of these rows should match on `name`, or on
+-- both slugs, and assert it found what it meant to.
 
 -- ============================================
 -- MERAMEC RIVER ACCESS POINTS
