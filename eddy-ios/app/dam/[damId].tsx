@@ -38,6 +38,8 @@ import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
 import { fetchDam } from '@/api/client';
 import { DamStateCard } from '@/components/dam/DamStateCard';
+import { DamGenerationHero } from '@/components/dam/DamGenerationHero';
+import { DamPatternStrip } from '@/components/dam/DamPatternStrip';
 import { GenerationSchedule } from '@/components/dam/GenerationSchedule';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -163,10 +165,16 @@ export default function DamDetailScreen() {
           {[dam.lakeName, dam.state].filter(Boolean).join(' · ')}
         </Text>
 
+        {/* The order is the hierarchy a fisherman reads in: what the powerhouse
+            is doing now, when it changes, today and the days ahead, the rhythm
+            it has kept all week — and only then the lake, the temperature and
+            the rest of the project. */}
         {hasAnything ? (
-          <View style={styles.section}>
-            <DamStateCard dam={dam} />
-          </View>
+          <>
+            <View style={styles.section}>
+              <DamGenerationHero dam={dam} />
+            </View>
+          </>
         ) : (
           // Not an error. Kansas City district publishes nothing to CWMS and
           // SWPA may not have refreshed yet, which is a real and temporary
@@ -182,7 +190,26 @@ export default function DamDetailScreen() {
 
         {dam.schedule.length > 0 ? (
           <View style={styles.section}>
-            <GenerationSchedule schedule={dam.schedule} />
+            <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} />
+          </View>
+        ) : null}
+
+        {dam.pattern && dam.pattern.length > 0 ? (
+          <View style={styles.section}>
+            <DamPatternStrip
+              pattern={dam.pattern}
+              schedule={dam.schedule}
+              reference={dam.generationReference}
+              generationFloorCfs={dam.generationFloorCfs}
+            />
+          </View>
+        ) : null}
+
+        {/* The lake, the temperature and the rest of the project: still worth
+            carrying, below the generation the reader came for. */}
+        {hasAnything ? (
+          <View style={styles.section}>
+            <DamStateCard dam={dam} secondary />
           </View>
         ) : null}
 

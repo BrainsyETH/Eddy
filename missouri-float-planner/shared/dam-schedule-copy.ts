@@ -99,14 +99,20 @@ export function scheduleDayLabel(iso: string): string {
 const CENTRAL_TIME_ZONE = 'America/Chicago';
 
 /**
- * The wall clock at the dam right now, as `{ dayKey, hoursElapsed }`.
+ * The wall clock at the dam for any instant, as `{ dayKey, hoursElapsed }`.
  *
  * `hoursElapsed` is a FRACTION of the day (13.5 = half past one in the
  * afternoon) rather than an integer hour, because the thing it positions is a
  * marker sliding across 24 bars, and snapping it to the hour would put it on a
- * boundary for 59 minutes out of every 60.
+ * boundary for 59 minutes out of every 60. `Math.floor` it when what you want
+ * is which Central hour an observation landed in.
+ *
+ * Exported for the history bucketer, which has to place a UTC timestamp on a
+ * Central calendar day and hour. Doing that conversion anywhere else is how
+ * weekdayFileFor once read the server's zone and blanked every schedule after
+ * 7pm Central.
  */
-function centralClock(now: number): { dayKey: string; hoursElapsed: number } {
+export function centralClock(now: number): { dayKey: string; hoursElapsed: number } {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: CENTRAL_TIME_ZONE,
     year: 'numeric',
@@ -158,8 +164,15 @@ export function hourEndingNow(hoursElapsed: number): number {
   return Math.floor(hoursElapsed) + 1;
 }
 
-/** The calendar day after `dayKey`, both as `YYYY-MM-DD`. */
-function nextDayKey(dayKey: string): string {
+/**
+ * The calendar day after `dayKey`, both as `YYYY-MM-DD`.
+ *
+ * Exported for dam-generation.ts, which walks the same schedule array looking
+ * for load changes as well as on/off flips and is under the same
+ * consecutive-days-only rule. Two implementations of this arithmetic is two
+ * chances to skip a day each March.
+ */
+export function nextDayKey(dayKey: string): string {
   const [y, m, d] = dayKey.split('-').map(Number);
   // UTC arithmetic on a bare calendar date. Adding 24h to a Central-time
   // instant would land on the same day twice each November and skip one each

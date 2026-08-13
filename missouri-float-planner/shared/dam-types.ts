@@ -106,7 +106,18 @@ export interface DamScheduleDay {
   scheduleDate: string;
   /** 24 entries, hour-ending 1..24. */
   hours: ScheduledHour[];
-  /** Contiguous idle stretches — the wading windows. */
+  /**
+   * Contiguous GENERATION-IDLE stretches.
+   *
+   * NOT "wading windows", which is what this said until a tailwater with eight
+   * peaking units made the difference matter. The schedule describes a
+   * powerhouse. Non-power release continues while the units are idle, water
+   * released hours ago is still moving downstream, and neither is visible
+   * here — so an idle hour is a fact about generation and a guess about the
+   * river. dam-schedule-copy.ts holds the same line in user-facing wording
+   * ("No generation scheduled", never "Water off"); this is the contract
+   * saying it too.
+   */
   idle: Array<{ from: number; to: number }>;
   /**
    * When EDDY FETCHED this schedule — not when SWPA posted it, which the source
@@ -145,6 +156,27 @@ export interface DamTailwater {
   sectionSlug?: string;
 }
 
+/**
+ * One Central-time day of OBSERVED hourly flow at a project.
+ *
+ * Both arrays are 24 entries, indexed 0..23 for hour-ending 1..24, matching
+ * ScheduledHour.hourEnding so an observed hour and a scheduled hour line up
+ * without any client doing arithmetic.
+ *
+ * `null` means NO OBSERVATION WAS STORED for that hour — a feed gap, a dam that
+ * was not yet wired, a retention boundary. It is emphatically not zero, and a
+ * renderer that draws it as an empty bar has just told somebody the units were
+ * off during an outage. Missing data gets its own visual treatment.
+ */
+export interface DamPatternDay {
+  /** Central calendar day, YYYY-MM-DD. */
+  scheduleDate: string;
+  /** Hourly mean turbine discharge, cfs. */
+  turbineCfs: Array<number | null>;
+  /** Hourly mean total release at the dam, cfs. */
+  totalReleaseCfs: Array<number | null>;
+}
+
 export interface DamSnapshot {
   id: string;
   name: string;
@@ -155,6 +187,43 @@ export interface DamSnapshot {
   hasTurbines: boolean;
   /** Nameplate plant, when the dam has one. Not SWPA's scheduling capacity. */
   nameplate?: { units: number; megawatts: number };
+  /**
+   * SWPA's published reference pair for this project, and who published it.
+   *
+   * ── Why the CONSTANTS travel and the DERIVED NUMBERS do not ───────────────
+   * A client cannot compute "31% of full-generation discharge" without the
+   * denominator, and the SWPA table lives in src/ where neither eddy-ios nor
+   * shared/ can reach it. So the pair rides the wire, and shared/dam-generation.ts
+   * does the arithmetic on both platforms from one implementation.
+   *
+   * The percentage itself is NOT sent, and neither is the next scheduled
+   * transition. Both are answers to "as of when", and a value stamped at
+   * snapshot assembly then frozen is the mistake DamMetricValue.staleness
+   * already made — see readingStaleness in dam-schedule-copy.ts. Constants have
+   * no clock and are safe to freeze; conclusions about the present are not.
+   *
+   * Absent for a dam with no SWPA project code. Optional for the reason every
+   * added field here is: a TestFlight build outlives the deploy it was cut
+   * against, so absent means "this deploy does not send one".
+   */
+  generationReference?: {
+    units: number;
+    fullGenerationCfs: number;
+    schedulingCapacityMw: number;
+    source: string;
+  };
+  /**
+   * Turbine flow at or below which this project's units count as off.
+   *
+   * The registry's `generationOnCfs`, and the same number `generating` above is
+   * derived from — on the wire so a client can tell "measured at effectively
+   * zero" from "not measured", which is the distinction the whole
+   * missing-data discipline turns on. CWMS reports real leakage through idle
+   * turbines (~20 cfs at Table Rock), so `value > 0` is not the test.
+   */
+  generationFloorCfs?: number;
+  /** The zone every `scheduleDate` and hour-ending in this payload is keyed to. */
+  scheduleTimeZone?: 'America/Chicago';
   /**
    * What lives in the water below. A property of the PROJECT — a deep-draw
    * release runs cold year-round and makes a trout tailwater — and declared
@@ -170,6 +239,20 @@ export interface DamSnapshot {
   generating: boolean | null;
   /** Hourly forward schedule, today first. Empty when the dam has no SWPA code. */
   schedule: DamScheduleDay[];
+  /**
+   * What the powerhouse ACTUALLY DID, hour by hour, over the past week.
+   *
+   * Detail payload only — a twenty-dam index has no room to draw it and no
+   * reason to pay for it.
+   *
+   * The pattern strip this feeds is the one thing on the page that answers "is
+   * this a dam that runs mornings, or a dam that runs afternoons" — the
+   * question a visiting angler is actually asking a week out. Its past half
+   * MUST come from here and never from an old schedule: a schedule is what was
+   * planned, and redrawing it as history would present a plan as a record of
+   * the river.
+   */
+  pattern?: DamPatternDay[];
   /** Where the numbers came from, for attribution in the UI. */
   sources: string[];
   /** The reach this dam controls, when Eddy carries it. Absent for most. */

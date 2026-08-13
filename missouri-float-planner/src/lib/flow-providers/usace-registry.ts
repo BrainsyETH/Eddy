@@ -250,7 +250,17 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     office: 'SWL',
     cdaLocation: 'Bull_Shoals_Dam',
     swpaCode: 'BSD',
-    nameplate: { units: 8, megawatts: 380 },
+    // 340, not 380. The Corps' own Major Equipment Replacement fact sheet
+    // (Little Rock District, as of 02/27/2026) reads: "Bull Shoals Dam
+    // Powerplant is an 8-unit hydroelectric plant with a combined installed
+    // power capacity of 340 MW. This project will increase the power capacity
+    // to 362 MW." SWPA schedules the same plant against 391. The 380 that stood
+    // here matched none of the three, and this line is now rendered beside a
+    // generator rack built from the SWPA pair — a wrong nameplate next to a
+    // right one reads as a contradiction in Eddy rather than in the sources.
+    // Verified 2026-08-12; see
+    // scripts/ingestion/dossiers/verified-identifiers-tailwater-swl-bull-shoals-dam.md.
+    nameplate: { units: 8, megawatts: 340 },
     tailwaterFishery: 'trout' as const,
     infoPhone: '870-431-5311',
     generationOnCfs: 100,

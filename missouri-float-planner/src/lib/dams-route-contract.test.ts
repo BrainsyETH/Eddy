@@ -186,3 +186,60 @@ test('a dam with no reach carries no sectionSlug rather than an empty one', () =
     }
   }
 });
+
+test('the generation reference rides the wire, and the derived numbers do not', () => {
+  // A client cannot compute "72% of full-generation discharge" without the
+  // denominator, and the SWPA table lives in src/ where neither eddy-ios nor
+  // shared/ can reach it. So the pair travels.
+  //
+  // The percentage, the generator equivalents and the next scheduled
+  // transition deliberately do NOT: every one of them is an answer to "as of
+  // when", and a value stamped at snapshot assembly then frozen is the mistake
+  // DamMetricValue.staleness already made. shared/dam-generation.ts computes
+  // them on both platforms instead.
+  const bullShoals = buildSnapshot(USACE_DAMS['swl-bull-shoals-dam'], {}, []);
+  assert.deepEqual(bullShoals.generationReference, {
+    units: 8,
+    fullGenerationCfs: 26_400,
+    schedulingCapacityMw: 391,
+    source: 'SWPA',
+  });
+  for (const derived of ['generationPercent', 'unitEquivalents', 'nextChange', 'scheduleState']) {
+    assert.ok(!(derived in bullShoals), `buildSnapshot started freezing ${derived} on the wire`);
+  }
+
+  // Flood control only — no SWPA project, so no reference to send. Absent, not
+  // zeroed: a zero denominator computes, and computing is exactly wrong here.
+  assert.ok(!('generationReference' in buildSnapshot(USACE_DAMS['swl-clearwater-dam'], {}, [])));
+});
+
+test('the generation floor travels so a client can tell zero from unknown', () => {
+  // Without it a client has to guess at "is 20 cfs generation", and the honest
+  // answer is per-dam: CWMS reports real leakage through idle turbines. It is
+  // the same number `generating` is derived from, so the two cannot disagree.
+  const registry = USACE_DAMS['swl-bull-shoals-dam'];
+  const snapshot = buildSnapshot(registry, {}, []);
+  assert.equal(snapshot.generationFloorCfs, registry.generationOnCfs);
+  assert.ok(typeof snapshot.generationFloorCfs === 'number' && snapshot.generationFloorCfs > 0);
+});
+
+test('the observed pattern is detail-only and never invents days', () => {
+  // A twenty-dam index has no room to draw a week per row and no reason to pay
+  // a database read per row for one nobody sees, so the summary payload never
+  // carries it. Absent is also the empty case: a strip of pure gaps reads as a
+  // week of silence at the powerhouse rather than as a feature with no data.
+  const withoutPattern = buildSnapshot(USACE_DAMS['swl-bull-shoals-dam'], {}, []);
+  assert.ok(!('pattern' in withoutPattern));
+  assert.ok(!('pattern' in buildSnapshot(USACE_DAMS['swl-bull-shoals-dam'], {}, [], [])));
+
+  const day = {
+    scheduleDate: '2026-07-28',
+    turbineCfs: new Array(24).fill(null),
+    totalReleaseCfs: new Array(24).fill(null),
+  };
+  day.turbineCfs[13] = 8_200;
+  const withPattern = buildSnapshot(USACE_DAMS['swl-bull-shoals-dam'], {}, [], [day]);
+  assert.equal(withPattern.pattern?.length, 1);
+  assert.equal(withPattern.pattern?.[0].turbineCfs[13], 8_200);
+  assert.equal(withPattern.pattern?.[0].turbineCfs[12], null, 'a gap stays null on the wire');
+});

@@ -1,7 +1,7 @@
 // src/components/dam/GenerationSchedule.tsx
 // SWPA's hourly generation schedule for one dam — the part CWMS cannot give,
-// and the reason this feature exists. Server component; the whole thing is
-// static markup over read-through data.
+// and the reason this feature exists. Server component around one client
+// component per day; see DamTimeline for why the bars need the reader's clock.
 //
 // PRECISION DISCIPLINE, measured rather than assumed. Validated against CWMS
 // turbine flow for Table Rock on 2026-07-27:
@@ -19,6 +19,7 @@
 
 import { Clock } from 'lucide-react';
 import type { DamScheduleDay } from '@/lib/data/dams';
+import DamTimeline from '@/components/dam/DamTimeline';
 // The hour arithmetic lives in shared/ so the iOS screen cannot drift from it.
 // An off-by-one here puts an angler in the water an hour early, and two
 // implementations of that sum is two chances to get it wrong.
@@ -28,10 +29,20 @@ import {
   retrievalSentence,
   scheduleIsStale,
 } from '@shared/dam-schedule-copy';
+import { scheduledBar, type GenerationReference } from '@shared/dam-generation';
 
-function DayRow({ day }: { day: DamScheduleDay }) {
-  const peak = day.hours.reduce((max, h) => (h.megawatts > max ? h.megawatts : max), 0);
+function DayRow({
+  day,
+  reference,
+  renderedAt,
+}: {
+  day: DamScheduleDay;
+  reference?: GenerationReference | null;
+  renderedAt: number;
+}) {
   const generatingHours = day.hours.filter((h) => h.megawatts > 0).length;
+  const peak = day.hours.reduce((max, h) => (h.megawatts > max ? h.megawatts : max), 0);
+  const peakBar = scheduledBar(peak, reference);
 
   return (
     <div className="border-t border-neutral-200 py-4 first:border-t-0 first:pt-0">
@@ -41,40 +52,24 @@ function DayRow({ day }: { day: DamScheduleDay }) {
           {generatingHours === 0
             ? 'no generation scheduled'
             : `${generatingHours} of 24 hours generating`}
+          {/* The scale, named. Without it the fixed height is just a shorter
+              bar, and the reader has no way to know the strip is comparable
+              across days at all. */}
+          {peakBar && ` · peaks at ${Math.round(peakBar.fraction * 100)}% of capacity`}
         </span>
       </div>
 
-      {/* 24 blocks, one per hour-ending. Height encodes load; colour encodes
-          only on/off, because on/off is the part that measured exact. */}
-      <div className="mt-2 flex h-10 items-end gap-px" aria-hidden="true">
-        {day.hours.map((h) => {
-          const share = peak > 0 ? h.megawatts / peak : 0;
-          return (
-            <div
-              key={h.hourEnding}
-              className={
-                h.megawatts > 0
-                  ? 'flex-1 rounded-sm bg-accent-500'
-                  : 'flex-1 rounded-sm bg-neutral-200'
-              }
-              style={{ height: `${Math.max(share * 100, 12)}%` }}
-            />
-          );
-        })}
-      </div>
-      <div className="mt-1 flex justify-between text-[10px] text-neutral-400">
-        <span>midnight</span>
-        <span>noon</span>
-        <span>midnight</span>
+      <div className="mt-2">
+        <DamTimeline day={day} reference={reference} renderedAt={renderedAt} />
       </div>
 
       {day.idle.length > 0 ? (
         <p className="mt-2 text-sm text-neutral-700">
-          {/* "Generation off", not "Water off" — the schedule describes the
-              powerhouse, and the river below stays up on the recession limb
+          {/* "No generation scheduled", not "Water off" — the schedule describes
+              the powerhouse, and the river below stays up on the recession limb
               after the units come off. Kept in step with idleWindowSentence in
               shared/, which the iOS surfaces render from. */}
-          <span className="font-medium">Generation off:</span>{' '}
+          <span className="font-medium">No generation scheduled:</span>{' '}
           {day.idle.map((w) => windowLabel(w.from, w.to)).join(', ')}
         </p>
       ) : (
@@ -105,7 +100,16 @@ function DayRow({ day }: { day: DamScheduleDay }) {
   );
 }
 
-export default function GenerationSchedule({ schedule }: { schedule: DamScheduleDay[] }) {
+export default function GenerationSchedule({
+  schedule,
+  reference,
+  renderedAt,
+}: {
+  schedule: DamScheduleDay[];
+  reference?: GenerationReference | null;
+  /** The page's render instant, threaded to each day's timeline. */
+  renderedAt: number;
+}) {
   if (schedule.length === 0) return null;
 
   // The section is only as fresh as its OLDEST day. Each day comes from a
@@ -122,7 +126,7 @@ export default function GenerationSchedule({ schedule }: { schedule: DamSchedule
   return (
     <section className="rounded-xl border-2 border-neutral-300 bg-white p-5">
       <div className="flex items-center gap-2">
-        <Clock className="h-4 w-4 text-primary-700" />
+        <Clock className="h-4 w-4 text-primary-700" aria-hidden="true" />
         <h2
           className="text-lg font-bold text-neutral-900"
           style={{ fontFamily: 'var(--font-display)' }}
@@ -133,11 +137,23 @@ export default function GenerationSchedule({ schedule }: { schedule: DamSchedule
       <p className="mt-1 text-sm text-neutral-600">
         Posted each afternoon by Southwestern Power Administration, in
         &ldquo;hour ending&rdquo; terms.
+        {reference && (
+          <>
+            {' '}
+            Every day is drawn against the same scale — {reference.schedulingCapacityMw} MW of
+            scheduling capacity — so a light day looks like one.
+          </>
+        )}
       </p>
 
       <div className="mt-4">
         {schedule.map((day) => (
-          <DayRow key={day.scheduleDate} day={day} />
+          <DayRow
+            key={day.scheduleDate}
+            day={day}
+            reference={reference}
+            renderedAt={renderedAt}
+          />
         ))}
       </div>
 
@@ -149,13 +165,14 @@ export default function GenerationSchedule({ schedule }: { schedule: DamSchedule
           SWPA publishes no timestamp, so this is Eddy's fetch, not their post. */}
       <p className="mt-4 border-t border-neutral-200 pt-3 text-xs text-neutral-500">
         {retrieval && (
-          <span className={scheduleIsStale(oldestRetrieval) ? 'text-accent-700' : undefined}>
+          <span className={scheduleIsStale(oldestRetrieval) ? 'font-medium text-accent-700' : undefined}>
             {retrieval}{' '}
           </span>
         )}
         Schedules can change without notice — power demand, transmission
-        constraints, generator outages and inflow all move them. Never wade or
-        anchor below a dam without checking the horn and posted warnings.
+        constraints, generator outages and inflow all move them. A change at the
+        dam does not reach every downstream location at the same time. Never wade
+        or anchor below a dam without checking the horn and posted warnings.
       </p>
     </section>
   );

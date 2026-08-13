@@ -1,7 +1,14 @@
 // src/components/dam/DamStateCard.tsx
-// A dam's current state — the headline block on /dams/[damId] and the row on
-// /dams. Server component: everything here is read-through data with no
-// interaction, so there is nothing to hydrate.
+// A dam's current state — the row on /dams, and the supporting measurements
+// below the generation console on /dams/[damId]. Server component: everything
+// here is read-through data with no interaction, so there is nothing to hydrate.
+//
+// ── What moved out of this file ────────────────────────────────────────────
+// The generation hero. It is now DamGenerationHero, rendered on the DETAIL page
+// only, because a rack of eight generator cells repeated down a twenty-dam
+// index is not scannable — and the index wraps this component in a `<Link>`, so
+// it can gain no interactive descendants either. What is left here is the
+// one-line now → next sentence, which is what a list surface actually needs.
 //
 // The copy discipline this file enforces is the whole point:
 //
@@ -21,11 +28,11 @@ import type { DamSnapshot } from '@/lib/data/dams';
 // shared/dam-schedule-copy.ts for why the hour arithmetic lives there.
 import {
   relativeAge,
-  nextScheduleChangeSentence,
   tailwaterMovementSentence,
   readingStaleness,
   SCHEDULE_CHANGE_NOTE,
 } from '@shared/dam-schedule-copy';
+import { generationNow, nowNextClauses } from '@shared/dam-generation';
 
 function formatCfs(value: number): string {
   return `${Math.round(value).toLocaleString()} cfs`;
@@ -78,7 +85,25 @@ function Stat({
   );
 }
 
-export default function DamStateCard({ dam }: { dam: DamSnapshot }) {
+export default function DamStateCard({
+  dam,
+  /**
+   * This card is NOT the top of the page.
+   *
+   * Set on the detail page, where DamGenerationHero sits above it and already
+   * carries the dam's name, the generation summary and the release figure. Two
+   * copies of one fact on one screen read as two facts, and a second <h2> with
+   * the same name reads as a second dam.
+   *
+   * What survives here in either case is the supporting measurement grid — lake
+   * level, tailwater stage and temperature, inflow, fishery — which is what this
+   * component is for once generation has moved out of it.
+   */
+  secondary,
+}: {
+  dam: DamSnapshot;
+  secondary?: boolean;
+}) {
   const { metrics } = dam;
   const release = metrics.release;
   const generation = metrics.generationFlow;
@@ -92,39 +117,54 @@ export default function DamStateCard({ dam }: { dam: DamSnapshot }) {
   // state. `null` means "we don't know", which is different from "idle".
   const generating = dam.generating;
 
-  // What SWPA says happens NEXT — a different claim from the chip beside it,
-  // which reads CWMS turbine flow and is an observation. The two can honestly
-  // disagree (a unit trips, a schedule is revised after Eddy fetched it), so
-  // this states only the scheduled transition and never the present state.
+  // The one-line version of the console: what Eddy MEASURED, then what SWPA has
+  // SCHEDULED. Two strings rather than one because they can honestly disagree —
+  // a unit trips, a schedule is revised after Eddy fetched it — and a list row
+  // that merged them would give a plan the weight of a measurement.
   //
-  // It is also the only live line the two Kansas City projects can have at all:
-  // that district publishes no timeseries, so Stockton and Truman have no chip.
-  const nextChange = nextScheduleChangeSentence(dam.schedule);
+  // The scheduled half is also the only live line the two Kansas City projects
+  // can have at all: that district publishes no timeseries, so Stockton and
+  // Truman have no observation to show.
+  const clauses = secondary
+    ? null
+    : nowNextClauses(generationNow(dam), dam.schedule, dam.generationReference);
 
   return (
     <div className="rounded-xl border-2 border-t-4 border-primary-800 bg-white p-5 shadow-[4px_4px_0_var(--color-primary-200)]">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+      {secondary ? (
         <h2
-          className="text-xl font-bold text-neutral-900"
+          className="text-lg font-bold text-neutral-900"
           style={{ fontFamily: 'var(--font-display)' }}
         >
-          {dam.name}
+          Dam and lake measurements
         </h2>
-        <span className="text-xs text-neutral-500">
-          {dam.lakeName ?? 'USACE project'} · {dam.state}
-        </span>
-      </div>
+      ) : (
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2
+            className="text-xl font-bold text-neutral-900"
+            style={{ fontFamily: 'var(--font-display)' }}
+          >
+            {dam.name}
+          </h2>
+          <span className="text-xs text-neutral-500">
+            {dam.lakeName ?? 'USACE project'} · {dam.state}
+          </span>
+        </div>
+      )}
 
-      {generating !== null && (
+      {/* The chip is `primary`, not `accent`. Coral was the only warm colour on
+          a page whose every other magnitude cue is the teal ramp, so it read as
+          a warning about the river rather than as the state of a powerhouse. */}
+      {!secondary && generating !== null && (
         <div className="mt-3">
           <span
             className={
               generating
-                ? 'inline-flex items-center gap-1.5 rounded-full border border-accent-200 bg-accent-100 px-3 py-1 text-sm font-bold text-accent-800'
+                ? 'inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-3 py-1 text-sm font-bold text-primary-800'
                 : 'inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-100 px-3 py-1 text-sm font-bold text-neutral-700'
             }
           >
-            <Zap className="h-3.5 w-3.5" />
+            <Zap className="h-3.5 w-3.5" aria-hidden="true" />
             {generating ? 'Generating' : 'Not generating'}
           </span>
           {generation && (
@@ -139,20 +179,30 @@ export default function DamStateCard({ dam }: { dam: DamSnapshot }) {
           index page renders this transition with no schedule block beneath it,
           so it is the only place SWPA's "subject to change" — and the fact that
           downstream water lags the dam — appears on that page at all. */}
-      {nextChange && (
+      {clauses && (
         <div className="mt-2">
-          <p className="inline-flex items-center gap-1.5 text-sm font-medium text-primary-800">
-            <Clock className="h-3.5 w-3.5" />
-            {nextChange}
-          </p>
-          <p className="text-xs text-neutral-500">{SCHEDULE_CHANGE_NOTE}</p>
+          <p className="text-sm font-medium text-neutral-800">{clauses.observed}</p>
+          {clauses.scheduled && (
+            <>
+              <p className="inline-flex items-center gap-1.5 text-sm font-medium text-primary-800">
+                <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                {clauses.scheduled}
+              </p>
+              <p className="text-xs text-neutral-500">{SCHEDULE_CHANGE_NOTE}</p>
+            </>
+          )}
         </div>
       )}
 
       {/* Tailwater facts lead, lake facts follow. The water below the dam is
           what someone is standing in; the pool is context. */}
       <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {release && (
+        {/* Hidden only when the hero above ACTUALLY carried it. A flood-control
+            project renders no hero at all — DamGenerationHero returns null for
+            a dam with no powerhouse — so on Clearwater this is the only place
+            total release appears, and suppressing it on `secondary` alone
+            deleted the one live number that page has. */}
+        {release && !(secondary && dam.hasTurbines) && (
           <Stat
             icon={<Waves className="h-3.5 w-3.5" />}
             label={release.dailyMean ? 'Release (daily avg)' : 'Releasing'}
@@ -245,10 +295,15 @@ export default function DamStateCard({ dam }: { dam: DamSnapshot }) {
         )}
       </div>
 
+      {/* "nameplate" is spelled out because the generation console above sizes
+          everything against SWPA's SCHEDULING capacity, which is a different
+          number for the same plant — 340 installed against 391 scheduled at
+          Bull Shoals. Two bare megawatt figures on one page read as a
+          contradiction; two labelled ones read as what they are. */}
       {dam.nameplate && (
         <p className="mt-3 text-xs text-neutral-500">
-          {dam.nameplate.units} {dam.nameplate.units === 1 ? 'unit' : 'units'} ·{' '}
-          {dam.nameplate.megawatts} MW
+          {dam.nameplate.units} generating {dam.nameplate.units === 1 ? 'unit' : 'units'} ·{' '}
+          {dam.nameplate.megawatts} MW nameplate
         </p>
       )}
 

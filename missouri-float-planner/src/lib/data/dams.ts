@@ -33,7 +33,7 @@ import {
   type TimeseriesChange,
   type TimeseriesPoint,
 } from '@/lib/usace/cda';
-import { fetchProjectSchedule, idleWindows } from '@/lib/usace/swpa';
+import { fetchProjectSchedule, idleWindows, SWPA_PROJECTS } from '@/lib/usace/swpa';
 import { parseTsId, resolveSeries, type ResolvedSeries } from '@/lib/usace/resolve';
 import {
   USACE_DAMS,
@@ -41,6 +41,8 @@ import {
   type UsaceDam,
   type UsaceMetric,
 } from '@/lib/flow-providers/usace-registry';
+import { buildPatternDays, patternHasObservations } from '@/lib/data/dam-history';
+import { readPatternHours } from '@/lib/data/dam-history-store';
 
 /**
  * What a LIST surface needs, and nothing else.
@@ -120,6 +122,7 @@ const FETCH_CONCURRENCY = 6;
 // import keeps working verbatim.
 export type {
   DamMetricValue,
+  DamPatternDay,
   DamScheduleDay,
   DamSnapshot,
   DamStaleness,
@@ -127,7 +130,12 @@ export type {
   DamsResponse,
   ScheduledHour,
 } from '@shared/dam-types';
-import type { DamMetricValue, DamScheduleDay, DamSnapshot } from '@shared/dam-types';
+import type {
+  DamMetricValue,
+  DamPatternDay,
+  DamScheduleDay,
+  DamSnapshot,
+} from '@shared/dam-types';
 
 /** Run `fn` over `items`, at most `limit` at a time. */
 async function mapWithConcurrency<T, R>(
@@ -161,7 +169,7 @@ async function mapWithConcurrency<T, R>(
  * src/lib/usace/resolve.ts), and throwing that value away to fetch it again a
  * moment later would double the fan-out for every resolver-backed dam.
  */
-interface MetricSource {
+export interface MetricSource {
   tsId: string;
   unit: string;
   lookbackHours?: number;
@@ -179,7 +187,7 @@ interface MetricSource {
  * with no entries yet — so a new project needs only an office and a CWMS
  * location, not a transcription of eight timeseries ids.
  */
-async function seriesFor(
+export async function seriesFor(
   dam: UsaceDam,
   metrics: UsaceMetric[]
 ): Promise<Partial<Record<UsaceMetric, MetricSource>>> {
@@ -378,19 +386,35 @@ async function readSchedule(dam: UsaceDam, days: number): Promise<DamScheduleDay
  */
 async function fetchSnapshot(
   damId: string,
-  options: { metrics: UsaceMetric[]; scheduleDays: number }
+  options: { metrics: UsaceMetric[]; scheduleDays: number; pattern?: boolean }
 ): Promise<DamSnapshot | null> {
   const dam = getUsaceDam(damId);
   if (!dam) return null;
 
-  const [metrics, schedule] = await Promise.all([
+  const [metrics, schedule, pattern] = await Promise.all([
     readMetrics(dam, options.metrics).catch(
       () => ({}) as Partial<Record<UsaceMetric, DamMetricValue>>
     ),
     readSchedule(dam, options.scheduleDays).catch(() => [] as DamScheduleDay[]),
+    options.pattern ? readPattern(damId) : Promise.resolve(undefined),
   ]);
 
-  return buildSnapshot(dam, metrics, schedule);
+  return buildSnapshot(dam, metrics, schedule, pattern);
+}
+
+/**
+ * The observed week behind this dam, or undefined when there is nothing to draw.
+ *
+ * Undefined rather than eight days of nulls: a strip of pure gaps reads as a
+ * week of silence at the powerhouse rather than as a feature with no data yet,
+ * and the section is better absent than misleading. `readPatternHours` already
+ * swallows its own failures, so this cannot take a page down.
+ */
+async function readPattern(damId: string): Promise<DamPatternDay[] | undefined> {
+  const rows = await readPatternHours(damId);
+  if (rows.length === 0) return undefined;
+  const days = buildPatternDays(rows);
+  return patternHasObservations(days) ? days : undefined;
 }
 
 /**
@@ -408,7 +432,8 @@ async function fetchSnapshot(
 export function buildSnapshot(
   dam: UsaceDam,
   metrics: Partial<Record<UsaceMetric, DamMetricValue>>,
-  schedule: DamScheduleDay[]
+  schedule: DamScheduleDay[],
+  pattern?: DamPatternDay[]
 ): DamSnapshot {
   const gen = metrics.generationFlow;
   const generating =
@@ -417,6 +442,13 @@ export function buildSnapshot(
   const sources: string[] = [];
   if (Object.keys(metrics).length > 0) sources.push('USACE CWMS');
   if (schedule.length > 0) sources.push('SWPA');
+
+  // The two SWPA figures a client needs to size an observation against this
+  // project, lifted from the same table megawattsToCfs divides by. Emitted
+  // field-by-field rather than spread: SwpaProject also carries `code`, `name`
+  // and `state`, none of which is a reference figure, and a spread would
+  // publish the parser's internals as API.
+  const swpa = dam.swpaCode ? SWPA_PROJECTS[dam.swpaCode] : undefined;
 
   return {
     id: dam.id,
@@ -427,6 +459,22 @@ export function buildSnapshot(
     lon: dam.lon,
     hasTurbines: Boolean(dam.swpaCode),
     ...(dam.nameplate ? { nameplate: dam.nameplate } : {}),
+    ...(swpa
+      ? {
+          generationReference: {
+            units: swpa.units,
+            fullGenerationCfs: swpa.fullPowerCfs,
+            schedulingCapacityMw: swpa.capacityMw,
+            source: 'SWPA',
+          },
+        }
+      : {}),
+    // On the wire for both list and detail: it is what lets a client separate
+    // "measured at effectively zero" from "not measured", and the list surfaces
+    // carry generationFlow already.
+    ...(dam.generationOnCfs !== undefined ? { generationFloorCfs: dam.generationOnCfs } : {}),
+    ...(schedule.length > 0 ? { scheduleTimeZone: 'America/Chicago' as const } : {}),
+    ...(pattern && pattern.length > 0 ? { pattern } : {}),
     ...(dam.tailwaterFishery ? { tailwaterFishery: dam.tailwaterFishery } : {}),
     ...(dam.infoPhone ? { infoPhone: dam.infoPhone } : {}),
     // The reach this dam controls, when Eddy carries it. On the wire so a
@@ -441,7 +489,7 @@ export function buildSnapshot(
   };
 }
 
-/** A dam's own page: every metric, three days of schedule. */
+/** A dam's own page: every metric, three days of schedule, the observed week. */
 export async function fetchDamDetail(
   damId: string,
   options?: { scheduleDays?: number }
@@ -449,6 +497,9 @@ export async function fetchDamDetail(
   return fetchSnapshot(damId, {
     metrics: DETAIL_METRICS,
     scheduleDays: options?.scheduleDays ?? 3,
+    // Detail only. A twenty-dam index has no room to draw a week per row and no
+    // reason to pay twenty database reads for one that is never seen.
+    pattern: true,
   });
 }
 
