@@ -16,6 +16,7 @@
 // (see its header), and it matters more inside a sheet: a row reading
 // "Parking: unknown" is a row about the database, and it costs a line of a
 // surface that is already competing with the map for the screen.
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { AccessPointGaugeStatus, MapAccessPoint } from '@eddy/types';
@@ -26,6 +27,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { accessBadgeTypes, accessTypeSymbol } from './placeSymbol';
+import { accessAmenities } from './accessAmenities';
 
 /**
  * ── `symbol` IS NOT AVAILABLE TO EVERY HEADING, on purpose ────────────────
@@ -92,6 +94,75 @@ export function Prose({ children }: { children: string | null | undefined }) {
   return <Text style={[styles.prose, { color: colors.text }]}>{children}</Text>;
 }
 
+/**
+ * Prose that opens folded, for the one place a paragraph is in the way.
+ *
+ * ── WHY ONLY THE SHEET NEEDS THIS ─────────────────────────────────────────
+ * Overview leads with the access point's description, and on the sheet that
+ * paragraph is competing for a surface that is negotiating with the map for the
+ * screen — so a five-line description pushed the water, the road and the parking
+ * off the first screenful of the tab that exists to summarise them. On the
+ * details page there is a whole screen and the same paragraph costs nothing,
+ * which is why this lives here and that page is untouched.
+ *
+ * ── IT FOLDS, IT DOES NOT TRUNCATE ────────────────────────────────────────
+ * Every word stays reachable in one tap. Cutting the description down to a
+ * summary would be Eddy deciding which half of somebody's account of a put-in
+ * mattered, which is not a call a layout gets to make.
+ *
+ * The control is only drawn once the text is MEASURED as overflowing, so a
+ * two-line description never grows a "More" that does nothing — the same
+ * absent-never-empty rule the sections follow. onTextLayout is what can answer
+ * that; a character count cannot, because it depends on the reader's text size.
+ */
+export function FoldedProse({
+  children,
+  lines = 2,
+}: {
+  children: string | null | undefined;
+  lines?: number;
+}) {
+  const { colors } = useTheme();
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+
+  if (!children) return null;
+
+  return (
+    <View>
+      <Text
+        style={[styles.prose, { color: colors.text }]}
+        numberOfLines={expanded ? undefined : lines}
+        // Fires with every line the text WOULD occupy unclamped on the first
+        // pass, which is the only honest source for "is there more". Latched
+        // true: once expanded the callback reports the full count and would
+        // otherwise re-answer a question already settled.
+        onTextLayout={(event) => {
+          if (!overflows && event.nativeEvent.lines.length > lines) setOverflows(true);
+        }}
+      >
+        {children}
+      </Text>
+      {overflows ? (
+        <Pressable
+          onPress={() => setExpanded((was) => !was)}
+          // The 44pt floor from DESIGN.md §6, taken as padding and handed back
+          // as margin so the control still READS as a light one-line link — the
+          // same trick the grabber and PlaceHead's edge controls use.
+          style={({ pressed }) => [styles.foldToggle, { opacity: pressed ? 0.6 : 1 }]}
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+          accessibilityLabel={expanded ? 'Show less of the description' : 'Show the full description'}
+        >
+          <Text style={[styles.foldToggleText, { color: colors.interactive }]}>
+            {expanded ? 'Less' : 'More'}
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 export function Chips({ labels }: { labels: string[] }) {
   const { colors } = useTheme();
   if (!labels.length) return null;
@@ -100,6 +171,40 @@ export function Chips({ labels }: { labels: string[] }) {
       {labels.map((label) => (
         <View key={label} style={[styles.chip, { backgroundColor: colors.cardRaised }]}>
           <Text style={[styles.chipText, { color: colors.textMuted }]}>{label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/**
+ * What is at an access point, from the raw `amenities` column.
+ *
+ * ── WHY THIS IS NOT JUST `<Chips labels={amenities} />` ───────────────────
+ * Because that is what it was, and the column holds database slugs: the sheet
+ * has been showing readers a pill that says `boat_ramp`. `accessAmenities` is
+ * the one place that turns a slug into a label, so every surface says "Boat
+ * ramp" and a value nobody has declared yet still appears rather than being
+ * silently dropped.
+ *
+ * The mark is drawn only where the catalog has one — four of the six known
+ * values. The rest keep the pill and the word alone, which is the same rule
+ * AccessTypeBadges follows and for the same reason: an icon the reader cannot
+ * decode is worse than the word it replaced.
+ */
+export function AmenityChips({ amenities }: { amenities: string[] | null | undefined }) {
+  const { colors } = useTheme();
+  const entries = accessAmenities(amenities);
+  if (!entries.length) return null;
+  return (
+    <View style={styles.chips}>
+      {/* `chip` is already a row with a gap — it is what carries a mark beside
+          a label for AccessTypeBadges, and the gap collapses to nothing on the
+          ones with no mark. */}
+      {entries.map((entry) => (
+        <View key={entry.slug} style={[styles.chip, { backgroundColor: colors.cardRaised }]}>
+          {entry.symbol ? <EddySymbol name={entry.symbol} size={14} /> : null}
+          <Text style={[styles.chipText, { color: colors.textMuted }]}>{entry.label}</Text>
         </View>
       ))}
     </View>
@@ -390,6 +495,18 @@ const styles = StyleSheet.create({
   factLabel: { ...t.sm, fontFamily: fonts.medium, width: 96 },
   factValue: { ...t.sm, fontFamily: fonts.body, flex: 1 },
   prose: { ...t.sm, fontFamily: fonts.body, marginTop: 4, lineHeight: 20 },
+  // 44pt of target from a one-line control: the padding grows it and the
+  // negative margins give the layout back, so the fold costs the page 2pt of
+  // height rather than 44. Growth is symmetric here — unlike the sheet's
+  // grabber, this sits mid-page with content above and below, so neither
+  // direction leaves the parent's bounds.
+  foldToggle: {
+    alignSelf: 'flex-start',
+    paddingVertical: 12,
+    marginTop: -10,
+    marginBottom: -10,
+  },
+  foldToggleText: { ...t.sm, fontFamily: fonts.semibold },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   // A row, because a badge may carry a mark before its label. The gap does
   // nothing on the ones that do not, so both kinds keep the same pill.

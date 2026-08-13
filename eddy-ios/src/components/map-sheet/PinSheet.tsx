@@ -37,7 +37,7 @@ import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { CampgroundAvailability } from './CampgroundAvailability';
 import { accessAvailability, accessAvailabilityName } from './availabilitySource';
 import { localToday } from './availability';
-import { decisionSlot } from './peekSlot';
+import { decisionSlot, type DecisionSlot } from './peekSlot';
 import { GlanceSlot } from './GlanceSlot';
 import { MapSheet, type SheetMetrics } from './MapSheet';
 import { PinCallout } from './PinCallout';
@@ -152,6 +152,32 @@ export function PinSheet(props: PinSheetProps) {
     [accessPoint, detail],
   );
 
+  /**
+   * Which fact the peek reserved — resolved ONCE, here, for two readers.
+   *
+   * The header draws it and Overview has to know what the header drew, so that
+   * the sheet does not show the same gauge reading twice on a surface where the
+   * peek and the page are on screen together. Computing it in both places would
+   * be two derivations of one decision, which is precisely how the peek and the
+   * tab would come to disagree — silently, and in the direction that loses a
+   * campground pin its water reading.
+   *
+   * Detail-free by construction: `decisionSlot` takes no response, so this is
+   * settled on the first frame and cannot change under the reader. That is the
+   * whole mechanism, and peekSlot.ts's header explains why.
+   */
+  const slot = useMemo(
+    () =>
+      decisionSlot(
+        {
+          layer: pin.layer,
+          hasAvailability: pin.availability != null || accessPoint?.hasLiveAvailability === true,
+        },
+        { riverHasGauges: props.riverHasGauges },
+      ),
+    [pin.layer, pin.availability, accessPoint?.hasLiveAvailability, props.riverHasGauges],
+  );
+
   // ── Held BY KEY, never by index ─────────────────────────────────────────
   // The tab set grows while the sheet is open and the order is fixed, so a
   // late arrival inserts rather than appends: a campground pin opens on
@@ -255,6 +281,9 @@ export function PinSheet(props: PinSheetProps) {
       onPlanTo: props.onPlanTo,
       nearbyMarks: props.nearbyMarks,
       status,
+      // So Overview can decline to draw whatever the glance is already showing.
+      peekSlot: slot,
+      onOpenCamping: () => setChosen('camping'),
     };
     if (key === 'floats') return <AccessFloatsTab {...shared} />;
     // `active` gates the per-site request. SheetPager mounts the active page
@@ -311,6 +340,7 @@ export function PinSheet(props: PinSheetProps) {
           // the peek's fortnight is a chart because fourteen columns are twenty
           // points each, and Camping draws the same nights as 44pt chips.
           onOpenCamping={() => setChosen('camping')}
+          peekSlot={slot}
         />
       }
     >
@@ -367,7 +397,6 @@ function PinSheetHeader({
   pin,
   accessPoint,
   canSetTakeOut,
-  riverHasGauges,
   onSetPutIn,
   onSetTakeOut,
   onOpenDetail,
@@ -380,12 +409,15 @@ function PinSheetHeader({
   status,
   gaugeFacts,
   onOpenCamping,
+  peekSlot,
   backLabel,
 }: PinSheetProps & {
   detail: AccessPointDetailResponse | null;
   status: DetailStatus;
   gaugeFacts: GaugePinFacts | null;
   onOpenCamping: () => void;
+  /** Which fact the glance reserves. Resolved once by PinSheet — see there. */
+  peekSlot: DecisionSlot;
   /** The river the Back control returns to, named so the row is not a bare "‹". */
   backLabel?: string | null;
 }) {
@@ -402,16 +434,12 @@ function PinSheetHeader({
   const availability = pin.availability ?? accessAvailability(point);
   const availabilityName = accessAvailabilityName(point, pin.name);
 
-  // Both halves come off the pin, never off `detail`. A service campground
-  // carries its availability on the pin outright; an access point carries the
-  // flag the map payload now ships. See LiveAvailabilityIndex on the web side.
-  const slot = decisionSlot(
-    {
-      layer: pin.layer,
-      hasAvailability: pin.availability != null || accessPoint?.hasLiveAvailability === true,
-    },
-    { riverHasGauges },
-  );
+  // ── RESOLVED BY THE PARENT, not here ──────────────────────────────────
+  // It used to be computed in this component, which was fine while the header
+  // was its only reader. Overview now has to know what the glance drew, so the
+  // one decision is made once in PinSheet and handed to both — see the memo
+  // there. `riverHasGauges` is still a prop because the callout path uses it.
+  const slot = peekSlot;
   // 'ready' means the question has been ANSWERED, not that the answer is
   // non-empty — a resolved-empty slot draws its terminal line rather than
   // waiting forever. 'idle' is a pin with no detail route, which is answered

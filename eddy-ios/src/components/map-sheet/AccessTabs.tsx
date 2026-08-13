@@ -12,7 +12,7 @@
 // screen holds), both are enhancements to a tab that already answers its
 // question, and neither should hold up the tabs themselves.
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { EddySymbol } from '@/components/EddySymbol';
 import type { PlaceSymbolName } from './placeSymbol';
@@ -32,9 +32,11 @@ import {
   nightPhrase,
   type NightChoice,
 } from './availability';
-import { accessAvailability } from './availabilitySource';
+import { accessAvailability, accessAvailabilityName } from './availabilitySource';
 import { bookingAction, bookingLine, siteMixLine, type BookingAction } from './campgroundFacts';
+import { CampgroundAvailability } from './CampgroundAvailability';
 import { CampsiteList } from './CampsiteList';
+import type { DecisionSlot } from './peekSlot';
 import {
   AIRBNB_LINK_COLOR,
   airbnbSearchUrl,
@@ -60,7 +62,17 @@ import {
   stripHtml,
   waitingCopy,
 } from '@/lib/accessCopy';
-import { Absent, AccessGaugeReading, Chips, Fact, LinkRow, Prose, Section } from './sections';
+import {
+  Absent,
+  AccessGaugeReading,
+  AmenityChips,
+  Chips,
+  Fact,
+  FoldedProse,
+  LinkRow,
+  Prose,
+  Section,
+} from './sections';
 import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 
 interface TabProps {
@@ -85,6 +97,14 @@ interface TabProps {
    */
   onOpenDetail: (() => void) | null;
   onOpenRiver: (slug: string) => void;
+  /**
+   * Jump to the Camping tab.
+   *
+   * The peek's availability card already offers this; Overview's copy of the
+   * card needs the same shortcut, because a chart you cannot act on is a dead
+   * end when the thing you want is a night.
+   */
+  onOpenCamping?: () => void;
   /** Hand a neighbouring access to the planner as the other end of a float. */
   onPlanTo: (nearby: NearbyAccessPoint) => void;
   /**
@@ -104,6 +124,22 @@ interface TabProps {
   nearbyMarks: Map<string, PlaceSymbolName>;
   /** Whether the one request behind every tab is pending, done or failed. */
   status: DetailStatus;
+  /**
+   * WHICH FACT THE PEEK IS ALREADY SHOWING, so this tab does not show it twice.
+   *
+   * The peek is a sibling ABOVE the pager, not a page of it, so it is on screen
+   * at every detent — including the one where somebody is reading Overview. The
+   * sheet therefore drew the gauge reading twice at once on any gauged put-in:
+   * once in the glance and again under the Water heading, nine points apart.
+   *
+   * Resolved by `decisionSlot` from the layer that was tapped, and passed in
+   * rather than recomputed, because it must be the SAME answer PinSheet acted
+   * on. Two derivations of "what is the peek showing" is how they come to
+   * disagree, and the disagreement here is invisible until a campground pin
+   * silently loses its water reading. Optional so a caller that has no peek —
+   * or a test — gets the full, unconditional layout.
+   */
+  peekSlot?: DecisionSlot;
 }
 
 /* ── Overview ───────────────────────────────────────────────────────────── */
@@ -124,12 +160,21 @@ export function AccessOverviewTab({
   onOpenDetail,
   onOpenGauge,
   onOpenRiver,
+  onOpenCamping,
   status: detailStatus,
+  peekSlot,
 }: TabProps) {
   const point = detail?.accessPoint;
   const camping = nearbyCamping(detail);
   const status = detail?.gaugeStatus ?? null;
   const services = servicesByTier(detail);
+  const availability = accessAvailability(point ?? null);
+  const availabilityName = accessAvailabilityName(point ?? null, accessPoint.name);
+  const { colors } = useTheme();
+  // From the detail response when it has landed, from the PIN before that — the
+  // map payload carries them too, so the strip paints on the first frame rather
+  // than appearing under the reader half a second later.
+  const photos = point?.imageUrls?.length ? point.imageUrls : accessPoint.imageUrls ?? [];
 
   const description = point?.description ?? accessPoint.description ?? null;
   // Only consulted when there is no description; see overviewLead.
@@ -176,6 +221,10 @@ export function AccessOverviewTab({
     !description &&
     !lead &&
     !status &&
+    // Counted for the same reason every other section is: a campground whose
+    // only fact is its fortnight would otherwise meet "Eddy has no description
+    // for this place yet" sitting directly above a populated Campsites card.
+    !availability &&
     camping.length === 0 &&
     !hasGettingIn &&
     !hasParking &&
@@ -186,11 +235,54 @@ export function AccessOverviewTab({
 
   return (
     <View>
+      {/* ── WHAT IT LOOKS LIKE, before what it is called ──────────────────
+          `imageUrls` has been on the map payload since the imagery backfill and
+          the sheet showed one of them at 44pt in the header. A photograph of a
+          gravel ramp with room for two cars answers "can I get a trailer down
+          there" faster than any sentence on this page, which is why it leads.
+
+          SHORTER THAN THE DETAILS SCREEN'S (110 against 150) and deliberately:
+          this is a sheet negotiating with the map for the screen, and the strip
+          has to earn its height against the facts below it. Same 8pt gutter and
+          the same corner radius, so it reads as the same component seen in a
+          smaller room.
+
+          A horizontal scroller inside a page is already proven here —
+          FilterChips does it in the Camping tab — including the flexGrow: 0 its
+          comment explains. Coverage is partial and always will be, so the
+          no-photo case is simply an absent block, never a placeholder. */}
+      {photos.length ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.gallery}
+          contentContainerStyle={styles.galleryRow}
+        >
+          {photos.map((url) => (
+            <Image
+              key={url}
+              source={{ uri: url }}
+              style={[styles.galleryImage, { backgroundColor: colors.cardRaised }]}
+              // Required by RN's a11y lint: a photograph must not be
+              // colour-inverted by Smart Invert, unlike UI chrome.
+              accessibilityIgnoresInvertColors
+            />
+          ))}
+        </ScrollView>
+      ) : null}
+
       {/* The description, or the strongest fact Eddy has instead of one. No
           heading on either: they occupy the same slot and are the same kind of
           sentence. See overviewLead for why 80 of the 81 undescribed access
-          points can answer this from data already in the response. */}
-      <Prose>{description ?? lead}</Prose>
+          points can answer this from data already in the response.
+
+          ── ONLY THE DESCRIPTION FOLDS ────────────────────────────────────
+          A description runs to a paragraph and was pushing the water, the road
+          and the parking off the first screenful of the tab that exists to
+          summarise them. `lead` is already a single borrowed fact, and folding
+          one sentence behind a "More" would hide the only thing an undescribed
+          put-in has to say in order to save a line it was not costing. */}
+      {description ? <FoldedProse>{description}</FoldedProse> : <Prose>{lead}</Prose>}
 
       {/* ── ABSENT-NEVER-EMPTY GETS A FLOOR AT THE TAB LEVEL ──────────────
           That rule is right for a SECTION — a heading over nothing is a
@@ -219,18 +311,51 @@ export function AccessOverviewTab({
           sentence about the number they have already seen. */}
       {status ? (
         <Section title="Water">
-          {/* ── THE READING IS HERE TOO, and that is not the duplication the
-              Conditions tab was ────────────────────────────────────────────
-              What that tab repeated was the peek's block verbatim and then
-              offered a second link to the same gauge. This is the full block
-              under a heading, on a page reached by swiping — and it has to be,
-              because the peek does NOT always carry the water. Tap a pin on the
+          {/* ── THE READING IS DRAWN HERE ONLY WHEN THE PEEK IS NOT ────────
+              The old comment defended an unconditional copy on the grounds that
+              "the peek does NOT always carry the water" — tap a pin on the
               campgrounds layer and the reserved slot goes to availability
-              instead (peekSlot.ts), so without this the reader would meet
-              "Rising, updated 20 minutes ago" attached to no number at all. */}
-          <AccessGaugeReading status={status} onOpenGauge={onOpenGauge} />
+              instead, so without a reading here the reader would meet "Rising,
+              updated 20 minutes ago" attached to no number at all.
+
+              That reasoning is right and it is a reason to ASK, not to always
+              draw. `decisionSlot` already knows which fact the glance took, so
+              this asks it: on a put-in whose peek shows the reading, the number
+              is nine points up the screen and repeating it — under a second tap
+              target to the same gauge — is the exact duplication the Conditions
+              tab was deleted for. On a campground pin, whose peek shows a
+              fortnight of campsites, the full block draws exactly as before.
+
+              What is NEVER conditional is the trend and the timestamp. They are
+              what this section adds to the number in either case, and they are
+              the reason the heading survives. */}
+          {peekSlot !== 'water' ? (
+            <AccessGaugeReading status={status} onOpenGauge={onOpenGauge} />
+          ) : null}
           <Fact label="Trend" value={status.trend ? trendLabel(status.trend) : null} />
           <Fact label="Updated" value={status.lastUpdated} />
+        </Section>
+      ) : null}
+
+      {/* ── Campsite availability, on the same rule, in the other direction ─
+          A campground you reached by tapping its put-in mark has its fortnight
+          nowhere on this page: the glance gave its one slot to the water, and
+          Camping is a swipe away. So Overview carries the card exactly when the
+          peek does not — the mirror of the Water rule above, so between the two
+          the reader always sees the availability once and never twice.
+
+          The read-only card, not Camping's operable night chips: fourteen
+          columns at twenty points is a chart you can look at, and the 44pt
+          chips you can book with are what the Camping tab is for. Tapping it
+          goes there. */}
+      {availability && peekSlot !== 'availability' ? (
+        <Section title="Campsites">
+          <CampgroundAvailability
+            availability={availability}
+            name={availabilityName}
+            today={localToday()}
+            onPress={onOpenCamping ?? undefined}
+          />
         </Section>
       ) : null}
 
@@ -255,7 +380,16 @@ export function AccessOverviewTab({
 
       {hasFacilities ? (
         <Section title="Facilities" symbol="facilities">
-          <Chips labels={point?.amenities ?? []} />
+          {/* ── THE MARK WHERE THE CATALOG HAS ONE, THE WORD WHERE IT DOES
+              NOT ─────────────────────────────────────────────────────────
+              These were raw database slugs in text pills: `boat_ramp` rendered
+              as "boat_ramp". accessAmenities is the one derivation that turns
+              the column into a label and, for the four the catalog draws, a
+              mark — and it is the same module the river sheet's access rows
+              ask, so a put-in cannot say "Boat ramp" in one place and
+              "boat_ramp" in another. Picnic and store keep the label alone
+              rather than borrow a drawing that means something else. */}
+          <AmenityChips amenities={point?.amenities} />
           <Prose>{point?.facilities}</Prose>
           <Fact label="Fees" value={point?.feeNotes} />
           <Fact label="Managed by" value={managedBy} />
@@ -660,7 +794,7 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
   if (!point) {
     return (
       <View>
-        <Chips labels={accessPoint.amenities ?? []} />
+        <AmenityChips amenities={accessPoint.amenities} />
         <Absent>{waitingCopy(status, 'campground details')}</Absent>
         {stayUrl ? (
           <Section>
@@ -1045,6 +1179,15 @@ function nearbyCamping(detail: AccessPointDetailResponse | null) {
 }
 
 const styles = StyleSheet.create({
+  // flexGrow: 0 is load-bearing, not tidiness — a horizontal ScrollView in a
+  // column stretches to fill the cross axis and would squeeze everything below
+  // it. FilterChips carries the same line for the same reason.
+  gallery: { flexGrow: 0, marginTop: 4 },
+  galleryRow: { gap: 8, paddingRight: 16 },
+  // 110 tall against the details screen's 150: the same picture in a smaller
+  // room, kept at roughly 8:5 so a landscape photograph is not cropped to a
+  // letterbox. No border — the well's fill shows through while the image loads.
+  galleryImage: { width: 176, height: 110, borderRadius: 12 },
   // The reading block's styles left with it — see AccessGaugeReading in
   // sections.tsx. They were this file's only condition-tinted anything.
   checked: { ...t.xs, fontFamily: fonts.body, marginTop: 8 },

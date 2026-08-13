@@ -131,7 +131,7 @@ import { milesBetween, useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
 import { gradeGauge, readingIndex, riverBounds } from '@/lib/statewideNetwork';
 import { warn } from '@/lib/monitoring';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
 import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
@@ -874,7 +874,17 @@ export default function MapScreen() {
   // here. Spelled out by hand, this said `campgrounds || outfitters` and was
   // written before the lodging tier existed — so a phone restored with only
   // Cabins & lodges on never fetched anything. See SERVICE_LAYER_KEYS.
-  const wantsServices = SERVICE_LAYER_KEYS.some((key) => layers.includes(key));
+  //
+  // ── A SELECTED RIVER WANTS THEM TOO, AND THAT IS NOT A LAYER ───────────
+  // The river sheet's Camping & outfitters tab is built from this same
+  // directory. Gated on the layers alone, the tab would be missing entirely for
+  // a reader who has those three switches off — a tab appearing and
+  // disappearing with a map layer is a relationship nobody could guess, and the
+  // switches are about PINS. So a river selection asks as well. Still one
+  // statewide request per session behind the ref, still nothing on launch, and
+  // still nothing at all for somebody who never taps a river.
+  const wantsServices =
+    SERVICE_LAYER_KEYS.some((key) => layers.includes(key)) || selectedSlug != null;
   const servicesRequested = useRef(false);
   useEffect(() => {
     if (!wantsServices || servicesRequested.current) return;
@@ -981,6 +991,83 @@ export default function MapScreen() {
       setLayers((prev) => (prev.includes('access') ? prev : [...prev, 'access']));
     }
   }, [drawnAccessPoints, clearSearch, selectRiver, issueCameraCommand]);
+
+  /**
+   * ── "View on map", arriving from an access point's own screen ────────────
+   *
+   * That screen pushes `/` with the point's id and river, and this is what makes
+   * the map act on it. Deliberately the SAME three steps `onSelectResult` takes
+   * for an access-point search result — select the pin if the map already holds
+   * it, record a pending selection either way, move the camera to the point —
+   * because "put this place on the screen and open its sheet" is one behaviour
+   * and two implementations of it would drift.
+   *
+   * ── CONSUMED ONCE, AND THE PARAMS ARE THEN CLEARED ──────────────────────
+   * Route params outlive the navigation that carried them: the tab keeps them
+   * for the life of the screen, so without clearing, every later return to the
+   * Map tab would re-select a put-in the reader looked at once and has since
+   * moved on from — including after they had deliberately closed its sheet.
+   * The ref guards the render between the push and the clear landing.
+   *
+   * ── AND IT WAITS FOR THE POINT ──────────────────────────────────────────
+   * `pendingAccessSelection` is the existing mechanism for "select this the
+   * moment its river's access points arrive", which is the common case on a
+   * cold launch into the map. Setting it in both branches is what makes the
+   * deep link work before the network has answered — see the selection effect.
+   */
+  const focusParams = useLocalSearchParams<{ focusAccess?: string; focusRiver?: string }>();
+  const focusAccess = focusParams.focusAccess ?? null;
+  const focusRiver = focusParams.focusRiver ?? null;
+  const focusConsumed = useRef<string | null>(null);
+
+  // The work, as a callback rather than inline in the effect below. A route
+  // param is an external system and reacting to one is what an effect is for,
+  // but the state writes belong in a named function — which is also what makes
+  // this the same shape as onSelectResult above, the handler it deliberately
+  // mirrors.
+  const focusOnAccess = useCallback(
+    (accessId: string, riverSlug: string) => {
+      clearSearch();
+      // No Back: the reader arrived from a details screen, not by drilling into
+      // this river's sheet, so × has no river sheet to reveal underneath.
+      setRevealsRiverSheet(false);
+
+      const known = drawnAccessPoints.find((entry) => entry.point.id === accessId);
+      if (known) {
+        setSelectedPin(mapAccessPointPin(known.point, known.riverSlug ?? riverSlug));
+      }
+      // Set in BOTH cases, for the reason onSelectResult documents: the
+      // selection effect drops an open callout on a river change unless this
+      // says the callout is the reason for it. It is also what opens the sheet
+      // when the point is NOT yet held — a cold launch straight into the map.
+      pendingAccessSelection.current = { id: accessId, riverSlug, layer: 'access' };
+
+      const coordinates = known?.point.coordinates ?? null;
+      selectRiver(
+        riverSlug,
+        coordinates
+          ? { camera: 'searchResult', lng: coordinates.lng, lat: coordinates.lat }
+          : { camera: 'fitRiver' },
+      );
+
+      // The put-in has to be drawable when the camera lands, for somebody who
+      // switched the access layer off earlier in the session.
+      setLayers((prev) => (prev.includes('access') ? prev : [...prev, 'access']));
+
+      // Clears the params so a later return to this tab does not re-select a
+      // place the reader looked at once and has since closed.
+      router.setParams({ focusAccess: undefined, focusRiver: undefined });
+    },
+    [drawnAccessPoints, clearSearch, selectRiver, router],
+  );
+
+  useEffect(() => {
+    if (!focusAccess || !focusRiver) return;
+    const token = `${focusRiver}:${focusAccess}`;
+    if (focusConsumed.current === token) return;
+    focusConsumed.current = token;
+    focusOnAccess(focusAccess, focusRiver);
+  }, [focusAccess, focusRiver, focusOnAccess]);
 
   // ── Float plan ──────────────────────────────────────────────────
   const plannerAccessPoints =
@@ -1147,6 +1234,18 @@ export default function MapScreen() {
         .filter((entry) => (entry.riverSlug ?? drawnSlug) === selectedSlug)
         .map((entry) => entry.point),
       hazards: drawnHazards.filter((hazard) => hazard.riverId === river.id),
+      // ── FROM THE DIRECTORY THIS SCREEN ALREADY HOLDS ──────────────────
+      // No request: the services fetch is one statewide call made for the
+      // layers, and `riverSlugs` is what lets it be grouped here. A row with no
+      // slugs is not on any river tab — see RiverService.riverSlugs for why
+      // absent and empty must not be read as "every river".
+      //
+      // Eligibility and closure are the tab's business (serviceSections), and
+      // `mappableService` is deliberately not applied at all: this is a LIST,
+      // and most of the directory still has no confirmed coordinate.
+      services: (services ?? []).filter((service) =>
+        service.riverSlugs?.includes(selectedSlug),
+      ),
     };
   }, [
     selectedSlug,
@@ -1158,6 +1257,7 @@ export default function MapScreen() {
     drawnHazards,
     drawnSlug,
     gaugeNameFor,
+    services,
   ]);
 
   /**
@@ -1203,6 +1303,20 @@ export default function MapScreen() {
    * the sheet itself follows: `bottom` is layout, and animating layout sixty
    * times a second on the heaviest screen in the app is the thing MapSheet's
    * header explains it was built to avoid.
+   *
+   * ── ATTACHED UNCONDITIONALLY, and that is the whole fix ─────────────────
+   * This used to be applied as `sheetOpen ? controlsStyle : null`, which reads
+   * as "only lift them while something is open" and does not behave that way.
+   * Reanimated writes an animated style straight onto the native view; DETACHING
+   * it does not revert what it already wrote. So closing a sheet flipped
+   * `sheetOpen` false, removed the style, and left `translateY(-height)` on the
+   * view with nothing left to set it back — Locate and Plan a float stayed up
+   * where the sheet had been, for the rest of the session.
+   *
+   * Kept attached, the worklet does the reverting itself: MapSheet zeroes
+   * `metrics` on unmount, so the controls SPRING back to the ornament band
+   * instead of being abandoned mid-lift. Costs nothing when no sheet exists —
+   * `available <= 0` returns identity on the first line.
    */
   const controlsStyle = useAnimatedStyle(() => {
     const { height, available } = sheetMetrics.value;
@@ -2170,7 +2284,7 @@ export default function MapScreen() {
             on every frame of a drag. */}
         {sheetOpen && sheet.detent === 'full' ? null : (
         <Animated.View
-          style={[styles.bottomStack, sheetOpen ? controlsStyle : null]}
+          style={[styles.bottomStack, controlsStyle]}
           pointerEvents="box-none"
         >
           <View style={styles.controlRow} pointerEvents="box-none">
@@ -2243,7 +2357,7 @@ export default function MapScreen() {
             existing plan, so hiding it there would strand it. */}
         {sheetOpen && (sheet.detent === 'full' || !planner.plan) ? null : (
         <Animated.View
-          style={[styles.planCluster, sheetOpen ? controlsStyle : null]}
+          style={[styles.planCluster, controlsStyle]}
           pointerEvents="box-none"
         >
           {/* CLEAR THE PLAN. The plan deliberately outlives its sheet — you
@@ -2354,11 +2468,18 @@ export default function MapScreen() {
                 const entry = drawnAccessPoints.find((e) => e.point.id === point.id);
                 onSelectPin(mapAccessPointPin(point, entry?.riverSlug ?? riverSheetData.slug));
               }}
-              // Both ends at once — see planFloat, and onPlanToNearby above,
-              // which had the same stale-closure bug from the same shape.
-              onPlanPair={(putIn, takeOut) => {
-                planner.planFloat(putIn, takeOut);
-                setPlanOpen(true);
+              // ── THE ROUTE IS BUILT WHERE EVERY OTHER ROUTE IS ───────────
+              // Through mapAccessPointPin, so the Accesses list and the sheet's
+              // own "Access point details" row cannot come to disagree about
+              // what an access point's URL looks like. It returns null when the
+              // point has no slug, and the tab falls back to selecting the pin.
+              onOpenAccess={(point) => {
+                const entry = drawnAccessPoints.find((e) => e.point.id === point.id);
+                const route = mapAccessPointPin(
+                  point,
+                  entry?.riverSlug ?? riverSheetData.slug,
+                ).detailRoute;
+                if (route) router.push(asHref(route));
               }}
               onDetentChange={onSheetDetentChange}
               metrics={sheetMetrics}

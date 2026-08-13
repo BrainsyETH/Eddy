@@ -102,16 +102,40 @@ export const ORNAMENT_BAND = 62;
  * long tab was unreachable at every detent — content the scroller thought it
  * had already shown.
  *
- * Derived from `available` and the inset ALONE, never from the measured
- * content. Sizing it from the settled detent would be more direct and would
- * also be a loop: the detent is derived from the content height, the content
- * height from this cap, and a sheet that measured near a fraction boundary
- * would oscillate between two answers forever.
+ * Derived from `available`, the inset and the PEEK — never from the measured
+ * page content. Sizing it from the settled detent would be more direct and
+ * would also be a loop: the detent is derived from the content height, the
+ * content height from this cap, and a sheet that measured near a fraction
+ * boundary would oscillate between two answers forever. The peek is not part of
+ * that loop: it is measured from its own subtree, which no page can grow.
+ *
+ * ── THE PEEK HAS TO BE SUBTRACTED, AND IT WAS NOT ─────────────────────────
+ * The peek is a SIBLING above the pager in the sheet's content column, not
+ * something a page overlaps — so a page's viewport starts below it. Leaving it
+ * out let every page believe it had the whole card, which on an access point is
+ * an over-estimate of 200-250pt: the back row, PlaceHead, the reserved glance
+ * slot and the action strip.
+ *
+ * What that produced is worse than a page merely being too tall. The column ran
+ * past the `full` detent — capped by fullTarget — so the tail was below the
+ * card's bottom edge, AND the ScrollView's own content still fitted inside its
+ * oversized maxHeight, so there was nothing to scroll to reach it. The reader
+ * met a page that was cut off and inert at the same time, on the tallest tabs
+ * first: Camping on a 197-site state park is the reported one.
+ *
+ * `peekHeight` is what MapSheet measures, INCLUDING GRABBER_BLOCK — the same
+ * number it hands resolveDetents — so the grabber is discounted here once, not
+ * twice.
  */
-export function pageBudget(available: number, bottomInset: number): number {
+export function pageBudget(
+  available: number,
+  bottomInset: number,
+  peekHeight = 0,
+): number {
+  const peek = Math.max(0, peekHeight - GRABBER_BLOCK);
   return Math.max(
     0,
-    fullTarget(available) - GRABBER_BLOCK - CONTENT_BOTTOM_PAD - Math.max(0, bottomInset),
+    fullTarget(available) - GRABBER_BLOCK - CONTENT_BOTTOM_PAD - Math.max(0, bottomInset) - peek,
   );
 }
 
