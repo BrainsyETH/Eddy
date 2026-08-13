@@ -13,12 +13,12 @@ audit existing Eddy support
   → scope the system
   → deep research evidence dossier
   → independent identifier/current-fact verification
-  → approve topology and supported claims
+  → approve topology, signal roles, and the ENTITY MODEL [human]
   → register dam + live/forecast series
   → import river geometry (NHD)
   → ingest stable fishery/reference facts
   → map regulation geometry [human]
-  → verify access/ramp coordinates [human]
+  → verify access/ramp/campground data [human]
   → build fisherman-first page
   → live smoke test and safety review
   → activate
@@ -59,6 +59,29 @@ They are often different. A no-fishing zone below the dam does not move the
 hydrologic boundary. A state-managed trout boundary does not prove a single
 condition source represents the entire distance.
 
+Then draft — do not yet approve — the **production entity model**:
+
+- canonical display name;
+- state and slug, checked against existing rows for collision;
+- dedicated tailwater entity versus a reach of an existing river;
+- upstream and downstream geometry endpoints, with a source for each;
+- relationship to the dam entity;
+- relationship to the larger river;
+- whether future downstream coverage can extend this entity or must launch as
+  its own.
+
+It is a draft here and approved at the end of Phase 4 rather than now, because
+the central question — dedicated entity or reach of a bigger river — depends on
+what Phase 3 finds. On the White River the answer *is* the gauge landscape:
+with no live gauge in the trophy reach and two different dams feeding the water
+below, a generic `white-river` entity would have had no coherent primary
+condition. You cannot know that before verifying the feeds.
+
+Note that the **geometry endpoints are entity decisions**, not implementation
+details. "Where does this river stop" and "can this entity extend downstream
+later" are the same question, and the trim coordinates that answer it belong in
+the approved model rather than in a script config.
+
 ## Phase 2 — Produce the evidence dossier
 
 Run a one-time deep-research session with `research-prompt-tailwater.md`. Save
@@ -72,8 +95,29 @@ feeds, accesses, regulation zones, condition supportability, and a
 ## Phase 3 — Independent verification
 
 A second pass checks primary sources without relying on the research prose.
-Use the same `verified-identifiers-<slug>.md` gate as ordinary river ingestion,
-or its future shared successor; do not create a prose-only tailwater substitute.
+
+Use the same verification artifact as ordinary river ingestion, named
+**`verified-identifiers-tailwater-<dam-id>.md`** — by the dam, not the river
+slug, because verification happens *before* the entity model is approved and a
+file named for a slug that may still change is a file that gets orphaned.
+
+**A convention is not a gate.** For an ordinary river the artifact is enforced
+mechanically: `ingest-dossier.ts` refuses to run when a dossier names a site the
+file does not. A tailwater has no importer — it reaches production through the
+registry and hand-written migrations — so until one exists, the implementation
+PR must carry an automated check that:
+
+- every registered release station and downstream gauge appears in an artifact;
+- every CWMS office/location and schedule code appears;
+- nothing listed under a `DO NOT WIRE` heading is registered anywhere.
+
+`scripts/ingestion/verified-identifiers.test.ts` is that check. It parses the
+artifacts' own `DO NOT WIRE` sections into an enforced denylist, so the document
+and the mechanism are the same object and cannot drift apart. Without it, the
+first tailwater's artifact was written by the same pass that chose the
+identifiers and contradicted by nothing — self-graded, which is the failure this
+gate exists to prevent.
+
 Verify at minimum:
 
 - dam/operator/PMA identifiers;
@@ -145,8 +189,17 @@ defensible surprise. Decide it, write it down, and check the surface after
 activation rather than assuming a dam with a release feed shows up everywhere a
 dam can show up.
 
+Now approve the entity model drafted in Phase 1, with Phase 3's findings in
+hand. Record the decision and its date somewhere durable — an approval that
+exists only in a chat message is not one.
+
 **Gate:** unsupported claims get no condition code, threshold, notification, or
 AI prompt language.
+
+**Gate:** no river row, geometry, migration, or dam-to-river link is created
+until the entity model and slug are approved. Everything downstream of this
+point is expensive to reverse: a slug change means a migration, a regenerated
+geometry, a registry edit, and any access points already placed against it.
 
 ## Phase 5 — Register live and forecast sources
 
@@ -168,7 +221,10 @@ Keep independent fields for:
 - spillway or non-power release when published;
 - pool elevation;
 - tailwater elevation at the dam;
-- temperature/DO;
+- water temperature — Eddy has a home for this (`tailwaterTempF`);
+- dissolved oxygen — Eddy has none, and no column it fits in. `requires_schema_ui`,
+  not `requires_feed_registration`; the two are one bullet only in research
+  writeups, never in an implementation plan;
 - forward schedule.
 
 Classify every metric before implementation:
@@ -182,7 +238,8 @@ Only the first two enter an ingestion implementation. A published DO series,
 for example, remains `requires_schema_ui` until Eddy has a DO model and honest
 surface; it must not be squeezed into existing gauge-reading columns.
 
-Preserve source units. Schedule load uses the source’s hour-ending convention;
+Preserve source units. Preserve the source's time convention — SWPA publishes
+hour-ENDING, and another marketer may not;
 render it through shared schedule helpers. Missing metrics remain absent, never
 zero. Forecasts and observations never share an unlabeled series.
 
@@ -301,6 +358,27 @@ distance/order, then approve only the exact points that passed.
 presented as a boat ramp. No campground is published without verified camping
 type, operator, current status, and an explicit river/ramp-access value.
 
+### Researched is not the same as launch-blocking
+
+Keep the two rules apart, or every module becomes a launch dependency and the
+page never ships:
+
+- **searching is mandatory** — access points, ramps, campgrounds, all of it,
+  and "none found" is a documented result rather than a skipped step;
+- **unverified candidates stay unpublished** — they live in the evidence, not
+  on the page;
+- **everything published is fully verified** — no partial rows, no "probably
+  public";
+- **an empty verified set does not block activation.** A tailwater with no
+  verified campground launches without a campground module; one with no
+  verified access map launches without pins.
+
+This is how the rest of Eddy already behaves: a metric a dam does not publish
+is *absent* from its payload, never zero, and every consumer is built with a
+nothing-to-show layout. A module that is honestly missing is a smaller problem
+than a module that is present and wrong — and far smaller than a page that
+never launches because one optional module could not be finished.
+
 ## Phase 9 — Build the fisherman-first page
 
 The page order is:
@@ -355,8 +433,23 @@ neither 00060 nor 00065 cannot feed the condition system at all).
 Inspect the live function before every launch anyway; the paragraph above is
 true as written and will stop being true the day someone changes it.
 
-Do not accept permanent validation errors/warnings and do not add fabricated
-thresholds to make the validator green. The regimes:
+Do not activate with validation **errors**, or with **unexplained warnings**,
+and never add fabricated thresholds to make the validator green.
+
+Errors and warnings are not the same thing and the rule must not treat them as
+one. A warning frequently marks an intentional absence — no weather point yet,
+no regulation geometry, no campground found, a badge a regime deliberately does
+not have — and Eddy already ships some on purpose: `no_dangerous` and
+`no_too_low` are left live on spring-fed rivers as documented gaps. A blanket
+"no warnings" rule would forbid those, which in practice means it gets ignored,
+which is warning fatigue arriving by a different road.
+
+So: every warning still standing at activation is **explicitly waived, with a
+reason, an owner, and a review date**. A waiver needs somewhere durable to live
+or it rots — `activate-rivers.ts` reads the waiver list and prints only
+*unwaived* warnings, and a waiver past its review date resurfaces on its own.
+
+The regimes:
 
 - ordinary rivers retain primary-gauge and ladder checks;
 - dam tailwaters require an active release source, verified unit/location,
@@ -406,8 +499,22 @@ One signoff does not imply the others.
 Recheck on different cadences:
 
 - live feed health and series resolution: automated, continuously;
-- temporary/emergency rules: at least weekly and at app startup/display time
-  when practical;
+- temporary/emergency rules: on an automated schedule, at least weekly —
+  **never during app startup or page render.** Re-verification is not
+  retrieval, and the two must not be fused. Parsing a state agency's page while
+  a fisherman opens Eddy puts their load time and their reliability behind
+  someone else's web server, on the screen where that matters most. Instead:
+  recheck on a schedule against the official source; store `checked_at`,
+  `effective_at` and the source URL; display the last value Eddy verified;
+  warn or suppress once the freshness window expires; **never silently retain
+  an expired temporary rule.** Link out to the live official page — linking is
+  cheap and always current, which is exactly what parsing at display time is
+  trying and failing to be.
+
+  Pick warn-versus-suppress per rule class, in advance, and not at the moment
+  it fires. A creel limit is a legal claim, so an expired one suppresses and
+  links out — a stale-data banner beside a wrong number is still a wrong
+  number. A softer rule may be fine displayed with its date;
 - annual guidebook regulations: at each effective-date cycle;
 - access ownership, fees, and closures: seasonally;
 - installed capacity and operator metadata: annually or when projects change;
@@ -443,9 +550,11 @@ an official source to a blog or distant gauge.
 - [ ] Candidate access does not claim `public=true`.
 - [ ] Ramp, parking, trailhead, and facility coordinates are not conflated.
 - [ ] Required campground search completed; absence is documented when none are
-      found.
-- [ ] Campground type, utilities, fees/season, reservations, and river/ramp
-      access are independently verified.
+      found. Searching is mandatory; FINDING one is not, and an empty result
+      does not block the page.
+- [ ] Every PUBLISHED campground has verified type, utilities, fees/season,
+      reservations and river/ramp-access status; unverified candidates remain
+      unpublished.
 - [ ] Private resorts remain private/fee services unless verified otherwise.
 - [ ] MW, MWh, cfs, generator count, stage, and elevation remain distinct.
 - [ ] Missing or seasonal metrics render as unknown/absent, never zero.

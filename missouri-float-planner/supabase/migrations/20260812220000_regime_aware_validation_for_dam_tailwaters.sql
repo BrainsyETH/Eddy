@@ -229,6 +229,62 @@ WHERE r.active = true AND r.river_type = 'dam_tailwater' AND rg.is_primary = tru
        OR rg.level_optimal_min IS NOT NULL OR rg.level_optimal_max IS NOT NULL
        OR rg.level_high IS NOT NULL OR rg.level_dangerous IS NOT NULL)
 
+-- NEW: the primary gauge of a tailwater must be its release.
+--
+-- The generalisation of a rule that would otherwise live once per river in a
+-- data migration. On a reach whose level IS the release, promoting a
+-- downstream gauge to primary means the river's headline number describes
+-- water measured miles away, after travel, tributaries and time — and on the
+-- White River, after a second dam.
+UNION ALL
+SELECT r.slug, 'tailwater_primary_not_release', 'error',
+       'primary gauge ' || gs.name || ' is a ' || gs.provider ||
+       ' station, not this tailwater''s release — the river''s headline flow would describe water measured downstream rather than what the dam let out'
+FROM river_gauges rg
+JOIN rivers r ON r.id = rg.river_id
+JOIN gauge_stations gs ON gs.id = rg.gauge_station_id
+WHERE r.active = true AND r.river_type = 'dam_tailwater' AND rg.is_primary = true
+  AND gs.provider IS DISTINCT FROM 'usace'
+
+-- NEW: a downstream gauge that carries another basin's water.
+--
+-- Drainage area is the arithmetic that makes this checkable rather than
+-- editorial. Bull Shoals releases 6,050 sq mi of drainage; USGS 07057370 reads
+-- 8,040 because it sits below the North Fork confluence and carries Norfork
+-- Dam's releases too, and 07060500 reads 9,980 having also taken the Buffalo.
+-- Both are useful for the reaches they sit on and neither describes the water
+-- below the dam.
+--
+-- 10% is where local runoff stops being the explanation. Every gauge below a
+-- dam picks up some drainage — that is what made Poplar Bluff a fair 5% read of
+-- Clearwater — so a small excess is normal and a third is a different river.
+--
+-- A warning, not an error: carrying such a gauge is correct, and the primary
+-- rule above already blocks the dangerous version. What this refuses to allow
+-- is carrying one SILENTLY, with its bias recorded only in a migration comment
+-- nobody reads at activation time. Waive it deliberately or fix the wiring.
+UNION ALL
+SELECT r.slug, 'tailwater_gauge_post_confluence', 'warning',
+       'gauge ' || gs.name || ' drains ' || round(gs.drainage_area_sqmi) ||
+       ' sq mi against the release''s ' || round(rel.drainage_area_sqmi) ||
+       ' — it carries water this dam did not release and must not be presented as conditions below the dam'
+FROM river_gauges rg
+JOIN rivers r ON r.id = rg.river_id
+JOIN gauge_stations gs ON gs.id = rg.gauge_station_id
+JOIN LATERAL (
+    SELECT gs2.drainage_area_sqmi
+    FROM river_gauges rg2
+    JOIN gauge_stations gs2 ON gs2.id = rg2.gauge_station_id
+    WHERE rg2.river_id = r.id AND gs2.provider = 'usace'
+    ORDER BY gs2.drainage_area_sqmi NULLS LAST
+    LIMIT 1
+) rel ON true
+WHERE r.active = true AND r.river_type = 'dam_tailwater'
+  AND gs.provider IS DISTINCT FROM 'usace'
+  AND gs.drainage_area_sqmi IS NOT NULL
+  AND rel.drainage_area_sqmi IS NOT NULL
+  AND gs.drainage_area_sqmi > rel.drainage_area_sqmi * 1.10
+
 -- NEW (all regimes): a primary gauge that cannot publish stage or discharge.
 -- The Bull Shoals research proposed exactly this — three USGS stations below
 -- the dam that report only water temperature and dissolved oxygen — and

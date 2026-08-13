@@ -76,6 +76,31 @@ set curated = true, active = true
 where provider = 'usgs'
   and site_id_external in ('07057370', '07060500');
 
+-- ── Drainage areas, because they are the post-confluence evidence ──────────
+-- tailwater_gauge_post_confluence compares each downstream gauge's drainage
+-- against the release's, which turns "this gauge carries Norfork's water too"
+-- from a sentence in a comment into a number the validator can act on. Without
+-- these the check is silently skipped (it guards on NOT NULL), so the values
+-- are part of the wiring rather than nice-to-have metadata.
+--
+-- All three verified on the USGS site service 2026-08-12/13. The release's
+-- 6,050 is the drainage at 07054502, the station immediately below the dam —
+-- which is the dam's own drainage area, and the reason that station exists.
+update public.gauge_stations
+set drainage_area_sqmi = 8040
+where provider = 'usgs' and site_id_external = '07057370'
+  and drainage_area_sqmi is distinct from 8040;
+
+update public.gauge_stations
+set drainage_area_sqmi = 9980
+where provider = 'usgs' and site_id_external = '07060500'
+  and drainage_area_sqmi is distinct from 9980;
+
+update public.gauge_stations
+set drainage_area_sqmi = 6050
+where provider = 'usace' and site_id_external = 'swl-bull-shoals-dam'
+  and drainage_area_sqmi is distinct from 6050;
+
 -- ── Attach all three to the river ──────────────────────────────────────────
 -- threshold_unit = 'cfs' throughout: the release provider reports discharge and
 -- never a stage (00198 asserts this globally, and that assertion re-runs

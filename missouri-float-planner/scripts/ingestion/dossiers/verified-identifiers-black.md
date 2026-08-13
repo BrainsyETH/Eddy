@@ -33,6 +33,30 @@ Primary-source transcription from the USGS Site Service + NWPS, owner-provided
   [NOTE: values above are from the earlier search tier; owner's NWPS paste this round covered
    UNNM7/PAZM7/JRMM7 — if an ANNM7 NWPS JSON is provided, re-confirm verbatim.]
 
+## USACE tailwater (added 2026-08-13)
+
+Clearwater Dam's release was wired to this river by migration `00198` after
+this file was written, so its identifiers were never recorded here. Captured
+now, because the identifier gate is only a gate if it covers everything that
+reached a registry — see `verified-identifiers-tailwater-swl-bull-shoals-dam.md`
+for the same set on the second tailwater.
+
+### `swl-clearwater-dam` — Black River below Clearwater Dam ✅
+- CWMS office `SWL`, location `Clearwater_Dam`; registered as a
+  `provider='usace'` gauge station whose discharge is the dam's total release.
+- No SWPA code: flood control only, no powerhouse. Correctly absent, not missing.
+
+### 07063000 — Black River at Poplar Bluff, MO ✅
+- The tailwater gauge for the Clearwater release; ~40 river miles below the dam.
+- **drainage 1,245 sq mi**, verified on the USGS site service 2026-08-13.
+- Clearwater Dam's own drainage area is **UNKNOWN** here — not looked up on a
+  primary source, so not written down as though it were. It is the missing half
+  of the post-confluence ratio below, and `drainage_area_sqmi` on the release
+  station stays null until someone reads it off a USACE document.
+- What is measured rather than inferred: 3,561 cfs released against 3,380 gauged
+  on 2026-07-27, ~40 river miles apart — 5%, which is why this gauge is a fair
+  description of that release.
+
 ## Ingest readiness / ACTION
 - Float reach (Lesterville→Annapolis) representative = 07061500 Annapolis (active). 07061400 is DEAD.
 - Still needed before signoff: gauge-keyed cfs/ft FLOATABILITY thresholds (none captured yet —

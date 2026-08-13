@@ -106,8 +106,16 @@ marketer's short-term scheduling capability must be separate facts. They may all
 be correct while carrying different numbers. Any schedule-to-cfs conversion
 must keep the marketer's published scheduling MW paired with its own published
 full-power discharge; substituting installed nameplate into only one half
-silently changes every estimate. Reject nameplate values that come only from a
-secondary source when a current operator document exists. Historic or
+silently changes every estimate.
+
+Each of the three may be `UNKNOWN`, and `UNKNOWN` is a finding. Not every
+project publishes all three — a dam with no rehabilitation underway has no
+planned figure, and one outside a power marketer's portfolio has no scheduling
+capability at all. Do not fill a gap from a secondary source to make the set
+look complete; that is precisely how Bull Shoals came to be described as
+380 MW, a number matching none of its three real values. Reject nameplate
+values that come only from a secondary source when a current operator document
+exists. Historic or
 promotional engineering facts should remain in evidence unless they materially
 help a fisherman understand the water.
 
@@ -374,6 +382,13 @@ The machine-readable handoff must retain `source_ids`, verification status, and
 last-verified dates. Candidate access must use `public_status: "candidate"` or
 `unknown`, never `public: true`. Official textual regulation boundaries must
 use `geometry_status: "pending"` until mapped and reviewed.
+
+Every gauge and feed entry in the handoff must carry **`signal_role`** and
+**`must_not_represent`**, and every metric must carry **`product_support`**.
+These are the two decisions the whole research pass exists to produce, and in
+prose they are the first thing a downstream implementer skims past — a gauge
+described in a paragraph as "useful for the lower river but biased upstream"
+becomes, three files later, just a gauge. In a field, it stays a constraint.
 
 End with three separate verdicts:
 
