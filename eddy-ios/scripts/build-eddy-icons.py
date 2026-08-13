@@ -54,6 +54,7 @@ SYMBOLS = (
     "eddy-hazard",
     "eddy-campground",
     "eddy-outfitter",
+    "eddy-lodging",
     "eddy-river",
     "eddy-alert-watch",
     # The access-point section marks. See PRE_CUT below for why these three are

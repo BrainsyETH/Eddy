@@ -188,7 +188,7 @@ export function MapLayersSheet({
                 accessibilityLabel={
                   count == null ? layer.label : `${layer.label}, ${count}`
                 }
-                accessibilityHint={layer.description}
+                accessibilityHint={layer.accessibilityHint ?? layer.description}
               >
                 {/* ── The well is outlined, not filled ────────────────────
                     It used to fill with the layer tint and print a white
@@ -237,9 +237,14 @@ export function MapLayersSheet({
                       <Text style={[styles.count, { color: colors.textSubtle }]}>{count}</Text>
                     ) : null}
                   </View>
-                  <Text style={[styles.description, { color: colors.textMuted }]} numberOfLines={1}>
-                    {layer.description}
-                  </Text>
+                  {layer.description ? (
+                    <Text
+                      style={[styles.description, { color: colors.textMuted }]}
+                      numberOfLines={1}
+                    >
+                      {layer.description}
+                    </Text>
+                  ) : null}
                 </View>
 
                 {/* The switch DRAWS the state; the row owns the tap. Letting
