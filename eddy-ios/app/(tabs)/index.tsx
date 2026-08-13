@@ -68,10 +68,7 @@ import type {
   RiverService,
   SearchResult,
 } from '@eddy/types';
-import {
-  hasCoordinates,
-  PUBLIC_LAND_OWNERSHIP_NOTE,
-} from '@eddy/types';
+import { hasCoordinates } from '@eddy/types';
 import { boundsForLine } from '@eddy/geo';
 import {
   formatFloatTimeCeilingCompact,
@@ -100,10 +97,7 @@ import { placeSymbol } from '@/components/map-sheet/placeSymbol';
 import { mapUnavailableReason } from '@/map/runtime';
 import { activeRoles, resolveAccessMarkers } from '@/map/accessLayers';
 import { SERVICE_LAYER_KEYS } from '@/map/serviceLayers';
-import {
-  PUBLIC_LAND_ATTRIBUTION,
-  type LayerKey,
-} from '@/map/layers';
+import { type LayerKey } from '@/map/layers';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
 import { useNetworkPlaces } from '@/hooks/useNetworkPlaces';
 import { usePublicLands } from '@/hooks/usePublicLands';
@@ -127,12 +121,7 @@ import { asHref } from '@/lib/href';
 import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
 import { SearchResultsList } from '@/components/SearchResultsList';
-import {
-  LayerNote,
-  MapLayersButton,
-  MapLayersSheet,
-  isDefaultLayers,
-} from '@/components/MapLayersSheet';
+import { MapLayersButton, MapLayersSheet, isDefaultLayers } from '@/components/MapLayersSheet';
 import { defaultMapLayers, readMapLayers, writeMapLayers } from '@/lib/mapPreferences';
 import {
   GaugeFilterBar,
@@ -2402,19 +2391,6 @@ export default function MapScreen() {
         // button on the map. Rendered only while the layer is ON, because
         // chips that narrow a layer nobody is drawing narrow nothing.
         renderLayerDetail={(key, on) => {
-          // ── The caveat, on the control ────────────────────────────────
-          // Not only in the callout, because the fill is visible without
-          // anyone ever tapping a parcel — and what the fill does NOT mean is
-          // the entire reason this layer is allowed to draw. One sentence,
-          // written once, shared with the website (@eddy/types) so the two
-          // maps cannot say different things about the same boundaries.
-          if (key === 'publicLand' && on) {
-            return (
-              <LayerNote
-                text={`${PUBLIC_LAND_OWNERSHIP_NOTE} ${PUBLIC_LAND_ATTRIBUTION}.`}
-              />
-            );
-          }
           return key === 'allGauges' && on ? (
             <GaugeFilterBar
               // The DRAWABLE set, not the raw response — see layerGauges. Every
