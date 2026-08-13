@@ -482,6 +482,40 @@ export default function AccessPointDetailScreen() {
             <Text style={[styles.primaryActionText, { color: colors.onAccent }]}>Directions</Text>
           </Pressable>
 
+          {/* ── BACK TO THE MAP, WITH THIS PLACE SELECTED ────────────
+              The sheet has always been able to reach this screen and this
+              screen could not get back: the only route to the map was the tab
+              bar, which lands wherever the map was left — possibly a different
+              river, at whatever zoom. So "where is this actually, and what is
+              around it" was a question the product could ask and not answer.
+
+              It carries the point's identity as params rather than merely
+              switching tabs, and the map re-selects it — see the Map screen's
+              `focus` handling. Beside Directions rather than in the nav-app row
+              below: those leave the app, this stays in it.
+
+              Unconditional, unlike Official site. Every access point is on the
+              map by definition — it has coordinates or it would not be an
+              access point — so there is no state in which this row would be a
+              promise the map cannot keep. */}
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: '/',
+                params: { focusAccess: point.id, focusRiver: point.river.slug },
+              })
+            }
+            style={({ pressed }) => [
+              styles.secondaryAction,
+              { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`Show ${point.name} on the map`}
+          >
+            <Ionicons name="map-outline" size={15} color={colors.text} />
+            <Text style={[styles.secondaryActionText, { color: colors.text }]}>View on map</Text>
+          </Pressable>
+
           {point.officialSiteUrl ? (
             <Pressable
               onPress={() => void Linking.openURL(point.officialSiteUrl!)}
@@ -853,7 +887,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   primaryActionText: { ...t.base, fontFamily: fonts.semibold },
+  // A ROW, because one of these carries a mark. "Official site" has no icon and
+  // the gap collapses to nothing on it, so both keep the same pill — the same
+  // arrangement the sheet's chips use for the same reason.
   secondaryAction: {
+    flexDirection: 'row',
+    gap: 7,
     paddingHorizontal: 16,
     paddingVertical: 13,
     borderRadius: 14,

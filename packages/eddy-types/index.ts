@@ -1405,6 +1405,29 @@ export interface RiverService {
   accessPointId?: string | null;
   description: string | null;
   servicesOffered: string[];
+  /**
+   * The rivers this service serves, by slug.
+   *
+   * From the `service_rivers` join, sent by GET /api/services so the map's
+   * river sheet can group the directory it ALREADY HOLDS by river without
+   * making a request — that sheet is built entirely from memory on purpose, and
+   * tapping a river is the cheapest interaction on the map.
+   *
+   * Slugs rather than ids because the slug is what every client surface keys a
+   * river by; ids would buy the app a second lookup to answer a question the
+   * server has already answered.
+   *
+   * OPTIONAL AND POSSIBLY EMPTY, and the two mean different things. Absent is
+   * an older server that did not send it — a build that outlives its deploy,
+   * the same reason every added field here is optional. Empty is a real answer:
+   * `service_rivers` is curated, and an unlinked row belongs to no river tab
+   * while still drawing as a pin and still counting in the statewide layers.
+   * Neither case may be read as "serves every river".
+   *
+   * Not sent by GET /api/rivers/[slug]/services, which does not need it — that
+   * route is already scoped to one river by the same join.
+   */
+  riverSlugs?: string[];
 
   // ── Campground fields ─────────────────────────────────────────────────
   // Optional because they describe a campground and most rows here are

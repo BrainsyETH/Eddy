@@ -228,4 +228,55 @@ test('the page budget never goes negative on a small or unmeasured sheet', () =>
   assert.equal(pageBudget(-100, 34), 0);
   // A phone whose insets exceed what the tallest detent offers.
   assert.equal(pageBudget(40, 200), 0);
+  // Nor when the peek alone is taller than the whole sheet.
+  assert.equal(pageBudget(TALL, 34, TALL * 2), 0);
+});
+
+test('the peek comes out of the page budget', () => {
+  // THE BUG THIS EXISTS FOR. The peek is a sibling ABOVE the pager, so a page's
+  // viewport starts below it — and the budget did not know. On an access point
+  // that is a 200-250pt over-estimate (back row, PlaceHead, the reserved glance
+  // slot, the action strip), which produced a page both cut off at the bottom
+  // AND unscrollable: the column ran past the tallest detent while the
+  // ScrollView's content still fitted inside its own oversized maxHeight.
+  const peek = 240;
+  assert.equal(pageBudget(TALL, 34, peek), pageBudget(TALL, 34) - (peek - GRABBER_BLOCK));
+});
+
+test('the grabber is discounted once, not twice', () => {
+  // MapSheet measures the peek INCLUDING GRABBER_BLOCK and hands that same
+  // number to resolveDetents, so pageBudget has to subtract it back out or
+  // every page loses 16pt it was already charged for.
+  assert.equal(pageBudget(TALL, 34, GRABBER_BLOCK), pageBudget(TALL, 34));
+  // And an unmeasured peek costs nothing at all.
+  assert.equal(pageBudget(TALL, 34, 0), pageBudget(TALL, 34));
+});
+
+test('peek plus chrome plus a full page still fits the tallest detent', () => {
+  // The property the whole budget exists to hold, now with the peek in it: a
+  // page that fills its budget must not push the column past what the sheet can
+  // show. This is the assertion that would have failed before the fix.
+  const inset = 34;
+  const peek = 240;
+  const chrome = 90;
+  const page = pageBudget(TALL, inset, peek) - chrome;
+  // What MapSheet's content column measures: the peek's own subtree (the peek
+  // measurement less the grabber it was given), the chrome, the page, and the
+  // column's bottom padding.
+  const content = peek - GRABBER_BLOCK + chrome + page + CONTENT_BOTTOM_PAD + inset;
+  const d = resolveDetents(TALL, content + GRABBER_BLOCK);
+  assert.ok(
+    d.height.full <= resolveDetents(TALL, TALL * 2).height.full,
+    'a budgeted page must not exceed the ceiling the tallest detent is capped at',
+  );
+});
+
+test('the peek detent leaves room under the last row of the peek', () => {
+  // A peek measured to its own height put the primary action flush against the
+  // card's bottom edge — which is the tab bar's top edge — and clipped it. The
+  // sheet pads the measurement before handing it over, so the caller's job is
+  // simply that a padded peek resolves taller than a bare one.
+  const bare = resolveDetents(TALL, 900, 240).height.peek;
+  const padded = resolveDetents(TALL, 900, 240 + CONTENT_BOTTOM_PAD).height.peek;
+  assert.equal(padded - bare, CONTENT_BOTTOM_PAD);
 });

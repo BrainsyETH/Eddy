@@ -7,7 +7,8 @@
 // loaded there at all (esbuild chokes on react-native/index.js). Keeping the
 // registry free of components is what makes it testable.
 
-import type { ConditionCode, Hazard, MapAccessPoint } from '@eddy/types';
+import type { ConditionCode, Hazard, MapAccessPoint, RiverService } from '@eddy/types';
+import { serviceEligible, serviceTiers } from '@eddy/types';
 
 
 /**
@@ -48,18 +49,76 @@ export interface RiverSheetData {
   /** Every access point on this river. Ordered by the tabs that need it. */
   accesses: MapAccessPoint[];
   hazards: Hazard[];
+  /**
+   * The directory rows that serve this river — campgrounds, rentals, lodging.
+   *
+   * Held by the map screen already, for the layers it draws, so this tab costs
+   * no request. UNFILTERED by location on purpose: see serviceSections.
+   */
+  services: RiverService[];
 }
 
-export type RiverTabKey = 'conditions' | 'floats' | 'accesses' | 'hazards';
+export type RiverTabKey = 'conditions' | 'services' | 'accesses' | 'hazards';
 
 const LABELS: Record<RiverTabKey, string> = {
   conditions: 'Conditions',
-  floats: 'Floats',
+  services: 'Camping & outfitters',
   accesses: 'Accesses',
   hazards: 'Hazards',
 };
 
-const ORDER: RiverTabKey[] = ['conditions', 'floats', 'accesses', 'hazards'];
+const ORDER: RiverTabKey[] = ['conditions', 'services', 'accesses', 'hazards'];
+
+/**
+ * The three groups the services tab draws, in the order it draws them.
+ *
+ * ── WHY THIS REPLACED THE FLOATS TAB ──────────────────────────────────────
+ * Floats listed every consecutive put-in→take-out pair on the river — twelve
+ * access points produced eleven rows, each of them a distance and a "Plan"
+ * button. It read as a menu of trips and was nothing of the kind: the pairs are
+ * an artefact of sorting by river mile, not a set of floats anybody curated, and
+ * the planner two taps away already builds any of them from either end. What a
+ * river sheet was missing was the thing the river screen has and the map could
+ * not answer — where to sleep and who rents boats.
+ *
+ * ── THE GROUPING IS THE SHIPPED MODEL, NOT A NEW ONE ──────────────────────
+ * `serviceTiers` is multi-valued and capability-aware: 42% of directory rows
+ * belong in two or more tiers, because an outfitter that rents cabins is both.
+ * So a row can appear under two headings here, and that is correct — it is the
+ * same business answering two different questions. Inventing a single-group
+ * rule for this tab would re-encode the mutual exclusivity that
+ * MAPS_SHEET_SERVICE_MODEL_PLAN.md's W0 exists to have removed.
+ *
+ * ── ELIGIBLE, BUT NOT MAPPABLE ────────────────────────────────────────────
+ * `serviceEligible` drops businesses that have closed. `mappableService` is
+ * deliberately NOT applied: most directory rows still have no confirmed
+ * coordinate, and a LIST is the one surface where a place with no pin still
+ * belongs. That is the same call `app/river/[slug].tsx` makes for its own
+ * Outfitters section, for the same reason, and it is why eligibility and
+ * location quality are two predicates rather than one "usable" flag.
+ */
+export const SERVICE_SECTIONS = [
+  { tier: 'camping', title: 'Campgrounds' },
+  { tier: 'rentals', title: 'Rentals & shuttles' },
+  { tier: 'lodging', title: 'Cabins & lodges' },
+] as const;
+
+/**
+ * Partition a river's services into the sections above.
+ *
+ * Pure and exported so the web suite can test the grouping without mounting
+ * anything — the tab body is then only a renderer.
+ */
+export function serviceSections(
+  services: RiverService[],
+): { tier: string; title: string; rows: RiverService[] }[] {
+  const eligible = services.filter(serviceEligible);
+  return SERVICE_SECTIONS.map((section) => ({
+    tier: section.tier,
+    title: section.title,
+    rows: eligible.filter((service) => serviceTiers(service).includes(section.tier)),
+  })).filter((section) => section.rows.length > 0);
+}
 
 export function riverTabs(river: RiverSheetData): { key: RiverTabKey; label: string }[] {
   const keys = new Set<RiverTabKey>();
@@ -76,10 +135,13 @@ export function riverTabs(river: RiverSheetData): { key: RiverTabKey; label: str
   // its absence.
   if (river.gauges.length > 1) keys.add('conditions');
 
-  // Two access points is the minimum that makes a float; one is a place to
-  // stand. The statewide network carries rivers Eddy has not mapped put-ins
-  // for yet, so this is a real case rather than a defensive one.
-  if (river.accesses.length >= 2) keys.add('floats');
+  // ── QUALIFIED ON WHAT IT WILL DRAW, not on the raw row count ────────────
+  // A river can carry directory rows that are all permanently closed, or that
+  // all fall outside the three tiers — and a tab that opens onto three absent
+  // sections is the "present and empty" promise the registry exists to prevent.
+  // Asking serviceSections is asking the tab body itself.
+  if (serviceSections(river.services).length > 0) keys.add('services');
+
   if (river.accesses.length > 0) keys.add('accesses');
   if (river.hazards.length > 0) keys.add('hazards');
   return ORDER.filter((key) => keys.has(key)).map((key) => ({ key, label: LABELS[key] }));

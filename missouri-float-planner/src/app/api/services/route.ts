@@ -112,6 +112,34 @@ interface MappedService {
   accessPointId: string | null;
   description: string | null;
   servicesOffered: string[];
+  /**
+   * The rivers this service serves, by slug.
+   *
+   * ── Why the statewide route carries this at all ─────────────────────────
+   *
+   * The header above says this response is "a pin and a callout, not the river
+   * screen's directory record", and that is still true — this is not the
+   * directory record arriving by the back door, it is the ONE fact a pin cannot
+   * be grouped by without.
+   *
+   * The map sheet's river tab lists the campgrounds and outfitters on the river
+   * you tapped, and that sheet's whole contract is that it makes no request:
+   * tapping a river is the cheapest interaction on the map and has to stay that
+   * way. Without a river on the row, answering "who serves the Meramec" from a
+   * response the app already holds is impossible, and the alternatives are both
+   * worse — 25 per-river requests for what one call already returned, or
+   * guessing from proximity, which would put a Current River outfitter on the
+   * Jacks Fork wherever the two run close.
+   *
+   * SLUGS rather than ids, because the slug is what every client-side surface
+   * keys a river by. Sending ids would make the app hold a second lookup to
+   * answer a question the server can answer once.
+   *
+   * Possibly EMPTY, and that is not a defect: `service_rivers` is curated, and a
+   * row nobody has linked yet simply belongs to no river tab. It still draws as
+   * a pin and still appears in the statewide layers, exactly as before.
+   */
+  riverSlugs: string[];
 }
 
 interface ServicesResponse {
@@ -233,6 +261,63 @@ async function loadIdentityLinks(
   return byService;
 }
 
+interface ServiceRiverRow {
+  service_id: string;
+  rivers: { slug: string } | { slug: string }[] | null;
+}
+
+/**
+ * service id → the slugs of the rivers it serves.
+ *
+ * ── A SEPARATE READ, for the reason loadIdentityLinks is ─────────────────
+ *
+ * SELECT_COLUMNS has to stay one string literal for supabase-js to infer the
+ * row type, and an embedded resource inside it widens every field on the
+ * service row through the join. Two small reads behind a ten-minute edge cache
+ * is the same trade already made above, and it keeps the pin's own columns
+ * narrow.
+ *
+ * ── FAILURE IS DEGRADATION, NOT A 500 ───────────────────────────────────
+ *
+ * An unreadable join returns an empty map, every service arrives with no
+ * rivers, and the river sheet's services tab simply does not qualify — while
+ * every pin, every layer and every count on the map behaves exactly as it did
+ * before this field existed. A tab that is absent is the documented failure
+ * mode; a map that will not load is not. Logged, because a silently empty tab
+ * on every river is otherwise indistinguishable from a directory nobody has
+ * filled in.
+ */
+async function loadRiverSlugs(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<Map<string, string[]>> {
+  const byService = new Map<string, string[]>();
+  try {
+    const { data, error } = await supabase
+      .from('service_rivers')
+      .select('service_id, rivers(slug)');
+
+    if (error) {
+      console.error('[services] Could not read service_rivers:', error.message);
+      return byService;
+    }
+    for (const link of (data ?? []) as unknown as ServiceRiverRow[]) {
+      if (!link.service_id || !link.rivers) continue;
+      // PostgREST returns an embedded to-one as an object and a to-many as an
+      // array depending on how it reads the foreign key, so both are accepted
+      // rather than assuming the shape that happens to come back today.
+      const rivers = Array.isArray(link.rivers) ? link.rivers : [link.rivers];
+      const slugs = rivers.map((river) => river?.slug).filter((slug): slug is string => !!slug);
+      if (!slugs.length) continue;
+      const existing = byService.get(link.service_id);
+      if (existing) existing.push(...slugs.filter((slug) => !existing.includes(slug)));
+      else byService.set(link.service_id, slugs);
+    }
+  } catch (err) {
+    console.error('[services] Could not read service_rivers:', err);
+  }
+  return byService;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const limited = await rateLimit(`services-all:${getClientIp(request)}`, 60, 60 * 1000);
@@ -254,7 +339,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Could not fetch services' }, { status: 500 });
     }
 
-    const accessPointByService = await loadIdentityLinks(supabase);
+    // Independent reads over independent tables — one round trip, not two.
+    const [accessPointByService, riverSlugsByService] = await Promise.all([
+      loadIdentityLinks(supabase),
+      loadRiverSlugs(supabase),
+    ]);
 
     const response: ServicesResponse = {
       services: (data ?? []).map((s) => ({
@@ -274,6 +363,7 @@ export async function GET(request: NextRequest) {
         accessPointId: accessPointByService.get(s.id) ?? null,
         description: s.description ?? null,
         servicesOffered: s.services_offered ?? [],
+        riverSlugs: riverSlugsByService.get(s.id) ?? [],
       })),
     };
 

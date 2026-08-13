@@ -150,15 +150,35 @@ export function MapSheet({
   // handed; see its `wholeContentIsPeek`.
   const glanceOnly = children == null;
 
+  /**
+   * The air under the last row of the peek — the SAME expression the content
+   * column pads with, deliberately.
+   *
+   * ── The peek had none, and it clipped its own primary button ────────────
+   * The column's paddingBottom sits below `children`, which at the peek detent
+   * is hundreds of points under the fold and therefore contributes nothing. So
+   * the peek detent resolved to exactly grabber + peek subtree, putting the last
+   * row — "Use as put-in", the one action the glance exists to offer — flush
+   * against the card's bottom edge, which is the tab bar's top edge.
+   *
+   * Mirroring the column's expression rather than picking a number is what keeps
+   * the peek and the tallest detent from disagreeing about how much air the
+   * sheet owes its content. On these screens the tab navigator has already
+   * consumed the safe-area inset — see CONTENT_BOTTOM_PAD, which describes
+   * itself as "the only thing between the final line of content and a hard
+   * chrome border" — so in practice this is CONTENT_BOTTOM_PAD alone.
+   */
+  const peekBottomPad = insets.bottom + CONTENT_BOTTOM_PAD;
+
   const detents = useMemo(
     () =>
       resolveDetents(
         available,
         contentHeight > 0 ? contentHeight + GRABBER_BLOCK : 0,
-        peekHeight,
+        peekHeight > 0 ? peekHeight + peekBottomPad : 0,
         glanceOnly,
       ),
-    [available, contentHeight, peekHeight, glanceOnly],
+    [available, contentHeight, peekHeight, peekBottomPad, glanceOnly],
   );
 
   // translateY is the DISTANCE THE SHEET IS PUSHED DOWN from fully open, so 0
@@ -360,6 +380,25 @@ export function MapSheet({
     };
   });
 
+  /**
+   * ── A SHEET THAT IS GONE OCCUPIES NOTHING, AND HAS TO SAY SO ────────────
+   *
+   * The line above only runs while this component is mounted, so an unmount
+   * left the last height standing in a value whose whole meaning is "how much
+   * of the map the sheet is currently covering". Anything riding it — the map
+   * screen lifts Locate and Plan a float by exactly this — stayed lifted for a
+   * sheet that had closed, with nothing left to write it back down.
+   *
+   * On unmount rather than on close: dismissal is animated by the caller
+   * unmounting us, and there is no later frame in which we could publish this.
+   */
+  useEffect(
+    () => () => {
+      if (metrics) metrics.value = { height: 0, available: 0 };
+    },
+    [metrics],
+  );
+
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
   }));
@@ -391,7 +430,13 @@ export function MapSheet({
     setPeekHeight(Math.round(event.nativeEvent.layout.height) + GRABBER_BLOCK);
   }, []);
 
-  const budget = useMemo(() => pageBudget(available, insets.bottom), [available, insets.bottom]);
+  // `peekHeight`, not `peekHeight + peekBottomPad`: the pad is already inside
+  // pageBudget as CONTENT_BOTTOM_PAD and the inset, and counting it twice would
+  // shorten every page by that much again.
+  const budget = useMemo(
+    () => pageBudget(available, insets.bottom, peekHeight),
+    [available, insets.bottom, peekHeight],
+  );
 
   const scrollContext = useMemo(
     () => ({ scrollY, panRef, detent, atFull, pageBudget: budget, resetKey }),

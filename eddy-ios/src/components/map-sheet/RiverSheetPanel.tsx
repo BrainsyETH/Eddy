@@ -14,8 +14,8 @@ import { SheetPager, mountedPages } from './SheetPager';
 import {
   RiverAccessesTab,
   RiverConditionsTab,
-  RiverFloatsTab,
   RiverHazardsTab,
+  RiverServicesTab,
   RiverSheetHeader,
 } from './RiverSheet';
 import { riverTabs, type RiverSheetData, type RiverTabKey } from './riverTabs';
@@ -27,7 +27,7 @@ interface Props {
   onOpenGauge: (siteId: string) => void;
   onOpenRiver: (slug: string) => void;
   onSelectAccess: (point: MapAccessPoint) => void;
-  onPlanPair: (putIn: MapAccessPoint, takeOut: MapAccessPoint) => void;
+  onOpenAccess: (point: MapAccessPoint) => void;
   width: number;
   onDetentChange?: (detent: Detent, height: number) => void;
   /** Forwarded to MapSheet so the floating controls can follow it per frame. */
@@ -72,7 +72,7 @@ export function RiverSheetPanel({
 
   const renderTab = (key: RiverTabKey) => {
     if (key === 'conditions') return <RiverConditionsTab {...shared} />;
-    if (key === 'floats') return <RiverFloatsTab {...shared} />;
+    if (key === 'services') return <RiverServicesTab {...shared} />;
     if (key === 'accesses') return <RiverAccessesTab {...shared} />;
     return <RiverHazardsTab {...shared} />;
   };

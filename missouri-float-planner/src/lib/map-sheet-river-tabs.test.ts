@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { Hazard, MapAccessPoint } from '@eddy/types';
+import type { Hazard, MapAccessPoint, RiverService } from '@eddy/types';
 import {
   riverTabs,
+  serviceSections,
   type RiverSheetData,
 } from '../../../eddy-ios/src/components/map-sheet/riverTabs';
 
@@ -44,6 +45,23 @@ function gauge(siteId: string, isPrimary = false): RiverSheetData['gauges'][numb
   return { siteId, name: `Gauge ${siteId}`, code: 'good', reading: '385 cfs', isPrimary };
 }
 
+function service(id: string, over: Partial<RiverService> = {}): RiverService {
+  return {
+    id,
+    name: `Service ${id}`,
+    type: 'outfitter',
+    phone: null,
+    website: null,
+    city: null,
+    state: 'MO',
+    latitude: null,
+    longitude: null,
+    description: null,
+    servicesOffered: [],
+    ...over,
+  } as RiverService;
+}
+
 function river(over: Partial<RiverSheetData> = {}): RiverSheetData {
   return {
     slug: 'current',
@@ -53,6 +71,7 @@ function river(over: Partial<RiverSheetData> = {}): RiverSheetData {
     gauges: [],
     accesses: [],
     hazards: [],
+    services: [],
     ...over,
   };
 }
@@ -83,15 +102,9 @@ test('two gauges earn Conditions, because they can disagree', () => {
   assert.ok(keys(r).includes('conditions'));
 });
 
-test('one access point is a place to stand, not a float', () => {
+test('any access point earns the Accesses tab', () => {
   const r = river({ accesses: [access('a', 0)] });
   assert.ok(keys(r).includes('accesses'));
-  assert.ok(!keys(r).includes('floats'));
-});
-
-test('two access points make a float', () => {
-  const r = river({ accesses: [access('a', 0), access('b', 8)] });
-  assert.ok(keys(r).includes('floats'));
 });
 
 test('hazards earn their tab only when there are some', () => {
@@ -104,17 +117,93 @@ test('order is fixed', () => {
     gauges: [gauge('07064533', true), gauge('07067000')],
     accesses: [access('a', 0), access('b', 8)],
     hazards: [hazard('h1')],
+    services: [service('s1')],
   });
-  assert.deepEqual(keys(r), ['conditions', 'floats', 'accesses', 'hazards']);
+  assert.deepEqual(keys(r), ['conditions', 'services', 'accesses', 'hazards']);
 });
 
 test('a single-gauge river with places to go still has tabs', () => {
   // The empty case is specifically "one gauge AND nothing else". Losing
-  // Conditions must not cost a river its Floats or its Hazards.
+  // Conditions must not cost a river its Accesses or its Hazards.
   const r = river({
     gauges: [gauge('07064533', true)],
     accesses: [access('a', 0), access('b', 8)],
     hazards: [hazard('h1')],
   });
-  assert.deepEqual(keys(r), ['floats', 'accesses', 'hazards']);
+  assert.deepEqual(keys(r), ['accesses', 'hazards']);
+});
+
+/* ── Camping & outfitters ───────────────────────────────────────────────── */
+
+test('no services, no tab', () => {
+  assert.ok(!keys(river()).includes('services'));
+});
+
+test('one outfitter earns the tab', () => {
+  assert.ok(keys(river({ services: [service('s1')] })).includes('services'));
+});
+
+test('a river whose only services are closed does NOT earn the tab', () => {
+  // The reason the gate asks serviceSections rather than counting rows: a tab
+  // that opens onto three absent sections is the "present and empty" promise
+  // the registry exists to prevent.
+  const r = river({
+    services: [
+      service('s1', { status: 'permanently_closed' }),
+      service('s2', { status: 'temporarily_closed' }),
+    ],
+  });
+  assert.deepEqual(serviceSections(r.services), []);
+  assert.ok(!keys(r).includes('services'));
+});
+
+test('unverified is drawn — it means nobody re-checked, not that it is gone', () => {
+  const r = river({ services: [service('s1', { status: 'unverified' })] });
+  assert.ok(keys(r).includes('services'));
+});
+
+test('sections are Campgrounds, Rentals & shuttles, Cabins & lodges in that order', () => {
+  const sections = serviceSections([
+    service('camp', { type: 'campground' }),
+    service('rent', { type: 'outfitter' }),
+    service('cabin', { type: 'cabin_lodge' }),
+  ]);
+  assert.deepEqual(
+    sections.map((s) => s.title),
+    ['Campgrounds', 'Rentals & shuttles', 'Cabins & lodges'],
+  );
+});
+
+test('an empty section is dropped, not drawn as a heading over nothing', () => {
+  const sections = serviceSections([service('camp', { type: 'campground' })]);
+  assert.deepEqual(
+    sections.map((s) => s.title),
+    ['Campgrounds'],
+  );
+});
+
+test('one business can appear in two sections, because it answers two questions', () => {
+  // serviceTiers is a SET and 42% of the directory is in more than one tier. A
+  // list is not a map: the duplicate-pin rule that makes the lodging LAYER drop
+  // what rentals draws has no equivalent here, and de-duplicating would hide a
+  // real answer to one of the two questions.
+  const outfitterWithCabins = service('s1', {
+    type: 'outfitter',
+    servicesOffered: ['canoe_rental', 'cabins'],
+  });
+  const sections = serviceSections([outfitterWithCabins]);
+  assert.deepEqual(
+    sections.map((s) => s.title),
+    ['Rentals & shuttles', 'Cabins & lodges'],
+  );
+});
+
+test('a service with no coordinates is still listed', () => {
+  // The whole reason mappableService is not applied here: most of the directory
+  // has no confirmed location, and a list is where those stay reachable.
+  const sections = serviceSections([
+    service('s1', { type: 'campground', latitude: null, longitude: null }),
+  ]);
+  assert.equal(sections.length, 1);
+  assert.equal(sections[0].rows.length, 1);
 });
