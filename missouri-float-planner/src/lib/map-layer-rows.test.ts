@@ -206,18 +206,16 @@ test('the note and the row count come from the same resolve', () => {
   assert.equal(drawnAsRamps, ramps.ownedMarkers);
 });
 
-test('the sheet asks the resolver for the note rather than recomputing it', () => {
-  // The failure this file exists to prevent is a second derivation beside the
-  // count — the exact shape of the drift ADR 0008 records. A component that
-  // built its own sentence out of `layers.includes(...)` would pass every test
-  // above and still be able to disagree with the number next to it.
+test('the sheet does not expand access filters with accounting prose', () => {
+  // The resolver retains these statistics for data integrity, but the compact
+  // layer sheet no longer explains marker ownership underneath an active row.
   const screen = readFileSync(
     join(process.cwd(), '../eddy-ios/app/(tabs)/index.tsx'),
     'utf8',
   );
   assert.ok(
-    screen.includes('accessOverlapNote('),
-    'the map screen should render the resolver’s note',
+    !screen.includes('accessOverlapNote('),
+    'the map screen should not render an active-state access note',
   );
 });
 

@@ -20,24 +20,21 @@
 // Still chips rather than switches, per README.md's ruling: these genuinely
 // mean "narrow to this", where the row above them means "also draw this".
 //
-// ── Counts are viewport-scoped, and the heading says so ─────────────────────
-// Everything here counts what is currently on screen, because that is what the
-// layer holds; it never claims to count the country. The heading reads "Gauges
-// in view" so a count of 3 next to a national dataset is not a lie. Zeroes stay
+// Counts are viewport-scoped because that is what the layer holds. Zeroes stay
 // visible and tappable, as everywhere else in this app.
 //
 // The caller passes the layer's DRAWABLE population — curated gauges already
 // removed — and not the raw viewport response. That is load-bearing, not tidy:
 // counting the response meant every number here included pins this layer will
 // never draw, and it is the same mismatch that made the old "Eddy-rated" chip
-// report "Showing 12 gauges" over an empty map.
+// report matches over an empty map.
 //
 // ── Two chips that could not work, removed ──────────────────────────────────
 // "Eddy-rated" and "Following" used to sit at the head of this strip, and both
 // matched exactly the gauges this layer excludes: the screen drops `curated`
 // pins before drawing, so selecting either produced an empty intersection every
-// time — no pins, a 0 in the layers sheet, and a cheerful "Showing 12 gauges"
-// here. "Eddy-rated" is a SCOPE (it is the layer row above this one, now named
+// time — no pins and a 0 in the layers sheet. "Eddy-rated" is a SCOPE (it is
+// the layer row above this one, now named
 // so), never a trait of the layer that is defined as its complement, and every
 // starrable gauge in the app is starred from that row's callout. Narrowing the
 // rated tier is a job for a filter under the rated tier, not for this one.
@@ -124,10 +121,6 @@ interface Props {
    * silent zero.
    */
   belowMinZoom?: boolean;
-  /** The server dropped low-flow gauges to meet its cap. */
-  capped?: boolean;
-  /** How many were in the viewport before the cap. Only read when capped. */
-  total?: number;
 }
 
 function GaugeFilterBarComponent({
@@ -136,8 +129,6 @@ function GaugeFilterBarComponent({
   onToggle,
   onClear,
   belowMinZoom = false,
-  capped = false,
-  total = 0,
 }: Props) {
   const { colors } = useTheme();
 
@@ -167,32 +158,10 @@ function GaugeFilterBarComponent({
   ];
 
   const filtering = active.size > 0;
-  const matching = filtering ? applyGaugeFilters(gauges, active).length : gauges.length;
-
-  // Nothing is drawn and nothing has been fetched, so there is nothing to
-  // narrow — chips over an empty set are five zeroes and a reason nobody gave.
-  // The one useful thing to say here is what would make the layer work.
-  if (belowMinZoom) {
-    return (
-      <View style={[styles.bar, { borderLeftColor: colors.border }]}>
-        <Text style={[styles.hint, { color: colors.textSubtle }]}>
-          Zoom in slightly to see USGS gauges.
-        </Text>
-      </View>
-    );
-  }
+  if (belowMinZoom) return null;
 
   return (
     <View style={[styles.bar, { borderLeftColor: colors.border }]}>
-      <View style={styles.head}>
-        {/* "in view", not "nationwide". The layer only ever holds the viewport,
-            and a heading that implied otherwise would make every count wrong. */}
-        <Text style={[styles.heading, { color: colors.textMuted }]}>Narrow to</Text>
-        <Text style={[styles.subheading, { color: colors.textSubtle }]}>
-          {gauges.length} in view
-        </Text>
-      </View>
-
       <FilterChips
         chips={chips}
         active={[...active]}
@@ -207,32 +176,8 @@ function GaugeFilterBarComponent({
           accessibilityLabel="Clear gauge filter"
           style={({ pressed }) => [styles.status, { opacity: pressed ? 0.7 : 1 }]}
         >
-          <Text style={[styles.statusText, { color: colors.text }]}>
-            Showing {matching} {matching === 1 ? 'gauge' : 'gauges'}
-          </Text>
-          <Text style={[styles.statusText, { color: colors.interactive }]}>Clear ×</Text>
+          <Text style={[styles.statusText, { color: colors.interactive }]}>Clear filters ×</Text>
         </Pressable>
-      ) : (
-        // "hide", not "dim". Copied from ConditionFilterBar, where dimming is
-        // literally what happens — a filtered-out RIVER keeps its tap target so
-        // the map does not read as broken. This layer genuinely removes: it is
-        // thousands of interchangeable dots with no selection riding on them,
-        // and dimming them all to 0.16 leaves a grey haze that is harder to read
-        // than an honest empty patch. The copy now matches the code.
-        <Text style={[styles.hint, { color: colors.textSubtle }]}>
-          Tap a filter to hide the rest
-        </Text>
-      )}
-
-      {/* THE CAP, SAID OUT LOUD. The server drops the lowest-discharge gauges
-          when the request's row budget is exceeded — a rated gauge can never
-          be dropped, because they are ordered first. The opening overview asks
-          for the server's larger budget, while close views use the smaller one;
-          either can still cap on a deliberately broad viewport. */}
-      {capped ? (
-        <Text style={[styles.hint, { color: colors.textSubtle }]}>
-          {total.toLocaleString()} gauges here — more than fit. Zoom in to see them all.
-        </Text>
       ) : null}
     </View>
   );
@@ -250,22 +195,12 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     borderLeftWidth: StyleSheet.hairlineWidth,
   },
-  head: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 0,
-    marginBottom: 6,
-  },
-  heading: { ...t.xs, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.6 },
-  subheading: { ...t.xs, fontFamily: fonts.body },
   status: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     paddingHorizontal: 0,
     paddingTop: 8,
   },
   statusText: { ...t.xs, fontFamily: fonts.semibold },
-  hint: { ...t.xs, fontFamily: fonts.body, paddingTop: 6 },
 });

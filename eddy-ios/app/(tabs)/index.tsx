@@ -71,7 +71,6 @@ import type {
 import {
   hasCoordinates,
   PUBLIC_LAND_OWNERSHIP_NOTE,
-  serviceEligible,
 } from '@eddy/types';
 import { boundsForLine } from '@eddy/geo';
 import {
@@ -99,18 +98,10 @@ import {
 } from '@/map/cameraBehavior';
 import { placeSymbol } from '@/components/map-sheet/placeSymbol';
 import { mapUnavailableReason } from '@/map/runtime';
-import { mappableService } from '@/map/mappable';
-import {
-  accessOverlapNote,
-  activeRoles,
-  LAYER_ROLE,
-  resolveAccessMarkers,
-  type AccessLayerKey,
-} from '@/map/accessLayers';
-import { serviceOnLayer, SERVICE_LAYER_KEYS } from '@/map/serviceLayers';
+import { activeRoles, resolveAccessMarkers } from '@/map/accessLayers';
+import { SERVICE_LAYER_KEYS } from '@/map/serviceLayers';
 import {
   PUBLIC_LAND_ATTRIBUTION,
-  RADAR_ATTRIBUTION,
   type LayerKey,
 } from '@/map/layers';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
@@ -846,9 +837,8 @@ export default function MapScreen() {
    *
    * Was per-river and re-fetched on every selection, which made both layers
    * empty until a river was chosen and then two or three pins deep. One
-   * statewide request draws all of them — and it now carries the un-geocoded
-   * rows too, because the coverage sentence under each tier counts them. See
-   * /api/services, which says the same thing from the other end.
+   * statewide request draws all of them. It also carries un-geocoded rows so
+   * river pages can list businesses the map cannot place safely.
    *
    * A ref rather than a slug guard: the set is fixed and statewide, so once it
    * has been asked for there is nothing a change of selection could add.
@@ -858,8 +848,8 @@ export default function MapScreen() {
    * `fetchServices` used to answer `[]` when the request failed, and the note
    * here used to say that was why no error branch was needed. It was the
    * reason one WAS: `services` became a non-null empty array, so three layers
-   * reported a confident `0` and the coverage lines vanished — a set of claims
-   * about a directory Eddy had never managed to read. It answers `null` now,
+   * reported a confident `0` about a directory Eddy had never managed to read.
+   * It answers `null` now,
    * `services` stays null, and every count stays `undefined`, which the sheet
    * already draws as absent rather than as zero.
    *
@@ -1525,9 +1515,8 @@ export default function MapScreen() {
       // marker of a camping-and-rentals row — 40 of the directory's rows are
       // both — a pin count would drop by up to forty the moment Campgrounds was
       // switched on, for a reason the sheet never stated and that has nothing to
-      // do with rentals. That is precisely the disease the access family was
-      // cured of; the cure is the same, and `accessOverlapNote` says where the
-      // places went.
+      // do with rentals. Membership stays stable even when another active
+      // layer owns a shared place's marker.
       //
       // `undefined` until the directory lands, exactly as `campgrounds` above:
       // half a total is a number that grows under the reader.
@@ -1563,62 +1552,6 @@ export default function MapScreen() {
     publicLands.loading,
     publicLands.features,
   ]);
-
-  /**
-   * How many services each tier COULD draw, if every one of them had a location.
-   *
-   * ── A SIBLING OF layerCounts, NOT A FIELD IN IT ─────────────────────────
-   * That memo's contract is "a count of pins, and `undefined` until the layer
-   * has answered". Teaching it to also mean "of N" would overload the one rule
-   * the whole file is built around. This inherits the contract and answers a
-   * different question.
-   *
-   * ELIGIBLE BUT NOT MAPPABLE — that is the entire point. The denominator has to
-   * be the rows Eddy WOULD show if it knew where they were, so it excludes the
-   * permanently closed one (which is a policy decision, not a coverage fact) and
-   * includes the 128 with no geocode (which is exactly what the note is about).
-   * Mixing the two would smuggle closure policy into a sentence about locations.
-   *
-   * Statewide, like the services fetch itself — one call, gated on the layers
-   * rather than on a river — so these figures do not move as you pan.
-   */
-  /**
-   * How many of each tier's services have a location, and how many exist.
-   *
-   * ── NOT DERIVED FROM `layerCounts`, AND THAT IS THE FIX ─────────────────
-   *
-   * The first version compared `layerCounts[tier]` against a total counted
-   * here, and those two are not the same population. `layerCounts` reports
-   * PINS, so the lodging tier subtracts whatever the rentals tier is already
-   * drawing — one service is one pin. The total did no such thing. With both
-   * tiers on, 10 of the 13 mappable lodging rows are also rentals, so the note
-   * would have read "3 of 81" where the truth is 13 of 81 — understating the
-   * very number it exists to be honest about.
-   *
-   * Coverage is a fact about the TIER'S DATA, not about which switches happen
-   * to be on, so both halves are counted per tier before any cross-tier
-   * deduplication. The count chip and this note therefore answer different
-   * questions and may differ; the note's wording says "have a confirmed
-   * location" rather than "mapped" so they do not read as contradicting.
-   */
-  const tierCoverage = useMemo<
-    Partial<Record<LayerKey, { located: number; total: number }>>
-  >(() => {
-    if (!services) return {};
-    const eligible = services.filter(serviceEligible);
-    const per = (layer: 'outfitters' | 'lodging' | 'campgrounds') => {
-      const inTier = eligible.filter((s) => serviceOnLayer(s, layer));
-      return { located: inTier.filter(mappableService).length, total: inTier.length };
-    };
-    return {
-      outfitters: per('outfitters'),
-      lodging: per('lodging'),
-      // Services only, unlike the count chip beside it. The access points this
-      // row also draws all have coordinates, so folding them in would dilute a
-      // figure that is entirely about the directory's geocoding gap.
-      campgrounds: per('campgrounds'),
-    };
-  }, [services]);
 
   const conditionCode = drawn?.currentCondition?.code ?? 'unknown';
 
@@ -2469,57 +2402,6 @@ export default function MapScreen() {
         // button on the map. Rendered only while the layer is ON, because
         // chips that narrow a layer nobody is drawing narrow nothing.
         renderLayerDetail={(key, on) => {
-          // ── WHERE THIS ROW'S PLACES ACTUALLY WENT ─────────────────────
-          // The access family's counts are membership, so "Boat ramps · 10"
-          // stays 10 while three of those ten wear tents. A number that holds
-          // still is only honest if the sheet says what happened behind it;
-          // otherwise the reader counts ramp marks, finds seven, and concludes
-          // the map is broken. Built by the resolver rather than recomputed
-          // here, so the sentence and the count come from one pass — see
-          // accessOverlapNote.
-          //
-          // Silent when there is nothing to explain, which is most of the time:
-          // every place wearing its own mark needs no sentence.
-          const role = on ? LAYER_ROLE[key as AccessLayerKey] : undefined;
-          const known =
-            role === 'campground' ? accessFamily.servicesKnown : drawnAccessPoints.length > 0;
-          // ── The service rows need the same sentence, for the same reason ──
-          // Their counts are membership now too, so "River services · 84" holds
-          // still while Campgrounds owns the marker of every row that also
-          // camps. Without the note the reader counts canoes, finds forty
-          // fewer, and concludes the layer is broken.
-          //
-          // Folded into `overlap` rather than returned early, and that is not a
-          // tidying: the coverage line below ("13 of 81 have a confirmed
-          // location") fires for these same two keys, so an early return here
-          // would answer the overlap question by DELETING the geocoding one.
-          // Two facts, two lines, one row — which is exactly the shape the
-          // campgrounds branch below already handles.
-          const serviceOwner =
-            on && key === 'outfitters' ? 'rentals' : on && key === 'lodging' ? 'lodging' : null;
-          const overlap =
-            role && known
-              ? accessOverlapNote(role, accessFamily.statsByRole[role])
-              : serviceOwner && accessFamily.servicesKnown
-                ? accessOverlapNote(serviceOwner, accessFamily.statsByServiceOwner[serviceOwner])
-                : null;
-          if (key === 'access' || key === 'boatRamps') {
-            return overlap ? <LayerNote text={overlap} /> : null;
-          }
-          // ── The one layer a downloaded river cannot carry ──────────────
-          // Radar streams PNGs from a third party. An offline pack holds the
-          // basemap and our own geometry and nothing else, so switching this
-          // on with no signal draws precisely nothing — which reads as broken
-          // rather than as absent. Said on the row, while the switch is under
-          // the thumb that flipped it.
-          if (key === 'weatherRadar' && on) {
-            return (
-              <LayerNote
-                text="Where it is raining now · needs a connection"
-                attribution={RADAR_ATTRIBUTION}
-              />
-            );
-          }
           // ── The caveat, on the control ────────────────────────────────
           // Not only in the callout, because the fill is visible without
           // anyone ever tapping a parcel — and what the fill does NOT mean is
@@ -2533,58 +2415,6 @@ export default function MapScreen() {
               />
             );
           }
-          // ── WHAT THE LAYER IS NOT SHOWING ─────────────────────────────
-          // 128 of the 156 services in Eddy's directory have no confirmed
-          // location, so the Rentals tier draws 12 pins where somebody who
-          // knows the river expects 70. That is the CORRECT behaviour — see
-          // map/mappable.ts, which measured three geocoder near-misses that
-          // each landed on a real but DIFFERENT business, up to 71 miles away —
-          // but a layer that silently draws a sixth of what it promises reads
-          // as broken rather than as careful.
-          //
-          // The clause after the dash is the whole sentence's job. Without it
-          // the reader concludes Eddy's map is faulty instead of that Eddy
-          // declined to guess, and every one of these is still reachable in the
-          // river page's services directory.
-          //
-          // Per tier rather than per row, because renderLayerDetail already
-          // fires per tier and the two are not alike: rentals is 12 of 70 and
-          // cabins is 2 of 41. One combined figure would hide which is thin.
-          if (on && (key === 'outfitters' || key === 'lodging' || key === 'campgrounds')) {
-            const coverage = tierCoverage[key];
-            // Absent until the fetch lands, and silent when coverage is total —
-            // a layer drawing everything it knows about has nothing to explain.
-            const gap = coverage && coverage.total > coverage.located ? coverage : null;
-            if (!gap && !overlap) return null;
-            // All three service rows can carry BOTH lines, and they are different
-            // facts: one
-            // is about the directory's geocoding, the other about which mark a
-            // place that Eddy CAN place ended up wearing. Coverage first — a row
-            // that is missing places has a bigger problem than a row whose places
-            // moved.
-            //
-            // The second line is silent TODAY, and wired anyway: the campground
-            // role is first in MARK_PRIORITY, so while this row is on it owns
-            // every place it matches and has nothing to explain. That is a fact
-            // about a constant in another module, and a sheet that went quiet if
-            // somebody reordered it is the drift this whole change is about.
-            return (
-              <>
-                {gap ? (
-                  // "have a confirmed location", not "mapped". The count chip on
-                  // the row above counts places and this counts ROWS, and they
-                  // legitimately differ — a cabin-renting outfitter is one pin
-                  // under Rentals and still a located lodging row. Two different
-                  // words for two different questions, so neither looks like it
-                  // is contradicting the other.
-                  <LayerNote
-                    text={`${gap.located} of ${gap.total} have a confirmed location — the rest are listed on the river page.`}
-                  />
-                ) : null}
-                {overlap ? <LayerNote text={overlap} /> : null}
-              </>
-            );
-          }
           return key === 'allGauges' && on ? (
             <GaugeFilterBar
               // The DRAWABLE set, not the raw response — see layerGauges. Every
@@ -2592,8 +2422,6 @@ export default function MapScreen() {
               gauges={layerGauges}
               active={gaugeFilter}
               belowMinZoom={referenceGauges.belowMinZoom}
-              capped={referenceGauges.capped}
-              total={referenceGauges.total}
               onToggle={(k) =>
                 setGaugeFilter((prev) => {
                   const next = new Set(prev);

@@ -553,7 +553,7 @@ export const MAP_LAYERS: LayerDef[] = [
     // No `tierLabel`: a row is its own context, so `label` says it once.
     accessibilityHint: 'Cabins, lodge rooms, and cottages',
     icon: 'bed-outline',
-    tierSymbol: 'lodging',
+    symbol: 'lodging',
     // ── The cabin mark distinguishes the tier; colour stays neutral ───────
     // The obvious choice is a deeper step of the tan the row already wears, and
     // the secondary scale has no such step — it is 500/200/100/50, and 500 IS
