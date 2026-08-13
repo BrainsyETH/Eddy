@@ -190,6 +190,7 @@ test('the registry splits release from downstream gauges; the wire does not', ()
 
   const snapshot = buildSnapshot(registry, {}, []);
   assert.equal(snapshot.tailwater?.gaugeSiteId, registry.tailwater?.downstreamGaugeSiteIds[0]);
+  assert.ok(registry.tailwater?.downstreamGaugeSiteIds.length, 'Clearwater has a gauge below it — the omit path is exercised elsewhere');
   assert.deepEqual(
     Object.keys(snapshot.tailwater!).sort(),
     ['gaugeSiteId', 'riverSlug', 'sectionSlug'],

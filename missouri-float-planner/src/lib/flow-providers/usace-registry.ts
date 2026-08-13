@@ -157,8 +157,21 @@ export interface UsaceDam {
      * A gauge here is NOT thereby endorsed as representative of the whole
      * reach. Distance and intervening inflows are recorded in the dossier and
      * in river_gauges, not flattened away by appearing in this list.
+     *
+     * MAY BE EMPTY, with `noDownstreamGaugeReason` set. Requiring at least one
+     * would be the same mistake as requiring three capacity figures: a
+     * mandatory field is answered, and the way you answer it when the honest
+     * answer is "none" is by reaching for the closest unsuitable thing. Some
+     * tailwaters genuinely have no gauge below them — Bull Shoals has none for
+     * its first 45 miles, and a shorter reach could have none at all.
      */
     downstreamGaugeSiteIds: string[];
+    /**
+     * Why the list above is empty. Required when it is, so that "none found"
+     * is a recorded research result rather than an unfinished field — the
+     * distinction the whole process turns on.
+     */
+    noDownstreamGaugeReason?: string;
     sectionSlug?: string;
   };
   /**

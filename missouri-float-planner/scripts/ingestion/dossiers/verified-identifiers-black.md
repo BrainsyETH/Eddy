@@ -36,26 +36,15 @@ Primary-source transcription from the USGS Site Service + NWPS, owner-provided
 ## USACE tailwater (added 2026-08-13)
 
 Clearwater Dam's release was wired to this river by migration `00198` after
-this file was written, so its identifiers were never recorded here. Captured
-now, because the identifier gate is only a gate if it covers everything that
-reached a registry — see `verified-identifiers-tailwater-swl-bull-shoals-dam.md`
-for the same set on the second tailwater.
+this file was written, so its identifiers were never recorded anywhere. They now
+live in **`verified-identifiers-tailwater-swl-clearwater-dam.md`**, which is the
+authority for the dam, its CWMS location, and 07063000's role as the gauge below
+it — one home per fact, so the two files cannot drift into disagreeing.
 
-### `swl-clearwater-dam` — Black River below Clearwater Dam ✅
-- CWMS office `SWL`, location `Clearwater_Dam`; registered as a
-  `provider='usace'` gauge station whose discharge is the dam's total release.
-- No SWPA code: flood control only, no powerhouse. Correctly absent, not missing.
-
-### 07063000 — Black River at Poplar Bluff, MO ✅
-- The tailwater gauge for the Clearwater release; ~40 river miles below the dam.
-- **drainage 1,245 sq mi**, verified on the USGS site service 2026-08-13.
-- Clearwater Dam's own drainage area is **UNKNOWN** here — not looked up on a
-  primary source, so not written down as though it were. It is the missing half
-  of the post-confluence ratio below, and `drainage_area_sqmi` on the release
-  station stays null until someone reads it off a USACE document.
-- What is measured rather than inferred: 3,561 cfs released against 3,380 gauged
-  on 2026-07-27, ~40 river miles apart — 5%, which is why this gauge is a fair
-  description of that release.
+Relevant to this river specifically: 07063000 (Black River at Poplar Bluff)
+carries the Clearwater release ~40 miles down and was measured within 5% of it
+on 2026-07-27. It is a Black River gauge as well as a tailwater gauge, which is
+why it appears in both files and is verified in one.
 
 ## Ingest readiness / ACTION
 - Float reach (Lesterville→Annapolis) representative = 07061500 Annapolis (active). 07061400 is DEAD.

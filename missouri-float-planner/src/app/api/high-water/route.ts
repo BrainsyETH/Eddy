@@ -63,10 +63,26 @@ export interface HighWaterEntry {
   conditionCode: ConditionCode;
   /** The ladder's own words for the code, e.g. "High Water - Use Caution". */
   conditionLabel: string;
+  /**
+   * The reading behind `conditionCode`, from the station that produced it.
+   *
+   * Value, unit and age travel together and come from ONE place. A dam row
+   * used to mix them — the code from a downstream gauge, the number from the
+   * dam's release, the age from the gauge again — which reads as a single
+   * measurement and is three. That was survivable while the only tailwater had
+   * one gauge 40 miles down agreeing within 5%; it stopped being survivable on
+   * a reach whose nearest gauge is 45 miles down and below another dam.
+   */
   readingValue: number | null;
   readingUnit: 'ft' | 'cfs' | null;
   /** How old the reading is, in hours. Null when the station published none. */
   readingAgeHours: number | null;
+  /**
+   * Dam release, for a dam row only — a SEPARATE fact from the reading above,
+   * measured at the dam rather than at the gauge that triggered the row.
+   * Present so a client can show both; never to be merged into the reading.
+   */
+  damReleaseCfs?: number | null;
   /** Where tapping this goes, as an app route. */
   riverSlug: string | null;
   siteId: string | null;
@@ -171,9 +187,15 @@ export async function GET(request: NextRequest) {
           subtitle: [d.lakeName, d.generating ? 'generating' : null].filter(Boolean).join(' · ') || null,
           conditionCode: station?.conditionCode ?? 'high',
           conditionLabel: conditionDef(station?.conditionCode ?? 'high').longLabel,
-          readingValue: release ? release.value : (station?.readingValue ?? null),
-          readingUnit: release ? 'cfs' : (station?.readingUnit ?? null),
+          // All three from the gauge that triggered this row. The release is
+          // carried separately below rather than substituted in here: on a long
+          // tailwater the two describe water miles apart, with tributaries and
+          // another dam's outflow in between, and pairing one's verdict with
+          // the other's number invents a measurement nobody took.
+          readingValue: station?.readingValue ?? null,
+          readingUnit: station?.readingUnit ?? null,
           readingAgeHours: station?.readingAgeHours ?? null,
+          damReleaseCfs: release ? release.value : null,
           riverSlug: d.tailwater?.riverSlug ?? null,
           // The gauge that actually put this row on the list, which is not
           // necessarily the nearest one the wire advertises.

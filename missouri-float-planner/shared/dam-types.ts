@@ -106,7 +106,17 @@ export interface DamScheduleDay {
   scheduleDate: string;
   /** 24 entries, hour-ending 1..24. */
   hours: ScheduledHour[];
-  /** Contiguous idle stretches — the wading windows. */
+  /**
+   * Contiguous generation-idle stretches.
+   *
+   * NOT "wading windows", which is what this said until a tailwater with eight
+   * peaking units made the difference matter. The schedule describes a
+   * powerhouse. Non-power release continues while the units are idle, water
+   * released hours ago is still moving downstream, and neither is visible
+   * here — so an idle hour is a fact about generation and a guess about the
+   * river. dam-schedule-copy.ts holds the same line in user-facing wording
+   * ("Generation off", never "Water off"); this is the contract saying it too.
+   */
   idle: Array<{ from: number; to: number }>;
   /**
    * When EDDY FETCHED this schedule — not when SWPA posted it, which the source
@@ -127,7 +137,7 @@ export interface DamScheduleDay {
 export interface DamTailwater {
   riverSlug: string;
   /**
-   * The NEAREST gauge below the dam.
+   * The NEAREST gauge below the dam, when there is one.
    *
    * The registry behind this splits two things the wire does not: the dam's
    * own release, and the list of gauges measuring the water below it. A
@@ -136,8 +146,12 @@ export interface DamTailwater {
    * list asks the registry (`tailwaterGaugeSiteIds`). Widen this only when a
    * client actually has something to do with the second gauge — an extra key
    * no screen reads is a contract to maintain for nothing.
+   *
+   * ABSENT when the tailwater has no downstream gauge at all — a real shape,
+   * not an error, and one iOS already handles (the dam screen tests for the
+   * field before offering a gauge link).
    */
-  gaugeSiteId: string;
+  gaugeSiteId?: string;
   /**
    * The `river_sections` reach the release actually lands in, when the river
    * carries more than one.

@@ -150,7 +150,7 @@ test('finds the idle windows an angler can wade', () => {
 
 test('a project generating every hour has no idle window', () => {
   const day = parseSchedulePage(FIXTURE)!;
-  // KEY held 35 MW all 24 hours on this day — no wading window, and the
+  // KEY held 35 MW all 24 hours on this day — no idle stretch at all, and the
   // function must say so rather than inventing one.
   assert.deepEqual(idleWindows(day.projects.KEY), []);
 });

@@ -183,14 +183,42 @@ WHERE r.active = true AND rg.is_primary = true
 -- downstream gauge would read as gauged while nothing published its release.
 UNION ALL
 SELECT r.slug, 'tailwater_no_release_source', 'error',
-       'river_type is dam_tailwater but no active USACE release station is linked — the reach has no source for the flow that actually drives it'
+       'river_type is dam_tailwater but no active gauge is linked with role = release — the reach has no source for the flow that actually drives it'
 FROM rivers r
 WHERE r.active = true AND r.river_type = 'dam_tailwater'
   AND NOT EXISTS (
       SELECT 1 FROM river_gauges rg
       JOIN gauge_stations gs ON gs.id = rg.gauge_station_id
-      WHERE rg.river_id = r.id AND gs.active = true AND gs.provider = 'usace'
+      WHERE rg.river_id = r.id AND gs.active = true AND rg.role = 'release'
   )
+
+-- NEW: the tailwater must name the dam it is below…
+UNION ALL
+SELECT r.slug, 'tailwater_no_controlling_dam', 'error',
+       'river_type is dam_tailwater but rivers.controlling_dam_id is null — nothing states which project''s release this reach carries'
+FROM rivers r
+WHERE r.active = true AND r.river_type = 'dam_tailwater'
+  AND (r.controlling_dam_id IS NULL OR r.controlling_dam_id = '')
+
+-- …and the release attached to it must be that dam's.
+--
+-- The check `provider = 'usace'` could not make: it proves a row came from the
+-- Corps, not that it came from THIS project. Norfork Dam is also SWL, also
+-- usace, and also releases into this same river 45 miles downstream — so on
+-- the one river where the mistake is easiest to make, the old rule would have
+-- passed it.
+UNION ALL
+SELECT r.slug, 'tailwater_release_wrong_dam', 'error',
+       'release gauge ' || COALESCE(gs.site_id_external, gs.name) ||
+       ' does not belong to ' || r.controlling_dam_id ||
+       ' — this reach would describe another project''s water'
+FROM river_gauges rg
+JOIN rivers r ON r.id = rg.river_id
+JOIN gauge_stations gs ON gs.id = rg.gauge_station_id
+WHERE r.active = true AND r.river_type = 'dam_tailwater'
+  AND rg.role = 'release'
+  AND r.controlling_dam_id IS NOT NULL
+  AND gs.site_id_external IS DISTINCT FROM r.controlling_dam_id
 
 -- NEW: release freshness, tighter than the 24h stale_gauge warning below.
 -- CWMS publishes hourly and usace-registry defaults to an 8h lookback, so 12h
@@ -213,21 +241,34 @@ WHERE r.active = true AND r.river_type = 'dam_tailwater'
   AND gs.active = true AND gs.provider = 'usace'
   AND (latest.max_ts IS NULL OR latest.max_ts < now() - interval '12 hours')
 
--- NEW: the badge hazard, named rather than prevented (see the header note).
--- computeCondition() is river_type-blind, so any threshold on a tailwater's
--- primary gauge is live and grading dam-release cfs with float-condition
--- vocabulary. That may eventually be correct — once a local rating exists —
--- which is why this warns instead of blocking.
+-- NEW: an ungated condition badge on a tailwater. ERROR, and unwaivable by
+-- construction — the only way past it is an approval that carries provenance.
+--
+-- This was a warning in an earlier draft, on the reasoning that thresholds
+-- might one day be correct here and an error would block a legitimate future
+-- state. That reasoning was wrong in the direction that matters. A waivable
+-- finding is a suppressible one, and what it suppresses is a condition badge
+-- grading release-at-dam cfs with float vocabulary, read by someone deciding
+-- whether to stand in the water. `computeCondition()` is river_type-blind and
+-- grades whatever it is handed, so nothing downstream catches this.
+--
+-- The future state still has its path: populate condition_rating_approved_by,
+-- _at and _source (migration 20260812210000) with the location-specific rating
+-- that justifies the numbers. Approval with provenance is a different act from
+-- clearing an error, which is the whole point of requiring all three.
 UNION ALL
-SELECT r.slug, 'tailwater_badge_ungated', 'warning',
-       'primary gauge ' || gs.name || ' carries thresholds on a dam_tailwater river — the condition badge is grading release-at-dam values as float conditions. Confirm a local rating supports that, or clear the thresholds.'
+SELECT r.slug, 'tailwater_badge_ungated', 'error',
+       'gauge ' || gs.name || ' carries thresholds on a dam_tailwater river with no approved condition rating — the badge would grade release values as float conditions. Clear the thresholds, or record condition_rating_approved_by/_at/_source for the local rating that justifies them.'
 FROM river_gauges rg
 JOIN rivers r ON r.id = rg.river_id
 JOIN gauge_stations gs ON gs.id = rg.gauge_station_id
-WHERE r.active = true AND r.river_type = 'dam_tailwater' AND rg.is_primary = true
+WHERE r.active = true AND r.river_type = 'dam_tailwater'
   AND (rg.level_too_low IS NOT NULL OR rg.level_low IS NOT NULL
        OR rg.level_optimal_min IS NOT NULL OR rg.level_optimal_max IS NOT NULL
        OR rg.level_high IS NOT NULL OR rg.level_dangerous IS NOT NULL)
+  AND (rg.condition_rating_approved_by IS NULL
+       OR rg.condition_rating_approved_at IS NULL
+       OR rg.condition_rating_source IS NULL)
 
 -- NEW: the primary gauge of a tailwater must be its release.
 --
@@ -238,36 +279,43 @@ WHERE r.active = true AND r.river_type = 'dam_tailwater' AND rg.is_primary = tru
 -- White River, after a second dam.
 UNION ALL
 SELECT r.slug, 'tailwater_primary_not_release', 'error',
-       'primary gauge ' || gs.name || ' is a ' || gs.provider ||
-       ' station, not this tailwater''s release — the river''s headline flow would describe water measured downstream rather than what the dam let out'
+       'primary gauge ' || gs.name || ' has role ' || COALESCE(rg.role, 'none') ||
+       ', not release — the river''s headline flow would describe water measured downstream rather than what the dam let out'
 FROM river_gauges rg
 JOIN rivers r ON r.id = rg.river_id
 JOIN gauge_stations gs ON gs.id = rg.gauge_station_id
 WHERE r.active = true AND r.river_type = 'dam_tailwater' AND rg.is_primary = true
-  AND gs.provider IS DISTINCT FROM 'usace'
+  AND rg.role IS DISTINCT FROM 'release'
 
--- NEW: a downstream gauge that carries another basin's water.
+-- NEW: a downstream gauge draining materially more than the dam releases.
 --
--- Drainage area is the arithmetic that makes this checkable rather than
+-- Named for what it MEASURES, not for what it suggests. An earlier draft called
+-- this `post_confluence`, which is the inference rather than the observation —
+-- and a check named after its own conclusion is how a heuristic quietly
+-- becomes a fact. Extra drainage may mean a major confluence; it may also mean
+-- a long reach of ordinary tributary inflow. The finding says what it saw.
+--
+-- Drainage area is the arithmetic that makes it checkable rather than
 -- editorial. Bull Shoals releases 6,050 sq mi of drainage; USGS 07057370 reads
--- 8,040 because it sits below the North Fork confluence and carries Norfork
--- Dam's releases too, and 07060500 reads 9,980 having also taken the Buffalo.
--- Both are useful for the reaches they sit on and neither describes the water
--- below the dam.
+-- 8,040 having taken the North Fork — which is another dam's releases — and
+-- 07060500 reads 9,980 having also taken the Buffalo. Both are useful for the
+-- reaches they sit on and neither describes the water below the dam.
 --
--- 10% is where local runoff stops being the explanation. Every gauge below a
--- dam picks up some drainage — that is what made Poplar Bluff a fair 5% read of
--- Clearwater — so a small excess is normal and a third is a different river.
+-- 10% is a heuristic calibrated on the one pair Eddy has measured end to end:
+-- Clearwater released 3,561 cfs while Poplar Bluff read 3,380, ~5% apart, and
+-- that gauge drains about a third more than the dam. So the threshold is a
+-- prompt to look, not a boundary between safe and unsafe.
 --
 -- A warning, not an error: carrying such a gauge is correct, and the primary
 -- rule above already blocks the dangerous version. What this refuses to allow
--- is carrying one SILENTLY, with its bias recorded only in a migration comment
--- nobody reads at activation time. Waive it deliberately or fix the wiring.
+-- is carrying one SILENTLY, with its divergence recorded only in a migration
+-- comment nobody reads at activation time.
 UNION ALL
-SELECT r.slug, 'tailwater_gauge_post_confluence', 'warning',
+SELECT r.slug, 'tailwater_gauge_drainage_divergence', 'warning',
        'gauge ' || gs.name || ' drains ' || round(gs.drainage_area_sqmi) ||
        ' sq mi against the release''s ' || round(rel.drainage_area_sqmi) ||
-       ' — it carries water this dam did not release and must not be presented as conditions below the dam'
+       ' (+' || round((gs.drainage_area_sqmi / rel.drainage_area_sqmi - 1) * 100) ||
+       '%) — it carries water this dam did not release, which may indicate tributary or confluence influence. Confirm what reach it may represent before any surface presents it as conditions below the dam.'
 FROM river_gauges rg
 JOIN rivers r ON r.id = rg.river_id
 JOIN gauge_stations gs ON gs.id = rg.gauge_station_id
@@ -275,12 +323,11 @@ JOIN LATERAL (
     SELECT gs2.drainage_area_sqmi
     FROM river_gauges rg2
     JOIN gauge_stations gs2 ON gs2.id = rg2.gauge_station_id
-    WHERE rg2.river_id = r.id AND gs2.provider = 'usace'
-    ORDER BY gs2.drainage_area_sqmi NULLS LAST
+    WHERE rg2.river_id = r.id AND rg2.role = 'release'
     LIMIT 1
 ) rel ON true
 WHERE r.active = true AND r.river_type = 'dam_tailwater'
-  AND gs.provider IS DISTINCT FROM 'usace'
+  AND rg.role = 'downstream'
   AND gs.drainage_area_sqmi IS NOT NULL
   AND rel.drainage_area_sqmi IS NOT NULL
   AND gs.drainage_area_sqmi > rel.drainage_area_sqmi * 1.10

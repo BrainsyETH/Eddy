@@ -453,10 +453,14 @@ export async function fetchProjectSchedule(
 }
 
 /**
- * The contiguous idle stretches in a day's schedule, as hour-ending ranges.
- * This is the "best wading window" a tailwater angler is actually looking for,
- * and it rests only on the on/off pattern — the part of the schedule that
+ * The contiguous GENERATION-IDLE stretches in a day's schedule, as hour-ending
+ * ranges. It rests only on the on/off pattern — the part of the schedule that
  * measured exact, rather than the ±10% cfs estimate.
+ *
+ * It is the thing a tailwater angler is looking for and it is NOT a wading
+ * window, which is what this comment used to call it. Idle means the turbines
+ * are scheduled off; it does not mean the river is low. Non-power release
+ * continues, and water released hours ago is still on its way down.
  */
 export function idleWindows(schedule: ProjectSchedule): Array<{ from: number; to: number }> {
   const windows: Array<{ from: number; to: number }> = [];

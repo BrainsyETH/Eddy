@@ -32,10 +32,12 @@
 -- the regime's correct shape and not a gap to be filled in later by guessing.
 --
 -- ── Ordering ───────────────────────────────────────────────────────────────
--- This migration NEEDS the river row, which the NHD import creates (slug
--- white-river-bull-shoals, mode 'insert', trimmed dam→Guion). Every insert
--- below is guarded on that row existing, so applying this first is a harmless
--- no-op rather than an error — run the geometry import, then re-run this.
+-- This migration NEEDS the river row created by 20260812225000 (the NHD
+-- geometry migration), and NEEDS the columns added by 20260812210000 (gauge
+-- roles). Timestamps order them correctly. If the river is missing anyway, the
+-- invariant block below RAISES rather than skipping: migrations run once and
+-- are recorded as applied, so a tolerant no-op would leave the river silently
+-- ungauged while the deploy reported success.
 
 -- ── The release station ────────────────────────────────────────────────────
 -- site_id_external matches the key in usace-registry.ts, as 00198 established.
@@ -76,16 +78,22 @@ set curated = true, active = true
 where provider = 'usgs'
   and site_id_external in ('07057370', '07060500');
 
--- ── Drainage areas, because they are the post-confluence evidence ──────────
--- tailwater_gauge_post_confluence compares each downstream gauge's drainage
--- against the release's, which turns "this gauge carries Norfork's water too"
--- from a sentence in a comment into a number the validator can act on. Without
--- these the check is silently skipped (it guards on NOT NULL), so the values
--- are part of the wiring rather than nice-to-have metadata.
+-- ── Drainage areas, because they are the divergence evidence ───────────────
+-- tailwater_gauge_drainage_divergence compares each downstream gauge's
+-- drainage against the release's, which turns "this gauge carries Norfork's
+-- water too" from a sentence in a comment into a number the validator can act
+-- on. Without these the check is silently skipped (it guards on NOT NULL), so
+-- the values are part of the wiring rather than nice-to-have metadata.
 --
--- All three verified on the USGS site service 2026-08-12/13. The release's
--- 6,050 is the drainage at 07054502, the station immediately below the dam —
--- which is the dam's own drainage area, and the reason that station exists.
+-- The two USGS values are verified on the USGS site service 2026-08-12/13 and
+-- are attributes of those stations.
+--
+-- The release's 6,050 is a PROXY, and is labelled one here because it is not a
+-- USACE-published attribute of the dam: it is the drainage area USGS records
+-- at 07054502, the station immediately below the dam. That is the standard way
+-- to read a project's drainage and it is almost certainly right to three
+-- figures — but "almost certainly right" and "read off the operator's own
+-- document" are different claims, and the second one has not been made.
 update public.gauge_stations
 set drainage_area_sqmi = 8040
 where provider = 'usgs' and site_id_external = '07057370'
@@ -101,6 +109,14 @@ set drainage_area_sqmi = 6050
 where provider = 'usace' and site_id_external = 'swl-bull-shoals-dam'
   and drainage_area_sqmi is distinct from 6050;
 
+-- ── Name the dam this reach is below ───────────────────────────────────────
+-- Checked against the release gauge's site_id_external at validation, so the
+-- reach cannot be wired to Norfork's outflow 45 miles downstream and pass.
+update public.rivers
+set controlling_dam_id = 'swl-bull-shoals-dam'
+where slug = 'white-river-bull-shoals'
+  and controlling_dam_id is distinct from 'swl-bull-shoals-dam';
+
 -- ── Attach all three to the river ──────────────────────────────────────────
 -- threshold_unit = 'cfs' throughout: the release provider reports discharge and
 -- never a stage (00198 asserts this globally, and that assertion re-runs
@@ -111,22 +127,23 @@ insert into public.river_gauges (
     river_id,
     gauge_station_id,
     is_primary,
+    role,
     threshold_unit,
     distance_from_section_miles
 )
-select r.id, gs.id, v.is_primary, 'cfs', v.distance_mi
+select r.id, gs.id, v.is_primary, v.role, 'cfs', v.distance_mi
 from public.rivers r
 cross join (values
     -- The release. Primary because it is the only measurement of this reach's
     -- flow that exists; distance 0 because it is measured at the dam.
-    ('usace', 'swl-bull-shoals-dam', true,  0.0),
+    ('usace', 'swl-bull-shoals-dam', true,  'release',    0.0),
     -- Nearest live stage/discharge gauge, ~45 river miles down. BIASED HIGH
     -- for this dam: it sits below the North Fork confluence and carries
     -- Norfork Dam's releases too (drainage 8,040 sq mi vs this dam's 6,050).
-    ('usgs',  '07057370',            false, 45.0),
+    ('usgs',  '07057370',            false, 'downstream', 45.0),
     -- ~62 river miles down, below the Buffalo as well. Lower river only.
-    ('usgs',  '07060500',            false, 62.0)
-) as v(provider, site_id, is_primary, distance_mi)
+    ('usgs',  '07060500',            false, 'downstream', 62.0)
+) as v(provider, site_id, is_primary, role, distance_mi)
 join public.gauge_stations gs
   on gs.provider = v.provider and gs.site_id_external = v.site_id
 where r.slug = 'white-river-bull-shoals'
@@ -141,9 +158,14 @@ declare
     v_river uuid;
 begin
     select id into v_river from public.rivers where slug = 'white-river-bull-shoals';
+    -- Fail, do not skip. An earlier draft raised a notice and returned, with a
+    -- comment saying to re-run this migration afterwards — advice to a file
+    -- that will never be executed again. Migrations run once and are recorded
+    -- as applied, so a tolerant no-op here means the inserts above silently
+    -- never happened and the river ships with no gauges at all, looking for
+    -- all the world like a successful deploy.
     if v_river is null then
-        raise notice 'white-river-bull-shoals not present yet — run the NHD geometry import, then re-run this migration';
-        return;
+        raise exception 'white-river-bull-shoals is missing — 20260812225000 (the NHD geometry migration) must be applied first';
     end if;
 
     -- The regime has to be declared, or regime-aware validation grades this
@@ -165,12 +187,24 @@ begin
         raise exception 'white-river-bull-shoals must have exactly one primary gauge';
     end if;
 
+    -- Identity, not provider. 'usace' would also be satisfied by Norfork Dam,
+    -- which releases into this same river 45 miles downstream.
     if not exists (
         select 1 from public.river_gauges rg
         join public.gauge_stations gs on gs.id = rg.gauge_station_id
-        where rg.river_id = v_river and rg.is_primary and gs.provider = 'usace'
+        where rg.river_id = v_river
+          and rg.is_primary
+          and rg.role = 'release'
+          and gs.site_id_external = 'swl-bull-shoals-dam'
     ) then
-        raise exception 'the primary gauge of a dam tailwater must be its release station';
+        raise exception 'the primary gauge of this tailwater must be the swl-bull-shoals-dam release station, with role = release';
+    end if;
+
+    if not exists (
+        select 1 from public.rivers
+        where id = v_river and controlling_dam_id = 'swl-bull-shoals-dam'
+    ) then
+        raise exception 'white-river-bull-shoals must name swl-bull-shoals-dam as its controlling dam';
     end if;
 
     -- No ladder anywhere on this river. If a level appears here later it must

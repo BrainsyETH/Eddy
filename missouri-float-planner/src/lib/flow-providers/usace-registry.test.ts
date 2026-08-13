@@ -156,9 +156,14 @@ test('tailwater links point at a dam that actually reports a release', () => {
   for (const dam of Object.values(USACE_DAMS)) {
     if (!dam.tailwater) continue;
     assert.ok(dam.tailwater.riverSlug, `${dam.id} tailwater has no riverSlug`);
+    // Either it names gauges, or it says why there are none. What it may not
+    // do is leave the question unanswered — a mandatory field gets answered,
+    // and the way it gets answered when the honest answer is "none" is with
+    // the closest unsuitable gauge to hand.
     assert.ok(
-      dam.tailwater.downstreamGaugeSiteIds.length > 0,
-      `${dam.id} tailwater names no downstream gauge`,
+      dam.tailwater.downstreamGaugeSiteIds.length > 0 ||
+        (dam.tailwater.noDownstreamGaugeReason ?? '').trim().length > 10,
+      `${dam.id} tailwater names no downstream gauge and gives no reason — record "none found" and why, or wire one`,
     );
     assert.ok(dam.series.release, `${dam.id} claims a tailwater but reports no release`);
   }

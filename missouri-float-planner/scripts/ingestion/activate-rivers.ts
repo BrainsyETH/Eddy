@@ -65,24 +65,43 @@ async function main() {
     console.log(`  ⌛ ${w.riverSlug}  ${w.checkName}: WAIVER EXPIRED ${w.reviewBy} (${w.owner}) — re-decide it`);
   }
 
-  if (warnings.length) {
-    console.log(
-      `\n⚠️  ${warnings.length} warning(s) are unwaived. Fix them, or record a reason, owner and review date in scripts/ingestion/warning-waivers.ts.`,
-    );
-  }
-
-  // Roll back any river that produced an error (unless dry-run).
-  if (!dry && errors.length) {
-    const bad = Array.from(new Set(errors.map((e) => e.river_slug)));
+  // Roll back on errors OR unwaived warnings.
+  //
+  // Reporting a warning and activating anyway is what this script did before,
+  // and it is indistinguishable from not checking: "every remaining warning is
+  // explicitly waived" is only true if an unwaived one stops the launch. A
+  // warning is cheap to clear — fix it, or write down why it stays.
+  //
+  // ── The first-activation shape, so nobody "fixes" this by loosening it ────
+  // validate_river_data() only evaluates ACTIVE rivers, so this script flips
+  // active=true and reads back. A river being activated for the first time has
+  // therefore never been polled, and `stale_gauge` fires on it every time —
+  // usually alongside missing_characteristics, missing_weather_point and
+  // missing_alert_terms. That is not this gate misfiring. It is the gate
+  // saying the river is not finished, and the answer is to finish it: wire the
+  // gauges, let one cron pass run, fill the characteristics and weather point,
+  // THEN activate. A short-dated waiver is the escape hatch when that ordering
+  // genuinely cannot be met, and it expires by itself.
+  const blocking = [...errors, ...warnings];
+  if (!dry && blocking.length) {
+    const bad = Array.from(new Set(blocking.map((e) => e.river_slug)));
     const { error } = await db.from('rivers').update({ active: false }).in('slug', bad);
     if (error) throw error;
-    console.log(`\n❌ Rolled back to inactive (had errors): ${bad.join(', ')}`);
+    const why = errors.length
+      ? `${errors.length} error(s)` + (warnings.length ? ` and ${warnings.length} unwaived warning(s)` : '')
+      : `${warnings.length} unwaived warning(s)`;
+    console.log(`\n❌ Rolled back to inactive (${why}): ${bad.join(', ')}`);
+    if (warnings.length) {
+      console.log(
+        '   Fix each warning, or record a reason, owner and review date in scripts/ingestion/warning-waivers.ts.',
+      );
+    }
     process.exit(2);
   }
 
   if (!dry) {
-    const active = slugs.filter((s) => !errors.some((e) => e.river_slug === s));
-    console.log(`\n✅ Active & live: ${active.join(', ')}${warnings.length ? '  (with UNWAIVED warnings above)' : ''}`);
+    const active = slugs.filter((s) => !blocking.some((e) => e.river_slug === s));
+    console.log(`\n✅ Active & live: ${active.join(', ')}${waived.length ? `  (${waived.length} waived warning(s) above)` : ''}`);
   }
 }
 

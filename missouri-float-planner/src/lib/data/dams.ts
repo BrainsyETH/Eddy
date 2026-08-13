@@ -451,7 +451,11 @@ export function buildSnapshot(
       ? {
           tailwater: {
             riverSlug: dam.tailwater.riverSlug,
-            gaugeSiteId: dam.tailwater.downstreamGaugeSiteIds[0],
+            // Omitted, not null, when the reach has no downstream gauge —
+            // matching the payload's rule for every other absent thing.
+            ...(dam.tailwater.downstreamGaugeSiteIds[0]
+              ? { gaugeSiteId: dam.tailwater.downstreamGaugeSiteIds[0] }
+              : {}),
             ...(dam.tailwater.sectionSlug ? { sectionSlug: dam.tailwater.sectionSlug } : {}),
           },
         }
@@ -557,7 +561,7 @@ export interface ReleaseForecastPoint {
 export interface RiverDamContext {
   dam: DamSnapshot;
   /** The gauge on this river that the release drives. */
-  tailwaterGaugeSiteId: string;
+  tailwaterGaugeSiteId: string | null;
   /**
    * The Corps' own forward release curve. SWL publishes a DAILY series ~12
    * days out; MVS publishes hourly. Either way it is a forecast, not an
@@ -617,8 +621,9 @@ export async function fetchRiverDam(riverSlug: string): Promise<RiverDamContext 
   return {
     dam,
     // Nearest gauge: this drives the river hub's one dam panel, and the reach
-    // a reader is standing on is the one closest to the release.
-    tailwaterGaugeSiteId: entry.tailwater!.downstreamGaugeSiteIds[0],
+    // a reader is standing on is the one closest to the release. Null when the
+    // tailwater has no gauge below it at all.
+    tailwaterGaugeSiteId: entry.tailwater!.downstreamGaugeSiteIds[0] ?? null,
     forecast,
     forecastIsDaily: series ? series.tsId.includes('~1Day') : false,
   };
