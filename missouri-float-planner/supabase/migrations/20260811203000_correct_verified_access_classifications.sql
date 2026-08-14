@@ -145,10 +145,18 @@ UPDATE public.access_points ap
 -- not invent a second pin.
 --
 -- The pin is restated, not moved — production already carries it, 0.0 m from
--- the value the seed now shows. It sits about 2.5 km WEST of Whistle Bridge
--- while Ha Ha Tonka, the next point downstream, lies east of both, which is
--- what the Tunnel Dam meander looks like from above. `river_mile_downstream`
--- stays at the hand-set 70.0.
+-- the value the seed now shows. It sits about 2.0 km EAST-NORTHEAST of Whistle
+-- Bridge, with Ha Ha Tonka the next point downstream, which is what the Tunnel
+-- Dam meander looks like from above. `river_mile_downstream` stays at the
+-- hand-set 70.0.
+--
+-- This read "2.5 km WEST" until it was checked. That was measured against the
+-- OLD Whistle seed coordinate (-92.8343, 37.9410) — the one this same round of
+-- corrections replaced as 3.7 km off what production serves, in the block
+-- above. Against the corrected pin the bearing reverses. A stale bearing is
+-- worse here than no bearing: the next person to sanity-check these pins on a
+-- map finds them on the wrong side of the note and "fixes" a correct
+-- coordinate, which is the loop this whole chain of migrations exists to end.
 UPDATE public.access_points ap
    SET type = 'campground',
        types = ARRAY['campground', 'access', 'boat_ramp', 'gravel_bar']::text[],
@@ -195,16 +203,35 @@ UPDATE public.access_points ap
 -- is what a later reader will assume happened because this file exists. This
 -- block is what caught the slug problem described in the header.
 --
--- On `supabase db reset` the table is NOT empty by the time this runs: 00055,
--- 00056, 00068, 00074, 00076 and 00145 have already inserted these rows under
--- their original slugs, and supabase/seed/access_points.sql lands afterwards.
--- So the check is live in both environments, which is the point — it is the
--- reset path, where the slugs differ from production's, that most needs it.
+-- On `supabase db reset` the table is PARTLY populated by the time this runs,
+-- and the difference decides which of these four assertions is live:
 --
--- The guard on the river having any access points at all is for the degenerate
--- case only: a database where these rivers carry no accesses has nothing for
--- this migration to correct, and failing there would block a bootstrap rather
--- than catch a mistake.
+--   * Niangua — 00076 inserts Whistle Bridge, Mother Nature's and Ha Ha Tonka
+--     under their original slugs, so those three rows exist and are checked.
+--     (00055, 00056, 00068 and 00074 seed Huzzah, Eleven Point and Meramec —
+--     other rivers, listed here only because they are the neighbouring access
+--     migrations. 00145 inserts river_characteristics and no access points at
+--     all; an earlier version of this note claimed otherwise.)
+--
+--   * Current — NOTHING inserts Montauk. The only migration that could,
+--     00046, selects from `nps_campgrounds`, which no migration or seed file
+--     populates, so it inserts zero rows on a reset. The Current river
+--     therefore carries no access points when this runs, the EXISTS guard
+--     below skips the Montauk assertion entirely, and only production proves
+--     that row.
+--
+-- That is safe today — supabase/seed/access_points.sql lands afterwards and
+-- inserts Montauk already approved = false, which is the state this migration
+-- wants. It is worth writing down because it is not obvious and it is load
+-- bearing: anyone who changes the seed's Montauk row on the strength of "the
+-- check is live in both environments" will find that on the reset path it is
+-- not live at all.
+--
+-- The guard on the river having any access points is what makes that skip
+-- rather than a failure, and it is also there for the genuinely degenerate
+-- case: a database where these rivers carry no accesses has nothing for this
+-- migration to correct, and failing there would block a bootstrap rather than
+-- catch a mistake.
 DO $$
 DECLARE
   wrong TEXT;

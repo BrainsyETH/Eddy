@@ -314,10 +314,25 @@ async function readMetrics(
         end
       );
       const points = window?.points ?? [];
+      // ── AN EMPTY WINDOW FALLS BACK TO THE PROBE, RATHER THAN TO NOTHING ──
+      //
+      // The window is 8 hours; the resolver's liveness probe looks back 96
+      // (PROBE_LOOKBACK_HOURS). So for a resolver-backed dam whose stage series
+      // lags half a day, the probe CONFIRMS the series live and holds its
+      // reading, and then this fetch finds an empty window and dropped the
+      // metric on the floor — the tile vanished from the detail card, which on
+      // the wire contract is indistinguishable from "this dam does not publish
+      // a tailwater stage at all".
+      //
+      // A stale number wearing its honest age beats no number: readingStaleness
+      // bands it from `at` and the surface dims it and says how old it is,
+      // which is exactly what the non-trend branch below already gets by
+      // reusing `probed`. The trend stays null — an empty window cannot carry
+      // one, and changeOver says so rather than guessing.
       point =
         points.length > 0
           ? points.reduce((a, b) => (b.timestamp > a.timestamp ? b : a))
-          : null;
+          : (series.probed ?? null);
       trend = changeOver(points, TREND_HOURS);
     } else {
       // A resolved series arrives with its value already read — see MetricSource.

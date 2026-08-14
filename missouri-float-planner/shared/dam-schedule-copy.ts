@@ -311,8 +311,23 @@ export function nextScheduleChangeSentence(
 
   let when: string;
   if (dayOffset === 0) when = clock;
-  else if (dayOffset === 1) when = `${clock} tomorrow`;
-  else {
+  else if (dayOffset === 1) {
+    // ── "midnight tomorrow" NAMES THE WRONG MIDNIGHT ────────────────────────
+    //
+    // Tomorrow's hour ending 1 is the release running from 00:00 tomorrow —
+    // which is the midnight at the END of today, the one a reader at 9 PM is
+    // three hours away from. "midnight tomorrow" reads as the midnight that
+    // closes tomorrow, so the sentence quietly moved a flip 24 hours out.
+    //
+    // The direction is the dangerous one. Every other hedge in this file errs
+    // towards getting somebody OUT of the water early; this one told a wading
+    // angler they had a day before the units came on when they had an evening.
+    //
+    // Only hour ending 1 is affected: it is the single hour whose start time
+    // falls on the boundary between the two days, so it is the only label whose
+    // day word and clock word can disagree about which night they mean.
+    when = clock === 'midnight' ? 'midnight tonight' : `${clock} tomorrow`;
+  } else {
     const [y, m, d] = scheduleDate.split('-').map(Number);
     const weekday = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
       weekday: 'long',

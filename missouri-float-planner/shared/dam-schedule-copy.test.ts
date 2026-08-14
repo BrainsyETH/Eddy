@@ -251,11 +251,21 @@ test('a day that never changes state reports no change', () => {
   assert.equal(state?.change, null);
 });
 
-test('a midnight change is called midnight, not 12 AM', () => {
-  // Hour ending 1 is the release running from midnight. "...at 12 AM
-  // tomorrow" is correct but reads as a typo next to windowLabel's "midnight".
+test('a midnight change is called midnight, not 12 AM — and it is TONIGHT', () => {
+  // Hour ending 1 is the release running from midnight. "...at 12 AM" is
+  // correct but reads as a typo next to windowLabel's "midnight".
+  //
+  // And the day word is "tonight", though the flip sits on TOMORROW's sheet:
+  // 00:00 tomorrow is the midnight that ends today. "midnight tomorrow" names
+  // the following one and put the start a full day late — the one direction
+  // this file's hedges are never allowed to err in, since it leaves somebody
+  // standing in a tailwater the units are about to run into.
   const schedule = [day('2026-07-28', {}), day('2026-07-29', { 1: 35, 2: 35 })];
-  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Generation scheduled to start at midnight tomorrow');
+  assert.equal(nextScheduleChangeSentence(schedule, NOON_CENTRAL), 'Generation scheduled to start at midnight tonight');
+  // The hour either side of it still takes the plain day word, so the special
+  // case cannot quietly widen into "everything early tomorrow is tonight".
+  const oneAm = [day('2026-07-28', {}), day('2026-07-29', { 2: 35, 3: 35 })];
+  assert.equal(nextScheduleChangeSentence(oneAm, NOON_CENTRAL), 'Generation scheduled to start at 1 AM tomorrow');
 });
 
 test('the change is read at the dam, not on the viewer phone', () => {

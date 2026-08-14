@@ -27,6 +27,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
 import {
+  centralDayKey,
   idleWindowSentence,
   relativeAge,
   readingStaleness,
@@ -53,11 +54,23 @@ export function RiverDamPanel({ dam }: { dam: DamSnapshot | null }) {
   if (!dam) return null;
 
   const release = dam.metrics.release;
-  const today = dam.schedule[0] ?? null;
+  // By date, not by position: the payload carries two days now, and a day whose
+  // file fails to parse is dropped independently of the other — so `[0]` can be
+  // TOMORROW, and this panel would print tomorrow's idle windows as the ones a
+  // wading angler has today. See the same read in DamRow.
+  const todayKey = centralDayKey();
+  const today = dam.schedule.find((entry) => entry.scheduleDate === todayKey) ?? null;
 
   // Nothing to say without either half. Better an absent section than a section
   // explaining its own emptiness.
   if (!release && !today) return null;
+
+  // Null is "the timestamp could not be read", which is not a lag and must not
+  // be announced as one — `!== 'fresh'` swept it in, so a malformed `at` printed
+  // "reading is lagging" beside an age that relativeAge had already dropped for
+  // the same reason. Say nothing about liveness rather than guess at it.
+  const releaseLag = release ? readingStaleness(release.at) : null;
+  const releaseIsLagging = releaseLag === 'lagging' || releaseLag === 'stale';
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
@@ -83,7 +96,7 @@ export function RiverDamPanel({ dam }: { dam: DamSnapshot | null }) {
               // stamped at snapshot assembly and frozen, so a payload held on
               // this device keeps claiming freshness as it ages, contradicting
               // the age printed beside it. See readingStaleness in shared/.
-              readingStaleness(release.at) !== 'fresh' ? 'reading is lagging' : null,
+              releaseIsLagging ? 'reading is lagging' : null,
             ]
               .filter(Boolean)
               .join(' · ')}

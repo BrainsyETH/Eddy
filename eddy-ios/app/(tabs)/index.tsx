@@ -320,6 +320,24 @@ export default function MapScreen() {
   const [gaugeFilter, setGaugeFilter] = useState<ReadonlySet<GaugeFilterKey>>(() => new Set());
   const cameraCommandId = useRef(0);
   const [cameraCommand, setCameraCommand] = useState<MapCameraCommand | null>(null);
+  /**
+   * A `fitRiver` that could not be issued yet, because the line it frames had
+   * not arrived. Held until the geometry lands — see the effect below
+   * `selectRiver`, which is the half of that intent this ref exists to keep.
+   *
+   * The gesture count is carried with it so a fit that arrives late can tell
+   * whether the reader took the camera in the meantime; see `gestureCount`.
+   */
+  const pendingRiverFit = useRef<{ slug: string; gestures: number } | null>(null);
+  /**
+   * How many times the reader has moved the map themselves.
+   *
+   * Not `hasGestured`, which is latched for the life of the session and would
+   * mean that anyone who had ever panned never got a river framed again. What a
+   * deferred fit has to ask is narrower — "since I promised this, has the reader
+   * positioned the map themselves?" — and a count answers exactly that.
+   */
+  const gestureCount = useRef(0);
   /** Issues a navigation request, and returns its id so a caller can cancel it. */
   const issueCameraCommand = useCallback((action: MapCameraAction): number | null => {
     cameraCommandId.current += 1;
@@ -651,6 +669,9 @@ export default function MapScreen() {
   const selectRiver = useCallback(
     (slug: string | null, intent: RiverCameraIntent) => {
       setPickedSlug(slug);
+      // Whatever this call asks for supersedes a fit still waiting on geometry:
+      // the reader has navigated again, and the older river is not owed a frame.
+      pendingRiverFit.current = null;
       switch (intent.camera) {
         case 'fitRiver': {
           // Clearing a selection has no river to frame; `hold` is the honest
@@ -658,7 +679,25 @@ export default function MapScreen() {
           if (!slug) return;
           const river = network.bySlug.get(slug);
           const bounds = river ? riverBounds(river) : null;
-          if (bounds) issueCameraCommand({ type: 'riverSelected', bounds });
+          if (bounds) {
+            issueCameraCommand({ type: 'riverSelected', bounds });
+            return;
+          }
+          // ── THE FIT IS DEFERRED, NOT DROPPED ──────────────────────────────
+          //
+          // `bySlug` is built from the statewide collection, which hydrates
+          // from disk and then the network — so on a cold launch this lookup
+          // MISSES for the first few frames. Every other intent carries its own
+          // coordinates and is issuable the instant it is asked for; this one
+          // alone depends on data, and simply returning here is the silent
+          // no-op the required intent was introduced to make impossible.
+          //
+          // It is not hypothetical: a "View on map" deep link mounts this tab
+          // and runs focusOnAccess in the first effect flush, when the access
+          // point is not yet held either — so the intent falls to `fitRiver`
+          // against an empty `bySlug`, and the reader watches the sheet open
+          // over a map still sitting on the other side of the state.
+          pendingRiverFit.current = { slug, gestures: gestureCount.current };
           return;
         }
         case 'searchResult':
@@ -677,6 +716,38 @@ export default function MapScreen() {
     },
     [network.bySlug, issueCameraCommand],
   );
+
+  /**
+   * Redeem a fit that was asked for before its river had a line.
+   *
+   * Runs on every `bySlug` identity change, which is what "the geometry landed"
+   * looks like from here — the statewide collection hydrates from disk and then
+   * from the network, and either arrival can be the one that makes this lookup
+   * answerable.
+   *
+   * Three things drop the promise rather than keep it, and each is a case where
+   * honouring it would be the rude answer:
+   *  - the selection has moved on, so the fit belongs to a river the reader has
+   *    already left;
+   *  - the reader has moved the map themselves since the fit was deferred, and
+   *    a frame landing on top of that is the jolt the startup-location effect
+   *    below refuses for the same reason;
+   *  - the river is genuinely lineless (`riverBounds` is null even with the
+   *    record in hand), where there is nothing to frame and never will be.
+   */
+  useEffect(() => {
+    const pending = pendingRiverFit.current;
+    if (!pending) return;
+    if (pending.slug !== selectedSlug || pending.gestures !== gestureCount.current) {
+      pendingRiverFit.current = null;
+      return;
+    }
+    const river = network.bySlug.get(pending.slug);
+    if (!river) return; // Still hydrating; ask again on the next arrival.
+    pendingRiverFit.current = null;
+    const bounds = riverBounds(river);
+    if (bounds) issueCameraCommand({ type: 'riverSelected', bounds });
+  }, [network.bySlug, selectedSlug, issueCameraCommand]);
 
   /**
    * The selected river as the map and the offline planner need it.
@@ -1062,7 +1133,23 @@ export default function MapScreen() {
   );
 
   useEffect(() => {
-    if (!focusAccess || !focusRiver) return;
+    if (!focusAccess || !focusRiver) {
+      // ── THE TOKEN IS SPENT WHEN THE PARAMS GO ─────────────────────────────
+      //
+      // Without this, the ref keeps the LAST place consumed for the life of the
+      // screen, and "View on map" on that same put-in a second time matches it
+      // and does nothing at all: no selection, no camera, a Map tab that just
+      // appears. Asking for the same place twice is not a duplicate render, it
+      // is a second request — the reader panned away and wants it back.
+      //
+      // Clearing here is safe precisely because it is the params, not the ref,
+      // that say a request is outstanding. The guard the ref exists for covers
+      // the window between focusOnAccess calling setParams and that clear
+      // landing, and throughout that window focusAccess is still set, so this
+      // branch cannot run inside it.
+      focusConsumed.current = null;
+      return;
+    }
     const token = `${focusRiver}:${focusAccess}`;
     if (focusConsumed.current === token) return;
     focusConsumed.current = token;
@@ -1804,6 +1891,8 @@ export default function MapScreen() {
   const startupLocationSettled = useRef(false);
   const onUserGesture = useCallback(() => {
     hasGestured.current = true;
+    // Also counted, for the deferred fit above — see `gestureCount`.
+    gestureCount.current += 1;
   }, []);
 
   useEffect(() => {

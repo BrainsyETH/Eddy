@@ -309,7 +309,7 @@ export function AccessOverviewTab({
           makes this the right home: Overview is where a reader goes for the
           sentences about a place, and "rising, read twenty minutes ago" is a
           sentence about the number they have already seen. */}
-      {status ? (
+      {status && (peekSlot !== 'water' || status.trend || status.lastUpdated) ? (
         <Section title="Water">
           {/* ── THE READING IS DRAWN HERE ONLY WHEN THE PEEK IS NOT ────────
               The old comment defended an unconditional copy on the grounds that
@@ -328,7 +328,12 @@ export function AccessOverviewTab({
 
               What is NEVER conditional is the trend and the timestamp. They are
               what this section adds to the number in either case, and they are
-              the reason the heading survives. */}
+              the reason the heading survives — WHEN THERE ARE ANY. Both are
+              nullable on the wire and `Fact` renders nothing for a null, so on a
+              gauge carrying neither, suppressing the reading left the heading
+              standing over an empty box. The section is drawn only once it is
+              known to have a body, which is the absent-never-empty rule the rest
+              of this file follows — hence the condition on the Section above. */}
           {peekSlot !== 'water' ? (
             <AccessGaugeReading status={status} onOpenGauge={onOpenGauge} />
           ) : null}
