@@ -104,6 +104,29 @@ export interface UsaceDam {
    */
   generationOnCfs?: number;
   /**
+   * TRUE only when this project's `release` and `generationFlow` have been
+   * verified to measure separately meaningful things, so their difference is a
+   * real non-power release.
+   *
+   * ── Why this is declared and never inferred ────────────────────────────────
+   * The two series are resolved per district from different CWMS parameter
+   * families, and nothing in the numbers reveals whether they are independent.
+   * Bull Shoals returned byte-identical values for both on a live read (5,075
+   * cfs each) — which is either a genuine all-through-the-turbines hour or two
+   * names for one series, and no timestamp or tolerance check can tell those
+   * apart. Subtracting them anyway is how "the turbines are idle and the gates
+   * are open" gets printed under a dam where neither is true.
+   *
+   * Same discipline as `tailwaterFishery`: declared from a source, because
+   * inferring it gets the interesting cases exactly backwards. Absent means the
+   * pair renders as two separate facts, which is always safe.
+   *
+   * Nothing sets this yet. It is deliberately unset on every dam until somebody
+   * verifies a specific project's two series against the district's own
+   * definitions and records that here with a date.
+   */
+  releaseExcludesGeneration?: boolean;
+  /**
    * The reach below this dam, when Eddy carries it.
    *
    * Only a TAILWATER goes here — a river whose level IS the release. A river
@@ -250,7 +273,17 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     office: 'SWL',
     cdaLocation: 'Bull_Shoals_Dam',
     swpaCode: 'BSD',
-    nameplate: { units: 8, megawatts: 380 },
+    // 340, not 380. The Corps' own Major Equipment Replacement fact sheet
+    // (Little Rock District, as of 02/27/2026) reads: "Bull Shoals Dam
+    // Powerplant is an 8-unit hydroelectric plant with a combined installed
+    // power capacity of 340 MW. This project will increase the power capacity
+    // to 362 MW." SWPA schedules the same plant against 391. The 380 that stood
+    // here matched none of the three, and this line is now rendered beside a
+    // generator rack built from the SWPA pair — a wrong nameplate next to a
+    // right one reads as a contradiction in Eddy rather than in the sources.
+    // Verified 2026-08-12; see
+    // scripts/ingestion/dossiers/verified-identifiers-tailwater-swl-bull-shoals-dam.md.
+    nameplate: { units: 8, megawatts: 340 },
     tailwaterFishery: 'trout' as const,
     infoPhone: '870-431-5311',
     generationOnCfs: 100,

@@ -54,15 +54,22 @@ test('midnight is spelled, not printed as 12 AM', () => {
 
 test('a full day of generation says so rather than going quiet', () => {
   // An empty window list must not render as absence — "no data" and "the units
-  // never stop" are opposite facts for someone deciding whether to wade.
-  assert.equal(idleWindowSentence([]), 'Generating every hour — no break in the schedule.');
-  assert.equal(idleWindowSentence([{ from: 1, to: 6 }]), 'Generation off: midnight – 6 AM');
+  // are scheduled all day" are opposite facts for someone deciding whether to
+  // wade.
+  assert.equal(
+    idleWindowSentence([]),
+    'Generation scheduled every hour — no break in the schedule.'
+  );
+  assert.equal(
+    idleWindowSentence([{ from: 1, to: 6 }]),
+    'No generation scheduled: midnight – 6 AM'
+  );
   assert.equal(
     idleWindowSentence([
       { from: 1, to: 6 },
       { from: 20, to: 24 },
     ]),
-    'Generation off: midnight – 6 AM, 7 PM – midnight'
+    'No generation scheduled: midnight – 6 AM, 7 PM – midnight'
   );
 });
 
@@ -290,6 +297,40 @@ test('no schedule copy claims to describe the water', () => {
     assert.ok(
       !/\bwater\b/i.test(s),
       `schedule copy must not make a claim about water: ${JSON.stringify(s)}`
+    );
+  }
+});
+
+test('no schedule copy speaks as if it had looked at the powerhouse', () => {
+  // The sibling of the water assertion above, and the invariant that was
+  // missing when "Generation off:" and "Generating now" shipped from functions
+  // that read a schedule. Both rendered on iOS directly beneath a hero capable
+  // of saying "No turbine generation observed" — a measurement and a plan, on
+  // adjacent lines, in the same present tense, with nothing to tell them apart.
+  //
+  // Every string this module produces describes a POSTED PLAN. It may say
+  // "scheduled"; it may not report the state of the machinery.
+  const idle = [day('2026-07-28', { 16: 35 })];
+  const running = [day('2026-07-28', { 1: 35, 12: 35, 13: 35, 14: 35 })];
+
+  const strings = [
+    idleWindowSentence([]),
+    idleWindowSentence([{ from: 1, to: 6 }]),
+    nextScheduleChangeSentence(idle, NOON_CENTRAL)!,
+    nextScheduleChangeSentence(running, NOON_CENTRAL)!,
+  ];
+
+  for (const s of strings) {
+    assert.ok(s, 'expected a sentence to check');
+    // "Generating", "Generation off", "running now" — anything asserting a
+    // present state. The permitted forms all carry "scheduled".
+    assert.ok(
+      !/\b(generating|generation off|units? (?:are|is) (?:on|off)|running)\b/i.test(s),
+      `schedule copy claims a present machinery state: ${JSON.stringify(s)}`
+    );
+    assert.ok(
+      /schedul/i.test(s),
+      `schedule copy must name itself as a schedule: ${JSON.stringify(s)}`
     );
   }
 });

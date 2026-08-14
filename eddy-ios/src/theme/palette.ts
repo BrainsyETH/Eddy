@@ -221,6 +221,28 @@ export interface Palette {
   rainHeavy: string;
 
   /**
+   * How hard a powerhouse is running, as a three-step ramp inside one hue.
+   *
+   * Same argument as the rain ramp, and the same shape: magnitude is more of
+   * the same thing, so it stays in one family and climbs in intensity. It is
+   * deliberately NOT a green→yellow→red capacity progression — those are
+   * verdict colours, and the generation console issues no verdict. A dam
+   * running flat out is not "bad", and a dam idle is not "good"; both are
+   * facts about machinery that a fisherman reads differently depending on what
+   * they came to do.
+   *
+   * Redundant with bar height everywhere it is used, so the ramp is never the
+   * whole message — the rule flow.ts states for reference gauges.
+   *
+   * Per scheme for the reason the rain ramp is: a deep teal that reads as
+   * emphatic on white disappears against near-black stone, so dark mode climbs
+   * toward the light end of the same family instead.
+   */
+  generationLow: string;
+  generationMid: string;
+  generationHigh: string;
+
+  /**
    * Modal scrim.
    *
    * DELIBERATELY LIGHT, and the same on both schemes. The sheets that use it
@@ -275,6 +297,11 @@ export const darkPalette: Palette = {
   rainQuiet: neutral[400],
   rainLikely: primary[300],
   rainHeavy: primary[200],
+  // Climbing toward the light end: on near-black stone, a deeper teal reads
+  // as less rather than more.
+  generationLow: primary[600],
+  generationMid: primary[400],
+  generationHigh: primary[200],
   scrim: 'rgba(0,0,0,0.22)',
 };
 
@@ -320,6 +347,9 @@ export const lightPalette: Palette = {
   rainQuiet: neutral[500],
   rainLikely: primary[500],
   rainHeavy: primary[800],
+  generationLow: primary[300],
+  generationMid: primary[500],
+  generationHigh: primary[800],
   scrim: 'rgba(0,0,0,0.22)',
 };
 

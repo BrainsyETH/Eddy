@@ -138,7 +138,7 @@ function DamRowComponent({
           the answer, the bars are the picture of it. */}
       {today ? (
         <View style={styles.schedule}>
-          <DayBars day={today} compact />
+          <DayBars reference={dam.generationReference} day={today} compact />
           <Text style={[styles.idle, { color: colors.textMuted }]} numberOfLines={1}>
             {idleWindowSentence(today.idle)}
           </Text>
