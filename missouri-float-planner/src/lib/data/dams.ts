@@ -474,6 +474,7 @@ export function buildSnapshot(
     // carry generationFlow already.
     ...(dam.generationOnCfs !== undefined ? { generationFloorCfs: dam.generationOnCfs } : {}),
     ...(schedule.length > 0 ? { scheduleTimeZone: 'America/Chicago' as const } : {}),
+    ...(dam.releaseExcludesGeneration ? { releaseExcludesGeneration: true } : {}),
     ...(pattern && pattern.length > 0 ? { pattern } : {}),
     ...(dam.tailwaterFishery ? { tailwaterFishery: dam.tailwaterFishery } : {}),
     ...(dam.infoPhone ? { infoPhone: dam.infoPhone } : {}),

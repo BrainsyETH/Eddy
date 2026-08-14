@@ -32,10 +32,14 @@
 // the scale is labelled in megawatts — the number SWPA actually published —
 // never in cfs. cfs is an estimate and belongs in the prose beneath, hedged.
 
-import { useState } from 'react';
-import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
-import type { DamScheduleDay } from '@eddy/types';
-import { hourEndingNow, scheduleHoursElapsed } from '@eddy/conditions/dam-schedule-copy';
+import { useMemo, useState } from 'react';
+import { LayoutChangeEvent, PanResponder, StyleSheet, Text, View } from 'react-native';
+import type { DamScheduleDay, ScheduledHour } from '@eddy/types';
+import {
+  hourEndingLabel,
+  hourEndingNow,
+  scheduleHoursElapsed,
+} from '@eddy/conditions/dam-schedule-copy';
 import { scheduledBar, type GenerationReference } from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { Palette } from '@/theme/palette';
@@ -104,9 +108,31 @@ function barColor(share: number, generating: boolean, colors: Palette): string {
   return colors.generationHigh;
 }
 
+/**
+ * The readout for one scrubbed hour.
+ *
+ * Mirrors the web timeline's line exactly, including what it refuses to print:
+ * a ramp hour's cfs estimate ran -41% to +117% against CWMS, so the number is
+ * withheld there and only the load is shown.
+ */
+function hourReadout(
+  hour: ScheduledHour,
+  reference: GenerationReference | null | undefined,
+  dayPeak: number
+): string {
+  const window = `${hourEndingLabel(hour.hourEnding)}–${hourEndingLabel(hour.hourEnding + 1)}`;
+  if (hour.megawatts <= 0) return `${window} · no generation scheduled`;
+  const share = reference
+    ? ` · ${Math.round(shareOf(hour.megawatts, reference, dayPeak) * 100)}% of capacity`
+    : '';
+  const flow = hour.isRamp || hour.cfs === null ? '' : ` · ~${hour.cfs.toLocaleString()} cfs`;
+  return `${window} · ${hour.megawatts.toLocaleString()} MW${share}${flow}`;
+}
+
 export function DayBars({ day, reference, compact = false }: Props) {
   const { colors } = useTheme();
   const [rowWidth, setRowWidth] = useState(0);
+  const [scrubbed, setScrubbed] = useState<number | null>(null);
 
   const peak = day.hours.reduce((max, h) => (h.megawatts > max ? h.megawatts : max), 0);
   const peakShare = shareOf(peak, reference, peak);
@@ -116,6 +142,40 @@ export function DayBars({ day, reference, compact = false }: Props) {
   const showMarker = hoursElapsed !== null && rowWidth > 0;
 
   const onLayout = (e: LayoutChangeEvent) => setRowWidth(e.nativeEvent.layout.width);
+
+  /**
+   * Scrub, at the ROW level.
+   *
+   * ── Why not a target per bar ───────────────────────────────────────────────
+   * Twenty-four bars across a phone is about 14pt each, far under the 44pt
+   * floor DESIGN.md §6 sets and PinCallout calls non-negotiable. So the row is
+   * the control: 44pt tall, one gesture, one readout line above it. This is the
+   * same answer the web timeline reaches with pointer and arrow keys.
+   *
+   * Not offered in `compact`: that variant renders inside a FlatList row that
+   * is itself a link, and a horizontal pan there would fight the list.
+   */
+  const responder = useMemo(() => {
+    // Rebuilt when the measured width changes rather than reading a ref inside
+    // the handlers: a ref read during render is exactly what react-hooks/refs
+    // forbids, and the width only changes on layout — an orientation flip, not
+    // a gesture.
+    const hourAt = (x: number): number | null => {
+      if (!rowWidth) return null;
+      return Math.max(0, Math.min(HOURS - 1, Math.floor((x / rowWidth) * HOURS)));
+    };
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => !compact,
+      onMoveShouldSetPanResponder: () => !compact,
+      onPanResponderGrant: (e) => setScrubbed(hourAt(e.nativeEvent.locationX)),
+      onPanResponderMove: (e) => setScrubbed(hourAt(e.nativeEvent.locationX)),
+      onPanResponderRelease: () => setScrubbed(null),
+      onPanResponderTerminate: () => setScrubbed(null),
+    });
+  }, [compact, rowWidth]);
+
+  const scrubbedHour =
+    scrubbed === null ? null : day.hours.find((h) => h.hourEnding === scrubbed + 1) ?? null;
 
   return (
     <View>
@@ -128,9 +188,14 @@ export function DayBars({ day, reference, compact = false }: Props) {
           than "0 MW". */}
       {!compact && peak > 0 ? (
         <View style={styles.scaleRow}>
-          <Text style={[styles.scaleText, { color: colors.textSubtle }]}>
-            peaks at {Math.round(peak).toLocaleString()} MW
-            {reference ? ` · ${Math.round(peakShare * 100)}% of capacity` : ''}
+          {/* One readout line, replacing per-bar tooltips. It holds the day's
+              scale until something is scrubbed so the space never jumps. */}
+          <Text style={[styles.scaleText, { color: colors.textSubtle }]} numberOfLines={1}>
+            {scrubbedHour
+              ? hourReadout(scrubbedHour, reference, peak)
+              : `peaks at ${Math.round(peak).toLocaleString()} MW${
+                  reference ? ` · ${Math.round(peakShare * 100)}% of capacity` : ''
+                }`}
           </Text>
         </View>
       ) : null}
@@ -140,6 +205,7 @@ export function DayBars({ day, reference, compact = false }: Props) {
         onLayout={onLayout}
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
+        {...responder.panHandlers}
       >
         {/* Half capacity, as a hairline behind the bars. One reference line is
             enough to read a bar as "about two thirds" instead of "tall-ish",
@@ -166,6 +232,10 @@ export function DayBars({ day, reference, compact = false }: Props) {
                   height: `${Math.max(share * 100, 12)}%`,
                   backgroundColor: barColor(share, generating, colors),
                   opacity: past ? 0.45 : 1,
+                },
+                scrubbed === h.hourEnding - 1 && {
+                  borderWidth: 1,
+                  borderColor: colors.text,
                 },
               ]}
             />
@@ -205,24 +275,33 @@ export function DayBars({ day, reference, compact = false }: Props) {
 }
 
 /**
- * "Generating now" / "No generation scheduled now", or null when the day is not
- * today.
+ * What the SCHEDULE says about the hour running right now, or null when the day
+ * is not today.
  *
  * Lives here beside the marker because it is the SAME fact said in words, and
  * the bar row is hidden from VoiceOver — without this line the marker exists
  * only for people who can see it.
  *
- * That is also why the subject is the plant and not the water. This string is
- * the ONLY form of the fact a VoiceOver user gets, so it carries the whole
- * burden of not implying the river downstream is off — see idleWindowSentence
- * in shared/dam-schedule-copy.ts.
+ * ── Why it no longer says "Generating now" ─────────────────────────────────
+ * Because it never knew that. This function reads `day.hours`, which is SWPA's
+ * plan; whether the units are actually turning is `DamSnapshot.generating`,
+ * read from CWMS, and the two can disagree whenever a unit trips or a schedule
+ * is revised after Eddy fetched it. It rendered in a collapsed section header
+ * directly under a hero capable of saying "No turbine generation observed",
+ * which put a measurement and a plan on adjacent lines in the same voice, both
+ * present tense, with nothing to tell them apart.
+ *
+ * "This hour" rather than "now" for the same reason hourEndingLabel exists:
+ * the schedule's unit of truth is the hour, not the instant.
  */
 export function nowSentence(day: DamScheduleDay): string | null {
   const hoursElapsed = scheduleHoursElapsed(day.scheduleDate);
   if (hoursElapsed === null) return null;
   const hour = day.hours.find((h) => h.hourEnding === hourEndingNow(hoursElapsed));
   if (!hour) return null;
-  return hour.megawatts > 0 ? 'Generating now' : 'No generation scheduled now';
+  return hour.megawatts > 0
+    ? 'Generation scheduled this hour'
+    : 'No generation scheduled this hour';
 }
 
 const styles = StyleSheet.create({

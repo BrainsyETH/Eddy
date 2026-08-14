@@ -24,7 +24,6 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { DamPatternDay, DamScheduleDay } from '@eddy/types';
-import { centralDayKey, scheduleHoursElapsed } from '@eddy/conditions/dam-schedule-copy';
 // Row construction lives in shared/ because it was written twice, once per
 // platform, and every rule it encodes — the past is measured, the future is
 // planned, a gap is neither — is one a port can quietly get backwards.
@@ -37,8 +36,6 @@ import {
 } from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-
-const HOURS = 24;
 
 export function DamPatternStrip({
   pattern,
@@ -53,9 +50,6 @@ export function DamPatternStrip({
 }) {
   const { colors, elevation } = useTheme();
 
-  const today = centralDayKey();
-  const elapsed = scheduleHoursElapsed(today);
-
   const rows = useMemo<Row[]>(
     () => patternRows(pattern, schedule, reference, generationFloorCfs),
     [pattern, schedule, reference, generationFloorCfs]
@@ -67,11 +61,37 @@ export function DamPatternStrip({
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       <Text style={[styles.title, { color: colors.text }]}>Generation pattern</Text>
-      <Text style={[styles.intro, { color: colors.textMuted }]}>
-        Solid bars are measured turbine discharge. Outlined bars are SWPA&rsquo;s posted
-        schedule, which can change. Hatched hours are ones Eddy has no observation for
-        &mdash; not hours the units were off.
-      </Text>
+      {/* A legend, not a paragraph. The prose said "hatched" while the drawing
+          used dashed outlines — a mismatch that survives review precisely
+          because nobody reads the sentence and the picture at the same time. */}
+      <View style={styles.legend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendSwatch, { backgroundColor: colors.generationHigh }]} />
+          <Text style={[styles.legendText, { color: colors.textMuted }]}>Measured</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View
+            style={[
+              styles.legendSwatch,
+              { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.generationMid },
+            ]}
+          />
+          <Text style={[styles.legendText, { color: colors.textMuted }]}>Scheduled</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View
+            style={[
+              styles.legendSwatch,
+              {
+                borderWidth: StyleSheet.hairlineWidth,
+                borderStyle: 'dashed',
+                borderColor: colors.border,
+              },
+            ]}
+          />
+          <Text style={[styles.legendText, { color: colors.textMuted }]}>No reading</Text>
+        </View>
+      </View>
 
       <View style={styles.rows}>
         {rows.map((row, index) => (
@@ -139,19 +159,31 @@ export function DamPatternStrip({
                 {/* Now, on today's row only. The solid-to-outlined switch marks
                     the same instant, but only for someone who can tell the two
                     fills apart at 18pt tall. */}
-                {row.today && elapsed !== null ? (
+                {/* Drawn from the row's OWN split rather than elapsed/24: on a
+                    23- or 25-hour day the two disagree by a whole bar, and the
+                    boundary between measured and scheduled cells is the instant
+                    the marker is trying to name anyway. */}
+                {row.splitIndex !== null ? (
                   <View
                     pointerEvents="none"
                     style={[
                       styles.nowLine,
-                      { backgroundColor: colors.accent, left: `${(elapsed / HOURS) * 100}%` },
+                      {
+                        backgroundColor: colors.accent,
+                        left: `${(row.splitIndex / row.cells.length) * 100}%`,
+                      },
                     ]}
                   />
                 ) : null}
               </View>
 
-              <Text style={[styles.rowTag, { color: colors.textSubtle }]}>
-                {row.today ? 'now' : row.scheduled ? 'sched' : ''}
+              <Text
+                style={[
+                  styles.rowTag,
+                  { color: row.scheduleStale ? colors.accent : colors.textSubtle },
+                ]}
+              >
+                {row.today ? 'now' : row.scheduled ? (row.scheduleStale ? 'stale' : 'ahead') : ''}
               </Text>
             </View>
           </View>
@@ -170,7 +202,10 @@ export function DamPatternStrip({
 const styles = StyleSheet.create({
   card: { borderRadius: 14, padding: 16, gap: 10 },
   title: { ...t.lg, fontFamily: fonts.display },
-  intro: { fontSize: 12, lineHeight: 17 },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendSwatch: { width: 10, height: 12, borderRadius: 1 },
+  legendText: { fontSize: 11, lineHeight: 15 },
   rows: { gap: 3 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   rowLabel: { width: 40, fontSize: 10, lineHeight: 14, fontVariant: ['tabular-nums'] },

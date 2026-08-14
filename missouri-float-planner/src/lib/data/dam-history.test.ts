@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildPatternDays,
+  centralDayHours,
   bucketHourly,
   patternDayKeys,
   patternHasObservations,
@@ -167,4 +168,72 @@ test('a pattern of pure gaps is not worth drawing', () => {
     { now: NOON_CENTRAL }
   );
   assert.equal(patternHasObservations(one), true, 'one observed hour anywhere is enough');
+});
+
+// ── Daylight saving ────────────────────────────────────────────────────────
+// A Central calendar day is not always 24 hours long, and the first version of
+// this module assumed it was. Both failures below were reproduced against the
+// real implementation before being fixed.
+
+test('a Central day knows its own length', () => {
+  assert.equal(centralDayHours('2026-07-28'), 24, 'an ordinary day');
+  assert.equal(centralDayHours('2026-03-08'), 23, 'spring forward');
+  assert.equal(centralDayHours('2026-11-01'), 25, 'fall back');
+});
+
+/** One observation every UTC hour across a span, each value distinct. */
+function everyHour(startUtc: string, count: number): StoredHour[] {
+  return Array.from({ length: count }, (_, h) => ({
+    metric: 'generationFlow' as const,
+    observedHour: new Date(Date.parse(startUtc) + h * 3_600_000).toISOString(),
+    valueCfs: 1000 + h,
+  }));
+}
+
+test('spring forward does not invent a missing observation', () => {
+  // The old 24-slot array left index 2 null on a feed that never missed a
+  // reading, so the strip would have drawn "Eddy has no observation here" on a
+  // perfectly healthy day — the one claim this payload exists not to make
+  // falsely.
+  const days = buildPatternDays(everyHour('2026-03-08T06:00:00Z', 23), {
+    now: Date.parse('2026-03-09T18:00:00Z'),
+    past: 2,
+  });
+  const day = days.find((d) => d.scheduleDate === '2026-03-08')!;
+
+  assert.equal(day.turbineCfs.length, 23, 'the day is 23 hours and says so');
+  assert.ok(
+    day.turbineCfs.every((v) => v !== null),
+    `a healthy feed left gaps: ${JSON.stringify(day.turbineCfs)}`
+  );
+  assert.equal(day.startUtc, '2026-03-08T06:00:00.000Z');
+});
+
+test('fall back does not discard an observation', () => {
+  // 1 AM CDT and 1 AM CST both mapped to Central hour 1, so the second silently
+  // overwrote the first and one real reading was lost every November.
+  const days = buildPatternDays(everyHour('2026-11-01T05:00:00Z', 25), {
+    now: Date.parse('2026-11-02T18:00:00Z'),
+    past: 2,
+  });
+  const day = days.find((d) => d.scheduleDate === '2026-11-01')!;
+
+  assert.equal(day.turbineCfs.length, 25, 'the day is 25 hours and says so');
+  assert.deepEqual(
+    day.turbineCfs,
+    Array.from({ length: 25 }, (_, h) => 1000 + h),
+    'every hour survives, in order, none overwritten'
+  );
+  assert.equal(day.startUtc, '2026-11-01T05:00:00.000Z');
+});
+
+test('an ordinary day is still 24 hours anchored at Central midnight', () => {
+  const days = buildPatternDays(everyHour('2026-07-28T05:00:00Z', 24), {
+    now: Date.parse('2026-07-28T17:00:00Z'),
+    past: 1,
+  });
+  const day = days.find((d) => d.scheduleDate === '2026-07-28')!;
+  assert.equal(day.turbineCfs.length, 24);
+  assert.equal(day.startUtc, '2026-07-28T05:00:00.000Z');
+  assert.equal(day.turbineCfs[0], 1000, 'index 0 is the hour beginning at midnight Central');
 });

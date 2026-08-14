@@ -36,7 +36,11 @@ import {
   readingStaleness,
   SCHEDULE_CHANGE_NOTE,
 } from '@eddy/conditions/dam-schedule-copy';
-import { generationNow, nowNextClauses } from '@eddy/conditions/dam-generation';
+import {
+  generationNow,
+  generationStatusLabel,
+  nowNextClauses,
+} from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -125,9 +129,13 @@ export function DamStateCard({
   // The scheduled half is also the only live line Stockton and Truman can carry:
   // the Kansas City district publishes no timeseries at all, so those two have
   // no observation to show.
-  const clauses = secondary
-    ? null
-    : nowNextClauses(generationNow(dam), dam.schedule, dam.generationReference);
+  // A flood-control project has no powerhouse to report on, so it gets no
+  // generation line at all — the same test the hero uses to render nothing.
+  const state = generationNow(dam);
+  const clauses =
+    secondary || generationStatusLabel(state) === null
+      ? null
+      : nowNextClauses(state, dam.schedule, dam.generationReference);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>

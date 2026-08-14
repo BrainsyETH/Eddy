@@ -22,7 +22,7 @@
 // transmission constraints, outages and inflow, and this screen sits next to a
 // number somebody may wade into.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -33,7 +33,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
 import { fetchDam } from '@/api/client';
@@ -56,28 +56,80 @@ export default function DamDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
+  /**
+   * The whole screen's clock, ticked once a minute.
+   *
+   * ── Why a screen this static needs a clock ─────────────────────────────────
+   * Everything below is phrased against `Date.now()` at render: which hour the
+   * schedule marker sits in, whether the observation still speaks in the present
+   * tense, where the pattern strip hands off from measured to scheduled. With no
+   * re-render, all three freeze at mount — so a screen opened at 9:55, put in a
+   * pocket and looked at again at noon would still say "GENERATING NOW" over a
+   * reading that had aged out of the present tense two hours earlier.
+   *
+   * A minute is the resolution of every one of those claims; anything finer is
+   * re-rendering to move nothing.
+   */
+  const [, setTick] = useState(0);
   useEffect(() => {
-    if (!damId) return;
+    const id = setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const load = useCallback(
+    (signal: AbortSignal, showSpinner: boolean) => {
+      if (!damId) return;
+      if (showSpinner) setLoading(true);
+
+      void (async () => {
+        try {
+          const snapshot = await fetchDam(damId, signal);
+          if (signal.aborted) return;
+          setDam(snapshot);
+          setFailed(false);
+        } catch {
+          if (signal.aborted) return;
+          // fetchDam throws by design: this screen is opened from a row or a pin
+          // that named the dam, so a failure here is a real one and gets said
+          // out loud rather than absorbed into an empty screen.
+          //
+          // A REFRESH failure is different and must not blank a screen that is
+          // already showing good data — the reading keeps its honest age
+          // instead.
+          if (showSpinner) setFailed(true);
+        } finally {
+          if (!signal.aborted && showSpinner) setLoading(false);
+        }
+      })();
+    },
+    [damId]
+  );
+
+  useEffect(() => {
     const controller = new AbortController();
-
-    void (async () => {
-      try {
-        const snapshot = await fetchDam(damId, controller.signal);
-        if (controller.signal.aborted) return;
-        setDam(snapshot);
-      } catch {
-        if (controller.signal.aborted) return;
-        // fetchDam throws by design: this screen is opened from a row or a pin
-        // that named the dam, so a failure here is a real one and gets said out
-        // loud rather than absorbed into an empty screen.
-        setFailed(true);
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    })();
-
+    load(controller.signal, true);
     return () => controller.abort();
-  }, [damId]);
+  }, [load]);
+
+  /**
+   * Refetch whenever the screen comes back into view.
+   *
+   * This fetched exactly once, in a mount effect, with no refetch on focus and
+   * no AppState listener — so a screen backgrounded and resumed hours later
+   * re-rendered the same payload while the ages beside it, computed on this
+   * device, correctly read "9 hours ago". Live data that only arrives once is
+   * cached data with no cache policy.
+   *
+   * The mount fetch above still runs first; this one is silent, so returning to
+   * the screen never flashes a spinner over data already on it.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      const controller = new AbortController();
+      load(controller.signal, false);
+      return () => controller.abort();
+    }, [load])
+  );
 
   if (loading) {
     return (

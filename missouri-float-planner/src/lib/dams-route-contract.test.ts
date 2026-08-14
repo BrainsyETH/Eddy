@@ -234,6 +234,7 @@ test('the observed pattern is detail-only and never invents days', () => {
 
   const day = {
     scheduleDate: '2026-07-28',
+    startUtc: '2026-07-28T05:00:00.000Z',
     turbineCfs: new Array(24).fill(null),
     totalReleaseCfs: new Array(24).fill(null),
   };

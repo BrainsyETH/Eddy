@@ -52,8 +52,20 @@ export function windowLabel(from: number, to: number): string {
  *
  * Rests only on the on/off pattern, which measured EXACT against CWMS turbine
  * flow — not on the cfs estimate, which is ~±10% at steady state and worse on a
- * ramp hour. An empty list means the units run all day, and saying so plainly
- * is better than printing nothing and letting it read as "no data".
+ * ramp hour. An empty list means the units are scheduled all day, and saying so
+ * plainly is better than printing nothing and letting it read as "no data".
+ *
+ * ── Why every branch says "scheduled" ──────────────────────────────────────
+ * This reads a SCHEDULE and nothing else. It said "Generation off:" and
+ * "Generating every hour", both present-tense claims about a powerhouse Eddy
+ * has not looked at — and on iOS this string renders in THREE places, one of
+ * them directly beneath a hero that may be reporting a measured "No turbine
+ * generation observed". Two lines flatly contradicting each other, one of them
+ * sourced from a plan.
+ *
+ * The web schedule card carried the corrected wording inline while this
+ * function did not, which is how the two platforms came to describe the same
+ * day differently. Both render from here now.
  *
  * ── Why "Generation off" and not "Water off" ───────────────────────────────
  * Because the schedule establishes the first and not the second. SWPA says when
@@ -69,8 +81,8 @@ export function windowLabel(from: number, to: number): string {
  * is not built — see docs/TAILWATER_PLAN.md.
  */
 export function idleWindowSentence(idle: Array<{ from: number; to: number }>): string {
-  if (idle.length === 0) return 'Generating every hour — no break in the schedule.';
-  return `Generation off: ${idle.map((w) => windowLabel(w.from, w.to)).join(', ')}`;
+  if (idle.length === 0) return 'Generation scheduled every hour — no break in the schedule.';
+  return `No generation scheduled: ${idle.map((w) => windowLabel(w.from, w.to)).join(', ')}`;
 }
 
 /**

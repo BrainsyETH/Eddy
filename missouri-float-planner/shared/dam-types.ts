@@ -159,9 +159,32 @@ export interface DamTailwater {
 /**
  * One Central-time day of OBSERVED hourly flow at a project.
  *
- * Both arrays are 24 entries, indexed 0..23 for hour-ending 1..24, matching
- * ScheduledHour.hourEnding so an observed hour and a scheduled hour line up
- * without any client doing arithmetic.
+ * ── Why this is not 24 slots ───────────────────────────────────────────────
+ * It was, and a Central calendar day is not always 24 hours long. Measured
+ * against the real implementation on the 2026 transitions:
+ *
+ *   spring forward, 2026-03-08 (23 real hours) — 23 of 24 slots filled, and
+ *     index 2 came back NULL from a feed that never missed a reading. The strip
+ *     would have drawn "Eddy has no observation here" on a healthy day, which
+ *     is the one claim this whole payload exists to avoid making falsely.
+ *   fall back, 2026-11-01 (25 real hours) — 24 of 24 slots filled and one
+ *     observation SILENTLY DISCARDED, because both 1 AM CDT and 1 AM CST map to
+ *     Central hour 1 and the second overwrote the first.
+ *
+ * So the arrays are ANCHORED IN UTC and sized to the day they describe:
+ * `startUtc` is the instant the Central day begins, index `i` is the hour
+ * beginning `i` hours after it, and `length` is 23, 24 or 25. UTC hour offsets
+ * have no repeated and no skipped values, so neither failure can recur.
+ *
+ * Clients must read `turbineCfs.length` and never assume 24.
+ *
+ * ── Alignment with `schedule` ──────────────────────────────────────────────
+ * The schedule stays 24 hour-ending rows on every day, including these two:
+ * parseSchedulePage drops any project that does not publish exactly 24, so 24
+ * is a parser contract rather than a claim about the clock. The two never need
+ * to line up cell-for-cell, because today's row in the pattern strip
+ * CONCATENATES observed-before-now with scheduled-after-now rather than merging
+ * them — see patternRows.
  *
  * `null` means NO OBSERVATION WAS STORED for that hour — a feed gap, a dam that
  * was not yet wired, a retention boundary. It is emphatically not zero, and a
@@ -171,9 +194,14 @@ export interface DamTailwater {
 export interface DamPatternDay {
   /** Central calendar day, YYYY-MM-DD. */
   scheduleDate: string;
-  /** Hourly mean turbine discharge, cfs. */
+  /**
+   * The instant this Central day starts, ISO UTC. The anchor every index is an
+   * offset from, and the only thing that makes a 23- or 25-hour day expressible.
+   */
+  startUtc: string;
+  /** Hourly mean turbine discharge, cfs. 23, 24 or 25 entries. */
   turbineCfs: Array<number | null>;
-  /** Hourly mean total release at the dam, cfs. */
+  /** Hourly mean total release at the dam, cfs. Same length as `turbineCfs`. */
   totalReleaseCfs: Array<number | null>;
 }
 
@@ -224,6 +252,15 @@ export interface DamSnapshot {
   generationFloorCfs?: number;
   /** The zone every `scheduleDate` and hour-ending in this payload is keyed to. */
   scheduleTimeZone?: 'America/Chicago';
+  /**
+   * True only when this project's total release and turbine flow have been
+   * verified to measure separately meaningful things.
+   *
+   * Gates the "other release" figure. Absent or false means a client shows the
+   * two readings side by side and subtracts nothing — see releaseComparison for
+   * why the arithmetic alone cannot establish this.
+   */
+  releaseExcludesGeneration?: boolean;
   /**
    * What lives in the water below. A property of the PROJECT — a deep-draw
    * release runs cold year-round and makes a trout tailwater — and declared

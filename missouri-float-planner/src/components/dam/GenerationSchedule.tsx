@@ -24,7 +24,7 @@ import DamTimeline from '@/components/dam/DamTimeline';
 // An off-by-one here puts an angler in the water an hour early, and two
 // implementations of that sum is two chances to get it wrong.
 import {
-  windowLabel,
+  idleWindowSentence,
   scheduleDayLabel as dayLabel,
   retrievalSentence,
   scheduleIsStale,
@@ -63,21 +63,12 @@ function DayRow({
         <DamTimeline day={day} reference={reference} renderedAt={renderedAt} />
       </div>
 
-      {day.idle.length > 0 ? (
-        <p className="mt-2 text-sm text-neutral-700">
-          {/* "No generation scheduled", not "Water off" — the schedule describes
-              the powerhouse, and the river below stays up on the recession limb
-              after the units come off. Kept in step with idleWindowSentence in
-              shared/, which the iOS surfaces render from. */}
-          <span className="font-medium">No generation scheduled:</span>{' '}
-          {day.idle.map((w) => windowLabel(w.from, w.to)).join(', ')}
-        </p>
-      ) : (
-        <p className="mt-2 text-sm text-neutral-700">
-          <span className="font-medium">Generating every hour</span> — no break in the
-          schedule.
-        </p>
-      )}
+      {/* Rendered FROM the shared function rather than assembled here. This
+          block used to hand-build the same sentence, which is how the web card
+          came to say "No generation scheduled" while the three iOS surfaces
+          still said "Generation off" — a divergence a comment claiming they
+          were "kept in step" did nothing to prevent. */}
+      <p className="mt-2 text-sm text-neutral-700">{idleWindowSentence(day.idle)}</p>
 
       {/* Magnitude, only where the estimate is meaningful: steady hours with a
           real load. Ramp hours are excluded by isRamp. */}

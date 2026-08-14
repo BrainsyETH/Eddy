@@ -32,7 +32,7 @@ import {
   readingStaleness,
   SCHEDULE_CHANGE_NOTE,
 } from '@shared/dam-schedule-copy';
-import { generationNow, nowNextClauses } from '@shared/dam-generation';
+import { generationNow, generationStatusLabel, nowNextClauses } from '@shared/dam-generation';
 
 function formatCfs(value: number): string {
   return `${Math.round(value).toLocaleString()} cfs`;
@@ -125,9 +125,16 @@ export default function DamStateCard({
   // The scheduled half is also the only live line the two Kansas City projects
   // can have at all: that district publishes no timeseries, so Stockton and
   // Truman have no observation to show.
-  const clauses = secondary
-    ? null
-    : nowNextClauses(generationNow(dam), dam.schedule, dam.generationReference);
+  // A flood-control project has no powerhouse to report on, so it gets no
+  // generation line at all — the same test the hero uses to render nothing.
+  // Without it every such row on the index led with "This project has no
+  // powerhouse", which is both noise and a contradiction of this card's own
+  // rule that a null generating state renders nothing.
+  const state = generationNow(dam);
+  const clauses =
+    secondary || generationStatusLabel(state) === null
+      ? null
+      : nowNextClauses(state, dam.schedule, dam.generationReference);
 
   return (
     <div className="rounded-xl border-2 border-t-4 border-primary-800 bg-white p-5 shadow-[4px_4px_0_var(--color-primary-200)]">

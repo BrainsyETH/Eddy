@@ -22,8 +22,28 @@ import type { TimeseriesPoint } from '@/lib/usace/cda';
 /** The two series the pattern strip draws, and the only values the table takes. */
 export type DamHistoryMetric = 'generationFlow' | 'release';
 
-/** How long history is kept. Seven days for the strip, four weeks of headroom. */
-export const HISTORY_RETENTION_DAYS = 35;
+/**
+ * How long history is kept.
+ *
+ * ── Why this is years and not weeks ────────────────────────────────────────
+ * It was 35 days, sized to "the strip plus headroom", and that reasoning was
+ * wrong in a way that only shows up later. This table is the ONLY durable
+ * record of what these powerhouses actually did: CWMS serves a rolling recent
+ * window and can repair a gap of about a week, so once the prune deletes an
+ * observation it is gone for good and cannot be re-fetched from anywhere.
+ *
+ * The things worth building on top of it — seasonal patterns, per-project flow
+ * bands, scheduled-versus-actual accuracy — all need more than one season, and
+ * a 35-day window would have meant discovering that in a year and then waiting
+ * another year to have the data.
+ *
+ * It costs nothing to keep. Twenty dams × two metrics × 24 hours × 365 days is
+ * about 350,000 rows a year, a few tens of megabytes with the index.
+ *
+ * The UI is unaffected: the pattern read asks for PATTERN_PAST_DAYS and gets
+ * that, however much is stored behind it.
+ */
+export const HISTORY_RETENTION_DAYS = 730;
 
 /** How many Central days the pattern strip shows behind today. */
 export const PATTERN_PAST_DAYS = 7;
@@ -93,6 +113,49 @@ export interface StoredHour {
   valueCfs: number;
 }
 
+/**
+ * The instant a Central calendar day begins, as epoch ms.
+ *
+ * Found by probing rather than by assuming an offset: midnight Central is 05:00
+ * or 06:00 UTC depending on the season, and on a transition day the arithmetic
+ * that would "obviously" work is exactly the arithmetic that produced the
+ * phantom gap. Start from the UTC midnight of the same date, then walk to the
+ * first hour whose Central day key matches — at most a few steps, and correct
+ * on every day of the year including the two odd ones.
+ */
+function centralDayStart(dayKey: string): number {
+  const [y, m, d] = dayKey.split('-').map(Number);
+  const utcMidnight = Date.UTC(y, m - 1, d);
+  // Central is UTC-5 or UTC-6, so the day begins between 04:00 and 07:00 UTC.
+  for (let h = 3; h <= 8; h += 1) {
+    const candidate = utcMidnight + h * 3_600_000;
+    if (centralClock(candidate).dayKey !== dayKey) continue;
+    if (centralClock(candidate - 3_600_000).dayKey !== dayKey) return candidate;
+  }
+  // Unreachable for America/Chicago; fall back to the naive value rather than
+  // throwing inside a render path.
+  return utcMidnight + 6 * 3_600_000;
+}
+
+/**
+ * How many hours long a Central calendar day is: 23, 24 or 25.
+ *
+ * The whole reason DamPatternDay carries a length at all. Derived from the two
+ * day boundaries rather than from a DST table, so it needs no maintenance and
+ * cannot disagree with Intl.
+ */
+export function centralDayHours(dayKey: string): number {
+  const start = centralDayStart(dayKey);
+  const nextStart = centralDayStart(nextDayKeyLocal(dayKey));
+  return Math.round((nextStart - start) / 3_600_000);
+}
+
+/** The calendar day after `dayKey`, both `YYYY-MM-DD`. */
+function nextDayKeyLocal(dayKey: string): string {
+  const [y, m, d] = dayKey.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d) + 86_400_000).toISOString().slice(0, 10);
+}
+
 /** The calendar day before `dayKey`, both `YYYY-MM-DD`. */
 function previousDayKey(dayKey: string): string {
   const [y, m, d] = dayKey.split('-').map(Number);
@@ -115,13 +178,14 @@ export function patternDayKeys(past = PATTERN_PAST_DAYS, now = Date.now()): stri
 /**
  * Fold stored hours into the wire's per-day arrays.
  *
- * ── Index 0 is hour-ending 1 ───────────────────────────────────────────────
- * An observation that landed in Central hour 0 (midnight to 1 AM) is the hour
- * SWPA posts as hour ending 1, and goes at index 0. That is the whole mapping,
- * and it is the same off-by-one that "puts an angler in the water an hour
- * early" everywhere else in this feature, so it is done once, here.
+ * ── Indexed by UTC offset, not by Central hour-of-day ──────────────────────
+ * Index `i` is the hour beginning `i` hours after `startUtc`. This is the fix
+ * for the DST bug documented on DamPatternDay: Central hour-of-day repeats a
+ * value each November and skips one each March, so using it as an array index
+ * discarded a real observation on one day of the year and invented a missing
+ * one on another. A UTC offset from a known anchor does neither.
  *
- * Days with no rows at all are still emitted, as 24 nulls. A strip that
+ * Days with no rows at all are still emitted, full of nulls. A strip that
  * silently dropped a dead day would close the gap and show a continuous week
  * that never happened.
  */
@@ -133,11 +197,18 @@ export function buildPatternDays(
   const now = options?.now ?? Date.now();
 
   const days = new Map<string, DamPatternDay>();
+  /** dayKey → the epoch ms that day begins, so the fold below needs no re-probe. */
+  const starts = new Map<string, number>();
+
   for (const key of patternDayKeys(past, now)) {
+    const length = centralDayHours(key);
+    const start = centralDayStart(key);
+    starts.set(key, start);
     days.set(key, {
       scheduleDate: key,
-      turbineCfs: new Array(24).fill(null),
-      totalReleaseCfs: new Array(24).fill(null),
+      startUtc: new Date(start).toISOString(),
+      turbineCfs: new Array(length).fill(null),
+      totalReleaseCfs: new Array(length).fill(null),
     });
   }
 
@@ -146,12 +217,13 @@ export function buildPatternDays(
     if (!Number.isFinite(ms)) continue;
     if (!Number.isFinite(row.valueCfs)) continue;
 
-    const { dayKey, hoursElapsed } = centralClock(ms);
+    const { dayKey } = centralClock(ms);
     const day = days.get(dayKey);
-    if (!day) continue; // Outside the window — a retention straggler.
+    const start = starts.get(dayKey);
+    if (!day || start === undefined) continue; // Outside the window.
 
-    const index = Math.floor(hoursElapsed);
-    if (index < 0 || index > 23) continue;
+    const index = Math.round((ms - start) / 3_600_000);
+    if (index < 0 || index >= day.turbineCfs.length) continue;
 
     if (row.metric === 'generationFlow') day.turbineCfs[index] = row.valueCfs;
     else day.totalReleaseCfs[index] = row.valueCfs;

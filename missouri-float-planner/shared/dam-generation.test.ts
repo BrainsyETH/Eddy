@@ -16,9 +16,11 @@ import {
   releaseComparison,
   scheduleDayVoiceOver,
   scheduledBar,
+  scheduledClauseProvenance,
+  scheduleOutlook,
+  speaksForNow,
   patternRowVoiceOver,
   patternRows,
-  scheduleOutlook,
   unitEquivalents,
   type GenerationReference,
 } from './dam-generation';
@@ -45,7 +47,12 @@ const NOON_CENTRAL = Date.parse('2026-07-28T17:00:00Z');
  * hour not named is idle. Same helper shape dam-schedule-copy.test.ts uses, so
  * a case reads as the shape of the day rather than as 24 numbers.
  */
-function day(scheduleDate: string, mwByHour: Record<number, number>) {
+function day(
+  scheduleDate: string,
+  mwByHour: Record<number, number>,
+  options?: { retrievedMinutesAgo?: number }
+) {
+  const ago = options?.retrievedMinutesAgo ?? 5;
   return {
     scheduleDate,
     hours: Array.from({ length: 24 }, (_, i) => ({
@@ -54,6 +61,7 @@ function day(scheduleDate: string, mwByHour: Record<number, number>) {
       cfs: null,
       isRamp: false,
     })),
+    retrievedAt: new Date(NOON_CENTRAL - ago * 60_000).toISOString(),
   };
 }
 
@@ -214,7 +222,11 @@ test('the observed clause and the scheduled clause are separate strings', () => 
   const clauses = nowNextClauses(state, schedule, BULL_SHOALS, NOON_CENTRAL);
 
   assert.equal(clauses.observed, 'About 6 generators’ worth now.');
-  assert.equal(clauses.scheduled, 'No generation scheduled after 10 PM.');
+  assert.equal(
+    clauses.scheduled,
+    'Generation scheduled to stop at 10 PM. Later hours have not been posted.',
+    'unbounded only because the posted schedule does not reach a restart'
+  );
 });
 
 test('an idle plant with a start ahead of it says both halves', () => {
@@ -232,7 +244,10 @@ test('an unreadable feed says so instead of borrowing the schedule', () => {
   const clauses = nowNextClauses(state, schedule, BULL_SHOALS, NOON_CENTRAL);
 
   assert.equal(clauses.observed, 'Current turbine flow unavailable.');
-  assert.equal(clauses.scheduled, 'No generation scheduled after 8 PM.');
+  assert.equal(
+    clauses.scheduled,
+    'Generation scheduled to stop at 8 PM. Later hours have not been posted.'
+  );
 });
 
 test('no schedule at all yields no scheduled clause rather than a guess', () => {
@@ -294,7 +309,7 @@ test('a move tomorrow and a move later in the week name their day', () => {
   const state = generationNow(dam({ metrics: { generationFlow: reading(19_130, 5) } }), NOON_CENTRAL);
   assert.equal(
     nowNextClauses(state, tomorrow, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'No generation scheduled after 3 AM tomorrow.'
+    'Generation scheduled to stop at 3 AM tomorrow. Later hours have not been posted.'
   );
 
   const thursday = [
@@ -304,7 +319,7 @@ test('a move tomorrow and a move later in the week name their day', () => {
   ];
   assert.equal(
     nowNextClauses(state, thursday, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'No generation scheduled after 2 AM Thursday.'
+    'Generation scheduled to stop at 2 AM Thursday. Later hours have not been posted.'
   );
 });
 
@@ -327,7 +342,10 @@ test('a schedule that never changes says so about the POSTED schedule', () => {
 // ── Turbine flow against total release ─────────────────────────────────────
 
 test('other release is stated only when every rule passes', () => {
-  const comparison = releaseComparison(reading(0, 10), reading(1_250, 10), BULL_SHOALS, NOON_CENTRAL);
+  const comparison = releaseComparison(reading(0, 10), reading(1_250, 10), BULL_SHOALS, {
+    declared: true,
+    now: NOON_CENTRAL,
+  });
   assert.deepEqual(comparison, {
     kind: 'other-release',
     turbineCfs: 0,
@@ -339,7 +357,10 @@ test('other release is stated only when every rule passes', () => {
 test('a difference inside tolerance is not an outlet', () => {
   // Tolerance is the larger of 50 cfs and 2% of full power — 528 cfs here. Two
   // series measuring almost the same water disagree by less than that all day.
-  const within = releaseComparison(reading(19_130, 10), reading(19_430, 10), BULL_SHOALS, NOON_CENTRAL);
+  const within = releaseComparison(reading(19_130, 10), reading(19_430, 10), BULL_SHOALS, {
+    declared: true,
+    now: NOON_CENTRAL,
+  });
   assert.deepEqual(within, { kind: 'separate', reason: 'within-tolerance' });
   assert.ok(OTHER_RELEASE_FLOOR_CFS < 528, 'the relative test is the binding one at Bull Shoals');
 });
@@ -352,13 +373,13 @@ function separateReason(comparison: ReturnType<typeof releaseComparison>): strin
 
 test('misaligned, stale, averaged or impossible pairs are never subtracted', () => {
   // Each of these produced a plausible-looking number and none of them is one.
-  assert.equal(separateReason(releaseComparison(reading(0, 10), reading(1_250, 10 + OBSERVATION_ALIGNMENT_MINUTES + 1), BULL_SHOALS, NOON_CENTRAL)), 'misaligned');
-  assert.equal(separateReason(releaseComparison(reading(0, 8 * 60), reading(1_250, 8 * 60), BULL_SHOALS, NOON_CENTRAL)), 'not-fresh');
-  assert.equal(separateReason(releaseComparison(reading(0, 10), reading(1_250, 10, { dailyMean: true }), BULL_SHOALS, NOON_CENTRAL)), 'daily-mean');
+  assert.equal(separateReason(releaseComparison(reading(0, 10), reading(1_250, 10 + OBSERVATION_ALIGNMENT_MINUTES + 1), BULL_SHOALS, { declared: true, now: NOON_CENTRAL })), 'misaligned');
+  assert.equal(separateReason(releaseComparison(reading(0, 8 * 60), reading(1_250, 8 * 60), BULL_SHOALS, { declared: true, now: NOON_CENTRAL })), 'not-fresh');
+  assert.equal(separateReason(releaseComparison(reading(0, 10), reading(1_250, 10, { dailyMean: true }), BULL_SHOALS, { declared: true, now: NOON_CENTRAL })), 'daily-mean');
   // Turbine flow above total release means the series do not mean what we
   // think, so nothing is said rather than a negative "other release".
-  assert.equal(separateReason(releaseComparison(reading(5_000, 10), reading(1_250, 10), BULL_SHOALS, NOON_CENTRAL)), 'implausible');
-  assert.equal(separateReason(releaseComparison(reading(0, 10), undefined, BULL_SHOALS, NOON_CENTRAL)), 'missing');
+  assert.equal(separateReason(releaseComparison(reading(5_000, 10), reading(1_250, 10), BULL_SHOALS, { declared: true, now: NOON_CENTRAL })), 'implausible');
+  assert.equal(separateReason(releaseComparison(reading(0, 10), undefined, BULL_SHOALS, { declared: true, now: NOON_CENTRAL })), 'missing');
 });
 
 // ── Drawing ────────────────────────────────────────────────────────────────
@@ -395,7 +416,7 @@ test('every chart has a sentence that says the same thing', () => {
 
   assert.equal(
     scheduleDayVoiceOver(day('2026-07-28', { 14: 391, 15: 391, 16: 391 }), BULL_SHOALS),
-    'Generation scheduled for 3 of 24 hours, from 1 PM to 4 PM. Peak scheduled load is 100% of plant capacity.'
+    'Generation scheduled for 3 of 24 hours, 1 PM – 4 PM. Peak scheduled load is 100% of plant capacity.'
   );
   assert.equal(
     scheduleDayVoiceOver(day('2026-07-28', {}), BULL_SHOALS),
@@ -448,13 +469,22 @@ test('an observation is never phrased as a plan, and a plan never as a fact', ()
 // ── The pattern strip ──────────────────────────────────────────────────────
 
 /** A stored day, from a sparse `{ hourIndex: cfs }` map. Every other hour is a gap. */
-function observedDay(scheduleDate: string, turbineByIndex: Record<number, number>) {
+function observedDay(
+  scheduleDate: string,
+  turbineByIndex: Record<number, number>,
+  /** 23 or 25 on a daylight-saving transition. Defaults to an ordinary day. */
+  hours = 24
+) {
   return {
     scheduleDate,
-    turbineCfs: Array.from({ length: 24 }, (_, i) =>
+    // Central midnight in July is 05:00 UTC. The exact anchor does not matter to
+    // patternRows, which reads indices and length; buildPatternDays is what
+    // computes it for real, and dam-history.test.ts pins that.
+    startUtc: `${scheduleDate}T05:00:00.000Z`,
+    turbineCfs: Array.from({ length: hours }, (_, i) =>
       turbineByIndex[i] === undefined ? null : turbineByIndex[i]
     ),
-    totalReleaseCfs: new Array(24).fill(null),
+    totalReleaseCfs: new Array(hours).fill(null),
   };
 }
 
@@ -562,4 +592,195 @@ test('a row says which of its hours were measured and which were planned', () =>
     patternRowVoiceOver(rows.find((r) => r.dayKey === '2026-07-29')!),
     'Wed: generation scheduled in 2 of 24 hours.'
   );
+});
+
+// ── Review fixes: the present tense, the stale schedule, the gated gap ─────
+
+test('a LAGGING observation loses "now", not just a stale one', () => {
+  // READING_LAGGING_AFTER_HOURS is 2 and READING_STALE_AFTER_HOURS is 6. The
+  // present tense was gated on `stale`, so a five-hour-old reading rendered
+  // "GENERATING NOW / About 6 generators' worth now" — a true number attached
+  // to the wrong moment, the same class of error as an hour-ending off-by-one.
+  assert.equal(speaksForNow('fresh'), true);
+  assert.equal(speaksForNow('lagging'), false);
+  assert.equal(speaksForNow('stale'), false);
+
+  const lagging = generationNow(
+    dam({ metrics: { generationFlow: reading(19_130, 5 * 60) } }),
+    NOON_CENTRAL
+  );
+  assert.equal(lagging.kind === 'generating' && lagging.age, 'lagging');
+  assert.equal(generationStatusLabel(lagging), 'Last observed generating');
+
+  const clauses = nowNextClauses(lagging, [], BULL_SHOALS, NOON_CENTRAL);
+  assert.ok(!/\bnow\b/.test(clauses.observed), `still said now: ${clauses.observed}`);
+  assert.equal(clauses.observed, 'About 6 generators’ worth when last observed, 5 hours ago.');
+
+  // And the idle side of the same rule.
+  const idleLagging = generationNow(
+    dam({ metrics: { generationFlow: reading(20, 5 * 60) } }),
+    NOON_CENTRAL
+  );
+  assert.equal(generationStatusLabel(idleLagging), 'No generation at last observation');
+});
+
+test('a stop is bounded by its restart when the schedule reaches one', () => {
+  // "No generation scheduled after 10 PM" reads as open-ended and stays that
+  // way in the reader's head even when the units are back at 6 AM. A night off
+  // and a shutdown are different plans.
+  const overnight = [
+    day('2026-07-28', { 13: 300, 14: 300, 15: 300, 16: 300, 17: 300, 18: 300, 19: 300, 20: 300, 21: 300, 22: 300 }),
+    day('2026-07-29', { 7: 300, 8: 300, 9: 300 }),
+  ];
+  const state = generationNow(dam({ metrics: { generationFlow: reading(19_130, 5) } }), NOON_CENTRAL);
+  assert.equal(
+    nowNextClauses(state, overnight, BULL_SHOALS, NOON_CENTRAL).scheduled,
+    'No generation scheduled from 10 PM to 6 AM tomorrow.'
+  );
+
+  const outlook = scheduleOutlook(overnight, BULL_SHOALS, NOON_CENTRAL);
+  assert.equal(outlook?.move?.kind, 'stop');
+  assert.equal(outlook?.resumesAt?.hourEnding, 7);
+  assert.equal(outlook?.resumesAt?.dayOffset, 1);
+});
+
+test('a stale schedule says so beside its own sentence, and is not suppressed', () => {
+  // SCHEDULE_STALE_AFTER_MINUTES is 90. Suppressing the line would trade a
+  // legible caveat for an invisible one — "when does generation stop" is the
+  // most load-bearing sentence on the page, and a reader given nothing guesses.
+  const stale = [
+    day('2026-07-28', { 13: 300, 14: 300, 15: 300 }, { retrievedMinutesAgo: 200 }),
+  ];
+  const state = generationNow(dam({ metrics: { generationFlow: reading(19_130, 5) } }), NOON_CENTRAL);
+
+  const clauses = nowNextClauses(state, stale, BULL_SHOALS, NOON_CENTRAL);
+  assert.ok(clauses.scheduled, 'the sentence survives staleness');
+  assert.equal(scheduleOutlook(stale, BULL_SHOALS, NOON_CENTRAL)?.stale, true);
+  assert.equal(
+    scheduledClauseProvenance(stale, BULL_SHOALS, NOON_CENTRAL),
+    'From a schedule Eddy last retrieved 3 hours ago. It may have been revised since.'
+  );
+
+  // A current schedule says nothing extra.
+  const fresh = [day('2026-07-28', { 13: 300, 14: 300, 15: 300 })];
+  assert.equal(scheduledClauseProvenance(fresh, BULL_SHOALS, NOON_CENTRAL), null);
+  assert.equal(scheduleOutlook(fresh, BULL_SHOALS, NOON_CENTRAL)?.stale, false);
+});
+
+test('a stale schedule is marked on the pattern rows it draws', () => {
+  const staleSchedule = [
+    day('2026-07-28', { 20: 300 }, { retrievedMinutesAgo: 200 }),
+    day('2026-07-29', { 8: 300 }, { retrievedMinutesAgo: 200 }),
+  ];
+  const rows = patternRows(
+    [observedDay('2026-07-28', { 8: 19_130 })],
+    staleSchedule,
+    BULL_SHOALS,
+    100,
+    NOON_CENTRAL
+  );
+  const tomorrow = rows.find((r) => r.dayKey === '2026-07-29')!;
+  assert.equal(tomorrow.scheduleStale, true);
+  assert.ok(
+    patternRowVoiceOver(tomorrow).includes('may have been revised'),
+    'the caveat has to reach a screen reader too — the visual treatment does not'
+  );
+});
+
+test('the release gap is not stated for a dam that has not declared it', () => {
+  // The arithmetic cannot see whether the two series MEAN compatible things at
+  // a given project. Bull Shoals returned byte-identical values for both on a
+  // live read, which no timestamp check can distinguish from a genuine
+  // all-through-the-turbines hour.
+  const undeclared = releaseComparison(reading(0, 10), reading(1_250, 10), BULL_SHOALS, {
+    now: NOON_CENTRAL,
+  });
+  assert.deepEqual(undeclared, { kind: 'separate', reason: 'not-declared' });
+});
+
+test('an adjacent hourly pair is no longer close enough to subtract', () => {
+  // The 65-minute window admitted exactly the pair that manufactures a number:
+  // during a start, 10:00 total release against 11:00 turbine flow yields
+  // thousands of cfs of "other release" that no outlet is carrying.
+  assert.equal(OBSERVATION_ALIGNMENT_MINUTES, 5);
+  assert.equal(
+    separateReason(
+      releaseComparison(reading(0, 10), reading(19_000, 70), BULL_SHOALS, {
+        declared: true,
+        now: NOON_CENTRAL,
+      })
+    ),
+    'misaligned'
+  );
+  // Same hour, small jitter, still fine.
+  assert.equal(
+    releaseComparison(reading(0, 10), reading(1_250, 12), BULL_SHOALS, {
+      declared: true,
+      now: NOON_CENTRAL,
+    }).kind,
+    'other-release'
+  );
+});
+
+test('a screen reader hears the actual generating windows, not their span', () => {
+  // 6-9 AM and 5-8 PM is six hours in two blocks — the commonest shape a
+  // peaking plant has. It was described as a fourteen-hour continuous run.
+  const split = day('2026-07-28', { 7: 280, 8: 280, 9: 280, 18: 280, 19: 280, 20: 280 });
+  assert.equal(
+    scheduleDayVoiceOver(split, BULL_SHOALS),
+    'Generation scheduled for 6 of 24 hours, 6 AM – 9 AM and 5 PM – 8 PM. Peak scheduled load is 72% of plant capacity.'
+  );
+
+  // Past three blocks the recitation stops being listenable and the count says
+  // more than the list would.
+  const scattered = day('2026-07-28', { 2: 280, 5: 280, 8: 280, 11: 280, 14: 280 });
+  assert.ok(scheduleDayVoiceOver(scattered, BULL_SHOALS).includes('in 5 periods'));
+});
+
+test('a row is as long as its day, not as long as 24', () => {
+  // The strip draws a 23-hour day with 23 bars and a 25-hour day with 25. The
+  // alternative — padding both to 24 — is what invented a gap each March and
+  // dropped a reading each November; see DamPatternDay.
+  const spring = patternRows(
+    [observedDay('2026-03-08', { 0: 19_130 }, 23)],
+    [],
+    BULL_SHOALS,
+    100,
+    NOON_CENTRAL
+  );
+  assert.equal(spring[0].cells.length, 23);
+
+  const fall = patternRows(
+    [observedDay('2026-11-01', { 0: 19_130 }, 25)],
+    [],
+    BULL_SHOALS,
+    100,
+    NOON_CENTRAL
+  );
+  assert.equal(fall[0].cells.length, 25);
+  // And the spoken summary counts against the real length rather than 24.
+  assert.ok(patternRowVoiceOver(fall[0]).includes('of 25 hours'));
+});
+
+test('the now marker is the measured/scheduled boundary, not elapsed over 24', () => {
+  // Noon Central: twelve hours have happened. The marker belongs at cell 12
+  // regardless of how many hours the day turns out to hold.
+  const rows = patternRows(
+    [observedDay('2026-07-28', { 8: 19_130 })],
+    [day('2026-07-28', { 20: 300 })],
+    BULL_SHOALS,
+    100,
+    NOON_CENTRAL
+  );
+  const today = rows.find((r) => r.today)!;
+  assert.equal(today.splitIndex, 12);
+  assert.equal(today.cells.length, 24);
+  // Index 8 was observed; index 11 was an elapsed hour with no reading stored,
+  // which is a gap and not a forecast — the split is about SOURCE, not fill.
+  assert.equal(today.cells[8].kind, 'observed');
+  assert.equal(today.cells[11].kind, 'missing');
+  assert.equal(today.cells[12].kind, 'scheduled');
+
+  // A row that is wholly one thing has no boundary to draw.
+  assert.equal(rows.find((r) => !r.today)?.splitIndex ?? null, null);
 });

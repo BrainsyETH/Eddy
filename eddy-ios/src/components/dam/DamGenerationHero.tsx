@@ -28,7 +28,11 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
-import { relativeAge, SCHEDULE_CHANGE_NOTE } from '@eddy/conditions/dam-schedule-copy';
+import {
+  relativeAge,
+  readingStaleness,
+  SCHEDULE_CHANGE_NOTE,
+} from '@eddy/conditions/dam-schedule-copy';
 import {
   fullGenerationReferenceLabel,
   generationNow,
@@ -39,6 +43,8 @@ import {
   generatorRack,
   nowNextClauses,
   releaseComparison,
+  scheduledClauseProvenance,
+  speaksForNow,
   OTHER_RELEASE_NOTE,
   RACK_ESTIMATE_NOTE,
 } from '@eddy/conditions/dam-generation';
@@ -50,17 +56,38 @@ function formatCfs(value: number): string {
 }
 
 /**
- * One generator, filled to `fill`.
+ * One generating bay, filled to `fill`.
+ *
+ * ── Why a bay and not a circle ─────────────────────────────────────────────
+ * Eight circles in a row read as status LEDs — a panel of indicator lamps,
+ * which says "on or off" and nothing about magnitude. A rounded upright with a
+ * rotor channel reads as machinery, which is what this is.
+ *
+ * Fills from the BOTTOM UP, never by width: a narrower bay reads as a smaller
+ * generator, where a part-full one reads as a generator at part load — and the
+ * capacity bar directly beneath already teaches that horizontal extent means
+ * something else.
  *
  * An absolutely positioned inner View rather than a gradient: RN has no CSS
  * gradient without a native dependency, and a clipped fill is the same picture.
- * The ring stays at full strength so an empty cell is still visibly a
- * generator rather than a hole in the row.
  */
-function GeneratorCell({ fill, on, off }: { fill: number; on: string; off: string }) {
+function GeneratorCell({
+  fill,
+  on,
+  off,
+  channel,
+}: {
+  fill: number;
+  on: string;
+  off: string;
+  channel: string;
+}) {
   return (
     <View style={[styles.cell, { borderColor: on, backgroundColor: off }]}>
       <View style={[styles.cellFill, { height: `${Math.round(fill * 100)}%`, backgroundColor: on }]} />
+      {/* The rotor channel. Decorative, and the only thing separating this from
+          a plain bar chart of eight identical columns. */}
+      <View style={[styles.cellChannel, { backgroundColor: channel }]} />
     </View>
   );
 }
@@ -82,11 +109,16 @@ export function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
     state.kind === 'generating' ? generatorEquivalentPhrase(state.equivalents, ref) : null;
   const percent = state.kind === 'generating' ? generationPercentLabel(state.fraction) : null;
   const clauses = nowNextClauses(state, dam.schedule, ref);
-  const comparison = releaseComparison(dam.metrics.generationFlow, dam.metrics.release, ref);
+  const comparison = releaseComparison(dam.metrics.generationFlow, dam.metrics.release, ref, {
+    declared: dam.releaseExcludesGeneration,
+  });
   const voiceOver = generationVoiceOver(state, ref);
+  const provenance = scheduledClauseProvenance(dam.schedule, ref);
 
   const observedAt = state.kind === 'unavailable' ? null : relativeAge(state.observedAt);
-  const dim = state.kind !== 'unavailable' && state.age === 'stale';
+  // The same rule the phrasing uses, so a reading that stopped saying "now"
+  // also stops looking current.
+  const dim = state.kind !== 'unavailable' && !speaksForNow(state.age);
   const fraction = state.kind === 'generating' ? state.fraction : null;
 
   return (
@@ -112,6 +144,7 @@ export function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
                 fill={cell.fill}
                 on={colors.generationHigh}
                 off={colors.cardRaised}
+                channel={colors.card}
               />
             ))}
           </View>
@@ -181,11 +214,24 @@ export function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
           that function for why a bare subtraction is a claim someone acts on. */}
       {dam.metrics.release ? (
         <View style={[styles.divided, { borderTopColor: colors.border }]}>
-          <Text style={[styles.rowLabel, { color: colors.textMuted }]}>
+          {/* The age is not optional. Turbine flow above carries one, and two
+              adjacent measurements with different ages look synchronised when
+              only one is dated. */}
+          <Text
+            style={[
+              styles.rowLabel,
+              { color: colors.textMuted },
+              readingStaleness(dam.metrics.release.at) !== 'fresh' && { opacity: 0.6 },
+            ]}
+          >
             {dam.metrics.release.dailyMean ? 'Total release at dam (daily avg)' : 'Total release at dam'}
             <Text style={[styles.rowValue, { color: colors.text }]}>
               {'  '}
               {formatCfs(dam.metrics.release.value)}
+            </Text>
+            <Text style={[styles.note, { color: colors.textSubtle }]}>
+              {'  '}
+              {relativeAge(dam.metrics.release.at)}
             </Text>
           </Text>
           {comparison.kind === 'other-release' ? (
@@ -206,20 +252,29 @@ export function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
       {/* Now and next. Two clauses, two weights: the first is a measurement, the
           second is SWPA's plan, and they can honestly disagree. The note carries
           location and downstream lag and is not decoration. */}
-      <View style={[styles.divided, { borderTopColor: colors.border }]}>
-        <Text style={[styles.observed, { color: colors.text }]}>{clauses.observed}</Text>
-        {clauses.scheduled ? (
-          <>
-            <View style={styles.scheduledRow}>
-              <Ionicons name="time-outline" size={13} color={colors.interactive} />
-              <Text style={[styles.scheduled, { color: colors.interactive }]}>
-                {clauses.scheduled}
-              </Text>
-            </View>
-            <Text style={[styles.note, { color: colors.textSubtle }]}>{SCHEDULE_CHANGE_NOTE}</Text>
-          </>
-        ) : null}
-      </View>
+      {/* NEXT SCHEDULED CHANGE, as its own labelled block.
+          The observed clause is deliberately absent: the rack and headline above
+          already say "About 6 generators' worth", and repeating it here made one
+          observation read as two. The combined sentence still earns its space on
+          the compact row, where there is no rack to have said it first. */}
+      {clauses.scheduled ? (
+        <View style={[styles.divided, { borderTopColor: colors.border }]}>
+          <Text style={[styles.blockLabel, { color: colors.textSubtle }]}>
+            NEXT SCHEDULED CHANGE
+          </Text>
+          <View style={styles.scheduledRow}>
+            <Ionicons name="time-outline" size={13} color={colors.interactive} />
+            <Text style={[styles.scheduled, { color: colors.interactive }]}>
+              {clauses.scheduled}
+            </Text>
+          </View>
+          <Text style={[styles.note, { color: colors.textSubtle }]}>{SCHEDULE_CHANGE_NOTE}</Text>
+          {/* Labelled rather than suppressed — see scheduledClauseProvenance. */}
+          {provenance ? (
+            <Text style={[styles.stale, { color: colors.accent }]}>{provenance}</Text>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -230,13 +285,14 @@ const styles = StyleSheet.create({
   status: { fontSize: 11, lineHeight: 15, fontFamily: fonts.heading, letterSpacing: 0.6 },
   rack: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
   cell: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 20,
+    height: 32,
+    borderRadius: 4,
     borderWidth: 2,
     overflow: 'hidden',
     justifyContent: 'flex-end',
   },
+  cellChannel: { position: 'absolute', top: 4, bottom: 4, left: '50%', width: 1, opacity: 0.7 },
   headline: { ...t.lg, fontFamily: fonts.display, marginTop: 8 },
   flow: { fontSize: 17, lineHeight: 22, fontFamily: fonts.heading, fontVariant: ['tabular-nums'] },
   flowAside: { fontSize: 13, lineHeight: 18, fontFamily: fonts.medium },
@@ -250,7 +306,8 @@ const styles = StyleSheet.create({
   divided: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, gap: 3 },
   rowLabel: { fontSize: 13, lineHeight: 18, fontFamily: fonts.medium },
   rowValue: { fontSize: 14, lineHeight: 18, fontFamily: fonts.heading, fontVariant: ['tabular-nums'] },
-  observed: { fontSize: 14, lineHeight: 19, fontFamily: fonts.heading },
+  blockLabel: { fontSize: 10, lineHeight: 14, fontFamily: fonts.heading, letterSpacing: 0.6 },
+  stale: { fontSize: 11, lineHeight: 15, fontFamily: fonts.medium },
   scheduledRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   scheduled: { fontSize: 13, lineHeight: 18, fontFamily: fonts.medium, flexShrink: 1 },
   // The VoiceOver equivalent of the figure. Zero-height rather than

@@ -104,6 +104,29 @@ export interface UsaceDam {
    */
   generationOnCfs?: number;
   /**
+   * TRUE only when this project's `release` and `generationFlow` have been
+   * verified to measure separately meaningful things, so their difference is a
+   * real non-power release.
+   *
+   * ── Why this is declared and never inferred ────────────────────────────────
+   * The two series are resolved per district from different CWMS parameter
+   * families, and nothing in the numbers reveals whether they are independent.
+   * Bull Shoals returned byte-identical values for both on a live read (5,075
+   * cfs each) — which is either a genuine all-through-the-turbines hour or two
+   * names for one series, and no timestamp or tolerance check can tell those
+   * apart. Subtracting them anyway is how "the turbines are idle and the gates
+   * are open" gets printed under a dam where neither is true.
+   *
+   * Same discipline as `tailwaterFishery`: declared from a source, because
+   * inferring it gets the interesting cases exactly backwards. Absent means the
+   * pair renders as two separate facts, which is always safe.
+   *
+   * Nothing sets this yet. It is deliberately unset on every dam until somebody
+   * verifies a specific project's two series against the district's own
+   * definitions and records that here with a date.
+   */
+  releaseExcludesGeneration?: boolean;
+  /**
    * The reach below this dam, when Eddy carries it.
    *
    * Only a TAILWATER goes here — a river whose level IS the release. A river

@@ -25,7 +25,7 @@
 
 import { Zap, Clock } from 'lucide-react';
 import type { DamSnapshot } from '@/lib/data/dams';
-import { relativeAge, SCHEDULE_CHANGE_NOTE } from '@shared/dam-schedule-copy';
+import { relativeAge, readingStaleness, SCHEDULE_CHANGE_NOTE } from '@shared/dam-schedule-copy';
 import {
   fullGenerationReferenceLabel,
   generationNow,
@@ -36,6 +36,8 @@ import {
   generatorRack,
   nowNextClauses,
   releaseComparison,
+  scheduledClauseProvenance,
+  speaksForNow,
   OTHER_RELEASE_NOTE,
   RACK_ESTIMATE_NOTE,
 } from '@shared/dam-generation';
@@ -45,22 +47,33 @@ function cfs(value: number): string {
 }
 
 /**
- * One generator, filled to `fill`.
+ * One generating bay, filled to `fill`.
  *
- * The partial fill is a gradient stop rather than a nested element so a cell at
- * 0.8 draws as one shape rather than as a ring with something inside it — at
- * 28px the second reading is "a different kind of unit", not "a unit at
- * part load".
+ * ── Why a bay and not a circle ─────────────────────────────────────────────
+ * Eight circles in a row read as status LEDs — a panel of indicator lamps,
+ * which says "on or off" and nothing about magnitude. A rounded upright with a
+ * rotor channel down the middle reads as machinery, which is what this is.
+ *
+ * The fill is a gradient stop rather than a nested element so a bay at 0.8
+ * draws as one shape rather than a frame with something inside it, and it fills
+ * from the BOTTOM UP. Partial WIDTH would have been the obvious alternative and
+ * is wrong: a narrower bay reads as a smaller generator, where a part-full one
+ * reads as a generator at part load — and the capacity bar directly beneath
+ * already teaches the reader that horizontal extent means something else.
  */
 function GeneratorCell({ fill }: { fill: number }) {
   const pct = Math.round(fill * 100);
   return (
     <span
-      className="inline-block h-7 w-7 rounded-full border-2 border-primary-700"
+      className="relative inline-block h-8 w-5 rounded-[3px] border-2 border-primary-700"
       style={{
         background: `linear-gradient(to top, var(--color-primary-700) ${pct}%, var(--color-primary-50) ${pct}%)`,
       }}
-    />
+    >
+      {/* The rotor channel. Decorative, and the only thing separating this from
+          a plain bar chart of eight identical columns. */}
+      <span className="absolute inset-y-1 left-1/2 w-px -translate-x-1/2 bg-primary-200/70" />
+    </span>
   );
 }
 
@@ -79,12 +92,19 @@ export default function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
     state.kind === 'generating' ? generatorEquivalentPhrase(state.equivalents, ref) : null;
   const percent = state.kind === 'generating' ? generationPercentLabel(state.fraction) : null;
   const clauses = nowNextClauses(state, dam.schedule, ref);
-  const comparison = releaseComparison(dam.metrics.generationFlow, dam.metrics.release, ref);
+  const comparison = releaseComparison(dam.metrics.generationFlow, dam.metrics.release, ref, {
+    declared: dam.releaseExcludesGeneration,
+  });
   const voiceOver = generationVoiceOver(state, ref);
+  const provenance = scheduledClauseProvenance(dam.schedule, ref);
 
   const generating = state.kind === 'generating';
   const observedAt = state.kind === 'unavailable' ? null : relativeAge(state.observedAt);
-  const dim = state.kind !== 'unavailable' && state.age === 'stale';
+  // The same rule the phrasing uses, so a reading that stopped saying "now"
+  // also stops looking current. It was gated on `stale` while the copy is
+  // gated on `fresh`, so a four-hour-old reading lost the present tense and
+  // kept full emphasis.
+  const dim = state.kind !== 'unavailable' && !speaksForNow(state.age);
 
   return (
     <section className="rounded-xl border-2 border-t-4 border-primary-800 bg-white p-5 shadow-[4px_4px_0_var(--color-primary-200)]">
@@ -151,12 +171,25 @@ export default function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
           that function for why a bare subtraction is a claim someone acts on. */}
       {dam.metrics.release && (
         <div className="mt-4 border-t border-neutral-200 pt-3">
-          <p className="text-sm text-neutral-600">
+          {/* The age is not optional. Turbine flow above carries one, and two
+              adjacent measurements with different ages look synchronised when
+              only one of them is dated — which is exactly the impression that
+              makes a reader trust a difference between them. */}
+          <p
+            className={
+              readingStaleness(dam.metrics.release.at) === 'fresh'
+                ? 'text-sm text-neutral-600'
+                : 'text-sm text-neutral-600 opacity-60'
+            }
+          >
             <span className="font-medium text-neutral-700">
               {dam.metrics.release.dailyMean ? 'Total release at dam (daily avg)' : 'Total release at dam'}
             </span>{' '}
             <span className="font-bold tabular-nums text-neutral-900">
               {cfs(dam.metrics.release.value)}
+            </span>
+            <span className="ml-1.5 text-xs text-neutral-500">
+              {relativeAge(dam.metrics.release.at)}
             </span>
           </p>
           {comparison.kind === 'other-release' && (
@@ -173,19 +206,29 @@ export default function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
         </div>
       )}
 
-      {/* Now and next. Two clauses, two weights: the first is a measurement,
-          the second is SWPA's plan, and they can honestly disagree. The note
-          carries location and downstream lag and is not decoration. */}
-      <div className="mt-4 border-t border-neutral-200 pt-3">
-        <p className="text-sm font-bold text-neutral-900">{clauses.observed}</p>
-        {clauses.scheduled && (
-          <p className="mt-0.5 inline-flex items-center gap-1.5 text-sm font-medium text-primary-800">
+      {/* NEXT SCHEDULED CHANGE, as its own labelled block.
+          The observed clause is deliberately absent: the rack and the headline
+          directly above already say "About 6 generators' worth", and repeating
+          it here as "About 6 generators' worth now." made one observation read
+          as two. The combined sentence still earns its space on the compact
+          list card, where there is no rack to have said it first.
+          The note carries location and downstream lag and is not decoration. */}
+      {clauses.scheduled && (
+        <div className="mt-4 border-t border-neutral-200 pt-3">
+          <h3 className="text-xs font-bold uppercase tracking-wide text-neutral-500">
+            Next scheduled change
+          </h3>
+          <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-primary-800">
             <Clock className="h-3.5 w-3.5" aria-hidden="true" />
             {clauses.scheduled}
           </p>
-        )}
-        {clauses.scheduled && <p className="text-xs text-neutral-500">{SCHEDULE_CHANGE_NOTE}</p>}
-      </div>
+          <p className="text-xs text-neutral-500">{SCHEDULE_CHANGE_NOTE}</p>
+          {/* A stale schedule is labelled rather than suppressed: "when does
+              generation stop" is the most load-bearing line here, and a reader
+              given nothing guesses. */}
+          {provenance && <p className="mt-0.5 text-xs font-medium text-accent-700">{provenance}</p>}
+        </div>
+      )}
     </section>
   );
 }

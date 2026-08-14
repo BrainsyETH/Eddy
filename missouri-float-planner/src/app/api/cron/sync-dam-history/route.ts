@@ -45,8 +45,21 @@ const JOB = 'sync_dam_history';
 /** The two series the pattern strip draws. Nothing else is stored. */
 const HISTORY_METRICS: DamHistoryMetric[] = ['generationFlow', 'release'];
 
-/** A backfill may not ask for more than the table's own retention window. */
-const MAX_BACKFILL_HOURS = 35 * 24;
+/**
+ * The most any one pass will ask CWMS for.
+ *
+ * DELIBERATELY NOT DERIVED FROM HISTORY_RETENTION_DAYS. It was `35 * 24`, which
+ * silently meant "the retention window", and when retention grew to two years
+ * that expression would have started requesting two years of hourly data from
+ * CWMS in a single lambda — a request that upstream will not serve and this
+ * function would not survive.
+ *
+ * This is a bound on what an UPSTREAM FETCH can reasonably return; retention is
+ * a bound on what Eddy KEEPS. They are different questions and must not share a
+ * constant. Ninety days is comfortably past anything CWMS repairs and still
+ * finishes inside maxDuration.
+ */
+const MAX_BACKFILL_HOURS = 90 * 24;
 
 /** Parallel dams. CDA is the constraint, not us — same ceiling readMetrics uses. */
 const DAM_CONCURRENCY = 4;

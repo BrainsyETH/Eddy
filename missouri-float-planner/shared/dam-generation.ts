@@ -49,6 +49,8 @@ import {
   readingStaleness,
   relativeAge,
   scheduleHoursElapsed,
+  scheduleIsStale,
+  windowLabel,
   type ReadingStaleness,
 } from './dam-schedule-copy';
 
@@ -234,20 +236,38 @@ export function generationNow(dam: GenerationInputs, now = Date.now()): Generati
 }
 
 /**
+ * Whether an observation is entitled to the present tense.
+ *
+ * ── Why the line is `fresh`, not `stale` ───────────────────────────────────
+ * It was `stale`, and `stale` does not begin until six hours. READING_LAGGING_
+ * AFTER_HOURS is TWO, and it is two because past two hours a reading no longer
+ * describes now — that is the entire content of the band. A five-hour-old
+ * observation was therefore rendering "GENERATING NOW / About 6 generators'
+ * worth now", which is the same class of error as an hour-ending off-by-one: a
+ * true number attached to the wrong moment.
+ *
+ * These feeds publish hourly. A reading more than two hours old means the feed
+ * is behind, not that the hour is long.
+ */
+export function speaksForNow(age: ReadingStaleness): boolean {
+  return age === 'fresh';
+}
+
+/**
  * The hero's status line, or null when there is nothing to head.
  *
- * A stale observation does NOT get to say "now". It keeps its number and its
- * age — a number with an honest age beats no number — but the present tense is
- * a claim the timestamp cannot support.
+ * An observation that is not fresh does NOT get to say "now". It keeps its
+ * number and its age — a number with an honest age beats no number — but the
+ * present tense is a claim the timestamp cannot support.
  */
 export function generationStatusLabel(state: GenerationNow): string | null {
   switch (state.kind) {
     case 'generating':
-      return state.age === 'stale' ? 'Last observed generating' : 'Generating now';
+      return speaksForNow(state.age) ? 'Generating now' : 'Last observed generating';
     case 'not-generating':
-      return state.age === 'stale'
-        ? 'No generation at last observation'
-        : 'No turbine generation observed';
+      return speaksForNow(state.age)
+        ? 'No turbine generation observed'
+        : 'No generation at last observation';
     case 'unavailable':
       // A flood-control project has no powerhouse to report on, and a hero that
       // said anything at all here would invent one.
@@ -329,6 +349,28 @@ export interface ScheduleOutlook {
   generating: boolean;
   /** The next move, or null when the posted schedule holds steady to its end. */
   move: ScheduledMove | null;
+  /**
+   * When generation is scheduled to RESUME after a stop, when the posted
+   * schedule reaches that far.
+   *
+   * Exists so the stop sentence can be bounded. "No generation scheduled after
+   * 10 PM" is open-ended on its face and stays open-ended in the reader's head
+   * even when the units are back at 6 AM — which is the difference between a
+   * night off and a shutdown. Null means the schedule genuinely does not say,
+   * and the copy then says THAT rather than implying an ending.
+   */
+  resumesAt: ScheduledMove | null;
+  /**
+   * How stale the schedule these answers came from is, from its own retrieval
+   * timestamps.
+   *
+   * The hero's next-change line is the most forward-looking claim on the page
+   * and had no idea how old its source was: the only staleness warning lived in
+   * the schedule card much further down, and the pattern strip drew the same
+   * stale schedule as a clean forecast. Carried here so every surface that
+   * states a transition can state its provenance beside it.
+   */
+  stale: boolean;
 }
 
 /**
@@ -358,7 +400,7 @@ function magnitudeThresholdMw(ref: GenerationReference | null | undefined): numb
  * 6 AM start as Wednesday's.
  */
 export function scheduleOutlook(
-  schedule: Array<Pick<DamScheduleDay, 'scheduleDate' | 'hours'>>,
+  schedule: Array<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>,
   ref: GenerationReference | null | undefined,
   now = Date.now()
 ): ScheduleOutlook | null {
@@ -383,50 +425,78 @@ export function scheduleOutlook(
   const reference = currentHour.megawatts;
   const referenceOn = reference > 0;
 
-  let expectedDate = today;
-  for (let i = startIndex; i < schedule.length; i += 1) {
-    const day = schedule[i];
-    if (day.scheduleDate !== expectedDate) break; // A gap — see the note above.
-    // Walked by hour NUMBER rather than array order: the first move has to be
-    // the earliest one, and reading it off iteration order would quietly depend
-    // on the parser emitting 1..24 sorted.
-    const from = i === startIndex ? startHour + 1 : 1;
-    for (let h = from; h <= 24; h += 1) {
-      const hour = day.hours.find((x) => x.hourEnding === h);
-      if (!hour) continue;
+  // The schedule is only as fresh as its OLDEST day: each day is a separate
+  // file with its own cache age, so the newest would overstate the set.
+  const oldestRetrieval = schedule.reduce<string | null>((oldest, d) => {
+    if (!d.retrievedAt) return oldest;
+    return !oldest || d.retrievedAt < oldest ? d.retrievedAt : oldest;
+  }, null);
+  const stale = scheduleIsStale(oldestRetrieval, now);
 
-      const nowOn = hour.megawatts > 0;
-      if (nowOn !== referenceOn) {
-        return {
-          generating,
-          move: {
-            kind: nowOn ? 'start' : 'stop',
-            hourEnding: h,
-            scheduleDate: day.scheduleDate,
-            // Index offset equals calendar-day offset because the walk stops at
-            // the first non-consecutive date.
-            dayOffset: i - startIndex,
-          },
-        };
+  /** Walk forward from a point, reporting each posted hour in order. */
+  function* forward(fromIndex: number, fromHour: number) {
+    let expectedDate = schedule[fromIndex].scheduleDate;
+    for (let i = fromIndex; i < schedule.length; i += 1) {
+      const day = schedule[i];
+      if (day.scheduleDate !== expectedDate) return; // A gap — see the note above.
+      const from = i === fromIndex ? fromHour : 1;
+      // Walked by hour NUMBER rather than array order: the first move has to be
+      // the earliest one, and reading it off iteration order would quietly
+      // depend on the parser emitting 1..24 sorted.
+      for (let h = from; h <= 24; h += 1) {
+        const hour = day.hours.find((x) => x.hourEnding === h);
+        if (!hour) continue;
+        yield { hour, h, i, day };
       }
-
-      // Still on, but by materially more or less than before.
-      if (threshold !== null && nowOn && Math.abs(hour.megawatts - reference) >= threshold) {
-        return {
-          generating,
-          move: {
-            kind: hour.megawatts > reference ? 'increase' : 'decrease',
-            hourEnding: h,
-            scheduleDate: day.scheduleDate,
-            dayOffset: i - startIndex,
-          },
-        };
-      }
+      expectedDate = nextDayKey(expectedDate);
     }
-    expectedDate = nextDayKey(expectedDate);
   }
 
-  return { generating, move: null };
+  let move: ScheduledMove | null = null;
+  for (const { hour, h, i, day } of forward(startIndex, startHour + 1)) {
+    const nowOn = hour.megawatts > 0;
+    if (nowOn !== referenceOn) {
+      move = {
+        kind: nowOn ? 'start' : 'stop',
+        hourEnding: h,
+        scheduleDate: day.scheduleDate,
+        // Index offset equals calendar-day offset because the walk stops at the
+        // first non-consecutive date.
+        dayOffset: i - startIndex,
+      };
+      break;
+    }
+    if (threshold !== null && nowOn && Math.abs(hour.megawatts - reference) >= threshold) {
+      move = {
+        kind: hour.megawatts > reference ? 'increase' : 'decrease',
+        hourEnding: h,
+        scheduleDate: day.scheduleDate,
+        dayOffset: i - startIndex,
+      };
+      break;
+    }
+  }
+
+  // When the next move is a STOP, keep walking for the restart. Bounding the
+  // sentence is the whole reason: "no generation scheduled after 10 PM" and
+  // "from 10 PM to 6 AM" describe the same schedule and land very differently.
+  let resumesAt: ScheduledMove | null = null;
+  if (move?.kind === 'stop') {
+    const stopIndex = startIndex + move.dayOffset;
+    for (const { hour, h, i, day } of forward(stopIndex, move.hourEnding + 1)) {
+      if (hour.megawatts > 0) {
+        resumesAt = {
+          kind: 'start',
+          hourEnding: h,
+          scheduleDate: day.scheduleDate,
+          dayOffset: i - startIndex,
+        };
+        break;
+      }
+    }
+  }
+
+  return { generating, move, resumesAt, stale };
 }
 
 /**
@@ -437,7 +507,7 @@ export function scheduleOutlook(
  * seconds and the iOS app can hold a response far longer, so "in 2 hours"
  * silently decays into a false claim while "at 3 PM" does not.
  */
-function moveClock(move: ScheduledMove): string {
+function moveClock(move: ScheduledMove, _now: number): string {
   // hourEndingLabel gives the hour the water STARTS moving, which is exactly
   // the instant the move happens — hour ending 16 is the release running from
   // 3 PM, so the change is at 3 PM.
@@ -470,7 +540,7 @@ export interface NowNextClauses {
 
 export function nowNextClauses(
   state: GenerationNow,
-  schedule: Array<Pick<DamScheduleDay, 'scheduleDate' | 'hours'>>,
+  schedule: Array<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>,
   ref: GenerationReference | null | undefined,
   now = Date.now()
 ): NowNextClauses {
@@ -494,7 +564,7 @@ function observedClause(
   const age = relativeAge(state.observedAt, now);
 
   if (state.kind === 'not-generating') {
-    return state.age === 'stale' && age
+    return !speaksForNow(state.age) && age
       ? `No turbine generation observed as of ${age}.`
       : 'No turbine generation observed.';
   }
@@ -503,15 +573,17 @@ function observedClause(
   if (!phrase) {
     // Generating, but with no reference to size it against — say so plainly
     // rather than inventing a denominator.
-    return state.age === 'stale' && age
+    return !speaksForNow(state.age) && age
       ? `Turbine generation observed as of ${age}.`
       : 'Turbine generation observed now.';
   }
-  return state.age === 'stale' && age ? `${phrase} when last observed, ${age}.` : `${phrase} now.`;
+  return !speaksForNow(state.age) && age
+    ? `${phrase} when last observed, ${age}.`
+    : `${phrase} now.`;
 }
 
 function scheduledClause(
-  schedule: Array<Pick<DamScheduleDay, 'scheduleDate' | 'hours'>>,
+  schedule: Array<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>,
   ref: GenerationReference | null | undefined,
   now: number
 ): string | null {
@@ -527,14 +599,21 @@ function scheduledClause(
       : 'No generation scheduled for the rest of the posted schedule.';
   }
 
-  const when = moveClock(outlook.move);
+  const when = moveClock(outlook.move, now);
   switch (outlook.move.kind) {
     case 'start':
       return `Generation scheduled to start at ${when}.`;
     case 'stop':
-      // "No generation scheduled after 10 PM" rather than "scheduled off",
-      // which sounds more certain than a schedule is entitled to sound.
-      return `No generation scheduled after ${when}.`;
+      // ── Why this is bounded ────────────────────────────────────────────────
+      // "No generation scheduled after 10 PM" reads as open-ended, and stays
+      // that way in the reader's head even when the units are back at 6 AM. A
+      // night off and a shutdown are different plans and this sentence has to
+      // be able to tell them apart. When the posted schedule does not reach the
+      // restart, it says so rather than implying there is not one.
+      if (outlook.resumesAt) {
+        return `No generation scheduled from ${when} to ${moveClock(outlook.resumesAt, now)}.`;
+      }
+      return `Generation scheduled to stop at ${when}. Later hours have not been posted.`;
     case 'increase':
       return `Generation scheduled to increase at ${when}.`;
     case 'decrease':
@@ -542,15 +621,54 @@ function scheduledClause(
   }
 }
 
+/**
+ * The provenance line for a scheduled clause, when the schedule is old enough
+ * to say so.
+ *
+ * ── Why this labels rather than suppresses ─────────────────────────────────
+ * Hiding the next-change line when the schedule is stale trades a legible
+ * caveat for an invisible one: "when does generation stop" is the most
+ * load-bearing sentence on the page, and a reader given nothing is likelier to
+ * guess than a reader given a dated answer. So the sentence stays and carries
+ * its age.
+ *
+ * Null when the schedule is current, unreadable, or absent — nothing to say.
+ */
+export function scheduledClauseProvenance(
+  schedule: Array<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>,
+  ref: GenerationReference | null | undefined,
+  now = Date.now()
+): string | null {
+  const outlook = scheduleOutlook(schedule, ref, now);
+  if (!outlook?.stale) return null;
+
+  const oldest = schedule.reduce<string | null>((o, d) => {
+    if (!d.retrievedAt) return o;
+    return !o || d.retrievedAt < o ? d.retrievedAt : o;
+  }, null);
+  const age = relativeAge(oldest, now);
+  return age
+    ? `From a schedule Eddy last retrieved ${age}. It may have been revised since.`
+    : 'From a schedule Eddy cannot date. It may have been revised since.';
+}
+
 // ── Turbine flow against total release ─────────────────────────────────────
 
 /**
  * How far apart two observations may be and still be subtracted.
  *
- * CWMS publishes these hourly, so 65 minutes admits an adjacent pair and
- * rejects a stale series being differenced against a live one.
+ * ── Why this is minutes and not an hour ────────────────────────────────────
+ * It was 65 minutes, chosen to "admit an adjacent hourly pair", and that is
+ * exactly the wrong thing to admit. Both series are hourly and land on the same
+ * hour when they are healthy, so a 65-minute window buys nothing when they
+ * agree and manufactures a number when they do not: during a start or stop,
+ * differencing 10:00 total release against 11:00 turbine flow yields thousands
+ * of cfs of "other release" that no outlet is carrying. A ramp is the one time
+ * an angler is most likely to be reading this.
+ *
+ * Five minutes admits clock jitter between two CWMS series and nothing else.
  */
-export const OBSERVATION_ALIGNMENT_MINUTES = 65;
+export const OBSERVATION_ALIGNMENT_MINUTES = 5;
 
 /** Absolute floor on a difference worth naming, before the relative test. */
 export const OTHER_RELEASE_FLOOR_CFS = 50;
@@ -568,6 +686,20 @@ export const OTHER_RELEASE_FRACTION_OF_FULL = 0.02;
  * "release" to already include the powerhouse. When any rule fails, the caller
  * shows the two measurements SEPARATELY and interprets nothing.
  *
+ * ── Why a declared capability and not just arithmetic ──────────────────────
+ * Because the arithmetic cannot see the thing most likely to be wrong: whether
+ * `release` and `generationFlow` MEAN compatible things at a given project.
+ * They are resolved per district from different CWMS parameter families, and at
+ * some dams they appear to track the same water — Bull Shoals returned
+ * byte-identical values for both on a live read (5,075 cfs each), which is
+ * either a genuine all-through-the-turbines hour or two names for one series,
+ * and no amount of timestamp checking can tell those apart.
+ *
+ * So a dam must DECLARE that its two series are separately meaningful, the same
+ * way `tailwaterFishery` is declared rather than inferred from a temperature.
+ * Absent, the pair is shown without interpretation. That is the difference
+ * between a fact Eddy verified and one it computed.
+ *
  * It is called "other release" and never "spill" or "gates open", because Eddy
  * does not know which outlet the water is leaving through.
  */
@@ -575,15 +707,27 @@ export type ReleaseComparison =
   | { kind: 'other-release'; turbineCfs: number; totalCfs: number; otherCfs: number }
   | {
       kind: 'separate';
-      reason: 'missing' | 'daily-mean' | 'not-fresh' | 'misaligned' | 'within-tolerance' | 'implausible';
+      reason:
+        | 'not-declared'
+        | 'missing'
+        | 'daily-mean'
+        | 'not-fresh'
+        | 'misaligned'
+        | 'within-tolerance'
+        | 'implausible';
     };
 
 export function releaseComparison(
   generationFlow: DamMetricValue | null | undefined,
   release: DamMetricValue | null | undefined,
   ref: GenerationReference | null | undefined,
-  now = Date.now()
+  options?: { declared?: boolean; now?: number }
 ): ReleaseComparison {
+  const now = options?.now ?? Date.now();
+
+  // The registry's answer first. Nothing below can establish it.
+  if (!options?.declared) return { kind: 'separate', reason: 'not-declared' };
+
   if (!generationFlow || !release) return { kind: 'separate', reason: 'missing' };
 
   // A daily mean and a spot reading are not the same kind of number, and their
@@ -728,16 +872,36 @@ export function scheduleDayVoiceOver(
   day: Pick<DamScheduleDay, 'scheduleDate' | 'hours'>,
   ref: GenerationReference | null | undefined
 ): string {
-  const on = day.hours.filter((h) => h.megawatts > 0);
+  const on = day.hours.filter((h) => h.megawatts > 0).sort((a, b) => a.hourEnding - b.hourEnding);
   if (on.length === 0) return 'No generation scheduled at any hour.';
+
+  // ── Why the windows are enumerated and not spanned ────────────────────────
+  // This said "from 6 AM to 8 PM", taking the first and last generating hours
+  // regardless of what happened between them. A day running 6-9 AM and 5-8 PM —
+  // six hours in two blocks, the commonest shape a peaking plant has — was
+  // therefore described to a screen-reader user as a fourteen-hour continuous
+  // run. That is worse than saying nothing, because it is specific.
+  const windows: Array<{ from: number; to: number }> = [];
+  for (const hour of on) {
+    const last = windows[windows.length - 1];
+    if (last && hour.hourEnding === last.to + 1) last.to = hour.hourEnding;
+    else windows.push({ from: hour.hourEnding, to: hour.hourEnding });
+  }
 
   const peak = on.reduce((max, h) => (h.megawatts > max ? h.megawatts : max), 0);
   const bar = scheduledBar(peak, ref);
-  const share = bar ? ` Peak scheduled load is ${Math.round(bar.fraction * 100)}% of plant capacity.` : '';
-  const first = hourEndingLabel(on[0].hourEnding);
-  const last = hourEndingLabel(on[on.length - 1].hourEnding + 1);
+  const share = bar
+    ? ` Peak scheduled load is ${Math.round(bar.fraction * 100)}% of plant capacity.`
+    : '';
 
-  return `Generation scheduled for ${on.length} of 24 hours, from ${first} to ${last}.${share}`;
+  // Two or three blocks are worth spelling out; past that the list stops being
+  // listenable and the count carries more than the recitation would.
+  const spelled =
+    windows.length <= 3
+      ? `, ${windows.map((w) => windowLabel(w.from, w.to)).join(' and ')}`
+      : ` in ${windows.length} periods`;
+
+  return `Generation scheduled for ${on.length} of 24 hours${spelled}.${share}`;
 }
 
 // ── The pattern strip ──────────────────────────────────────────────────────
@@ -764,6 +928,24 @@ export interface PatternRow {
   scheduled: boolean;
   /** True for the row the now marker sits on. */
   today: boolean;
+  /**
+   * True when this row draws any part of a STALE schedule.
+   *
+   * The strip's forward rows are a forecast, and a forecast Eddy fetched hours
+   * ago drawn identically to one fetched minutes ago is the "a stale schedule
+   * cannot look current" rule broken in the one place it is least visible —
+   * there is no timestamp anywhere near these bars.
+   */
+  scheduleStale: boolean;
+  /**
+   * The cell index where observation gives way to schedule, or null on a row
+   * that is wholly one or the other.
+   *
+   * This IS the now marker's position. Deriving it from `elapsed / 24` instead
+   * would put the marker in the wrong cell on any day that is not 24 hours
+   * long, which is precisely the day somebody would be most confused by it.
+   */
+  splitIndex: number | null;
 }
 
 /**
@@ -788,7 +970,7 @@ export interface PatternRow {
  */
 export function patternRows(
   pattern: DamPatternDay[],
-  schedule: Array<Pick<DamScheduleDay, 'scheduleDate' | 'hours'>>,
+  schedule: Array<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>,
   ref: GenerationReference | null | undefined,
   generationFloorCfs: number | undefined,
   now = Date.now()
@@ -797,6 +979,14 @@ export function patternRows(
   const elapsed = scheduleHoursElapsed(today, now);
   const floor = generationFloorCfs ?? 0;
   const scheduleByDay = new Map(schedule.map((d) => [d.scheduleDate, d]));
+
+  // Oldest day wins, same as everywhere else: each schedule day is its own file
+  // with its own cache age.
+  const oldestRetrieval = schedule.reduce<string | null>((oldest, d) => {
+    if (!d.retrievedAt) return oldest;
+    return !oldest || d.retrievedAt < oldest ? d.retrievedAt : oldest;
+  }, null);
+  const scheduleStale = scheduleIsStale(oldestRetrieval, now);
 
   const scheduledCell = (megawatts: number | undefined): PatternCell => {
     if (megawatts === undefined) return { kind: 'missing' };
@@ -819,17 +1009,41 @@ export function patternRows(
     const hoursByEnding = new Map(
       scheduleByDay.get(day.scheduleDate)?.hours.map((h) => [h.hourEnding, h.megawatts]) ?? []
     );
+    // The day's OWN length, 23 / 24 / 25 — never a hardcoded 24. See
+    // DamPatternDay for the two days a year that distinction is the difference
+    // between a real gap and an invented one.
+    const observedHours = day.turbineCfs.length;
+
     // `scheduleHoursElapsed` is null on any day but today, so a day that is not
-    // today is entirely observed — which is what the fallback below encodes.
-    const splitAt = isToday && elapsed !== null ? Math.floor(elapsed) : 24;
+    // today is entirely observed — which is what the fallback here encodes.
+    const splitAt = isToday && elapsed !== null ? Math.floor(elapsed) : observedHours;
+
+    const scheduledCount = isToday ? Math.max(0, 24 - splitAt) : 0;
+    // When no scheduled hours remain, the row runs to the day's own end. On a
+    // 25-hour day that is what keeps the extra hour from falling off the row
+    // between hour 24 and midnight.
+    const observedCount =
+      scheduledCount === 0 ? observedHours : Math.min(splitAt, observedHours);
+
+    // Today CONCATENATES rather than merges: elapsed hours from the observed
+    // array (whose indices are UTC offsets), remaining hours from the schedule
+    // (whose indices are SWPA hour-endings). The two indexings disagree on a
+    // transition day and are never asked to agree — each half is read with its
+    // own, and the row is simply their sum.
+    const observed = Array.from({ length: observedCount }, (_, i) =>
+      observedCell(day.turbineCfs[i])
+    );
+    const scheduled = Array.from({ length: scheduledCount }, (_, i) =>
+      scheduledCell(hoursByEnding.get(splitAt + i + 1))
+    );
 
     return {
       dayKey: day.scheduleDate,
-      cells: Array.from({ length: 24 }, (_, i) =>
-        i >= splitAt ? scheduledCell(hoursByEnding.get(i + 1)) : observedCell(day.turbineCfs[i])
-      ),
-      scheduled: isToday && splitAt < 24,
+      cells: [...observed, ...scheduled],
+      scheduled: scheduled.length > 0,
       today: isToday,
+      scheduleStale: scheduled.length > 0 && scheduleStale,
+      splitIndex: scheduled.length > 0 ? observed.length : null,
     };
   });
 
@@ -842,6 +1056,9 @@ export function patternRows(
         cells: Array.from({ length: 24 }, (_, i) => scheduledCell(hoursByEnding.get(i + 1))),
         scheduled: true,
         today: false,
+        scheduleStale,
+        // Wholly a forecast, so there is no boundary to mark.
+        splitIndex: null,
       };
     });
 
@@ -872,19 +1089,27 @@ export function patternRowVoiceOver(row: PatternRow): string {
   const scheduled = row.cells.filter((c) => c.kind === 'scheduled' && c.fraction > 0).length;
   const missing = row.cells.filter((c) => c.kind === 'missing').length;
 
-  // "of 24" on every count, because a bare "generation observed in 2 hours"
-  // leaves the listener to guess whether the other 22 were quiet or unknown —
-  // which is the exact distinction the third clause exists to draw.
+  // A denominator on every count, because a bare "generation observed in 2
+  // hours" leaves the listener to guess whether the other 22 were quiet or
+  // unknown — the exact distinction the third clause exists to draw. Taken from
+  // the row's own length, not a literal 24: a Central day is 23 or 25 hours
+  // twice a year and the spoken summary has no business rounding that away.
+  const total = row.cells.length;
   const parts: string[] = [];
   if (row.cells.some((c) => c.kind === 'observed')) {
-    parts.push(`generation observed in ${observed} of 24 hours`);
+    parts.push(`generation observed in ${observed} of ${total} hours`);
   }
   if (row.cells.some((c) => c.kind === 'scheduled')) {
-    parts.push(`generation scheduled in ${scheduled} of 24 hours`);
+    parts.push(`generation scheduled in ${scheduled} of ${total} hours`);
   }
   if (missing > 0) {
     parts.push(`${missing} ${missing === 1 ? 'hour' : 'hours'} with no observation`);
   }
   if (parts.length === 0) return `${label}: no data.`;
-  return `${label}: ${parts.join(', ')}.`;
+  // A stale forecast has to say so here too: the visual treatment that marks it
+  // is exactly the thing a screen-reader user does not get.
+  const caveat = row.scheduleStale
+    ? ' Schedule may have been revised since Eddy retrieved it.'
+    : '';
+  return `${label}: ${parts.join(', ')}.${caveat}`;
 }
