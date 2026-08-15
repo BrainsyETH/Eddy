@@ -88,8 +88,10 @@ Everything the August 11 audit missed because it happened after August 11.
       because `dam_metric_readings` did not exist; the table was created
       2026-08-15. After the next hourly run, confirm
       `select count(*) from dam_metric_readings` is non-zero and a dam page
-      draws the strip. Until roughly a week accumulates, the strip is honestly
-      sparse — that is recorded history, not a defect.
+      draws the strip. The hourly pass re-reads only 48 hours; to fill the
+      whole week-long strip the same day, call the route once with
+      `?backfillHours=192` (it needs the cron secret — the route's own header
+      documents this as the intended at-deploy step).
 - [x] **`access_point_services` admin policies call `is_admin()`.**
       `20260811140000` wrote its three admin policies in the inlined
       `user_roles` form that `20260804235408` had already banished, and
