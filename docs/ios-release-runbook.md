@@ -83,15 +83,20 @@ Everything the August 11 audit missed because it happened after August 11.
       from the CLI's view. (The fix was verified by direct comparison of
       `schema_migrations` against the migrations directory, but this command is
       the release gate and needs the linked project.)
-- [ ] **Generation pattern strip has data.** `/api/cron/sync-dam-history`
+- [x] **Generation pattern strip has data.** `/api/cron/sync-dam-history`
       (`25 * * * *`) had been warn-failing since the dam console deployed,
       because `dam_metric_readings` did not exist; the table was created
-      2026-08-15. After the next hourly run, confirm
-      `select count(*) from dam_metric_readings` is non-zero and a dam page
-      draws the strip. The hourly pass re-reads only 48 hours; to fill the
-      whole week-long strip the same day, call the route once with
-      `?backfillHours=192` (it needs the cron secret — the route's own header
-      documents this as the intended at-deploy step).
+      2026-08-15. *Verified the same evening: 878 hourly rows per metric
+      across 18 dams (the 48-hour lookback window), and the live
+      `/api/dams/<id>` pattern payload serves them, with older days honestly
+      null.*
+- [ ] **Backfill the strip's older days while CWMS can still serve them.**
+      The hourly pass re-reads only 48 hours; call the route once with
+      `?backfillHours=192` (needs the cron secret — the route's own header
+      documents this as the intended at-deploy step). This has a real
+      deadline: CWMS serves roughly a week, so each day not backfilled ages
+      out of upstream and becomes permanently unrecoverable — and this table
+      is now the only durable record (retention 730 days).
 - [x] **`access_point_services` admin policies call `is_admin()`.**
       `20260811140000` wrote its three admin policies in the inlined
       `user_roles` form that `20260804235408` had already banished, and
