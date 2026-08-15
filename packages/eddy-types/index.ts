@@ -2294,6 +2294,8 @@ export interface RiverVisualsResponse {
 // in short, a metric the dam does not publish is ABSENT rather than null, and
 // absent must render nothing rather than "0 cfs".
 export type {
+  DamForecastWindow,
+  DamGenerationForecast,
   DamMetricValue,
   DamPatternDay,
   DamScheduleDay,

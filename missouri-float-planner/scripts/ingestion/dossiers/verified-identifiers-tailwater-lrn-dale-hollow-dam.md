@@ -22,10 +22,13 @@ comment in `usace-registry.ts`.
   figure in the district trio**, pinned in usace-registry.test.ts as the
   ceiling reference for LRN floors; max 4,870 cfs. → `generationOnCfs: 100`.
 ### releaseForecast ✅ `Dale Hollow Dam.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast`
-- `-Turbines` variant read 228 hourly points to 2026-08-24, max 4,800 cfs.
-  Same slice-at-now caution as Wolf Creek.
+- Hourly to 2026-08-24, total outflow. Same slice-at-now caution as Wolf Creek.
 - NOTE: the project's hourly `-Sluice Gates` forecast is stale (2021-02) while
-  its ~1Day sibling is current — one more reason component series stay out.
+  its ~1Day sibling is current — one more reason gate-component series stay out.
+### generationForecast ✅ `Dale Hollow Dam-Turbines.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast`
+- Turbine component: 228 hourly points read, max 4,800 cfs. Drives the
+  `generationForecast` windows on the wire. Period-ending stamps — see the
+  Wolf Creek dossier for the discrimination measurement.
 ### poolElevation ✅ `DLHT1-DALE_HOLLOW.Elev-Pool.Inst.1Hour.0.man-rev` (ft)
 ### inflow ✅ `DLHT1-DALE_HOLLOW.Flow-In.Ave.1Hour.1Hour.man-rev`
 ### tailwaterElevation ✅ `DHTT1-DALE_HOLLOW.Elev-Tail.Inst.1Hour.0.man-rev`

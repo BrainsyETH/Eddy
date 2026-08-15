@@ -21,8 +21,12 @@ comment in `usace-registry.ts`.
   hours units-off (leakage/station flow); min real unit-hour 2,525 cfs; max
   7,604 cfs. → `generationOnCfs: 100` (clears the noise, 25× under a unit).
 ### releaseForecast ✅ `Center Hill Dam.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast`
-- 228 hourly points to 2026-08-24 (~9 days), max 7,802 cfs. `-Turbines`
-  variant read 228 points, max 7,552. Same slice-at-now caution as Wolf Creek.
+- 228 hourly points to 2026-08-24 (~9 days), max 7,802 cfs. Total outflow.
+  Same slice-at-now caution as Wolf Creek.
+### generationForecast ✅ `Center Hill Dam-Turbines.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast`
+- Turbine component: 228 hourly points read, max 7,552 cfs. Drives the
+  `generationForecast` windows on the wire. Period-ending stamps — see the
+  Wolf Creek dossier for the discrimination measurement.
 ### poolElevation ✅ `CEHT1-CENTER_HILL.Elev-Pool.Inst.1Hour.0.man-rev` (ft)
 ### inflow ✅ `CEHT1-CENTER_HILL.Flow-In.Ave.1Hour.1Hour.man-rev`
 ### tailwaterElevation ✅ `CETT1-CENTER_HILL.Elev-Tail.Inst.1Hour.0.man-rev`

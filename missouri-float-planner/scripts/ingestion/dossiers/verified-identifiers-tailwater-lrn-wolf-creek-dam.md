@@ -23,10 +23,17 @@ is omitted and resolution is off).
 - 300 points read over 2026-08-03..15. Idle = exactly 0 every idle hour; min
   real unit-hour 3,550 cfs; max 19,800 cfs. → `generationOnCfs: 100`.
 ### releaseForecast ✅ `Wolf Creek Dam.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast`
-- Hourly, cfs, ran to 2026-08-24 on probe day (~9 days). `-Turbines` variant
-  read 121 points with clean peaking blocks (0 ↔ 15,720-15,840 cfs).
+- Hourly, cfs, ran to 2026-08-24 on probe day (~9 days). Total outflow.
 - ⚠ retains its past BYTE-IDENTICAL to man-rev observed (3 hours checked
-  equal) — any schedule rendering must slice at now.
+  equal) — any rendering must slice at now.
+### generationForecast ✅ `Wolf Creek Dam-Turbines.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast`
+- Turbine component of the same forecast: 121 hourly points read, clean
+  peaking blocks (0 ↔ 15,720-15,840 cfs). Drives the `generationForecast`
+  windows on the wire (src/lib/data/dam-forecast.ts). Same slice-at-now
+  hazard as above. Timestamp convention verified PERIOD-ENDING against the
+  instantaneous tailwater stage: at 2026-08-13T17:00Z the Inst Elev-Tail was
+  already +3.1 ft while 17:00Z carried the first nonzero turbine value —
+  water moved during 16-17Z, so a point stamped t averages [t-1h, t).
 ### poolElevation ✅ `WLCK2-WOLF_CREEK.Elev-Pool.Inst.1Hour.0.man-rev`
 - unit=ft confirmed: 706.5 ft on probe day.
 ### inflow ✅ `WLCK2-WOLF_CREEK.Flow-In.Ave.1Hour.1Hour.man-rev`

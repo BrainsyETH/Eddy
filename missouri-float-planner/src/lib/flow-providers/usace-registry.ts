@@ -42,6 +42,8 @@
 // union is the only thing that catches it.
 export type UsaceOffice = 'SWL' | 'MVS' | 'SWT' | 'LRN';
 
+// Mirrors shared/dam-types.ts UsaceMetric — the wire side documents why the
+// two forecast members must never enter SNAPSHOT_METRICS or DETAIL_METRICS.
 export type UsaceMetric =
   | 'release'
   | 'releaseForecast'
@@ -49,6 +51,7 @@ export type UsaceMetric =
   | 'pctFloodPool'
   | 'inflow'
   | 'generationFlow'
+  | 'generationForecast'
   | 'tailwaterElevation'
   | 'tailwaterTempF';
 
@@ -644,16 +647,16 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
   // 1. NO SWPA COLUMN. Cumberland power is marketed by SEPA, which publishes no
   //    hourly loading page — so no swpaCode, no `schedule`, and no published
   //    MW/cfs reference pair (`generationReference` stays absent and the
-  //    console shows raw cfs). The forward schedule EXISTS: LRN writes it into
-  //    CWMS itself as hourly `celrn-cwms-forecast` series, ALREADY IN CFS,
-  //    running ~9 days ahead (`Wolf Creek Dam-Turbines.Flow` read 121 hourly
-  //    points on 2026-08-15, textbook peaking blocks). Rendering a plan through
-  //    `schedule` is SWPA-shaped work not yet designed — see
-  //    docs/DAM_EXPANSION_SURVEY_2026-08.md — so `releaseForecast` carries the
-  //    verified id and nothing renders it as a schedule yet. CAUTION for that
-  //    future work: the forecast series RETAINS ITS PAST, byte-identical to the
-  //    observed series, so anything reading it must slice at now or it will
-  //    present a plan as a record.
+  //    console shows raw cfs). The forward view EXISTS: LRN writes its
+  //    operating forecast into CWMS itself as hourly `celrn-cwms-forecast`
+  //    series, ALREADY IN CFS, running ~9 days ahead (`Wolf Creek Dam-Turbines
+  //    .Flow` read 121 hourly points on 2026-08-15, textbook peaking blocks).
+  //    That series rides the wire as `generationForecast` WINDOWS — absolute
+  //    instants, built in src/lib/data/dam-forecast.ts — never through
+  //    `schedule`, whose hour-ending megawatt rows are SWPA's shape. CAUTION:
+  //    the forecast series RETAINS ITS PAST, byte-identical to the observed
+  //    series, so the builder slices at now; anything else reading it must
+  //    too, or it will present a plan as a record.
   //
   // 2. TWO STATION PREFIXES PER PROJECT. Observed series hang off NWS handbook
   //    stations — RWNK2-WOLF_CREEK (tailwater) vs WLCK2-WOLF_CREEK (dam/pool) —
@@ -712,6 +715,11 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
         forecast: true,
       },
       generationFlow: { tsId: 'RWNK2-WOLF_CREEK.Flow-Turbine.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
+      generationForecast: {
+        tsId: 'Wolf Creek Dam-Turbines.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast',
+        unit: 'cfs',
+        forecast: true,
+      },
       poolElevation: { tsId: 'WLCK2-WOLF_CREEK.Elev-Pool.Inst.1Hour.0.man-rev', unit: 'ft' },
       inflow: { tsId: 'WLCK2-WOLF_CREEK.Flow-In.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
       tailwaterElevation: { tsId: 'RWNK2-WOLF_CREEK.Elev-Tail.Inst.1Hour.0.man-rev', unit: 'ft' },
@@ -745,6 +753,11 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
       generationFlow: {
         tsId: 'CETT1-CENTER_HILL.Flow-Turbine.Ave.1Hour.1Hour.man-rev',
         unit: 'cfs',
+      },
+      generationForecast: {
+        tsId: 'Center Hill Dam-Turbines.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast',
+        unit: 'cfs',
+        forecast: true,
       },
       poolElevation: { tsId: 'CEHT1-CENTER_HILL.Elev-Pool.Inst.1Hour.0.man-rev', unit: 'ft' },
       inflow: { tsId: 'CEHT1-CENTER_HILL.Flow-In.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
@@ -782,6 +795,11 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
       generationFlow: {
         tsId: 'DHTT1-DALE_HOLLOW.Flow-Turbine.Ave.1Hour.1Hour.man-rev',
         unit: 'cfs',
+      },
+      generationForecast: {
+        tsId: 'Dale Hollow Dam-Turbines.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast',
+        unit: 'cfs',
+        forecast: true,
       },
       poolElevation: { tsId: 'DLHT1-DALE_HOLLOW.Elev-Pool.Inst.1Hour.0.man-rev', unit: 'ft' },
       inflow: { tsId: 'DLHT1-DALE_HOLLOW.Flow-In.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },

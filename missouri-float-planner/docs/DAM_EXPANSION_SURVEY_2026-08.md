@@ -229,8 +229,24 @@ calibration (plan step 1) will need them anyway.
 |---|---|---|
 | 1 | LRN trout trio: registry entries, floors, docs, dossiers | **shipped with this survey** |
 | 2 | Pattern-strip history accumulating for the three (cron picks them up automatically) | automatic |
-| 3 | LRN schedule rendering: `ScheduledHour` redesign (megawatts optional, cfs authoritative, `isRamp` semantics per source), slice-at-now discipline | own design + wire change |
+| 3 | LRN forecast rendering | **shipped, as windows** — see below |
 | 4 | Resolver SPECS: LRN vocabulary + a location model that can span split prefixes | own change, smoke-scripted |
-| 5 | Ameren: retry the daily report; if it parses, Truman completes and Bagnell opens | blocked on the 503 |
+| 5 | Ameren: retry the daily report; if it parses, Truman completes and Bagnell opens | blocked on the 503 (re-confirmed later on 2026-08-15) |
 | 6 | Powersite: non-CWMS metric provider design; Taneycomo reach carries it meanwhile | with TAILWATER_PLAN step 4 |
 | 7 | TVA | after timezone parameterization + first eastern reach |
+
+**How step 3 shipped.** Not through `DamScheduleDay` — its required megawatts
+and `isRamp` hedge are SWPA's shape, and widening them would have broken every
+shipped iOS build reading `megawatts === 0` (null reads as generating, the
+dangerous direction). Instead the forecast rides a NEW optional field,
+`DamSnapshot.generationForecast`: contiguous generating/idle **windows in
+absolute UTC instants**, built server-side from the `-Turbines` forecast
+series with the same `generationOnCfs` floor the observed chip uses. Old
+clients ignore the unknown field and keep today's behavior; new clients render
+it through `shared/dam-forecast-copy.ts` (day grouping, next-change sentence,
+midnight-tonight correction — instants make the DST cases disappear rather
+than needing handling). One measured fact underpins the builder: CWMS `Ave`
+stamps are **period-ending** — verified by the instantaneous tailwater stage
+already being +3.1 ft at the instant of the first nonzero turbine stamp.
+"Windows in instants" is also the shape `ScheduleProvider` wants long-term;
+SWPA's hour-ending rows are now the source-specific case, not the model.

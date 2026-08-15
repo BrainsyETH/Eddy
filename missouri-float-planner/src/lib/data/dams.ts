@@ -121,6 +121,8 @@ const FETCH_CONCURRENCY = 6;
 // in packages/eddy-types. Re-exported here so every existing `@/lib/data/dams`
 // import keeps working verbatim.
 export type {
+  DamGenerationForecast,
+  DamForecastWindow,
   DamMetricValue,
   DamPatternDay,
   DamScheduleDay,
@@ -131,11 +133,13 @@ export type {
   ScheduledHour,
 } from '@shared/dam-types';
 import type {
+  DamGenerationForecast,
   DamMetricValue,
   DamPatternDay,
   DamScheduleDay,
   DamSnapshot,
 } from '@shared/dam-types';
+import { buildForecastWindows, FORECAST_HORIZON_HOURS } from '@/lib/data/dam-forecast';
 
 /** Run `fn` over `items`, at most `limit` at a time. */
 async function mapWithConcurrency<T, R>(
@@ -386,6 +390,61 @@ async function readSchedule(dam: UsaceDam, days: number): Promise<DamScheduleDay
 }
 
 /**
+ * Districts whose CWMS forecast is rendered, with the attribution and zone the
+ * payload carries. An office absent here produces NO forecast even if a series
+ * is declared — attribution and zone are facts about the district, and a
+ * forecast without a named source and clock has no business on a page someone
+ * wades against. A TVA-era Eastern district adds its row here; nothing else
+ * changes.
+ */
+const FORECAST_OFFICES: Partial<
+  Record<NonNullable<UsaceDam['office']>, { source: string; timeZone: string }>
+> = {
+  LRN: {
+    source: 'U.S. Army Corps of Engineers, Nashville District',
+    timeZone: 'America/Chicago',
+  },
+};
+
+/**
+ * The district's forward generation forecast, or undefined when this dam has
+ * none to offer. Undefined rather than an empty window list, for the same
+ * reason readPattern returns undefined: the section is better absent than
+ * present and empty.
+ *
+ * Requires the dam's `generationOnCfs` floor — the windows' on/off verdicts
+ * are made with the same floor the observed `generating` chip uses, so the
+ * forecast and the observation cannot disagree about what "running" means.
+ */
+async function readForecast(dam: UsaceDam): Promise<DamGenerationForecast | undefined> {
+  const series = dam.series.generationForecast;
+  const office = dam.office ? FORECAST_OFFICES[dam.office] : undefined;
+  if (!series || !office || !dam.office || dam.generationOnCfs === undefined) return undefined;
+
+  const now = bucketedNow().getTime();
+  const result = await fetchTimeseries(
+    dam.office,
+    series.tsId,
+    series.unit,
+    // Two hours back so the hour currently running (stamped at its END) is in
+    // the window; buildForecastWindows slices everything older at `now`.
+    new Date(now - 2 * 3_600_000),
+    new Date(now + FORECAST_HORIZON_HOURS * 3_600_000)
+  ).catch(() => null);
+  if (!result || result.points.length === 0) return undefined;
+
+  const windows = buildForecastWindows(result.points, dam.generationOnCfs, Date.now());
+  if (windows.length === 0) return undefined;
+
+  return {
+    windows,
+    timeZone: office.timeZone,
+    retrievedAt: result.retrievedAt,
+    source: office.source,
+  };
+}
+
+/**
  * One dam, reading exactly the metrics asked for. Never throws — a source that
  * fails simply contributes nothing, because a dam with a pool level but no
  * schedule is still worth a page.
@@ -401,20 +460,26 @@ async function readSchedule(dam: UsaceDam, days: number): Promise<DamScheduleDay
  */
 async function fetchSnapshot(
   damId: string,
-  options: { metrics: UsaceMetric[]; scheduleDays: number; pattern?: boolean }
+  options: {
+    metrics: UsaceMetric[];
+    scheduleDays: number;
+    pattern?: boolean;
+    forecast?: boolean;
+  }
 ): Promise<DamSnapshot | null> {
   const dam = getUsaceDam(damId);
   if (!dam) return null;
 
-  const [metrics, schedule, pattern] = await Promise.all([
+  const [metrics, schedule, pattern, forecast] = await Promise.all([
     readMetrics(dam, options.metrics).catch(
       () => ({}) as Partial<Record<UsaceMetric, DamMetricValue>>
     ),
     readSchedule(dam, options.scheduleDays).catch(() => [] as DamScheduleDay[]),
     options.pattern ? readPattern(damId) : Promise.resolve(undefined),
+    options.forecast ? readForecast(dam).catch(() => undefined) : Promise.resolve(undefined),
   ]);
 
-  return buildSnapshot(dam, metrics, schedule, pattern);
+  return buildSnapshot(dam, metrics, schedule, pattern, forecast);
 }
 
 /**
@@ -448,7 +513,8 @@ export function buildSnapshot(
   dam: UsaceDam,
   metrics: Partial<Record<UsaceMetric, DamMetricValue>>,
   schedule: DamScheduleDay[],
-  pattern?: DamPatternDay[]
+  pattern?: DamPatternDay[],
+  forecast?: DamGenerationForecast
 ): DamSnapshot {
   const gen = metrics.generationFlow;
   const generating =
@@ -496,6 +562,7 @@ export function buildSnapshot(
     ...(schedule.length > 0 ? { scheduleTimeZone: 'America/Chicago' as const } : {}),
     ...(dam.releaseExcludesGeneration ? { releaseExcludesGeneration: true } : {}),
     ...(pattern && pattern.length > 0 ? { pattern } : {}),
+    ...(forecast && forecast.windows.length > 0 ? { generationForecast: forecast } : {}),
     ...(dam.tailwaterFishery ? { tailwaterFishery: dam.tailwaterFishery } : {}),
     ...(dam.infoPhone ? { infoPhone: dam.infoPhone } : {}),
     // The reach this dam controls, when Eddy carries it. On the wire so a
@@ -521,6 +588,9 @@ export async function fetchDamDetail(
     // Detail only. A twenty-dam index has no room to draw a week per row and no
     // reason to pay twenty database reads for one that is never seen.
     pattern: true,
+    // Same argument: ~9 days of hourly forecast is a detail-page payload, and
+    // most dams have no forecast series to read anyway.
+    forecast: true,
   });
 }
 

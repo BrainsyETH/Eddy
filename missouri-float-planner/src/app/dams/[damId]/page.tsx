@@ -13,6 +13,7 @@ import SiteFooter from '@/components/ui/SiteFooter';
 import DamStateCard from '@/components/dam/DamStateCard';
 import DamGenerationHero from '@/components/dam/DamGenerationHero';
 import DamPatternStrip from '@/components/dam/DamPatternStrip';
+import GenerationForecast from '@/components/dam/GenerationForecast';
 import GenerationSchedule from '@/components/dam/GenerationSchedule';
 import { fetchDamDetail, listDamIds } from '@/lib/data/dams';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
@@ -82,6 +83,16 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
           />
         </div>
 
+        {/* The forecast sits where the schedule would: it answers the same
+            "today and the days ahead" question, from a different kind of
+            source — a district's operating forecast rather than a power
+            marketer's loading schedule. No dam currently has both. */}
+        {dam.generationForecast && (
+          <div className="mt-6">
+            <GenerationForecast forecast={dam.generationForecast} renderedAt={renderedAt} />
+          </div>
+        )}
+
         {dam.pattern && dam.pattern.length > 0 && (
           <div className="mt-6">
             <DamPatternStrip
@@ -114,12 +125,21 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
                 swpaCode is what separates them, and this is a server
                 component, so it can ask the registry directly. */}
             {dam.hasTurbines && !getUsaceDam(dam.id)?.swpaCode ? (
-              <>
-                No public hourly loading schedule exists for this project —
-                its power is marketed by the Southeastern Power
-                Administration, which does not post one. Everything Eddy shows
-                for this dam is measured at the dam, not scheduled.
-              </>
+              dam.generationForecast ? (
+                <>
+                  No public hourly loading schedule exists for this project —
+                  its power is marketed by the Southeastern Power
+                  Administration, which does not post one. The Corps&rsquo; own
+                  operating forecast above is the forward view.
+                </>
+              ) : (
+                <>
+                  No public hourly loading schedule exists for this project —
+                  its power is marketed by the Southeastern Power
+                  Administration, which does not post one. Everything Eddy shows
+                  for this dam is measured at the dam, not scheduled.
+                </>
+              )
             ) : dam.hasTurbines ? (
               <>
                 The generation schedule for this project isn&rsquo;t available

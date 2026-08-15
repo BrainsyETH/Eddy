@@ -22,7 +22,15 @@
 // Stockton and Truman publish nothing to CWMS at all and exist as SWPA schedule
 // entries. Every consumer has to have a nothing-to-show layout.
 
-/** Logical metrics a dam can publish. Optional by design — see the note above. */
+/**
+ * Logical metrics a dam can publish. Optional by design — see the note above.
+ *
+ * `releaseForecast` and `generationForecast` are FORECAST series and must
+ * never enter a snapshot's `metrics` — fetching "the latest value" of a
+ * series that carries the future would render a plan as an observation.
+ * They exist here so the registry can declare their timeseries ids; the
+ * forecast rides the wire as `generationForecast` windows, not as a metric.
+ */
 export type UsaceMetric =
   | 'release'
   | 'releaseForecast'
@@ -30,6 +38,7 @@ export type UsaceMetric =
   | 'pctFloodPool'
   | 'inflow'
   | 'generationFlow'
+  | 'generationForecast'
   | 'tailwaterElevation'
   | 'tailwaterTempF';
 
@@ -205,6 +214,71 @@ export interface DamPatternDay {
   totalReleaseCfs: Array<number | null>;
 }
 
+/**
+ * A contiguous stretch of forecast generation state, in absolute UTC instants.
+ *
+ * ── Why instants and not hour-endings ──────────────────────────────────────
+ * SWPA's schedule arrives as 24 hour-ending rows per Central day, so the
+ * schedule types keep that shape and inherit its DST cases — DamPatternDay
+ * documents the two real failures. A CWMS forecast arrives as UTC-stamped
+ * hourly points, and collapsing them into windows of instants means a 23- or
+ * 25-hour day needs no special case anywhere: an instant is unambiguous, and
+ * the zone only enters when a label is formatted. The client renders these
+ * through shared/dam-forecast-copy.ts, never by hand.
+ *
+ * ── The claim discipline ───────────────────────────────────────────────────
+ * These windows are a district's OPERATING FORECAST — the Corps' own word for
+ * this series — not a schedule anybody committed to and not an observation.
+ * Copy must say "forecast", never "scheduled" (a different source's modality)
+ * and never present tense ("generating" is what the hero measured).
+ */
+export interface DamForecastWindow {
+  /**
+   * ISO UTC instant the state begins. The FIRST window may start up to an
+   * hour before now — the hour currently running — but never earlier: the
+   * source series retains its past byte-identical to the observed series,
+   * and serving any of it would present a plan as a record.
+   */
+  startUtc: string;
+  /** ISO UTC instant the state ends, exclusive. */
+  endUtc: string;
+  /** Whether the powerhouse is forecast to be generating through this window. */
+  generating: boolean;
+  /**
+   * Highest forecast turbine flow inside the window, cfs, rounded to 10 —
+   * enough to strip the source's unit-conversion float noise without implying
+   * precision a forecast does not have. Null on idle windows.
+   */
+  peakCfs: number | null;
+}
+
+/**
+ * The forward generation forecast, for dams whose district publishes one to
+ * CWMS (Nashville today). Detail payload only, like `pattern`.
+ *
+ * Optional for the reason every added field is: a TestFlight build outlives
+ * the deploy it was cut against, so absent means "this deploy does not send
+ * one" — and it also means "this dam's district publishes no forecast", which
+ * renders as nothing, never as an empty section.
+ */
+export interface DamGenerationForecast {
+  /** Chronological, alternating where contiguous; a gap in the source is a gap here. */
+  windows: DamForecastWindow[];
+  /**
+   * IANA zone day-grouping and clock labels must render in — the dam's zone,
+   * never the viewer's. Carried per-payload so an Eastern-time district some
+   * day changes data, not clients.
+   */
+  timeZone: string;
+  /**
+   * When EDDY FETCHED the forecast (response Date header) — not when the
+   * district produced it, which CWMS does not say. Null renders nothing.
+   */
+  retrievedAt: string | null;
+  /** Attribution, e.g. "U.S. Army Corps of Engineers, Nashville District". */
+  source: string;
+}
+
 export interface DamSnapshot {
   id: string;
   name: string;
@@ -290,6 +364,11 @@ export interface DamSnapshot {
    * the river.
    */
   pattern?: DamPatternDay[];
+  /**
+   * The district's forward generation forecast, when one is published to CWMS
+   * and this deploy sends it. Detail payload only — see DamGenerationForecast.
+   */
+  generationForecast?: DamGenerationForecast;
   /** Where the numbers came from, for attribution in the UI. */
   sources: string[];
   /** The reach this dam controls, when Eddy carries it. Absent for most. */
