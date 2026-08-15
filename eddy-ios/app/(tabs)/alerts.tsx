@@ -220,6 +220,7 @@ export default function AlertsScreen() {
   const {
     rules,
     ready: rulesReady,
+    loadFailed: rulesLoadFailed,
     refresh: refreshRules,
     setEnabled,
     remove,
@@ -534,16 +535,42 @@ export default function AlertsScreen() {
                 <>
                   <EddyScene name="checkingGauge" size={120} />
                   <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                    {/* rules === null is an unusable session, not an empty
-                        list. Telling someone signed out that they have no
-                        alerts would be a claim we cannot make. */}
-                    {rules === null ? 'Sign in to set alerts' : 'No alerts yet'}
+                    {/* THREE STATES, NOT TWO. `rules === null` covers both "no
+                        session" and "the request failed", and this screen used
+                        to read it as the first — so a signed-in person with no
+                        connection was told to sign in, under a button offering
+                        an account they already had, with their alerts intact on
+                        the server the whole time. useAlertRules now says which
+                        it is. */}
+                    {rulesLoadFailed
+                      ? 'Couldn’t load your alerts'
+                      : rules === null
+                        ? 'Sign in to set alerts'
+                        : 'No alerts yet'}
                   </Text>
                   <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
-                    {rules === null
-                      ? 'Alerts are free, but they need an account so Eddy knows which phone to notify.'
-                      : 'Get a notification when a river becomes floatable, turns dangerous, or hits a level you pick.'}
+                    {rulesLoadFailed
+                      ? 'Your alerts are stored with your account, so this needs a connection. Nothing has changed — they’re still set.'
+                      : rules === null
+                        ? 'Alerts are free, but they need an account so Eddy knows which phone to notify.'
+                        : 'Get a notification when a river becomes floatable, turns dangerous, or hits a level you pick.'}
                   </Text>
+
+                  {/* Pull-to-refresh reaches this list too, but an empty list is
+                      a short one and the gesture is not obvious on a screen with
+                      nothing to scroll. */}
+                  {rulesLoadFailed ? (
+                    <Pressable
+                      onPress={() => void refreshRules()}
+                      hitSlop={10}
+                      accessibilityRole="button"
+                      style={styles.emptyRetry}
+                    >
+                      <Text style={[styles.emptyRetryText, { color: colors.interactive }]}>
+                        Try again
+                      </Text>
+                    </Pressable>
+                  ) : null}
                   {/* ── THE WAY OUT OF THE SIGNED-OUT STATE, ON THE SCREEN ────
                       This tab named the requirement and then offered no way to
                       meet it: the only affordance was the header's +, which
@@ -551,10 +578,14 @@ export default function AlertsScreen() {
                       the far end. So the screen that says "sign in" was the one
                       screen you could not sign in from.
 
-                      `rules === null` ONLY. An empty list belongs to somebody
-                      who is already signed in, and putting a login button under
-                      "No alerts yet" would offer them an account they have — the
-                      + above is their next step, not this.
+                      `rules === null` AND NOT A FAILED LOAD. An empty list
+                      belongs to somebody who is already signed in, and putting a
+                      login button under "No alerts yet" would offer them an
+                      account they have — the + above is their next step, not
+                      this. A dropped request is the same mistake wearing a
+                      different hat: it leaves `rules` null for somebody who is
+                      signed in, and this button is what made that read as a
+                      demand to sign in again.
 
                       refresh() is not optional. The rules effect keys on
                       session.user.id, and Apple sign-in UPGRADES the anonymous
@@ -562,7 +593,7 @@ export default function AlertsScreen() {
                       useSession, where an id change is the anomaly worth a
                       warn(). Without this the list stays empty until the app is
                       backgrounded. */}
-                  {rules === null ? (
+                  {rules === null && !rulesLoadFailed ? (
                     <AppleSignInButton
                       onSignedIn={() => void refreshRules()}
                       style={styles.emptySignIn}
@@ -867,6 +898,9 @@ const styles = StyleSheet.create({
   emptySignIn: { alignSelf: 'stretch', marginTop: 22 },
   emptyTitle: { ...t.lg, fontFamily: fonts.semibold, marginTop: 10 },
   emptyBody: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },
+  // 44pt, so the one control on a failed load is a real tap target.
+  emptyRetry: { marginTop: 14, minHeight: 44, justifyContent: 'center' },
+  emptyRetryText: { ...t.sm, fontFamily: fonts.semibold },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

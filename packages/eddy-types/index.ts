@@ -2110,7 +2110,22 @@ export function formatAlertValue(value: number, metric: AlertMetric): string {
  * "above 3 ft" in the list and "over 3.0 feet" in the notification has to work
  * out whether they are the same alert.
  */
-export function describeAlertRule(rule: AlertRule): string {
+/**
+ * The parts of a rule this sentence is built from.
+ *
+ * Named and narrowed so a caller that has not created a rule yet can still ask
+ * how one would read — the push primer describes what is about to be watched,
+ * and the river screen's bell knows only the kind it is about to subscribe
+ * with. Requiring a whole AlertRule there meant either a fabricated object or a
+ * second copy of this phrasing, and a second copy is what this function exists
+ * to prevent.
+ */
+export type AlertRuleTrigger = Pick<
+  AlertRule,
+  'mode' | 'conditionKind' | 'metric' | 'comparator' | 'thresholdValue' | 'thresholdValueMax'
+>;
+
+export function describeAlertRule(rule: AlertRuleTrigger): string {
   if (rule.mode === 'condition') {
     switch (rule.conditionKind) {
       case 'floatable':

@@ -2,17 +2,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   evaluateSubscription,
-  isQuietAt,
   ladderKey,
   nextCrossingState,
   planGaugeAlerts,
-  suppressedByQuietHours,
   thresholdState,
   buildGaugeNotification,
   type GaugeAlertSubscription,
   type LadderRow,
   type StationReading,
 } from './gauge-threshold';
+// Moved out of gauge-threshold so the river delivery pass can reach them too.
+import { isQuietAt, suppressedByQuietHours } from './quiet-hours';
 import type { NotificationPreferences } from '@/types/api';
 
 const NOW = new Date('2026-07-28T18:00:00Z');

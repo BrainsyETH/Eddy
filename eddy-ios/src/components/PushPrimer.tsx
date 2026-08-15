@@ -28,11 +28,31 @@ interface Props {
   visible: boolean;
   /** The river this is about, so the promise is concrete. */
   riverName?: string;
+  /**
+   * What the alert that was just created will actually tell them, as the
+   * sentence fragment describeAlertRule produces — "on high and dangerous
+   * water", "when it rises above 3.00 ft".
+   *
+   * ── Why this had to become a parameter ──────────────────────────────────
+   *
+   * The copy below was fixed, and said Eddy would notify "when it becomes
+   * floatable — and when it turns dangerous". That was written against a bell
+   * that subscribed with `kind: 'all'`. The bell now sends `safety`, which
+   * pushes nothing about floatable water, and this same sheet is also shown
+   * after a custom threshold rule, where neither half is true. So the one
+   * screen in the app whose entire job is to make a concrete promise in
+   * exchange for the one-shot iOS prompt was describing an alert the user had
+   * not set.
+   *
+   * Optional: with nothing passed it falls back to the general case, which is
+   * the honest thing to say when the caller genuinely does not know.
+   */
+  promise?: string;
   onAllow: () => void;
   onDismiss: () => void;
 }
 
-export function PushPrimer({ visible, riverName, onAllow, onDismiss }: Props) {
+export function PushPrimer({ visible, riverName, promise, onAllow, onDismiss }: Props) {
   const { colors } = useTheme();
 
   return (
@@ -49,13 +69,13 @@ export function PushPrimer({ visible, riverName, onAllow, onDismiss }: Props) {
           </Text>
 
           {/* "a notification", not "one notification": the subscription is
-              standing, not one-shot. And the danger half of this promise is
-              only true as of the switch to `kind: 'all'` — it was written
-              against a subscription that asked for `floatable` alone, which
-              matches no warning event at all. */}
+              standing, not one-shot. The rest is the caller's, because only the
+              caller knows what was just set — see the `promise` prop for what
+              hardcoding it here got wrong. */}
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            Turn on alerts and Eddy sends a notification when it becomes floatable — and when it
-            turns dangerous.
+            {promise
+              ? `Turn on alerts and Eddy sends a notification ${promise}.`
+              : 'Turn on alerts and Eddy sends a notification when the water changes on the rivers you follow.'}
           </Text>
 
           <View style={styles.points}>
