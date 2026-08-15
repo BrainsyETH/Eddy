@@ -178,25 +178,62 @@ the "schedule without SWPA's shape" muscle.
 
 ---
 
-## 3. Ameren Missouri — Bagnell Dam (Osage)
+## 3. Ameren Missouri — Bagnell Dam (Osage) — SOURCE FOUND
 
-- **The observed half is already free.** USGS `06926000` (Osage River near
-  Bagnell) is live at 15-minute resolution, discharge + stage, read
-  2026-08-15 (1,500 cfs and falling through the morning). It flows through
-  the existing USGS pipeline with no new code the day an Osage reach exists.
-- **The schedule half was unreachable.** Ameren's own report —
-  `apps.ameren.com/HydroElectric/Reports/Osage/HSTBagnellDaily.aspx`, "Harry
-  S Truman and Bagnell Dam Daily Report" — returned **503** on both attempts.
-  Retry on another day before concluding anything about its shape; the
-  search index says it covers *both* dams, which would complete the chain
-  below Truman (today schedule-only from SWPA) as well as opening Bagnell.
-- Ameren also runs a recorded line for Osage releases and hourly lake data
-  behind its Lake of the Ozarks pages; a FERC licensee is obliged to publish
-  release information, so a source exists even if this endpoint stays flaky.
+**The 503 was a red herring: the legacy `.aspx` app is dead, and its
+replacement is a live, unauthenticated JSON API.** Found 2026-08-15 by
+following the case-insensitive redirect off the old path
+(`apps.ameren.com/hydroelectric/...` lowercase → 301) to the new hydro pages,
+whose Angular bundle (`www.ameren.com/hydroelectric/main.*.js`) names the
+backend. All verified live with values that cross-check:
+
+```
+GET www.ameren.com/api/ameren/Hydroelectric/
+  getHeadWaterTailWaterReportData?startDate=MM/DD/YYYY&endDate=…&interval=1h|15m&zone=
+    -> [{dateTimeStamp, headWaterLevel, tailWaterLevel, discharge, intakeDO, intakeTDG}]
+       hourly AND 15-minute; pool 659.31 ft / tailwater 555.70 ft /
+       1,555 cfs read live. Timestamps are America/Chicago LOCAL —
+       confirmed against the SHEF feed's GMT stamps (00:00 ↔ 05:00Z,
+       identical values).
+  getBagnellDamDailyReportData?startDate=…&endDate=…
+    -> {dischargeData: hourly cfs,
+        levelandFlowData: {hstDamHeadLevelAtMidnight: 705.51,   ← TRUMAN pool
+                           damOutflow: 1509.2,                  ← TRUMAN release
+                           lakeOzarkInflowYesterday, lakeOzarkInflow7DayAve,
+                           prescribedMinFlow: 1142,             ← FERC minimum
+                           bagnellDamDischargeYesterday,
+                           bagnellDamAnticipatedDischargeToday: 8000}}  ← a PLAN
+  getDailyShefitGMTReport?interval=1h|15m
+    -> SHEF text (HF/HT/QR), GMT — the NWS-format twin of the first endpoint.
+  (Also present, same shape: getkeokukReportData — Ameren's Mississippi
+   River plant at Keokuk — and TaumSauk*ReportData.)
+```
+
+What this buys, beyond Bagnell itself:
+
+- **Truman completes.** The Kansas City district publishes nothing to CWMS,
+  so Eddy's Truman is SWPA-schedule-only. `levelandFlowData` adds an
+  observed daily pool level and outflow for it — from Ameren, who watch it
+  because it feeds their lake.
+- **A forward number exists.** `bagnellDamAnticipatedDischargeToday` is
+  Ameren's own stated plan — daily, not hourly, but it is the first
+  non-federal published *intent* in the footprint. Future hourly dates
+  return null; there is no hourly forward schedule.
+- **Water quality on the tailwater** (intake DO and total dissolved gas) —
+  no other dam in the registry has either.
+
+Caveats before anyone builds on it: same posture as the SWPA scraper — an
+informational endpoint with no version, no contract, and Imperva/Incapsula
+in front (it did not challenge plain GETs from this survey's egress, but a
+Vercel egress must be tested before committing). And Bagnell is a
+NON-FEDERAL dam: the registry is USACE-shaped (office union, CWMS fetch
+paths), so carrying it means the same "second provider" design Powersite
+needs — this API just makes that design worth doing sooner, since one
+provider now covers both a rich Bagnell and the Truman gap.
 
 Warmwater fishery below, so under the dam section's stated tie-breaker (the
-wading trout angler wins) it queues behind LRN — but it is the closest to
-home, and the Truman linkage gives it a reason beyond its own tailwater.
+wading trout angler wins) it queued behind LRN — correctly, as it turned
+out. With LRN shipped, this is the best-value next dam.
 
 ---
 
@@ -231,7 +268,7 @@ calibration (plan step 1) will need them anyway.
 | 2 | Pattern-strip history accumulating for the three (cron picks them up automatically) | automatic |
 | 3 | LRN forecast rendering | **shipped, as windows** — see below |
 | 4 | Resolver SPECS: LRN vocabulary + split-prefix locations | **shipped** — `cdaLocations` on the registry, LRN spellings in SPECS (bare `Flow` ranked last), smoke run 2026-08-15: LRN resolves 23/27, the 18 prior dams byte-identical to baseline |
-| 5 | Ameren: retry the daily report; if it parses, Truman completes and Bagnell opens | blocked on the 503 (re-confirmed later on 2026-08-15) |
+| 5 | Ameren: Bagnell + Truman-completion via the found JSON API | **unblocked** — endpoints verified live (§3); needs the non-USACE provider design shared with step 6 |
 | 6 | Powersite: non-CWMS metric provider design; Taneycomo reach carries it meanwhile | with TAILWATER_PLAN step 4 |
 | 7 | TVA | after timezone parameterization + first eastern reach |
 
