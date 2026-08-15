@@ -535,15 +535,23 @@ function PinSheetHeader({
       ) : slot === 'availability' ? (
         <GlanceSlot slot={slot} ready={availability != null || detailSettled}>
           {availability ? (
+            // `water` is the corner reading the Overview Water section used to
+            // carry: a campground pin's glance slot went to the fortnight, so
+            // this card is the one place its river can still be glanced. Null
+            // until the detail lands, and the corner sits inside a row whose
+            // height it cannot change — see CampgroundAvailability.
             <CampgroundAvailability
               availability={availability}
               name={availabilityName}
               today={localToday()}
               onPress={onOpenCamping}
+              water={detail?.gaugeStatus ?? null}
             />
           ) : (
             // Both the waiting and the settled-empty states are the card with
-            // nothing in it — same shape, so no movement either way in.
+            // nothing in it — same shape, so no movement either way in. The
+            // corner reading still draws on the settled-empty card: a
+            // campground Eddy cannot book is still on a river somebody floats.
             <CampgroundAvailability
               availability={null}
               name={availabilityName}
@@ -552,6 +560,7 @@ function PinSheetHeader({
               pendingLabel={
                 detailSettled ? 'No live availability here' : undefined
               }
+              water={detail?.gaugeStatus ?? null}
             />
           )}
         </GlanceSlot>
