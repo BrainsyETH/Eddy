@@ -87,3 +87,28 @@ test('the INTERVAL decides, not the rest of the id', () => {
   assert.deepEqual(dailyIntervalHints('Some_Dam.Flow-Out.Ave.1Hour.1Hour.1Day-RunAve'), {});
   assert.deepEqual(dailyIntervalHints('not a timeseries id'), {});
 });
+
+// ── hasCwmsMetricsPath ───────────────────────────────────────────────────────
+// The gate readMetrics opens with. It was `office && cdaLocation`, which was
+// correct for every dam until the Nashville three: explicit series and
+// cdaLocations (plural), no cdaLocation — and the old gate silently returned
+// {} for all of them, blanking every metric on their pages while offline
+// tests stayed green. Asserted against the REAL registry so the next
+// location shape has to confront this test rather than repeat that failure.
+
+import { hasCwmsMetricsPath } from './dams';
+import { USACE_DAMS } from '@/lib/flow-providers/usace-registry';
+
+test('every dam with declared CWMS series can actually be read', () => {
+  for (const dam of Object.values(USACE_DAMS)) {
+    if (Object.keys(dam.series).length > 0) {
+      assert.ok(hasCwmsMetricsPath(dam), `${dam.id} declares series readMetrics would never fetch`);
+    }
+  }
+  // The three location shapes, by name, so a regression names its dam:
+  assert.ok(hasCwmsMetricsPath(USACE_DAMS['swl-table-rock-dam']), 'single cdaLocation');
+  assert.ok(hasCwmsMetricsPath(USACE_DAMS['lrn-wolf-creek-dam']), 'cdaLocations list');
+  assert.ok(!hasCwmsMetricsPath(USACE_DAMS['nwk-stockton-dam']), 'no CWMS at all');
+  // Ameren-backed dams never enter the CWMS path — theirs is readAmerenMetrics.
+  assert.ok(!hasCwmsMetricsPath(USACE_DAMS['ameren-bagnell-dam']), 'Ameren, not CWMS');
+});

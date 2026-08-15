@@ -175,6 +175,75 @@ test('district spellings of turbine flow and flood pool both resolve', () => {
   assert.ok(pickSeries(swl, 'pctFloodPool', 'Table_Rock_Dam', { now: NOW }));
 });
 
+test('LRN vocabulary resolves across a project’s split station namespaces', () => {
+  // Nashville hangs observed series off two NWS-handbook stations per project
+  // and its forecast off a prose name — the case cdaLocations exists for.
+  // One catalog pool, three base locations, each metric found where the
+  // district actually put it. Every id below was verified live 2026-08-15.
+  const locations = ['RWNK2-WOLF_CREEK', 'WLCK2-WOLF_CREEK', 'Wolf Creek Dam'];
+  const entries = [
+    entry('RWNK2-WOLF_CREEK.Flow.Ave.1Hour.1Hour.man-rev', hoursAgo(1)),
+    entry('RWNK2-WOLF_CREEK.Flow-Turbine.Ave.1Hour.1Hour.man-rev', hoursAgo(1)),
+    entry('RWNK2-WOLF_CREEK.Elev-Tail.Inst.1Hour.0.man-rev', hoursAgo(1)),
+    entry('WLCK2-WOLF_CREEK.Elev-Pool.Inst.1Hour.0.man-rev', hoursAgo(1)),
+    entry('WLCK2-WOLF_CREEK.Flow-In.Ave.1Hour.1Hour.man-rev', hoursAgo(1)),
+    entry('Wolf Creek Dam-Turbines.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast', daysAhead(9)),
+  ];
+
+  assert.match(pickSeries(entries, 'release', locations, { now: NOW })!.tsId, /^RWNK2.*\.Flow\./);
+  assert.match(pickSeries(entries, 'generationFlow', locations, { now: NOW })!.tsId, /Flow-Turbine/);
+  assert.match(pickSeries(entries, 'tailwaterElevation', locations, { now: NOW })!.tsId, /Elev-Tail/);
+  assert.match(pickSeries(entries, 'poolElevation', locations, { now: NOW })!.tsId, /Elev-Pool/);
+  assert.match(pickSeries(entries, 'inflow', locations, { now: NOW })!.tsId, /Flow-In/);
+  assert.match(
+    pickSeries(entries, 'generationForecast', locations, { now: NOW })!.tsId,
+    /-Turbines\.Flow\..*forecast$/
+  );
+});
+
+test('bare Flow is the last resort, and never reaches past the listed locations', () => {
+  // Bare `Flow` is the one generic parameter in SPECS, admitted for LRN's
+  // station naming. Two things must hold: a district-specific spelling always
+  // outranks it where both exist, and the exact-location discipline still
+  // applies — a station outside the list cannot be matched however right its
+  // parameter looks.
+  const both = [
+    entry('Table_Rock_Dam.Flow-Res Out.Ave.1Hour.1Hour.Regi-Comp', hoursAgo(1)),
+    entry('Table_Rock_Dam.Flow.Ave.1Hour.1Hour.Regi-Comp', hoursAgo(1)),
+  ];
+  assert.match(
+    pickSeries(both, 'release', 'Table_Rock_Dam', { now: NOW })!.tsId,
+    /Flow-Res Out/,
+    'the specific spelling must outrank bare Flow'
+  );
+
+  const elsewhere = [entry('BYGT1-WolfR-ByrdstownTN.Flow.Inst.30Minutes.0.dcp-rev', hoursAgo(1))];
+  assert.equal(
+    pickSeries(elsewhere, 'release', ['RWNK2-WOLF_CREEK', 'WLCK2-WOLF_CREEK'], { now: NOW }),
+    null,
+    'a station not in the list is not this dam’s water'
+  );
+});
+
+test('the generation forecast never resolves to an observation, nor the reverse', () => {
+  // The forecast/observed split is the plan-versus-record line: the same
+  // parameter spelling exists on both sides at LRN, and only the version
+  // separates them.
+  const entries = [
+    entry('RWNK2-WOLF_CREEK.Flow-Turbine.Ave.1Hour.1Hour.man-rev', hoursAgo(1)),
+    entry('Wolf Creek Dam-Turbines.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast', daysAhead(9)),
+  ];
+  const locations = ['RWNK2-WOLF_CREEK', 'Wolf Creek Dam'];
+  assert.match(
+    pickSeries(entries, 'generationForecast', locations, { now: NOW })!.tsId,
+    /forecast$/
+  );
+  assert.match(
+    pickSeries(entries, 'generationFlow', locations, { now: NOW })!.tsId,
+    /man-rev$/
+  );
+});
+
 test('rankSeries offers fallbacks in order so a dead favourite can be skipped', () => {
   // resolveSeries probes candidates in this order; without more than one there
   // is nothing to fall through to when the best-named series returns no value.

@@ -19,6 +19,7 @@
 // Responses put nulls inside `values`, so every accessor filters before use.
 
 import { readingStaleness, type ReadingStaleness } from '@shared/dam-schedule-copy';
+import { retrievedAtFrom } from '@/lib/usace/swpa';
 
 const CDA_BASE = 'https://cwms-data.usace.army.mil/cwms-data';
 const CDA_HEADERS = { Accept: 'application/json;version=2' } as const;
@@ -44,6 +45,19 @@ export interface TimeseriesResult {
   /** Unit CDA converted to — the one that was requested. */
   units: string;
   points: TimeseriesPoint[];
+  /**
+   * When EDDY FETCHED this window, from the response `Date` header — the same
+   * mechanism (and the same reasoning) as retrievedAtFrom in swpa.ts: Next
+   * replays cached headers with the cached body, so this stays pinned to the
+   * real fetch across the revalidate window where Date.now() would lie. Null
+   * when the header is missing or unparseable; callers render nothing then.
+   *
+   * Observation callers ignore it — a reading carries its own timestamp. It
+   * exists for FORECAST series, which have no honest timestamp of their own:
+   * every point is in the future, and the one true thing Eddy can say about
+   * freshness is when it last looked.
+   */
+  retrievedAt: string | null;
 }
 
 function timeseriesUrl(
@@ -121,7 +135,12 @@ export async function fetchTimeseries(
     .filter((v): v is [number, number, number] => v?.[1] != null && Number.isFinite(v[1]))
     .map(([timestamp, value]) => ({ timestamp, value }));
 
-  return { name: doc.name ?? tsId, units: doc.units ?? unit, points };
+  return {
+    name: doc.name ?? tsId,
+    units: doc.units ?? unit,
+    points,
+    retrievedAt: retrievedAtFrom(res.headers),
+  };
 }
 
 /**

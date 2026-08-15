@@ -13,6 +13,7 @@ import SiteFooter from '@/components/ui/SiteFooter';
 import DamStateCard from '@/components/dam/DamStateCard';
 import DamGenerationHero from '@/components/dam/DamGenerationHero';
 import DamPatternStrip from '@/components/dam/DamPatternStrip';
+import GenerationForecast from '@/components/dam/GenerationForecast';
 import GenerationSchedule from '@/components/dam/GenerationSchedule';
 import { fetchDamDetail, listDamIds } from '@/lib/data/dams';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
@@ -82,6 +83,16 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
           />
         </div>
 
+        {/* The forecast sits where the schedule would: it answers the same
+            "today and the days ahead" question, from a different kind of
+            source — a district's operating forecast rather than a power
+            marketer's loading schedule. No dam currently has both. */}
+        {dam.generationForecast && (
+          <div className="mt-6">
+            <GenerationForecast forecast={dam.generationForecast} renderedAt={renderedAt} />
+          </div>
+        )}
+
         {dam.pattern && dam.pattern.length > 0 && (
           <div className="mt-6">
             <DamPatternStrip
@@ -107,7 +118,51 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
             and does not depend on today's fetch succeeding. */}
         {dam.schedule.length === 0 && (
           <p className="mt-6 rounded-xl border-2 border-neutral-300 bg-white p-5 text-sm text-neutral-600">
-            {dam.hasTurbines ? (
+            {/* Four states, not two. "SWPA hasn't refreshed yet" is a claim
+                about a dam SWPA schedules — on a Nashville project, whose
+                power SEPA markets with no public loading page, it would
+                promise a schedule that is never coming; on Bagnell, which is
+                not federal at all, even the SEPA sentence would name the
+                wrong operator. The registry separates them, and this is a
+                server component, so it can ask it directly. */}
+            {getUsaceDam(dam.id)?.amerenMetrics === 'osage' ? (
+              <>
+                Bagnell Dam is operated by Ameren Missouri under a FERC
+                license, and no hourly generation schedule is published —
+                releases can begin at any time, and the dam sounds a warning
+                siren before starting or stopping generators. The readings
+                above are observed at the dam.
+                {dam.infoPhone && (
+                  <>
+                    {' '}
+                    For Ameren&rsquo;s recorded daily operations report, call{' '}
+                    <a
+                      href={`tel:${dam.infoPhone.replace(/\D/g, '')}`}
+                      className="font-medium text-primary-700 hover:text-primary-800"
+                    >
+                      {dam.infoPhone}
+                    </a>
+                    .
+                  </>
+                )}
+              </>
+            ) : dam.hasTurbines && !getUsaceDam(dam.id)?.swpaCode ? (
+              dam.generationForecast ? (
+                <>
+                  No public hourly loading schedule exists for this project —
+                  its power is marketed by the Southeastern Power
+                  Administration, which does not post one. The Corps&rsquo; own
+                  operating forecast above is the forward view.
+                </>
+              ) : (
+                <>
+                  No public hourly loading schedule exists for this project —
+                  its power is marketed by the Southeastern Power
+                  Administration, which does not post one. Everything Eddy shows
+                  for this dam is measured at the dam, not scheduled.
+                </>
+              )
+            ) : dam.hasTurbines ? (
               <>
                 The generation schedule for this project isn&rsquo;t available
                 right now — Southwestern Power Administration posts the next

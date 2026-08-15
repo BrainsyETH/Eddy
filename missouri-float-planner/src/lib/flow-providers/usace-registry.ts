@@ -40,8 +40,10 @@
 // Grows one district at a time, deliberately: `office` goes straight into a CDA
 // query parameter, so a typo is a silent 404 rather than a type error, and this
 // union is the only thing that catches it.
-export type UsaceOffice = 'SWL' | 'MVS' | 'SWT';
+export type UsaceOffice = 'SWL' | 'MVS' | 'SWT' | 'LRN';
 
+// Mirrors shared/dam-types.ts UsaceMetric — the wire side documents why the
+// two forecast members must never enter SNAPSHOT_METRICS or DETAIL_METRICS.
 export type UsaceMetric =
   | 'release'
   | 'releaseForecast'
@@ -49,6 +51,7 @@ export type UsaceMetric =
   | 'pctFloodPool'
   | 'inflow'
   | 'generationFlow'
+  | 'generationForecast'
   | 'tailwaterElevation'
   | 'tailwaterTempF';
 
@@ -88,15 +91,40 @@ export interface UsaceDam {
    * one-dam group nobody notices. `DamSnapshot.state` on the wire is already
    * `string`, so widening this costs nothing downstream.
    */
-  state: 'MO' | 'AR' | 'OK' | 'TX';
+  state: 'MO' | 'AR' | 'OK' | 'TX' | 'KY' | 'TN';
   lat: number;
   lon: number;
   /** CWMS office, when this dam publishes to CDA at all. */
   office?: UsaceOffice;
   /** CWMS /locations name. Carries spaces on MVS. */
   cdaLocation?: string;
+  /**
+   * ALL the CWMS locations this project's series hang off, for districts
+   * where one prefix cannot span them. LRN keys observed series on two
+   * NWS-handbook stations per project (tailwater and pool) and its forecast
+   * on a prose name — three namespaces. The resolver searches every listed
+   * location; the SPECS pairs still decide which series carries a metric.
+   * Mutually exclusive with `cdaLocation` by convention: set one or the
+   * other, and the single-location field remains the common case.
+   */
+  cdaLocations?: string[];
   /** SWPA column code, when the dam has turbines on the federal grid. */
   swpaCode?: string;
+  /**
+   * Which Ameren Missouri feed backs this dam's metrics, for the dams CWMS
+   * cannot serve — see src/lib/ameren/osage.ts for the API and its story.
+   *
+   * 'osage'  — Bagnell itself: hourly pool, tailwater and discharge.
+   * 'truman' — the daily report's levelandFlowData block, which carries the
+   *            observed pool and outflow of Truman upstream. Kansas City
+   *            publishes nothing to CWMS, so this is the only observed
+   *            Truman data anywhere; it arrives about a day in arrears and
+   *            its readings wear their own timestamps.
+   *
+   * A dam with this set reads metrics from Ameren INSTEAD of CWMS — the two
+   * paths never mix on one dam, so a reading's provenance is never a blend.
+   */
+  amerenMetrics?: 'osage' | 'truman';
   /**
    * Turbine flow above which the powerhouse counts as running. Table Rock
    * idles around 20 cfs with the units off, so a bare `> 0` test would read
@@ -430,6 +458,10 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     swpaCode: 'HST',
     nameplate: { units: 6, megawatts: 160 },
     tailwaterFishery: 'warmwater' as const,
+    // Kansas City publishes nothing to CWMS, but Ameren's Osage daily report
+    // carries Truman's observed pool and outflow — they watch it because its
+    // releases feed their lake. About a day in arrears, honestly stamped.
+    amerenMetrics: 'truman' as const,
     series: {},
   },
 
@@ -625,6 +657,232 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     swpaCode: 'DAD',
     tailwaterFishery: 'warmwater' as const,
     generationOnCfs: 1_000,
+    series: {},
+  },
+
+  // Nashville district — the upper Cumberland trout tailwaters. Every id below
+  // was confirmed live against CDA on 2026-08-15; the probes and floor
+  // calibration are in scripts/ingestion/dossiers/verified-identifiers-
+  // tailwater-lrn-*.md. Every LRN series is stamped US/Central, so nothing
+  // about the Central-day arithmetic in shared/ changes for these.
+  //
+  // Three dams, not eight: Wolf Creek -> Cumberland, Center Hill -> Caney Fork
+  // and Dale Hollow -> Obey are the serious trout tailwaters, which is the
+  // audience the dam section serves. The four navigation mainstem projects and
+  // Laurel are deliberately absent until someone argues for them.
+  //
+  // Four things differ from every district above, and all four are load-bearing:
+  //
+  // 1. NO SWPA COLUMN. Cumberland power is marketed by SEPA, which publishes no
+  //    hourly loading page — so no swpaCode, no `schedule`, and no published
+  //    MW/cfs reference pair (`generationReference` stays absent and the
+  //    console shows raw cfs). The forward view EXISTS: LRN writes its
+  //    operating forecast into CWMS itself as hourly `celrn-cwms-forecast`
+  //    series, ALREADY IN CFS, running ~9 days ahead (`Wolf Creek Dam-Turbines
+  //    .Flow` read 121 hourly points on 2026-08-15, textbook peaking blocks).
+  //    That series rides the wire as `generationForecast` WINDOWS — absolute
+  //    instants, built in src/lib/data/dam-forecast.ts — never through
+  //    `schedule`, whose hour-ending megawatt rows are SWPA's shape. CAUTION:
+  //    the forecast series RETAINS ITS PAST, byte-identical to the observed
+  //    series, so the builder slices at now; anything else reading it must
+  //    too, or it will present a plan as a record.
+  //
+  // 2. TWO STATION PREFIXES PER PROJECT. Observed series hang off NWS handbook
+  //    stations — RWNK2-WOLF_CREEK (tailwater) vs WLCK2-WOLF_CREEK (dam/pool) —
+  //    while the forecast lives under prose names ('Wolf Creek Dam'). No single
+  //    `cdaLocation` prefix spans that, so these dams carry `cdaLocations`
+  //    (plural) instead and the resolver searches all three namespaces. The
+  //    explicit ids below still WIN, exactly as everywhere else — resolution
+  //    exists here for rename-recovery, and check-usace-resolver.ts covers
+  //    these dams like any other.
+  //
+  // 3. A THIRD PARAMETER VOCABULARY. Turbine flow is `Flow-Turbine` (not
+  //    `Flow-Plant`/`Flow-Power`), pool is `Elev-Pool` (not `Elev` on
+  //    `-Headwater`), tailwater stage is `Elev-Tail` on the station (not
+  //    `Elev-Downstream` on `-Tailwater`), temperature is `Temp-Water-Tail`,
+  //    and total discharge is BARE `Flow`. All of it is in resolve.ts SPECS,
+  //    each spelling beside the district that taught it; bare Flow is ranked
+  //    last there because it is the one generic name in the file.
+  //
+  // 4. `man-rev` IS THE LIVE VERSION, not just the reviewed one. RWNK2's
+  //    dcp-rev tailwater stage stopped 2025-10-24 while man-rev is current —
+  //    at LRN the raw feed dying is a thing that happens, so the reviewed
+  //    series wins on liveness, not just quality. The exception is tailwater
+  //    temperature, which exists only as 30-minute dcp-rev.
+  //
+  // Floors: measured over 2026-08-03..15, ~300 hourly points per dam. Idle
+  // hours read exactly 0 at all three; Center Hill and Dale Hollow occasionally
+  // report 25-50 cfs with the units off; the smallest real single-unit hour
+  // observed was 1,580 cfs (Dale Hollow). 100 clears the noise with 15x
+  // headroom below the smallest unit.
+  'lrn-wolf-creek-dam': {
+    id: 'lrn-wolf-creek-dam',
+    name: 'Wolf Creek Dam',
+    lakeName: 'Lake Cumberland',
+    state: 'KY',
+    // WLCK2-WOLF_CREEK, public-name "Wolf Creek Dam" in /locations — the same
+    // CWMS-wins rule as the Tulsa block.
+    lat: 36.868333,
+    lon: -85.146944,
+    office: 'LRN',
+    cdaLocations: ['RWNK2-WOLF_CREEK', 'WLCK2-WOLF_CREEK', 'Wolf Creek Dam'],
+    // 6 x 45 MW. DOE Wolf Creek recon report; verified 2026-08-15.
+    nameplate: { units: 6, megawatts: 270 },
+    // Cold hypolimnetic release; Kentucky's trophy brown trout tailwater, with
+    // the Wolf Creek National Fish Hatchery directly below the dam — the
+    // station's own Flow-Hatchery series names it. Declared, not inferred:
+    // the RWNK2 temperature sensor has been dead since 2022-02, so there is no
+    // reading to infer from.
+    tailwaterFishery: 'trout' as const,
+    generationOnCfs: 100,
+    series: {
+      release: { tsId: 'RWNK2-WOLF_CREEK.Flow.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
+      releaseForecast: {
+        tsId: 'Wolf Creek Dam.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast',
+        unit: 'cfs',
+        forecast: true,
+      },
+      generationFlow: { tsId: 'RWNK2-WOLF_CREEK.Flow-Turbine.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
+      generationForecast: {
+        tsId: 'Wolf Creek Dam-Turbines.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast',
+        unit: 'cfs',
+        forecast: true,
+      },
+      poolElevation: { tsId: 'WLCK2-WOLF_CREEK.Elev-Pool.Inst.1Hour.0.man-rev', unit: 'ft' },
+      inflow: { tsId: 'WLCK2-WOLF_CREEK.Flow-In.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
+      tailwaterElevation: { tsId: 'RWNK2-WOLF_CREEK.Elev-Tail.Inst.1Hour.0.man-rev', unit: 'ft' },
+    },
+  },
+  'lrn-center-hill-dam': {
+    id: 'lrn-center-hill-dam',
+    name: 'Center Hill Dam',
+    lakeName: 'Center Hill Lake',
+    state: 'TN',
+    // CEHT1-CENTER_HILL, public-name "Center Hill Dam".
+    lat: 36.0963889,
+    lon: -85.8205556,
+    office: 'LRN',
+    cdaLocations: ['CETT1-CENTER_HILL', 'CEHT1-CENTER_HILL', 'Center Hill Dam'],
+    // 3 x 45 MW rated. The 2015-2021 Voith rehab kept the 135 rating (one
+    // trade headline said 155; the plant profile and the Corps' own marker say
+    // 135,000 kW). Verified 2026-08-15.
+    nameplate: { units: 3, megawatts: 135 },
+    // The Caney Fork — Tennessee's most heavily fished trout tailwater. The
+    // deep-draw fact is measurable here: Temp-Water-Tail read 50.5 F on
+    // 2026-08-15, in August.
+    tailwaterFishery: 'trout' as const,
+    generationOnCfs: 100,
+    series: {
+      release: { tsId: 'CETT1-CENTER_HILL.Flow.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
+      releaseForecast: {
+        tsId: 'Center Hill Dam.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast',
+        unit: 'cfs',
+        forecast: true,
+      },
+      generationFlow: {
+        tsId: 'CETT1-CENTER_HILL.Flow-Turbine.Ave.1Hour.1Hour.man-rev',
+        unit: 'cfs',
+      },
+      generationForecast: {
+        tsId: 'Center Hill Dam-Turbines.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast',
+        unit: 'cfs',
+        forecast: true,
+      },
+      poolElevation: { tsId: 'CEHT1-CENTER_HILL.Elev-Pool.Inst.1Hour.0.man-rev', unit: 'ft' },
+      inflow: { tsId: 'CEHT1-CENTER_HILL.Flow-In.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
+      tailwaterElevation: { tsId: 'CETT1-CENTER_HILL.Elev-Tail.Inst.1Hour.0.man-rev', unit: 'ft' },
+      tailwaterTempF: {
+        tsId: 'CETT1-CENTER_HILL.Temp-Water-Tail.Inst.30Minutes.0.dcp-rev',
+        unit: 'F',
+      },
+    },
+  },
+  'lrn-dale-hollow-dam': {
+    id: 'lrn-dale-hollow-dam',
+    name: 'Dale Hollow Dam',
+    lakeName: 'Dale Hollow Lake',
+    state: 'TN',
+    // DLHT1-DALE_HOLLOW, public-name "Dale Hollow Dam".
+    lat: 36.538333,
+    lon: -85.451111,
+    office: 'LRN',
+    cdaLocations: ['DHTT1-DALE_HOLLOW', 'DLHT1-DALE_HOLLOW', 'Dale Hollow Dam'],
+    // 3 x 18 MW. Corps' own project history; verified 2026-08-15.
+    nameplate: { units: 3, megawatts: 54 },
+    // The Obey — trout water below a dam with its own national fish hatchery
+    // (Flow-Hatchery series, same as Wolf Creek), and the water that produced
+    // the long-standing world-record brown trout. Temp-Water-Tail read 50.7 F
+    // on 2026-08-15.
+    tailwaterFishery: 'trout' as const,
+    generationOnCfs: 100,
+    series: {
+      release: { tsId: 'DHTT1-DALE_HOLLOW.Flow.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
+      releaseForecast: {
+        tsId: 'Dale Hollow Dam.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast',
+        unit: 'cfs',
+        forecast: true,
+      },
+      generationFlow: {
+        tsId: 'DHTT1-DALE_HOLLOW.Flow-Turbine.Ave.1Hour.1Hour.man-rev',
+        unit: 'cfs',
+      },
+      generationForecast: {
+        tsId: 'Dale Hollow Dam-Turbines.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast',
+        unit: 'cfs',
+        forecast: true,
+      },
+      poolElevation: { tsId: 'DLHT1-DALE_HOLLOW.Elev-Pool.Inst.1Hour.0.man-rev', unit: 'ft' },
+      inflow: { tsId: 'DLHT1-DALE_HOLLOW.Flow-In.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
+      tailwaterElevation: { tsId: 'DHTT1-DALE_HOLLOW.Elev-Tail.Inst.1Hour.0.man-rev', unit: 'ft' },
+      tailwaterTempF: {
+        tsId: 'DHTT1-DALE_HOLLOW.Temp-Water-Tail.Inst.30Minutes.0.dcp-rev',
+        unit: 'F',
+      },
+    },
+  },
+  // ── The first non-federal dam. ─────────────────────────────────────────────
+  // Bagnell is Ameren Missouri's, operated under FERC license No. 459 — no
+  // Corps district, no CWMS, no SWPA column. Its numbers come from Ameren's
+  // own hydro reporting API (src/lib/ameren/osage.ts, verified live
+  // 2026-08-15): hourly pool, tailwater and discharge, with the observed
+  // half of Truman riding along in the same daily report.
+  //
+  // The registry keeps its name for now — one non-federal entry does not
+  // justify the churn of renaming a file every consumer imports — but this
+  // entry is the precedent: `amerenMetrics` is the shape a non-CWMS metrics
+  // source takes, and Powersite (Liberty Utilities, below Taneycomo) is the
+  // next dam that will want one. See docs/DAM_EXPANSION_SURVEY_2026-08.md.
+  //
+  // What Bagnell deliberately does NOT have:
+  // - generationFlow. Ameren publishes total discharge only, so `generating`
+  //   stays null — "not measured", never inferred from discharge, because
+  //   Bagnell spills through gates as well as turbines and reading gate flow
+  //   as generation is exactly the claim releaseExcludesGeneration exists to
+  //   forbid elsewhere.
+  // - a schedule or forecast. Releases can start at any time; the dam
+  //   sounds a siren before starting or stopping generators (Ameren's own
+  //   safety line, and the page copy says so). The daily report's
+  //   "anticipated discharge today" is a single stated figure, not an hourly
+  //   plan — surfacing it is follow-up work with its own copy discipline.
+  'ameren-bagnell-dam': {
+    id: 'ameren-bagnell-dam',
+    name: 'Bagnell Dam',
+    lakeName: 'Lake of the Ozarks',
+    state: 'MO',
+    // Wikipedia/FERC relicensing records; no CWMS location exists to prefer.
+    lat: 38.2019,
+    lon: -92.6228,
+    // 8 main units x 21.5 MW = 172; licensed capacity 176 with the two
+    // station-service units. The FERC Biological Opinion's own figure —
+    // "8 main turbines … total installed capacity of 176.0 MW" — is what
+    // ships. Verified 2026-08-15.
+    nameplate: { units: 8, megawatts: 176 },
+    // The Osage below is paddlefish, catfish and crappie water — a warmwater
+    // release off a shallow reservoir, nothing hypolimnetic about it.
+    tailwaterFishery: 'warmwater' as const,
+    // Ameren's recorded daily report line for Lake of the Ozarks operations.
+    infoPhone: '573-365-9205',
+    amerenMetrics: 'osage' as const,
     series: {},
   },
 };
