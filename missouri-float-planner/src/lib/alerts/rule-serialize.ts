@@ -159,7 +159,7 @@ export function toRiverRule(row: RiverAlertRow): AlertRule {
     // "Never sent" on every ordinary river alert forever, however many times it
     // had fired. The fallback covers rows delivered before that column existed,
     // where a spend IS a real last-sent time. See migration
-    // 20260815140000_alert_subscription_last_triggered_at.sql.
+    // 20260815222045_alert_subscription_last_triggered_at.sql.
     lastTriggeredAt: row.last_triggered_at ?? row.fired_at,
     // A river alert is what other rules are parented TO. It never has one.
     parentId: null,

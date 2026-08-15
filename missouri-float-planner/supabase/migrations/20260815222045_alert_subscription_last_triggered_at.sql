@@ -1,5 +1,11 @@
--- 20260815140000_alert_subscription_last_triggered_at.sql
+-- 20260815222045_alert_subscription_last_triggered_at.sql
 -- When a river alert last actually reached somebody.
+--
+-- Numbered at its APPLY time rather than at authoring time. The database
+-- already held 20260815180000, so the version this file was drafted with
+-- (…140000) would have been an out-of-order migration — recorded as applied
+-- while sorting before something that ran first, which is the state `supabase
+-- db push` refuses to reason about later.
 --
 -- ── The fact this table could not state ─────────────────────────────────────
 --
