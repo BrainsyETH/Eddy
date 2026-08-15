@@ -13,6 +13,7 @@
 
 import type { ServiceLayerKey } from './serviceLayers';
 import type { AccessLayerKey } from './accessLayers';
+import { PUBLIC_LAND_OWNERSHIP_NOTE } from '@eddy/types';
 import { neutral, primary, type Palette } from '@/theme/palette';
 import { conditionColor } from '@/theme/conditions';
 import { flowBandColor } from '@/theme/flow';
@@ -51,8 +52,37 @@ export type PinLayerKey = Exclude<LayerKey, 'weatherRadar' | 'publicLand'>;
 export interface LayerDef {
   key: LayerKey;
   label: string;
-  /** Optional supporting copy shown under a filter row and read as its hint. */
+  /**
+   * One short line under the row, and it earns its place only by answering
+   * WHAT THIS DRAWS.
+   *
+   * ── The rule this field is now held to ────────────────────────────────────
+   * A "Show on map" sheet is a control surface, and every sentence on it
+   * competes with the switch beside it. Subtext survives here only if a reader
+   * cannot tell what the row draws from its label, its mark and its count —
+   * which the label, mark and count already answer for most rows. Hazards and
+   * Lakes & dams carry none, deliberately.
+   *
+   * Everything ELSE that was on these rows — how much of the directory has
+   * been geocoded, which mark a place ended up wearing, which agency published
+   * a boundary — went to `info` or off the sheet entirely. Those are facts
+   * about Eddy's data, and this drawer is where somebody controls a map.
+   */
   description?: string;
+  /**
+   * The longer explanation, behind an ⓘ rather than printed inline.
+   *
+   * For a caveat that MATTERS but is too long to sit under a switch. Public
+   * land is the case that defines it: "ownership, not permission" is the whole
+   * reason the layer is allowed to draw, and it is also three lines of prose
+   * that pushed every row below it off a phone screen. Behind a tap it is still
+   * one gesture from the fill it qualifies, and it is no longer competing with
+   * the controls.
+   *
+   * Attribution belongs here for the same reason — required, and not something
+   * anyone reads while deciding which layers to switch on.
+   */
+  info?: string;
   /** Extra context for assistive technology when the visible label is enough. */
   accessibilityHint?: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
@@ -316,6 +346,27 @@ export const MIN_GAUGE_ZOOM = ZOOM.min;
 export const GAUGE_DETAIL_ZOOM = ZOOM.places;
 
 
+/**
+ * Required attribution for the radar tiles.
+ *
+ * Not optional and not decorative: IEM asks for credit, and a reader looking at
+ * rain on a map is owed the knowledge that Eddy did not measure it. It sits
+ * behind the row's ⓘ rather than under the switch — see LayerDef.info. Declared
+ * above MAP_LAYERS because the catalog reads it; the rest of the radar
+ * constants stay with the tile URL further down.
+ */
+export const RADAR_ATTRIBUTION = 'Radar: NOAA NEXRAD via Iowa State Mesonet';
+
+/**
+ * Required attribution for the public-land boundaries.
+ *
+ * PAD-US is public domain and USGS asks for credit rather than requiring it —
+ * which is the reason to give it, not a reason to skip it. A reader looking at
+ * an ownership boundary is owed the knowledge that Eddy did not draw it.
+ * Declared here for the same reason as RADAR_ATTRIBUTION above.
+ */
+export const PUBLIC_LAND_ATTRIBUTION = 'Boundaries: USGS PAD-US';
+
 export const MAP_LAYERS: LayerDef[] = [
   {
     key: 'access',
@@ -447,7 +498,16 @@ export const MAP_LAYERS: LayerDef[] = [
   {
     key: 'weatherRadar',
     label: 'Rain radar',
-    accessibilityHint: 'Shows where it is raining now and requires a connection',
+    // ── "needs a connection" is gone, and that is not a loss ───────────────
+    // It was true — radar streams tiles from a third party and an offline pack
+    // cannot carry live weather — but it was answering a question nobody asks
+    // while choosing layers, in the one line the row had for saying what it
+    // draws. A layer that draws nothing offline is a state the map itself can
+    // report if it ever needs to; a control sheet is not the place to
+    // pre-emptively explain a failure that has not happened.
+    description: 'Live precipitation radar',
+    info: RADAR_ATTRIBUTION,
+    accessibilityHint: 'Live precipitation radar. Needs a connection.',
     icon: 'rainy-outline',
     // Already in the bundled catalog — this is the mark the weather panel on
     // the river screen uses, so the two agree about what weather looks like.
@@ -462,6 +522,16 @@ export const MAP_LAYERS: LayerDef[] = [
     key: 'publicLand',
     label: 'Public land',
     description: 'Agency boundaries',
+    // ── The caveat is BEHIND the ⓘ, and is still one tap from the fill ─────
+    // "Ownership, not permission" is the entire reason this layer is allowed
+    // to draw, and it is also three lines of prose. Printed under the switch it
+    // pushed the rows below it off the screen and read as the sheet explaining
+    // its data model rather than as a control. It is unchanged, shared with the
+    // website through @eddy/types so the two maps cannot say different things
+    // about the same boundaries, and it still reaches the reader — here, and in
+    // the parcel callout, which is where somebody who has tapped a boundary is
+    // actually asking what it means.
+    info: `${PUBLIC_LAND_OWNERSHIP_NOTE} ${PUBLIC_LAND_ATTRIBUTION}.`,
     accessibilityHint: 'Shows agency ownership boundaries, not permission to access, camp, or portage',
     icon: 'map-outline',
     // No `symbol`: the catalog has no mark for public land, and `icon` is the
@@ -648,15 +718,6 @@ export const RADAR_TILE_URL =
   'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png';
 
 /**
- * Required attribution, shown on its own muted line under the Rain switch
- * whenever the layer is drawing.
- *
- * Not optional and not decorative: IEM asks for credit, and a reader looking at
- * rain on a map is owed the knowledge that Eddy did not measure it.
- */
-export const RADAR_ATTRIBUTION = 'Radar: NOAA NEXRAD via Iowa State Mesonet';
-
-/**
  * How transparent the radar sits over the map.
  *
  * Matches the website's `'raster-opacity': 0.6`. Light enough that the river
@@ -705,12 +766,3 @@ export const MAX_RADAR_ZOOM = 9;
  * a national forest still becomes legible before individual gauge labels do.
  */
 export const MIN_PUBLIC_LAND_ZOOM = 7;
-
-/**
- * Required attribution, shown whenever the layer is drawing.
- *
- * PAD-US is public domain and USGS asks for credit rather than requiring it —
- * which is the reason to give it, not a reason to skip it. A reader looking at
- * an ownership boundary is owed the knowledge that Eddy did not draw it.
- */
-export const PUBLIC_LAND_ATTRIBUTION = 'Boundaries: USGS PAD-US';
