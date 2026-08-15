@@ -11,6 +11,8 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 import DamStateCard from '@/components/dam/DamStateCard';
+import DamGenerationHero from '@/components/dam/DamGenerationHero';
+import DamPatternStrip from '@/components/dam/DamPatternStrip';
 import GenerationSchedule from '@/components/dam/GenerationSchedule';
 import { fetchDamDetail, listDamIds } from '@/lib/data/dams';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
@@ -42,6 +44,11 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
   const dam = await fetchDamDetail(damId);
   if (!dam) notFound();
 
+  // One instant for the whole page, minted here and handed to every client
+  // section. Letting each of them call the clock would let the timeline and the
+  // pattern strip disagree about which hour is "now" on the same screen.
+  const renderedAt = Date.now();
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
       <div className="mx-auto max-w-3xl px-4 pb-16 pt-6">
@@ -53,10 +60,42 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
           All lakes &amp; dams
         </Link>
 
-        <DamStateCard dam={dam} />
+        {/* The order is the hierarchy a fisherman reads in: what the powerhouse
+            is doing now, when it changes, today and the days ahead, the rhythm
+            it has kept all week — and only then the lake, the temperature and
+            the rest of the project. Everything above the pattern strip answers
+            a question somebody is asking before they load the truck. */}
+        <h1 className="text-2xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
+          {dam.name}
+        </h1>
+        <p className="mb-4 text-xs text-neutral-500">
+          {dam.lakeName ?? 'USACE project'} · {dam.state}
+        </p>
+
+        <DamGenerationHero dam={dam} />
 
         <div className="mt-6">
-          <GenerationSchedule schedule={dam.schedule} />
+          <GenerationSchedule
+            schedule={dam.schedule}
+            reference={dam.generationReference}
+            renderedAt={renderedAt}
+          />
+        </div>
+
+        {dam.pattern && dam.pattern.length > 0 && (
+          <div className="mt-6">
+            <DamPatternStrip
+              pattern={dam.pattern}
+              schedule={dam.schedule}
+              reference={dam.generationReference}
+              generationFloorCfs={dam.generationFloorCfs}
+              renderedAt={renderedAt}
+            />
+          </div>
+        )}
+
+        <div className="mt-6">
+          <DamStateCard dam={dam} secondary />
         </div>
 
         {/* An empty schedule means one of two very different things, and

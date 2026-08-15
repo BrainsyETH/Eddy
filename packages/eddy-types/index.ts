@@ -2295,6 +2295,7 @@ export interface RiverVisualsResponse {
 // absent must render nothing rather than "0 cfs".
 export type {
   DamMetricValue,
+  DamPatternDay,
   DamScheduleDay,
   DamSnapshot,
   DamStaleness,

@@ -113,21 +113,20 @@ export const SWPA_PROJECTS: Record<string, SwpaProject> = {
   CAN: { code: 'CAN', name: 'Clarence Cannon', state: 'MO', units: 2, capacityMw: 70, fullPowerCfs: 12_900 },
 };
 
-/** One hour of a project's schedule. */
-export interface ScheduledHour {
-  /**
-   * Hour ENDING, 1-24, exactly as SWPA posts it. Hour 14 means the release
-   * runs 1:00pm-2:00pm. Getting this wrong by one puts an angler in the water
-   * an hour early, so it is kept in the source's own terms rather than
-   * silently renormalized.
-   */
-  hourEnding: number;
-  megawatts: number;
-  /** Estimated release, or null on an idle hour. Rounded — see accuracy note. */
-  cfs: number | null;
-  /** True when scheduled MW changed this hour; the cfs estimate is unreliable. */
-  isRamp: boolean;
-}
+/**
+ * One hour of a project's schedule — the SAME type the wire carries.
+ *
+ * Re-exported rather than restated. It was declared twice, identically, here
+ * and in shared/dam-types.ts, coupled by nothing but structural compatibility:
+ * `readSchedule` assigns this array straight into `DamScheduleDay.hours` and
+ * that assignment typechecks whether or not the two definitions still agree.
+ * One of them drifting is a wire break with no compile error anywhere.
+ *
+ * src/ importing from shared/ is the allowed direction — shared/ has no path
+ * back, which is what keeps it consumable by Metro and tsx as well as Next.
+ */
+export type { ScheduledHour } from '@shared/dam-types';
+import type { ScheduledHour } from '@shared/dam-types';
 
 /**
  * When Eddy retrieved the page this schedule came from — NOT when SWPA posted

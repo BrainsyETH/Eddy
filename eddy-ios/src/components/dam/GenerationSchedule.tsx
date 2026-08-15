@@ -28,10 +28,19 @@ import {
 } from '@eddy/conditions/dam-schedule-copy';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { DayBars, nowSentence } from '@/components/dam/DayBars';
+import type { GenerationReference } from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
-function DayRow({ day, defaultExpanded }: { day: DamScheduleDay; defaultExpanded: boolean }) {
+function DayRow({
+  day,
+  reference,
+  defaultExpanded,
+}: {
+  day: DamScheduleDay;
+  reference?: GenerationReference | null;
+  defaultExpanded: boolean;
+}) {
   const { colors } = useTheme();
 
   const generatingHours = day.hours.filter((h) => h.megawatts > 0).length;
@@ -73,7 +82,7 @@ function DayRow({ day, defaultExpanded }: { day: DamScheduleDay; defaultExpanded
         </View>
       }
     >
-      <DayBars day={day} />
+      <DayBars day={day} reference={reference} />
       {low !== null && high !== null ? (
         <Text style={[styles.estimate, { color: colors.textSubtle }]}>
           When running, roughly{' '}
@@ -87,7 +96,14 @@ function DayRow({ day, defaultExpanded }: { day: DamScheduleDay; defaultExpanded
   );
 }
 
-export function GenerationSchedule({ schedule }: { schedule: DamScheduleDay[] }) {
+export function GenerationSchedule({
+  schedule,
+  reference,
+}: {
+  schedule: DamScheduleDay[];
+  /** SWPA's published pair, so every day is drawn on the project's scale. */
+  reference?: GenerationReference | null;
+}) {
   const { colors, elevation } = useTheme();
 
   if (schedule.length === 0) return null;
@@ -112,7 +128,12 @@ export function GenerationSchedule({ schedule }: { schedule: DamScheduleDay[] })
 
       <View style={styles.days}>
         {schedule.map((day, i) => (
-          <DayRow key={day.scheduleDate} day={day} defaultExpanded={i === 0} />
+          <DayRow
+            key={day.scheduleDate}
+            day={day}
+            reference={reference}
+            defaultExpanded={i === 0}
+          />
         ))}
       </View>
 

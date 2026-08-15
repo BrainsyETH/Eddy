@@ -150,11 +150,12 @@ function DamRowComponent({
           The bars are the same component the dam screen draws, so a pattern
           learned there is readable here. The idle-window sentence carries it for
           VoiceOver, which the bar row is deliberately hidden from — and it is
-          the more useful of the two anyway: "Generation off: midnight – 6 AM" is
+          the more useful of the two anyway: "No generation scheduled:
+          midnight – 6 AM" is
           the answer, the bars are the picture of it. */}
       {today ? (
         <View style={styles.schedule}>
-          <DayBars day={today} compact />
+          <DayBars reference={dam.generationReference} day={today} compact />
           <Text style={[styles.idle, { color: colors.textMuted }]} numberOfLines={1}>
             {idleWindowSentence(today.idle)}
           </Text>

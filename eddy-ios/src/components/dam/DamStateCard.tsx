@@ -14,23 +14,33 @@
 //  - Stale readings drop their emphasis rather than being hidden — a number
 //    with an honest age beats no number.
 //
+// ── What moved out of this file ────────────────────────────────────────────
+// The generation hero. It is DamGenerationHero now, on the dam SCREEN only,
+// because a rack of eight generator cells repeated down a favourites list is
+// not scannable. What is left here is the one-line now → next summary, which is
+// what a list surface actually needs.
+//
 // ── Why the generating chip is not a condition colour ──────────────────────
-// It uses `accent`, never conditionColor(). CONDITION_SYSTEM's palette means
-// "should you float this river", and generating/idle is not that verdict — it
-// is a fact about machinery. Painting "Generating" in the `dangerous` red would
-// make the app appear to have issued a floatability call it has not made, on a
-// reach it may not even carry.
+// It uses the interactive teal, never conditionColor(). CONDITION_SYSTEM's
+// palette means "should you float this river", and generating/idle is not that
+// verdict — it is a fact about machinery. Painting "Generating" in the
+// `dangerous` red would make the app appear to have issued a floatability call
+// it has not made, on a reach it may not even carry.
 
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
 import {
   relativeAge,
-  nextScheduleChangeSentence,
   tailwaterMovementSentence,
   readingStaleness,
   SCHEDULE_CHANGE_NOTE,
 } from '@eddy/conditions/dam-schedule-copy';
+import {
+  generationNow,
+  generationStatusLabel,
+  nowNextClauses,
+} from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -86,7 +96,21 @@ function Stat({ icon, label, value, suffix, sub, dim }: StatProps) {
   );
 }
 
-export function DamStateCard({ dam }: { dam: DamSnapshot }) {
+export function DamStateCard({
+  dam,
+  /**
+   * This card is NOT the top of the screen.
+   *
+   * Set on the dam screen, where DamGenerationHero sits above it and already
+   * carries the generation summary and the release figure. Two copies of one
+   * fact on one screen read as two facts. Named to match the web card's prop so
+   * the two surfaces stay legibly the same component.
+   */
+  secondary,
+}: {
+  dam: DamSnapshot;
+  secondary?: boolean;
+}) {
   const { colors, elevation } = useTheme();
 
   const release = dam.metrics.release;
@@ -97,14 +121,21 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
   const inflow = dam.metrics.inflow;
   const generationFlow = dam.metrics.generationFlow;
 
-  // What SWPA says happens NEXT. A different claim from the chip above it,
-  // which reads CWMS turbine flow and is an observation — the two can honestly
-  // disagree when a unit trips or a schedule is revised after Eddy fetched it,
-  // so this states only the scheduled transition, never the present state.
+  // The one-line version of the console: what Eddy MEASURED, then what SWPA has
+  // SCHEDULED. Two strings rather than one because they can honestly disagree —
+  // a unit trips, a schedule is revised after Eddy fetched it — and a row that
+  // merged them would give a plan the weight of a measurement.
   //
-  // It is also the only live line Stockton and Truman can carry: the Kansas
-  // City district publishes no timeseries at all, so those two have no chip.
-  const nextChange = nextScheduleChangeSentence(dam.schedule);
+  // The scheduled half is also the only live line Stockton and Truman can carry:
+  // the Kansas City district publishes no timeseries at all, so those two have
+  // no observation to show.
+  // A flood-control project has no powerhouse to report on, so it gets no
+  // generation line at all — the same test the hero uses to render nothing.
+  const state = generationNow(dam);
+  const clauses =
+    secondary || generationStatusLabel(state) === null
+      ? null
+      : nowNextClauses(state, dam.schedule, dam.generationReference);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
@@ -113,7 +144,7 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
           flow, and null must render nothing. Stockton and Truman are SWPA
           schedule entries with no CWMS feed at all; printing "Not generating"
           for them would be an observation nobody made. */}
-      {dam.generating !== null ? (
+      {!secondary && dam.generating !== null ? (
         <View style={styles.chipRow}>
           <View
             style={[
@@ -135,7 +166,7 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
                 { color: dam.generating ? colors.onInteractive : colors.textMuted },
               ]}
             >
-              {dam.generating ? 'Generating now' : 'Not generating'}
+              {dam.generating ? 'Generating' : 'Not generating'}
             </Text>
           </View>
           {generationFlow ? (
@@ -150,22 +181,33 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
           carries SWPA's "subject to change" and the fact that water downstream
           lags the dam, and on a list surface there is no schedule block below to
           carry either. */}
-      {nextChange ? (
+      {clauses ? (
         <View>
-          <View style={styles.nextChangeRow}>
-            <Ionicons name="time-outline" size={13} color={colors.interactive} />
-            <Text style={[styles.nextChange, { color: colors.interactive }]}>{nextChange}</Text>
-          </View>
-          <Text style={[styles.nextChangeAside, { color: colors.textSubtle }]}>
-            {SCHEDULE_CHANGE_NOTE}
-          </Text>
+          <Text style={[styles.observed, { color: colors.text }]}>{clauses.observed}</Text>
+          {clauses.scheduled ? (
+            <>
+              <View style={styles.nextChangeRow}>
+                <Ionicons name="time-outline" size={13} color={colors.interactive} />
+                <Text style={[styles.nextChange, { color: colors.interactive }]}>
+                  {clauses.scheduled}
+                </Text>
+              </View>
+              <Text style={[styles.nextChangeAside, { color: colors.textSubtle }]}>
+                {SCHEDULE_CHANGE_NOTE}
+              </Text>
+            </>
+          ) : null}
         </View>
       ) : null}
 
       {/* Tailwater facts lead, lake facts follow. The water below the dam is
           what someone is standing in; the pool is context. */}
       <View style={styles.statGrid}>
-        {release ? (
+        {/* Hidden only when the hero above ACTUALLY carried it. A flood-control
+            project renders no hero — DamGenerationHero returns null for a dam
+            with no powerhouse — so on Clearwater this is the only place total
+            release appears. */}
+        {release && !(secondary && dam.hasTurbines) ? (
           <Stat
             icon="water-outline"
             label={release.dailyMean ? 'Release (daily avg)' : 'Releasing'}
@@ -257,10 +299,15 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
         ) : null}
       </View>
 
+      {/* "nameplate" is spelled out because the generation console sizes
+          everything against SWPA's SCHEDULING capacity, which is a different
+          number for the same plant — 340 installed against 391 scheduled at
+          Bull Shoals. Two bare megawatt figures on one screen read as a
+          contradiction; two labelled ones read as what they are. */}
       {dam.nameplate ? (
         <Text style={[styles.plant, { color: colors.textSubtle }]}>
-          {dam.nameplate.units} {dam.nameplate.units === 1 ? 'unit' : 'units'} ·{' '}
-          {dam.nameplate.megawatts} MW
+          {dam.nameplate.units} generating {dam.nameplate.units === 1 ? 'unit' : 'units'} ·{' '}
+          {dam.nameplate.megawatts} MW nameplate
         </Text>
       ) : null}
     </View>
@@ -269,6 +316,7 @@ export function DamStateCard({ dam }: { dam: DamSnapshot }) {
 
 const styles = StyleSheet.create({
   card: { borderRadius: 14, padding: 16, gap: 12 },
+  observed: { fontSize: 14, lineHeight: 19, fontFamily: fonts.heading },
   chipRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   chip: {
     flexDirection: 'row',
