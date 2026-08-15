@@ -472,7 +472,12 @@ export function buildSnapshot(
     state: dam.state,
     lat: dam.lat,
     lon: dam.lon,
-    hasTurbines: Boolean(dam.swpaCode),
+    // A SWPA column OR an explicit turbine-flow series — either is
+    // constitutive evidence of a powerhouse. swpaCode alone was the whole
+    // test until the Nashville dams landed: their power is marketed by SEPA,
+    // so a plant with six units carried no SWPA code and this line alone
+    // would have announced it had no powerhouse at all.
+    hasTurbines: Boolean(dam.swpaCode || dam.series.generationFlow),
     ...(dam.nameplate ? { nameplate: dam.nameplate } : {}),
     ...(swpa
       ? {

@@ -107,7 +107,20 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
             and does not depend on today's fetch succeeding. */}
         {dam.schedule.length === 0 && (
           <p className="mt-6 rounded-xl border-2 border-neutral-300 bg-white p-5 text-sm text-neutral-600">
-            {dam.hasTurbines ? (
+            {/* Three states, not two. "SWPA hasn't refreshed yet" is a claim
+                about a dam SWPA schedules — on a Nashville project, whose
+                power SEPA markets with no public loading page, it would
+                promise a schedule that is never coming. The registry's
+                swpaCode is what separates them, and this is a server
+                component, so it can ask the registry directly. */}
+            {dam.hasTurbines && !getUsaceDam(dam.id)?.swpaCode ? (
+              <>
+                No public hourly loading schedule exists for this project —
+                its power is marketed by the Southeastern Power
+                Administration, which does not post one. Everything Eddy shows
+                for this dam is measured at the dam, not scheduled.
+              </>
+            ) : dam.hasTurbines ? (
               <>
                 The generation schedule for this project isn&rsquo;t available
                 right now — Southwestern Power Administration posts the next

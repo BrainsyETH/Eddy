@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   // that cannot go stale beats one that has to be maintained in step with the
   // registry.
   description:
-    'Live USACE lake levels, dam releases and hourly generation schedules for federal hydropower and flood-control projects across Missouri, Arkansas, Oklahoma and Texas.',
+    'Live USACE lake levels, dam releases and hourly generation schedules for federal hydropower and flood-control projects across Missouri, Arkansas, Oklahoma, Texas, Kentucky and Tennessee.',
 };
 
 export default async function DamsPage() {

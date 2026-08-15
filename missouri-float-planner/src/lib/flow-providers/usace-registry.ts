@@ -40,7 +40,7 @@
 // Grows one district at a time, deliberately: `office` goes straight into a CDA
 // query parameter, so a typo is a silent 404 rather than a type error, and this
 // union is the only thing that catches it.
-export type UsaceOffice = 'SWL' | 'MVS' | 'SWT';
+export type UsaceOffice = 'SWL' | 'MVS' | 'SWT' | 'LRN';
 
 export type UsaceMetric =
   | 'release'
@@ -88,7 +88,7 @@ export interface UsaceDam {
    * one-dam group nobody notices. `DamSnapshot.state` on the wire is already
    * `string`, so widening this costs nothing downstream.
    */
-  state: 'MO' | 'AR' | 'OK' | 'TX';
+  state: 'MO' | 'AR' | 'OK' | 'TX' | 'KY' | 'TN';
   lat: number;
   lon: number;
   /** CWMS office, when this dam publishes to CDA at all. */
@@ -626,6 +626,171 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     tailwaterFishery: 'warmwater' as const,
     generationOnCfs: 1_000,
     series: {},
+  },
+
+  // Nashville district — the upper Cumberland trout tailwaters. Every id below
+  // was confirmed live against CDA on 2026-08-15; the probes and floor
+  // calibration are in scripts/ingestion/dossiers/verified-identifiers-
+  // tailwater-lrn-*.md. Every LRN series is stamped US/Central, so nothing
+  // about the Central-day arithmetic in shared/ changes for these.
+  //
+  // Three dams, not eight: Wolf Creek -> Cumberland, Center Hill -> Caney Fork
+  // and Dale Hollow -> Obey are the serious trout tailwaters, which is the
+  // audience the dam section serves. The four navigation mainstem projects and
+  // Laurel are deliberately absent until someone argues for them.
+  //
+  // Four things differ from every district above, and all four are load-bearing:
+  //
+  // 1. NO SWPA COLUMN. Cumberland power is marketed by SEPA, which publishes no
+  //    hourly loading page — so no swpaCode, no `schedule`, and no published
+  //    MW/cfs reference pair (`generationReference` stays absent and the
+  //    console shows raw cfs). The forward schedule EXISTS: LRN writes it into
+  //    CWMS itself as hourly `celrn-cwms-forecast` series, ALREADY IN CFS,
+  //    running ~9 days ahead (`Wolf Creek Dam-Turbines.Flow` read 121 hourly
+  //    points on 2026-08-15, textbook peaking blocks). Rendering a plan through
+  //    `schedule` is SWPA-shaped work not yet designed — see
+  //    docs/DAM_EXPANSION_SURVEY_2026-08.md — so `releaseForecast` carries the
+  //    verified id and nothing renders it as a schedule yet. CAUTION for that
+  //    future work: the forecast series RETAINS ITS PAST, byte-identical to the
+  //    observed series, so anything reading it must slice at now or it will
+  //    present a plan as a record.
+  //
+  // 2. TWO STATION PREFIXES PER PROJECT. Observed series hang off NWS handbook
+  //    stations — RWNK2-WOLF_CREEK (tailwater) vs WLCK2-WOLF_CREEK (dam/pool) —
+  //    while the forecast lives under prose names ('Wolf Creek Dam'). No single
+  //    `cdaLocation` prefix spans that, so the field is OMITTED: seriesFor
+  //    skips resolution without one, which is wanted here (see 3), and
+  //    check-usace-resolver.ts skips these dams for the same reason. The
+  //    registry test that required cdaLocation alongside series was loosened
+  //    for this — fetches need only office + tsId.
+  //
+  // 3. A THIRD PARAMETER VOCABULARY. Turbine flow is `Flow-Turbine` (not
+  //    `Flow-Plant`/`Flow-Power`), pool is `Elev-Pool` (not `Elev` on
+  //    `-Headwater`), tailwater stage is `Elev-Tail` on the station (not
+  //    `Elev-Downstream` on `-Tailwater`), temperature is `Temp-Water-Tail`.
+  //    None of it is in resolve.ts SPECS, so nothing here could resolve anyway;
+  //    keeping resolution structurally off means a renamed series 404s loudly
+  //    instead of quietly matching the wrong namespace. Teaching SPECS the LRN
+  //    vocabulary is real work (the dual-prefix model above doesn't fit
+  //    ParamPair) and gets its own change.
+  //
+  // 4. `man-rev` IS THE LIVE VERSION, not just the reviewed one. RWNK2's
+  //    dcp-rev tailwater stage stopped 2025-10-24 while man-rev is current —
+  //    at LRN the raw feed dying is a thing that happens, so the reviewed
+  //    series wins on liveness, not just quality. The exception is tailwater
+  //    temperature, which exists only as 30-minute dcp-rev.
+  //
+  // Floors: measured over 2026-08-03..15, ~300 hourly points per dam. Idle
+  // hours read exactly 0 at all three; Center Hill and Dale Hollow occasionally
+  // report 25-50 cfs with the units off; the smallest real single-unit hour
+  // observed was 1,580 cfs (Dale Hollow). 100 clears the noise with 15x
+  // headroom below the smallest unit.
+  'lrn-wolf-creek-dam': {
+    id: 'lrn-wolf-creek-dam',
+    name: 'Wolf Creek Dam',
+    lakeName: 'Lake Cumberland',
+    state: 'KY',
+    // WLCK2-WOLF_CREEK, public-name "Wolf Creek Dam" in /locations — the same
+    // CWMS-wins rule as the Tulsa block.
+    lat: 36.868333,
+    lon: -85.146944,
+    office: 'LRN',
+    // 6 x 45 MW. DOE Wolf Creek recon report; verified 2026-08-15.
+    nameplate: { units: 6, megawatts: 270 },
+    // Cold hypolimnetic release; Kentucky's trophy brown trout tailwater, with
+    // the Wolf Creek National Fish Hatchery directly below the dam — the
+    // station's own Flow-Hatchery series names it. Declared, not inferred:
+    // the RWNK2 temperature sensor has been dead since 2022-02, so there is no
+    // reading to infer from.
+    tailwaterFishery: 'trout' as const,
+    generationOnCfs: 100,
+    series: {
+      release: { tsId: 'RWNK2-WOLF_CREEK.Flow.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
+      releaseForecast: {
+        tsId: 'Wolf Creek Dam.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast',
+        unit: 'cfs',
+        forecast: true,
+      },
+      generationFlow: { tsId: 'RWNK2-WOLF_CREEK.Flow-Turbine.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
+      poolElevation: { tsId: 'WLCK2-WOLF_CREEK.Elev-Pool.Inst.1Hour.0.man-rev', unit: 'ft' },
+      inflow: { tsId: 'WLCK2-WOLF_CREEK.Flow-In.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
+      tailwaterElevation: { tsId: 'RWNK2-WOLF_CREEK.Elev-Tail.Inst.1Hour.0.man-rev', unit: 'ft' },
+    },
+  },
+  'lrn-center-hill-dam': {
+    id: 'lrn-center-hill-dam',
+    name: 'Center Hill Dam',
+    lakeName: 'Center Hill Lake',
+    state: 'TN',
+    // CEHT1-CENTER_HILL, public-name "Center Hill Dam".
+    lat: 36.0963889,
+    lon: -85.8205556,
+    office: 'LRN',
+    // 3 x 45 MW rated. The 2015-2021 Voith rehab kept the 135 rating (one
+    // trade headline said 155; the plant profile and the Corps' own marker say
+    // 135,000 kW). Verified 2026-08-15.
+    nameplate: { units: 3, megawatts: 135 },
+    // The Caney Fork — Tennessee's most heavily fished trout tailwater. The
+    // deep-draw fact is measurable here: Temp-Water-Tail read 50.5 F on
+    // 2026-08-15, in August.
+    tailwaterFishery: 'trout' as const,
+    generationOnCfs: 100,
+    series: {
+      release: { tsId: 'CETT1-CENTER_HILL.Flow.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
+      releaseForecast: {
+        tsId: 'Center Hill Dam.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast',
+        unit: 'cfs',
+        forecast: true,
+      },
+      generationFlow: {
+        tsId: 'CETT1-CENTER_HILL.Flow-Turbine.Ave.1Hour.1Hour.man-rev',
+        unit: 'cfs',
+      },
+      poolElevation: { tsId: 'CEHT1-CENTER_HILL.Elev-Pool.Inst.1Hour.0.man-rev', unit: 'ft' },
+      inflow: { tsId: 'CEHT1-CENTER_HILL.Flow-In.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
+      tailwaterElevation: { tsId: 'CETT1-CENTER_HILL.Elev-Tail.Inst.1Hour.0.man-rev', unit: 'ft' },
+      tailwaterTempF: {
+        tsId: 'CETT1-CENTER_HILL.Temp-Water-Tail.Inst.30Minutes.0.dcp-rev',
+        unit: 'F',
+      },
+    },
+  },
+  'lrn-dale-hollow-dam': {
+    id: 'lrn-dale-hollow-dam',
+    name: 'Dale Hollow Dam',
+    lakeName: 'Dale Hollow Lake',
+    state: 'TN',
+    // DLHT1-DALE_HOLLOW, public-name "Dale Hollow Dam".
+    lat: 36.538333,
+    lon: -85.451111,
+    office: 'LRN',
+    // 3 x 18 MW. Corps' own project history; verified 2026-08-15.
+    nameplate: { units: 3, megawatts: 54 },
+    // The Obey — trout water below a dam with its own national fish hatchery
+    // (Flow-Hatchery series, same as Wolf Creek), and the water that produced
+    // the long-standing world-record brown trout. Temp-Water-Tail read 50.7 F
+    // on 2026-08-15.
+    tailwaterFishery: 'trout' as const,
+    generationOnCfs: 100,
+    series: {
+      release: { tsId: 'DHTT1-DALE_HOLLOW.Flow.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
+      releaseForecast: {
+        tsId: 'Dale Hollow Dam.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast',
+        unit: 'cfs',
+        forecast: true,
+      },
+      generationFlow: {
+        tsId: 'DHTT1-DALE_HOLLOW.Flow-Turbine.Ave.1Hour.1Hour.man-rev',
+        unit: 'cfs',
+      },
+      poolElevation: { tsId: 'DLHT1-DALE_HOLLOW.Elev-Pool.Inst.1Hour.0.man-rev', unit: 'ft' },
+      inflow: { tsId: 'DLHT1-DALE_HOLLOW.Flow-In.Ave.1Hour.1Hour.man-rev', unit: 'cfs' },
+      tailwaterElevation: { tsId: 'DHTT1-DALE_HOLLOW.Elev-Tail.Inst.1Hour.0.man-rev', unit: 'ft' },
+      tailwaterTempF: {
+        tsId: 'DHTT1-DALE_HOLLOW.Temp-Water-Tail.Inst.30Minutes.0.dcp-rev',
+        unit: 'F',
+      },
+    },
   },
 };
 
