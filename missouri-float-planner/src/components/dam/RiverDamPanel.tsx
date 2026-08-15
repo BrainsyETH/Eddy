@@ -74,6 +74,11 @@ export default function RiverDamPanel({
   // section explaining its own emptiness.
   if (!release && days.length === 0) return null;
 
+  // Null is "the timestamp could not be read", which is not a lag. `!== 'fresh'`
+  // swept it in and asserted a staleness it had no basis for.
+  const releaseLag = release ? readingStaleness(release.at) : null;
+  const releaseIsLagging = releaseLag === 'lagging' || releaseLag === 'stale';
+
   const current = release?.value ?? null;
   const last = days.length > 0 ? days[days.length - 1].cfs : null;
   const bigSwing =
@@ -110,7 +115,7 @@ export default function RiverDamPanel({
             {/* From the timestamp, not the wire's `staleness` — that band is
                 stamped at snapshot assembly and frozen, so a held payload keeps
                 claiming freshness as it ages. See readingStaleness in shared/. */}
-            {readingStaleness(release.at) !== 'fresh' && ' · reading is lagging'}
+            {releaseIsLagging && ' · reading is lagging'}
           </div>
         </div>
       )}

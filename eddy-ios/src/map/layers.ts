@@ -553,8 +553,13 @@ export const MAP_LAYERS: LayerDef[] = [
     // No `tierLabel`: a row is its own context, so `label` says it once.
     accessibilityHint: 'Cabins, lodge rooms, and cottages',
     icon: 'bed-outline',
-    tierSymbol: 'lodging',
-    // ── The cabin mark distinguishes the tier; colour stays neutral ───────
+    // `symbol`, not `tierSymbol`. The mark landed while the instruction to wire
+    // it as a tier's was still written above — but by then this was a ROW, and
+    // `tierSymbol` is only ever drawn in a tier chip strip, which a row has
+    // none of. So the map got the cabin and the layers sheet — the legend, the
+    // one surface that has to teach the mark — kept the generic bed glyph.
+    symbol: 'lodging',
+    // ── The cabin mark distinguishes the row; colour stays neutral ────────
     // The obvious choice is a deeper step of the tan the row already wears, and
     // the secondary scale has no such step — it is 500/200/100/50, and 500 IS
     // `warm`. So this borrows the neutral stone instead, a clear step off the

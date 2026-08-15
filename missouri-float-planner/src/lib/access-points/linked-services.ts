@@ -37,10 +37,21 @@
 // and no `access_point_id`, so their availability could not reach the sheet a
 // reader taps. It reaches it through here.
 //
-// ── ONE READ, GATED BY THE CALLER ─────────────────────────────────────────
+// ── ONE READ, AND IT IS NOT GATED ─────────────────────────────────────────
 //
-// Every access point that is campgroundish pays for this; a plain put-in does
-// not. Same gate as availability and booking, for the same reason.
+// This said "gated by the caller — every access point that is campgroundish
+// pays for this; a plain put-in does not". It is the opposite, and the
+// inversion matters enough that the stale version had to go rather than be
+// softened: `detail.ts` reads links FIRST and unconditionally, because
+// `campgroundish` is computed PARTLY FROM THE RESULT. Washington State Park
+// Access has empty `types` and no nps_campground_id, so a gate reading only its
+// own row calls it a plain put-in and skips the very query that would have
+// shown it is `located_at` a campground with 19 nights of availability.
+//
+// So: one indexed lookup by access_point_id on every access-point detail, on a
+// page that already makes several. Anyone who "restores" the gate on the
+// strength of the old note re-breaks that case — the reason detail.ts spells
+// the circle out where it makes the call.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 

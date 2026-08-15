@@ -169,9 +169,10 @@ export function RiverServicesTab({ river }: RiverTabProps) {
                 label={service.name}
                 detail={service.phone ?? service.city ?? null}
                 external={url != null}
-                onPress={() => {
-                  if (url) void Linking.openURL(url);
-                }}
+                // Undefined, not a handler that checks and does nothing: that
+                // is what makes the row stop being a button rather than become
+                // a broken one. See LinkRow's onPress.
+                onPress={url ? () => void Linking.openURL(url) : undefined}
               />
             );
           })}

@@ -102,6 +102,72 @@ test('the selected river changes in exactly one place', () => {
   );
 });
 
+// ── The no-op the required intent could not reach ────────────────────────────
+//
+// A required intent makes the CALLER say what the camera does. It cannot make
+// the answer achievable: `fitRiver` is the one intent that carries no
+// coordinates of its own, so it has to look its river's line up in `bySlug` —
+// and that collection hydrates from disk and then the network, so on a cold
+// launch the lookup misses for the first frames. Returning there put the silent
+// drop back inside selectRiver, one level below where the type system was
+// looking.
+//
+// It is reached deterministically, not by a race: a "View on map" deep link
+// mounts the map tab and runs focusOnAccess in the first effect flush, when the
+// access point is not held either — so the intent falls to `fitRiver` against an
+// empty `bySlug` and the reader gets the sheet over a map on the wrong side of
+// the state, permanently, because the route params are cleared on the way past.
+test('a fit whose river has no line yet is deferred, never dropped', () => {
+  const source = readFileSync(SCREEN, 'utf8');
+
+  const branch = /case 'fitRiver': \{([\s\S]*?)case 'searchResult'/.exec(source);
+  assert.ok(branch, "selectRiver no longer has a 'fitRiver' branch to check");
+  assert.match(
+    branch[1],
+    /issueCameraCommand\(\{ type: 'riverSelected'/,
+    'the fitRiver branch no longer frames the river it was handed',
+  );
+  assert.match(
+    branch[1],
+    /pendingRiverFit\.current = \{/,
+    'the fitRiver branch can return without either issuing a command or ' +
+      'recording the intent — which is the silent drop, back again, for every ' +
+      'reader whose statewide geometry has not landed yet.',
+  );
+
+  const redemption = /const pending = pendingRiverFit\.current;([\s\S]*?)\}, \[([^\]]*)\]\);/.exec(
+    source,
+  );
+  assert.ok(redemption, 'nothing redeems a deferred fit; it is recorded and forgotten');
+  assert.match(
+    redemption[1],
+    /issueCameraCommand\(\{ type: 'riverSelected', bounds \}\)/,
+    'the deferred fit is read back but never turned into a camera command',
+  );
+  assert.match(
+    redemption[2],
+    /network\.bySlug/,
+    'the redemption does not re-run when the geometry arrives, so the fit it ' +
+      'kept can never become answerable.',
+  );
+});
+
+// A latch that is never released is a latch that answers the second question
+// wrong. `focusConsumed` marks the deep link consumed; the params clearing is
+// what ends the request, so the two have to be released together — otherwise
+// asking for the SAME put-in again matches the spent token and the Map tab
+// opens having done nothing at all.
+test('the deep-link focus token is released when its params are', () => {
+  const source = readFileSync(SCREEN, 'utf8');
+  assert.match(
+    source,
+    /if \(!focusAccess \|\| !focusRiver\) \{[\s\S]{0,1200}focusConsumed\.current = null;/,
+    'focusConsumed is latched for the life of the screen. A second "View on ' +
+      'map" on the same access point then matches the spent token and does ' +
+      'nothing — no selection, no camera, just a tab change.',
+  );
+});
+
 // Declared variants and used variants must be the same set.
 //
 // This is the check the deleted `sheetChanged` / `selectionClosed` /

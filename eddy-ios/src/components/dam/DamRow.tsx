@@ -15,7 +15,11 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
-import { idleWindowSentence, SCHEDULE_CHANGE_NOTE } from '@eddy/conditions/dam-schedule-copy';
+import {
+  centralDayKey,
+  idleWindowSentence,
+  SCHEDULE_CHANGE_NOTE,
+} from '@eddy/conditions/dam-schedule-copy';
 import { DayBars } from '@/components/dam/DayBars';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -47,17 +51,29 @@ function DamRowComponent({
    * a tap that answers itself. A search result has not been chosen yet, and
    * twenty-four bars under every row of a list you are scanning is noise.
    *
-   * Costs no request either way: /api/dams already returns one day of schedule
-   * per dam, and the Favorites screen already fetches it.
+   * Costs no request either way: /api/dams already returns the schedule per
+   * dam, and the Favorites screen already fetches it.
    */
   showSchedule?: boolean;
 }) {
   const { colors } = useTheme();
   const release = dam.metrics.release;
 
+  // ── TODAY BY DATE, NEVER BY POSITION ──────────────────────────────────────
+  //
+  // This read `schedule[0]`, which was true while the payload carried exactly
+  // one day and could only ever be today's. It now carries two, and
+  // fetchProjectSchedule drops any day whose file fails to parse INDEPENDENTLY
+  // — so `[tomorrow]` is a representable payload, and position 0 would then put
+  // tomorrow's bars and tomorrow's idle window under the row with no date on
+  // them and nothing but a missing "now" marker to give it away.
+  //
   // Ordinary when absent — Kansas City district publishes no SWPA schedule at
   // all — and absent renders nothing rather than an empty chart.
-  const today = showSchedule ? (dam.schedule[0] ?? null) : null;
+  const todayKey = centralDayKey();
+  const today = showSchedule
+    ? (dam.schedule.find((entry) => entry.scheduleDate === todayKey) ?? null)
+    : null;
 
   return (
     <Pressable
@@ -134,7 +150,8 @@ function DamRowComponent({
           The bars are the same component the dam screen draws, so a pattern
           learned there is readable here. The idle-window sentence carries it for
           VoiceOver, which the bar row is deliberately hidden from — and it is
-          the more useful of the two anyway: "Generation off: midnight – 6 AM" is
+          the more useful of the two anyway: "No generation scheduled:
+          midnight – 6 AM" is
           the answer, the bars are the picture of it. */}
       {today ? (
         <View style={styles.schedule}>

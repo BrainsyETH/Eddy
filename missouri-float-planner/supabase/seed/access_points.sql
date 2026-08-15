@@ -19,24 +19,50 @@
 -- against a populated database this file syncs approval and nothing else. The
 -- rest of each row only ever lands on a database built from scratch.
 --
--- ── KNOWN, UNFIXED: THE SLUGS HERE ARE NOT PRODUCTION'S ────────────────────
+-- ── THE SLUG HERE IS PRODUCTION'S SLUG ─────────────────────────────────────
 --
--- Nineteen rows across six rivers answer to a different slug in production than
--- the one below — production says ha-ha-tonka-state-park where this says
--- ha-ha-tonka, mcdowell-access where this says mcdowell, and so on. Eight more
--- name a place production has under no matching name at all.
+-- `slug` is a public identifier. /rivers/<state>/<river>/access/<slug> is
+-- linked and indexed, and blog_posts.guide_data addresses put-in and take-out
+-- by slug. So a live slug is not free to move, and when this file disagreed
+-- with production it was this file that was wrong.
 --
--- The slugs below deliberately match what migrations 00055, 00056, 00068,
--- 00074, 00076, 00145 and 20260803014706 INSERT, because those run first on
--- `supabase db reset` and this file's ON CONFLICT is keyed on
--- (river_id, slug). Changing a slug here without changing it there does not
--- update that row — it creates a SECOND one. Do not "fix" these in isolation.
+-- It disagreed on nineteen rows across six rivers — production says
+-- ha-ha-tonka-state-park where this said ha-ha-tonka, mcdowell-access where
+-- this said mcdowell — and nobody noticed until a migration keyed four UPDATEs
+-- on slug and two of them silently matched nothing (an UPDATE whose WHERE
+-- matches nothing SUCCEEDS). All nineteen now read production's spelling.
 --
--- Reconciling it properly means deciding what the identity is, migrating the
--- rows the old migrations create, and proving it with a reset test. That is its
--- own change; see branch claude/access-slug-reconciliation. Until then, a
--- migration that has to find one of these rows should match on `name`, or on
--- both slugs, and assert it found what it meant to.
+-- The pairs are checked in at src/lib/access-slugs.ts, which is also what
+-- 20260815000000_reconcile_access_point_slugs.sql renames by and what
+-- `npm run db:check-access-slugs` proves this file against. Adding or renaming
+-- a row here means running that check.
+--
+-- ── WHY CHANGING THEM HERE IS SAFE, WHICH IT ONCE WAS NOT ──────────────────
+--
+-- This header used to warn that the slugs had to match what migrations 00055,
+-- 00056, 00068, 00074 and 00076 INSERT, or a reset would create a SECOND row
+-- rather than update the first. The warning was sound and its premise was not:
+-- those migrations insert with `SELECT r.id … FROM rivers r WHERE r.slug = '…'`
+-- and NO migration inserts rivers — supabase/seed/rivers.sql does, and seeds
+-- run after migrations. So on a reset they select zero rows, and this file is
+-- the only thing that creates an access point. Verified by replaying all 290
+-- migrations against an empty database: 0 rivers, 0 access points, then 8 and
+-- 78 once the seeds ran.
+--
+-- A database built BEFORE that reconciliation does hold the legacy rows, and
+-- that is what the migration above is for: it renames them in place, so this
+-- file's ON CONFLICT (river_id, slug) still finds one row rather than making a
+-- second. It refuses to run if a database somehow holds both.
+--
+-- ── EIGHT ROWS THIS FILE CLAIMS AND PRODUCTION DOES NOT ────────────────────
+--
+-- Not slug drift — production has no row under these NAMES, so no rule can pair
+-- them and a person has to rule on each. They are listed in
+-- ACCESS_SLUG_ABSENT_EXCEPTIONS with what each would have to be checked
+-- against; six have a plausible production neighbour and two have nothing
+-- resembling them. Left alone deliberately: guessing which is a rename and
+-- which is a real absence is the judgement that produced the nineteen above.
+-- The list is closed, so a NEW unmatched row fails the checker.
 
 -- ============================================
 -- MERAMEC RIVER ACCESS POINTS
@@ -75,7 +101,7 @@ INSERT INTO access_points (
 SELECT 
     r.id,
     'Scotia Bridge Access',
-    'scotia-bridge',
+    'scotia-bridge-access',
     ST_SetSRID(ST_MakePoint(-91.2534, 37.9156), 4326),
     'bridge',
     true,
@@ -139,7 +165,7 @@ INSERT INTO access_points (
 SELECT 
     r.id,
     'Onondaga Cave State Park',
-    'onondaga-cave-sp',
+    'onondaga-cave-state-park',
     ST_SetSRID(ST_MakePoint(-91.0034, 38.0289), 4326),
     'park',
     true,
@@ -472,7 +498,7 @@ INSERT INTO access_points (
     river_mile_downstream, approved
 )
 SELECT
-    r.id, 'McDowell Access', 'mcdowell',
+    r.id, 'McDowell Access', 'mcdowell-access',
     ST_SetSRID(ST_MakePoint(-91.241337, 36.760374), 4326),
     'access', ARRAY['access'], true, 'USFS',
     'Primitive access on left bank. No amenities.',
@@ -492,7 +518,7 @@ INSERT INTO access_points (
     official_site_url, river_mile_downstream, approved
 )
 SELECT
-    r.id, 'Whitten Access', 'whitten',
+    r.id, 'Whitten Access', 'whitten-access',
     ST_SetSRID(ST_MakePoint(-91.214618, 36.732595), 4326),
     'access', ARRAY['access'], true, 'USFS',
     'Popular midpoint access. Put-in for Whitten to Riverton day float (8 mi).',
@@ -514,7 +540,7 @@ INSERT INTO access_points (
     official_site_url, river_mile_downstream, approved
 )
 SELECT
-    r.id, 'The Narrows (Highway 142)', 'narrows',
+    r.id, 'The Narrows (Highway 142)', 'the-narrows-highway-142',
     ST_SetSRID(ST_MakePoint(-91.191532, 36.550194), 4326),
     'access', ARRAY['access'], true, 'USFS',
     'Last access on the Eleven Point National Scenic River. Dramatic narrows geology.',
@@ -536,7 +562,7 @@ INSERT INTO access_points (
     river_mile_downstream, approved
 )
 SELECT
-    r.id, 'Myrtle Access', 'myrtle',
+    r.id, 'Myrtle Access', 'myrtle-access',
     ST_SetSRID(ST_MakePoint(-91.17, 36.50), 4326),
     'access', ARRAY['access'], true, 'MDC',
     'Last Missouri access on the Eleven Point. Site of old Stubblefield Ferry.',
@@ -613,7 +639,7 @@ INSERT INTO access_points (
 SELECT 
     r.id,
     'Eminence City Access',
-    'eminence',
+    'eminence-city-access',
     ST_SetSRID(ST_MakePoint(-91.3467, 37.1412), 4326),
     'boat_ramp',
     true,
@@ -824,7 +850,7 @@ INSERT INTO access_points (
     official_site_url, river_mile_downstream, approved
 )
 SELECT
-    r.id, 'Riverfront Campground & Canoe', 'riverfront-campground',
+    r.id, 'Riverfront Campground & Canoe', 'riverfront-campground-canoe',
     ST_SetSRID(ST_MakePoint(-92.8708, 37.7402), 4326),
     'campground', ARRAY['campground', 'access'], false, 'private',
     'Over 200 acres fronting one mile of Niangua River. Adjacent to Bennett Spring State Park. Family-owned since 1994. Raft, canoe, kayak, and tube rentals with 5-mile and 8-mile float options. 15 rental cabins.',
@@ -870,7 +896,7 @@ INSERT INTO access_points (
     official_site_url, river_mile_downstream, approved
 )
 SELECT
-    r.id, 'Maggard Canoe & Corkery Campground', 'maggard-corkery',
+    r.id, 'Maggard Canoe & Corkery Campground', 'maggard-canoe-corkery-campground',
     ST_SetSRID(ST_MakePoint(-92.8752, 37.7715), 4326),
     'campground', ARRAY['campground', 'access'], false, 'private',
     'Float trips on the Niangua since 1972. Corkery Campground on the river banks below Bennett Springs. Canoe, kayak, raft, and tube rentals with shuttle.',
@@ -893,7 +919,7 @@ INSERT INTO access_points (
     official_site_url, river_mile_downstream, approved
 )
 SELECT
-    r.id, 'Big Bear River Resort', 'big-bear-resort',
+    r.id, 'Big Bear River Resort', 'big-bear-river-resort',
     ST_SetSRID(ST_MakePoint(-92.8760, 37.7750), 4326),
     'campground', ARRAY['campground', 'access'], false, 'private',
     '25-acre campground on the Niangua River. Name from Osage word "Niangua" meaning "bear." Open year-round. Canoe, raft, kayak, and tube rentals.',
@@ -916,7 +942,7 @@ INSERT INTO access_points (
     official_site_url, river_mile_downstream, approved
 )
 SELECT
-    r.id, 'Barclay Conservation Area Access', 'barclay-access',
+    r.id, 'Barclay Conservation Area Access', 'barclay-conservation-area-access',
     ST_SetSRID(ST_MakePoint(-92.8671, 37.7919), 4326),
     'access', ARRAY['access', 'boat_ramp'], true, 'MDC',
     'MDC conservation area, 426 acres, 1.7 miles of Niangua River frontage. Dedicated 2001 with concrete boat ramp and canoe launch. White Ribbon Trout Area. Very good brown trout, bass, sunfish. Popular take-out 7 miles from Bennett Spring Access.',
@@ -938,7 +964,7 @@ INSERT INTO access_points (
     official_site_url, river_mile_downstream, approved
 )
 SELECT
-    r.id, 'Mountain Creek Family Resort', 'mountain-creek-resort',
+    r.id, 'Mountain Creek Family Resort', 'mountain-creek-family-resort',
     ST_SetSRID(ST_MakePoint(-92.8374, 37.8006), 4326),
     'campground', ARRAY['campground', 'access'], false, 'private',
     'Eco-resort stretching over half a mile along the Niangua at the mouth of Mountain Creek. Canoe, kayak, tube rentals with 11.5-mile float from Bennett Spring. Waterslides and beach access.',
@@ -1044,6 +1070,16 @@ FROM rivers r WHERE r.slug = 'niangua'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 
 -- 19. Mother Nature's Riverfront Retreat (Private) — near Mile 70
+--
+-- ── The bearing, because a migration comment still has it backwards ────────
+-- This pin sits about 2.0 km EAST-NORTHEAST of Whistle Bridge (-92.8758980,
+-- 37.9379563). 20260811203000 describes it as "about 2.5 km WEST" — measured
+-- against the OLD Whistle coordinate (-92.8343, 37.9410) that the same round of
+-- corrections replaced as 3.7 km off what production serves. Against the
+-- corrected pin the bearing reverses. That file is applied history and is left
+-- as written, so the correction lives here, beside the coordinate it describes:
+-- anyone checking these two pins on a map should expect Mother Nature's
+-- downstream and EAST of the bridge, not west of it.
 INSERT INTO access_points (
     river_id, name, slug, location_orig, type, types, is_public, ownership,
     description, amenities, parking_info, road_access, facilities,
@@ -1051,7 +1087,7 @@ INSERT INTO access_points (
     official_site_url, river_mile_downstream, approved
 )
 SELECT
-    r.id, 'Mother Nature''s Riverfront Retreat', 'mother-natures-retreat',
+    r.id, 'Mother Nature''s Riverfront Retreat', 'mother-nature-s-riverfront-retreat',
     ST_SetSRID(ST_MakePoint(-92.8622596, 37.9520605), 4326),
     'campground', ARRAY['campground', 'access', 'boat_ramp', 'gravel_bar'], false, 'private',
     'Mother Nature''s private Family Side access, about two river miles below Whistle Bridge. The riverfront campground has a gravel beach, boat ramp, primitive camping, electric/RV sites, rentals and shuttle service. This is separate from the operator''s Wild Side take-out farther downstream.',
@@ -1096,7 +1132,7 @@ INSERT INTO access_points (
     official_site_url, river_mile_downstream, approved
 )
 SELECT
-    r.id, 'Ha Ha Tonka State Park', 'ha-ha-tonka',
+    r.id, 'Ha Ha Tonka State Park', 'ha-ha-tonka-state-park',
     ST_SetSRID(ST_MakePoint(-92.7683, 37.9595), 4326),
     'park', ARRAY['park', 'access'], true, 'state_park',
     'Free carry-in kayak access at the spring, the Lake of the Ozarks/Big Niangua River Trail terminus and 13.3 miles downstream of Whistle Bridge. The park provides stone kayak-launch steps and a launch rail, not a boat ramp; the first portion upstream is lake paddling. The castle ruins, spring and geology are the park''s draw.',
@@ -1746,7 +1782,7 @@ INSERT INTO access_points (
 SELECT
     r.id,
     'Hazel Creek Recreation Area',
-    'hazel-creek',
+    'hazel-creek-recreation-area',
     ST_SetSRID(ST_MakePoint(-91.3724, 37.8484), 4326),
     'campground',
     ARRAY['access', 'campground'],
@@ -1895,7 +1931,7 @@ INSERT INTO access_points (
 SELECT
     r.id,
     'Red Bluff Recreation Area',
-    'red-bluff',
+    'red-bluff-recreation-area',
     -- Corrected 2026-08-03, same story as Dillard Mill above: the seeded point
     -- was (-91.3390, 37.8862), 8.7 miles west of the creek. This is production's
     -- value, within 60 m of OSM node 12537584637 ("Red Bluff", operator=Forest
@@ -1945,7 +1981,7 @@ INSERT INTO access_points (
 SELECT
     r.id,
     'Butts Low-Water Bridge',
-    'butts-bridge',
+    'butts-low-water-bridge',
     ST_SetSRID(ST_MakePoint(-91.2920, 37.9340), 4326),
     'access',
     ARRAY['access', 'bridge'],
@@ -2013,7 +2049,7 @@ INSERT INTO access_points (
 SELECT
     r.id,
     'Highway 8 Bridge (Lower)',
-    'highway-8-lower',
+    'highway-8-bridge-lower',
     ST_SetSRID(ST_MakePoint(-91.2100, 37.9880), 4326),
     'access',
     ARRAY['access', 'bridge'],
@@ -2050,7 +2086,7 @@ INSERT INTO access_points (
 SELECT
     r.id,
     'Huzzah Conservation Area',
-    'huzzah-conservation',
+    'huzzah-conservation-area',
     ST_SetSRID(ST_MakePoint(-91.1034, 38.0412), 4326),
     'access',
     true,

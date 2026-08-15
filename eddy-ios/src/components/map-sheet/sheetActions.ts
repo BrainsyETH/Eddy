@@ -21,8 +21,24 @@ import { driveToUrl } from '@/lib/directions';
  * silently dropped Directions from the pins wearing it — a place you can put a
  * boat in is a place you drive to whichever icon it happens to be showing, and
  * that is a question about the PLACE. `isDriveable` asks it that way now.
+ *
+ * ── WHY `lodging` IS HERE, AND WHY ITS ABSENCE BIT TWICE ──────────────────
+ *
+ * A cabin is as plainly a place you drive to as the outfitter beside it, so the
+ * standalone lodging pins had been missing Directions on the merits — and with
+ * no plan button either (no access point behind them), their sheet carried no
+ * action row at all.
+ *
+ * The second bite is the one the paragraph above was written to prevent. Since
+ * the resolver began composing a place out of its records, an ACCESS POINT can
+ * wear a service layer: a put-in that is the same place as a cabin business
+ * draws on `lodging` when that is the row switched on. `accessRoleForLayer`
+ * answers null for it — it is asking which access mark the layer is, and this
+ * one is not an access layer — so the composed pin fell through to this set and
+ * lost the Directions button it has when the same place draws on `access`.
+ * `outfitters` was only spared by having been listed for its own sake.
  */
-export const DRIVEABLE_SERVICE_LAYERS = new Set<LayerKey>(['outfitters']);
+export const DRIVEABLE_SERVICE_LAYERS = new Set<LayerKey>(['outfitters', 'lodging']);
 
 export function isDriveable(pin: MapPin): boolean {
   return accessRoleForLayer(pin.layer) !== null || DRIVEABLE_SERVICE_LAYERS.has(pin.layer);

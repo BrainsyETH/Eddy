@@ -12,6 +12,7 @@ import AvailabilityChip from '@/components/ui/AvailabilityChip';
 import { useNearbyServices } from '@/hooks/useNearbyServices';
 import { EDDY_IMAGES } from '@/constants';
 import { OFFERING_LABELS } from '@/lib/services/offerings';
+import { serviceTiers, type ServiceTier } from '@/lib/service-tiers';
 import type { NearbyServiceDirectory, NearbyServiceDirectoryType } from '@/types/api';
 
 interface NearbyServicesProps {
@@ -315,13 +316,26 @@ function SubsectionHeader({ title, subtitle }: { title: string; subtitle?: strin
 
 // ─── Main component ──────────────────────────────────────────────
 
-type FilterValue = 'all' | NearbyServiceDirectoryType;
+// ── THESE ARE TIERS NOW, NOT TYPES ────────────────────────────────────────
+//
+// The filter used to be `NearbyServiceDirectoryType`, which made the three
+// groups mutually exclusive because a row has exactly one `type`. That is the
+// defect: a campground that also rents cabins is an answer to "where can I
+// pitch a tent" AND "where can I sleep under a roof", and filing it under one
+// of them hid it from whoever asked the other. The app stopped grouping this
+// way some time ago; the website was the copy still doing it, from the same row
+// of the same table.
+//
+// So a service can now appear under more than one heading, and the counts
+// deliberately do not sum to All — a business in two tiers is ONE business, and
+// adding the headings would report it twice. See src/lib/service-tiers.ts.
+type FilterValue = 'all' | ServiceTier;
 
 const FILTER_OPTIONS: { value: FilterValue; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'outfitter', label: 'Outfitters' },
-  { value: 'campground', label: 'Campgrounds' },
-  { value: 'cabin_lodge', label: 'Cabins & Lodges' },
+  { value: 'rentals', label: 'Outfitters' },
+  { value: 'camping', label: 'Campgrounds' },
+  { value: 'lodging', label: 'Cabins & Lodges' },
 ];
 
 export default function NearbyServices({ riverSlug, defaultOpen = false }: NearbyServicesProps) {
@@ -333,15 +347,20 @@ export default function NearbyServices({ riverSlug, defaultOpen = false }: Nearb
   const sortByDisplayOrder = (list: NearbyServiceDirectory[]) =>
     [...list].sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999));
 
-  const outfitters = sortByDisplayOrder(serviceList.filter(s => s.type === 'outfitter'));
-  const campgrounds = sortByDisplayOrder(serviceList.filter(s => s.type === 'campground'));
-  const cabins = sortByDisplayOrder(serviceList.filter(s => s.type === 'cabin_lodge'));
+  const inTier = (tier: ServiceTier) =>
+    sortByDisplayOrder(serviceList.filter(s => serviceTiers(s).includes(tier)));
 
+  const outfitters = inTier('rentals');
+  const campgrounds = inTier('camping');
+  const cabins = inTier('lodging');
+
+  // `all` is the number of BUSINESSES, so it is the list length and not the sum
+  // of the three below — which now overlap. See FilterValue.
   const counts: Record<FilterValue, number> = {
     all: serviceList.length,
-    outfitter: outfitters.length,
-    campground: campgrounds.length,
-    cabin_lodge: cabins.length,
+    rentals: outfitters.length,
+    camping: campgrounds.length,
+    lodging: cabins.length,
   };
 
   const badge = serviceList.length > 0 ? (
@@ -361,9 +380,9 @@ export default function NearbyServices({ riverSlug, defaultOpen = false }: Nearb
     );
   }
 
-  const showOutfitters = filter === 'all' || filter === 'outfitter';
-  const showCampgrounds = filter === 'all' || filter === 'campground';
-  const showCabins = filter === 'all' || filter === 'cabin_lodge';
+  const showOutfitters = filter === 'all' || filter === 'rentals';
+  const showCampgrounds = filter === 'all' || filter === 'camping';
+  const showCabins = filter === 'all' || filter === 'lodging';
 
   return (
     <CollapsibleSection title="Outfitters & Services" defaultOpen={defaultOpen} badge={badge}>
@@ -399,7 +418,7 @@ export default function NearbyServices({ riverSlug, defaultOpen = false }: Nearb
             <div className="mb-6">
               <SubsectionHeader
                 title="Outfitters"
-                subtitle="Canoe, kayak, raft rentals with shuttle service"
+                subtitle="Canoe, kayak, raft rentals and shuttles — including campgrounds and lodges that rent"
               />
               <div className="space-y-3">
                 {outfitters.map(s => <OutfitterCard key={s.id} service={s} />)}
@@ -412,7 +431,7 @@ export default function NearbyServices({ riverSlug, defaultOpen = false }: Nearb
             <div className="mb-6">
               <SubsectionHeader
                 title="Campgrounds"
-                subtitle="Riverside and nearby camping"
+                subtitle="Riverside and nearby camping — including outfitters and resorts with sites"
               />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {campgrounds.map(s => <CampgroundCard key={s.id} service={s} />)}
@@ -425,7 +444,7 @@ export default function NearbyServices({ riverSlug, defaultOpen = false }: Nearb
             <div>
               <SubsectionHeader
                 title="Cabins & Lodges"
-                subtitle="Nearby overnight stays"
+                subtitle="Cabins, lodge rooms and cottages — including campgrounds and outfitters that offer them"
               />
               <HorizontalScroll>
                 {cabins.map(s => <CabinCard key={s.id} service={s} />)}

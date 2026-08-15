@@ -114,6 +114,20 @@ export function Prose({ children }: { children: string | null | undefined }) {
  * two-line description never grows a "More" that does nothing — the same
  * absent-never-empty rule the sections follow. onTextLayout is what can answer
  * that; a character count cannot, because it depends on the reader's text size.
+ *
+ * ── AND IT IS MEASURED UNCLAMPED, WHICH TAKES A SECOND TEXT ───────────────
+ * The measurement used to hang off the visible Text, on the belief that
+ * onTextLayout reports the lines the string WOULD occupy. It does not: iOS
+ * reports the lines actually laid out, so under `numberOfLines={2}` the count
+ * it hands back is 2 for a two-line description and 2 for a twelve-line one.
+ * The comparison could never be true, "More" was never drawn, and every long
+ * description in the sheet was silently cut to its first two lines — the exact
+ * truncation the paragraph above says this component exists to avoid.
+ *
+ * So the question is asked of an unclamped copy instead, rendered invisibly
+ * behind the real one for the single pass it takes to answer, and dropped. It
+ * is absolutely positioned so it costs no height, and hidden from the
+ * accessibility tree so VoiceOver reads the description once rather than twice.
  */
 export function FoldedProse({
   children,
@@ -123,29 +137,49 @@ export function FoldedProse({
   lines?: number;
 }) {
   const { colors } = useTheme();
-  const [expanded, setExpanded] = useState(false);
-  const [overflows, setOverflows] = useState(false);
+  // ── BOTH ANSWERS ARE HELD AGAINST THE STRING THEY BELONG TO ──────────────
+  //
+  // The sheet swaps its contents rather than remounting per pin, so a plain
+  // boolean survives into the NEXT place's description: a long blurb followed
+  // by a short one would keep a "More" that reveals nothing, a short one
+  // followed by a long one would never grow one, and either would arrive
+  // already unfolded because the reader had opened the last one. Storing the
+  // text alongside each answer makes both self-invalidating — no effect, no
+  // extra render, and nothing to remember to reset.
+  const [probe, setProbe] = useState<{ text: string; overflows: boolean } | null>(null);
+  const [expandedFor, setExpandedFor] = useState<string | null>(null);
 
   if (!children) return null;
 
+  const measured = probe !== null && probe.text === children;
+  const overflows = measured && probe.overflows;
+  const expanded = expandedFor === children;
+
   return (
     <View>
+      {!measured ? (
+        <View style={styles.proseProbe} pointerEvents="none" accessibilityElementsHidden>
+          <Text
+            style={styles.prose}
+            // No numberOfLines: this copy exists to be counted, and clamping it
+            // would ask the question that returned the wrong answer for months.
+            onTextLayout={(event) => {
+              setProbe({ text: children, overflows: event.nativeEvent.lines.length > lines });
+            }}
+          >
+            {children}
+          </Text>
+        </View>
+      ) : null}
       <Text
         style={[styles.prose, { color: colors.text }]}
         numberOfLines={expanded ? undefined : lines}
-        // Fires with every line the text WOULD occupy unclamped on the first
-        // pass, which is the only honest source for "is there more". Latched
-        // true: once expanded the callback reports the full count and would
-        // otherwise re-answer a question already settled.
-        onTextLayout={(event) => {
-          if (!overflows && event.nativeEvent.lines.length > lines) setOverflows(true);
-        }}
       >
         {children}
       </Text>
       {overflows ? (
         <Pressable
-          onPress={() => setExpanded((was) => !was)}
+          onPress={() => setExpandedFor(expanded ? null : children)}
           // The 44pt floor from DESIGN.md §6, taken as padding and handed back
           // as margin so the control still READS as a light one-line link — the
           // same trick the grabber and PlaceHead's edge controls use.
@@ -437,17 +471,21 @@ export function LinkRow({
   externalTint?: string;
   /** The kind of thing this row opens. Omit on rows that are not destinations. */
   symbol?: EddySymbolName;
-  onPress: () => void;
+  /**
+   * Omit where there is nowhere to go, and the row stops being a control.
+   *
+   * A directory entry with neither a phone number nor a site is a real row —
+   * the business exists and its name is worth listing — but it opens nothing.
+   * It used to render as a Pressable with a no-op handler anyway, so VoiceOver
+   * announced a button and a chevron promised a destination; tapping did
+   * nothing, which is the one thing a row that looks tappable must never do.
+   */
+  onPress?: () => void;
   accessibilityLabel?: string;
 }) {
   const { colors } = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.linkRow, { opacity: pressed ? 0.6 : 1 }]}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-    >
+  const body = (
+    <>
       {symbol ? (
         <View style={[styles.linkWell, { backgroundColor: colors.cardRaised }]}>
           <EddySymbol name={symbol} size={16} />
@@ -463,11 +501,34 @@ export function LinkRow({
           </Text>
         ) : null}
       </View>
-      <Ionicons
-        name={external ? 'open-outline' : 'chevron-forward'}
-        size={16}
-        color={external && externalTint ? externalTint : colors.textSubtle}
-      />
+      {/* The glyph is the promise of somewhere to go, so a row with nowhere to
+          go does not draw one. */}
+      {onPress ? (
+        <Ionicons
+          name={external ? 'open-outline' : 'chevron-forward'}
+          size={16}
+          color={external && externalTint ? externalTint : colors.textSubtle}
+        />
+      ) : null}
+    </>
+  );
+
+  if (!onPress) {
+    return (
+      <View style={styles.linkRow} accessibilityLabel={accessibilityLabel ?? label}>
+        {body}
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.linkRow, { opacity: pressed ? 0.6 : 1 }]}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+    >
+      {body}
     </Pressable>
   );
 }
@@ -495,6 +556,11 @@ const styles = StyleSheet.create({
   factLabel: { ...t.sm, fontFamily: fonts.medium, width: 96 },
   factValue: { ...t.sm, fontFamily: fonts.body, flex: 1 },
   prose: { ...t.sm, fontFamily: fonts.body, marginTop: 4, lineHeight: 20 },
+  // The unclamped copy FoldedProse counts lines on. Absolute so it costs the
+  // layout no height, stretched to the parent's width so it wraps exactly where
+  // the visible copy does, and invisible because it is a measurement rather
+  // than a thing to read.
+  proseProbe: { position: 'absolute', left: 0, right: 0, top: 0, opacity: 0 },
   // 44pt of target from a one-line control: the padding grows it and the
   // negative margins give the layout back, so the fold costs the page 2pt of
   // height rather than 44. Growth is symmetric here — unlike the sheet's
