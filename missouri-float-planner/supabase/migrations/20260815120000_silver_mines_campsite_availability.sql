@@ -70,11 +70,17 @@ ON CONFLICT (service_id, river_id) DO NOTHING;
 
 -- 3. The facility the sync reads. Both links set: the directory row is where
 --    the booking URL lives, the access point is the row the map pin came from.
+-- `source_loop` is NULL and named explicitly in the conflict target because
+-- 20260803140000 widened the unique index to (source, source_facility_id,
+-- source_loop) NULLS NOT DISTINCT — a district's payload can hold several
+-- separately-named loops. Silver Mines is a whole facility rather than a loop
+-- inside one, so NULL is the correct value; the two-column conflict target the
+-- 20260803120000 seed used no longer matches any index and raises 42P10.
 INSERT INTO public.campsite_facilities
-  (source, source_facility_id, display_name, kind, enabled)
+  (source, source_facility_id, source_loop, display_name, kind, enabled)
 VALUES
-  ('recreation_gov', '232392', 'Silver Mines', 'campground', TRUE)
-ON CONFLICT (source, source_facility_id) DO NOTHING;
+  ('recreation_gov', '232392', NULL, 'Silver Mines', 'campground', TRUE)
+ON CONFLICT (source, source_facility_id, source_loop) DO NOTHING;
 
 UPDATE public.campsite_facilities f
    SET nearby_service_id = ns.id,
