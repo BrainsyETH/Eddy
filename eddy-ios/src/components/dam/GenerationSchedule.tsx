@@ -25,11 +25,18 @@ import {
   oldestRetrievedAt,
   retrievalSentence,
   scheduleDayLabel,
+  scheduledHoursSummary,
   scheduleIsStale,
 } from '@eddy/conditions/dam-schedule-copy';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { DayBars, nowSentence } from '@/components/dam/DayBars';
-import type { GenerationReference } from '@eddy/conditions/dam-generation';
+import {
+  schedulePeak,
+  schedulePeakLabel,
+  schedulePeakTechnical,
+  schedulePeakWindowLabel,
+  type GenerationReference,
+} from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -44,18 +51,19 @@ function DayRow({
 }) {
   const { colors } = useTheme();
 
-  const generatingHours = day.hours.filter((h) => h.megawatts > 0).length;
   // Null on every day but today. Carried in the collapsed header because the
   // bar row it mirrors is hidden from VoiceOver, and because "is the water on
   // RIGHT NOW" is the question this whole screen exists to answer — it should
   // not require opening a section.
   const now = nowSentence(day);
 
-  // Magnitude, only where the estimate is meaningful: steady hours with a real
-  // load. Ramp hours are excluded by isRamp, because their cfs is unreliable.
-  const steady = day.hours.filter((h) => !h.isRamp && h.cfs !== null);
-  const low = steady.length > 0 ? Math.min(...steady.map((h) => h.cfs!)) : null;
-  const high = steady.length > 0 ? Math.max(...steady.map((h) => h.cfs!)) : null;
+  // THE RIVER NUMBER FIRST. This showed "roughly 500–22,600 cfs" — a 45x range
+  // with no time attached, which answers nothing a reader can act on. The peak
+  // pins magnitude to the hours it actually happens in, and refuses a cfs
+  // estimate built from ramp hours entirely. See schedulePeak.
+  const peak = schedulePeak(day, reference);
+  const peakWindow = peak ? schedulePeakWindowLabel(peak) : null;
+  const peakTechnical = peak ? schedulePeakTechnical(peak) : null;
 
   return (
     <CollapsibleSection
@@ -81,21 +89,25 @@ function DayRow({
             </Text>
           ) : null}
           <Text style={[styles.hoursCount, { color: colors.textSubtle }]}>
-            {generatingHours === 0 ? 'idle' : `${generatingHours}/24 h`}
+            {scheduledHoursSummary(day.hours, { compact: true })}
           </Text>
         </View>
       }
     >
-      <DayBars day={day} reference={reference} />
-      {low !== null && high !== null ? (
-        <Text style={[styles.estimate, { color: colors.textSubtle }]}>
-          When running, roughly{' '}
-          {low === high
-            ? `${low.toLocaleString()} cfs`
-            : `${low.toLocaleString()}–${high.toLocaleString()} cfs`}{' '}
-          (estimated from scheduled megawatts)
+      {peak ? (
+        <Text style={[styles.peak, { color: colors.text }]}>
+          {schedulePeakLabel(peak)}
+          {peakWindow ? (
+            <Text style={[styles.peakWindow, { color: colors.textMuted }]}>{` · ${peakWindow}`}</Text>
+          ) : null}
+          {peakTechnical ? (
+            <Text style={[styles.estimate, { color: colors.textSubtle }]}>
+              {`  ${peakTechnical}`}
+            </Text>
+          ) : null}
         </Text>
       ) : null}
+      <DayBars day={day} reference={reference} />
     </CollapsibleSection>
   );
 }
@@ -121,9 +133,15 @@ export function GenerationSchedule({
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       <Text style={[styles.title, { color: colors.text }]}>Generation schedule</Text>
+      {/* ── Why "hour ending" is no longer in the opening line ───────────────
+          It is SWPA's internal convention and the reader never sees it: the
+          bars and every window label are already converted to the hour the
+          water starts moving, so explaining it up front spent the most
+          valuable line on the card teaching a term that does not appear on it.
+          The attribution stays — the screen's credibility rests on naming the
+          publisher. */}
       <Text style={[styles.intro, { color: colors.textMuted }]}>
-        Posted each afternoon by Southwestern Power Administration, in “hour
-        ending” terms.
+        Posted each afternoon by Southwestern Power Administration.
       </Text>
 
       <View style={styles.days}>
@@ -180,7 +198,9 @@ const styles = StyleSheet.create({
   trailing: { alignItems: 'flex-end', gap: 2 },
   nowLabel: { ...t.xs, fontFamily: fonts.semibold },
   hoursCount: { ...t.xs },
-  estimate: { ...t.xs, marginTop: 8 },
+  peak: { fontSize: 14, lineHeight: 19, fontFamily: fonts.heading, marginTop: 8 },
+  peakWindow: { fontSize: 13, lineHeight: 18, fontFamily: fonts.medium },
+  estimate: { ...t.xs },
   footer: { borderTopWidth: 1, marginTop: 12, paddingTop: 10 },
   footerText: { ...t.xs },
   retrieval: { ...t.xs, fontFamily: fonts.semibold, textAlign: 'center', marginTop: 12 },

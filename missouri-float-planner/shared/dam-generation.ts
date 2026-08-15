@@ -276,11 +276,6 @@ export function generationStatusLabel(state: GenerationNow): string | null {
   }
 }
 
-/** "6 generators’ worth" — possessive placement is the whole formatting job. */
-function generatorsWorth(whole: number): string {
-  return whole === 1 ? 'one generator’s worth' : `${whole} generators’ worth`;
-}
-
 /**
  * The generator-equivalent phrase, hedged in proportion to what it can support.
  *
@@ -288,6 +283,15 @@ function generatorsWorth(whole: number): string {
  * equivalents, not a unit count. Below one equivalent it refuses to round to
  * "about 1", because "about one generator's worth" reads as a unit that is
  * running when the honest statement is that very little is moving.
+ *
+ * ── Why the denominator rides along ────────────────────────────────────────
+ * "About 6 generators' worth" makes a reader who does not already know this
+ * plant hold the number until they find out how many it has — and the answer
+ * was three lines away, under the rack. "About 6 of 8" is the same claim with
+ * the scale attached, which is the whole question the phrase exists to answer.
+ * Below one equivalent there is nothing to put it out of: the statement is
+ * that very little is moving, and "less than 1 of 8" invites arithmetic on a
+ * number too small to deserve it.
  */
 export function generatorEquivalentPhrase(
   equivalents: number | null | undefined,
@@ -297,8 +301,8 @@ export function generatorEquivalentPhrase(
   if (!ref || !Number.isFinite(ref.units) || ref.units <= 0) return null;
   if (equivalents <= 0) return null;
   if (equivalents < 1) return 'Less than one generator’s worth';
-  if (equivalents > ref.units) return `More than ${generatorsWorth(ref.units)}`;
-  return `About ${generatorsWorth(Math.round(equivalents))}`;
+  if (equivalents > ref.units) return `More than all ${ref.units} generators’ worth`;
+  return `About ${Math.round(equivalents)} of ${ref.units} generators’ worth`;
 }
 
 /**
@@ -309,11 +313,27 @@ export function generatorEquivalentPhrase(
  * entitled to confidence about unit count.
  */
 export const RACK_ESTIMATE_NOTE =
-  'Estimated from turbine discharge. This does not identify which physical units are operating.';
+  'Estimated from flow through the turbines. The actual units running may differ.';
 
-/** The exact reference label. Never "31% power" — see the header. */
-export function fullGenerationReferenceLabel(ref: GenerationReference): string {
-  return `of published full-generation discharge (${ref.fullGenerationCfs.toLocaleString()} cfs, ${ref.source})`;
+/**
+ * What the percentage is a percentage OF, short enough to sit beside it.
+ *
+ * Never "31% power" — see the header. But "31% of published full-generation
+ * discharge (26,400 cfs, SWPA)" put a citation inside the sentence a reader is
+ * trying to read, and the figure they needed was the "31%". The claim is
+ * unchanged: this is a share of full-generation DISCHARGE, not of power.
+ */
+export const FULL_GENERATION_SHORT_LABEL = 'of full generation';
+
+/**
+ * The citation, on its own line beneath.
+ *
+ * Split out rather than dropped: the number is only trustworthy because it can
+ * be checked against SWPA's own project table, and a figure with no publisher
+ * is a figure Eddy is asking to be taken on faith.
+ */
+export function generationReferenceCitation(ref: GenerationReference): string {
+  return `Full generation is ${ref.fullGenerationCfs.toLocaleString()} cfs (${ref.source})`;
 }
 
 /** A percentage for display, unclamped and rounded the way the hero shows it. */
@@ -827,6 +847,102 @@ export function observedBar(
   const raw = generationFraction(cfs, ref);
   if (raw === null) return null;
   return { fraction: Math.max(0, Math.min(1, raw)), over: raw > 1 };
+}
+
+// ── The day's peak ─────────────────────────────────────────────────────────
+
+/**
+ * The strongest hours of a posted day, and when they are.
+ *
+ * ── Why cfs leads and megawatts follow ─────────────────────────────────────
+ * The bars are drawn in MW because that is the number SWPA actually published,
+ * and that reasoning is about PROVENANCE. It is not a reason to lead with it.
+ * Nobody putting a boat on the White River thinks in megawatts, and "peaks at
+ * 335 MW · 86% of capacity" asks a reader to convert a power figure into a
+ * river before it means anything. The cfs estimate measured within ~10% at
+ * steady state, which is far inside the precision "is this going to be a big
+ * evening" needs — so it leads, hedged with a "~", and the megawatts stay
+ * beneath it for anyone checking against the posted schedule.
+ *
+ * ── What it refuses to estimate ────────────────────────────────────────────
+ * `cfs` comes ONLY from a steady hour at the peak load. A ramp hour's estimate
+ * ran -41% to +117% against CWMS because units spin up partway through an hour
+ * that CWMS reports as an average, and a peak is exactly where a ramp is
+ * likeliest to sit. A peak reachable only through ramp hours reports null and
+ * the caller falls back to megawatts rather than printing a number that could
+ * be off by half.
+ *
+ * `window` is one CONTIGUOUS block or nothing. A day that hits its peak at
+ * breakfast and again at dinner has two, and naming either one alone — or
+ * spanning both — would describe a day that did not happen. Null renders no
+ * window rather than a wrong one; the chart still shows the shape.
+ */
+export interface SchedulePeak {
+  /** Highest scheduled load of the day, MW. Always > 0. */
+  megawatts: number;
+  /** Share of the project's scheduling capacity, or null with no reference. */
+  fraction: number | null;
+  /** Estimated release at that load, cfs, from a steady hour only. */
+  cfs: number | null;
+  /** Hour-ending bounds of the single block at peak load, when there is one. */
+  window: { from: number; to: number } | null;
+}
+
+export function schedulePeak(
+  day: Pick<DamScheduleDay, 'hours'>,
+  ref: GenerationReference | null | undefined
+): SchedulePeak | null {
+  // Sorted before the contiguity walk below, which reads neighbours by hour
+  // number: array order is the parser's business, not this function's.
+  const hours = [...day.hours].sort((a, b) => a.hourEnding - b.hourEnding);
+  const megawatts = hours.reduce((max, h) => (h.megawatts > max ? h.megawatts : max), 0);
+  // A wholly idle day has no peak worth naming, and "0 MW" is not one.
+  if (megawatts <= 0) return null;
+
+  const atPeak = hours.filter((h) => h.megawatts === megawatts);
+
+  const steady = atPeak.filter((h) => !h.isRamp && typeof h.cfs === 'number');
+  const cfs = steady.length > 0 ? Math.max(...steady.map((h) => h.cfs as number)) : null;
+
+  const runs: Array<{ from: number; to: number }> = [];
+  for (const hour of atPeak) {
+    const last = runs[runs.length - 1];
+    if (last && hour.hourEnding === last.to + 1) last.to = hour.hourEnding;
+    else runs.push({ from: hour.hourEnding, to: hour.hourEnding });
+  }
+
+  return {
+    megawatts,
+    fraction: scheduledBar(megawatts, ref)?.fraction ?? null,
+    cfs,
+    window: runs.length === 1 ? runs[0] : null,
+  };
+}
+
+/** The headline figure: the river number when there is one, else the plant's. */
+export function schedulePeakLabel(peak: SchedulePeak): string {
+  return peak.cfs !== null
+    ? `Peak release ~${Math.round(peak.cfs).toLocaleString()} cfs`
+    : `Peak load ${Math.round(peak.megawatts).toLocaleString()} MW`;
+}
+
+/** When the peak runs, or null when the day reaches it in more than one block. */
+export function schedulePeakWindowLabel(peak: SchedulePeak): string | null {
+  return peak.window ? windowLabel(peak.window.from, peak.window.to) : null;
+}
+
+/**
+ * The technical line beneath, for a reader checking against SWPA's own page.
+ *
+ * Never repeats the headline: when the peak had no steady hour to estimate cfs
+ * from, the label above is already the megawatt figure and this carries only
+ * the share.
+ */
+export function schedulePeakTechnical(peak: SchedulePeak): string | null {
+  const share = peak.fraction !== null ? `${Math.round(peak.fraction * 100)}% of scheduling capacity` : null;
+  if (peak.cfs === null) return share;
+  const load = `${Math.round(peak.megawatts).toLocaleString()} MW`;
+  return share ? `${load} · ${share}` : load;
 }
 
 // ── Accessible equivalents ─────────────────────────────────────────────────

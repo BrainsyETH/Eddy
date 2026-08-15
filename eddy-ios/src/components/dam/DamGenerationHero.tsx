@@ -11,7 +11,14 @@
 //   1. Is the powerhouse generating now?       the status line
 //   2. How much water is through the turbines?  the cfs figure
 //   3. How large is that for THIS project?      the rack and the bar
-//   4. When does generation change?             the now → next sentence
+//   4. When does generation change?             the next-change panel
+//
+// ── Why the next-change panel sits above total release ─────────────────────
+// It was last, in the same 11px subtle grey as the caveats, under a block of
+// secondary measurements — and it is the single most load-bearing sentence
+// here. "How much water is moving" is answered by every other surface Eddy
+// has; "when does that change" is answered by nothing else, and it is the one
+// a person uses to decide whether to go now or wait.
 //
 // ── Why a generator rack and not just a percentage ─────────────────────────
 // "Six generators" is the unit anglers already think in, and it makes a
@@ -31,10 +38,11 @@ import type { DamSnapshot } from '@eddy/types';
 import {
   relativeAge,
   readingStaleness,
-  SCHEDULE_CHANGE_NOTE,
+  SCHEDULE_CHANGE_SENTENCE,
 } from '@eddy/conditions/dam-schedule-copy';
 import {
-  fullGenerationReferenceLabel,
+  FULL_GENERATION_SHORT_LABEL,
+  generationReferenceCitation,
   generationNow,
   generationPercentLabel,
   generationStatusLabel,
@@ -184,11 +192,16 @@ export function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
             </View>
             <Text style={[styles.barLabel, { color: colors.textMuted }]}>
               <Text style={[styles.percent, { color: colors.text }]}>{percent}</Text>{' '}
-              {fullGenerationReferenceLabel(ref)}
+              {FULL_GENERATION_SHORT_LABEL}
               {/* Above the reference is real information — spill, a different
                   measurement basis, or a reference that has drifted since the
                   rehabilitation project. The bar caps; the sentence does not. */}
               {fraction > 1 ? ' — above the published reference' : ''}
+            </Text>
+            {/* The citation, demoted but never dropped: the percentage is only
+                checkable because the denominator is published. */}
+            <Text style={[styles.note, { color: colors.textSubtle }]}>
+              {generationReferenceCitation(ref)}
             </Text>
           </View>
         ) : null}
@@ -207,6 +220,39 @@ export function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
 
       {rack ? (
         <Text style={[styles.note, { color: colors.textSubtle }]}>{RACK_ESTIMATE_NOTE}</Text>
+      ) : null}
+
+      {/* NEXT CHANGE — the panel, not a footnote. Tinted, bordered and set at
+          reading size, because this is the answer somebody came for and it was
+          previously the smallest text on the card.
+          The observed clause is deliberately absent: the rack and headline
+          above already say "About 6 of 8 generators' worth", and repeating it
+          here made one observation read as two. The combined sentence still
+          earns its space on the compact row, where there is no rack to have
+          said it first. */}
+      {clauses.scheduled ? (
+        <View
+          style={[
+            styles.nextPanel,
+            { backgroundColor: colors.cardRaised, borderColor: colors.interactive },
+          ]}
+        >
+          <View style={styles.scheduledRow}>
+            <Ionicons name="time-outline" size={13} color={colors.interactive} />
+            <Text style={[styles.blockLabel, { color: colors.interactive }]}>NEXT CHANGE</Text>
+          </View>
+          <Text style={[styles.nextSentence, { color: colors.text }]}>{clauses.scheduled}</Text>
+          {/* Plain language, and the reason it is three sentences: whose clock
+              this is, what it means where the reader is standing, and how much
+              to trust it. See SCHEDULE_CHANGE_SENTENCE. */}
+          <Text style={[styles.note, { color: colors.textMuted }]}>
+            {SCHEDULE_CHANGE_SENTENCE}
+          </Text>
+          {/* Labelled rather than suppressed — see scheduledClauseProvenance. */}
+          {provenance ? (
+            <Text style={[styles.stale, { color: colors.accent }]}>{provenance}</Text>
+          ) : null}
+        </View>
       ) : null}
 
       {/* Turbine flow and total release as two labelled facts. The difference is
@@ -248,33 +294,6 @@ export function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
           ) : null}
         </View>
       ) : null}
-
-      {/* Now and next. Two clauses, two weights: the first is a measurement, the
-          second is SWPA's plan, and they can honestly disagree. The note carries
-          location and downstream lag and is not decoration. */}
-      {/* NEXT SCHEDULED CHANGE, as its own labelled block.
-          The observed clause is deliberately absent: the rack and headline above
-          already say "About 6 generators' worth", and repeating it here made one
-          observation read as two. The combined sentence still earns its space on
-          the compact row, where there is no rack to have said it first. */}
-      {clauses.scheduled ? (
-        <View style={[styles.divided, { borderTopColor: colors.border }]}>
-          <Text style={[styles.blockLabel, { color: colors.textSubtle }]}>
-            NEXT SCHEDULED CHANGE
-          </Text>
-          <View style={styles.scheduledRow}>
-            <Ionicons name="time-outline" size={13} color={colors.interactive} />
-            <Text style={[styles.scheduled, { color: colors.interactive }]}>
-              {clauses.scheduled}
-            </Text>
-          </View>
-          <Text style={[styles.note, { color: colors.textSubtle }]}>{SCHEDULE_CHANGE_NOTE}</Text>
-          {/* Labelled rather than suppressed — see scheduledClauseProvenance. */}
-          {provenance ? (
-            <Text style={[styles.stale, { color: colors.accent }]}>{provenance}</Text>
-          ) : null}
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -309,7 +328,10 @@ const styles = StyleSheet.create({
   blockLabel: { fontSize: 10, lineHeight: 14, fontFamily: fonts.heading, letterSpacing: 0.6 },
   stale: { fontSize: 11, lineHeight: 15, fontFamily: fonts.medium },
   scheduledRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  scheduled: { fontSize: 13, lineHeight: 18, fontFamily: fonts.medium, flexShrink: 1 },
+  // The next-change panel: bordered and tinted so it reads as the answer
+  // rather than as another caveat in the stack.
+  nextPanel: { borderRadius: 10, borderWidth: 1, padding: 12, gap: 4 },
+  nextSentence: { fontSize: 15, lineHeight: 20, fontFamily: fonts.heading },
   // The VoiceOver equivalent of the figure. Zero-height rather than
   // display:none, which RN has no equivalent of and which would take the node
   // out of the accessibility tree along with the layout.

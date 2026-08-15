@@ -27,10 +27,17 @@ import {
   idleWindowSentence,
   oldestRetrievedAt,
   scheduleDayLabel as dayLabel,
+  scheduledHoursSummary,
   retrievalSentence,
   scheduleIsStale,
 } from '@shared/dam-schedule-copy';
-import { scheduledBar, type GenerationReference } from '@shared/dam-generation';
+import {
+  schedulePeak,
+  schedulePeakLabel,
+  schedulePeakTechnical,
+  schedulePeakWindowLabel,
+  type GenerationReference,
+} from '@shared/dam-generation';
 
 function DayRow({
   day,
@@ -41,29 +48,35 @@ function DayRow({
   reference?: GenerationReference | null;
   renderedAt: number;
 }) {
-  const generatingHours = day.hours.filter((h) => h.megawatts > 0).length;
-  const peak = day.hours.reduce((max, h) => (h.megawatts > max ? h.megawatts : max), 0);
-  const peakBar = scheduledBar(peak, reference);
+  // "scheduled" in every branch: this line reads a plan and renders on the
+  // same page as a hero that may be reporting a measured "No turbine
+  // generation observed".
+  const summary = scheduledHoursSummary(day.hours);
+  const peak = schedulePeak(day, reference);
+  const peakWindow = peak ? schedulePeakWindowLabel(peak) : null;
+  const peakTechnical = peak ? schedulePeakTechnical(peak) : null;
 
   return (
     <div className="border-t border-neutral-200 py-4 first:border-t-0 first:pt-0">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-sm font-bold text-neutral-900">{dayLabel(day.scheduleDate)}</h3>
-        <span className="text-xs text-neutral-500">
-          {/* "scheduled", never bare "generating": this line reads a plan, and
-              it renders on the same page as a hero that may be reporting a
-              measured "No turbine generation observed". A plan in a
-              measurement's voice two sections apart is the contradiction
-              idleWindowSentence documents fixing. */}
-          {generatingHours === 0
-            ? 'no generation scheduled'
-            : `${generatingHours} of 24 hours scheduled to generate`}
-          {/* The scale, named. Without it the fixed height is just a shorter
-              bar, and the reader has no way to know the strip is comparable
-              across days at all. */}
-          {peakBar && ` · peaks at ${Math.round(peakBar.fraction * 100)}% of capacity`}
-        </span>
+        <span className="text-xs text-neutral-500">{summary}</span>
       </div>
+
+      {/* THE RIVER NUMBER FIRST. This block led with "peaks at 335 MW · 86% of
+          capacity", which asks somebody planning a float to convert a power
+          figure before it means anything. The cfs estimate measured within
+          ~10% at steady state and is refused entirely on ramp hours — see
+          schedulePeak — so it can lead, hedged, with the megawatts beneath. */}
+      {peak && (
+        <p className="mt-1 text-sm">
+          <span className="font-bold text-neutral-900">{schedulePeakLabel(peak)}</span>
+          {peakWindow && <span className="text-neutral-600"> · {peakWindow}</span>}
+          {peakTechnical && (
+            <span className="ml-1.5 text-xs text-neutral-500">{peakTechnical}</span>
+          )}
+        </p>
+      )}
 
       <div className="mt-2">
         <DamTimeline day={day} reference={reference} renderedAt={renderedAt} />
@@ -75,24 +88,12 @@ function DayRow({
           still said "Generation off" — a divergence a comment claiming they
           were "kept in step" did nothing to prevent. */}
       <p className="mt-2 text-sm text-neutral-700">{idleWindowSentence(day.idle)}</p>
-
-      {/* Magnitude, only where the estimate is meaningful: steady hours with a
-          real load. Ramp hours are excluded by isRamp. */}
-      {(() => {
-        const steady = day.hours.filter((h) => !h.isRamp && h.cfs !== null);
-        if (steady.length === 0) return null;
-        const low = Math.min(...steady.map((h) => h.cfs!));
-        const high = Math.max(...steady.map((h) => h.cfs!));
-        return (
-          <p className="mt-1 text-xs text-neutral-500">
-            When running, roughly{' '}
-            {low === high
-              ? `${low.toLocaleString()} cfs`
-              : `${low.toLocaleString()}–${high.toLocaleString()} cfs`}
-            {' '}(estimated from scheduled megawatts)
-          </p>
-        );
-      })()}
+      {/* ── Why the "roughly 500–22,600 cfs" range is gone ───────────────────
+          It spanned a 45x range with no time attached, so it answered nothing
+          a reader could act on — the chart above already shows the shape of
+          the day, and the peak line above pins the magnitude to the hours it
+          actually happens in. A range that wide reads as precision the day
+          does not have. */}
     </div>
   );
 }
@@ -126,9 +127,23 @@ export default function GenerationSchedule({
           Generation schedule
         </h2>
       </div>
+      {/* ── Why "hour ending" is no longer in the opening line ───────────────
+          It is SWPA's internal convention and the reader never sees it: the
+          chart and every window label are already converted to the hour the
+          water starts moving, so explaining it up front spent the most
+          valuable line on the card teaching a term that does not appear on it.
+          The attribution stays visible — the page's credibility rests on
+          naming the publisher — and the convention moves to the tooltip, for
+          anyone comparing Eddy against the posted table. */}
       <p className="mt-1 text-sm text-neutral-600">
-        Posted each afternoon by Southwestern Power Administration, in
-        &ldquo;hour ending&rdquo; terms.
+        Posted each afternoon by{' '}
+        <abbr
+          title="SWPA posts these in “hour ending” terms — hour 14 is the release running 1–2 PM. Eddy shows the hour the water starts moving."
+          className="cursor-help no-underline decoration-dotted underline-offset-2 hover:underline"
+        >
+          Southwestern Power Administration
+        </abbr>
+        .
         {reference && (
           <>
             {' '}

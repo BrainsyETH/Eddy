@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  fullGenerationReferenceLabel,
+  FULL_GENERATION_SHORT_LABEL,
+  generationReferenceCitation,
+  RACK_ESTIMATE_NOTE,
+  schedulePeak,
+  schedulePeakLabel,
+  schedulePeakTechnical,
+  schedulePeakWindowLabel,
   generationFraction,
   generationNow,
   generationPercentLabel,
@@ -130,13 +136,18 @@ test('generator equivalents divide full-power discharge, not the unit count', ()
   assert.equal(rack.overflow, false);
 });
 
-test('the phrase hedges, and refuses to round a trickle up to one generator', () => {
-  assert.equal(generatorEquivalentPhrase(5.797, BULL_SHOALS), 'About 6 generators’ worth');
-  assert.equal(generatorEquivalentPhrase(1.4, BULL_SHOALS), 'About one generator’s worth');
-  // 0.9 must not become "about one generator's worth" — that reads as a unit
-  // running when the honest statement is that very little is moving.
+test('the phrase hedges, carries the denominator, and refuses to round a trickle up', () => {
+  // The scale rides along: "About 6" made a reader who does not know this
+  // plant hold the number until they found out how many units it has.
+  assert.equal(generatorEquivalentPhrase(5.797, BULL_SHOALS), 'About 6 of 8 generators’ worth');
+  assert.equal(generatorEquivalentPhrase(1.4, BULL_SHOALS), 'About 1 of 8 generators’ worth');
+  // 0.9 must not become "about 1 of 8" — that reads as a unit running when the
+  // honest statement is that very little is moving. 795 cfs at Bull Shoals is
+  // 0.24 equivalents, and "1 of 8" would overstate it fourfold.
   assert.equal(generatorEquivalentPhrase(0.9, BULL_SHOALS), 'Less than one generator’s worth');
-  assert.equal(generatorEquivalentPhrase(9.2, BULL_SHOALS), 'More than 8 generators’ worth');
+  assert.equal(unitEquivalents(795, BULL_SHOALS)! < 1, true);
+  assert.equal(generatorEquivalentPhrase(unitEquivalents(795, BULL_SHOALS), BULL_SHOALS), 'Less than one generator’s worth');
+  assert.equal(generatorEquivalentPhrase(9.2, BULL_SHOALS), 'More than all 8 generators’ worth');
 });
 
 test('no reference means no percentage and no rack, never a zero', () => {
@@ -148,11 +159,13 @@ test('no reference means no percentage and no rack, never a zero', () => {
   assert.equal(generationFraction(8_200, { ...BULL_SHOALS, fullGenerationCfs: 0 }), null);
 });
 
-test('the reference label names the figure and its publisher', () => {
-  assert.equal(
-    fullGenerationReferenceLabel(BULL_SHOALS),
-    'of published full-generation discharge (26,400 cfs, SWPA)'
-  );
+test('the percentage says what it is OF, and the citation sits beneath it', () => {
+  // Split rather than shortened: the label beside the number stays readable,
+  // and the publisher — the only reason the figure is checkable at all —
+  // keeps its own line rather than being dropped.
+  assert.equal(FULL_GENERATION_SHORT_LABEL, 'of full generation');
+  assert.ok(!/power/i.test(FULL_GENERATION_SHORT_LABEL), 'never "% power" — see the header');
+  assert.equal(generationReferenceCitation(BULL_SHOALS), 'Full generation is 26,400 cfs (SWPA)');
 });
 
 // ── Observed state ─────────────────────────────────────────────────────────
@@ -204,7 +217,7 @@ test('a stale observation keeps its number and loses the present tense', () => {
   assert.equal(generationStatusLabel(state), 'Last observed generating');
 
   const clauses = nowNextClauses(state, [], BULL_SHOALS, NOON_CENTRAL);
-  assert.equal(clauses.observed, 'About 6 generators’ worth when last observed, 9 hours ago.');
+  assert.equal(clauses.observed, 'About 6 of 8 generators’ worth when last observed, 9 hours ago.');
   assert.ok(!/\bnow\b/.test(clauses.observed), 'a stale reading may not say "now"');
 });
 
@@ -221,7 +234,7 @@ test('the observed clause and the scheduled clause are separate strings', () => 
   const schedule = [day('2026-07-28', { 13: 300, 14: 300, 15: 300, 16: 300, 17: 300, 18: 300, 19: 300, 20: 300, 21: 300, 22: 300 })];
   const clauses = nowNextClauses(state, schedule, BULL_SHOALS, NOON_CENTRAL);
 
-  assert.equal(clauses.observed, 'About 6 generators’ worth now.');
+  assert.equal(clauses.observed, 'About 6 of 8 generators’ worth now.');
   assert.equal(
     clauses.scheduled,
     'Generation scheduled to stop at 10 PM. Later hours have not been posted.',
@@ -618,7 +631,7 @@ test('a LAGGING observation loses "now", not just a stale one', () => {
 
   const clauses = nowNextClauses(lagging, [], BULL_SHOALS, NOON_CENTRAL);
   assert.ok(!/\bnow\b/.test(clauses.observed), `still said now: ${clauses.observed}`);
-  assert.equal(clauses.observed, 'About 6 generators’ worth when last observed, 5 hours ago.');
+  assert.equal(clauses.observed, 'About 6 of 8 generators’ worth when last observed, 5 hours ago.');
 
   // And the idle side of the same rule.
   const idleLagging = generationNow(
@@ -892,4 +905,97 @@ test('today’s split survives the spring-forward day without inventing a gap', 
   // 14 observed slots plus the 9 wall-clock hour-endings still ahead: 23
   // cells, the day's own length.
   assert.equal(today.cells.length, 23);
+});
+
+// ── The day's peak: the river number first ─────────────────────────────────
+
+/** A day whose hours carry cfs estimates and ramp flags, for the peak tests. */
+function scheduledDay(
+  hours: Array<{ hourEnding: number; megawatts: number; cfs?: number | null; isRamp?: boolean }>
+) {
+  const byHour = new Map(hours.map((h) => [h.hourEnding, h]));
+  return {
+    scheduleDate: '2026-07-28',
+    hours: Array.from({ length: 24 }, (_, i) => {
+      const hour = byHour.get(i + 1);
+      return {
+        hourEnding: i + 1,
+        megawatts: hour?.megawatts ?? 0,
+        cfs: hour?.cfs ?? null,
+        isRamp: hour?.isRamp ?? false,
+      };
+    }),
+  };
+}
+
+test('the peak leads with the river number and names when it runs', () => {
+  // "peaks at 335 MW · 86% of capacity" asked somebody planning a float to
+  // convert a power figure before it meant anything. The cfs estimate is
+  // within ~10% at steady state, which is well inside what "is this going to
+  // be a big evening" needs.
+  const evening = scheduledDay([
+    { hourEnding: 16, megawatts: 200, cfs: 13_500, isRamp: true },
+    { hourEnding: 17, megawatts: 335, cfs: 22_600 },
+    { hourEnding: 18, megawatts: 335, cfs: 22_600 },
+    { hourEnding: 19, megawatts: 335, cfs: 22_600 },
+    { hourEnding: 20, megawatts: 335, cfs: 22_600 },
+  ]);
+  const peak = schedulePeak(evening, BULL_SHOALS)!;
+
+  assert.equal(peak.megawatts, 335);
+  assert.equal(schedulePeakLabel(peak), 'Peak release ~22,600 cfs');
+  assert.equal(schedulePeakWindowLabel(peak), '4 PM – 8 PM');
+  // The megawatts survive, one step down, for anyone checking Eddy against
+  // SWPA's own posted table.
+  assert.equal(schedulePeakTechnical(peak), '335 MW · 86% of scheduling capacity');
+});
+
+test('a peak reachable only through ramp hours refuses to estimate cfs', () => {
+  // A ramp hour ran -41% to +117% against CWMS because units spin up partway
+  // through an hour CWMS reports as an average — and a peak is exactly where a
+  // ramp is likeliest to sit.
+  const rampOnly = scheduledDay([{ hourEnding: 14, megawatts: 335, cfs: 22_600, isRamp: true }]);
+  const peak = schedulePeak(rampOnly, BULL_SHOALS)!;
+
+  assert.equal(peak.cfs, null);
+  assert.equal(schedulePeakLabel(peak), 'Peak load 335 MW', 'falls back rather than printing it');
+  // And the technical line does not repeat the megawatts the label just used.
+  assert.equal(schedulePeakTechnical(peak), '86% of scheduling capacity');
+});
+
+test('a day that reaches its peak twice names no window rather than a wrong one', () => {
+  // 6-9 AM and 5-8 PM at the same load is the commonest shape a peaking plant
+  // has. Spanning both would describe a twelve-hour run that did not happen.
+  const twice = scheduledDay([
+    { hourEnding: 7, megawatts: 335, cfs: 22_600 },
+    { hourEnding: 8, megawatts: 335, cfs: 22_600 },
+    { hourEnding: 18, megawatts: 335, cfs: 22_600 },
+    { hourEnding: 19, megawatts: 335, cfs: 22_600 },
+  ]);
+  const peak = schedulePeak(twice, BULL_SHOALS)!;
+
+  assert.equal(schedulePeakWindowLabel(peak), null);
+  assert.equal(schedulePeakLabel(peak), 'Peak release ~22,600 cfs', 'the magnitude still stands');
+});
+
+test('a wholly idle day has no peak, and no reference still has a magnitude', () => {
+  assert.equal(schedulePeak(scheduledDay([]), BULL_SHOALS), null, '"0 MW" is not a peak');
+
+  // An app older than its server draws no capacity share, but the cfs estimate
+  // does not depend on the reference at all — it rides the wire per hour.
+  const noRef = schedulePeak(
+    scheduledDay([{ hourEnding: 18, megawatts: 335, cfs: 22_600 }]),
+    undefined
+  )!;
+  assert.equal(noRef.fraction, null);
+  assert.equal(schedulePeakLabel(noRef), 'Peak release ~22,600 cfs');
+  assert.equal(schedulePeakTechnical(noRef), '335 MW');
+});
+
+test('the rack caveat scans, and still refuses to name physical units', () => {
+  // "This does not identify which physical units are operating" is precise and
+  // nobody read it. The claim it blocks has to survive the rewrite.
+  assert.match(RACK_ESTIMATE_NOTE, /estimated/i);
+  assert.match(RACK_ESTIMATE_NOTE, /turbines/i);
+  assert.match(RACK_ESTIMATE_NOTE, /may differ/i);
 });
