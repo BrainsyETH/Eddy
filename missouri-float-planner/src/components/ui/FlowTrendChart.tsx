@@ -1,12 +1,18 @@
 'use client';
 
-// src/components/ui/FlowTrendChart.tsx
-// Shared SVG flow/stage trend chart with threshold overlays and interactive tooltips
-
-import { useMemo, useState, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Download, Expand, ExternalLink, Minimize2, Plus, X } from 'lucide-react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
+import {
+  chartDomain,
+  chartPoints,
+  nearestChartPoint,
+  niceValueTicks,
+  splitAtGaps,
+  timeTicks,
+  type ChartPoint,
+} from '@shared/chart-model';
 
-// Threshold line configuration
 export interface ChartThresholdLines {
   levelTooLow: number | null;
   levelLow: number | null;
@@ -16,14 +22,6 @@ export interface ChartThresholdLines {
   levelDangerous: number | null;
 }
 
-const THRESHOLD_LINE_CONFIG: { key: keyof ChartThresholdLines; label: string; color: string; dash?: string }[] = [
-  { key: 'levelLow', label: 'Good', color: '#65a30d', dash: '3,3' },
-  { key: 'levelOptimalMin', label: 'Flowing', color: '#059669', dash: '2,2' },
-  { key: 'levelOptimalMax', label: 'Flowing', color: '#059669', dash: '2,2' },
-  { key: 'levelHigh', label: 'High', color: '#f97316', dash: '3,3' },
-  { key: 'levelDangerous', label: 'Flood', color: '#ef4444', dash: '4,2' },
-];
-
 interface FlowTrendChartProps {
   gaugeSiteId: string;
   days: number;
@@ -31,6 +29,45 @@ interface FlowTrendChartProps {
   latestValue?: number | null;
   displayUnit?: 'ft' | 'cfs';
   chartClassName?: string;
+}
+
+interface Marker { label: string; value: number; color: string; dash: string }
+
+const PLOT = { left: 62, right: 916, top: 18, bottom: 222 };
+const SVG_WIDTH = 1000;
+const SVG_HEIGHT = 260;
+
+function numberLabel(value: number, unit: 'ft' | 'cfs', exact = false): string {
+  if (unit === 'ft') return exact ? value.toFixed(2) : value.toFixed(1);
+  if (!exact && Math.abs(value) >= 10_000) return `${(value / 1000).toFixed(0)}k`;
+  if (!exact && Math.abs(value) >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  return Math.round(value).toLocaleString();
+}
+
+function timeLabel(ms: number, days: number): string {
+  const date = new Date(ms);
+  return days <= 1
+    ? date.toLocaleTimeString(undefined, { hour: 'numeric' })
+    : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function fullTime(ms: number): string {
+  return new Date(ms).toLocaleString(undefined, {
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+}
+
+function ageLabel(timestamp: string | null | undefined): string {
+  if (!timestamp) return 'Update time unavailable';
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(timestamp).getTime()) / 60_000));
+  if (minutes < 2) return 'Updated just now';
+  if (minutes < 60) return `Updated ${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  return `Updated ${hours} hr${hours === 1 ? '' : 's'} ago`;
+}
+
+function pathFor(points: ChartPoint[], x: (t: number) => number, y: (v: number) => number): string {
+  return points.map((point, index) => `${index ? 'L' : 'M'} ${x(point.t)} ${y(point.v)}`).join(' ');
 }
 
 export default function FlowTrendChart({
@@ -42,471 +79,156 @@ export default function FlowTrendChart({
   chartClassName,
 }: FlowTrendChartProps) {
   const { data: history, isLoading, error } = useGaugeHistory(gaugeSiteId, days);
-  const isFt = displayUnit === 'ft';
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; value: number; timestamp: string } | null>(null);
-  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const [hoverX, setHoverX] = useState<number | null>(null);
+  const [context, setContext] = useState<'conditions' | 'typical'>('conditions');
+  const [expanded, setExpanded] = useState(false);
+  const [addingLevel, setAddingLevel] = useState(false);
+  const [customLevel, setCustomLevel] = useState<number | null>(null);
+  const container = useRef<HTMLDivElement>(null);
+  const unit = displayUnit;
+  const compact = chartClassName?.includes('h-32') ?? false;
 
-  const chartData = useMemo(() => {
-    if (!history?.readings || history.readings.length === 0) return null;
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`eddy:chart-level:${gaugeSiteId}:${unit}`);
+      setCustomLevel(saved === null ? null : Number(saved));
+    } catch { setCustomLevel(null); }
+  }, [gaugeSiteId, unit]);
 
-    const readings = history.readings;
-    const stats = history.stats;
-
-    const dataMin = isFt ? (stats.minHeight ?? 0) : (stats.minDischarge ?? 0);
-    const dataMax = isFt ? (stats.maxHeight ?? 10) : (stats.maxDischarge ?? 100);
-    const dataRange = dataMax - dataMin || 1;
-
-    let minVal = dataMin;
-    let maxVal = dataMax;
-
-    if (thresholds) {
-      const expansionLimit = dataRange * 1.5;
-      const thresholdValues = [
-        thresholds.levelTooLow, thresholds.levelLow,
-        thresholds.levelOptimalMin, thresholds.levelOptimalMax,
-        thresholds.levelHigh, thresholds.levelDangerous,
-      ].filter((v): v is number => v !== null);
-
-      for (const tv of thresholdValues) {
-        if (tv >= dataMin - expansionLimit && tv <= dataMax + expansionLimit) {
-          if (tv < minVal) minVal = tv;
-          if (tv > maxVal) maxVal = tv;
-        }
-      }
+  const model = useMemo(() => {
+    if (!history?.readings.length) return null;
+    const observed = chartPoints(history.readings, unit);
+    if (observed.length < 2) return null;
+    const forecast = unit === 'ft' ? chartPoints(history.forecast ?? [], unit) : [];
+    const typical = unit === 'cfs' ? (history.typical ?? []).flatMap((row) => {
+      const t = new Date(`${row.date}T12:00:00Z`).getTime();
+      return Number.isFinite(t) && row.p50Cfs !== null
+        ? [{ t, median: row.p50Cfs, low: row.p25Cfs, high: row.p75Cfs, years: row.yearsOfRecord }]
+        : [];
+    }) : [];
+    const markers: Marker[] = thresholds ? [
+      { label: 'Too low', value: thresholds.levelTooLow, color: '#b45309', dash: '4 4' },
+      { label: 'Good', value: thresholds.levelLow, color: '#65a30d', dash: '4 4' },
+      { label: 'Flowing', value: thresholds.levelOptimalMin, color: '#059669', dash: '3 3' },
+      { label: 'Top of flowing', value: thresholds.levelOptimalMax, color: '#059669', dash: '3 3' },
+      { label: 'High', value: thresholds.levelHigh, color: '#ea580c', dash: '5 4' },
+      { label: 'Flood', value: thresholds.levelDangerous, color: '#dc2626', dash: '6 3' },
+    ].flatMap((marker) => marker.value !== null ? [{ ...marker, value: marker.value }] : []) : [];
+    if (customLevel !== null && Number.isFinite(customLevel)) {
+      markers.push({ label: 'My level', value: customLevel, color: '#7c3aed', dash: '2 3' });
     }
-
-    const padding = (maxVal - minVal) * 0.05 || (isFt ? 0.5 : 5);
-    minVal = Math.max(0, minVal - padding);
-    maxVal = maxVal + padding;
-
-    // Use sqrt scaling when the data range is very large relative to the
-    // threshold zone (e.g. flood spikes dwarfing normal operating range).
-    // This compresses outlier peaks while keeping the normal range readable.
-    // For ft (stage) data the range is typically small, so keep linear.
-    const rangeRatio = maxVal / (minVal || 1);
-    const useSqrt = !isFt && rangeRatio > 5;
-
-    // Map a data value to a 0-100 Y coordinate (0 = top, 100 = bottom)
-    const toY = (val: number): number => {
-      if (useSqrt) {
-        const sqrtMin = Math.sqrt(minVal);
-        const sqrtMax = Math.sqrt(maxVal);
-        const sqrtRange = sqrtMax - sqrtMin || 1;
-        return 100 - ((Math.sqrt(val) - sqrtMin) / sqrtRange) * 100;
-      }
-      const range = maxVal - minVal || 1;
-      return 100 - ((val - minVal) / range) * 100;
-    };
-
-    const sampleStep = Math.max(1, Math.floor(readings.length / 50));
-    const sampledReadings = readings.filter((_: unknown, i: number) => i % sampleStep === 0);
-
-    const points = sampledReadings.map((reading: { dischargeCfs: number | null; gaugeHeightFt: number | null; timestamp: string }, index: number) => {
-      const val = isFt ? reading.gaugeHeightFt : reading.dischargeCfs;
-      const x = (index / (sampledReadings.length - 1)) * 100;
-      const y = val !== null ? toY(val) : 50;
-      return { x, y, value: val, timestamp: reading.timestamp };
-    });
-
-    const pathD = points.map((p: { x: number; y: number }, i: number) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-    const areaD = `${pathD} L ${points[points.length - 1].x} 100 L ${points[0].x} 100 Z`;
-
-    const allThresholdLines = thresholds
-      ? THRESHOLD_LINE_CONFIG
-          .filter(t => thresholds[t.key] !== null)
-          .map(t => ({
-            ...t,
-            value: thresholds[t.key]!,
-            y: toY(thresholds[t.key]!),
-          }))
-          .filter(t => t.y >= -5 && t.y <= 105)
+    const contextPoints: ChartPoint[] = context === 'typical'
+      ? typical.flatMap((point) => [point.low, point.median, point.high].flatMap((value) =>
+          value === null ? [] : [{ t: point.t, v: value, timestamp: '', qualifiers: [] }]))
       : [];
-
-    const MIN_LABEL_GAP = 8;
-    const labelCandidates: typeof allThresholdLines = [];
-    const optMin = allThresholdLines.find(t => t.key === 'levelOptimalMin');
-    const optMax = allThresholdLines.find(t => t.key === 'levelOptimalMax');
-    if (optMin && optMax) {
-      labelCandidates.push({ ...optMin, y: (optMin.y + optMax.y) / 2 });
-    } else if (optMin) {
-      labelCandidates.push(optMin);
-    } else if (optMax) {
-      labelCandidates.push(optMax);
-    }
-    for (const t of allThresholdLines) {
-      if (t.key !== 'levelOptimalMin' && t.key !== 'levelOptimalMax') {
-        labelCandidates.push(t);
-      }
-    }
-    labelCandidates.sort((a, b) => a.y - b.y);
-    const thresholdLabels: typeof labelCandidates = [];
-    for (const candidate of labelCandidates) {
-      const tooClose = thresholdLabels.some(placed => Math.abs(placed.y - candidate.y) < MIN_LABEL_GAP);
-      if (!tooClose) {
-        thresholdLabels.push(candidate);
-      }
-    }
-
-    // Generate Y-axis tick values. With sqrt scaling, evenly-spaced ticks in
-    // sqrt-space correspond to unevenly-spaced values that feel natural.
-    const yAxisTicks: { value: number; y: number }[] = [];
-    const tickCount = 3;
-    if (useSqrt) {
-      const sqrtMin = Math.sqrt(minVal);
-      const sqrtMax = Math.sqrt(maxVal);
-      for (let i = 0; i < tickCount; i++) {
-        const sqrtVal = sqrtMin + (sqrtMax - sqrtMin) * (i / (tickCount - 1));
-        const val = sqrtVal * sqrtVal;
-        yAxisTicks.push({ value: val, y: toY(val) });
-      }
-    } else {
-      for (let i = 0; i < tickCount; i++) {
-        const val = minVal + (maxVal - minVal) * (i / (tickCount - 1));
-        yAxisTicks.push({ value: val, y: toY(val) });
-      }
-    }
-
-    const lastReading = readings[readings.length - 1];
+    const plotted = [...observed, ...forecast, ...contextPoints].sort((a, b) => a.t - b.t);
+    const domain = chartDomain(plotted, unit, context === 'conditions' ? markers.map((m) => m.value) : []);
+    if (!domain) return null;
+    const x = (t: number) => PLOT.left + ((t - domain.t0) / Math.max(1, domain.t1 - domain.t0)) * (PLOT.right - PLOT.left);
+    const y = (value: number) => PLOT.bottom - ((value - domain.min) / Math.max(1e-9, domain.max - domain.min)) * (PLOT.bottom - PLOT.top);
+    const typicalMedian = typical.map((point) => ({ t: point.t, v: point.median, timestamp: '', qualifiers: [] }));
+    const typicalLow = typical.flatMap((point) => point.low === null ? [] : [{ t: point.t, v: point.low, timestamp: '', qualifiers: [] }]);
+    const typicalHigh = typical.flatMap((point) => point.high === null ? [] : [{ t: point.t, v: point.high, timestamp: '', qualifiers: [] }]);
+    const typicalArea = typicalLow.length > 1 && typicalHigh.length > 1
+      ? `${pathFor(typicalHigh, x, y)} ${[...typicalLow].reverse().map((p) => `L ${x(p.t)} ${y(p.v)}`).join(' ')} Z`
+      : '';
     return {
-      points,
-      pathD,
-      areaD,
-      minVal,
-      maxVal,
-      useSqrt,
-      yAxisTicks,
-      currentVal: isFt ? lastReading?.gaugeHeightFt : lastReading?.dischargeCfs,
-      startDate: new Date(readings[0].timestamp),
-      endDate: new Date(readings[readings.length - 1].timestamp),
-      thresholdLineData: allThresholdLines,
-      thresholdLabels,
+      observed, forecast, typical, markers, domain, x, y,
+      observedPaths: splitAtGaps(observed).filter((segment) => segment.length > 1).map((segment) => pathFor(segment, x, y)),
+      forecastPath: forecast.length > 1 ? pathFor(forecast, x, y) : '',
+      typicalPath: typicalMedian.length > 1 ? pathFor(typicalMedian, x, y) : '',
+      typicalArea,
+      yTicks: niceValueTicks(domain.min, domain.max, compact ? 3 : 5),
+      xTicks: timeTicks(domain.t0, domain.t1, compact ? 3 : 5),
     };
-  }, [history, thresholds, isFt]);
+  }, [history, unit, thresholds, compact, context, customLevel]);
 
-  // Handle mouse/touch interaction for tooltip
-  const handleInteraction = useCallback((clientX: number) => {
-    if (!chartContainerRef.current || !chartData) return;
-    const rect = chartContainerRef.current.getBoundingClientRect();
-    const relativeX = (clientX - rect.left) / rect.width;
-    const clampedX = Math.max(0, Math.min(1, relativeX));
+  const selected = useMemo(() => {
+    if (hoverX === null || !model) return null;
+    const time = model.domain.t0 + hoverX * (model.domain.t1 - model.domain.t0);
+    return nearestChartPoint(model.observed, time);
+  }, [hoverX, model]);
 
-    // Find closest point
-    let closestPoint = chartData.points[0];
-    let closestDist = Infinity;
-    for (const p of chartData.points) {
-      const dist = Math.abs(p.x / 100 - clampedX);
-      if (dist < closestDist) {
-        closestDist = dist;
-        closestPoint = p;
-      }
-    }
+  const onPointer = useCallback((clientX: number) => {
+    const bounds = container.current?.getBoundingClientRect();
+    if (!bounds) return;
+    const plotLeft = bounds.left + bounds.width * (PLOT.left / SVG_WIDTH);
+    const plotWidth = bounds.width * ((PLOT.right - PLOT.left) / SVG_WIDTH);
+    setHoverX(Math.max(0, Math.min(1, (clientX - plotLeft) / plotWidth)));
+  }, []);
 
-    if (closestPoint.value !== null) {
-      setTooltip({
-        x: closestPoint.x,
-        y: closestPoint.y,
-        value: closestPoint.value,
-        timestamp: closestPoint.timestamp,
-      });
-    }
-  }, [chartData]);
+  const current = model?.observed.at(-1) ?? null;
+  const previous = model?.observed.find((point) => current && point.t >= current.t - Math.min(days, 1) * 86_400_000) ?? model?.observed[0] ?? null;
+  const delta = current && previous && previous.v !== 0 ? ((current.v - previous.v) / Math.abs(previous.v)) * 100 : null;
 
-  if (isLoading) {
-    return (
-      <div className="p-4">
-        <div className="flex items-center gap-2 text-neutral-500 text-sm">
-          <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-          Loading trend data...
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !chartData) {
-    return (
-      <div className="p-4">
-        <p className="text-neutral-500 text-sm">{isFt ? 'Stage' : 'Flow'} trend data unavailable</p>
-      </div>
-    );
-  }
-
-  const formatVal = (val: number) => {
-    if (isFt) return val.toFixed(2);
-    if (val >= 1000) return `${(val / 1000).toFixed(1)}k`;
-    return val.toFixed(0);
+  const downloadCsv = () => {
+    if (!history) return;
+    const rows = ['timestamp,gauge_height_ft,discharge_cfs,qualifiers', ...history.readings.map((reading) =>
+      [reading.timestamp, reading.gaugeHeightFt ?? '', reading.dischargeCfs ?? '', (reading.qualifiers ?? []).join('|')].join(','))];
+    const url = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${gaugeSiteId}-${days}d.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
-  const formatTooltipVal = (val: number) => {
-    if (isFt) return val.toFixed(2);
-    return val.toLocaleString();
+  const saveLevel = (raw: string) => {
+    const value = Number(raw);
+    if (!Number.isFinite(value)) return;
+    setCustomLevel(value);
+    setAddingLevel(false);
+    try { localStorage.setItem(`eddy:chart-level:${gaugeSiteId}:${unit}`, String(value)); } catch { /* optional */ }
   };
 
-  // Determine which condition zone a value falls in
-  const getZoneLabel = (val: number): string | null => {
-    if (!thresholds) return null;
-    const { levelTooLow, levelLow, levelOptimalMin, levelOptimalMax, levelHigh, levelDangerous } = thresholds;
-    if (levelDangerous !== null && val >= levelDangerous) return 'Flood';
-    const highStart = levelOptimalMax ?? levelHigh;
-    if (highStart !== null && val > highStart) return 'High';
-    if (levelOptimalMin !== null && levelOptimalMax !== null && val >= levelOptimalMin && val <= levelOptimalMax) return 'Flowing';
-    if (levelLow !== null && val >= levelLow) return 'Good';
-    if (levelTooLow !== null && val >= levelTooLow) return 'Low';
-    if (levelTooLow !== null && val < levelTooLow) return 'Too Low';
-    return null;
-  };
+  if (isLoading) return <div className="p-5 h-48 flex items-center justify-center text-sm text-neutral-500">Loading hydrograph…</div>;
+  if (error || !model || !history) return <div className="p-5 h-48 flex items-center justify-center text-sm text-neutral-500">No recent {unit === 'ft' ? 'stage' : 'flow'} history available.</div>;
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
-  const formatTooltipDate = (timestamp: string) => {
-    const d = new Date(timestamp);
-    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  };
-
-  const unitLabel = isFt ? 'ft' : 'cfs';
-  const chartLabel = isFt ? 'Stage (ft)' : 'Flow (cfs)';
-  const currentDisplay = latestValue ?? chartData.currentVal;
-
-  return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-semibold text-neutral-700">{chartLabel}</span>
-        {currentDisplay !== null && currentDisplay !== undefined && (
-          <span className="text-xs text-primary-600 font-medium">
-            Current: {formatVal(currentDisplay)} {unitLabel}
-          </span>
-        )}
-      </div>
-
-      <div className="flex">
-        {/* Y-axis labels (outside chart) */}
-        <div className="flex flex-col justify-between py-0.5 pr-1.5 flex-shrink-0 w-10 text-right">
-          {[...chartData.yAxisTicks].reverse().map((tick, i) => (
-            <span key={`ytick-${i}`} className="text-[10px] text-neutral-400 tabular-nums leading-none">
-              {formatVal(tick.value)}
-            </span>
-          ))}
-        </div>
-
-        {/* Chart SVG area */}
-        <div
-          ref={chartContainerRef}
-          className={`relative flex-1 min-w-0 ${chartClassName ?? 'h-32'} cursor-crosshair`}
-          onMouseMove={(e) => handleInteraction(e.clientX)}
-          onMouseLeave={() => setTooltip(null)}
-          onTouchMove={(e) => {
-            e.preventDefault();
-            if (e.touches[0]) handleInteraction(e.touches[0].clientX);
-          }}
-          onTouchEnd={() => setTooltip(null)}
-        >
-            <svg
-              viewBox="0 0 100 100"
-              preserveAspectRatio="none"
-              className="w-full h-full"
-              role="img"
-              aria-label={`${chartLabel} trend chart${currentDisplay !== null && currentDisplay !== undefined ? `, currently ${formatVal(currentDisplay)} ${unitLabel}` : ''}`}
-            >
-          <defs>
-            <linearGradient id={`flowGradient-${gaugeSiteId}`} x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="rgb(45, 120, 137)" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="rgb(45, 120, 137)" stopOpacity="0.05" />
-            </linearGradient>
-          </defs>
-
-          {/* High/Warning zone fill — anything above optimal_max is "high" */}
-          {chartData.thresholdLineData.length > 0 && (() => {
-            const optimalMax = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMax');
-            const high = chartData.thresholdLineData.find(t => t.key === 'levelHigh');
-            const dangerous = chartData.thresholdLineData.find(t => t.key === 'levelDangerous');
-            const start = optimalMax ?? high;
-            if (start) {
-              const topY = dangerous ? Math.min(dangerous.y, start.y) : 0;
-              const bottomY = start.y;
-              if (bottomY > topY) {
-                return (
-                  <rect
-                    x="0" width="100"
-                    y={topY}
-                    height={bottomY - topY}
-                    fill="#f97316" fillOpacity="0.08"
-                  />
-                );
-              }
-            }
-            return null;
-          })()}
-
-          {/* Flood zone fill */}
-          {chartData.thresholdLineData.length > 0 && (() => {
-            const dangerous = chartData.thresholdLineData.find(t => t.key === 'levelDangerous');
-            if (dangerous && dangerous.y > 0) {
-              return (
-                <rect
-                  x="0" width="100"
-                  y={0}
-                  height={dangerous.y}
-                  fill="#ef4444" fillOpacity="0.06"
-                />
-              );
-            }
-            return null;
-          })()}
-
-          {/* Optimal range shaded band */}
-          {chartData.thresholdLineData.length > 0 && (() => {
-            const optMin = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMin');
-            const optMax = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMax');
-            if (optMin && optMax) {
-              return (
-                <rect
-                  x="0" width="100"
-                  y={Math.min(optMin.y, optMax.y)}
-                  height={Math.abs(optMax.y - optMin.y)}
-                  fill="#059669" fillOpacity="0.12"
-                />
-              );
-            }
-            return null;
-          })()}
-
-          {/* Threshold reference lines */}
-          {chartData.thresholdLineData.map((t) => (
-            <line
-              key={t.key}
-              x1="0" x2="100"
-              y1={t.y} y2={t.y}
-              stroke={t.color}
-              strokeWidth="1"
-              strokeDasharray={t.dash || 'none'}
-              vectorEffect="non-scaling-stroke"
-              opacity="0.5"
-            />
-          ))}
-
-          {/* Area fill */}
-          <path d={chartData.areaD} fill={`url(#flowGradient-${gaugeSiteId})`} />
-
-          {/* Line */}
-          <path
-            d={chartData.pathD}
-            fill="none"
-            stroke="rgb(45, 120, 137)"
-            strokeWidth="2"
-            vectorEffect="non-scaling-stroke"
-          />
-
-          {/* Current value dot */}
-          {chartData.points.length > 0 && (
-            <circle
-              cx={chartData.points[chartData.points.length - 1].x}
-              cy={chartData.points[chartData.points.length - 1].y}
-              r="4"
-              fill="rgb(45, 120, 137)"
-              stroke="#f5f5f5"
-              strokeWidth="2"
-              vectorEffect="non-scaling-stroke"
-            />
-          )}
-
-          {/* Tooltip crosshair line */}
-          {tooltip && (
-            <line
-              x1={tooltip.x} x2={tooltip.x}
-              y1="0" y2="100"
-              stroke="rgb(45, 120, 137)"
-              strokeWidth="1"
-              strokeDasharray="2,2"
-              vectorEffect="non-scaling-stroke"
-              opacity="0.6"
-            />
-          )}
-
-          {/* Tooltip dot */}
-          {tooltip && (
-            <circle
-              cx={tooltip.x}
-              cy={tooltip.y}
-              r="5"
-              fill="rgb(45, 120, 137)"
-              stroke="white"
-              strokeWidth="2"
-              vectorEffect="non-scaling-stroke"
-            />
-          )}
+  const visibleMarkers = model.markers.filter((marker) => marker.value >= model.domain.min && marker.value <= model.domain.max);
+  const hiddenAbove = model.markers.filter((marker) => marker.value > model.domain.max);
+  const hiddenBelow = model.markers.filter((marker) => marker.value < model.domain.min);
+  const chart = (
+    <div className={expanded ? 'h-[min(72vh,620px)]' : chartClassName ?? 'h-52 md:h-60'}>
+      <div
+        ref={container}
+        className="relative h-full touch-none select-none"
+        onPointerMove={(event) => onPointer(event.clientX)}
+        onPointerDown={(event) => onPointer(event.clientX)}
+        onPointerLeave={() => setHoverX(null)}
+      >
+        <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} className="w-full h-full" role="img"
+          aria-label={`${unit === 'ft' ? 'Gauge height' : 'Discharge'} hydrograph. Current value ${numberLabel(latestValue ?? current!.v, unit, true)} ${unit}. ${ageLabel(history.observedThrough)}.`}>
+          <rect x={PLOT.left} y={PLOT.top} width={PLOT.right - PLOT.left} height={PLOT.bottom - PLOT.top} fill="transparent" />
+          {model.yTicks.map((tick) => {
+            const y = model.y(tick.value);
+            return <g key={`y-${tick.value}`}><line x1={PLOT.left} x2={PLOT.right} y1={y} y2={y} stroke="currentColor" className="text-neutral-200" strokeWidth="1" /><text x={PLOT.left - 10} y={y + 4} textAnchor="end" className="fill-neutral-500 text-[11px] tabular-nums">{numberLabel(tick.value, unit)}</text></g>;
+          })}
+          {model.xTicks.map((tick, index) => {
+            const x = PLOT.left + tick.position * (PLOT.right - PLOT.left);
+            return <g key={`x-${index}`}><line x1={x} x2={x} y1={PLOT.top} y2={PLOT.bottom} stroke="currentColor" className="text-neutral-100" /><text x={x} y={PLOT.bottom + 23} textAnchor={index === 0 ? 'start' : index === model.xTicks.length - 1 ? 'end' : 'middle'} className="fill-neutral-500 text-[11px]">{timeLabel(tick.value, days)}</text></g>;
+          })}
+          {context === 'conditions' && visibleMarkers.map((marker) => <g key={`${marker.label}-${marker.value}`}><line x1={PLOT.left} x2={PLOT.right} y1={model.y(marker.value)} y2={model.y(marker.value)} stroke={marker.color} strokeWidth="1.5" strokeDasharray={marker.dash} opacity="0.65" /><text x={PLOT.right + 8} y={model.y(marker.value) + 4} fill={marker.color} className="text-[10px] font-semibold">{marker.label} {numberLabel(marker.value, unit)}</text></g>)}
+          {context === 'typical' && model.typicalArea && <path d={model.typicalArea} fill="#2d7889" opacity="0.12" />}
+          {context === 'typical' && model.typicalPath && <path d={model.typicalPath} fill="none" stroke="#2d7889" strokeWidth="1.5" strokeDasharray="5 4" opacity="0.65" />}
+          {model.observedPaths.map((path, index) => <path key={index} d={path} fill="none" stroke="#16758a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
+          {model.forecastPath && <><line x1={model.x(model.observed.at(-1)!.t)} x2={model.x(model.observed.at(-1)!.t)} y1={PLOT.top} y2={PLOT.bottom} stroke="#64748b" strokeDasharray="3 4" /><text x={model.x(model.observed.at(-1)!.t) + 5} y={PLOT.top + 12} className="fill-slate-500 text-[10px] font-semibold">NOW</text><path d={model.forecastPath} fill="none" stroke="#7c3aed" strokeWidth="3" strokeDasharray="7 5" strokeLinecap="round" vectorEffect="non-scaling-stroke" /><text x={PLOT.right - 4} y={PLOT.top + 12} textAnchor="end" className="fill-violet-700 text-[10px] font-semibold">OFFICIAL NWS FORECAST</text></>}
+          <circle cx={model.x(current!.t)} cy={model.y(current!.v)} r="5" fill="#16758a" stroke="white" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+          {selected && <><line x1={model.x(selected.t)} x2={model.x(selected.t)} y1={PLOT.top} y2={PLOT.bottom} stroke="#0f172a" opacity="0.35" /><circle cx={model.x(selected.t)} cy={model.y(selected.v)} r="6" fill="white" stroke="#16758a" strokeWidth="3" vectorEffect="non-scaling-stroke" /></>}
+          <text x={PLOT.left} y={12} className="fill-neutral-500 text-[10px] font-semibold">{unit === 'ft' ? 'GAUGE HEIGHT (FT)' : 'DISCHARGE (CFS)'}</text>
         </svg>
-
-          {/* Tooltip popup */}
-          {tooltip && (
-            <div
-              className="absolute z-10 pointer-events-none bg-neutral-900 text-white text-xs rounded-lg px-2.5 py-1.5 shadow-lg whitespace-nowrap"
-              style={{
-                left: `${tooltip.x}%`,
-                top: `${tooltip.y}%`,
-                transform: `translate(${tooltip.x > 70 ? '-100%' : '8px'}, -120%)`,
-              }}
-            >
-              <div className="font-bold tabular-nums">
-                {formatTooltipVal(tooltip.value)} {unitLabel}
-                {(() => {
-                  const zone = getZoneLabel(tooltip.value);
-                  return zone ? <span className="font-medium text-neutral-400"> — {zone}</span> : null;
-                })()}
-              </div>
-              <div className="text-neutral-400 text-[10px]">{formatTooltipDate(tooltip.timestamp)}</div>
-            </div>
-          )}
-        </div>
-
-        {/* Threshold labels (right column, outside chart) */}
-        {chartData.thresholdLabels.length > 0 && (
-          <div className="relative flex-shrink-0 w-12 pl-1.5">
-            {chartData.thresholdLabels.map((t) => (
-              <div
-                key={`label-${t.key}`}
-                className="absolute text-[9px] font-semibold leading-none whitespace-nowrap"
-                style={{
-                  top: `${t.y}%`,
-                  color: t.color,
-                  transform: 'translateY(-50%)',
-                }}
-              >
-                {t.label}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* X-axis labels — show day abbreviations for 7-day view, dates otherwise */}
-      <div className={`flex justify-between text-[10px] text-neutral-400 mt-1 ml-10 ${chartData.thresholdLabels.length > 0 ? 'mr-12' : ''} px-1`}>
-        {days <= 7 ? (() => {
-          const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-          const start = chartData.startDate;
-          const end = chartData.endDate;
-          const totalDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-          const labels: { label: string; position: number }[] = [];
-          for (let i = 0; i <= totalDays; i++) {
-            const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
-            const isToday = i === totalDays;
-            labels.push({
-              label: isToday ? 'TODAY' : dayNames[d.getDay()],
-              position: totalDays > 0 ? i / totalDays : 0,
-            });
-          }
-          return labels.map((l, i) => (
-            <span key={i} className={`${l.label === 'TODAY' ? 'font-semibold text-primary-600' : ''}`}>
-              {l.label}
-            </span>
-          ));
-        })() : (
-          <>
-            <span>{formatDate(chartData.startDate)}</span>
-            <span>{formatDate(chartData.endDate)}</span>
-          </>
-        )}
+        {selected && <div className="absolute pointer-events-none rounded-lg bg-slate-950 px-3 py-2 text-xs text-white shadow-xl" style={{ left: `${Math.min(78, Math.max(8, hoverX! * 100))}%`, top: '8px', transform: hoverX! > 0.62 ? 'translateX(-100%)' : undefined }}><div className="font-bold tabular-nums">{numberLabel(selected.v, unit, true)} {unit}</div><div className="text-slate-300">{fullTime(selected.t)}</div>{selected.qualifiers.length ? <div className="mt-1 text-amber-300">{selected.qualifiers.join(', ')}</div> : null}</div>}
       </div>
     </div>
   );
+
+  return <div className={expanded ? 'fixed inset-0 z-50 overflow-auto bg-white p-4 sm:p-8' : 'p-4'}>
+    <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+      <div><div className="flex items-baseline gap-2"><span className="text-lg font-bold tabular-nums text-neutral-900">{numberLabel(latestValue ?? current!.v, unit, true)} {unit}</span>{delta !== null && <span className={`text-xs font-semibold ${delta > 0 ? 'text-sky-700' : delta < 0 ? 'text-amber-700' : 'text-neutral-500'}`}>{delta > 0 ? '↑' : delta < 0 ? '↓' : '→'} {Math.abs(delta).toFixed(0)}%</span>}</div><div className="text-xs text-neutral-500">{ageLabel(history.observedThrough)} · {days === 1 ? 'last 24 hours' : `last ${days} days`}{history.sampled ? ' · detail preserved' : ''}</div></div>
+      {!compact && <div className="flex flex-wrap items-center gap-1.5"><button onClick={() => setContext('conditions')} className={`rounded-md px-2.5 py-1.5 text-xs font-semibold ${context === 'conditions' ? 'bg-primary-100 text-primary-800' : 'text-neutral-600 hover:bg-neutral-100'}`}>Conditions</button>{unit === 'cfs' && history.typical.length > 0 && <button onClick={() => setContext('typical')} className={`rounded-md px-2.5 py-1.5 text-xs font-semibold ${context === 'typical' ? 'bg-primary-100 text-primary-800' : 'text-neutral-600 hover:bg-neutral-100'}`}>Typical range</button>}<button onClick={() => setAddingLevel(true)} className="rounded-md p-2 text-neutral-600 hover:bg-neutral-100" title="Mark a custom level"><Plus className="h-4 w-4" /></button><button onClick={downloadCsv} className="rounded-md p-2 text-neutral-600 hover:bg-neutral-100" title="Download chart data"><Download className="h-4 w-4" /></button>{history.sourceUrl && <a href={history.sourceUrl} target="_blank" rel="noreferrer" className="rounded-md p-2 text-neutral-600 hover:bg-neutral-100" title="Open publisher data"><ExternalLink className="h-4 w-4" /></a>}<button onClick={() => setExpanded(!expanded)} className="rounded-md p-2 text-neutral-600 hover:bg-neutral-100" title={expanded ? 'Close full screen' : 'Open detailed chart'}>{expanded ? <Minimize2 className="h-4 w-4" /> : <Expand className="h-4 w-4" />}</button></div>}
+    </div>
+    {addingLevel && <div className="mb-2 flex items-center gap-2 rounded-lg bg-violet-50 p-2 text-xs"><label htmlFor={`custom-${gaugeSiteId}`}>Mark level ({unit})</label><input id={`custom-${gaugeSiteId}`} type="number" step={unit === 'ft' ? '0.1' : '1'} defaultValue={customLevel ?? ''} className="w-28 rounded border border-violet-200 bg-white px-2 py-1" onKeyDown={(event) => { if (event.key === 'Enter') saveLevel(event.currentTarget.value); }} /><button onClick={(event) => { const input = event.currentTarget.parentElement?.querySelector('input'); if (input) saveLevel(input.value); }} className="rounded bg-violet-700 px-2 py-1 font-semibold text-white">Save</button>{customLevel !== null && <button onClick={() => { setCustomLevel(null); setAddingLevel(false); try { localStorage.removeItem(`eddy:chart-level:${gaugeSiteId}:${unit}`); } catch {} }} className="p-1 text-violet-800" title="Remove custom level"><X className="h-4 w-4" /></button>}</div>}
+    {(hiddenAbove.length > 0 || hiddenBelow.length > 0) && context === 'conditions' && <div className="mb-1 flex flex-wrap gap-2 text-[10px] font-semibold text-neutral-500">{hiddenAbove.map((marker) => <span key={`up-${marker.label}`}>↑ {marker.label} {numberLabel(marker.value, unit)} {unit}</span>)}{hiddenBelow.map((marker) => <span key={`down-${marker.label}`}>↓ {marker.label} {numberLabel(marker.value, unit)} {unit}</span>)}</div>}
+    {chart}
+    {!compact && <details className="mt-2 text-xs text-neutral-600"><summary className="cursor-pointer font-semibold">Accessible data table</summary><div className="mt-2 max-h-64 overflow-auto"><table className="w-full text-left"><thead className="sticky top-0 bg-white"><tr><th className="py-1">Time</th><th>Stage</th><th>Flow</th><th>Quality</th></tr></thead><tbody>{history.readings.map((reading) => <tr key={reading.timestamp} className="border-t border-neutral-100"><td className="py-1 pr-3">{fullTime(new Date(reading.timestamp).getTime())}</td><td>{reading.gaugeHeightFt === null ? '—' : `${reading.gaugeHeightFt.toFixed(2)} ft`}</td><td>{reading.dischargeCfs === null ? '—' : `${Math.round(reading.dischargeCfs).toLocaleString()} cfs`}</td><td>{(reading.qualifiers ?? []).join(', ') || 'Reported'}</td></tr>)}</tbody></table></div></details>}
+  </div>;
 }

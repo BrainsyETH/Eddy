@@ -802,6 +802,24 @@ export interface GaugeHistoryReading {
   timestamp: string;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
+  /** Provider quality codes applying to this observation. */
+  qualifiers?: string[] | null;
+}
+
+export interface GaugeTypicalReading {
+  /** Local calendar date represented by these day-of-year statistics. */
+  date: string;
+  p25Cfs: number | null;
+  p50Cfs: number | null;
+  p75Cfs: number | null;
+  yearsOfRecord: number | null;
+}
+
+export interface GaugeForecastReading {
+  timestamp: string;
+  /** Official NWS forecasts are stage-only. */
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
 }
 
 export interface GaugeHistoryResponse {
@@ -809,6 +827,17 @@ export interface GaugeHistoryResponse {
   siteName: string;
   /** Oldest first. Can be empty; the endpoint 404s only when it has nothing. */
   readings: GaugeHistoryReading[];
+  /** Last observed point after sorting, useful for an explicit Now boundary. */
+  observedThrough: string | null;
+  /** True when the server reduced the upstream series while retaining extrema. */
+  sampled: boolean;
+  /** USGS day-of-year context. Empty for other providers or short records. */
+  typical: GaugeTypicalReading[];
+  /** Official NWS forecast, never model guidance presented as official. */
+  forecast: GaugeForecastReading[];
+  forecastIssuedAt: string | null;
+  /** Publisher page for attribution, sharing, and deeper inspection. */
+  sourceUrl: string | null;
   /**
    * Extremes over the returned window, per unit.
    *

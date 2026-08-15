@@ -65,6 +65,7 @@ export interface HistoricalReading {
   timestamp: string;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
+  qualifiers?: string[] | null;
 }
 
 export interface HistoricalData {

@@ -1,9 +1,9 @@
 import { useCallback, useEffect } from 'react';
-import { View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 // Imported per WEIGHT, not from the package root. Each @expo-google-fonts
 // package's index re-exports every weight it ships, and Metro bundles whatever
 // is reachable — importing the root pulled all 40-odd faces across the three
@@ -113,11 +113,11 @@ function ThemedShell() {
   }, []);
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }} onLayout={onLayout}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }} onLayout={onLayout}>
       {/* Follows the scheme rather than being pinned light — on the light theme
           white status-bar text would be invisible against the off-white canvas. */}
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false }} />
-    </View>
+    </GestureHandlerRootView>
   );
 }

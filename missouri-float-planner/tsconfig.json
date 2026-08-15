@@ -28,6 +28,9 @@
       ],
       "@shared/*": [
         "./shared/*"
+      ],
+      "@eddy/types": [
+        "../packages/eddy-types/index.ts"
       ]
     }
   },

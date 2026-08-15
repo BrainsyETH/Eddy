@@ -47,25 +47,34 @@
 //
 // ── The scrub ──────────────────────────────────────────────────────────────
 // Touch and drag reads out the value and the time under your finger. It is a
-// PanResponder over a transparent overlay rather than per-point touch targets:
-// a 30-day window is ~720 points, and 720 Pressables is a frame budget spent on
-// hit-testing. onStartShouldSetPanResponder claims the gesture on touch-down so
-// a tap works as well as a drag, and the parent ScrollView is only blocked once
-// the finger is genuinely down on the plot.
+// gesture-handler pan gesture over a transparent overlay rather than per-point
+// touch targets: a 30-day window is ~720 points, and 720 Pressables is a frame
+// budget spent on hit-testing. It waits for horizontal intent so a vertical
+// page scroll still wins when the user is not scrubbing.
 
 import { Component, useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   LayoutChangeEvent,
-  PanResponder,
+  Modal,
   Pressable,
+  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
-import type { GaugeFloodStages, GaugeHistoryReading } from '@eddy/types';
+import type { GaugeFloodStages } from '@eddy/types';
 import { buildZones, type ThresholdValues } from '@eddy/conditions/threshold-zones';
+import {
+  chartPoints,
+  nearestChartPoint,
+  niceValueTicks,
+  splitAtGaps,
+  timeTicks,
+  type ChartPoint,
+} from '@eddy/conditions/chart-model';
 import { conditionColor } from '@/theme/conditions';
 import {
   FLOOD_STAGE_ORDER,
@@ -85,12 +94,12 @@ const RANGES = [
   { days: 30, label: '30d' },
 ] as const;
 
-const CHART_HEIGHT = 168;
+const CHART_HEIGHT = 220;
 /** Room for the value labels down the right edge. */
-const PAD_RIGHT = 46;
+const PAD_RIGHT = 64;
 /** Room for the two time labels under the plot. */
-const PAD_BOTTOM = 18;
-const PAD_TOP = 10;
+const PAD_BOTTOM = 24;
+const PAD_TOP = 18;
 
 /**
  * How far past the data a threshold may sit and still be pulled into view, as a
@@ -143,17 +152,12 @@ interface Props {
   floodStages?: GaugeFloodStages | null;
   /** Section heading. Omitted when the caller draws its own. */
   title?: string;
+  /** Internal presentation hooks used by the exported full-screen wrapper. */
+  expandedPresentation?: boolean;
+  onExpand?: () => void;
 }
 
-interface Point {
-  t: number;
-  v: number;
-}
-
-function valueIn(reading: GaugeHistoryReading, unit: 'ft' | 'cfs'): number | null {
-  const raw = unit === 'cfs' ? reading.dischargeCfs : reading.gaugeHeightFt;
-  return raw != null && Number.isFinite(raw) ? raw : null;
-}
+type Point = ChartPoint;
 
 /** "Tue 2pm" for a short window, "Jul 12" for a long one. */
 function axisTime(ms: number, days: number): string {
@@ -173,17 +177,29 @@ function scrubTime(ms: number): string {
   )}`;
 }
 
+function updateAge(timestamp: string | null | undefined): string {
+  if (!timestamp) return 'Update time unavailable';
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(timestamp).getTime()) / 60_000));
+  if (minutes < 2) return 'Updated just now';
+  if (minutes < 60) return `Updated ${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  return `Updated ${hours} hr${hours === 1 ? '' : 's'} ago`;
+}
+
 function GaugeChartInner({
   siteId,
   unit,
   thresholds = null,
   floodStages = null,
   title,
+  expandedPresentation = false,
+  onExpand,
 }: Props) {
   const { colors, elevation, isDark } = useTheme();
   const [days, setDays] = useState<number>(7);
   const [width, setWidth] = useState(0);
   const [scrubX, setScrubX] = useState<number | null>(null);
+  const [context, setContext] = useState<'conditions' | 'typical'>('conditions');
   /**
    * The unit being drawn, once the reader has chosen one.
    *
@@ -241,24 +257,40 @@ function GaugeChartInner({
     });
   }, [floodStages, drawnUnit]);
 
-  const points = useMemo<Point[]>(() => {
-    if (!history) return [];
-    const out: Point[] = [];
-    for (const r of history.readings) {
-      const v = valueIn(r, drawnUnit);
-      const t = new Date(r.timestamp).getTime();
-      if (v === null || !Number.isFinite(t)) continue;
-      out.push({ t, v });
-    }
-    return out;
+  const points = useMemo<Point[]>(
+    () => history ? chartPoints(history.readings, drawnUnit) : [],
+    [history, drawnUnit],
+  );
+
+  const forecastPoints = useMemo<Point[]>(
+    () => history && drawnUnit === 'ft' ? chartPoints(history.forecast ?? [], drawnUnit) : [],
+    [history, drawnUnit],
+  );
+
+  const typicalPoints = useMemo(() => {
+    if (!history || drawnUnit !== 'cfs') return [];
+    return (history.typical ?? []).flatMap((row) => {
+      const t = new Date(`${row.date}T12:00:00Z`).getTime();
+      return Number.isFinite(t) && row.p50Cfs !== null
+        ? [{ t, median: row.p50Cfs, low: row.p25Cfs, high: row.p75Cfs }]
+        : [];
+    });
   }, [history, drawnUnit]);
 
   const domain = useMemo(() => {
     if (points.length === 0) return null;
 
-    let minV = points[0].v;
-    let maxV = points[0].v;
-    for (const p of points) {
+    const contextual = [
+      ...points,
+      ...forecastPoints,
+      ...(context === 'typical'
+        ? typicalPoints.flatMap((point) => [point.low, point.median, point.high].flatMap((value) =>
+            value === null ? [] : [{ t: point.t, v: value, timestamp: '', qualifiers: [] }]))
+        : []),
+    ].sort((a, b) => a.t - b.t);
+    let minV = contextual[0].v;
+    let maxV = contextual[0].v;
+    for (const p of contextual) {
       if (p.v < minV) minV = p.v;
       if (p.v > maxV) maxV = p.v;
     }
@@ -273,12 +305,12 @@ function GaugeChartInner({
     // official flood line just above where the week has been is the single most
     // useful thing on this chart, and one an order of magnitude up would flatten
     // the week into a stripe along the bottom.
-    for (const line of stageLines) {
+    for (const line of context === 'conditions' ? stageLines : []) {
       if (line.value < minV && line.value > minV - reach) minV = line.value;
       if (line.value > maxV && line.value < maxV + reach) maxV = line.value;
     }
 
-    for (const z of zones) {
+    for (const z of context === 'conditions' ? zones : []) {
       // Only the EDGES matter: a band boundary is the number someone needs to
       // see their line approaching. Pulling in a band's far side would stretch
       // the axis for a line nobody is near.
@@ -290,11 +322,17 @@ function GaugeChartInner({
     }
 
     const pad = (maxV - minV || dataRange) * 0.08;
-    return { min: minV - pad, max: maxV + pad, t0: points[0].t, t1: points[points.length - 1].t };
-  }, [points, zones, stageLines, drawnUnit]);
+    return {
+      min: Math.max(0, minV - pad),
+      max: maxV + pad,
+      t0: contextual[0].t,
+      t1: contextual[contextual.length - 1].t,
+    };
+  }, [points, forecastPoints, typicalPoints, context, zones, stageLines, drawnUnit]);
 
+  const chartHeight = expandedPresentation ? 360 : CHART_HEIGHT;
   const plotWidth = Math.max(0, width - PAD_RIGHT);
-  const plotHeight = CHART_HEIGHT - PAD_TOP - PAD_BOTTOM;
+  const plotHeight = chartHeight - PAD_TOP - PAD_BOTTOM;
 
   const scale = useMemo(() => {
     if (!domain || plotWidth <= 0) return null;
@@ -314,25 +352,41 @@ function GaugeChartInner({
    */
   const paths = useMemo<string[]>(() => {
     if (!scale || points.length < 2) return [];
-    const expected = (points[points.length - 1].t - points[0].t) / (points.length - 1);
-    const breakAt = expected * GAP_BREAK_MULTIPLE;
-
-    const out: string[] = [];
-    let current = `M ${scale.x(points[0].t).toFixed(2)} ${scale.y(points[0].v).toFixed(2)}`;
-    for (let i = 1; i < points.length; i++) {
-      const gap = points[i].t - points[i - 1].t;
-      const cmd = `${scale.x(points[i].t).toFixed(2)} ${scale.y(points[i].v).toFixed(2)}`;
-      if (gap > breakAt) {
-        out.push(current);
-        current = `M ${cmd}`;
-      } else {
-        current += ` L ${cmd}`;
-      }
-    }
-    out.push(current);
-    // A lone moveto is not a line; dropping it avoids a stray dot at a gap edge.
-    return out.filter((d) => d.includes('L'));
+    return splitAtGaps(points, GAP_BREAK_MULTIPLE)
+      .filter((segment) => segment.length > 1)
+      .map((segment) => segment.map((point, index) =>
+        `${index ? 'L' : 'M'} ${scale.x(point.t).toFixed(2)} ${scale.y(point.v).toFixed(2)}`,
+      ).join(' '));
   }, [points, scale]);
+
+  const forecastPath = useMemo(() => {
+    if (!scale || forecastPoints.length < 2) return '';
+    return forecastPoints.map((point, index) =>
+      `${index ? 'L' : 'M'} ${scale.x(point.t).toFixed(2)} ${scale.y(point.v).toFixed(2)}`,
+    ).join(' ');
+  }, [forecastPoints, scale]);
+
+  const typicalPaths = useMemo(() => {
+    if (!scale || typicalPoints.length < 2 || context !== 'typical') return { area: '', median: '' };
+    const median = typicalPoints.map((point, index) =>
+      `${index ? 'L' : 'M'} ${scale.x(point.t).toFixed(2)} ${scale.y(point.median).toFixed(2)}`,
+    ).join(' ');
+    const high = typicalPoints.filter((point) => point.high !== null);
+    const low = typicalPoints.filter((point) => point.low !== null);
+    const area = high.length > 1 && low.length > 1
+      ? `${high.map((point, index) => `${index ? 'L' : 'M'} ${scale.x(point.t).toFixed(2)} ${scale.y(point.high!).toFixed(2)}`).join(' ')} ${[...low].reverse().map((point) => `L ${scale.x(point.t).toFixed(2)} ${scale.y(point.low!).toFixed(2)}`).join(' ')} Z`
+      : '';
+    return { area, median };
+  }, [typicalPoints, scale, context]);
+
+  const yTicks = useMemo(
+    () => domain ? niceValueTicks(domain.min, domain.max, 4) : [],
+    [domain],
+  );
+  const xTicks = useMemo(
+    () => domain ? timeTicks(domain.t0, domain.t1, 4) : [],
+    [domain],
+  );
 
   /**
    * The units this station actually reported in the loaded window.
@@ -354,36 +408,19 @@ function GaugeChartInner({
     const spanT = domain.t1 - domain.t0 || 1;
     const targetT = domain.t0 + (Math.min(Math.max(scrubX, 0), plotWidth) / plotWidth) * spanT;
 
-    // Linear scan. 720 points is nothing next to the gesture's own cost, and a
-    // binary search here would be a cleverness nobody can check.
-    let best = points[0];
-    let bestDelta = Math.abs(points[0].t - targetT);
-    for (const p of points) {
-      const delta = Math.abs(p.t - targetT);
-      if (delta < bestDelta) {
-        best = p;
-        bestDelta = delta;
-      }
-    }
-    return best;
+    return nearestChartPoint(points, targetT);
   }, [scrubX, scale, points, domain, plotWidth]);
 
-  // useMemo, not useRef: the handlers are spread onto a View during render, and
-  // reading a ref's `.current` there is the thing react-hooks/refs forbids. The
-  // empty dep array makes this every bit as stable as the ref was — setScrubX
-  // is a setState function, which React guarantees never changes identity.
-  const pan = useMemo(
-    () =>
-      PanResponder.create({
-        // Claim on touch-down so a tap reads out, and so the enclosing
-        // ScrollView does not steal a slow horizontal drag across the plot.
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: (e) => setScrubX(e.nativeEvent.locationX),
-        onPanResponderMove: (e) => setScrubX(e.nativeEvent.locationX),
-        onPanResponderRelease: () => setScrubX(null),
-        onPanResponderTerminate: () => setScrubX(null),
-      }),
+  // Same gesture system as the surrounding sheets and pagers. A horizontal
+  // intent activates quickly; a vertical intent fails so the screen still scrolls.
+  const scrubGesture = useMemo(
+    () => Gesture.Pan()
+      .runOnJS(true)
+      .activeOffsetX([-3, 3])
+      .failOffsetY([-12, 12])
+      .onBegin((event) => setScrubX(event.x))
+      .onUpdate((event) => setScrubX(event.x))
+      .onFinalize(() => setScrubX(null)),
     [],
   );
 
@@ -391,6 +428,17 @@ function GaugeChartInner({
 
   const lineColor = colors.interactive;
   const hasPlot = scale !== null && domain !== null && paths.length > 0;
+  const current = points.at(-1) ?? null;
+  const previous = current
+    ? points.find((point) => point.t >= current.t - Math.min(days, 1) * 86_400_000) ?? points[0]
+    : null;
+  const delta = current && previous && previous.v !== 0
+    ? ((current.v - previous.v) / Math.abs(previous.v)) * 100
+    : null;
+  const hasTypical = drawnUnit === 'cfs' && typicalPoints.length > 1;
+  const hiddenAbove = domain && context === 'conditions'
+    ? zones.filter((zone) => !zone.openEnded && zone.max > domain.max)
+    : [];
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
@@ -412,12 +460,27 @@ function GaugeChartInner({
               {scrubTime(scrubbed.t)}
             </Text>
           ) : (
-            <Text style={[styles.subtitle, { color: colors.textSubtle }]} numberOfLines={1}>
-              {drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height'} · last{' '}
-              {days === 1 ? '24 hours' : `${days} days`}
-            </Text>
+            <View>
+              {current ? (
+                <View style={styles.currentRow}>
+                  <Text style={[styles.currentValue, { color: colors.text }]}>
+                    {formatReading(current.v, drawnUnit)}
+                  </Text>
+                  {delta !== null ? (
+                    <Text style={[styles.delta, { color: colors.textMuted }]}>
+                      {delta > 0 ? '↑' : delta < 0 ? '↓' : '→'} {Math.abs(delta).toFixed(0)}%
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+              <Text style={[styles.subtitle, { color: colors.textSubtle }]} numberOfLines={1}>
+                {updateAge(history?.observedThrough)} · {days === 1 ? 'last 24 hours' : `last ${days} days`}
+              </Text>
+            </View>
           )}
         </View>
+
+        <View style={styles.controlRow}>
 
         {/* ── Units ────────────────────────────────────────────────
             Only when the station published BOTH in this window. One unit and
@@ -480,14 +543,60 @@ function GaugeChartInner({
             );
           })}
         </View>
+        {hasTypical ? (
+          <View style={[styles.ranges, { borderColor: colors.border }]}>
+            {(['conditions', 'typical'] as const).map((choice) => {
+              const active = context === choice;
+              return (
+                <Pressable
+                  key={choice}
+                  onPress={() => setContext(choice)}
+                  style={[styles.range, active && { backgroundColor: colors.cardRaised }]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.rangeText, { color: active ? colors.text : colors.textSubtle }]}>
+                    {choice === 'conditions' ? 'Bands' : 'Typical'}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+        {onExpand ? (
+          <Pressable
+            onPress={onExpand}
+            style={[styles.detailButton, { borderColor: colors.border }]}
+            accessibilityRole="button"
+            accessibilityLabel={expandedPresentation ? 'Close detailed chart' : 'Open detailed chart'}
+          >
+            <Text style={[styles.rangeText, { color: colors.text }]}>
+              {expandedPresentation ? 'Close' : 'Details'}
+            </Text>
+          </Pressable>
+        ) : null}
+        </View>
       </View>
+
+      {hiddenAbove.length ? (
+        <Text style={[styles.offscreen, { color: colors.textSubtle }]} numberOfLines={1}>
+          {hiddenAbove.slice(0, 2).map((zone) => `↑ ${zone.label} ${formatReading(zone.max, drawnUnit)}`).join('   ')}
+        </Text>
+      ) : null}
 
       <View style={styles.plotWrap} onLayout={onLayout}>
         {width > 0 && hasPlot ? (
-          <View {...pan.panHandlers}>
-            <Svg width={width} height={CHART_HEIGHT}>
+          <GestureDetector gesture={scrubGesture}>
+          <View
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={current
+              ? `${drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height'} hydrograph. Current value ${formatReading(current.v, drawnUnit)}. ${updateAge(history?.observedThrough)}. Drag across the chart for exact observations.`
+              : 'Gauge hydrograph'}
+          >
+            <Svg width={width} height={chartHeight}>
               {/* ── The bands, at their true numeric height ── */}
-              {zones.map((zone) => {
+              {(context === 'conditions' ? zones : []).map((zone) => {
                 const top = scale.y(Math.min(zone.max, domain.max));
                 const bottom = scale.y(Math.max(zone.min, domain.min));
                 const h = bottom - top;
@@ -514,37 +623,33 @@ function GaugeChartInner({
               {/* Band boundaries, labelled down the right edge. These are the
                   numbers people actually want off a chart like this — "High
                   starts at 1,400" — and a shaded region alone does not say it. */}
-              {zones.map((zone) => {
+              {(context === 'conditions' ? zones : []).map((zone) => {
                 const y = scale.y(zone.max);
                 if (zone.openEnded) return null;
                 if (y < PAD_TOP || y > PAD_TOP + plotHeight) return null;
                 return (
-                  <Line
-                    key={`edge-${zone.key}`}
-                    x1={0}
-                    y1={y}
-                    x2={plotWidth}
-                    y2={y}
-                    stroke={conditionColor(zone.key)}
-                    strokeWidth={1}
-                    strokeDasharray="3,3"
-                    opacity={0.55}
-                  />
+                  <G key={`edge-${zone.key}`}>
+                    <Line x1={0} y1={y} x2={plotWidth} y2={y}
+                      stroke={conditionColor(zone.key)} strokeWidth={1}
+                      strokeDasharray="3,3" opacity={0.55} />
+                    <SvgText x={3} y={y - 3 < PAD_TOP + 8 ? y + 11 : y - 3}
+                      fill={conditionColor(zone.key)} fontSize={9} fontFamily={fonts.medium}>
+                      {zone.label} · {formatReading(zone.max, drawnUnit)}
+                    </SvgText>
+                  </G>
                 );
               })}
 
-              {/* ── Value axis, right edge ── */}
-              {[domain.max, (domain.max + domain.min) / 2, domain.min].map((v, i) => (
-                <SvgText
-                  key={`v-${i}`}
-                  x={plotWidth + 6}
-                  y={scale.y(v) + 4}
-                  fill={colors.textSubtle}
-                  fontSize={10}
-                  fontFamily={fonts.mono}
-                >
-                  {formatReading(v, drawnUnit).replace(` ${drawnUnit}`, '')}
-                </SvgText>
+              {/* ── Value grid and axis ── */}
+              {yTicks.map((tick) => (
+                <G key={`v-${tick.value}`}>
+                  <Line x1={0} y1={scale.y(tick.value)} x2={plotWidth}
+                    y2={scale.y(tick.value)} stroke={colors.border} strokeWidth={1} opacity={0.45} />
+                  <SvgText x={plotWidth + 6} y={scale.y(tick.value) + 4}
+                    fill={colors.textSubtle} fontSize={10} fontFamily={fonts.mono}>
+                    {formatReading(tick.value, drawnUnit).replace(` ${drawnUnit}`, '')}
+                  </SvgText>
+                </G>
               ))}
 
               {/* ── The NWS stages ──
@@ -557,7 +662,7 @@ function GaugeChartInner({
                   construction, so this cannot be got wrong by editing the JSX.
                   The label carries "NWS" every time; a bare violet rule is an
                   unattributed claim about danger. */}
-              {stageLines.map((line) => {
+              {(context === 'conditions' ? stageLines : []).map((line) => {
                 const y = scale.y(line.value);
                 if (y < PAD_TOP || y > PAD_TOP + plotHeight) return null;
                 const def = FLOOD_STAGE_SYSTEM[line.key];
@@ -590,6 +695,13 @@ function GaugeChartInner({
                 );
               })}
 
+              {/* Historical day-of-year context: interquartile band + median. */}
+              {typicalPaths.area ? <Path d={typicalPaths.area} fill={lineColor} opacity={0.12} /> : null}
+              {typicalPaths.median ? (
+                <Path d={typicalPaths.median} stroke={lineColor} strokeWidth={1.5}
+                  strokeDasharray="5,4" opacity={0.65} fill="none" />
+              ) : null}
+
               {/* ── The line ── */}
               {paths.map((d, i) => (
                 <Path
@@ -602,6 +714,23 @@ function GaugeChartInner({
                   strokeLinecap="round"
                 />
               ))}
+
+              {forecastPath ? (
+                <>
+                  <Line x1={scale.x(points[points.length - 1].t)}
+                    y1={PAD_TOP} x2={scale.x(points[points.length - 1].t)}
+                    y2={PAD_TOP + plotHeight} stroke={floodStageColor()}
+                    strokeWidth={1} strokeDasharray="3,4" opacity={0.55} />
+                  <SvgText x={scale.x(points[points.length - 1].t) + 4} y={PAD_TOP + 10}
+                    fill={floodStageColor()} fontSize={8} fontFamily={fonts.medium}>NOW</SvgText>
+                  <Path d={forecastPath} stroke={floodStageColor()} strokeWidth={2.5}
+                    strokeDasharray="7,5" fill="none" strokeLinecap="round" />
+                  <SvgText x={plotWidth} y={PAD_TOP + 10} textAnchor="end"
+                    fill={floodStageColor()} fontSize={8} fontFamily={fonts.medium}>
+                    OFFICIAL NWS FORECAST
+                  </SvgText>
+                </>
+              ) : null}
 
               {/* ── Where it is now ── */}
               <Circle
@@ -635,29 +764,23 @@ function GaugeChartInner({
               ) : null}
 
               {/* ── Time axis ── */}
-              <SvgText
-                x={0}
-                y={CHART_HEIGHT - 4}
-                fill={colors.textSubtle}
-                fontSize={10}
-                fontFamily={fonts.body}
-              >
-                {axisTime(domain.t0, days)}
-              </SvgText>
-              <SvgText
-                x={plotWidth}
-                y={CHART_HEIGHT - 4}
-                fill={colors.textSubtle}
-                fontSize={10}
-                fontFamily={fonts.body}
-                textAnchor="end"
-              >
-                {axisTime(domain.t1, days)}
-              </SvgText>
+              {xTicks.map((tick, index) => (
+                <G key={`t-${index}`}>
+                  <Line x1={tick.position * plotWidth} x2={tick.position * plotWidth}
+                    y1={PAD_TOP} y2={PAD_TOP + plotHeight} stroke={colors.border}
+                    strokeWidth={1} opacity={0.25} />
+                  <SvgText x={tick.position * plotWidth} y={chartHeight - 4}
+                    fill={colors.textSubtle} fontSize={10} fontFamily={fonts.body}
+                    textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}>
+                    {axisTime(tick.value, days)}
+                  </SvgText>
+                </G>
+              ))}
             </Svg>
           </View>
+          </GestureDetector>
         ) : (
-          <View style={[styles.placeholder, { height: CHART_HEIGHT }]}>
+          <View style={[styles.placeholder, { height: chartHeight }]}>
             {loading ? (
               <ActivityIndicator size="small" color={colors.interactive} />
             ) : (
@@ -738,7 +861,9 @@ class ChartBoundary extends Component<
 
 export function GaugeChart(props: Props) {
   const { colors, elevation } = useTheme();
+  const [expanded, setExpanded] = useState(false);
   return (
+    <>
     <ChartBoundary
       // Deliberately shaped like the component's own empty states rather than
       // like an error: same card, same height, same quiet ink. What is missing
@@ -757,23 +882,47 @@ export function GaugeChart(props: Props) {
         </View>
       }
     >
-      <GaugeChartInner {...props} />
+      <GaugeChartInner {...props} onExpand={() => setExpanded(true)} />
     </ChartBoundary>
+    <Modal visible={expanded} animationType="slide" onRequestClose={() => setExpanded(false)}>
+      <GestureHandlerRootView style={styles.modal}>
+      <SafeAreaView style={[styles.modal, { backgroundColor: colors.bg }]}>
+        <GaugeChartInner
+          {...props}
+          title={props.title ?? 'Detailed hydrograph'}
+          expandedPresentation
+          onExpand={() => setExpanded(false)}
+        />
+        <Text style={[styles.modalHint, { color: colors.textSubtle }]}>
+          Drag across the chart for exact observations. Solid is observed; dashed violet is an official NWS forecast when available.
+        </Text>
+      </SafeAreaView>
+      </GestureHandlerRootView>
+    </Modal>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   card: { marginHorizontal: 16, marginBottom: 14, borderRadius: 16, padding: 14 },
-  head: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
+  head: { gap: 10, marginBottom: 6 },
   headText: { flex: 1 },
+  controlRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   title: { ...t.base, fontFamily: fonts.heading },
   subtitle: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  currentRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 2 },
+  currentValue: { ...t.lg, fontFamily: fonts.monoMedium },
+  delta: { ...t.xs, fontFamily: fonts.semibold },
   scrubLine: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   scrubValue: { ...t.sm, fontFamily: fonts.monoMedium },
   ranges: { flexDirection: 'row', borderWidth: 1, borderRadius: 9, overflow: 'hidden' },
   range: { paddingHorizontal: 10, paddingVertical: 5 },
   rangeText: { ...t.xs, fontFamily: fonts.medium },
+  detailButton: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 5 },
+  offscreen: { ...t.xs, fontFamily: fonts.medium, marginBottom: 2 },
   plotWrap: { marginTop: 2 },
   placeholder: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
   placeholderText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
+  modal: { flex: 1, justifyContent: 'center' },
+  modalHint: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 24, textAlign: 'center' },
 });

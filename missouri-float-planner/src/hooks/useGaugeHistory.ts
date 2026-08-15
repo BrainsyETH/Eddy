@@ -3,24 +3,9 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
+import type { GaugeHistoryReading as HistoricalReading, GaugeHistoryResponse } from '@eddy/types';
 
-export interface HistoricalReading {
-  timestamp: string;
-  gaugeHeightFt: number | null;
-  dischargeCfs: number | null;
-}
-
-export interface GaugeHistoryResponse {
-  siteId: string;
-  siteName: string;
-  readings: HistoricalReading[];
-  stats: {
-    minDischarge: number | null;
-    maxDischarge: number | null;
-    minHeight: number | null;
-    maxHeight: number | null;
-  };
-}
+export type { HistoricalReading, GaugeHistoryResponse };
 
 export function useGaugeHistory(siteId: string | null, days: number = 14) {
   return useQuery<GaugeHistoryResponse | null, Error>({
