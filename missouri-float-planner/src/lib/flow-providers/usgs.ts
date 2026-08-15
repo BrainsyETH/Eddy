@@ -270,9 +270,10 @@ async function fetchHistoryModern(siteId: string, days: number): Promise<Histori
     const value = parseOgcValue(props.value);
 
     if (!readingsMap.has(props.time)) {
-      readingsMap.set(props.time, { timestamp: props.time, gaugeHeightFt: null, dischargeCfs: null });
+      readingsMap.set(props.time, { timestamp: props.time, gaugeHeightFt: null, dischargeCfs: null, qualifiers: [] });
     }
     const reading = readingsMap.get(props.time)!;
+    mergeQualifierCodes((reading.qualifiers ??= []), ogcQualifiers(props));
     if (props.parameter_code === PARAM_GAGE_HEIGHT && validHeight(value)) {
       reading.gaugeHeightFt = value;
     } else if (props.parameter_code === PARAM_DISCHARGE && validDischarge(value)) {
@@ -399,9 +400,10 @@ async function fetchHistoryLegacy(siteId: string, days: number): Promise<Histori
     for (const val of series.values[0]?.value || []) {
       const numValue = parseFloat(val.value);
       if (!readingsMap.has(val.dateTime)) {
-        readingsMap.set(val.dateTime, { timestamp: val.dateTime, gaugeHeightFt: null, dischargeCfs: null });
+        readingsMap.set(val.dateTime, { timestamp: val.dateTime, gaugeHeightFt: null, dischargeCfs: null, qualifiers: [] });
       }
       const reading = readingsMap.get(val.dateTime)!;
+      mergeQualifierCodes((reading.qualifiers ??= []), val.qualifiers ?? []);
       if (variableCode === PARAM_GAGE_HEIGHT && validHeight(numValue)) {
         reading.gaugeHeightFt = numValue;
       } else if (variableCode === PARAM_DISCHARGE && validDischarge(numValue)) {
