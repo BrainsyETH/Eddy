@@ -88,9 +88,10 @@ bundle-mobile: guard-node ## Credential-free production iOS bundle + .easignore 
 #
 # Run it before a release, and after applying anything by hand. See
 # docs/ios-release-runbook.md.
-check-db: guard-node ## Migration drift: repo files vs the linked Supabase project
+check-db: guard-node ## Migration + access-slug drift: repo files vs the linked Supabase project
 	@command -v npx >/dev/null || { echo "npx not found"; exit 1; }
 	cd $(WEB) && npm run db:check-migrations
+	cd $(WEB) && npm run db:check-access-slugs
 
 check: check-web check-mobile bundle-mobile ## Everything CI gates on
 
