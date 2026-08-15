@@ -111,6 +111,21 @@ export interface UsaceDam {
   /** SWPA column code, when the dam has turbines on the federal grid. */
   swpaCode?: string;
   /**
+   * Which Ameren Missouri feed backs this dam's metrics, for the dams CWMS
+   * cannot serve — see src/lib/ameren/osage.ts for the API and its story.
+   *
+   * 'osage'  — Bagnell itself: hourly pool, tailwater and discharge.
+   * 'truman' — the daily report's levelandFlowData block, which carries the
+   *            observed pool and outflow of Truman upstream. Kansas City
+   *            publishes nothing to CWMS, so this is the only observed
+   *            Truman data anywhere; it arrives about a day in arrears and
+   *            its readings wear their own timestamps.
+   *
+   * A dam with this set reads metrics from Ameren INSTEAD of CWMS — the two
+   * paths never mix on one dam, so a reading's provenance is never a blend.
+   */
+  amerenMetrics?: 'osage' | 'truman';
+  /**
    * Turbine flow above which the powerhouse counts as running. Table Rock
    * idles around 20 cfs with the units off, so a bare `> 0` test would read
    * "generating" all day.
@@ -443,6 +458,10 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     swpaCode: 'HST',
     nameplate: { units: 6, megawatts: 160 },
     tailwaterFishery: 'warmwater' as const,
+    // Kansas City publishes nothing to CWMS, but Ameren's Osage daily report
+    // carries Truman's observed pool and outflow — they watch it because its
+    // releases feed their lake. About a day in arrears, honestly stamped.
+    amerenMetrics: 'truman' as const,
     series: {},
   },
 
@@ -820,6 +839,51 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
         unit: 'F',
       },
     },
+  },
+  // ── The first non-federal dam. ─────────────────────────────────────────────
+  // Bagnell is Ameren Missouri's, operated under FERC license No. 459 — no
+  // Corps district, no CWMS, no SWPA column. Its numbers come from Ameren's
+  // own hydro reporting API (src/lib/ameren/osage.ts, verified live
+  // 2026-08-15): hourly pool, tailwater and discharge, with the observed
+  // half of Truman riding along in the same daily report.
+  //
+  // The registry keeps its name for now — one non-federal entry does not
+  // justify the churn of renaming a file every consumer imports — but this
+  // entry is the precedent: `amerenMetrics` is the shape a non-CWMS metrics
+  // source takes, and Powersite (Liberty Utilities, below Taneycomo) is the
+  // next dam that will want one. See docs/DAM_EXPANSION_SURVEY_2026-08.md.
+  //
+  // What Bagnell deliberately does NOT have:
+  // - generationFlow. Ameren publishes total discharge only, so `generating`
+  //   stays null — "not measured", never inferred from discharge, because
+  //   Bagnell spills through gates as well as turbines and reading gate flow
+  //   as generation is exactly the claim releaseExcludesGeneration exists to
+  //   forbid elsewhere.
+  // - a schedule or forecast. Releases can start at any time; the dam
+  //   sounds a siren before starting or stopping generators (Ameren's own
+  //   safety line, and the page copy says so). The daily report's
+  //   "anticipated discharge today" is a single stated figure, not an hourly
+  //   plan — surfacing it is follow-up work with its own copy discipline.
+  'ameren-bagnell-dam': {
+    id: 'ameren-bagnell-dam',
+    name: 'Bagnell Dam',
+    lakeName: 'Lake of the Ozarks',
+    state: 'MO',
+    // Wikipedia/FERC relicensing records; no CWMS location exists to prefer.
+    lat: 38.2019,
+    lon: -92.6228,
+    // 8 main units x 21.5 MW = 172; licensed capacity 176 with the two
+    // station-service units. The FERC Biological Opinion's own figure —
+    // "8 main turbines … total installed capacity of 176.0 MW" — is what
+    // ships. Verified 2026-08-15.
+    nameplate: { units: 8, megawatts: 176 },
+    // The Osage below is paddlefish, catfish and crappie water — a warmwater
+    // release off a shallow reservoir, nothing hypolimnetic about it.
+    tailwaterFishery: 'warmwater' as const,
+    // Ameren's recorded daily report line for Lake of the Ozarks operations.
+    infoPhone: '573-365-9205',
+    amerenMetrics: 'osage' as const,
+    series: {},
   },
 };
 

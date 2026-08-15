@@ -43,6 +43,7 @@ import {
 } from '@/lib/flow-providers/usace-registry';
 import { buildPatternDays, patternHasObservations } from '@/lib/data/dam-history';
 import { readPatternHours } from '@/lib/data/dam-history-store';
+import { fetchOsageReadings, fetchTrumanDaily } from '@/lib/ameren/osage';
 
 /**
  * What a LIST surface needs, and nothing else.
@@ -289,11 +290,95 @@ export function publishableValue(
   return value >= FLOOD_POOL_ZERO_BAND ? 0 : null;
 }
 
+/**
+ * Metrics from Ameren's hydro reporting API, for the dams CWMS cannot serve.
+ * Same shape out as readMetrics, same staleness and trend machinery, so a
+ * reading's provenance changes nothing about how a surface treats it.
+ *
+ * - 'osage' (Bagnell): hourly pool, tailwater and discharge. The tailwater
+ *   gets the same 3-hour trend the CWMS path computes, from the same window
+ *   arithmetic (changeOver), because the number means the same thing.
+ * - 'truman': the daily report's observed pool and outflow, about a day in
+ *   arrears. Each value wears the report's own timestamp, so readingStaleness
+ *   bands it honestly — a day-old figure renders dimmed with its age, which
+ *   is the truth, rather than fresh, which would be the bug.
+ */
+async function readAmerenMetrics(
+  dam: UsaceDam,
+  requested: UsaceMetric[]
+): Promise<Partial<Record<UsaceMetric, DamMetricValue>>> {
+  const metrics: Partial<Record<UsaceMetric, DamMetricValue>> = {};
+
+  if (dam.amerenMetrics === 'osage') {
+    const readings = await fetchOsageReadings();
+    if (!readings || readings.length === 0) return {};
+    const latest = readings[readings.length - 1];
+    const at = new Date(latest.timestamp).toISOString();
+    const staleness = stalenessOf(latest.timestamp);
+
+    if (requested.includes('release')) {
+      metrics.release = { value: latest.dischargeCfs, unit: 'cfs', at, staleness };
+    }
+    if (requested.includes('poolElevation')) {
+      metrics.poolElevation = { value: latest.headwaterFt, unit: 'ft', at, staleness };
+    }
+    if (requested.includes('tailwaterElevation')) {
+      const trend = changeOver(
+        readings.map((r) => ({ timestamp: r.timestamp, value: r.tailwaterFt })),
+        TREND_HOURS
+      );
+      metrics.tailwaterElevation = {
+        value: latest.tailwaterFt,
+        unit: 'ft',
+        at,
+        staleness,
+        ...(trend ? { trend } : {}),
+      };
+    }
+    return metrics;
+  }
+
+  if (dam.amerenMetrics === 'truman') {
+    const daily = await fetchTrumanDaily();
+    if (!daily) return {};
+    const at = new Date(daily.timestamp).toISOString();
+    const staleness = stalenessOf(daily.timestamp);
+    if (requested.includes('poolElevation')) {
+      metrics.poolElevation = { value: daily.poolElevationFt, unit: 'ft', at, staleness };
+    }
+    if (requested.includes('release')) {
+      metrics.release = { value: daily.outflowCfs, unit: 'cfs', at, staleness };
+    }
+    return metrics;
+  }
+
+  return metrics;
+}
+
+/**
+ * Whether readMetrics has anything to fetch for this dam at all.
+ *
+ * The office is the fetch prerequisite; the rest is "does anything name a
+ * series" — declared ids, or a location the resolver can search. This used
+ * to be `office && cdaLocation`, which was the same set until the Nashville
+ * dams: explicit series, cdaLocations (plural), no cdaLocation — and the
+ * old gate silently returned {} for all three, blanking every metric on
+ * their pages while every test that could run offline stayed green. Pinned
+ * by dams.test.ts against the registry, which is why this is a named
+ * function and not an inline condition.
+ */
+export function hasCwmsMetricsPath(dam: UsaceDam): boolean {
+  return Boolean(
+    dam.office &&
+      (Object.keys(dam.series).length > 0 || dam.cdaLocation || dam.cdaLocations?.length)
+  );
+}
+
 async function readMetrics(
   dam: UsaceDam,
   requested: UsaceMetric[]
 ): Promise<Partial<Record<UsaceMetric, DamMetricValue>>> {
-  if (!dam.office || !dam.cdaLocation) return {};
+  if (!hasCwmsMetricsPath(dam)) return {};
 
   const asked = requested.filter((m) => !dam.suppressMetrics?.includes(m));
   const resolved = await seriesFor(dam, asked);
@@ -476,7 +561,7 @@ async function fetchSnapshot(
   if (!dam) return null;
 
   const [metrics, schedule, pattern, forecast] = await Promise.all([
-    readMetrics(dam, options.metrics).catch(
+    (dam.amerenMetrics ? readAmerenMetrics(dam, options.metrics) : readMetrics(dam, options.metrics)).catch(
       () => ({}) as Partial<Record<UsaceMetric, DamMetricValue>>
     ),
     readSchedule(dam, options.scheduleDays).catch(() => [] as DamScheduleDay[]),
@@ -526,7 +611,12 @@ export function buildSnapshot(
     gen && dam.generationOnCfs !== undefined ? gen.value > dam.generationOnCfs : null;
 
   const sources: string[] = [];
-  if (Object.keys(metrics).length > 0) sources.push('USACE CWMS');
+  // Attribution follows the path the metrics actually came down: a dam with
+  // amerenMetrics reads Ameren instead of CWMS, never both, so the label is
+  // decided by the registry rather than guessed from the values.
+  if (Object.keys(metrics).length > 0) {
+    sources.push(dam.amerenMetrics ? 'Ameren Missouri' : 'USACE CWMS');
+  }
   if (schedule.length > 0) sources.push('SWPA');
 
   // The two SWPA figures a client needs to size an observation against this
@@ -543,12 +633,15 @@ export function buildSnapshot(
     state: dam.state,
     lat: dam.lat,
     lon: dam.lon,
-    // A SWPA column OR an explicit turbine-flow series — either is
-    // constitutive evidence of a powerhouse. swpaCode alone was the whole
-    // test until the Nashville dams landed: their power is marketed by SEPA,
-    // so a plant with six units carried no SWPA code and this line alone
-    // would have announced it had no powerhouse at all.
-    hasTurbines: Boolean(dam.swpaCode || dam.series.generationFlow),
+    // A SWPA column, an explicit turbine-flow series, OR a nameplate — each
+    // is constitutive evidence of a powerhouse. swpaCode alone was the whole
+    // test until the Nashville dams landed (SEPA-marketed, no column), and
+    // the series test alone missed Bagnell (Ameren publishes total discharge
+    // only, so no generationFlow — but eight generators are eight
+    // generators). The registry's own discipline makes nameplate safe here:
+    // it is only ever given to a dam with a plant, and the powerhouse-
+    // identity test pins Clearwater's absence.
+    hasTurbines: Boolean(dam.swpaCode || dam.series.generationFlow || dam.nameplate),
     ...(dam.nameplate ? { nameplate: dam.nameplate } : {}),
     ...(swpa
       ? {

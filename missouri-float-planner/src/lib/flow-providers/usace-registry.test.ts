@@ -19,18 +19,20 @@ test('every dam has an id matching its registry key', () => {
   }
 });
 
-test('a dam publishes to CWMS, to SWPA, or both — never neither', () => {
+test('a dam publishes to CWMS, to SWPA, or a licensed operator — never nowhere', () => {
   for (const dam of Object.values(USACE_DAMS)) {
     // A CWMS presence is either a resolvable location or explicit series —
     // the Nashville dams are the second shape: office + verified tsIds, no
     // cdaLocation, because no single location prefix spans their split
-    // station namespaces (see the LRN block in the registry).
+    // station namespaces (see the LRN block in the registry). Bagnell is the
+    // third source: a FERC licensee's own reporting API (amerenMetrics).
     const hasCwms = Boolean(
       dam.office &&
         (dam.cdaLocation || dam.cdaLocations?.length || Object.keys(dam.series).length > 0)
     );
     const hasSwpa = Boolean(dam.swpaCode);
-    assert.ok(hasCwms || hasSwpa, `${dam.id} has no data source at all`);
+    const hasOperatorFeed = Boolean(dam.amerenMetrics);
+    assert.ok(hasCwms || hasSwpa || hasOperatorFeed, `${dam.id} has no data source at all`);
   }
 });
 

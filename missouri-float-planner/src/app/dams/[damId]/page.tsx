@@ -118,13 +118,35 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
             and does not depend on today's fetch succeeding. */}
         {dam.schedule.length === 0 && (
           <p className="mt-6 rounded-xl border-2 border-neutral-300 bg-white p-5 text-sm text-neutral-600">
-            {/* Three states, not two. "SWPA hasn't refreshed yet" is a claim
+            {/* Four states, not two. "SWPA hasn't refreshed yet" is a claim
                 about a dam SWPA schedules — on a Nashville project, whose
                 power SEPA markets with no public loading page, it would
-                promise a schedule that is never coming. The registry's
-                swpaCode is what separates them, and this is a server
-                component, so it can ask the registry directly. */}
-            {dam.hasTurbines && !getUsaceDam(dam.id)?.swpaCode ? (
+                promise a schedule that is never coming; on Bagnell, which is
+                not federal at all, even the SEPA sentence would name the
+                wrong operator. The registry separates them, and this is a
+                server component, so it can ask it directly. */}
+            {getUsaceDam(dam.id)?.amerenMetrics === 'osage' ? (
+              <>
+                Bagnell Dam is operated by Ameren Missouri under a FERC
+                license, and no hourly generation schedule is published —
+                releases can begin at any time, and the dam sounds a warning
+                siren before starting or stopping generators. The readings
+                above are observed at the dam.
+                {dam.infoPhone && (
+                  <>
+                    {' '}
+                    For Ameren&rsquo;s recorded daily operations report, call{' '}
+                    <a
+                      href={`tel:${dam.infoPhone.replace(/\D/g, '')}`}
+                      className="font-medium text-primary-700 hover:text-primary-800"
+                    >
+                      {dam.infoPhone}
+                    </a>
+                    .
+                  </>
+                )}
+              </>
+            ) : dam.hasTurbines && !getUsaceDam(dam.id)?.swpaCode ? (
               dam.generationForecast ? (
                 <>
                   No public hourly loading schedule exists for this project —

@@ -268,7 +268,7 @@ calibration (plan step 1) will need them anyway.
 | 2 | Pattern-strip history accumulating for the three (cron picks them up automatically) | automatic |
 | 3 | LRN forecast rendering | **shipped, as windows** — see below |
 | 4 | Resolver SPECS: LRN vocabulary + split-prefix locations | **shipped** — `cdaLocations` on the registry, LRN spellings in SPECS (bare `Flow` ranked last), smoke run 2026-08-15: LRN resolves 23/27, the 18 prior dams byte-identical to baseline |
-| 5 | Ameren: Bagnell + Truman-completion via the found JSON API | **unblocked** — endpoints verified live (§3); needs the non-USACE provider design shared with step 6 |
+| 5 | Ameren: Bagnell + Truman-completion via the found JSON API | **shipped** — `ameren-bagnell-dam` with live pool/tailwater/discharge, Truman's observed pool+outflow riding along; `amerenMetrics` is the non-CWMS provider shape Powersite will reuse |
 | 6 | Powersite: non-CWMS metric provider design; Taneycomo reach carries it meanwhile | with TAILWATER_PLAN step 4 |
 | 7 | TVA | after timezone parameterization + first eastern reach |
 
