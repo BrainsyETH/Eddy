@@ -22,6 +22,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { DamScheduleDay } from '@eddy/types';
 import {
   idleWindowSentence,
+  oldestRetrievedAt,
   retrievalSentence,
   scheduleDayLabel,
   scheduleIsStale,
@@ -70,10 +71,13 @@ function DayRow({
             <Text
               style={[
                 styles.nowLabel,
-                { color: now === 'Generating now' ? colors.accent : colors.textSubtle },
+                // The flag, never the label text: a string comparison here
+                // went permanently false the last time the wording changed,
+                // and the accent silently died. See nowSentence.
+                { color: now.generating ? colors.accent : colors.textSubtle },
               ]}
             >
-              {now}
+              {now.label}
             </Text>
           ) : null}
           <Text style={[styles.hoursCount, { color: colors.textSubtle }]}>
@@ -108,14 +112,10 @@ export function GenerationSchedule({
 
   if (schedule.length === 0) return null;
 
-  // The block is only as fresh as its OLDEST day: the days come from different
-  // files (mon.htm, tue.htm) with independent CDN ages, so the newest would
-  // overstate it. One line for the section rather than one per day — three
-  // near-identical timestamps invite the reader to think they differ.
-  const oldestRetrieval = schedule.reduce<string | null>((oldest, day) => {
-    if (!day.retrievedAt) return oldest;
-    return !oldest || day.retrievedAt < oldest ? day.retrievedAt : oldest;
-  }, null);
+  // The block is only as fresh as its OLDEST day — see oldestRetrievedAt.
+  // One line for the section rather than one per day: three near-identical
+  // timestamps invite the reader to think they differ.
+  const oldestRetrieval = oldestRetrievedAt(schedule);
   const retrieval = retrievalSentence(oldestRetrieval);
 
   return (

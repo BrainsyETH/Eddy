@@ -473,14 +473,18 @@ function observedDay(
   scheduleDate: string,
   turbineByIndex: Record<number, number>,
   /** 23 or 25 on a daylight-saving transition. Defaults to an ordinary day. */
-  hours = 24
+  hours = 24,
+  /**
+   * Central midnight in UTC — 05:00 during daylight time, 06:00 during
+   * standard. The anchor matters to patternRows on TODAY's row, where the
+   * observed half is cut by real hours since this instant; buildPatternDays is
+   * what computes it for real, and dam-history.test.ts pins that.
+   */
+  startUtc = `${scheduleDate}T05:00:00.000Z`
 ) {
   return {
     scheduleDate,
-    // Central midnight in July is 05:00 UTC. The exact anchor does not matter to
-    // patternRows, which reads indices and length; buildPatternDays is what
-    // computes it for real, and dam-history.test.ts pins that.
-    startUtc: `${scheduleDate}T05:00:00.000Z`,
+    startUtc,
     turbineCfs: Array.from({ length: hours }, (_, i) =>
       turbineByIndex[i] === undefined ? null : turbineByIndex[i]
     ),
@@ -783,4 +787,109 @@ test('the now marker is the measured/scheduled boundary, not elapsed over 24', (
 
   // A row that is wholly one thing has no boundary to draw.
   assert.equal(rows.find((r) => !r.today)?.splitIndex ?? null, null);
+});
+
+// ── Review fixes: the wrong midnight, the ref-less strip, the DST split ────
+
+test('a move at tomorrow’s hour ending 1 is midnight TONIGHT, never tomorrow', () => {
+  // Tomorrow's hour ending 1 is the release running from 00:00 tonight — the
+  // midnight a reader at noon is twelve hours from, not thirty-six. "midnight
+  // tomorrow" quietly moved the change a day out, in the dangerous direction:
+  // it told a wading angler they had a full day before the units came on.
+  // nextScheduleChangeSentence fixed this first; moveClock is what the live
+  // heroes actually render through, and it had the unguarded phrasing.
+  const idle = generationNow(dam({ metrics: { generationFlow: reading(20, 5) } }), NOON_CENTRAL);
+  const startAtMidnight = [day('2026-07-28', {}), day('2026-07-29', { 1: 300, 2: 300 })];
+  assert.equal(
+    nowNextClauses(idle, startAtMidnight, BULL_SHOALS, NOON_CENTRAL).scheduled,
+    'Generation scheduled to start at midnight tonight.'
+  );
+
+  // The bounded-stop sentence names a restart through the same clock.
+  const on = generationNow(dam({ metrics: { generationFlow: reading(19_130, 5) } }), NOON_CENTRAL);
+  const nightOff = [
+    day('2026-07-28', { 13: 300, 14: 300, 15: 300, 16: 300, 17: 300, 18: 300, 19: 300, 20: 300, 21: 300, 22: 300 }),
+    day('2026-07-29', { 1: 300, 2: 300 }),
+  ];
+  assert.equal(
+    nowNextClauses(on, nightOff, BULL_SHOALS, NOON_CENTRAL).scheduled,
+    'No generation scheduled from 10 PM to midnight tonight.'
+  );
+
+  // An ordinary tomorrow hour is unaffected.
+  const startAtSix = [day('2026-07-28', {}), day('2026-07-29', { 7: 300, 8: 300 })];
+  assert.equal(
+    nowNextClauses(idle, startAtSix, BULL_SHOALS, NOON_CENTRAL).scheduled,
+    'Generation scheduled to start at 6 AM tomorrow.'
+  );
+});
+
+test('a scheduled hour with no reference still knows it is on', () => {
+  // Without a reference the fraction collapses to 0 — there is no scale to
+  // draw against — but on/off comes from the schedule itself. Judging the cell
+  // by its fraction turned a full-load forecast into scheduled idle: an
+  // absence of scale becoming "not generating", on the deploy-skew payload
+  // DamSnapshot.generationReference explicitly commits to supporting.
+  const allDay = Object.fromEntries(Array.from({ length: 24 }, (_, i) => [i + 1, 300]));
+  const rows = patternRows(
+    [observedDay('2026-07-28', { 8: 19_130 })],
+    [day('2026-07-29', allDay)],
+    undefined,
+    100,
+    NOON_CENTRAL
+  );
+  const tomorrow = rows.find((r) => r.dayKey === '2026-07-29')!;
+  assert.ok(
+    tomorrow.cells.every((c) => c.kind === 'scheduled' && c.generating),
+    'every full-load hour stays ON with no reference'
+  );
+  assert.ok(
+    tomorrow.cells.every((c) => c.kind === 'scheduled' && c.fraction === 0),
+    'while the fraction honestly says there is no scale'
+  );
+  // And the spoken count agrees with the schedule, not with the missing scale.
+  assert.equal(patternRowVoiceOver(tomorrow), 'Wed: generation scheduled in 24 of 24 hours.');
+});
+
+test('today’s split survives the fall-back day without dropping a measured hour', () => {
+  // 2026-11-01 is 25 real hours long. At 3 PM CST the wall clock reads 15 but
+  // SIXTEEN real hours have completed since the day's startUtc (05:00Z,
+  // midnight CDT) — and the observed array is indexed by real hours. Cutting
+  // it at the wall clock dropped the stored 2-3 PM observation from the row.
+  const fallBackAfternoon = Date.parse('2026-11-01T21:00:00Z'); // 3 PM CST
+  const rows = patternRows(
+    [observedDay('2026-11-01', { 15: 19_130 }, 25)],
+    [],
+    BULL_SHOALS,
+    100,
+    fallBackAfternoon
+  );
+  const today = rows.find((r) => r.today)!;
+  assert.equal(today.splitIndex, 16, 'the marker sits after 16 REAL hours');
+  assert.equal(today.cells[15].kind, 'observed', 'the 2-3 PM CST reading stays on the row');
+  // 16 observed slots plus the 9 wall-clock hour-endings still ahead: the row
+  // holds all 25 hours of the day.
+  assert.equal(today.cells.length, 25);
+});
+
+test('today’s split survives the spring-forward day without inventing a gap', () => {
+  // 2026-03-08 is 23 real hours long. At 3 PM CDT the wall clock reads 15 but
+  // only FOURTEEN real hours have completed since startUtc (06:00Z, midnight
+  // CST). Cutting at the wall clock reached one slot past the completed hours
+  // and drew the still-filling hour as a missing observation — an invented
+  // outage on a healthy day.
+  const springForwardAfternoon = Date.parse('2026-03-08T20:00:00Z'); // 3 PM CDT
+  const rows = patternRows(
+    [observedDay('2026-03-08', { 13: 19_130 }, 23, '2026-03-08T06:00:00.000Z')],
+    [],
+    BULL_SHOALS,
+    100,
+    springForwardAfternoon
+  );
+  const today = rows.find((r) => r.today)!;
+  assert.equal(today.splitIndex, 14, 'the marker sits after 14 REAL hours');
+  assert.equal(today.cells[13].kind, 'observed', 'the last completed hour is measured, not a gap');
+  // 14 observed slots plus the 9 wall-clock hour-endings still ahead: 23
+  // cells, the day's own length.
+  assert.equal(today.cells.length, 23);
 });

@@ -14,6 +14,7 @@ import {
   hourEndingNow,
   scheduleStateNow,
   nextScheduleChangeSentence,
+  oldestRetrievedAt,
   SCHEDULE_CHANGE_NOTE,
   tailwaterMovementLabel,
   tailwaterMovementSentence,
@@ -478,4 +479,26 @@ test('the staleness bands sit where the server put them', () => {
   // Epoch millis and ISO agree, because stalenessOf passes a number.
   assert.equal(readingStaleness(at, at + 9 * 3_600_000), 'stale');
   assert.equal(readingStaleness('not a date'), null, 'unreadable is never a guess');
+});
+
+test('a schedule block is only as fresh as its oldest day', () => {
+  // Each day is a separate file (mon.htm, tue.htm) with its own cache age, so
+  // the newest timestamp would overstate the set. This fold was written five
+  // times across three packages before it lived here; the shared helper is
+  // what keeps a freshness-rule change from missing one of them.
+  assert.equal(
+    oldestRetrievedAt([
+      { retrievedAt: '2026-07-28T17:00:00.000Z' },
+      { retrievedAt: '2026-07-28T11:00:00.000Z' },
+      { retrievedAt: '2026-07-28T16:00:00.000Z' },
+    ]),
+    '2026-07-28T11:00:00.000Z'
+  );
+  // A day with no timestamp neither wins nor disqualifies the rest.
+  assert.equal(
+    oldestRetrievedAt([{ retrievedAt: null }, { retrievedAt: '2026-07-28T16:00:00.000Z' }]),
+    '2026-07-28T16:00:00.000Z'
+  );
+  assert.equal(oldestRetrievedAt([{ retrievedAt: null }]), null);
+  assert.equal(oldestRetrievedAt([]), null);
 });

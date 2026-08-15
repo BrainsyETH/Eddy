@@ -532,6 +532,28 @@ export function scheduleIsStale(
 }
 
 /**
+ * The oldest `retrievedAt` across a schedule's days, or null when no day
+ * carries one.
+ *
+ * A schedule block is only as fresh as its OLDEST day: each day is a separate
+ * file (mon.htm, tue.htm) with its own cache age, so taking the newest would
+ * overstate the set. That fold had been written five times across three
+ * packages — which is five places a change to the freshness rule could miss —
+ * so it lives here, beside scheduleIsStale, which is what its result feeds.
+ *
+ * ISO-8601 UTC strings order lexically, which is what makes the string
+ * comparison correct.
+ */
+export function oldestRetrievedAt(
+  schedule: Array<{ retrievedAt: string | null }>
+): string | null {
+  return schedule.reduce<string | null>((oldest, day) => {
+    if (!day.retrievedAt) return oldest;
+    return !oldest || day.retrievedAt < oldest ? day.retrievedAt : oldest;
+  }, null);
+}
+
+/**
  * The retrieval line itself.
  *
  * The subject is EDDY, deliberately. SWPA publishes no timestamp of any kind

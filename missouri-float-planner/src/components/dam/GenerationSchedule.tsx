@@ -25,6 +25,7 @@ import DamTimeline from '@/components/dam/DamTimeline';
 // implementations of that sum is two chances to get it wrong.
 import {
   idleWindowSentence,
+  oldestRetrievedAt,
   scheduleDayLabel as dayLabel,
   retrievalSentence,
   scheduleIsStale,
@@ -49,9 +50,14 @@ function DayRow({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-sm font-bold text-neutral-900">{dayLabel(day.scheduleDate)}</h3>
         <span className="text-xs text-neutral-500">
+          {/* "scheduled", never bare "generating": this line reads a plan, and
+              it renders on the same page as a hero that may be reporting a
+              measured "No turbine generation observed". A plan in a
+              measurement's voice two sections apart is the contradiction
+              idleWindowSentence documents fixing. */}
           {generatingHours === 0
             ? 'no generation scheduled'
-            : `${generatingHours} of 24 hours generating`}
+            : `${generatingHours} of 24 hours scheduled to generate`}
           {/* The scale, named. Without it the fixed height is just a shorter
               bar, and the reader has no way to know the strip is comparable
               across days at all. */}
@@ -103,15 +109,10 @@ export default function GenerationSchedule({
 }) {
   if (schedule.length === 0) return null;
 
-  // The section is only as fresh as its OLDEST day. Each day comes from a
-  // different file (mon.htm, tue.htm) with its own CloudFront age, so taking
-  // the newest would overstate the block as a whole. One line for the section
-  // rather than one per day: three near-identical timestamps would invite the
-  // reader to think they differ meaningfully.
-  const oldestRetrieval = schedule.reduce<string | null>((oldest, day) => {
-    if (!day.retrievedAt) return oldest;
-    return !oldest || day.retrievedAt < oldest ? day.retrievedAt : oldest;
-  }, null);
+  // The section is only as fresh as its OLDEST day — see oldestRetrievedAt.
+  // One line for the section rather than one per day: three near-identical
+  // timestamps would invite the reader to think they differ meaningfully.
+  const oldestRetrieval = oldestRetrievedAt(schedule);
   const retrieval = retrievalSentence(oldestRetrieval);
 
   return (
