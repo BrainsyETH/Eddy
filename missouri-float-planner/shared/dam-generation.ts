@@ -46,6 +46,7 @@ import {
   hourEndingLabel,
   hourEndingNow,
   nextDayKey,
+  oldestRetrievedAt,
   readingStaleness,
   relativeAge,
   scheduleHoursElapsed,
@@ -275,11 +276,6 @@ export function generationStatusLabel(state: GenerationNow): string | null {
   }
 }
 
-/** "6 generators’ worth" — possessive placement is the whole formatting job. */
-function generatorsWorth(whole: number): string {
-  return whole === 1 ? 'one generator’s worth' : `${whole} generators’ worth`;
-}
-
 /**
  * The generator-equivalent phrase, hedged in proportion to what it can support.
  *
@@ -287,6 +283,15 @@ function generatorsWorth(whole: number): string {
  * equivalents, not a unit count. Below one equivalent it refuses to round to
  * "about 1", because "about one generator's worth" reads as a unit that is
  * running when the honest statement is that very little is moving.
+ *
+ * ── Why the denominator rides along ────────────────────────────────────────
+ * "About 6 generators' worth" makes a reader who does not already know this
+ * plant hold the number until they find out how many it has — and the answer
+ * was three lines away, under the rack. "About 6 of 8" is the same claim with
+ * the scale attached, which is the whole question the phrase exists to answer.
+ * Below one equivalent there is nothing to put it out of: the statement is
+ * that very little is moving, and "less than 1 of 8" invites arithmetic on a
+ * number too small to deserve it.
  */
 export function generatorEquivalentPhrase(
   equivalents: number | null | undefined,
@@ -296,8 +301,8 @@ export function generatorEquivalentPhrase(
   if (!ref || !Number.isFinite(ref.units) || ref.units <= 0) return null;
   if (equivalents <= 0) return null;
   if (equivalents < 1) return 'Less than one generator’s worth';
-  if (equivalents > ref.units) return `More than ${generatorsWorth(ref.units)}`;
-  return `About ${generatorsWorth(Math.round(equivalents))}`;
+  if (equivalents > ref.units) return `More than all ${ref.units} generators’ worth`;
+  return `About ${Math.round(equivalents)} of ${ref.units} generators’ worth`;
 }
 
 /**
@@ -308,11 +313,27 @@ export function generatorEquivalentPhrase(
  * entitled to confidence about unit count.
  */
 export const RACK_ESTIMATE_NOTE =
-  'Estimated from turbine discharge. This does not identify which physical units are operating.';
+  'Estimated from flow through the turbines. The actual units running may differ.';
 
-/** The exact reference label. Never "31% power" — see the header. */
-export function fullGenerationReferenceLabel(ref: GenerationReference): string {
-  return `of published full-generation discharge (${ref.fullGenerationCfs.toLocaleString()} cfs, ${ref.source})`;
+/**
+ * What the percentage is a percentage OF, short enough to sit beside it.
+ *
+ * Never "31% power" — see the header. But "31% of published full-generation
+ * discharge (26,400 cfs, SWPA)" put a citation inside the sentence a reader is
+ * trying to read, and the figure they needed was the "31%". The claim is
+ * unchanged: this is a share of full-generation DISCHARGE, not of power.
+ */
+export const FULL_GENERATION_SHORT_LABEL = 'of full generation';
+
+/**
+ * The citation, on its own line beneath.
+ *
+ * Split out rather than dropped: the number is only trustworthy because it can
+ * be checked against SWPA's own project table, and a figure with no publisher
+ * is a figure Eddy is asking to be taken on faith.
+ */
+export function generationReferenceCitation(ref: GenerationReference): string {
+  return `Full generation is ${ref.fullGenerationCfs.toLocaleString()} cfs (${ref.source})`;
 }
 
 /** A percentage for display, unclamped and rounded the way the hero shows it. */
@@ -425,13 +446,7 @@ export function scheduleOutlook(
   const reference = currentHour.megawatts;
   const referenceOn = reference > 0;
 
-  // The schedule is only as fresh as its OLDEST day: each day is a separate
-  // file with its own cache age, so the newest would overstate the set.
-  const oldestRetrieval = schedule.reduce<string | null>((oldest, d) => {
-    if (!d.retrievedAt) return oldest;
-    return !oldest || d.retrievedAt < oldest ? d.retrievedAt : oldest;
-  }, null);
-  const stale = scheduleIsStale(oldestRetrieval, now);
+  const stale = scheduleIsStale(oldestRetrievedAt(schedule), now);
 
   /** Walk forward from a point, reporting each posted hour in order. */
   function* forward(fromIndex: number, fromHour: number) {
@@ -500,14 +515,14 @@ export function scheduleOutlook(
 }
 
 /**
- * "3 PM", "midnight tomorrow", "6 AM Thursday" — when a move happens, phrased
+ * "3 PM", "midnight tonight", "6 AM Thursday" — when a move happens, phrased
  * so it stays true no matter how stale the render is.
  *
  * A clock time and never a countdown: both dam surfaces are ISR'd at 300
  * seconds and the iOS app can hold a response far longer, so "in 2 hours"
  * silently decays into a false claim while "at 3 PM" does not.
  */
-function moveClock(move: ScheduledMove, _now: number): string {
+function moveClock(move: ScheduledMove): string {
   // hourEndingLabel gives the hour the water STARTS moving, which is exactly
   // the instant the move happens — hour ending 16 is the release running from
   // 3 PM, so the change is at 3 PM.
@@ -515,7 +530,19 @@ function moveClock(move: ScheduledMove, _now: number): string {
   const clock = time === '12 AM' ? 'midnight' : time;
 
   if (move.dayOffset === 0) return clock;
-  if (move.dayOffset === 1) return `${clock} tomorrow`;
+  if (move.dayOffset === 1) {
+    // ── "midnight tomorrow" NAMES THE WRONG MIDNIGHT ────────────────────────
+    // Tomorrow's hour ending 1 is the release running from 00:00 tomorrow —
+    // the midnight at the END of today, the one a reader at 9 PM is three
+    // hours away from. "midnight tomorrow" reads as the midnight that closes
+    // tomorrow, quietly moving the change 24 hours out — and the direction is
+    // the dangerous one: it tells a wading angler they have a day before the
+    // units come on when they have an evening. Same guard as
+    // nextScheduleChangeSentence in dam-schedule-copy.ts, which hit this
+    // first; only hour ending 1 can be affected, because it is the single
+    // hour whose start time sits on the boundary between the two days.
+    return clock === 'midnight' ? 'midnight tonight' : `${clock} tomorrow`;
+  }
   const [y, m, d] = move.scheduleDate.split('-').map(Number);
   const weekday = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
     weekday: 'long',
@@ -599,7 +626,7 @@ function scheduledClause(
       : 'No generation scheduled for the rest of the posted schedule.';
   }
 
-  const when = moveClock(outlook.move, now);
+  const when = moveClock(outlook.move);
   switch (outlook.move.kind) {
     case 'start':
       return `Generation scheduled to start at ${when}.`;
@@ -611,7 +638,7 @@ function scheduledClause(
       // be able to tell them apart. When the posted schedule does not reach the
       // restart, it says so rather than implying there is not one.
       if (outlook.resumesAt) {
-        return `No generation scheduled from ${when} to ${moveClock(outlook.resumesAt, now)}.`;
+        return `No generation scheduled from ${when} to ${moveClock(outlook.resumesAt)}.`;
       }
       return `Generation scheduled to stop at ${when}. Later hours have not been posted.`;
     case 'increase':
@@ -642,11 +669,7 @@ export function scheduledClauseProvenance(
   const outlook = scheduleOutlook(schedule, ref, now);
   if (!outlook?.stale) return null;
 
-  const oldest = schedule.reduce<string | null>((o, d) => {
-    if (!d.retrievedAt) return o;
-    return !o || d.retrievedAt < o ? d.retrievedAt : o;
-  }, null);
-  const age = relativeAge(oldest, now);
+  const age = relativeAge(oldestRetrievedAt(schedule), now);
   return age
     ? `From a schedule Eddy last retrieved ${age}. It may have been revised since.`
     : 'From a schedule Eddy cannot date. It may have been revised since.';
@@ -826,6 +849,102 @@ export function observedBar(
   return { fraction: Math.max(0, Math.min(1, raw)), over: raw > 1 };
 }
 
+// ── The day's peak ─────────────────────────────────────────────────────────
+
+/**
+ * The strongest hours of a posted day, and when they are.
+ *
+ * ── Why cfs leads and megawatts follow ─────────────────────────────────────
+ * The bars are drawn in MW because that is the number SWPA actually published,
+ * and that reasoning is about PROVENANCE. It is not a reason to lead with it.
+ * Nobody putting a boat on the White River thinks in megawatts, and "peaks at
+ * 335 MW · 86% of capacity" asks a reader to convert a power figure into a
+ * river before it means anything. The cfs estimate measured within ~10% at
+ * steady state, which is far inside the precision "is this going to be a big
+ * evening" needs — so it leads, hedged with a "~", and the megawatts stay
+ * beneath it for anyone checking against the posted schedule.
+ *
+ * ── What it refuses to estimate ────────────────────────────────────────────
+ * `cfs` comes ONLY from a steady hour at the peak load. A ramp hour's estimate
+ * ran -41% to +117% against CWMS because units spin up partway through an hour
+ * that CWMS reports as an average, and a peak is exactly where a ramp is
+ * likeliest to sit. A peak reachable only through ramp hours reports null and
+ * the caller falls back to megawatts rather than printing a number that could
+ * be off by half.
+ *
+ * `window` is one CONTIGUOUS block or nothing. A day that hits its peak at
+ * breakfast and again at dinner has two, and naming either one alone — or
+ * spanning both — would describe a day that did not happen. Null renders no
+ * window rather than a wrong one; the chart still shows the shape.
+ */
+export interface SchedulePeak {
+  /** Highest scheduled load of the day, MW. Always > 0. */
+  megawatts: number;
+  /** Share of the project's scheduling capacity, or null with no reference. */
+  fraction: number | null;
+  /** Estimated release at that load, cfs, from a steady hour only. */
+  cfs: number | null;
+  /** Hour-ending bounds of the single block at peak load, when there is one. */
+  window: { from: number; to: number } | null;
+}
+
+export function schedulePeak(
+  day: Pick<DamScheduleDay, 'hours'>,
+  ref: GenerationReference | null | undefined
+): SchedulePeak | null {
+  // Sorted before the contiguity walk below, which reads neighbours by hour
+  // number: array order is the parser's business, not this function's.
+  const hours = [...day.hours].sort((a, b) => a.hourEnding - b.hourEnding);
+  const megawatts = hours.reduce((max, h) => (h.megawatts > max ? h.megawatts : max), 0);
+  // A wholly idle day has no peak worth naming, and "0 MW" is not one.
+  if (megawatts <= 0) return null;
+
+  const atPeak = hours.filter((h) => h.megawatts === megawatts);
+
+  const steady = atPeak.filter((h) => !h.isRamp && typeof h.cfs === 'number');
+  const cfs = steady.length > 0 ? Math.max(...steady.map((h) => h.cfs as number)) : null;
+
+  const runs: Array<{ from: number; to: number }> = [];
+  for (const hour of atPeak) {
+    const last = runs[runs.length - 1];
+    if (last && hour.hourEnding === last.to + 1) last.to = hour.hourEnding;
+    else runs.push({ from: hour.hourEnding, to: hour.hourEnding });
+  }
+
+  return {
+    megawatts,
+    fraction: scheduledBar(megawatts, ref)?.fraction ?? null,
+    cfs,
+    window: runs.length === 1 ? runs[0] : null,
+  };
+}
+
+/** The headline figure: the river number when there is one, else the plant's. */
+export function schedulePeakLabel(peak: SchedulePeak): string {
+  return peak.cfs !== null
+    ? `Peak release ~${Math.round(peak.cfs).toLocaleString()} cfs`
+    : `Peak load ${Math.round(peak.megawatts).toLocaleString()} MW`;
+}
+
+/** When the peak runs, or null when the day reaches it in more than one block. */
+export function schedulePeakWindowLabel(peak: SchedulePeak): string | null {
+  return peak.window ? windowLabel(peak.window.from, peak.window.to) : null;
+}
+
+/**
+ * The technical line beneath, for a reader checking against SWPA's own page.
+ *
+ * Never repeats the headline: when the peak had no steady hour to estimate cfs
+ * from, the label above is already the megawatt figure and this carries only
+ * the share.
+ */
+export function schedulePeakTechnical(peak: SchedulePeak): string | null {
+  const share = peak.fraction !== null ? `${Math.round(peak.fraction * 100)}% of scheduling capacity` : null;
+  if (peak.cfs === null) return share;
+  const load = `${Math.round(peak.megawatts).toLocaleString()} MW`;
+  return share ? `${load} · ${share}` : load;
+}
+
 // ── Accessible equivalents ─────────────────────────────────────────────────
 
 /**
@@ -916,7 +1035,7 @@ export function scheduleDayVoiceOver(
  */
 export type PatternCell =
   | { kind: 'observed'; fraction: number; generating: boolean }
-  | { kind: 'scheduled'; fraction: number }
+  | { kind: 'scheduled'; fraction: number; generating: boolean }
   | { kind: 'missing' };
 
 export interface PatternRow {
@@ -980,17 +1099,20 @@ export function patternRows(
   const floor = generationFloorCfs ?? 0;
   const scheduleByDay = new Map(schedule.map((d) => [d.scheduleDate, d]));
 
-  // Oldest day wins, same as everywhere else: each schedule day is its own file
-  // with its own cache age.
-  const oldestRetrieval = schedule.reduce<string | null>((oldest, d) => {
-    if (!d.retrievedAt) return oldest;
-    return !oldest || d.retrievedAt < oldest ? d.retrievedAt : oldest;
-  }, null);
-  const scheduleStale = scheduleIsStale(oldestRetrieval, now);
+  const scheduleStale = scheduleIsStale(oldestRetrievedAt(schedule), now);
 
   const scheduledCell = (megawatts: number | undefined): PatternCell => {
     if (megawatts === undefined) return { kind: 'missing' };
-    return { kind: 'scheduled', fraction: scheduledBar(megawatts, ref)?.fraction ?? 0 };
+    return {
+      kind: 'scheduled',
+      fraction: scheduledBar(megawatts, ref)?.fraction ?? 0,
+      // On/off comes from the SCHEDULE, never from the bar: without a
+      // reference, scheduledBar is null and the fraction collapses to 0, so a
+      // full-load hour judged by its fraction alone would draw as scheduled
+      // idle — an absence of scale becoming "not generating", the exact rule
+      // this module exists to hold. Same reason observed cells carry the flag.
+      generating: megawatts > 0,
+    };
   };
 
   const observedCell = (cfs: number | null | undefined): PatternCell => {
@@ -1014,27 +1136,41 @@ export function patternRows(
     // between a real gap and an invented one.
     const observedHours = day.turbineCfs.length;
 
-    // `scheduleHoursElapsed` is null on any day but today, so a day that is not
-    // today is entirely observed — which is what the fallback here encodes.
-    const splitAt = isToday && elapsed !== null ? Math.floor(elapsed) : observedHours;
+    // Today CONCATENATES rather than merges: elapsed hours from the observed
+    // array (whose indices are UTC offsets from `startUtc`), remaining hours
+    // from the schedule (whose indices are SWPA hour-endings). The two
+    // indexings disagree on a DST transition day, so EACH HALF IS CUT WITH ITS
+    // OWN RULER: the observed half by real hours completed since `startUtc`,
+    // the scheduled half by the wall clock. One split serving both — the wall
+    // clock, as this first shipped — dropped a measured hour from today's row
+    // each November and drew the still-filling hour as an invented gap each
+    // March, the exact false claims DamPatternDay's anchoring exists to
+    // prevent.
+    //
+    // `scheduleHoursElapsed` is null on any day but today, so a day that is
+    // not today is entirely observed — which is what the null branch encodes.
+    const wallSplit = isToday && elapsed !== null ? Math.floor(elapsed) : null;
+    const startMs = Date.parse(day.startUtc);
+    const realSplit =
+      wallSplit === null
+        ? observedHours
+        : Number.isFinite(startMs)
+          ? Math.max(0, Math.min(observedHours, Math.floor((now - startMs) / 3_600_000)))
+          : // An unparseable anchor falls back to the wall clock: right on 363
+            // days, one hour off on two, and never a crash in a render path.
+            Math.min(wallSplit, observedHours);
 
-    const scheduledCount = isToday ? Math.max(0, 24 - splitAt) : 0;
+    const scheduledCount = wallSplit === null ? 0 : Math.max(0, 24 - wallSplit);
     // When no scheduled hours remain, the row runs to the day's own end. On a
     // 25-hour day that is what keeps the extra hour from falling off the row
     // between hour 24 and midnight.
-    const observedCount =
-      scheduledCount === 0 ? observedHours : Math.min(splitAt, observedHours);
+    const observedCount = scheduledCount === 0 ? observedHours : realSplit;
 
-    // Today CONCATENATES rather than merges: elapsed hours from the observed
-    // array (whose indices are UTC offsets), remaining hours from the schedule
-    // (whose indices are SWPA hour-endings). The two indexings disagree on a
-    // transition day and are never asked to agree — each half is read with its
-    // own, and the row is simply their sum.
     const observed = Array.from({ length: observedCount }, (_, i) =>
       observedCell(day.turbineCfs[i])
     );
     const scheduled = Array.from({ length: scheduledCount }, (_, i) =>
-      scheduledCell(hoursByEnding.get(splitAt + i + 1))
+      scheduledCell(hoursByEnding.get(wallSplit! + i + 1))
     );
 
     return {
@@ -1086,7 +1222,9 @@ export function patternRowLabel(dayKey: string, today: boolean): string {
 export function patternRowVoiceOver(row: PatternRow): string {
   const label = patternRowLabel(row.dayKey, row.today);
   const observed = row.cells.filter((c) => c.kind === 'observed' && c.generating).length;
-  const scheduled = row.cells.filter((c) => c.kind === 'scheduled' && c.fraction > 0).length;
+  // `generating`, not `fraction > 0`: without a reference every fraction is 0,
+  // and a full-load scheduled day would be spoken as "scheduled in 0 hours".
+  const scheduled = row.cells.filter((c) => c.kind === 'scheduled' && c.generating).length;
   const missing = row.cells.filter((c) => c.kind === 'missing').length;
 
   // A denominator on every count, because a bare "generation observed in 2

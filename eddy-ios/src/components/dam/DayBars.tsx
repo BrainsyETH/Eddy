@@ -134,7 +134,20 @@ export function DayBars({ day, reference, compact = false }: Props) {
   const [rowWidth, setRowWidth] = useState(0);
   const [scrubbed, setScrubbed] = useState<number | null>(null);
 
-  const peak = day.hours.reduce((max, h) => (h.megawatts > max ? h.megawatts : max), 0);
+  // Sorted by hour ending before anything positional touches it. The parser
+  // currently guarantees 24 hours emitted 1..24, but bars render in ARRAY
+  // order while the now marker and the scrub readout are both keyed by
+  // hourEnding — so this component drawing from raw wire order would quietly
+  // depend on that guarantee holding forever, and an unsorted day would put a
+  // different hour under the finger than under the marker. The shared walkers
+  // refuse iteration order for the same reason; the web timeline indexes by
+  // hourEnding to the same end.
+  const hours = useMemo(
+    () => [...day.hours].sort((a, b) => a.hourEnding - b.hourEnding),
+    [day.hours]
+  );
+
+  const peak = hours.reduce((max, h) => (h.megawatts > max ? h.megawatts : max), 0);
   const peakShare = shareOf(peak, reference, peak);
 
   // Null on every day but today, which is the point — see scheduleHoursElapsed.
@@ -175,7 +188,7 @@ export function DayBars({ day, reference, compact = false }: Props) {
   }, [compact, rowWidth]);
 
   const scrubbedHour =
-    scrubbed === null ? null : day.hours.find((h) => h.hourEnding === scrubbed + 1) ?? null;
+    scrubbed === null ? null : hours.find((h) => h.hourEnding === scrubbed + 1) ?? null;
 
   return (
     <View>
@@ -216,7 +229,7 @@ export function DayBars({ day, reference, compact = false }: Props) {
 
         {/* A 12% floor keeps an idle hour visible as a tick rather than a gap —
             an invisible bar reads as missing data, which is a different fact. */}
-        {day.hours.map((h) => {
+        {hours.map((h) => {
           const share = shareOf(h.megawatts, reference, peak);
           const generating = h.megawatts > 0;
           // The elapsed part of today is context, not plan: the schedule is a
@@ -293,15 +306,26 @@ export function DayBars({ day, reference, compact = false }: Props) {
  *
  * "This hour" rather than "now" for the same reason hourEndingLabel exists:
  * the schedule's unit of truth is the hour, not the instant.
+ *
+ * ── Why it returns a flag beside the label ─────────────────────────────────
+ * GenerationSchedule colours its header from this, and it used to decide by
+ * comparing the string against a literal — so when the wording above changed,
+ * the comparison silently went permanently false and the accent highlight
+ * died with nobody the wiser. A styling decision may not hang off copy;
+ * `generating` carries the fact and the label carries the words.
  */
-export function nowSentence(day: DamScheduleDay): string | null {
+export function nowSentence(
+  day: DamScheduleDay
+): { generating: boolean; label: string } | null {
   const hoursElapsed = scheduleHoursElapsed(day.scheduleDate);
   if (hoursElapsed === null) return null;
   const hour = day.hours.find((h) => h.hourEnding === hourEndingNow(hoursElapsed));
   if (!hour) return null;
-  return hour.megawatts > 0
-    ? 'Generation scheduled this hour'
-    : 'No generation scheduled this hour';
+  const generating = hour.megawatts > 0;
+  return {
+    generating,
+    label: generating ? 'Generation scheduled this hour' : 'No generation scheduled this hour',
+  };
 }
 
 const styles = StyleSheet.create({

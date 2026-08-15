@@ -131,8 +131,11 @@ export default function DamPatternStrip({
                       <div className="h-full w-full rounded-[1px] border border-dashed border-neutral-300" />
                     ) : cell.kind === 'scheduled' ? (
                       <div
+                        // `generating`, not `fraction > 0`: without a reference
+                        // every fraction is 0, and a full-load hour would draw
+                        // in the idle treatment.
                         className={
-                          cell.fraction > 0
+                          cell.generating
                             ? 'w-full rounded-[1px] border border-primary-600 bg-primary-100'
                             : 'w-full rounded-[1px] border border-neutral-200'
                         }

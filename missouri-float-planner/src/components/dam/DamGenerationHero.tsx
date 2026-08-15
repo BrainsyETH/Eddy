@@ -7,8 +7,17 @@
 //   1. Is the powerhouse generating now?      the status line
 //   2. How much water is through the turbines? the cfs figure
 //   3. How large is that for THIS project?     the rack and the bar
-//   4. When does generation change?            the now → next sentence
+//   4. When does generation change?            the next-change panel
 // Everything else on the page is secondary and lives below it.
+//
+// ── Why the next-change panel sits above total release ─────────────────────
+// It was last, in the same 12px grey as the caveats, under a block of
+// secondary measurements — and it is the single most load-bearing sentence
+// here. "How much water is moving" is answered by every other surface Eddy
+// has; "when does that change" is answered by nothing else, and it is the one
+// a person uses to decide whether to go now or wait. Total release and the
+// other-release figure are detail for a reader already holding that answer,
+// so they moved beneath it.
 //
 // ── Why a generator rack and not just a percentage ─────────────────────────
 // "Six generators" is the unit anglers already think in, and it makes a
@@ -25,9 +34,14 @@
 
 import { Zap, Clock } from 'lucide-react';
 import type { DamSnapshot } from '@/lib/data/dams';
-import { relativeAge, readingStaleness, SCHEDULE_CHANGE_NOTE } from '@shared/dam-schedule-copy';
 import {
-  fullGenerationReferenceLabel,
+  relativeAge,
+  readingStaleness,
+  SCHEDULE_CHANGE_SENTENCE,
+} from '@shared/dam-schedule-copy';
+import {
+  FULL_GENERATION_SHORT_LABEL,
+  generationReferenceCitation,
   generationNow,
   generationPercentLabel,
   generationStatusLabel,
@@ -152,12 +166,16 @@ export default function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
             </div>
             <p className="mt-1 text-sm text-neutral-600">
               <span className="font-bold tabular-nums text-neutral-900">{percent}</span>{' '}
-              {fullGenerationReferenceLabel(ref)}
+              {FULL_GENERATION_SHORT_LABEL}
               {/* Above the reference is real information — spill, a different
                   measurement basis, or a reference that has drifted since the
                   rehabilitation project. The bar caps; the sentence does not. */}
               {state.fraction > 1 && ' — above the published reference'}
             </p>
+            {/* The citation, demoted but never dropped: the percentage is only
+                checkable because the denominator is published, and a figure
+                with no publisher asks to be taken on faith. */}
+            <p className="text-xs text-neutral-500">{generationReferenceCitation(ref)}</p>
           </div>
         )}
       </div>
@@ -165,6 +183,33 @@ export default function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
       {voiceOver && <p className="sr-only">{voiceOver}</p>}
 
       {rack && <p className="mt-2 text-xs text-neutral-500">{RACK_ESTIMATE_NOTE}</p>}
+
+      {/* NEXT CHANGE — the panel, not a footnote. Tinted, bordered and set at
+          reading size, because this is the answer somebody came for and it was
+          previously the smallest text in the block.
+          The observed clause is deliberately absent: the rack and the headline
+          directly above already say "About 6 of 8 generators' worth", and
+          repeating it here as "About 6 of 8 generators' worth now." made one
+          observation read as two. The combined sentence still earns its space
+          on the compact list card, where there is no rack to have said it
+          first. */}
+      {clauses.scheduled && (
+        <div className="mt-4 rounded-lg border-2 border-primary-200 bg-primary-50 p-3">
+          <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary-800">
+            <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+            Next change
+          </h3>
+          <p className="mt-1 text-base font-bold text-neutral-900">{clauses.scheduled}</p>
+          {/* Plain language, and the reason it is three sentences: whose clock
+              this is, what it means where the reader is standing, and how much
+              to trust it. See SCHEDULE_CHANGE_SENTENCE. */}
+          <p className="mt-1.5 text-xs text-neutral-600">{SCHEDULE_CHANGE_SENTENCE}</p>
+          {/* A stale schedule is labelled rather than suppressed: "when does
+              generation stop" is the most load-bearing line here, and a reader
+              given nothing guesses. */}
+          {provenance && <p className="mt-1 text-xs font-medium text-accent-700">{provenance}</p>}
+        </div>
+      )}
 
       {/* Turbine flow and total release as two labelled facts. The difference
           is only ever named when releaseComparison says every rule passed — see
@@ -203,30 +248,6 @@ export default function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
               <p className="text-xs text-neutral-500">{OTHER_RELEASE_NOTE}</p>
             </>
           )}
-        </div>
-      )}
-
-      {/* NEXT SCHEDULED CHANGE, as its own labelled block.
-          The observed clause is deliberately absent: the rack and the headline
-          directly above already say "About 6 generators' worth", and repeating
-          it here as "About 6 generators' worth now." made one observation read
-          as two. The combined sentence still earns its space on the compact
-          list card, where there is no rack to have said it first.
-          The note carries location and downstream lag and is not decoration. */}
-      {clauses.scheduled && (
-        <div className="mt-4 border-t border-neutral-200 pt-3">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-neutral-500">
-            Next scheduled change
-          </h3>
-          <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-primary-800">
-            <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-            {clauses.scheduled}
-          </p>
-          <p className="text-xs text-neutral-500">{SCHEDULE_CHANGE_NOTE}</p>
-          {/* A stale schedule is labelled rather than suppressed: "when does
-              generation stop" is the most load-bearing line here, and a reader
-              given nothing guesses. */}
-          {provenance && <p className="mt-0.5 text-xs font-medium text-accent-700">{provenance}</p>}
         </div>
       )}
     </section>

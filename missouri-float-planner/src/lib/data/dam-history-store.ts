@@ -51,10 +51,17 @@ export async function readPatternHours(
   const past = options?.past ?? PATTERN_PAST_DAYS;
   const now = options?.now ?? Date.now();
 
-  // One extra day at each end of the UTC window: a Central calendar day spans
-  // UTC hours on both sides of its own date, so a query cut to exactly the day
-  // keys would clip the first and last few bars of the strip.
-  const from = new Date(now - (past + 1) * 86_400_000).toISOString();
+  // One extra day at each end of the UTC window, PLUS two hours on the back:
+  // a Central calendar day spans UTC hours on both sides of its own date, so a
+  // query cut to exactly the day keys would clip the first and last few bars
+  // of the strip. The flat (past + 1)-day margin covered that offset but not a
+  // 25-hour fall-back day sitting in the window while `now` sits late in the
+  // Central evening — that pair pushed the oldest day's first stored hour just
+  // outside the bound, and buildPatternDays rendered it as a gap that was
+  // really in the table. Two hours covers the extra DST hour with room; a
+  // fetched row the window over-admits is discarded by the day-key fold, so
+  // generosity here costs nothing.
+  const from = new Date(now - ((past + 1) * 24 + 2) * 3_600_000).toISOString();
   const to = new Date(now + 86_400_000).toISOString();
 
   try {

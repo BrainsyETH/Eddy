@@ -135,7 +135,10 @@ export function DamPatternStrip({
                           {
                             height: `${Math.max(cell.fraction * 100, 14)}%`,
                             borderWidth: StyleSheet.hairlineWidth,
-                            borderColor: cell.fraction > 0 ? colors.generationMid : colors.border,
+                            // `generating`, not `fraction > 0`: without a
+                            // reference every fraction is 0, and a full-load
+                            // hour would draw in the idle treatment.
+                            borderColor: cell.generating ? colors.generationMid : colors.border,
                             backgroundColor: 'transparent',
                           },
                         ]}

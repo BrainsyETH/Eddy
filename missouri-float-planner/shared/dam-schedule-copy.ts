@@ -296,7 +296,61 @@ export function scheduleStateNow(
  *   overstates when downstream is safe to stand in, because the recession limb
  *   keeps the river up well after the units come off.
  */
-export const SCHEDULE_CHANGE_NOTE = 'at the dam · subject to change · downstream water lags';
+export const SCHEDULE_CHANGE_NOTE =
+  'at the dam · subject to change · downstream water arrives later';
+
+/**
+ * The same three claims as a sentence, for surfaces with room to say them.
+ *
+ * ── Why two forms and not one ──────────────────────────────────────────────
+ * SCHEDULE_CHANGE_NOTE is sized for a list row and a compact card, where a
+ * sentence would wrap three times and be skipped. The hero has a whole block
+ * and can afford plain language — and it is the surface where somebody is
+ * actually deciding whether to go, so "downstream water lags" doing the work
+ * of "the river near you comes up later" was the wrong economy.
+ *
+ * Each sentence carries exactly one of the three claims, in the order a reader
+ * needs them: whose clock this is, what it means where they are standing, and
+ * how much to trust it. Kept beside the compact form so the two cannot drift.
+ */
+export const SCHEDULE_CHANGE_SENTENCE =
+  'Times are at the dam. Water downstream rises and falls later, depending how far below it you are. Schedules can change without notice.';
+
+/**
+ * How much of a day is scheduled to run, in words.
+ *
+ * ── Why "scheduled" is in every branch ─────────────────────────────────────
+ * The same rule idleWindowSentence holds: this reads SWPA's plan, and it
+ * renders on the same screen as a hero that can report a measured "No turbine
+ * generation observed". "24 of 24 hours generating" is a plan wearing a
+ * measurement's voice, and the two lines then contradict each other with
+ * nothing to say which one looked at the river.
+ *
+ * The all-day case gets its own phrasing because "24 of 24 hours" is a
+ * fraction a reader has to resolve before learning anything, and the answer is
+ * always the same three words.
+ *
+ * `compact` is for a trailing chip in a collapsed row, where there is space
+ * for two words and no more.
+ */
+export function scheduledHoursSummary(
+  hours: Array<{ megawatts: number }>,
+  options?: { compact?: boolean }
+): string {
+  const compact = options?.compact ?? false;
+  const running = hours.filter((h) => h.megawatts > 0).length;
+  // The day's own posted length rather than a literal 24. parseSchedulePage
+  // drops any day that is not exactly 24 rows, so these agree today — but a
+  // denominator read off the data cannot be the thing that goes stale if that
+  // ever loosens.
+  const total = hours.length;
+
+  if (running === 0) return compact ? 'idle' : 'No generation scheduled';
+  if (running === total) return compact ? 'all day' : 'Scheduled to generate all day';
+  return compact
+    ? `${running}/${total} h`
+    : `Scheduled to generate ${running} of ${total} hours`;
+}
 
 /**
  * The one forward-looking line a tailwater angler wants: when generation changes.
@@ -529,6 +583,28 @@ export function scheduleIsStale(
   const ms = Date.parse(iso);
   if (!Number.isFinite(ms)) return false;
   return (now - ms) / 60_000 > SCHEDULE_STALE_AFTER_MINUTES;
+}
+
+/**
+ * The oldest `retrievedAt` across a schedule's days, or null when no day
+ * carries one.
+ *
+ * A schedule block is only as fresh as its OLDEST day: each day is a separate
+ * file (mon.htm, tue.htm) with its own cache age, so taking the newest would
+ * overstate the set. That fold had been written five times across three
+ * packages — which is five places a change to the freshness rule could miss —
+ * so it lives here, beside scheduleIsStale, which is what its result feeds.
+ *
+ * ISO-8601 UTC strings order lexically, which is what makes the string
+ * comparison correct.
+ */
+export function oldestRetrievedAt(
+  schedule: Array<{ retrievedAt: string | null }>
+): string | null {
+  return schedule.reduce<string | null>((oldest, day) => {
+    if (!day.retrievedAt) return oldest;
+    return !oldest || day.retrievedAt < oldest ? day.retrievedAt : oldest;
+  }, null);
 }
 
 /**

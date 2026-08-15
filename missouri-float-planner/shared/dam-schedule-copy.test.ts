@@ -14,7 +14,10 @@ import {
   hourEndingNow,
   scheduleStateNow,
   nextScheduleChangeSentence,
+  oldestRetrievedAt,
+  scheduledHoursSummary,
   SCHEDULE_CHANGE_NOTE,
+  SCHEDULE_CHANGE_SENTENCE,
   tailwaterMovementLabel,
   tailwaterMovementSentence,
   readingStaleness,
@@ -478,4 +481,63 @@ test('the staleness bands sit where the server put them', () => {
   // Epoch millis and ISO agree, because stalenessOf passes a number.
   assert.equal(readingStaleness(at, at + 9 * 3_600_000), 'stale');
   assert.equal(readingStaleness('not a date'), null, 'unreadable is never a guess');
+});
+
+test('a schedule block is only as fresh as its oldest day', () => {
+  // Each day is a separate file (mon.htm, tue.htm) with its own cache age, so
+  // the newest timestamp would overstate the set. This fold was written five
+  // times across three packages before it lived here; the shared helper is
+  // what keeps a freshness-rule change from missing one of them.
+  assert.equal(
+    oldestRetrievedAt([
+      { retrievedAt: '2026-07-28T17:00:00.000Z' },
+      { retrievedAt: '2026-07-28T11:00:00.000Z' },
+      { retrievedAt: '2026-07-28T16:00:00.000Z' },
+    ]),
+    '2026-07-28T11:00:00.000Z'
+  );
+  // A day with no timestamp neither wins nor disqualifies the rest.
+  assert.equal(
+    oldestRetrievedAt([{ retrievedAt: null }, { retrievedAt: '2026-07-28T16:00:00.000Z' }]),
+    '2026-07-28T16:00:00.000Z'
+  );
+  assert.equal(oldestRetrievedAt([{ retrievedAt: null }]), null);
+  assert.equal(oldestRetrievedAt([]), null);
+});
+
+test('the long-form change note carries the same three claims in plain language', () => {
+  // The compact note is sized for a list row; the hero has a whole block and
+  // can afford words. Both have to carry all three: whose clock this is, what
+  // it means where the reader is standing, and how much to trust it.
+  assert.match(SCHEDULE_CHANGE_SENTENCE, /at the dam/i);
+  assert.match(SCHEDULE_CHANGE_SENTENCE, /downstream/i);
+  assert.match(SCHEDULE_CHANGE_SENTENCE, /can change/i);
+  // "lags" was the word doing the downstream work, and it is jargon standing
+  // in for the one fact a wading reader most needs.
+  assert.ok(!/lags/i.test(SCHEDULE_CHANGE_SENTENCE));
+  // And it may not promise a safe river — the same rule the rest of this file
+  // holds. Saying water arrives later is a fact; saying it is then safe is not.
+  assert.ok(!/\b(safe|wade|wading)\b/i.test(SCHEDULE_CHANGE_SENTENCE));
+});
+
+test('a day summary says "scheduled" in every branch, and names an all-day run', () => {
+  const hours = (running: number) =>
+    Array.from({ length: 24 }, (_, i) => ({ megawatts: i < running ? 300 : 0 }));
+
+  assert.equal(scheduledHoursSummary(hours(0)), 'No generation scheduled');
+  assert.equal(scheduledHoursSummary(hours(14)), 'Scheduled to generate 14 of 24 hours');
+  // "24 of 24 hours" is a fraction a reader has to resolve before learning
+  // anything, and the answer is always the same three words.
+  assert.equal(scheduledHoursSummary(hours(24)), 'Scheduled to generate all day');
+
+  assert.equal(scheduledHoursSummary(hours(0), { compact: true }), 'idle');
+  assert.equal(scheduledHoursSummary(hours(14), { compact: true }), '14/24 h');
+  assert.equal(scheduledHoursSummary(hours(24), { compact: true }), 'all day');
+
+  // Never a bare "generating": this reads a plan and renders beside a hero
+  // that may be reporting a measured "No turbine generation observed".
+  for (const n of [0, 1, 14, 24]) {
+    const full = scheduledHoursSummary(hours(n));
+    assert.ok(/scheduled/i.test(full), `"${full}" must name itself a plan`);
+  }
 });
