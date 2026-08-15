@@ -30,7 +30,7 @@
 //   with no campgrounds should say 0, but a layer that has never been fetched
 //   must not claim zero of anything.
 
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { EddySymbol } from '@/components/EddySymbol';
@@ -236,6 +236,28 @@ export function MapLayersSheet({
                     {count != null ? (
                       <Text style={[styles.count, { color: colors.textSubtle }]}>{count}</Text>
                     ) : null}
+                    {/* ── The caveat, one tap away ──────────────────────────
+                        A native alert rather than a nested Modal: this sheet
+                        IS a Modal, and stacking a second one is the case RN
+                        handles worst on iOS. An Alert is also the presentation
+                        a reader already knows means "here is the small print",
+                        and it comes with focus handling and dismissal for
+                        free. The row itself stays the switch — this is its own
+                        target, so reaching for the ⓘ cannot toggle the layer. */}
+                    {layer.info ? (
+                      <Pressable
+                        onPress={() => Alert.alert(layer.label, layer.info)}
+                        hitSlop={10}
+                        accessibilityRole="button"
+                        accessibilityLabel={`About ${layer.label}`}
+                      >
+                        <Ionicons
+                          name="information-circle-outline"
+                          size={15}
+                          color={colors.textSubtle}
+                        />
+                      </Pressable>
+                    ) : null}
                   </View>
                   {layer.description ? (
                     <Text
@@ -374,26 +396,21 @@ export function MapLayersSheet({
   );
 }
 
-/**
- * A line of explanation indented under a layer row.
- *
- * The sibling of the tier chips and the gauge filter bar — same slot, same
- * indent, same hairline spine — for a layer whose refinement is a SENTENCE
- * rather than a control. Radar is the case that needed it: it has no count to
- * print and one thing that must be said (it needs a connection), and the
- * alternative was leaving a switch that appears to do nothing when offline.
- */
-export function LayerNote({ text, attribution }: { text: string; attribution?: string }) {
-  const { colors } = useTheme();
-  return (
-    <View style={[styles.noteWrap, { borderLeftColor: colors.border }]}>
-      <Text style={[styles.noteText, { color: colors.textSubtle }]}>{text}</Text>
-      {attribution ? (
-        <Text style={[styles.noteAttribution, { color: colors.textSubtle }]}>{attribution}</Text>
-      ) : null}
-    </View>
-  );
-}
+// ── LayerNote is gone ───────────────────────────────────────────────────────
+//
+// It rendered a muted sentence in the tier slot, and by the end four rows were
+// using it to explain Eddy's data model to somebody trying to control a map:
+// how much of the services directory had been geocoded, which mark a place had
+// ended up wearing, that radar needs a connection. Every one was TRUE and none
+// of them answered "what will I see if I turn this on" — while each pushed the
+// rows below it further off a phone screen.
+//
+// The two facts that genuinely had to survive are attribution and the
+// ownership caveat, and both are `LayerDef.info` now, behind the row's ⓘ. What
+// replaced the rest is nothing, deliberately: the count already promises only
+// what the layer can draw (the resolver drops services with no coordinates
+// before counting), so the sentence that used to explain the shortfall was
+// explaining a shortfall that is not in the number.
 
 /**
  * The button that opens the sheet, floated over the map.
@@ -505,16 +522,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
   },
-  // Same indent and spine as the tier strip above, so a note and a chip row
-  // read as the same kind of thing hanging off the same row.
-  noteWrap: {
-    marginLeft: 30,
-    paddingLeft: 10,
-    paddingBottom: 6,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-  },
-  noteText: { ...t.xs, fontFamily: fonts.body, lineHeight: 15 },
-  noteAttribution: { ...t.xs, fontFamily: fonts.body, marginTop: 3, opacity: 0.7 },
   tierDot: { width: 8, height: 8, borderRadius: 999 },
   tierText: { ...t.xs, fontFamily: fonts.semibold, flexShrink: 1 },
   tierCount: { ...t.xs, fontFamily: fonts.mono },

@@ -206,19 +206,45 @@ test('the note and the row count come from the same resolve', () => {
   assert.equal(drawnAsRamps, ramps.ownedMarkers);
 });
 
-test('the sheet asks the resolver for the note rather than recomputing it', () => {
-  // The failure this file exists to prevent is a second derivation beside the
-  // count — the exact shape of the drift ADR 0008 records. A component that
-  // built its own sentence out of `layers.includes(...)` would pass every test
-  // above and still be able to disagree with the number next to it.
+test('the sheet does not hand-build a representation sentence of its own', () => {
+  // ── WHAT THIS GUARD NOW PROTECTS ────────────────────────────────────────
+  //
+  // It used to assert the OPPOSITE — that the map screen called
+  // `accessOverlapNote` — because the sheet printed the sentence and the risk
+  // was a component recomputing it beside the count and drifting from it.
+  //
+  // The sheet no longer prints it at all: "138 drawn as access points · 103 as
+  // campgrounds" is a data-integrity fact, and a "Show on map" drawer is where
+  // somebody controls a map, not where Eddy explains its mark-priority rules.
+  // The resolver still computes the buckets and the tests above still pin the
+  // algebra, so the capability is intact for an internal panel to use.
+  //
+  // The drift risk survives the removal, inverted: the temptation now is a
+  // component assembling "N drawn as X" out of `layers.includes(...)`, which
+  // would be both a second derivation AND the copy that was just removed. So
+  // the guard is that the screen builds no such sentence itself.
   const screen = readFileSync(
     join(process.cwd(), '../eddy-ios/app/(tabs)/index.tsx'),
     'utf8',
   );
+  // CODE ONLY. The comments in that file explain what was removed and quote
+  // the old copy while doing it, which is exactly what a reader arriving at
+  // the change needs and exactly what a naive scan would trip over. Stripping
+  // them is what makes this a guard against SHIPPING the sentence rather than
+  // against mentioning it. `(?<!:)` keeps `https://` out of the line-comment
+  // rule; this is a heuristic and does not need to be a parser.
+  const code = screen.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(?<!:)\/\/.*$/gm, '');
   assert.ok(
-    screen.includes('accessOverlapNote('),
-    'the map screen should render the resolver’s note',
+    !/drawn as/.test(code),
+    'the map screen must not assemble its own representation sentence',
   );
+  assert.ok(
+    !/have a confirmed location/.test(code),
+    'coverage copy belongs to the river page listing, not to a map control',
+  );
+  // And the guard has to be able to fail, or it is decoration: the stripper
+  // must leave real code behind.
+  assert.ok(code.includes('renderLayerDetail'), 'the stripper kept the screen’s code');
 });
 
 // ── Sections: a heading groups rows and does nothing else ──────────────────
