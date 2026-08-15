@@ -83,29 +83,38 @@ network policy.
 DeGray (Caddo), Narrows/Lake Greeson (Little Missouri), Blakely Mountain/Lake
 Ouachita (Ouachita). All three have coldwater tailwaters.
 
-These expose a real gap rather than just needing an entry:
+These used to expose a real gap. `hasTurbines` was `Boolean(dam.swpaCode)`, so a
+hydro project SWPA does not schedule rendered as **having no powerhouse at all**
+even though CWMS publishes `Flow-Plant` for it, and the history cron filtered the
+same way — no pattern history either.
+
+**That is fixed.** `hasPowerhouse(dam)` in the registry is now the single rule,
+used by both the wire field and the cron:
 
 ```ts
-hasTurbines: Boolean(dam.swpaCode)          // src/lib/data/dams.ts
+export function hasPowerhouse(dam: UsaceDam): boolean {
+  return Boolean(dam.swpaCode || dam.nameplate);
+}
 ```
 
-A hydro project SWPA does not schedule therefore renders as **having no
-powerhouse at all**, even though CWMS publishes `Flow-Plant` for it. The history
-cron filters the same way (`d.swpaCode && d.office && d.cdaLocation`), so it
-would collect no pattern history either.
+Two ideas that were one field are now separate: `hasPowerhouse` follows the
+**plant**, `swpaCode` gates only the **schedule** and the `generationReference`.
 
-Doing these properly means decoupling two ideas that are currently one field:
+It is `nameplate` rather than "has a turbine" because of Wappapello, which has
+175 kW of station service and must stay false — it never peaks, and a hero
+reading "generating" for it answers a question nobody asked. And it cannot be
+`Boolean(nameplate)` alone because the ten Tulsa and lock-and-dam projects carry
+a code with no nameplate. Both cases are pinned by tests.
 
-- `hasTurbines` should follow the **plant** — a `nameplate`, or a resolvable
-  `generationFlow`.
-- `swpaCode` should gate only the **schedule** and the `generationReference`.
+So a DeGray-shaped entry now needs a `nameplate` and a `generationOnCfs` floor,
+and it gets: observed turbine flow, the generation hero, and pattern history.
+It does **not** get a schedule, a next-change line, or the forward half of the
+pattern strip — those need SWPA. The console already degrades correctly without
+a `generationReference`: the percentage, the rack and the equivalents phrase all
+return null rather than zero, and pattern cells carry `generating` independently
+of scale.
 
-The generation console already degrades correctly without a reference — the
-percentage, the rack and the equivalents phrase all return null rather than
-zero, and pattern cells carry `generating` independently of scale — so the hero
-would show observed turbine discharge with no scale beside it, which is honest.
-
-**Estimate:** ~1 day for the decoupling plus tests, then ~1 hour per dam.
+**Estimate:** ~1 hour per dam, once the location id is known.
 
 ### Little Rock — flood control only
 

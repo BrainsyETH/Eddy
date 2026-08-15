@@ -240,10 +240,11 @@ A candidate here is an ID, not a decision. Before one becomes a registry entry:
   3. Take lat/lon/state from THIS output, not from a gazetteer. The registry
      says so, and check-usace-resolver re-checks against CWMS.
 
-A dam with no swpaCode gets no generation schedule and no pattern history — the
-history cron filters on swpaCode — and hasTurbines is derived from swpaCode, so
-a hydro project SWPA does not schedule renders as having no powerhouse today.
-See the scoping notes in docs/dam-expansion.md before adding one of those.
+A dam with no swpaCode gets no generation SCHEDULE — no next-change line, and no
+forward half of the pattern strip. It does still get a powerhouse, observed
+turbine flow and pattern history, provided it declares a nameplate: that is what
+hasPowerhouse() reads, and both the wire field and the history cron go through
+it. See docs/dam-expansion.md.
 `);
     }
   })();

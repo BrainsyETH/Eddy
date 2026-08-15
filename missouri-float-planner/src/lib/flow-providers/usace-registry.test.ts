@@ -6,6 +6,8 @@ import {
   USACE_RELEASE_SITE_IDS,
   getUsaceDam,
   getUsaceSeries,
+  hasPowerhouse,
+  type UsaceDam,
 } from './usace-registry';
 import { SWPA_PROJECTS, swpaCodeCandidates } from '@/lib/usace/swpa';
 
@@ -64,8 +66,17 @@ test('a dam with turbines declares when it counts as generating', () => {
   const OFFICES_PUBLISHING_TURBINE_FLOW = new Set(['SWL', 'SWT']);
 
   for (const dam of Object.values(USACE_DAMS)) {
+    // `hasPowerhouse`, not `swpaCode`, for the same reason the wire field
+    // changed: whether the district serves turbine flow is a fact about the
+    // PLANT and the district, and owes nothing to SWPA's schedule. Gating on
+    // the code would let a Corps hydro project SWPA does not schedule ship
+    // with no floor at all — and a missing floor means `generationNow` falls
+    // back to 0, so the plant reads "generating" on its own idle leakage.
     const resolvesTurbineFlow = Boolean(
-      dam.swpaCode && dam.cdaLocation && dam.office && OFFICES_PUBLISHING_TURBINE_FLOW.has(dam.office)
+      hasPowerhouse(dam) &&
+        dam.cdaLocation &&
+        dam.office &&
+        OFFICES_PUBLISHING_TURBINE_FLOW.has(dam.office)
     );
     if (!dam.series.generationFlow && !resolvesTurbineFlow) continue;
     assert.ok(
@@ -266,4 +277,80 @@ test('every project declares what its tailwater fishery is', () => {
   for (const dam of Object.values(USACE_DAMS)) {
     assert.ok(dam.tailwaterFishery, `${dam.id} has no fishery classification`);
   }
+});
+
+// ── A powerhouse and a published schedule are different facts ──────────────
+
+test('having a powerhouse does not depend on SWPA scheduling it', () => {
+  // `hasTurbines` was `Boolean(swpaCode)` in two places — the wire and the
+  // history cron — which held only while every hydro project Eddy carried was
+  // also in SWPA's file. The first Corps hydro project SWPA does not schedule
+  // (DeGray, Narrows, Blakely Mountain are the near candidates, and CWMS
+  // publishes turbine flow for all three) would have reported "this project
+  // has no powerhouse" while the district was serving its Flow-Plant series.
+  const scheduled = getUsaceDam('swl-bull-shoals-dam')!;
+  assert.ok(scheduled.swpaCode, 'Bull Shoals is scheduled');
+  assert.equal(hasPowerhouse(scheduled), true);
+
+  // The shape a future DeGray takes: a described plant, no schedule column.
+  const unscheduledHydro = {
+    ...scheduled,
+    id: 'swl-example-unscheduled',
+    swpaCode: undefined,
+    nameplate: { units: 2, megawatts: 68 },
+  } as UsaceDam;
+  assert.equal(
+    hasPowerhouse(unscheduledHydro),
+    true,
+    'a plant SWPA does not schedule is still a plant',
+  );
+
+  // And the ten Tulsa and lock-and-dam projects carry a code with no nameplate,
+  // so the rule cannot be `Boolean(nameplate)` either.
+  const tulsa = getUsaceDam('swt-tenkiller-dam')!;
+  assert.equal(tulsa.nameplate, undefined);
+  assert.equal(hasPowerhouse(tulsa), true);
+});
+
+test('a station-service turbine is not a powerhouse', () => {
+  // WAPPAPELLO IS THE CASE THAT DECIDES THE RULE. It has a turbine — 175 kW,
+  // enough to run the dam's own lights — and it must stay false: it never
+  // peaks, has no schedule, and a hero reading "generating" for it would
+  // answer a question nobody asked about water nobody is standing in. So the
+  // test is "does Eddy describe a PLANT here", which is what `nameplate`
+  // records, and not "is there a turbine anywhere in the structure".
+  const wappapello = getUsaceDam('mvs-wappapello')!;
+  assert.equal(wappapello.swpaCode, undefined);
+  assert.equal(wappapello.nameplate, undefined);
+  assert.equal(hasPowerhouse(wappapello), false);
+
+  // And a flood-control project with no turbine at all, for the other end.
+  const clearwater = getUsaceDam('swl-clearwater-dam')!;
+  assert.equal(hasPowerhouse(clearwater), false);
+});
+
+test('the powerhouse question is answerable with no live fetch', () => {
+  // The bug this locks out is the one /dams/[damId] shipped: it used
+  // `schedule.length === 0` to mean "no powerhouse", so a stale SWPA file made
+  // Table Rock's four units vanish from the page while the index card beside
+  // it read "Generating". Every dam has to answer from static fields alone.
+  for (const dam of Object.values(USACE_DAMS)) {
+    assert.equal(
+      typeof hasPowerhouse(dam),
+      'boolean',
+      `${dam.id} cannot answer whether it has a powerhouse`,
+    );
+  }
+
+  // Today the two rules still agree on every shipped dam, which is why the
+  // conflation was invisible. Pinned so the day they diverge is a deliberate
+  // change with a dam to point at rather than a silent behaviour shift.
+  const diverging = Object.values(USACE_DAMS).filter(
+    (d) => hasPowerhouse(d) !== Boolean(d.swpaCode),
+  );
+  assert.deepEqual(
+    diverging.map((d) => d.id),
+    [],
+    'a dam now diverges from the old rule — intended, but update this list',
+  );
 });

@@ -38,6 +38,7 @@ import { parseTsId, resolveSeries, type ResolvedSeries } from '@/lib/usace/resol
 import {
   USACE_DAMS,
   getUsaceDam,
+  hasPowerhouse,
   type UsaceDam,
   type UsaceMetric,
 } from '@/lib/flow-providers/usace-registry';
@@ -472,7 +473,11 @@ export function buildSnapshot(
     state: dam.state,
     lat: dam.lat,
     lon: dam.lon,
-    hasTurbines: Boolean(dam.swpaCode),
+    // The PLANT, not the schedule — see hasPowerhouse. A Corps hydro project
+    // SWPA does not schedule still has turbines, and CWMS still publishes
+    // their flow; saying otherwise renders a missing schedule as a missing
+    // powerhouse.
+    hasTurbines: hasPowerhouse(dam),
     ...(dam.nameplate ? { nameplate: dam.nameplate } : {}),
     ...(swpa
       ? {
