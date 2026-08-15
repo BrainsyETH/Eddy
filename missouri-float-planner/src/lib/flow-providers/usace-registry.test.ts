@@ -25,7 +25,10 @@ test('a dam publishes to CWMS, to SWPA, or both — never neither', () => {
     // the Nashville dams are the second shape: office + verified tsIds, no
     // cdaLocation, because no single location prefix spans their split
     // station namespaces (see the LRN block in the registry).
-    const hasCwms = Boolean(dam.office && (dam.cdaLocation || Object.keys(dam.series).length > 0));
+    const hasCwms = Boolean(
+      dam.office &&
+        (dam.cdaLocation || dam.cdaLocations?.length || Object.keys(dam.series).length > 0)
+    );
     const hasSwpa = Boolean(dam.swpaCode);
     assert.ok(hasCwms || hasSwpa, `${dam.id} has no data source at all`);
   }
@@ -45,11 +48,26 @@ test('CWMS series are only configured for dams with an office', () => {
 });
 
 test('a resolvable location is never configured without an office', () => {
-  // cdaLocation feeds resolveSeries, which needs both halves; a location
+  // Locations feed resolveSeries, which needs both halves; a location
   // without an office is dead config that reads as coverage.
   for (const dam of Object.values(USACE_DAMS)) {
-    if (dam.cdaLocation) {
-      assert.ok(dam.office, `${dam.id} has a cdaLocation but no office to resolve it against`);
+    if (dam.cdaLocation || dam.cdaLocations?.length) {
+      assert.ok(dam.office, `${dam.id} has CWMS locations but no office to resolve them against`);
+    }
+  }
+});
+
+test('a dam carries one location shape, never both', () => {
+  // cdaLocations exists for the split-namespace districts (LRN); cdaLocation
+  // stays the common case. Both set would leave which one the resolver reads
+  // as a fact about implementation order rather than about the dam.
+  for (const dam of Object.values(USACE_DAMS)) {
+    assert.ok(
+      !(dam.cdaLocation && dam.cdaLocations),
+      `${dam.id} sets both cdaLocation and cdaLocations — pick the one that describes it`
+    );
+    if (dam.cdaLocations) {
+      assert.ok(dam.cdaLocations.length > 0, `${dam.id} has an empty cdaLocations list`);
     }
   }
 });

@@ -204,11 +204,16 @@ export async function seriesFor(
     else unresolved.push(metric);
   }
 
-  if (unresolved.length === 0 || !dam.office || !dam.cdaLocation) return out;
+  // Either shape of location config feeds the resolver: the common single
+  // prefix, or LRN's list of split station namespaces. Neither present means
+  // no resolution — explicit ids are all the dam has, and a rename 404s
+  // loudly instead of being papered over.
+  const locations = dam.cdaLocations ?? (dam.cdaLocation ? [dam.cdaLocation] : []);
+  if (unresolved.length === 0 || !dam.office || locations.length === 0) return out;
 
   const discovered: Partial<Record<UsaceMetric, ResolvedSeries>> = await resolveSeries(
     dam.office,
-    dam.cdaLocation,
+    locations,
     unresolved
   ).catch(() => ({}));
   for (const [metric, hit] of Object.entries(discovered)) {

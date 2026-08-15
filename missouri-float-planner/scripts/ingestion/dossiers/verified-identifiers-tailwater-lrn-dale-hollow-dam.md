@@ -31,6 +31,10 @@ comment in `usace-registry.ts`.
   Wolf Creek dossier for the discrimination measurement.
 ### poolElevation ✅ `DLHT1-DALE_HOLLOW.Elev-Pool.Inst.1Hour.0.man-rev` (ft)
 ### inflow ✅ `DLHT1-DALE_HOLLOW.Flow-In.Ave.1Hour.1Hour.man-rev`
+- ⚠ mass-balance computed: read **-1,510 cfs** live on 2026-08-15 (release +
+  storage change, negative on drawdown hours). Not an error — the district's
+  own number — and the same artifact SWL's computed inflow can show. A UI
+  change that hides or clamps negative inflow should confront this note.
 ### tailwaterElevation ✅ `DHTT1-DALE_HOLLOW.Elev-Tail.Inst.1Hour.0.man-rev`
 ### tailwaterTempF ✅ `DHTT1-DALE_HOLLOW.Temp-Water-Tail.Inst.30Minutes.0.dcp-rev`
 - unit=F confirmed: **50.7 °F on 2026-08-15**. dcp-rev only, 30-minute

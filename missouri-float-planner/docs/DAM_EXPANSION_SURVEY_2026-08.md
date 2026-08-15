@@ -230,7 +230,7 @@ calibration (plan step 1) will need them anyway.
 | 1 | LRN trout trio: registry entries, floors, docs, dossiers | **shipped with this survey** |
 | 2 | Pattern-strip history accumulating for the three (cron picks them up automatically) | automatic |
 | 3 | LRN forecast rendering | **shipped, as windows** — see below |
-| 4 | Resolver SPECS: LRN vocabulary + a location model that can span split prefixes | own change, smoke-scripted |
+| 4 | Resolver SPECS: LRN vocabulary + split-prefix locations | **shipped** — `cdaLocations` on the registry, LRN spellings in SPECS (bare `Flow` ranked last), smoke run 2026-08-15: LRN resolves 23/27, the 18 prior dams byte-identical to baseline |
 | 5 | Ameren: retry the daily report; if it parses, Truman completes and Bagnell opens | blocked on the 503 (re-confirmed later on 2026-08-15) |
 | 6 | Powersite: non-CWMS metric provider design; Taneycomo reach carries it meanwhile | with TAILWATER_PLAN step 4 |
 | 7 | TVA | after timezone parameterization + first eastern reach |

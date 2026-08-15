@@ -98,6 +98,16 @@ export interface UsaceDam {
   office?: UsaceOffice;
   /** CWMS /locations name. Carries spaces on MVS. */
   cdaLocation?: string;
+  /**
+   * ALL the CWMS locations this project's series hang off, for districts
+   * where one prefix cannot span them. LRN keys observed series on two
+   * NWS-handbook stations per project (tailwater and pool) and its forecast
+   * on a prose name — three namespaces. The resolver searches every listed
+   * location; the SPECS pairs still decide which series carries a metric.
+   * Mutually exclusive with `cdaLocation` by convention: set one or the
+   * other, and the single-location field remains the common case.
+   */
+  cdaLocations?: string[];
   /** SWPA column code, when the dam has turbines on the federal grid. */
   swpaCode?: string;
   /**
@@ -661,21 +671,19 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
   // 2. TWO STATION PREFIXES PER PROJECT. Observed series hang off NWS handbook
   //    stations — RWNK2-WOLF_CREEK (tailwater) vs WLCK2-WOLF_CREEK (dam/pool) —
   //    while the forecast lives under prose names ('Wolf Creek Dam'). No single
-  //    `cdaLocation` prefix spans that, so the field is OMITTED: seriesFor
-  //    skips resolution without one, which is wanted here (see 3), and
-  //    check-usace-resolver.ts skips these dams for the same reason. The
-  //    registry test that required cdaLocation alongside series was loosened
-  //    for this — fetches need only office + tsId.
+  //    `cdaLocation` prefix spans that, so these dams carry `cdaLocations`
+  //    (plural) instead and the resolver searches all three namespaces. The
+  //    explicit ids below still WIN, exactly as everywhere else — resolution
+  //    exists here for rename-recovery, and check-usace-resolver.ts covers
+  //    these dams like any other.
   //
   // 3. A THIRD PARAMETER VOCABULARY. Turbine flow is `Flow-Turbine` (not
   //    `Flow-Plant`/`Flow-Power`), pool is `Elev-Pool` (not `Elev` on
   //    `-Headwater`), tailwater stage is `Elev-Tail` on the station (not
-  //    `Elev-Downstream` on `-Tailwater`), temperature is `Temp-Water-Tail`.
-  //    None of it is in resolve.ts SPECS, so nothing here could resolve anyway;
-  //    keeping resolution structurally off means a renamed series 404s loudly
-  //    instead of quietly matching the wrong namespace. Teaching SPECS the LRN
-  //    vocabulary is real work (the dual-prefix model above doesn't fit
-  //    ParamPair) and gets its own change.
+  //    `Elev-Downstream` on `-Tailwater`), temperature is `Temp-Water-Tail`,
+  //    and total discharge is BARE `Flow`. All of it is in resolve.ts SPECS,
+  //    each spelling beside the district that taught it; bare Flow is ranked
+  //    last there because it is the one generic name in the file.
   //
   // 4. `man-rev` IS THE LIVE VERSION, not just the reviewed one. RWNK2's
   //    dcp-rev tailwater stage stopped 2025-10-24 while man-rev is current —
@@ -698,6 +706,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     lat: 36.868333,
     lon: -85.146944,
     office: 'LRN',
+    cdaLocations: ['RWNK2-WOLF_CREEK', 'WLCK2-WOLF_CREEK', 'Wolf Creek Dam'],
     // 6 x 45 MW. DOE Wolf Creek recon report; verified 2026-08-15.
     nameplate: { units: 6, megawatts: 270 },
     // Cold hypolimnetic release; Kentucky's trophy brown trout tailwater, with
@@ -734,6 +743,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     lat: 36.0963889,
     lon: -85.8205556,
     office: 'LRN',
+    cdaLocations: ['CETT1-CENTER_HILL', 'CEHT1-CENTER_HILL', 'Center Hill Dam'],
     // 3 x 45 MW rated. The 2015-2021 Voith rehab kept the 135 rating (one
     // trade headline said 155; the plant profile and the Corps' own marker say
     // 135,000 kW). Verified 2026-08-15.
@@ -777,6 +787,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     lat: 36.538333,
     lon: -85.451111,
     office: 'LRN',
+    cdaLocations: ['DHTT1-DALE_HOLLOW', 'DLHT1-DALE_HOLLOW', 'Dale Hollow Dam'],
     // 3 x 18 MW. Corps' own project history; verified 2026-08-15.
     nameplate: { units: 3, megawatts: 54 },
     // The Obey — trout water below a dam with its own national fish hatchery
