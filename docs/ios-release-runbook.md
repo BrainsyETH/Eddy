@@ -13,32 +13,43 @@ device behavior and store metadata can drift between releases.
 
 ### 1.1 delta gates found in the August 11 repository audit
 
-- [ ] Apply `20260811130000_search_gauges_provider_provenance.sql` and verify
+- [x] Apply `20260811130000_search_gauges_provider_provenance.sql` and verify
       both `search_gauges` overloads. The four-argument form keeps 1.0 working;
       the five-argument form serves paged 1.1 search. The migration adds one
       column and changes no reading semantics, so a rollback is a re-apply of
-      00207.
+      00207. *Verified in production 2026-08-15: both overloads present
+      (`pg_proc` shows the 4-arg and 5-arg signatures).*
 - [ ] Confirm a saved USGS gauge still shows its site number in Reports before
       any account syncs. A star written by 1.0 carries no provider, and for a
       signed-out user nothing will ever fill one in — the caption has to fall
       back to the site number rather than to a bare "Gauge".
-- [ ] Apply `20260810202000_trust_usgs_site_scope.sql`, confirm it with
+- [x] Apply `20260810202000_trust_usgs_site_scope.sql`, confirm it with
       `npm run db:check-migrations`, then rerun `usgs_site_drift`. The live
       check currently calls this RPC with no readable scope and refuses
-      reconciliation as `check_error`.
-- [ ] Deploy the web/API changes, then confirm the exact Clearwater Dam search
+      reconciliation as `check_error`. *Verified 2026-08-15: applied, and
+      `trust_runs` shows `usgs_site_drift` green since 2026-08-11 with
+      `scope_count: 43`; the stuck finding auto-resolved on the first run.*
+- [x] Deploy the web/API changes, then confirm the exact Clearwater Dam search
       result says **USACE release**, carries `provider: "usace"`, and never
       exposes `swl-clearwater-dam` as though it were a public station number.
       Migration-first is still the intended order, but it is no longer a gate:
       an unknown provider now falls back to the site number when the id is one,
       so code-before-migration lands on 1.0's copy instead of blanking every
-      site id in search. See `shared/station-caption.ts`.
-- [ ] Confirm Clearwater detail qualifier copy says **USACE**, not USGS.
+      site id in search. See `shared/station-caption.ts`. *Verified against
+      the live API 2026-08-15: `/api/search?q=clearwater dam` returns
+      "Black River below Clearwater Dam" with subtitle "Black River · USACE
+      release" and `provider: "usace"`; no station-number caption.*
+- [x] Confirm Clearwater detail qualifier copy says **USACE**, not USGS.
+      *Verified live 2026-08-15: `/api/gauges/swl-clearwater-dam` says
+      "Provisional USACE data".*
 - [x] Run the USGS site-drift regression suite in both UTC and
       `America/Chicago`; the official `end_utc` field must win.
 - [ ] Review every critical/high Trust Ledger finding after the August 11
       snoozes expire. Resolve only after the invariant passes; do not extend a
-      snooze as a substitute for remediation.
+      snooze as a substitute for remediation. *August 15 state: the
+      `admin_policies_use_is_admin` high is fixed (see the August 15 gates
+      below); the Jacks Fork critical and the Courtois high remain open and
+      each needs a judgement, not a snooze.*
 - [ ] Run `npm run db:check-services` against production and account for every
       eligible service without coordinates before calling the Maps service
       model complete.
@@ -49,19 +60,65 @@ device behavior and store metadata can drift between releases.
 - [ ] Smoke-test the 1.0 production app before TestFlight so the staggered
       backend rollout proves backward compatibility.
 
+### Delta gates added by the August 15 pre-release review
+
+Everything the August 11 audit missed because it happened after August 11.
+
+- [x] **Migration history reconciled with production.** Two-way drift had
+      accumulated: seventeen post-baseline migrations were applied through the
+      SQL editor with recorded versions that differed from their repo
+      filenames; `tailwater_gauge_roles` (2026-08-13) was applied to production
+      from a checkout whose migration file never landed; and three repo
+      migrations (`dam_metric_history`, `reconcile_access_point_slugs`,
+      `dam_metric_history_retention_comment`) were unapplied. Fixed 2026-08-15:
+      the seventeen version strings were repaired in
+      `supabase_migrations.schema_migrations` to match the repo filenames (the
+      filenames are what code comments and provenance notes cite),
+      `tailwater_gauge_roles` was adopted into the repo verbatim from the
+      recorded statements — see the header of
+      `20260813005710_tailwater_gauge_roles.sql` — and the three pending
+      migrations were applied and recorded. Post-baseline histories now pair
+      1:1 (58 = 58).
+- [ ] Run `make check-db` from a linked checkout to confirm the reconciliation
+      from the CLI's view. (The fix was verified by direct comparison of
+      `schema_migrations` against the migrations directory, but this command is
+      the release gate and needs the linked project.)
+- [ ] **Generation pattern strip has data.** `/api/cron/sync-dam-history`
+      (`25 * * * *`) had been warn-failing since the dam console deployed,
+      because `dam_metric_readings` did not exist; the table was created
+      2026-08-15. After the next hourly run, confirm
+      `select count(*) from dam_metric_readings` is non-zero and a dam page
+      draws the strip. Until roughly a week accumulates, the strip is honestly
+      sparse — that is recorded history, not a defect.
+- [x] **`access_point_services` admin policies call `is_admin()`.**
+      `20260811140000` wrote its three admin policies in the inlined
+      `user_roles` form that `20260804235408` had already banished, and
+      `trust_schema_invariants` flagged it (high) from August 14. Fixed by
+      `20260815180000_access_point_services_policies_call_is_admin.sql`,
+      applied 2026-08-15; the finding auto-resolves on the next trust tick.
+- [x] Regenerate `src/types/database.ts` after the schema work (done
+      2026-08-15; the regen was purely additive — `access_point_services`,
+      `dam_metric_readings`, `river_gauges.role` and the condition-rating
+      provenance columns, `rivers.controlling_dam_id`).
+
 ### Live production backlog inspected August 11
 
 The Trust Ledger is operating (day 6 of 28, 0% false positives among 35 reviewed,
 all six safety-baseline findings still closed), but it is not release-green:
 
-- **Critical — `usgs_site_drift`:** the run failed with `check_error` and an
-  empty scope (`scopeCount: 0`), so reconciliation correctly refused to close
-  its one existing finding. The check depends on the explicitly not-yet-applied
-  `trust_usgs_site_scope()` migration above; apply it, confirm a non-empty scope,
-  and rerun before treating station-drift state as known.
-- **Critical — Jacks Fork threshold order (snoozed):** inspect the CFS ladder in
-  `/admin/gauges`. An inverted pair is a live badge error; an equal
-  high/dangerous pair is latent but still needs a strictly increasing value.
+- ~~**Critical — `usgs_site_drift`**~~ **Resolved 2026-08-11:** the scope
+  migration went in and the check has run green since (`scope_count: 43`,
+  the stuck finding auto-resolved). Re-verified 2026-08-15.
+- **Critical — Jacks Fork threshold order (still open as of August 15):** the
+  offending gauge is Jacks Fork near Mountain View (07065200), where
+  `level_low = level_optimal_min = 100` — not strictly increasing, so the
+  badge at exactly 100 cfs sits on an ambiguous boundary. `optimal_max =
+  high` is repo-wide design (see `align_high_threshold_with_optimal_max`)
+  and is not the problem; `high < dangerous` holds everywhere. The fix is a
+  data judgement about that reach (nudge `level_optimal_min` above 100), and
+  it was deliberately left unfixed by the August 15 review pending that
+  judgement. The finding has been re-snoozed at least once; a snooze is not
+  remediation.
 - **High — Courtois gauge proximity (snoozed):** Courtois intentionally borrows
   Huzzah's gauge about five miles away. Encode or accept that governed proxy
   relationship instead of repeatedly snoozing a geometry warning.
