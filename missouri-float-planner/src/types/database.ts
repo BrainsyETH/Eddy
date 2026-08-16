@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_point_services: {
+        Row: {
+          access_point_id: string
+          created_at: string
+          id: string
+          nearby_service_id: string
+          relationship: string
+          source: string | null
+          updated_at: string
+          verified_at: string | null
+        }
+        Insert: {
+          access_point_id: string
+          created_at?: string
+          id?: string
+          nearby_service_id: string
+          relationship: string
+          source?: string | null
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Update: {
+          access_point_id?: string
+          created_at?: string
+          id?: string
+          nearby_service_id?: string
+          relationship?: string
+          source?: string | null
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "access_point_services_access_point_id_fkey"
+            columns: ["access_point_id"]
+            isOneToOne: false
+            referencedRelation: "access_points"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_point_services_nearby_service_id_fkey"
+            columns: ["nearby_service_id"]
+            isOneToOne: false
+            referencedRelation: "nearby_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       access_points: {
         Row: {
           amenities: string[] | null
@@ -845,6 +893,33 @@ export type Database = {
           heartbeat_at?: string
           job?: string
           started_at?: string
+        }
+        Relationships: []
+      }
+      dam_metric_readings: {
+        Row: {
+          dam_id: string
+          metric: string
+          observed_hour: string
+          sample_count: number
+          updated_at: string
+          value_cfs: number
+        }
+        Insert: {
+          dam_id: string
+          metric: string
+          observed_hour: string
+          sample_count?: number
+          updated_at?: string
+          value_cfs: number
+        }
+        Update: {
+          dam_id?: string
+          metric?: string
+          observed_hour?: string
+          sample_count?: number
+          updated_at?: string
+          value_cfs?: number
         }
         Relationships: []
       }
@@ -1947,6 +2022,7 @@ export type Database = {
       nearby_services: {
         Row: {
           address_line1: string | null
+          alt_names: string[]
           booking_platform: string | null
           cabin_count: number | null
           city: string
@@ -1959,7 +2035,9 @@ export type Database = {
           geocode_precision: string | null
           geocode_source: string | null
           geocoded_at: string | null
+          google_place_id: string | null
           id: string
+          last_verified_at: string | null
           latitude: number | null
           longitude: number | null
           managing_agency: string | null
@@ -1992,6 +2070,7 @@ export type Database = {
         }
         Insert: {
           address_line1?: string | null
+          alt_names?: string[]
           booking_platform?: string | null
           cabin_count?: number | null
           city: string
@@ -2004,7 +2083,9 @@ export type Database = {
           geocode_precision?: string | null
           geocode_source?: string | null
           geocoded_at?: string | null
+          google_place_id?: string | null
           id?: string
+          last_verified_at?: string | null
           latitude?: number | null
           longitude?: number | null
           managing_agency?: string | null
@@ -2037,6 +2118,7 @@ export type Database = {
         }
         Update: {
           address_line1?: string | null
+          alt_names?: string[]
           booking_platform?: string | null
           cabin_count?: number | null
           city?: string
@@ -2049,7 +2131,9 @@ export type Database = {
           geocode_precision?: string | null
           geocode_source?: string | null
           geocoded_at?: string | null
+          google_place_id?: string | null
           id?: string
+          last_verified_at?: string | null
           latitude?: number | null
           longitude?: number | null
           managing_agency?: string | null
@@ -2614,6 +2698,9 @@ export type Database = {
           alt_level_optimal_max: number | null
           alt_level_optimal_min: number | null
           alt_level_too_low: number | null
+          condition_rating_approved_at: string | null
+          condition_rating_approved_by: string | null
+          condition_rating_source: string | null
           created_at: string | null
           distance_from_section_miles: number | null
           flood_stage_ft: number | null
@@ -2633,6 +2720,7 @@ export type Database = {
           pending_reading_at: string | null
           river_id: string | null
           river_mile: number | null
+          role: string | null
           threshold_source: string | null
           threshold_source_url: string | null
           threshold_unit: string | null
@@ -2648,6 +2736,9 @@ export type Database = {
           alt_level_optimal_max?: number | null
           alt_level_optimal_min?: number | null
           alt_level_too_low?: number | null
+          condition_rating_approved_at?: string | null
+          condition_rating_approved_by?: string | null
+          condition_rating_source?: string | null
           created_at?: string | null
           distance_from_section_miles?: number | null
           flood_stage_ft?: number | null
@@ -2667,6 +2758,7 @@ export type Database = {
           pending_reading_at?: string | null
           river_id?: string | null
           river_mile?: number | null
+          role?: string | null
           threshold_source?: string | null
           threshold_source_url?: string | null
           threshold_unit?: string | null
@@ -2682,6 +2774,9 @@ export type Database = {
           alt_level_optimal_max?: number | null
           alt_level_optimal_min?: number | null
           alt_level_too_low?: number | null
+          condition_rating_approved_at?: string | null
+          condition_rating_approved_by?: string | null
+          condition_rating_source?: string | null
           created_at?: string | null
           distance_from_section_miles?: number | null
           flood_stage_ft?: number | null
@@ -2701,6 +2796,7 @@ export type Database = {
           pending_reading_at?: string | null
           river_id?: string | null
           river_mile?: number | null
+          role?: string | null
           threshold_source?: string | null
           threshold_source_url?: string | null
           threshold_unit?: string | null
@@ -2987,6 +3083,7 @@ export type Database = {
         Row: {
           active: boolean | null
           alert_search_terms: string[] | null
+          controlling_dam_id: string | null
           country: string
           created_at: string | null
           description: string | null
@@ -3015,6 +3112,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           alert_search_terms?: string[] | null
+          controlling_dam_id?: string | null
           country?: string
           created_at?: string | null
           description?: string | null
@@ -3043,6 +3141,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           alert_search_terms?: string[] | null
+          controlling_dam_id?: string | null
           country?: string
           created_at?: string | null
           description?: string | null
@@ -4204,6 +4303,7 @@ export type Database = {
               lat: number
               lng: number
               name: string
+              provider: string
               reading_timestamp: string
               site_id: string
             }[]
@@ -4225,6 +4325,7 @@ export type Database = {
               lat: number
               lng: number
               name: string
+              provider: string
               reading_timestamp: string
               site_id: string
             }[]
@@ -4248,6 +4349,35 @@ export type Database = {
           detail: string
           invariant_key: string
           ok: boolean
+        }[]
+      }
+      trust_service_geo: {
+        Args: never
+        Returns: {
+          city: string
+          linked_river_count: number
+          linked_river_names: string[]
+          nearest_any_is_linked: boolean
+          nearest_any_miles: number
+          nearest_any_name: string
+          nearest_linked_miles: number
+          nearest_linked_name: string
+          service_id: string
+          service_name: string
+          service_type: string
+          state: string
+        }[]
+      }
+      trust_usgs_site_scope: {
+        Args: never
+        Returns: {
+          drainage_area_sqmi: number
+          is_primary: boolean
+          lat: number
+          lng: number
+          name: string
+          river_slug: string
+          usgs_site_id: string
         }[]
       }
       try_cron_lock: {
