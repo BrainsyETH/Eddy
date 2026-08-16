@@ -114,13 +114,15 @@ export interface RiverAlertRow {
   kind: AlertSubscriptionKind;
   one_shot: boolean;
   fired_at: string | null;
+  last_triggered_at: string | null;
   enabled: boolean;
   created_at: string;
   rivers?: RiverEmbed | RiverEmbed[] | null;
 }
 
 export const RIVER_ALERT_SELECT =
-  'id, river_id, kind, one_shot, fired_at, enabled, created_at, rivers!inner(name, slug)';
+  'id, river_id, kind, one_shot, fired_at, last_triggered_at, enabled, created_at, ' +
+  'rivers!inner(name, slug)';
 
 export function toRiverRule(row: RiverAlertRow): AlertRule {
   const river = one(row.rivers);
@@ -152,7 +154,13 @@ export function toRiverRule(row: RiverAlertRow): AlertRule {
     enabled: row.enabled ?? true,
     oneShot: row.one_shot,
     firedAt: row.fired_at,
-    lastTriggeredAt: row.fired_at,
+    // last_triggered_at, NOT fired_at, which is the one-shot spend marker and
+    // is never written for a repeating alert — so reading it here reported
+    // "Never sent" on every ordinary river alert forever, however many times it
+    // had fired. The fallback covers rows delivered before that column existed,
+    // where a spend IS a real last-sent time. See migration
+    // 20260815222045_alert_subscription_last_triggered_at.sql.
+    lastTriggeredAt: row.last_triggered_at ?? row.fired_at,
     // A river alert is what other rules are parented TO. It never has one.
     parentId: null,
     createdAt: row.created_at,

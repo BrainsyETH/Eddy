@@ -35,7 +35,6 @@ import type {
   AlertMetric,
   AlertRuleMode,
   AlertSubscriptionKind,
-  NotificationPreferences,
 } from '@/types/api';
 
 /** Don't re-fire the same RULE within this window, whatever the water does. */
@@ -52,9 +51,6 @@ export const GAUGE_ALERT_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 export const HYSTERESIS_FRACTION = 0.02;
 export const HYSTERESIS_MIN_FT = 0.05;
 export const HYSTERESIS_MIN_CFS = 1;
-
-/** Kinds that wake someone during their quiet hours. */
-const QUIET_BREAKTHROUGH_KINDS: ReadonlySet<string> = new Set(['warning']);
 
 export type CrossingState = 'inside' | 'outside';
 
@@ -233,63 +229,9 @@ export function nextCrossingState(
   }
 }
 
-/** Local minutes past midnight in an IANA zone, or null when the zone is bad. */
-function localMinutes(now: Date, timeZone: string): number | null {
-  try {
-    const parts = new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      hour: '2-digit',
-      minute: '2-digit',
-      // h23 and not hour12:false — some ICU builds render midnight as "24"
-      // under the latter, which would put 00:05 an entire day out of the window.
-      hourCycle: 'h23',
-    }).formatToParts(now);
-
-    const hour = Number(parts.find((p) => p.type === 'hour')?.value);
-    const minute = Number(parts.find((p) => p.type === 'minute')?.value);
-    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
-    return (hour % 24) * 60 + minute;
-  } catch {
-    // Unknown zone. The route validates on write, so this is a corrupted row.
-    return null;
-  }
-}
-
-/** True when `now` falls inside the user's quiet window. */
-export function isQuietAt(prefs: NotificationPreferences | null, now: Date): boolean {
-  if (!prefs?.quietHoursEnabled) return false;
-  const { quietStartMinute: start, quietEndMinute: end } = prefs;
-  if (start == null || end == null) return false;
-  // A zero-length window is not "always quiet" — it is a user who has not
-  // finished setting one up.
-  if (start === end) return false;
-
-  const minutes = localMinutes(now, prefs.timezone);
-  // FAIL OPEN. A bad timezone must not silence somebody's danger alerts; an
-  // unwanted 3am buzz is the lesser failure by a wide margin.
-  if (minutes == null) return false;
-
-  return start < end
-    ? minutes >= start && minutes < end
-    : minutes >= start || minutes < end; // overnight, the normal case
-}
-
-/**
- * Whether quiet hours swallow this push.
- *
- * Suppression DROPS rather than queues — deliver-push already discards events
- * older than three hours because a stale "it's floatable" is a lie, and a quiet
- * window outlives that. The Alerts feed remains the durable record.
- */
-export function suppressedByQuietHours(
-  prefs: NotificationPreferences | null,
-  kind: GaugeEventKind | string,
-  now: Date,
-): boolean {
-  if (!isQuietAt(prefs, now)) return false;
-  if (prefs?.safetyOverridesQuiet && QUIET_BREAKTHROUGH_KINDS.has(kind)) return false;
-  return true;
-}
+// Quiet hours used to live here, which is what kept them out of the river
+// delivery pass — see the header of src/lib/alerts/quiet-hours.ts. Both passes
+// now import that module directly.
 
 function conditionPhrase(code: string): string {
   switch (code) {

@@ -116,7 +116,13 @@ export function RiverGaugeAlerts({ rule }: Props) {
     [gauges, riverId],
   );
 
-  /** The existing condition rule for a station on this river, if any. */
+  /**
+   * The existing condition rule for a station on this river, if any.
+   *
+   * Deliberately matches REGARDLESS of parent, because the switch below has to
+   * answer "will I hear about this gauge?" and the answer is yes either way. It
+   * is `ownedHere` that decides whether this section may act on it.
+   */
   const ruleFor = useCallback(
     (gaugeId: string): AlertRule | null =>
       (rules ?? []).find(
@@ -129,6 +135,32 @@ export function RiverGaugeAlerts({ rule }: Props) {
     [rules, riverId],
   );
 
+  /**
+   * Was this rule created HERE, from the river alert being edited?
+   *
+   * ── The rule this section must not touch ──────────────────────────────────
+   *
+   * Somebody can set a condition alert on a station from the gauge screen. It
+   * has no parent, it is not gated by this river alert, and it does not nest
+   * under it on the Alerts tab — it is their own alert, which is exactly the
+   * distinction `parent_subscription_id` was added to make and that
+   * groupAlertRules already respects.
+   *
+   * This section knew nothing about it. The switch read on, which was true, and
+   * the copy beside it promised the rule "appears under this alert on the
+   * Alerts tab" and travels with it — none of which was true. Worse, the switch
+   * was live: flicking it off called remove() and deleted a standalone alert
+   * from a screen that had no business owning it, while the user was editing a
+   * different rule entirely.
+   *
+   * So a rule that is not ours is shown, described accurately, and left alone.
+   */
+  const ownedHere = useCallback(
+    (existing: AlertRule | null): boolean =>
+      existing != null && rule.source === 'river_condition' && existing.parentId === rule.id,
+    [rule.source, rule.id],
+  );
+
   const toggle = useCallback(
     async (row: RiverGauge, next: boolean) => {
       if (!riverId) return;
@@ -137,7 +169,11 @@ export function RiverGaugeAlerts({ rule }: Props) {
       try {
         const existing = ruleFor(row.gauge.id);
         if (!next) {
-          if (existing) await remove(existing);
+          // Only ever removes a rule this section created. The switch is
+          // disabled for anything else, so this is the second lock on the same
+          // door — deleting somebody's standalone alert from here would be
+          // silent and unrecoverable.
+          if (existing && ownedHere(existing)) await remove(existing);
           return;
         }
         if (existing) return;
@@ -181,6 +217,7 @@ export function RiverGaugeAlerts({ rule }: Props) {
     [
       riverId,
       ruleFor,
+      ownedHere,
       remove,
       getAccessToken,
       rule.riverSlug,
@@ -215,7 +252,11 @@ export function RiverGaugeAlerts({ rule }: Props) {
       ) : null}
 
       {rows.map((row) => {
-        const on = row.isPrimary || ruleFor(row.gauge.id) != null;
+        const existing = ruleFor(row.gauge.id);
+        const on = row.isPrimary || existing != null;
+        // On, but somebody else's — set from the gauge screen rather than from
+        // here, so it is not gated by this alert and does not go with it.
+        const separate = existing != null && !ownedHere(existing);
         return (
           <View
             key={row.gauge.id}
@@ -229,11 +270,16 @@ export function RiverGaugeAlerts({ rule }: Props) {
               <Text style={[styles.hint, { color: colors.textMuted }]}>
                 {row.isPrimary
                   ? 'The main gauge — this is what the alert above watches.'
-                  : row.rated
-                    ? on
-                      ? 'On — you will hear about this gauge separately.'
-                      : 'Off'
-                    : 'Eddy has not set levels for this gauge on this river.'}
+                  : !row.rated
+                    ? 'Eddy has not set levels for this gauge on this river.'
+                    : separate
+                      ? // Says whose it is and where to change it. The switch is
+                        // locked beside this, because the only thing this
+                        // section could do to it is delete it.
+                        'On as an alert of its own — it is not part of this one. Manage it on the Alerts tab.'
+                      : on
+                        ? 'On — you will hear about this gauge separately.'
+                        : 'Off'}
               </Text>
             </View>
             {busyId === row.gauge.id ? (
@@ -244,10 +290,17 @@ export function RiverGaugeAlerts({ rule }: Props) {
                 // The primary cannot be switched off here. Turning it off would
                 // mean deleting the alert being edited, which is what the
                 // Delete button at the bottom of this screen is for.
-                disabled={row.isPrimary || !row.rated}
+                //
+                // Nor can a rule set somewhere else: this switch deletes what it
+                // turns off, and that one is not ours to delete.
+                disabled={row.isPrimary || !row.rated || separate}
                 onValueChange={(next) => void toggle(row, next)}
                 trackColor={{ true: colors.interactive, false: colors.border }}
-                accessibilityLabel={`${on ? 'Stop' : 'Start'} alerts for ${row.gauge.name}`}
+                accessibilityLabel={
+                  separate
+                    ? `${row.gauge.name} has its own alert, managed on the Alerts tab`
+                    : `${on ? 'Stop' : 'Start'} alerts for ${row.gauge.name}`
+                }
               />
             )}
           </View>
