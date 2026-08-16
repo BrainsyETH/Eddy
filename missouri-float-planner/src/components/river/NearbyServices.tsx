@@ -12,7 +12,7 @@ import AvailabilityChip from '@/components/ui/AvailabilityChip';
 import { useNearbyServices } from '@/hooks/useNearbyServices';
 import { EDDY_IMAGES } from '@/constants';
 import { OFFERING_LABELS } from '@/lib/services/offerings';
-import { serviceTiers, type ServiceTier } from '@/lib/service-tiers';
+import { serviceEligible, serviceTiers, type ServiceTier } from '@/lib/service-tiers';
 import type { NearbyServiceDirectory, NearbyServiceDirectoryType } from '@/types/api';
 
 interface NearbyServicesProps {
@@ -342,7 +342,12 @@ export default function NearbyServices({ riverSlug, defaultOpen = false }: Nearb
   const { data: services, isLoading } = useNearbyServices(riverSlug);
   const [filter, setFilter] = useState<FilterValue>('all');
 
-  const serviceList = services || [];
+  // Closed businesses are dropped before anything counts or groups them. The
+  // app has always done this and the website never did, from the same rows on
+  // the same wire — so a permanently closed outfitter kept a card with a
+  // tappable phone number here after disappearing from the phone. Filtered at
+  // the top so the tab counts below cannot disagree with the lists.
+  const serviceList = (services || []).filter(serviceEligible);
 
   const sortByDisplayOrder = (list: NearbyServiceDirectory[]) =>
     [...list].sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999));

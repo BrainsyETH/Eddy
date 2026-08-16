@@ -308,9 +308,19 @@ export function useEddySearch({
   /**
    * The next page, appended.
    *
-   * Offset is `answer.results.length` rather than a page counter, so a short
-   * page — which the server can return when a kind runs out mid-allocation —
-   * does not desynchronise the next request from what is actually on screen.
+   * Offset is counted from the rows actually held rather than from a page
+   * counter, so a short page — which the server can return when a kind runs out
+   * mid-allocation — does not desynchronise the next request from what is on
+   * screen.
+   *
+   * ── Counted PER KIND, because that is how the server applies it ───────────
+   * This used to send `answer.results.length`, the total across every kind. For
+   * the scoped tabs that is the same number, since every row there is one kind,
+   * and it was right by accident. For the Today tab's ALL scope it was not: a
+   * 50-row page is roughly seventeen rows of each kind, so page two asked all
+   * three kinds to skip fifty. Rows 17–49 of every kind were never requested
+   * again by any page, and nothing looked wrong — the list just quietly did not
+   * contain them.
    *
    * Guarded on `answered`: paging a query the user has already typed past would
    * append rows belonging to a word that is no longer in the field.
@@ -319,11 +329,17 @@ export function useEddySearch({
     if (!enabled || !answered || !answer.hasMore || paging || searching) return;
     setPaging(true);
     void (async () => {
+      const offsets = answer.results.reduce<Partial<Record<SearchResultKind, number>>>(
+        (acc, r) => ({ ...acc, [r.kind]: (acc[r.kind] ?? 0) + 1 }),
+        {},
+      );
       const { results, available, hasMore } = await searchEddy(
         trimmed,
         undefined,
         kindKey ? (kindKey.split(',') as SearchResultKind[]) : undefined,
-        { offset: answer.results.length },
+        // `offset` stays the single-kind answer so a backend that predates
+        // `offsets` still pages the scoped tabs correctly.
+        { offset: answer.results.length, offsets },
       );
       setPaging(false);
       if (!available) return;
@@ -341,7 +357,10 @@ export function useEddySearch({
         return { query: prev.query, results: [...prev.results, ...fresh], hasMore };
       });
     })();
-  }, [enabled, answered, answer.hasMore, answer.results.length, paging, searching, trimmed, kindKey]);
+    // `answer.results` itself, not just its length: the per-kind tally above
+    // reads every row's kind, so a page that changed the MIX without changing
+    // the count would otherwise be paged from a stale tally.
+  }, [enabled, answered, answer.hasMore, answer.results, paging, searching, trimmed, kindKey]);
 
   const results = useMemo(() => {
     if (!active) return [];

@@ -193,15 +193,115 @@ export function nextForecastChangeSentence(
     // as nextScheduleChangeSentence.
     when = clock === 'midnight' ? 'midnight tonight' : `${clock} tomorrow`;
   } else {
+    // Midnight belongs to the day it CLOSES, not the day it opens — the same
+    // correction as the tomorrow branch above, which is where it stopped. A
+    // boundary at midnight on Monday is Sunday night.
+    const midnight = clock === 'midnight';
     const [y, m, d] = boundaryDay.split('-').map(Number);
-    const weekday = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
-      weekday: 'long',
+    const named = Date.UTC(y, m - 1, d) - (midnight ? 86_400_000 : 0);
+
+    // ── A bare weekday cannot carry a ten-day horizon ──────────────────────
+    // This phrasing was inherited from nextScheduleChangeSentence, where it is
+    // safe because SWPA posts at most three days ahead. The forecast runs to
+    // FORECAST_HORIZON_HOURS — ten days — and Wolf Creek can generate
+    // continuously for weeks in flood operations, so the flip can legitimately
+    // land eight or nine days out. "Saturday" then names two Saturdays and a
+    // reader takes the nearer one, planning to wade a day the district
+    // forecasts full generation.
+    //
+    // Seven days out the weekday is today's own name, which is worse than
+    // ambiguous. So past six days the date is spelled out, matching the
+    // day-grouped list below rather than inventing a third format.
+    const [ty, tm, td] = today.split('-').map(Number);
+    const daysOut = Math.round((named - Date.UTC(ty, tm - 1, td)) / 86_400_000);
+    const label = new Date(named).toLocaleDateString('en-US', {
+      ...(daysOut >= 6
+        ? { weekday: 'short' as const, month: 'short' as const, day: 'numeric' as const }
+        : { weekday: 'long' as const }),
       timeZone: 'UTC',
     });
-    when = `${clock} ${weekday}`;
+    when = `${clock} ${label}`;
   }
 
   return next.generating
     ? `Generation forecast to start at ${when}`
     : `Generation forecast to stop at ${when}`;
+}
+
+/**
+ * How far ahead the plan still reaches, in hours. Null when there is none.
+ *
+ * The last window's end IS the last forecast point, so this needs nothing the
+ * wire does not already carry.
+ */
+export function forecastHorizonHours(
+  windows: readonly DamForecastWindow[],
+  now = Date.now()
+): number | null {
+  const last = windows[windows.length - 1];
+  if (!last) return null;
+  const end = Date.parse(last.endUtc);
+  if (!Number.isFinite(end)) return null;
+  return Math.max(0, (end - now) / 3_600_000);
+}
+
+/**
+ * Below this the plan has stopped being refreshed, or the district has changed
+ * what it publishes. Either way it is no longer "a plan, refreshed daily".
+ *
+ * ── Why the CONTENT has to be asked, and not the fetch ─────────────────────
+ * `retrievedAt` is the Date header of EDDY'S OWN request. It says when we last
+ * looked, never when Nashville last wrote — CWMS publishes no write time for a
+ * series. So the only staleness signal that existed said "fetched four minutes
+ * ago" about a plan that could have been written a week earlier, and
+ * `scheduleIsStale` could not fire on a forecast whose job had died.
+ *
+ * What a dead job actually looks like is a SHRINKING HORIZON. LRN publishes
+ * about nine days ahead and rewrites daily; if the writer stops, the existing
+ * future points stay readable and the horizon falls by 24 hours a day. So the
+ * plan quietly ages under a fresh badge for up to nine days, on a card people
+ * wade against.
+ *
+ * Five days is the bar: comfortably under LRN's normal nine even allowing for
+ * a short publish, and reached about four days after a writer dies. It cannot
+ * catch a dead job on day one — nothing in the data can — but it stops the
+ * card insisting the plan is current all the way to the end.
+ */
+export const FORECAST_MIN_HORIZON_HOURS = 5 * 24;
+
+/**
+ * Whether the plan itself looks stale, independent of when Eddy fetched it.
+ *
+ * False when there are no windows: an absent forecast renders nothing, and
+ * "stale" is a claim about something on screen.
+ */
+export function forecastPlanStale(
+  windows: readonly DamForecastWindow[],
+  now = Date.now()
+): boolean {
+  const horizon = forecastHorizonHours(windows, now);
+  if (horizon === null) return false;
+  return horizon < FORECAST_MIN_HORIZON_HOURS;
+}
+
+/**
+ * The plan's own extent, said plainly: "Planned through Sat, Aug 22".
+ *
+ * Shown beside the retrieval line because the two answer different questions —
+ * when Eddy looked, and how far what it found actually reaches. The second is
+ * the one a reader deciding whether to trust a nine-day-old plan needs, and it
+ * was not on the card at all.
+ */
+export function forecastHorizonSentence(
+  windows: readonly DamForecastWindow[],
+  timeZone: string
+): string | null {
+  const last = windows[windows.length - 1];
+  if (!last) return null;
+  const end = Date.parse(last.endUtc);
+  if (!Number.isFinite(end)) return null;
+  // The last window's end is EXCLUSIVE, so a plan running to midnight belongs
+  // to the day that closes — the same correction forecastDays makes.
+  const dayKey = zoneClock(end - 1, timeZone).dayKey;
+  return `Planned through ${scheduleDayLabel(dayKey)}`;
 }

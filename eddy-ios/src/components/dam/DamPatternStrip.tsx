@@ -21,7 +21,7 @@
 // idle treatment. A gap drawn as an empty bar says the units were off, which is
 // a claim about the river during an outage.
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { DamPatternDay, DamScheduleDay } from '@eddy/types';
 // Row construction lives in shared/ because it was written twice, once per
@@ -50,13 +50,35 @@ export function DamPatternStrip({
 }) {
   const { colors, elevation } = useTheme();
 
+  // ── The strip needs its own clock ────────────────────────────────────────
+  // `patternRows` defaults its `now` to Date.now() AT CALL TIME, and the call
+  // used to sit in a memo keyed only on the props. The dam screen ticks every
+  // minute expressly so the measured/scheduled handoff does not freeze, but
+  // that tick changes no prop here, so the memo kept returning the rows built
+  // when the screen mounted: hours since elapsed still drawn as forecast, and
+  // the now marker parked where it was hours ago, while every other surface on
+  // the same screen had moved. Backgrounding the app makes it arbitrarily
+  // stale, since no focus change fires either.
+  //
+  // Ticking here rather than taking `now` as a prop keeps the component
+  // correct whoever mounts it, and matches what the web strip already does.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const rows = useMemo<Row[]>(
-    () => patternRows(pattern, schedule, reference, generationFloorCfs),
-    [pattern, schedule, reference, generationFloorCfs]
+    () => patternRows(pattern, schedule, reference, generationFloorCfs, now),
+    [now, pattern, schedule, reference, generationFloorCfs]
   );
 
   if (rows.length === 0) return null;
   const todayIndex = rows.findIndex((r) => r.today);
+  // Legended only when drawn — see the web strip. A dam with a posted SWPA
+  // sheet never has a `future` cell.
+  const hasFuture = rows.some((r) => r.cells.some((c) => c.kind === 'future'));
+  const hasScheduled = rows.some((r) => r.cells.some((c) => c.kind === 'scheduled'));
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
@@ -69,15 +91,17 @@ export function DamPatternStrip({
           <View style={[styles.legendSwatch, { backgroundColor: colors.generationHigh }]} />
           <Text style={[styles.legendText, { color: colors.textMuted }]}>Measured</Text>
         </View>
-        <View style={styles.legendItem}>
-          <View
-            style={[
-              styles.legendSwatch,
-              { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.generationMid },
-            ]}
-          />
-          <Text style={[styles.legendText, { color: colors.textMuted }]}>Scheduled</Text>
-        </View>
+        {hasScheduled ? (
+          <View style={styles.legendItem}>
+            <View
+              style={[
+                styles.legendSwatch,
+                { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.generationMid },
+              ]}
+            />
+            <Text style={[styles.legendText, { color: colors.textMuted }]}>Scheduled</Text>
+          </View>
+        ) : null}
         <View style={styles.legendItem}>
           <View
             style={[
@@ -91,6 +115,12 @@ export function DamPatternStrip({
           />
           <Text style={[styles.legendText, { color: colors.textMuted }]}>No reading</Text>
         </View>
+        {hasFuture ? (
+          <View style={styles.legendItem}>
+            <View style={[styles.notYetSwatch, { backgroundColor: colors.border }]} />
+            <Text style={[styles.legendText, { color: colors.textMuted }]}>Not yet</Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.rows}>
@@ -128,6 +158,13 @@ export function DamPatternStrip({
                   <View key={i} style={styles.slot}>
                     {cell.kind === 'missing' ? (
                       <View style={[styles.gap, { borderColor: colors.border }]} />
+                    ) : cell.kind === 'future' ? (
+                      // An hour that has not happened, on a dam with no posted
+                      // schedule. NOT the dashed outage box: that says "there
+                      // should be a reading here", and wearing it for the rest
+                      // of today read as a feed failure covering hours nobody
+                      // could have a reading for yet.
+                      <View style={[styles.notYet, { backgroundColor: colors.border }]} />
                     ) : cell.kind === 'scheduled' ? (
                       <View
                         style={[
@@ -218,6 +255,9 @@ const styles = StyleSheet.create({
   bar: { width: '100%', borderRadius: 1 },
   nowLine: { position: 'absolute', top: -2, bottom: -2, width: 2, borderRadius: 1 },
   gap: { width: '100%', height: '100%', borderRadius: 1, borderWidth: StyleSheet.hairlineWidth, borderStyle: 'dashed' },
+  // Flat and unemphasised: an empty slot rather than a claim about the hour.
+  notYet: { width: '100%', height: 1, borderRadius: 1 },
+  notYetSwatch: { width: 10, height: 1, borderRadius: 1 },
   divider: { borderTopWidth: StyleSheet.hairlineWidth, borderStyle: 'dashed', marginVertical: 6 },
   footer: { fontSize: 11, lineHeight: 15, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10 },
 });

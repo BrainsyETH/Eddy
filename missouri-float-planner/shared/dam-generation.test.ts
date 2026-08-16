@@ -999,3 +999,76 @@ test('the rack caveat scans, and still refuses to name physical units', () => {
   assert.match(RACK_ESTIMATE_NOTE, /turbines/i);
   assert.match(RACK_ESTIMATE_NOTE, /may differ/i);
 });
+
+test('a dam with no posted schedule shows the rest of today as not-yet, never as an outage', () => {
+  // Every LRN dam is this case, permanently: SEPA markets Cumberland power and
+  // publishes no hour-by-hour sheet, so `schedule` is [] on every render.
+  //
+  // The rest of today used to come back as `missing` — the dashed treatment
+  // legended "No reading", which means "there should be a reading here and
+  // there is not". Wearing it for hours that have not happened turned the
+  // normal state of three dams into a permanent feed-outage display, directly
+  // above a forecast card saying exactly what those hours hold.
+  const rows = patternRows(
+    [observedDay('2026-07-28', { 8: 19_130, 9: 19_130 })],
+    [],
+    BULL_SHOALS,
+    100,
+    NOON_CENTRAL
+  );
+
+  const today = rows.find((r) => r.today)!;
+  assert.equal(today.cells.length, 24, 'the row keeps its width so the days stay aligned');
+  assert.equal(today.cells[8].kind, 'observed', 'the measured half is unchanged');
+  assert.equal(today.cells[0].kind, 'missing', 'an elapsed hour with no reading is still a gap');
+  assert.equal(today.cells[12].kind, 'future', 'noon onward has not happened yet');
+  assert.equal(today.cells[23].kind, 'future');
+  assert.ok(
+    today.cells.every((c) => c.kind !== 'scheduled'),
+    'nothing may be drawn as scheduled when no schedule was posted'
+  );
+
+  // The flags a schedule-less row must not set — they drive the stale-schedule
+  // label, which cannot be true of a schedule that does not exist.
+  assert.equal(today.scheduled, false);
+  assert.equal(today.scheduleStale, false);
+  // But the marker stays: the boundary between observed and not-yet IS now.
+  assert.equal(today.splitIndex, 12);
+});
+
+test('the spoken row separates hours Eddy missed from hours that have not happened', () => {
+  const rows = patternRows(
+    [observedDay('2026-07-28', { 8: 19_130 })],
+    [],
+    BULL_SHOALS,
+    100,
+    NOON_CENTRAL
+  );
+  const spoken = patternRowVoiceOver(rows.find((r) => r.today)!);
+
+  // Twelve hours of today have happened; one carries a reading, eleven do not.
+  assert.match(spoken, /11 hours with no observation/);
+  // The other twelve have not happened, and are said as such rather than
+  // counted into the sentence above — which read "23 hours with no
+  // observation", a coverage complaint about the rest of the day.
+  assert.match(spoken, /12 hours still to come, with no schedule published/);
+  assert.doesNotMatch(spoken, /23 hours with no observation/);
+});
+
+test('a dam that does post a schedule is untouched by the not-yet treatment', () => {
+  // The guard on the fix: SWPA dams must keep drawing their plan.
+  const rows = patternRows(
+    [observedDay('2026-07-28', { 8: 19_130 })],
+    [day('2026-07-28', { 13: 391, 14: 391 })],
+    BULL_SHOALS,
+    100,
+    NOON_CENTRAL
+  );
+  const today = rows.find((r) => r.today)!;
+  assert.equal(today.cells[12].kind, 'scheduled');
+  assert.equal(today.scheduled, true);
+  assert.ok(
+    today.cells.every((c) => c.kind !== 'future'),
+    'a posted sheet means the rest of the day is known, not unknown'
+  );
+});

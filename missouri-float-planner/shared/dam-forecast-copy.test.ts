@@ -3,6 +3,9 @@ import test from 'node:test';
 import {
   forecastClockLabel,
   forecastDays,
+  forecastHorizonHours,
+  forecastHorizonSentence,
+  forecastPlanStale,
   nextForecastChangeSentence,
 } from './dam-forecast-copy';
 import type { DamForecastWindow } from './dam-types';
@@ -159,4 +162,81 @@ test('fails closed: no window over now, a gap, or no next window all say nothing
     ),
     null
   );
+});
+
+test('a midnight boundary further out names the night it closes', () => {
+  // NOW is Saturday 2026-08-15, 2:30 PM CDT. 05:00Z on the 18th is midnight
+  // CDT opening Tuesday the 18th — which is MONDAY night. Named "midnight
+  // Tuesday" it reads as the following midnight and moves the stop a day late.
+  // Same rule as the tonight case above, which is just this one when the night
+  // in question happens to be tonight.
+  const windows = [
+    window('2026-08-15T14:00:00.000Z', '2026-08-18T05:00:00.000Z', true),
+    window('2026-08-18T05:00:00.000Z', '2026-08-18T14:00:00.000Z', false, null),
+  ];
+  assert.equal(
+    nextForecastChangeSentence(windows, ZONE, NOW),
+    'Generation forecast to stop at midnight Monday'
+  );
+});
+
+test('a boundary past a week carries its date, because a weekday no longer identifies it', () => {
+  // The forecast horizon is ten days and Wolf Creek can generate continuously
+  // for weeks, so a flip can legitimately land eight days out. This phrasing
+  // came from the schedule sentence, where three days is the maximum and a
+  // bare weekday is unambiguous. Here it is not: NOW is a Saturday, so a
+  // boundary on Sunday the 23rd is EIGHT days away and "Sunday" reads as
+  // tomorrow — a reader would plan to wade a day the district forecasts full
+  // generation.
+  const windows = [
+    window('2026-08-15T14:00:00.000Z', '2026-08-23T14:00:00.000Z', true),
+    window('2026-08-23T14:00:00.000Z', '2026-08-23T20:00:00.000Z', false, null),
+  ];
+  assert.equal(
+    nextForecastChangeSentence(windows, ZONE, NOW),
+    'Generation forecast to stop at 9 AM Sun, Aug 23'
+  );
+
+  // Seven days out is the worst case of all — the weekday is today's own name.
+  const sameWeekday = [
+    window('2026-08-15T14:00:00.000Z', '2026-08-22T14:00:00.000Z', true),
+    window('2026-08-22T14:00:00.000Z', '2026-08-22T20:00:00.000Z', false, null),
+  ];
+  assert.equal(
+    nextForecastChangeSentence(sameWeekday, ZONE, NOW),
+    'Generation forecast to stop at 9 AM Sat, Aug 22'
+  );
+});
+
+// ── The plan's own age ─────────────────────────────────────────────────────
+// `retrievedAt` is when EDDY looked, never when the district wrote, so it
+// cannot notice a writer that has died. A shrinking horizon can.
+
+test('a full nine-day plan is not called stale', () => {
+  const windows = [window('2026-08-15T14:00:00.000Z', '2026-08-24T14:00:00.000Z', true)];
+  assert.equal(forecastPlanStale(windows, NOW), false);
+  assert.equal(
+    forecastHorizonSentence(windows, ZONE),
+    'Planned through Mon, Aug 24',
+    'the exclusive end still belongs to the day it closes'
+  );
+});
+
+test('a plan that has stopped being rewritten is flagged as it runs down', () => {
+  // LRN writes ~9 days ahead daily. If the writer dies the future points stay
+  // readable and the horizon falls 24 hours a day, so the card kept saying
+  // "a plan, refreshed daily" over a plan nobody had touched in a week —
+  // under a retrieval line that was minutes old and perfectly true.
+  const dyingFourDays = [window('2026-08-15T14:00:00.000Z', '2026-08-19T14:00:00.000Z', true)];
+  assert.equal(forecastPlanStale(dyingFourDays, NOW), true, 'four days left is short for LRN');
+
+  const nearlyGone = [window('2026-08-15T14:00:00.000Z', '2026-08-15T20:00:00.000Z', true)];
+  assert.equal(forecastPlanStale(nearlyGone, NOW), true);
+});
+
+test('an absent forecast is not a stale one', () => {
+  // "Stale" is a claim about something on screen; nothing renders here at all.
+  assert.equal(forecastPlanStale([], NOW), false);
+  assert.equal(forecastHorizonSentence([], ZONE), null);
+  assert.equal(forecastHorizonHours([], NOW), null);
 });

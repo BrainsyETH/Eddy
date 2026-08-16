@@ -2,6 +2,7 @@
 // Water level gauge status display
 
 import type { AccessPointGaugeStatus } from '@/types/api';
+import { stationCaption } from '@shared/station-caption';
 
 interface AccessPointGaugeProps {
   gaugeStatus: AccessPointGaugeStatus | null;
@@ -28,6 +29,7 @@ export default function AccessPointGauge({ gaugeStatus }: AccessPointGaugeProps)
   const lastUpdated = gaugeStatus.lastUpdated
     ? formatTimeAgo(new Date(gaugeStatus.lastUpdated))
     : null;
+  const caption = stationCaption(gaugeStatus.provider, gaugeStatus.usgsId);
 
   return (
     <div>
@@ -80,7 +82,14 @@ export default function AccessPointGauge({ gaugeStatus }: AccessPointGaugeProps)
       {/* Gauge info footer */}
       {lastUpdated && (
         <div className="text-right mt-1.5 text-[10px] font-mono text-neutral-500">
-          USGS {gaugeStatus.usgsId} · Updated {lastUpdated}
+          {/*
+            Not `USGS {id}`. Every access point on the Black River reads its
+            condition from Clearwater, a Corps release — so this line credited
+            the USGS with USACE data and printed 'swl-clearwater-dam' as though
+            it were a site number. `caption` is null when nothing can be said
+            honestly, and the update time stands on its own.
+          */}
+          {caption ? `${caption} · ` : ''}Updated {lastUpdated}
         </div>
       )}
     </div>

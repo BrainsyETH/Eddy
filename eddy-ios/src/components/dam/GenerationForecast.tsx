@@ -16,6 +16,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { DamGenerationForecast } from '@eddy/types';
 import {
   forecastDays,
+  forecastHorizonSentence,
+  forecastPlanStale,
   nextForecastChangeSentence,
 } from '@eddy/conditions/dam-forecast-copy';
 import {
@@ -33,6 +35,14 @@ export function GenerationForecast({ forecast }: { forecast: DamGenerationForeca
 
   const nextChange = nextForecastChangeSentence(forecast.windows, forecast.timeZone);
   const retrieval = retrievalSentence(forecast.retrievedAt);
+  // How far the PLAN reaches — a different question from when Eddy fetched it,
+  // and the only one that can notice a district's writer having died, since
+  // CWMS publishes no write time. See forecastPlanStale.
+  const horizon = forecastHorizonSentence(forecast.windows, forecast.timeZone);
+  // No explicit clock, matching scheduleIsStale below: this screen re-renders
+  // on its own minute tick, and reading Date.now() during render is both
+  // impure and unnecessary when the helper defaults to it.
+  const planStale = forecastPlanStale(forecast.windows);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
@@ -101,6 +111,19 @@ export function GenerationForecast({ forecast }: { forecast: DamGenerationForeca
           ]}
         >
           {retrieval}
+        </Text>
+      ) : null}
+      {horizon ? (
+        <Text
+          style={[
+            styles.retrieval,
+            { color: planStale ? colors.error : colors.textMuted },
+          ]}
+        >
+          {horizon}
+          {planStale
+            ? ' — shorter than this district usually publishes, so it may not have been updated'
+            : ''}
         </Text>
       ) : null}
     </View>

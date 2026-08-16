@@ -76,17 +76,32 @@ export interface HourBucket {
  * did not happen. The same reasoning SWPA's own hour-ending convention rests
  * on, applied to the observation side.
  *
+ * ── `periodMs` is what stops the strip drawing an hour late ────────────────
+ * A CWMS point carries a DURATION, and a non-zero one means the stamp is the
+ * period's END: the point stamped 13:00 is the average over [12:00, 13:00).
+ * `observedHour` is the hour a bar BEGINS (see DamPatternDay), so a
+ * period-ending sample has to be shifted back by its own duration before it is
+ * floored, or every bar lands one hour late — the units read as starting at 13
+ * when they started at 12, which is the direction that puts someone in the
+ * water. Pass `periodEndingMs(tsId)`; instantaneous series pass 0 and floor
+ * where they stand.
+ *
+ * The shift is by the duration rather than a flat hour so a 15-minute mean
+ * works too: stamps 10:15, 10:30, 10:45 and 11:00 all cover time inside
+ * 10:00–11:00 and all land in the 10:00 bucket.
+ *
  * Non-finite and negative samples are dropped rather than averaged in — a
  * negative discharge is a series that does not mean what we think, and the
  * table's own CHECK would reject it anyway.
  */
-export function bucketHourly(points: TimeseriesPoint[]): HourBucket[] {
+export function bucketHourly(points: TimeseriesPoint[], periodMs = 0): HourBucket[] {
   const sums = new Map<number, { total: number; count: number }>();
+  const shift = Number.isFinite(periodMs) && periodMs > 0 ? periodMs : 0;
 
   for (const point of points) {
     if (!Number.isFinite(point.timestamp) || !Number.isFinite(point.value)) continue;
     if (point.value < 0) continue;
-    const hour = Math.floor(point.timestamp / 3_600_000) * 3_600_000;
+    const hour = Math.floor((point.timestamp - shift) / 3_600_000) * 3_600_000;
     const bucket = sums.get(hour);
     if (bucket) {
       bucket.total += point.value;

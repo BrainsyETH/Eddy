@@ -347,6 +347,8 @@ async function getGaugeStatus(
           gauge_stations (
             id,
             usgs_site_id,
+            site_id_external,
+            provider,
             name
           )
         `
@@ -382,6 +384,8 @@ async function getGaugeStatus(
           gauge_stations (
             id,
             usgs_site_id,
+            site_id_external,
+            provider,
             name
           )
         `
@@ -399,9 +403,14 @@ async function getGaugeStatus(
 
     // Supabase returns joined relations - handle both array and single object cases
     const gaugeData = riverGauge.gauge_stations;
+    // `usgs_site_id` is null for anything the USGS does not publish; the id
+    // then lives in `site_id_external`. Typed `string` here for a while, which
+    // is how a Corps release came to be captioned as a USGS site number.
     const gauge = (Array.isArray(gaugeData) ? gaugeData[0] : gaugeData) as {
       id: string;
-      usgs_site_id: string;
+      usgs_site_id: string | null;
+      site_id_external: string | null;
+      provider: string | null;
       name: string;
     } | undefined;
 
@@ -443,7 +452,12 @@ async function getGaugeStatus(
       lastUpdated: latestReading?.reading_timestamp ?? null,
       gaugeId: gauge.id,
       gaugeName: gauge.name,
-      usgsId: gauge.usgs_site_id,
+      // Same coalesce order the gauge routes and search_gauges use, so one
+      // station is identified the same way wherever it appears.
+      usgsId: gauge.usgs_site_id ?? gauge.site_id_external,
+      // A null column is a legacy row and those are all USGS; the registry
+      // post-dates them. Resolved here so the renderer never has to guess.
+      provider: gauge.provider ?? 'usgs',
     };
   } catch (error) {
     console.error('Error fetching gauge status:', error);

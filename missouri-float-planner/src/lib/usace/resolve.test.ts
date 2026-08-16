@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { hasFuturePoint, parseTsId, pickSeries, rankSeries, type CatalogEntry } from './resolve';
+import {
+  hasFuturePoint,
+  parseTsId,
+  periodEndingMs,
+  pickSeries,
+  rankSeries,
+  type CatalogEntry,
+} from './resolve';
 
 // Pure ranking tests over synthetic catalogs. Every case below is a real
 // failure the resolver hit when first run against the live CWMS catalog — the
@@ -284,4 +291,44 @@ test('reports which series won and why', () => {
   assert.ok(hit);
   assert.equal(hit.unit, 'cfs');
   assert.equal(hit.reason, 'Flow-Res Out/1Hour/Regi-Comp');
+});
+
+// ── Period-ending duration ─────────────────────────────────────────────────
+// What tells the history writer whether a stamp is a moment or the end of an
+// hour. Getting it backwards drew the whole pattern strip an hour late.
+
+test('a duration of zero is an instant, whatever the interval says', () => {
+  // The trap this exists for: `Inst.1Hour.0` arrives hourly and summarises
+  // nothing. Reading the INTERVAL would call it an hourly average and shift it.
+  assert.equal(periodEndingMs('TENK.Flow-Power.Inst.1Hour.0.Rev-Regi-Flowgroup'), 0);
+  assert.equal(periodEndingMs('WLCK2-WOLF_CREEK.Elev-Pool.Inst.1Hour.0.man-rev'), 0);
+  assert.equal(periodEndingMs('CETT1-CENTER_HILL.Temp-Water-Tail.Inst.30Minutes.0.dcp-rev'), 0);
+});
+
+test('a non-zero duration is the period the stamp closes', () => {
+  assert.equal(periodEndingMs('TENK.Flow-Power.Ave.1Hour.1Hour.Rev-Regi-Flowgroup'), 3_600_000);
+  assert.equal(
+    periodEndingMs('RWNK2-WOLF_CREEK.Flow-Turbine.Ave.1Hour.1Hour.man-rev'),
+    3_600_000
+  );
+  assert.equal(periodEndingMs('Wappapello Lk-St Francis.Flow-Out.Ave.~1Day.1Day.lakerep-rev'), 86_400_000);
+  assert.equal(periodEndingMs('SOME.Flow.Ave.15Minutes.15Minutes.rev'), 900_000);
+});
+
+test('an unreadable id shifts nothing rather than guessing', () => {
+  // A series whose duration we cannot parse is left where its stamp puts it.
+  // Moving it by a guess would be the same class of error in a new place.
+  assert.equal(periodEndingMs('not-a-ts-id'), 0);
+  assert.equal(periodEndingMs('A.B.Ave.1Hour.Unknown.rev'), 0);
+});
+
+test('the two Tenkiller siblings are told apart', () => {
+  // They differ only in type and duration, and both are live. This pair is the
+  // reason the discrimination has to be exact: they score identically in
+  // rankSeries and the alphabetical tie-break picks `Ave`.
+  const ave = 'TENK.Flow-Power.Ave.1Hour.1Hour.Rev-Regi-Flowgroup';
+  const inst = 'TENK.Flow-Power.Inst.1Hour.0.Rev-Regi-Flowgroup';
+  assert.equal(parseTsId(ave)?.duration, '1Hour');
+  assert.equal(parseTsId(inst)?.duration, '0');
+  assert.notEqual(periodEndingMs(ave), periodEndingMs(inst));
 });

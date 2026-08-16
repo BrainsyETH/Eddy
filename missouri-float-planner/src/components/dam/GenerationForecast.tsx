@@ -18,6 +18,8 @@ import { CalendarClock } from 'lucide-react';
 import type { DamGenerationForecast } from '@shared/dam-types';
 import {
   forecastDays,
+  forecastHorizonSentence,
+  forecastPlanStale,
   nextForecastChangeSentence,
 } from '@shared/dam-forecast-copy';
 import { retrievalSentence, scheduleIsStale } from '@shared/dam-schedule-copy';
@@ -35,6 +37,11 @@ export default function GenerationForecast({
 
   const nextChange = nextForecastChangeSentence(forecast.windows, forecast.timeZone, renderedAt);
   const retrieval = retrievalSentence(forecast.retrievedAt, renderedAt);
+  // How far the PLAN reaches, which is a different question from when Eddy
+  // fetched it — and the only one that can catch a district's writer dying,
+  // since CWMS publishes no write time. See forecastPlanStale.
+  const horizon = forecastHorizonSentence(forecast.windows, forecast.timeZone);
+  const planStale = forecastPlanStale(forecast.windows, renderedAt);
 
   return (
     <section className="rounded-xl border-2 border-neutral-300 bg-white p-5">
@@ -104,6 +111,13 @@ export default function GenerationForecast({
             }
           >
             {retrieval}{' '}
+          </span>
+        )}
+        {horizon && (
+          <span className={planStale ? 'font-medium text-accent-700' : undefined}>
+            {horizon}
+            {planStale && ' — shorter than this district usually publishes, so it may not have been updated'}
+            .{' '}
           </span>
         )}
         Forecasts change without notice — power demand, transmission constraints,

@@ -407,8 +407,17 @@ export function nextScheduleChangeSentence(
     // day word and clock word can disagree about which night they mean.
     when = clock === 'midnight' ? 'midnight tonight' : `${clock} tomorrow`;
   } else {
+    // The same correction, two or more days out, where it was missed. A flip
+    // at hour ending 1 on Monday starts at 00:00 Monday — Sunday night — so
+    // the midnight to NAME is the one that closes the day before. "Midnight
+    // tonight" above is this same rule when that day happens to be today.
+    //
+    // Reachable rather than theoretical: SWPA posts several days at once, and
+    // scheduleOutlook walks every one of them.
+    const midnight = clock === 'midnight';
     const [y, m, d] = scheduleDate.split('-').map(Number);
-    const weekday = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
+    const named = Date.UTC(y, m - 1, d) - (midnight ? 86_400_000 : 0);
+    const weekday = new Date(named).toLocaleDateString('en-US', {
       weekday: 'long',
       timeZone: 'UTC',
     });
