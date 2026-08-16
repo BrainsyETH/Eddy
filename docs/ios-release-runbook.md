@@ -90,13 +90,17 @@ Everything the August 11 audit missed because it happened after August 11.
       across 18 dams (the 48-hour lookback window), and the live
       `/api/dams/<id>` pattern payload serves them, with older days honestly
       null.*
-- [ ] **Backfill the strip's older days while CWMS can still serve them.**
-      The hourly pass re-reads only 48 hours; call the route once with
-      `?backfillHours=192` (needs the cron secret — the route's own header
-      documents this as the intended at-deploy step). This has a real
-      deadline: CWMS serves roughly a week, so each day not backfilled ages
-      out of upstream and becomes permanently unrecoverable — and this table
-      is now the only durable record (retention 730 days).
+- [x] **Backfill the strip's older days while CWMS can still serve them.**
+      Done 2026-08-15/16, ahead of the age-out deadline. The deployed route
+      needs `CRON_SECRET`, so the 192-hour pull ran out-of-band using the
+      same series resolution as the route (`seriesFor` → CWMS `timeseries`,
+      hourly-bucketed, inserted with `on conflict do nothing` below the
+      2026-08-13 20:00 UTC table-creation cutoff so cron-written rows were
+      never touched). This included the three LRN Cumberland dams, which
+      main added after this branch was cut (PR #1198) — their series came
+      from main's registry so their pre-cutoff week was saved too.
+      *Verified: all 18 hourly dams hold 190–193 rows per metric spanning
+      2026-08-07/08 → now, joining the cron's rows with no gap.*
 - [x] **`access_point_services` admin policies call `is_admin()`.**
       `20260811140000` wrote its three admin policies in the inlined
       `user_roles` form that `20260804235408` had already banished, and
