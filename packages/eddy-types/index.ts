@@ -1071,10 +1071,35 @@ export interface GaugeDetailResponse {
 // ordinary case for every station the cron no longer polls, i.e. all ~14,000
 // national ones. Works for any station, both tiers.
 //
-// Downsampled server-side to roughly one point per hour, so a 30-day request is
-// ~720 points rather than ~2,900. Nothing here should re-sample it.
+// Downsampled server-side — 192 points for a day, 336 for a week, 360 for a
+// month — by an extrema-preserving rule rather than a fixed stride, so the
+// crest survives. Nothing here should re-sample it.
+//
+// THE SPACING IS UNEVEN AS A RESULT, deliberately. Anything deriving a cadence
+// from these points (gap detection, "is this stale") must use the MEDIAN
+// interval; the mean is skewed by the bucketing and reads as outages that never
+// happened. shared/chart-model.ts splitAtGaps() is the shared implementation.
 
 export interface GaugeHistoryReading {
+  timestamp: string;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  /** Provider quality codes on this observation ('P' provisional, 'e', 'Ice'). */
+  qualifiers?: string[];
+}
+
+/** Day-of-year discharge statistics — what this river normally does on this date. */
+export interface GaugeTypicalReading {
+  /** Calendar date these statistics were matched to (server-local, UTC in production), as YYYY-MM-DD. */
+  date: string;
+  p25Cfs: number | null;
+  p50Cfs: number | null;
+  p75Cfs: number | null;
+  yearsOfRecord: number | null;
+}
+
+/** An official NWS forecast point. Never model guidance presented as official. */
+export interface GaugeForecastReading {
   timestamp: string;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
@@ -1085,6 +1110,22 @@ export interface GaugeHistoryResponse {
   siteName: string;
   /** Oldest first. Can be empty; the endpoint 404s only when it has nothing. */
   readings: GaugeHistoryReading[];
+  /**
+   * The five fields below post-date the original response, so a payload cached
+   * by an older build carries none of them. They are optional HERE for that
+   * reason even though the endpoint always sends them now — read them with a
+   * default, the way MapGauge.provider is read.
+   */
+  observedThrough?: string | null;
+  /** True when the server reduced the series. Extrema are retained either way. */
+  sampled?: boolean;
+  /** Empty for non-USGS providers and for sites with no percentile record. */
+  typical?: GaugeTypicalReading[];
+  /** Only points still ahead of observedThrough. Empty is the ordinary case. */
+  forecast?: GaugeForecastReading[];
+  forecastIssuedAt?: string | null;
+  /** Publisher page, for attribution and deeper inspection. */
+  sourceUrl?: string | null;
   /**
    * Extremes over the returned window, per unit.
    *
