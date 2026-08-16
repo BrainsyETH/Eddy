@@ -65,6 +65,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import type { GaugeFloodStages, GaugeHistoryReading } from '@eddy/types';
+import { splitAtGaps } from '@eddy/conditions/chart-model';
 import { buildZones, type ThresholdValues } from '@eddy/conditions/threshold-zones';
 import { conditionColor } from '@/theme/conditions';
 import {
@@ -105,12 +106,18 @@ const NEAR_THRESHOLD_FRACTION = 0.75;
 
 /**
  * Break the line when the gap between samples exceeds this multiple of the
- * expected spacing.
+ * cadence.
  *
  * A station that stopped reporting for two days should show a HOLE, not a
- * straight line drawn confidently across the outage. The expected spacing is
- * derived from the window rather than assumed hourly, because the endpoint
- * downsamples by window length.
+ * straight line drawn confidently across the outage.
+ *
+ * CADENCE IS THE MEDIAN INTERVAL, measured by splitAtGaps() rather than assumed
+ * hourly, and it used to be the mean of the whole window. That was already
+ * fragile — one long outage inflates the mean until the outage stops qualifying
+ * — and it stopped being merely fragile when the endpoint moved from a fixed
+ * stride to extrema-preserving sampling: those points are unevenly spaced ON
+ * PURPOSE, and a mean-based threshold reads the bucketing as outages that never
+ * happened. See shared/chart-model.ts.
  */
 const GAP_BREAK_MULTIPLE = 4;
 
@@ -336,24 +343,14 @@ function GaugeChartInner({
    */
   const paths = useMemo<string[]>(() => {
     if (!scale || points.length < 2) return [];
-    const expected = (points[points.length - 1].t - points[0].t) / (points.length - 1);
-    const breakAt = expected * GAP_BREAK_MULTIPLE;
-
-    const out: string[] = [];
-    let current = `M ${scale.x(points[0].t).toFixed(2)} ${scale.y(points[0].v).toFixed(2)}`;
-    for (let i = 1; i < points.length; i++) {
-      const gap = points[i].t - points[i - 1].t;
-      const cmd = `${scale.x(points[i].t).toFixed(2)} ${scale.y(points[i].v).toFixed(2)}`;
-      if (gap > breakAt) {
-        out.push(current);
-        current = `M ${cmd}`;
-      } else {
-        current += ` L ${cmd}`;
-      }
-    }
-    out.push(current);
-    // A lone moveto is not a line; dropping it avoids a stray dot at a gap edge.
-    return out.filter((d) => d.includes('L'));
+    return splitAtGaps(points, GAP_BREAK_MULTIPLE)
+      // A lone point is not a line; dropping it avoids a stray dot at a gap edge.
+      .filter((segment) => segment.length > 1)
+      .map((segment) =>
+        segment
+          .map((p, i) => `${i ? 'L' : 'M'} ${scale.x(p.t).toFixed(2)} ${scale.y(p.v).toFixed(2)}`)
+          .join(' ')
+      );
   }, [points, scale]);
 
   /**

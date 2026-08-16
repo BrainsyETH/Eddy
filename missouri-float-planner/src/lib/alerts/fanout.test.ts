@@ -10,6 +10,7 @@ import {
   type PlanInput,
 } from './fanout';
 import type { EventKind } from './event-kind';
+import type { NotificationPreferences } from '@/types/api';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const RIVER = 'river-1';
@@ -289,4 +290,89 @@ test('an event with no gauge is still delivered', () => {
   // pairing would be the worst possible way to save a line of copy.
   const planned = plan({ events: [event('warning')] });
   assert.equal(planned.messages.length, 1);
+});
+
+// ── quiet hours ──────────────────────────────────────────────────
+//
+// This pass ignored them completely until the preferences map existed: the
+// gauge pass suppressed, the river pass — every "Eddy's call" subscription,
+// which is most of what anybody has — did not, so a user who set a window was
+// still woken by the alerts that setting most obviously governs.
+
+/** 10pm–7am Central, the app's own default window. */
+function quiet(overrides: Partial<NotificationPreferences> = {}): Map<string, NotificationPreferences> {
+  return new Map([
+    [
+      USER,
+      {
+        quietHoursEnabled: true,
+        quietStartMinute: 22 * 60,
+        quietEndMinute: 7 * 60,
+        timezone: 'America/Chicago',
+        safetyOverridesQuiet: true,
+        ...overrides,
+      },
+    ],
+  ]);
+}
+
+// 07:00Z is 02:00 in Chicago — inside the window. NOW (12:00Z) is 07:00, outside.
+const NIGHT = new Date('2026-07-25T07:00:00.000Z');
+
+test('a floatable push is suppressed inside the quiet window', () => {
+  const planned = plan({ now: NIGHT, preferences: quiet() });
+  assert.equal(planned.messages.length, 0);
+  assert.equal(planned.skipped.quiet_hours, 1);
+});
+
+test('the same push goes out once the window has passed', () => {
+  assert.equal(plan({ preferences: quiet() }).messages.length, 1);
+});
+
+test('a warning breaks through, unless the user turned that off', () => {
+  const through = plan({ events: [event('warning')], now: NIGHT, preferences: quiet() });
+  assert.equal(through.messages.length, 1, 'safety overrides quiet by default');
+
+  const silenced = plan({
+    events: [event('warning')],
+    now: NIGHT,
+    preferences: quiet({ safetyOverridesQuiet: false }),
+  });
+  assert.equal(silenced.messages.length, 0);
+});
+
+test('a user with no preferences row is never treated as quiet', () => {
+  // The common case by a wide margin. Defaulting the other way would silence
+  // everybody who has never opened the settings screen.
+  assert.equal(plan({ now: NIGHT }).messages.length, 1);
+  assert.equal(plan({ now: NIGHT, preferences: new Map() }).messages.length, 1);
+});
+
+test('a suppressed push does not consume the cooldown', () => {
+  // Otherwise the 4h window would be eaten by a notification nobody was sent,
+  // and the next transition after the window closed would be skipped too.
+  const planned = plan({ now: NIGHT, preferences: quiet() });
+  assert.equal(planned.messages.length, 0);
+
+  const after = planDeliveries({
+    events: [event('floatable')],
+    subscriptions: [sub()],
+    tokens: [token()],
+    preferences: quiet(),
+    // 07:30 Chicago, half an hour after the window closed.
+    now: new Date('2026-07-25T12:30:00.000Z'),
+    recentDeliveries: [],
+  });
+  assert.equal(after.messages.length, 1);
+});
+
+test('one subscriber being quiet does not suppress another', () => {
+  const planned = plan({
+    now: NIGHT,
+    subscriptions: [sub(), sub({ id: 'sub-2', user_id: 'user-2' })],
+    tokens: [token(), token({ id: 'tok-2', user_id: 'user-2' })],
+    preferences: quiet(),
+  });
+  assert.equal(planned.messages.length, 1);
+  assert.equal(planned.messages[0].userId, 'user-2');
 });

@@ -21,6 +21,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { planDeliveries, type FanoutEvent, type FanoutSubscription, type FanoutToken } from '@/lib/alerts/fanout';
+import type { NotificationPreferences } from '@/types/api';
 import { planDrain, spentOneShots } from '@/lib/alerts/drain';
 import { deliverGaugeAlerts } from '@/lib/alerts/gauge-delivery';
 import { disableTokens, recordTokenFailures } from '@/lib/alerts/token-health';
@@ -247,6 +248,33 @@ async function drainRiverEvents(supabase: any, startedAt: number): Promise<River
     .is('disabled_at', null);
   const tokens = (tokensData ?? []) as FanoutToken[];
 
+  // ── Quiet hours, which this pass used to ignore entirely ────────────────
+  //
+  // The gauge pass has always loaded this. The river pass never did, so the
+  // window a user set — and that the app describes as governing "whether a 4am
+  // flood alert wakes you" — did nothing at all for the alerts the bell on the
+  // river screen creates. See src/lib/alerts/quiet-hours.ts.
+  //
+  // A user with no row is absent from this map, which planDeliveries reads as
+  // "no window". That is the default and the common case; the failure to guard
+  // is the safe direction here, because the alternative is silencing somebody
+  // who never asked to be silenced.
+  const { data: prefsData } = await supabase
+    .from('notification_preferences')
+    .select('user_id, quiet_hours_enabled, quiet_start_minute, quiet_end_minute, timezone, safety_overrides_quiet')
+    .in('user_id', userIds);
+
+  const preferences = new Map<string, NotificationPreferences>();
+  for (const row of prefsData ?? []) {
+    preferences.set(row.user_id as string, {
+      quietHoursEnabled: row.quiet_hours_enabled,
+      quietStartMinute: row.quiet_start_minute,
+      quietEndMinute: row.quiet_end_minute,
+      timezone: row.timezone ?? 'America/Chicago',
+      safetyOverridesQuiet: row.safety_overrides_quiet,
+    });
+  }
+
   // No entitlement lookup. There used to be one here, re-checking at send time
   // so a lapse between subscribing and the transition could not leak paid
   // push. Alerting is free now, so holding the subscription is the whole of
@@ -263,6 +291,7 @@ async function drainRiverEvents(supabase: any, startedAt: number): Promise<River
     subscriptions,
     tokens,
     recentDeliveries: recentData ?? [],
+    preferences,
   });
 
   let sent = 0;
@@ -357,6 +386,23 @@ async function drainRiverEvents(supabase: any, startedAt: number): Promise<River
   // the gauge pass so the two cannot drift on when a token is given up on.
   await recordTokenFailures(supabase, failuresByToken);
 
+  // ── When this subscription last reached somebody ────────────────────────
+  //
+  // Every subscription a push landed for, one-shot or not. `fired_at` cannot
+  // answer this: it is the one-shot SPEND marker and is never written for a
+  // repeating alert, so the manage list — which reads lastTriggeredAt through
+  // toRiverRule — told everyone with an ordinary river alert "Never sent ·
+  // watching since June" no matter how many times it had fired. That note
+  // exists to make a rule's silence legible as the rule working; on these it
+  // was making a working rule look broken.
+  const delivering = [...successBySubscription.keys()];
+  if (delivering.length > 0) {
+    await supabase
+      .from('alert_subscriptions')
+      .update({ last_triggered_at: new Date().toISOString() })
+      .in('id', delivering);
+  }
+
   // Spend a one-shot only where something actually landed. The rule lives in
   // lib/alerts/drain.ts beside planDrain — same reason, same pass, and the two
   // are easy to get inconsistent if they sit apart.
@@ -365,12 +411,19 @@ async function drainRiverEvents(supabase: any, startedAt: number): Promise<River
   // one-shot is off, and says so on every screen that reads `enabled`. The
   // reasoning is in gauge-delivery.ts; the two must not diverge, because the
   // manage list renders both kinds of rule through one component.
+  //
+  // The two guards mirror the gauge pass as well: `one_shot` keeps the "which
+  // rules are one-shot" question in the WHERE clause rather than trusting a
+  // set assembled upstream, and `is null` makes the write idempotent so a
+  // retried pass cannot move the timestamp of an already-spent rule.
   const spent = spentOneShots(plan.oneShotSubscriptionIds, successBySubscription);
   if (spent.length > 0) {
     await supabase
       .from('alert_subscriptions')
       .update({ fired_at: new Date().toISOString(), enabled: false })
-      .in('id', spent);
+      .in('id', spent)
+      .eq('one_shot', true)
+      .is('fired_at', null);
   }
 
   // ── Drain, or leave for the next pass ──────────────────────────────

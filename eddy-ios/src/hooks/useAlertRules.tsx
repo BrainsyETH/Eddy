@@ -45,6 +45,20 @@ interface AlertRulesValue {
   rules: AlertRule[] | null;
   /** False until the first fetch settles, however it settled. */
   ready: boolean;
+  /**
+   * The last load failed and left us with nothing.
+   *
+   * A FAILED LOAD IS NOT A MISSING SESSION. `rules` is null in both cases, and
+   * the manage list reads null as "signed out" — so a signed-in person opening
+   * the Alerts tab with no connection was told to sign in to the account they
+   * already had, under a button offering to create it. The same confusion the
+   * quiet-hours screen fixed for itself; this is the flag that lets this screen
+   * tell the two apart.
+   *
+   * Only ever true alongside a null `rules`: a failure that still has a list to
+   * show keeps showing it, which is the offline behaviour load() already had.
+   */
+  loadFailed: boolean;
   refreshing: boolean;
   refresh: () => Promise<void>;
   /** Insert a rule the create screen just made, without a round trip. */
@@ -78,6 +92,7 @@ function needsRearm(rule: AlertRule, enabled: boolean): boolean {
 const AlertRulesContext = createContext<AlertRulesValue>({
   rules: null,
   ready: false,
+  loadFailed: false,
   refreshing: false,
   refresh: async () => {},
   add: () => {},
@@ -90,6 +105,7 @@ const AlertRulesContext = createContext<AlertRulesValue>({
 export function AlertRulesProvider({ children }: { children: ReactNode }) {
   const [rules, setRules] = useState<AlertRule[] | null>(null);
   const [ready, setReady] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const { session, getAccessToken } = useSession();
 
@@ -109,7 +125,10 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
     async (signal?: AbortSignal) => {
       const token = await getAccessToken();
       if (!token) {
+        // Genuinely signed out. Not a failure — the screen's sign-in state is
+        // the correct thing to draw, so the flag is cleared rather than set.
         setRules(null);
+        setLoadFailed(false);
         setReady(true);
         return;
       }
@@ -118,11 +137,17 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
         // A null here is an unusable session, not an empty list — pass it
         // straight through rather than flattening it to [].
         setRules(next);
+        setLoadFailed(false);
       } catch (err) {
         // Offline keeps whatever we last had. Blanking the list would tell
         // someone their alerts are gone at exactly the moment they cannot
         // check, and invite them to create duplicates.
         if (err instanceof ApiError && err.message === 'Request cancelled') return;
+        // Recorded ONLY when there is nothing on screen to fall back to. With a
+        // list still in hand this is an ordinary failed refresh and the list
+        // stands; with none, `rules` stays null and the screen would otherwise
+        // read that as "signed out" and say so.
+        setLoadFailed(rulesRef.current === null);
       } finally {
         setReady(true);
       }
@@ -182,6 +207,26 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
     [getAccessToken],
   );
 
+  /**
+   * Replace a rule with the version the server just saved.
+   *
+   * The optimistic patch is a guess, and it is wrong wherever the route derives
+   * one field from another — dropping `between` nulls the upper bound
+   * server-side, which no patch built from the user's taps can know. Applied
+   * after every successful write so the list holds what was stored rather than
+   * what was asked for.
+   *
+   * Matched on alertRuleKey, not `id`: the two tables have separate id spaces
+   * and a gauge rule can share a uuid with a river subscription.
+   */
+  const reconcile = useCallback((saved: AlertRule | null) => {
+    if (!saved) return;
+    const key = alertRuleKey(saved);
+    setRules((current) =>
+      current ? current.map((r) => (alertRuleKey(r) === key ? saved : r)) : current,
+    );
+  }, []);
+
   // Discards the seed on purpose: pausing or resuming a rule never moves its
   // threshold, so there is no reseed to report and nothing for a caller to do
   // with one.
@@ -197,7 +242,7 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
        * confusion switching it off was meant to end.
        */
       const rearm = needsRearm(rule, enabled);
-      await mutate(
+      const result = await mutate(
         rule,
         (current) =>
           current.map((r) =>
@@ -207,13 +252,14 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
           ),
         (token) => updateAlertRule(token, rule, { enabled, ...(rearm ? { rearm: true } : {}) }),
       );
+      reconcile(result.rule);
     },
-    [mutate],
+    [mutate, reconcile],
   );
 
   const update = useCallback(
-    (rule: AlertRule, patch: UpdateAlertRuleInput) =>
-      mutate(
+    async (rule: AlertRule, patch: UpdateAlertRuleInput): Promise<AlertRuleSeed | null> => {
+      const result = await mutate(
         rule,
         (current) =>
           current.map((r) =>
@@ -244,8 +290,12 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
               : r,
           ),
         (token) => updateAlertRule(token, rule, patch),
-      ),
-    [mutate],
+      );
+      // The server's copy wins over the guess above — see reconcile.
+      reconcile(result.rule);
+      return result.seed;
+    },
+    [mutate, reconcile],
   );
 
   const remove = useCallback(
@@ -276,6 +326,7 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
     () => ({
       rules,
       ready,
+      loadFailed,
       refreshing,
       refresh,
       add,
@@ -284,7 +335,7 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
       remove,
       rulesFor,
     }),
-    [rules, ready, refreshing, refresh, add, setEnabled, update, remove, rulesFor],
+    [rules, ready, loadFailed, refreshing, refresh, add, setEnabled, update, remove, rulesFor],
   );
 
   return <AlertRulesContext.Provider value={value}>{children}</AlertRulesContext.Provider>;

@@ -4,7 +4,9 @@
 // rules can be tested exhaustively without a database or a network.
 
 import { isPushableKind, type EventKind } from './event-kind';
+import { suppressedByQuietHours } from './quiet-hours';
 import type { ExpoMessage } from '@/lib/push/expo';
+import type { NotificationPreferences } from '@/types/api';
 
 /** Default: don't re-notify the same user about the same river+kind within 4h. */
 export const PUSH_COOLDOWN_MS = 4 * 60 * 60 * 1000;
@@ -76,6 +78,7 @@ export type SkipReason =
   | 'not_pushable_kind'
   | 'no_subscription'
   | 'one_shot_spent'
+  | 'quiet_hours'
   | 'cooldown'
   | 'no_active_token';
 
@@ -210,6 +213,14 @@ export interface PlanInput {
   subscriptions: FanoutSubscription[];
   tokens: FanoutToken[];
   recentDeliveries?: RecentDelivery[];
+  /**
+   * Quiet-hours settings per user id, for the subscribers in this pass.
+   *
+   * Optional, and a MISSING user means no window rather than a closed one —
+   * most people have no preferences row, and defaulting the other way would
+   * silence everybody who has never opened the settings screen.
+   */
+  preferences?: Map<string, NotificationPreferences>;
   now?: Date;
   cooldownMs?: number;
 }
@@ -269,6 +280,27 @@ export function planDeliveries(input: PlanInput): FanoutPlan {
       // A spent one-shot stays spent until the user re-arms it.
       if (sub.one_shot && sub.fired_at) {
         bump('one_shot_spent');
+        continue;
+      }
+
+      // ── The user's own night ────────────────────────────────────────────
+      //
+      // Checked HERE, at planning, for the same reason the gauge pass checks it
+      // at delivery rather than at evaluation: the event is written either way,
+      // so the Alerts feed still shows what happened in the morning even though
+      // the phone stayed silent. Suppressing earlier would advance the rule's
+      // state with nothing recorded and cost the user both.
+      //
+      // This is the check that did not exist. Everything about quiet hours —
+      // the settings screen, the row on the Alerts tab, the copy promising a
+      // window — governed the gauge pass alone, while river subscriptions, the
+      // commonest alert in the app, woke people at 3am regardless.
+      //
+      // Skipped WITHOUT touching the cooldown below, which is only stamped for
+      // a message actually planned: a push nobody was sent must not also eat
+      // the four-hour window that would have carried the next one.
+      if (suppressedByQuietHours(input.preferences?.get(sub.user_id) ?? null, event.kind, now)) {
+        bump('quiet_hours');
         continue;
       }
 

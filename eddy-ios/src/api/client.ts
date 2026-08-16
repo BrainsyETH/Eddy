@@ -1387,6 +1387,18 @@ export interface UpdateAlertRuleInput {
   rearm?: boolean;
 }
 
+export interface UpdateAlertRuleResult {
+  /**
+   * The rule as the server now holds it, for the caller to replace its copy
+   * with. Null for a river subscription, whose PATCH answers with a
+   * subscription shape rather than an AlertRule — there is nothing to
+   * reconcile there anyway, since the fields that can drift are the threshold
+   * ones and a river subscription has none.
+   */
+  rule: AlertRule | null;
+  seed: AlertRuleSeed | null;
+}
+
 /**
  * Edit one rule, whichever table it lives in.
  *
@@ -1394,12 +1406,20 @@ export interface UpdateAlertRuleInput {
  * keyed by its own id, while a river subscription is keyed by riverId, because
  * the bell that edits one knows the river and nothing else. `rule.source` picks
  * the shape, so no caller has to.
+ *
+ * Returns the SAVED rule as well as the seed. The route has always sent it and
+ * this function used to drop it, leaving every caller to guess at the result
+ * from its own patch — which is a guess that goes wrong wherever the server
+ * derives one field from another. Switching a rule off `between` is the case
+ * that shipped: the route nulls threshold_value_max, the optimistic patch has
+ * no way to know that, and the stale upper bound sat in the list until the next
+ * refetch.
  */
 export async function updateAlertRule(
   token: string,
   rule: Pick<AlertRule, 'id' | 'source' | 'riverId'>,
   patch: UpdateAlertRuleInput,
-): Promise<AlertRuleSeed | null> {
+): Promise<UpdateAlertRuleResult> {
   if (rule.source === 'river_condition') {
     if (!rule.riverId) throw new ApiError('Alert is missing its river', 400);
     // `conditionKind` here, `kind` there. The two tables named the same column
@@ -1416,7 +1436,7 @@ export async function updateAlertRule(
     });
     // A river condition subscription has no user-set level, so it has no
     // crossing state to re-seed and nothing to report.
-    return null;
+    return { rule: null, seed: null };
   }
   // The seed comes back whenever the threshold moved. Moving it re-arms the
   // rule from the CURRENT reading, and if the river is already past the new
@@ -1428,7 +1448,7 @@ export async function updateAlertRule(
     'PATCH',
     patch,
   );
-  return response.seed;
+  return { rule: response.rule ?? null, seed: response.seed };
 }
 
 /** Delete one rule. Turning an alert off never demands a fresh sign-in. */

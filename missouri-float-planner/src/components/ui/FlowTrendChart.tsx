@@ -1,10 +1,47 @@
 'use client';
 
 // src/components/ui/FlowTrendChart.tsx
-// Shared SVG flow/stage trend chart with threshold overlays and interactive tooltips
+// The web hydrograph: what this gauge has been doing, against what its
+// thresholds mean, plus the official forecast where NWS publishes one.
+//
+// ── What this file no longer decides ───────────────────────────────────────
+// The axis math, the gap rule, the tick placement and the downsample live in
+// shared/chart-model.ts, which eddy-ios draws from too. They used to live here
+// AND there, and the two had drifted into telling different stories about the
+// same river:
+//
+//   · X WAS THE ARRAY INDEX, not time. Readings are not evenly spaced — less so
+//     now that the endpoint samples by extrema — so a crest was drawn at the
+//     wrong hour, and an outage was drawn as if the river had simply held
+//     steady across it.
+//   · A NULL READING WAS PLOTTED AT y = 50, mid-frame. That is a fabricated
+//     number, and on a stage-only gauge asked for discharge it drew a flat
+//     confident line at nothing in particular.
+//   · THE SERIES WAS RE-SAMPLED HERE with `index % step`, on top of the
+//     server's own stride, so the chart could lose a flood peak twice.
+//   · THE Y AXIS SILENTLY BECAME sqrt WHENEVER the range ratio passed 5. Two
+//     gauges side by side could carry differently-shaped axes with nothing on
+//     screen saying so.
+//
+// ── What is still decided here ────────────────────────────────────────────
+// Pixels, colours and the pointer. The SVG keeps viewBox="0 0 100 100" with
+// preserveAspectRatio="none" and stretches to the container, which is why every
+// piece of text sits in a sibling DOM column rather than inside the SVG: text
+// in a non-uniformly scaled SVG is text with the wrong aspect ratio. It also
+// means the tooltip's `left: x%` and the SVG's x coordinate are the same
+// number, so the readout and the crosshair cannot drift apart.
 
 import { useMemo, useState, useRef, useCallback } from 'react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
+import {
+  chartDomain,
+  chartPoints,
+  nearestChartPoint,
+  niceValueTicks,
+  splitAtGaps,
+  timeTicks,
+  type ChartPoint,
+} from '@shared/chart-model';
 
 // Threshold line configuration
 export interface ChartThresholdLines {
@@ -24,6 +61,35 @@ const THRESHOLD_LINE_CONFIG: { key: keyof ChartThresholdLines; label: string; co
   { key: 'levelDangerous', label: 'Flood', color: '#ef4444', dash: '4,2' },
 ];
 
+const SERIES_COLOR = 'rgb(45, 120, 137)';
+/** Violet sits in neither the condition ladder nor the flow ramp, so a forecast
+ *  line cannot be misread as a verdict about floatability. Matches the hue the
+ *  app's chart uses for NWS stages. */
+const FORECAST_COLOR = '#7c3aed';
+const TYPICAL_COLOR = '#0f766e';
+
+/** The USGS codes that actually turn up on Ozark gauges. */
+const QUALIFIER_COPY: Record<string, string> = {
+  P: 'provisional',
+  e: 'estimated',
+  E: 'estimated',
+  Ice: 'ice affected',
+  Eqp: 'equipment malfunction',
+  Bkw: 'backwater affected',
+  Dis: 'discontinued',
+  Mnt: 'maintenance',
+};
+
+function qualifierText(codes: string[]): string | null {
+  if (!codes.length) return null;
+  const seen = new Set<string>();
+  for (const code of codes) {
+    const copy = QUALIFIER_COPY[code];
+    if (copy) seen.add(copy);
+  }
+  return seen.size ? [...seen].join(', ') : null;
+}
+
 interface FlowTrendChartProps {
   gaugeSiteId: string;
   days: number;
@@ -31,7 +97,18 @@ interface FlowTrendChartProps {
   latestValue?: number | null;
   displayUnit?: 'ft' | 'cfs';
   chartClassName?: string;
+  /**
+   * Draw the day-of-year typical range behind the series.
+   *
+   * OFF BY DEFAULT, and deliberately not inferred from the chart's height. It
+   * is real context on a detail page with room for a legend, and clutter behind
+   * a 128px card sparkline that a reader cannot interrogate. The caller knows
+   * which one it is drawing; this component does not.
+   */
+  showTypical?: boolean;
 }
+
+type HoverPoint = { point: ChartPoint; kind: 'observed' | 'forecast' };
 
 export default function FlowTrendChart({
   gaugeSiteId,
@@ -40,176 +117,145 @@ export default function FlowTrendChart({
   latestValue,
   displayUnit = 'cfs',
   chartClassName,
+  showTypical = false,
 }: FlowTrendChartProps) {
   const { data: history, isLoading, error } = useGaugeHistory(gaugeSiteId, days);
   const isFt = displayUnit === 'ft';
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; value: number; timestamp: string } | null>(null);
+  const [hoverFraction, setHoverFraction] = useState<number | null>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
   const chartData = useMemo(() => {
-    if (!history?.readings || history.readings.length === 0) return null;
+    if (!history) return null;
 
-    const readings = history.readings;
-    const stats = history.stats;
+    const observed = chartPoints(history.readings, displayUnit);
+    if (observed.length < 2) return null;
 
-    const dataMin = isFt ? (stats.minHeight ?? 0) : (stats.minDischarge ?? 0);
-    const dataMax = isFt ? (stats.maxHeight ?? 10) : (stats.maxDischarge ?? 100);
-    const dataRange = dataMax - dataMin || 1;
+    // Forecast points share the reading shape, so the same reader applies —
+    // including its refusal to invent a value for the unit that is absent.
+    const forecast = chartPoints(history.forecast, displayUnit);
 
-    let minVal = dataMin;
-    let maxVal = dataMax;
-
-    if (thresholds) {
-      const expansionLimit = dataRange * 1.5;
-      const thresholdValues = [
-        thresholds.levelTooLow, thresholds.levelLow,
-        thresholds.levelOptimalMin, thresholds.levelOptimalMax,
-        thresholds.levelHigh, thresholds.levelDangerous,
-      ].filter((v): v is number => v !== null);
-
-      for (const tv of thresholdValues) {
-        if (tv >= dataMin - expansionLimit && tv <= dataMax + expansionLimit) {
-          if (tv < minVal) minVal = tv;
-          if (tv > maxVal) maxVal = tv;
-        }
-      }
-    }
-
-    const padding = (maxVal - minVal) * 0.05 || (isFt ? 0.5 : 5);
-    minVal = Math.max(0, minVal - padding);
-    maxVal = maxVal + padding;
-
-    // Use sqrt scaling when the data range is very large relative to the
-    // threshold zone (e.g. flood spikes dwarfing normal operating range).
-    // This compresses outlier peaks while keeping the normal range readable.
-    // For ft (stage) data the range is typically small, so keep linear.
-    const rangeRatio = maxVal / (minVal || 1);
-    const useSqrt = !isFt && rangeRatio > 5;
-
-    // Map a data value to a 0-100 Y coordinate (0 = top, 100 = bottom)
-    const toY = (val: number): number => {
-      if (useSqrt) {
-        const sqrtMin = Math.sqrt(minVal);
-        const sqrtMax = Math.sqrt(maxVal);
-        const sqrtRange = sqrtMax - sqrtMin || 1;
-        return 100 - ((Math.sqrt(val) - sqrtMin) / sqrtRange) * 100;
-      }
-      const range = maxVal - minVal || 1;
-      return 100 - ((val - minVal) / range) * 100;
-    };
-
-    const sampleStep = Math.max(1, Math.floor(readings.length / 50));
-    const sampledReadings = readings.filter((_: unknown, i: number) => i % sampleStep === 0);
-
-    const points = sampledReadings.map((reading: { dischargeCfs: number | null; gaugeHeightFt: number | null; timestamp: string }, index: number) => {
-      const val = isFt ? reading.gaugeHeightFt : reading.dischargeCfs;
-      const x = (index / (sampledReadings.length - 1)) * 100;
-      const y = val !== null ? toY(val) : 50;
-      return { x, y, value: val, timestamp: reading.timestamp };
-    });
-
-    const pathD = points.map((p: { x: number; y: number }, i: number) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-    const areaD = `${pathD} L ${points[points.length - 1].x} 100 L ${points[0].x} 100 Z`;
-
-    const allThresholdLines = thresholds
-      ? THRESHOLD_LINE_CONFIG
-          .filter(t => thresholds[t.key] !== null)
-          .map(t => ({
-            ...t,
-            value: thresholds[t.key]!,
-            y: toY(thresholds[t.key]!),
-          }))
-          .filter(t => t.y >= -5 && t.y <= 105)
+    // Percentiles are a discharge statistic; there is no stage equivalent in
+    // usgs_daily_percentiles, so a foot axis simply has no typical range.
+    const typical = showTypical && !isFt
+      ? history.typical.flatMap((row) => {
+          const t = new Date(`${row.date}T12:00:00`).getTime();
+          return Number.isFinite(t) && row.p50Cfs !== null
+            ? [{ t, median: row.p50Cfs, low: row.p25Cfs, high: row.p75Cfs }]
+            : [];
+        })
       : [];
 
+    const thresholdValues = thresholds
+      ? THRESHOLD_LINE_CONFIG.map((config) => thresholds[config.key]).filter(
+          (value): value is number => value !== null
+        )
+      : [];
+
+    const typicalPoints: ChartPoint[] = typical.flatMap((row) =>
+      [row.low, row.median, row.high].flatMap((value) =>
+        value === null ? [] : [{ t: row.t, v: value, timestamp: '', qualifiers: [] }]
+      )
+    );
+
+    const spanning = [...observed, ...forecast, ...typicalPoints].sort((a, b) => a.t - b.t);
+    const domain = chartDomain(spanning, displayUnit, thresholdValues);
+    if (!domain) return null;
+
+    const spanT = domain.t1 - domain.t0 || 1;
+    const spanV = domain.max - domain.min || 1;
+    const x = (t: number) => ((t - domain.t0) / spanT) * 100;
+    const y = (value: number) => 100 - ((value - domain.min) / spanV) * 100;
+
+    const pathFor = (segment: { t: number; v: number }[]) =>
+      segment.map((p, i) => `${i ? 'L' : 'M'} ${x(p.t).toFixed(3)} ${y(p.v).toFixed(3)}`).join(' ');
+
+    // One path per segment, so an outage reads as an outage rather than as a
+    // straight line drawn confidently across it.
+    const observedSegments = splitAtGaps(observed).filter((segment) => segment.length > 1);
+
+    const areaFor = (segment: ChartPoint[]) =>
+      `${pathFor(segment)} L ${x(segment[segment.length - 1].t).toFixed(3)} 100 L ${x(segment[0].t).toFixed(3)} 100 Z`;
+
+    // The band needs both edges, so it is drawn from the rows that HAVE both
+    // rather than suppressed entirely by one row that does not. The median line
+    // is separate and covers every row regardless.
+    const bandRows = typical.filter((row) => row.low !== null && row.high !== null);
+    const typicalArea =
+      bandRows.length > 1
+        ? `${pathFor(bandRows.map((row) => ({ t: row.t, v: row.high! })))} ${bandRows
+            .slice()
+            .reverse()
+            .map((row) => `L ${x(row.t).toFixed(3)} ${y(row.low!).toFixed(3)}`)
+            .join(' ')} Z`
+        : '';
+
+    const thresholdLineData = thresholds
+      ? THRESHOLD_LINE_CONFIG.filter((config) => thresholds[config.key] !== null)
+          .map((config) => ({ ...config, value: thresholds[config.key]!, y: y(thresholds[config.key]!) }))
+          .filter((line) => line.y >= -5 && line.y <= 105)
+      : [];
+
+    // Collapse the optimal pair to one centred label, then drop any label that
+    // would collide with one already placed.
     const MIN_LABEL_GAP = 8;
-    const labelCandidates: typeof allThresholdLines = [];
-    const optMin = allThresholdLines.find(t => t.key === 'levelOptimalMin');
-    const optMax = allThresholdLines.find(t => t.key === 'levelOptimalMax');
-    if (optMin && optMax) {
-      labelCandidates.push({ ...optMin, y: (optMin.y + optMax.y) / 2 });
-    } else if (optMin) {
-      labelCandidates.push(optMin);
-    } else if (optMax) {
-      labelCandidates.push(optMax);
-    }
-    for (const t of allThresholdLines) {
-      if (t.key !== 'levelOptimalMin' && t.key !== 'levelOptimalMax') {
-        labelCandidates.push(t);
-      }
+    const labelCandidates: typeof thresholdLineData = [];
+    const optMin = thresholdLineData.find((t) => t.key === 'levelOptimalMin');
+    const optMax = thresholdLineData.find((t) => t.key === 'levelOptimalMax');
+    if (optMin && optMax) labelCandidates.push({ ...optMin, y: (optMin.y + optMax.y) / 2 });
+    else if (optMin) labelCandidates.push(optMin);
+    else if (optMax) labelCandidates.push(optMax);
+    for (const line of thresholdLineData) {
+      if (line.key !== 'levelOptimalMin' && line.key !== 'levelOptimalMax') labelCandidates.push(line);
     }
     labelCandidates.sort((a, b) => a.y - b.y);
     const thresholdLabels: typeof labelCandidates = [];
     for (const candidate of labelCandidates) {
-      const tooClose = thresholdLabels.some(placed => Math.abs(placed.y - candidate.y) < MIN_LABEL_GAP);
-      if (!tooClose) {
+      if (!thresholdLabels.some((placed) => Math.abs(placed.y - candidate.y) < MIN_LABEL_GAP)) {
         thresholdLabels.push(candidate);
       }
     }
 
-    // Generate Y-axis tick values. With sqrt scaling, evenly-spaced ticks in
-    // sqrt-space correspond to unevenly-spaced values that feel natural.
-    const yAxisTicks: { value: number; y: number }[] = [];
-    const tickCount = 3;
-    if (useSqrt) {
-      const sqrtMin = Math.sqrt(minVal);
-      const sqrtMax = Math.sqrt(maxVal);
-      for (let i = 0; i < tickCount; i++) {
-        const sqrtVal = sqrtMin + (sqrtMax - sqrtMin) * (i / (tickCount - 1));
-        const val = sqrtVal * sqrtVal;
-        yAxisTicks.push({ value: val, y: toY(val) });
-      }
-    } else {
-      for (let i = 0; i < tickCount; i++) {
-        const val = minVal + (maxVal - minVal) * (i / (tickCount - 1));
-        yAxisTicks.push({ value: val, y: toY(val) });
-      }
-    }
-
-    const lastReading = readings[readings.length - 1];
+    const current = observed[observed.length - 1];
     return {
-      points,
-      pathD,
-      areaD,
-      minVal,
-      maxVal,
-      useSqrt,
-      yAxisTicks,
-      currentVal: isFt ? lastReading?.gaugeHeightFt : lastReading?.dischargeCfs,
-      startDate: new Date(readings[0].timestamp),
-      endDate: new Date(readings[readings.length - 1].timestamp),
-      thresholdLineData: allThresholdLines,
+      observed,
+      forecast,
+      domain,
+      x,
+      y,
+      current,
+      observedPaths: observedSegments.map(pathFor),
+      observedAreas: observedSegments.map(areaFor),
+      forecastPath: forecast.length > 1 ? pathFor(forecast) : '',
+      typicalArea,
+      typicalPath:
+        typical.length > 1 ? pathFor(typical.map((row) => ({ t: row.t, v: row.median }))) : '',
+      yTicks: niceValueTicks(domain.min, domain.max, 3),
+      xTicks: timeTicks(domain.t0, domain.t1, days <= 2 ? 4 : 5),
+      thresholdLineData,
       thresholdLabels,
     };
-  }, [history, thresholds, isFt]);
+  }, [history, thresholds, displayUnit, isFt, showTypical, days]);
 
-  // Handle mouse/touch interaction for tooltip
+  const hovered = useMemo<HoverPoint | null>(() => {
+    if (hoverFraction === null || !chartData) return null;
+    const time = chartData.domain.t0 + hoverFraction * (chartData.domain.t1 - chartData.domain.t0);
+    const observed = nearestChartPoint(chartData.observed, time);
+    const forecast = nearestChartPoint(chartData.forecast, time);
+    if (!observed) return forecast ? { point: forecast, kind: 'forecast' } : null;
+    if (!forecast) return { point: observed, kind: 'observed' };
+    // Whichever is genuinely nearer the cursor. Snapping always to the observed
+    // series would report the last real reading while the pointer sits over a
+    // forecast three days out.
+    return Math.abs(observed.t - time) <= Math.abs(forecast.t - time)
+      ? { point: observed, kind: 'observed' }
+      : { point: forecast, kind: 'forecast' };
+  }, [hoverFraction, chartData]);
+
   const handleInteraction = useCallback((clientX: number) => {
-    if (!chartContainerRef.current || !chartData) return;
-    const rect = chartContainerRef.current.getBoundingClientRect();
-    const relativeX = (clientX - rect.left) / rect.width;
-    const clampedX = Math.max(0, Math.min(1, relativeX));
-
-    // Find closest point
-    let closestPoint = chartData.points[0];
-    let closestDist = Infinity;
-    for (const p of chartData.points) {
-      const dist = Math.abs(p.x / 100 - clampedX);
-      if (dist < closestDist) {
-        closestDist = dist;
-        closestPoint = p;
-      }
-    }
-
-    if (closestPoint.value !== null) {
-      setTooltip({
-        x: closestPoint.x,
-        y: closestPoint.y,
-        value: closestPoint.value,
-        timestamp: closestPoint.timestamp,
-      });
-    }
-  }, [chartData]);
+    const rect = chartContainerRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return;
+    setHoverFraction(Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)));
+  }, []);
 
   if (isLoading) {
     return (
@@ -232,14 +278,11 @@ export default function FlowTrendChart({
 
   const formatVal = (val: number) => {
     if (isFt) return val.toFixed(2);
-    if (val >= 1000) return `${(val / 1000).toFixed(1)}k`;
+    if (Math.abs(val) >= 1000) return `${(val / 1000).toFixed(1)}k`;
     return val.toFixed(0);
   };
 
-  const formatTooltipVal = (val: number) => {
-    if (isFt) return val.toFixed(2);
-    return val.toLocaleString();
-  };
+  const formatTooltipVal = (val: number) => (isFt ? val.toFixed(2) : Math.round(val).toLocaleString());
 
   // Determine which condition zone a value falls in
   const getZoneLabel = (val: number): string | null => {
@@ -255,35 +298,54 @@ export default function FlowTrendChart({
     return null;
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
+  const formatAxisTime = (ms: number) =>
+    days <= 2
+      ? new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric' })
+      : new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-  const formatTooltipDate = (timestamp: string) => {
-    const d = new Date(timestamp);
-    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  };
+  const formatTooltipDate = (ms: number) =>
+    new Date(ms).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
   const unitLabel = isFt ? 'ft' : 'cfs';
   const chartLabel = isFt ? 'Stage (ft)' : 'Flow (cfs)';
-  const currentDisplay = latestValue ?? chartData.currentVal;
+  const currentDisplay = latestValue ?? chartData.current.v;
+  const hasForecast = chartData.forecast.length > 0;
+  const nowX = chartData.x(chartData.current.t);
+  const hoveredQualifiers = hovered?.kind === 'observed' ? qualifierText(hovered.point.qualifiers) : null;
 
   return (
     <div className="p-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 gap-2">
         <span className="text-sm font-semibold text-neutral-700">{chartLabel}</span>
-        {currentDisplay !== null && currentDisplay !== undefined && (
+        <div className="flex items-center gap-2">
+          {/* A shaded band with nothing naming it is a claim the reader cannot
+              check. Both overlays say what they are, or they do not draw. */}
+          {chartData.typicalPath && (
+            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: TYPICAL_COLOR }}>
+              Typical 25–75%
+            </span>
+          )}
+          {hasForecast && (
+            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: FORECAST_COLOR }}>
+              NWS forecast
+            </span>
+          )}
           <span className="text-xs text-primary-600 font-medium">
             Current: {formatVal(currentDisplay)} {unitLabel}
           </span>
-        )}
+        </div>
       </div>
 
       <div className="flex">
-        {/* Y-axis labels (outside chart) */}
-        <div className="flex flex-col justify-between py-0.5 pr-1.5 flex-shrink-0 w-10 text-right">
-          {[...chartData.yAxisTicks].reverse().map((tick, i) => (
-            <span key={`ytick-${i}`} className="text-[10px] text-neutral-400 tabular-nums leading-none">
+        {/* Y-axis labels, positioned by VALUE rather than spread evenly: the
+            ticks are round numbers now, so they do not sit at even fractions. */}
+        <div className={`relative flex-shrink-0 w-10 pr-1.5 text-right ${chartClassName ?? 'h-32'}`}>
+          {chartData.yTicks.map((tick) => (
+            <span
+              key={`ytick-${tick.value}`}
+              className="absolute right-1.5 text-[10px] text-neutral-400 tabular-nums leading-none"
+              style={{ top: `${(1 - tick.position) * 100}%`, transform: 'translateY(-50%)' }}
+            >
               {formatVal(tick.value)}
             </span>
           ))}
@@ -294,183 +356,211 @@ export default function FlowTrendChart({
           ref={chartContainerRef}
           className={`relative flex-1 min-w-0 ${chartClassName ?? 'h-32'} cursor-crosshair`}
           onMouseMove={(e) => handleInteraction(e.clientX)}
-          onMouseLeave={() => setTooltip(null)}
+          onMouseLeave={() => setHoverFraction(null)}
           onTouchMove={(e) => {
-            e.preventDefault();
             if (e.touches[0]) handleInteraction(e.touches[0].clientX);
           }}
-          onTouchEnd={() => setTooltip(null)}
+          onTouchEnd={() => setHoverFraction(null)}
+          onTouchCancel={() => setHoverFraction(null)}
         >
-            <svg
-              viewBox="0 0 100 100"
-              preserveAspectRatio="none"
-              className="w-full h-full"
-              role="img"
-              aria-label={`${chartLabel} trend chart${currentDisplay !== null && currentDisplay !== undefined ? `, currently ${formatVal(currentDisplay)} ${unitLabel}` : ''}`}
-            >
-          <defs>
-            <linearGradient id={`flowGradient-${gaugeSiteId}`} x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="rgb(45, 120, 137)" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="rgb(45, 120, 137)" stopOpacity="0.05" />
-            </linearGradient>
-          </defs>
+          <svg
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            className="w-full h-full"
+            role="img"
+            aria-label={`${chartLabel} trend chart, currently ${formatVal(currentDisplay)} ${unitLabel}${
+              hasForecast ? ', with official NWS forecast' : ''
+            }`}
+          >
+            <defs>
+              <linearGradient id={`flowGradient-${gaugeSiteId}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor={SERIES_COLOR} stopOpacity="0.3" />
+                <stop offset="100%" stopColor={SERIES_COLOR} stopOpacity="0.05" />
+              </linearGradient>
+            </defs>
 
-          {/* High/Warning zone fill — anything above optimal_max is "high" */}
-          {chartData.thresholdLineData.length > 0 && (() => {
-            const optimalMax = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMax');
-            const high = chartData.thresholdLineData.find(t => t.key === 'levelHigh');
-            const dangerous = chartData.thresholdLineData.find(t => t.key === 'levelDangerous');
-            const start = optimalMax ?? high;
-            if (start) {
+            {/* High/Warning zone fill — anything above optimal_max is "high" */}
+            {(() => {
+              const optimalMax = chartData.thresholdLineData.find((t) => t.key === 'levelOptimalMax');
+              const high = chartData.thresholdLineData.find((t) => t.key === 'levelHigh');
+              const dangerous = chartData.thresholdLineData.find((t) => t.key === 'levelDangerous');
+              const start = optimalMax ?? high;
+              if (!start) return null;
               const topY = dangerous ? Math.min(dangerous.y, start.y) : 0;
-              const bottomY = start.y;
-              if (bottomY > topY) {
-                return (
-                  <rect
-                    x="0" width="100"
-                    y={topY}
-                    height={bottomY - topY}
-                    fill="#f97316" fillOpacity="0.08"
-                  />
-                );
-              }
-            }
-            return null;
-          })()}
+              return start.y > topY ? (
+                <rect x="0" width="100" y={topY} height={start.y - topY} fill="#f97316" fillOpacity="0.08" />
+              ) : null;
+            })()}
 
-          {/* Flood zone fill */}
-          {chartData.thresholdLineData.length > 0 && (() => {
-            const dangerous = chartData.thresholdLineData.find(t => t.key === 'levelDangerous');
-            if (dangerous && dangerous.y > 0) {
-              return (
-                <rect
-                  x="0" width="100"
-                  y={0}
-                  height={dangerous.y}
-                  fill="#ef4444" fillOpacity="0.06"
-                />
-              );
-            }
-            return null;
-          })()}
+            {/* Flood zone fill */}
+            {(() => {
+              const dangerous = chartData.thresholdLineData.find((t) => t.key === 'levelDangerous');
+              return dangerous && dangerous.y > 0 ? (
+                <rect x="0" width="100" y={0} height={dangerous.y} fill="#ef4444" fillOpacity="0.06" />
+              ) : null;
+            })()}
 
-          {/* Optimal range shaded band */}
-          {chartData.thresholdLineData.length > 0 && (() => {
-            const optMin = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMin');
-            const optMax = chartData.thresholdLineData.find(t => t.key === 'levelOptimalMax');
-            if (optMin && optMax) {
-              return (
+            {/* Optimal range shaded band */}
+            {(() => {
+              const optMin = chartData.thresholdLineData.find((t) => t.key === 'levelOptimalMin');
+              const optMax = chartData.thresholdLineData.find((t) => t.key === 'levelOptimalMax');
+              return optMin && optMax ? (
                 <rect
-                  x="0" width="100"
+                  x="0"
+                  width="100"
                   y={Math.min(optMin.y, optMax.y)}
                   height={Math.abs(optMax.y - optMin.y)}
-                  fill="#059669" fillOpacity="0.12"
+                  fill="#059669"
+                  fillOpacity="0.12"
                 />
-              );
-            }
-            return null;
-          })()}
+              ) : null;
+            })()}
 
-          {/* Threshold reference lines */}
-          {chartData.thresholdLineData.map((t) => (
-            <line
-              key={t.key}
-              x1="0" x2="100"
-              y1={t.y} y2={t.y}
-              stroke={t.color}
-              strokeWidth="1"
-              strokeDasharray={t.dash || 'none'}
-              vectorEffect="non-scaling-stroke"
-              opacity="0.5"
-            />
-          ))}
+            {/* Day-of-year typical range, behind everything the gauge measured */}
+            {chartData.typicalArea && <path d={chartData.typicalArea} fill={TYPICAL_COLOR} fillOpacity="0.1" />}
+            {chartData.typicalPath && (
+              <path
+                d={chartData.typicalPath}
+                fill="none"
+                stroke={TYPICAL_COLOR}
+                strokeWidth="1"
+                strokeDasharray="4,3"
+                opacity="0.55"
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
 
-          {/* Area fill */}
-          <path d={chartData.areaD} fill={`url(#flowGradient-${gaugeSiteId})`} />
+            {/* Threshold reference lines */}
+            {chartData.thresholdLineData.map((t) => (
+              <line
+                key={t.key}
+                x1="0"
+                x2="100"
+                y1={t.y}
+                y2={t.y}
+                stroke={t.color}
+                strokeWidth="1"
+                strokeDasharray={t.dash || 'none'}
+                vectorEffect="non-scaling-stroke"
+                opacity="0.5"
+              />
+            ))}
 
-          {/* Line */}
-          <path
-            d={chartData.pathD}
-            fill="none"
-            stroke="rgb(45, 120, 137)"
-            strokeWidth="2"
-            vectorEffect="non-scaling-stroke"
-          />
+            {chartData.observedAreas.map((d, i) => (
+              <path key={`area-${i}`} d={d} fill={`url(#flowGradient-${gaugeSiteId})`} />
+            ))}
+            {chartData.observedPaths.map((d, i) => (
+              <path
+                key={`line-${i}`}
+                d={d}
+                fill="none"
+                stroke={SERIES_COLOR}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
 
-          {/* Current value dot */}
-          {chartData.points.length > 0 && (
+            {/* The boundary between what happened and what is predicted */}
+            {hasForecast && (
+              <line
+                x1={nowX}
+                x2={nowX}
+                y1="0"
+                y2="100"
+                stroke="#64748b"
+                strokeWidth="1"
+                strokeDasharray="2,3"
+                vectorEffect="non-scaling-stroke"
+                opacity="0.7"
+              />
+            )}
+            {chartData.forecastPath && (
+              <path
+                d={chartData.forecastPath}
+                fill="none"
+                stroke={FORECAST_COLOR}
+                strokeWidth="2"
+                strokeDasharray="5,4"
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+
+            {/* Current value dot — the newest OBSERVED reading, never a forecast */}
             <circle
-              cx={chartData.points[chartData.points.length - 1].x}
-              cy={chartData.points[chartData.points.length - 1].y}
+              cx={nowX}
+              cy={chartData.y(chartData.current.v)}
               r="4"
-              fill="rgb(45, 120, 137)"
+              fill={SERIES_COLOR}
               stroke="#f5f5f5"
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
-          )}
 
-          {/* Tooltip crosshair line */}
-          {tooltip && (
-            <line
-              x1={tooltip.x} x2={tooltip.x}
-              y1="0" y2="100"
-              stroke="rgb(45, 120, 137)"
-              strokeWidth="1"
-              strokeDasharray="2,2"
-              vectorEffect="non-scaling-stroke"
-              opacity="0.6"
-            />
-          )}
+            {hovered && (
+              <>
+                <line
+                  x1={chartData.x(hovered.point.t)}
+                  x2={chartData.x(hovered.point.t)}
+                  y1="0"
+                  y2="100"
+                  stroke={hovered.kind === 'forecast' ? FORECAST_COLOR : SERIES_COLOR}
+                  strokeWidth="1"
+                  strokeDasharray="2,2"
+                  vectorEffect="non-scaling-stroke"
+                  opacity="0.6"
+                />
+                <circle
+                  cx={chartData.x(hovered.point.t)}
+                  cy={chartData.y(hovered.point.v)}
+                  r="5"
+                  fill={hovered.kind === 'forecast' ? FORECAST_COLOR : SERIES_COLOR}
+                  stroke="white"
+                  strokeWidth="2"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </>
+            )}
+          </svg>
 
-          {/* Tooltip dot */}
-          {tooltip && (
-            <circle
-              cx={tooltip.x}
-              cy={tooltip.y}
-              r="5"
-              fill="rgb(45, 120, 137)"
-              stroke="white"
-              strokeWidth="2"
-              vectorEffect="non-scaling-stroke"
-            />
-          )}
-        </svg>
-
-          {/* Tooltip popup */}
-          {tooltip && (
+          {/* Tooltip popup. `left` is the same 0–100 number the SVG used, which
+              is only true because the viewBox spans the container exactly. */}
+          {hovered && (
             <div
               className="absolute z-10 pointer-events-none bg-neutral-900 text-white text-xs rounded-lg px-2.5 py-1.5 shadow-lg whitespace-nowrap"
               style={{
-                left: `${tooltip.x}%`,
-                top: `${tooltip.y}%`,
-                transform: `translate(${tooltip.x > 70 ? '-100%' : '8px'}, -120%)`,
+                left: `${chartData.x(hovered.point.t)}%`,
+                top: `${chartData.y(hovered.point.v)}%`,
+                transform: `translate(${chartData.x(hovered.point.t) > 70 ? '-100%' : '8px'}, -120%)`,
               }}
             >
               <div className="font-bold tabular-nums">
-                {formatTooltipVal(tooltip.value)} {unitLabel}
-                {(() => {
-                  const zone = getZoneLabel(tooltip.value);
-                  return zone ? <span className="font-medium text-neutral-400"> — {zone}</span> : null;
-                })()}
+                {formatTooltipVal(hovered.point.v)} {unitLabel}
+                {hovered.kind === 'observed'
+                  ? (() => {
+                      const zone = getZoneLabel(hovered.point.v);
+                      return zone ? <span className="font-medium text-neutral-400"> — {zone}</span> : null;
+                    })()
+                  : <span className="font-medium" style={{ color: '#c4b5fd' }}> — forecast</span>}
               </div>
-              <div className="text-neutral-400 text-[10px]">{formatTooltipDate(tooltip.timestamp)}</div>
+              <div className="text-neutral-400 text-[10px]">{formatTooltipDate(hovered.point.t)}</div>
+              {hoveredQualifiers && (
+                <div className="text-amber-300 text-[10px]">{hoveredQualifiers}</div>
+              )}
             </div>
           )}
         </div>
 
         {/* Threshold labels (right column, outside chart) */}
         {chartData.thresholdLabels.length > 0 && (
-          <div className="relative flex-shrink-0 w-12 pl-1.5">
+          <div className={`relative flex-shrink-0 w-12 pl-1.5 ${chartClassName ?? 'h-32'}`}>
             {chartData.thresholdLabels.map((t) => (
               <div
                 key={`label-${t.key}`}
                 className="absolute text-[9px] font-semibold leading-none whitespace-nowrap"
-                style={{
-                  top: `${t.y}%`,
-                  color: t.color,
-                  transform: 'translateY(-50%)',
-                }}
+                style={{ top: `${t.y}%`, color: t.color, transform: 'translateY(-50%)' }}
               >
                 {t.label}
               </div>
@@ -479,33 +569,26 @@ export default function FlowTrendChart({
         )}
       </div>
 
-      {/* X-axis labels — show day abbreviations for 7-day view, dates otherwise */}
-      <div className={`flex justify-between text-[10px] text-neutral-400 mt-1 ml-10 ${chartData.thresholdLabels.length > 0 ? 'mr-12' : ''} px-1`}>
-        {days <= 7 ? (() => {
-          const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-          const start = chartData.startDate;
-          const end = chartData.endDate;
-          const totalDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-          const labels: { label: string; position: number }[] = [];
-          for (let i = 0; i <= totalDays; i++) {
-            const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
-            const isToday = i === totalDays;
-            labels.push({
-              label: isToday ? 'TODAY' : dayNames[d.getDay()],
-              position: totalDays > 0 ? i / totalDays : 0,
-            });
-          }
-          return labels.map((l, i) => (
-            <span key={i} className={`${l.label === 'TODAY' ? 'font-semibold text-primary-600' : ''}`}>
-              {l.label}
-            </span>
-          ));
-        })() : (
-          <>
-            <span>{formatDate(chartData.startDate)}</span>
-            <span>{formatDate(chartData.endDate)}</span>
-          </>
-        )}
+      {/* X-axis labels, positioned by TIME so they sit under the point they
+          describe — including when a forecast extends the window past now. */}
+      <div className={`relative h-4 mt-1 ml-10 ${chartData.thresholdLabels.length > 0 ? 'mr-12' : ''}`}>
+        {chartData.xTicks.map((tick, index) => (
+          <span
+            key={`xtick-${index}`}
+            className="absolute top-0 text-[10px] text-neutral-400 whitespace-nowrap"
+            style={{
+              left: `${tick.position * 100}%`,
+              transform:
+                index === 0
+                  ? 'none'
+                  : index === chartData.xTicks.length - 1
+                    ? 'translateX(-100%)'
+                    : 'translateX(-50%)',
+            }}
+          >
+            {formatAxisTime(tick.value)}
+          </span>
+        ))}
       </div>
     </div>
   );
