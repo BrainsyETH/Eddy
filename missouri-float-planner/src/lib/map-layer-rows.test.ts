@@ -327,3 +327,53 @@ test('each grouped row still counts on its own key, unsummed', () => {
   assert.equal(layerRowCount({ key: 'lodging' }, active, counts), 81);
   assert.equal(layerRowCount({ key: 'outfitters' }, active, counts), 84);
 });
+
+// ── Every layer caveat has to be reachable without sight ───────────────────
+//
+// The ⓘ button in MapLayersSheet is nested inside the row Pressable, which
+// declares accessibilityRole="switch" and therefore subsumes its whole subtree
+// into one VoiceOver stop. The button had a role and a label and no focus, so
+// `info` — the public-land ownership caveat and the IEM radar attribution —
+// could not be reached at all. The radar attribution had previously been an
+// always-visible note, so the declutter removed the only way to read it.
+//
+// The row now exposes an `info` custom action instead. This asserts the source
+// still wires it, because the failure mode is silent: the visible ⓘ keeps
+// working and nothing about the screen looks wrong.
+
+test('a layer that carries info exposes it as an accessibility action', () => {
+  const sheet = readFileSync(
+    join(process.cwd(), '..', 'eddy-ios', 'src', 'components', 'MapLayersSheet.tsx'),
+    'utf8'
+  );
+
+  assert.match(
+    sheet,
+    /accessibilityActions=\{\s*layer\.info \? \[\{ name: 'info', label: `About \$\{layer\.label\}` \}\] : undefined\s*\}/,
+    'the row must offer an info action whenever the layer has info to give'
+  );
+  assert.match(
+    sheet,
+    /onAccessibilityAction=/,
+    'and must handle it — an advertised action that does nothing is worse than none'
+  );
+  assert.match(
+    sheet,
+    /actionName === 'info'/,
+    'the handler must dispatch on the action it advertises'
+  );
+});
+
+test('the visible info button does not claim a VoiceOver stop it cannot hold', () => {
+  const sheet = readFileSync(
+    join(process.cwd(), '..', 'eddy-ios', 'src', 'components', 'MapLayersSheet.tsx'),
+    'utf8'
+  );
+  // A role and label on a subsumed element describe a stop that does not
+  // exist, which is what made this look handled for as long as it did.
+  assert.doesNotMatch(
+    sheet,
+    /accessibilityLabel=\{`About \$\{layer\.label\}`\}/,
+    'the nested pressable must not re-declare itself as a focusable button'
+  );
+});

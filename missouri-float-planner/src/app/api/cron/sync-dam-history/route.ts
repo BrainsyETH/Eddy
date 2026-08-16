@@ -29,8 +29,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { logger } from '@/lib/logger';
 import { fetchTimeseries } from '@/lib/usace/cda';
+import { periodEndingMs } from '@/lib/usace/resolve';
 import { USACE_DAMS, type UsaceDam } from '@/lib/flow-providers/usace-registry';
-import { seriesFor } from '@/lib/data/dams';
+import { seriesFor, wantsHistory } from '@/lib/data/dams';
 import { bucketHourly, SYNC_LOOKBACK_HOURS, type DamHistoryMetric } from '@/lib/data/dam-history';
 import { pruneHistory, writeHours } from '@/lib/data/dam-history-store';
 
@@ -114,12 +115,17 @@ async function syncDam(
       if (!series || series.points.length === 0) continue;
 
       metrics += 1;
-      // The most recent hour is still filling — its mean would be built from
-      // whatever fraction of samples has arrived, then frozen by the upsert
-      // only to be corrected on the next pass anyway. Drop it and let the next
-      // run write it whole.
+      // The hour we are STANDING IN is still filling — its mean would be built
+      // from whatever fraction of samples has arrived, then frozen by the
+      // upsert only to be corrected on the next pass anyway. Drop it and let
+      // the next run write it whole.
+      //
+      // This is a comparison against the bucket's own beginning, which is why
+      // the period-ending shift has to happen first: before it, the hour that
+      // had just CLOSED was stamped `currentHour` and got dropped here too, so
+      // the freshest bar always lagged an extra pass on top of being misplaced.
       const currentHour = Math.floor(now / 3_600_000) * 3_600_000;
-      const buckets = bucketHourly(series.points).filter(
+      const buckets = bucketHourly(series.points, periodEndingMs(source.tsId)).filter(
         (b) => Date.parse(b.observedHour) < currentHour
       );
       written += await writeHours(supabase, dam.id, metric, buckets);
@@ -163,18 +169,9 @@ async function runSync(request: NextRequest) {
   let metricsSeen = 0;
 
   try {
-    // Only projects that can report turbine flow at all. A flood-control dam
-    // has no generation pattern, and storing its release alone would build a
-    // strip whose top half is permanently empty.
-    //
-    // Two shapes qualify: an explicit generationFlow series (SWL, LRN), or a
-    // SWPA column plus a resolvable location (the Tulsa projects, whose
-    // turbine series resolve at request time). The old test was swpaCode
-    // alone plus fetchability, which was the same set until the Nashville
-    // dams — turbines, no SWPA column — would have been silently skipped.
-    const dams = Object.values(USACE_DAMS).filter(
-      (d) => d.office && (d.series.generationFlow || (d.swpaCode && d.cdaLocation))
-    );
+    // Only projects that can report turbine flow at all — see wantsHistory,
+    // which owns the rule and is pinned against the registry offline.
+    const dams = Object.values(USACE_DAMS).filter(wantsHistory);
 
     const results = await mapWithConcurrency(dams, DAM_CONCURRENCY, (dam) =>
       syncDam(supabase, dam, lookbackHours, startedAt)

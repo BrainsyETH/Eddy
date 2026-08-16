@@ -54,6 +54,63 @@ function parseKinds(raw: string | null): readonly SearchResultKind[] {
 }
 
 /**
+ * Parses `?offsets=river:12,gauge:20` — where each kind's page starts.
+ *
+ * ── Why a flat `offset` is not enough ──────────────────────────────────────
+ * `offset` is applied PER KIND, which is the only definition that works for a
+ * scoped caller paging one kind at a time. A caller asking for SEVERAL kinds
+ * at once has no single number to send: one page of 50 hands back roughly
+ * seventeen rows of each kind, so by page two the three kinds are each 17 rows
+ * in, and there is no value of `offset` that describes that. Sending the total
+ * (50) skips fifty rows of every kind and loses rows 17–49 of each; sending
+ * the smallest per-kind count re-requests rows already on screen.
+ *
+ * So a multi-kind caller states each kind's position and this reads them. A
+ * kind the parameter omits falls back to the flat `offset`, which keeps every
+ * scoped caller — and every caller written before this existed — on exactly
+ * the behaviour it already had.
+ *
+ * Unparseable entries are ignored rather than rejected: a malformed offset
+ * should degrade to the first page, not turn a search into an error.
+ */
+export function parseOffsets(raw: string | null, fallback: number): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!raw) return out;
+  for (const part of raw.split(',')) {
+    const [kind, value] = part.split(':');
+    const named = ALL_KINDS.find((k) => k === kind?.trim());
+    if (!named) continue;
+    const n = parseInt(value ?? '', 10);
+    out[named] = Number.isFinite(n) && n > 0 ? n : fallback;
+  }
+  return out;
+}
+
+/**
+ * One kind's page: drop the probe row, THEN present what is left.
+ *
+ * ── The order of those two steps is the whole point ────────────────────────
+ * Each source returns `limit + 1` rows in its own stable, total order, and that
+ * order is what `offset` walks — page two starts at the source's row
+ * `limit + 1`. So the row this page must give up is THE LAST ONE IT WAS HANDED.
+ * Cutting that row is what makes consecutive pages meet exactly.
+ *
+ * Presenting first and cutting second — which is what this route did — cuts by
+ * the PRESENTATION order instead, so the row dropped is the relevance-worst
+ * one: some arbitrary row from the middle of the source's order. The next page
+ * begins past it, so that row was not deferred, it was deleted; no page of that
+ * search would ever show it again. Meanwhile the true last row shipped on both
+ * pages, which is why the client's "this should never fire" dedupe fired at
+ * every page boundary.
+ *
+ * `present` is applied to the survivors, because how a page is ordered on
+ * screen is a separate question from which rows are on it.
+ */
+export function pageOf<T>(rows: T[], limit: number, present: (rows: T[]) => T[]): T[] {
+  return present(rows.slice(0, limit));
+}
+
+/**
  * Fills `limit` slots from several ranked lists without letting one starve
  * the others.
  *
@@ -230,6 +287,10 @@ async function _GET(request: NextRequest) {
       0,
       parseInt(request.nextUrl.searchParams.get('offset') ?? '', 10) || 0,
     );
+    // A multi-kind caller sends where each kind has got to; everyone else
+    // falls through to the single number above. See parseOffsets.
+    const offsets = parseOffsets(request.nextUrl.searchParams.get('offsets'), offset);
+    const offsetFor = (kind: SearchResultKind) => offsets[kind] ?? offset;
 
     // Which kinds the caller wants back. The phone's Search tab is scoped —
     // one segmented control, exactly one kind at a time — so asking for all
@@ -363,7 +424,7 @@ async function _GET(request: NextRequest) {
           // A total order. `name` is not unique across rivers — "Boat Ramp"
           // exists more than once — and paging an unstable tail repeats rows.
           .order('id', { ascending: true })
-          .range(offset, offset + probe - 1)
+          .range(offsetFor('access_point'), offsetFor('access_point') + probe - 1)
       : { data: null, error: null };
 
     if (accessError) console.error('Access point search failed (non-fatal):', accessError);
@@ -450,7 +511,7 @@ async function _GET(request: NextRequest) {
       const paged = await admin.rpc('search_gauges', {
         p_query: browse ? '' : needle,
         p_limit: probe,
-        p_offset: offset,
+        p_offset: offsetFor('gauge'),
       });
 
       if (paged.error) {
@@ -596,14 +657,16 @@ async function _GET(request: NextRequest) {
 
     // Rivers are the one source paged in memory: the list is small, already
     // loaded, and matched here rather than in SQL. The other two page in the
-    // database, and have had `offset` applied before they got here.
-    const pagedRivers = riverResults.slice(offset, offset + probe);
+    // database, and have had their offset applied before they got here.
+    const riverOffset = offsetFor('river');
+    const pagedRivers = riverResults.slice(riverOffset, riverOffset + probe);
 
+    // NOT yet re-ranked — see the slice below for why the order matters.
     const groups = (
       [
-        { kind: 'river', results: ordered(pagedRivers) },
-        { kind: 'access_point', results: ordered(accessResults) },
-        { kind: 'gauge', results: ordered(gaugeResults) },
+        { kind: 'river', results: pagedRivers },
+        { kind: 'access_point', results: accessResults },
+        { kind: 'gauge', results: gaugeResults },
       ] as const satisfies readonly { kind: SearchResultKind; results: SearchResult[] }[]
     ).filter((g) => wants(g.kind));
 
@@ -611,13 +674,22 @@ async function _GET(request: NextRequest) {
     // least one more row behind this page.
     const hasMore = groups.some((g) => g.results.length > limit);
 
-    // Allocated per kind rather than sliced off a concatenation — see
-    // allocateByKind for the bug that change fixes. The ORDER of the groups is
-    // still rivers, then access points, then gauges: a person typing "current"
-    // wants the Current River, not Current River at Van Buren gauge. What has
-    // changed is that being third no longer means being cut.
+    // ── Drop the probe BEFORE re-ranking, never after ────────────────────────
+    // Each source returns limit+1 rows in its own stable, total order, and that
+    // order is what `offset` walks: page two starts at the database's row
+    // limit+1. So the row this page must give up is the LAST ONE IT WAS HANDED,
+    // and cutting it is what makes the two pages meet.
+    //
+    // Sorting first and slicing second cut the relevance-WORST row instead —
+    // some arbitrary row from the middle of the database's order. The next page
+    // starts past it, so it was not deferred, it was deleted: no page of that
+    // search would ever show it again. The duplicate it left in its place is
+    // why the client's "this should never fire" dedupe fired on every page
+    // boundary.
+    //
+    // Re-ranking the rows that remain is a presentation choice and stays.
     const results = allocateByKind(
-      groups.map((g) => ({ kind: g.kind, results: g.results.slice(0, limit) })),
+      groups.map((g) => ({ kind: g.kind, results: pageOf(g.results, limit, ordered) })),
       limit,
     );
 

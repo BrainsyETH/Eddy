@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { serviceTiers as appServiceTiers } from '@eddy/types';
-import { serviceTiers as webServiceTiers, TIER_ORDER } from './service-tiers';
+import { serviceEligible as appServiceEligible, serviceTiers as appServiceTiers } from '@eddy/types';
+import {
+  serviceEligible as webServiceEligible,
+  serviceTiers as webServiceTiers,
+  TIER_ORDER,
+} from './service-tiers';
 
 // Two copies of the tier model, and the only thing keeping them one model.
 //
@@ -121,4 +125,46 @@ test('the tier order is stable and shared', () => {
   const b = webServiceTiers({ type: 'campground', servicesOffered: ['kayak_rental', 'cabins'] });
   assert.deepEqual(a, b);
   assert.deepEqual(a, ['rentals', 'camping', 'lodging']);
+});
+
+// ── Eligibility, the other half that has to match ──────────────────────────
+//
+// Same arrangement, same reason, and the divergence here was live rather than
+// theoretical: the app filtered closed businesses out and the website did not,
+// so eddy.guide kept a card and a tappable phone number for an outfitter the
+// phone had already stopped showing. Both copies must answer identically for
+// every status the column can hold — including the ones it does not have yet.
+
+test('both copies agree on which businesses may be shown', () => {
+  const STATUSES = [
+    'active',
+    'unverified',
+    'permanently_closed',
+    'temporarily_closed',
+    // Silence is the common case and must read as eligible: most rows say
+    // nothing, and treating "not told" as closed would empty the directory.
+    null,
+    undefined,
+    // A value neither vocabulary declares. Both sides must still answer, and
+    // answer the same way, rather than one of them quietly hiding the row.
+    'seasonal_hours',
+  ];
+
+  for (const status of STATUSES) {
+    assert.equal(
+      webServiceEligible({ status }),
+      appServiceEligible({ status }),
+      `status ${String(status)} is classified differently by the two copies`
+    );
+  }
+});
+
+test('closed businesses are excluded and everything else is kept', () => {
+  // The rule itself, stated once so a parity test passing on two identically
+  // wrong copies is still caught.
+  assert.equal(webServiceEligible({ status: 'permanently_closed' }), false);
+  assert.equal(webServiceEligible({ status: 'temporarily_closed' }), false);
+  assert.equal(webServiceEligible({ status: 'active' }), true);
+  assert.equal(webServiceEligible({ status: null }), true, 'absent means eligible');
+  assert.equal(webServiceEligible({}), true, 'so does missing entirely');
 });

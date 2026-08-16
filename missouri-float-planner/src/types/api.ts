@@ -147,7 +147,20 @@ export interface AccessPointGaugeStatus {
   lastUpdated: string | null;  // ISO timestamp
   gaugeId: string;
   gaugeName: string;
-  usgsId: string;
+  /**
+   * The station's provider-native site id — a USGS site number, an NWS LID, or
+   * a USACE dam slug.
+   *
+   * NULLABLE, and it always was: this is filled from `usgs_site_id` OR
+   * `site_id_external`, both nullable columns, and it was typed `string` while
+   * Clearwater — a Corps release rated for the Black River, and reachable from
+   * every access point on it — carries null in the first and a slug in the
+   * second. Pair it with `provider` before printing it; never caption it USGS
+   * on its own.
+   */
+  usgsId: string | null;
+  /** Registry id from src/lib/flow-providers. Absent means 'usgs'. */
+  provider?: string | null;
 }
 
 /** Simplified access point for "nearby" list */

@@ -530,21 +530,30 @@ function moveClock(move: ScheduledMove): string {
   const clock = time === '12 AM' ? 'midnight' : time;
 
   if (move.dayOffset === 0) return clock;
-  if (move.dayOffset === 1) {
-    // ── "midnight tomorrow" NAMES THE WRONG MIDNIGHT ────────────────────────
-    // Tomorrow's hour ending 1 is the release running from 00:00 tomorrow —
-    // the midnight at the END of today, the one a reader at 9 PM is three
-    // hours away from. "midnight tomorrow" reads as the midnight that closes
-    // tomorrow, quietly moving the change 24 hours out — and the direction is
-    // the dangerous one: it tells a wading angler they have a day before the
-    // units come on when they have an evening. Same guard as
-    // nextScheduleChangeSentence in dam-schedule-copy.ts, which hit this
-    // first; only hour ending 1 can be affected, because it is the single
-    // hour whose start time sits on the boundary between the two days.
-    return clock === 'midnight' ? 'midnight tonight' : `${clock} tomorrow`;
-  }
+
+  // ── "midnight <day>" NAMES THE WRONG MIDNIGHT ─────────────────────────────
+  // Hour ending 1 on day D is the release running from 00:00 ON D — the
+  // midnight at the END of D-1, not the one that closes D. Read the natural
+  // way ("midnight Monday" = Monday night) the change moves a full 24 hours
+  // later than it happens, and the direction is the dangerous one: it tells a
+  // wading angler they have another day before the units come on.
+  //
+  // Hour ending 1 is the only hour this can touch, because it is the single
+  // hour whose start time sits on the boundary between two days.
+  //
+  // Naming D-1 is what makes every offset read the same way, and is why
+  // offset 1 says "tonight": D-1 there IS today. This was fixed for offset 1
+  // alone, which left the same sentence wrong from two days out — reachable
+  // today, because SWPA posts several days at once and scheduleOutlook walks
+  // all of them. Mirrored in nextScheduleChangeSentence (dam-schedule-copy.ts).
+  const midnight = clock === 'midnight';
+  if (move.dayOffset === 1) return midnight ? 'midnight tonight' : `${clock} tomorrow`;
+
   const [y, m, d] = move.scheduleDate.split('-').map(Number);
-  const weekday = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
+  // A calendar date has no clock attached, so this arithmetic has no DST to
+  // get wrong — the same reason the pattern strip walks day keys in UTC.
+  const named = Date.UTC(y, m - 1, d) - (midnight ? 86_400_000 : 0);
+  const weekday = new Date(named).toLocaleDateString('en-US', {
     weekday: 'long',
     timeZone: 'UTC',
   });
@@ -1028,15 +1037,28 @@ export function scheduleDayVoiceOver(
 /**
  * One hour in the pattern strip, and how well Eddy knows it.
  *
- * Three kinds, not two, and the third is the point: `missing` is an hour with
- * no stored observation. Drawing it as an idle bar would say the units were off
- * during what was actually a feed outage — a claim about the river made out of
- * Eddy's own downtime.
+ * Four kinds, and the last two are the point.
+ *
+ * `missing` is an hour that HAS HAPPENED and has no stored observation — a
+ * feed outage. Drawing it as an idle bar would say the units were off during
+ * what was actually Eddy's own downtime: a claim about the river made out of a
+ * gap in our records.
+ *
+ * `future` is an hour that HAS NOT HAPPENED and has no posted schedule. It was
+ * drawn as `missing` until it was noticed that the two are opposite failures
+ * of knowledge wearing one face. Every LRN dam has an empty schedule always —
+ * SEPA markets Cumberland power and publishes no hour-by-hour sheet — so at
+ * 8 AM a Wolf Creek row ended in sixteen "No reading" boxes, the outage
+ * treatment, for hours nobody could have a reading for yet. The voice-over
+ * then counted them: "sixteen hours with no observation", spoken as a fact
+ * about data coverage, about the rest of the day. The same row sat directly
+ * above a forecast card that says exactly what those hours hold.
  */
 export type PatternCell =
   | { kind: 'observed'; fraction: number; generating: boolean }
   | { kind: 'scheduled'; fraction: number; generating: boolean }
-  | { kind: 'missing' };
+  | { kind: 'missing' }
+  | { kind: 'future' };
 
 export interface PatternRow {
   /** Central calendar day, YYYY-MM-DD. */
@@ -1057,8 +1079,9 @@ export interface PatternRow {
    */
   scheduleStale: boolean;
   /**
-   * The cell index where observation gives way to schedule, or null on a row
-   * that is wholly one or the other.
+   * The cell index where observation gives way to the rest of the day — a
+   * posted schedule where one exists, otherwise hours not yet lived. Null on a
+   * row that is wholly one or the other.
    *
    * This IS the now marker's position. Deriving it from `elapsed / 24` instead
    * would put the marker in the wrong cell on any day that is not 24 hours
@@ -1160,6 +1183,13 @@ export function patternRows(
             // days, one hour off on two, and never a crash in a render path.
             Math.min(wallSplit, observedHours);
 
+    // A day with no posted sheet has no scheduled half — its remaining hours
+    // are unknown, not outaged. Distinguished here rather than left to
+    // `scheduledCell(undefined)`, which cannot tell "the schedule omits this
+    // hour" from "there is no schedule at all". The rows stay 24 wide either
+    // way: both strips lay cells out with equal flex, so ending the row early
+    // would stretch the remaining hours and knock every day out of alignment.
+    const hasSchedule = scheduleByDay.has(day.scheduleDate);
     const scheduledCount = wallSplit === null ? 0 : Math.max(0, 24 - wallSplit);
     // When no scheduled hours remain, the row runs to the day's own end. On a
     // 25-hour day that is what keeps the extra hour from falling off the row
@@ -1170,15 +1200,23 @@ export function patternRows(
       observedCell(day.turbineCfs[i])
     );
     const scheduled = Array.from({ length: scheduledCount }, (_, i) =>
-      scheduledCell(hoursByEnding.get(wallSplit! + i + 1))
+      hasSchedule
+        ? scheduledCell(hoursByEnding.get(wallSplit! + i + 1))
+        : ({ kind: 'future' } as PatternCell)
     );
 
     return {
       dayKey: day.scheduleDate,
       cells: [...observed, ...scheduled],
-      scheduled: scheduled.length > 0,
+      // Only a POSTED schedule makes a row scheduled. Without this the flag
+      // was true for every LRN row, which is what carried the stale-schedule
+      // label and the split marker onto a row that has no schedule at all.
+      scheduled: hasSchedule && scheduled.length > 0,
       today: isToday,
-      scheduleStale: scheduled.length > 0 && scheduleStale,
+      scheduleStale: hasSchedule && scheduled.length > 0 && scheduleStale,
+      // Still set when there is no posted schedule: this is the NOW MARKER's
+      // position, and the boundary between what has been observed and what has
+      // not happened yet is exactly where now is, schedule or no schedule.
       splitIndex: scheduled.length > 0 ? observed.length : null,
     };
   });
@@ -1226,6 +1264,7 @@ export function patternRowVoiceOver(row: PatternRow): string {
   // and a full-load scheduled day would be spoken as "scheduled in 0 hours".
   const scheduled = row.cells.filter((c) => c.kind === 'scheduled' && c.generating).length;
   const missing = row.cells.filter((c) => c.kind === 'missing').length;
+  const future = row.cells.filter((c) => c.kind === 'future').length;
 
   // A denominator on every count, because a bare "generation observed in 2
   // hours" leaves the listener to guess whether the other 22 were quiet or
@@ -1242,6 +1281,16 @@ export function patternRowVoiceOver(row: PatternRow): string {
   }
   if (missing > 0) {
     parts.push(`${missing} ${missing === 1 ? 'hour' : 'hours'} with no observation`);
+  }
+  // Said apart from `missing`, and this is the whole point of the two kinds:
+  // an hour that has not happened is not an hour Eddy failed to record. These
+  // were counted as missing, so a Wolf Creek row at 8 AM told a screen-reader
+  // user there were sixteen hours with no observation — a coverage complaint
+  // about the rest of the day.
+  if (future > 0) {
+    parts.push(
+      `${future} ${future === 1 ? 'hour' : 'hours'} still to come, with no schedule published`
+    );
   }
   if (parts.length === 0) return `${label}: no data.`;
   // A stale forecast has to say so here too: the visual treatment that marks it

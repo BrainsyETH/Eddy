@@ -116,6 +116,48 @@ export function parseTsId(name: string): ParsedTsId | null {
   };
 }
 
+/** `15Minutes`, `1Hour`, `~1Day` → milliseconds. Null when unparseable. */
+function durationToMs(duration: string): number | null {
+  const m = /^~?(\d+)(Minutes?|Hours?|Days?)$/i.exec(duration.trim());
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const unit = m[2].toLowerCase();
+  if (unit.startsWith('minute')) return n * 60_000;
+  if (unit.startsWith('hour')) return n * 3_600_000;
+  return n * 86_400_000;
+}
+
+/**
+ * How long a period a point covers, in ms — 0 when the series samples an
+ * instant.
+ *
+ * ── Why this is the DURATION field and not the interval ────────────────────
+ * The two are different questions and the ids answer them separately.
+ * `Interval` is how often a point arrives; `Duration` is how much time each
+ * point summarises. `TENK.Flow-Power.Inst.1Hour.0.Rev-Regi-Flowgroup` arrives
+ * hourly and summarises nothing — it is a spot reading, duration `0`. Its
+ * sibling `TENK.Flow-Power.Ave.1Hour.1Hour.Rev-Regi-Flowgroup` arrives hourly
+ * and summarises the hour, duration `1Hour`. Reading the interval would call
+ * both of them hourly averages and shift the instantaneous one for no reason.
+ *
+ * A non-zero duration means PERIOD-ENDING: a point stamped t covers
+ * [t - duration, t). Measured, not assumed — the same discrimination
+ * dam-forecast.ts's header records for Wolf Creek, re-confirmed at Tenkiller
+ * on 2026-08-16: the `Inst` series read 258 cfs AT 12:00Z while the `Ave`
+ * series stamped 13:00Z read the same 258, i.e. the 13:00Z stamp is the
+ * average of the hour that ENDED at 13:00.
+ *
+ * An unparseable duration returns 0 — the shift is a correction applied to
+ * series we can read a duration from, and a series we cannot parse is left
+ * where its stamp puts it rather than moved by a guess.
+ */
+export function periodEndingMs(tsId: string): number {
+  const parsed = parseTsId(tsId);
+  if (!parsed) return 0;
+  return durationToMs(parsed.duration) ?? 0;
+}
+
 /**
  * One acceptable way a district spells a metric: a parameter name AND the
  * sub-location it must sit on. `subLocation: ''` means the bare project.

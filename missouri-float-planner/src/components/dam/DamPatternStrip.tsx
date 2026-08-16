@@ -65,6 +65,11 @@ export default function DamPatternStrip({
   if (rows.length === 0) return null;
 
   const todayIndex = rows.findIndex((r) => r.today);
+  // Only legended when the strip actually draws one. A dam with a posted SWPA
+  // sheet never has a `future` cell, and naming a treatment that is not on
+  // screen is the same mismatch this legend exists to prevent.
+  const hasFuture = rows.some((r) => r.cells.some((c) => c.kind === 'future'));
+  const hasScheduled = rows.some((r) => r.cells.some((c) => c.kind === 'scheduled'));
 
   return (
     <section className="rounded-xl border-2 border-neutral-300 bg-white p-5">
@@ -87,13 +92,15 @@ export default function DamPatternStrip({
           <span className="h-3 w-2.5 rounded-[1px] bg-primary-700" aria-hidden="true" />
           Measured
         </li>
-        <li className="flex items-center gap-1.5">
-          <span
-            className="h-3 w-2.5 rounded-[1px] border border-primary-600 bg-primary-100"
-            aria-hidden="true"
-          />
-          Scheduled
-        </li>
+        {hasScheduled && (
+          <li className="flex items-center gap-1.5">
+            <span
+              className="h-3 w-2.5 rounded-[1px] border border-primary-600 bg-primary-100"
+              aria-hidden="true"
+            />
+            Scheduled
+          </li>
+        )}
         <li className="flex items-center gap-1.5">
           <span
             className="h-3 w-2.5 rounded-[1px] border border-dashed border-neutral-300"
@@ -101,6 +108,12 @@ export default function DamPatternStrip({
           />
           No reading
         </li>
+        {hasFuture && (
+          <li className="flex items-center gap-1.5">
+            <span className="h-px w-2.5 rounded-[1px] bg-neutral-200" aria-hidden="true" />
+            Not yet
+          </li>
+        )}
       </ul>
 
       <div className="mt-4 space-y-1">
@@ -129,6 +142,14 @@ export default function DamPatternStrip({
                   <div key={i} className="flex h-full flex-1 items-end px-[0.5px]">
                     {cell.kind === 'missing' ? (
                       <div className="h-full w-full rounded-[1px] border border-dashed border-neutral-300" />
+                    ) : cell.kind === 'future' ? (
+                      // An hour that has not happened, on a dam with no posted
+                      // schedule. Deliberately NOT the dashed outage box: that
+                      // one means "we should have a reading and do not", and
+                      // wearing it for the rest of today read as a feed failure
+                      // covering hours nobody could have a reading for yet.
+                      // Flat and unemphasised — an empty slot, not a claim.
+                      <div className="h-px w-full rounded-[1px] bg-neutral-200" />
                     ) : cell.kind === 'scheduled' ? (
                       <div
                         // `generating`, not `fraction > 0`: without a reference

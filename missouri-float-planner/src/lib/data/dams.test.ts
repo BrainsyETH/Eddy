@@ -112,3 +112,43 @@ test('every dam with declared CWMS series can actually be read', () => {
   // Ameren-backed dams never enter the CWMS path — theirs is readAmerenMetrics.
   assert.ok(!hasCwmsMetricsPath(USACE_DAMS['ameren-bagnell-dam']), 'Ameren, not CWMS');
 });
+
+// ── wantsHistory ─────────────────────────────────────────────────────────────
+// Which dams the history cron keeps an hourly record for. This lived inline in
+// the route as `swpaCode && cdaLocation` — the same singular-only blindness
+// hasCwmsMetricsPath above was extracted to prevent, one file over. Nothing
+// offline pinned the cron's dam set, so a project configured the Nashville way
+// but without a hand-declared generationFlow would have been dropped in
+// silence: no error, the strip simply never filling.
+
+import { wantsHistory } from './dams';
+
+test('the history cron keeps every dam that can report turbine flow', () => {
+  // The 18 dams with rows in production on 2026-08-16, by shape:
+  assert.ok(wantsHistory(USACE_DAMS['swl-table-rock-dam']), 'declared generationFlow, SWL');
+  assert.ok(wantsHistory(USACE_DAMS['lrn-wolf-creek-dam']), 'declared generationFlow, no SWPA column');
+  assert.ok(wantsHistory(USACE_DAMS['swt-tenkiller-dam']), 'SWPA column, series resolved at request time');
+});
+
+test('a dam with no generation is not given an empty strip', () => {
+  // Storing release alone would draw a strip whose top half is permanently
+  // blank, which reads as "the units were off all week" rather than "this dam
+  // has no units".
+  assert.ok(!wantsHistory(USACE_DAMS['swl-clearwater-dam']), 'flood control, no powerhouse');
+  assert.ok(!wantsHistory(USACE_DAMS['ameren-bagnell-dam']), 'not CWMS — no office to fetch from');
+});
+
+test('a turbine dam is kept whichever location shape it declares', () => {
+  // The regression guard. A future project with turbines, cdaLocations
+  // (plural) and no hand-written generationFlow must not fall through.
+  const nashvilleShaped = {
+    ...USACE_DAMS['lrn-wolf-creek-dam'],
+    id: 'lrn-hypothetical-dam',
+    swpaCode: 'HYP',
+    series: {},
+  };
+  assert.ok(
+    wantsHistory(nashvilleShaped),
+    'cdaLocations (plural) must satisfy the location half, exactly as cdaLocation does'
+  );
+});

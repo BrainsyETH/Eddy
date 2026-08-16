@@ -72,6 +72,56 @@ test('an empty series produces no buckets rather than a zero hour', () => {
   assert.deepEqual(bucketHourly([]), []);
 });
 
+// ── The period-ending convention ───────────────────────────────────────────
+// The bug these pin shipped because the two halves of the feature disagreed:
+// dam-forecast.ts mapped a stamp to [t-1h, t) and this file floored it. Both
+// conventions are now stated in tests, so a change to either one that does not
+// change the other fails here.
+
+test('a period-ending hourly mean lands on the hour it covers, not the one it is stamped', () => {
+  // Measured at Tenkiller, 2026-08-14: the Ave.1Hour.1Hour series read 0 at
+  // 12:00Z and 258 at 13:00Z, while the Inst series read 258 AT 12:00Z. The
+  // 13:00Z stamp is the average of 12:00–13:00, so it is the 12:00 bar. Drawing
+  // it at 13:00 said the units started an hour later than they did.
+  const buckets = bucketHourly(
+    [point('2026-08-14T13:00:00Z', 258), point('2026-08-14T14:00:00Z', 1808)],
+    3_600_000
+  );
+
+  assert.deepEqual(
+    buckets.map((b) => b.observedHour),
+    ['2026-08-14T12:00:00.000Z', '2026-08-14T13:00:00.000Z']
+  );
+  assert.equal(buckets[0].valueCfs, 258, 'the hour that ended at 13:00Z');
+});
+
+test('an instantaneous series is left where its stamp puts it', () => {
+  // Duration 0 means the point IS the moment. Shifting it would invent the
+  // same off-by-one in the other direction.
+  const buckets = bucketHourly([point('2026-08-14T12:00:00Z', 258)], 0);
+  assert.equal(buckets[0].observedHour, '2026-08-14T12:00:00.000Z');
+});
+
+test('a sub-hourly period-ending series folds into the hour it spans', () => {
+  // A 15-minute mean stamped 11:00 covers 10:45–11:00, so it belongs to the
+  // 10:00 bar with its three siblings — not to 11:00 on its own. Shifting by
+  // the duration rather than a flat hour is what makes this work.
+  const buckets = bucketHourly(
+    [
+      point('2026-08-14T10:15:00Z', 100),
+      point('2026-08-14T10:30:00Z', 200),
+      point('2026-08-14T10:45:00Z', 300),
+      point('2026-08-14T11:00:00Z', 400),
+    ],
+    900_000
+  );
+
+  assert.equal(buckets.length, 1);
+  assert.equal(buckets[0].observedHour, '2026-08-14T10:00:00.000Z');
+  assert.equal(buckets[0].valueCfs, 250);
+  assert.equal(buckets[0].sampleCount, 4);
+});
+
 // ── Folding into Central days ──────────────────────────────────────────────
 
 test('the pattern window is seven days behind today, oldest first', () => {

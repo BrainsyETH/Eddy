@@ -374,6 +374,30 @@ export function hasCwmsMetricsPath(dam: UsaceDam): boolean {
   );
 }
 
+/**
+ * Whether the history cron should keep an hourly record for this dam.
+ *
+ * Narrower than hasCwmsMetricsPath on purpose: a flood-control dam has no
+ * generation pattern, and storing its release alone would build a strip whose
+ * top half is permanently empty. Two shapes qualify — an explicit
+ * generationFlow series (SWL, LRN), or a SWPA column plus a location the
+ * resolver can search (the Tulsa projects, whose turbine series resolve at
+ * request time).
+ *
+ * The location half asks the SAME question hasCwmsMetricsPath asks, in the
+ * same shape-agnostic way, because this predicate was written inline as
+ * `swpaCode && cdaLocation` and that is the exact singular-only blindness the
+ * function above exists to record: a future project configured the Nashville
+ * way — turbines, cdaLocations plural, no hand-declared generationFlow — would
+ * have been dropped here silently, its strip simply never filling. Named and
+ * exported so dams.test.ts can pin the set against the registry rather than
+ * trusting a condition nobody can see.
+ */
+export function wantsHistory(dam: UsaceDam): boolean {
+  const hasLocation = Boolean(dam.cdaLocation || dam.cdaLocations?.length);
+  return Boolean(dam.office && (dam.series.generationFlow || (dam.swpaCode && hasLocation)));
+}
+
 async function readMetrics(
   dam: UsaceDam,
   requested: UsaceMetric[]

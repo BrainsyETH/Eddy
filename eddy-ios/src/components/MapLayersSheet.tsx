@@ -189,6 +189,38 @@ export function MapLayersSheet({
                   count == null ? layer.label : `${layer.label}, ${count}`
                 }
                 accessibilityHint={layer.accessibilityHint ?? layer.description}
+                // ── The ⓘ has to be an ACTION, not a nested button ─────────
+                // This Pressable is an accessibility container — RN makes
+                // Pressables accessible by default, and this one declares a
+                // switch role — so on iOS the whole row is ONE VoiceOver stop
+                // and everything inside it is subsumed. The ⓘ below therefore
+                // had no focus of its own: swiping through "Show on map"
+                // announced "Public land, switch" and there was no way to
+                // reach the caveat behind it at all. (This file relies on the
+                // same subsume behaviour deliberately elsewhere — see
+                // CampgroundAvailability — which is why it was easy to miss
+                // here, where it is not wanted.)
+                //
+                // What was lost is not decoration: `info` carries the
+                // public-land ownership caveat and the IEM radar attribution,
+                // and the radar one used to render as an always-visible note.
+                // An attribution nobody can reach is an attribution we are not
+                // making.
+                //
+                // A custom action is the fix rather than restructuring the
+                // row, because the ⓘ sits inline between the label and the
+                // count — pulling it out of the container would move it to the
+                // end of the row for everyone to fix it for some. VoiceOver
+                // announces "actions available" and the action opens the same
+                // Alert the tap does.
+                accessibilityActions={
+                  layer.info ? [{ name: 'info', label: `About ${layer.label}` }] : undefined
+                }
+                onAccessibilityAction={(event) => {
+                  if (event.nativeEvent.actionName === 'info' && layer.info) {
+                    Alert.alert(layer.label, layer.info);
+                  }
+                }}
               >
                 {/* ── The well is outlined, not filled ────────────────────
                     It used to fill with the layer tint and print a white
@@ -248,8 +280,12 @@ export function MapLayersSheet({
                       <Pressable
                         onPress={() => Alert.alert(layer.label, layer.info)}
                         hitSlop={10}
-                        accessibilityRole="button"
-                        accessibilityLabel={`About ${layer.label}`}
+                        // No accessibility props: the row above subsumes this
+                        // element whatever it declares, so a role and label
+                        // here only describe a stop that does not exist. The
+                        // reachable version is the row's `info` custom action.
+                        accessible={false}
+                        importantForAccessibility="no"
                       >
                         <Ionicons
                           name="information-circle-outline"

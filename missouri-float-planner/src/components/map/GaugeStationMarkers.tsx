@@ -16,6 +16,7 @@ import { CONDITION_COLORS, CONDITION_SHORT_LABELS, getEddyImageForCondition } fr
 import { computeCondition } from '@/lib/conditions';
 import { escapeHtml } from '@/lib/escape-html';
 import { pickPrimaryRiverLink } from '@shared/primary-river-link';
+import { stationCaption } from '@shared/station-caption';
 
 interface GaugeStationMarkersProps {
   gauges: GaugeStation[];
@@ -267,6 +268,11 @@ export default function GaugeStationMarkers({
         }
       }
 
+      // Who published this number, if it can be said honestly. Null for an
+      // unknown provider whose id is not a site number — the caption is then
+      // dropped and the station's name stands alone, which is always true.
+      const caption = stationCaption(gauge.provider ?? 'usgs', gauge.usgsSiteId);
+
       // Rivers using this gauge
       let riversHtml = '';
       if (gauge.thresholds && gauge.thresholds.length > 0) {
@@ -288,9 +294,20 @@ export default function GaugeStationMarkers({
           <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 13px; color: var(--color-text-primary); line-height: 1.3;">
             ${escapeHtml(gauge.name)}
           </h3>
-          <p style="margin: 0 0 8px 0; font-size: 11px; color: var(--color-text-muted);">
-            USGS ${gauge.usgsSiteId}
-          </p>
+          ${
+            // Never `USGS ${id}` unconditionally. The gauge layer draws every
+            // station rated for a river, and for the Black River that includes
+            // Clearwater — a USACE release whose id is the Eddy slug
+            // 'swl-clearwater-dam'. Hardcoding the operator captioned the Corps
+            // as the USGS and printed a slug as though it were a site number
+            // somebody could look up. `provider` has been on this payload all
+            // along; this surface simply never read it.
+            caption
+              ? `<p style="margin: 0 0 8px 0; font-size: 11px; color: var(--color-text-muted);">
+            ${escapeHtml(caption)}
+          </p>`
+              : ''
+          }
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
             <div style="background: var(--color-background); border: 1px solid var(--color-border); border-radius: 8px; padding: 8px;">

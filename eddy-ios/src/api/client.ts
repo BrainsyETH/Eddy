@@ -1081,14 +1081,27 @@ export async function searchEddy(
    * Gauges scope scroll all 14,264 stations instead of opening on the 45
    * curated ones, and the Access scope open with rows at all.
    */
-  page?: { limit?: number; offset?: number },
+  page?: { limit?: number; offset?: number; offsets?: Partial<Record<SearchResultKind, number>> },
 ): Promise<{ results: SearchResult[]; available: boolean; hasMore: boolean }> {
   try {
     const scope = kinds?.length ? `&kinds=${kinds.join(',')}` : '';
     const limit = page?.limit ?? SEARCH_PAGE_SIZE;
     const offset = page?.offset ?? 0;
+    // Where each kind has got to, for a caller asking for more than one. There
+    // is no single `offset` that describes three kinds paging at their own
+    // rates, so a multi-kind caller states them and the server reads them per
+    // kind. Sent ALONGSIDE `offset`, never instead of it: a deployment older
+    // than this parameter ignores it and still gets a usable — if flatter —
+    // answer from the number it does understand.
+    const perKind = page?.offsets
+      ? Object.entries(page.offsets)
+          .filter(([, v]) => typeof v === 'number' && v > 0)
+          .map(([k, v]) => `${k}:${v}`)
+          .join(',')
+      : '';
+    const offsets = perKind ? `&offsets=${encodeURIComponent(perKind)}` : '';
     const data = await get<SearchResponse>(
-      `/api/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}${scope}`,
+      `/api/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}${offsets}${scope}`,
       signal,
     );
     const results = data.results ?? [];

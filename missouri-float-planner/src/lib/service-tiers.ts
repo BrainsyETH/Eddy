@@ -133,3 +133,31 @@ export const SERVICE_TIER_LABELS: Record<ServiceTier, string> = {
   camping: 'Campgrounds',
   lodging: 'Cabins & Lodges',
 };
+
+/**
+ * Whether Eddy should show this business at all.
+ *
+ * ── Deliberately NOT part of serviceTiers ─────────────────────────────────
+ * Classification answers "what is this", eligibility answers "should we send
+ * anyone here", and the package's copy keeps them apart for the same reason:
+ * classification must never decide whether something is safe to recommend.
+ *
+ * ── What went wrong without it ────────────────────────────────────────────
+ * The app filtered on this and the website did not, from the same rows on the
+ * same wire. A `permanently_closed` outfitter vanished from the river sheet on
+ * a phone and kept its card — with a tappable phone number — on eddy.guide. A
+ * closed business excluded from the map only by the accident of having no
+ * coordinates was still in the list.
+ *
+ * `temporarily_closed` is excluded alongside it: a business shut for the
+ * season is not one to hand somebody standing at a put-in today.
+ *
+ * ABSENT MEANS ELIGIBLE. Most rows say nothing about status, and "not told" is
+ * the overwhelmingly common case — treating silence as closed would empty the
+ * directory. Mirrors `serviceEligible` in packages/eddy-types; parity is
+ * covered by service-tier-parity.test.ts.
+ */
+export function serviceEligible(service: { status?: string | null }): boolean {
+  const status = service.status;
+  return status !== 'permanently_closed' && status !== 'temporarily_closed';
+}
