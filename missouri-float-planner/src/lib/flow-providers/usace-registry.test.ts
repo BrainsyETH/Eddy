@@ -19,20 +19,57 @@ test('every dam has an id matching its registry key', () => {
   }
 });
 
-test('a dam publishes to CWMS, to SWPA, or both — never neither', () => {
+test('a dam publishes to CWMS, to SWPA, or a licensed operator — never nowhere', () => {
   for (const dam of Object.values(USACE_DAMS)) {
-    const hasCwms = Boolean(dam.cdaLocation && dam.office);
+    // A CWMS presence is either a resolvable location or explicit series —
+    // the Nashville dams are the second shape: office + verified tsIds, no
+    // cdaLocation, because no single location prefix spans their split
+    // station namespaces (see the LRN block in the registry). Bagnell is the
+    // third source: a FERC licensee's own reporting API (amerenMetrics).
+    const hasCwms = Boolean(
+      dam.office &&
+        (dam.cdaLocation || dam.cdaLocations?.length || Object.keys(dam.series).length > 0)
+    );
     const hasSwpa = Boolean(dam.swpaCode);
-    assert.ok(hasCwms || hasSwpa, `${dam.id} has no data source at all`);
+    const hasOperatorFeed = Boolean(dam.amerenMetrics);
+    assert.ok(hasCwms || hasSwpa || hasOperatorFeed, `${dam.id} has no data source at all`);
   }
 });
 
 test('CWMS series are only configured for dams with an office', () => {
-  // A series without an office cannot be fetched — fetchLatestValue needs both.
+  // A series without an office cannot be fetched — fetchLatestValue needs the
+  // office and the tsId, and nothing else. cdaLocation is deliberately NOT
+  // required here: it exists for the catalog resolver, and the LRN dams omit
+  // it on purpose to keep resolution structurally off (their observed series
+  // live under split station prefixes no one location can name).
   for (const dam of Object.values(USACE_DAMS)) {
     if (Object.keys(dam.series).length > 0) {
       assert.ok(dam.office, `${dam.id} declares series but no CWMS office`);
-      assert.ok(dam.cdaLocation, `${dam.id} declares series but no cdaLocation`);
+    }
+  }
+});
+
+test('a resolvable location is never configured without an office', () => {
+  // Locations feed resolveSeries, which needs both halves; a location
+  // without an office is dead config that reads as coverage.
+  for (const dam of Object.values(USACE_DAMS)) {
+    if (dam.cdaLocation || dam.cdaLocations?.length) {
+      assert.ok(dam.office, `${dam.id} has CWMS locations but no office to resolve them against`);
+    }
+  }
+});
+
+test('a dam carries one location shape, never both', () => {
+  // cdaLocations exists for the split-namespace districts (LRN); cdaLocation
+  // stays the common case. Both set would leave which one the resolver reads
+  // as a fact about implementation order rather than about the dam.
+  for (const dam of Object.values(USACE_DAMS)) {
+    assert.ok(
+      !(dam.cdaLocation && dam.cdaLocations),
+      `${dam.id} sets both cdaLocation and cdaLocations — pick the one that describes it`
+    );
+    if (dam.cdaLocations) {
+      assert.ok(dam.cdaLocations.length > 0, `${dam.id} has an empty cdaLocations list`);
     }
   }
 });
@@ -91,6 +128,11 @@ test('generation floors clear the leakage each plant actually idles at', () => {
     'swt-denison-dam': 19,
     'swt-keystone-dam': 200,
     'swt-eufaula-dam': 230,
+    // LRN, measured 2026-08-03..15: idle hours read exactly 0 at all three
+    // Cumberland dams, but Center Hill and Dale Hollow occasionally report
+    // 25-50 cfs with the units off. Wolf Creek's clean zero needs no entry.
+    'lrn-center-hill-dam': 50,
+    'lrn-dale-hollow-dam': 50,
   };
   for (const [id, idle] of Object.entries(observedIdleCfs)) {
     const dam = getUsaceDam(id)!;
@@ -107,6 +149,20 @@ test('generation floors clear the leakage each plant actually idles at', () => {
     assert.ok(
       dam.generationOnCfs < fullPower * 0.05,
       `${dam.id} floor is more than 5% of full power — real generation would read idle`
+    );
+  }
+
+  // The LRN dams have no SWPA full-power figure to hold that ceiling against,
+  // so it is held against the observation instead: the smallest real
+  // single-unit hour measured across 2026-08-03..15 was 1,580 cfs (Dale
+  // Hollow). A floor above a tenth of that would be flirting with reading a
+  // one-unit hour as idle.
+  const SMALLEST_OBSERVED_UNIT_CFS = 1_580;
+  for (const dam of Object.values(USACE_DAMS)) {
+    if (dam.office !== 'LRN' || dam.generationOnCfs === undefined) continue;
+    assert.ok(
+      dam.generationOnCfs <= SMALLEST_OBSERVED_UNIT_CFS * 0.1,
+      `${dam.id} floor ${dam.generationOnCfs} sits too close to a single-unit hour`
     );
   }
 });
@@ -230,15 +286,22 @@ test('nameplate capacity is never SWPA scheduling capacity', () => {
 });
 
 test('trout tailwaters are declared, not inferred from temperature', () => {
-  // Exactly seven of these are cold deep-release trout fisheries: the five
-  // White River system dams, plus Oklahoma's two — Broken Bow (Lower Mountain
-  // Fork) and Tenkiller Ferry (Lower Illinois). The list is exact on purpose.
-  // Adding a dam should force a decision about its fishery, not inherit one.
+  // Exactly ten of these are cold deep-release trout fisheries: the five
+  // White River system dams; Oklahoma's two — Broken Bow (Lower Mountain
+  // Fork) and Tenkiller Ferry (Lower Illinois); and the three Cumberland
+  // dams — Wolf Creek (Cumberland), Center Hill (Caney Fork) and Dale Hollow
+  // (Obey), where the deep-draw fact was measured directly: both live
+  // Temp-Water-Tail sensors read ~50 F in August 2026. The list is exact on
+  // purpose. Adding a dam should force a decision about its fishery, not
+  // inherit one.
   const trout = Object.values(USACE_DAMS)
     .filter((d) => d.tailwaterFishery === 'trout')
     .map((d) => d.id)
     .sort();
   assert.deepEqual(trout, [
+    'lrn-center-hill-dam',
+    'lrn-dale-hollow-dam',
+    'lrn-wolf-creek-dam',
     'swl-beaver-dam',
     'swl-bull-shoals-dam',
     'swl-greers-ferry-dam',

@@ -91,58 +91,63 @@ export async function getAccessPointDetail(
 
   const nearbyAccessPoints: NearbyAccessPoint[] = [];
 
+  // TWO neighbours each way, nearest first — not one. One take-out per
+  // direction offered exactly one float from every put-in; the second is what
+  // lets the sheet's Float trips tab (and this page's Nearby list) offer a
+  // short and a long option each way without another request. Two rather than
+  // more because each row past the decision costs a line of a sheet that is
+  // negotiating with the map for the screen.
+  const NEIGHBORS_PER_DIRECTION = 2;
+
   if (allAccessPoints) {
-    // Find upstream (lower river mile = closer to headwaters)
-    const upstream = allAccessPoints
-      .filter(
-        (p) =>
-          p.id !== ap.id &&
-          p.river_mile_downstream != null &&
-          parseFloat(String(p.river_mile_downstream)) < currentMile
-      )
-      .sort(
-        (a, b) =>
-          (b.river_mile_downstream != null ? parseFloat(String(b.river_mile_downstream)) : 0) -
-          (a.river_mile_downstream != null ? parseFloat(String(a.river_mile_downstream)) : 0)
-      )[0];
+    const mileOf = (p: { river_mile_downstream: unknown }) =>
+      p.river_mile_downstream != null ? parseFloat(String(p.river_mile_downstream)) : null;
 
-    // Find downstream (higher river mile = further from headwaters)
-    const downstream = allAccessPoints
-      .filter(
-        (p) =>
-          p.id !== ap.id &&
-          p.river_mile_downstream != null &&
-          parseFloat(String(p.river_mile_downstream)) > currentMile
-      )
-      .sort(
-        (a, b) =>
-          (a.river_mile_downstream != null ? parseFloat(String(a.river_mile_downstream)) : 0) -
-          (b.river_mile_downstream != null ? parseFloat(String(b.river_mile_downstream)) : 0)
-      )[0];
+    const withMiles = allAccessPoints
+      .filter((p) => p.id !== ap.id)
+      .map((p) => ({ point: p, mile: mileOf(p) }))
+      .filter((entry): entry is { point: (typeof allAccessPoints)[number]; mile: number } =>
+        entry.mile != null
+      );
 
-    if (upstream) {
-      const distance = currentMile - (upstream.river_mile_downstream != null ? parseFloat(String(upstream.river_mile_downstream)) : 0);
+    // Upstream (lower river mile = closer to headwaters), nearest first.
+    const upstream = withMiles
+      .filter((entry) => entry.mile < currentMile)
+      .sort((a, b) => b.mile - a.mile)
+      .slice(0, NEIGHBORS_PER_DIRECTION);
+
+    // Downstream (higher river mile = further from headwaters), nearest first.
+    const downstream = withMiles
+      .filter((entry) => entry.mile > currentMile)
+      .sort((a, b) => a.mile - b.mile)
+      .slice(0, NEIGHBORS_PER_DIRECTION);
+
+    // Upstream first, then downstream, each nearest-first — the order the
+    // web's Nearby list renders verbatim. The app regroups by direction, so
+    // it only needs the per-direction order to hold.
+    for (const entry of upstream) {
+      const distance = currentMile - entry.mile;
       nearbyAccessPoints.push({
-        id: upstream.id,
-        name: upstream.name,
-        slug: upstream.slug,
+        id: entry.point.id,
+        name: entry.point.name,
+        slug: entry.point.slug,
         direction: 'upstream',
         distanceMiles: Math.round(distance * 10) / 10,
         estimatedFloatTime: estimateFloatTime(distance),
-        riverMile: upstream.river_mile_downstream != null ? parseFloat(String(upstream.river_mile_downstream)) : 0,
+        riverMile: entry.mile,
       });
     }
 
-    if (downstream) {
-      const distance = (downstream.river_mile_downstream != null ? parseFloat(String(downstream.river_mile_downstream)) : 0) - currentMile;
+    for (const entry of downstream) {
+      const distance = entry.mile - currentMile;
       nearbyAccessPoints.push({
-        id: downstream.id,
-        name: downstream.name,
-        slug: downstream.slug,
+        id: entry.point.id,
+        name: entry.point.name,
+        slug: entry.point.slug,
         direction: 'downstream',
         distanceMiles: Math.round(distance * 10) / 10,
         estimatedFloatTime: estimateFloatTime(distance),
-        riverMile: downstream.river_mile_downstream != null ? parseFloat(String(downstream.river_mile_downstream)) : 0,
+        riverMile: entry.mile,
       });
     }
   }

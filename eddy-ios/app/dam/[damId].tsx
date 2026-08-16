@@ -41,6 +41,7 @@ import { DamStateCard } from '@/components/dam/DamStateCard';
 import { DamGenerationHero } from '@/components/dam/DamGenerationHero';
 import { DamPatternStrip } from '@/components/dam/DamPatternStrip';
 import { GenerationSchedule } from '@/components/dam/GenerationSchedule';
+import { GenerationForecast } from '@/components/dam/GenerationForecast';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -167,7 +168,8 @@ export default function DamDetailScreen() {
   // dam can arrive with a schedule and no readings, or readings and no
   // schedule. Both are ordinary; only nothing at all is worth saying.
   const hasMetrics = Object.keys(dam.metrics).length > 0;
-  const hasAnything = hasMetrics || dam.schedule.length > 0 || dam.generating !== null;
+  const hasAnything =
+    hasMetrics || dam.schedule.length > 0 || dam.generating !== null || Boolean(dam.generationForecast);
 
   const starred = isStarred('dam', dam.id);
 
@@ -243,6 +245,16 @@ export default function DamDetailScreen() {
         {dam.schedule.length > 0 ? (
           <View style={styles.section}>
             <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} />
+          </View>
+        ) : null}
+
+        {/* The forecast sits where the schedule would: it answers the same
+            "today and the days ahead" question from a different kind of
+            source — a district's operating forecast rather than a power
+            marketer's loading schedule. No dam currently has both. */}
+        {dam.generationForecast ? (
+          <View style={styles.section}>
+            <GenerationForecast forecast={dam.generationForecast} />
           </View>
         ) : null}
 

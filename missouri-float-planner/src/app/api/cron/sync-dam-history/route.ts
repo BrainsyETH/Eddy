@@ -166,7 +166,15 @@ async function runSync(request: NextRequest) {
     // Only projects that can report turbine flow at all. A flood-control dam
     // has no generation pattern, and storing its release alone would build a
     // strip whose top half is permanently empty.
-    const dams = Object.values(USACE_DAMS).filter((d) => d.swpaCode && d.office && d.cdaLocation);
+    //
+    // Two shapes qualify: an explicit generationFlow series (SWL, LRN), or a
+    // SWPA column plus a resolvable location (the Tulsa projects, whose
+    // turbine series resolve at request time). The old test was swpaCode
+    // alone plus fetchability, which was the same set until the Nashville
+    // dams — turbines, no SWPA column — would have been silently skipped.
+    const dams = Object.values(USACE_DAMS).filter(
+      (d) => d.office && (d.series.generationFlow || (d.swpaCode && d.cdaLocation))
+    );
 
     const results = await mapWithConcurrency(dams, DAM_CONCURRENCY, (dam) =>
       syncDam(supabase, dam, lookbackHours, startedAt)
