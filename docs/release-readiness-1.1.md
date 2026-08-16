@@ -4,12 +4,19 @@
 that ships) · **Verification branch:** `claude/app-store-1-1-review-eolwh6`
 (runbook evidence + migration repair)
 
-**Verdict: not ready to cut the production build today.** The automated
-checks, migrations, and backend gates are green, but a four-surface deep
-review of the 1.1 delta found two high-severity bugs, one violated release
-gate on a web surface, and one safety-direction copy bug — all fixable in
-code before the build is cut — plus the runbook's remaining on-device and
-judgement gates.
+> **Update 2026-08-16 (later):** every code finding below has been **fixed**
+> on `claude/app-store-1-1-review-eolwh6` (commit `8aa53d5`), with tests
+> pinning each one and `make check-web` / `check-mobile` / `bundle-mobile`
+> all passing. Two migrations are written but **not applied** — see
+> *Outstanding* at the end. The findings are kept in full because the
+> reasoning is the record; each now carries its fix.
+
+**Verdict as first written: not ready to cut the production build.** The
+automated checks, migrations, and backend gates were green, but a
+four-surface deep review of the 1.1 delta found two high-severity bugs, one
+violated release gate on a web surface, and one safety-direction copy bug —
+all fixable in code before the build is cut — plus the runbook's remaining
+on-device and judgement gates.
 
 The four review sweeps covered: the dam data pipeline, the dam console
 (web + iOS), the map filter drawer + mobile map sheet (PRs #1196/#1197/#1199),
@@ -26,6 +33,8 @@ all of these should land first anyway — the staggered-rollout smoke test is
 only meaningful against the backend that will actually serve 1.1.
 
 ### 1. High — the dam pattern strip draws every observed hour one hour late (server)
+
+**Fixed.** `bucketHourly` now takes the series' period and shifts the stamp back by it before flooring; the duration comes from `periodEndingMs`, which reads the CWMS *duration* field (not the interval, so `Inst.1Hour.0` is correctly left alone). Migration `20260816120000` moves the stored rows. Tests pin both conventions and the 15-minute case.
 
 `missouri-float-planner/src/lib/data/dam-history.ts:89` (with
 `dam-history.ts:225` and `src/app/api/cron/sync-dam-history/route.ts:121`).
@@ -50,14 +59,21 @@ Same root confusion, minor: the cron's "still filling" filter drops the
 bucket stamped `currentHour`, which under period-ending semantics is the
 *just-completed* hour — the freshest bar always lags one extra pass.
 
-Note the existing rows in `dam_metric_readings` (including this session's
-backfill) store the raw CWMS stamps, so the fix belongs at read/bucket time
-(shift the stamp to its period start), not in the stored data. The test gap
-that enabled this: `dam-history.test.ts` pins bucket arithmetic with
-synthetic stamps but never pins the CWMS stamp convention;
-`dam-forecast.test.ts` does. Pin both to the same convention.
+The test gap that enabled this: `dam-history.test.ts` pinned bucket
+arithmetic with synthetic stamps but never pinned the CWMS stamp convention,
+while `dam-forecast.test.ts` did. Both are pinned now.
+
+*On the approach:* this report first suggested compensating at read time and
+leaving the stored rows alone. That was wrong — it would have left the table
+permanently in one convention and its readers in another, and every new
+consumer would have had to know. The write side is fixed and the stored rows
+are migrated, so `observed_hour` means one thing everywhere. Re-fetching
+instead of migrating was not an option either: CWMS repairs only about a
+week, and the backfill's oldest rows are already at that edge.
 
 ### 2. High — All-scope search paging silently skips rows (binary)
+
+**Fixed.** `searchEddy` accepts per-kind offsets and the hook tallies rows by kind; the route reads `?offsets=river:12,gauge:20`, falling back to the flat `offset` for scoped and older callers.
 
 `eddy-ios/src/hooks/useEddySearch.ts:327` with
 `missouri-float-planner/src/app/api/search/route.ts:229` and
@@ -73,6 +89,8 @@ symptom.
 
 ### 3. Medium — the web plan map prints "USGS swl-clearwater-dam" — the exact string the release gate forbids (server)
 
+**Fixed.** Both surfaces call `stationCaption`. `getGaugeStatus` now selects `provider` and `site_id_external`, and `AccessPointGaugeStatus.usgsId` is typed nullable, as it always was in fact.
+
 `missouri-float-planner/src/components/map/GaugeStationMarkers.tsx:292`
 hardcodes `USGS ${gauge.usgsSiteId}`; for the Black River plan page that
 includes the curated Clearwater USACE station, whose `usgsSiteId` falls back
@@ -86,6 +104,8 @@ surfaces never adopted `shared/station-caption.ts`. Adopt it there.
 
 ### 4. Medium — "midnight ⟨weekday⟩" is still wrong beyond tomorrow, in the dangerous direction (binary)
 
+**Fixed** in `moveClock` and `nextScheduleChangeSentence`: a midnight is named for the day it *closes* at every offset, which is the same rule that already produced "tonight". The forecast card additionally spells out the date past six days out.
+
 `missouri-float-planner/shared/dam-generation.ts:546` (`moveClock`) and
 `shared/dam-schedule-copy.ts:409` (`nextScheduleChangeSentence`). PR #1196
 fixed the "wrong midnight" only for `dayOffset === 1`. A start at hour
@@ -98,6 +118,8 @@ ending 1 tells a wading angler they have until Monday night; the units start
 
 ### 5. Medium — the iOS pattern strip freezes "now" at mount (binary)
 
+**Fixed.** The strip keeps its own minute clock, as the web one does, so it is correct whoever mounts it.
+
 `eddy-ios/src/components/dam/DamPatternStrip.tsx:53` memoizes
 `patternRows(...)` on props only, so the strip ignores the screen's minute
 tick (added expressly so the measured→scheduled handoff wouldn't freeze).
@@ -107,6 +129,8 @@ moved. The web strip does this correctly (`now` is ticked state and a memo
 dep).
 
 ### 6. Medium — dams with no posted schedule render the rest of today as "No reading" (binary)
+
+**Fixed.** A fourth cell kind, `future`, is drawn as an empty slot and spoken as "still to come, with no schedule published". Rows keep their 24-cell width so the days stay aligned.
 
 `missouri-float-planner/shared/dam-generation.ts:1163` fills today's
 post-split hours with `scheduledCell(undefined)` → `missing` — the
@@ -120,6 +144,8 @@ schedule-less dams, or add a fourth cell treatment for future-unknown.
 
 ### 7. Medium — a dead LRN forecast job would render a days-old plan as fresh (server)
 
+**Fixed.** `forecastPlanStale` reads the plan's own remaining horizon — the only signal that can catch a dead writer, since CWMS publishes no write time — and both cards now say "Planned through ⟨date⟩".
+
 `missouri-float-planner/src/lib/data/dams.ts:509` /
 `src/components/dam/GenerationForecast.tsx:98`. The only freshness signal on
 the generation forecast is `retrievedAt` — the `Date` header of *Eddy's own
@@ -130,6 +156,8 @@ point's write horizon shrinking below ~7 days).
 
 ### 8. Medium — each typed-search page silently loses one arbitrary row (server)
 
+**Fixed.** `pageOf` drops the probe row in the source's order and only then applies the display order. Tested for the page-boundary invariant.
+
 `missouri-float-planner/src/app/api/search/route.ts:595–620`. The route
 fetches `limit+1` rows in stable DB order, then re-sorts by relevance and
 slices — so the row cut is the relevance-worst row, not the 51st. That row
@@ -139,6 +167,8 @@ never reappears on any page (page 2 starts at DB row 51), and the client's
 
 ### 9. Medium — the web river page renders permanently-closed businesses (server)
 
+**Fixed.** `serviceEligible` added to the web mirror and applied before counting or grouping; the parity test now sweeps eligibility as well as tiers.
+
 `missouri-float-planner/src/components/river/NearbyServices.tsx:345` groups
 services with no eligibility check and the route never filters `status`;
 iOS applies `serviceEligible` on the same data. A `permanently_closed`
@@ -147,6 +177,8 @@ eddy.guide — the exact case the service-model docs call out. Apply
 `serviceEligible` (or filter in the route).
 
 ### 10. Medium — the layer sheet's ⓘ button is unreachable by VoiceOver (binary)
+
+**Fixed.** The row exposes an `info` custom action; the nested pressable no longer claims a stop it cannot hold.
 
 `eddy-ios/src/components/MapLayersSheet.tsx:247`. The info `Pressable` is
 nested inside the row `Pressable` (an accessible container with
@@ -263,15 +295,42 @@ row's hint; the IEM radar attribution — previously an always-visible
 6. The Apple / App Store Connect / EAS / RevenueCat dashboard blocks
    (runbook sections 1+).
 
+## Outstanding
+
+**Two migrations are written but NOT applied.** Both are ordinary
+`supabase/migrations/` files and go out on the normal path; neither was run
+against production from this session.
+
+- `20260816120000_dam_history_period_ending_shift.sql` — moves every
+  `dam_metric_readings` row back one hour. **Not idempotent by
+  construction**, so it is guarded on a marker row in a new
+  `dam_history_backfill_marks` table; re-running is a no-op. It drains and
+  reinserts in one statement rather than issuing an `UPDATE`, because the
+  shift moves each row onto its earlier neighbour's primary key and a
+  row-by-row check would trip on a collision that does not exist once the
+  statement finishes.
+- `20260816121000_search_gauges_probe_headroom.sql` — raises the
+  `search_gauges` row cap from 100 to 101 so the API's `hasMore` probe fits
+  at the advertised maximum page size. Signature, ordering and grants
+  unchanged.
+
+Apply both before the backend smoke test — the strip will read an hour late
+until the first one lands, and the deployed code assumes it has.
+
+Everything else outstanding is unchanged from the sections above: the Jacks
+Fork and Courtois judgements, Niangua snapping, the authenticated
+`db:check-services` run, `make check-db`, the on-device checks, and the
+dashboard blocks.
+
 ## Suggested order from here
 
-1. Land fixes for findings 1–10 on main (the binary-embedded ones — 2, 4,
-   5, 6, 10 — must precede the EAS cut; the server-side ones should precede
-   the backend smoke test).
-2. Make the Jacks Fork data judgement; decide Courtois; snap Niangua.
-3. Deploy web/API; verify the trust run auto-resolved the RLS finding;
+1. ~~Land fixes for findings 1–10~~ — done on
+   `claude/app-store-1-1-review-eolwh6`; review and merge to main.
+2. Apply the two migrations above.
+3. Make the Jacks Fork data judgement; decide Courtois; snap Niangua.
+4. Deploy web/API; verify the trust run auto-resolved the RLS finding;
    run authenticated `db:check-services` and `make check-db`.
-4. Smoke-test 1.0 against the deployed backend; then cut the preview build
-   and run the on-device checks (captions, badges, dam strip after the
-   hour-shift fix).
-5. TestFlight → store metadata → production build → submit.
+5. Smoke-test 1.0 against the deployed backend; then cut the preview build
+   and run the on-device checks (captions, badges, and the dam strip — worth
+   an extra look, since the hour shift moved every bar on it).
+6. TestFlight → store metadata → production build → submit.
