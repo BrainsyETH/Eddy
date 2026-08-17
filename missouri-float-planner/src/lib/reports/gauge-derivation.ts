@@ -72,15 +72,39 @@ export function resolveGaugeRelation(
 export type ReadingSource = 'live' | 'historical' | 'manual';
 
 /**
- * Provenance for a derived reading. `manual` whenever the submitter supplied a
- * number, because that outranks anything the server worked out.
+ * Which of the possible sources the reading actually stored came from.
+ * `none` means no reading was obtained at all.
+ */
+export type ReadingOrigin = 'manual' | 'client' | 'derived' | 'none';
+
+/**
+ * Label the provenance of the reading that was STORED — not of the attempt.
+ *
+ * Two things this must never do, both of which it used to:
+ *
+ * 1. Call a value manual because the client sent one. The website's form
+ *    auto-populates stage and flow from the gauge and posts them with
+ *    `readingSource: live|historical`; only a value the submitter typed is a
+ *    claim about a staff gauge. Presence of a number says nothing about who
+ *    put it there — the declared source does.
+ * 2. Name a source when there is no reading to attribute. A row whose stage
+ *    and flow are both null, because USGS answered with nothing, read as
+ *    "Live reading at submit" in review: a provenance for a measurement that
+ *    does not exist. Null is the honest answer, and the column is nullable.
  */
 export function resolveReadingSource(
-  hasManualValue: boolean,
+  origin: ReadingOrigin,
+  declared: ReadingSource | null | undefined,
   capturedAt: Date | null,
   now: number,
-): ReadingSource {
-  if (hasManualValue) return 'manual';
+): ReadingSource | null {
+  if (origin === 'none') return null;
+  if (origin === 'manual') return 'manual';
+  // The client did its own lookup and labelled it; that label describes the
+  // value being stored, so it is more accurate than re-deriving one here.
+  if (origin === 'client' && (declared === 'live' || declared === 'historical')) {
+    return declared;
+  }
   if (!capturedAt) return 'live';
   return now - capturedAt.getTime() <= LIVE_READING_WINDOW_MS ? 'live' : 'historical';
 }
@@ -89,7 +113,8 @@ export interface DerivedGaugeContext {
   gaugeStationId: string | null;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
-  readingSource: ReadingSource;
+  /** Null when no reading was obtained — see resolveReadingSource. */
+  readingSource: ReadingSource | null;
   readingObservedAt: string | null;
   riverMile: number | null;
   gaugeRelation: GaugeRelation | null;
@@ -103,9 +128,18 @@ export interface DeriveInput {
   longitude: number;
   /** EXIF capture time, when the client knew it. */
   capturedAt: Date | null;
-  /** Submitter-supplied readings, which win per-field. */
+  /**
+   * Readings the client sent. Whether these outrank the server's own lookup
+   * depends entirely on `declaredReadingSource` — see the merge in derive().
+   */
   providedGaugeHeightFt?: number | null;
   providedDischargeCfs?: number | null;
+  /**
+   * What the client says its readings are. Only 'manual' asserts a submitter
+   * typed them; the website posts auto-populated numbers as 'live'/'historical'
+   * and must not have them relabelled as a staff-gauge reading.
+   */
+  declaredReadingSource?: ReadingSource | null;
   /** Gauge the client named. Already validated as belonging to this river. */
   providedGaugeStationId?: string | null;
 }
@@ -203,12 +237,20 @@ export async function deriveRiverVisualGauge(
 ): Promise<DerivedGaugeContext> {
   const providedHeight = num(input.providedGaugeHeightFt);
   const providedCfs = num(input.providedDischargeCfs);
+  // Nothing was derived on this path, so the only reading that can be stored is
+  // the client's — and it is labelled as whatever the client said it was.
+  const hasClientReading = providedHeight != null || providedCfs != null;
   const fallback: DerivedGaugeContext = {
     gaugeStationId: input.providedGaugeStationId ?? null,
     gaugeHeightFt: providedHeight,
     dischargeCfs: providedCfs,
     readingSource: resolveReadingSource(
-      providedHeight != null || providedCfs != null,
+      !hasClientReading
+        ? 'none'
+        : input.declaredReadingSource === 'manual'
+          ? 'manual'
+          : 'client',
+      input.declaredReadingSource,
       input.capturedAt,
       Date.now(),
     ),
@@ -242,19 +284,7 @@ async function derive(
   const { riverId, latitude, longitude, capturedAt } = input;
   const providedHeight = num(input.providedGaugeHeightFt);
   const providedCfs = num(input.providedDischargeCfs);
-  const hasManualValue = providedHeight != null || providedCfs != null;
-
-  const empty: DerivedGaugeContext = {
-    gaugeStationId: input.providedGaugeStationId ?? null,
-    gaugeHeightFt: providedHeight,
-    dischargeCfs: providedCfs,
-    readingSource: resolveReadingSource(hasManualValue, capturedAt, Date.now()),
-    readingObservedAt: null,
-    riverMile: null,
-    gaugeRelation: null,
-    gaugeOffsetMiles: null,
-    trend: null,
-  };
+  const declaredManual = input.declaredReadingSource === 'manual';
 
   const point = `SRID=4326;POINT(${longitude} ${latitude})`;
 
@@ -298,19 +328,6 @@ async function derive(
 
   const relation = resolveGaugeRelation(riverMile, gaugeMile);
 
-  // With both numbers already in hand there is nothing to look up — spending a
-  // USGS call to overwrite a submitter's own reading would be worse than not
-  // making it.
-  if (providedHeight != null && providedCfs != null) {
-    return {
-      ...empty,
-      gaugeStationId,
-      riverMile,
-      gaugeRelation: relation?.relation ?? null,
-      gaugeOffsetMiles: relation?.offsetMiles ?? null,
-    };
-  }
-
   let derivedHeight: number | null = null;
   let derivedCfs: number | null = null;
   let observedAt: string | null = null;
@@ -339,13 +356,51 @@ async function derive(
     }
   }
 
+  // ── Merge ────────────────────────────────────────────────────────────────
+  // ONLY a declared-manual reading outranks the server. The website's form
+  // auto-populates both fields from the gauge and posts them as live/historical;
+  // treating any supplied number as manual labelled every website submission as
+  // a staff-gauge reading AND skipped the lookup, so the surface that already
+  // worked lost the trend and observation time this change exists to add.
+  //
+  // A non-manual client value stays as the FALLBACK for when USGS yields
+  // nothing. Preferring the server's own reading otherwise is what keeps the
+  // stored number, `reading_observed_at` and `gauge_trend` describing one
+  // measurement instead of three.
+  const manualHeight = declaredManual ? providedHeight : null;
+  const manualCfs = declaredManual ? providedCfs : null;
+  const clientHeight = declaredManual ? null : providedHeight;
+  const clientCfs = declaredManual ? null : providedCfs;
+
+  const gaugeHeightFt = manualHeight ?? derivedHeight ?? clientHeight;
+  const dischargeCfs = manualCfs ?? derivedCfs ?? clientCfs;
+
+  // Per-field, because the iOS override supplies one unit and not both: a
+  // manual stage alongside a derived flow is a real row.
+  const storedDerived =
+    (manualHeight == null && derivedHeight != null) ||
+    (manualCfs == null && derivedCfs != null);
+
+  let origin: ReadingOrigin;
+  if (manualHeight != null || manualCfs != null) origin = 'manual';
+  else if (storedDerived) origin = 'derived';
+  else if (clientHeight != null || clientCfs != null) origin = 'client';
+  else origin = 'none';
+
   return {
     gaugeStationId,
-    // Per-field merge: the iOS override supplies one unit, not both.
-    gaugeHeightFt: providedHeight ?? derivedHeight,
-    dischargeCfs: providedCfs ?? derivedCfs,
-    readingSource: resolveReadingSource(hasManualValue, capturedAt, Date.now()),
-    readingObservedAt: observedAt,
+    gaugeHeightFt,
+    dischargeCfs,
+    readingSource: resolveReadingSource(
+      origin,
+      input.declaredReadingSource,
+      capturedAt,
+      Date.now(),
+    ),
+    // Timestamps the USGS observation, so it may only travel with a value that
+    // came from it. Attached to a client or submitter reading it would date a
+    // measurement nobody took.
+    readingObservedAt: storedDerived ? observedAt : null,
     riverMile,
     gaugeRelation: relation?.relation ?? null,
     gaugeOffsetMiles: relation?.offsetMiles ?? null,

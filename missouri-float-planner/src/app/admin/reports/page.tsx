@@ -552,10 +552,13 @@ export default function AdminReportsPage() {
                             </div>
                             <div>
                               <span className="text-neutral-400 text-xs">Reading Source</span>
-                              <p className="text-white">
+                              <p className={report.readingSource ? 'text-white' : 'text-amber-400'}>
                                 {report.readingSource
                                   ? READING_SOURCE_LABEL[report.readingSource] ?? report.readingSource
-                                  : 'N/A'}
+                                  : /* A null source means no reading was obtained at all —
+                                       say that, rather than leaving a moderator to infer it
+                                       from two empty number fields above. */
+                                    'No reading available'}
                               </p>
                               {report.readingObservedAt && (
                                 <p className="text-neutral-500 text-xs">

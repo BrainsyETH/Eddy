@@ -270,6 +270,7 @@ export async function POST(request: NextRequest) {
         providedGaugeHeightFt: gaugeHeightFt,
         providedDischargeCfs: dischargeCfs,
         providedGaugeStationId: gaugeStationId ?? null,
+        declaredReadingSource: readingSource ?? null,
       });
 
       if (derived.gaugeHeightFt != null) baseData.gauge_height_ft = derived.gaugeHeightFt;
@@ -286,12 +287,12 @@ export async function POST(request: NextRequest) {
         baseData.gauge_trend_unit = derived.trend.unit;
       }
 
-      // A client that states 'manual' is claiming the submitter read the number
-      // off a staff gauge, which no derivation may overwrite. Otherwise the
-      // server's own answer is the honest one: iOS used to send 'historical' for
-      // every photo with EXIF, describing a lookup that never ran.
-      baseData.reading_source =
-        readingSource === 'manual' ? 'manual' : derived.readingSource;
+      // Provenance describes the reading that was STORED, and the derivation is
+      // the only thing that knows which of the three sources that came from —
+      // the submitter's own claim, the client's lookup, or the server's. Left
+      // NULL when no reading was obtained: a row naming a source for a
+      // measurement it does not have is worse than one admitting it has none.
+      if (derived.readingSource) baseData.reading_source = derived.readingSource;
     }
 
     // Try inserting with different geometry formats

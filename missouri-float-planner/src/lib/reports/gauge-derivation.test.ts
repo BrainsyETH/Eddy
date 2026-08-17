@@ -56,25 +56,46 @@ test('a missing mile on either side yields no relation rather than a guess', () 
 
 test('a submitter reading is always labelled manual, whatever its age', () => {
   const now = Date.now();
-  assert.equal(resolveReadingSource(true, null, now), 'manual');
-  assert.equal(resolveReadingSource(true, new Date(now), now), 'manual');
+  assert.equal(resolveReadingSource('manual', 'manual', null, now), 'manual');
+  assert.equal(resolveReadingSource('manual', 'manual', new Date(now), now), 'manual');
   assert.equal(
-    resolveReadingSource(true, new Date(now - 5 * 365 * 24 * 3600_000), now),
+    resolveReadingSource('manual', 'manual', new Date(now - 5 * 365 * 24 * 3600_000), now),
     'manual',
   );
 });
 
+test('a client reading keeps the provenance the client declared', () => {
+  // The regression this pins: the website posts AUTO-POPULATED stage and flow
+  // with readingSource live|historical. Labelling those 'manual' tells a
+  // moderator a submitter read them off a staff gauge. Nobody did.
+  const now = Date.now();
+  assert.equal(resolveReadingSource('client', 'live', null, now), 'live');
+  assert.equal(
+    resolveReadingSource('client', 'historical', new Date(now - 400 * 24 * 3600_000), now),
+    'historical',
+  );
+});
+
+test('no reading means no source, not a plausible-looking one', () => {
+  // USGS answering with nothing used to leave a row reading "Live reading at
+  // submit" beside two empty number fields.
+  const now = Date.now();
+  assert.equal(resolveReadingSource('none', null, null, now), null);
+  assert.equal(resolveReadingSource('none', 'live', new Date(now), now), null);
+  assert.equal(resolveReadingSource('none', 'manual', null, now), null);
+});
+
 test('a photo with no capture time is filed against the live reading', () => {
   const now = Date.now();
-  assert.equal(resolveReadingSource(false, null, now), 'live');
+  assert.equal(resolveReadingSource('derived', null, null, now), 'live');
 });
 
 test('capture time decides live vs historical at the window boundary', () => {
   const now = Date.now();
   const justInside = new Date(now - LIVE_READING_WINDOW_MS + 60_000);
   const justOutside = new Date(now - LIVE_READING_WINDOW_MS - 60_000);
-  assert.equal(resolveReadingSource(false, justInside, now), 'live');
-  assert.equal(resolveReadingSource(false, justOutside, now), 'historical');
+  assert.equal(resolveReadingSource('derived', null, justInside, now), 'live');
+  assert.equal(resolveReadingSource('derived', null, justOutside, now), 'historical');
 });
 
 test('trend classification splits rising, falling and steady on percent change', () => {
@@ -119,6 +140,7 @@ test('a hung upstream cannot take the submission down with it', async () => {
       longitude: -91.5,
       capturedAt: null,
       providedGaugeHeightFt: 2.75,
+      declaredReadingSource: 'manual',
     },
     150,
   );
@@ -129,6 +151,76 @@ test('a hung upstream cannot take the submission down with it', async () => {
   assert.equal(result.readingSource, 'manual');
   assert.equal(result.trend, null);
   assert.equal(result.gaugeRelation, null);
+  assert.equal(result.readingObservedAt, null);
+});
+
+test('giving up does not relabel a website reading as the submitter’s own', async () => {
+  const neverResolves = {
+    rpc: () => new Promise(() => {}),
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({ maybeSingle: () => new Promise(() => {}) }),
+          maybeSingle: () => new Promise(() => {}),
+        }),
+      }),
+    }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any;
+
+  // Exactly what RiverVisualSubmitForm posts: both numbers, auto-populated,
+  // declared live.
+  const result = await deriveRiverVisualGauge(
+    neverResolves,
+    {
+      riverId: '00000000-0000-0000-0000-000000000000',
+      latitude: 37.4,
+      longitude: -91.5,
+      capturedAt: null,
+      providedGaugeHeightFt: 2.75,
+      providedDischargeCfs: 310,
+      declaredReadingSource: 'live',
+    },
+    150,
+  );
+
+  assert.equal(result.readingSource, 'live', 'an auto-populated reading is not manual');
+  assert.equal(result.gaugeHeightFt, 2.75);
+  assert.equal(result.dischargeCfs, 310);
+  // No USGS observation backs these numbers on this path, so none is claimed.
+  assert.equal(result.readingObservedAt, null);
+});
+
+test('a submission with nothing to store names no reading source', async () => {
+  const neverResolves = {
+    rpc: () => new Promise(() => {}),
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({ maybeSingle: () => new Promise(() => {}) }),
+          maybeSingle: () => new Promise(() => {}),
+        }),
+      }),
+    }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any;
+
+  // The iOS shape: no gauge fields at all. With the lookup timed out there is
+  // no reading, so the row must not claim one was taken.
+  const result = await deriveRiverVisualGauge(
+    neverResolves,
+    {
+      riverId: '00000000-0000-0000-0000-000000000000',
+      latitude: 37.4,
+      longitude: -91.5,
+      capturedAt: new Date('2024-06-01T15:00:00Z'),
+    },
+    150,
+  );
+
+  assert.equal(result.gaugeHeightFt, null);
+  assert.equal(result.dischargeCfs, null);
+  assert.equal(result.readingSource, null);
 });
 
 // ── Static guards ─────────────────────────────────────────────────────────
@@ -147,12 +239,24 @@ test('the reports route derives gauge context instead of trusting the client', (
   );
 });
 
-test('a client-declared manual reading survives derivation', () => {
+test('the route hands the declared provenance to the derivation', () => {
   const route = src('src/app/api/reports/route.ts');
+  // Without this the derivation cannot tell an auto-populated website reading
+  // from one a submitter typed, and labels both manual.
+  assert.match(route, /declaredReadingSource: readingSource \?\? null/);
+});
+
+test('the route leaves reading_source unset when no reading was obtained', () => {
+  const route = src('src/app/api/reports/route.ts');
+  assert.match(route, /if \(derived\.readingSource\) baseData\.reading_source =/);
+});
+
+test('only a declared manual reading outranks the server', () => {
+  const lib = src('src/lib/reports/gauge-derivation.ts');
   assert.match(
-    route,
-    /readingSource === 'manual' \? 'manual'/,
-    'a reading the submitter typed must never be relabelled by the server',
+    lib,
+    /declaredManual = input\.declaredReadingSource === 'manual'/,
+    'presence of a number must not be read as a submitter claim',
   );
 });
 
