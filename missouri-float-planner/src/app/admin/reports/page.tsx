@@ -40,7 +40,69 @@ interface Report {
   dischargeCfs: number | null;
   accessPointName: string | null;
   submitterName: string | null;
+  gaugeName: string | null;
+  capturedAt: string | null;
+  readingSource: string | null;
+  readingObservedAt: string | null;
+  gaugeTrend: string | null;
+  gaugeTrendDelta: number | null;
+  gaugeTrendWindowHours: number | null;
+  gaugeTrendUnit: string | null;
+  gaugeRelation: string | null;
+  gaugeOffsetMiles: number | null;
 }
+
+/** Arrow + wording for a stored trend. Null when the row carries none. */
+function trendDisplay(report: Report): { arrow: string; text: string; className: string } | null {
+  if (!report.gaugeTrend) return null;
+  // The unit the trend was MEASURED in, which is not always the unit shown
+  // beside it — a submitter can hand-enter a stage for a discharge-only site.
+  const unit = report.gaugeTrendUnit ?? (report.gaugeHeightFt != null ? 'ft' : 'cfs');
+  const delta = report.gaugeTrendDelta;
+  const window = report.gaugeTrendWindowHours;
+  const magnitude =
+    delta != null ? `${delta > 0 ? '+' : ''}${delta} ${unit}` : null;
+  const over = window != null ? `over ${window}h` : null;
+  const detail = [magnitude, over].filter(Boolean).join(' ');
+
+  const byDirection: Record<string, { arrow: string; label: string; className: string }> = {
+    rising: { arrow: '▲', label: 'Rising', className: 'text-emerald-400' },
+    falling: { arrow: '▼', label: 'Falling', className: 'text-orange-400' },
+    steady: { arrow: '—', label: 'Steady', className: 'text-lime-400' },
+  };
+  const meta = byDirection[report.gaugeTrend] ?? {
+    arrow: '—',
+    label: report.gaugeTrend,
+    className: 'text-neutral-400',
+  };
+  return {
+    arrow: meta.arrow,
+    text: detail ? `${meta.label} · ${detail}` : meta.label,
+    className: meta.className,
+  };
+}
+
+/**
+ * "1.4 mi downstream of Akers" — where the photo sits relative to the gauge
+ * whose number is printed beside it. The distinction matters at review time:
+ * a photo well below its gauge is not showing the water that gauge measured.
+ */
+function gaugeRelationText(report: Report): string | null {
+  if (!report.gaugeRelation) return null;
+  const gauge = report.gaugeName ? ` of ${report.gaugeName}` : ' of the gauge';
+  if (report.gaugeRelation === 'at') {
+    return report.gaugeName ? `At ${report.gaugeName}` : 'At the gauge';
+  }
+  const miles = report.gaugeOffsetMiles != null ? `${report.gaugeOffsetMiles} mi ` : '';
+  return `${miles}${report.gaugeRelation}${gauge}`;
+}
+
+/** How the stored reading was arrived at, in words a moderator can weigh. */
+const READING_SOURCE_LABEL: Record<string, string> = {
+  live: 'Live reading at submit',
+  historical: 'USGS reading at capture time',
+  manual: 'Submitter’s own reading',
+};
 
 const REPORT_TYPES = [
   { value: 'hazard', label: 'Hazard' },
@@ -438,22 +500,69 @@ export default function AdminReportsPage() {
                         </div>
                       )}
                       {report.type === 'river_visual' && (
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm bg-teal-500/10 rounded-lg p-3">
-                          <div>
-                            <span className="text-neutral-400 text-xs">Gauge Height</span>
-                            <p className="text-white">{report.gaugeHeightFt != null ? `${report.gaugeHeightFt} ft` : 'N/A'}</p>
+                        <div className="space-y-3 bg-teal-500/10 rounded-lg p-3">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                            <div>
+                              <span className="text-neutral-400 text-xs">Gauge Height</span>
+                              <p className="text-white">{report.gaugeHeightFt != null ? `${report.gaugeHeightFt} ft` : 'N/A'}</p>
+                            </div>
+                            <div>
+                              <span className="text-neutral-400 text-xs">Discharge</span>
+                              <p className="text-white">{report.dischargeCfs != null ? `${report.dischargeCfs} cfs` : 'N/A'}</p>
+                            </div>
+                            <div>
+                              <span className="text-neutral-400 text-xs">Access Point</span>
+                              <p className="text-white">{report.accessPointName || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <span className="text-neutral-400 text-xs">Submitted By</span>
+                              <p className="text-white">{report.submitterName || 'Anonymous'}</p>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-neutral-400 text-xs">Discharge</span>
-                            <p className="text-white">{report.dischargeCfs != null ? `${report.dischargeCfs} cfs` : 'N/A'}</p>
-                          </div>
-                          <div>
-                            <span className="text-neutral-400 text-xs">Access Point</span>
-                            <p className="text-white">{report.accessPointName || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <span className="text-neutral-400 text-xs">Submitted By</span>
-                            <p className="text-white">{report.submitterName || 'Anonymous'}</p>
+
+                          {/* The context that makes the numbers above judgeable:
+                              which way the river was going, how far the photo is
+                              from the gauge that measured it, when it was taken
+                              and where the reading came from. */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm border-t border-teal-500/20 pt-3">
+                            <div>
+                              <span className="text-neutral-400 text-xs">Trend</span>
+                              {(() => {
+                                const trend = trendDisplay(report);
+                                return trend ? (
+                                  <p className={trend.className}>
+                                    <span aria-hidden="true">{trend.arrow}</span> {trend.text}
+                                  </p>
+                                ) : (
+                                  <p className="text-neutral-500">Not available</p>
+                                );
+                              })()}
+                            </div>
+                            <div>
+                              <span className="text-neutral-400 text-xs">Photo vs Gauge</span>
+                              <p className="text-white">{gaugeRelationText(report) || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <span className="text-neutral-400 text-xs">Taken</span>
+                              <p className="text-white">
+                                {report.capturedAt
+                                  ? new Date(report.capturedAt).toLocaleString()
+                                  : 'Unknown (no EXIF)'}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-neutral-400 text-xs">Reading Source</span>
+                              <p className="text-white">
+                                {report.readingSource
+                                  ? READING_SOURCE_LABEL[report.readingSource] ?? report.readingSource
+                                  : 'N/A'}
+                              </p>
+                              {report.readingObservedAt && (
+                                <p className="text-neutral-500 text-xs">
+                                  measured {new Date(report.readingObservedAt).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
                       )}
@@ -535,7 +644,18 @@ export default function AdminReportsPage() {
                         <p className="truncate font-medium text-white">{report.riverName || 'Unknown'}</p>
                         <p className="text-neutral-400 truncate">
                           {[report.gaugeHeightFt != null ? `${report.gaugeHeightFt} ft` : null, report.dischargeCfs != null ? `${report.dischargeCfs} cfs` : null].filter(Boolean).join(' · ') || '—'}
+                          {(() => {
+                            const trend = trendDisplay(report);
+                            return trend ? (
+                              <span className={`ml-1 ${trend.className}`} title={trend.text}>
+                                {trend.arrow}
+                              </span>
+                            ) : null;
+                          })()}
                         </p>
+                        {gaugeRelationText(report) && (
+                          <p className="text-neutral-500 truncate">{gaugeRelationText(report)}</p>
+                        )}
                         {report.status === 'pending' && (
                           <div className="flex gap-1 pt-1">
                             <button onClick={() => updateReport(report, 'verified')} disabled={updating === report.id} className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-green-400 hover:bg-green-500/10 rounded text-xs disabled:opacity-50">
