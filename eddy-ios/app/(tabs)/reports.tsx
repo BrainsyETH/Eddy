@@ -126,6 +126,7 @@ import { rememberGauge, seedFromMapGauge, seedFromSearchResult } from '@/lib/gau
 import { primaryReading } from '@/lib/readingCopy';
 import { useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
+import { warn } from '@/lib/monitoring';
 
 type FilterKey = 'all' | 'floatable' | 'starred' | 'low' | 'high';
 
@@ -316,11 +317,36 @@ export default function ReportsScreen() {
    * ever reaches the low hundreds this becomes a server-side filter instead.
    * /api/search has no dam results to give it anyway.
    */
-  const damsRequested = useRef(false);
+  // ── CLAIMED ON THE ANSWER, NOT ON THE ATTEMPT ────────────────────────────
+  // fetchDams throws now rather than answering [] — /api/dams reads through to
+  // CWMS and SWPA live, so the client's deadline expiring is an ordinary
+  // outcome and had been indistinguishable from "the Corps publishes no dams".
+  // A latch claimed before the request turned one such moment into an empty
+  // scope for the life of the screen; claiming it on success lets coming back
+  // to the scope try again.
+  const damsLoaded = useRef(false);
   useEffect(() => {
-    if ((scope !== 'dams' && scope !== 'all') || damsRequested.current) return;
-    damsRequested.current = true;
-    void fetchDams().then(setDams);
+    if ((scope !== 'dams' && scope !== 'all') || damsLoaded.current) return;
+    let cancelled = false;
+    void fetchDams()
+      .then((live) => {
+        if (cancelled) return;
+        damsLoaded.current = true;
+        setDams(live);
+      })
+      .catch((err) => {
+        // Non-fatal: the scope renders empty this time and asks again on the
+        // next visit. Logged with WHICH failure — a deadline and a status code
+        // want different fixes.
+        // Tagged `map`: it is the same dams feed the map layer reads, and the
+        // message names the surface so the two are still tellable apart.
+        warn('map', 'dams fetch failed on reports', {
+          reason: err instanceof ApiError ? (err.status ?? err.message) : 'unknown',
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [scope]);
   /**
    * null means "not chosen yet", which is NOT the same as 'all'.
