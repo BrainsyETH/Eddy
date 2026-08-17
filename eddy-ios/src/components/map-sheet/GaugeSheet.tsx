@@ -42,6 +42,7 @@ import { flowBandSentence } from '@/theme/flow';
 // src/lib/gaugeFlow: a GaugeDetail carries the percentile directly.
 import { flowBand } from '@eddy/conditions/flow-band';
 import { GaugeChart } from '@/components/GaugeChart';
+import { ReadingScale } from '@/components/ReadingScale';
 import { Absent, Fact, LinkRow, Prose, Section } from './sections';
 import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 import type { GaugePinFacts } from './gaugeTabs';
@@ -159,6 +160,26 @@ export function GaugeLevelsTab({ facts, detail, status, onOpenRiver }: GaugeTabP
     <View>
       {links.map((link) => (
         <Section key={`${link.riverSlug}-${link.thresholdUnit}`} title={link.riverName}>
+          {/* ── THE LADDER AS A PICTURE, ABOVE THE LADDER AS A TABLE ────────
+              Five rows of numbers say where the bands ARE; they do not say
+              where the river IS, and answering that from a table means holding
+              "876" against five bounds in your head. The same track already
+              leads the gauge screen and the favourite card — this sheet was the
+              one surface with the ladder and no drawing of it.
+
+              Bands are equal-width by construction (see ReadingScale): the
+              marker means "how far through this band", which is what keeps a
+              20,000-cfs flood band from crushing the floatable one to a sliver.
+
+              It draws nothing rather than guessing when the ladder is partial
+              or its unit disagrees with the reading, so the table below is
+              always the complete answer and this is always the glance. */}
+          <ReadingScale
+            thresholds={link}
+            value={link.thresholdUnit === 'cfs' ? (detail?.dischargeCfs ?? null) : (detail?.gaugeHeightFt ?? null)}
+            unit={link.thresholdUnit}
+          />
+
           <Fact label="Too low" value={levelText(link.levelTooLow, link.thresholdUnit)} />
           <Fact label="Low" value={levelText(link.levelLow, link.thresholdUnit)} />
           <Fact
