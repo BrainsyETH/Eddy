@@ -1,4 +1,4 @@
-# 0009 — Gridlines and data export belong to an expanded hydrograph, not to the inline one
+# 0010 — Gridlines and data export belong to an expanded hydrograph, not to the inline one
 
 Status: open · 2026-08
 
