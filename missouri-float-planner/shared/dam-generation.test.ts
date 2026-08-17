@@ -5,8 +5,6 @@ import {
   generationReferenceCitation,
   RACK_ESTIMATE_NOTE,
   schedulePeak,
-  schedulePeakLabel,
-  schedulePeakTechnical,
   schedulePeakWindowLabel,
   generationFraction,
   generationNow,
@@ -28,6 +26,9 @@ import {
   patternRowVoiceOver,
   patternRows,
   patternSpanLabel,
+  PEAK_RELEASE_HEADING,
+  schedulePeakValue,
+  schedulePeakVoiceOver,
   unitEquivalents,
   type GenerationReference,
 } from './dam-generation';
@@ -998,11 +999,13 @@ test('the peak leads with the river number and names when it runs', () => {
   const peak = schedulePeak(evening, BULL_SHOALS)!;
 
   assert.equal(peak.megawatts, 335);
-  assert.equal(schedulePeakLabel(peak), 'Peak release ~22,600 cfs');
-  assert.equal(schedulePeakWindowLabel(peak), '4 PM – 8 PM');
-  // The megawatts survive, one step down, for anyone checking Eddy against
-  // SWPA's own posted table.
-  assert.equal(schedulePeakTechnical(peak), '335 MW · 86% of scheduling capacity');
+  assert.equal(schedulePeakValue(peak), '~22,600 cfs · 4–8 PM');
+  assert.equal(schedulePeakWindowLabel(peak), '4–8 PM');
+  // The megawatts and the capacity share USED to sit beneath this as a
+  // technical line. They came off: neither answers "how big, and when", and
+  // both competed with the line that does. The figures are still on SWPA's own
+  // posted table for anyone checking Eddy against it.
+  assert.doesNotMatch(schedulePeakValue(peak), /MW|capacity/);
 });
 
 test('a peak reachable only through ramp hours refuses to estimate cfs', () => {
@@ -1013,14 +1016,17 @@ test('a peak reachable only through ramp hours refuses to estimate cfs', () => {
   const peak = schedulePeak(rampOnly, BULL_SHOALS)!;
 
   assert.equal(peak.cfs, null);
-  assert.equal(schedulePeakLabel(peak), 'Peak load 335 MW', 'falls back rather than printing it');
-  // And the technical line does not repeat the megawatts the label just used.
-  assert.equal(schedulePeakTechnical(peak), '86% of scheduling capacity');
+  // Falls back to the published load rather than printing an estimate it does
+  // not trust — and keeps the hours, which are not in doubt either way.
+  assert.equal(schedulePeakValue(peak), '335 MW · 1–2 PM');
 });
 
-test('a day that reaches its peak twice names no window rather than a wrong one', () => {
+test('a day that reaches its peak twice names BOTH windows', () => {
   // 6-9 AM and 5-8 PM at the same load is the commonest shape a peaking plant
-  // has. Spanning both would describe a twelve-hour run that did not happen.
+  // has. Spanning both would describe a twelve-hour run that did not happen —
+  // and naming neither, which is what this used to do, left the headline
+  // stating a magnitude with no time attached on the day a reader most needs
+  // the time.
   const twice = scheduledDay([
     { hourEnding: 7, megawatts: 335, cfs: 22_600 },
     { hourEnding: 8, megawatts: 335, cfs: 22_600 },
@@ -1029,8 +1035,9 @@ test('a day that reaches its peak twice names no window rather than a wrong one'
   ]);
   const peak = schedulePeak(twice, BULL_SHOALS)!;
 
-  assert.equal(schedulePeakWindowLabel(peak), null);
-  assert.equal(schedulePeakLabel(peak), 'Peak release ~22,600 cfs', 'the magnitude still stands');
+  assert.equal(peak.window, null, 'there is still no single block');
+  assert.equal(schedulePeakWindowLabel(peak), '6–8 AM and 5–7 PM');
+  assert.equal(schedulePeakValue(peak), '~22,600 cfs · 6–8 AM and 5–7 PM');
 });
 
 test('a wholly idle day has no peak, and no reference still has a magnitude', () => {
@@ -1043,8 +1050,7 @@ test('a wholly idle day has no peak, and no reference still has a magnitude', ()
     undefined
   )!;
   assert.equal(noRef.fraction, null);
-  assert.equal(schedulePeakLabel(noRef), 'Peak release ~22,600 cfs');
-  assert.equal(schedulePeakTechnical(noRef), '335 MW');
+  assert.equal(schedulePeakValue(noRef), '~22,600 cfs · 5–6 PM');
 });
 
 test('the rack caveat scans, and still refuses to name physical units', () => {
@@ -1125,5 +1131,87 @@ test('a dam that does post a schedule is untouched by the not-yet treatment', ()
   assert.ok(
     today.cells.every((c) => c.kind !== 'future'),
     'a posted sheet means the rest of the day is known, not unknown'
+  );
+});
+
+/* ── The peak line: how much water, and when ──────────────────────────────── */
+
+test('the peak names every block it reaches, not just a lone one', () => {
+  // A day that peaks twice used to answer null for "when", which left the
+  // headline stating a magnitude with no time attached — on the day a reader
+  // most needs the time.
+  const split = schedulePeak(
+    day('2026-07-28', { 17: 391, 18: 391, 21: 391, 22: 391 }),
+    BULL_SHOALS
+  )!;
+
+  assert.equal(split.window, null, 'still no single block');
+  assert.deepEqual(split.windows, [
+    { from: 17, to: 18 },
+    { from: 21, to: 22 },
+  ]);
+  assert.equal(schedulePeakWindowLabel(split), '4–6 PM and 8–10 PM');
+});
+
+test('a single block reads as one compact span', () => {
+  const peak = schedulePeak(day('2026-07-28', { 17: 391, 18: 391, 19: 391, 20: 391 }), BULL_SHOALS)!;
+  assert.deepEqual(peak.window, { from: 17, to: 20 });
+  assert.equal(schedulePeakWindowLabel(peak), '4–8 PM');
+});
+
+test('a span crossing noon or midnight keeps both meridiems', () => {
+  // "11–1 PM" would name the wrong half of the day.
+  const crossing = schedulePeak(day('2026-07-28', { 12: 391, 13: 391 }), BULL_SHOALS)!;
+  assert.equal(schedulePeakWindowLabel(crossing), '11 AM–1 PM');
+});
+
+test('the value line carries the river figure and the hours, and nothing else', () => {
+  // The megawatts and the capacity share came off it deliberately: neither
+  // answers "how big, and when", and both competed with the line that does.
+  const peak = schedulePeak(
+    {
+      hours: [17, 18, 19, 20].map((hourEnding) => ({
+        hourEnding,
+        megawatts: 391,
+        cfs: 22_600,
+        isRamp: false,
+      })),
+    },
+    BULL_SHOALS
+  )!;
+
+  assert.equal(schedulePeakValue(peak), '~22,600 cfs · 4–8 PM');
+  assert.doesNotMatch(schedulePeakValue(peak), /MW|capacity/);
+  assert.equal(PEAK_RELEASE_HEADING, 'Peak scheduled release');
+  // "Peak release" alone reads as a measurement taken downstream; this is a plan.
+  assert.match(PEAK_RELEASE_HEADING, /scheduled/i);
+});
+
+test('a peak with no steady hour still leads with what it has', () => {
+  // Every hour at peak is a ramp, so there is no cfs estimate worth printing —
+  // the published load is the honest figure and it keeps its time.
+  const rampOnly = schedulePeak(
+    { hours: [{ hourEnding: 17, megawatts: 391, cfs: 22_600, isRamp: true }] },
+    BULL_SHOALS
+  )!;
+  assert.equal(rampOnly.cfs, null);
+  assert.equal(schedulePeakValue(rampOnly), '391 MW · 4–5 PM');
+});
+
+test('the peak is spoken in full units and read as a span', () => {
+  const peak = schedulePeak(
+    {
+      hours: [17, 18, 19, 20].map((hourEnding) => ({
+        hourEnding,
+        megawatts: 391,
+        cfs: 22_600,
+        isRamp: false,
+      })),
+    },
+    BULL_SHOALS
+  )!;
+  assert.equal(
+    schedulePeakVoiceOver(peak),
+    'Peak scheduled release approximately 22,600 cubic feet per second, from 4 to 8 PM.'
   );
 });

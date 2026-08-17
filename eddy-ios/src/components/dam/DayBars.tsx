@@ -40,7 +40,11 @@ import {
   hourEndingNow,
   scheduleHoursElapsed,
 } from '@eddy/conditions/dam-schedule-copy';
-import { scheduledBar, type GenerationReference } from '@eddy/conditions/dam-generation';
+import {
+  scheduledBar,
+  type GenerationReference,
+  type SchedulePeak,
+} from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { Palette } from '@/theme/palette';
 import { fonts } from '@/theme/typography';
@@ -59,6 +63,15 @@ interface Props {
   reference?: GenerationReference | null;
   /** Row context: shorter bars, no axis labels, no scale line. */
   compact?: boolean;
+  /**
+   * The day's peak, from the SAME derivation the line above the chart prints.
+   *
+   * Passed in rather than recomputed here on purpose: a highlight built from a
+   * second call would be free to disagree with the words over it, which is the
+   * one thing a highlight must never do. Absent in the compact row, where there
+   * is no headline for it to agree with.
+   */
+  peakSchedule?: SchedulePeak | null;
 }
 
 /**
@@ -70,6 +83,31 @@ interface Props {
  * the marker points at the wrong hour. Solve for the bar width first, then
  * place the marker inside its own bar.
  */
+/**
+ * Where a block of hours sits, in points, as {left, width}.
+ *
+ * The same bar-and-gap arithmetic markerLeft solves for a single instant, run
+ * over a span: `flex: 1` bars carry 23 gaps between 24 of them, so a highlight
+ * placed by percentage drifts by most of a bar by evening and would tint the
+ * wrong hours — the failure that matters most on precisely the block the chart
+ * is drawing attention to.
+ *
+ * `from`/`to` are SWPA hour-endings, so hour-ending 17 is the bar for 4–5 PM
+ * and its index is 16.
+ */
+function runBounds(
+  from: number,
+  to: number,
+  rowWidth: number
+): { left: number; width: number } {
+  const barWidth = (rowWidth - BAR_GAP * (HOURS - 1)) / HOURS;
+  const startIndex = Math.max(0, from - 1);
+  const endIndex = Math.min(HOURS - 1, to - 1);
+  const left = startIndex * (barWidth + BAR_GAP);
+  const width = (endIndex - startIndex + 1) * barWidth + (endIndex - startIndex) * BAR_GAP;
+  return { left, width };
+}
+
 function markerLeft(hoursElapsed: number, rowWidth: number): number {
   const barWidth = (rowWidth - BAR_GAP * (HOURS - 1)) / HOURS;
   const index = Math.min(Math.floor(hoursElapsed), HOURS - 1);
@@ -129,7 +167,7 @@ function hourReadout(
   return `${window} · ${hour.megawatts.toLocaleString()} MW${share}${flow}`;
 }
 
-export function DayBars({ day, reference, compact = false }: Props) {
+export function DayBars({ day, reference, compact = false, peakSchedule = null }: Props) {
   const { colors } = useTheme();
   const [rowWidth, setRowWidth] = useState(0);
   const [scrubbed, setScrubbed] = useState<number | null>(null);
@@ -148,7 +186,6 @@ export function DayBars({ day, reference, compact = false }: Props) {
   );
 
   const peak = hours.reduce((max, h) => (h.megawatts > max ? h.megawatts : max), 0);
-  const peakShare = shareOf(peak, reference, peak);
 
   // Null on every day but today, which is the point — see scheduleHoursElapsed.
   const hoursElapsed = scheduleHoursElapsed(day.scheduleDate);
@@ -203,13 +240,47 @@ export function DayBars({ day, reference, compact = false }: Props) {
         <View style={styles.scaleRow}>
           {/* One readout line, replacing per-bar tooltips. It holds the day's
               scale until something is scrubbed so the space never jumps. */}
+          {/* ── THE PEAK LINE MOVED OUT AND UP ──────────────────────────
+              This read "peaks at 335 MW · 86% of capacity", which repeated the
+              headline above the chart in the unit the schedule is published in
+              rather than the one anybody fishes in. The peak is stated once
+              now, over the chart, in cfs and hours — and the highlight below
+              shows it rather than restating it.
+
+              The row still renders, holding a space, because it is where a
+              scrubbed hour reports itself. Collapsing it when idle would make
+              the chart jump the first time a finger touched it. */}
           <Text style={[styles.scaleText, { color: colors.textSubtle }]} numberOfLines={1}>
-            {scrubbedHour
-              ? hourReadout(scrubbedHour, reference, peak)
-              : `peaks at ${Math.round(peak).toLocaleString()} MW${
-                  reference ? ` · ${Math.round(peakShare * 100)}% of capacity` : ''
-                }`}
+            {scrubbedHour ? hourReadout(scrubbedHour, reference, peak) : ' '}
           </Text>
+        </View>
+      ) : null}
+
+      {/* ── WHEN THE PEAK RUNS, AS A WINDOW ─────────────────────────────────
+          A vertical line would name an instant, and a peak is not an instant —
+          it is four hours of full load, and somebody deciding when to be off
+          the gravel needs the span. So each contiguous block gets a bracket the
+          width of its own bars, and the bars themselves are tinted beneath it.
+
+          EVERY block, never just the first: a plant that peaks twice is the
+          commonest shape there is, and a highlight over one of two would
+          contradict a headline that names both.
+
+          Teal — the generation family's own colour — and never the accent, which
+          belongs to Now below. Two markers in one hue on one chart is how a
+          reader comes to think the peak is happening right now. */}
+      {!compact && peakSchedule && rowWidth > 0 && peakSchedule.windows.length > 0 ? (
+        <View pointerEvents="none" style={styles.peakRow}>
+          {peakSchedule.windows.map((w) => {
+            const { left, width } = runBounds(w.from, w.to, rowWidth);
+            return (
+              <View
+                key={`${w.from}-${w.to}`}
+                style={[styles.peakBracket, { left, width, borderColor: colors.generationHigh }]}
+              />
+            );
+          })}
+          <Text style={[styles.peakCaption, { color: colors.generationHigh }]}>Peak window</Text>
         </View>
       ) : null}
 
@@ -220,6 +291,23 @@ export function DayBars({ day, reference, compact = false }: Props) {
         importantForAccessibility="no-hide-descendants"
         {...responder.panHandlers}
       >
+        {/* The peak hours, tinted behind their own bars. The bracket above
+            names the span; this is what ties the name to the bars it is about,
+            and it is deliberately faint — the bars are the data and a wash that
+            competed with them would be a second chart. */}
+        {!compact && peakSchedule && rowWidth > 0
+          ? peakSchedule.windows.map((w) => {
+              const { left, width } = runBounds(w.from, w.to, rowWidth);
+              return (
+                <View
+                  key={`tint-${w.from}-${w.to}`}
+                  pointerEvents="none"
+                  style={[styles.peakTint, { left, width, backgroundColor: colors.generationHigh }]}
+                />
+              );
+            })
+          : null}
+
         {/* Half capacity, as a hairline behind the bars. One reference line is
             enough to read a bar as "about two thirds" instead of "tall-ish",
             and a full gridline stack would out-weigh the data on a 44pt plot. */}
@@ -270,10 +358,26 @@ export function DayBars({ day, reference, compact = false }: Props) {
         ) : null}
       </View>
 
+
       {/* Four ticks instead of the three words this had, because "noon" alone
           left a reader counting bars to find 6 PM — the hour a weekday release
           most often starts. Still words rather than a 0-23 axis: nobody reads a
           release schedule in 24-hour time. */}
+      {/* NAMED, because an unlabelled coral line beside a labelled teal window
+          invites the reader to take it for part of the same mark. */}
+      {!compact && showMarker && rowWidth > 0 ? (
+        <View pointerEvents="none" style={styles.nowRow}>
+          <Text
+            style={[
+              styles.nowLabel,
+              { color: colors.accent, left: markerLeft(hoursElapsed, rowWidth) - 12 },
+            ]}
+          >
+            Now
+          </Text>
+        </View>
+      ) : null}
+
       {!compact ? (
         <View style={styles.barAxis}>
           <Text style={[styles.axisText, { color: colors.textSubtle }]}>midnight</Text>
@@ -342,6 +446,26 @@ const styles = StyleSheet.create({
   bar: { flex: 1, borderRadius: 2 },
   halfLine: { position: 'absolute', left: 0, right: 0, top: '50%', height: StyleSheet.hairlineWidth },
   nowLine: { position: 'absolute', top: -3, bottom: -3, width: 2, borderRadius: 1 },
+  // The bracket sits in its own 14pt band above the bars: inside the plot it
+  // would compete with a full-height bar, and below it would collide with the
+  // hour axis.
+  peakRow: { height: 14, marginTop: 2 },
+  peakBracket: {
+    position: 'absolute',
+    bottom: 0,
+    height: 5,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+  },
+  peakCaption: { fontSize: 9, lineHeight: 12, fontFamily: fonts.medium, textAlign: 'center' },
+  // Faint enough to stay behind the data. The bars draw over it either way, so
+  // this only ever shows in the air above them.
+  peakTint: { position: 'absolute', top: 0, bottom: 0, borderRadius: 2, opacity: 0.1 },
+  nowRow: { height: 12 },
+  nowLabel: { position: 'absolute', top: 0, width: 24, fontSize: 9, lineHeight: 12, textAlign: 'center', fontFamily: fonts.medium },
   barAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 3 },
   axisText: { fontSize: 10, lineHeight: 14 },
 });

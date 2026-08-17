@@ -895,6 +895,19 @@ export interface SchedulePeak {
   cfs: number | null;
   /** Hour-ending bounds of the single block at peak load, when there is one. */
   window: { from: number; to: number } | null;
+  /**
+   * EVERY contiguous block at peak load, in order. Never empty for a real peak.
+   *
+   * `window` above is this list when it happens to hold exactly one entry, and
+   * null otherwise — which is how the copy used to give up on a split day and
+   * print a magnitude with no time attached. A day that peaks 4–6 PM and again
+   * 8–9 PM has two answers to "when", and both of them are the answer.
+   *
+   * The chart needs them for a different reason: it tints the hours at peak, and
+   * a highlight drawn from a single block would leave the second one unmarked
+   * while the label named it.
+   */
+  windows: { from: number; to: number }[];
 }
 
 export function schedulePeak(
@@ -925,33 +938,100 @@ export function schedulePeak(
     fraction: scheduledBar(megawatts, ref)?.fraction ?? null,
     cfs,
     window: runs.length === 1 ? runs[0] : null,
+    windows: runs,
   };
 }
 
-/** The headline figure: the river number when there is one, else the plant's. */
-export function schedulePeakLabel(peak: SchedulePeak): string {
-  return peak.cfs !== null
-    ? `Peak release ~${Math.round(peak.cfs).toLocaleString()} cfs`
-    : `Peak load ${Math.round(peak.megawatts).toLocaleString()} MW`;
-}
-
-/** When the peak runs, or null when the day reaches it in more than one block. */
+/**
+ * When the peak runs — every block of it.
+ *
+ * `4–8 PM`, or `4–6 PM and 8–9 PM` on a day that reaches peak load twice. It
+ * used to answer null for the second case, which left the headline stating a
+ * magnitude with no time attached — the exact defect the peak line was
+ * introduced to fix, surviving in the case where the day is most confusing.
+ *
+ * Compact rather than `windowLabel`'s spaced form: this rides in a headline
+ * beside the cfs figure, where "4 PM – 8 PM" spends four characters repeating a
+ * meridiem the reader has already read. The canonical label is still what it is
+ * built from, so the two cannot name different hours.
+ */
 export function schedulePeakWindowLabel(peak: SchedulePeak): string | null {
-  return peak.window ? windowLabel(peak.window.from, peak.window.to) : null;
+  if (peak.windows.length === 0) return null;
+  const parts = peak.windows.map((w) => compactWindowLabel(w.from, w.to));
+  if (parts.length === 1) return parts[0];
+  // "a and b", "a, b and c" — the same joining the idle-window sentence uses.
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
 /**
- * The technical line beneath, for a reader checking against SWPA's own page.
+ * `4–8 PM`, from the same bounds `windowLabel` renders as `4 PM – 8 PM`.
  *
- * Never repeats the headline: when the peak had no steady hour to estimate cfs
- * from, the label above is already the megawatt figure and this carries only
- * the share.
+ * Derived from that string rather than re-deriving the clock, so a change to
+ * how Eddy names an hour reaches both forms at once. The meridiem collapses
+ * only when both ends share one: `11 AM–1 PM` keeps both because dropping
+ * either would name the wrong half of the day.
  */
-export function schedulePeakTechnical(peak: SchedulePeak): string | null {
-  const share = peak.fraction !== null ? `${Math.round(peak.fraction * 100)}% of scheduling capacity` : null;
-  if (peak.cfs === null) return share;
-  const load = `${Math.round(peak.megawatts).toLocaleString()} MW`;
-  return share ? `${load} · ${share}` : load;
+function compactWindowLabel(from: number, to: number): string {
+  const label = windowLabel(from, to);
+  const parts = label.match(/^(.+?) – (.+)$/);
+  if (!parts) return label;
+  const [, start, end] = parts;
+  const meridiem = /\b(AM|PM)$/.exec(start)?.[1];
+  if (meridiem && end.endsWith(meridiem)) {
+    return `${start.slice(0, -meridiem.length).trim()}–${end}`;
+  }
+  return `${start}–${end}`;
+}
+
+/** The heading over the peak figure. Never "Peak release" — see below. */
+export const PEAK_RELEASE_HEADING = 'Peak scheduled release';
+
+/**
+ * The whole peak answer in one line: how much water, and when.
+ *
+ * ── What came off it, and why ─────────────────────────────────────────────
+ *
+ * A technical line used to sit beneath — "335 MW · 86% of scheduling capacity"
+ * — and it lost its place to the two facts a reader acts on. Megawatts are the
+ * unit the schedule is PUBLISHED in and not the unit anybody fishes in; the
+ * share is a fact about the plant rather than about the river. Both are still
+ * true and neither answers "how big, and when", so they no longer compete with
+ * the line that does.
+ *
+ * ── And why the heading says "scheduled" ──────────────────────────────────
+ *
+ * "Peak release" alone reads as a measurement taken downstream. This is SWPA's
+ * plan for the powerhouse, published the afternoon before, and the whole screen
+ * turns on keeping a plan and an observation apart — the hero above reports
+ * what the turbines are actually doing, and the two may legitimately disagree.
+ */
+export function schedulePeakValue(peak: SchedulePeak): string {
+  const magnitude =
+    peak.cfs !== null
+      ? `~${Math.round(peak.cfs).toLocaleString()} cfs`
+      : `${Math.round(peak.megawatts).toLocaleString()} MW`;
+  const when = schedulePeakWindowLabel(peak);
+  return when ? `${magnitude} · ${when}` : magnitude;
+}
+
+/**
+ * The peak, spoken.
+ *
+ * The chart is hidden from VoiceOver — it is a row of bars with a tint on some
+ * of them — so this is the only place the highlight's meaning exists for a
+ * listener. Units in full, and the hours read as a span rather than as a dash.
+ */
+export function schedulePeakVoiceOver(peak: SchedulePeak): string {
+  const magnitude =
+    peak.cfs !== null
+      ? `approximately ${Math.round(peak.cfs).toLocaleString()} cubic feet per second`
+      : `${Math.round(peak.megawatts).toLocaleString()} megawatts`;
+  const spoken = peak.windows
+    .map((w) => compactWindowLabel(w.from, w.to).replace('–', ' to '))
+    .join(', and ');
+  return spoken
+    ? `${PEAK_RELEASE_HEADING} ${magnitude}, from ${spoken}.`
+    : `${PEAK_RELEASE_HEADING} ${magnitude}.`;
 }
 
 // ── Accessible equivalents ─────────────────────────────────────────────────

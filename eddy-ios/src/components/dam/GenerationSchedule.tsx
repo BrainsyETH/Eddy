@@ -31,10 +31,10 @@ import {
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { DayBars, nowSentence } from '@/components/dam/DayBars';
 import {
+  PEAK_RELEASE_HEADING,
   schedulePeak,
-  schedulePeakLabel,
-  schedulePeakTechnical,
-  schedulePeakWindowLabel,
+  schedulePeakValue,
+  schedulePeakVoiceOver,
   type GenerationReference,
 } from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -62,8 +62,6 @@ function DayRow({
   // pins magnitude to the hours it actually happens in, and refuses a cfs
   // estimate built from ramp hours entirely. See schedulePeak.
   const peak = schedulePeak(day, reference);
-  const peakWindow = peak ? schedulePeakWindowLabel(peak) : null;
-  const peakTechnical = peak ? schedulePeakTechnical(peak) : null;
 
   return (
     <CollapsibleSection
@@ -94,20 +92,30 @@ function DayRow({
         </View>
       }
     >
+      {/* ── HOW BIG, AND WHEN. Nothing else. ─────────────────────────────
+          A technical line used to sit under this — "335 MW · 86% of scheduling
+          capacity" — and it lost its place to the two facts a reader acts on.
+          Megawatts are the unit the schedule is PUBLISHED in, not the unit
+          anybody fishes in, and the capacity share is a fact about the plant
+          rather than about the river.
+
+          The heading says SCHEDULED because "Peak release" alone reads as a
+          measurement taken downstream, and this is SWPA's plan — the hero above
+          is what the turbines are actually doing, and the two may legitimately
+          disagree. */}
       {peak ? (
-        <Text style={[styles.peak, { color: colors.text }]}>
-          {schedulePeakLabel(peak)}
-          {peakWindow ? (
-            <Text style={[styles.peakWindow, { color: colors.textMuted }]}>{` · ${peakWindow}`}</Text>
-          ) : null}
-          {peakTechnical ? (
-            <Text style={[styles.estimate, { color: colors.textSubtle }]}>
-              {`  ${peakTechnical}`}
-            </Text>
-          ) : null}
-        </Text>
+        <View
+          style={styles.peakBlock}
+          accessible
+          accessibilityLabel={schedulePeakVoiceOver(peak)}
+        >
+          <Text style={[styles.peakHeading, { color: colors.textMuted }]}>
+            {PEAK_RELEASE_HEADING}
+          </Text>
+          <Text style={[styles.peak, { color: colors.text }]}>{schedulePeakValue(peak)}</Text>
+        </View>
       ) : null}
-      <DayBars day={day} reference={reference} />
+      <DayBars day={day} reference={reference} peakSchedule={peak} />
     </CollapsibleSection>
   );
 }
@@ -198,8 +206,11 @@ const styles = StyleSheet.create({
   trailing: { alignItems: 'flex-end', gap: 2 },
   nowLabel: { ...t.xs, fontFamily: fonts.semibold },
   hoursCount: { ...t.xs },
-  peak: { fontSize: 14, lineHeight: 19, fontFamily: fonts.heading, marginTop: 8 },
-  peakWindow: { fontSize: 13, lineHeight: 18, fontFamily: fonts.medium },
+  // The heading is the quiet half and the figure is the loud one: a reader
+  // scanning for "how big" should land on the number, not on the label over it.
+  peakBlock: { marginTop: 10 },
+  peakHeading: { fontSize: 11, lineHeight: 15, fontFamily: fonts.medium, letterSpacing: 0.3, textTransform: 'uppercase' },
+  peak: { fontSize: 17, lineHeight: 23, fontFamily: fonts.heading, marginTop: 1 },
   estimate: { ...t.xs },
   footer: { borderTopWidth: 1, marginTop: 12, paddingTop: 10 },
   footerText: { ...t.xs },
