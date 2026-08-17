@@ -86,14 +86,26 @@ test('merging keeps one row per station and carries the provider through', () =>
   assert.equal(merged.get('b')?.provider, 'usace');
 });
 
+type ReadingRow = { gauge_station_id: string; reading_timestamp: string };
+
 /**
- * A stand-in for the PostgREST client, recording which tables were asked for.
+ * A stand-in for the PostgREST client, recording which tables and functions
+ * were asked for.
  *
  * Deliberately tiny: the point is to pin the read path's CONTRACT — that it
  * consults both tiers and prefers the newer row — not to reimplement PostgREST.
+ *
+ * `rpc: 'missing'` models a database that has not run the migration adding
+ * get_latest_curated_readings, which is the state of production between a
+ * website deploy and its migration. That is not a hypothetical ordering: the
+ * fallback exists precisely because it happens.
  */
-function fakeSupabase(tables: Record<string, unknown[]>) {
+function fakeSupabase(
+  tables: Record<string, unknown[]>,
+  options: { rpc?: 'ok' | 'missing' } = {},
+) {
   const asked: string[] = [];
+  const rpcCalls: string[] = [];
   const builder = (rows: unknown[]) => {
     const chain: Record<string, unknown> = {};
     for (const method of ['select', 'in', 'eq', 'order', 'limit']) {
@@ -105,9 +117,31 @@ function fakeSupabase(tables: Record<string, unknown[]>) {
   };
   return {
     asked,
+    rpcCalls,
     from(table: string) {
       asked.push(table);
       return builder(tables[table] ?? []);
+    },
+    rpc(name: string, args: { p_station_ids: string[] }) {
+      rpcCalls.push(name);
+      if (options.rpc === 'missing') {
+        return Promise.resolve({
+          data: null,
+          error: { code: 'PGRST202', message: 'Could not find the function' },
+        });
+      }
+      // The real function returns the NEWEST gauge_readings row per station,
+      // one per id — never the whole history.
+      const wanted = new Set(args.p_station_ids);
+      const newest = new Map<string, ReadingRow>();
+      for (const row of (tables.gauge_readings ?? []) as ReadingRow[]) {
+        if (!wanted.has(row.gauge_station_id)) continue;
+        const held = newest.get(row.gauge_station_id);
+        if (!held || row.reading_timestamp > held.reading_timestamp) {
+          newest.set(row.gauge_station_id, row);
+        }
+      }
+      return Promise.resolve({ data: [...newest.values()], error: null });
     },
   };
 }
@@ -143,6 +177,45 @@ test('the read path prefers curated history over the hourly gauge_latest row', a
 
   assert.equal(readings.get('huzzah')?.discharge_cfs, 87);
   assert.equal(readings.get('huzzah')?.reading_at, '2026-07-31T10:45:00Z');
+  // The curated tier was consulted — now by seeking it rather than scanning it.
+  assert.ok(supabase.rpcCalls.includes('get_latest_curated_readings'));
+});
+
+test('the same answer comes back when the seek function is not deployed yet', async () => {
+  // The website ships ahead of its migrations, so this is a real state of
+  // production and not a defensive flourish. A database without the function
+  // must still merge both tiers — slower, via the bounded scan, never wronger.
+  const supabase = fakeSupabase(
+    {
+      gauge_stations: [{ id: 'huzzah', provider: 'usgs', curated: true }],
+      gauge_latest: [
+        {
+          gauge_station_id: 'huzzah',
+          reading_timestamp: '2026-07-31T09:45:00Z',
+          gauge_height_ft: null,
+          discharge_cfs: '80.00',
+          qualifiers: ['P'],
+        },
+      ],
+      gauge_readings: [
+        {
+          gauge_station_id: 'huzzah',
+          reading_timestamp: '2026-07-31T10:45:00Z',
+          gauge_height_ft: null,
+          discharge_cfs: '87.00',
+          qualifiers: ['P'],
+        },
+      ],
+    },
+    { rpc: 'missing' },
+  );
+
+  const readings = await loadCurrentReadings(supabase, ['huzzah']);
+
+  assert.equal(readings.get('huzzah')?.discharge_cfs, 87);
+  assert.equal(readings.get('huzzah')?.reading_at, '2026-07-31T10:45:00Z');
+  // It tried the function first, then fell back to the table.
+  assert.ok(supabase.rpcCalls.includes('get_latest_curated_readings'));
   assert.ok(supabase.asked.includes('gauge_readings'));
 });
 
@@ -166,6 +239,9 @@ test('an uncurated station is never scanned for history it cannot have', async (
 
   assert.equal(readings.get('national')?.gauge_height_ft, 4.1);
   assert.equal(supabase.asked.includes('gauge_readings'), false);
+  // Neither by scanning the table nor by seeking through the function: an
+  // uncurated station has no history in either shape.
+  assert.equal(supabase.rpcCalls.includes('get_latest_curated_readings'), false);
 });
 
 test('a curated station whose history is older keeps its gauge_latest row', async () => {

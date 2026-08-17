@@ -107,6 +107,42 @@ function chunk<T>(items: T[], size = CHUNK): T[][] {
 }
 
 /**
+ * The newest gauge_readings row per curated station, in ONE seek each.
+ *
+ * `get_latest_curated_readings` is a LATERAL over idx_gauge_readings_latest, so
+ * each station costs one index descent. Every shape PostgREST can express
+ * instead — `.in(ids).order(...)`, with or without a limit — reads each
+ * station's entire history and sorts it: 112,279 buffers and 5.2s on the 45
+ * curated stations, against 202 buffers for the function.
+ *
+ * Returns null, NOT [], when the function is unreachable. The website deploys
+ * ahead of its migrations, so an older database answers PGRST202 here, and the
+ * two callers below recover differently — an empty array would erase the
+ * distinction and hand both of them "these stations have no reading", which is
+ * the failure-as-absence bug this module exists to prevent.
+ */
+async function fetchCuratedLatestViaRpc(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  curated: string[],
+): Promise<RawReadingRow[] | null> {
+  if (curated.length === 0) return [];
+  try {
+    const { data, error } = await supabase.rpc('get_latest_curated_readings', {
+      p_station_ids: curated,
+    });
+    if (error || !Array.isArray(data)) return null;
+    return data as RawReadingRow[];
+  } catch {
+    // A missing function comes back as an `error`, but a dropped connection or
+    // an aborted request THROWS, and either way the answer is the same: this
+    // tier could not be consulted, so say so and let the caller scan. Letting
+    // it propagate would take down a response that has a working fallback.
+    return null;
+  }
+}
+
+/**
  * Load the newest reading for each station id.
  *
  * Chunked because `.in()` on several hundred uuids builds a URL long enough to
@@ -144,29 +180,43 @@ export async function loadLatestReadings(
     latestRows.push(...((data ?? []) as RawReadingRow[]));
   }
 
-  // Curated stations only, and one query per station: "newest row per station"
-  // has no single-statement form in PostgREST, and the curated set subscribed to
-  // is small. Running this over the national tier would be thousands of round
-  // trips for rows that do not exist — gauge_readings holds only curated history.
-  const historyRows: RawReadingRow[] = [];
-  for (const id of curated) {
-    const { data } = await supabase
-      .from('gauge_readings')
-      .select('gauge_station_id, reading_timestamp, gauge_height_ft, discharge_cfs, qualifiers')
-      .eq('gauge_station_id', id)
-      .order('reading_timestamp', { ascending: false })
-      .limit(1);
-    if (data?.[0]) historyRows.push(data[0] as RawReadingRow);
+  // Curated stations only: running this over the national tier would seek for
+  // rows that cannot exist — gauge_readings holds only curated history.
+  //
+  // One RPC round trip where this used to make one PER STATION. The fallback
+  // keeps that loop rather than borrowing loadCurrentReadings' bounded scan,
+  // and the difference matters here: this is the ALERT engine's input, where a
+  // station the scan did not reach is counted as `no_reading` and silently
+  // declines to alert. A round trip each is slow; being wrong about whether a
+  // river is in flood is not a trade this path gets to make.
+  let historyRows = await fetchCuratedLatestViaRpc(supabase, curated);
+  if (historyRows === null) {
+    historyRows = [];
+    for (const id of curated) {
+      const { data } = await supabase
+        .from('gauge_readings')
+        .select('gauge_station_id, reading_timestamp, gauge_height_ft, discharge_cfs, qualifiers')
+        .eq('gauge_station_id', id)
+        .order('reading_timestamp', { ascending: false })
+        .limit(1);
+      if (data?.[0]) historyRows.push(data[0] as RawReadingRow);
+    }
   }
 
   return mergeReadingRows(latestRows, historyRows, providerByStation);
 }
 
 /**
- * How many curated history rows one read-path merge will look at.
+ * How many curated history rows one read-path merge will look at, when it has
+ * to fall back to scanning for them.
+ *
+ * Only reached on a database without `get_latest_curated_readings` — the
+ * function seeks the same rows in a fraction of the work, and is what these
+ * paths use in practice. Kept because the website deploys ahead of its
+ * migrations, and this endpoint predates the function by years.
  *
  * PostgREST caps a page at 1,000 regardless, and this is a request somebody is
- * waiting on rather than a cron, so the history query is a SINGLE ordered query
+ * waiting on rather than a cron, so the fallback is a SINGLE ordered query
  * instead of loadLatestReadings' one-per-station loop. Newest-first across the
  * whole curated set means the first row seen for a station is that station's
  * newest, and the curated tier writes hourly (15 minutes on a rising river), so
@@ -222,6 +272,17 @@ export async function loadCurrentReadings(
       // gauge_readings holds ONLY curated history, so asking for the national
       // tier here would scan for rows that cannot exist.
       if (curated.length === 0) return;
+
+      const viaRpc = await fetchCuratedLatestViaRpc(supabase, curated);
+      if (viaRpc !== null) {
+        historyRows.push(...viaRpc);
+        return;
+      }
+
+      // Pre-migration fallback: newest-first across the whole curated set, so
+      // the first row seen for a station is that station's newest. Bounded
+      // rather than exhaustive because somebody is waiting on this — see
+      // HISTORY_SCAN, and the degradation note on this function.
       for (const ids of chunk(curated)) {
         const { data } = await supabase
           .from('gauge_readings')
