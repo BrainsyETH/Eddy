@@ -135,7 +135,7 @@ export function CampgroundAvailability({
 }) {
   const { colors, isDark } = useTheme();
 
-  const hero = pending ? null : availabilityHero(availability, name);
+  const hero = pending ? null : availabilityHero(availability, today, name);
   if (!pending && !hero) return null;
 
   // The same preference AccessGaugeReading applies: the flow when there is one,

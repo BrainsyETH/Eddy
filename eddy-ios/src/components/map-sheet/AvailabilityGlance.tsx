@@ -44,7 +44,7 @@ export function AvailabilityGlance({
   // Absent, never "unknown". Most campgrounds are not linked to a booking
   // system Eddy can read and every private outfitter has none at all, so a
   // blank slot has to read as "not applicable" rather than as a broken app.
-  const hero = availabilityHero(availability, name);
+  const hero = availabilityHero(availability, today, name);
   if (!hero) return null;
 
   const bars = showStrip ? nightBars(availability, today) : [];

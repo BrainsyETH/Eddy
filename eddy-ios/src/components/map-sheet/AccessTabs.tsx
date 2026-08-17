@@ -682,18 +682,24 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
   // "nothing is known about these nights" belongs.
   const offered = useMemo(() => nights.filter((night) => night.mark !== 'none'), [nights]);
 
-  // Default to the weekend the peek's card describes — or, when that night was
-  // not measured, the first measured night AFTER it rather than the first
-  // measured night at all. See defaultNight: falling back to the earliest would
-  // walk the reader back to tonight while the peek above still described a
-  // weekend three days out.
+  // ── The night the card above is describing, which is now TONIGHT ─────────
+  //
+  // This asked for `availability.window.startDate` — the coming Friday — back
+  // when the peek's hero was folded from that same weekend. The hero speaks for
+  // tonight now (see availabilityHero), so opening this tab on Friday would put
+  // "5 open · Tonight" three points above a chip row scrolled to a night three
+  // days out, which is the disagreement the shared derivation exists to make
+  // impossible.
+  //
+  // Still THROUGH defaultNight rather than straight to `today`: tonight may not
+  // have been measured, and that function walks forward to the first night that
+  // was — never backwards past the reader's own day.
   //
   // It is NOT the first chip, which is what makes the status line and
   // `scrollToActive` below load-bearing rather than polish: a default the
   // reader cannot see is indistinguishable from no default at all.
   const [selected, setSelected] = useState<string | null>(null);
-  const selectedDate =
-    selected ?? defaultNight(nights, availability?.window.startDate) ?? today;
+  const selectedDate = selected ?? defaultNight(nights, today) ?? today;
   const selectedNight = useMemo(
     () => nights.find((night) => night.date === selectedDate) ?? null,
     [nights, selectedDate],
