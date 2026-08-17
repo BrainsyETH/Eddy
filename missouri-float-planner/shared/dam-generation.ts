@@ -316,6 +316,35 @@ export const RACK_ESTIMATE_NOTE =
   'Estimated from flow through the turbines. The actual units running may differ.';
 
 /**
+ * The same caveat, folded onto the citation line.
+ *
+ * ── Why the long form lost its own line ───────────────────────────────────
+ *
+ * Two sentences of grey subtext sat under a bar that already carries a hedged
+ * headline — "About 6 of 8 generators' worth" — and the line above them was
+ * itself a citation in the same grey. Three deferential lines under one figure
+ * reads as fine print, and fine print is skipped: the caveat was least likely
+ * to be read precisely because it was written at length.
+ *
+ * The word that does the work is "estimated", and it now rides beside the
+ * number it qualifies rather than beneath it. What it costs is the explicit
+ * "which units may differ" — the headline's own "About 6 of 8 … worth" is what
+ * carries that now, and it is the phrasing a reader actually looks at.
+ */
+export const RACK_ESTIMATE_SHORT = 'estimated from flow';
+
+/**
+ * The citation with the estimate hedge on it — one line for both facts.
+ *
+ * `Full generation is 26,400 cfs (SWPA) · estimated from flow`. The publisher
+ * stays: the percentage is only checkable because the denominator is published,
+ * and a figure with no source is one Eddy is asking to be taken on faith.
+ */
+export function generationReferenceLine(ref: GenerationReference): string {
+  return `${generationReferenceCitation(ref)} · ${RACK_ESTIMATE_SHORT}`;
+}
+
+/**
  * What the percentage is a percentage OF, short enough to sit beside it.
  *
  * Never "31% power" — see the header. But "31% of published full-generation
