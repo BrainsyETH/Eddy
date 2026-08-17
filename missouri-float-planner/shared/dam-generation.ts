@@ -1239,6 +1239,38 @@ export function patternRows(
   return [...past, ...future];
 }
 
+/**
+ * What span the strip covers, in words — "The past 7 days and the next 2".
+ *
+ * ── Why the strip needs to say this at all ────────────────────────────────
+ * The rows are labelled "Wed", "Thu", "Today", which names each row and never
+ * the whole. A reader arriving at a grid of bars has to count rows to find out
+ * whether they are looking at a week or a fortnight, and count columns to work
+ * out that a column is an hour — so the picture reads as "some generation
+ * happened at some point", which is not what it is for. The hour axis under the
+ * rows answers the column; this answers the row.
+ *
+ * Counted from the rows themselves rather than from the constants that built
+ * them, because a dam with a short history has fewer rows than the window asks
+ * for, and a sentence that says "the past 7 days" over four rows of bars is the
+ * kind of small lie that costs a reader their trust in the rest of the card.
+ *
+ * Today is named rather than counted: it is the row the marker is on and the
+ * only one that is half record and half plan.
+ */
+export function patternSpanLabel(rows: PatternRow[]): string | null {
+  if (rows.length === 0) return null;
+
+  const behind = rows.filter((row) => !row.today && !row.scheduled).length;
+  const ahead = rows.filter((row) => !row.today && row.scheduled).length;
+  const day = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
+
+  if (behind && ahead) return `The past ${day(behind)}, today, and the next ${day(ahead)}`;
+  if (behind) return `The past ${day(behind)} and today`;
+  if (ahead) return `Today and the next ${day(ahead)}`;
+  return 'Today';
+}
+
 /** "Wed", or "Today" for the row the marker is on. Central, never the viewer's. */
 export function patternRowLabel(dayKey: string, today: boolean): string {
   if (today) return 'Today';
