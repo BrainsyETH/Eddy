@@ -79,15 +79,44 @@ export async function getAccessPointDetail(
     return { ok: false, reason: 'invalid-coords' };
   }
 
-  // Get nearby access points (upstream and downstream)
-  const { data: allAccessPoints } = await supabase
-    .from('access_points')
-    .select('id, name, slug, river_mile_downstream')
-    .eq('river_id', river.id)
-    .eq('approved', true)
-    .order('river_mile_downstream', { ascending: true });
-
   const currentMile = ap.river_mile_downstream != null ? parseFloat(String(ap.river_mile_downstream)) : 0;
+
+  // ── THREE INDEPENDENT READS, ONE ROUND TRIP'S WORTH OF WAITING ───────────
+  //
+  // These ran one after another, and each is answerable the moment the access
+  // point row is in hand: the neighbour list needs `river.id`, the gauge status
+  // needs `river.id` and the mile, the service links need `ap.id`. Nothing
+  // among them reads another's answer.
+  //
+  // The waiting was not theoretical. This endpoint is what the map sheet's peek
+  // is waiting on — the reading in the corner of a campground card, the water
+  // line on a put-in — and measured against production it took 2.2–2.9 seconds
+  // at the origin, of which this stretch is the largest serial run: up to five
+  // sequential Supabase round trips, since getGaugeStatus itself walks nearest
+  // gauge → primary gauge → latest reading. Vercel runs in iad1 and the
+  // database is in us-west-2, so every one of them is a continent's width of
+  // latency that nothing was overlapping.
+  //
+  // Availability stays out of this batch deliberately: it is gated on
+  // `campgroundish`, which is not answerable until `linked` lands, and three
+  // quarters of pins are not campgrounds. Paying for it on every put-in to save
+  // a round trip on some would be the trade run backwards.
+  const [neighbourResult, gaugeStatus, linked] = await Promise.all([
+    supabase
+      .from('access_points')
+      .select('id, name, slug, river_mile_downstream')
+      .eq('river_id', river.id)
+      .eq('approved', true)
+      .order('river_mile_downstream', { ascending: true }),
+    // Uses the access point's own mile, so the reach's gauge is chosen rather
+    // than the river's headline one.
+    getGaugeStatus(supabase, river.id, currentMile),
+    // Read unconditionally and first — see the long note below on why the gate
+    // cannot come before the query it gates.
+    loadLinkedServices(supabase, ap.id),
+  ]);
+
+  const allAccessPoints = neighbourResult.data;
 
   const nearbyAccessPoints: NearbyAccessPoint[] = [];
 
@@ -152,9 +181,6 @@ export async function getAccessPointDetail(
     }
   }
 
-  // Get gauge status for this river (using access point's river mile for segment-aware selection)
-  const gaugeStatus = await getGaugeStatus(supabase, river.id, currentMile);
-
   // ── Availability, by whichever name this place goes under ────────────────
   //
   // Read once and shared by the nested copy and the sibling below.
@@ -186,7 +212,9 @@ export async function getAccessPointDetail(
   // So the links are read FIRST and unconditionally: one indexed lookup by
   // access_point_id, on a page that already makes several. Gating the gate on
   // the query it gates is a circle, and the query is cheaper than the circle.
-  const linked = await loadLinkedServices(supabase, ap.id);
+  //
+  // `linked` is now read in the batch above rather than here, which is the same
+  // "first and unconditionally" one round trip earlier.
 
   const campgroundish =
     ap.nps_campground_id != null ||
