@@ -396,6 +396,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               displayUnit={effectiveUnit}
               chartClassName="h-48 md:h-56"
               showTypical
+              showProvenance
             />
           </div>
 

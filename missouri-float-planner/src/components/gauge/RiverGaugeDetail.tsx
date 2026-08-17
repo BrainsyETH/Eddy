@@ -508,6 +508,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               displayUnit={effectiveUnit}
               chartClassName="h-48 md:h-56"
               showTypical
+              showProvenance
             />
           </div>
 

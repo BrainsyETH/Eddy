@@ -113,6 +113,71 @@ export function splitAtGaps<T extends { t: number }>(points: T[], multiple = 4):
   return segments;
 }
 
+export interface ChartSegments<T> {
+  /** Two or more points in time order: stroke each as its own path. */
+  lines: T[][];
+  /** A reading with no neighbour inside the cadence: mark each as a dot. */
+  isolated: T[];
+}
+
+/**
+ * splitAtGaps(), sorted into the two things a renderer can draw.
+ *
+ * BOTH RENDERERS USED TO DISCARD the one-point segments — each had its own
+ * `filter((segment) => segment.length > 1)`, on the true observation that a lone
+ * point is not a line. It is not nothing either: a station that reported once
+ * between two outages had that reading drawn as empty space. That is the same
+ * class of error as plotting a null at mid-frame, in the other direction, and
+ * quieter — the web chart hid it for the newest reading only by coincidence,
+ * because the current-value dot is drawn separately from the path.
+ *
+ * So the split hands back both halves and neither renderer gets to decide on its
+ * own that a real number is unrenderable.
+ */
+export function chartSegments<T extends { t: number }>(
+  points: T[],
+  multiple = 4,
+): ChartSegments<T> {
+  const lines: T[][] = [];
+  const isolated: T[] = [];
+  for (const segment of splitAtGaps(points, multiple)) {
+    if (segment.length > 1) lines.push(segment);
+    else if (segment.length === 1) isolated.push(segment[0]);
+  }
+  return { lines, isolated };
+}
+
+/**
+ * The USGS codes that actually turn up on Ozark gauges.
+ *
+ * HERE rather than in either chart because both need it and neither owns it: the
+ * web chart carried this table alone, so the app's scrub read out a provisional
+ * reading with nothing saying it was provisional. A qualifier is the gauge
+ * telling you how much to trust the number, which is not an optional decoration
+ * on one platform.
+ */
+const QUALIFIER_COPY: Record<string, string> = {
+  P: 'provisional',
+  e: 'estimated',
+  E: 'estimated',
+  Ice: 'ice affected',
+  Eqp: 'equipment malfunction',
+  Bkw: 'backwater affected',
+  Dis: 'discontinued',
+  Mnt: 'maintenance',
+};
+
+/** Plain English for the codes we recognise, or null when none are known. */
+export function qualifierText(codes: string[]): string | null {
+  if (!codes.length) return null;
+  const seen = new Set<string>();
+  for (const code of codes) {
+    const copy = QUALIFIER_COPY[code];
+    if (copy) seen.add(copy);
+  }
+  return seen.size ? [...seen].join(', ') : null;
+}
+
 /**
  * Downsample to at most `maxPoints`, keeping both endpoints and the high and
  * low of every time bucket.
@@ -269,6 +334,40 @@ export function timeTicks(t0: number, t1: number, targetCount = 5): ChartTick[] 
     const position = index / (count - 1);
     return { value: t0 + span * position, position };
   });
+}
+
+/**
+ * The instant one step away from `fromTime`, for a scrub driven by keys rather
+ * than by a pointer.
+ *
+ * STEPS BY READING, NOT BY DISTANCE. A 14-day window is ~340 readings across
+ * ~700px, so a fixed pixel or millisecond step skips some and lands twice on
+ * others, and the reader cannot tell which. `times` is every selectable instant
+ * — both series merged, ascending — so one press is one reading, and every
+ * landing is on a number that exists.
+ *
+ * Clamps at both ends rather than wrapping: a hydrograph has a first reading and
+ * a newest one, and arriving back at last week from the right-hand edge would be
+ * a claim about time.
+ *
+ * Lives in the model because "which reading is next" is the same question
+ * nearestChartPoint answers, and because the app will need it the day its scrub
+ * grows an accessibility action.
+ */
+export function stepScrubTime(times: number[], fromTime: number, step: number): number | null {
+  if (!times.length) return null;
+
+  let index = 0;
+  let nearest = Infinity;
+  for (let i = 0; i < times.length; i += 1) {
+    const distance = Math.abs(times[i] - fromTime);
+    if (distance < nearest) {
+      nearest = distance;
+      index = i;
+    }
+  }
+
+  return times[Math.min(times.length - 1, Math.max(0, index + step))];
 }
 
 /** Binary search for the reading under a scrub. Points must be time-sorted. */
