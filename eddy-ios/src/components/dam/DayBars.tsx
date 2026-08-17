@@ -426,9 +426,18 @@ export function nowSentence(
   const hour = day.hours.find((h) => h.hourEnding === hourEndingNow(hoursElapsed));
   if (!hour) return null;
   const generating = hour.megawatts > 0;
+  // ── SHORT, BECAUSE IT IS NO LONGER THE ONLY THING SAYING THIS ──────────
+  // This read "Generation scheduled this hour", which is a whole sentence in a
+  // collapsed row header that now sits directly beneath a NEXT SCHEDULED
+  // CHANGE panel naming the hour it stops. The row's job is narrower: what the
+  // plan says about the hour running right now.
+  //
+  // "Scheduled" stays in the words. Every string on this row reads a PLAN, and
+  // a bare "On now" beside an observed turbine reading three inches above is
+  // exactly the confusion the two-clause rule exists to prevent.
   return {
     generating,
-    label: generating ? 'Generation scheduled this hour' : 'No generation scheduled this hour',
+    label: generating ? 'Scheduled on now' : 'Scheduled off now',
   };
 }
 

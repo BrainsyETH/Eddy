@@ -123,10 +123,29 @@ function DayRow({
 export function GenerationSchedule({
   schedule,
   reference,
+  embedded = false,
+  nextChange = null,
 }: {
   schedule: DamScheduleDay[];
   /** SWPA's published pair, so every day is drawn on the project's scale. */
   reference?: GenerationReference | null;
+  /**
+   * Drawn inside the merged Generation card — no chrome, no title, no footer.
+   *
+   * The card owns all three, because this section and the observed hero above
+   * it were each carrying their own copy of the SWPA attribution, the
+   * freshness line and the schedules-change warning. Said twice, three inches
+   * apart, about the same publisher.
+   */
+  embedded?: boolean;
+  /**
+   * The next-change sentence, moved down from the hero.
+   *
+   * It describes SWPA's PLAN, so it belongs over the plan rather than under an
+   * observed turbine reading — which is where it read as a second, competing
+   * statement of the same fact. Null keeps the section as it was.
+   */
+  nextChange?: { sentence: string; provenance: string | null } | null;
 }) {
   const { colors, elevation } = useTheme();
 
@@ -138,9 +157,38 @@ export function GenerationSchedule({
   const oldestRetrieval = oldestRetrievedAt(schedule);
   const retrieval = retrievalSentence(oldestRetrieval);
 
-  return (
-    <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-      <Text style={[styles.title, { color: colors.text }]}>Generation schedule</Text>
+  const body = (
+    <>
+      {/* ── NEXT SCHEDULED CHANGE, over the schedule it is about ───────────
+          "NEXT CHANGE" sat in the observed hero, one panel above a schedule
+          section describing the same plan — so the screen answered "when does
+          it change" twice, in two voices, and the reader had to work out
+          whether they disagreed. SCHEDULED is in the label now for the same
+          reason it is in the peak heading: the hero states what the turbines
+          ARE doing, and this states what SWPA said they WOULD. */}
+      {nextChange ? (
+        <View
+          style={[
+            styles.nextPanel,
+            { backgroundColor: colors.cardRaised, borderColor: colors.interactive },
+          ]}
+        >
+          <Text style={[styles.blockLabel, { color: colors.interactive }]}>
+            NEXT SCHEDULED CHANGE
+          </Text>
+          <Text style={[styles.nextSentence, { color: colors.text }]}>{nextChange.sentence}</Text>
+          {/* The explanatory paragraph that used to sit here — whose clock this
+              is, what it means downstream, how much to trust it — is stated
+              ONCE now, in the card's footer, under everything it qualifies. */}
+          {nextChange.provenance ? (
+            <Text style={[styles.stale, { color: colors.accent }]}>{nextChange.provenance}</Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      {embedded ? null : (
+        <Text style={[styles.title, { color: colors.text }]}>Generation schedule</Text>
+      )}
       {/* ── Why "hour ending" is no longer in the opening line ───────────────
           It is SWPA's internal convention and the reader never sees it: the
           bars and every window label are already converted to the hour the
@@ -148,9 +196,11 @@ export function GenerationSchedule({
           valuable line on the card teaching a term that does not appear on it.
           The attribution stays — the screen's credibility rests on naming the
           publisher. */}
-      <Text style={[styles.intro, { color: colors.textMuted }]}>
-        Posted each afternoon by Southwestern Power Administration.
-      </Text>
+      {embedded ? null : (
+        <Text style={[styles.intro, { color: colors.textMuted }]}>
+          Posted each afternoon by Southwestern Power Administration.
+        </Text>
+      )}
 
       <View style={styles.days}>
         {schedule.map((day, i) => (
@@ -164,7 +214,9 @@ export function GenerationSchedule({
       </View>
 
       {/* The "subject to change" disclaimer travels with the data wherever it
-          appears, and it is the last WARNING on the card. */}
+          appears, and it is the last WARNING on the card. Inside the merged
+          card the card's own footer carries it, once, for both halves. */}
+      {embedded ? null : (
       <View style={[styles.footer, { borderTopColor: colors.border }]}>
         <Text style={[styles.footerText, { color: colors.textSubtle }]}>
           Schedules can change without notice — power demand, transmission
@@ -172,6 +224,7 @@ export function GenerationSchedule({
           anchor below a dam without checking the horn and posted warnings.
         </Text>
       </View>
+      )}
 
       {/* HOW FRESH THIS IS, on its own line and at the foot of the card.
           It used to be the opening clause of the paragraph above, set in the
@@ -184,7 +237,7 @@ export function GenerationSchedule({
           kind, so the subject stays "Eddy last checked". Unknown renders
           nothing at all. Stale flips it to the error colour, because a schedule
           somebody may wade against should say when it has stopped arriving. */}
-      {retrieval ? (
+      {embedded || !retrieval ? null : (
         <Text
           style={[
             styles.retrieval,
@@ -193,9 +246,12 @@ export function GenerationSchedule({
         >
           {retrieval}
         </Text>
-      ) : null}
-    </View>
+      )}
+    </>
   );
+
+  if (embedded) return body;
+  return <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>{body}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -203,6 +259,12 @@ const styles = StyleSheet.create({
   title: { ...t.lg, fontFamily: fonts.display },
   intro: { ...t.sm, marginTop: 2 },
   days: { marginTop: 8 },
+  // Lifted from DamGenerationHero with the panel itself, so the block reads
+  // the same after the move as it did before it.
+  nextPanel: { borderRadius: 10, borderLeftWidth: 3, padding: 12, marginBottom: 12 },
+  blockLabel: { ...t.xs, fontFamily: fonts.semibold, letterSpacing: 0.6 },
+  nextSentence: { ...t.base, fontFamily: fonts.heading, marginTop: 3 },
+  stale: { ...t.xs, fontFamily: fonts.medium, marginTop: 4 },
   trailing: { alignItems: 'flex-end', gap: 2 },
   nowLabel: { ...t.xs, fontFamily: fonts.semibold },
   hoursCount: { ...t.xs },
