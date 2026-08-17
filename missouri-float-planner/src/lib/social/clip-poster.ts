@@ -4,6 +4,7 @@
 
 import { getAdapter } from './adapters';
 import { generateCaption } from './caption-generator';
+import { resolveModels, type ResolvedModel } from '@/lib/ai/resolve-models';
 import type { SocialPlatform, HookStyle } from './types';
 
 /** Subset of the brand_check_result JSONB (written by brand-check-clip.yml) we read here. */
@@ -68,6 +69,7 @@ async function composeClipCaption(
   riverName: string | null,
   creator: string | null,
   sceneDescription: string | null,
+  model: ResolvedModel,
 ): Promise<{ caption: string; hashtags: string[] }> {
   const fallback = buildClipCaption(riverName, creator);
   if (!process.env.ANTHROPIC_API_KEY) return fallback;
@@ -76,6 +78,7 @@ async function composeClipCaption(
     const hasRiver = !!(riverName && riverName.trim());
     const hookStyle = HOOK_STYLES[Math.floor(Math.random() * HOOK_STYLES.length)];
     const generated = await generateCaption({
+      model,
       contentType: 'engagement',
       hookStyle,
       // Tier 2 (no known Eddy river) → frame it as general Ozark paddling.
@@ -126,7 +129,15 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
     riverName = river?.name || clip.river_slug;
   }
   const sceneDescription = clip.brand_check_result?.scene_description?.trim() || null;
-  const { caption, hashtags } = await composeClipCaption(riverName, clip.source_creator, sceneDescription);
+  // One caption serves every platform below, so the model is resolved once here
+  // rather than inside the per-platform loop.
+  const { social_caption: captionModel } = await resolveModels();
+  const { caption, hashtags } = await composeClipCaption(
+    riverName,
+    clip.source_creator,
+    sceneDescription,
+    captionModel,
+  );
 
   const results: ClipPostResult['results'] = [];
   const postedRowIds: string[] = [];

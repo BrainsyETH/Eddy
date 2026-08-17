@@ -5,6 +5,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUpdateTargetsFromDb } from '@/lib/eddy/update-targets';
 import { generateEddyUpdate, usageColumns } from '@/lib/eddy/generate-update';
+import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 /** How long to wait before allowing another event-driven regen for the same river */
 const COOLDOWN_HOURS = 2;
@@ -29,11 +30,14 @@ export type TriggerReason = 'condition_change' | 'rapid_change';
  *
  * @param riverSlug - The river to regenerate updates for
  * @param triggerReason - Why this regeneration was triggered (for logging/monitoring)
+ * @param model - Resolved by the caller, not looked up here, so an event-driven
+ *   regen provably runs the same model as the pass that triggered it
  * @returns Number of updates generated, or 0 if throttled/skipped
  */
 export async function regenerateEddyForRiver(
   riverSlug: string,
   triggerReason: TriggerReason,
+  model: ResolvedModel,
 ): Promise<number> {
   const supabase = createAdminClient();
 
@@ -94,7 +98,7 @@ export async function regenerateEddyForRiver(
 
   for (const target of riverTargets) {
     try {
-      const update = await generateEddyUpdate(target);
+      const update = await generateEddyUpdate(target, model);
       if (!update) continue;
 
       const { error: insertError } = await supabase.from('eddy_updates').insert({

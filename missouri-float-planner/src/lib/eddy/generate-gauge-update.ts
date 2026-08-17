@@ -22,8 +22,10 @@ import { toNum } from '@/lib/utils/num';
 import { getCoordinates } from '@/lib/api-utils';
 import { fetchForecast, getWeatherPointForRiver, type ForecastData } from '@/lib/weather/openweather';
 import type { RiverContext } from '@/lib/rivers/context';
+import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
-const HAIKU_MODEL = 'claude-haiku-4-5-20251001';
+// The model is resolved once per pass from llm_config and threaded in, so a
+// switch cannot split one run across two models. See src/lib/ai/resolve-models.ts.
 const STALE_READING_MS = 2 * 60 * 60 * 1000;
 
 export interface SecondaryGaugeTarget {
@@ -57,8 +59,10 @@ export interface GeneratedGaugeUpdate {
   summaryText: string | null;
   eddyRead: string | null;
   sourcesUsed: string[];
-  modelUsed: string;
-  /** Token usage for this generation (null if the response had none). */
+  // No `modelUsed` here. It was set but never persisted — both insert sites
+  // spread usageColumns(update.usage), which sources model_used from
+  // usage.modelUsed. One field, one writer.
+  /** Token usage + model for this generation (null if the response had none). */
   usage: UsageStats | null;
 }
 
@@ -228,10 +232,16 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
 }
 
 /**
- * Generates a single per-gauge Eddy update via Haiku.
+ * Generates a single per-gauge Eddy update.
  * Returns null if a fatal error occurs (caller should treat as skip).
+ *
+ * `model` is resolved once per pass by the caller rather than looked up here,
+ * so every row a pass writes provably shares one model.
  */
-export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise<GeneratedGaugeUpdate | null> {
+export async function generateGaugeUpdate(
+  target: SecondaryGaugeTarget,
+  model: ResolvedModel,
+): Promise<GeneratedGaugeUpdate | null> {
   const sourcesUsed: string[] = [];
   const supabase = createAdminClient();
 
@@ -307,8 +317,11 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
 
   try {
     const message = await client.messages.create({
-      model: HAIKU_MODEL,
-      max_tokens: 600,
+      model: model.id,
+      max_tokens: model.maxTokens,
+      // Omitted entirely unless the model needs it. Sonnet 5 thinks by default
+      // and would spend max_tokens doing it; Haiku 4.5 and Sonnet 4.6 do not.
+      ...(model.thinking ? { thinking: model.thinking } : {}),
       messages: [{ role: 'user', content: prompt }],
       system: GAUGE_SYSTEM_PROMPT,
     });
@@ -316,7 +329,7 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
     const textBlock = message.content.find((b) => b.type === 'text');
     const rawText = textBlock?.text?.trim().replace(/—/g, ',') ?? null;
     if (!rawText) {
-      console.error(`[GaugeUpdates] Empty Haiku response for ${target.usgsSiteId}`);
+      console.error(`[GaugeUpdates] Empty ${model.id} response for ${target.usgsSiteId}`);
       return null;
     }
 
@@ -333,11 +346,10 @@ export async function generateGaugeUpdate(target: SecondaryGaugeTarget): Promise
       summaryText: summaryText ? stripEddyMarkers(summaryText) : null,
       eddyRead: eddyRead ? stripEddyMarkers(eddyRead) : null,
       sourcesUsed,
-      modelUsed: HAIKU_MODEL,
-      usage: extractUsage(HAIKU_MODEL, message.usage),
+      usage: extractUsage(model.id, message.usage),
     };
   } catch (e) {
-    console.error(`[GaugeUpdates] Haiku call failed for ${target.usgsSiteId}:`, e);
+    console.error(`[GaugeUpdates] ${model.id} call failed for ${target.usgsSiteId}:`, e);
     return null;
   }
 }
