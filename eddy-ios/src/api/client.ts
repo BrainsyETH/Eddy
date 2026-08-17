@@ -1723,20 +1723,27 @@ export async function unregisterDeviceToken(token: string, expoPushToken: string
 /**
  * Every USACE project Eddy tracks, with its current state and today's schedule.
  *
- * Returns [] on failure rather than throwing, matching fetchHazards. A map
- * layer that does not draw is an acceptable degradation; a thrown error here
- * would take down the map for a layer the user may not even have enabled.
+ * ── IT THROWS NOW, AND THAT IS THE FIX ───────────────────────────────────
  *
- * Ten dams, one request. Callers that need a specific dam's tailwater link or
- * its pin can filter this rather than asking per dam.
+ * It used to answer `[]` on failure, reasoning that a layer which does not draw
+ * is an acceptable degradation. Two things made that wrong. The route reads
+ * through to CWMS and SWPA live, so a cold CDN entry costs five to fifty
+ * seconds against this client's fifteen-second deadline — a timeout is the
+ * ORDINARY outcome, not an exceptional one. And the caller's request latch was
+ * set before the fetch and never reset, so that one timeout emptied the Lakes &
+ * dams layer for the rest of the screen's life, with `[]` meaning both "the
+ * Corps publishes no dams" and "we gave up waiting".
+ *
+ * Those are different facts and the caller now has to tell them apart: the map
+ * draws its pins from the shipped catalog either way (src/lib/damCatalog.ts) and
+ * retries a failure rather than adopting it as an answer.
+ *
+ * Two dozen dams, one request. Callers that need a specific dam's tailwater link
+ * can filter this rather than asking per dam.
  */
 export async function fetchDams(signal?: AbortSignal): Promise<DamSnapshot[]> {
-  try {
-    const data = await get<DamsResponse>('/api/dams', signal);
-    return data.dams ?? [];
-  } catch {
-    return [];
-  }
+  const data = await get<DamsResponse>('/api/dams', signal);
+  return data.dams ?? [];
 }
 
 /**
