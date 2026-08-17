@@ -89,6 +89,17 @@ export interface NightBar {
   isWeekend: boolean;
   sitesOpen: number;
   sitesReservable: number;
+  /**
+   * The night's own status, or null when the night was never measured.
+   *
+   * `mark` cannot carry this: `dash` is drawn for a closed night AND for one
+   * whose inventory has not been released, because both are "nothing here to
+   * fill" — but they are opposite instructions to a reader ("go somewhere
+   * else" versus "come back when booking opens"), which is the distinction
+   * this module's header opens with. The SHAPE folds them; the words must not,
+   * so the words get the raw status.
+   */
+  status: CampsiteNightSummary['status'] | null;
 }
 
 /** Day of week for a `YYYY-MM-DD`, 0 = Sunday. Parsed as UTC so it cannot drift. */
@@ -187,6 +198,7 @@ export function nightBars(
       isWeekend: day === 5 || day === 6,
       sitesOpen: night?.sitesOpen ?? 0,
       sitesReservable: night?.sitesReservable ?? 0,
+      status: night?.status ?? null,
     });
   }
 
@@ -206,23 +218,125 @@ export interface AvailabilityHero {
 }
 
 /**
- * The hero, derived from the same fields campsiteAvailabilityLine reads.
+ * The hero: ONE NIGHT, the one the reader is standing in.
  *
- * Deliberately NOT a second copy of that sentence. The line is one string for
- * places that have room for one string; this splits the same facts so the count
- * can be set at display size. Both must agree, which is why both read
- * `sitesOpen`/`sitesReservable`/`status` and neither recomputes anything.
+ * ── Why this stopped describing the weekend ───────────────────────────────
  *
- * The count describes `window` — the weekend — and never the fortnight. The
- * server folds it that way for a reason: a minimum taken across fourteen nights
- * reports a campground with forty free sites on twelve of them as fully booked.
+ * It used to read `status`/`sitesOpen` straight off the summary, and those
+ * fields describe `window` — the coming weekend, folded server-side by
+ * summarizeWindow, which takes the MINIMUM across the nights of the stay
+ * because "8 open Fri–Sun" has to mean eight you can book for both nights.
+ *
+ * That fold is right for a stay and wrong for a peek. Cedargrove on a Monday:
+ * one site free Friday, none Saturday, five Sunday — a two-night minimum of
+ * zero, so the card led with "Fully booked" over a strip whose bars were
+ * mostly green, including tonight's. Every one of those numbers was true and
+ * the headline still told a reader to give up on a campground with room in it
+ * for the next four nights.
+ *
+ * So the hero now speaks for a single night and NAMES it. A single night has
+ * no minimum to take, which is the whole of the fix: the number over the strip
+ * is the number in the column under it, and the two can no longer disagree.
+ *
+ * ── Tonight, or the next night Eddy measured ─────────────────────────────
+ *
+ * Tonight is the question a map pin is being asked — somebody is looking at
+ * where they are, now. When tonight was not measured the anchor walks FORWARD
+ * to the first night that was, the same direction defaultNight walks and for
+ * the same reason: an answer about a night already behind the reader is not an
+ * answer. The caption always says which night it is, so the walk is never
+ * silent.
+ *
+ * ── The weekend fold is still the fallback, not a rival ──────────────────
+ *
+ * A facility with fewer than seven measured nights is sent `nights: []` on
+ * purpose (see MIN_STRIP_NIGHTS in the server's camping/read.ts), and there is
+ * no night to anchor on. That case keeps the old wording verbatim, weekend
+ * label and all — see `windowHero`. It is the only path that still folds.
+ *
+ * The one-line form on the river screen (`campsiteAvailabilityLine`) and the
+ * website's chip still describe the weekend, and that is not a drift: those
+ * surfaces are answering "can I book the weekend", this one is answering "what
+ * is this pin doing tonight". Both name their window in the words, which is
+ * what keeps two true sentences from reading as a contradiction.
  */
 export function availabilityHero(
   availability: CampsiteAvailabilitySummary | null | undefined,
+  today: string,
   name?: string,
 ): AvailabilityHero | null {
   if (!availability) return null;
 
+  const bars = nightBars(availability, today);
+  // bars[0] IS tonight, so a hit at 0 is the common case and the walk forward
+  // costs nothing when it is not needed.
+  const index = bars.findIndex((bar) => bar.mark !== 'none');
+  if (index === -1) return windowHero(availability, name);
+
+  const bar = bars[index];
+  const when = nightLabel(bar.date, index);
+
+  // The next night with room. A booked-out tonight that points at Thursday is
+  // still an answer; one that only says "no" sends the reader back to the map
+  // to tap the same pin again on a different day.
+  const nextIndex = bars.findIndex((b, i) => i > index && b.mark === 'bar');
+  const withNext = (caption: string) =>
+    nextIndex === -1 ? caption : `${caption} · next open ${nightLabel(bars[nextIndex].date, nextIndex)}`;
+
+  if (bar.mark === 'bar') {
+    if (availability.kind === 'backcountry_district') {
+      return {
+        count: bar.sitesOpen,
+        // A district's number means nothing without the district — the permit
+        // covers gravel bars twenty river miles apart — so the name rides in
+        // the caption where there is one. The night leads it: a caption is one
+        // line and truncates from the right, and the day is the part that must
+        // survive.
+        headline: bar.sitesOpen === 1 ? 'backcountry site' : 'backcountry sites',
+        detail: null,
+        caption: name ? `${when} · ${name}` : when,
+      };
+    }
+    return {
+      count: bar.sitesOpen,
+      headline: 'open',
+      // This night's own denominator, not the window's. nightBars only marks
+      // 'bar' when both counts are above zero, so it is always real here.
+      detail: `of ${bar.sitesReservable} sites`,
+      caption: when,
+    };
+  }
+
+  if (bar.mark === 'empty') {
+    return { count: null, headline: 'Fully booked', detail: null, caption: withNext(when) };
+  }
+
+  // 'dash' — nothing here to fill, and WHY is the whole distinction. A reader
+  // who takes a seasonal closure for a booked-out night refreshes for a
+  // cancellation that is not coming, and one who takes an unreleased night for
+  // a closure drives somewhere else the day before it opens.
+  if (bar.status === 'not_yet_released') {
+    return { count: null, headline: 'Not yet bookable', detail: null, caption: withNext(when) };
+  }
+  // Shut for every night Eddy holds is a season, not a night. Said without a
+  // date because there is no date to give: the fortnight ends before it reopens.
+  if (bars.every((b) => b.mark === 'none' || b.status === 'closed')) {
+    return { count: null, headline: 'Closed for the season', detail: null, caption: '' };
+  }
+  return { count: null, headline: 'Closed', detail: null, caption: withNext(when) };
+}
+
+/**
+ * The old hero, kept for the one case that has no night to stand on.
+ *
+ * Verbatim in wording — this is what `campsiteAvailabilityLine` says, split
+ * into fields — because a facility below the strip floor is exactly the one
+ * whose card and whose river-screen line sit closest together.
+ */
+function windowHero(
+  availability: CampsiteAvailabilitySummary,
+  name?: string,
+): AvailabilityHero | null {
   const { status, sitesOpen, sitesReservable, window, kind } = availability;
 
   switch (status) {
@@ -264,7 +378,7 @@ export function availabilityVoiceOver(
   today: string,
   name?: string,
 ): string | null {
-  const hero = availabilityHero(availability, name);
+  const hero = availabilityHero(availability, today, name);
   if (!hero) return null;
 
   const headline =
@@ -309,6 +423,8 @@ export interface NightChoice {
    */
   mark: NightMark;
   isWeekend: boolean;
+  /** The night's own status, or null when it was not measured. See NightBar. */
+  status: NightBar['status'];
 }
 
 const MONTHS = [
@@ -346,15 +462,7 @@ export function nightChoices(
 
     return {
       date: bar.date,
-      // The first two nights are named rather than dated: somebody scanning for
-      // a bed tonight should not have to work out which weekday today is.
-      label:
-        index === 0
-          ? 'Tonight'
-          : index === 1
-            ? 'Tomorrow'
-            : // The month only earns its place when the chip crosses into one.
-              `${longWeekday(bar.date)} ${day === 1 || index === 2 ? `${MONTHS[month - 1]} ` : ''}${day}`,
+      label: nightLabel(bar.date, index),
       longLabel:
         index === 0
           ? 'Tonight'
@@ -365,8 +473,32 @@ export function nightChoices(
       total: bar.sitesReservable,
       mark: bar.mark,
       isWeekend: bar.isWeekend,
+      status: bar.status,
     };
   });
+}
+
+/**
+ * One night, named — `Tonight`, `Tomorrow`, `Sat Aug 8`, `Fri 21`.
+ *
+ * ONE definition, shared by the chips in the Camping tab and by the hero on
+ * the card above them, so the headline and the chip a reader taps to check it
+ * can never name the same night differently.
+ *
+ * The first two nights are named rather than dated: somebody scanning for a bed
+ * tonight should not have to work out which weekday today is.
+ */
+function nightLabel(date: string, index: number): string {
+  if (index === 0) return 'Tonight';
+  if (index === 1) return 'Tomorrow';
+
+  const month = Number(date.slice(5, 7));
+  const day = Number(date.slice(8, 10));
+  // The month earns its place on the first dated night — which has no named
+  // neighbour to take its bearing from — and wherever the run crosses into one.
+  const withMonth = day === 1 || index === 2 ? `${MONTHS[month - 1]} ` : '';
+
+  return `${longWeekday(date)} ${withMonth}${day}`;
 }
 
 /**
@@ -386,7 +518,13 @@ export function nightChoices(
  */
 export function nightPhrase(choice: NightChoice): string | null {
   if (choice.mark === 'none') return null;
-  if (choice.mark === 'dash') return 'Not offered this night';
+  if (choice.mark === 'dash') {
+    // The shape folds closed and unreleased together because both are "nothing
+    // here to fill"; the words must not, and the hero above says the same two
+    // things the same way. `not_yet_released` tells a reader to come back when
+    // booking opens, which "not offered" would have talked them out of.
+    return choice.status === 'not_yet_released' ? 'Not yet bookable' : 'Not offered this night';
+  }
   if (choice.mark === 'empty') return 'Fully booked';
   // `bar` is the only mark left, and nightBars only assigns it when BOTH counts
   // are above zero — so the denominator is always real here and needs no guard.

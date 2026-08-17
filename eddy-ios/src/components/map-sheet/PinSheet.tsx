@@ -445,6 +445,9 @@ function PinSheetHeader({
   // waiting forever. 'idle' is a pin with no detail route, which is answered
   // too: nothing is coming.
   const detailSettled = status === 'ready' || status === 'failed' || status === 'idle';
+  // Settled is not the same as answered. Both slots below draw a terminal line
+  // when nothing arrived, and the line has to say which kind of nothing it is.
+  const detailFailed = status === 'failed';
 
   const planAsTakeOut = canSetTakeOut;
   const performPlanAction = planAsTakeOut ? onSetTakeOut : onSetPutIn;
@@ -528,7 +531,16 @@ function PinSheetHeader({
               onOpenGauge={onOpenGauge}
               compact
               pending
-              pendingLabel="No gauge grades this stretch"
+              // ── A FAILED REQUEST IS NOT A FACT ABOUT THE RIVER ──────────
+              // "No gauge grades this stretch" is a claim about Eddy's data and
+              // may only be made from Eddy's data. The request that failed
+              // never said anything, and reporting silence as an answer is the
+              // same mistake the Levels tab was making one sheet over — there
+              // it told a station wearing its own verdict that it had never
+              // been rated. Same height either way, so the slot is unaffected.
+              pendingLabel={
+                detailFailed ? 'Conditions unavailable right now' : 'No gauge grades this stretch'
+              }
             />
           )}
         </GlanceSlot>
@@ -557,8 +569,15 @@ function PinSheetHeader({
               name={availabilityName}
               today={localToday()}
               pending
+              // Told apart by WHY, like the reading above it: a request that
+              // failed has not established that this campground takes no
+              // bookings, and a reader who is told it has stops looking.
               pendingLabel={
-                detailSettled ? 'No live availability here' : undefined
+                detailFailed
+                  ? 'Campsites unavailable right now'
+                  : detailSettled
+                    ? 'No live availability here'
+                    : undefined
               }
               water={detail?.gaugeStatus ?? null}
             />

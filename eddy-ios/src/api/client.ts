@@ -806,12 +806,21 @@ export async function fetchPublicLands(
  * starred row, a search result and a deep link, where neither list has been paid
  * for and the station is usually a national one that /api/gauges never returns.
  *
- * Returns NULL on 404, and on any failure, rather than throwing. The gauge
- * screen opens with whatever the tapping surface already held — a MapGauge from
- * the curated list, a MapGaugeLite from the viewport — and this call refines it.
- * A screen that has a reading on it must not blank because the refinement
- * failed, and a website deployed before this route existed answers 404 to every
- * call. Same posture as searchEddy, for the same reason.
+ * NULL MEANS "THERE IS NO SUCH STATION", AND NOTHING ELSE.
+ *
+ * A 404 is an answer: the route says it has no record, and a website deployed
+ * before this endpoint existed says the same thing about every station. Both
+ * are honest nulls, and callers keep whatever the tapping surface already held
+ * — a MapGauge from the curated list, a MapGaugeLite from the viewport — so a
+ * screen with a reading on it never blanks.
+ *
+ * EVERY OTHER FAILURE THROWS, and that is the correction. This used to swallow
+ * all of them into the same null, which handed useGaugeDetail a settled,
+ * successful, empty answer — so its `failed` branch was unreachable and the
+ * Levels tab read `thresholds: null` and said "Eddy has not rated this station
+ * against a river yet" about a station whose ladder had just graded the pin the
+ * reader tapped. A 500 has to look like a 500 by the time it reaches a tab that
+ * words the difference.
  */
 export async function fetchGaugeDetail(
   siteId: string,
@@ -823,8 +832,9 @@ export async function fetchGaugeDetail(
       signal,
     );
     return data.gauge ?? null;
-  } catch {
-    return null;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
   }
 }
 

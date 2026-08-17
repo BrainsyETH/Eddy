@@ -143,6 +143,15 @@ export function GaugeLevelsTab({ facts, detail, status, onOpenRiver }: GaugeTabP
     // a reader who swiped here early would take that as the answer.
     if (status === 'loading') return <Absent>Loading levels…</Absent>;
     if (status === 'failed') return <Absent>Levels unavailable right now.</Absent>;
+    // ── AND NEVER WITHOUT A PAYLOAD IN HAND ───────────────────────────────
+    // "Not rated" is a claim about Eddy's data, so it may only be made from
+    // Eddy's data. A settled request that produced no record — a 404, or a
+    // response missing its gauge — is the absence of an answer rather than an
+    // answer of absence, and the difference is not academic: this tab exists
+    // only for CURATED stations, whose ladder is precisely what makes them
+    // curated, so a station reaching this line while wearing a verdict on the
+    // pin above it is telling the reader its own chip is a lie.
+    if (!detail) return <Absent>Levels unavailable right now.</Absent>;
     return <Absent>Eddy has not rated this station against a river yet.</Absent>;
   }
 
