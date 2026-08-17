@@ -4,10 +4,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { loadCurrentReadings } from '@/lib/gauges/latest-readings';
 import { classifyQualifiers, fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
-import { toNum } from '@/lib/utils/num';
 
 export const dynamic = 'force-dynamic';
 
@@ -192,6 +192,73 @@ export interface GaugesResponse {
   gauges: GaugeStation[];
 }
 
+/**
+ * Every river ladder rating one of these stations.
+ *
+ * Lifted out of the handler so it can be awaited ALONGSIDE the readings rather
+ * than after them. It never depended on a reading — it was simply written
+ * second — and on a cache miss that ordering cost a whole round trip to
+ * Supabase for nothing.
+ *
+ * The alt-column retry is unchanged: those six columns arrive in a migration,
+ * and a database without them answers with an error rather than nulls.
+ */
+async function fetchRiverGauges(
+  supabase: ReturnType<typeof createAdminClient>,
+  gaugeIds: string[],
+): Promise<Record<string, unknown>[] | null> {
+  const altColumns = `
+        alt_level_too_low,
+        alt_level_low,
+        alt_level_optimal_min,
+        alt_level_optimal_max,
+        alt_level_high,
+        alt_level_dangerous,`;
+
+  const baseSelect = (includeAlt: boolean) => `
+        gauge_station_id,
+        river_id,
+        is_primary,
+        distance_from_section_miles,
+        threshold_unit,
+        level_too_low,
+        level_low,
+        level_optimal_min,
+        level_optimal_max,
+        level_high,
+        level_dangerous,
+        flood_stage_ft,${includeAlt ? altColumns : ''}
+        rivers!inner (
+          id,
+          name,
+          slug,
+          state,
+          active
+        )`;
+
+  const { data, error } = await supabase
+    .from('river_gauges')
+    .select(baseSelect(true))
+    .in('gauge_station_id', gaugeIds);
+
+  if (!error) return data as unknown as Record<string, unknown>[] | null;
+
+  // Alt columns may not exist yet — retry without them
+  console.warn(
+    'river_gauges query failed (alt columns may not exist), retrying without:',
+    error.message,
+  );
+  const { data: fallback, error: fallbackError } = await supabase
+    .from('river_gauges')
+    .select(baseSelect(false))
+    .in('gauge_station_id', gaugeIds);
+
+  if (fallbackError) {
+    console.error('Error fetching river gauges:', fallbackError);
+  }
+  return fallback as unknown as Record<string, unknown>[] | null;
+}
+
 async function _GET(request: NextRequest) {
   try {
     // Rate limit: 60 requests per IP per minute
@@ -222,10 +289,10 @@ async function _GET(request: NextRequest) {
       // association (see activeGauges below), so the result is unchanged — but
       // it used to do that AFTER fetching readings for every active station.
       // Since 00196 that is ~14,300 stations, and the consequences were not
-      // subtle: the .in() below exceeded PostgREST's header limit, the route
-      // decided it had no readings, and the "fetch live from USGS" fallback
-      // then built a comma-joined URL of 14,000 site ids and took a 414.
-      // /api/gauges returned an empty list.
+      // subtle: the readings lookup exceeded PostgREST's header limit, the
+      // route decided it had no readings, and the "fetch live from USGS"
+      // fallback then built a comma-joined URL of 14,000 site ids and took a
+      // 414. /api/gauges returned an empty list.
       //
       // The national tier has its own endpoint, /api/gauges/map, which is
       // bounded by a viewport and reads gauge_latest.
@@ -243,20 +310,27 @@ async function _GET(request: NextRequest) {
       return NextResponse.json({ gauges: [] });
     }
 
-    // Get latest readings for all gauges
     const gaugeIds = stations.map((g: { id: string }) => g.id);
 
-    const { data: readings, error: readingsError } = await supabase
-      .from('gauge_readings')
-      .select('gauge_station_id, gauge_height_ft, discharge_cfs, reading_timestamp, qualifiers')
-      .in('gauge_station_id', gaugeIds)
-      .order('reading_timestamp', { ascending: false });
+    // ── The newest reading per station, and the ladders, at the same time ───
+    //
+    // This route used to select EVERY gauge_readings row for all 45 curated
+    // stations ordered newest-first and keep the first one it saw per station.
+    // That is 118,307 rows fetched, sorted on disk, and thrown away to arrive
+    // at 45 — 5.2 seconds of database time, and the reason "Show rivers near
+    // me" and every river screen's gauge picker took as long as they did.
+    //
+    // loadCurrentReadings seeks instead of scanning, and it is also the
+    // CORRECT answer rather than merely the fast one: it merges gauge_latest
+    // with gauge_readings and takes the newer. That module's header names this
+    // endpoint as the one read path still picking a single tier, which is how
+    // a station could read 87 cfs on a search row and 80 on this response in
+    // the same minute. Both problems had the same one-line cause.
+    const [currentReadings, riverGauges] = await Promise.all([
+      loadCurrentReadings(supabase, gaugeIds),
+      fetchRiverGauges(supabase, gaugeIds),
+    ]);
 
-    if (readingsError) {
-      console.error('Error fetching gauge readings:', readingsError);
-    }
-
-    // Get the latest reading per gauge
     const latestReadings = new Map<string, {
       gaugeHeightFt: number | null;
       dischargeCfs: number | null;
@@ -264,17 +338,15 @@ async function _GET(request: NextRequest) {
       qualifiers: string[] | null;
     }>();
 
-    if (readings && readings.length > 0) {
-      for (const reading of readings) {
-        if (!latestReadings.has(reading.gauge_station_id)) {
-          latestReadings.set(reading.gauge_station_id, {
-            gaugeHeightFt: toNum(reading.gauge_height_ft),
-            dischargeCfs: toNum(reading.discharge_cfs),
-            readingTimestamp: reading.reading_timestamp,
-            qualifiers: reading.qualifiers ?? null,
-          });
-        }
-      }
+    // loadCurrentReadings has already coerced numeric(10,2) out of the strings
+    // PostgREST sends, so there is no toNum() left to do here.
+    for (const [stationId, reading] of currentReadings) {
+      latestReadings.set(stationId, {
+        gaugeHeightFt: reading.gauge_height_ft,
+        dischargeCfs: reading.discharge_cfs,
+        readingTimestamp: reading.reading_at,
+        qualifiers: reading.qualifiers,
+      });
     }
 
     // Determine if we need to fetch live from USGS:
@@ -342,63 +414,6 @@ async function _GET(request: NextRequest) {
         console.error('Error fetching live USGS data:', usgsError);
         // Continue with whatever DB data we have (may show N/A)
       }
-    }
-
-    // Get river-gauge associations with thresholds
-    // Try with alt columns first; fall back without them if they don't exist yet
-    let riverGauges: Record<string, unknown>[] | null = null;
-    let riverGaugesError: { message: string } | null = null;
-
-    const altColumns = `
-        alt_level_too_low,
-        alt_level_low,
-        alt_level_optimal_min,
-        alt_level_optimal_max,
-        alt_level_high,
-        alt_level_dangerous,`;
-
-    const baseSelect = (includeAlt: boolean) => `
-        gauge_station_id,
-        river_id,
-        is_primary,
-        distance_from_section_miles,
-        threshold_unit,
-        level_too_low,
-        level_low,
-        level_optimal_min,
-        level_optimal_max,
-        level_high,
-        level_dangerous,
-        flood_stage_ft,${includeAlt ? altColumns : ''}
-        rivers!inner (
-          id,
-          name,
-          slug,
-          state,
-          active
-        )`;
-
-    const { data: rgData, error: rgError } = await supabase
-      .from('river_gauges')
-      .select(baseSelect(true))
-      .in('gauge_station_id', gaugeIds);
-
-    if (rgError) {
-      // Alt columns may not exist yet — retry without them
-      console.warn('river_gauges query failed (alt columns may not exist), retrying without:', rgError.message);
-      const { data: rgFallback, error: rgFallbackError } = await supabase
-        .from('river_gauges')
-        .select(baseSelect(false))
-        .in('gauge_station_id', gaugeIds);
-
-      riverGauges = rgFallback as unknown as Record<string, unknown>[] | null;
-      riverGaugesError = rgFallbackError;
-    } else {
-      riverGauges = rgData as unknown as Record<string, unknown>[] | null;
-    }
-
-    if (riverGaugesError) {
-      console.error('Error fetching river gauges:', riverGaugesError);
     }
 
     // Group thresholds by gauge, skipping inactive rivers
