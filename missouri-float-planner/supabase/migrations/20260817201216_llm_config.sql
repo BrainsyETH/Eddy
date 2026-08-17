@@ -1,8 +1,8 @@
--- NOT YET APPLIED. Apply by hand, then confirm the recorded version with
--- npm run db:check-migrations and rename this file to match. The drift gate
--- compares local filenames against supabase_migrations.schema_migrations, so a
--- file named for the timestamp it was authored at rather than the one it was
--- recorded under reads as two separate migrations and reports permanent drift.
+-- APPLIED to production 2026-08-17 as 20260817201216. The filename carries that
+-- exact version because the drift gate compares local filenames against
+-- supabase_migrations.schema_migrations — a file named for the timestamp it was
+-- authored at, rather than the one it was recorded under, reads as two separate
+-- migrations and reports permanent drift.
 --
 -- Which Anthropic model serves each generated-copy workload, switchable from
 -- /admin/ai-models without a deploy.

@@ -112,7 +112,11 @@ export default function AiModelsPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        applyPayload(data);
+        // No `workloads` means the write landed but the server could not re-read
+        // it to confirm. Keep what the operator selected rather than adopting a
+        // payload that would render every workload as "Code default" — the
+        // warning tells them to reload, and that is the honest state.
+        if (data.workloads) applyPayload(data);
         setConfirming(false);
         showToast(data.warning || 'Saved. Applies to the next generation.', data.warning ? 'error' : 'success');
       } else {
@@ -141,16 +145,21 @@ export default function AiModelsPage() {
             <ul className="list-disc space-y-1 pl-5">
               <li>Applies to the <strong>next</strong> generation, not to copy already written.</li>
               <li>
-                Resets that workload&apos;s prompt cache — caches are per-model, so the first run
-                after a switch pays a cache write. A one-off cost, not a regression.
+                Switching <strong>river and section updates</strong> resets that workload&apos;s
+                prompt cache — caches are per-model, so its first run after a switch pays a cache
+                write. A one-off cost, not a regression. The other three attach no cache
+                breakpoint, so switching them costs nothing.
               </li>
               <li>
                 A manual statewide re-run within 12 hours of the last summary is skipped by the
                 cron&apos;s own guard, so a statewide switch can look inert until the next daily pass.
               </li>
               <li>
-                The model is recorded on each row and is returned publicly as{' '}
+                River, section, statewide and gauge updates record the model on each generated
+                row; the gauge one is returned publicly as{' '}
                 <code className="text-neutral-400">modelUsed</code> by the gauge-update API.
+                Social captions record no model or token usage yet, so a caption switch leaves no
+                trace after the fact.
               </li>
               <li>Only models approved for a workload are listed. Widening that list is a code change.</li>
             </ul>

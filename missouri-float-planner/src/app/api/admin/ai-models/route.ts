@@ -219,11 +219,37 @@ export async function POST(request: NextRequest) {
 
   // Re-read so the client renders what was actually stored rather than what it
   // hoped it stored — the same verify-after-write the social config route does.
-  const { row: verified } = await readRow(supabase);
+  //
+  // The error is NOT droppable here. buildPayload(null) is a valid-looking
+  // payload that says every workload is on its code default, so swallowing a
+  // failed read would hand the client the exact opposite of what was just
+  // written, under a success toast, on the screen an operator is looking at
+  // precisely because something has gone wrong.
+  const { row: verified, error: verifyError } = await readRow(supabase);
+
+  if (verifyError) {
+    console.error(`${LOG_PREFIX} SAVE verification read failed: ${verifyError}`);
+    // 200, not 500: the write landed. A 500 would read as "save failed" and
+    // invite a retry of something that already succeeded. No `workloads` key,
+    // so the client keeps the operator's selections instead of adopting
+    // defaults it cannot confirm.
+    return NextResponse.json(
+      {
+        saved: true,
+        verified: false,
+        auditLogged: audit.ok,
+        warning:
+          `Saved, but the configuration could not be re-read to confirm it (${verifyError}). ` +
+          `Reload to see what is stored.`,
+      },
+      { headers: CACHE_HEADERS },
+    );
+  }
 
   return NextResponse.json(
     {
       ...buildPayload(verified),
+      verified: true,
       auditLogged: audit.ok,
       ...(audit.ok ? {} : { warning: `Saved, but the audit log write failed: ${audit.error}` }),
     },
