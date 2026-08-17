@@ -8,6 +8,31 @@
 // reading card cannot tell them apart. The trend arrow tries — it compares two
 // points — and a week of line does it properly.
 //
+// ── What this file no longer decides ────────────────────────────────────────
+// The axis, the gap rule, the tick placement, the nearest-point lookup and the
+// qualifier vocabulary all live in shared/chart-model.ts, which the website's
+// FlowTrendChart draws from too. This file took `splitAtGaps` from it and kept
+// its own copy of the rest, and the copies drifted where nobody looks: the value
+// axis was labelled with the padded domain's min, midpoint and max (so the app
+// printed 1,437.6 where the site printed 1,400), and the domain had no floor, so
+// a low-water discharge plot could label its bottom below zero — negative flow,
+// on a chart of a river.
+//
+// Pixels, gestures and colour are still decided here. Meaning is not.
+// src/lib/gauge/chart-parity.test.ts is the guard on that split.
+//
+// ── The forecast and the typical range ──────────────────────────────────────
+// The history endpoint has sent an official NWS forecast and the USGS day-of-year
+// percentile range to both clients since NWPS replaced AHPS. This chart drew
+// neither, so the phone showed a week of line beside an EddyTake paragraph
+// quoting a forecast that was not on the plot. Both are drawn now, both are
+// labelled in the legend, and the forecast carries its ISSUE TIME — NWPS reissues
+// on a schedule, so a dashed line read at 6pm may predate the afternoon's rain.
+//
+// The typical range is DISCHARGE ONLY, because usgs_daily_percentiles is
+// snapshotted for discharge and there is no stage equivalent. Same guard the web
+// chart makes, for the same reason.
+//
 // ── Bands are drawn at TRUE numeric height here, unlike the track ───────────
 // ReadingScale draws the same ladder at EQUAL width per band, deliberately, so
 // a 20,000-cfs flood band cannot crush the bands people float in down to a
@@ -64,8 +89,17 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
-import type { GaugeFloodStages, GaugeHistoryReading } from '@eddy/types';
-import { splitAtGaps } from '@eddy/conditions/chart-model';
+import type { GaugeFloodStages } from '@eddy/types';
+import {
+  chartDomain,
+  chartPoints,
+  chartSegments,
+  nearestChartPoint,
+  niceValueTicks,
+  qualifierText,
+  timeTicks,
+  type ChartPoint,
+} from '@eddy/conditions/chart-model';
 import { buildZones, type ThresholdValues } from '@eddy/conditions/threshold-zones';
 import { conditionColor } from '@/theme/conditions';
 import {
@@ -90,7 +124,7 @@ const RANGES = [
 const CHART_HEIGHT = 168;
 /** Room for the value labels down the right edge. */
 const PAD_RIGHT = 46;
-/** Room for the two time labels under the plot. */
+/** Room for the time labels under the plot. */
 const PAD_BOTTOM = 18;
 const PAD_TOP = 10;
 
@@ -103,6 +137,16 @@ const PAD_TOP = 10;
  * you came to look at into a straight line along the bottom.
  */
 const NEAR_THRESHOLD_FRACTION = 0.75;
+
+/**
+ * The day-of-year typical range.
+ *
+ * Teal-700 — the flow-band family, which is where it belongs: "normal for this
+ * date" is a COMPARISON, exactly what that ramp means, and never a verdict about
+ * whether the river is floatable. The web chart uses this same hex for the same
+ * band; see FlowTrendChart's TYPICAL_COLOR.
+ */
+const TYPICAL_COLOR = '#0f766e';
 
 /**
  * Break the line when the gap between samples exceeds this multiple of the
@@ -173,15 +217,16 @@ interface Props {
   title?: string;
 }
 
-interface Point {
+/** One day of the day-of-year typical range, at the instant it is drawn at. */
+interface TypicalRow {
   t: number;
-  v: number;
+  median: number;
+  low: number | null;
+  high: number | null;
 }
 
-function valueIn(reading: GaugeHistoryReading, unit: 'ft' | 'cfs'): number | null {
-  const raw = unit === 'cfs' ? reading.dischargeCfs : reading.gaugeHeightFt;
-  return raw != null && Number.isFinite(raw) ? raw : null;
-}
+/** What the scrub is sitting on. A forecast must never read as a measurement. */
+type ScrubbedPoint = { point: ChartPoint; kind: 'observed' | 'forecast' };
 
 /** "Tue 2pm" for a short window, "Jul 12" for a long one. */
 function axisTime(ms: number, days: number): string {
@@ -270,57 +315,77 @@ function GaugeChartInner({
     });
   }, [floodStages, drawnUnit]);
 
-  const points = useMemo<Point[]>(() => {
-    if (!history) return [];
-    const out: Point[] = [];
-    for (const r of history.readings) {
-      const v = valueIn(r, drawnUnit);
-      const t = new Date(r.timestamp).getTime();
-      if (v === null || !Number.isFinite(t)) continue;
-      out.push({ t, v });
-    }
-    return out;
+  const points = useMemo(
+    () => (history ? chartPoints(history.readings, drawnUnit) : []),
+    [history, drawnUnit],
+  );
+
+  /**
+   * The official forecast, ahead of the last reading.
+   *
+   * The endpoint has sent this since NWPS replaced AHPS, and this chart ignored
+   * it — so the app drew a week of history next to an EddyTake paragraph quoting
+   * a forecast the plot did not contain. Same reader as the observed series,
+   * which means the same refusal to invent a value for an absent unit: NWPS
+   * publishes stage, and its secondary flow field is often empty, so a cfs axis
+   * frequently has no forecast to draw. That is a fact to show or omit, never to
+   * fill in.
+   */
+  const forecastPoints = useMemo(
+    () => (history?.forecast?.length ? chartPoints(history.forecast, drawnUnit) : []),
+    [history, drawnUnit],
+  );
+
+  /**
+   * "What this river normally does on this date", from the USGS day-of-year
+   * percentiles.
+   *
+   * DISCHARGE ONLY, because usgs_daily_percentiles is snapshotted for discharge
+   * and there is no stage equivalent — the same guard the web chart makes. A foot
+   * axis simply has no typical range, and inventing one from stage would be
+   * comparing a gauge's arbitrary datum against a national statistic.
+   */
+  const typical = useMemo<TypicalRow[]>(() => {
+    if (drawnUnit !== 'cfs' || !history?.typical?.length) return [];
+    return history.typical.flatMap((row) => {
+      const t = new Date(`${row.date}T12:00:00`).getTime();
+      return Number.isFinite(t) && row.p50Cfs !== null
+        ? [{ t, median: row.p50Cfs, low: row.p25Cfs, high: row.p75Cfs }]
+        : [];
+    });
   }, [history, drawnUnit]);
 
+  /**
+   * The axis, from shared/chart-model.ts rather than from a loop in this file.
+   *
+   * This is the divergence that made the model worth extracting and then outlived
+   * the extraction: the copy that lived here had no floor, so a low-water
+   * discharge axis could label its bottom gridline below zero — negative flow,
+   * on a chart of a river. chartDomain() clamps cfs at zero and pointedly does
+   * NOT clamp stage, because gauge height is relative to a datum and Ozark
+   * stations do read below theirs. There is a test pinning both; it only guards
+   * the renderers that call this.
+   */
   const domain = useMemo(() => {
-    if (points.length === 0) return null;
+    const spanning = [
+      ...points,
+      ...forecastPoints,
+      ...typical.flatMap((row) =>
+        [row.low, row.median, row.high].flatMap((value) =>
+          value === null ? [] : [{ t: row.t, v: value, timestamp: '', qualifiers: [] }],
+        ),
+      ),
+    ].sort((a, b) => a.t - b.t);
 
-    let minV = points[0].v;
-    let maxV = points[0].v;
-    for (const p of points) {
-      if (p.v < minV) minV = p.v;
-      if (p.v > maxV) maxV = p.v;
-    }
-
-    // A dead-flat series has zero range, which would divide by zero below and
-    // draw the line along an edge. Give it a band to sit in the middle of.
-    const dataRange =
-      maxV - minV || Math.max(Math.abs(maxV) * 0.1, drawnUnit === 'cfs' ? 10 : 0.2);
-    const reach = dataRange * NEAR_THRESHOLD_FRACTION;
-
-    // Stage lines pull the axis on exactly the same terms as band edges: an
-    // official flood line just above where the week has been is the single most
-    // useful thing on this chart, and one an order of magnitude up would flatten
-    // the week into a stripe along the bottom.
-    for (const line of stageLines) {
-      if (line.value < minV && line.value > minV - reach) minV = line.value;
-      if (line.value > maxV && line.value < maxV + reach) maxV = line.value;
-    }
-
-    for (const z of zones) {
-      // Only the EDGES matter: a band boundary is the number someone needs to
-      // see their line approaching. Pulling in a band's far side would stretch
-      // the axis for a line nobody is near.
-      for (const edge of [z.min, z.max]) {
-        if (!Number.isFinite(edge)) continue;
-        if (edge < minV && edge > minV - reach) minV = edge;
-        if (edge > maxV && edge < maxV + reach) maxV = edge;
-      }
-    }
-
-    const pad = (maxV - minV || dataRange) * 0.08;
-    return { min: minV - pad, max: maxV + pad, t0: points[0].t, t1: points[points.length - 1].t };
-  }, [points, zones, stageLines, drawnUnit]);
+    // Band edges and stage lines are context the axis may stretch to include —
+    // only the EDGES, since a band boundary is the number someone needs to see
+    // their line approaching, and a band's far side is not.
+    const context = [
+      ...stageLines.map((line) => line.value),
+      ...zones.flatMap((zone) => [zone.min, zone.max]),
+    ];
+    return chartDomain(spanning, drawnUnit, context, NEAR_THRESHOLD_FRACTION);
+  }, [points, forecastPoints, typical, zones, stageLines, drawnUnit]);
 
   const plotWidth = Math.max(0, width - PAD_RIGHT);
   const plotHeight = CHART_HEIGHT - PAD_TOP - PAD_BOTTOM;
@@ -336,22 +401,77 @@ function GaugeChartInner({
   }, [domain, plotWidth, plotHeight]);
 
   /**
-   * The line, as one or more segments.
+   * The line, as one or more segments, plus the readings that stand alone.
    *
-   * Segments rather than a single path so an outage reads as an outage. See
-   * GAP_BREAK_MULTIPLE.
+   * Segments rather than a single path so an outage reads as an outage — see
+   * GAP_BREAK_MULTIPLE. The isolated readings used to be dropped here on the
+   * grounds that a lone point is not a line, which is true and left a real
+   * reading rendered as blank space; chartSegments() hands both back and the dots
+   * are drawn below.
    */
-  const paths = useMemo<string[]>(() => {
-    if (!scale || points.length < 2) return [];
-    return splitAtGaps(points, GAP_BREAK_MULTIPLE)
-      // A lone point is not a line; dropping it avoids a stray dot at a gap edge.
-      .filter((segment) => segment.length > 1)
-      .map((segment) =>
-        segment
-          .map((p, i) => `${i ? 'L' : 'M'} ${scale.x(p.t).toFixed(2)} ${scale.y(p.v).toFixed(2)}`)
-          .join(' ')
-      );
-  }, [points, scale]);
+  const series = useMemo(() => {
+    const empty = {
+      paths: [] as string[],
+      dots: [] as ChartPoint[],
+      forecastPaths: [] as string[],
+      typicalArea: '',
+      typicalPath: '',
+    };
+    if (!scale) return empty;
+    const toPath = (segment: ChartPoint[]) =>
+      segment
+        .map((p, i) => `${i ? 'L' : 'M'} ${scale.x(p.t).toFixed(2)} ${scale.y(p.v).toFixed(2)}`)
+        .join(' ');
+
+    const { lines, isolated } = chartSegments(points, GAP_BREAK_MULTIPLE);
+    const forecastSplit = chartSegments(forecastPoints, GAP_BREAK_MULTIPLE);
+    return {
+      paths: lines.map(toPath),
+      dots: isolated,
+      forecastPaths: forecastSplit.lines.map(toPath),
+      // The band needs both edges, so it is drawn from the rows that HAVE both
+      // rather than suppressed by one row that does not. The median covers every
+      // row regardless.
+      typicalArea: (() => {
+        const rows = typical.filter((row) => row.low !== null && row.high !== null);
+        if (rows.length < 2) return '';
+        const up = rows
+          .map((row, i) => `${i ? 'L' : 'M'} ${scale.x(row.t).toFixed(2)} ${scale.y(row.high!).toFixed(2)}`)
+          .join(' ');
+        const back = rows
+          .slice()
+          .reverse()
+          .map((row) => `L ${scale.x(row.t).toFixed(2)} ${scale.y(row.low!).toFixed(2)}`)
+          .join(' ');
+        return `${up} ${back} Z`;
+      })(),
+      typicalPath:
+        typical.length > 1
+          ? typical
+              .map((row, i) => `${i ? 'L' : 'M'} ${scale.x(row.t).toFixed(2)} ${scale.y(row.median).toFixed(2)}`)
+              .join(' ')
+          : '',
+    };
+  }, [points, forecastPoints, typical, scale]);
+
+  /**
+   * Round numbers down the right edge, from the same tick function the web axis
+   * uses.
+   *
+   * This file used to label the axis with the padded domain's min, midpoint and
+   * max — so the app printed "1,437.6" where the website printed "1,400" for the
+   * same gauge in the same week. Nobody reads a hydrograph to learn the 8% pad.
+   */
+  const valueTicks = useMemo(
+    () => (domain ? niceValueTicks(domain.min, domain.max, 3) : []),
+    [domain],
+  );
+
+  /** Three instants across the window, so the middle of the plot is placeable. */
+  const xTicks = useMemo(
+    () => (domain ? timeTicks(domain.t0, domain.t1, 3) : []),
+    [domain],
+  );
 
   /**
    * The units this station actually reported in the loaded window.
@@ -368,24 +488,27 @@ function GaugeChartInner({
     return out;
   }, [history]);
 
-  const scrubbed = useMemo<Point | null>(() => {
-    if (scrubX === null || !scale || points.length === 0 || !domain) return null;
+  const scrubbed = useMemo<ScrubbedPoint | null>(() => {
+    if (scrubX === null || !scale || !domain) return null;
     const spanT = domain.t1 - domain.t0 || 1;
     const targetT = domain.t0 + (Math.min(Math.max(scrubX, 0), plotWidth) / plotWidth) * spanT;
 
-    // Linear scan. 720 points is nothing next to the gesture's own cost, and a
-    // binary search here would be a cleverness nobody can check.
-    let best = points[0];
-    let bestDelta = Math.abs(points[0].t - targetT);
-    for (const p of points) {
-      const delta = Math.abs(p.t - targetT);
-      if (delta < bestDelta) {
-        best = p;
-        bestDelta = delta;
-      }
-    }
-    return best;
-  }, [scrubX, scale, points, domain, plotWidth]);
+    // Binary search from the shared model, replacing a linear scan this file
+    // kept. The reason to share it is not the speed — it is that both charts must
+    // answer "which reading is under this finger" the same way, including the
+    // tie at the exact midpoint between two readings.
+    const observed = nearestChartPoint(points, targetT);
+    const forecast = nearestChartPoint(forecastPoints, targetT);
+    if (!observed) return forecast ? { point: forecast, kind: 'forecast' } : null;
+    if (!forecast) return { point: observed, kind: 'observed' };
+
+    // Whichever is genuinely nearer. Always preferring the observed series would
+    // read out the last real reading while the finger sits three days into the
+    // forecast — a prediction relabelled as a measurement.
+    return Math.abs(observed.t - targetT) <= Math.abs(forecast.t - targetT)
+      ? { point: observed, kind: 'observed' }
+      : { point: forecast, kind: 'forecast' };
+  }, [scrubX, scale, points, forecastPoints, domain, plotWidth]);
 
   // useMemo, not useRef: the handlers are spread onto a View during render, and
   // reading a ref's `.current` there is the thing react-hooks/refs forbids. The
@@ -409,7 +532,37 @@ function GaugeChartInner({
   if (!siteId) return null;
 
   const lineColor = colors.interactive;
-  const hasPlot = scale !== null && domain !== null && paths.length > 0;
+  /**
+   * ONE OBSERVED READING IS ENOUGH, and zero is still nothing.
+   *
+   * A single reading used to fall through to the placeholder because a line needs
+   * two points; it now draws as a dot at a real instant on a real axis, which is
+   * what the reading is. A forecast with NO observations behind it deliberately
+   * does not draw — the same line the web chart holds. That case wants a nullable
+   * "current", a header that can say there is no recent reading, and an endpoint
+   * that stops 404ing a station whose only data is ahead of it; drawing it here
+   * first would put the two charts back out of step, which is the thing this
+   * whole change is about.
+   */
+  const hasPlot = scale !== null && domain !== null && points.length > 0;
+
+  const scrubQualifiers =
+    scrubbed?.kind === 'observed' ? qualifierText(scrubbed.point.qualifiers) : null;
+
+  /**
+   * When the Weather Service computed the dashed line.
+   *
+   * A forecast is the one series here with an age of its own — NWPS reissues on a
+   * schedule — and the endpoint has sent this all along with nothing showing it.
+   */
+  const forecastIssued = (() => {
+    const raw = history?.forecastIssuedAt;
+    if (!raw) return null;
+    const issued = new Date(raw);
+    return Number.isFinite(issued.getTime())
+      ? issued.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+      : null;
+  })();
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
@@ -425,10 +578,19 @@ function GaugeChartInner({
           {scrubbed ? (
             <Text style={[styles.scrubLine, { color: colors.textMuted }]} numberOfLines={1}>
               <Text style={[styles.scrubValue, { color: colors.text }]}>
-                {formatReading(scrubbed.v, drawnUnit)}
+                {formatReading(scrubbed.point.v, drawnUnit)}
               </Text>
               {'  '}
-              {scrubTime(scrubbed.t)}
+              {scrubTime(scrubbed.point.t)}
+              {/* Two labels that must survive being read in a hurry: a forecast is
+                  not a measurement, and a provisional reading is not a verified
+                  one. The qualifier came with the reading and was thrown away
+                  here until the copy moved into the shared model. */}
+              {scrubbed.kind === 'forecast' ? (
+                <Text style={{ color: floodStageColor() }}>{'  NWS forecast'}</Text>
+              ) : scrubQualifiers ? (
+                <Text style={{ color: colors.textSubtle }}>{`  ${scrubQualifiers}`}</Text>
+              ) : null}
             </Text>
           ) : (
             <Text style={[styles.subtitle, { color: colors.textSubtle }]} numberOfLines={1}>
@@ -552,19 +714,39 @@ function GaugeChartInner({
                 );
               })}
 
-              {/* ── Value axis, right edge ── */}
-              {[domain.max, (domain.max + domain.min) / 2, domain.min].map((v, i) => (
+              {/* ── Value axis, right edge ──
+                  Round numbers from niceValueTicks(), not the padded domain's own
+                  min/mid/max. See the memo for what that printed. */}
+              {valueTicks.map((tick) => (
                 <SvgText
-                  key={`v-${i}`}
+                  key={`v-${tick.value}`}
                   x={plotWidth + 6}
-                  y={scale.y(v) + 4}
+                  y={scale.y(tick.value) + 4}
                   fill={colors.textSubtle}
                   fontSize={10}
                   fontFamily={fonts.mono}
                 >
-                  {formatReading(v, drawnUnit).replace(` ${drawnUnit}`, '')}
+                  {formatReading(tick.value, drawnUnit).replace(` ${drawnUnit}`, '')}
                 </SvgText>
               ))}
+
+              {/* ── What this river normally does on this date ──
+                  Behind everything the gauge measured, and labelled in the legend
+                  below: a shaded band with nothing naming it is a claim the reader
+                  cannot check. Discharge only — see the memo. */}
+              {series.typicalArea ? (
+                <Path d={series.typicalArea} fill={TYPICAL_COLOR} fillOpacity={isDark ? 0.16 : 0.1} />
+              ) : null}
+              {series.typicalPath ? (
+                <Path
+                  d={series.typicalPath}
+                  stroke={TYPICAL_COLOR}
+                  strokeWidth={1}
+                  strokeDasharray="4,3"
+                  opacity={0.55}
+                  fill="none"
+                />
+              ) : null}
 
               {/* ── The NWS stages ──
                   Drawn OVER the bands and UNDER the line: they are somebody
@@ -610,7 +792,7 @@ function GaugeChartInner({
               })}
 
               {/* ── The line ── */}
-              {paths.map((d, i) => (
+              {series.paths.map((d, i) => (
                 <Path
                   key={`p-${i}`}
                   d={d}
@@ -622,58 +804,125 @@ function GaugeChartInner({
                 />
               ))}
 
-              {/* ── Where it is now ── */}
-              <Circle
-                cx={scale.x(points[points.length - 1].t)}
-                cy={scale.y(points[points.length - 1].v)}
-                r={3.5}
-                fill={lineColor}
-              />
+              {/* A reading with no neighbour inside the cadence. Dropped with its
+                  segment until chartSegments() started handing these back, which
+                  meant a station reporting once between two outages showed empty
+                  space where a number was. */}
+              {series.dots.map((point) => (
+                <Circle
+                  key={`dot-${point.t}`}
+                  cx={scale.x(point.t)}
+                  cy={scale.y(point.v)}
+                  r={2}
+                  fill={lineColor}
+                />
+              ))}
+
+              {/* ── The boundary between what happened and what is predicted ──
+                  Drawn only when there is a forecast to separate from. */}
+              {points.length > 0 && series.forecastPaths.length > 0 ? (
+                <Line
+                  x1={scale.x(points[points.length - 1].t)}
+                  y1={PAD_TOP}
+                  x2={scale.x(points[points.length - 1].t)}
+                  y2={PAD_TOP + plotHeight}
+                  stroke={colors.textSubtle}
+                  strokeWidth={1}
+                  strokeDasharray="2,3"
+                  opacity={0.7}
+                />
+              ) : null}
+
+              {/* ── The official forecast ──
+                  Violet and dashed, the same hue the stage lines use and for the
+                  same reason: it is the Weather Service's number, not Eddy's
+                  verdict. The legend names it; an unattributed dashed line
+                  climbing off the right edge is a prediction nobody owns. */}
+              {series.forecastPaths.map((d, i) => (
+                <Path
+                  key={`f-${i}`}
+                  d={d}
+                  stroke={floodStageColor()}
+                  strokeWidth={2}
+                  strokeDasharray="5,4"
+                  fill="none"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+              ))}
+
+              {/* ── Where it is now ── the newest OBSERVED reading, never a forecast */}
+              {points.length > 0 ? (
+                <Circle
+                  cx={scale.x(points[points.length - 1].t)}
+                  cy={scale.y(points[points.length - 1].v)}
+                  r={3.5}
+                  fill={lineColor}
+                />
+              ) : null}
 
               {/* ── The scrub rule ── */}
               {scrubbed ? (
                 <>
                   <Line
-                    x1={scale.x(scrubbed.t)}
+                    x1={scale.x(scrubbed.point.t)}
                     y1={PAD_TOP}
-                    x2={scale.x(scrubbed.t)}
+                    x2={scale.x(scrubbed.point.t)}
                     y2={PAD_TOP + plotHeight}
                     stroke={colors.text}
                     strokeWidth={1}
                     opacity={0.4}
                   />
                   <Circle
-                    cx={scale.x(scrubbed.t)}
-                    cy={scale.y(scrubbed.v)}
+                    cx={scale.x(scrubbed.point.t)}
+                    cy={scale.y(scrubbed.point.v)}
                     r={4.5}
                     fill={colors.card}
-                    stroke={lineColor}
+                    stroke={scrubbed.kind === 'forecast' ? floodStageColor() : lineColor}
                     strokeWidth={2}
                   />
                 </>
               ) : null}
 
-              {/* ── Time axis ── */}
-              <SvgText
-                x={0}
-                y={CHART_HEIGHT - 4}
-                fill={colors.textSubtle}
-                fontSize={10}
-                fontFamily={fonts.body}
-              >
-                {axisTime(domain.t0, days)}
-              </SvgText>
-              <SvgText
-                x={plotWidth}
-                y={CHART_HEIGHT - 4}
-                fill={colors.textSubtle}
-                fontSize={10}
-                fontFamily={fonts.body}
-                textAnchor="end"
-              >
-                {axisTime(domain.t1, days)}
-              </SvgText>
+              {/* ── Time axis ──
+                  Three instants from timeTicks() rather than the two ends, so the
+                  middle of the plot can be placed in time. The first and last are
+                  anchored inward; a centred label at x=0 clips. */}
+              {xTicks.map((tick, index) => (
+                <SvgText
+                  key={`t-${index}`}
+                  x={scale.x(tick.value)}
+                  y={CHART_HEIGHT - 4}
+                  fill={colors.textSubtle}
+                  fontSize={10}
+                  fontFamily={fonts.body}
+                  textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}
+                >
+                  {axisTime(tick.value, days)}
+                </SvgText>
+              ))}
             </Svg>
+
+            {/* ── Legend ──
+                Only for the overlays that are actually on screen, and never
+                omitted when one is: a violet dashed line climbing off the right
+                edge is somebody's prediction, and a teal band behind the series
+                is a national statistic. Both are claims a reader must be able to
+                attribute, and the issue time is the part that makes a forecast
+                checkable — NWPS reissues on a schedule, so a line read at 6pm may
+                predate the afternoon's rain. */}
+            {series.typicalPath || series.forecastPaths.length > 0 ? (
+              <View style={styles.legend}>
+                {series.typicalPath ? (
+                  <Text style={[styles.legendText, { color: TYPICAL_COLOR }]}>Typical 25–75%</Text>
+                ) : null}
+                {series.forecastPaths.length > 0 ? (
+                  <Text style={[styles.legendText, { color: floodStageColor() }]} numberOfLines={1}>
+                    NWS forecast{forecastIssued ? ` · issued ${forecastIssued}` : ''}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
           </View>
         ) : (
           <View style={[styles.placeholder, { height: CHART_HEIGHT }]}>
@@ -699,20 +948,18 @@ function GaugeChartInner({
               </>
             ) : (
               <Text style={[styles.placeholderText, { color: colors.textSubtle }]}>
-                {/* Three distinct states, because two of them would be a lie as
-                    the third. Only `unavailable` may be phrased as a fact about
-                    the gauge — a failed request either leaves the previous line
-                    up or takes the branch above; see useGaugeHistory.
+                {/* Two distinct states, because either would be a lie as the
+                    other. Only `unavailable` may be phrased as a fact about the
+                    gauge — a failed request either leaves the previous line up or
+                    takes the branch above; see useGaugeHistory.
 
-                    The single-point case is its own sentence. A line needs two
-                    points, so one reading falls through to this branch, and
-                    saying "none reported" over a station that reported once is
-                    the app contradicting the number on the card above it. */}
+                    THE SINGLE-READING SENTENCE IS GONE, because it is no longer
+                    true. One reading used to fall through to here ("not enough to
+                    chart") since a line needs two points; it now draws as a dot at
+                    a real instant on a real axis, which is what the reading is. */}
                 {unavailable
                   ? 'No recent history published for this gauge.'
-                  : points.length === 1
-                    ? `Only one ${drawnUnit === 'cfs' ? 'discharge' : 'gauge height'} reading in this window — not enough to chart.`
-                    : `No ${drawnUnit === 'cfs' ? 'discharge' : 'gauge height'} reported in this window.`}
+                  : `No ${drawnUnit === 'cfs' ? 'discharge' : 'gauge height'} reported in this window.`}
               </Text>
             )}
           </View>
@@ -820,6 +1067,8 @@ const styles = StyleSheet.create({
   range: { paddingHorizontal: 10, paddingVertical: 5 },
   rangeText: { ...t.xs, fontFamily: fonts.medium },
   plotWrap: { marginTop: 2 },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
+  legendText: { ...t.xs, fontFamily: fonts.medium },
   placeholder: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
   placeholderText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
   retry: { marginTop: 8, minHeight: 44, justifyContent: 'center' },

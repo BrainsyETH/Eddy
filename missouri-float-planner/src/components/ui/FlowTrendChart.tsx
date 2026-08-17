@@ -23,22 +23,33 @@
 //     gauges side by side could carry differently-shaped axes with nothing on
 //     screen saying so.
 //
+// The qualifier vocabulary moved there too: the app's scrub was reading out a
+// provisional number with nothing saying it was provisional, because this file
+// owned the only copy of the table.
+//
 // ── What is still decided here ────────────────────────────────────────────
-// Pixels, colours and the pointer. The SVG keeps viewBox="0 0 100 100" with
+// Pixels, colours and the pointer — and, since this is the web, the KEYBOARD.
+// The plot is a role="slider" over time: arrow keys step one reading at a time
+// through the observed and forecast series, Home/End jump to the ends, and
+// aria-valuetext speaks the same sentence the tooltip shows. Scrubbing used to
+// be mouse and touch only, which left the numbers reachable by pointer alone.
+//
+// The SVG keeps viewBox="0 0 100 100" with
 // preserveAspectRatio="none" and stretches to the container, which is why every
 // piece of text sits in a sibling DOM column rather than inside the SVG: text
 // in a non-uniformly scaled SVG is text with the wrong aspect ratio. It also
 // means the tooltip's `left: x%` and the SVG's x coordinate are the same
 // number, so the readout and the crosshair cannot drift apart.
 
-import { useMemo, useState, useRef, useCallback } from 'react';
+import { useMemo, useState, useRef, useCallback, type ReactNode } from 'react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import {
   chartDomain,
   chartPoints,
+  chartSegments,
   nearestChartPoint,
   niceValueTicks,
-  splitAtGaps,
+  qualifierText,
   timeTicks,
   type ChartPoint,
 } from '@shared/chart-model';
@@ -68,26 +79,22 @@ const SERIES_COLOR = 'rgb(45, 120, 137)';
 const FORECAST_COLOR = '#7c3aed';
 const TYPICAL_COLOR = '#0f766e';
 
-/** The USGS codes that actually turn up on Ozark gauges. */
-const QUALIFIER_COPY: Record<string, string> = {
-  P: 'provisional',
-  e: 'estimated',
-  E: 'estimated',
-  Ice: 'ice affected',
-  Eqp: 'equipment malfunction',
-  Bkw: 'backwater affected',
-  Dis: 'discontinued',
-  Mnt: 'maintenance',
-};
-
-function qualifierText(codes: string[]): string | null {
-  if (!codes.length) return null;
-  const seen = new Set<string>();
-  for (const code of codes) {
-    const copy = QUALIFIER_COPY[code];
-    if (copy) seen.add(copy);
+/**
+ * Who published the observed series, read off the URL the endpoint gave us.
+ *
+ * From the HOST rather than from the station's provider id, because the host is
+ * the one thing that cannot be wrong about where a link goes. An unrecognised
+ * publisher gets its own hostname rather than a guess or a shrug.
+ */
+function publisherLabel(sourceUrl: string): string | null {
+  try {
+    const { hostname } = new URL(sourceUrl);
+    if (hostname.endsWith('usgs.gov')) return 'USGS';
+    if (hostname.endsWith('noaa.gov')) return 'NWS';
+    return hostname.replace(/^www\./, '');
+  } catch {
+    return null;
   }
-  return seen.size ? [...seen].join(', ') : null;
 }
 
 interface FlowTrendChartProps {
@@ -106,6 +113,29 @@ interface FlowTrendChartProps {
    * which one it is drawing; this component does not.
    */
   showTypical?: boolean;
+  /**
+   * Name the sources under the plot: who measured the line, who forecast the
+   * dashed part and when they issued it, and whether the series was reduced.
+   *
+   * SAME CALLER-DECIDES RULE as showTypical, plus a structural one. The source
+   * is a link, and RiverCard renders this chart INSIDE a next/link — a nested
+   * anchor is invalid HTML and React will say so. Detail views pass this; the
+   * card cannot, and does not need to: both detail views already print the
+   * station's own source link beside its name.
+   */
+  showProvenance?: boolean;
+  /**
+   * Whether pointer and keyboard can scrub the series.
+   *
+   * ON BY DEFAULT, OFF FOR CARDS, and that is the navigation fix rather than a
+   * taste call. RiverCard wraps the whole card — this chart included — in a link
+   * to the river, so on a phone a drag across a 128px sparkline is a gesture
+   * competing with both the page scroll and the tap target underneath it: at
+   * best the readout flickers, at worst the reader lands on a detail page they
+   * did not ask for. A card sparkline is a shape, and the detail chart three
+   * taps away is where the numbers are.
+   */
+  interactive?: boolean;
 }
 
 type HoverPoint = { point: ChartPoint; kind: 'observed' | 'forecast' };
@@ -118,6 +148,8 @@ export default function FlowTrendChart({
   displayUnit = 'cfs',
   chartClassName,
   showTypical = false,
+  showProvenance = false,
+  interactive = true,
 }: FlowTrendChartProps) {
   const { data: history, isLoading, error } = useGaugeHistory(gaugeSiteId, days);
   const isFt = displayUnit === 'ft';
@@ -128,11 +160,27 @@ export default function FlowTrendChart({
     if (!history) return null;
 
     const observed = chartPoints(history.readings, displayUnit);
-    if (observed.length < 2) return null;
 
     // Forecast points share the reading shape, so the same reader applies —
     // including its refusal to invent a value for the unit that is absent.
     const forecast = chartPoints(history.forecast, displayUnit);
+
+    // ONE READING PLUS A FORECAST IS A CHART. This guard used to run before the
+    // forecast was read and to demand two OBSERVED points, so a gauge with one
+    // recent reading and three days of official forecast rendered "trend data
+    // unavailable" — throwing away the half of the picture that was about the
+    // weekend.
+    //
+    // Zero observations is still nothing, on purpose. A forecast-only chart
+    // needs `current` (below) to become nullable — it feeds the now-line, the
+    // current dot and the header's "Current:" — and it needs the endpoint to
+    // stop 404ing a station whose only data is ahead of it. Measured against
+    // production before writing this: of 6,855 stations carrying an NWS LID,
+    // none had exactly one reading in a 14-day window in either unit, and the
+    // 6,830 with no stored readings at all take the live-upstream fallback or
+    // the 404. So the cheap half ships and the expensive half waits for a
+    // station that needs it, which starts as a route change, not a chart one.
+    if (!observed.length || (observed.length < 2 && !forecast.length)) return null;
 
     // Percentiles are a discharge statistic; there is no stage equivalent in
     // usgs_daily_percentiles, so a foot axis simply has no typical range.
@@ -170,8 +218,9 @@ export default function FlowTrendChart({
       segment.map((p, i) => `${i ? 'L' : 'M'} ${x(p.t).toFixed(3)} ${y(p.v).toFixed(3)}`).join(' ');
 
     // One path per segment, so an outage reads as an outage rather than as a
-    // straight line drawn confidently across it.
-    const observedSegments = splitAtGaps(observed).filter((segment) => segment.length > 1);
+    // straight line drawn confidently across it — plus the readings that have no
+    // neighbour to be joined to, which get a dot instead of being discarded.
+    const observedSplit = chartSegments(observed);
 
     const areaFor = (segment: ChartPoint[]) =>
       `${pathFor(segment)} L ${x(segment[segment.length - 1].t).toFixed(3)} 100 L ${x(segment[0].t).toFixed(3)} 100 Z`;
@@ -223,8 +272,18 @@ export default function FlowTrendChart({
       x,
       y,
       current,
-      observedPaths: observedSegments.map(pathFor),
-      observedAreas: observedSegments.map(areaFor),
+      observedPaths: observedSplit.lines.map(pathFor),
+      observedAreas: observedSplit.lines.map(areaFor),
+      // The newest reading is excluded because it already has the current-value
+      // dot; drawing both would stack two circles of different radii.
+      observedDots: observedSplit.isolated.filter((point) => point.t !== current.t),
+      // Every instant a keyboard can land on, in order. Stepping by POINT rather
+      // than by a fraction of the width is what makes arrow keys usable: a 14-day
+      // window is ~340 points across ~700px, so a pixel step would sometimes move
+      // two readings and sometimes none.
+      scrubTimes: [...observed.map((point) => point.t), ...forecast.map((point) => point.t)].sort(
+        (a, b) => a - b
+      ),
       forecastPath: forecast.length > 1 ? pathFor(forecast) : '',
       typicalArea,
       typicalPath:
@@ -256,6 +315,54 @@ export default function FlowTrendChart({
     if (!rect || rect.width === 0) return;
     setHoverFraction(Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)));
   }, []);
+
+  /**
+   * Move the scrub by whole READINGS, which is the keyboard's whole reason for
+   * existing here.
+   *
+   * Stepping by a fraction of the width would be easier and wrong: a 14-day
+   * window is ~340 points across ~700px, so a fixed pixel step skips some
+   * readings and lands twice on others, and the reader cannot tell which. Every
+   * arrow press moves exactly one point in one series or the other, and lands on
+   * the time that point actually carries.
+   *
+   * Arriving with nothing selected lands on the newest reading — the number the
+   * header already shows, so the first press orients rather than jumping.
+   */
+  const moveScrub = useCallback(
+    (delta: number, jumpTo?: 'first' | 'last') => {
+      if (!chartData) return;
+      const { scrubTimes, domain } = chartData;
+      if (!scrubTimes.length) return;
+      const span = domain.t1 - domain.t0 || 1;
+      const fractionOf = (time: number) => (time - domain.t0) / span;
+
+      if (hoverFraction === null && !jumpTo) {
+        setHoverFraction(fractionOf(scrubTimes[scrubTimes.length - 1]));
+        return;
+      }
+
+      const time = domain.t0 + (hoverFraction ?? 1) * span;
+      let index = 0;
+      let nearest = Infinity;
+      for (let i = 0; i < scrubTimes.length; i += 1) {
+        const distance = Math.abs(scrubTimes[i] - time);
+        if (distance < nearest) {
+          nearest = distance;
+          index = i;
+        }
+      }
+
+      const next =
+        jumpTo === 'first'
+          ? 0
+          : jumpTo === 'last'
+            ? scrubTimes.length - 1
+            : Math.min(scrubTimes.length - 1, Math.max(0, index + delta));
+      setHoverFraction(fractionOf(scrubTimes[next]));
+    },
+    [chartData, hoverFraction]
+  );
 
   if (isLoading) {
     return (
@@ -313,6 +420,110 @@ export default function FlowTrendChart({
   const nowX = chartData.x(chartData.current.t);
   const hoveredQualifiers = hovered?.kind === 'observed' ? qualifierText(hovered.point.qualifiers) : null;
 
+  /**
+   * The scrubbed reading as one sentence — the tooltip's content, for a reader
+   * who cannot see the tooltip.
+   *
+   * Fed to aria-valuetext rather than to a live region: role="slider" makes a
+   * screen reader announce the new value on every arrow press by itself, and a
+   * polite live region alongside it would say the same numbers twice.
+   */
+  const scrubReadout = hovered
+    ? [
+        `${formatTooltipVal(hovered.point.v)} ${unitLabel}`,
+        hovered.kind === 'forecast' ? 'NWS forecast' : getZoneLabel(hovered.point.v),
+        formatTooltipDate(hovered.point.t),
+        hoveredQualifiers,
+      ]
+        .filter(Boolean)
+        .join(', ')
+    : `${formatVal(currentDisplay)} ${unitLabel}, latest reading`;
+
+  const forecastIssued = (() => {
+    const raw = history?.forecastIssuedAt;
+    if (!raw) return null;
+    const issued = new Date(raw);
+    return Number.isFinite(issued.getTime())
+      ? issued.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+      : null;
+  })();
+
+  const sourcePublisher = history?.sourceUrl ? publisherLabel(history.sourceUrl) : null;
+
+  const provenanceBits: ReactNode[] = [];
+  if (sourcePublisher && history?.sourceUrl) {
+    provenanceBits.push(
+      <>
+        Observed:{' '}
+        <a
+          href={history.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-neutral-600"
+        >
+          {sourcePublisher}
+        </a>
+      </>
+    );
+  }
+  if (hasForecast) {
+    provenanceBits.push(<>Forecast: NWS{forecastIssued ? `, issued ${forecastIssued}` : ''}</>);
+  }
+  if (history?.sampled) {
+    // Said out loud because a reader comparing this to the publisher's own
+    // hydrograph will see fewer points and should know why. The crest is still
+    // the real crest — samplePreservingExtrema() keeps the high and low of every
+    // bucket — so this is about density, not about accuracy.
+    provenanceBits.push(<>thinned for display, peaks kept</>);
+  }
+
+  /**
+   * Pointer and keyboard, or neither — see the `interactive` prop.
+   *
+   * role="slider" because that is what this is: one value selected along one
+   * axis, moved with the arrow keys, reported through aria-valuetext. It is also
+   * the only common role a screen reader will announce a CHANGING value for; an
+   * `img` with a summary label (which is what this chart offered before, and
+   * still offers when it is not interactive) can say what the series did on the
+   * whole but cannot be asked about Tuesday.
+   */
+  const scrubProps = interactive
+    ? {
+        tabIndex: 0,
+        role: 'slider',
+        'aria-label': `${chartLabel} readings. Use the left and right arrow keys to move through the series.`,
+        'aria-orientation': 'horizontal' as const,
+        'aria-valuemin': chartData.domain.t0,
+        'aria-valuemax': chartData.domain.t1,
+        'aria-valuenow': (hovered?.point ?? chartData.current).t,
+        'aria-valuetext': scrubReadout,
+        onMouseMove: (event: React.MouseEvent) => handleInteraction(event.clientX),
+        onMouseLeave: () => setHoverFraction(null),
+        onTouchMove: (event: React.TouchEvent) => {
+          if (event.touches[0]) handleInteraction(event.touches[0].clientX);
+        },
+        onTouchEnd: () => setHoverFraction(null),
+        onTouchCancel: () => setHoverFraction(null),
+        onBlur: () => setHoverFraction(null),
+        onKeyDown: (event: React.KeyboardEvent) => {
+          // preventDefault on the arrows and Home/End: the page must not scroll
+          // out from under a widget the reader is stepping through.
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            event.preventDefault();
+            moveScrub(event.key === 'ArrowLeft' ? -1 : 1);
+          } else if (event.key === 'Home') {
+            event.preventDefault();
+            moveScrub(0, 'first');
+          } else if (event.key === 'End') {
+            event.preventDefault();
+            moveScrub(0, 'last');
+          } else if (event.key === 'Escape') {
+            setHoverFraction(null);
+          }
+        },
+      }
+    : {};
+
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-3 gap-2">
@@ -354,23 +565,31 @@ export default function FlowTrendChart({
         {/* Chart SVG area */}
         <div
           ref={chartContainerRef}
-          className={`relative flex-1 min-w-0 ${chartClassName ?? 'h-32'} cursor-crosshair`}
-          onMouseMove={(e) => handleInteraction(e.clientX)}
-          onMouseLeave={() => setHoverFraction(null)}
-          onTouchMove={(e) => {
-            if (e.touches[0]) handleInteraction(e.touches[0].clientX);
-          }}
-          onTouchEnd={() => setHoverFraction(null)}
-          onTouchCancel={() => setHoverFraction(null)}
+          className={`relative flex-1 min-w-0 ${chartClassName ?? 'h-32'} ${
+            interactive
+              ? 'cursor-crosshair rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500'
+              : ''
+          }`}
+          {...scrubProps}
         >
+          {/* When the wrapper is a slider, the SVG is hidden from the
+              accessibility tree rather than labelled: two nested announcements —
+              a summary of the whole series and the value under the scrub — read
+              as two different charts. The summary label is what a NON-interactive
+              card sparkline offers instead, since there is nothing to step
+              through there. */}
           <svg
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
             className="w-full h-full"
-            role="img"
-            aria-label={`${chartLabel} trend chart, currently ${formatVal(currentDisplay)} ${unitLabel}${
-              hasForecast ? ', with official NWS forecast' : ''
-            }`}
+            {...(interactive
+              ? { 'aria-hidden': true }
+              : {
+                  role: 'img',
+                  'aria-label': `${chartLabel} trend chart, currently ${formatVal(currentDisplay)} ${unitLabel}${
+                    hasForecast ? ', with official NWS forecast' : ''
+                  }`,
+                })}
           >
             <defs>
               <linearGradient id={`flowGradient-${gaugeSiteId}`} x1="0%" y1="0%" x2="0%" y2="100%">
@@ -458,6 +677,20 @@ export default function FlowTrendChart({
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+
+            {/* A reading with no neighbour to join it to. It used to be dropped
+                with the segment it sat in, so a lone reading between two outages
+                rendered as blank space. */}
+            {chartData.observedDots.map((point) => (
+              <circle
+                key={`dot-${point.t}`}
+                cx={chartData.x(point.t)}
+                cy={chartData.y(point.v)}
+                r="2"
+                fill={SERIES_COLOR}
                 vectorEffect="non-scaling-stroke"
               />
             ))}
@@ -590,6 +823,25 @@ export default function FlowTrendChart({
           </span>
         ))}
       </div>
+
+      {/* Who measured the line, who predicted the dashed part and when they said
+          it, and whether the series was thinned to fit.
+
+          THE ISSUE TIME IS THE POINT OF THIS ROW. A forecast is the one series
+          here with an age of its own: NWPS reissues on a schedule, so a dashed
+          line read at 6pm may have been computed before the afternoon's rain.
+          The endpoint has carried `forecastIssuedAt` and `sourceUrl` since the
+          forecast landed, and nothing rendered either of them. */}
+      {showProvenance && provenanceBits.length > 0 && (
+        <p className="mt-1.5 ml-10 text-[10px] text-neutral-400 leading-snug">
+          {provenanceBits.map((bit, index) => (
+            <span key={`prov-${index}`}>
+              {index > 0 && ' · '}
+              {bit}
+            </span>
+          ))}
+        </p>
+      )}
     </div>
   );
 }

@@ -181,7 +181,12 @@ export default function RiverCard({ riverGroup, meta, distanceMiles }: RiverCard
           <GaugeTrendContext siteId={primaryGauge.usgsSiteId} currentValue={latestValue} unit={displayUnit} />
         </div>
 
-        {/* 14-Day Chart with threshold lines */}
+        {/* 14-Day Chart with threshold lines.
+
+            NOT interactive: this whole card is a link to the river, so a scrub
+            here would be a drag competing with the page scroll and with the tap
+            target underneath it. The sparkline says "shape"; the detail chart
+            one tap away answers "what was it on Tuesday". */}
         <div className="px-1">
           <FlowTrendChart
             gaugeSiteId={primaryGauge.usgsSiteId}
@@ -190,6 +195,7 @@ export default function RiverCard({ riverGroup, meta, distanceMiles }: RiverCard
             latestValue={latestValue}
             displayUnit={displayUnit}
             chartClassName="h-32"
+            interactive={false}
           />
         </div>
       </Link>

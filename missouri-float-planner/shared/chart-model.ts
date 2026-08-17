@@ -113,6 +113,71 @@ export function splitAtGaps<T extends { t: number }>(points: T[], multiple = 4):
   return segments;
 }
 
+export interface ChartSegments<T> {
+  /** Two or more points in time order: stroke each as its own path. */
+  lines: T[][];
+  /** A reading with no neighbour inside the cadence: mark each as a dot. */
+  isolated: T[];
+}
+
+/**
+ * splitAtGaps(), sorted into the two things a renderer can draw.
+ *
+ * BOTH RENDERERS USED TO DISCARD the one-point segments — each had its own
+ * `filter((segment) => segment.length > 1)`, on the true observation that a lone
+ * point is not a line. It is not nothing either: a station that reported once
+ * between two outages had that reading drawn as empty space. That is the same
+ * class of error as plotting a null at mid-frame, in the other direction, and
+ * quieter — the web chart hid it for the newest reading only by coincidence,
+ * because the current-value dot is drawn separately from the path.
+ *
+ * So the split hands back both halves and neither renderer gets to decide on its
+ * own that a real number is unrenderable.
+ */
+export function chartSegments<T extends { t: number }>(
+  points: T[],
+  multiple = 4,
+): ChartSegments<T> {
+  const lines: T[][] = [];
+  const isolated: T[] = [];
+  for (const segment of splitAtGaps(points, multiple)) {
+    if (segment.length > 1) lines.push(segment);
+    else if (segment.length === 1) isolated.push(segment[0]);
+  }
+  return { lines, isolated };
+}
+
+/**
+ * The USGS codes that actually turn up on Ozark gauges.
+ *
+ * HERE rather than in either chart because both need it and neither owns it: the
+ * web chart carried this table alone, so the app's scrub read out a provisional
+ * reading with nothing saying it was provisional. A qualifier is the gauge
+ * telling you how much to trust the number, which is not an optional decoration
+ * on one platform.
+ */
+const QUALIFIER_COPY: Record<string, string> = {
+  P: 'provisional',
+  e: 'estimated',
+  E: 'estimated',
+  Ice: 'ice affected',
+  Eqp: 'equipment malfunction',
+  Bkw: 'backwater affected',
+  Dis: 'discontinued',
+  Mnt: 'maintenance',
+};
+
+/** Plain English for the codes we recognise, or null when none are known. */
+export function qualifierText(codes: string[]): string | null {
+  if (!codes.length) return null;
+  const seen = new Set<string>();
+  for (const code of codes) {
+    const copy = QUALIFIER_COPY[code];
+    if (copy) seen.add(copy);
+  }
+  return seen.size ? [...seen].join(', ') : null;
+}
+
 /**
  * Downsample to at most `maxPoints`, keeping both endpoints and the high and
  * low of every time bucket.

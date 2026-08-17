@@ -11,8 +11,10 @@ import test from 'node:test';
 import {
   chartDomain,
   chartPoints,
+  chartSegments,
   nearestChartPoint,
   niceValueTicks,
+  qualifierText,
   samplePreservingExtrema,
   splitAtGaps,
   timeTicks,
@@ -93,6 +95,33 @@ test('coincident timestamps stay one segment instead of shattering', () => {
 test('a single point is one segment, and an empty series is no segments', () => {
   assert.equal(splitAtGaps(pointsAt([0])).length, 1);
   assert.equal(splitAtGaps([]).length, 0);
+});
+
+test('an isolated reading is returned to be drawn, not dropped', () => {
+  // The reading at hour 40 has no neighbour inside the cadence. Both renderers
+  // used to filter it out with the segment it sits in, so a station that
+  // reported once between two outages showed empty space where a number was.
+  const { lines, isolated } = chartSegments(pointsAt([0, 1, 2, 40, 80, 81]));
+  assert.deepEqual(lines.map((segment) => segment.length), [3, 2]);
+  assert.deepEqual(isolated.map((point) => point.v), [40]);
+});
+
+test('a lone reading is isolated rather than a line of one', () => {
+  const { lines, isolated } = chartSegments(pointsAt([5]));
+  assert.deepEqual(lines, []);
+  assert.deepEqual(isolated.map((point) => point.v), [5]);
+  assert.deepEqual(chartSegments([]), { lines: [], isolated: [] });
+});
+
+test('qualifier copy is plain English, deduped, and silent on codes it cannot read', () => {
+  assert.equal(qualifierText(['P']), 'provisional');
+  // 'e' and 'E' are both estimated; saying it twice reads as two problems.
+  assert.equal(qualifierText(['e', 'E']), 'estimated');
+  assert.equal(qualifierText(['P', 'Ice']), 'provisional, ice affected');
+  // An unknown code is not narrated. USGS adds codes without asking us, and
+  // "qualifier: Xyz" tells a reader nothing they can act on.
+  assert.equal(qualifierText(['Xyz']), null);
+  assert.equal(qualifierText([]), null);
 });
 
 test('sampling preserves both endpoints and the extrema between them', () => {
