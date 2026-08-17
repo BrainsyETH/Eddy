@@ -628,6 +628,23 @@ test('the strip says which days it covers, counted from the rows it has', () => 
   assert.equal(patternSpanLabel(rows), 'The past 1 day, today, and the next 1 day');
 });
 
+test('a gap in the history does not shrink the span', () => {
+  // patternRows emits one row per day it is GIVEN — a day the feed missed
+  // produces no row at all — so counting rows called a six-day window "the past
+  // 2 days" while the labels above it plainly read Wed and Tue. The span is a
+  // statement about the window; the rows say for themselves which days landed.
+  const rows = patternRows(
+    [observedDay('2026-07-22', { 8: 19_130 }), observedDay('2026-07-28', { 8: 19_130 })],
+    [],
+    BULL_SHOALS,
+    100,
+    NOON_CENTRAL
+  );
+
+  assert.equal(rows.length, 2, 'the missing days really are absent, not blank rows');
+  assert.equal(patternSpanLabel(rows), 'The past 6 days and today');
+});
+
 test('the span never promises a tomorrow the dam has not posted', () => {
   // Most dams have no schedule at all — SWPA posts for a handful — so a strip
   // that always said "and the next 2 days" would be describing a forecast that

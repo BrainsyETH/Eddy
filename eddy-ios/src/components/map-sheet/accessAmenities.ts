@@ -154,14 +154,30 @@ export function drawableAmenities(
 //   that only looked for the word would put a restroom mark on a put-in whose
 //   own description says it has none, and somebody would drive there.
 //
-// So a clause that carries a negation DENIES every term in it, denials outrank
-// grants wherever both occur, and a term nobody mentions produces nothing. The
-// declared column still wins outright: it is the curated field, and this is a
-// reading of the rows nobody has curated yet.
+// ── The precedence rule, stated once ──────────────────────────────────────
 //
-// This is a read-side repair of a data gap, not a replacement for filling it.
-// Backfilling `amenities` would fix the website, the exports and the offline
-// bundle too; until then the phone stops throwing away what it was sent.
+//   1. The DECLARED column wins outright. It is the curated field; this whole
+//      module is a reading of the rows nobody has curated yet.
+//   2. A DENIAL beats a grant from anywhere else in the row, including a
+//      structured one. A boat_ramp `type` beside a facilities line reading "No
+//      boat ramp — carry-in access" is a contradiction in the data, and the
+//      safe reading of a contradiction is silence.
+//   3. A term nobody mentions produces nothing. Absence is not a denial and
+//      never becomes one.
+//
+// ── What it deliberately gets wrong ───────────────────────────────────────
+//
+// "No restrooms, paved parking for 20" draws NEITHER mark. The clause splitter
+// does not break on commas, so the "No" governs the parking too — and it has to,
+// because "No restrooms, potable water, picnic tables, or maintained
+// structures" is the same sentence shape with the opposite meaning, and no cheap
+// rule tells them apart. So this errs into a missing mark rather than a wrong
+// one: a glance lost, not a drive.
+//
+// That asymmetry is the argument against ever promoting this to the source of
+// truth. It is a bridge. Backfilling `amenities` from the same prose — with a
+// human reading the ambiguous ones — fixes the website, the exports and the
+// offline bundle too, and retires the whole module.
 
 /** Whatever the caller holds about a place. Structural — any shape with these. */
 export interface AmenityEvidence {
@@ -205,7 +221,14 @@ const TERMS: { symbol: AmenitySymbolName; slug: string; label: string; pattern: 
     symbol: 'boatRamp',
     slug: 'boat_ramp',
     label: 'Boat ramp',
-    pattern: /\b(?:boat ramps?|ramps?|slipway|launch)\b/i,
+    // ── A RAMP, NOT A PLACE YOU CAN REACH THE WATER ────────────────────────
+    // `launch` was in this pattern and had to come out. "Essentially a
+    // kayak/boat launch" is a bank somebody slides a boat down; the mark says a
+    // vehicle can back a trailer to the water, and those are different drives.
+    // The catalog's own vocabulary keeps them apart — a real one is a "concrete
+    // boat ramp", a "one-lane gravel ramp", a "slipway" — and carry-in access
+    // is written as exactly that.
+    pattern: /\b(?:boat ramps?|ramps?|slipway)\b/i,
   },
   {
     symbol: 'campground',

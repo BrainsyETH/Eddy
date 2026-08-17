@@ -1250,25 +1250,69 @@ export function patternRows(
  * happened at some point", which is not what it is for. The hour axis under the
  * rows answers the column; this answers the row.
  *
- * Counted from the rows themselves rather than from the constants that built
+ * Measured from the rows' own DATES rather than from the constants that built
  * them, because a dam with a short history has fewer rows than the window asks
  * for, and a sentence that says "the past 7 days" over four rows of bars is the
  * kind of small lie that costs a reader their trust in the rest of the card.
  *
+ * ── Dates, and specifically NOT a row count ───────────────────────────────
+ *
+ * Counting rows was the first version and it is wrong wherever the history has
+ * a hole in it. `patternRows` builds one row per DamPatternDay it is GIVEN — a
+ * day the feed missed produces no row at all, not a blank one — so a strip
+ * holding the 22nd and the 28th has two past rows spanning six days, and a
+ * count calls that "the past 2 days" while the labels above plainly say Wed and
+ * Tue. The span is a statement about the window; the rows inside it are what
+ * Eddy has, and they say so themselves.
+ *
  * Today is named rather than counted: it is the row the marker is on and the
- * only one that is half record and half plan.
+ * only one that is half record and half plan. A strip with no today row — a
+ * feed that has not written today yet — says so by leaving it out rather than
+ * by claiming a day it is not drawing.
  */
 export function patternSpanLabel(rows: PatternRow[]): string | null {
   if (rows.length === 0) return null;
 
-  const behind = rows.filter((row) => !row.today && !row.scheduled).length;
-  const ahead = rows.filter((row) => !row.today && row.scheduled).length;
+  const days = rows
+    .map((row) => row.dayKey)
+    .filter((key): key is string => typeof key === 'string' && key.length > 0)
+    .sort();
+  if (days.length === 0) return null;
+
+  const today = rows.find((row) => row.today)?.dayKey ?? null;
   const day = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
+  const first = days[0];
+  const last = days[days.length - 1];
+
+  // No today row: the strip is a window with no present tense in it, so it is
+  // named by its own two ends and claims nothing about now.
+  if (!today) {
+    const span = daysBetween(first, last);
+    return span === 0 ? 'One day' : `${day(span + 1)}`;
+  }
+
+  const behind = daysBetween(first, today);
+  const ahead = daysBetween(today, last);
 
   if (behind && ahead) return `The past ${day(behind)}, today, and the next ${day(ahead)}`;
   if (behind) return `The past ${day(behind)} and today`;
   if (ahead) return `Today and the next ${day(ahead)}`;
   return 'Today';
+}
+
+/**
+ * Whole days from one `YYYY-MM-DD` to another, never negative.
+ *
+ * Parsed as UTC midnight on both sides so the subtraction cannot pick up a
+ * daylight-saving hour and round a six-day gap to five. The keys are Central
+ * calendar days (see centralDayKey) and this is arithmetic on the labels, not
+ * on instants — which is exactly why it must not go near a local timezone.
+ */
+function daysBetween(from: string, to: string): number {
+  const a = Date.parse(`${from}T00:00:00Z`);
+  const b = Date.parse(`${to}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+  return Math.max(0, Math.round((b - a) / 86_400_000));
 }
 
 /** "Wed", or "Today" for the row the marker is on. Central, never the viewer's. */

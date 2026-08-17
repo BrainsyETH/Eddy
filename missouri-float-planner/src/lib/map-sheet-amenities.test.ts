@@ -149,13 +149,66 @@ test('a negated clause denies its terms rather than matching them', () => {
 });
 
 test('a denial outranks a grant elsewhere in the same row', () => {
-  // "Minimal – essentially a kayak/boat launch; no restrooms or park buildings."
-  // The launch is real and the restroom is explicitly not.
+  // "One-lane gravel ramp, vault toilet; no water or developed day-use
+  // amenities." The ramp and the toilet are real; the denial governs only its
+  // own clause.
   const marks = drawableAmenitiesFor({
-    facilities: 'Minimal – essentially a kayak/boat launch; no restrooms or park buildings.',
-    parkingInfo: 'Primitive unpaved pull-off area; trailer-friendly but unmarked.',
+    facilities: 'One-lane gravel ramp, vault toilet; no water or developed day-use amenities.',
   });
-  assert.deepEqual(marks.map((m) => m.slug), ['boat_ramp']);
+  assert.deepEqual(marks.map((m) => m.slug).sort(), ['boat_ramp', 'restrooms']);
+
+  // And a denial anywhere in the row beats a grant anywhere else in it.
+  const contradicted = drawableAmenitiesFor({
+    facilities: 'Concrete boat ramp. No boat ramp is maintained above the falls.',
+  });
+  assert.deepEqual(contradicted.map((m) => m.slug), []);
+});
+
+test('a launch is not a ramp', () => {
+  // "Essentially a kayak/boat launch" is a bank you slide a boat down. The mark
+  // says a vehicle can back a trailer to the water, and somebody towing one
+  // acts on that. The catalog writes real ones as ramps and slipways.
+  const launch = drawableAmenitiesFor({
+    facilities: 'Minimal – essentially a kayak/boat launch; no restrooms or park buildings.',
+  });
+  assert.deepEqual(launch.map((m) => m.slug), [], 'no ramp mark, and no restroom either');
+
+  const ramp = drawableAmenitiesFor({ facilities: 'Concrete boat ramp with courtesy dock.' });
+  assert.deepEqual(ramp.map((m) => m.slug), ['boat_ramp']);
+});
+
+test('a structured positive loses to a prose denial, and that is the rule', () => {
+  // A boat_ramp `type` beside "No boat ramp — carry-in access" is a
+  // contradiction in the data. Drawing the mark would send a trailer; the safe
+  // reading of a contradiction is silence. Asserted rather than left implicit,
+  // because the opposite precedence is the obvious thing for somebody to
+  // "fix" later.
+  const marks = drawableAmenitiesFor({
+    type: 'boat_ramp',
+    facilities: 'No boat ramp — carry-in access at low-water bridge.',
+  });
+  assert.deepEqual(marks.map((m) => m.slug), []);
+});
+
+test('a comma list under one "No" costs a mark rather than inventing one', () => {
+  // KNOWN LIMIT, asserted so it stays visible. "No restrooms, paved parking for
+  // 20" loses the parking too, because the clause splitter does not break on
+  // commas — and it must not, or "No restrooms, potable water, picnic tables"
+  // releases everything after the first item. The failure is a missing mark,
+  // never a wrong one, and the fix is the backfill rather than a cleverer
+  // parser.
+  assert.deepEqual(
+    drawableAmenitiesFor({ facilities: 'No restrooms, paved parking for 20' }).map((m) => m.slug),
+    [],
+  );
+  // The declared column is how such a row gets its marks back today.
+  assert.deepEqual(
+    drawableAmenitiesFor({
+      amenities: ['parking'],
+      facilities: 'No restrooms, paved parking for 20',
+    }).map((m) => m.slug),
+    ['parking'],
+  );
 });
 
 test('an em-dashed aside cannot smuggle in what the clause denies', () => {
