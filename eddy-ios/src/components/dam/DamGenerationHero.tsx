@@ -54,7 +54,7 @@ import {
   scheduledClauseProvenance,
   speaksForNow,
   OTHER_RELEASE_NOTE,
-  RACK_ESTIMATE_NOTE,
+  generationReferenceLine,
 } from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -100,7 +100,31 @@ function GeneratorCell({
   );
 }
 
-export function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
+export function DamGenerationHero({
+  dam,
+  embedded = false,
+  showNextChange = true,
+}: {
+  dam: DamSnapshot;
+  /**
+   * Drawn INSIDE somebody else's card — no background, no elevation, no padding.
+   *
+   * The dam screen composes this and the schedule into one Generation card
+   * (GenerationCard), because the two were saying the same thing twice: a NEXT
+   * CHANGE panel here and a schedule beneath it describing the same plan, each
+   * with its own copy of the "schedules change without notice" warning.
+   */
+  embedded?: boolean;
+  /**
+   * Whether the next-change panel belongs to this half.
+   *
+   * False inside the merged card, where it moves down into the scheduled
+   * section it describes. It is the one block here sourced from a PLAN rather
+   * than from a measurement, and everything around it is observed — which is
+   * why it was the piece that read as a duplicate.
+   */
+  showNextChange?: boolean;
+}) {
   const { colors, elevation } = useTheme();
 
   const state = generationNow(dam);
@@ -130,7 +154,7 @@ export function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
   const fraction = state.kind === 'generating' ? state.fraction : null;
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
+    <View style={embedded ? undefined : [styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       <View style={styles.statusRow}>
         <Ionicons name="flash" size={13} color={colors.interactive} />
         <Text style={[styles.status, { color: colors.interactive }]}>{status.toUpperCase()}</Text>
@@ -199,9 +223,12 @@ export function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
               {fraction > 1 ? ' — above the published reference' : ''}
             </Text>
             {/* The citation, demoted but never dropped: the percentage is only
-                checkable because the denominator is published. */}
+                checkable because the denominator is published. The estimate
+                hedge rides on the end of it — see generationReferenceLine for
+                why two sentences of grey subtext under an already-hedged
+                headline were the least-read thing on the card. */}
             <Text style={[styles.note, { color: colors.textSubtle }]}>
-              {generationReferenceCitation(ref)}
+              {rack ? generationReferenceLine(ref) : generationReferenceCitation(ref)}
             </Text>
           </View>
         ) : null}
@@ -218,10 +245,6 @@ export function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
         </Text>
       ) : null}
 
-      {rack ? (
-        <Text style={[styles.note, { color: colors.textSubtle }]}>{RACK_ESTIMATE_NOTE}</Text>
-      ) : null}
-
       {/* NEXT CHANGE — the panel, not a footnote. Tinted, bordered and set at
           reading size, because this is the answer somebody came for and it was
           previously the smallest text on the card.
@@ -230,7 +253,7 @@ export function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
           here made one observation read as two. The combined sentence still
           earns its space on the compact row, where there is no rack to have
           said it first. */}
-      {clauses.scheduled ? (
+      {showNextChange && clauses.scheduled ? (
         <View
           style={[
             styles.nextPanel,

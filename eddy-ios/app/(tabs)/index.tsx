@@ -123,6 +123,7 @@ import { milesBetween, useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
 import { gradeGauge, readingIndex, riverBounds } from '@/lib/statewideNetwork';
 import { warn } from '@/lib/monitoring';
+import { damPins as damPinFacts } from '@/lib/damCatalog';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
 import { Otter } from '@/components/Otter';
@@ -185,6 +186,17 @@ const PLAN_CLUSTER_BOTTOM = 16;
  */
 const CONTROLS_ROOM_MIN = MAP_CHROME_BOTTOM + 44 + 12;
 const CONTROLS_ROOM_FADE = 60;
+
+/**
+ * How long to wait before asking the Corps' dams once more.
+ *
+ * Long enough that a cold /api/dams read-through has finished filling the CDN
+ * entry — the measured cold path is five to fifty seconds — and short enough
+ * that somebody who opened the layer is still looking at it. The retry is what
+ * turns a fifteen-second deadline expiring into a pause rather than an empty
+ * layer for the life of the screen.
+ */
+const DAMS_RETRY_MS = 20_000;
 
 /**
  * A per-river layer's data, tagged with the river it was fetched for.
@@ -652,7 +664,10 @@ export default function MapScreen() {
     | { camera: 'fitRiver' }
     /** A searched point on it; the river selection is a side effect. */
     | { camera: 'searchResult'; lng: number; lat: number }
-    /** A tapped pin on it; likewise, and it keeps the current zoom. */
+    /**
+     * A tapped point on it — a pin, or the river line itself. The river
+     * selection is a side effect, and the current zoom is kept.
+     */
     | { camera: 'pin'; lng: number; lat: number }
     /** Deliberately nothing. Dismissal is not navigation. */
     | { camera: 'hold' };
@@ -864,15 +879,71 @@ export default function MapScreen() {
    * scoping them to a selection would hide the majority of the layer behind a
    * river that does not exist.
    *
-   * fetchDams already answers [] on failure, so there is no error branch: a
-   * layer that draws nothing is the honest outcome of a feed being down.
+   * ── AND IT IS AN ENRICHMENT, NOT THE LAYER ─────────────────────────────
+   *
+   * The pins come from DAM_CATALOG, which ships in the binary. This request
+   * adds what the catalog cannot know — whether the units are turning, what is
+   * coming out, when it was measured — and its failure costs exactly those
+   * three things rather than the whole layer.
    */
   const wantsDams = layers.includes('dams');
-  const damsRequested = useRef(false);
+  // ── A LATCH THAT ONLY HOLDS ON SUCCESS ──────────────────────────────────
+  //
+  // This was `useRef(false)`, set BEFORE the fetch and never reset, on the
+  // reasoning quoted above: fetchDams answered [] on failure, so a layer that
+  // draws nothing was "the honest outcome of a feed being down".
+  //
+  // The feed is not down. /api/dams reads through to CWMS and SWPA live for two
+  // dozen projects, so a cold CDN entry runs five to fifty seconds against the
+  // client's fifteen-second deadline — measured, not theorised. One unlucky tap
+  // therefore emptied the layer and wedged it there until the process died:
+  // toggling the layer off and on could not retry, because the latch had
+  // already been claimed by the request that failed.
+  //
+  // The latch is now claimed on the ANSWER. A failure releases it and schedules
+  // one retry, so returning to a warm CDN entry — which is the ordinary state
+  // seconds later — refills the layer.
+  const damsLoaded = useRef(false);
+  const damsAttempts = useRef(0);
   useEffect(() => {
-    if (!wantsDams || damsRequested.current) return;
-    damsRequested.current = true;
-    void fetchDams().then(setDams);
+    if (!wantsDams || damsLoaded.current) return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const attempt = () => {
+      const nth = ++damsAttempts.current;
+      void fetchDams()
+        .then((live) => {
+          if (cancelled) return;
+          damsLoaded.current = true;
+          // Told apart in the log: an empty array from a healthy route is a
+          // claim about the Corps, and it has never been true. If this line
+          // ever appears, the route changed shape.
+          if (live.length === 0) warn('map', 'dams responded with no dams', { attempt: nth });
+          setDams(live);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          // WHICH failure, because the two want different fixes: 'No connection'
+          // is the deadline expiring on a cold read-through and argues for
+          // caching the route; a status code is the route itself failing.
+          warn('map', 'dams fetch failed', {
+            attempt: nth,
+            reason: err instanceof ApiError ? (err.status ?? err.message) : 'unknown',
+          });
+          // Once. A second failure leaves the catalog pins standing rather than
+          // retrying into a route that is evidently unwell — and the layer is
+          // still drawn, which is the difference this whole change makes.
+          if (nth === 1) timer = setTimeout(attempt, DAMS_RETRY_MS);
+        });
+    };
+
+    attempt();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [wantsDams]);
 
   /**
@@ -1578,30 +1649,34 @@ export default function MapScreen() {
    * district publishes nothing to CWMS at all), and null means the chip is
    * omitted rather than shown as "Not generating" — an observation nobody made.
    */
-  const damPins = useMemo<MapPin[]>(
-    () =>
-      (dams ?? []).map((dam) => {
-        const release = dam.metrics.release;
-        return {
-          id: `dam:${dam.id}`,
-          name: dam.name,
-          layer: 'dams' as LayerKey,
-          subtitle: [dam.lakeName, dam.state].filter(Boolean).join(' · ') || null,
-          coordinates: { lng: dam.lon, lat: dam.lat },
-          ...(dam.generating !== null
-            ? { codeLabel: dam.generating ? 'Generating' : 'Units idle' }
-            : {}),
-          value: release
-            ? `${Math.round(release.value).toLocaleString()} cfs${release.dailyMean ? ' (daily avg)' : ''}`
-            : null,
-          updatedAt: release ? relativeAge(release.at) : null,
-          // The dam screen, never the gauge screen — see MapPin.damId.
-          damId: dam.id,
-          riverSlug: dam.tailwater?.riverSlug ?? null,
-        };
-      }),
-    [dams],
-  );
+  const damPins = useMemo<MapPin[]>(() => {
+    const live = (dams ?? []).map((dam) => {
+      const release = dam.metrics.release;
+      return {
+        id: dam.id,
+        name: dam.name,
+        lakeName: dam.lakeName,
+        state: dam.state,
+        generating: dam.generating,
+        value: release
+          ? `${Math.round(release.value).toLocaleString()} cfs${release.dailyMean ? ' (daily avg)' : ''}`
+          : null,
+        updatedAt: release ? relativeAge(release.at) : null,
+        riverSlug: dam.tailwater?.riverSlug ?? null,
+      };
+    });
+    // Positions for anything the shipped catalog has never heard of — a project
+    // added to the registry since this build left. Everything else is placed
+    // from the catalog, which is what lets the layer draw with no answer at all.
+    const positions = new Map(
+      (dams ?? []).map((dam) => [dam.id, { lng: dam.lon, lat: dam.lat }]),
+    );
+
+    return damPinFacts(live, positions).map((facts) => ({
+      ...facts,
+      layer: 'dams' as LayerKey,
+    }));
+  }, [dams]);
 
   /**
    * The access family, resolved for the sheet's numbers and its overlap notes.
@@ -1941,9 +2016,26 @@ export default function MapScreen() {
   // drawing it: the map is now a way of CHOOSING a river, not just of looking
   // at one you already chose. Any open callout belongs to the old river.
   //
+  // ── AND IT STAYS WHERE THE FINGER LANDED ─────────────────────────────────
+  //
+  // This framed the whole river, on the reasoning above: the reader asked for
+  // the river, so show them the river. That is true of picking one from search
+  // or from a list, where they have named a river and are looking at nothing in
+  // particular. It is false of a TAP: tapping the Current near Van Buren says
+  // "this stretch", and answering it by fitting 134 miles of river moves the
+  // map off the thing under the finger — which is exactly what it felt like.
+  //
+  // So a tap that carried a coordinate keeps the reader there, at their own
+  // zoom, nudged only by what the sheet covers (`poiSelected` waits for the
+  // sheet and frames into what is left). Without one — a shape event that did
+  // not carry it — the old fit is still the honest fallback: something has to
+  // put the river on screen.
+  //
+  // The other callers still pass `fitRiver` and should: search results and the
+  // river picker name a river without pointing at any part of it.
   const onSelectNetworkRiver = useCallback(
-    (slug: string) => {
-      selectRiver(slug, { camera: 'fitRiver' });
+    (slug: string, at?: { lng: number; lat: number }) => {
+      selectRiver(slug, at ? { camera: 'pin', lng: at.lng, lat: at.lat } : { camera: 'fitRiver' });
       setSelectedPin(null);
       pendingAccessSelection.current = null;
     },

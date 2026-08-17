@@ -316,6 +316,35 @@ export const RACK_ESTIMATE_NOTE =
   'Estimated from flow through the turbines. The actual units running may differ.';
 
 /**
+ * The same caveat, folded onto the citation line.
+ *
+ * ── Why the long form lost its own line ───────────────────────────────────
+ *
+ * Two sentences of grey subtext sat under a bar that already carries a hedged
+ * headline — "About 6 of 8 generators' worth" — and the line above them was
+ * itself a citation in the same grey. Three deferential lines under one figure
+ * reads as fine print, and fine print is skipped: the caveat was least likely
+ * to be read precisely because it was written at length.
+ *
+ * The word that does the work is "estimated", and it now rides beside the
+ * number it qualifies rather than beneath it. What it costs is the explicit
+ * "which units may differ" — the headline's own "About 6 of 8 … worth" is what
+ * carries that now, and it is the phrasing a reader actually looks at.
+ */
+export const RACK_ESTIMATE_SHORT = 'estimated from flow';
+
+/**
+ * The citation with the estimate hedge on it — one line for both facts.
+ *
+ * `Full generation is 26,400 cfs (SWPA) · estimated from flow`. The publisher
+ * stays: the percentage is only checkable because the denominator is published,
+ * and a figure with no source is one Eddy is asking to be taken on faith.
+ */
+export function generationReferenceLine(ref: GenerationReference): string {
+  return `${generationReferenceCitation(ref)} · ${RACK_ESTIMATE_SHORT}`;
+}
+
+/**
  * What the percentage is a percentage OF, short enough to sit beside it.
  *
  * Never "31% power" — see the header. But "31% of published full-generation
@@ -895,6 +924,19 @@ export interface SchedulePeak {
   cfs: number | null;
   /** Hour-ending bounds of the single block at peak load, when there is one. */
   window: { from: number; to: number } | null;
+  /**
+   * EVERY contiguous block at peak load, in order. Never empty for a real peak.
+   *
+   * `window` above is this list when it happens to hold exactly one entry, and
+   * null otherwise — which is how the copy used to give up on a split day and
+   * print a magnitude with no time attached. A day that peaks 4–6 PM and again
+   * 8–9 PM has two answers to "when", and both of them are the answer.
+   *
+   * The chart needs them for a different reason: it tints the hours at peak, and
+   * a highlight drawn from a single block would leave the second one unmarked
+   * while the label named it.
+   */
+  windows: { from: number; to: number }[];
 }
 
 export function schedulePeak(
@@ -925,33 +967,100 @@ export function schedulePeak(
     fraction: scheduledBar(megawatts, ref)?.fraction ?? null,
     cfs,
     window: runs.length === 1 ? runs[0] : null,
+    windows: runs,
   };
 }
 
-/** The headline figure: the river number when there is one, else the plant's. */
-export function schedulePeakLabel(peak: SchedulePeak): string {
-  return peak.cfs !== null
-    ? `Peak release ~${Math.round(peak.cfs).toLocaleString()} cfs`
-    : `Peak load ${Math.round(peak.megawatts).toLocaleString()} MW`;
-}
-
-/** When the peak runs, or null when the day reaches it in more than one block. */
+/**
+ * When the peak runs — every block of it.
+ *
+ * `4–8 PM`, or `4–6 PM and 8–9 PM` on a day that reaches peak load twice. It
+ * used to answer null for the second case, which left the headline stating a
+ * magnitude with no time attached — the exact defect the peak line was
+ * introduced to fix, surviving in the case where the day is most confusing.
+ *
+ * Compact rather than `windowLabel`'s spaced form: this rides in a headline
+ * beside the cfs figure, where "4 PM – 8 PM" spends four characters repeating a
+ * meridiem the reader has already read. The canonical label is still what it is
+ * built from, so the two cannot name different hours.
+ */
 export function schedulePeakWindowLabel(peak: SchedulePeak): string | null {
-  return peak.window ? windowLabel(peak.window.from, peak.window.to) : null;
+  if (peak.windows.length === 0) return null;
+  const parts = peak.windows.map((w) => compactWindowLabel(w.from, w.to));
+  if (parts.length === 1) return parts[0];
+  // "a and b", "a, b and c" — the same joining the idle-window sentence uses.
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
 /**
- * The technical line beneath, for a reader checking against SWPA's own page.
+ * `4–8 PM`, from the same bounds `windowLabel` renders as `4 PM – 8 PM`.
  *
- * Never repeats the headline: when the peak had no steady hour to estimate cfs
- * from, the label above is already the megawatt figure and this carries only
- * the share.
+ * Derived from that string rather than re-deriving the clock, so a change to
+ * how Eddy names an hour reaches both forms at once. The meridiem collapses
+ * only when both ends share one: `11 AM–1 PM` keeps both because dropping
+ * either would name the wrong half of the day.
  */
-export function schedulePeakTechnical(peak: SchedulePeak): string | null {
-  const share = peak.fraction !== null ? `${Math.round(peak.fraction * 100)}% of scheduling capacity` : null;
-  if (peak.cfs === null) return share;
-  const load = `${Math.round(peak.megawatts).toLocaleString()} MW`;
-  return share ? `${load} · ${share}` : load;
+function compactWindowLabel(from: number, to: number): string {
+  const label = windowLabel(from, to);
+  const parts = label.match(/^(.+?) – (.+)$/);
+  if (!parts) return label;
+  const [, start, end] = parts;
+  const meridiem = /\b(AM|PM)$/.exec(start)?.[1];
+  if (meridiem && end.endsWith(meridiem)) {
+    return `${start.slice(0, -meridiem.length).trim()}–${end}`;
+  }
+  return `${start}–${end}`;
+}
+
+/** The heading over the peak figure. Never "Peak release" — see below. */
+export const PEAK_RELEASE_HEADING = 'Peak scheduled release';
+
+/**
+ * The whole peak answer in one line: how much water, and when.
+ *
+ * ── What came off it, and why ─────────────────────────────────────────────
+ *
+ * A technical line used to sit beneath — "335 MW · 86% of scheduling capacity"
+ * — and it lost its place to the two facts a reader acts on. Megawatts are the
+ * unit the schedule is PUBLISHED in and not the unit anybody fishes in; the
+ * share is a fact about the plant rather than about the river. Both are still
+ * true and neither answers "how big, and when", so they no longer compete with
+ * the line that does.
+ *
+ * ── And why the heading says "scheduled" ──────────────────────────────────
+ *
+ * "Peak release" alone reads as a measurement taken downstream. This is SWPA's
+ * plan for the powerhouse, published the afternoon before, and the whole screen
+ * turns on keeping a plan and an observation apart — the hero above reports
+ * what the turbines are actually doing, and the two may legitimately disagree.
+ */
+export function schedulePeakValue(peak: SchedulePeak): string {
+  const magnitude =
+    peak.cfs !== null
+      ? `~${Math.round(peak.cfs).toLocaleString()} cfs`
+      : `${Math.round(peak.megawatts).toLocaleString()} MW`;
+  const when = schedulePeakWindowLabel(peak);
+  return when ? `${magnitude} · ${when}` : magnitude;
+}
+
+/**
+ * The peak, spoken.
+ *
+ * The chart is hidden from VoiceOver — it is a row of bars with a tint on some
+ * of them — so this is the only place the highlight's meaning exists for a
+ * listener. Units in full, and the hours read as a span rather than as a dash.
+ */
+export function schedulePeakVoiceOver(peak: SchedulePeak): string {
+  const magnitude =
+    peak.cfs !== null
+      ? `approximately ${Math.round(peak.cfs).toLocaleString()} cubic feet per second`
+      : `${Math.round(peak.megawatts).toLocaleString()} megawatts`;
+  const spoken = peak.windows
+    .map((w) => compactWindowLabel(w.from, w.to).replace('–', ' to '))
+    .join(', and ');
+  return spoken
+    ? `${PEAK_RELEASE_HEADING} ${magnitude}, from ${spoken}.`
+    : `${PEAK_RELEASE_HEADING} ${magnitude}.`;
 }
 
 // ── Accessible equivalents ─────────────────────────────────────────────────
@@ -1237,6 +1346,82 @@ export function patternRows(
     });
 
   return [...past, ...future];
+}
+
+/**
+ * What span the strip covers, in words — "The past 7 days and the next 2".
+ *
+ * ── Why the strip needs to say this at all ────────────────────────────────
+ * The rows are labelled "Wed", "Thu", "Today", which names each row and never
+ * the whole. A reader arriving at a grid of bars has to count rows to find out
+ * whether they are looking at a week or a fortnight, and count columns to work
+ * out that a column is an hour — so the picture reads as "some generation
+ * happened at some point", which is not what it is for. The hour axis under the
+ * rows answers the column; this answers the row.
+ *
+ * Measured from the rows' own DATES rather than from the constants that built
+ * them, because a dam with a short history has fewer rows than the window asks
+ * for, and a sentence that says "the past 7 days" over four rows of bars is the
+ * kind of small lie that costs a reader their trust in the rest of the card.
+ *
+ * ── Dates, and specifically NOT a row count ───────────────────────────────
+ *
+ * Counting rows was the first version and it is wrong wherever the history has
+ * a hole in it. `patternRows` builds one row per DamPatternDay it is GIVEN — a
+ * day the feed missed produces no row at all, not a blank one — so a strip
+ * holding the 22nd and the 28th has two past rows spanning six days, and a
+ * count calls that "the past 2 days" while the labels above plainly say Wed and
+ * Tue. The span is a statement about the window; the rows inside it are what
+ * Eddy has, and they say so themselves.
+ *
+ * Today is named rather than counted: it is the row the marker is on and the
+ * only one that is half record and half plan. A strip with no today row — a
+ * feed that has not written today yet — says so by leaving it out rather than
+ * by claiming a day it is not drawing.
+ */
+export function patternSpanLabel(rows: PatternRow[]): string | null {
+  if (rows.length === 0) return null;
+
+  const days = rows
+    .map((row) => row.dayKey)
+    .filter((key): key is string => typeof key === 'string' && key.length > 0)
+    .sort();
+  if (days.length === 0) return null;
+
+  const today = rows.find((row) => row.today)?.dayKey ?? null;
+  const day = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
+  const first = days[0];
+  const last = days[days.length - 1];
+
+  // No today row: the strip is a window with no present tense in it, so it is
+  // named by its own two ends and claims nothing about now.
+  if (!today) {
+    const span = daysBetween(first, last);
+    return span === 0 ? 'One day' : `${day(span + 1)}`;
+  }
+
+  const behind = daysBetween(first, today);
+  const ahead = daysBetween(today, last);
+
+  if (behind && ahead) return `The past ${day(behind)}, today, and the next ${day(ahead)}`;
+  if (behind) return `The past ${day(behind)} and today`;
+  if (ahead) return `Today and the next ${day(ahead)}`;
+  return 'Today';
+}
+
+/**
+ * Whole days from one `YYYY-MM-DD` to another, never negative.
+ *
+ * Parsed as UTC midnight on both sides so the subtraction cannot pick up a
+ * daylight-saving hour and round a six-day gap to five. The keys are Central
+ * calendar days (see centralDayKey) and this is arithmetic on the labels, not
+ * on instants — which is exactly why it must not go near a local timezone.
+ */
+function daysBetween(from: string, to: string): number {
+  const a = Date.parse(`${from}T00:00:00Z`);
+  const b = Date.parse(`${to}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+  return Math.max(0, Math.round((b - a) / 86_400_000));
 }
 
 /** "Wed", or "Today" for the row the marker is on. Central, never the viewer's. */

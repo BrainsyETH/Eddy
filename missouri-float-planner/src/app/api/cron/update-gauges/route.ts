@@ -11,6 +11,7 @@ import { regenerateEddyForRiver, type TriggerReason } from '@/lib/eddy/regenerat
 import { toNum } from '@/lib/utils/num';
 import { getSecondaryGaugeTargets } from '@/lib/eddy/generate-gauge-update';
 import { regenerateGaugeUpdate } from '@/lib/eddy/regenerate-gauge';
+import { resolveModels, type ResolvedModels } from '@/lib/ai/resolve-models';
 import { confirmsGaugeConditionChange, MAX_GAUGE_REGENS_PER_POLL } from '@/lib/eddy/gauge-update-policy';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { gateReading, type GateRejection } from '@/lib/alerts/gate';
@@ -623,6 +624,15 @@ async function runUpdate(request: NextRequest) {
       }
     }
 
+    // Both regeneration paths below need the configured models, and both must
+    // agree — a river report and a gauge report written by the same poll should
+    // not straddle a switch made between them. Resolved lazily because most
+    // polls queue no regens at all, and memoised so it happens at most once per
+    // invocation.
+    let cachedRegenModels: ResolvedModels | null = null;
+    const regenModels = async (): Promise<ResolvedModels> =>
+      (cachedRegenModels ??= await resolveModels());
+
     // ── Event-driven Eddy regeneration (awaited) ────────────────────
     // condition_change regens run first; capped so a storm morning with many
     // flips can't blow past maxDuration. Skipped rivers keep their morning
@@ -642,8 +652,9 @@ async function runUpdate(request: NextRequest) {
         );
       }
 
+      const riverModel = (await regenModels()).river_update;
       const regenResults = await Promise.allSettled(
-        toRun.map(([slug, reason]) => regenerateEddyForRiver(slug, reason)),
+        toRun.map(([slug, reason]) => regenerateEddyForRiver(slug, reason, riverModel)),
       );
       for (let i = 0; i < regenResults.length; i++) {
         const r = regenResults[i];
@@ -668,7 +679,10 @@ async function runUpdate(request: NextRequest) {
         .filter((target): target is NonNullable<typeof target> => Boolean(target));
       const toRun = queuedTargets.slice(0, MAX_GAUGE_REGENS_PER_POLL);
       gaugeRegensSkipped = queuedTargets.length - toRun.length;
-      const regenResults = await Promise.allSettled(toRun.map((target) => regenerateGaugeUpdate(target)));
+      const gaugeModel = (await regenModels()).gauge_update;
+      const regenResults = await Promise.allSettled(
+        toRun.map((target) => regenerateGaugeUpdate(target, gaugeModel)),
+      );
       for (const result of regenResults) {
         if (result.status === 'fulfilled') gaugeRegensGenerated += result.value;
         else console.error('[GaugeRegen] Event regeneration failed:', result.reason);

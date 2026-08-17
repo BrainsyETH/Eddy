@@ -31,6 +31,7 @@ import {
   patternRowLabel as rowLabel,
   patternRowVoiceOver as rowVoiceOver,
   patternRows,
+  patternSpanLabel,
   type GenerationReference,
   type PatternRow as Row,
 } from '@shared/dam-generation';
@@ -64,6 +65,7 @@ export default function DamPatternStrip({
 
   if (rows.length === 0) return null;
 
+  const span = patternSpanLabel(rows);
   const todayIndex = rows.findIndex((r) => r.today);
   // Only legended when the strip actually draws one. A dam with a posted SWPA
   // sheet never has a `future` cell, and naming a treatment that is not on
@@ -82,6 +84,11 @@ export default function DamPatternStrip({
           Generation pattern
         </h2>
       </div>
+      {/* WHICH DAYS. The hour axis under the rows has always said what a column
+          is; nothing said what the stack of rows adds up to, so a reader had to
+          count them. Shared with the app's strip so the two cannot describe the
+          same window differently. */}
+      {span ? <p className="mt-1 text-xs text-neutral-500">{span}</p> : null}
       {/* A legend, not a paragraph. The prose version said "hatched" while the
           implementation drew dashed outlines, which is the kind of mismatch
           that survives review precisely because nobody reads the sentence and

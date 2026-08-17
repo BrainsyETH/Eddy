@@ -33,11 +33,21 @@ import {
   validHeight,
   type OgcFeature,
 } from './usgs';
+import { classifyTrend, type TrendDirection } from '@/lib/gauge-trend';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Daily mean. Matches statistic_id on the `daily` collection. */
 const STAT_DAILY_MEAN = '00003';
+
+export interface UsgsTrendAt {
+  direction: TrendDirection;
+  /** Signed change across `windowHours`, in `unit`. */
+  delta: number;
+  /** Hours actually spanned — reported, not assumed. See pickTrend. */
+  windowHours: number;
+  unit: 'ft' | 'cfs';
+}
 
 export interface UsgsReadingAt {
   gaugeHeightFt: number | null;
@@ -46,6 +56,13 @@ export interface UsgsReadingAt {
   observedAt: string | null;
   /** Which USGS collection the value came from. */
   source: 'iv' | 'dv';
+  /**
+   * Which way the river was moving at that instant, when the record supports
+   * saying so. Null on the daily-mean path — one value per day cannot carry an
+   * intraday direction, and inventing one from two adjacent daily means would
+   * report a 24h drift as the trend at the moment the photo was taken.
+   */
+  trend: UsgsTrendAt | null;
 }
 
 interface OgcFeatureCollection {
@@ -128,6 +145,98 @@ function pickNearest(
   return { gaugeHeightFt, dischargeCfs, observedAt };
 }
 
+/** One valid, parsed sample of a single parameter. */
+interface Sample {
+  t: number;
+  v: number;
+}
+
+/** Every valid sample of `parameterCode`, in time order. */
+function samplesOf(features: OgcFeature[], parameterCode: string): Sample[] {
+  const out: Sample[] = [];
+  for (const feature of features) {
+    const props = feature.properties;
+    if (!props?.time || props.parameter_code !== parameterCode) continue;
+    const v = parseOgcValue(props.value);
+    if (isNaN(v)) continue;
+    if (parameterCode === PARAM_GAGE_HEIGHT ? !validHeight(v) : !validDischarge(v)) continue;
+    const t = new Date(props.time).getTime();
+    if (isNaN(t)) continue;
+    out.push({ t, v });
+  }
+  // The collections do not return features in chronological order (see
+  // pickNearest); sort rather than trust the page.
+  return out.sort((a, b) => a.t - b.t);
+}
+
+/**
+ * The river's direction of travel at `targetMs`, from the window already
+ * fetched for the reading itself — no second USGS call.
+ *
+ * Measured on STAGE when the site reports it and on discharge otherwise, rather
+ * than on whichever has more points: the two move together, and switching units
+ * between photos would make `gauge_trend_delta` incomparable across a gallery.
+ *
+ * Returns null unless there is a sample at least an hour before the reading.
+ * A trend measured across a few minutes of a 15-minute-cadence gauge is reading
+ * the sensor's noise floor, and the honest answer to "which way was it going"
+ * on a site that only reported once that day is "cannot say".
+ */
+function pickTrend(
+  features: OgcFeature[],
+  targetMs: number,
+  targetHours = 6,
+): UsgsTrendAt | null {
+  for (const [code, unit] of [
+    [PARAM_GAGE_HEIGHT, 'ft'],
+    [PARAM_DISCHARGE, 'cfs'],
+  ] as const) {
+    const samples = samplesOf(features, code);
+    if (samples.length < 2) continue;
+
+    // The reading this trend describes: the sample nearest the target instant,
+    // matching what pickNearest chose for the value itself.
+    let latest = samples[0];
+    let bestDiff = Infinity;
+    for (const s of samples) {
+      const diff = Math.abs(s.t - targetMs);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        latest = s;
+      }
+    }
+
+    // Look BACK from the reading, never forward: a photo's trend is what the
+    // river had already done by the time the shutter opened.
+    const earlier = samples.filter((s) => s.t < latest.t);
+    if (earlier.length === 0) continue;
+
+    const wantedT = latest.t - targetHours * 3_600_000;
+    let compare = earlier[0];
+    let compareDiff = Infinity;
+    for (const s of earlier) {
+      const diff = Math.abs(s.t - wantedT);
+      if (diff < compareDiff) {
+        compareDiff = diff;
+        compare = s;
+      }
+    }
+
+    const spanHours = (latest.t - compare.t) / 3_600_000;
+    if (spanHours < 1) continue;
+
+    const delta = latest.v - compare.v;
+    const { direction } = classifyTrend(delta, latest.v);
+    return {
+      direction,
+      delta: Number(delta.toFixed(2)),
+      windowHours: Number(spanHours.toFixed(1)),
+      unit,
+    };
+  }
+  return null;
+}
+
 async function fetchInstantaneousAt(siteId: string, when: Date): Promise<UsgsReadingAt | null> {
   const start = new Date(when.getTime() - 12 * 60 * 60 * 1000).toISOString();
   const end = new Date(when.getTime() + 12 * 60 * 60 * 1000).toISOString();
@@ -146,7 +255,13 @@ async function fetchInstantaneousAt(siteId: string, when: Date): Promise<UsgsRea
 
   const { gaugeHeightFt, dischargeCfs, observedAt } = pickNearest(features, when.getTime());
   if (gaugeHeightFt === null && dischargeCfs === null) return null;
-  return { gaugeHeightFt, dischargeCfs, observedAt, source: 'iv' };
+  return {
+    gaugeHeightFt,
+    dischargeCfs,
+    observedAt,
+    source: 'iv',
+    trend: pickTrend(features, when.getTime()),
+  };
 }
 
 async function fetchDailyMeanAt(siteId: string, when: Date): Promise<UsgsReadingAt | null> {
@@ -172,7 +287,8 @@ async function fetchDailyMeanAt(siteId: string, when: Date): Promise<UsgsReading
     when.toISOString().slice(0, 10)
   );
   if (gaugeHeightFt === null && dischargeCfs === null) return null;
-  return { gaugeHeightFt, dischargeCfs, observedAt, source: 'dv' };
+  // No trend on this path — see UsgsReadingAt.trend.
+  return { gaugeHeightFt, dischargeCfs, observedAt, source: 'dv', trend: null };
 }
 
 /**

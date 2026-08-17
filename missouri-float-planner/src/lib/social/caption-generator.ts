@@ -9,6 +9,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getLocalParts, getLocalDateStrings } from './local-time';
 import type { HookStyle, ContentCategory } from './types';
+import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 const LOG_PREFIX = '[CaptionGen]';
 
@@ -31,6 +32,8 @@ function getCurrentSeason(now: Date = new Date()): 'winter' | 'spring' | 'summer
 }
 
 interface CaptionParams {
+  /** Resolved by the caller from llm_config, so a switch cannot land mid-post. */
+  model: ResolvedModel;
   contentType: ContentCategory;
   hookStyle: HookStyle;
   riverName: string;
@@ -204,8 +207,11 @@ HASHTAGS: [5-8 hashtags, comma-separated]`;
       }
 
       const response = await client.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 400,
+        model: params.model.id,
+        max_tokens: params.model.maxTokens,
+        // Omitted entirely unless the model needs it. A thinking model left
+        // un-disabled would spend this budget reasoning about a caption.
+        ...(params.model.thinking ? { thinking: params.model.thinking } : {}),
         messages,
       });
 

@@ -430,13 +430,19 @@ export function PhotoSubmitSheet({
         submitterName: name.trim() || undefined,
         capturedAt: photo.capturedAt ?? undefined,
         ...(manual ?? {}),
-        // WHERE THE NUMBER CAME FROM, so a moderator can weigh it. 'manual'
-        // outranks the other two: a reading somebody typed is a claim about
-        // what they saw at the staff gauge, and must never be filed as though
-        // the server had derived it. Without an override the server reads the
-        // gauge itself from the capture time — claiming a reading the phone did
-        // not measure would be inventing data.
-        readingSource: manual ? 'manual' : photo.capturedAt ? 'historical' : 'live',
+        // WHERE THE NUMBER CAME FROM, so a moderator can weigh it — and the
+        // phone may only speak for itself. 'manual' is a claim this client can
+        // actually make: the submitter typed a number they read off a staff
+        // gauge, and the server must not overwrite it.
+        //
+        // Anything else is left to the server, which is the only side that
+        // knows. This used to send 'historical' whenever the photo had EXIF,
+        // asserting a USGS lookup at capture time that NOTHING performed —
+        // /api/reports stored what it was handed and derived nothing, so those
+        // rows landed with a provenance label and no reading to attach it to.
+        // The lookup now genuinely runs server-side; the label comes from
+        // whichever branch of it actually ran.
+        ...(manual ? { readingSource: 'manual' as const } : {}),
       });
       setSent(true);
       onSubmitted?.();
