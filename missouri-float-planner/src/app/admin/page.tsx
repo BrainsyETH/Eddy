@@ -26,6 +26,7 @@ import {
   Compass,
   Film,
   ShieldCheck,
+  Bot,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -139,6 +140,13 @@ const ADMIN_SECTIONS = [
     href: '/admin/clips',
     icon: Film,
     color: 'bg-violet-500',
+  },
+  {
+    title: 'AI Models',
+    description: 'Choose which Claude model writes river updates, gauge updates, the statewide summary, and captions',
+    href: '/admin/ai-models',
+    icon: Bot,
+    color: 'bg-sky-500',
   },
   {
     title: 'Activity Log',

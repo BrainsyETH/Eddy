@@ -5,11 +5,20 @@ import {
   canRegenerateGaugeReport,
   GAUGE_REPORT_ROLLING_WINDOW_MS,
 } from '@/lib/eddy/gauge-update-policy';
+import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 const EVENT_TTL_HOURS = 25;
 
-/** Generate and store one throttled event-driven secondary-gauge report. */
-export async function regenerateGaugeUpdate(target: SecondaryGaugeTarget): Promise<number> {
+/**
+ * Generate and store one throttled event-driven secondary-gauge report.
+ *
+ * `model` is resolved by the caller, not looked up here, so an event-driven
+ * regen provably runs the same model as the pass that triggered it.
+ */
+export async function regenerateGaugeUpdate(
+  target: SecondaryGaugeTarget,
+  model: ResolvedModel,
+): Promise<number> {
   const supabase = createAdminClient();
   const rollingCutoff = new Date(Date.now() - GAUGE_REPORT_ROLLING_WINDOW_MS).toISOString();
   const { data: recentRows, error: recentError } = await supabase
@@ -32,7 +41,7 @@ export async function regenerateGaugeUpdate(target: SecondaryGaugeTarget): Promi
     return 0;
   }
 
-  const update = await generateGaugeUpdate(target);
+  const update = await generateGaugeUpdate(target, model);
   if (!update) return 0;
 
   const expiresAt = new Date(Date.now() + EVENT_TTL_HOURS * 60 * 60 * 1000).toISOString();
