@@ -17,6 +17,7 @@ import {
   qualifierText,
   samplePreservingExtrema,
   splitAtGaps,
+  stepScrubTime,
   timeTicks,
   valueForUnit,
   type ChartPoint,
@@ -215,6 +216,42 @@ test('time ticks span the window inclusively', () => {
   assert.equal(ticks.length, 5);
   assert.equal(ticks[0].value, BASE);
   assert.equal(ticks.at(-1)!.value, BASE + 24 * HOUR);
+});
+
+test('a keyed scrub steps one reading at a time and clamps at both ends', () => {
+  const times = [10, 20, 30, 40];
+  assert.equal(stepScrubTime(times, 30, -1), 20);
+  assert.equal(stepScrubTime(times, 30, 1), 40);
+  // Off the end in either direction is the end, never a wrap: arriving back at
+  // last week from the right-hand edge would be a claim about time.
+  assert.equal(stepScrubTime(times, 40, 1), 40);
+  assert.equal(stepScrubTime(times, 10, -1), 10);
+  assert.equal(stepScrubTime([], 10, 1), null);
+});
+
+test('the first keypress steps AWAY from where the readout already sits', () => {
+  // A keyboard arriving with nothing selected starts from the newest OBSERVED
+  // reading, because that is what aria-valuenow has been reporting all along.
+  // Anchoring on the end of the window instead made the first left press select
+  // the point the reader was already on — a keypress that appeared to do nothing
+  // when the station had no forecast to extend the window past it.
+  const observed = [10, 20, 30];
+  const forecast = [40, 50];
+  const times = [...observed, ...forecast];
+  const newestObserved = 30;
+  assert.equal(stepScrubTime(times, newestObserved, -1), 20);
+  // Forward from the same anchor is the first forecast point where there is one,
+  // and the newest reading itself where there is not.
+  assert.equal(stepScrubTime(times, newestObserved, 1), 40);
+  assert.equal(stepScrubTime(observed, newestObserved, 1), 30);
+});
+
+test('an instant between two readings resolves to the nearer of them', () => {
+  // The pointer leaves a fraction anywhere; the keyboard has to start from
+  // somewhere real. A tie goes to the earlier reading, matching nearestChartPoint.
+  assert.equal(stepScrubTime([0, 100], 49, 0), 0);
+  assert.equal(stepScrubTime([0, 100], 51, 0), 100);
+  assert.equal(stepScrubTime([0, 100], 50, 0), 0);
 });
 
 test('nearest lookup picks the closer neighbour and clamps at both ends', () => {

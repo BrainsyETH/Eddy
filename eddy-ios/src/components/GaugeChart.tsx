@@ -414,6 +414,7 @@ function GaugeChartInner({
       paths: [] as string[],
       dots: [] as ChartPoint[],
       forecastPaths: [] as string[],
+      forecastDots: [] as ChartPoint[],
       typicalArea: '',
       typicalPath: '',
     };
@@ -429,6 +430,10 @@ function GaugeChartInner({
       paths: lines.map(toPath),
       dots: isolated,
       forecastPaths: forecastSplit.lines.map(toPath),
+      // A short-range issuance can be a single point. Dropping it would repeat,
+      // in the forecast series, exactly the omission chartSegments() exists to
+      // stop in the observed one.
+      forecastDots: forecastSplit.isolated,
       // The band needs both edges, so it is drawn from the rows that HAVE both
       // rather than suppressed by one row that does not. The median covers every
       // row regardless.
@@ -549,6 +554,8 @@ function GaugeChartInner({
   const scrubQualifiers =
     scrubbed?.kind === 'observed' ? qualifierText(scrubbed.point.qualifiers) : null;
 
+  const newest = points.length ? points[points.length - 1] : null;
+
   /**
    * When the Weather Service computed the dashed line.
    *
@@ -562,6 +569,40 @@ function GaugeChartInner({
     return Number.isFinite(issued.getTime())
       ? issued.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
       : null;
+  })();
+
+  /**
+   * What the plot says, for a reader who cannot see it.
+   *
+   * VoiceOver reached the range and unit buttons and then met the chart as an
+   * unlabelled box: the line, the forecast and the qualifier were all visual and
+   * only visual. This is the summary, not the series — the same thing the web's
+   * NON-interactive chart offers through its aria-label.
+   *
+   * It is deliberately not the whole answer. The web plot is a role="slider"
+   * because the web has arrow keys; the iOS equivalent is accessibilityRole
+   * "adjustable" with increment and decrement actions driving this same scrub,
+   * and stepScrubTime() in the shared model is already the function that would
+   * do it. That changes what a VoiceOver swipe DOES on a component two screens
+   * depend on, and this file's own rule for gesture changes is that they want a
+   * device — see the `scrubbable` prop. Summary now, stepping when someone can
+   * put a phone in their hand.
+   */
+  const plotSummary = (() => {
+    const window = days === 1 ? 'last 24 hours' : `last ${days} days`;
+    const measure = drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height';
+    const bits = [
+      newest
+        ? `${measure}, ${window}. Latest ${formatReading(newest.v, drawnUnit)}.`
+        : `${measure}, ${window}.`,
+    ];
+    const latestQualifiers = newest ? qualifierText(newest.qualifiers) : null;
+    if (latestQualifiers) bits.push(`Latest reading ${latestQualifiers}.`);
+    if (forecastPoints.length > 0) {
+      bits.push(`NWS forecast included${forecastIssued ? `, issued ${forecastIssued}` : ''}.`);
+    }
+    if (series.typicalPath) bits.push('Typical range for the date shown.');
+    return bits.join(' ');
   })();
 
   return (
@@ -665,7 +706,12 @@ function GaugeChartInner({
 
       <View style={styles.plotWrap} onLayout={onLayout}>
         {width > 0 && hasPlot ? (
-          <View {...(scrubbable ? pan.panHandlers : null)}>
+          <View
+            {...(scrubbable ? pan.panHandlers : null)}
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={plotSummary}
+          >
             <Svg width={width} height={CHART_HEIGHT}>
               {/* ── The bands, at their true numeric height ── */}
               {zones.map((zone) => {
@@ -819,8 +865,11 @@ function GaugeChartInner({
               ))}
 
               {/* ── The boundary between what happened and what is predicted ──
-                  Drawn only when there is a forecast to separate from. */}
-              {points.length > 0 && series.forecastPaths.length > 0 ? (
+                  Keyed on there being a forecast POINT, not a forecast path: a
+                  one-point forecast is still a forecast, and gating the rule on a
+                  drawn line put the boundary and the legend out of step with the
+                  thing they describe. */}
+              {points.length > 0 && forecastPoints.length > 0 ? (
                 <Line
                   x1={scale.x(points[points.length - 1].t)}
                   y1={PAD_TOP}
@@ -848,6 +897,15 @@ function GaugeChartInner({
                   fill="none"
                   strokeLinejoin="round"
                   strokeLinecap="round"
+                />
+              ))}
+              {series.forecastDots.map((point) => (
+                <Circle
+                  key={`fdot-${point.t}`}
+                  cx={scale.x(point.t)}
+                  cy={scale.y(point.v)}
+                  r={2}
+                  fill={floodStageColor()}
                 />
               ))}
 
@@ -911,12 +969,12 @@ function GaugeChartInner({
                 attribute, and the issue time is the part that makes a forecast
                 checkable — NWPS reissues on a schedule, so a line read at 6pm may
                 predate the afternoon's rain. */}
-            {series.typicalPath || series.forecastPaths.length > 0 ? (
+            {series.typicalPath || forecastPoints.length > 0 ? (
               <View style={styles.legend}>
                 {series.typicalPath ? (
                   <Text style={[styles.legendText, { color: TYPICAL_COLOR }]}>Typical 25–75%</Text>
                 ) : null}
-                {series.forecastPaths.length > 0 ? (
+                {forecastPoints.length > 0 ? (
                   <Text style={[styles.legendText, { color: floodStageColor() }]} numberOfLines={1}>
                     NWS forecast{forecastIssued ? ` · issued ${forecastIssued}` : ''}
                   </Text>

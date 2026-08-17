@@ -50,6 +50,7 @@ import {
   nearestChartPoint,
   niceValueTicks,
   qualifierText,
+  stepScrubTime,
   timeTicks,
   type ChartPoint,
 } from '@shared/chart-model';
@@ -221,6 +222,7 @@ export default function FlowTrendChart({
     // straight line drawn confidently across it — plus the readings that have no
     // neighbour to be joined to, which get a dot instead of being discarded.
     const observedSplit = chartSegments(observed);
+    const forecastSplit = chartSegments(forecast);
 
     const areaFor = (segment: ChartPoint[]) =>
       `${pathFor(segment)} L ${x(segment[segment.length - 1].t).toFixed(3)} 100 L ${x(segment[0].t).toFixed(3)} 100 Z`;
@@ -284,7 +286,12 @@ export default function FlowTrendChart({
       scrubTimes: [...observed.map((point) => point.t), ...forecast.map((point) => point.t)].sort(
         (a, b) => a - b
       ),
-      forecastPath: forecast.length > 1 ? pathFor(forecast) : '',
+      // Split on the same terms as the observed series. It used to be one path
+      // built from the whole array, which drew a straight confident line across
+      // any hole in the forecast and dropped a single-point forecast entirely —
+      // while the legend went on naming a series that was not on the plot.
+      forecastPaths: forecastSplit.lines.map(pathFor),
+      forecastDots: forecastSplit.isolated,
       typicalArea,
       typicalPath:
         typical.length > 1 ? pathFor(typical.map((row) => ({ t: row.t, v: row.median }))) : '',
@@ -316,52 +323,36 @@ export default function FlowTrendChart({
     setHoverFraction(Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)));
   }, []);
 
+  /** Put the scrub on an instant, as the fraction the pointer path also speaks. */
+  const scrubToTime = useCallback(
+    (time: number) => {
+      if (!chartData) return;
+      const { domain } = chartData;
+      setHoverFraction((time - domain.t0) / (domain.t1 - domain.t0 || 1));
+    },
+    [chartData]
+  );
+
   /**
-   * Move the scrub by whole READINGS, which is the keyboard's whole reason for
-   * existing here.
+   * Move the scrub by whole READINGS — see stepScrubTime for why not by pixels.
    *
-   * Stepping by a fraction of the width would be easier and wrong: a 14-day
-   * window is ~340 points across ~700px, so a fixed pixel step skips some
-   * readings and lands twice on others, and the reader cannot tell which. Every
-   * arrow press moves exactly one point in one series or the other, and lands on
-   * the time that point actually carries.
-   *
-   * Arriving with nothing selected lands on the newest reading — the number the
-   * header already shows, so the first press orients rather than jumping.
+   * ARRIVING WITH NOTHING SELECTED STARTS FROM THE NEWEST OBSERVED READING,
+   * because that is the point aria-valuenow has been reporting since the chart
+   * rendered. Anchoring on the end of the window instead — which is where this
+   * started — made the first left press select the reading the reader was already
+   * on, so on a station with no forecast the key appeared to do nothing.
    */
   const moveScrub = useCallback(
-    (delta: number, jumpTo?: 'first' | 'last') => {
+    (step: number) => {
       if (!chartData) return;
-      const { scrubTimes, domain } = chartData;
-      if (!scrubTimes.length) return;
-      const span = domain.t1 - domain.t0 || 1;
-      const fractionOf = (time: number) => (time - domain.t0) / span;
-
-      if (hoverFraction === null && !jumpTo) {
-        setHoverFraction(fractionOf(scrubTimes[scrubTimes.length - 1]));
-        return;
-      }
-
-      const time = domain.t0 + (hoverFraction ?? 1) * span;
-      let index = 0;
-      let nearest = Infinity;
-      for (let i = 0; i < scrubTimes.length; i += 1) {
-        const distance = Math.abs(scrubTimes[i] - time);
-        if (distance < nearest) {
-          nearest = distance;
-          index = i;
-        }
-      }
-
-      const next =
-        jumpTo === 'first'
-          ? 0
-          : jumpTo === 'last'
-            ? scrubTimes.length - 1
-            : Math.min(scrubTimes.length - 1, Math.max(0, index + delta));
-      setHoverFraction(fractionOf(scrubTimes[next]));
+      const from =
+        hoverFraction === null
+          ? chartData.current.t
+          : chartData.domain.t0 + hoverFraction * (chartData.domain.t1 - chartData.domain.t0 || 1);
+      const next = stepScrubTime(chartData.scrubTimes, from, step);
+      if (next !== null) scrubToTime(next);
     },
-    [chartData, hoverFraction]
+    [chartData, hoverFraction, scrubToTime]
   );
 
   if (isLoading) {
@@ -493,8 +484,12 @@ export default function FlowTrendChart({
         role: 'slider',
         'aria-label': `${chartLabel} readings. Use the left and right arrow keys to move through the series.`,
         'aria-orientation': 'horizontal' as const,
-        'aria-valuemin': chartData.domain.t0,
-        'aria-valuemax': chartData.domain.t1,
+        // The SELECTABLE range, not the drawn one. The domain also spans the
+        // typical band's dates, which are a daily statistic rather than a reading
+        // and which the scrub cannot land on — advertising those as the bounds
+        // promised a Home/End that could not arrive.
+        'aria-valuemin': chartData.scrubTimes[0],
+        'aria-valuemax': chartData.scrubTimes[chartData.scrubTimes.length - 1],
         'aria-valuenow': (hovered?.point ?? chartData.current).t,
         'aria-valuetext': scrubReadout,
         onMouseMove: (event: React.MouseEvent) => handleInteraction(event.clientX),
@@ -506,17 +501,26 @@ export default function FlowTrendChart({
         onTouchCancel: () => setHoverFraction(null),
         onBlur: () => setHoverFraction(null),
         onKeyDown: (event: React.KeyboardEvent) => {
-          // preventDefault on the arrows and Home/End: the page must not scroll
-          // out from under a widget the reader is stepping through.
-          if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          // Up and Down as well as Right and Left, per the APG slider pattern:
+          // Up/Right increase, Down/Left decrease. The axis is horizontal and the
+          // vertical keys still work — a reader who has learned one slider should
+          // not have to discover that this one is different.
+          //
+          // preventDefault on all of them, and on Home/End: the page must not
+          // scroll out from under a widget the reader is stepping through.
+          const times = chartData.scrubTimes;
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
             event.preventDefault();
-            moveScrub(event.key === 'ArrowLeft' ? -1 : 1);
+            moveScrub(-1);
+          } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            moveScrub(1);
           } else if (event.key === 'Home') {
             event.preventDefault();
-            moveScrub(0, 'first');
+            if (times.length) scrubToTime(times[0]);
           } else if (event.key === 'End') {
             event.preventDefault();
-            moveScrub(0, 'last');
+            if (times.length) scrubToTime(times[times.length - 1]);
           } else if (event.key === 'Escape') {
             setHoverFraction(null);
           }
@@ -709,9 +713,10 @@ export default function FlowTrendChart({
                 opacity="0.7"
               />
             )}
-            {chartData.forecastPath && (
+            {chartData.forecastPaths.map((d, i) => (
               <path
-                d={chartData.forecastPath}
+                key={`forecast-${i}`}
+                d={d}
                 fill="none"
                 stroke={FORECAST_COLOR}
                 strokeWidth="2"
@@ -719,7 +724,21 @@ export default function FlowTrendChart({
                 strokeLinecap="round"
                 vectorEffect="non-scaling-stroke"
               />
-            )}
+            ))}
+
+            {/* A forecast point with no neighbour — a short-range issuance can be
+                one point. Drawn for the same reason its observed counterpart is:
+                the legend names this series, so the series has to be visible. */}
+            {chartData.forecastDots.map((point) => (
+              <circle
+                key={`forecast-dot-${point.t}`}
+                cx={chartData.x(point.t)}
+                cy={chartData.y(point.v)}
+                r="2"
+                fill={FORECAST_COLOR}
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
 
             {/* Current value dot — the newest OBSERVED reading, never a forecast */}
             <circle

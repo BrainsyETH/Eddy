@@ -336,6 +336,40 @@ export function timeTicks(t0: number, t1: number, targetCount = 5): ChartTick[] 
   });
 }
 
+/**
+ * The instant one step away from `fromTime`, for a scrub driven by keys rather
+ * than by a pointer.
+ *
+ * STEPS BY READING, NOT BY DISTANCE. A 14-day window is ~340 readings across
+ * ~700px, so a fixed pixel or millisecond step skips some and lands twice on
+ * others, and the reader cannot tell which. `times` is every selectable instant
+ * — both series merged, ascending — so one press is one reading, and every
+ * landing is on a number that exists.
+ *
+ * Clamps at both ends rather than wrapping: a hydrograph has a first reading and
+ * a newest one, and arriving back at last week from the right-hand edge would be
+ * a claim about time.
+ *
+ * Lives in the model because "which reading is next" is the same question
+ * nearestChartPoint answers, and because the app will need it the day its scrub
+ * grows an accessibility action.
+ */
+export function stepScrubTime(times: number[], fromTime: number, step: number): number | null {
+  if (!times.length) return null;
+
+  let index = 0;
+  let nearest = Infinity;
+  for (let i = 0; i < times.length; i += 1) {
+    const distance = Math.abs(times[i] - fromTime);
+    if (distance < nearest) {
+      nearest = distance;
+      index = i;
+    }
+  }
+
+  return times[Math.min(times.length - 1, Math.max(0, index + step))];
+}
+
 /** Binary search for the reading under a scrub. Points must be time-sorted. */
 export function nearestChartPoint(points: ChartPoint[], targetTime: number): ChartPoint | null {
   if (!points.length) return null;

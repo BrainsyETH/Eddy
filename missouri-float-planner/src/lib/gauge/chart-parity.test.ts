@@ -119,6 +119,24 @@ test('neither chart discards a reading it cannot join to a line', () => {
   }
 });
 
+test('the isolated-reading rule covers the forecast series too', () => {
+  // chartSegments() returns the lone points of whatever it is handed, and both
+  // renderers were calling it for the observed series and throwing the forecast's
+  // isolated points away — while the legend went on naming the forecast. A
+  // short-range issuance can be a single point.
+  for (const [name, source] of RENDERERS) {
+    assert.match(source, /forecastDots/, `${name} discards isolated forecast points`);
+  }
+  // And the attribution is keyed on there BEING a forecast point rather than on a
+  // path having been drawn from two or more of them.
+  assert.doesNotMatch(web, /forecast\.length > 1/, 'web gates the forecast on a two-point path');
+  assert.doesNotMatch(
+    app,
+    /series\.forecastPaths\.length > 0 \?[\s\S]{0,80}NWS forecast/,
+    'app gates its forecast legend on a drawn path',
+  );
+});
+
 test('both charts draw the official forecast, attribute it, and date it', () => {
   // The endpoint has sent `forecast` and `forecastIssuedAt` to both clients since
   // NWPS replaced AHPS. The app drew neither for a release, so the phone showed a
@@ -141,6 +159,18 @@ test('the qualifier vocabulary is written once, in the model', () => {
   }
 });
 
+test('the plot itself is announced on both platforms', () => {
+  // Neither renderer may leave the chart as an unlabelled box. What each says is
+  // platform-shaped — the web's slider speaks the scrubbed reading through
+  // aria-valuetext, the app's plot carries a summary — but "nothing at all" is
+  // not one of the options on either.
+  assert.match(web, /aria-label|aria-valuetext/);
+  assert.match(app, /accessibilityLabel=\{plotSummary\}/, 'the app plot has no accessible summary');
+  // The summary has to carry the things that are visual and only visual.
+  assert.match(app, /NWS forecast included/);
+  assert.match(app, /Latest reading \$\{latestQualifiers\}/);
+});
+
 test('the web scrub is reachable without a pointer', () => {
   // NOT a parity claim — the app has no keyboard, and its scrub is a
   // PanResponder. This is the floor for the platform that does have one: the
@@ -149,7 +179,14 @@ test('the web scrub is reachable without a pointer', () => {
   assert.match(web, /role: 'slider'/);
   assert.match(web, /onKeyDown/);
   assert.match(web, /aria-valuetext/);
-  assert.match(web, /ArrowLeft/);
+  // Both key pairs, per the APG slider pattern: a reader who has learned one
+  // slider should not have to discover that this one only moves sideways.
+  for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']) {
+    assert.match(web, new RegExp(key), `web scrub ignores ${key}`);
+  }
+  // The advertised bounds are the SELECTABLE instants. The drawn domain also
+  // spans the typical band's dates, which Home and End cannot reach.
+  assert.match(web, /'aria-valuemin': chartData\.scrubTimes\[0\]/);
   // The card sparkline is the one that must NOT be interactive: it sits inside a
   // next/link, so a drag there competes with the page scroll and with a tap
   // target that navigates away.
