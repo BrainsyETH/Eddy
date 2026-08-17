@@ -1318,9 +1318,11 @@ export default function ReportsScreen() {
             {riverScope && !search.hasMore && rows.length > 0 ? (
               <View style={styles.trustRow}>
                 <Text style={[styles.trustText, { color: colors.textMuted }]}>
-                  Every river here is researched by hand — put-ins walked, hazards logged, gauges
-                  rated. New ones go out regularly. Missing yours?
+                  Eddy rivers are manually reviewed. Missing yours?
                 </Text>
+                {/* The invitation IS the link now. "Request a river" restated
+                    the question the line above had just asked, so the row spent
+                    two lines on one offer. */}
                 <Pressable
                   onPress={() => setRiverRequestOpen(true)}
                   hitSlop={8}
@@ -1328,7 +1330,7 @@ export default function ReportsScreen() {
                   accessibilityLabel="Request a river"
                 >
                   <Text style={[styles.requestRiver, { color: colors.interactive }]}>
-                    Request a river
+                    Let us know.
                   </Text>
                 </Pressable>
               </View>
