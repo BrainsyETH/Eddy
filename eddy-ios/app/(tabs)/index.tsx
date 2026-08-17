@@ -652,7 +652,10 @@ export default function MapScreen() {
     | { camera: 'fitRiver' }
     /** A searched point on it; the river selection is a side effect. */
     | { camera: 'searchResult'; lng: number; lat: number }
-    /** A tapped pin on it; likewise, and it keeps the current zoom. */
+    /**
+     * A tapped point on it — a pin, or the river line itself. The river
+     * selection is a side effect, and the current zoom is kept.
+     */
     | { camera: 'pin'; lng: number; lat: number }
     /** Deliberately nothing. Dismissal is not navigation. */
     | { camera: 'hold' };
@@ -1941,9 +1944,26 @@ export default function MapScreen() {
   // drawing it: the map is now a way of CHOOSING a river, not just of looking
   // at one you already chose. Any open callout belongs to the old river.
   //
+  // ── AND IT STAYS WHERE THE FINGER LANDED ─────────────────────────────────
+  //
+  // This framed the whole river, on the reasoning above: the reader asked for
+  // the river, so show them the river. That is true of picking one from search
+  // or from a list, where they have named a river and are looking at nothing in
+  // particular. It is false of a TAP: tapping the Current near Van Buren says
+  // "this stretch", and answering it by fitting 134 miles of river moves the
+  // map off the thing under the finger — which is exactly what it felt like.
+  //
+  // So a tap that carried a coordinate keeps the reader there, at their own
+  // zoom, nudged only by what the sheet covers (`poiSelected` waits for the
+  // sheet and frames into what is left). Without one — a shape event that did
+  // not carry it — the old fit is still the honest fallback: something has to
+  // put the river on screen.
+  //
+  // The other callers still pass `fitRiver` and should: search results and the
+  // river picker name a river without pointing at any part of it.
   const onSelectNetworkRiver = useCallback(
-    (slug: string) => {
-      selectRiver(slug, { camera: 'fitRiver' });
+    (slug: string, at?: { lng: number; lat: number }) => {
+      selectRiver(slug, at ? { camera: 'pin', lng: at.lng, lat: at.lat } : { camera: 'fitRiver' });
       setSelectedPin(null);
       pendingAccessSelection.current = null;
     },
