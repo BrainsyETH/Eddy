@@ -132,6 +132,145 @@ export function drawableAmenities(
   );
 }
 
+/* ── What Eddy knows but never wrote down ────────────────────────────────── */
+//
+// `amenities` is empty on 148 of 312 approved access points, and for 141 of
+// those the SAME ROW holds a `facilities` sentence describing exactly what is
+// there. Baptist Camp on the Current is the shape of it: no amenities array, a
+// facilities line reading "Vault toilets only", a parking_info line reading
+// "Paved lot with ample parking", and a parking_capacity of 20 — so Eddy holds
+// the fact three times over and the list row drew nothing.
+//
+// ── Structured evidence first, prose second, and never a guess ────────────
+//
+// Two kinds of evidence, and they are not equally trustworthy:
+//
+//   STRUCTURED — a parking capacity, a boat-ramp type, a linked campground.
+//   The column's existence IS the claim; nothing is being interpreted.
+//
+//   PROSE — the facilities and parking sentences. Read with a negation rule,
+//   because half of them are about what is NOT there: "No restrooms", "No
+//   public parking at bridge", "No boat ramp — carry-in access". A matcher
+//   that only looked for the word would put a restroom mark on a put-in whose
+//   own description says it has none, and somebody would drive there.
+//
+// So a clause that carries a negation DENIES every term in it, denials outrank
+// grants wherever both occur, and a term nobody mentions produces nothing. The
+// declared column still wins outright: it is the curated field, and this is a
+// reading of the rows nobody has curated yet.
+//
+// This is a read-side repair of a data gap, not a replacement for filling it.
+// Backfilling `amenities` would fix the website, the exports and the offline
+// bundle too; until then the phone stops throwing away what it was sent.
+
+/** Whatever the caller holds about a place. Structural — any shape with these. */
+export interface AmenityEvidence {
+  amenities?: string[] | null;
+  /** Free prose: "Concrete boat ramp, vault toilets, potable water…". */
+  facilities?: string | null;
+  parkingInfo?: string | null;
+  /** A capacity recorded at all means somebody parks here. */
+  parkingCapacity?: string | null;
+  type?: string | null;
+  types?: string[] | null;
+  /** Presence, never the contents — a linked NPS campground is a campground. */
+  npsCampground?: unknown;
+}
+
+/**
+ * Words that mean the clause is about an ABSENCE.
+ *
+ * Whole words only: `not` must not fire on "notable", and `no` must not fire
+ * on "north" — both appear in this corpus ("north bank", "no trash service").
+ */
+const NEGATION = /\b(?:no|not|none|without|lacks?|lacking)\b/i;
+
+/**
+ * The terms that stand for each mark.
+ *
+ * Deliberately narrow. "Space for approximately 5 vehicles" is parking to a
+ * human and is not matched here, because the words that would catch it —
+ * `space`, `pull-off`, `vehicles` — also catch sentences that are about
+ * something else. A missing mark costs a glance; a wrong one costs a drive.
+ */
+const TERMS: { symbol: AmenitySymbolName; slug: string; label: string; pattern: RegExp }[] = [
+  { symbol: 'parking', slug: 'parking', label: 'Parking', pattern: /\b(?:parking|lot)\b/i },
+  {
+    symbol: 'facilities',
+    slug: 'restrooms',
+    label: 'Restrooms',
+    pattern: /\b(?:restrooms?|toilets?|privy|privies|outhouses?|bathrooms?)\b/i,
+  },
+  {
+    symbol: 'boatRamp',
+    slug: 'boat_ramp',
+    label: 'Boat ramp',
+    pattern: /\b(?:boat ramps?|ramps?|slipway|launch)\b/i,
+  },
+  {
+    symbol: 'campground',
+    slug: 'camping',
+    label: 'Camping',
+    pattern: /\b(?:campgrounds?|campsites?|camping)\b/i,
+  },
+];
+
+/**
+ * Sentence-ish pieces, and NOT comma-separated ones.
+ *
+ * "No restrooms, potable water, picnic tables, or maintained structures" is one
+ * negation governing a list — split it on commas and every item after the first
+ * reads as present. Splitting only on real boundaries keeps the "No" attached
+ * to everything it governs, which is the conservative direction.
+ */
+function clauses(prose: string): string[] {
+  return prose
+    .split(/[.;\n]|—|–|--/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Marks for a place, from everything about it rather than one column.
+ *
+ * Declared amenities keep their order and their meaning; evidence only ever
+ * appends. Returns the same narrowed type `drawableAmenities` does, so a call
+ * site swaps one for the other without knowing which fact came from where.
+ */
+export function drawableAmenitiesFor(point: AmenityEvidence): DrawableAmenity[] {
+  const declared = drawableAmenities(point.amenities);
+  const claimed = new Set(declared.map((entry) => entry.slug));
+
+  const granted = new Set<AmenitySymbolName>();
+  const denied = new Set<AmenitySymbolName>();
+
+  for (const prose of [point.facilities, point.parkingInfo]) {
+    if (!prose) continue;
+    for (const clause of clauses(prose)) {
+      const negated = NEGATION.test(clause);
+      for (const term of TERMS) {
+        if (!term.pattern.test(clause)) continue;
+        (negated ? denied : granted).add(term.symbol);
+      }
+    }
+  }
+
+  // Structured facts, which no sentence can talk out of: they are records
+  // rather than descriptions. Added after the prose pass so a denial still
+  // wins — "No public parking at bridge" beside a stray capacity is a
+  // contradiction, and the safe reading of a contradiction is silence.
+  if (point.parkingCapacity) granted.add('parking');
+  const types = [point.type, ...(point.types ?? [])].filter(Boolean) as string[];
+  if (types.includes('boat_ramp')) granted.add('boatRamp');
+  if (point.npsCampground || types.includes('campground')) granted.add('campground');
+
+  const inferred = TERMS.filter(
+    (term) => granted.has(term.symbol) && !denied.has(term.symbol) && !claimed.has(term.slug),
+  ).map((term) => ({ slug: term.slug, label: term.label, symbol: term.symbol }));
+
+  return [...declared, ...inferred];
+}
+
 /**
  * One spoken phrase for a whole amenity row.
  *
@@ -142,4 +281,24 @@ export function accessAmenityLabel(amenities: string[] | null | undefined): stri
   const entries = accessAmenities(amenities);
   if (!entries.length) return null;
   return entries.map((entry) => entry.label).join(', ');
+}
+
+/**
+ * The spoken phrase for a row drawn by `drawableAmenitiesFor`.
+ *
+ * The pair has to move together. A row that draws a restroom mark from the
+ * facilities sentence while speaking only the empty `amenities` column would
+ * give a VoiceOver reader strictly less than the screen shows, which is the
+ * failure the marks-plus-label arrangement exists to avoid.
+ */
+export function accessAmenityLabelFor(point: AmenityEvidence): string | null {
+  const declared = accessAmenities(point.amenities);
+  const spoken = declared.map((entry) => entry.label);
+  const named = new Set(declared.map((entry) => entry.slug));
+
+  for (const mark of drawableAmenitiesFor(point)) {
+    if (!named.has(mark.slug)) spoken.push(mark.label);
+  }
+
+  return spoken.length ? spoken.join(', ') : null;
 }

@@ -34,7 +34,7 @@ import { Absent, Fact, LinkRow, Prose, Section } from './sections';
 import { RiverHead } from './RiverHead';
 import { EddySymbol } from '../EddySymbol';
 import { placeSymbol } from './placeSymbol';
-import { accessAmenityLabel, drawableAmenities } from './accessAmenities';
+import { accessAmenityLabelFor, drawableAmenitiesFor } from './accessAmenities';
 
 // The registry and its shapes live in riverTabs.ts, which imports no React
 // Native at all so the web suite can load it. Re-exported here so callers that
@@ -217,8 +217,11 @@ export function RiverAccessesTab({ river, onSelectAccess, onOpenAccess }: RiverT
   return (
     <Section>
       {ordered.map((point) => {
-        const marks = drawableAmenities(point.amenities);
-        const spoken = accessAmenityLabel(point.amenities);
+        // From the whole row, not just the `amenities` column: that column is
+        // empty on about half the catalog, while the same rows carry a
+        // facilities sentence saying what is there. See drawableAmenitiesFor.
+        const marks = drawableAmenitiesFor(point);
+        const spoken = accessAmenityLabelFor(point);
         const photo = point.imageUrls?.[0] ?? null;
         const symbol = placeSymbol({ layer: 'access' }, point);
         return (
