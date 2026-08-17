@@ -38,6 +38,22 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
+/**
+ * The five ticks under the rows, as hours of a Central day.
+ *
+ * Hour 24 rather than a second hour 0: it is the same instant as the next day's
+ * midnight and a different END OF THIS ROW, which is exactly the distinction a
+ * React key has to carry. Words rather than a 0-23 axis for DayBars' reason —
+ * nobody reads a release schedule in 24-hour time.
+ */
+const HOUR_TICKS = [
+  { hour: 0, label: 'midnight' },
+  { hour: 6, label: '6 AM' },
+  { hour: 12, label: 'noon' },
+  { hour: 18, label: '6 PM' },
+  { hour: 24, label: 'midnight' },
+] as const;
+
 export function DamPatternStrip({
   pattern,
   schedule,
@@ -254,9 +270,13 @@ export function DamPatternStrip({
         <View style={styles.row}>
           <View style={styles.axisLead} />
           <View style={styles.barAxis}>
-            {['midnight', '6 AM', 'noon', '6 PM', 'midnight'].map((tick) => (
-              <Text key={tick} style={[styles.axisText, { color: colors.textSubtle }]}>
-                {tick}
+            {/* Keyed by the HOUR, not the word: a day starts and ends at
+                midnight, so the labels are not unique and React was being
+                handed two children with the key `midnight`. The hour is what
+                actually tells the two ends of the row apart. */}
+            {HOUR_TICKS.map((tick) => (
+              <Text key={tick.hour} style={[styles.axisText, { color: colors.textSubtle }]}>
+                {tick.label}
               </Text>
             ))}
           </View>
