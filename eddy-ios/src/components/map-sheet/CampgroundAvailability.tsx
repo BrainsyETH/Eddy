@@ -3,12 +3,13 @@
 //
 // ── What was wrong was the RANK, not the facts ────────────────────────────
 //
-// availability.ts already computed the right things and AvailabilityGlance
-// already set the number in Fredoka. But the module sat between an identity row
-// and an action row with no surface of its own, so the app's flagship answer to
-// "can I stay here on my dates" read as a caption between two other things. A
-// campground is the one pin people tap to make a booking decision, and a
-// decision needs somewhere to land.
+// availability.ts already computed the right things and the glance this
+// replaced — AvailabilityGlance, since deleted, because nothing had imported it
+// for as long as this card has existed — already set the number in Fredoka. But
+// that module sat between an identity row and an action row with no surface of
+// its own, so the app's flagship answer to "can I stay here on my dates" read as
+// a caption between two other things. A campground is the one pin people tap to
+// make a booking decision, and a decision needs somewhere to land.
 //
 // This is that surface: the same numbers, on a card, behind the same drawing the
 // pin was wearing when it was tapped.
@@ -266,6 +267,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // ── THE ONLY FREDOKA IN THE MAP SHEET, AND THE WHOLE BRANDING MOVE ──────
+  // Stated here because the file that used to state it is gone: the number a
+  // person came for is drawn in Eddy's own voice and everything around it stays
+  // in Geist, so the sheet does not turn into a poster. It is not coral either
+  // — see the rail's note above.
   count: { ...t['2xl'], fontFamily: fonts.display },
   words: { flex: 1, minWidth: 0 },
   // ONE headline style for every state — "59 open", "Fully booked" and
