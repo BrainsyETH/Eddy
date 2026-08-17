@@ -55,6 +55,16 @@ export async function GET(request: NextRequest) {
         access_point_id,
         gauge_station_id,
         submitter_name,
+        captured_at,
+        reading_source,
+        reading_observed_at,
+        river_mile,
+        gauge_trend,
+        gauge_trend_delta,
+        gauge_trend_window_hours,
+        gauge_trend_unit,
+        gauge_relation,
+        gauge_offset_miles,
         rivers(id, name, slug),
         river_hazards(id, name),
         access_points(id, name)
@@ -92,6 +102,29 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Name the gauge each reading came from. Fetched separately rather than
+    // embedded: community_reports.gauge_station_id resolves to more than one
+    // relation, so PostgREST refuses the embed (same reason the public visuals
+    // route builds its own name map).
+    const gaugeNames = new Map<string, string>();
+    const gaugeIds = [
+      ...new Set(
+        (reports || [])
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((r: any) => r.gauge_station_id as string | null)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    if (gaugeIds.length > 0) {
+      const { data: stations } = await supabase
+        .from('gauge_stations')
+        .select('id, name')
+        .in('id', gaugeIds);
+      for (const s of stations || []) {
+        if (s.id && s.name) gaugeNames.set(s.id, s.name);
+      }
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const formatted = (reports || []).map((report: any) => {
       const riverData = getRiverData(report.rivers);
@@ -112,7 +145,7 @@ export async function GET(request: NextRequest) {
         hazardName: hazardData?.name || null,
         type: report.type,
         coordinates: coords,
-        riverMile: report.river_mile ? parseFloat(report.river_mile) : null,
+        riverMile: report.river_mile != null ? parseFloat(report.river_mile) : null,
         // Published URL when live; signed quarantine preview while pending.
         imageUrl: report.image_url ?? (report.image_path ? signedByPath.get(report.image_path) ?? null : null),
         imagePath: report.image_path,
@@ -123,12 +156,31 @@ export async function GET(request: NextRequest) {
         verifiedAt: report.verified_at,
         createdAt: report.created_at,
         updatedAt: report.updated_at,
-        gaugeHeightFt: report.gauge_height_ft ? parseFloat(report.gauge_height_ft) : null,
-        dischargeCfs: report.discharge_cfs ? parseFloat(report.discharge_cfs) : null,
+        // `!= null`, not a truthiness check: a genuine 0.00 ft reading (a dry
+        // bed on a losing Ozarks stream is a real submission) rendered as "N/A"
+        // under the old `? :`, which read as missing data rather than as zero.
+        gaugeHeightFt: report.gauge_height_ft != null ? parseFloat(report.gauge_height_ft) : null,
+        dischargeCfs: report.discharge_cfs != null ? parseFloat(report.discharge_cfs) : null,
         accessPointId: report.access_point_id,
         accessPointName: accessPointData?.name || null,
         gaugeStationId: report.gauge_station_id,
+        gaugeName: report.gauge_station_id ? gaugeNames.get(report.gauge_station_id) ?? null : null,
         submitterName: report.submitter_name,
+        // When the photo was taken, and where the number beside it came from.
+        capturedAt: report.captured_at ?? null,
+        readingSource: report.reading_source ?? null,
+        readingObservedAt: report.reading_observed_at ?? null,
+        gaugeTrend: report.gauge_trend ?? null,
+        gaugeTrendDelta:
+          report.gauge_trend_delta != null ? parseFloat(report.gauge_trend_delta) : null,
+        gaugeTrendWindowHours:
+          report.gauge_trend_window_hours != null
+            ? parseFloat(report.gauge_trend_window_hours)
+            : null,
+        gaugeTrendUnit: report.gauge_trend_unit ?? null,
+        gaugeRelation: report.gauge_relation ?? null,
+        gaugeOffsetMiles:
+          report.gauge_offset_miles != null ? parseFloat(report.gauge_offset_miles) : null,
       };
     });
 

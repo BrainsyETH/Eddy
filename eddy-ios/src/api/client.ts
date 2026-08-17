@@ -1962,7 +1962,13 @@ export interface RiverVisualSubmission {
   submitterName?: string;
   /** ISO date the photo was taken, from EXIF where the picker supplied it. */
   capturedAt?: string;
-  /** Where the reading came from, so a moderator can weigh it. */
+  /**
+   * Where the reading came from, so a moderator can weigh it.
+   *
+   * Send 'manual' or send nothing. The other two describe work the SERVER does
+   * (it resolves the reach gauge and reads USGS at `capturedAt`), so only the
+   * server can label them honestly — omitting this lets it say which branch ran.
+   */
   readingSource?: 'live' | 'historical' | 'manual';
 }
 
