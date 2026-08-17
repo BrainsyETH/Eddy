@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   FULL_GENERATION_SHORT_LABEL,
   generationReferenceCitation,
+  generationReferenceLine,
   RACK_ESTIMATE_NOTE,
   schedulePeak,
   schedulePeakWindowLabel,
@@ -1214,4 +1215,18 @@ test('the peak is spoken in full units and read as a span', () => {
     schedulePeakVoiceOver(peak),
     'Peak scheduled release approximately 22,600 cubic feet per second, from 4 to 8 PM.'
   );
+});
+
+test('the estimate hedge rides on the citation instead of a paragraph', () => {
+  // Two sentences of grey subtext under an already-hedged headline were the
+  // least-read thing on the card. The word that does the work is "estimated",
+  // and it sits beside the number it qualifies now.
+  assert.equal(
+    generationReferenceLine(BULL_SHOALS),
+    'Full generation is 26,400 cfs (SWPA) · estimated from flow'
+  );
+  // The publisher survives the compression: the percentage is only checkable
+  // because the denominator is published.
+  assert.match(generationReferenceLine(BULL_SHOALS), /SWPA/);
+  assert.match(generationReferenceLine(BULL_SHOALS), /estimated/);
 });

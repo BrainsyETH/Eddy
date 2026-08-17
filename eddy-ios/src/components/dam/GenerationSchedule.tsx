@@ -66,10 +66,16 @@ function DayRow({
   return (
     <CollapsibleSection
       title={scheduleDayLabel(day.scheduleDate)}
-      // The summary is the whole point of collapsing this: a shut section must
-      // still answer "when is the water off", which is what somebody opened the
-      // screen to find out.
-      summary={idleWindowSentence(day.idle)}
+      // ── ONLY WHEN THERE IS A BREAK TO NAME ──────────────────────────────
+      // The summary is the point of collapsing this: a shut section must still
+      // answer "when is the water off", which is what somebody opened the
+      // screen to find out. That is true of a day WITH idle windows.
+      //
+      // On a day scheduled every hour it printed "Generation scheduled every
+      // hour — no break in the schedule.", a sentence that hides nothing and
+      // says nothing the bars below do not, sitting in the row a reader taps to
+      // open. The trailing hour count still carries the same fact in two words.
+      summary={day.idle.length > 0 ? idleWindowSentence(day.idle) : null}
       defaultExpanded={defaultExpanded}
       trailing={
         <View style={styles.trailing}>

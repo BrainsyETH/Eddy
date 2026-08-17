@@ -54,7 +54,7 @@ import {
   scheduledClauseProvenance,
   speaksForNow,
   OTHER_RELEASE_NOTE,
-  RACK_ESTIMATE_NOTE,
+  generationReferenceLine,
 } from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -223,9 +223,12 @@ export function DamGenerationHero({
               {fraction > 1 ? ' — above the published reference' : ''}
             </Text>
             {/* The citation, demoted but never dropped: the percentage is only
-                checkable because the denominator is published. */}
+                checkable because the denominator is published. The estimate
+                hedge rides on the end of it — see generationReferenceLine for
+                why two sentences of grey subtext under an already-hedged
+                headline were the least-read thing on the card. */}
             <Text style={[styles.note, { color: colors.textSubtle }]}>
-              {generationReferenceCitation(ref)}
+              {rack ? generationReferenceLine(ref) : generationReferenceCitation(ref)}
             </Text>
           </View>
         ) : null}
@@ -240,10 +243,6 @@ export function DamGenerationHero({
         >
           {voiceOver}
         </Text>
-      ) : null}
-
-      {rack ? (
-        <Text style={[styles.note, { color: colors.textSubtle }]}>{RACK_ESTIMATE_NOTE}</Text>
       ) : null}
 
       {/* NEXT CHANGE — the panel, not a footnote. Tinted, bordered and set at
