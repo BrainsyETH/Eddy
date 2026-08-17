@@ -580,7 +580,13 @@ interface Props {
   conditionCode: string;
   /** Every curated river, condition-coloured. Drawn under the selected one. */
   network?: NetworkCollection | null;
-  onSelectRiverSlug?: (slug: string) => void;
+  /**
+   * A river line was tapped, with WHERE it was tapped when the event carried it.
+   *
+   * The coordinate is what lets the caller keep the reader on the stretch they
+   * pointed at instead of framing the whole river out from under them.
+   */
+  onSelectRiverSlug?: (slug: string, at?: { lng: number; lat: number }) => void;
   /**
    * Every access point to draw, each tagged with the river it is on.
    *
@@ -1544,9 +1550,28 @@ export function RiverMap({
 
   const stroke = conditionColor(conditionCode);
 
-  const onNetworkPress = (event: { features?: { properties?: Record<string, unknown> }[] }) => {
+  // ── THE TAP POINT TRAVELS WITH THE SLUG ──────────────────────────────────
+  // Mapbox hands every press the map coordinate under the finger, and this
+  // dropped it. Without it the caller had nothing to keep the reader near, so
+  // selecting a river could only frame the whole river — which on the Current
+  // is 134 miles and lands somewhere the reader was not looking. See the map
+  // screen's onSelectNetworkRiver.
+  const onNetworkPress = (event: {
+    features?: { properties?: Record<string, unknown> }[];
+    coordinates?: { latitude: number; longitude: number };
+  }) => {
     const slug = event.features?.[0]?.properties?.slug;
-    if (typeof slug === 'string') onSelectRiverSlug?.(slug);
+    if (typeof slug !== 'string') return;
+    const at = event.coordinates;
+    onSelectRiverSlug?.(
+      slug,
+      // Optional because it comes off a native event: a shape that arrives
+      // without it must still select the river, and the caller falls back to
+      // framing rather than to doing nothing.
+      at && Number.isFinite(at.longitude) && Number.isFinite(at.latitude)
+        ? { lng: at.longitude, lat: at.latitude }
+        : undefined,
+    );
   };
 
   const layerOn = (key: LayerKey) => layers.includes(key);

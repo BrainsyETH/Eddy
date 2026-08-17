@@ -31,6 +31,7 @@ import {
   patternRowLabel as rowLabel,
   patternRowVoiceOver as rowVoiceOver,
   patternRows,
+  patternSpanLabel,
   type GenerationReference,
   type PatternRow as Row,
 } from '@eddy/conditions/dam-generation';
@@ -74,6 +75,7 @@ export function DamPatternStrip({
   );
 
   if (rows.length === 0) return null;
+  const span = patternSpanLabel(rows);
   const todayIndex = rows.findIndex((r) => r.today);
   // Legended only when drawn — see the web strip. A dam with a posted SWPA
   // sheet never has a `future` cell.
@@ -83,6 +85,13 @@ export function DamPatternStrip({
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       <Text style={[styles.title, { color: colors.text }]}>Generation pattern</Text>
+      {/* WHICH DAYS, in words. The row labels name each row and never the whole,
+          so a reader had to count rows to find out whether this was a week or a
+          fortnight. Derived from the rows rather than from the window constants,
+          so a dam with four days of history does not claim seven. */}
+      {span ? (
+        <Text style={[styles.span, { color: colors.textMuted }]}>{span}</Text>
+      ) : null}
       {/* A legend, not a paragraph. The prose said "hatched" while the drawing
           used dashed outlines — a mismatch that survives review precisely
           because nobody reads the sentence and the picture at the same time. */}
@@ -228,6 +237,31 @@ export function DamPatternStrip({
             </View>
           </View>
         ))}
+
+        {/* ── WHAT A COLUMN IS ────────────────────────────────────────────
+            Every row is one Central day cut into hours, and nothing said so:
+            the web strip has carried midnight/noon/midnight since it shipped
+            and DayBars carries these same five ticks, but this grid — the one
+            place a reader meets 24 columns with no other clue — had neither.
+            Words rather than a 0-23 axis for DayBars' reason: nobody reads a
+            release schedule in 24-hour time.
+
+            Laid out with the row's own spacers so the ticks sit over the bars
+            they describe rather than over the day label. A 23- or 25-hour day
+            shifts the middle ticks by half a slot, which is a ruler being
+            approximate about DST rather than a marker being wrong — the now
+            line, which must be exact, is placed from the row's own split. */}
+        <View style={styles.row}>
+          <View style={styles.axisLead} />
+          <View style={styles.barAxis}>
+            {['midnight', '6 AM', 'noon', '6 PM', 'midnight'].map((tick) => (
+              <Text key={tick} style={[styles.axisText, { color: colors.textSubtle }]}>
+                {tick}
+              </Text>
+            ))}
+          </View>
+          <View style={styles.axisTail} />
+        </View>
       </View>
 
       <Text style={[styles.footer, { color: colors.textSubtle, borderTopColor: colors.border }]}>
@@ -242,6 +276,9 @@ export function DamPatternStrip({
 const styles = StyleSheet.create({
   card: { borderRadius: 14, padding: 16, gap: 10 },
   title: { ...t.lg, fontFamily: fonts.display },
+  // Directly under the title, above the legend: it says what the card is OF,
+  // which is read before what the treatments mean.
+  span: { fontSize: 12, lineHeight: 16, marginTop: -4 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendSwatch: { width: 10, height: 12, borderRadius: 1 },
@@ -250,6 +287,12 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   rowLabel: { width: 40, fontSize: 10, lineHeight: 14, fontVariant: ['tabular-nums'] },
   rowTag: { width: 36, fontSize: 9, lineHeight: 13, textAlign: 'right' },
+  // The row's two gutters, mirrored so the ticks line up with the bars. Same
+  // widths as rowLabel and rowTag — if either moves, these move with it.
+  axisLead: { width: 40 },
+  axisTail: { width: 36 },
+  barAxis: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
+  axisText: { fontSize: 10, lineHeight: 14 },
   bars: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', height: 18 },
   slot: { flex: 1, height: '100%', justifyContent: 'flex-end', paddingHorizontal: 0.5 },
   bar: { width: '100%', borderRadius: 1 },
