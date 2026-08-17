@@ -122,8 +122,11 @@ export default function FavoritesScreen() {
 
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [gauges, setGauges] = useState<MapGauge[] | null>(null);
-  // Not nullable, unlike the two above: fetchDams already resolves to [] on
-  // failure, so there is no "not yet loaded" state to distinguish.
+  // Not nullable, unlike the two above. fetchDams throws now rather than
+  // answering [] — see its header — but this screen still wants the lenient
+  // reading: the row renders from the store either way, and the enrichment
+  // failing is not a state worth distinguishing here. The `.catch` below is
+  // what keeps that true.
   const [dams, setDams] = useState<DamSnapshot[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FavoriteFilter>('all');
