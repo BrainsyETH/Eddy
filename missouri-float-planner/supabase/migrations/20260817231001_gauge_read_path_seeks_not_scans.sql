@@ -1,4 +1,4 @@
--- 20260817214500_gauge_read_path_seeks_not_scans.sql
+-- 20260817231001_gauge_read_path_seeks_not_scans.sql
 -- Make the two hot read paths SEEK the newest reading instead of scanning for it.
 --
 -- Both of the app's slowest screens were slow for the same reason, in two
