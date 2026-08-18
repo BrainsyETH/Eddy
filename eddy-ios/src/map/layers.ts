@@ -187,31 +187,93 @@ export interface LayerDef {
 }
 
 /**
- * Access points and BOTH gauge tiers are on by default. Hazards are not.
+ * Whether a phone that has never opened the layers sheet draws this layer.
  *
- * The questions someone opens the map with are "where can I get on this river"
- * and "is there any water in it", and those are exactly these layers.
- * Everything else is a follow-up question and stays off until asked — a river
- * under five layers of pins answers nothing.
+ * ── A TOTAL RECORD, for the reason KNOWN_LAYERS is one ────────────────────
  *
- * ── Hazards were on, and are off again ─────────────────────────────────────
+ * It was a three-key array literal, and under the old rule — almost everything
+ * off — a layer added to the union and forgotten here defaulted to off, which
+ * was both silent and correct. The rule has inverted, so the same omission is
+ * now silently WRONG: a new row would arrive dark on a sheet whose every other
+ * row is lit, and nothing would fail. As a `Record<LayerKey, boolean>` the
+ * omission is a compile error and the new layer has to state its answer. Same
+ * technique, same argument, as KNOWN_LAYERS in mapPreferences.ts.
  *
- * They joined this list when they stopped being river-scoped, on the argument
- * that a layer answering "which of these rivers has a low-water dam on it"
- * belongs on while somebody is deciding which river to drive to, and that
- * defaulting safety data off is hard to defend once the data is there.
+ * Listed in catalog order so this table can be read against MAP_LAYERS below.
+ */
+const LAYER_DEFAULTS: Record<LayerKey, boolean> = {
+  access: true,
+  // ── THE ONE `false` THAT IS NOT AN OVERLAY, and it is a TIER ───────────
+  // A ramp IS an access point and is already drawn as one; this tier only
+  // changes which MARK it wears. Switching it on also pulls every ramp out of
+  // the clustered access source into an unclustered pin at every zoom — a
+  // trade the render site accepts on the explicit grounds that "nobody sees
+  // this layer without having asked for it". Defaulting it on would spend that
+  // on the statewide view and add no place to the map.
+  boatRamps: false,
+  gauges: true,
+  allGauges: true,
+  hazards: true,
+  dams: true,
+  weatherRadar: false,
+  publicLand: false,
+  campgrounds: true,
+  outfitters: true,
+  lodging: true,
+};
+
+/**
+ * What the app opens with: EVERY ROW EXCEPT THE OVERLAYS SECTION.
  *
- * That argument was about the DATA and not about the map. What it missed is
- * that hazard pins are statewide, unclustered by design, and drawn at every
- * zoom — so on the opening view they scatter across the whole state at the
- * exact moment nothing has been chosen and every pin is equally irrelevant.
- * The layer that was meant to answer "which river" instead crowded the two
- * layers that do.
+ * ── The rule, and the one it replaced ──────────────────────────────────────
  *
- * ── What makes this defensible, and it is not "it is only a default" ───────
+ * This was `['access', 'gauges', 'allGauges']`, on the argument that the map
+ * opens with two questions — "where can I get on this river" and "is there any
+ * water in it" — and that everything else is a follow-up which should stay off
+ * until asked, because a river under five layers of pins answers nothing.
  *
- * NO HAZARD IS HIDDEN BY THIS. The map is not, and has never been, where this
- * app discharges its duty to warn:
+ * The rule now is the other way round, and the line has moved to WHAT A LAYER
+ * DOES TO THE MAP rather than to how central its question is. A pin layer adds
+ * to the map: it puts things on the river, and a reader who does not want them
+ * has a labelled switch to say so. The two overlays do not add, they COVER —
+ * a translucent raster wash and agency polygon fills, both of them over the
+ * whole viewport — so they change how readable everything underneath is, which
+ * is a thing to opt into rather than out of. Both also keep asking as the
+ * camera moves: radar as third-party tiles a downloaded river cannot carry,
+ * public land as parcel geometry heavy enough that its hook caches on the zoom
+ * as well as the box (usePublicLands).
+ *
+ * The discovery argument runs the same way. This sheet is a legend as much as
+ * a control — every row is drawn in its layer's own colour and mark — and a
+ * reader can only learn that Eddy knows where the cabins are by seeing cabins.
+ * Seven of the nine rows opened dark under the old rule, and a dark switch
+ * teaches nobody what is behind it.
+ *
+ * ── WHAT THIS COSTS, stated rather than discovered ─────────────────────────
+ *
+ * The opening statewide view is busier. Hazards, Camping, Cabins, Rentals and
+ * Lakes & dams all draw individual pins at every zoom — only access points and
+ * both gauge tiers cluster — so the map now opens with marks scattered across
+ * the whole region at the moment nothing has been chosen. That is the exact
+ * objection that took hazards OUT of this list once before, quoted here
+ * because it has not been refuted, only outweighed: the layer meant to answer
+ * "which river" crowds the layers that do.
+ *
+ * It also costs two requests on first paint that the old default did not make
+ * — /api/services once, statewide, and /api/dams, which reads through to CWMS
+ * and can be slow on a cold entry. Neither blocks the map: services fail to
+ * null and leave their counts absent, and the dam PINS ship in the binary
+ * (DAM_CATALOG), so a slow answer costs the live generation figures and not
+ * the layer.
+ *
+ * If the statewide view proves too crowded, the fix is the ZOOM ladder above —
+ * giving the place layers a `minZoom` or a cluster the way access already has
+ * — and not a return to switching them off. A layer nobody can see is a layer
+ * nobody knows to turn on.
+ *
+ * ── Hazards on, and why the map is not the duty to warn ────────────────────
+ *
+ * NO HAZARD WAS EVER HIDDEN BY THE OLD DEFAULT, and none depends on this one:
  *
  *   • Every river screen carries a free Hazards section that names its critical
  *     count and wears a severity dot per critical hazard WHILE SHUT — see
@@ -222,28 +284,34 @@ export interface LayerDef {
  *     never summarises them away.
  *   • The layers sheet lists Hazards with its switch, so an off layer is
  *     visible AS off the moment anyone looks — which is the distinction
- *     mapPreferences' header draws between a layer and a filter, and it is the
- *     reason this is a defensible default rather than a quiet removal.
+ *     mapPreferences' header draws between a layer and a filter.
  *
  * The map is a way to find a river. The river screen is where you are told
- * what is on it.
+ * what is on it. That was true when this layer defaulted off and it is why
+ * defaulting it on is a legibility decision rather than a safety one.
  *
  * ── Existing devices keep what they chose ──────────────────────────────────
  *
  * This is the default for a phone that has never opened the layers sheet.
- * Anyone who has is restored from AsyncStorage and keeps hazards on, because
- * `readMapLayers` returning a stored set means somebody made a choice — and
- * bumping the key to force this on them would also throw away every other
- * layer decision they have made. See mapPreferences.ts.
+ * Anyone who has is restored from AsyncStorage and keeps exactly what they
+ * chose, because `readMapLayers` returning a stored set means somebody made a
+ * choice — and bumping the key to force this on them would also throw away
+ * every other layer decision they have made. See mapPreferences.ts.
  *
- * `allGauges` used to be excluded, on the grounds that the national tier is a
+ * `allGauges` was excluded once too, on the grounds that the national tier is a
  * reference someone asks for and that defaulting it on would fire a viewport
  * request at every cold start. That made the map wait for a river selection
- * before it felt useful. Both tiers now answer the opening statewide view:
- * curated gauges as compact condition dots and the national tier as clusters.
- * The full station marks and labels arrive only when the camera is closer.
+ * before it felt useful. Both tiers answer the opening statewide view: curated
+ * gauges as compact condition dots and the national tier as clusters. The full
+ * station marks and labels arrive only when the camera is closer.
+ *
+ * Derived rather than typed out again — the table above is the only place a
+ * default is stated. Order follows it, and nothing reads this as ordered:
+ * every consumer asks `includes`, and `isDefaultLayers` compares membership.
  */
-export const DEFAULT_LAYERS: LayerKey[] = ['access', 'gauges', 'allGauges'];
+export const DEFAULT_LAYERS: LayerKey[] = (Object.keys(LAYER_DEFAULTS) as LayerKey[]).filter(
+  (key) => LAYER_DEFAULTS[key],
+);
 
 /**
  * The headings the layers sheet groups its last rows under.
@@ -256,19 +324,38 @@ export const DEFAULT_LAYERS: LayerKey[] = ['access', 'gauges', 'allGauges'];
  * Camping had no reason to believe anything else on the sheet was about sleeping
  * at all. The rows were already right; their adjacency was not.
  *
- * Only the last rows are grouped. Access points, Gauges, Hazards, Lakes & dams,
- * Rain and Public land each answer a question nothing else on the sheet answers,
- * so a heading over any of them would be a heading over one row — a label
- * pretending to be a category. Grouping arrives exactly where there is something
- * to group.
+ * Access points, Gauges, Hazards and Lakes & dams stay ungrouped at the top.
+ * Each answers a question nothing else on the sheet answers, so a heading over
+ * any of them would be a heading over one row — a label pretending to be a
+ * category. Grouping arrives exactly where there is something to group.
+ *
+ * ── `overlays` GROUPS BY WHAT THE ROWS DO, not by what they are about ─────
+ *
+ * Rain and Public land have nothing in common as subjects — one is weather and
+ * one is ownership — so by the rule above they should be two ungrouped rows,
+ * and they were. What they share is everything else: they are the only rows
+ * that draw OVER the map rather than on it (a raster wash, polygon fills), the
+ * only two with no pins and therefore no mark to read them by, the only two
+ * carrying an ⓘ — and since the defaults inverted, THE ONLY TWO THAT OPEN OFF.
+ *
+ * That last one is what makes the heading worth its line. Every other row on
+ * this sheet is lit, so two dark switches loose among them read as a state
+ * somebody left them in. Under a heading of their own at the bottom they read
+ * as what they are: the things you switch on when you want them.
+ *
+ * The heading still groups and nothing more — see LayerDef.section. There is no
+ * "Overlays" switch and no overlay count; radar has no count at all and a
+ * parcel total is a viewport fact, so a combined figure could not be written
+ * even if a section were allowed one.
  *
  * ── THE ORDER IS THE READING ORDER ───────────────────────────────────────
  *
  * `stay` before `services`: where you sleep decides a trip and who rents you a
  * canoe follows from it, which is the same priority MARK_PRIORITY encodes when
- * one place has to pick a mark.
+ * one place has to pick a mark. `overlays` last, because a reader scrolling
+ * this sheet is looking for something to switch OFF until they reach it.
  */
-export type LayerSectionKey = 'stay' | 'services';
+export type LayerSectionKey = 'stay' | 'services' | 'overlays';
 
 export const LAYER_SECTIONS: readonly { key: LayerSectionKey; label: string }[] = [
   { key: 'stay', label: 'Places to stay' },
@@ -285,6 +372,11 @@ export const LAYER_SECTIONS: readonly { key: LayerSectionKey; label: string }[] 
   // reads "Services" here and concludes that camping is not one — they read it
   // after "Places to stay" has already answered that question.
   { key: 'services', label: 'Services' },
+  // "Overlays", the word every map app uses for imagery and boundaries laid
+  // over a basemap, and the one that does not overclaim: it says how these two
+  // draw, which is the only thing they have in common. "Weather & land" would
+  // name their subjects and then be wrong about the next row added here.
+  { key: 'overlays', label: 'Overlays' },
 ];
 
 /**
@@ -498,6 +590,7 @@ export const MAP_LAYERS: LayerDef[] = [
   {
     key: 'weatherRadar',
     label: 'Rain radar',
+    section: 'overlays',
     // ── "needs a connection" is gone, and that is not a loss ───────────────
     // It was true — radar streams tiles from a third party and an offline pack
     // cannot carry live weather — but it was answering a question nobody asks
@@ -521,6 +614,7 @@ export const MAP_LAYERS: LayerDef[] = [
   {
     key: 'publicLand',
     label: 'Public land',
+    section: 'overlays',
     description: 'Agency boundaries',
     // ── The caveat is BEHIND the ⓘ, and is still one tap from the fill ─────
     // "Ownership, not permission" is the entire reason this layer is allowed
