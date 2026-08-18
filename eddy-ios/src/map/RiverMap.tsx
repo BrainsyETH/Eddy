@@ -454,8 +454,8 @@ export interface MapPin {
    *
    * Distinct from `riverSlug`, which opens the RIVER a pin sits on. This is the
    * pin itself. Access points had neither, so the map was a dead end for the
-   * one layer that is on by default: the detail screen existed and was
-   * reachable only by finding the same put-in again in the river screen's list.
+   * layer it opens on: the detail screen existed and was reachable only by
+   * finding the same put-in again in the river screen's list.
    */
   detailRoute?: string | null;
   /** True when an access location requires permission rather than being public. */
