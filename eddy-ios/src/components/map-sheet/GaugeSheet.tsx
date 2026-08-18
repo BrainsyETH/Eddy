@@ -246,9 +246,10 @@ export function GaugeHistoryTab({ facts, detail }: GaugeTabProps) {
       unit={primary?.thresholdUnit === 'ft' ? 'ft' : 'cfs'}
       thresholds={primary ? { ...primary, thresholdUnit: primary.thresholdUnit } : null}
       floodStages={detail?.floodStages ?? null}
-      // See the prop's own note: the scrub is a PanResponder and this chart
-      // sits inside two RNGH pans, so it cannot win a horizontal drag here.
-      scrubbable={false}
+      // The scrub works here too: it is a Gesture.Pan that claims horizontal
+      // travel before the pager does and yields vertical to the sheet — the
+      // same axis contract the sheet and pager keep between themselves. See
+      // the gesture's note in GaugeChart.tsx.
     />
   );
 }
