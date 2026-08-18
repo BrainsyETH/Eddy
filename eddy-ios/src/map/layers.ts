@@ -249,27 +249,27 @@ const LAYER_DEFAULTS: Record<LayerKey, boolean> = {
  * Seven of the nine rows opened dark under the old rule, and a dark switch
  * teaches nobody what is behind it.
  *
- * ── WHAT THIS COSTS, stated rather than discovered ─────────────────────────
+ * ── WHAT THIS COST, and what was done about it ─────────────────────────────
  *
- * The opening statewide view is busier. Hazards, Camping, Cabins, Rentals and
- * Lakes & dams all draw individual pins at every zoom — only access points and
- * both gauge tiers cluster — so the map now opens with marks scattered across
- * the whole region at the moment nothing has been chosen. That is the exact
- * objection that took hazards OUT of this list once before, quoted here
- * because it has not been refuted, only outweighed: the layer meant to answer
- * "which river" crowds the layers that do.
+ * It made the opening statewide view unreadable, and that is not a hypothetical
+ * — it shipped that way for a build. Hazards, Camping, Cabins, Rentals and
+ * ramps each drew a full 22pt mark at every zoom while only access and the
+ * gauge tiers clustered, so switching them all on put ~285 icons over the
+ * rivers they annotate. It was the exact objection that took hazards out of
+ * this list once before, arriving for five more layers at once.
  *
- * It also costs two requests on first paint that the old default did not make
- * — /api/services once, statewide, and /api/dams, which reads through to CWMS
- * and can be slow on a cold entry. Neither blocks the map: services fail to
- * null and leave their counts absent, and the dam PINS ship in the binary
- * (DAM_CATALOG), so a slow answer costs the live generation figures and not
- * the layer.
+ * The answer was the ZOOM ladder above rather than a retreat to switching them
+ * off, because a layer nobody can see is a layer nobody knows to turn on. Every
+ * place layer is on the rungs now, and the COUNTS band belongs to the two
+ * family indexes in RiverMap — so the statewide view is bubbles and the marks
+ * arrive as the camera does.
  *
- * If the statewide view proves too crowded, the fix is the ZOOM ladder above —
- * giving the place layers a `minZoom` or a cluster the way access already has
- * — and not a return to switching them off. A layer nobody can see is a layer
- * nobody knows to turn on.
+ * The other cost is two requests on first paint that the old default did not
+ * make: /api/services once, statewide, and /api/dams, which reads through to
+ * CWMS and can be slow on a cold entry. Neither blocks the map — services fail
+ * to null and leave their counts absent, and the dam PINS ship in the binary
+ * (DAM_CATALOG), so a slow answer costs the live generation figures and not the
+ * layer.
  *
  * ── Hazards on, and why the map is not the duty to warn ────────────────────
  *
@@ -394,12 +394,29 @@ export const LAYER_SECTIONS: readonly { key: LayerSectionKey; label: string }[] 
  *                        continental view asks for nothing.
  *   COUNTS   5.5 – 8     Clusters and small coloured dots. "Where is there
  *                        water, and where can I get on it" at a glance.
- *   PLACES   8 – 10.5    Individual pins, no names. Enough to see arrangement.
- *   NAMES    10.5+       Labels. The camera is close enough for text to land
- *                        beside the thing it names rather than across it.
+ *   PLACES   8 – 10.5    Individual places as compact dots, no marks and no
+ *                        names. Enough to see arrangement.
+ *   NAMES    10.5+       The full Eddy mark, and labels. The camera is close
+ *                        enough for text to land beside the thing it names
+ *                        rather than across it.
  *
- * A layer may sit out a rung — hazards never cluster, and the raster has its own
- * pair — but nothing invents a rung of its own.
+ * ── AND THE PLACE LAYERS FINALLY CLIMB IT ────────────────────────────────
+ *
+ * For a while this table described the gauge tiers and nothing else. Camping,
+ * cabins, rentals, ramps and hazards drew their full 22pt mark at EVERY zoom,
+ * so the layer holding fourteen thousand gauges collapsed into bubbles while
+ * the ~285 places did not — the statewide view was a wall of tents with the
+ * rivers underneath it. Every one of them is on the rungs now; see the family
+ * index in RiverMap, which owns the COUNTS band for the access and service
+ * families so that switching a layer on can no longer take pins OUT of a
+ * cluster.
+ *
+ * A layer may sit out a rung, and two do. Hazards never cluster — a hazard must
+ * not disappear into a count — and take their mark at ZOOM.cluster rather than
+ * waiting for PLACES, so they resolve as soon as the bubbles break. Lakes &
+ * dams keep their labels at every zoom: there are two dozen, they are
+ * landmarks, and an unnamed dot cannot be told from the lake it sits on. The
+ * raster has its own pair. Nothing invents a rung of its own.
  */
 export const ZOOM = {
   /** Below this, statewide layers neither draw nor fetch. */
