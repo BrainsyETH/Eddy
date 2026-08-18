@@ -57,6 +57,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getUpdateTargetsFromDb, type UpdateTarget } from '@/lib/eddy/update-targets';
 import { generateEddyUpdate, usageColumns } from '@/lib/eddy/generate-update';
 import { generateGlobalUpdate, type GlobalUpdate } from '@/lib/eddy/generate-global-update';
+import { resolveModels, type ResolvedModel } from '@/lib/ai/resolve-models';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,6 +108,7 @@ const GLOBAL_START_DEADLINE_MS = 4 * 60 * 1000;
 
 /** One statewide summary, retried while there is budget. Null if none landed. */
 async function generateGlobalWithRetry(
+  model: ResolvedModel,
   windowMinutes?: number,
 ): Promise<{ update: GlobalUpdate | null; attempts: number; lastError: string | null }> {
   let lastError: string | null = null;
@@ -115,6 +117,7 @@ async function generateGlobalWithRetry(
   for (let attempt = 1; attempt <= GLOBAL_ATTEMPTS; attempt++) {
     try {
       const update = await generateGlobalUpdate(
+        model,
         windowMinutes != null ? { windowMinutes } : undefined,
       );
       if (update) return { update, attempts: attempt, lastError: null };
@@ -193,6 +196,12 @@ async function runGeneration(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+
+  // Resolved ONCE, before any generation, and threaded into every call below.
+  // Not for the saved read — it is one indexed row — but so that a switch made
+  // from /admin/ai-models while this pass is running cannot land half the rows
+  // on one model and half on another with nothing marking the boundary.
+  const models = await resolveModels();
 
   /** Writes one statewide row. Shared by the daily pass and the repair pass. */
   const insertGlobal = async (update: GlobalUpdate, expires: string) => {
@@ -276,7 +285,7 @@ async function runGeneration(request: NextRequest) {
       });
     }
 
-    const { update, attempts, lastError } = await generateGlobalWithRetry();
+    const { update, attempts, lastError } = await generateGlobalWithRetry(models.global_summary);
 
     if (!update) {
       console.error(`[EddyCron] Statewide summary failed after ${attempts} attempts: ${lastError}`);
@@ -341,9 +350,9 @@ async function runGeneration(request: NextRequest) {
   let failed = 0;
   const errors: string[] = [];
 
-  // Process targets with bounded concurrency (3 parallel Haiku calls)
+  // Process targets with bounded concurrency (3 parallel model calls)
   const processTarget = async (target: UpdateTarget) => {
-    const update = await generateEddyUpdate(target);
+    const update = await generateEddyUpdate(target, models.river_update);
 
     if (!update) {
       throw new Error(`generation returned null`);

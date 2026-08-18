@@ -17,6 +17,7 @@ import { getRiverContext, DEFAULT_TIMEZONE, type RiverContext } from '@/lib/rive
 import { getLocalDateStrings } from '@/lib/social/local-time';
 import { parseEddyResponse, stripEddyMarkers } from '@/lib/eddy/parse-response';
 import { RIVER_TYPE_GUIDANCE, buildConditionSemantics } from '@/lib/eddy/condition-semantics';
+import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 
 export interface GaugeContext {
@@ -31,8 +32,9 @@ export interface GaugeContext {
   notes: string | null;
 }
 
-/** Sonnet model used for river-level + per-section updates. */
-export const SONNET_MODEL = 'claude-sonnet-4-6';
+// The model is no longer a constant here. It is resolved once per pass from
+// llm_config and threaded in, so a switch cannot split one run across two
+// models. See src/lib/ai/resolve-models.ts.
 
 /**
  * Token/cost accounting for a single model call, persisted alongside the update
@@ -106,11 +108,14 @@ export interface GeneratedUpdate {
 }
 
 /**
- * Gathers all context data for a river/section and generates an Eddy quote via
- * Claude Sonnet.
+ * Gathers all context data for a river/section and generates an Eddy quote.
+ *
+ * `model` is resolved once per pass by the caller rather than looked up here,
+ * so every row a pass writes provably shares one model.
  */
 export async function generateEddyUpdate(
   target: UpdateTarget,
+  model: ResolvedModel,
 ): Promise<GeneratedUpdate | null> {
   const sourcesUsed: string[] = [];
 
@@ -194,7 +199,7 @@ export async function generateEddyUpdate(
   // --- 7. Build the prompt ---
   const prompt = buildPrompt(target, gaugeContext, weather, forecast, alerts, localKnowledge, trajectory, precipitation, rainLag, riverCtx);
 
-  // --- 8. Call Claude Sonnet ---
+  // --- 8. Call the model ---
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) {
     console.error('[EddyGen] ANTHROPIC_API_KEY not configured');
@@ -205,16 +210,21 @@ export async function generateEddyUpdate(
 
   try {
     const message = await client.messages.create({
-      model: SONNET_MODEL,
-      max_tokens: 800,
+      model: model.id,
+      max_tokens: model.maxTokens,
+      // Omitted entirely unless the model needs it. Sonnet 5 thinks by default
+      // and would spend max_tokens doing it; Sonnet 4.6 does not.
+      ...(model.thinking ? { thinking: model.thinking } : {}),
       messages: [{ role: 'user', content: prompt }],
       // Static system prompt with a cache breakpoint: every river/section call
       // in a cron run shares this exact prefix, so only the first pays full
       // input price. River-specific semantics live in the user prompt.
-      // NOTE: Sonnet 4.6's minimum cacheable prefix is 2048 tokens and this
-      // prompt is ~1.9k, so caching is borderline — watch eddy_updates
-      // .cache_read_tokens to confirm it actually fires (if it stays 0, the
-      // prompt is under the floor and caching is a no-op, which is harmless).
+      //
+      // This prompt is ~1.9k tokens and every model approved for this workload
+      // has a cacheable-prefix floor of 1024, an invariant model-registry.test.ts
+      // enforces — so the breakpoint is live, not decorative. If
+      // eddy_updates.cache_read_tokens sits at 0 across a run, the cause is a
+      // varying prefix, not the floor.
       system: [
         { type: 'text', text: EDDY_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
       ],
@@ -243,10 +253,10 @@ export async function generateEddyUpdate(
       eddyRead: eddyRead ? stripEddyMarkers(eddyRead) : null,
       sourcesUsed,
       weather: buildWeatherSummary(weather, forecast),
-      usage: extractUsage(SONNET_MODEL, message.usage),
+      usage: extractUsage(model.id, message.usage),
     };
   } catch (e) {
-    console.error(`[EddyGen] Sonnet call failed for ${target.riverSlug}:`, e);
+    console.error(`[EddyGen] ${model.id} call failed for ${target.riverSlug}:`, e);
     return null;
   }
 }

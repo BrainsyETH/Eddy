@@ -15,3 +15,5 @@ successor), `historical` (context only), `open` (recorded but not yet decided).
 | [0006](0006-gauge-alerts-belong-to-a-river-alert.md) | A gauge alert can name the river alert it was created from, and is gated by it | active |
 | [0007](0007-cta-fill-is-teal-on-native-coral-on-web.md) | The primary CTA fill is teal on native and coral on web | active |
 | [0008](0008-map-features-have-kinds-and-roles.md) | A map feature has a kind and roles; a layer key is not either of them | active |
+| [0009](0009-model-choice-is-allowlisted-runtime-config.md) | Model choice is runtime config, bounded by a code-side allowlist | active |
+| [0010](0010-hydrograph-gridlines-and-export-belong-to-an-expanded-mode.md) | Hydrograph gridlines and data export wait for an expanded chart mode | open |

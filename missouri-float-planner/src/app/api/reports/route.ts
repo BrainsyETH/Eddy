@@ -12,6 +12,7 @@ import {
   REPORT_CORRIDOR_MAX_DISTANCE_METERS,
   validateReportCorridor,
 } from '@/lib/reports/location';
+import { deriveRiverVisualGauge } from '@/lib/reports/gauge-derivation';
 
 export const dynamic = 'force-dynamic';
 
@@ -247,14 +248,51 @@ export async function POST(request: NextRequest) {
     if (hazardId) baseData.hazard_id = hazardId;
     if (submitterName) baseData.submitter_name = submitterName.trim();
 
-    // River visual specific fields
+    // River visual specific fields.
+    //
+    // The gauge context is DERIVED HERE rather than trusted from the client.
+    // The website's form resolves the reach gauge and calls /api/gauge-reading-at
+    // before posting, but the iOS sheet sends no gauge fields at all — so every
+    // phone submission used to land with a null stage, a null flow and no gauge
+    // station, and the review page showed a photo with nothing beside it.
+    // Deriving on the server covers both clients and anything added later.
+    // Whatever the submitter did send is merged back over the top; see
+    // gauge-derivation.ts.
     if (type === 'river_visual') {
-      if (gaugeHeightFt != null) baseData.gauge_height_ft = gaugeHeightFt;
-      if (dischargeCfs != null) baseData.discharge_cfs = dischargeCfs;
       if (accessPointId) baseData.access_point_id = accessPointId;
-      if (gaugeStationId) baseData.gauge_station_id = gaugeStationId;
       if (capturedAtIso) baseData.captured_at = capturedAtIso;
-      if (readingSource) baseData.reading_source = readingSource;
+
+      const derived = await deriveRiverVisualGauge(supabase, {
+        riverId: String(riverId),
+        latitude,
+        longitude,
+        capturedAt: capturedAtIso ? new Date(capturedAtIso) : null,
+        providedGaugeHeightFt: gaugeHeightFt,
+        providedDischargeCfs: dischargeCfs,
+        providedGaugeStationId: gaugeStationId ?? null,
+        declaredReadingSource: readingSource ?? null,
+      });
+
+      if (derived.gaugeHeightFt != null) baseData.gauge_height_ft = derived.gaugeHeightFt;
+      if (derived.dischargeCfs != null) baseData.discharge_cfs = derived.dischargeCfs;
+      if (derived.gaugeStationId) baseData.gauge_station_id = derived.gaugeStationId;
+      if (derived.riverMile != null) baseData.river_mile = derived.riverMile;
+      if (derived.readingObservedAt) baseData.reading_observed_at = derived.readingObservedAt;
+      if (derived.gaugeRelation) baseData.gauge_relation = derived.gaugeRelation;
+      if (derived.gaugeOffsetMiles != null) baseData.gauge_offset_miles = derived.gaugeOffsetMiles;
+      if (derived.trend) {
+        baseData.gauge_trend = derived.trend.direction;
+        baseData.gauge_trend_delta = derived.trend.delta;
+        baseData.gauge_trend_window_hours = derived.trend.windowHours;
+        baseData.gauge_trend_unit = derived.trend.unit;
+      }
+
+      // Provenance describes the reading that was STORED, and the derivation is
+      // the only thing that knows which of the three sources that came from —
+      // the submitter's own claim, the client's lookup, or the server's. Left
+      // NULL when no reading was obtained: a row naming a source for a
+      // measurement it does not have is worse than one admitting it has none.
+      if (derived.readingSource) baseData.reading_source = derived.readingSource;
     }
 
     // Try inserting with different geometry formats

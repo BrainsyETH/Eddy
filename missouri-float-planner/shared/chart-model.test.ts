@@ -11,10 +11,13 @@ import test from 'node:test';
 import {
   chartDomain,
   chartPoints,
+  chartSegments,
   nearestChartPoint,
   niceValueTicks,
+  qualifierText,
   samplePreservingExtrema,
   splitAtGaps,
+  stepScrubTime,
   timeTicks,
   valueForUnit,
   type ChartPoint,
@@ -93,6 +96,33 @@ test('coincident timestamps stay one segment instead of shattering', () => {
 test('a single point is one segment, and an empty series is no segments', () => {
   assert.equal(splitAtGaps(pointsAt([0])).length, 1);
   assert.equal(splitAtGaps([]).length, 0);
+});
+
+test('an isolated reading is returned to be drawn, not dropped', () => {
+  // The reading at hour 40 has no neighbour inside the cadence. Both renderers
+  // used to filter it out with the segment it sits in, so a station that
+  // reported once between two outages showed empty space where a number was.
+  const { lines, isolated } = chartSegments(pointsAt([0, 1, 2, 40, 80, 81]));
+  assert.deepEqual(lines.map((segment) => segment.length), [3, 2]);
+  assert.deepEqual(isolated.map((point) => point.v), [40]);
+});
+
+test('a lone reading is isolated rather than a line of one', () => {
+  const { lines, isolated } = chartSegments(pointsAt([5]));
+  assert.deepEqual(lines, []);
+  assert.deepEqual(isolated.map((point) => point.v), [5]);
+  assert.deepEqual(chartSegments([]), { lines: [], isolated: [] });
+});
+
+test('qualifier copy is plain English, deduped, and silent on codes it cannot read', () => {
+  assert.equal(qualifierText(['P']), 'provisional');
+  // 'e' and 'E' are both estimated; saying it twice reads as two problems.
+  assert.equal(qualifierText(['e', 'E']), 'estimated');
+  assert.equal(qualifierText(['P', 'Ice']), 'provisional, ice affected');
+  // An unknown code is not narrated. USGS adds codes without asking us, and
+  // "qualifier: Xyz" tells a reader nothing they can act on.
+  assert.equal(qualifierText(['Xyz']), null);
+  assert.equal(qualifierText([]), null);
 });
 
 test('sampling preserves both endpoints and the extrema between them', () => {
@@ -186,6 +216,42 @@ test('time ticks span the window inclusively', () => {
   assert.equal(ticks.length, 5);
   assert.equal(ticks[0].value, BASE);
   assert.equal(ticks.at(-1)!.value, BASE + 24 * HOUR);
+});
+
+test('a keyed scrub steps one reading at a time and clamps at both ends', () => {
+  const times = [10, 20, 30, 40];
+  assert.equal(stepScrubTime(times, 30, -1), 20);
+  assert.equal(stepScrubTime(times, 30, 1), 40);
+  // Off the end in either direction is the end, never a wrap: arriving back at
+  // last week from the right-hand edge would be a claim about time.
+  assert.equal(stepScrubTime(times, 40, 1), 40);
+  assert.equal(stepScrubTime(times, 10, -1), 10);
+  assert.equal(stepScrubTime([], 10, 1), null);
+});
+
+test('the first keypress steps AWAY from where the readout already sits', () => {
+  // A keyboard arriving with nothing selected starts from the newest OBSERVED
+  // reading, because that is what aria-valuenow has been reporting all along.
+  // Anchoring on the end of the window instead made the first left press select
+  // the point the reader was already on — a keypress that appeared to do nothing
+  // when the station had no forecast to extend the window past it.
+  const observed = [10, 20, 30];
+  const forecast = [40, 50];
+  const times = [...observed, ...forecast];
+  const newestObserved = 30;
+  assert.equal(stepScrubTime(times, newestObserved, -1), 20);
+  // Forward from the same anchor is the first forecast point where there is one,
+  // and the newest reading itself where there is not.
+  assert.equal(stepScrubTime(times, newestObserved, 1), 40);
+  assert.equal(stepScrubTime(observed, newestObserved, 1), 30);
+});
+
+test('an instant between two readings resolves to the nearer of them', () => {
+  // The pointer leaves a fraction anywhere; the keyboard has to start from
+  // somewhere real. A tie goes to the earlier reading, matching nearestChartPoint.
+  assert.equal(stepScrubTime([0, 100], 49, 0), 0);
+  assert.equal(stepScrubTime([0, 100], 51, 0), 100);
+  assert.equal(stepScrubTime([0, 100], 50, 0), 0);
 });
 
 test('nearest lookup picks the closer neighbour and clamps at both ends', () => {
