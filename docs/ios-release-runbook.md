@@ -112,6 +112,21 @@ Everything the August 11 audit missed because it happened after August 11.
       `dam_metric_readings`, `river_gauges.role` and the condition-rating
       provenance columns, `rivers.controlling_dam_id`).
 
+### Delta gate added by the August 18 chart-scrub rework
+
+- [ ] On device: exercise the gauge chart's scrub everywhere it renders. The
+      scrub moved from PanResponder to `Gesture.Pan()` so it exists inside the
+      map sheet (it used to be switched off there), and gesture arbitration is
+      exactly the class of change the repo's rule says wants a device.
+      Specifically: **in the map sheet's History tab**, a horizontal drag on
+      the plot scrubs without turning the page, a vertical drag still moves the
+      sheet (the readout may flash for ~8pt — expected), and a tap reads out
+      while held; **on the gauge and river screens**, a vertical drag on the
+      plot now scrolls the screen (it used to freeze) and the scrub still
+      works. Then **with VoiceOver**: the plot is an adjustable element — a
+      swipe up/down steps one reading at a time, announcing value, time, and
+      the forecast/provisional labels.
+
 ### Live production backlog inspected August 11
 
 The Trust Ledger is operating (day 6 of 28, 0% false positives among 35 reviewed,

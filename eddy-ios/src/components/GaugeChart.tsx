@@ -71,23 +71,41 @@
 // line are the ones that could never show it.
 //
 // ── The scrub ──────────────────────────────────────────────────────────────
-// Touch and drag reads out the value and the time under your finger. It is a
-// PanResponder over a transparent overlay rather than per-point touch targets:
-// a 30-day window is ~720 points, and 720 Pressables is a frame budget spent on
-// hit-testing. onStartShouldSetPanResponder claims the gesture on touch-down so
-// a tap works as well as a drag, and the parent ScrollView is only blocked once
-// the finger is genuinely down on the plot.
+// Touch and drag reads out the value and the time under your finger. One
+// Gesture.Pan() over the whole plot rather than per-point touch targets: a
+// 30-day window is ~720 points, and 720 Pressables is a frame budget spent on
+// hit-testing.
+//
+// Gesture.Pan() and not PanResponder, because this chart also renders inside
+// the map sheet, whose sheet and pager are RNGH pans — and RNGH cancels the RN
+// responder system the moment one of its own gestures activates. The
+// PanResponder this file used to carry therefore scrubbed fine on the gauge
+// and river screens and was stolen ~12pt in inside the sheet, so the sheet
+// mounted the chart with the scrub switched off entirely (the deleted
+// `scrubbable` prop). The pan joins the axis-splitting contract MapSheet and
+// SheetPager keep between themselves instead of naming either by ref: see the
+// note on the gesture itself.
+//
+// The scrub is also reachable without the gesture: the plot is an adjustable
+// element for VoiceOver, and a swipe up or down steps it one READING at a time
+// through stepScrubTime() from the shared model — the same stepping the web
+// chart gives arrow keys.
 
 import { Component, useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   LayoutChangeEvent,
-  PanResponder,
   Pressable,
   StyleSheet,
   Text,
   View,
+  type AccessibilityActionEvent,
 } from 'react-native';
+// A direct import of a native module, like MapSheet's and SheetPager's — it is
+// a declared dependency and the root layout already mounts its root view, so
+// this adds no new runtime fingerprint. See SwipeRow.tsx for the situation
+// where reaching for it would be wrong.
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import type { GaugeFloodStages } from '@eddy/types';
 import {
@@ -97,6 +115,7 @@ import {
   nearestChartPoint,
   niceValueTicks,
   qualifierText,
+  stepScrubTime,
   timeTicks,
   type ChartPoint,
 } from '@eddy/conditions/chart-model';
@@ -165,29 +184,31 @@ const TYPICAL_COLOR = '#0f766e';
  */
 const GAP_BREAK_MULTIPLE = 4;
 
+/**
+ * Horizontal travel that claims the touch for the scrub.
+ *
+ * Deliberately TIGHTER than SheetPager's ACTIVATE_X (12): over the plot, a
+ * horizontal drag means "when was this", and the chart must cross its own
+ * threshold before the pager crosses its wider one — that ordering, not a
+ * declared relation, is what stops the page turning under a scrub.
+ */
+const SCRUB_ACTIVATE_X = 8;
+
+/**
+ * Vertical travel that hands the touch onward.
+ *
+ * Mirrors the sheet's DRAG_DEAD_ZONE (8), so the moment a drag is vertical
+ * enough for the sheet to claim it, this pan has already stood down — the same
+ * first-axis-to-move-wins contract MapSheet and SheetPager keep between
+ * themselves. On the gauge and river screens the beneficiary is the plain
+ * ScrollView, which the old touch-down claim used to freeze whenever a scroll
+ * began on the plot.
+ */
+const SCRUB_FAIL_Y = 8;
+
 interface Props {
   /** Null renders nothing at all — the caller has no station to chart. */
   siteId: string | null;
-  /**
-   * Whether touch-and-drag reads out the value under your finger.
-   *
-   * OFF INSIDE THE MAP SHEET, and that is a gesture-arbitration fact rather
-   * than a design preference. The scrub is a PanResponder that claims on
-   * touch-down (see the note above), and the sheet puts the chart inside two
-   * react-native-gesture-handler pans — the pager horizontally, the sheet
-   * vertically. RNGH cancels the RN responder the moment one of its own
-   * gestures activates, so a horizontal scrub would be stolen by the pager
-   * ~12pt in: the readout would follow your finger briefly and then vanish
-   * while the page turned underneath it. A chart that scrubs unreliably is
-   * worse than one that plainly does not.
-   *
-   * The honest fix is to port the scrub to Gesture.Pan() and declare the
-   * relation to those two explicitly, at which point this prop should be
-   * deleted rather than defaulted. That is a change to the shape of a
-   * component the gauge screen depends on, and it wants a device to verify —
-   * so it is not being made blind here.
-   */
-  scrubbable?: boolean;
   /**
    * The unit to OPEN on. Comes from the river's ladder where there is one, so
    * the chart and the reading above it start out saying the same thing.
@@ -252,7 +273,6 @@ function GaugeChartInner({
   thresholds = null,
   floodStages = null,
   title,
-  scrubbable = true,
 }: Props) {
   const { colors, elevation, isDark } = useTheme();
   const [days, setDays] = useState<number>(7);
@@ -515,23 +535,53 @@ function GaugeChartInner({
       : { point: forecast, kind: 'forecast' };
   }, [scrubX, scale, points, forecastPoints, domain, plotWidth]);
 
-  // useMemo, not useRef: the handlers are spread onto a View during render, and
-  // reading a ref's `.current` there is the thing react-hooks/refs forbids. The
-  // empty dep array makes this every bit as stable as the ref was — setScrubX
-  // is a setState function, which React guarantees never changes identity.
-  const pan = useMemo(
+  /**
+   * The scrub gesture. Gesture.Pan(), so it exists inside the map sheet — the
+   * history of why is in the header.
+   *
+   * It states its axes and no relations, which is the contract every pan in
+   * the sheet already keeps: activate on horizontal travel before the pager's
+   * wider threshold, fail on vertical the moment the sheet's own activation
+   * distance is reached. Whichever crosses first wins, and the others are
+   * cancelled by RNGH's ordinary arbitration — including the page scrollers
+   * and the plain ScrollViews on the gauge and river screens.
+   *
+   * The readout still appears at TOUCH-DOWN, as the PanResponder's did: touch
+   * events fire from the first contact, before arbitration has decided
+   * anything. If the drag then turns out to be vertical this pan fails,
+   * onFinalize clears the readout, and the sheet or the scroll takes over —
+   * a readout that flashed for 8pt of travel is the honest cost of not
+   * freezing every scroll that begins on the plot. onFinalize covers all
+   * three ends: activation ended, failure, and a tap released in place.
+   *
+   * runOnJS, because the readout is React state and with Reanimated installed
+   * RNGH otherwise expects worklets. The empty dep array is as stable as the
+   * old useRef was — setScrubX never changes identity.
+   */
+  const scrubGesture = useMemo(
     () =>
-      PanResponder.create({
-        // Claim on touch-down so a tap reads out, and so the enclosing
-        // ScrollView does not steal a slow horizontal drag across the plot.
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: (e) => setScrubX(e.nativeEvent.locationX),
-        onPanResponderMove: (e) => setScrubX(e.nativeEvent.locationX),
-        onPanResponderRelease: () => setScrubX(null),
-        onPanResponderTerminate: () => setScrubX(null),
-      }),
+      Gesture.Pan()
+        .runOnJS(true)
+        .activeOffsetX([-SCRUB_ACTIVATE_X, SCRUB_ACTIVATE_X])
+        .failOffsetY([-SCRUB_FAIL_Y, SCRUB_FAIL_Y])
+        .onTouchesDown((e) => {
+          const touch = e.allTouches[0];
+          if (touch) setScrubX(touch.x);
+        })
+        .onUpdate((e) => setScrubX(e.x))
+        .onFinalize(() => setScrubX(null)),
     [],
+  );
+
+  /**
+   * Every instant the scrub can land on — both series merged, ascending — for
+   * stepping by READING rather than by distance. See stepScrubTime() in the
+   * shared model for why a fixed step skips some readings and lands twice on
+   * others.
+   */
+  const scrubTimes = useMemo(
+    () => [...points, ...forecastPoints].map((p) => p.t).sort((a, b) => a - b),
+    [points, forecastPoints],
   );
 
   if (!siteId) return null;
@@ -576,17 +626,13 @@ function GaugeChartInner({
    *
    * VoiceOver reached the range and unit buttons and then met the chart as an
    * unlabelled box: the line, the forecast and the qualifier were all visual and
-   * only visual. This is the summary, not the series — the same thing the web's
-   * NON-interactive chart offers through its aria-label.
+   * only visual. This is the summary — the label a VoiceOver focus lands on
+   * before any stepping, the same thing the web chart's aria-label carries.
    *
-   * It is deliberately not the whole answer. The web plot is a role="slider"
-   * because the web has arrow keys; the iOS equivalent is accessibilityRole
-   * "adjustable" with increment and decrement actions driving this same scrub,
-   * and stepScrubTime() in the shared model is already the function that would
-   * do it. That changes what a VoiceOver swipe DOES on a component two screens
-   * depend on, and this file's own rule for gesture changes is that they want a
-   * device — see the `scrubbable` prop. Summary now, stepping when someone can
-   * put a phone in their hand.
+   * The plot itself is accessibilityRole "adjustable", the iOS spelling of the
+   * web plot's role="slider": a VoiceOver swipe up or down steps the scrub one
+   * reading at a time through stepScrubTime() from the shared model, and the
+   * stepped-to reading is announced through accessibilityValue below.
    */
   const plotSummary = (() => {
     const window = days === 1 ? 'last 24 hours' : `last ${days} days`;
@@ -604,6 +650,45 @@ function GaugeChartInner({
     if (series.typicalPath) bits.push('Typical range for the date shown.');
     return bits.join(' ');
   })();
+
+  /**
+   * The reading under the scrub — or the newest one, before any stepping — as
+   * a sentence. VoiceOver announces this as the element's value after every
+   * increment or decrement, so the two labels the visible readout refuses to
+   * drop in a hurry are spoken too: a forecast is not a measurement, and a
+   * provisional reading is not a verified one.
+   */
+  const spokenValue = (() => {
+    const at = scrubbed ?? (newest ? { point: newest, kind: 'observed' as const } : null);
+    if (!at) return null;
+    const bits = [`${formatReading(at.point.v, drawnUnit)}, ${scrubTime(at.point.t)}`];
+    if (at.kind === 'forecast') bits.push('NWS forecast');
+    else {
+      const spokenQualifiers = qualifierText(at.point.qualifiers);
+      if (spokenQualifiers) bits.push(spokenQualifiers);
+    }
+    return bits.join(', ');
+  })();
+
+  /**
+   * One VoiceOver step: the adjacent reading in either series, clamped at the
+   * ends. Steps BY READING, not by distance — stepScrubTime()'s note says why —
+   * and starts from the newest observation when nothing is scrubbed yet, which
+   * is where the summary label has just left the listener.
+   */
+  const stepScrub = (step: 1 | -1) => {
+    if (!scale) return;
+    const from = scrubbed?.point.t ?? newest?.t;
+    if (from == null) return;
+    const next = stepScrubTime(scrubTimes, from, step);
+    if (next != null) setScrubX(scale.x(next));
+  };
+
+  const onAccessibilityAction = (event: AccessibilityActionEvent) => {
+    const action = event.nativeEvent.actionName;
+    if (action === 'increment') stepScrub(1);
+    else if (action === 'decrement') stepScrub(-1);
+  };
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
@@ -655,7 +740,14 @@ function GaugeChartInner({
               return (
                 <Pressable
                   key={u}
-                  onPress={() => setUnitOverride(u)}
+                  // The scrub is cleared with the switch: it is stored as a
+                  // pixel, and the same pixel names a different reading on the
+                  // other axis. A finger-driven scrub clears itself on release;
+                  // a VoiceOver-stepped one would otherwise survive the change.
+                  onPress={() => {
+                    setUnitOverride(u);
+                    setScrubX(null);
+                  }}
                   style={[styles.range, active && { backgroundColor: colors.cardRaised }]}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
@@ -681,7 +773,12 @@ function GaugeChartInner({
             return (
               <Pressable
                 key={r.days}
-                onPress={() => setDays(r.days)}
+                // Same clearing as the unit toggle: a pixel kept across a
+                // window change would point at a different instant.
+                onPress={() => {
+                  setDays(r.days);
+                  setScrubX(null);
+                }}
                 style={[
                   styles.range,
                   active && { backgroundColor: colors.cardRaised },
@@ -706,282 +803,293 @@ function GaugeChartInner({
 
       <View style={styles.plotWrap} onLayout={onLayout}>
         {width > 0 && hasPlot ? (
-          <View
-            {...(scrubbable ? pan.panHandlers : null)}
-            accessible
-            accessibilityRole="image"
-            accessibilityLabel={plotSummary}
-          >
-            <Svg width={width} height={CHART_HEIGHT}>
-              {/* ── The bands, at their true numeric height ── */}
-              {zones.map((zone) => {
-                const top = scale.y(Math.min(zone.max, domain.max));
-                const bottom = scale.y(Math.max(zone.min, domain.min));
-                const h = bottom - top;
-                // Entirely outside the visible domain — not clipped to a sliver,
-                // dropped. A 1px stripe of "Flood" along the top edge implies a
-                // proximity the numbers do not support.
-                if (h <= 0.5) return null;
-                return (
-                  <Rect
-                    key={zone.key}
-                    x={0}
-                    y={top}
-                    width={plotWidth}
-                    height={h}
-                    fill={conditionColor(zone.key)}
-                    // Low enough that the line and its readout stay the subject.
-                    // Lifted slightly on dark, where the same alpha over
-                    // near-black stone all but disappears.
-                    opacity={isDark ? 0.17 : 0.13}
-                  />
-                );
-              })}
+          <GestureDetector gesture={scrubGesture}>
+            {/* Adjustable, not image: a VoiceOver swipe up/down steps the scrub
+                one reading at a time — the same thing the web plot's
+                role="slider" gives arrow keys. The label summarises the plot;
+                the value speaks whichever reading the scrub is on. */}
+            <View
+              accessible
+              accessibilityRole="adjustable"
+              accessibilityLabel={plotSummary}
+              accessibilityValue={spokenValue ? { text: spokenValue } : undefined}
+              accessibilityActions={[
+                { name: 'increment', label: 'Later reading' },
+                { name: 'decrement', label: 'Earlier reading' },
+              ]}
+              onAccessibilityAction={onAccessibilityAction}
+            >
+              <Svg width={width} height={CHART_HEIGHT}>
+                {/* ── The bands, at their true numeric height ── */}
+                {zones.map((zone) => {
+                  const top = scale.y(Math.min(zone.max, domain.max));
+                  const bottom = scale.y(Math.max(zone.min, domain.min));
+                  const h = bottom - top;
+                  // Entirely outside the visible domain — not clipped to a sliver,
+                  // dropped. A 1px stripe of "Flood" along the top edge implies a
+                  // proximity the numbers do not support.
+                  if (h <= 0.5) return null;
+                  return (
+                    <Rect
+                      key={zone.key}
+                      x={0}
+                      y={top}
+                      width={plotWidth}
+                      height={h}
+                      fill={conditionColor(zone.key)}
+                      // Low enough that the line and its readout stay the subject.
+                      // Lifted slightly on dark, where the same alpha over
+                      // near-black stone all but disappears.
+                      opacity={isDark ? 0.17 : 0.13}
+                    />
+                  );
+                })}
 
-              {/* Band boundaries, labelled down the right edge. These are the
-                  numbers people actually want off a chart like this — "High
-                  starts at 1,400" — and a shaded region alone does not say it. */}
-              {zones.map((zone) => {
-                const y = scale.y(zone.max);
-                if (zone.openEnded) return null;
-                if (y < PAD_TOP || y > PAD_TOP + plotHeight) return null;
-                return (
-                  <Line
-                    key={`edge-${zone.key}`}
-                    x1={0}
-                    y1={y}
-                    x2={plotWidth}
-                    y2={y}
-                    stroke={conditionColor(zone.key)}
-                    strokeWidth={1}
-                    strokeDasharray="3,3"
-                    opacity={0.55}
-                  />
-                );
-              })}
-
-              {/* ── Value axis, right edge ──
-                  Round numbers from niceValueTicks(), not the padded domain's own
-                  min/mid/max. See the memo for what that printed. */}
-              {valueTicks.map((tick) => (
-                <SvgText
-                  key={`v-${tick.value}`}
-                  x={plotWidth + 6}
-                  y={scale.y(tick.value) + 4}
-                  fill={colors.textSubtle}
-                  fontSize={10}
-                  fontFamily={fonts.mono}
-                >
-                  {formatReading(tick.value, drawnUnit).replace(` ${drawnUnit}`, '')}
-                </SvgText>
-              ))}
-
-              {/* ── What this river normally does on this date ──
-                  Behind everything the gauge measured, and labelled in the legend
-                  below: a shaded band with nothing naming it is a claim the reader
-                  cannot check. Discharge only — see the memo. */}
-              {series.typicalArea ? (
-                <Path d={series.typicalArea} fill={TYPICAL_COLOR} fillOpacity={isDark ? 0.16 : 0.1} />
-              ) : null}
-              {series.typicalPath ? (
-                <Path
-                  d={series.typicalPath}
-                  stroke={TYPICAL_COLOR}
-                  strokeWidth={1}
-                  strokeDasharray="4,3"
-                  opacity={0.55}
-                  fill="none"
-                />
-              ) : null}
-
-              {/* ── The NWS stages ──
-                  Drawn OVER the bands and UNDER the line: they are somebody
-                  else's threshold laid across the picture, so they must not sit
-                  behind a condition band that would tint them, and they must not
-                  cover the reading they are context for.
-
-                  Never rendered on a cfs axis — stageLines is empty there by
-                  construction, so this cannot be got wrong by editing the JSX.
-                  The label carries "NWS" every time; a bare violet rule is an
-                  unattributed claim about danger. */}
-              {stageLines.map((line) => {
-                const y = scale.y(line.value);
-                if (y < PAD_TOP || y > PAD_TOP + plotHeight) return null;
-                const def = FLOOD_STAGE_SYSTEM[line.key];
-                return (
-                  <G key={`stage-${line.key}`}>
+                {/* Band boundaries, labelled down the right edge. These are the
+                    numbers people actually want off a chart like this — "High
+                    starts at 1,400" — and a shaded region alone does not say it. */}
+                {zones.map((zone) => {
+                  const y = scale.y(zone.max);
+                  if (zone.openEnded) return null;
+                  if (y < PAD_TOP || y > PAD_TOP + plotHeight) return null;
+                  return (
                     <Line
+                      key={`edge-${zone.key}`}
                       x1={0}
                       y1={y}
                       x2={plotWidth}
                       y2={y}
-                      stroke={floodStageColor()}
-                      strokeWidth={1.5}
-                      strokeDasharray={def.dash}
-                      opacity={def.opacity}
+                      stroke={conditionColor(zone.key)}
+                      strokeWidth={1}
+                      strokeDasharray="3,3"
+                      opacity={0.55}
                     />
-                    <SvgText
-                      x={2}
-                      // Above its own line, and pushed below it for a stage
-                      // sitting within a label's height of the top edge —
-                      // otherwise the topmost one clips out of the viewport.
-                      y={y - 3 < PAD_TOP + 8 ? y + 11 : y - 3}
-                      fill={floodStageColor()}
-                      fontSize={9}
-                      fontFamily={fonts.medium}
-                      opacity={Math.max(def.opacity, 0.75)}
-                    >
-                      {def.label}
-                    </SvgText>
-                  </G>
-                );
-              })}
+                  );
+                })}
 
-              {/* ── The line ── */}
-              {series.paths.map((d, i) => (
-                <Path
-                  key={`p-${i}`}
-                  d={d}
-                  stroke={lineColor}
-                  strokeWidth={2}
-                  fill="none"
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                />
-              ))}
+                {/* ── Value axis, right edge ──
+                    Round numbers from niceValueTicks(), not the padded domain's own
+                    min/mid/max. See the memo for what that printed. */}
+                {valueTicks.map((tick) => (
+                  <SvgText
+                    key={`v-${tick.value}`}
+                    x={plotWidth + 6}
+                    y={scale.y(tick.value) + 4}
+                    fill={colors.textSubtle}
+                    fontSize={10}
+                    fontFamily={fonts.mono}
+                  >
+                    {formatReading(tick.value, drawnUnit).replace(` ${drawnUnit}`, '')}
+                  </SvgText>
+                ))}
 
-              {/* A reading with no neighbour inside the cadence. Dropped with its
-                  segment until chartSegments() started handing these back, which
-                  meant a station reporting once between two outages showed empty
-                  space where a number was. */}
-              {series.dots.map((point) => (
-                <Circle
-                  key={`dot-${point.t}`}
-                  cx={scale.x(point.t)}
-                  cy={scale.y(point.v)}
-                  r={2}
-                  fill={lineColor}
-                />
-              ))}
-
-              {/* ── The boundary between what happened and what is predicted ──
-                  Keyed on there being a forecast POINT, not a forecast path: a
-                  one-point forecast is still a forecast, and gating the rule on a
-                  drawn line put the boundary and the legend out of step with the
-                  thing they describe. */}
-              {points.length > 0 && forecastPoints.length > 0 ? (
-                <Line
-                  x1={scale.x(points[points.length - 1].t)}
-                  y1={PAD_TOP}
-                  x2={scale.x(points[points.length - 1].t)}
-                  y2={PAD_TOP + plotHeight}
-                  stroke={colors.textSubtle}
-                  strokeWidth={1}
-                  strokeDasharray="2,3"
-                  opacity={0.7}
-                />
-              ) : null}
-
-              {/* ── The official forecast ──
-                  Violet and dashed, the same hue the stage lines use and for the
-                  same reason: it is the Weather Service's number, not Eddy's
-                  verdict. The legend names it; an unattributed dashed line
-                  climbing off the right edge is a prediction nobody owns. */}
-              {series.forecastPaths.map((d, i) => (
-                <Path
-                  key={`f-${i}`}
-                  d={d}
-                  stroke={floodStageColor()}
-                  strokeWidth={2}
-                  strokeDasharray="5,4"
-                  fill="none"
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                />
-              ))}
-              {series.forecastDots.map((point) => (
-                <Circle
-                  key={`fdot-${point.t}`}
-                  cx={scale.x(point.t)}
-                  cy={scale.y(point.v)}
-                  r={2}
-                  fill={floodStageColor()}
-                />
-              ))}
-
-              {/* ── Where it is now ── the newest OBSERVED reading, never a forecast */}
-              {points.length > 0 ? (
-                <Circle
-                  cx={scale.x(points[points.length - 1].t)}
-                  cy={scale.y(points[points.length - 1].v)}
-                  r={3.5}
-                  fill={lineColor}
-                />
-              ) : null}
-
-              {/* ── The scrub rule ── */}
-              {scrubbed ? (
-                <>
-                  <Line
-                    x1={scale.x(scrubbed.point.t)}
-                    y1={PAD_TOP}
-                    x2={scale.x(scrubbed.point.t)}
-                    y2={PAD_TOP + plotHeight}
-                    stroke={colors.text}
-                    strokeWidth={1}
-                    opacity={0.4}
-                  />
-                  <Circle
-                    cx={scale.x(scrubbed.point.t)}
-                    cy={scale.y(scrubbed.point.v)}
-                    r={4.5}
-                    fill={colors.card}
-                    stroke={scrubbed.kind === 'forecast' ? floodStageColor() : lineColor}
-                    strokeWidth={2}
-                  />
-                </>
-              ) : null}
-
-              {/* ── Time axis ──
-                  Three instants from timeTicks() rather than the two ends, so the
-                  middle of the plot can be placed in time. The first and last are
-                  anchored inward; a centred label at x=0 clips. */}
-              {xTicks.map((tick, index) => (
-                <SvgText
-                  key={`t-${index}`}
-                  x={scale.x(tick.value)}
-                  y={CHART_HEIGHT - 4}
-                  fill={colors.textSubtle}
-                  fontSize={10}
-                  fontFamily={fonts.body}
-                  textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}
-                >
-                  {axisTime(tick.value, days)}
-                </SvgText>
-              ))}
-            </Svg>
-
-            {/* ── Legend ──
-                Only for the overlays that are actually on screen, and never
-                omitted when one is: a violet dashed line climbing off the right
-                edge is somebody's prediction, and a teal band behind the series
-                is a national statistic. Both are claims a reader must be able to
-                attribute, and the issue time is the part that makes a forecast
-                checkable — NWPS reissues on a schedule, so a line read at 6pm may
-                predate the afternoon's rain. */}
-            {series.typicalPath || forecastPoints.length > 0 ? (
-              <View style={styles.legend}>
+                {/* ── What this river normally does on this date ──
+                    Behind everything the gauge measured, and labelled in the legend
+                    below: a shaded band with nothing naming it is a claim the reader
+                    cannot check. Discharge only — see the memo. */}
+                {series.typicalArea ? (
+                  <Path d={series.typicalArea} fill={TYPICAL_COLOR} fillOpacity={isDark ? 0.16 : 0.1} />
+                ) : null}
                 {series.typicalPath ? (
-                  <Text style={[styles.legendText, { color: TYPICAL_COLOR }]}>Typical 25–75%</Text>
+                  <Path
+                    d={series.typicalPath}
+                    stroke={TYPICAL_COLOR}
+                    strokeWidth={1}
+                    strokeDasharray="4,3"
+                    opacity={0.55}
+                    fill="none"
+                  />
                 ) : null}
-                {forecastPoints.length > 0 ? (
-                  <Text style={[styles.legendText, { color: floodStageColor() }]} numberOfLines={1}>
-                    NWS forecast{forecastIssued ? ` · issued ${forecastIssued}` : ''}
-                  </Text>
+
+                {/* ── The NWS stages ──
+                    Drawn OVER the bands and UNDER the line: they are somebody
+                    else's threshold laid across the picture, so they must not sit
+                    behind a condition band that would tint them, and they must not
+                    cover the reading they are context for.
+
+                    Never rendered on a cfs axis — stageLines is empty there by
+                    construction, so this cannot be got wrong by editing the JSX.
+                    The label carries "NWS" every time; a bare violet rule is an
+                    unattributed claim about danger. */}
+                {stageLines.map((line) => {
+                  const y = scale.y(line.value);
+                  if (y < PAD_TOP || y > PAD_TOP + plotHeight) return null;
+                  const def = FLOOD_STAGE_SYSTEM[line.key];
+                  return (
+                    <G key={`stage-${line.key}`}>
+                      <Line
+                        x1={0}
+                        y1={y}
+                        x2={plotWidth}
+                        y2={y}
+                        stroke={floodStageColor()}
+                        strokeWidth={1.5}
+                        strokeDasharray={def.dash}
+                        opacity={def.opacity}
+                      />
+                      <SvgText
+                        x={2}
+                        // Above its own line, and pushed below it for a stage
+                        // sitting within a label's height of the top edge —
+                        // otherwise the topmost one clips out of the viewport.
+                        y={y - 3 < PAD_TOP + 8 ? y + 11 : y - 3}
+                        fill={floodStageColor()}
+                        fontSize={9}
+                        fontFamily={fonts.medium}
+                        opacity={Math.max(def.opacity, 0.75)}
+                      >
+                        {def.label}
+                      </SvgText>
+                    </G>
+                  );
+                })}
+
+                {/* ── The line ── */}
+                {series.paths.map((d, i) => (
+                  <Path
+                    key={`p-${i}`}
+                    d={d}
+                    stroke={lineColor}
+                    strokeWidth={2}
+                    fill="none"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                  />
+                ))}
+
+                {/* A reading with no neighbour inside the cadence. Dropped with its
+                    segment until chartSegments() started handing these back, which
+                    meant a station reporting once between two outages showed empty
+                    space where a number was. */}
+                {series.dots.map((point) => (
+                  <Circle
+                    key={`dot-${point.t}`}
+                    cx={scale.x(point.t)}
+                    cy={scale.y(point.v)}
+                    r={2}
+                    fill={lineColor}
+                  />
+                ))}
+
+                {/* ── The boundary between what happened and what is predicted ──
+                    Keyed on there being a forecast POINT, not a forecast path: a
+                    one-point forecast is still a forecast, and gating the rule on a
+                    drawn line put the boundary and the legend out of step with the
+                    thing they describe. */}
+                {points.length > 0 && forecastPoints.length > 0 ? (
+                  <Line
+                    x1={scale.x(points[points.length - 1].t)}
+                    y1={PAD_TOP}
+                    x2={scale.x(points[points.length - 1].t)}
+                    y2={PAD_TOP + plotHeight}
+                    stroke={colors.textSubtle}
+                    strokeWidth={1}
+                    strokeDasharray="2,3"
+                    opacity={0.7}
+                  />
                 ) : null}
-              </View>
-            ) : null}
-          </View>
+
+                {/* ── The official forecast ──
+                    Violet and dashed, the same hue the stage lines use and for the
+                    same reason: it is the Weather Service's number, not Eddy's
+                    verdict. The legend names it; an unattributed dashed line
+                    climbing off the right edge is a prediction nobody owns. */}
+                {series.forecastPaths.map((d, i) => (
+                  <Path
+                    key={`f-${i}`}
+                    d={d}
+                    stroke={floodStageColor()}
+                    strokeWidth={2}
+                    strokeDasharray="5,4"
+                    fill="none"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                  />
+                ))}
+                {series.forecastDots.map((point) => (
+                  <Circle
+                    key={`fdot-${point.t}`}
+                    cx={scale.x(point.t)}
+                    cy={scale.y(point.v)}
+                    r={2}
+                    fill={floodStageColor()}
+                  />
+                ))}
+
+                {/* ── Where it is now ── the newest OBSERVED reading, never a forecast */}
+                {points.length > 0 ? (
+                  <Circle
+                    cx={scale.x(points[points.length - 1].t)}
+                    cy={scale.y(points[points.length - 1].v)}
+                    r={3.5}
+                    fill={lineColor}
+                  />
+                ) : null}
+
+                {/* ── The scrub rule ── */}
+                {scrubbed ? (
+                  <>
+                    <Line
+                      x1={scale.x(scrubbed.point.t)}
+                      y1={PAD_TOP}
+                      x2={scale.x(scrubbed.point.t)}
+                      y2={PAD_TOP + plotHeight}
+                      stroke={colors.text}
+                      strokeWidth={1}
+                      opacity={0.4}
+                    />
+                    <Circle
+                      cx={scale.x(scrubbed.point.t)}
+                      cy={scale.y(scrubbed.point.v)}
+                      r={4.5}
+                      fill={colors.card}
+                      stroke={scrubbed.kind === 'forecast' ? floodStageColor() : lineColor}
+                      strokeWidth={2}
+                    />
+                  </>
+                ) : null}
+
+                {/* ── Time axis ──
+                    Three instants from timeTicks() rather than the two ends, so the
+                    middle of the plot can be placed in time. The first and last are
+                    anchored inward; a centred label at x=0 clips. */}
+                {xTicks.map((tick, index) => (
+                  <SvgText
+                    key={`t-${index}`}
+                    x={scale.x(tick.value)}
+                    y={CHART_HEIGHT - 4}
+                    fill={colors.textSubtle}
+                    fontSize={10}
+                    fontFamily={fonts.body}
+                    textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}
+                  >
+                    {axisTime(tick.value, days)}
+                  </SvgText>
+                ))}
+              </Svg>
+
+              {/* ── Legend ──
+                  Only for the overlays that are actually on screen, and never
+                  omitted when one is: a violet dashed line climbing off the right
+                  edge is somebody's prediction, and a teal band behind the series
+                  is a national statistic. Both are claims a reader must be able to
+                  attribute, and the issue time is the part that makes a forecast
+                  checkable — NWPS reissues on a schedule, so a line read at 6pm may
+                  predate the afternoon's rain. */}
+              {series.typicalPath || forecastPoints.length > 0 ? (
+                <View style={styles.legend}>
+                  {series.typicalPath ? (
+                    <Text style={[styles.legendText, { color: TYPICAL_COLOR }]}>Typical 25–75%</Text>
+                  ) : null}
+                  {forecastPoints.length > 0 ? (
+                    <Text style={[styles.legendText, { color: floodStageColor() }]} numberOfLines={1}>
+                      NWS forecast{forecastIssued ? ` · issued ${forecastIssued}` : ''}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+          </GestureDetector>
         ) : (
           <View style={[styles.placeholder, { height: CHART_HEIGHT }]}>
             {loading ? (

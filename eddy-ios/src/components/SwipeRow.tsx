@@ -22,8 +22,11 @@
 // `Unimplemented component: <RNSVGSvgView>`.
 //
 // PanResponder and Animated are React Native itself. No new dependency, no new
-// native code, no new runtime fingerprint — and GaugeChart already scrubs with
-// PanResponder, so the pattern is not new to this app either.
+// native code, no new runtime fingerprint. (GaugeChart's scrub began the same
+// way, and moved to Gesture.Pan only because it renders inside the map sheet's
+// RNGH pans, which cancel the RN responder system outright. These rows sit in
+// plain FlatLists, where nothing outranks PanResponder and the plainer tool
+// still wins.)
 //
 // ── The gesture has to lose ties to the list ───────────────────────────────
 //
