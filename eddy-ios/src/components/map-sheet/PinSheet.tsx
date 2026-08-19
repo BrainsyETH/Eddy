@@ -79,21 +79,21 @@ export interface PinSheetProps {
   onOpenDam: (damId: string) => void;
   onOpenDetail: (route: string) => void;
   /**
-   * ── BOTH POP ONE LEVEL. THE DIFFERENCE IS THAT ONE OF THEM SAYS SO ──────
+   * ── BOTH LAND ON WHAT WAS THERE BEFORE. ONE OF THEM SAYS SO ─────────────
    *
-   * `onClose` briefly did two different things — dismiss the pin, or clear the
-   * whole selection — decided by how the pin had been selected. That is one
-   * glyph meaning two outcomes based on state the reader cannot see, which is
-   * the defect this sheet's navigation was reworked to remove, and it had been
-   * reintroduced one level down.
+   * onClose: goes back to whatever the reader was looking at before this pin.
+   * Usually that is the pin and nothing else — but a pin tap can SELECT a river
+   * as a side effect, and a caller undoing this must undo that too or the
+   * reader is left closing a sheet that only exists because of the tap they
+   * just undid. The caller decides; see the map screen's `dismissPin`.
    *
-   * onClose: dismisses the pin and nothing else. Whatever was underneath comes
-   * back. Clearing a river belongs to the river sheet's own ×.
+   * What it must never do is destroy a river the READER chose. That case has a
+   * Back control, and both land there.
    *
    * onBack: the same outcome, offered as a named 44pt target instead of a 19pt
    * glyph in a corner — "‹ Meramec River" says where it lands and × does not.
    * Null when nothing was underneath, which is not the same as "no river is
-   * selected": a pin tap can SELECT the river as a side effect, and then the
+   * selected": a pin tap can select the river as a side effect, and then the
    * river sheet was never on screen to return to.
    */
   onBack?: (() => void) | null;
