@@ -52,18 +52,53 @@ cd "$(dirname "$0")/.."
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
+# ── THE READ IS SLOW, AND MUST NOT BE SILENT ABOUT WHY ─────────────────────
+#
+# This takes the better part of a minute: `npx` re-resolves `eas-cli@latest`
+# on every run, then each environment is a network round trip. That is normal
+# and there is nothing to fix about it — but the read used to be
+# `npx eas-cli@latest env:list … 2>/dev/null |`, which puts stdout in a pipe
+# and stderr in the bin, so the wait looked identical to a hang and a genuine
+# failure looked identical to both.
+#
+# Two guards, neither of which costs a call:
+#
+#   `--yes`        answers npx's "Ok to proceed?" before it downloads the CLI,
+#                  which is a real prompt this script cannot display.
+#   `< /dev/null`  gives every invocation an empty stdin, so any OTHER prompt
+#                  — an expired login, most likely — hits EOF and fails at
+#                  once instead of blocking on a question nobody can see.
+#                  Flag-independent, so it holds for prompts not invented yet.
+#
+# Stderr is captured and PRINTED on failure rather than discarded. A script
+# written to make an invisible misconfiguration visible has no business hiding
+# the reason it could not look.
+run_eas() {
+  npx --yes eas-cli@latest "$@" < /dev/null
+}
+
 # One sorted file of variable NAMES per environment.
 for env in $ENVIRONMENTS; do
-  echo "==> reading $env"
-  npx eas-cli@latest env:list --environment "$env" 2>/dev/null |
+  echo "==> reading $env (a slow network read, not a hang)"
+  if ! raw="$(run_eas env:list --environment "$env" 2>"$work/$env.err")"; then
+    echo ""
+    echo "  Could not read '$env':"
+    sed 's/^/    /' "$work/$env.err"
+    echo ""
+    exit 1
+  fi
+
+  printf '%s\n' "$raw" |
     grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' |
     tr -d '=' |
     sort -u > "$work/$env" || true
 
+  # A successful call that named nothing: the environment exists and is empty,
+  # which is a real answer and a different one from a failure above.
   if [ ! -s "$work/$env" ]; then
     echo ""
-    echo "  Could not read any variables for '$env'."
-    echo "  Check you are logged in:  npx eas-cli@latest whoami"
+    echo "  '$env' returned no variables at all."
+    echo "  Create them with:  npx eas-cli@latest env:create --environment $env"
     echo ""
     exit 1
   fi
