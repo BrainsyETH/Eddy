@@ -33,7 +33,6 @@ import Animated, {
   Extrapolation,
   type SharedValue,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { GestureType } from 'react-native-gesture-handler';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
@@ -130,7 +129,6 @@ export function MapSheet({
   metrics,
 }: Props) {
   const { colors, elevation } = useTheme();
-  const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
 
   // Measured rather than assumed: the sheet lives inside the map's overlay
@@ -163,12 +161,18 @@ export function MapSheet({
    *
    * Mirroring the column's expression rather than picking a number is what keeps
    * the peek and the tallest detent from disagreeing about how much air the
-   * sheet owes its content. On these screens the tab navigator has already
-   * consumed the safe-area inset — see CONTENT_BOTTOM_PAD, which describes
-   * itself as "the only thing between the final line of content and a hard
-   * chrome border" — so in practice this is CONTENT_BOTTOM_PAD alone.
+   * sheet owes its content.
+   *
+   * NO SAFE-AREA INSET. This read `insets.bottom + CONTENT_BOTTOM_PAD` while the
+   * rest of this comment argued that the tab navigator had already consumed the
+   * inset "so in practice this is CONTENT_BOTTOM_PAD alone" — a sum and a claim
+   * that cannot both be right. useSafeAreaInsets() reports the WINDOW's inset
+   * and a tab bar sitting in that band does not zero it, so on a home-indicator
+   * phone this was 34pt over. `available` is measured from the map's overlay
+   * stack, which already excludes the tab bar and both insets (see above), so
+   * the sheet cannot reach the home indicator and owes it no clearance.
    */
-  const peekBottomPad = insets.bottom + CONTENT_BOTTOM_PAD;
+  const peekBottomPad = CONTENT_BOTTOM_PAD;
 
   const detents = useMemo(
     () =>
@@ -430,13 +434,12 @@ export function MapSheet({
     setPeekHeight(Math.round(event.nativeEvent.layout.height) + GRABBER_BLOCK);
   }, []);
 
-  // `peekHeight`, not `peekHeight + peekBottomPad`: the pad is already inside
-  // pageBudget as CONTENT_BOTTOM_PAD and the inset, and counting it twice would
-  // shorten every page by that much again.
-  const budget = useMemo(
-    () => pageBudget(available, insets.bottom, peekHeight),
-    [available, insets.bottom, peekHeight],
-  );
+  // `peekHeight`, not `peekHeight + peekBottomPad`: the pad below the peek is
+  // only on screen at the peek detent, and this budget is for the tallest one.
+  //
+  // No inset argument any more — pageBudget stopped taking one when the bottom
+  // pad moved inside the pages. See CONTENT_BOTTOM_PAD.
+  const budget = useMemo(() => pageBudget(available, peekHeight), [available, peekHeight]);
 
   const scrollContext = useMemo(
     () => ({ scrollY, panRef, detent, atFull, pageBudget: budget, resetKey }),
@@ -528,9 +531,19 @@ export function MapSheet({
           </View>
 
           <SheetScrollContext.Provider value={scrollContext}>
+            {/* ── THE BOTTOM PAD IS THE PAGES' NOW, NOT THE COLUMN'S ────────
+                This column used to carry `paddingBottom: inset + PAD`, which
+                put it BELOW the pager — so it was never air under the last row
+                of a page, it was a permanent empty strip across the foot of the
+                card that no amount of scrolling could fill. Each page pads its
+                own scroll content instead (SheetPager), so the gap is where it
+                claimed to be: at the end of what you are reading.
+
+                The single-page callout still needs it here, because it has no
+                scroller to put it in. */}
             <View
               onLayout={onContentLayout}
-              style={{ paddingBottom: insets.bottom + CONTENT_BOTTOM_PAD }}
+              style={glanceOnly ? { paddingBottom: peekBottomPad } : undefined}
             >
               <View onLayout={onPeekLayout}>{peek}</View>
               {children}
