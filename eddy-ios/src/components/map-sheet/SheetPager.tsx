@@ -24,6 +24,7 @@
 import { useEffect, useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import { Gesture, GestureDetector, type GestureType } from 'react-native-gesture-handler';
+import { CONTENT_BOTTOM_PAD } from './sheetGeometry';
 import { useSheetScroll } from './sheetScroll';
 import Animated, {
   runOnJS,
@@ -261,6 +262,14 @@ function SheetPage({
     <GestureDetector gesture={native}>
       <Animated.ScrollView
         style={{ width, maxHeight }}
+        // ── The air at the end of a page ──────────────────────────────────
+        // On the CONTENT, not the style, and that distinction is the whole fix:
+        // this pad used to sit on the sheet's content column, one level above
+        // the pager, where it was a permanent blank strip along the bottom of
+        // the card rather than a gap you reach by scrolling. Inside
+        // contentContainerStyle it scrolls with the page, so the last row of a
+        // long tab clears the tab bar and a short tab wastes nothing.
+        contentContainerStyle={{ paddingBottom: CONTENT_BOTTOM_PAD }}
         onScroll={onScroll}
         scrollEventThrottle={16}
         scrollEnabled={scrollEnabled}
@@ -299,5 +308,18 @@ export function mountedPages(index: number, count: number): (i: number) => boole
 }
 
 const styles = StyleSheet.create({
-  track: { flexDirection: 'row' },
+  // alignItems, because a row's cross axis is the vertical one and the default
+  // is `stretch`: every page's ScrollView was being stretched to the height of
+  // the tallest page mounted beside it, so a short tab got a viewport far taller
+  // than its content and reported itself scrollable when there was nothing to
+  // scroll. flex-start gives each scroller exactly its own content, capped by
+  // maxHeight.
+  //
+  // This does NOT make the sheet size itself to the ACTIVE page — the track is
+  // still as tall as the tallest mounted one, because a horizontal pager has to
+  // lay its pages out side by side for a swipe to reveal anything. Sizing the
+  // card to whichever page is in front needs the active page measured and the
+  // track's height animated with it; that is a bigger change than this one and
+  // has not been made.
+  track: { flexDirection: 'row', alignItems: 'flex-start' },
 });

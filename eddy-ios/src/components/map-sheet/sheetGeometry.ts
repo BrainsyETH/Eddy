@@ -59,16 +59,50 @@ export const REDUCED_SETTLE = { duration: 0 } as const;
  */
 export const GRABBER_BLOCK = 16;
 
-/** Breathing room under the content, above the home indicator. */
 /**
  * Air under the last row of a page.
  *
  * 28 rather than 12. The sheet's bottom edge is the tab bar's top edge, so this
  * is the only thing between the final line of content and a hard chrome border —
  * and at 12 the last row of a long list sat against it closely enough to read as
- * clipped. It is added to the safe-area inset rather than replacing it, and
- * pageBudget subtracts the same constant, so raising it costs a little scroll
- * rather than hiding anything.
+ * clipped.
+ *
+ * ── IT BELONGS INSIDE THE SCROLLER, AND IT WAS OUTSIDE ────────────────────
+ *
+ * It used to pad the sheet's content COLUMN, which is the parent of the pager.
+ * Padding below a scroller is not air under the last row of a page — it is a
+ * permanent empty strip across the bottom of the card, at every detent and
+ * every scroll offset, and no amount of scrolling ever fills it. The reported
+ * symptom was exactly that: "a blank bar at the bottom of the slide up sheet
+ * taking space", under a page whose own text was cut off mid-sentence above it.
+ *
+ * It is now applied to each page's scroll CONTENT (see SheetPager), so it is
+ * what it always claimed to be: the gap you arrive at when you reach the end.
+ * pageBudget therefore no longer subtracts it — the viewport is the whole card,
+ * and the pad rides inside what scrolls through it.
+ *
+ * The single-page callout keeps it on the column, because there is no scroller
+ * there for it to live in.
+ *
+ * ── AND IT IS NOT ADDED TO THE SAFE-AREA INSET ANY MORE ───────────────────
+ *
+ * It used to be `insets.bottom + CONTENT_BOTTOM_PAD`, while the comment beside
+ * that sum said the tab navigator had already consumed the inset "so in
+ * practice this is CONTENT_BOTTOM_PAD alone". Both cannot be true.
+ * useSafeAreaInsets() reports the WINDOW's inset; a tab bar occupying that band
+ * does not zero it. And `available` is measured from the map's overlay stack,
+ * which already excludes the tab bar and both insets (see MapSheet), so the
+ * sheet never reaches the home indicator and owes it no clearance.
+ *
+ * Dropping the term is therefore correct if the inset was ever non-zero here —
+ * it was 34pt of dead band plus a 34pt shortfall in every page's budget — and a
+ * no-op if the comment was right all along. There is no third case, which is
+ * why this did not need a device to settle.
+ *
+ * What it is NOT is a claim about the grabber: pageBudget's own discount of
+ * GRABBER_BLOCK is correct, because onPeekLayout adds that block to what it
+ * measures. That was mis-read once during this change; the arithmetic below is
+ * unchanged from what it always was.
  */
 export const CONTENT_BOTTOM_PAD = 28;
 
@@ -123,20 +157,23 @@ export const ORNAMENT_BAND = 62;
  * met a page that was cut off and inert at the same time, on the tallest tabs
  * first: Camping on a 197-site state park is the reported one.
  *
- * `peekHeight` is what MapSheet measures, INCLUDING GRABBER_BLOCK — the same
- * number it hands resolveDetents — so the grabber is discounted here once, not
- * twice.
+ * `peekHeight` is what MapSheet measures, INCLUDING GRABBER_BLOCK — onPeekLayout
+ * adds it explicitly — and it is the same number it hands resolveDetents, so the
+ * grabber is discounted here once, not twice.
+ *
+ * ── NEITHER THE PAD NOR THE INSET IS SUBTRACTED ANY MORE ──────────────────
+ *
+ * Both used to be. CONTENT_BOTTOM_PAD now lives inside each page's scroll
+ * content instead of under the pager (see its own note), so it is part of what
+ * scrolls THROUGH this viewport rather than something taken off it — charging
+ * for it here as well would shorten every page by 28pt for a gap that is no
+ * longer in the way. The safe-area inset is gone for the reason given there
+ * too: `available` is measured from an overlay that already excludes the tab
+ * bar and both insets, so the sheet never reaches the home indicator.
  */
-export function pageBudget(
-  available: number,
-  bottomInset: number,
-  peekHeight = 0,
-): number {
+export function pageBudget(available: number, peekHeight = 0): number {
   const peek = Math.max(0, peekHeight - GRABBER_BLOCK);
-  return Math.max(
-    0,
-    fullTarget(available) - GRABBER_BLOCK - CONTENT_BOTTOM_PAD - Math.max(0, bottomInset) - peek,
-  );
+  return Math.max(0, fullTarget(available) - GRABBER_BLOCK - peek);
 }
 
 /**

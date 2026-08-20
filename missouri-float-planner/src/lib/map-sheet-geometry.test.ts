@@ -200,13 +200,18 @@ test('a page never claims more room than the tallest detent can show', () => {
   // The bug this exists for: a page capped at the whole available height
   // believed its viewport ran to the bottom of the screen, so it stopped
   // scrolling with the last inch of a long tab still below the fold.
-  const inset = 34;
-  const budget = pageBudget(TALL, inset);
+  //
+  // No inset and no CONTENT_BOTTOM_PAD in the sum any more. The pad rides inside
+  // each page's scroll content rather than under the pager, so it is part of
+  // what the viewport shows rather than something taken off it; and the sheet
+  // owes the home indicator no clearance, because `available` is measured from
+  // an overlay that already excludes the tab bar and both insets.
+  const budget = pageBudget(TALL);
   const tallest = resolveDetents(TALL, TALL * 2).height.full;
   assert.ok(budget > 0);
   assert.ok(
-    budget + GRABBER_BLOCK + CONTENT_BOTTOM_PAD + inset <= tallest,
-    `budget ${budget} plus chrome exceeds the tallest detent ${tallest}`,
+    budget + GRABBER_BLOCK <= tallest,
+    `budget ${budget} plus the grabber exceeds the tallest detent ${tallest}`,
   );
 });
 
@@ -214,22 +219,22 @@ test('a page filling its budget makes a sheet that reaches, but does not exceed,
   // The budget and the detents have to agree, or the sheet either clips the
   // page or grows past what it can show. Chrome here stands in for a header
   // and tab bar; the page takes what is left.
-  const inset = 34;
+  //
+  // The page's own bottom pad is INSIDE `page` now — it is content the scroller
+  // holds — so it is not added again here.
   const chrome = 180;
-  const page = pageBudget(TALL, inset) - chrome;
-  const content = chrome + page + CONTENT_BOTTOM_PAD + inset;
+  const page = pageBudget(TALL) - chrome;
+  const content = chrome + page;
   const d = resolveDetents(TALL, content + GRABBER_BLOCK);
   assert.equal(d.height.full, content + GRABBER_BLOCK);
   assert.ok(d.height.full <= TALL);
 });
 
 test('the page budget never goes negative on a small or unmeasured sheet', () => {
-  assert.equal(pageBudget(0, 34), 0);
-  assert.equal(pageBudget(-100, 34), 0);
-  // A phone whose insets exceed what the tallest detent offers.
-  assert.equal(pageBudget(40, 200), 0);
+  assert.equal(pageBudget(0), 0);
+  assert.equal(pageBudget(-100), 0);
   // Nor when the peek alone is taller than the whole sheet.
-  assert.equal(pageBudget(TALL, 34, TALL * 2), 0);
+  assert.equal(pageBudget(TALL, TALL * 2), 0);
 });
 
 test('the peek comes out of the page budget', () => {
@@ -240,30 +245,51 @@ test('the peek comes out of the page budget', () => {
   // AND unscrollable: the column ran past the tallest detent while the
   // ScrollView's content still fitted inside its own oversized maxHeight.
   const peek = 240;
-  assert.equal(pageBudget(TALL, 34, peek), pageBudget(TALL, 34) - (peek - GRABBER_BLOCK));
+  assert.equal(pageBudget(TALL, peek), pageBudget(TALL) - (peek - GRABBER_BLOCK));
 });
 
 test('the grabber is discounted once, not twice', () => {
-  // MapSheet measures the peek INCLUDING GRABBER_BLOCK and hands that same
-  // number to resolveDetents, so pageBudget has to subtract it back out or
-  // every page loses 16pt it was already charged for.
-  assert.equal(pageBudget(TALL, 34, GRABBER_BLOCK), pageBudget(TALL, 34));
+  // MapSheet's onPeekLayout ADDS GRABBER_BLOCK to what it measures, and hands
+  // that same number to resolveDetents, so pageBudget has to subtract it back
+  // out or every page loses 16pt it was already charged for.
+  //
+  // Worth stating plainly because the premise was doubted during the pad fix and
+  // is true: see MapSheet's onPeekLayout, which is where the block is added.
+  assert.equal(pageBudget(TALL, GRABBER_BLOCK), pageBudget(TALL));
   // And an unmeasured peek costs nothing at all.
-  assert.equal(pageBudget(TALL, 34, 0), pageBudget(TALL, 34));
+  assert.equal(pageBudget(TALL, 0), pageBudget(TALL));
+});
+
+test('the page bottom pad is not charged to the viewport as well', () => {
+  // The regression this guards. CONTENT_BOTTOM_PAD moved from the sheet's
+  // content column into each page's contentContainerStyle, because padding
+  // BELOW a scroller is a permanent blank strip along the foot of the card
+  // rather than air under the last row of a page — the reported symptom.
+  //
+  // Now that it scrolls with the content, subtracting it here too would shorten
+  // every page by 28pt to reserve a gap that is no longer in the way. So the
+  // budget must depend on the ceiling, the grabber and the peek, and on nothing
+  // else: a change to the pad must not move it.
+  //
+  // The ceiling is read through resolveDetents with content taller than the
+  // sheet, which is where `full` lands on fullTarget — that function is private
+  // and this assertion has no business reaching past the exported surface.
+  const ceiling = resolveDetents(TALL, TALL * 2).height.full;
+  const peek = 240;
+  assert.equal(pageBudget(TALL, peek), ceiling - GRABBER_BLOCK - (peek - GRABBER_BLOCK));
 });
 
 test('peek plus chrome plus a full page still fits the tallest detent', () => {
   // The property the whole budget exists to hold, now with the peek in it: a
   // page that fills its budget must not push the column past what the sheet can
   // show. This is the assertion that would have failed before the fix.
-  const inset = 34;
   const peek = 240;
   const chrome = 90;
-  const page = pageBudget(TALL, inset, peek) - chrome;
+  const page = pageBudget(TALL, peek) - chrome;
   // What MapSheet's content column measures: the peek's own subtree (the peek
-  // measurement less the grabber it was given), the chrome, the page, and the
-  // column's bottom padding.
-  const content = peek - GRABBER_BLOCK + chrome + page + CONTENT_BOTTOM_PAD + inset;
+  // measurement less the grabber it was given), the chrome, and the page. The
+  // page's bottom pad is inside `page`, and the column no longer pads itself.
+  const content = peek - GRABBER_BLOCK + chrome + page;
   const d = resolveDetents(TALL, content + GRABBER_BLOCK);
   assert.ok(
     d.height.full <= resolveDetents(TALL, TALL * 2).height.full,
