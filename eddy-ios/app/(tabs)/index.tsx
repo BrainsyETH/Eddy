@@ -2063,6 +2063,51 @@ export default function MapScreen() {
     pendingAccessSelection.current = null;
   }, [selectRiver]);
 
+  /**
+   * Dismiss the open pin — and, when nothing was underneath it, the river its
+   * own tap selected.
+   *
+   * ── TWO CLOSES FOR ONE THING ─────────────────────────────────────────────
+   *
+   * `onSelectPin` SELECTS THE RIVER a pin sits on when nobody had chosen it,
+   * and it does that for good reasons of its own (everything downstream of a
+   * put-in is river-scoped — see its docblock). The cost landed on the way out:
+   * × cleared the pin, the selection it had silently made stayed, and a river
+   * sheet the reader had never opened rose into the gap. Tapping a campground
+   * from the statewide map therefore cost two dismissals, the second of them
+   * for a sheet that only existed because of the first tap.
+   *
+   * It was survivable while access points were the only pins anyone met at that
+   * zoom. With camping, cabins and rentals on by default it is most taps on the
+   * map.
+   *
+   * ── The rule: × GOES WHERE BACK GOES ─────────────────────────────────────
+   *
+   * `revealsRiverSheet` already records the only fact that decides this —
+   * whether a river sheet was on screen BEFORE this pin — and the Back control
+   * is drawn from it. So:
+   *
+   *   • Something to go back to → pop one level, exactly as before, and land on
+   *     the sheet Back names.
+   *   • Nothing to go back to → the river underneath, if any, is this tap's own
+   *     doing, so take it back down with the pin.
+   *
+   * That keeps the old promise ("Back names where × already goes") and drops
+   * the half of it that was making the reader close a sheet they never opened.
+   * A river the reader chose is still never destroyed by dismissing a pin: in
+   * that case revealsRiverSheet is true and this pops one level.
+   *
+   * THE CAMERA STAYS either way — clearRiver holds it, and dismissal is not
+   * navigation.
+   */
+  const dismissPin = useCallback(() => {
+    if (revealsRiverSheet) {
+      setSelectedPin(null);
+      return;
+    }
+    clearRiver();
+  }, [revealsRiverSheet, clearRiver]);
+
   const onLocate = useCallback(async () => {
     // Recorded BEFORE the request, not after it. This is what mounts the puck,
     // and the thing it stands for is "the user asked to be shown on the map" —
@@ -2664,20 +2709,21 @@ export default function MapScreen() {
                   : null
               }
               backLabel={revealsRiverSheet ? riverSheetData?.name ?? null : null}
-              // ── × POPS ONE LEVEL. ALWAYS. ────────────────────────────────
-              // It used to clear the river as well when the pin had come from
-              // the river sheet, which made one glyph mean two things decided
-              // by state the reader could not see — the exact defect this whole
-              // change set out to remove, reintroduced one level down.
+              // ── × GOES WHERE BACK GOES ───────────────────────────────────
+              // One glyph, one meaning: it lands on whatever was on screen
+              // before this pin. When that is a river sheet, Back is drawn
+              // beside it naming the same destination and both pop one level.
+              // When there is no Back — because no river sheet was ever open —
+              // the only thing under the pin is a selection the pin's OWN tap
+              // made, and × takes that with it rather than leaving the reader a
+              // second sheet to close. See dismissPin.
               //
-              // Dismissing a pin now never destroys a river selection: that is
-              // a separate choice, made by a separate gesture, and the river
-              // sheet has its own × for it. Getting to a bare map is two taps,
-              // which is what "pops one level" implies.
+              // A river the reader chose is still never destroyed by dismissing
+              // a pin; that case has a Back control and pops one level.
               //
               // Dismissal is not navigation. The native camera stays exactly
               // where the reader left it; no old target or bounds can wake up.
-              onClose={() => setSelectedPin(null)}
+              onClose={dismissPin}
               starred={pinGauge ? isStarred('gauge', pinGauge.id) : false}
               onToggleStar={
                 pinGauge
