@@ -185,3 +185,128 @@ test('an access point with no types list falls back to its single type', () => {
   // point predating the multi-type column.
   assert.deepEqual(toAccessPoint(accessRow(), new Map(), BOUNDS, NO_LIVE_AVAILABILITY)?.types, ['boat_ramp']);
 });
+
+// ── mile 0 as a sentinel for "we don't know" ──────────────────────────────
+//
+// CHARACTERIZATION TESTS. Every assertion below records what toAccessPoint
+// does TODAY, and today it is wrong. They are written to pass now so CI stays
+// green while the remediation is sequenced, and to FAIL the moment the
+// serializer starts rejecting unplaceable points — which is the point. Do not
+// "fix" a failure here by loosening the assertion; flip it, and say so.
+//
+// What they pin down, from production on the Current River:
+//
+//   access_points.slug = 'van-buren' — approved, river_mile_downstream NULL,
+//   types '{}'. It is the ONLY approved access point on ANY river with a null
+//   downstream mile, and it is a duplicate of two other Van Buren records that
+//   both carry mile 85.90. Geometry agrees they are one place: snapped, the
+//   three land at 84.15 / 84.15 / 84.17 — within 35 metres of each other.
+//
+// The row reaches the app as mile 0.0, which on the Current is Montauk, the
+// headwaters, 86 miles upstream of the town it is named for.
+//
+// Mile 0 is doing double duty as a real position AND as "unknown", in at least
+// two places — the coercion below, and the `accessPointRiverMile > 0` guard in
+// src/lib/access-points/detail.ts that decides whether to look for a reach
+// gauge at all. That conflation is the defect; these tests are its fixture.
+
+test('an access point with no river mile is currently reported as mile 0', () => {
+  // src/lib/offline/shapes.ts: `: 0` where the row's mile is null.
+  //
+  // AFTER THE FIX this should return null, the way an access point with
+  // unusable coordinates already does — a put-in nobody can place on the river
+  // is not a put-in at mile zero.
+  const mapped = toAccessPoint(
+    accessRow({ river_mile_downstream: null }),
+    new Map(),
+    BOUNDS,
+    NO_LIVE_AVAILABILITY,
+  );
+  assert.equal(mapped?.riverMile, 0);
+});
+
+test('a null river mile sorts a mid-river access above the real headwaters put-in', () => {
+  // The user-visible half. Every client re-sorts by riverMile —
+  // eddy-ios/src/hooks/useFloatPlan.ts:89, map-sheet/RiverSheet.tsx:213 — so
+  // the coerced zero does not stay a display quirk. It reorders the river.
+  const vanBuren = toAccessPoint(
+    accessRow({ id: 'vb', name: 'Van Buren City Access', slug: 'van-buren', river_mile_downstream: null }),
+    new Map(),
+    BOUNDS,
+    NO_LIVE_AVAILABILITY,
+  );
+  const tanVat = toAccessPoint(
+    accessRow({ id: 'tv', name: 'Tan Vat', slug: 'tan-vat', river_mile_downstream: 0.9 }),
+    new Map(),
+    BOUNDS,
+    NO_LIVE_AVAILABILITY,
+  );
+
+  // AFTER THE FIX this is the tripwire: an access point that cannot be placed
+  // on the river should be rejected here, the way bad coordinates already are,
+  // and `vanBuren` should be null.
+  assert.ok(vanBuren, 'an unplaceable access point still serializes today');
+
+  const ordered = [tanVat!, vanBuren].sort((a, b) => a.riverMile - b.riverMile);
+  assert.equal(ordered[0].slug, 'van-buren');
+
+  // ── AND WHY THE FIX IS REJECTION, NOT A NULLABLE MILE ───────────────────
+  //
+  // Widening riverMile to `number | null` looks like the smaller change and is
+  // not a fix at all: `null` coerces to 0 in arithmetic, so `a.riverMile -
+  // b.riverMile` puts a null-mile row in exactly the same place a zero did.
+  // Every comparator in the app keeps the bug, silently, with a type that now
+  // claims to model the absence. Verified by patching shapes.ts to return null
+  // and re-running this file: the three assertions above it went red and this
+  // one stayed green.
+  const asNull = [
+    { slug: 'tan-vat', riverMile: 0.9 },
+    { slug: 'van-buren', riverMile: null as unknown as number },
+  ].sort((a, b) => a.riverMile - b.riverMile);
+  assert.equal(
+    asNull[0].slug,
+    'van-buren',
+    'a null mile sorts to the headwaters exactly as mile 0 does — nulling the type changes nothing',
+  );
+});
+
+test('an access point with an empty types list does NOT fall back to its single type', () => {
+  // The sibling of the test above it: `row.types || [row.type]` cannot see an
+  // empty array, because [] is truthy. `types: null` falls back and `types: []`
+  // does not, so a row that lost its roles ships with none — and the roles axis
+  // (ADR 0008) is what every map layer and campground filter reads.
+  //
+  // AFTER THE FIX both should yield ['boat_ramp'].
+  assert.deepEqual(
+    toAccessPoint(accessRow({ types: [] }), new Map(), BOUNDS, NO_LIVE_AVAILABILITY)?.types,
+    [],
+  );
+});
+
+test('the production van-buren row reproduces both defects at once', () => {
+  // Not a synthetic case. These are the live column values, so this test fails
+  // as soon as either the serializer or the data is corrected — whichever lands
+  // first — and that is the intended tripwire.
+  const mapped = toAccessPoint(
+    accessRow({
+      id: 'van-buren-prod',
+      name: 'Van Buren City Access',
+      slug: 'van-buren',
+      river_mile_downstream: null,
+      type: 'boat_ramp',
+      types: [],
+      location_orig: { coordinates: [-91.015, 36.9936] },
+      location_snap: { coordinates: [-91.01469, 36.99215] },
+    }),
+    new Map(),
+    BOUNDS,
+    NO_LIVE_AVAILABILITY,
+  );
+
+  assert.equal(mapped?.riverMile, 0, 'mile 85.90 arrives as mile 0');
+  assert.deepEqual(mapped?.types, [], 'a boat ramp arrives with no role at all');
+  // The coordinates are the one thing that is right: location_orig wins, and
+  // it is 163 m from the centreline. The pin is in Van Buren; only the river
+  // mile and the roles say otherwise.
+  assert.deepEqual(mapped?.coordinates, { lng: -91.015, lat: 36.9936 });
+});
