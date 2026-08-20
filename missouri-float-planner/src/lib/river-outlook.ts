@@ -363,10 +363,6 @@ export function buildEddyTakeSections({
   };
 }
 
-export function buildDeterministicEddyReport(sections: EddyTakeSections): string {
-  return `Bottom line: ${sections.bottomLine} Eddy’s read: ${sections.eddyRead} Watch for: ${sections.watchFor}`;
-}
-
 /** Build the complete presentational state once so every consumer agrees. */
 export function buildRiverOutlookState({
   weatherDays,

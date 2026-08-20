@@ -328,6 +328,102 @@ test('each grouped row still counts on its own key, unsummed', () => {
   assert.equal(layerRowCount({ key: 'outfitters' }, active, counts), 84);
 });
 
+// ── The sheet opens with every row on except the Overlays section ──────────
+//
+// The defaults inverted: the map used to open with three layers and now opens
+// with every row that draws ON the map, leaving off only the two that draw OVER
+// it — rain radar and public land, which are exactly the Overlays section.
+//
+// The rule needs a guard because breaking it is SILENT IN BOTH DIRECTIONS. A
+// new pin layer added to the catalog and given `false` arrives dark on a sheet
+// whose every other row is lit, and looks like a layer somebody switched off. A
+// new overlay given `true` covers the map on first launch for a reader who
+// never asked for a raster. Neither fails anything.
+//
+// It parses the source because it cannot import it: `layers.ts` resolves
+// colours through `@/theme/palette`, and `@/` in this suite's tsconfig points at
+// the WEB app's src — the same constraint that put layerRowCount in its own pure
+// module (see this file's header, and layerRows.ts's).
+
+const CATALOG = readFileSync(
+  join(process.cwd(), '..', 'eddy-ios', 'src', 'map', 'layers.ts'),
+  'utf8',
+);
+
+/** `{ access: true, boatRamps: false, … }` as the source declares it. */
+function layerDefaults(): Map<string, boolean> {
+  const table = CATALOG.match(/const LAYER_DEFAULTS: Record<LayerKey, boolean> = \{([\s\S]*?)\n\};/);
+  assert.ok(table, 'LAYER_DEFAULTS must stay a total Record — see its docblock');
+  return new Map(
+    [...table[1].matchAll(/^ {2}(\w+): (true|false),$/gm)].map(([, key, on]) => [key, on === 'true']),
+  );
+}
+
+/**
+ * Catalog entries, and which of them carry a given flag.
+ *
+ * Entry fields sit at four spaces inside `MAP_LAYERS`, so a flag belongs to the
+ * last `key:` declared above it. A heuristic, and it does not need to be a
+ * parser — the parity assertion below fails loudly if it ever stops matching.
+ */
+function catalogEntries() {
+  const body = CATALOG.slice(CATALOG.indexOf('export const MAP_LAYERS'));
+  const keys = [...body.matchAll(/^ {4}key: '(\w+)',$/gm)];
+  const owning = (flag: RegExp): string[] =>
+    [...body.matchAll(flag)].map((hit) => {
+      const at = hit.index ?? 0;
+      const owner = keys.filter((k) => (k.index ?? 0) < at).pop();
+      assert.ok(owner, 'a layer flag must sit inside a layer entry');
+      return owner[1];
+    });
+  return {
+    keys: keys.map((k) => k[1]),
+    overlays: new Set(owning(/^ {4}section: 'overlays',$/gm)),
+    nested: new Set(owning(/^ {4}nested: true,$/gm)),
+  };
+}
+
+test('every layer states a default, and every stated default is a layer', () => {
+  // Also the self-check on the two parsers above: a regex that silently stopped
+  // matching would empty one side and fail here rather than passing everything
+  // below vacuously.
+  const defaults = layerDefaults();
+  const { keys } = catalogEntries();
+  assert.ok(keys.length > 5, 'the catalog parse found layers');
+  assert.deepEqual([...defaults.keys()].sort(), [...keys].sort());
+});
+
+test('the only rows that open off are the Overlays rows', () => {
+  const defaults = layerDefaults();
+  const { overlays, nested } = catalogEntries();
+  assert.ok(overlays.size > 0, 'the Overlays section has rows');
+
+  for (const [key, on] of defaults) {
+    // Tiers are exempt: they are chips under a row rather than rows, and
+    // `boatRamps` is deliberately off — a ramp already draws as an access
+    // point, so the tier changes a mark rather than adding a place.
+    if (nested.has(key)) continue;
+    assert.equal(
+      on,
+      !overlays.has(key),
+      overlays.has(key)
+        ? `${key} draws over the map, so it must open off`
+        : `${key} draws on the map, so it must open on — or move to the Overlays section`,
+    );
+  }
+});
+
+test('the defaults table is the only place a default is stated', () => {
+  // DEFAULT_LAYERS was an array literal beside the catalog, which is the second
+  // source of truth this file's other guards exist to prevent. Derived, the
+  // table above is authoritative — and so is what the two tests above read.
+  assert.match(
+    CATALOG,
+    /export const DEFAULT_LAYERS: LayerKey\[\] = \(Object\.keys\(LAYER_DEFAULTS\) as LayerKey\[\]\)/,
+    'DEFAULT_LAYERS must derive from LAYER_DEFAULTS rather than restate it',
+  );
+});
+
 // ── Every layer caveat has to be reachable without sight ───────────────────
 //
 // The ⓘ button in MapLayersSheet is nested inside the row Pressable, which

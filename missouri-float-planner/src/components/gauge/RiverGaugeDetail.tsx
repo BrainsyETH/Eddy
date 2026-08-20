@@ -25,7 +25,7 @@ import ThresholdTable from '@/components/gauge/ThresholdTable';
 import GaugeTabBar from '@/components/gauge/GaugeTabBar';
 import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import { usePathname } from 'next/navigation';
-import { buildDeterministicEddyReport, buildEddyTakeSections } from '@/lib/river-outlook';
+import { buildEddyTakeSections } from '@/lib/river-outlook';
 import { buildZones } from '@/lib/gauge/threshold-zones';
 import { createPortal } from 'react-dom';
 
@@ -50,8 +50,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   const pathname = usePathname();
   const addPhotoHref = `${pathname}/add-photo`;
 
-  const [isEddyReportOpen, setIsEddyReportOpen] = useState(false);
-
   // Set default active gauge when river group loads
   useEffect(() => {
     if (riverGroup && !activeSiteId) {
@@ -70,9 +68,6 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   }, [riverGroup, prefetchHistory]);
 
   const isOnPrimaryTab = riverGroup ? activeSiteId === riverGroup.primaryGauge.usgsSiteId : true;
-  useEffect(() => {
-    setIsEddyReportOpen(false);
-  }, [activeSiteId]);
 
   const selectedEddyReport = useSelectedEddyReport({
     riverSlug,
@@ -262,18 +257,28 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     }
   }, [activeGauge]);
 
+  const activeEddyUpdate = selectedEddyReport.data;
+
+  // The long report first, exactly as the app does it
+  // (eddy-ios/src/components/EddyTake.tsx: `outlook.fullRead || sections?.eddyRead`).
+  // One heading, "Eddy's read", had been naming two different columns depending on
+  // the platform: quote_text on iOS, the 240-character eddy_read here, with the long
+  // version parked behind an expander most readers never opened.
+  //
+  // `quoteText` arrives as '' — not as stale prose — when the river has crossed into
+  // a different floatability class or the row is past WEBSITE_PROSE_STALE_HOURS; the
+  // overlay in /api/eddy-update/[riverSlug] does that before it ever reaches the
+  // client. So this falls through to eddy_read, and buildEddyTakeSections falls
+  // through again to its deterministic line. Withholding stays withholding.
   const eddyTakeSections = useMemo(
     () => buildEddyTakeSections({
       outlook,
       currentCondition: condition.code,
-      generatedEddyRead: selectedEddyReport.data?.eddyRead,
+      generatedEddyRead: activeEddyUpdate?.quoteText || activeEddyUpdate?.eddyRead,
     }),
-    [condition.code, outlook, selectedEddyReport.data?.eddyRead],
+    [condition.code, outlook, activeEddyUpdate?.quoteText, activeEddyUpdate?.eddyRead],
   );
 
-  const activeEddyUpdate = selectedEddyReport.data;
-  const eddyFullReportText = activeEddyUpdate?.quoteText
-    || buildDeterministicEddyReport(eddyTakeSections);
   const eddySourceGaugeName = activeGauge?.name ?? null;
 
   // Tab data for GaugeTabBar
@@ -395,13 +400,10 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             riverSlug={riverSlug}
             sections={eddyTakeSections}
             isGuidance={outlook.isGuidance}
-            fullReportText={eddyFullReportText}
-            fullReportLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
-            fullReportIsGenerated={Boolean(activeEddyUpdate?.quoteText)}
+            readLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
+            readIsGenerated={Boolean(activeEddyUpdate?.quoteText || activeEddyUpdate?.eddyRead)}
             generatedAt={activeEddyUpdate?.generatedAt}
             gaugeName={eddySourceGaugeName}
-            isOpen={isEddyReportOpen}
-            onToggle={() => setIsEddyReportOpen((open) => !open)}
           />
         </section>
 
