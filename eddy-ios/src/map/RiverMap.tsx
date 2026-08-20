@@ -2306,14 +2306,26 @@ export function RiverMap({
       {layerOn('allGauges') ? contextGaugeLayer(referenceGauges ?? []) : null}
 
       {layerOn('access') ? accessLayer() : null}
+      {/* ── THE LADDER'S FLOOR, on the four directory tiers ──────────────────
+          These four pass ZOOM.min now where they used to pass nothing. Their
+          LABELS were always gated — labelMinZoom defaults to ZOOM.names — which
+          is why they never produced the wall of text the dams layer did, but
+          their icons drew all the way out to a continental camera, over the rung
+          the ladder reserves for lines only.
+
+          A floor, and deliberately nothing more. Whether these tiers should
+          also cluster and fade to dots is a real question and a different one,
+          argued on the boat-ramp comment below and answered there for now with
+          "nobody sees this layer without having asked for it". That argument
+          survives; it was never an argument for drawing them from orbit. */}
       {layerOn('outfitters')
-        ? pinLayer('outfitters', 'outfitter')
+        ? pinLayer('outfitters', 'outfitter', ZOOM.names, ZOOM.min)
         : null}
       {layerOn('lodging')
-        ? pinLayer('lodging', 'lodging')
+        ? pinLayer('lodging', 'lodging', ZOOM.names, ZOOM.min)
         : null}
       {layerOn('campgrounds')
-        ? pinLayer('campgrounds', 'campground')
+        ? pinLayer('campgrounds', 'campground', ZOOM.names, ZOOM.min)
         : null}
       {/* Drawn exactly as the campgrounds layer is, because it is exactly the
           same handover: a put-in leaves the clustered access source and wears
@@ -2321,7 +2333,7 @@ export function RiverMap({
           cluster and do not fade to overview dots — the same trade the tents
           already make, and the same reason it is acceptable, which is that
           nobody sees this layer without having asked for it. */}
-      {layerOn('boatRamps') ? pinLayer('boatRamps', 'boatRamp') : null}
+      {layerOn('boatRamps') ? pinLayer('boatRamps', 'boatRamp', ZOOM.names, ZOOM.min) : null}
       {/* Present from the opening statewide view, without making that view pay
           for forty full-size symbols and labels. Compact condition dots answer
           "where is the water?" immediately; the staff marks and place names
@@ -2345,11 +2357,53 @@ export function RiverMap({
             maxZoom: ZOOM.cluster,
           })
         : null}
-      {/* Ten pins statewide, so labels are on at every zoom like the gauges —
-          an unnamed dot cannot be told from the lake it sits on. Drawn before
-          hazards so the low-water-dam layer still paints on top: where both
-          land in one place, the one that can kill you is the one on top. */}
-      {layerOn('dams') ? pinLayer('dams', 'dam', 0) : null}
+      {/* ── ON THE LADDER, like every other statewide layer ──────────────────
+          This passed labelMinZoom 0 and nothing else: no floor, no overview
+          representation, no clustering. The justification was "ten pins
+          statewide, so labels are on at every zoom — an unnamed dot cannot be
+          told from the lake it sits on", and that was true of a layer that held
+          ten Missouri dams.
+
+          The catalog is twenty-four now and spans six states, from Denison on
+          the Red to Wolf Creek in Kentucky. The camera that fits them is
+          continental, and there the layer drew twenty-four full marks with
+          twenty-four labels in one knot — over a rung the ladder says is for
+          lines only. Nothing thinned it, because iconAllowOverlap is true here
+          on purpose: silently dropping a pin is the worse failure.
+
+          So it takes the rungs everything else takes: count bubbles to
+          ZOOM.cluster, overview dots to ZOOM.places, then the mark and its
+          name. A dam cluster paints CLUSTER_FILL rather than a verdict colour,
+          because every dam feature carries severity `unknown` (rank 6) and
+          CLUSTER_CONDITION_COLOR only has arms for the six real codes — so the
+          bubble takes the fallback, which is exactly what that fallback is for.
+          A dam publishes no condition for a bubble to summarise.
+
+          ── AND IT KEEPS NO FLOOR, WHICH THE OTHER TIERS DO ─────────────────
+
+          The obvious fourth change was minZoom: ZOOM.min, and it is wrong here.
+          The ladder's floor is a FETCH gate as much as a paint one — "a
+          continental view asks for nothing", and MIN_GAUGE_ZOOM exists to stop
+          a continental gauge request. Dams ask for nothing at any zoom: the
+          pins come from DAM_CATALOG in the binary (see lib/damCatalog.ts), so
+          the cost the floor is protecting against does not exist for them.
+
+          What a floor would cost is real: switch the layer on from a
+          zoomed-out camera and it would draw NOTHING, which is precisely the
+          "empty layer reads as broken" failure the shipped catalog was written
+          to end. Two or three teal counts over six states answer "where are
+          they" without crowding anything. Clustered, a continental view of
+          this layer is cheap and legible; ungated and unclustered, it was the
+          knot above.
+
+          Drawn before hazards so the low-water-dam layer still paints on top:
+          where both land in one place, the one that can kill you is on top. */}
+      {layerOn('dams')
+        ? pinLayer('dams', 'dam', ZOOM.names, undefined, ZOOM.places, {
+            radius: 40,
+            maxZoom: ZOOM.cluster,
+          })
+        : null}
 
       {layerOn('hazards') ? pinLayer('hazards', 'hazard') : null}
 
