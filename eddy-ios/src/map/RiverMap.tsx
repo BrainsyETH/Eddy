@@ -85,7 +85,6 @@ import { loadMapbox, STYLE_URL } from './runtime';
 import {
   GAUGE_DETAIL_ZOOM,
   MAP_LAYERS,
-  MIN_GAUGE_ZOOM,
   MAX_RADAR_ZOOM,
   MIN_RADAR_ZOOM,
   ZOOM,
@@ -2469,34 +2468,39 @@ export function RiverMap({
         : null}
 
       {layerOn('access') ? accessLayer() : null}
-      {/* ── THE LADDER'S FLOOR, on the four directory tiers ──────────────────
-          These four pass ZOOM.min now where they used to pass nothing. Their
-          LABELS were always gated — labelMinZoom defaults to ZOOM.names — which
-          is why they never produced the wall of text the dams layer did, but
-          their icons drew all the way out to a continental camera, over the rung
-          the ladder reserves for lines only.
+      {/* ── THE FAMILY INDEX OWNS THE BAND BELOW ZOOM.cluster ────────────────
+          These four start AT ZOOM.cluster and are compact dots until
+          ZOOM.places. Below the cluster rung they draw nothing at all, because
+          familyIndexLayer is already drawing one bubble per FAMILY there —
+          which is the point of it: a bubble per layer would count overlapping
+          halves of one population, and a put-in tagged `campground` leaving the
+          access source to wear a tent would drop the access count by 123 at the
+          exact moment 123 tents appeared.
 
-          A floor, and deliberately nothing more. Whether these tiers should
-          also cluster and fade to dots is a real question and a different one,
-          argued on the boat-ramp comment below and answered there for now with
-          "nobody sees this layer without having asked for it". That argument
-          survives; it was never an argument for drawing them from orbit. */}
+          An earlier pass here gave them ZOOM.min instead, on the narrower
+          reading that a floor was all they were missing. That is wrong against
+          this design and map-zoom-ladder.test.ts fails on it: ZOOM.min leaves a
+          band where the index's bubbles and the full scatter of dots paint
+          together, which is the crowding the index replaced. The floor and the
+          index's ceiling have to be the same rung, and neither half fails
+          loudly on its own — hence the test. */}
       {layerOn('outfitters')
-        ? pinLayer('outfitters', 'outfitter', ZOOM.names, ZOOM.min)
+        ? pinLayer('outfitters', 'outfitter', ZOOM.names, ZOOM.cluster, ZOOM.places)
         : null}
       {layerOn('lodging')
-        ? pinLayer('lodging', 'lodging', ZOOM.names, ZOOM.min)
+        ? pinLayer('lodging', 'lodging', ZOOM.names, ZOOM.cluster, ZOOM.places)
         : null}
       {layerOn('campgrounds')
-        ? pinLayer('campgrounds', 'campground', ZOOM.names, ZOOM.min)
+        ? pinLayer('campgrounds', 'campground', ZOOM.names, ZOOM.cluster, ZOOM.places)
         : null}
       {/* Drawn exactly as the campgrounds layer is, because it is exactly the
-          same handover: a put-in leaves the clustered access source and wears
-          its own mark for as long as this tier is on. That means ramps do not
-          cluster and do not fade to overview dots — the same trade the tents
-          already make, and the same reason it is acceptable, which is that
-          nobody sees this layer without having asked for it. */}
-      {layerOn('boatRamps') ? pinLayer('boatRamps', 'boatRamp', ZOOM.names, ZOOM.min) : null}
+          same handover: a put-in leaves the access source and wears its own mark
+          for as long as this tier is on — so it has to rejoin the ladder at the
+          same rung the tents do, or the handover swaps one representation for a
+          differently-sized one mid-zoom. */}
+      {layerOn('boatRamps')
+        ? pinLayer('boatRamps', 'boatRamp', ZOOM.names, ZOOM.cluster, ZOOM.places)
+        : null}
       {/* Present from the opening statewide view, without making that view pay
           for forty full-size symbols and labels. Compact condition dots answer
           "where is the water?" immediately; the staff marks and place names
@@ -2513,9 +2517,33 @@ export function RiverMap({
 
           It collapses on the same rung as everything else — ZOOM.cluster — so
           the map changes character once as you pan in rather than six times.
-          See the ladder in map/layers.ts. */}
+          See the ladder in map/layers.ts.
+
+          ── AND IT HAS NO FLOOR, FOR THE REASON THE DAMS DO NOT ─────────────
+          This passed MIN_GAUGE_ZOOM, so zooming out past the statewide view
+          emptied the layer — the reported symptom, "I still don't see USGS
+          gauges zoomed way out".
+
+          That floor is a FETCH gate and it belongs to the OTHER tier. The
+          ~14,000-station reference layer is viewport-driven (useViewportGauges,
+          OVERVIEW_LIMIT 1000), and a continental camera there is a request that
+          cannot be answered — so contextGaugeLayer keeps its floor and this
+          note is not an argument against it.
+
+          The CURATED network is not that. useStatewideNetwork fetches it once,
+          ungated, and grades it on the phone; it is the same payload whose
+          river lines are already drawn and coloured at continental zoom. So the
+          pins were withheld from a camera that was already displaying their
+          data, and the floor was protecting a cost that had been paid on
+          launch.
+
+          Clustered, this is the most useful thing on a zoomed-out map: a
+          handful of counts, each painted with the WORST condition it holds, so
+          "where is there water, and is any of it dangerous" survives all the
+          way out. Ungated it is also cheap — the set is bounded and already in
+          memory. */}
       {layerOn('gauges')
-        ? pinLayer('gauges', 'drop', GAUGE_DETAIL_ZOOM, MIN_GAUGE_ZOOM, GAUGE_DETAIL_ZOOM, {
+        ? pinLayer('gauges', 'drop', GAUGE_DETAIL_ZOOM, undefined, GAUGE_DETAIL_ZOOM, {
             radius: 40,
             maxZoom: ZOOM.cluster,
           })
@@ -2535,12 +2563,21 @@ export function RiverMap({
           on purpose: silently dropping a pin is the worse failure.
 
           So it takes the rungs everything else takes: count bubbles to
-          ZOOM.cluster, overview dots to ZOOM.places, then the mark and its
-          name. A dam cluster paints CLUSTER_FILL rather than a verdict colour,
-          because every dam feature carries severity `unknown` (rank 6) and
+          ZOOM.cluster, overview dots to ZOOM.places, then the mark. A dam
+          cluster paints CLUSTER_FILL rather than a verdict colour, because
+          every dam feature carries severity `unknown` (rank 6) and
           CLUSTER_CONDITION_COLOR only has arms for the six real codes — so the
           bubble takes the fallback, which is exactly what that fallback is for.
           A dam publishes no condition for a bubble to summarise.
+
+          ── THE LABELS STAY ON AT EVERY ZOOM, WHICH IS THE EXCEPTION ────────
+          labelMinZoom is 0, not ZOOM.names, and it is the one layer off the
+          label rung. Two dozen dams are LANDMARKS: an unnamed dot cannot be
+          told from the lake it sits on, and there are few enough of them that
+          collision detection thins the names on its own rather than producing
+          the wall of text a statewide access layer would. An earlier pass here
+          moved them onto the rung with everything else; map-zoom-ladder.test.ts
+          pins them back off it, deliberately, and is right to.
 
           ── AND IT KEEPS NO FLOOR, WHICH THE OTHER TIERS DO ─────────────────
 
@@ -2562,7 +2599,7 @@ export function RiverMap({
           Drawn before hazards so the low-water-dam layer still paints on top:
           where both land in one place, the one that can kill you is on top. */}
       {layerOn('dams')
-        ? pinLayer('dams', 'dam', ZOOM.names, undefined, ZOOM.places, {
+        ? pinLayer('dams', 'dam', 0, undefined, ZOOM.places, {
             radius: 40,
             maxZoom: ZOOM.cluster,
           })
