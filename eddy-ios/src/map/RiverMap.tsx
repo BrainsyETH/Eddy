@@ -85,7 +85,6 @@ import { loadMapbox, STYLE_URL } from './runtime';
 import {
   GAUGE_DETAIL_ZOOM,
   MAP_LAYERS,
-  MIN_GAUGE_ZOOM,
   MAX_RADAR_ZOOM,
   MIN_RADAR_ZOOM,
   ZOOM,
@@ -2350,9 +2349,33 @@ export function RiverMap({
 
           It collapses on the same rung as everything else — ZOOM.cluster — so
           the map changes character once as you pan in rather than six times.
-          See the ladder in map/layers.ts. */}
+          See the ladder in map/layers.ts.
+
+          ── AND IT HAS NO FLOOR, FOR THE REASON THE DAMS DO NOT ─────────────
+          This passed MIN_GAUGE_ZOOM, so zooming out past the statewide view
+          emptied the layer — the reported symptom, "I still don't see USGS
+          gauges zoomed way out".
+
+          That floor is a FETCH gate and it belongs to the OTHER tier. The
+          ~14,000-station reference layer is viewport-driven (useViewportGauges,
+          OVERVIEW_LIMIT 1000), and a continental camera there is a request that
+          cannot be answered — so contextGaugeLayer keeps its floor and this
+          note is not an argument against it.
+
+          The CURATED network is not that. useStatewideNetwork fetches it once,
+          ungated, and grades it on the phone; it is the same payload whose
+          river lines are already drawn and coloured at continental zoom. So the
+          pins were withheld from a camera that was already displaying their
+          data, and the floor was protecting a cost that had been paid on
+          launch.
+
+          Clustered, this is the most useful thing on a zoomed-out map: a
+          handful of counts, each painted with the WORST condition it holds, so
+          "where is there water, and is any of it dangerous" survives all the
+          way out. Ungated it is also cheap — the set is bounded and already in
+          memory. */}
       {layerOn('gauges')
-        ? pinLayer('gauges', 'drop', GAUGE_DETAIL_ZOOM, MIN_GAUGE_ZOOM, GAUGE_DETAIL_ZOOM, {
+        ? pinLayer('gauges', 'drop', GAUGE_DETAIL_ZOOM, undefined, GAUGE_DETAIL_ZOOM, {
             radius: 40,
             maxZoom: ZOOM.cluster,
           })
