@@ -38,6 +38,7 @@ import { parseTsId, resolveSeries, type ResolvedSeries } from '@/lib/usace/resol
 import {
   USACE_DAMS,
   getUsaceDam,
+  hasPowerhouse,
   type UsaceDam,
   type UsaceMetric,
 } from '@/lib/flow-providers/usace-registry';
@@ -657,15 +658,11 @@ export function buildSnapshot(
     state: dam.state,
     lat: dam.lat,
     lon: dam.lon,
-    // A SWPA column, an explicit turbine-flow series, OR a nameplate — each
-    // is constitutive evidence of a powerhouse. swpaCode alone was the whole
-    // test until the Nashville dams landed (SEPA-marketed, no column), and
-    // the series test alone missed Bagnell (Ameren publishes total discharge
-    // only, so no generationFlow — but eight generators are eight
-    // generators). The registry's own discipline makes nameplate safe here:
-    // it is only ever given to a dam with a plant, and the powerhouse-
-    // identity test pins Clearwater's absence.
-    hasTurbines: Boolean(dam.swpaCode || dam.series.generationFlow || dam.nameplate),
+    // The PLANT, not the schedule — see hasPowerhouse. A Corps hydro project
+    // SWPA does not schedule still has turbines, and CWMS still publishes
+    // their flow; saying otherwise renders a missing schedule as a missing
+    // powerhouse.
+    hasTurbines: hasPowerhouse(dam),
     ...(dam.nameplate ? { nameplate: dam.nameplate } : {}),
     ...(swpa
       ? {
