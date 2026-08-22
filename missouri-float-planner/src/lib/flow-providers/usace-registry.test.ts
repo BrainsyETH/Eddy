@@ -405,15 +405,19 @@ test('the powerhouse question is answerable with no live fetch', () => {
     );
   }
 
-  // Today the two rules still agree on every shipped dam, which is why the
-  // conflation was invisible. Pinned so the day they diverge is a deliberate
-  // change with a dam to point at rather than a silent behaviour shift.
+  // The two rules agreed on every dam while every powerhouse in the registry
+  // was an SWPA one, which is why the conflation was invisible. The dams below
+  // are where they now diverge, each with a plant `nameplate` records and no
+  // `swpaCode` to record: the three Cumberland River projects market through
+  // SEPA, not SWPA, and Bagnell is Ameren's, not federal at all. Pinned so the
+  // NEXT divergence is still a deliberate change with a dam to point at rather
+  // than a silent behaviour shift.
   const diverging = Object.values(USACE_DAMS).filter(
     (d) => hasPowerhouse(d) !== Boolean(d.swpaCode),
   );
   assert.deepEqual(
     diverging.map((d) => d.id),
-    [],
+    ['lrn-wolf-creek-dam', 'lrn-center-hill-dam', 'lrn-dale-hollow-dam', 'ameren-bagnell-dam'],
     'a dam now diverges from the old rule — intended, but update this list',
   );
 });
