@@ -16,10 +16,10 @@
 //
 // ── Why it matches on the name ──────────────────────────────────────────────
 //
-// Packs Eddy created were named `river:<slug>:<index>` — see the deleted
-// @eddy/offline planner. The regex is inlined rather than imported because the
-// package that owned it is being deleted in the same change, and a sweep that
-// depends on the thing it is cleaning up after cannot outlive it.
+// Packs Eddy created were named `river:<slug>:<index>` by the removed iOS
+// `useOfflinePacks` feature; its shared planning helper generated each pack's
+// name. The regex is inlined because that feature and helper are gone, and a
+// sweep that depends on the thing it is cleaning up after cannot outlive it.
 //
 // Anything that does not match is left alone. Mapbox's store is shared, and a
 // blanket `resetDatabase()` would also take the ambient cache and any pack
