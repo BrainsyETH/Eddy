@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  // Expo Router loads app/ by filename. The file: package entry modules are
+  // explicit because they live outside this independent npm root.
+  "entry": [
+    "app/**/*.{ts,tsx}",
+    "../missouri-float-planner/shared/condition-system.ts",
+    "../packages/eddy-{types,geo,hazards,sync}/index.ts"
+  ],
+  "project": [
+    "app/**/*.{ts,tsx}",
+    "src/**/*.{ts,tsx}",
+    "scripts/**/*.{ts,tsx,mjs}",
+    "../missouri-float-planner/shared/**/*.ts",
+    "../packages/eddy-{types,geo,hazards,sync}/**/*.ts"
+  ],
+  // These are the only export exemptions: Expo Router consumes them by
+  // convention. Ordinary app, src, and shared-package exports stay audited.
+  "ignoreIssues": {
+    "app/**/*.{ts,tsx}": ["exports", "types"]
+  }
+}

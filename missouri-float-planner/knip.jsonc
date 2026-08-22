@@ -1,0 +1,33 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  // Next discovers these modules rather than importing them. Manifest commands
+  // and the nested Remotion project are likewise runtime entry points.
+  "entry": [
+    "src/app/**/{page,layout,route,loading,error,not-found,template,default}.{ts,tsx}",
+    "src/app/{robots,sitemap,manifest,icon,apple-icon,opengraph-image,twitter-image}.{ts,tsx}",
+    "src/**/*.test.{ts,tsx}",
+    "shared/**/*.test.ts",
+    "scripts/**/*.test.ts",
+    "remotion/src/index.ts",
+    "remotion/remotion.config.ts",
+    "remotion/scripts/**/*.{ts,mjs}",
+    "remotion/test/**/*.mjs"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "shared/**/*.ts",
+    "scripts/**/*.{ts,tsx}",
+    "remotion/**/*.{ts,tsx,mjs}",
+    "!remotion/out/**"
+  ],
+  "typescript": {
+    "config": ["tsconfig.json", "tsconfig.test.json", "remotion/tsconfig.json"]
+  },
+  // Only framework-owned module exports are exempt. Application modules remain
+  // fully audited; do not replace this with a repository-wide export ignore.
+  "ignoreIssues": {
+    "src/app/**/{page,layout,route,loading,error,not-found,template,default}.{ts,tsx}": ["exports", "types"],
+    "src/app/{robots,sitemap,manifest,icon,apple-icon,opengraph-image,twitter-image}.{ts,tsx}": ["exports", "types"],
+    "remotion/remotion.config.ts": ["exports", "types"]
+  }
+}

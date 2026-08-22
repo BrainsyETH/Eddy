@@ -55,7 +55,9 @@
     "android": "expo run:android",
     "typegen": "expo customize tsconfig.json",
     "typecheck": "npm run typegen && tsc --noEmit",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "audit:dead-code": "npx --yes knip@5.69.2 --no-exit-code",
+    "audit:dead-code:strict": "npx --yes knip@5.69.2"
   },
   "dependencies": {
     "@eddy/conditions": "file:../missouri-float-planner/shared",
