@@ -17,7 +17,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { createAdminClient } from '../../src/lib/supabase/admin';
+import { getScriptClient } from '../lib/db';
 
 async function main() {
   const argv = process.argv.slice(2);
@@ -34,7 +34,7 @@ async function main() {
   const primaries = gauges.filter((g) => g.isPrimary).length;
   if (primaries !== 1) { console.error(`Expected exactly 1 primary gauge, got ${primaries}.`); process.exit(1); }
 
-  const db = createAdminClient();
+  const db = getScriptClient({ script: 'link-gauges', write: write });
   const { data: river, error: re } = await db.from('rivers').select('id, name').eq('slug', slug).single();
   if (re || !river) { console.error(`River "${slug}" not found: ${re?.message}`); process.exit(1); }
 

@@ -26,7 +26,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { createAdminClient } from '../../src/lib/supabase/admin';
+import { getScriptClient } from '../lib/db';
 
 const MAX_SNAP_M = 250; // a verified put-in should snap within ~250 m of the channel
 
@@ -82,7 +82,7 @@ async function main() {
   const placeable = all.filter((r) => r.lat != null && r.lon != null);
   const held = all.filter((r) => r.lat == null || r.lon == null);
 
-  const db = createAdminClient();
+  const db = getScriptClient({ script: 'import-dossier-access-points', write: write });
   const { data: river, error: rErr } = await db.from('rivers').select('id, name').eq('slug', slug).single();
   if (rErr || !river) throw new Error(`river ${slug} not found: ${rErr?.message}`);
 

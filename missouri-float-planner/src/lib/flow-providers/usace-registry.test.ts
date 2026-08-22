@@ -405,15 +405,18 @@ test('the powerhouse question is answerable with no live fetch', () => {
     );
   }
 
-  // Today the two rules still agree on every shipped dam, which is why the
-  // conflation was invisible. Pinned so the day they diverge is a deliberate
-  // change with a dam to point at rather than a silent behaviour shift.
+  // Pinned so the day the two rules diverge is a deliberate change with a dam
+  // to point at rather than a silent behaviour shift. The dams below are that
+  // deliberate change: hasPowerhouse() now also accepts `nameplate`, because
+  // the Nashville-district dams (CDA data, no SWPA schedule) and Ameren's
+  // Bagnell (not USACE at all) have real powerhouses that `swpaCode` alone
+  // would deny. Anything joining this list needs the same justification.
   const diverging = Object.values(USACE_DAMS).filter(
     (d) => hasPowerhouse(d) !== Boolean(d.swpaCode),
   );
   assert.deepEqual(
     diverging.map((d) => d.id),
-    [],
-    'a dam now diverges from the old rule — intended, but update this list',
+    ['lrn-wolf-creek-dam', 'lrn-center-hill-dam', 'lrn-dale-hollow-dam', 'ameren-bagnell-dam'],
+    'a dam now diverges from the swpaCode rule — intended, but update this list',
   );
 });

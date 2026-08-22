@@ -12,7 +12,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { createAdminClient } from '../src/lib/supabase/admin';
+import { getScriptClient } from './lib/db';
 
 interface MileMarkerRow {
   river: string;
@@ -21,31 +21,7 @@ interface MileMarkerRow {
   description: string;
 }
 
-// Load environment variables from .env.local if it exists
-const projectRoot = process.cwd();
-const envPath = join(projectRoot, '.env.local');
-
-if (existsSync(envPath)) {
-  try {
-    const envFile = readFileSync(envPath, 'utf-8');
-    envFile.split('\n').forEach(line => {
-      const trimmed = line.trim();
-      if (trimmed && !trimmed.startsWith('#')) {
-        const [key, ...valueParts] = trimmed.split('=');
-        if (key && valueParts.length > 0) {
-          const value = valueParts.join('=').trim().replace(/^["']|["']$/g, '');
-          if (!process.env[key]) {
-            process.env[key] = value;
-          }
-        }
-      }
-    });
-  } catch (error) {
-    console.warn('Could not load .env.local:', error);
-  }
-}
-
-const supabase = createAdminClient();
+const supabase = getScriptClient({ script: 'import-mile-markers', write: true });
 
 async function main() {
   // Read CSV file - try multiple possible paths
