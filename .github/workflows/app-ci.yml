@@ -80,6 +80,13 @@ jobs:
           path: ${{ runner.temp }}/eddy-sbom.cdx.json
           retention-days: 14
 
+      # The test script names every file explicitly — there is no glob — so a
+      # test nobody remembers to add is not a test that fails, it is a test
+      # that never runs and looks exactly like a passing one. This step is what
+      # makes that mechanical; `make check-web` runs it in the same position.
+      - name: Check test registration
+        run: npm run check:test-registration
+
       # Two configs: tsconfig.json is what `next build` uses and covers only
       # shippable code, tsconfig.test.json adds the tests. They are separate
       # because several tests import Expo-app source to cover logic that has no

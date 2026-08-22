@@ -58,7 +58,7 @@ setup-mobile: guard-node ## Install mobile dependencies (plain npm ci — never 
 	cd $(MOBILE) && npm ci
 
 check-web: guard-node ## Web typecheck + lint + tests (mirrors the lint-and-typecheck CI job)
-	cd $(WEB) && npm run typecheck && npm run lint && npm test
+	cd $(WEB) && npm run check:test-registration && npm run typecheck && npm run lint && npm test
 
 # Package scripts rather than the bare binaries, because `typecheck` now
 # regenerates the typed-route declaration before running tsc (eddy-ios's
