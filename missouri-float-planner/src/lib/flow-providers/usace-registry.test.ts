@@ -405,18 +405,34 @@ test('the powerhouse question is answerable with no live fetch', () => {
     );
   }
 
-  // Pinned so the day the two rules diverge is a deliberate change with a dam
-  // to point at rather than a silent behaviour shift. The dams below are that
-  // deliberate change: hasPowerhouse() now also accepts `nameplate`, because
-  // the Nashville-district dams (CDA data, no SWPA schedule) and Ameren's
-  // Bagnell (not USACE at all) have real powerhouses that `swpaCode` alone
-  // would deny. Anything joining this list needs the same justification.
+  // The two rules no longer agree everywhere, and the disagreement is the whole
+  // point of separating them. These four have a nameplate and no swpaCode, so
+  // `hasPowerhouse` says yes where the old `Boolean(swpaCode)` said no:
+  //
+  //   lrn-wolf-creek-dam, lrn-center-hill-dam, lrn-dale-hollow-dam
+  //     Nashville District. SWPA is the SOUTHWESTERN power administration and
+  //     does not schedule LRN projects, so they were never going to have a code.
+  //   ameren-bagnell-dam
+  //     privately owned; SWPA markets no power from it at all.
+  //
+  // All four run real units (6, 3, 3 and 8), so answering "no powerhouse" for
+  // them is exactly the bug this test was written to catch, pointed the other
+  // way. Still pinned, so the NEXT divergence is deliberate too.
+  //
+  // Sorted on both sides: the previous form compared against `[]`, which made
+  // the order irrelevant, but a bare list would silently depend on key order in
+  // USACE_DAMS and break the day someone inserts a dam above another.
   const diverging = Object.values(USACE_DAMS).filter(
     (d) => hasPowerhouse(d) !== Boolean(d.swpaCode),
   );
   assert.deepEqual(
-    diverging.map((d) => d.id),
-    ['lrn-wolf-creek-dam', 'lrn-center-hill-dam', 'lrn-dale-hollow-dam', 'ameren-bagnell-dam'],
-    'a dam now diverges from the swpaCode rule — intended, but update this list',
+    diverging.map((d) => d.id).sort(),
+    [
+      'ameren-bagnell-dam',
+      'lrn-center-hill-dam',
+      'lrn-dale-hollow-dam',
+      'lrn-wolf-creek-dam',
+    ].sort(),
+    'a dam now diverges from the old rule — intended, but update this list',
   );
 });
