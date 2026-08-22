@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { hasRemediation, isMechanical, remediationFor } from './remediation';
+import { hasRemediation, remediationFor } from './remediation';
 import { ALL_TRUST_RULES, severityForRule } from './severity';
+
+// Test-private assertion helper. `mechanical` is display guidance for the
+// operator, not a production authorization predicate or an executable action.
+// Keeping this here prevents a future action route from treating the label as
+// sufficient policy by importing a conveniently named boolean.
+function isMechanical(ruleKey: string): boolean {
+  return remediationFor(ruleKey).kind === 'mechanical';
+}
 
 // ── the gate ─────────────────────────────────────────────────────
 
