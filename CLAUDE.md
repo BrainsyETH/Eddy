@@ -17,7 +17,7 @@ editing only this file.
 | `missouri-float-planner/supabase/` | Migrations, seeds, and SQL scripts for the Supabase (PostgreSQL + PostGIS) backend. |
 | `missouri-float-planner/docs/` | Product/subsystem docs (strategy, audits, runbooks). |
 | `eddy-ios/` | The Expo (SDK 57) iOS app. Consumes the web app as a headless API and shares code via `file:` dependencies. Its `README.md` is the authoritative dev guide. |
-| `packages/` | Five pure shared packages: `@eddy/types`, `@eddy/geo`, `@eddy/hazards`, `@eddy/offline`, `@eddy/sync`. No build step; consumed via `file:` deps. |
+| `packages/` | Four pure shared packages: `@eddy/types`, `@eddy/geo`, `@eddy/hazards`, `@eddy/sync`. No build step; consumed via `file:` deps. |
 | `scripts/` + `clipengine-local/` | ClipEngine media/social automation (root `scripts/clipengine/`, `scripts/social/`). Operated by GitHub workflows — paths are load-bearing. See `docs/clipengine-ops.md`. |
 | `design/`, `marketing/` | Brand assets and marketing material. Not part of any build. |
 | `docs/` | Repository-level docs: ops runbooks, `decisions/` (ADRs), `research/` (source PDFs and reports). |
@@ -32,7 +32,7 @@ and `eddy-ios/package.json`. CI pins Node 20 (`.github/workflows/app-ci.yml`).
 | Web page / API route / server logic | `missouri-float-planner/src/` | `missouri-float-planner/README.md` | `make check-web` |
 | iOS screen / component / native config | `eddy-ios/app/`, `eddy-ios/src/` | `eddy-ios/README.md` | `make check-mobile` + `make bundle-mobile` |
 | River-condition behavior | `missouri-float-planner/shared/` | comments in `.github/workflows/app-ci.yml` | `make check-web` + `make bundle-mobile` |
-| Shared types / geo / hazards / offline / sync | `packages/` | the package's source headers | `make check-web` + `make bundle-mobile` |
+| Shared types / geo / hazards / sync | `packages/` | the package's source headers | `make check-web` + `make bundle-mobile` |
 | Data ingestion or correction | `missouri-float-planner/scripts/` | `docs/data-pipeline.md` (catalog + guard levels), then `scripts/ingestion/README.md` | script dry run, then `make check-web` |
 | Database schema / seeds | `missouri-float-planner/supabase/` | existing migrations | never against production by default; `make check-db` after any hand-applied change |
 | ClipEngine / social automation | `scripts/clipengine/`, `clipengine-local/` | `docs/clipengine-ops.md` | tool-specific dry run |

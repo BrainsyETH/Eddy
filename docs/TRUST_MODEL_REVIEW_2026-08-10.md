@@ -197,6 +197,16 @@ assumes otherwise is assuming something that is not there.
 
 ## Fix Data — not built
 
+> **Decision update (2026-08-22): automated remediation remains intentionally
+> deferred. The Fix arm is not an active capability.** `mechanical` describes
+> advice that a human can follow reproducibly; it is not a server-side policy
+> decision and no Trust route executes it. The unused production
+> `isMechanical()` export was removed so a presentation label cannot be
+> mistaken for an authorization boundary. Shipping this arm later requires a
+> separately designed action registry, server-side allowlist and consequence
+> policy, explicit human approval, preconditions/post-validation, and a durable
+> Trust-ledger action record. The remediation kind alone is insufficient.
+
 `remediation.ts` classifies all 49 rules by what fixing them actually takes:
 
 | Kind | Rules |
@@ -216,12 +226,14 @@ defined as *"a command or a script exists and re-running it is safe"*, and:
 
 - `remediationFor()` has exactly **one** caller — `api/admin/trust/findings/route.ts`,
   which attaches it to the response for rendering.
-- **`isMechanical()` has zero callers.** It is exported and unused.
+- The former `isMechanical()` production export had zero callers and has now
+  been removed. Tests inspect `remediationFor().kind` with a test-private helper.
 
-So every fix today, including the thirteen that are safe to automate by the
-codebase's own classification, is a human reading a sentence and going to do it.
-The arm is drawn; the wire is not connected. This is the cheapest real progress
-available toward the diagram, and it needs no model.
+So every fix today is a human reading guidance, applying the change outside the
+Trust console, and recording the outcome. The thirteen labelled `mechanical`
+are reproducible operator procedures; the label does **not** establish that
+remote execution is safe or supported. The arm is drawn in the roadmap, but it
+is intentionally inactive.
 
 ## Flag Review — built
 
@@ -313,10 +325,12 @@ established: keep "the source did not answer" and "the source says it is gone"
 as different facts all the way through, because a degrading fetch turns the
 first silently into the second.
 
-**2. Wire the Fix arm.** `isMechanical()` exists and is unused. A re-run button
-on the console for the thirteen mechanical rules, then auto-apply for the safest
-subset with the ledger recording what it did and what changed. No model, no new
-dependency, and it converts an existing classification into behavior.
+**2. Keep the Fix arm deferred until its policy boundary is designed.** Do not
+turn the `mechanical` presentation label into a re-run button. A future proposal
+must name a closed set of supported executors, reject critical and non-allowlisted
+rules at the server boundary, retain explicit human approval, validate before
+and after mutation, and record the action and result durably in the Trust ledger.
+Until then remediation remains guidance-only.
 
 **3. Reasoning last.** Once source disagreement is a finding type, "is this
 valid" and "confidence" have something to operate on. Applied to today's

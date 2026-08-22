@@ -6,6 +6,14 @@
 > **Operating model:** Founder + Codex, bounded autonomy
 > **North star:** Trust first, followed by river intelligence, repeatable expansion, distribution, and sustainable revenue
 
+> **Current capability boundary (2026-08-22):** The Fix arm in this roadmap is
+> intentionally deferred and is **not an active capability**. The shipped Trust
+> routes can list findings and let an authenticated human snooze, resolve, or
+> reopen them; they do not execute remediation or mutate canonical product
+> data. A `mechanical` remediation label is operator guidance only, not an
+> authorization policy. The action executor and approval flow shown below are
+> future architecture and must not be inferred from the diagram or Phase 5.
+
 ## What the revision changed, and why
 
 The first draft assumed Eddy needs a system to **detect** data problems. Checked
@@ -153,7 +161,9 @@ It may not autonomously:
 - Initial north star: trust.
 - Autonomy posture: bounded autonomy.
 - First product surface: Trust Console.
-- Remediation posture: stage fixes before approval.
+- Remediation posture: automated fixes are deferred; humans apply fixes outside
+  the Trust console and record the outcome there. A future implementation must
+  stage fixes for explicit approval before execution.
 - Open-web posture: evidence may create findings but cannot update live facts.
 - Notification posture: immediate critical alerts plus one daily email.
 - Cost posture: deterministic checks first; models only where reasoning adds value.
