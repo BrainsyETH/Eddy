@@ -125,8 +125,21 @@ export const LEDGER_RULES = [
   'known_defect_regressed',
 ] as const;
 
+/**
+ * Canonical per-river metadata that used to have a hardcoded fallback in the
+ * code. The fallbacks are gone (see docs/river-metadata-fallback-inventory.md),
+ * so a NULL here is no longer absorbed silently — it is the whole behavior.
+ */
+export const RIVER_METADATA_RULES = [
+  'canonical_weather_missing',
+  'canonical_alert_terms_missing',
+  'canonical_rain_lag_missing',
+  'canonical_river_note_missing',
+] as const;
+
 export const ALL_TRUST_RULES = [
   ...VALIDATE_RIVER_DATA_RULES,
+  ...RIVER_METADATA_RULES,
   ...RIVER_GEOMETRY_RULES,
   ...EDDY_KNOWLEDGE_RULES,
   ...GAUGE_WIRING_RULES,
@@ -220,7 +233,23 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   schema_alert_subscription_kind_matches_api: 'high',
   schema_feedback_type_check_has_gauge_recalibration: 'high',
 
+  // Missing alert terms means filterAlertsForRiver has nothing to match on.
+  // It fails open — the river page gets the unfiltered state feed rather than
+  // silence — so nobody loses a flash-flood warning to this. What they lose is
+  // the ability to tell which warning is about THEIR river, on the one screen
+  // where that distinction is the point. High, not critical, for that reason,
+  // and not lower because the surface is a safety surface.
+  canonical_alert_terms_missing: 'high',
+
   // ── medium: wrong numbers downstream of a correct badge ──────────────
+  // No weather point means the river page shows no weather and no forecast,
+  // and Eddy's prompt loses precipitation entirely. Wrong-by-omission on a
+  // supporting fact, with the gauge — the thing the badge is computed from —
+  // untouched.
+  canonical_weather_missing: 'medium',
+  // Eddy omits rain-lag guidance: "it'll be up for a couple days" stops being
+  // sayable. The prose is still correct about what the gauge reads now.
+  canonical_rain_lag_missing: 'medium',
   // Bad mileage means a bad float time. It reads medium rather than high
   // because /api/plan returns a range, and floatTime.ts refuses to estimate at
   // all for dangerous water — so the error cannot compound into a go/no-go.
@@ -265,6 +294,9 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   service_no_river_link: 'medium',
 
   // ── low: real, visible to nobody in danger ───────────────────────────
+  // Local color. Its absence costs a sentence of texture in Eddy's prose and
+  // nothing else — no number, no badge, no go/no-go.
+  canonical_river_note_missing: 'low',
   // Geometry has raised a question about an editorial fact, and the answer may
   // well be that the link is right: a business is linked to the water it
   // SERVES, not the water it is near, and an outfitter's storefront can sit on

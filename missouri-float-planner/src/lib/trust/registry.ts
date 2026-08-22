@@ -18,9 +18,11 @@ import { serviceGeoConsistencyCheck } from './checks/service-geo-consistency';
 import { schemaInvariantsCheck } from './checks/schema-invariants';
 import { ledgerHeartbeatCheck } from './checks/ledger-heartbeat';
 import { knownRegressionsCheck } from './checks/known-regressions';
+import { riverMetadataCheck } from './checks/river-metadata';
 
 export const TRUST_CHECKS: readonly TrustCheck[] = [
   validateRiverDataCheck,
+  riverMetadataCheck,
   riverGeometryCheck,
   eddyKnowledgeCheck,
   floatSummaryCheck,

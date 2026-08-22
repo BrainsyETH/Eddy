@@ -84,38 +84,43 @@ export async function fetchNWSAlerts(stateCode: string = 'MO'): Promise<NWSAlert
 
 /**
  * Filters alerts to those mentioning specific river names or nearby counties.
- * Search terms come from rivers.alert_search_terms (per-river data); the
- * legacy hardcoded map remains as a fallback for rows that predate the
- * migration.
+ * Search terms come from rivers.alert_search_terms (per-river data).
  */
 export function filterAlertsForRiver(
   alerts: NWSAlert[],
   riverSlug: string,
   searchTerms?: string[] | null
 ): NWSAlert[] {
-  const riverTerms = searchTerms?.length ? searchTerms : LEGACY_RIVER_SEARCH_TERMS[riverSlug];
-  if (!riverTerms) return alerts; // Return all if no specific terms
+  const riverTerms = searchTerms?.length ? searchTerms : null;
+  if (!riverTerms) {
+    // Fails OPEN, and that is load-bearing rather than lazy.
+    //
+    // Both callers of this helper are prompt builders — generate-update.ts and
+    // chat/tool-handlers.ts. Neither renders what comes back; a model reads it.
+    // Surplus alerts there cost a few tokens and some hedged prose. Returning
+    // nothing instead would tell the model the river is quiet, which is the one
+    // wrong answer available.
+    //
+    // The screen path does NOT share this posture. matchWeatherAlerts skips
+    // untermed rivers at its own boundary (src/lib/alerts/river-alerts.ts) so a
+    // newly ingested creek cannot show every flood warning in the state as its
+    // own — and the comment there says explicitly that the guard lives at the
+    // call site "rather than by changing the shared helper, so the two LLM
+    // callers keep the behaviour they were written against". Tightening this
+    // function is what that sentence is asking you not to do; it also silently
+    // makes that comment false.
+    //
+    // The missing terms are still a defect. They surface as a
+    // `canonical_alert_terms_missing` Trust finding, filed `high`.
+    console.warn(`[NWS] Missing canonical alert_search_terms for active river ${riverSlug}; returning unfiltered alerts`);
+    return alerts;
+  }
 
   return alerts.filter((alert) => {
     const searchText = `${alert.headline} ${alert.description} ${alert.areaDesc}`.toLowerCase();
     return riverTerms.some((term) => searchText.includes(term.toLowerCase()));
   });
 }
-
-/**
- * @deprecated Fallback only — the source of truth is rivers.alert_search_terms
- * (seeded by migration 00145). Do not add rivers here.
- */
-const LEGACY_RIVER_SEARCH_TERMS: Record<string, string[]> = {
-  current: ['current river', 'shannon county', 'dent county', 'carter county', 'van buren', 'eminence'],
-  meramec: ['meramec', 'crawford county', 'franklin county', 'sullivan', 'steelville'],
-  'eleven-point': ['eleven point', 'oregon county', 'alton'],
-  'jacks-fork': ['jacks fork', 'jack\'s fork', 'shannon county', 'eminence'],
-  niangua: ['niangua', 'dallas county', 'laclede county', 'bennett spring'],
-  'big-piney': ['big piney', 'texas county', 'pulaski county', 'licking'],
-  huzzah: ['huzzah', 'crawford county', 'steelville'],
-  courtois: ['courtois', 'crawford county', 'steelville'],
-};
 
 /** Truncate long NWS descriptions to keep prompt size manageable. */
 function truncateDescription(desc: string, maxLength = 500): string {

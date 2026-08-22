@@ -46,6 +46,41 @@ export interface Remediation {
 }
 
 const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
+  // ── canonical river metadata — judgment, never mechanical ────────────
+  //
+  // Every one of these is a value somebody has to source and decide on. There
+  // is no script that knows which town is the right weather proxy for a river
+  // or how fast it drops, which is exactly why the hardcoded maps existed for
+  // as long as they did. Filing them as `judgment` keeps that honest.
+  canonical_weather_missing: {
+    kind: 'judgment',
+    action: 'Set rivers.weather_city, weather_lat and weather_lon for the named river.',
+    where: 'supabase — rivers',
+    method:
+      'Pick the town a floater would actually check, not the geometric centroid: the put-in town or the outfitter hub on the most-floated reach. Migration 00145 is the worked example for the first nine rivers.',
+  },
+  canonical_alert_terms_missing: {
+    kind: 'judgment',
+    action: 'Set rivers.alert_search_terms for the named river.',
+    where: 'supabase — rivers',
+    method:
+      'Lowercase substrings matched against NWS headline, description and areaDesc. Include the river name, the counties it runs through, and the towns NWS names in practice — 00145 shows the shape. Until this is set the river gets the UNFILTERED state feed, which is noisy but never silent; verify against a live alert rather than guessing county names.',
+  },
+  canonical_rain_lag_missing: {
+    kind: 'judgment',
+    action: 'Set river_characteristics.rain_lag_hours, rain_lag_note and drop_rate_note.',
+    where: 'supabase — river_characteristics',
+    method:
+      'Derive from the gauge, not from a neighbouring river: find several past rises, measure the lag from the local rain to the gauge response, and the ft/day of the falling limb. A spring-fed river and a flashy creek on the same map differ by an order of magnitude.',
+  },
+  canonical_river_note_missing: {
+    kind: 'judgment',
+    action: 'Set river_characteristics.river_note for the named river.',
+    where: 'supabase — river_characteristics',
+    method:
+      'One or two sentences of local color that stay true year-round — what the water is fed by, which reach is the scenic one, how it behaves after rain. It lands in Eddy prompts, so it should read like a sentence someone would say.',
+  },
+
   // ── condition ladder — never mechanical ──────────────────────────────
   threshold_order: {
     kind: 'judgment',

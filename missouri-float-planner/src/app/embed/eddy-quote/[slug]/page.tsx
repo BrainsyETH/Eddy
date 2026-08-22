@@ -8,7 +8,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
-import { RIVER_NOTES, CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
+import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import { getEddyImageForCondition, CFS_EXPLAINER } from '@/constants';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 import { FLAG_GREEN_ICON } from '@/lib/embed/tileIcons';
@@ -211,14 +211,12 @@ export default function EddyQuoteEmbedPage() {
   // Build fallback text if no AI update
   const quoteText = update?.quoteText || (() => {
     const blurb = CONDITION_CARD_BLURBS[conditionCode as ConditionCode] || CONDITION_CARD_BLURBS.unknown;
-    const notes = RIVER_NOTES[slug];
     const parts: string[] = [];
     if (update?.gaugeHeightFt != null) {
       parts.push(`Reading ${update.gaugeHeightFt.toFixed(1)} ft at the gauge.`);
     }
     parts.push(blurb);
     if (optimalRange) parts.push(`Optimal range is ${optimalRange}.`);
-    if (notes) parts.push(notes);
     return parts.join(' ');
   })();
   const { preview: quotePreview, detail: quoteDetail } = splitQuote(quoteText);

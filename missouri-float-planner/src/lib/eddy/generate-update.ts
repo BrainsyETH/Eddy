@@ -4,14 +4,12 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { ConditionCode } from '@/types/api';
-import { RIVER_NOTES } from '@/data/eddy-quotes';
-import type { UpdateTarget } from '@/data/river-sections';
+import type { UpdateTarget } from '@/lib/eddy/update-targets';
 import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/alerts';
 import { fetchWeather, fetchForecast, getWeatherPointForRiver, type WeatherData, type ForecastData } from '@/lib/weather/openweather';
 import { fetchPrecipitationFromWeather, buildWeatherSummary, type PrecipitationSummary, type WeatherSummary } from '@/lib/weather/openweather';
 import { getKnowledgeForTarget } from '@/lib/eddy/knowledge';
 import { buildGaugeTrajectoryForSite, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
-import { RAIN_LAG, type RainLagInfo } from '@/lib/eddy/rain-lag';
 import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
 import { getRiverContext, DEFAULT_TIMEZONE, type RiverContext } from '@/lib/rivers/context';
 import { getLocalDateStrings } from '@/lib/social/local-time';
@@ -30,6 +28,12 @@ export interface GaugeContext {
   optimalRange: string;
   closureLevel: number | null;
   notes: string | null;
+}
+
+export interface RainLagInfo {
+  hours: number;
+  note: string;
+  dropRateFtPerDay: string;
 }
 
 // The model is no longer a constant here. It is resolved once per pass from
@@ -136,7 +140,7 @@ export async function generateEddyUpdate(
     readingTimestamp: gaugeResult.readingTimestamp,
     optimalRange: gaugeResult.optimalRange,
     closureLevel: gaugeResult.closureLevel,
-    notes: riverCtx?.characteristics?.riverNote ?? RIVER_NOTES[target.riverSlug] ?? null,
+    notes: riverCtx?.characteristics?.riverNote ?? null,
   } : null;
   if (gaugeContext) sourcesUsed.push('USGS gauge');
 
@@ -185,7 +189,7 @@ export async function generateEddyUpdate(
     if (trajectory) sourcesUsed.push('gauge trajectory');
   }
 
-  // --- 6. Load rain-lag info (river_characteristics first, legacy map fallback) ---
+  // --- 6. Load canonical rain-lag info ---
   const rc = riverCtx?.characteristics;
   const rainLag: RainLagInfo | null =
     rc?.rainLagHours != null
@@ -194,7 +198,10 @@ export async function generateEddyUpdate(
           note: rc.rainLagNote ?? '',
           dropRateFtPerDay: rc.dropRateNote ?? '',
         }
-      : RAIN_LAG[target.riverSlug] ?? null;
+      : null;
+  if (!rainLag) {
+    console.warn(`[EddyGen] Missing canonical rain-lag metadata for active river ${target.riverSlug}`);
+  }
 
   // --- 7. Build the prompt ---
   const prompt = buildPrompt(target, gaugeContext, weather, forecast, alerts, localKnowledge, trajectory, precipitation, rainLag, riverCtx);
@@ -390,7 +397,7 @@ function buildPrompt(
   rainLag: RainLagInfo | null = null,
   riverCtx: RiverContext | null = null,
 ): string {
-  const riverNotes = riverCtx?.characteristics?.riverNote ?? RIVER_NOTES[target.riverSlug];
+  const riverNotes = riverCtx?.characteristics?.riverNote;
   const lines: string[] = [];
 
   // Date context in the river's local timezone so day-of-week and "this

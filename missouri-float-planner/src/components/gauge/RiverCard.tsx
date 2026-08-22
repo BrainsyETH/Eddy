@@ -14,7 +14,7 @@ import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { getEddyImageForCondition } from '@/constants';
 import { conditionChip } from '@shared/condition-system';
 import ConditionBadge from '@/components/ui/ConditionBadge';
-import { buildStaticEddyText, RIVER_NOTES } from '@/data/eddy-quotes';
+import { buildStaticEddyText } from '@/data/eddy-quotes';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import GaugeTrendContext from '@/components/gauge/GaugeTrendContext';
 import { conditionSnapshotMatches } from '@/lib/condition-snapshot';
@@ -80,7 +80,12 @@ export default function RiverCard({ riverGroup, meta, distanceMiles }: RiverCard
       optimalMin: primaryThreshold.levelOptimalMin,
       optimalMax: primaryThreshold.levelOptimalMax,
       thresholdUnit: primaryThreshold.thresholdUnit,
-      riverNote: riverSlug ? RIVER_NOTES[riverSlug] : null,
+      // No note on this path. The canonical source is
+      // river_characteristics.river_note, and the card reaches this branch
+      // precisely when /api/eddy-update returned nothing — so there is no
+      // response to carry it. Plumbing it means a river-note field on the
+      // unavailable response, not a hardcoded map.
+      // See docs/river-metadata-fallback-inventory.md.
     });
 
   // Always use live condition so card badge matches the current gauge reading

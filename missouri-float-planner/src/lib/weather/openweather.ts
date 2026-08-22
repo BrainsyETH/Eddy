@@ -16,24 +16,7 @@ export interface WeatherData {
 }
 
 /**
- * @deprecated Fallback only — the source of truth is rivers.weather_city /
- * weather_lat / weather_lon (seeded by migration 00145). Do not add rivers
- * here; use getWeatherPointForRiver().
- */
-const LEGACY_RIVER_CITY_MAP: Record<string, { city: string; lat: number; lon: number }> = {
-  'current': { city: 'Van Buren', lat: 36.9956, lon: -91.0146 },
-  'meramec': { city: 'Steelville', lat: 37.9681, lon: -91.3543 },
-  'eleven-point': { city: 'Alton', lat: 36.6942, lon: -91.3993 },
-  'niangua': { city: 'Bennett Spring', lat: 37.7156, lon: -92.8564 },
-  'jacks-fork': { city: 'Eminence', lat: 37.1481, lon: -91.3576 },
-  'big-piney': { city: 'Licking', lat: 37.4992, lon: -91.8571 },
-  'huzzah': { city: 'Steelville', lat: 37.9681, lon: -91.3543 },
-  'courtois': { city: 'Steelville', lat: 37.9681, lon: -91.3543 },
-};
-
-/**
- * Weather reference point for a river, from rivers.weather_* columns with the
- * legacy hardcoded map as fallback.
+ * Weather reference point for a river, from rivers.weather_* columns.
  */
 export async function getWeatherPointForRiver(
   riverSlug: string
@@ -49,7 +32,8 @@ export async function getWeatherPointForRiver(
   } catch (e) {
     console.warn(`[Weather] River context lookup failed for ${riverSlug}:`, e);
   }
-  return LEGACY_RIVER_CITY_MAP[riverSlug] || null;
+  console.warn(`[Weather] Missing canonical weather coordinates for active river ${riverSlug}`);
+  return null;
 }
 
 export async function fetchWeather(

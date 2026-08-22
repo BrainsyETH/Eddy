@@ -9,7 +9,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
 import { ChevronDown, ChevronUp, Share2, Check } from 'lucide-react';
 import type { ConditionCode } from '@/types/api';
-import { buildEddyQuote, RIVER_NOTES } from '@/data/eddy-quotes';
+import { buildEddyQuote } from '@/data/eddy-quotes';
 import type { WeatherInput } from '@/data/eddy-quotes';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 
@@ -120,7 +120,6 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
   const displayText = hasSummary && !showFull ? summaryText! : fullText;
 
   const eddyImage = getEddyImageForCondition(displayConditionCode);
-  const notes = RIVER_NOTES[riverSlug];
 
   // Tinted "Eddy Says" surface derived from the canonical condition system.
   const surface = conditionChip(displayConditionCode);
@@ -193,10 +192,8 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
               </button>
             )}
 
-            {(optimalRange || notes) && !hasSummary && (
-              <p className="text-xs opacity-50 flex-1">
-                {optimalRange ? `Optimal range: ${optimalRange}` : ''}{optimalRange && notes ? ' \u00b7 ' : ''}{notes || ''}
-              </p>
+            {optimalRange && !hasSummary && (
+              <p className="text-xs opacity-50 flex-1">{`Optimal range: ${optimalRange}`}</p>
             )}
 
             <button
@@ -214,10 +211,8 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
             </button>
           </div>
 
-          {(optimalRange || notes) && hasSummary && showFull && (
-            <p className="text-xs mt-1.5 opacity-50">
-              {optimalRange ? `Optimal range: ${optimalRange}` : ''}{optimalRange && notes ? ' \u00b7 ' : ''}{notes || ''}
-            </p>
+          {optimalRange && hasSummary && showFull && (
+            <p className="text-xs mt-1.5 opacity-50">{`Optimal range: ${optimalRange}`}</p>
           )}
         </div>
       </div>
