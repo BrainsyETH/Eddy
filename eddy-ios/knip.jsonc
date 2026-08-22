@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
+
   // Expo Router loads app/ by filename. The file: package entry modules are
   // explicit because they live outside this independent npm root.
   "entry": [
@@ -7,13 +8,29 @@
     "../missouri-float-planner/shared/condition-system.ts",
     "../packages/eddy-{types,geo,hazards,sync}/index.ts"
   ],
+
+  // The shared tree's TESTS are excluded on purpose. They belong to the web
+  // runner — package.json in missouri-float-planner names each one — so from
+  // here they are unreachable by construction and every one of them reported
+  // as an unused file. Auditing another root's tests from this root says
+  // nothing true about this root.
   "project": [
     "app/**/*.{ts,tsx}",
     "src/**/*.{ts,tsx}",
     "scripts/**/*.{ts,tsx,mjs}",
     "../missouri-float-planner/shared/**/*.ts",
-    "../packages/eddy-{types,geo,hazards,sync}/**/*.ts"
+    "!../missouri-float-planner/shared/**/*.test.ts",
+    "../packages/eddy-{types,geo,hazards,sync}/**/*.ts",
+    "!../packages/**/*.test.ts"
   ],
+
+  // The @eddy/* packages ARE dependencies here — `file:` entries in
+  // package.json, resolved by Metro. Knip reports all five as unused because
+  // it follows the tsconfig paths to the source rather than through the
+  // manifest, which is the same import either way. Listing them as unused
+  // would mean the app imports none of its own shared code.
+  "ignoreDependencies": ["@eddy/.*"],
+
   // These are the only export exemptions: Expo Router consumes them by
   // convention. Ordinary app, src, and shared-package exports stay audited.
   "ignoreIssues": {

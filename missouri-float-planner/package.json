@@ -45,8 +45,8 @@
     "promo:capture": "cd remotion && node scripts/capture-promo.mjs",
     "promo:render": "cd remotion && bash scripts/render-promo.sh",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
-    "audit:dead-code": "npx --yes knip@5.69.2 --no-exit-code",
-    "audit:dead-code:strict": "npx --yes knip@5.69.2"
+    "audit:dead-code": "knip --no-exit-code",
+    "audit:dead-code:strict": "knip"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
@@ -101,6 +101,7 @@
     "@types/topojson-client": "^3.1.5",
     "eslint": "9.39.5",
     "eslint-config-next": "16.2.12",
+    "knip": "5.88.1",
     "playwright": "^1.61.1",
     "postcss": "8.5.23",
     "shpjs": "^6.2.0",

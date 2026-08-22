@@ -56,8 +56,8 @@
     "typegen": "expo customize tsconfig.json",
     "typecheck": "npm run typegen && tsc --noEmit",
     "lint": "expo lint",
-    "audit:dead-code": "npx --yes knip@5.69.2 --no-exit-code",
-    "audit:dead-code:strict": "npx --yes knip@5.69.2"
+    "audit:dead-code": "knip --no-exit-code",
+    "audit:dead-code:strict": "knip"
   },
   "dependencies": {
     "@eddy/conditions": "file:../missouri-float-planner/shared",
@@ -108,6 +108,7 @@
     "babel-preset-expo": "~57.0.4",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.0",
+    "knip": "5.88.1",
     "typescript": "~6.0.3"
   }
 }
