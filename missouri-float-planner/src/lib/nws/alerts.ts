@@ -84,38 +84,24 @@ export async function fetchNWSAlerts(stateCode: string = 'MO'): Promise<NWSAlert
 
 /**
  * Filters alerts to those mentioning specific river names or nearby counties.
- * Search terms come from rivers.alert_search_terms (per-river data); the
- * legacy hardcoded map remains as a fallback for rows that predate the
- * migration.
+ * Search terms come from rivers.alert_search_terms (per-river data).
  */
 export function filterAlertsForRiver(
   alerts: NWSAlert[],
   riverSlug: string,
   searchTerms?: string[] | null
 ): NWSAlert[] {
-  const riverTerms = searchTerms?.length ? searchTerms : LEGACY_RIVER_SEARCH_TERMS[riverSlug];
-  if (!riverTerms) return alerts; // Return all if no specific terms
+  const riverTerms = searchTerms?.length ? searchTerms : null;
+  if (!riverTerms) {
+    console.warn(`[NWS] Missing canonical alert_search_terms for active river ${riverSlug}`);
+    return [];
+  }
 
   return alerts.filter((alert) => {
     const searchText = `${alert.headline} ${alert.description} ${alert.areaDesc}`.toLowerCase();
     return riverTerms.some((term) => searchText.includes(term.toLowerCase()));
   });
 }
-
-/**
- * @deprecated Fallback only — the source of truth is rivers.alert_search_terms
- * (seeded by migration 00145). Do not add rivers here.
- */
-const LEGACY_RIVER_SEARCH_TERMS: Record<string, string[]> = {
-  current: ['current river', 'shannon county', 'dent county', 'carter county', 'van buren', 'eminence'],
-  meramec: ['meramec', 'crawford county', 'franklin county', 'sullivan', 'steelville'],
-  'eleven-point': ['eleven point', 'oregon county', 'alton'],
-  'jacks-fork': ['jacks fork', 'jack\'s fork', 'shannon county', 'eminence'],
-  niangua: ['niangua', 'dallas county', 'laclede county', 'bennett spring'],
-  'big-piney': ['big piney', 'texas county', 'pulaski county', 'licking'],
-  huzzah: ['huzzah', 'crawford county', 'steelville'],
-  courtois: ['courtois', 'crawford county', 'steelville'],
-};
 
 /** Truncate long NWS descriptions to keep prompt size manageable. */
 function truncateDescription(desc: string, maxLength = 500): string {

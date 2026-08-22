@@ -9,7 +9,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
 import { ChevronDown, ChevronUp, Share2, Check } from 'lucide-react';
 import type { ConditionCode } from '@/types/api';
-import { buildEddyQuote, RIVER_NOTES } from '@/data/eddy-quotes';
+import { buildEddyQuote } from '@/data/eddy-quotes';
 import type { WeatherInput } from '@/data/eddy-quotes';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 
@@ -120,7 +120,7 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
   const displayText = hasSummary && !showFull ? summaryText! : fullText;
 
   const eddyImage = getEddyImageForCondition(displayConditionCode);
-  const notes = RIVER_NOTES[riverSlug];
+  const notes = null;
 
   // Tinted "Eddy Says" surface derived from the canonical condition system.
   const surface = conditionChip(displayConditionCode);

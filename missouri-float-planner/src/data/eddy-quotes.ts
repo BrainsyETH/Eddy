@@ -5,24 +5,6 @@
 import type { ConditionCode } from '@/types/api';
 import { summarizeConditionCounts } from '@shared/condition-system';
 
-// --- River-specific local color (notes only — thresholds come from the DB) ---
-
-/**
- * @deprecated Fallback only — the source of truth is
- * river_characteristics.river_note (seeded by migration 00145). Do not add
- * rivers here; callers read the DB first and fall back to this map.
- */
-export const RIVER_NOTES: Record<string, string> = {
-  current: 'Spring-fed with a consistent base flow. Upper sections (Montauk to Akers) are shallower than the lower stretches.',
-  'eleven-point': 'Remote and scenic. Peak season is mid-June through September. Prone to fast rises after rain.',
-  'jacks-fork': 'Rain-dependent with a smaller watershed. Rises and falls fast — flash floods are a serious concern.',
-  meramec: 'Largest of the Ozark rivers. Upper sections above Meramec State Park are the most scenic.',
-  niangua: 'Fed by Bennett Spring. Generally consistent flows — a reliable choice.',
-  'big-piney': 'Remote and scenic with a smaller watershed. Can fluctuate quickly after rain.',
-  huzzah: 'Short float sections, popular for day trips. Pairs well with Courtois for a weekend.',
-  courtois: 'More secluded than Huzzah. Excellent for a quieter, scenic float.',
-};
-
 // --- Condition-based quote templates ---
 // {gauge} = gauge height, {range} = optimal range, {river} = river name, {note} = local note
 
@@ -148,13 +130,11 @@ export function buildEddyQuote(
 
   const gauge = gaugeHeightFt !== null ? gaugeHeightFt.toFixed(1) : '—';
   const range = optimalRange ?? '—';
-  const note = RIVER_NOTES[riverSlug] ?? '';
-
   text = text
     .replace(/\{gauge\}/g, gauge)
     .replace(/\{range\}/g, range)
     .replace(/\{river\}/g, riverSlug)
-    .replace(/\{note\}/g, note);
+    .replace(/\{note\}/g, '');
 
   // Append weather context
   if (weather) {
@@ -192,7 +172,7 @@ export interface StaticEddyTextInput {
   optimalMax?: number | null;
   /** 'ft' | 'cfs' — the threshold unit for the optimal range. */
   thresholdUnit?: string | null;
-  /** River-specific local color (DB river_note, falls back to RIVER_NOTES). */
+  /** River-specific local color from DB river_characteristics.river_note. */
   riverNote?: string | null;
 }
 

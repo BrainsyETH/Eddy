@@ -1,25 +1,30 @@
 // src/lib/eddy/update-targets.ts
 // DB-driven Eddy update targets: one whole-river target per active river,
-// plus one per row in river_sections. Replaces the hardcoded RIVER_SECTIONS
-// array in src/data/river-sections.ts (kept as a fallback for environments
-// that predate migration 00146).
+// plus one per row in river_sections. Canonical metadata is required: a
+// deployment without migrations 00145/00146 must fail observably rather than
+// quietly generating updates from an obsolete, partial river list.
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import {
-  getUpdateTargets as getLegacyUpdateTargets,
-  type UpdateTarget,
-} from '@/data/river-sections';
+import type { RiverType } from '@/lib/rivers/context';
 
-export type { UpdateTarget };
+export interface UpdateTarget {
+  riverSlug: string;
+  riverName: string;
+  sectionSlug: string | null;
+  sectionName: string | null;
+  sectionDescription: string | null;
+  sectionRiverType: RiverType | null;
+  sectionLowWaterMeaning: string | null;
+  sectionRisingWaterHazards: string | null;
+}
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 let cached: { targets: UpdateTarget[]; loadedAt: number } | null = null;
 
 /**
  * Update targets for all active rivers, from the database.
- * Falls back to the legacy hardcoded list if the query fails or the
- * river_sections migration hasn't run yet (rivers with zero rows still get
- * their whole-river target from the rivers table itself).
+ * Rivers with zero section rows still get a whole-river target. Query failures
+ * throw so monitoring records the failed generation pass.
  */
 export async function getUpdateTargetsFromDb(): Promise<UpdateTarget[]> {
   if (cached && Date.now() - cached.loadedAt < CACHE_TTL_MS) {
@@ -38,8 +43,7 @@ export async function getUpdateTargetsFromDb(): Promise<UpdateTarget[]> {
     ]);
 
     if (riversResult.error || !riversResult.data || riversResult.data.length === 0) {
-      console.warn('[UpdateTargets] rivers query failed; using legacy hardcoded list:', riversResult.error);
-      return getLegacyUpdateTargets();
+      throw new Error(`[UpdateTargets] active rivers unavailable: ${riversResult.error?.message ?? 'query returned no rows'}`);
     }
 
     const targets: UpdateTarget[] = [];
@@ -79,13 +83,13 @@ export async function getUpdateTargetsFromDb(): Promise<UpdateTarget[]> {
         });
       }
     } else if (sectionsResult.error) {
-      console.warn('[UpdateTargets] river_sections query failed (pre-migration DB?):', sectionsResult.error);
+      throw new Error(`[UpdateTargets] river_sections unavailable: ${sectionsResult.error.message}`);
     }
 
     cached = { targets, loadedAt: Date.now() };
     return targets;
   } catch (e) {
-    console.error('[UpdateTargets] Failed to load targets from DB; using legacy list:', e);
-    return getLegacyUpdateTargets();
+    console.error('[UpdateTargets] Failed to load canonical targets:', e);
+    throw e;
   }
 }
