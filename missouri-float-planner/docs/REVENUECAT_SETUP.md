@@ -435,7 +435,64 @@ newer renewal (ordering guard).
 - Persist the Supabase session refresh token in the **Keychain** so a reinstall
   restores the same user id, and the entitlement with it.
 
-## 11. Ongoing operations
+## 11. Offer codes (influencer comps and giveaways)
+
+Subscription **offer codes** are how a subscription is granted free for a
+period — an influencer's free month, not a discounted purchase. They are a
+different thing from App Store "promo codes", which only give away the app
+itself or one-time purchases and are useless for a free app selling a
+subscription.
+
+Everything here is App Store Connect configuration. **No backend change**: a
+redemption reaches RevenueCat when the app syncs the receipt, the webhook
+fires like any purchase, and the route writes `entitlements` as normal. The
+app's part already ships — a "Redeem code" control on the paywall and the
+Profile card opens `OFFER_CODE_REDEEM_URL` (`eddy-ios/src/lib/purchases.ts`,
+keyed on the numeric Apple app ID **6794933267**), and on return to the
+foreground the app calls `syncRedeemedPurchases()` to hand RevenueCat the
+receipt. The in-app redemption sheet was rejected deliberately: it fires no
+completion callback and fails silently; the URL is RevenueCat's own
+recommendation.
+
+### Creating the offers
+
+App Store Connect → your app → **Monetization → Subscriptions** → the product
+→ **Offer Codes** → **+**. Offers attach to a *specific* product, so the tier
+decides which one:
+
+| Tier | Attach to | Offer type / duration |
+|---|---|---|
+| 1 month free | monthly product | Free, 1 month |
+| 3 months free | monthly product | Free, 3 months |
+| 1 year free | annual product | Free, 1 year |
+
+Set **eligibility to all three groups** (new, existing, expired subscribers)
+so a code works regardless of the recipient's history. When the free period
+ends the subscription **auto-renews at the normal price** unless cancelled —
+say so when handing a code out; it is also what makes a comp convert.
+
+### Which code type
+
+- **One-time-use codes** — generated in batches, exported as CSV, each works
+  once, expire on a date you set (max 6 months out). **Use these for
+  influencers**: keep a code → person spreadsheet, and a leaked code is one
+  free month, not a firehose. Limit 25,000 per app per quarter.
+- **Custom codes** (e.g. `RIVERFAM`) — one memorable code, redeemable many
+  times. For audience giveaways an influencer announces, not for comps.
+
+Recipients redeem at
+`https://apps.apple.com/redeem?ctx=offercodes&id=6794933267&code=<CODE>` —
+that link, DM'd, is the whole distribution mechanism; the in-app control
+exists for people who already have Eddy installed.
+
+### Tracking
+
+RevenueCat webhook events carry the offer code used, so redemptions per code
+are visible in the RevenueCat dashboard; join against the spreadsheet for
+who. Nothing in Postgres records the code today — add it to the webhook
+route only if redemption volume ever makes the dashboard unwieldy.
+
+## 12. Ongoing operations
 
 - **No Apple signing key to rotate — as long as sign-in stays native.** The
   often-cited "the Apple secret expires every 6 months" applies to the *web*

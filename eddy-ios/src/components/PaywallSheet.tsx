@@ -37,10 +37,11 @@
 // screen is a string literal in this file except the two link labels and the
 // renewal paragraph App Review requires verbatim.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Linking,
   Modal,
   Pressable,
@@ -60,6 +61,7 @@ import { waitForEntitlement } from '@/api/client';
 import {
   fetchOfferings,
   identifyUser,
+  OFFER_CODE_REDEEM_URL,
   packageCadence,
   packageCta,
   packagePriceLabel,
@@ -69,6 +71,7 @@ import {
   purchasesUnavailableReason,
   restorePurchases,
   savingsLabel,
+  syncRedeemedPurchases,
   type PurchasePackage,
 } from '@/lib/purchases';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
@@ -105,7 +108,15 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
   const [packages, setPackages] = useState<PurchasePackage[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<null | 'apple' | 'buy' | 'restore'>(null);
+  const [busy, setBusy] = useState<null | 'apple' | 'buy' | 'restore' | 'redeem'>(null);
+
+  /**
+   * Set when "Redeem code" sends someone to the App Store, read when the app
+   * foregrounds again. A ref rather than state because nothing renders from
+   * it — it exists so the return trip is distinguishable from every other
+   * reason the app comes back to the foreground with this sheet open.
+   */
+  const redeemPending = useRef(false);
 
   const userId = session?.user?.id ?? null;
   const signedIn = Boolean(userId) && !isAnonymous;
@@ -196,6 +207,49 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
     [getAccessToken, onPurchased, onClose],
   );
 
+  /**
+   * Offer codes are redeemed on the App Store's own screen, not in the app —
+   * see OFFER_CODE_REDEEM_URL for why the in-app sheet lost. The real work is
+   * the effect below, which finishes the story when they come back.
+   */
+  const handleRedeem = useCallback(() => {
+    redeemPending.current = true;
+    void Linking.openURL(OFFER_CODE_REDEEM_URL);
+  }, []);
+
+  // The return trip from the App Store. Success is a redemption that shows up
+  // once the receipt is synced; the far more common return is someone who
+  // looked and backed out, which must produce no alert, no error, nothing —
+  // the sheet simply still there, as they left it.
+  useEffect(() => {
+    if (!visible) return;
+
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' || !redeemPending.current) return;
+      redeemPending.current = false;
+
+      void (async () => {
+        setBusy('redeem');
+        try {
+          const entitled = await syncRedeemedPurchases();
+          if (!entitled) return;
+
+          // Same contract as a purchase: StoreKit is done, the server learns
+          // through RevenueCat's webhook, so wait for the backend before the
+          // caller re-runs whatever hit the paywall.
+          const token = await getAccessToken();
+          if (token) await waitForEntitlement(token);
+          onPurchased?.();
+          onClose();
+        } finally {
+          setBusy(null);
+        }
+      })();
+    });
+
+    return () => subscription.remove();
+  }, [visible, getAccessToken, onPurchased, onClose]);
+
   const handleRestore = useCallback(async () => {
     setBusy('restore');
     try {
@@ -221,8 +275,13 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
       onRequestClose={onClose}
       // Fires however the sheet went away — the close button, a swipe down, or
       // a purchase completing — which is what makes the fallback above resolve
-      // back to Yearly on the next open. See `selected`.
-      onDismiss={() => setSelectedId(null)}
+      // back to Yearly on the next open. See `selected`. The redeem flag dies
+      // with the sheet too, so a closed paywall cannot claim a later
+      // foregrounding as its return trip.
+      onDismiss={() => {
+        setSelectedId(null);
+        redeemPending.current = false;
+      }}
     >
       <View style={[styles.sheet, { backgroundColor: colors.bg }]}>
         <View style={styles.handleRow}>
@@ -504,6 +563,16 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
                 <Pressable onPress={() => void handleRestore()} disabled={busy !== null} hitSlop={8}>
                   <Text style={[styles.footerLink, { color: colors.textMuted }]}>
                     {busy === 'restore' ? 'Restoring…' : 'Restore purchases'}
+                  </Text>
+                </Pressable>
+                <Text style={[styles.footerLink, { color: colors.textSubtle }]}>·</Text>
+                {/* Signed-in only, like every purchase control on this sheet
+                    and for the same reason: the entitlement a code grants
+                    arrives through the receipt, and it has to land on a real
+                    account the moment it does. */}
+                <Pressable onPress={handleRedeem} disabled={busy !== null} hitSlop={8}>
+                  <Text style={[styles.footerLink, { color: colors.textMuted }]}>
+                    {busy === 'redeem' ? 'Checking…' : 'Redeem code'}
                   </Text>
                 </Pressable>
                 <Text style={[styles.footerLink, { color: colors.textSubtle }]}>·</Text>

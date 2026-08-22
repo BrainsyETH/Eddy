@@ -24,10 +24,11 @@
 // frozen at whichever scheme the app launched with. Colour comes from
 // useTheme(), inline.
 
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Linking,
   Pressable,
   ScrollView,
@@ -45,8 +46,13 @@ import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { useAccount } from '@/hooks/useAccount';
-import { deleteAccount } from '@/api/client';
-import { restorePurchases, subscriptionSummary } from '@/lib/purchases';
+import { deleteAccount, waitForEntitlement } from '@/api/client';
+import {
+  OFFER_CODE_REDEEM_URL,
+  restorePurchases,
+  subscriptionSummary,
+  syncRedeemedPurchases,
+} from '@/lib/purchases';
 import { usePush } from '@/hooks/usePush';
 import { notificationDetail } from '@/lib/notificationCopy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
@@ -90,7 +96,7 @@ export default function ProfileScreen() {
   const { profile, entitlement, loaded, error, refresh } = useAccount();
   const { permission, optedOut, registered, enable, disable } = usePush();
 
-  const [busy, setBusy] = useState<null | 'apple' | 'restore' | 'delete'>(null);
+  const [busy, setBusy] = useState<null | 'apple' | 'restore' | 'redeem' | 'delete'>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
   /**
@@ -145,6 +151,60 @@ export default function ProfileScreen() {
       setBusy(null);
     }
   }, [refresh]);
+
+  /**
+   * Same ref-not-state reasoning as the paywall's copy of this flag: nothing
+   * renders from it, it only marks the next foregrounding as a return from the
+   * App Store's code-entry screen rather than an ordinary app switch.
+   */
+  const redeemPending = useRef(false);
+
+  /**
+   * Offer codes — the influencer month, the giveaway year — are redeemed on
+   * the App Store's own screen, not in the app. This opens it; the effect
+   * below finishes the job when they come back.
+   */
+  const handleRedeem = useCallback(() => {
+    redeemPending.current = true;
+    void Linking.openURL(OFFER_CODE_REDEEM_URL);
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' || !redeemPending.current) return;
+      redeemPending.current = false;
+
+      void (async () => {
+        setBusy('redeem');
+        try {
+          // Sync the receipt first — the redemption happened outside the app,
+          // so RevenueCat has not heard about it until the app tells it.
+          const entitled = await syncRedeemedPurchases();
+          // Backing out of the App Store without redeeming is the common case,
+          // and it gets silence: no alert, the card exactly as they left it.
+          if (!entitled) return;
+
+          // The SDK saw it; the card reads from the SERVER, which learns
+          // through RevenueCat's webhook. Wait for it before refreshing so the
+          // card flips to active rather than to a stale "no subscription".
+          const token = await getAccessToken();
+          const live = token ? await waitForEntitlement(token) : false;
+          await refresh();
+
+          Alert.alert(
+            'Code redeemed',
+            live
+              ? 'Eddy Premium is active on your account.'
+              : 'It can take a moment to show up. If this card still looks wrong in a minute, pull to refresh.',
+          );
+        } finally {
+          setBusy(null);
+        }
+      })();
+    });
+
+    return () => subscription.remove();
+  }, [getAccessToken, refresh]);
 
   const handleDisableAlerts = useCallback(async () => {
     try {
@@ -360,6 +420,24 @@ export default function ProfileScreen() {
                 {busy === 'restore' ? 'Restoring…' : 'Restore purchases'}
               </Text>
             </Pressable>
+
+            {/* Subscription offer codes — redeemed on the App Store's screen,
+                picked up here on return. Signed-in only, matching the
+                paywall's identity guard: the entitlement a code grants has to
+                land on a real account the moment the receipt syncs. Not gated
+                on entitlement state — an offer for existing subscribers is a
+                thing App Store Connect can issue. */}
+            {signedIn && (
+              <Pressable
+                onPress={handleRedeem}
+                disabled={busy === 'redeem'}
+                style={[styles.secondary, { borderColor: colors.border }]}
+              >
+                <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
+                  {busy === 'redeem' ? 'Checking your code…' : 'Redeem a code'}
+                </Text>
+              </Pressable>
+            )}
 
             {/* Auto-renew disclosure. Required wherever a subscription is sold
                 or managed, and it has to sit WITH the controls rather than

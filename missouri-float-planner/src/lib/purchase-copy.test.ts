@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs';
 import {
   annotateSavings,
   annualSavingsPercent,
+  OFFER_CODE_REDEEM_URL,
   packageCadence,
   packageCta,
   packagePriceLabel,
@@ -304,6 +305,56 @@ test('an unrecognised or malformed offer yields no trial rather than zero days',
   assert.equal(trialDaysFromIntroPrice({ price: 0, periodNumberOfUnits: 0, periodUnit: 'DAY' }), null);
   assert.equal(trialDaysFromIntroPrice({ price: 0, periodNumberOfUnits: 7, periodUnit: 'FORTNIGHT' }), null);
   assert.equal(trialDaysFromIntroPrice({ price: 0, periodNumberOfUnits: 'seven', periodUnit: 'DAY' }), null);
+});
+
+// ── Offer-code redemption ───────────────────────────────────────────────────
+//
+// Subscription offer codes (the influencer month, the giveaway year) are
+// redeemed on the App Store's own screen, not in the app — the in-app sheet
+// fires no completion callback and fails silently, so the app opens Apple's
+// URL and syncs the receipt when it foregrounds again. These tests pin the
+// URL itself and, in the style of the render checks above, that both surfaces
+// actually run the flow: a redemption whose receipt is never synced is a free
+// month RevenueCat has not heard about and a paywall still up for someone who
+// just redeemed.
+
+test('the redeem URL is the App Store offer-code screen for this app', () => {
+  // The id is Eddy's numeric Apple app ID, not the bundle identifier. Wrong
+  // id means someone's code opens redemption for a different app.
+  assert.equal(
+    OFFER_CODE_REDEEM_URL,
+    'https://apps.apple.com/redeem?ctx=offercodes&id=6794933267',
+  );
+});
+
+test('both redeem surfaces open the URL and sync the receipt on return', () => {
+  for (const path of [
+    '../eddy-ios/src/components/PaywallSheet.tsx',
+    '../eddy-ios/app/(tabs)/profile.tsx',
+  ]) {
+    const source = readFileSync(path, 'utf8');
+    assert.match(source, /Linking\.openURL\(OFFER_CODE_REDEEM_URL\)/);
+    assert.match(source, /syncRedeemedPurchases\(\)/);
+    // The sync runs on the RETURN TRIP, not on a timer or a tap — the
+    // AppState listener is what makes redemption in another app land here.
+    assert.match(source, /AppState\.addEventListener\('change'/);
+    // And the SDK's view is not the verdict: the server is re-read before
+    // anything is claimed or unlocked.
+    assert.match(source, /waitForEntitlement\(token\)/);
+  }
+});
+
+test('the redeem controls are signed-in only, like every purchase control', () => {
+  // The entitlement a code grants arrives through the receipt and must land
+  // on a real account — the same identity guard the purchase flow enforces.
+  // In the paywall the link lives inside the existing `signedIn ?` footer
+  // block beside Restore; in Profile the button carries its own guard.
+  const profile = readFileSync('../eddy-ios/app/(tabs)/profile.tsx', 'utf8');
+  assert.match(profile, /\{signedIn && \([\s\S]{0,400}handleRedeem/);
+
+  const paywall = readFileSync('../eddy-ios/src/components/PaywallSheet.tsx', 'utf8');
+  const footer = paywall.slice(paywall.indexOf('footerLinks'));
+  assert.match(footer, /\{signedIn \? \([\s\S]*handleRedeem[\s\S]*\) : null\}/);
 });
 
 test('a billing problem outranks the renewal date', () => {
