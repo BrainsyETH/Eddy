@@ -73,7 +73,7 @@ failing for reasons that name anything but Node.
 - **Never install `eddy-ios` with `--legacy-peer-deps`.** It silently removes shipped native packages; the `overrides` block in `eddy-ios/package.json` is the correct fix. Plain `npm ci` works. Details: `app-ci.yml` mobile-job comments.
 - **`.easignore` is a security-critical allowlist.** While it exists, EAS ignores `.gitignore` entirely, so anything not denied there gets uploaded — including `.env` files — and it defines the EAS archive from the **git root**. After any edit, run `python3 eddy-ios/scripts/check-easignore.py`. Read its header before touching it.
 - **Vercel builds only `missouri-float-planner/`.** Shippable web code must not import from outside it (that is why `shared/` lives inside the web tree). Tests may — they run under `tsconfig.test.json`, not the build.
-- **Do not write to production** (Supabase data, deployments, external messages, secrets) without explicit user authorization; prefer dry runs, and inspect current state first.
+- **Do not write to production** (Supabase data, deployments, external messages, secrets) without explicit user authorization; prefer dry runs, and inspect current state first. DB scripts build clients via `scripts/lib/db.ts`, which refuses writes unless `EXPECTED_SUPABASE_REF` names the target project — enforced by a test; don't route around it.
 
 ## Generated / do-not-edit paths
 

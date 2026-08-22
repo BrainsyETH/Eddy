@@ -23,23 +23,8 @@
  * observatory gauges are fetched on demand and are not snapshotted here.
  */
 
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import { createAdminClient } from '../src/lib/supabase/admin';
 import { snapshotSite } from '../src/lib/usgs/percentile-snapshot';
-
-const projectRoot = process.cwd();
-const envPath = join(projectRoot, '.env.local');
-if (existsSync(envPath)) {
-  for (const line of readFileSync(envPath, 'utf-8').split('\n')) {
-    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
-    if (!match) continue;
-    const key = match[1];
-    let value = match[2] || '';
-    if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
-    if (!process.env[key]) process.env[key] = value;
-  }
-}
+import { getScriptClient } from './lib/db';
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
@@ -51,7 +36,7 @@ const DELAY_MS = 500;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function main() {
-  const supabase = createAdminClient();
+  const supabase = getScriptClient({ script: 'snapshot-usgs-percentiles', write: !dryRun });
 
   let siteIds: string[];
   if (sitesArg) {

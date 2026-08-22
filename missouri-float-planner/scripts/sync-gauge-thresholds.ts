@@ -21,25 +21,7 @@
  * lid, this script logs a warning and skips them.
  */
 
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import { createAdminClient } from '../src/lib/supabase/admin';
-
-const projectRoot = process.cwd();
-const envPath = join(projectRoot, '.env.local');
-if (existsSync(envPath)) {
-  const envFile = readFileSync(envPath, 'utf-8');
-  envFile.split('\n').forEach((line) => {
-    const trimmed = line.trim();
-    if (trimmed && !trimmed.startsWith('#')) {
-      const [key, ...valueParts] = trimmed.split('=');
-      if (key && valueParts.length > 0) {
-        const value = valueParts.join('=').trim().replace(/^["']|["']$/g, '');
-        if (!process.env[key]) process.env[key] = value;
-      }
-    }
-  });
-}
+import { getScriptClient } from './lib/db';
 
 interface AhpsStages {
   flood_stage_ft: number | null;
@@ -104,7 +86,7 @@ interface PrimaryGaugeRow {
 }
 
 async function loadPrimaryGauges(): Promise<PrimaryGaugeRow[]> {
-  const supabase = createAdminClient();
+  const supabase = getScriptClient({ script: 'sync-gauge-thresholds', write: false });
   const { data, error } = await supabase
     .from('river_gauges')
     .select(
@@ -167,7 +149,7 @@ async function main() {
     );
   }
 
-  const supabase = createAdminClient();
+  const supabase = getScriptClient({ script: 'sync-gauge-thresholds', write: !dryRun });
   let updated = 0;
   let failed = 0;
 

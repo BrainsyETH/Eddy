@@ -34,9 +34,7 @@
  *   npx tsx scripts/import-usgs-gauges.ts --bbox=-96,36,-89,41 --apply
  */
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { type SupabaseClient } from '@supabase/supabase-js';
 import {
   US_REGIONS,
   fetchRegionLatest,
@@ -45,27 +43,7 @@ import {
   type NationalSiteMeta,
 } from '../src/lib/usgs/national-sites';
 
-// Load env from .env.local (authoritative — overrides the shell), else
-// process.env. Copied in spirit from fetch-nws-flood-stages.ts; the scripts in
-// this repo are run directly with tsx and never through Next's env loading.
-function loadEnv() {
-  try {
-    const txt = readFileSync(join(process.cwd(), '.env.local'), 'utf8');
-    for (const raw of txt.split('\n')) {
-      const line = raw.replace(/\r$/, '');
-      const m = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
-      if (!m) continue;
-      let val = m[2].trim();
-      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-        val = val.slice(1, -1);
-      }
-      process.env[m[1]] = val;
-    }
-  } catch {
-    /* no .env.local — rely on exported env vars */
-  }
-}
-loadEnv();
+import { getScriptClient } from './lib/db';
 
 const CHUNK = 500;
 
@@ -114,25 +92,10 @@ function parseArgs() {
 }
 
 function getSupabase(apply: boolean): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
-  if (!url || !key) {
-    throw new Error(
-      'Missing NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_KEY = service_role key) — checked .env.local + shell env',
-    );
-  }
-
-  // Guardrail from ingest-dossier.ts, added after the 2026-07 prod/legacy
-  // project mixup: name the target and refuse to write to an unexpected one.
-  const ref = (url.match(/https?:\/\/([a-z0-9]+)\.supabase\./) || [])[1] || '(unknown)';
-  const expected = process.env.EXPECTED_SUPABASE_REF;
-  console.log(`  → target Supabase project: ${ref}`);
-  if (apply && expected && ref !== expected) {
-    throw new Error(
-      `ABORT: connected project '${ref}' != EXPECTED_SUPABASE_REF '${expected}'. Point NEXT_PUBLIC_SUPABASE_URL/SUPABASE_URL at the intended project before --apply.`,
-    );
-  }
-  return createClient(url, key);
+  // The guardrail this script pioneered (after the 2026-07 prod/legacy project
+  // mixup) now lives in scripts/lib/db.ts for every script — with one upgrade:
+  // --apply requires EXPECTED_SUPABASE_REF to be SET, not merely consistent.
+  return getScriptClient({ script: 'import-usgs-gauges', write: apply });
 }
 
 /** PostGIS EWKT — the same literal shape the seed SQL uses. */
