@@ -1,7 +1,8 @@
 // src/instrumentation.ts
 // Next.js instrumentation hook — the single place monitoring is wired up
-// (audit F19). register() runs once per server process; onRequestError is
-// invoked by Next for uncaught server-side request errors.
+// (audit F19), plus the boot-time environment audit (src/lib/env.ts).
+// register() runs once per server process; onRequestError is invoked by Next
+// for uncaught server-side request errors.
 //
 // Configuration, in precedence order:
 //   SENTRY_DSN         — the real error backend, shared with the iOS app
@@ -33,6 +34,38 @@ export async function register(): Promise<void> {
   // The BROWSER is not covered here and cannot be: Next loads this module on
   // the server only. See src/instrumentation-client.ts.
   if (runtime !== 'nodejs' && runtime !== 'edge') return;
+
+  // Environment audit — once per server process, before any sink is wired, so
+  // a broken deploy announces itself at boot instead of as a cron that
+  // silently 401s or an integration that half-works at 3am. Node only: one
+  // process, one report; edge isolates would repeat it per request.
+  //
+  // Severity is deliberately two-tier (see src/lib/env.ts for the lists):
+  //   * missing CORE vars fail a PRODUCTION boot — the app cannot serve reads
+  //     or accept cron ticks without them, so refusing to start is strictly
+  //     better than starting broken. Preview and dev only warn, so a partial
+  //     local env never blocks `next dev`.
+  //   * everything else (recommended vars, half-configured feature groups)
+  //     warns everywhere and fails nothing.
+  // EDDY_SKIP_ENV_AUDIT=1 is the break-glass for an emergency deploy where
+  // shipping degraded beats not shipping; it is logged when used.
+  if (runtime === 'nodejs') {
+    const { auditEnv, formatEnvAudit } = await import('@/lib/env');
+    const audit = auditEnv(process.env);
+    for (const line of formatEnvAudit(audit)) console.warn(`[boot] ${line}`);
+
+    const fatal = audit.missingCore.length > 0;
+    if (fatal && process.env.VERCEL_ENV === 'production') {
+      if (process.env.EDDY_SKIP_ENV_AUDIT === '1') {
+        console.warn('[boot] EDDY_SKIP_ENV_AUDIT=1 — starting despite missing core env');
+      } else {
+        throw new Error(
+          `Refusing to start: missing core env ${audit.missingCore.join(', ')}. ` +
+            `Set them in Vercel, or EDDY_SKIP_ENV_AUDIT=1 to override once.`,
+        );
+      }
+    }
+  }
 
   const dsn = process.env.SENTRY_DSN;
   if (dsn) {

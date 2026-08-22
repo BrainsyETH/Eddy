@@ -44,27 +44,8 @@
  * reason.
  */
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-
-function loadEnv() {
-  try {
-    const txt = readFileSync(join(process.cwd(), '.env.local'), 'utf8');
-    for (const raw of txt.split('\n')) {
-      const m = raw.replace(/\r$/, '').match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
-      if (!m) continue;
-      let val = m[2].trim();
-      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-        val = val.slice(1, -1);
-      }
-      process.env[m[1]] = val;
-    }
-  } catch {
-    /* rely on exported env vars */
-  }
-}
-loadEnv();
+import { type SupabaseClient } from '@supabase/supabase-js';
+import { getScriptClient } from './lib/db';
 
 const ARCGIS =
   'https://mapservices.weather.noaa.gov/eventdriven/rest/services/water/riv_gauges/MapServer/0/query';
@@ -102,23 +83,10 @@ interface Station {
   curated: boolean;
 }
 
-function getSupabase(): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
-  if (!url || !key) {
-    throw new Error(
-      'Missing NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_KEY = service_role key) — checked .env.local + shell env',
-    );
-  }
-  const ref = (url.match(/https?:\/\/([a-z0-9]+)\.supabase\./) || [])[1] || '(unknown)';
-  const expected = process.env.EXPECTED_SUPABASE_REF;
-  console.log(`  → target Supabase project: ${ref}`);
-  if (expected && ref !== expected) {
-    throw new Error(
-      `ABORT: connected project '${ref}' != EXPECTED_SUPABASE_REF '${expected}'.`,
-    );
-  }
-  return createClient(url, key);
+function getSupabase(apply: boolean): SupabaseClient {
+  // Env loading, name resolution, and the EXPECTED_SUPABASE_REF guard now live
+  // in scripts/lib/db.ts; --apply requires the pin to be set, not just consistent.
+  return getScriptClient({ script: 'import-nwps-gauges', write: apply });
 }
 
 function parseStage(raw: unknown): number | null {
@@ -338,7 +306,7 @@ async function main() {
   console.log(`  rejected, contradictory: ${rejected.unordered}`);
   console.log(`  rejected, no geometry: ${rejected.noGeometry}`);
 
-  const db = getSupabase();
+  const db = getSupabase(apply);
   const stations = await loadStations(db);
   console.log(`  stations loaded    : ${stations.length}`);
 

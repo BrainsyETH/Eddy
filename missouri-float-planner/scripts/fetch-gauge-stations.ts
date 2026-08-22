@@ -9,8 +9,8 @@
  *   npx tsx scripts/fetch-gauge-stations.ts
  */
 
-import { createClient } from '@supabase/supabase-js';
 import { MODERN_BASE, modernHeaders } from '../src/lib/flow-providers/usgs';
+import { getScriptClient } from './lib/db';
 
 // Known USGS gauge stations for Missouri float rivers
 // Researched from: https://waterdata.usgs.gov/mo/nwis/rt
@@ -213,17 +213,11 @@ async function validateGaugeStation(siteId: string): Promise<boolean> {
 }
 
 /**
- * Creates Supabase admin client
+ * Creates Supabase admin client — inserts gauges on run, so write-guarded
+ * unconditionally.
  */
 function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceKey) {
-    throw new Error('Missing Supabase credentials in environment');
-  }
-
-  return createClient(supabaseUrl, serviceKey);
+  return getScriptClient({ script: 'fetch-gauge-stations', write: true });
 }
 
 /**

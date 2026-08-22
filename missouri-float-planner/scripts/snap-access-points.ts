@@ -10,17 +10,12 @@
  *   npx tsx scripts/snap-access-points.ts
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { getScriptClient } from './lib/db';
 
 function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceKey) {
-    throw new Error('Missing Supabase credentials in environment');
-  }
-
-  return createClient(url, serviceKey);
+  // Touches every access_points row the moment it runs — write-guarded
+  // unconditionally.
+  return getScriptClient({ script: 'snap-access-points', write: true });
 }
 
 async function snapAccessPoints() {

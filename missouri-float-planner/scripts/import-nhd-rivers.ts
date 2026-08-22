@@ -17,9 +17,9 @@
  *   - Supabase database with PostGIS enabled and tables created
  */
 
-import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getScriptClient } from './lib/db';
 
 interface RiverConfig {
   name: string;
@@ -63,20 +63,10 @@ interface NHDResponse {
   features: NHDFeature[];
 }
 
-// Create Supabase admin client
+// Create Supabase admin client — inserts rivers on run, so write-guarded
+// unconditionally.
 function getSupabaseClient() {
-  // Accept either the app's canonical names or the shorter SUPABASE_URL/SUPABASE_KEY
-  // convention (SUPABASE_KEY must be the service_role key, not the anon key).
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
-
-  if (!url || !serviceKey) {
-    throw new Error(
-      'Missing environment variables. Set NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_KEY = the service_role key).'
-    );
-  }
-
-  return createClient(url, serviceKey);
+  return getScriptClient({ script: 'import-nhd-rivers', write: true });
 }
 
 /**

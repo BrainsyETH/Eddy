@@ -22,7 +22,7 @@
  *       SITE_URL (optional, default https://eddy.guide — dataset source)
  * Run:  npx tsx scripts/import-outfitters-osm.ts [--dry-run]
  */
-import { createClient } from '@supabase/supabase-js';
+import { getScriptClient } from './lib/db';
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 const BBOX = '35.0,-95.8,40.7,-89.1'; // MO + AR
@@ -97,11 +97,6 @@ function haversineM(aLat: number, aLon: number, bLat: number, bLon: number): num
 
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!dryRun && (!url || !key)) {
-    throw new Error('NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required (or pass --dry-run)');
-  }
 
   console.log('fetching outfitters from Overpass…');
   const opRes = await fetch(OVERPASS_URL, {
@@ -167,7 +162,8 @@ async function main() {
     return;
   }
 
-  const supabase = createClient(url!, key!);
+  // Only the non-dry path needs a connection at all — dry runs return above.
+  const supabase = getScriptClient({ script: 'import-outfitters-osm', write: true });
   const { data: existing, error: exErr } = await supabase
     .from('points_of_interest')
     .select('name, latitude, longitude, type');

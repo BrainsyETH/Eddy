@@ -27,12 +27,9 @@
  *   - slug: optional; derived from name when omitted.
  */
 
-import { loadEnvConfig } from '@next/env';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createAdminClient } from '../src/lib/supabase/admin';
-
-loadEnvConfig(process.cwd());
+import { getScriptClient } from './lib/db';
 
 // Valid offering keys — mirror of ServiceOffering in src/types/api.ts and the
 // labels in src/lib/services/offerings.ts. Kept inline so this maintenance
@@ -145,7 +142,7 @@ async function main() {
     }
   }
 
-  const supabase = createAdminClient();
+  const supabase = getScriptClient({ script: 'import-services-csv', write: shouldImport });
   const { data: rivers } = await supabase.from('rivers').select('id, slug');
   const riverMap = new Map<string, string>((rivers ?? []).map((r) => [r.slug, r.id]));
 
