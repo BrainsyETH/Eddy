@@ -82,9 +82,14 @@
 -- over name, type, severity, description, portage and river mile, so an
 -- operator's correction would be reverted by the same re-run.
 --
--- So: guarded UPDATE on the natural key, then INSERT ... WHERE NOT EXISTS.
--- Re-running is a no-op that preserves ids, reports, and timestamps. The
--- natural key is (river_id, name); renaming a hazard through the admin PUT
+-- So: INSERT ... WHERE NOT EXISTS on the natural key, and nothing else. No
+-- DELETE, and no UPDATE either — see the block above the insert for why an
+-- UPDATE here would have reintroduced the same class of silent reversion it
+-- was meant to avoid. Re-running is a genuine no-op: ids, community reports,
+-- operator edits and timestamps all survive untouched, because nothing but the
+-- INSERT ever runs and on a replay it matches zero rows.
+--
+-- The natural key is (river_id, name); renaming a hazard through the admin PUT
 -- makes the next run insert a second row rather than detach reports from the
 -- first, which is the direction that fails safely.
 --
@@ -206,22 +211,35 @@ SELECT
   ) AS location
 FROM bracketed;
 
--- ── Update rows that already carry these names, insert the rest ───────────
--- Never DELETE: community_reports.hazard_id would be silently set null.
-UPDATE river_hazards h
-SET type                  = s.type,
-    severity              = s.severity,
-    river_mile_downstream = s.river_mile_downstream,
-    portage_required      = s.portage_required,
-    portage_side          = s.portage_side,
-    description           = s.description,
-    seasonal_notes        = s.seasonal_notes,
-    location              = s.location,
-    active                = TRUE,
-    updated_at            = now()
-FROM ar_hazard_staging s
-WHERE h.river_id = s.river_id AND h.name = s.name;
-
+-- ── Insert only. Never UPDATE, never DELETE. ──────────────────────────────
+--
+-- An earlier draft of this file paired the insert with an unconditional
+-- UPDATE on the same natural key, on the theory that it made re-running
+-- idempotent. It did the opposite, and it is worth recording why so the
+-- pattern does not come back.
+--
+-- These four rows do not exist yet — the migration asserts as much. So on a
+-- first apply the UPDATE matched nothing and the INSERT did all the work. The
+-- ONLY time the UPDATE could ever fire was a replay, which is precisely the
+-- case where it does harm: it would reset type, severity, location,
+-- description, portage side, active and updated_at to the values in this file,
+-- silently reverting whatever an operator had corrected through
+-- /api/admin/hazards/[id] in the meantime. A rebuilt bridge marked
+-- active=false would come back. A severity downgraded after a field visit
+-- would be undone. Neither would raise anything.
+--
+-- So the UPDATE had zero value on the path that runs and negative value on the
+-- path that does not, which makes it strictly worse than nothing.
+--
+-- Corrections to these rows after they ship belong in their own migration, or
+-- in the admin UI. That is the repo's model everywhere else, and it is the one
+-- that leaves an audit trail.
+--
+-- One consequence, stated rather than hidden: if a row with one of these exact
+-- names already exists on one of these rivers at apply time, this migration
+-- will leave it exactly as it is and the assertions will still pass, because
+-- the invariant they check is "these four hazards exist", not "these four
+-- hazards match this file". Eyeball the four rows after applying.
 INSERT INTO river_hazards (
   river_id, name, type, severity, river_mile_downstream,
   portage_required, portage_side, description, seasonal_notes, active, location
@@ -241,18 +259,21 @@ DECLARE
   n     integer;
   bad   text;
 BEGIN
-  -- 1. Exactly the four rows, present and active.
+  -- 1. All four rows exist. Deliberately NOT `WHERE h.active`: `active` is
+  --    operator-controlled through /api/admin/hazards/[id], so a hazard
+  --    switched off after a bridge is rebuilt is a correct state, not a failed
+  --    migration. Asserting on it would turn a legitimate replay into an error
+  --    and tempt someone to "fix" it by re-activating the row.
   SELECT count(*) INTO n
   FROM river_hazards h JOIN ar_hazard_staging s
-    ON s.river_id = h.river_id AND s.name = h.name
-  WHERE h.active;
+    ON s.river_id = h.river_id AND s.name = h.name;
   IF n <> 4 THEN
     RAISE EXCEPTION 'expected 4 Arkansas hazards, found %', n;
   END IF;
 
-  -- 2. No duplicate natural keys. The UPDATE-then-INSERT shape cannot create
-  --    one, but a pre-existing duplicate would make the UPDATE ambiguous and
-  --    is worth catching here rather than in the app.
+  -- 2. No duplicate natural keys. INSERT ... WHERE NOT EXISTS cannot create
+  --    one, but a pre-existing duplicate would mean the guard matched only one
+  --    of two rows, and is worth catching here rather than in the app.
   SELECT string_agg(format('%s x%s', name, c), '; ') INTO bad
   FROM (
     SELECT h.name, count(*) c
@@ -264,30 +285,36 @@ BEGIN
     RAISE EXCEPTION 'duplicate (river_id, name) among the new hazards: %', bad;
   END IF;
 
-  -- 3. Every hazard has a location, and it is not (0,0).
-  --    shapes.ts toHazard() maps a missing location to {lng:0, lat:0}, which
-  --    renders in the Gulf of Guinea rather than failing.
-  SELECT string_agg(h.name, '; ') INTO bad
-  FROM river_hazards h JOIN ar_hazard_staging s
-    ON s.river_id = h.river_id AND s.name = h.name
-  WHERE h.location IS NULL
-     OR (abs(ST_X(h.location::geometry)) < 0.0001
-         AND abs(ST_Y(h.location::geometry)) < 0.0001);
+  -- Assertions 3, 4 and 6 test the STAGED positions this migration computed,
+  -- not the rows now in river_hazards. That distinction matters once the
+  -- migration stopped updating existing rows: on a replay the stored location
+  -- is whatever an operator last set, so checking it here would flag a correct
+  -- field correction as a failure and block the replay. What these three are
+  -- actually about is whether the derivation in THIS file is sound, and the
+  -- staging table is that derivation.
+
+  -- 3. Every derived position exists and is not (0,0). shapes.ts toHazard()
+  --    maps a missing location to {lng:0, lat:0}, which renders in the Gulf of
+  --    Guinea rather than failing, so null-island has to be caught here.
+  SELECT string_agg(name, '; ') INTO bad
+  FROM ar_hazard_staging
+  WHERE location IS NULL
+     OR (abs(ST_X(location::geometry)) < 0.0001
+         AND abs(ST_Y(location::geometry)) < 0.0001);
   IF bad IS NOT NULL THEN
-    RAISE EXCEPTION 'hazard with null or null-island location: %', bad;
+    RAISE EXCEPTION 'derived a null or null-island location for: %', bad;
   END IF;
 
-  -- 4. Every hazard is ON its river, not beside it. This is the assertion the
-  --    00173 chord method would have failed by up to 1,040 m.
-  SELECT string_agg(format('%s %sm', h.name,
-           round(ST_Distance(h.location::geography, ST_LineMerge(r.geom::geometry)::geography)::numeric, 0)), '; ')
+  -- 4. Every derived position is ON its river, not beside it. This is the
+  --    assertion the 00173 chord method would have failed by up to 1,040 m.
+  SELECT string_agg(format('%s %sm', s.name,
+           round(ST_Distance(s.location::geography, ST_LineMerge(r.geom::geometry)::geography)::numeric, 0)), '; ')
     INTO bad
-  FROM river_hazards h
-  JOIN ar_hazard_staging s ON s.river_id = h.river_id AND s.name = h.name
-  JOIN rivers r ON r.id = h.river_id
-  WHERE ST_Distance(h.location::geography, ST_LineMerge(r.geom::geometry)::geography) > 50;
+  FROM ar_hazard_staging s
+  JOIN rivers r ON r.id = s.river_id
+  WHERE ST_Distance(s.location::geography, ST_LineMerge(r.geom::geometry)::geography) > 50;
   IF bad IS NOT NULL THEN
-    RAISE EXCEPTION 'hazard is not on its river: %', bad;
+    RAISE EXCEPTION 'derived position is not on its river: %', bad;
   END IF;
 
   -- 5. Each derived point lies BETWEEN its two bracketing access points along
@@ -308,24 +335,25 @@ BEGIN
   --    migration recomputes rather than hard-coding, so an improved line yields
   --    an improved position — but a line that moved this far has changed
   --    something a person should look at before safety pins move with it.
-  SELECT string_agg(format('%s moved %sm from the reviewed position', h.name,
-           round(ST_Distance(h.location::geography,
+  SELECT string_agg(format('%s moved %sm from the reviewed position', s.name,
+           round(ST_Distance(s.location::geography,
                  ST_SetSRID(ST_MakePoint(s.expect_lon, s.expect_lat), 4326)::geography)::numeric, 0)), '; ')
     INTO bad
-  FROM river_hazards h JOIN ar_hazard_staging s
-    ON s.river_id = h.river_id AND s.name = h.name
-  WHERE ST_Distance(h.location::geography,
+  FROM ar_hazard_staging s
+  WHERE ST_Distance(s.location::geography,
         ST_SetSRID(ST_MakePoint(s.expect_lon, s.expect_lat), 4326)::geography) > 150;
   IF bad IS NOT NULL THEN
     RAISE EXCEPTION 'river geometry has changed since review: %', bad;
   END IF;
 
   -- 7. Arkansas is no longer a hazard desert. The point of the change, stated
-  --    as an invariant so a partial apply cannot look like success.
+  --    as an invariant so a partial apply cannot look like success. Counts
+  --    rows rather than active rows, for the same reason as assertion 1:
+  --    switching a hazard off is an operator decision, not a regression.
   SELECT count(*) INTO n
   FROM river_hazards h JOIN rivers r ON r.id = h.river_id
-  WHERE r.state = 'AR' AND h.active;
+  WHERE r.state = 'AR';
   IF n < 4 THEN
-    RAISE EXCEPTION 'expected at least 4 active Arkansas hazards, found %', n;
+    RAISE EXCEPTION 'expected at least 4 Arkansas hazards, found %', n;
   END IF;
 END $$;

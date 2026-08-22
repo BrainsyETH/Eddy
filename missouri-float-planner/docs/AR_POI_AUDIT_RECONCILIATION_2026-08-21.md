@@ -190,7 +190,23 @@ repositioning a safety marker.
 hazard_id → river_hazards(id) ON DELETE SET NULL` means a re-run would silently
 detach user-submitted reports from their hazard — no error, no trace — and
 `/api/admin/hazards/[id]` `PUT` means an operator's edits would be reverted too.
-Guarded `UPDATE` then `INSERT ... WHERE NOT EXISTS` instead.
+`INSERT ... WHERE NOT EXISTS` instead — and nothing else.
+
+An earlier draft paired that insert with an unconditional `UPDATE` on the same
+natural key, believing it made re-running idempotent. Review caught that it did
+the opposite. Because these four rows are new, the `UPDATE` matched nothing on a
+first apply; the only time it could ever fire was a replay, where it would reset
+`type`, `severity`, `location`, `description`, `portage_side`, `active` and
+`updated_at` to the file's values — silently reverting any operator correction
+made through `/api/admin/hazards/[id]` in between. A bridge marked `active=false`
+after being rebuilt would come back on. Zero value on the path that runs,
+negative value on the path that does not.
+
+The assertions moved with it: the geometry checks now test the **staged**
+positions this migration computes rather than the stored rows, so a legitimate
+field correction cannot trip the 150 m tripwire and block a replay; and the
+presence checks count rows rather than *active* rows, since switching a hazard
+off is an operator decision, not a regression.
 
 ### `20260821124500_arkansas_river_characteristics.sql`
 
