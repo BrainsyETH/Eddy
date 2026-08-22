@@ -10,7 +10,7 @@
  *  script is idempotent and would otherwise have reverted them on the next run.
  *  src/lib/trust/checks/float-summary.ts now fails when prose drifts again. Weather coords are already
  *  set by ingest-dossier. Does not touch `active`. Idempotent. */
-import { createAdminClient } from '../../src/lib/supabase/admin';
+import { getScriptClient } from '../lib/db';
 
 const PROSE: Record<string, { summary: string; tip: string }> = {
   'caddo-river': {
@@ -44,7 +44,7 @@ const PROSE: Record<string, { summary: string; tip: string }> = {
 };
 
 async function main() {
-  const db = createAdminClient();
+  const db = getScriptClient({ script: 'set-cold-start-batch3', write: true });
   for (const [slug, p] of Object.entries(PROSE)) {
     const { data, error } = await db.from('rivers').update({ float_summary: p.summary, float_tip: p.tip }).eq('slug', slug).select('slug');
     if (error) throw new Error(`${slug}: ${error.message}`);

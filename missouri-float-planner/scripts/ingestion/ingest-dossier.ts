@@ -32,9 +32,9 @@
  * after validate_river_data() runs clean.
  */
 
-import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getScriptClient } from '../lib/db';
 
 type Level = 'too_low' | 'low' | 'optimal_min' | 'optimal_max' | 'high' | 'dangerous';
 
@@ -229,22 +229,12 @@ if (!apply) { console.log('\nDry run complete — re-run with --apply to write.'
 
 // ---------- apply ----------
 (async () => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
-  if (!url || !key) throw new Error('Set NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_KEY = service_role key).');
-
-  // Guardrail (added after the 2026-07 prod/legacy project mixup, where rivers
-  // were written to one Supabase project while the app read another): surface
-  // the target project and refuse to --apply to an unexpected one. Set
-  // EXPECTED_SUPABASE_REF=<ref> to enforce — prod is `ilefwfpvphadsbptiaur`.
-  const ref = (url.match(/https?:\/\/([a-z0-9]+)\.supabase\./) || [])[1] || '(unknown)';
-  const expectedRef = process.env.EXPECTED_SUPABASE_REF;
-  console.log(`  → target Supabase project: ${ref}`);
-  if (expectedRef && ref !== expectedRef) {
-    throw new Error(`ABORT: connected project '${ref}' != EXPECTED_SUPABASE_REF '${expectedRef}'. Point NEXT_PUBLIC_SUPABASE_URL/SUPABASE_URL at the intended project before --apply.`);
-  }
-
-  const db = createClient(url, key);
+  // Guardrail (added here after the 2026-07 prod/legacy project mixup, where
+  // rivers were written to one Supabase project while the app read another)
+  // now lives in scripts/lib/db.ts for every script — with one upgrade:
+  // --apply requires EXPECTED_SUPABASE_REF to be SET, not merely consistent.
+  // Prod is `ilefwfpvphadsbptiaur`. Dry runs exit above and never get here.
+  const db = getScriptClient({ script: 'ingest-dossier', write: true });
 
   const { data: river, error: riverErr } = await db.from('rivers').select('id').eq('slug', dossier.slug).single();
   if (riverErr || !river) throw new Error(`rivers row for slug '${dossier.slug}' not found — import geometry first (import-nhd-rivers.ts or seed path).`);

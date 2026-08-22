@@ -18,7 +18,7 @@
  * Re-read river_gauges before editing any number here.
  *   spring-river 07069305 [cfs] optimal 206-694 (no dangerous anchor — prose avoids a number)
  */
-import { createAdminClient } from '../../src/lib/supabase/admin';
+import { getScriptClient } from '../lib/db';
 
 interface Meta {
   slug: string;
@@ -87,7 +87,7 @@ const META: Meta[] = [
 ];
 
 async function main() {
-  const db = createAdminClient();
+  const db = getScriptClient({ script: 'set-cold-start', write: true });
   for (const m of META) {
     const update: Record<string, unknown> = {
       float_summary: m.float_summary,

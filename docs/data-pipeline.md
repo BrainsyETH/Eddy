@@ -13,19 +13,34 @@ already exported — noted per row.
 
 ## Safety model — read this before running anything
 
-The **Guard** column is the load-bearing one. Three values:
+**Writes are pin-gated by mechanism, not convention.** Every script that can
+mutate the database builds its connection through
+`scripts/lib/db.ts` (`getScriptClient({ script, write })`), which refuses to
+open a write connection unless `EXPECTED_SUPABASE_REF` is exported in your
+shell **and** matches the project your credentials resolve to. The refusal
+message names the resolved project and prints the exact `export` line — read
+which project it is, paste the line, re-run. The pin is read from the live
+shell only; putting it in `.env.local` does not count. Prod is
+`ilefwfpvphadsbptiaur`. Preview/read runs need no pin.
+
+An enforcement test (`scripts/lib/no-unguarded-clients.test.ts`, part of
+`npm test`) keeps new scripts from constructing their own Supabase clients
+around the guard, and holds a shrinking allowlist of not-yet-migrated legacy
+scripts — currently the read-only checks and a handful of dry-default
+writers. When you touch an allowlisted script, migrate it and delete its row.
+Until then those legacy scripts trust whatever URL is in the environment —
+**there is no staging default; the env you load is the database you mutate.**
+(`ingestion/preload-dossier-access-points.py` is Python and keeps its own
+honor-the-pin implementation.)
+
+The **Guard** column still describes each script's dry-run behavior — what
+happens *after* the pin check passes. Three values:
 
 - **dry-default** — safe to run bare; it previews and requires an explicit
   flag (shown in the row) to write.
 - **write-default** — it writes unless you pass the listed dry-run flag.
-- **NONE** — it writes the moment you run it. Treat like a loaded migration.
-
-`EXPECTED_SUPABASE_REF` is an extra guard honored by only four scripts
-(`import-usgs-gauges`, `import-nwps-gauges`, `ingestion/ingest-dossier`,
-`ingestion/preload-dossier-access-points.py`): export it and they abort if
-pointed at a different Supabase project. Everything else trusts whatever URL
-is in the environment — **there is no staging default; the env you load is
-the database you mutate.**
+- **NONE** — it writes the moment you run it (the pin is the only gate).
+  Treat like a loaded migration.
 
 ## Checks & validation (read-only, safe always)
 

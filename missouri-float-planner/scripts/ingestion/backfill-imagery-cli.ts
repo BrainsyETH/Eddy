@@ -12,11 +12,11 @@
  *      recommended) NPS_API_KEY + RIDB/RECREATION_GOV key for NPS/USFS sources.
  *      Without those keys, og:image sources (MDC, State Park, private) still work.
  */
-import { createAdminClient } from '../../src/lib/supabase/admin';
 import {
   resolveAccessPointImage,
   type ResolvableAccessPoint,
 } from '../../src/lib/access-points/imagery';
+import { getScriptClient } from '../lib/db';
 
 const PER_POINT_DELAY_MS = 800;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -33,7 +33,7 @@ async function main() {
   const overwrite = flags.includes('--overwrite');
   const dryRun = flags.includes('--dry');
 
-  const db = createAdminClient();
+  const db = getScriptClient({ script: 'backfill-imagery-cli', write: !dryRun });
   const { data: river, error: rErr } = await db
     .from('rivers').select('id, name, slug, park_code').eq('slug', slug).single();
   if (rErr || !river) throw new Error(`river ${slug} not found: ${rErr?.message}`);

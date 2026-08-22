@@ -19,7 +19,7 @@
  * Keys: too_low low optimal_min optimal_max high dangerous  (value = number, or "null" to clear)
  * DRY-RUN by default. Source/sign-off is documented in the dossier md + commit, not the DB.
  */
-import { createAdminClient } from '../../src/lib/supabase/admin';
+import { getScriptClient } from '../lib/db';
 
 const TIERS = ['too_low', 'low', 'optimal_min', 'optimal_max', 'high', 'dangerous'] as const;
 type Tier = (typeof TIERS)[number];
@@ -47,7 +47,7 @@ async function main() {
   }
   if (Object.keys(overrides).length === 0) { console.error('No key=val overrides given.'); process.exit(1); }
 
-  const db = createAdminClient();
+  const db = getScriptClient({ script: 'update-thresholds', write: write });
   const { data: river, error: re } = await db.from('rivers').select('id, name, slug').eq('slug', slug).single();
   if (re || !river) { console.error(`River "${slug}" not found: ${re?.message}`); process.exit(1); }
 

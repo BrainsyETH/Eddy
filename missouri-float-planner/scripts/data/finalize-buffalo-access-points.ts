@@ -30,18 +30,16 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { createClient } from '@supabase/supabase-js';
 import { BUFFALO_FLOAT_POINTS } from './buffalo-float-points';
+import { getScriptClient } from '../lib/db';
 
 function normName(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 function getClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Missing Supabase credentials (need SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)');
-  return createClient(url, key);
+  // Reconciles coordinates the moment it runs — write-guarded unconditionally.
+  return getScriptClient({ script: 'finalize-buffalo-access-points', write: true });
 }
 
 interface CsvCoord { name: string; lat: number; lon: number; }
