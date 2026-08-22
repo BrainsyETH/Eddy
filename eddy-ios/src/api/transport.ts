@@ -30,6 +30,12 @@ export function withDeadline(caller?: AbortSignal, timeoutMs = REQUEST_TIMEOUT_M
     get timedOut() {
       return state.timedOut;
     },
+    /**
+     * Must run on every path, including the successful one. A pending timer
+     * holds a reference to its controller and would fire minutes later against
+     * a request that finished — harmless to the response, but it keeps the
+     * closure alive and, on a screen that polls, accumulates.
+     */
     done() {
       clearTimeout(timer);
       caller?.removeEventListener('abort', onCallerAbort);
