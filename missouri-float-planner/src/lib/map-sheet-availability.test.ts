@@ -171,7 +171,10 @@ test('a zero is phrased by what made it zero, never as "0 open"', () => {
 
   assert.equal(phraseFor([night(TODAY, 0, 54, 'full')]), 'Fully booked');
   assert.equal(phraseFor([night(TODAY, 0, 0, 'closed')]), 'Not offered this night');
-  assert.equal(phraseFor([night(TODAY, 0, 0, 'not_yet_released')]), 'Not offered this night');
+  // The strip draws these two the same way — a dash is "nothing here to fill"
+  // either way — but the words must not fold them: "come back when booking
+  // opens" and "go somewhere else" are opposite instructions.
+  assert.equal(phraseFor([night(TODAY, 0, 0, 'not_yet_released')]), 'Not yet bookable');
   assert.equal(phraseFor([night(TODAY, 8)]), '8 of 54 sites open');
 });
 
@@ -180,13 +183,15 @@ test('an unmeasured night has nothing honest to say', () => {
   assert.equal(nightPhrase(nightChoices(summary({ nights: [] }), TODAY)[0]), null);
 });
 
-test('the tab opens on the window the peek is describing', () => {
-  // The straightforward case: the weekend was measured, so it is chosen.
+test('the tab opens on the night the peek is describing', () => {
+  // Which is TONIGHT — the night the hero speaks for — and what
+  // AccessCampingTab passes as its preference. The straightforward case:
+  // tonight was measured, so tonight is chosen.
   const nights = nightChoices(
-    summary({ nights: [night('2026-08-07', 8), night('2026-08-08', 3)] }),
+    summary({ nights: [night(TODAY, 12), night('2026-08-07', 8)] }),
     TODAY,
   );
-  assert.equal(defaultNight(nights, '2026-08-07'), '2026-08-07');
+  assert.equal(defaultNight(nights, TODAY), TODAY);
 });
 
 test('an unmeasured window falls FORWARD, never back to tonight', () => {
@@ -236,38 +241,150 @@ test('fill never exceeds the track', () => {
 });
 
 /* ── The hero ─────────────────────────────────────────────────────────────── */
+//
+// The hero speaks for ONE NIGHT and names it. The weekend fold on the summary
+// is a minimum across the nights of a stay, which is right for "can I book
+// Fri–Sun" and catastrophic as a headline over a fortnight strip — see the
+// Cedargrove case below, which is the bug these tests exist to hold shut.
 
-test('the hero splits the same facts the chip states in one sentence', () => {
-  const hero = availabilityHero(summary())!;
-  assert.equal(hero.count, 8);
-  assert.equal(hero.detail, 'of 54 sites');
-  assert.equal(hero.caption, 'Fri–Sun, Aug 7–9');
+test('the hero describes tonight, not the weekend the summary folds', () => {
+  // Cedargrove, as shipped: one site free Friday, none Saturday, five Sunday.
+  // The server's two-night minimum is zero, so `status` is 'full' — while
+  // tonight has five of six sites open and the strip drew them.
+  const hero = availabilityHero(
+    summary({
+      status: 'full',
+      sitesOpen: 0,
+      sitesReservable: 6,
+      nights: [
+        night(TODAY, 5, 6),
+        night('2026-08-07', 1, 6),
+        night('2026-08-08', 0, 6, 'full'),
+        night('2026-08-09', 5, 6),
+      ],
+    }),
+    TODAY,
+  )!;
+
+  assert.equal(hero.count, 5, 'tonight, never the weekend minimum');
+  assert.equal(hero.headline, 'open');
+  assert.equal(hero.detail, 'of 6 sites');
+  assert.equal(hero.caption, 'Tonight');
+});
+
+test('the headline and the column under it cannot disagree', () => {
+  // The strip is the same derivation, so this is the invariant rather than a
+  // coincidence: whatever the hero says, tonight's bar has to show it.
+  const value = summary({
+    status: 'full',
+    sitesOpen: 0,
+    nights: [night(TODAY, 3, 12), night('2026-08-07', 0, 12, 'full')],
+  });
+
+  const hero = availabilityHero(value, TODAY)!;
+  const tonight = nightBars(value, TODAY)[0];
+
+  assert.equal(hero.count, tonight.sitesOpen);
+  assert.equal(tonight.mark, 'bar');
+});
+
+test('a booked-out tonight points at the next night with room', () => {
+  // "Fully booked" on its own sends a reader back to the map to tap the same
+  // pin again on a different day. The next open night is the answer they were
+  // going to go looking for.
+  const hero = availabilityHero(
+    summary({
+      nights: [night(TODAY, 0, 54, 'full'), night('2026-08-07', 0, 54, 'full'), night('2026-08-08', 6)],
+    }),
+    TODAY,
+  )!;
+
+  assert.equal(hero.count, null);
+  assert.equal(hero.headline, 'Fully booked');
+  assert.equal(hero.caption, 'Tonight · next open Sat Aug 8');
+});
+
+test('a booked-out fortnight promises nothing it cannot keep', () => {
+  const hero = availabilityHero(
+    summary({ nights: [night(TODAY, 0, 54, 'full'), night('2026-08-07', 0, 54, 'full')] }),
+    TODAY,
+  )!;
+  assert.equal(hero.caption, 'Tonight', 'no next-open clause when there is no next open night');
+});
+
+test('an unmeasured tonight walks forward and says which night it landed on', () => {
+  // Forward, never back — the same direction defaultNight walks, for the same
+  // reason. And never silently: the caption is what makes the walk honest.
+  const hero = availabilityHero(summary({ nights: [night('2026-08-07', 9)] }), TODAY)!;
+  assert.equal(hero.count, 9);
+  assert.equal(hero.caption, 'Tomorrow');
 });
 
 test('closed and fully booked are phrases, never a zero', () => {
   // "0 open" for a campground shut for the winter invites somebody to keep
   // refreshing for a cancellation that cannot exist.
-  const closed = availabilityHero(summary({ status: 'closed' }))!;
+  const closed = availabilityHero(
+    summary({ status: 'closed', nights: [night(TODAY, 0, 0, 'closed'), night('2026-08-07', 0, 0, 'closed')] }),
+    TODAY,
+  )!;
   assert.equal(closed.count, null);
   assert.equal(closed.headline, 'Closed for the season');
+  assert.equal(closed.caption, '', 'there is no date to give — the fortnight ends shut');
 
-  const full = availabilityHero(summary({ status: 'full', sitesOpen: 0 }))!;
+  const full = availabilityHero(summary({ nights: [night(TODAY, 0, 54, 'full')] }), TODAY)!;
   assert.equal(full.count, null);
   assert.equal(full.headline, 'Fully booked');
 });
 
+test('one closed night is not a season', () => {
+  // A loop that shuts Sunday and reopens Monday is the ordinary Ozark case —
+  // Pulltite closes 49 of 56 sites on Sunday nights — and calling it "closed
+  // for the season" would send a reader somewhere else for a fortnight.
+  const hero = availabilityHero(
+    summary({ nights: [night(TODAY, 0, 0, 'closed'), night('2026-08-07', 7)] }),
+    TODAY,
+  )!;
+  assert.equal(hero.headline, 'Closed');
+  assert.equal(hero.caption, 'Tonight · next open Tomorrow');
+});
+
+test('a night not yet released is not a closure', () => {
+  const hero = availabilityHero(
+    summary({ nights: [night(TODAY, 0, 0, 'not_yet_released')] }),
+    TODAY,
+  )!;
+  assert.equal(hero.headline, 'Not yet bookable');
+});
+
+test('a facility below the strip floor still describes the weekend', () => {
+  // The server sends `nights: []` for a facility with fewer than seven measured
+  // nights, so there is no night to anchor on and the old fold is the only
+  // thing left to say. Its wording is unchanged, weekend label and all.
+  const hero = availabilityHero(summary(), TODAY)!;
+  assert.equal(hero.count, 8);
+  assert.equal(hero.detail, 'of 54 sites');
+  assert.equal(hero.caption, 'Fri–Sun, Aug 7–9');
+
+  const full = availabilityHero(summary({ status: 'full', sitesOpen: 0 }), TODAY)!;
+  assert.equal(full.headline, 'Fully booked');
+  assert.equal(full.caption, 'Fri–Sun, Aug 7–9');
+});
+
 test('a backcountry district is named, because the number means nothing alone', () => {
   const hero = availabilityHero(
-    summary({ kind: 'backcountry_district', sitesOpen: 12 }),
+    summary({ kind: 'backcountry_district', nights: [night(TODAY, 12, 27)] }),
+    TODAY,
     'Upper Current District',
   )!;
   assert.equal(hero.count, 12);
-  assert.equal(hero.caption, 'Upper Current District');
+  // The night leads: a caption is one line and truncates from the right, and
+  // the day is the part that has to survive.
+  assert.equal(hero.caption, 'Tonight · Upper Current District');
 });
 
 test('absent availability renders nothing rather than "unknown"', () => {
-  assert.equal(availabilityHero(null), null);
-  assert.equal(availabilityHero(undefined), null);
+  assert.equal(availabilityHero(null, TODAY), null);
+  assert.equal(availabilityHero(undefined, TODAY), null);
   assert.equal(availabilityVoiceOver(null, TODAY), null);
 });
 

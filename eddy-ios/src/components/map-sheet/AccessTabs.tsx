@@ -64,7 +64,6 @@ import {
 } from '@/lib/accessCopy';
 import {
   Absent,
-  AccessGaugeReading,
   AmenityChips,
   Chips,
   Fact,
@@ -158,7 +157,6 @@ export function AccessOverviewTab({
   accessPoint,
   detail,
   onOpenDetail,
-  onOpenGauge,
   onOpenRiver,
   onOpenCamping,
   status: detailStatus,
@@ -166,7 +164,6 @@ export function AccessOverviewTab({
 }: TabProps) {
   const point = detail?.accessPoint;
   const camping = nearbyCamping(detail);
-  const status = detail?.gaugeStatus ?? null;
   const services = servicesByTier(detail);
   const availability = accessAvailability(point ?? null);
   const availabilityName = accessAvailabilityName(point ?? null, accessPoint.name);
@@ -220,7 +217,6 @@ export function AccessOverviewTab({
   const bare =
     !description &&
     !lead &&
-    !status &&
     // Counted for the same reason every other section is: a campground whose
     // only fact is its fortnight would otherwise meet "Eddy has no description
     // for this place yet" sitting directly above a populated Campsites card.
@@ -298,49 +294,19 @@ export function AccessOverviewTab({
           because something may still arrive. */}
       {bare && settled ? <Absent>{waitingCopy(detailStatus, 'description')}</Absent> : null}
 
-      {/* ── WHAT THE CONDITIONS TAB USED TO BE ────────────────────────────
-          Two facts, which is not a destination. The reading itself is in the
-          peek and is visible from every tab, so a page that opened with a
-          second rendering of it — and then offered an "Open gauge" row under a
-          block that was already one big tap target to the gauge — was charging
-          a swipe for a trend and a timestamp.
+      {/* ── THERE IS NO WATER SECTION ANY MORE, ON EITHER KIND OF PIN ─────
+          On a put-in the peek's compact reading is nine points up the screen
+          and never scrolls away, so a Water heading here could only add the
+          trend and the timestamp — and the detail endpoint has never populated
+          `trend` (it is `null` on every response it has ever sent), while
+          `lastUpdated` arrived as a raw ISO timestamp. A heading standing over
+          a wire timestamp is a row about the database, which is exactly what
+          this sheet's absent-never-empty rule exists to keep off it.
 
-          They qualify the number above rather than replacing it, which is what
-          makes this the right home: Overview is where a reader goes for the
-          sentences about a place, and "rising, read twenty minutes ago" is a
-          sentence about the number they have already seen. */}
-      {status && (peekSlot !== 'water' || status.trend || status.lastUpdated) ? (
-        <Section title="Water">
-          {/* ── THE READING IS DRAWN HERE ONLY WHEN THE PEEK IS NOT ────────
-              The old comment defended an unconditional copy on the grounds that
-              "the peek does NOT always carry the water" — tap a pin on the
-              campgrounds layer and the reserved slot goes to availability
-              instead, so without a reading here the reader would meet "Rising,
-              updated 20 minutes ago" attached to no number at all.
-
-              That reasoning is right and it is a reason to ASK, not to always
-              draw. `decisionSlot` already knows which fact the glance took, so
-              this asks it: on a put-in whose peek shows the reading, the number
-              is nine points up the screen and repeating it — under a second tap
-              target to the same gauge — is the exact duplication the Conditions
-              tab was deleted for. On a campground pin, whose peek shows a
-              fortnight of campsites, the full block draws exactly as before.
-
-              What is NEVER conditional is the trend and the timestamp. They are
-              what this section adds to the number in either case, and they are
-              the reason the heading survives — WHEN THERE ARE ANY. Both are
-              nullable on the wire and `Fact` renders nothing for a null, so on a
-              gauge carrying neither, suppressing the reading left the heading
-              standing over an empty box. The section is drawn only once it is
-              known to have a body, which is the absent-never-empty rule the rest
-              of this file follows — hence the condition on the Section above. */}
-          {peekSlot !== 'water' ? (
-            <AccessGaugeReading status={status} onOpenGauge={onOpenGauge} />
-          ) : null}
-          <Fact label="Trend" value={status.trend ? trendLabel(status.trend) : null} />
-          <Fact label="Updated" value={status.lastUpdated} />
-        </Section>
-      ) : null}
+          On a campground pin the reading now rides in the corner of the peek's
+          availability card (see CampgroundAvailability's `water`), so between
+          the two peek shapes every gauged pin still shows the water exactly
+          once — just never down here. */}
 
       {/* ── Campsite availability, on the same rule, in the other direction ─
           A campground you reached by tapping its put-in mark has its fortnight
@@ -501,12 +467,6 @@ export function AccessOverviewTab({
       ) : null}
     </View>
   );
-}
-
-function trendLabel(trend: 'rising' | 'falling' | 'steady'): string {
-  if (trend === 'rising') return 'Rising';
-  if (trend === 'falling') return 'Falling';
-  return 'Holding steady';
 }
 
 /* ── Float trips ────────────────────────────────────────────────────────── */
@@ -722,18 +682,24 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false }
   // "nothing is known about these nights" belongs.
   const offered = useMemo(() => nights.filter((night) => night.mark !== 'none'), [nights]);
 
-  // Default to the weekend the peek's card describes — or, when that night was
-  // not measured, the first measured night AFTER it rather than the first
-  // measured night at all. See defaultNight: falling back to the earliest would
-  // walk the reader back to tonight while the peek above still described a
-  // weekend three days out.
+  // ── The night the card above is describing, which is now TONIGHT ─────────
+  //
+  // This asked for `availability.window.startDate` — the coming Friday — back
+  // when the peek's hero was folded from that same weekend. The hero speaks for
+  // tonight now (see availabilityHero), so opening this tab on Friday would put
+  // "5 open · Tonight" three points above a chip row scrolled to a night three
+  // days out, which is the disagreement the shared derivation exists to make
+  // impossible.
+  //
+  // Still THROUGH defaultNight rather than straight to `today`: tonight may not
+  // have been measured, and that function walks forward to the first night that
+  // was — never backwards past the reader's own day.
   //
   // It is NOT the first chip, which is what makes the status line and
   // `scrollToActive` below load-bearing rather than polish: a default the
   // reader cannot see is indistinguishable from no default at all.
   const [selected, setSelected] = useState<string | null>(null);
-  const selectedDate =
-    selected ?? defaultNight(nights, availability?.window.startDate) ?? today;
+  const selectedDate = selected ?? defaultNight(nights, today) ?? today;
   const selectedNight = useMemo(
     () => nights.find((night) => night.date === selectedDate) ?? null,
     [nights, selectedDate],

@@ -56,7 +56,7 @@ These were verified against live sources in July 2026. They are the facts that a
 
 ### CWMS does not generalize across districts
 
-Same concept, six different names:
+Same concept, seven different names:
 
 ```
 SWL   Flow-Res Out | 1Hour     | Regi-Comp
@@ -65,9 +65,20 @@ SWT   Flow-Res Out | 1Hour     | Rev-Regi-Flowgroup
 NAB   Flow-Out     | 15Minutes | National-CWMS-Forecast
 SAM   Flow-Out     | 1Hour     | Raw-APCO / Raw-GPC
 SPK   Flow-Res Out | 1Hour     | Calc-val
+LRN   Flow         | 1Hour     | man-rev   (on NWS-handbook station ids)
 ```
 
-LRN and NWW publish nothing; MVR barely. **National dam coverage is ~40 district integrations, not one.**
+NWW publishes nothing; MVR barely. **National dam coverage is ~40 district integrations, not one.**
+
+> **Correction, measured 2026-08-15.** This section originally said LRN
+> published nothing. It publishes 622 locations and 300 flow series, live and
+> stamped the same day — including per-component turbine/spillway/sluice flow
+> at every Cumberland project AND an hourly forward release schedule (the
+> `celrn-cwms-forecast` series: cfs, ~9 days ahead). The July survey most
+> likely probed the wrong location names: LRN keys observed series on NWS
+> handbook ids (`RWNK2-WOLF_CREEK`), not project names. Full findings:
+> `docs/DAM_EXPANSION_SURVEY_2026-08.md`. Three Cumberland dams are now in the
+> registry on the strength of it.
 
 **Therefore: stop hardcoding timeseries IDs.** The v1 registry enumerates them per dam, which is right for eight dams and wrong for eight hundred. Replace it with a **catalog-driven resolver** — ranked candidate patterns per logical metric, query `/catalog/TIMESERIES`, pick the freshest match, cache the resolution. Adding a district becomes adding patterns, not enumerating dams. It also self-heals the rename risk that the v1 plan can only detect and alert on.
 

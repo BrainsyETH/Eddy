@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { hasFuturePoint, parseTsId, pickSeries, rankSeries, type CatalogEntry } from './resolve';
+import {
+  hasFuturePoint,
+  parseTsId,
+  periodEndingMs,
+  pickSeries,
+  rankSeries,
+  type CatalogEntry,
+} from './resolve';
 
 // Pure ranking tests over synthetic catalogs. Every case below is a real
 // failure the resolver hit when first run against the live CWMS catalog — the
@@ -175,6 +182,75 @@ test('district spellings of turbine flow and flood pool both resolve', () => {
   assert.ok(pickSeries(swl, 'pctFloodPool', 'Table_Rock_Dam', { now: NOW }));
 });
 
+test('LRN vocabulary resolves across a project’s split station namespaces', () => {
+  // Nashville hangs observed series off two NWS-handbook stations per project
+  // and its forecast off a prose name — the case cdaLocations exists for.
+  // One catalog pool, three base locations, each metric found where the
+  // district actually put it. Every id below was verified live 2026-08-15.
+  const locations = ['RWNK2-WOLF_CREEK', 'WLCK2-WOLF_CREEK', 'Wolf Creek Dam'];
+  const entries = [
+    entry('RWNK2-WOLF_CREEK.Flow.Ave.1Hour.1Hour.man-rev', hoursAgo(1)),
+    entry('RWNK2-WOLF_CREEK.Flow-Turbine.Ave.1Hour.1Hour.man-rev', hoursAgo(1)),
+    entry('RWNK2-WOLF_CREEK.Elev-Tail.Inst.1Hour.0.man-rev', hoursAgo(1)),
+    entry('WLCK2-WOLF_CREEK.Elev-Pool.Inst.1Hour.0.man-rev', hoursAgo(1)),
+    entry('WLCK2-WOLF_CREEK.Flow-In.Ave.1Hour.1Hour.man-rev', hoursAgo(1)),
+    entry('Wolf Creek Dam-Turbines.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast', daysAhead(9)),
+  ];
+
+  assert.match(pickSeries(entries, 'release', locations, { now: NOW })!.tsId, /^RWNK2.*\.Flow\./);
+  assert.match(pickSeries(entries, 'generationFlow', locations, { now: NOW })!.tsId, /Flow-Turbine/);
+  assert.match(pickSeries(entries, 'tailwaterElevation', locations, { now: NOW })!.tsId, /Elev-Tail/);
+  assert.match(pickSeries(entries, 'poolElevation', locations, { now: NOW })!.tsId, /Elev-Pool/);
+  assert.match(pickSeries(entries, 'inflow', locations, { now: NOW })!.tsId, /Flow-In/);
+  assert.match(
+    pickSeries(entries, 'generationForecast', locations, { now: NOW })!.tsId,
+    /-Turbines\.Flow\..*forecast$/
+  );
+});
+
+test('bare Flow is the last resort, and never reaches past the listed locations', () => {
+  // Bare `Flow` is the one generic parameter in SPECS, admitted for LRN's
+  // station naming. Two things must hold: a district-specific spelling always
+  // outranks it where both exist, and the exact-location discipline still
+  // applies — a station outside the list cannot be matched however right its
+  // parameter looks.
+  const both = [
+    entry('Table_Rock_Dam.Flow-Res Out.Ave.1Hour.1Hour.Regi-Comp', hoursAgo(1)),
+    entry('Table_Rock_Dam.Flow.Ave.1Hour.1Hour.Regi-Comp', hoursAgo(1)),
+  ];
+  assert.match(
+    pickSeries(both, 'release', 'Table_Rock_Dam', { now: NOW })!.tsId,
+    /Flow-Res Out/,
+    'the specific spelling must outrank bare Flow'
+  );
+
+  const elsewhere = [entry('BYGT1-WolfR-ByrdstownTN.Flow.Inst.30Minutes.0.dcp-rev', hoursAgo(1))];
+  assert.equal(
+    pickSeries(elsewhere, 'release', ['RWNK2-WOLF_CREEK', 'WLCK2-WOLF_CREEK'], { now: NOW }),
+    null,
+    'a station not in the list is not this dam’s water'
+  );
+});
+
+test('the generation forecast never resolves to an observation, nor the reverse', () => {
+  // The forecast/observed split is the plan-versus-record line: the same
+  // parameter spelling exists on both sides at LRN, and only the version
+  // separates them.
+  const entries = [
+    entry('RWNK2-WOLF_CREEK.Flow-Turbine.Ave.1Hour.1Hour.man-rev', hoursAgo(1)),
+    entry('Wolf Creek Dam-Turbines.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast', daysAhead(9)),
+  ];
+  const locations = ['RWNK2-WOLF_CREEK', 'Wolf Creek Dam'];
+  assert.match(
+    pickSeries(entries, 'generationForecast', locations, { now: NOW })!.tsId,
+    /forecast$/
+  );
+  assert.match(
+    pickSeries(entries, 'generationFlow', locations, { now: NOW })!.tsId,
+    /man-rev$/
+  );
+});
+
 test('rankSeries offers fallbacks in order so a dead favourite can be skipped', () => {
   // resolveSeries probes candidates in this order; without more than one there
   // is nothing to fall through to when the best-named series returns no value.
@@ -215,4 +291,44 @@ test('reports which series won and why', () => {
   assert.ok(hit);
   assert.equal(hit.unit, 'cfs');
   assert.equal(hit.reason, 'Flow-Res Out/1Hour/Regi-Comp');
+});
+
+// ── Period-ending duration ─────────────────────────────────────────────────
+// What tells the history writer whether a stamp is a moment or the end of an
+// hour. Getting it backwards drew the whole pattern strip an hour late.
+
+test('a duration of zero is an instant, whatever the interval says', () => {
+  // The trap this exists for: `Inst.1Hour.0` arrives hourly and summarises
+  // nothing. Reading the INTERVAL would call it an hourly average and shift it.
+  assert.equal(periodEndingMs('TENK.Flow-Power.Inst.1Hour.0.Rev-Regi-Flowgroup'), 0);
+  assert.equal(periodEndingMs('WLCK2-WOLF_CREEK.Elev-Pool.Inst.1Hour.0.man-rev'), 0);
+  assert.equal(periodEndingMs('CETT1-CENTER_HILL.Temp-Water-Tail.Inst.30Minutes.0.dcp-rev'), 0);
+});
+
+test('a non-zero duration is the period the stamp closes', () => {
+  assert.equal(periodEndingMs('TENK.Flow-Power.Ave.1Hour.1Hour.Rev-Regi-Flowgroup'), 3_600_000);
+  assert.equal(
+    periodEndingMs('RWNK2-WOLF_CREEK.Flow-Turbine.Ave.1Hour.1Hour.man-rev'),
+    3_600_000
+  );
+  assert.equal(periodEndingMs('Wappapello Lk-St Francis.Flow-Out.Ave.~1Day.1Day.lakerep-rev'), 86_400_000);
+  assert.equal(periodEndingMs('SOME.Flow.Ave.15Minutes.15Minutes.rev'), 900_000);
+});
+
+test('an unreadable id shifts nothing rather than guessing', () => {
+  // A series whose duration we cannot parse is left where its stamp puts it.
+  // Moving it by a guess would be the same class of error in a new place.
+  assert.equal(periodEndingMs('not-a-ts-id'), 0);
+  assert.equal(periodEndingMs('A.B.Ave.1Hour.Unknown.rev'), 0);
+});
+
+test('the two Tenkiller siblings are told apart', () => {
+  // They differ only in type and duration, and both are live. This pair is the
+  // reason the discrimination has to be exact: they score identically in
+  // rankSeries and the alphabetical tie-break picks `Ave`.
+  const ave = 'TENK.Flow-Power.Ave.1Hour.1Hour.Rev-Regi-Flowgroup';
+  const inst = 'TENK.Flow-Power.Inst.1Hour.0.Rev-Regi-Flowgroup';
+  assert.equal(parseTsId(ave)?.duration, '1Hour');
+  assert.equal(parseTsId(inst)?.duration, '0');
+  assert.notEqual(periodEndingMs(ave), periodEndingMs(inst));
 });

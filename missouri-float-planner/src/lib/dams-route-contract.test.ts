@@ -244,3 +244,48 @@ test('the observed pattern is detail-only and never invents days', () => {
   assert.equal(withPattern.pattern?.[0].turbineCfs[13], 8_200);
   assert.equal(withPattern.pattern?.[0].turbineCfs[12], null, 'a gap stays null on the wire');
 });
+
+test('the generation forecast is detail-only and survives assembly intact', () => {
+  // Same argument as the pattern: ~9 days of forward windows is a detail-page
+  // payload. Absent when not passed, absent when empty — a forecast section
+  // with nothing in it must not exist on the wire, because a client renders
+  // presence, and an empty present forecast reads as "forecast: nothing",
+  // which is a claim the source never made.
+  const wolfCreek = USACE_DAMS['lrn-wolf-creek-dam'];
+  assert.ok(!('generationForecast' in buildSnapshot(wolfCreek, {}, [])));
+  assert.ok(
+    !('generationForecast' in
+      buildSnapshot(wolfCreek, {}, [], undefined, {
+        windows: [],
+        timeZone: 'America/Chicago',
+        retrievedAt: null,
+        source: 'U.S. Army Corps of Engineers, Nashville District',
+      }))
+  );
+
+  const forecast = {
+    windows: [
+      {
+        startUtc: '2026-08-15T14:00:00.000Z',
+        endUtc: '2026-08-15T22:00:00.000Z',
+        generating: false,
+        peakCfs: null,
+      },
+      {
+        startUtc: '2026-08-15T22:00:00.000Z',
+        endUtc: '2026-08-16T05:00:00.000Z',
+        generating: true,
+        peakCfs: 15_720,
+      },
+    ],
+    timeZone: 'America/Chicago',
+    retrievedAt: '2026-08-15T13:05:00.000Z',
+    source: 'U.S. Army Corps of Engineers, Nashville District',
+  };
+  const carried = buildSnapshot(wolfCreek, {}, [], undefined, forecast).generationForecast;
+  assert.ok(carried, 'forecast dropped in assembly');
+  assert.equal(carried.windows.length, 2);
+  assert.equal(carried.windows[1].peakCfs, 15_720);
+  assert.equal(carried.timeZone, 'America/Chicago');
+  assert.equal(carried.retrievedAt, '2026-08-15T13:05:00.000Z');
+});

@@ -25,6 +25,7 @@ import {
   History,
   Film,
   ShieldCheck,
+  Bot,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { adminFetch } from '@/hooks/useAdminAuth';
@@ -50,6 +51,7 @@ const NAV_ITEMS = [
   { href: '/admin/images', label: 'Image Library', icon: ImageIcon },
   { href: '/admin/social', label: 'Social Media', icon: Share2 },
   { href: '/admin/clips', label: 'Clip Library', icon: Film },
+  { href: '/admin/ai-models', label: 'AI Models', icon: Bot },
   { href: '/admin/activity', label: 'Activity Log', icon: History },
 ];
 

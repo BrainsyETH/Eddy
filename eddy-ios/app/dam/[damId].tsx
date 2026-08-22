@@ -38,9 +38,9 @@ import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
 import { fetchDam } from '@/api/client';
 import { DamStateCard } from '@/components/dam/DamStateCard';
-import { DamGenerationHero } from '@/components/dam/DamGenerationHero';
+import { GenerationCard } from '@/components/dam/GenerationCard';
 import { DamPatternStrip } from '@/components/dam/DamPatternStrip';
-import { GenerationSchedule } from '@/components/dam/GenerationSchedule';
+import { GenerationForecast } from '@/components/dam/GenerationForecast';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -167,7 +167,8 @@ export default function DamDetailScreen() {
   // dam can arrive with a schedule and no readings, or readings and no
   // schedule. Both are ordinary; only nothing at all is worth saying.
   const hasMetrics = Object.keys(dam.metrics).length > 0;
-  const hasAnything = hasMetrics || dam.schedule.length > 0 || dam.generating !== null;
+  const hasAnything =
+    hasMetrics || dam.schedule.length > 0 || dam.generating !== null || Boolean(dam.generationForecast);
 
   const starred = isStarred('dam', dam.id);
 
@@ -224,7 +225,12 @@ export default function DamDetailScreen() {
         {hasAnything ? (
           <>
             <View style={styles.section}>
-              <DamGenerationHero dam={dam} />
+              {/* One card, two sections: observed above the rule, scheduled
+                  below it. They were two cards saying the same thing twice —
+                  a NEXT CHANGE panel over a schedule describing the same plan,
+                  each carrying its own copy of the publisher, the freshness and
+                  the change warning. See GenerationCard. */}
+              <GenerationCard dam={dam} />
             </View>
           </>
         ) : (
@@ -240,9 +246,18 @@ export default function DamDetailScreen() {
           </View>
         )}
 
-        {dam.schedule.length > 0 ? (
+        {/* The schedule is no longer its own section: it is the lower half of
+            the Generation card above. A dam with a schedule but NO powerhouse
+            reading still gets it — GenerationCard draws the hero's half empty
+            rather than dropping the card. */}
+
+        {/* The forecast sits where the schedule would: it answers the same
+            "today and the days ahead" question from a different kind of
+            source — a district's operating forecast rather than a power
+            marketer's loading schedule. No dam currently has both. */}
+        {dam.generationForecast ? (
           <View style={styles.section}>
-            <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} />
+            <GenerationForecast forecast={dam.generationForecast} />
           </View>
         ) : null}
 

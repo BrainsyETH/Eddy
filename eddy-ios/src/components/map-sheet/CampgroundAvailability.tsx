@@ -3,12 +3,13 @@
 //
 // ── What was wrong was the RANK, not the facts ────────────────────────────
 //
-// availability.ts already computed the right things and AvailabilityGlance
-// already set the number in Fredoka. But the module sat between an identity row
-// and an action row with no surface of its own, so the app's flagship answer to
-// "can I stay here on my dates" read as a caption between two other things. A
-// campground is the one pin people tap to make a booking decision, and a
-// decision needs somewhere to land.
+// availability.ts already computed the right things and the glance this
+// replaced — AvailabilityGlance, since deleted, because nothing had imported it
+// for as long as this card has existed — already set the number in Fredoka. But
+// that module sat between an identity row and an action row with no surface of
+// its own, so the app's flagship answer to "can I stay here on my dates" read as
+// a caption between two other things. A campground is the one pin people tap to
+// make a booking decision, and a decision needs somewhere to land.
 //
 // This is that surface: the same numbers, on a card, behind the same drawing the
 // pin was wearing when it was tapped.
@@ -66,7 +67,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddySymbol } from '@/components/EddySymbol';
-import type { CampsiteAvailabilitySummary } from '@eddy/types';
+import type { AccessPointGaugeStatus, CampsiteAvailabilitySummary } from '@eddy/types';
+import { conditionText } from '@/theme/conditions';
+import { formatReading } from '@/lib/readingCopy';
 import { availabilityHero, availabilityVoiceOver, nightBars } from './availability';
 import { NightStrip, STRIP_HEIGHT_TALL } from './NightStrip';
 
@@ -80,6 +83,7 @@ export function CampgroundAvailability({
   name,
   today,
   onPress,
+  water = null,
   pending = false,
   pendingLabel,
 }: {
@@ -89,6 +93,27 @@ export function CampgroundAvailability({
   today: string;
   /** Opens the tab where the nights are 44pt chips instead of a chart. */
   onPress?: () => void;
+  /**
+   * The river's reading, worn on the card's corner — PEEK CALLERS ONLY.
+   *
+   * A campground pin gives the glance's one slot to the fortnight (peekSlot.ts),
+   * which used to leave its water reading a swipe away under Overview's Water
+   * heading. That heading is gone — the trend and timestamp it added were never
+   * populated — so the number rides here instead: the top-right corner of the
+   * card, in the condition's own ink with the verdict word under it, so the
+   * verdict is text rather than colour alone (NightStrip's rule).
+   *
+   * It sits INSIDE the headline row and is always shorter than the words beside
+   * it, so its arrival — half a second after the card, with the detail response
+   * — cannot change the card's height. That is the one-height invariant the
+   * header above declares, and it is why this is a corner and not a second row:
+   * a second row is the stacked-blocks movement peekSlot.ts exists to prevent.
+   *
+   * Overview's Campsites mirror passes nothing: on the pins that draw that
+   * mirror the peek already shows the reading, and two copies nine points apart
+   * is the duplication the mirror rule exists to avoid.
+   */
+  water?: AccessPointGaugeStatus | null;
   /**
    * Draw the card's SHAPE with nothing in it yet.
    *
@@ -109,10 +134,27 @@ export function CampgroundAvailability({
    */
   pendingLabel?: string;
 }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
-  const hero = pending ? null : availabilityHero(availability, name);
+  const hero = pending ? null : availabilityHero(availability, today, name);
   if (!pending && !hero) return null;
+
+  // The same preference AccessGaugeReading applies: the flow when there is one,
+  // the stage when that is all the station measures.
+  const waterReading = water
+    ? water.cfs != null
+      ? formatReading(water.cfs, 'cfs')
+      : water.heightFt != null
+        ? formatReading(water.heightFt, 'ft')
+        : null
+    : null;
+  // The attribution the corner has no room to draw. The reading is the reach's
+  // nearest at-or-upstream gauge, not a sensor at the campground, and the ear
+  // gets told so even where the eye is only glancing.
+  const waterSpoken =
+    water && waterReading
+      ? `River ${waterReading}, ${water.label}, at ${water.gaugeName}`
+      : null;
 
   // Works for absent availability too: nightBars returns the fortnight with
   // every mark 'none', which is a bare date ruler — weekday letters and no drawn
@@ -163,6 +205,25 @@ export function CampgroundAvailability({
               {(hero ? [hero.detail, hero.caption].filter(Boolean).join(' · ') : '') || ' '}
             </Text>
           </View>
+
+          {/* ── THE RIVER, IN THE CORNER ─────────────────────────────────
+              Two lines that mirror the words column beside them — reading in
+              the condition's ink, verdict in words underneath — so the state
+              is never carried by colour alone. Never taller than that column,
+              which is what lets it arrive late without moving the card. */}
+          {water && waterReading ? (
+            <View style={styles.water}>
+              <Text
+                style={[styles.waterReading, { color: conditionText(water.level, isDark) }]}
+                numberOfLines={1}
+              >
+                {waterReading}
+              </Text>
+              <Text style={[styles.waterLabel, { color: colors.textMuted }]} numberOfLines={1}>
+                {water.label}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Always drawn, and it does not overclaim when it has nothing: a bar
@@ -184,8 +245,9 @@ export function CampgroundAvailability({
       accessibilityRole="button"
       // The card's whole utterance, then what tapping it does. NightStrip's own
       // label is suppressed by this element owning the subtree — one VoiceOver
-      // stop for one object, never fourteen columns and a number.
-      accessibilityLabel={spoken ?? hero?.headline}
+      // stop for one object, never fourteen columns and a number. The corner's
+      // reading joins it, with the station attribution the eye never gets.
+      accessibilityLabel={[spoken ?? hero?.headline, waterSpoken].filter(Boolean).join('. ')}
       accessibilityHint="Opens campsite availability"
     >
       {body}
@@ -205,6 +267,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // ── THE ONLY FREDOKA IN THE MAP SHEET, AND THE WHOLE BRANDING MOVE ──────
+  // Stated here because the file that used to state it is gone: the number a
+  // person came for is drawn in Eddy's own voice and everything around it stays
+  // in Geist, so the sheet does not turn into a poster. It is not coral either
+  // — see the rail's note above.
   count: { ...t['2xl'], fontFamily: fonts.display },
   words: { flex: 1, minWidth: 0 },
   // ONE headline style for every state — "59 open", "Fully booked" and
@@ -214,4 +281,12 @@ const styles = StyleSheet.create({
   // predict which it was about to get.
   label: { ...t.sm, fontFamily: fonts.semibold },
   caption: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
+  // Right-aligned so the number hangs off the card's edge like a figure in a
+  // table, and never wider than it needs — the words column beside it is the
+  // one that flexes.
+  water: { alignItems: 'flex-end' },
+  // The mono face and the sm rank the peek's compact reading uses: the same
+  // fact at the same rank, in a different corner.
+  waterReading: { ...t.sm, fontFamily: fonts.mono },
+  waterLabel: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
 });

@@ -541,3 +541,31 @@ test('a day summary says "scheduled" in every branch, and names an all-day run',
     assert.ok(/scheduled/i.test(full), `"${full}" must name itself a plan`);
   }
 });
+
+test('a midnight change two days out names the night it actually falls on', () => {
+  // The half the tonight fix missed. NOON_CENTRAL is Tuesday 2026-07-28, so a
+  // flip at hour ending 1 on Thursday the 30th is the release running from
+  // 00:00 Thursday — WEDNESDAY night. Called "midnight Thursday" it reads as
+  // the midnight that closes Thursday and puts the start 24 hours late, which
+  // is the same dangerous direction "midnight tomorrow" erred in, simply one
+  // day further out where nobody had looked.
+  //
+  // Reachable: SWPA posts several days at once and scheduleOutlook walks them.
+  const schedule = [
+    day('2026-07-28', {}),
+    day('2026-07-29', {}),
+    day('2026-07-30', { 1: 35, 2: 35 }),
+  ];
+  assert.equal(
+    nextScheduleChangeSentence(schedule, NOON_CENTRAL),
+    'Generation scheduled to start at midnight Wednesday'
+  );
+
+  // Any other hour keeps its own day word — the correction is only for the one
+  // hour whose start time sits on the boundary between two days.
+  const sixAm = [day('2026-07-28', {}), day('2026-07-29', {}), day('2026-07-30', { 7: 35 })];
+  assert.equal(
+    nextScheduleChangeSentence(sixAm, NOON_CENTRAL),
+    'Generation scheduled to start at 6 AM Thursday'
+  );
+});

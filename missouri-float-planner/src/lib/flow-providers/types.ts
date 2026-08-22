@@ -92,6 +92,15 @@ export interface HistoricalReading {
   timestamp: string;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
+  /**
+   * Provider qualifier codes on this observation, same vocabulary as
+   * GaugeReading.qualifiers ('P' provisional, 'e' estimated, 'Ice', ...).
+   *
+   * Optional rather than required because only USGS publishes them per
+   * historical point — NWPS and USACE series carry none, and a provider that
+   * omits the field is saying "unqualified", not "unknown".
+   */
+  qualifiers?: string[];
 }
 
 export interface HistoricalData {

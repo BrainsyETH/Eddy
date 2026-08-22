@@ -53,7 +53,7 @@ import {
   scheduledClauseProvenance,
   speaksForNow,
   OTHER_RELEASE_NOTE,
-  RACK_ESTIMATE_NOTE,
+  generationReferenceLine,
 } from '@shared/dam-generation';
 
 function cfs(value: number): string {
@@ -175,14 +175,14 @@ export default function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
             {/* The citation, demoted but never dropped: the percentage is only
                 checkable because the denominator is published, and a figure
                 with no publisher asks to be taken on faith. */}
-            <p className="text-xs text-neutral-500">{generationReferenceCitation(ref)}</p>
+            <p className="text-xs text-neutral-500">
+              {rack ? generationReferenceLine(ref) : generationReferenceCitation(ref)}
+            </p>
           </div>
         )}
       </div>
 
       {voiceOver && <p className="sr-only">{voiceOver}</p>}
-
-      {rack && <p className="mt-2 text-xs text-neutral-500">{RACK_ESTIMATE_NOTE}</p>}
 
       {/* NEXT CHANGE — the panel, not a footnote. Tinted, bordered and set at
           reading size, because this is the answer somebody came for and it was

@@ -142,13 +142,29 @@ export function FirstRunPicker({ onDone, onUnavailable }: Props) {
     if (locating) return;
     setLocating(true);
     try {
+      // Gauges are a second request, and the only reason for it is this tap —
+      // /api/rivers carries no coordinates. Never fetched on open.
+      //
+      // STARTED BEFORE the location is awaited, not after. It needs no
+      // coordinates — only riverMilesByGauge does — and the two slowest things
+      // behind this chip were running one after the other: a cold GPS fix, and
+      // then a network round trip. They overlap now, so the wait is the longer
+      // of the two rather than their sum.
+      //
+      // The cost of being wrong is one CDN-cached request on a tap the user
+      // declines, which is the right side of that trade — and the promise is
+      // caught here so a rejection cannot go unhandled while the permission
+      // dialog is still up.
+      const gaugesPromise = fetchGauges().catch((error) => {
+        warn('map', 'first-run gauges unavailable', error);
+        return null;
+      });
+
       const coords = await location.request();
       if (!coords) return; // Denied or unavailable; the chip renders the state.
 
-      // Gauges are a second request, and the only reason for it is this tap —
-      // /api/rivers carries no coordinates. Never fetched on open.
-      const gauges = await fetchGauges();
-      setDistances(riverMilesByGauge(gauges, coords));
+      const gauges = await gaugesPromise;
+      if (gauges) setDistances(riverMilesByGauge(gauges, coords));
 
       // Naming the place is what makes this feel like a reason rather than a
       // permission grab. Entirely optional: a failure leaves the fallback copy

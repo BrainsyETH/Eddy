@@ -85,7 +85,6 @@ import { loadMapbox, STYLE_URL } from './runtime';
 import {
   GAUGE_DETAIL_ZOOM,
   MAP_LAYERS,
-  MIN_GAUGE_ZOOM,
   MAX_RADAR_ZOOM,
   MIN_RADAR_ZOOM,
   ZOOM,
@@ -454,8 +453,8 @@ export interface MapPin {
    *
    * Distinct from `riverSlug`, which opens the RIVER a pin sits on. This is the
    * pin itself. Access points had neither, so the map was a dead end for the
-   * one layer that is on by default: the detail screen existed and was
-   * reachable only by finding the same put-in again in the river screen's list.
+   * layer it opens on: the detail screen existed and was reachable only by
+   * finding the same put-in again in the river screen's list.
    */
   detailRoute?: string | null;
   /** True when an access location requires permission rather than being public. */
@@ -580,7 +579,13 @@ interface Props {
   conditionCode: string;
   /** Every curated river, condition-coloured. Drawn under the selected one. */
   network?: NetworkCollection | null;
-  onSelectRiverSlug?: (slug: string) => void;
+  /**
+   * A river line was tapped, with WHERE it was tapped when the event carried it.
+   *
+   * The coordinate is what lets the caller keep the reader on the stretch they
+   * pointed at instead of framing the whole river out from under them.
+   */
+  onSelectRiverSlug?: (slug: string, at?: { lng: number; lat: number }) => void;
   /**
    * Every access point to draw, each tagged with the river it is on.
    *
@@ -670,13 +675,22 @@ interface Props {
 }
 
 /**
- * GeoJSON for one layer.
+ * GeoJSON for one layer, or for one FAMILY of layers.
  *
  * `color` is written onto every feature, not just the ones that override it, so
  * the paint expression can be a flat `['get','color']` rather than a `case` that
  * has to test for the property's presence.
+ *
+ * ── WHY defaultColor MAY BE A FUNCTION ───────────────────────────────────
+ *
+ * Every source here used to hold exactly one layer, so one colour covered the
+ * whole collection. The family index sources below hold three layers at once —
+ * put-ins, tents and ramps in one clustered source — and a lone campground at
+ * statewide zoom has to stay green rather than take the family's teal, or the
+ * dot stops being the legend the layers sheet promises. Passed the pin, a
+ * caller can answer per feature; passed a string, nothing changes.
  */
-function featureCollection(pins: MapPin[], defaultColor: string) {
+function featureCollection(pins: MapPin[], defaultColor: string | ((pin: MapPin) => string)) {
   return {
     type: 'FeatureCollection' as const,
     features: pins.map((pin) => ({
@@ -686,7 +700,8 @@ function featureCollection(pins: MapPin[], defaultColor: string) {
         id: pin.id,
         name: pin.name,
         label: pin.label ?? pin.name,
-        color: pin.color ?? defaultColor,
+        color:
+          pin.color ?? (typeof defaultColor === 'string' ? defaultColor : defaultColor(pin)),
         magnitude: pin.magnitude ?? 0,
         privateAccess: pin.privateAccess ?? false,
         // Written on every feature so a CLUSTER can reduce over it — see
@@ -1254,6 +1269,70 @@ export function RiverMap({
     [dams, colors],
   );
 
+  /**
+   * ── THE TWO FAMILY INDEXES ────────────────────────────────────────────────
+   *
+   * One collection per FAMILY, holding every pin its layers draw, and drawn
+   * only below ZOOM.cluster — see familyIndexLayer.
+   *
+   * ── The state this fixes ────────────────────────────────────────────────
+   *
+   * Access points clustered and nothing else did, so the two layers holding
+   * fourteen thousand things collapsed into bubbles while the ~285 places did
+   * not: at the opening statewide view the Ozarks were a wall of tents, canoes
+   * and cabins with the rivers invisible underneath.
+   *
+   * Worse, switching Camping ON made it *sparser where it counted*: a put-in
+   * tagged `campground` leaves the access source to wear a tent (see
+   * campgroundPins), so the access cluster's count fell by 123 at the same
+   * moment 123 unclustered tents appeared. The layer that consolidates lost
+   * exactly the pins the layer that does not consolidate gained.
+   *
+   * ── Why an INDEX rather than merging the sources ────────────────────────
+   *
+   * The obvious fix is one clustered source per family holding every mark. It
+   * costs more than it looks: a merged source needs `iconImage` per feature,
+   * and the access mark is bottom-anchored (its tip IS the location) while
+   * every other mark is centred — so the icon and label layers would have to be
+   * split by anchor anyway, and each layer's own tuning (the private-access
+   * dimming, the badge behind themed marks) would have to be re-expressed as
+   * filters over a mixed source.
+   *
+   * Below ZOOM.cluster none of that is drawn. A bubble is a count and a
+   * singleton is a coloured dot, and neither needs a mark — so the index holds
+   * only what a bubble needs, the real layers keep their own rendering
+   * unchanged, and the two never draw at the same zoom.
+   *
+   * The price is one duplicate set of features across the bridge: ~400 points
+   * for the access family, ~110 for services. Memoised on the same inputs as
+   * every other collection here, so it is built when its pins change and not
+   * per render — and it buys leaving five tuned layers exactly as they are.
+   *
+   * ── The families, and why these two ─────────────────────────────────────
+   *
+   * `places` is the access family — put-ins, camping, ramps — which is already
+   * ONE population under three questions: the resolver hands out one marker per
+   * place with an `owner` deciding its mark, so these three can never
+   * double-count a place between them. `services` is rentals and cabins, the
+   * same arrangement over the directory. Gauges keep their own two families:
+   * a rated bubble carries the worst verdict inside it, which is a claim about
+   * water that a bubble full of cabins must not join.
+   */
+  const placesIndexShape = useMemo(
+    () =>
+      featureCollection([...accessPins, ...campgroundPins, ...boatRampPins], (pin) =>
+        layerColorFor(pin.layer, colors),
+      ),
+    [accessPins, campgroundPins, boatRampPins, colors],
+  );
+  const servicesIndexShape = useMemo(
+    () =>
+      featureCollection([...outfitterPins, ...lodgingPins], (pin) =>
+        layerColorFor(pin.layer, colors),
+      ),
+    [outfitterPins, lodgingPins, colors],
+  );
+
   const pinShapes = useMemo(
     () =>
       ({
@@ -1544,9 +1623,28 @@ export function RiverMap({
 
   const stroke = conditionColor(conditionCode);
 
-  const onNetworkPress = (event: { features?: { properties?: Record<string, unknown> }[] }) => {
+  // ── THE TAP POINT TRAVELS WITH THE SLUG ──────────────────────────────────
+  // Mapbox hands every press the map coordinate under the finger, and this
+  // dropped it. Without it the caller had nothing to keep the reader near, so
+  // selecting a river could only frame the whole river — which on the Current
+  // is 134 miles and lands somewhere the reader was not looking. See the map
+  // screen's onSelectNetworkRiver.
+  const onNetworkPress = (event: {
+    features?: { properties?: Record<string, unknown> }[];
+    coordinates?: { latitude: number; longitude: number };
+  }) => {
     const slug = event.features?.[0]?.properties?.slug;
-    if (typeof slug === 'string') onSelectRiverSlug?.(slug);
+    if (typeof slug !== 'string') return;
+    const at = event.coordinates;
+    onSelectRiverSlug?.(
+      slug,
+      // Optional because it comes off a native event: a shape that arrives
+      // without it must still select the river, and the caller falls back to
+      // framing rather than to doing nothing.
+      at && Number.isFinite(at.longitude) && Number.isFinite(at.latitude)
+        ? { lng: at.longitude, lat: at.latitude }
+        : undefined,
+    );
   };
 
   const layerOn = (key: LayerKey) => layers.includes(key);
@@ -1941,6 +2039,97 @@ export function RiverMap({
   };
 
   /**
+   * One family's bubbles at statewide zoom, and nothing above it.
+   *
+   * Every layer in the family is in here, and NONE of them draws its own marks
+   * below ZOOM.cluster — see the call sites, which all pass that as their floor.
+   * So the handover is exact: this source is capped at ZOOM.cluster and the real
+   * layers start there, the same way access's own overview dot has always
+   * handed over to its icon at ZOOM.places.
+   *
+   * There are no marks here on purpose. A bubble is a count and a singleton is
+   * a coloured dot; both are legible at a zoom where a 22pt tent is not, and
+   * neither needs to know which of the family's layers it came from. The dot
+   * still wears its own layer's colour, so a lone campground is green and a lone
+   * put-in is teal — the sheet's rows stay a legend for what is on the map.
+   *
+   * @param tint The family's bubble fill. Its LAYERS keep their own colours;
+   *   this is the one colour a mixed count is allowed to have.
+   */
+  const familyIndexLayer = (
+    id: 'places' | 'services',
+    shape: ReturnType<typeof featureCollection>,
+    tint: string,
+  ) => (
+    <Mapbox.ShapeSource
+      id={`pins-${id}-index`}
+      shape={shape}
+      onPress={onClusterablePress}
+      cluster
+      // 46: between access's old 42 and the national tier's 50. A family holds
+      // more members in the same ground than any single layer did, and a radius
+      // that groups them too tightly leaves a scatter of near-touching bubbles
+      // where one count belongs.
+      clusterRadius={46}
+      clusterMaxZoomLevel={ZOOM.cluster}
+    >
+      <Mapbox.CircleLayer
+        id={`pins-${id}-index-cluster`}
+        filter={['has', 'point_count']}
+        // ZOOM.min is the ladder's floor: nothing statewide draws below it, and
+        // a family that ignored it would announce a continental view as one very
+        // large count. Same reasoning pinLayer's own cluster circle carries.
+        minZoomLevel={ZOOM.min}
+        maxZoomLevel={ZOOM.cluster}
+        style={{
+          circleColor: tint,
+          circleOpacity: 0.92,
+          circleStrokeColor: '#FFFFFF',
+          circleStrokeWidth: 1.5,
+          circleRadius: ['step', ['get', 'point_count'], 13, 5, 16, 12, 19],
+        }}
+      />
+      <Mapbox.SymbolLayer
+        id={`pins-${id}-index-count`}
+        filter={['has', 'point_count']}
+        minZoomLevel={ZOOM.min}
+        maxZoomLevel={ZOOM.cluster}
+        style={{
+          textField: ['get', 'point_count_abbreviated'],
+          textSize: 10,
+          // Dark ink and a halo, NOT white — the rule the rated-gauge bubble
+          // already states: a count must not need a `match` to stay legible.
+          // These two families wear teal and tan, and white fails the second.
+          textColor: LABEL_INK,
+          textHaloColor: LABEL_HALO,
+          textHaloWidth: 1,
+          // A circle with no number in it is a dot that lies about being one
+          // place. Never dropped by collision detection.
+          textAllowOverlap: true,
+          textIgnorePlacement: true,
+        }}
+      />
+      <Mapbox.CircleLayer
+        id={`pins-${id}-index-dot`}
+        filter={['!', ['has', 'point_count']]}
+        minZoomLevel={ZOOM.min}
+        maxZoomLevel={ZOOM.cluster}
+        style={{
+          circleRadius: 4.5,
+          circleColor: ['get', 'color'],
+          // Carried through from the access layer's own overview dot: a landing
+          // that needs permission is dimmed rather than hidden.
+          circleOpacity: ['case', ['get', 'privateAccess'], 0.65, 1],
+          circleStrokeColor: '#FFFFFF',
+          circleStrokeWidth: selectedPinId
+            ? ['case', ['==', ['get', 'id'], selectedPinId], 3, 1.5]
+            : 1.5,
+        }}
+      />
+    </Mapbox.ShapeSource>
+  );
+
+  /**
    * Access points change representation with zoom.
    *
    * At a whole-river view a 22pt pin for every landing hides the river and
@@ -1955,36 +2144,23 @@ export function RiverMap({
   const accessLayer = () => (
     <Mapbox.ShapeSource
       id="pins-access"
+      // ── THIS SOURCE NO LONGER CLUSTERS, and that is not a loss ───────────
+      //
+      // It was the only place layer that did, which is what made the map worse
+      // the more of the family you switched on: a put-in tagged `campground`
+      // left this source to wear a tent, so the bubble it was in got smaller by
+      // one and the map got an unclustered mark. The whole family clusters
+      // together now, one rung lower down the render, and this source picks the
+      // places up at ZOOM.cluster with nothing hidden in between.
       shape={pinShapes.access}
-      onPress={onClusterablePress}
-      cluster
-      clusterRadius={42}
-      clusterMaxZoomLevel={ZOOM.cluster}
+      onPress={onPress}
     >
       <Mapbox.CircleLayer
-        id="pins-access-cluster"
-        filter={['has', 'point_count']}
-        style={{
-          circleColor: colors.interactive,
-          circleStrokeColor: '#FFFFFF',
-          circleStrokeWidth: 1.5,
-          circleRadius: ['step', ['get', 'point_count'], 13, 5, 16, 12, 19],
-        }}
-      />
-      <Mapbox.SymbolLayer
-        id="pins-access-cluster-count"
-        filter={['has', 'point_count']}
-        style={{
-          textField: ['get', 'point_count_abbreviated'],
-          textSize: 10,
-          textColor: colors.onInteractive,
-          textAllowOverlap: true,
-          textIgnorePlacement: true,
-        }}
-      />
-      <Mapbox.CircleLayer
         id="pins-access-overview"
-        filter={['!', ['has', 'point_count']]}
+        // The family index draws everything below here. Without the floor the
+        // two would both paint at statewide zoom — bubbles with a full scatter
+        // of dots under them, which is the crowding this was meant to end.
+        minZoomLevel={ZOOM.cluster}
         maxZoomLevel={ZOOM.places}
         style={{
           circleRadius: 4.5,
@@ -1998,7 +2174,6 @@ export function RiverMap({
       />
       <Mapbox.SymbolLayer
         id="pins-access-icon"
-        filter={['!', ['has', 'point_count']]}
         minZoomLevel={ZOOM.places}
         style={{
           iconImage: PIN_ICONS.pin?.image ?? 'eddy-access-map',
@@ -2014,7 +2189,6 @@ export function RiverMap({
           dialog; at overview zoom it is the dimmed circle below. */}
       <Mapbox.SymbolLayer
         id="pins-access-label"
-        filter={['!', ['has', 'point_count']]}
         minZoomLevel={ZOOM.names}
         style={{
           textField: ['get', 'label'],
@@ -2280,23 +2454,53 @@ export function RiverMap({
           least to say and the most members. */}
       {layerOn('allGauges') ? contextGaugeLayer(referenceGauges ?? []) : null}
 
+      {/* ── The two family indexes, under everything they consolidate ───────
+          Below ZOOM.cluster these are the ONLY thing the place layers draw, so
+          they go first: a rated gauge's verdict and a hazard must paint over a
+          bubble of cabins, never under it. Mounted whenever any member of the
+          family is on — an empty family draws nothing, and the source staying
+          mounted through a toggle is the same teardown rule pinLayer follows. */}
+      {layerOn('access') || layerOn('campgrounds') || layerOn('boatRamps')
+        ? familyIndexLayer('places', placesIndexShape, colors.interactive)
+        : null}
+      {layerOn('outfitters') || layerOn('lodging')
+        ? familyIndexLayer('services', servicesIndexShape, colors.warm)
+        : null}
+
       {layerOn('access') ? accessLayer() : null}
+      {/* ── THE FAMILY INDEX OWNS THE BAND BELOW ZOOM.cluster ────────────────
+          These four start AT ZOOM.cluster and are compact dots until
+          ZOOM.places. Below the cluster rung they draw nothing at all, because
+          familyIndexLayer is already drawing one bubble per FAMILY there —
+          which is the point of it: a bubble per layer would count overlapping
+          halves of one population, and a put-in tagged `campground` leaving the
+          access source to wear a tent would drop the access count by 123 at the
+          exact moment 123 tents appeared.
+
+          An earlier pass here gave them ZOOM.min instead, on the narrower
+          reading that a floor was all they were missing. That is wrong against
+          this design and map-zoom-ladder.test.ts fails on it: ZOOM.min leaves a
+          band where the index's bubbles and the full scatter of dots paint
+          together, which is the crowding the index replaced. The floor and the
+          index's ceiling have to be the same rung, and neither half fails
+          loudly on its own — hence the test. */}
       {layerOn('outfitters')
-        ? pinLayer('outfitters', 'outfitter')
+        ? pinLayer('outfitters', 'outfitter', ZOOM.names, ZOOM.cluster, ZOOM.places)
         : null}
       {layerOn('lodging')
-        ? pinLayer('lodging', 'lodging')
+        ? pinLayer('lodging', 'lodging', ZOOM.names, ZOOM.cluster, ZOOM.places)
         : null}
       {layerOn('campgrounds')
-        ? pinLayer('campgrounds', 'campground')
+        ? pinLayer('campgrounds', 'campground', ZOOM.names, ZOOM.cluster, ZOOM.places)
         : null}
       {/* Drawn exactly as the campgrounds layer is, because it is exactly the
-          same handover: a put-in leaves the clustered access source and wears
-          its own mark for as long as this tier is on. That means ramps do not
-          cluster and do not fade to overview dots — the same trade the tents
-          already make, and the same reason it is acceptable, which is that
-          nobody sees this layer without having asked for it. */}
-      {layerOn('boatRamps') ? pinLayer('boatRamps', 'boatRamp') : null}
+          same handover: a put-in leaves the access source and wears its own mark
+          for as long as this tier is on — so it has to rejoin the ladder at the
+          same rung the tents do, or the handover swaps one representation for a
+          differently-sized one mid-zoom. */}
+      {layerOn('boatRamps')
+        ? pinLayer('boatRamps', 'boatRamp', ZOOM.names, ZOOM.cluster, ZOOM.places)
+        : null}
       {/* Present from the opening statewide view, without making that view pay
           for forty full-size symbols and labels. Compact condition dots answer
           "where is the water?" immediately; the staff marks and place names
@@ -2313,20 +2517,110 @@ export function RiverMap({
 
           It collapses on the same rung as everything else — ZOOM.cluster — so
           the map changes character once as you pan in rather than six times.
-          See the ladder in map/layers.ts. */}
+          See the ladder in map/layers.ts.
+
+          ── AND IT HAS NO FLOOR, FOR THE REASON THE DAMS DO NOT ─────────────
+          This passed MIN_GAUGE_ZOOM, so zooming out past the statewide view
+          emptied the layer — the reported symptom, "I still don't see USGS
+          gauges zoomed way out".
+
+          That floor is a FETCH gate and it belongs to the OTHER tier. The
+          ~14,000-station reference layer is viewport-driven (useViewportGauges,
+          OVERVIEW_LIMIT 1000), and a continental camera there is a request that
+          cannot be answered — so contextGaugeLayer keeps its floor and this
+          note is not an argument against it.
+
+          The CURATED network is not that. useStatewideNetwork fetches it once,
+          ungated, and grades it on the phone; it is the same payload whose
+          river lines are already drawn and coloured at continental zoom. So the
+          pins were withheld from a camera that was already displaying their
+          data, and the floor was protecting a cost that had been paid on
+          launch.
+
+          Clustered, this is the most useful thing on a zoomed-out map: a
+          handful of counts, each painted with the WORST condition it holds, so
+          "where is there water, and is any of it dangerous" survives all the
+          way out. Ungated it is also cheap — the set is bounded and already in
+          memory. */}
       {layerOn('gauges')
-        ? pinLayer('gauges', 'drop', GAUGE_DETAIL_ZOOM, MIN_GAUGE_ZOOM, GAUGE_DETAIL_ZOOM, {
+        ? pinLayer('gauges', 'drop', GAUGE_DETAIL_ZOOM, undefined, GAUGE_DETAIL_ZOOM, {
             radius: 40,
             maxZoom: ZOOM.cluster,
           })
         : null}
-      {/* Ten pins statewide, so labels are on at every zoom like the gauges —
-          an unnamed dot cannot be told from the lake it sits on. Drawn before
-          hazards so the low-water-dam layer still paints on top: where both
-          land in one place, the one that can kill you is the one on top. */}
-      {layerOn('dams') ? pinLayer('dams', 'dam', 0) : null}
+      {/* ── ON THE LADDER, like every other statewide layer ──────────────────
+          This passed labelMinZoom 0 and nothing else: no floor, no overview
+          representation, no clustering. The justification was "ten pins
+          statewide, so labels are on at every zoom — an unnamed dot cannot be
+          told from the lake it sits on", and that was true of a layer that held
+          ten Missouri dams.
 
-      {layerOn('hazards') ? pinLayer('hazards', 'hazard') : null}
+          The catalog is twenty-four now and spans six states, from Denison on
+          the Red to Wolf Creek in Kentucky. The camera that fits them is
+          continental, and there the layer drew twenty-four full marks with
+          twenty-four labels in one knot — over a rung the ladder says is for
+          lines only. Nothing thinned it, because iconAllowOverlap is true here
+          on purpose: silently dropping a pin is the worse failure.
+
+          So it takes the rungs everything else takes: count bubbles to
+          ZOOM.cluster, overview dots to ZOOM.places, then the mark. A dam
+          cluster paints CLUSTER_FILL rather than a verdict colour, because
+          every dam feature carries severity `unknown` (rank 6) and
+          CLUSTER_CONDITION_COLOR only has arms for the six real codes — so the
+          bubble takes the fallback, which is exactly what that fallback is for.
+          A dam publishes no condition for a bubble to summarise.
+
+          ── THE LABELS STAY ON AT EVERY ZOOM, WHICH IS THE EXCEPTION ────────
+          labelMinZoom is 0, not ZOOM.names, and it is the one layer off the
+          label rung. Two dozen dams are LANDMARKS: an unnamed dot cannot be
+          told from the lake it sits on, and there are few enough of them that
+          collision detection thins the names on its own rather than producing
+          the wall of text a statewide access layer would. An earlier pass here
+          moved them onto the rung with everything else; map-zoom-ladder.test.ts
+          pins them back off it, deliberately, and is right to.
+
+          ── AND IT KEEPS NO FLOOR, WHICH THE OTHER TIERS DO ─────────────────
+
+          The obvious fourth change was minZoom: ZOOM.min, and it is wrong here.
+          The ladder's floor is a FETCH gate as much as a paint one — "a
+          continental view asks for nothing", and MIN_GAUGE_ZOOM exists to stop
+          a continental gauge request. Dams ask for nothing at any zoom: the
+          pins come from DAM_CATALOG in the binary (see lib/damCatalog.ts), so
+          the cost the floor is protecting against does not exist for them.
+
+          What a floor would cost is real: switch the layer on from a
+          zoomed-out camera and it would draw NOTHING, which is precisely the
+          "empty layer reads as broken" failure the shipped catalog was written
+          to end. Two or three teal counts over six states answer "where are
+          they" without crowding anything. Clustered, a continental view of
+          this layer is cheap and legible; ungated and unclustered, it was the
+          knot above.
+
+          Drawn before hazards so the low-water-dam layer still paints on top:
+          where both land in one place, the one that can kill you is on top. */}
+      {layerOn('dams')
+        ? pinLayer('dams', 'dam', 0, undefined, ZOOM.places, {
+            radius: 40,
+            maxZoom: ZOOM.cluster,
+          })
+        : null}
+
+      {/* ── Hazards get a dot rung, and do NOT get a bubble ────────────────
+          Nineteen marks are not what crowded this map, but they were the
+          loudest thing on it: full warning triangles at continental zoom, drawn
+          over the two layers that answer which river to drive to. A severity
+          dot below ZOOM.cluster says "there is something here" in the same
+          colour without shouting it, and the triangle arrives one rung earlier
+          than the place marks do — at ZOOM.cluster rather than ZOOM.places —
+          because a hazard should resolve as soon as the bubbles break.
+
+          NO CLUSTER, deliberately, and this is the one layer where that is a
+          rule rather than a tuning: a hazard must never disappear into a count.
+          The floor is the ladder's own — below it there is no river to read a
+          hazard against, and every other statewide layer is silent there. */}
+      {layerOn('hazards')
+        ? pinLayer('hazards', 'hazard', ZOOM.names, ZOOM.min, ZOOM.cluster)
+        : null}
 
       {endpointFeatures ? (
         <Mapbox.ShapeSource id="plan-endpoints" shape={endpointFeatures}>

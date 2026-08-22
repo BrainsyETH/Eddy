@@ -213,15 +213,15 @@ function GaugeFilterBarComponent({
           <Text style={[styles.statusText, { color: colors.interactive }]}>Clear ×</Text>
         </Pressable>
       ) : (
-        // "hide", not "dim". Copied from ConditionFilterBar, where dimming is
-        // literally what happens — a filtered-out RIVER keeps its tap target so
-        // the map does not read as broken. This layer genuinely removes: it is
-        // thousands of interchangeable dots with no selection riding on them,
-        // and dimming them all to 0.16 leaves a grey haze that is harder to read
-        // than an honest empty patch. The copy now matches the code.
-        <Text style={[styles.hint, { color: colors.textSubtle }]}>
-          Tap a filter to hide the rest
-        </Text>
+        // ── It NAMES the control rather than narrating the gesture ─────────
+        // "Tap a filter to hide the rest" described what would happen to the
+        // other dots, which is a sentence about mechanics for somebody who has
+        // not yet decided they want to filter at all. What the chips actually
+        // offer is a cut by river level, and saying so is both shorter and the
+        // only half a reader needs — the chips below are visibly tappable and
+        // "Showing N gauges · Clear ×" already explains the state once one is
+        // on.
+        <Text style={[styles.hint, { color: colors.textSubtle }]}>Filter by river level</Text>
       )}
 
       {/* THE CAP, SAID OUT LOUD. The server drops the lowest-discharge gauges
@@ -229,10 +229,13 @@ function GaugeFilterBarComponent({
           be dropped, because they are ordered first. The opening overview asks
           for the server's larger budget, while close views use the smaller one;
           either can still cap on a deliberately broad viewport. */}
+      {/* The raw total is gone from the sentence. "2,025 gauges here — more
+          than fit" made the reader do the subtraction to discover the only
+          actionable half, which is the instruction. Already conditional on
+          `capped`, so it appears when the server genuinely dropped rows and
+          stays absent the rest of the time. */}
       {capped ? (
-        <Text style={[styles.hint, { color: colors.textSubtle }]}>
-          {total.toLocaleString()} gauges here — more than fit. Zoom in to see them all.
-        </Text>
+        <Text style={[styles.hint, { color: colors.textSubtle }]}>Zoom in to see more gauges</Text>
       ) : null}
     </View>
   );

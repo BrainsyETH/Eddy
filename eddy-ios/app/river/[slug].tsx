@@ -22,6 +22,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
   Pressable,
@@ -48,9 +49,11 @@ import {
   accessPointTypes,
   accessTypeLabel,
   campsiteAvailabilityLine,
+  describeAlertRule,
   isCampground,
   serviceEligible,
   serviceTiers,
+  type AlertSubscriptionKind,
 } from '@eddy/types';
 import {
   criticalHazards,
@@ -123,6 +126,27 @@ import { readConditions, readIndex } from '@/lib/riverCache';
 import { useRiverData } from '@/hooks/useRiverData';
 import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
 import { goBack } from '@/lib/nav';
+
+/**
+ * What the one-tap bell subscribes to.
+ *
+ * Safety, not everything: it covers high and dangerous transitions without also
+ * opting somebody into routine floatability news, and the full editor still
+ * offers the broader choices. Named here so the subscribe call and the sentence
+ * the push primer shows cannot drift — which is exactly what happened when the
+ * primer's copy was written by hand against an earlier `kind: 'all'`.
+ */
+const BELL_KIND: AlertSubscriptionKind = 'safety';
+
+/** "on high and dangerous water" — the shared phrasing, not a second copy. */
+const BELL_PROMISE = describeAlertRule({
+  mode: 'condition',
+  conditionKind: BELL_KIND,
+  metric: null,
+  comparator: null,
+  thresholdValue: null,
+  thresholdValueMax: null,
+});
 
 
 /**
@@ -461,7 +485,11 @@ export default function RiverDetailScreen() {
   // subscriptions and gauge rules server-side, so the data was never the
   // problem — the provider's copy simply went stale the moment the bell wrote
   // through it. Turning alerts off here left them listed as on over there.
-  const { refresh: refreshAlertRules } = useAlertRules();
+  // `rules` as well as the refresh: turning the bell off DELETES, and the
+  // server cascades that delete to every gauge alert parented to this
+  // subscription. Counting them is the only way this screen can say so before
+  // it happens — see unsubscribe.
+  const { rules: alertRules, refresh: refreshAlertRules } = useAlertRules();
   /**
    * Whether alerts are already on for this river.
    *
@@ -745,7 +773,7 @@ export default function RiverDetailScreen() {
     if (!river) return;
     try {
       await gate.run(async (token) => {
-        await subscribeToRiver(token, river.id, 'safety');
+        await subscribeToRiver(token, river.id, BELL_KIND);
         setSubscribed(true);
         // Local state first so the bell answers immediately; the provider
         // catches up in the background. Not awaited — a slow list must not
@@ -759,6 +787,28 @@ export default function RiverDetailScreen() {
       setSubscribeError('Could not turn on alerts. Try again.');
     }
   }, [river, gate, refreshAlertRules]);
+
+  /**
+   * The gauge alerts that would go with this river alert.
+   *
+   * `parent_subscription_id` is a foreign key with `on delete cascade`, so
+   * unsubscribing here removes every gauge rule created from this alert's edit
+   * screen — server-side, silently, and with no way back. The Alerts tab's
+   * swipe-to-delete has always counted them in its confirmation; the bell
+   * deleted the same rows and said nothing at all.
+   *
+   * Read from the rules list rather than fetched: /api/me/alerts already merges
+   * both tables and the provider is holding the result. Empty when the list has
+   * not loaded, which degrades to the plain confirmation rather than a wrong
+   * count.
+   */
+  const cascadingAlerts = useCallback((): number => {
+    const parent = (alertRules ?? []).find(
+      (r) => r.source === 'river_condition' && r.riverId === river?.id,
+    );
+    if (!parent) return 0;
+    return (alertRules ?? []).filter((r) => r.parentId === parent.id).length;
+  }, [alertRules, river?.id]);
 
   /** Turn alerts off. Deliberately reachable — see Stage 3 of the alert plan. */
   const unsubscribe = useCallback(async () => {
@@ -784,8 +834,32 @@ export default function RiverDetailScreen() {
 
   const onNotify = useCallback(() => {
     setSubscribeError(null);
-    void (subscribed ? unsubscribe() : subscribe());
-  }, [subscribed, subscribe, unsubscribe]);
+    if (!subscribed) {
+      void subscribe();
+      return;
+    }
+
+    // ── Turning the bell off can delete more than the bell ────────────────
+    //
+    // Only when it actually would. Switching off an alert with nothing hanging
+    // off it is a reversible one-tap thing and putting a dialog in front of it
+    // would be ceremony — the confirmation appears exactly when there is
+    // something to lose that the button does not name.
+    const count = cascadingAlerts();
+    if (count === 0) {
+      void unsubscribe();
+      return;
+    }
+
+    Alert.alert(
+      `Turn off alerts and delete ${count} more?`,
+      `The ${count} gauge ${count === 1 ? 'alert' : 'alerts'} you set on ${river?.name ?? 'this river'} go with it. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Turn off', style: 'destructive', onPress: () => void unsubscribe() },
+      ],
+    );
+  }, [subscribed, subscribe, unsubscribe, cascadingAlerts, river?.name]);
 
   if (loading) {
     return (
@@ -1635,6 +1709,11 @@ export default function RiverDetailScreen() {
       <PushPrimer
         visible={gate.primerOpen}
         riverName={river.name}
+        // Describes what the BELL actually subscribes to, which is `safety` —
+        // high and dangerous water, and nothing about the river merely becoming
+        // floatable. The sheet used to promise both, from a fixed string
+        // written when this tap sent `kind: 'all'`.
+        promise={BELL_PROMISE}
         onAllow={async () => {
           gate.setPrimerOpen(false);
           // Spends the one-shot prompt. The outcome needs no handling here:

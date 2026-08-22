@@ -68,11 +68,9 @@ import type {
   RiverService,
   SearchResult,
 } from '@eddy/types';
-import {
-  hasCoordinates,
-  PUBLIC_LAND_OWNERSHIP_NOTE,
-  serviceEligible,
-} from '@eddy/types';
+// PUBLIC_LAND_OWNERSHIP_NOTE is no longer read here: the caveat moved onto the
+// layer definition as `info` and is shown behind the row's ⓘ. See layers.ts.
+import { hasCoordinates } from '@eddy/types';
 import { boundsForLine } from '@eddy/geo';
 import {
   formatFloatTimeCeilingCompact,
@@ -99,20 +97,14 @@ import {
 } from '@/map/cameraBehavior';
 import { placeSymbol } from '@/components/map-sheet/placeSymbol';
 import { mapUnavailableReason } from '@/map/runtime';
-import { mappableService } from '@/map/mappable';
-import {
-  accessOverlapNote,
-  activeRoles,
-  LAYER_ROLE,
-  resolveAccessMarkers,
-  type AccessLayerKey,
-} from '@/map/accessLayers';
-import { serviceOnLayer, SERVICE_LAYER_KEYS } from '@/map/serviceLayers';
-import {
-  PUBLIC_LAND_ATTRIBUTION,
-  RADAR_ATTRIBUTION,
-  type LayerKey,
-} from '@/map/layers';
+// `accessOverlapNote` and `LAYER_ROLE` are no longer read here. The resolver
+// still computes the representation buckets — they are the invariant its own
+// tests assert — but the sheet no longer prints them: "138 drawn as access
+// points · 103 as campgrounds" is a data-integrity fact, and a map control is
+// not where it belongs. The attributions moved onto the layer definitions.
+import { activeRoles, resolveAccessMarkers } from '@/map/accessLayers';
+import { SERVICE_LAYER_KEYS } from '@/map/serviceLayers';
+import { type LayerKey } from '@/map/layers';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
 import { useNetworkPlaces } from '@/hooks/useNetworkPlaces';
 import { usePublicLands } from '@/hooks/usePublicLands';
@@ -131,13 +123,13 @@ import { milesBetween, useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
 import { gradeGauge, readingIndex, riverBounds } from '@/lib/statewideNetwork';
 import { warn } from '@/lib/monitoring';
+import { damPins as damPinFacts } from '@/lib/damCatalog';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
 import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
 import { SearchResultsList } from '@/components/SearchResultsList';
 import {
-  LayerNote,
   MapLayersButton,
   MapLayersSheet,
   isDefaultLayers,
@@ -194,6 +186,17 @@ const PLAN_CLUSTER_BOTTOM = 16;
  */
 const CONTROLS_ROOM_MIN = MAP_CHROME_BOTTOM + 44 + 12;
 const CONTROLS_ROOM_FADE = 60;
+
+/**
+ * How long to wait before asking the Corps' dams once more.
+ *
+ * Long enough that a cold /api/dams read-through has finished filling the CDN
+ * entry — the measured cold path is five to fifty seconds — and short enough
+ * that somebody who opened the layer is still looking at it. The retry is what
+ * turns a fifteen-second deadline expiring into a pause rather than an empty
+ * layer for the life of the screen.
+ */
+const DAMS_RETRY_MS = 20_000;
 
 /**
  * A per-river layer's data, tagged with the river it was fetched for.
@@ -661,7 +664,10 @@ export default function MapScreen() {
     | { camera: 'fitRiver' }
     /** A searched point on it; the river selection is a side effect. */
     | { camera: 'searchResult'; lng: number; lat: number }
-    /** A tapped pin on it; likewise, and it keeps the current zoom. */
+    /**
+     * A tapped point on it — a pin, or the river line itself. The river
+     * selection is a side effect, and the current zoom is kept.
+     */
     | { camera: 'pin'; lng: number; lat: number }
     /** Deliberately nothing. Dismissal is not navigation. */
     | { camera: 'hold' };
@@ -873,15 +879,71 @@ export default function MapScreen() {
    * scoping them to a selection would hide the majority of the layer behind a
    * river that does not exist.
    *
-   * fetchDams already answers [] on failure, so there is no error branch: a
-   * layer that draws nothing is the honest outcome of a feed being down.
+   * ── AND IT IS AN ENRICHMENT, NOT THE LAYER ─────────────────────────────
+   *
+   * The pins come from DAM_CATALOG, which ships in the binary. This request
+   * adds what the catalog cannot know — whether the units are turning, what is
+   * coming out, when it was measured — and its failure costs exactly those
+   * three things rather than the whole layer.
    */
   const wantsDams = layers.includes('dams');
-  const damsRequested = useRef(false);
+  // ── A LATCH THAT ONLY HOLDS ON SUCCESS ──────────────────────────────────
+  //
+  // This was `useRef(false)`, set BEFORE the fetch and never reset, on the
+  // reasoning quoted above: fetchDams answered [] on failure, so a layer that
+  // draws nothing was "the honest outcome of a feed being down".
+  //
+  // The feed is not down. /api/dams reads through to CWMS and SWPA live for two
+  // dozen projects, so a cold CDN entry runs five to fifty seconds against the
+  // client's fifteen-second deadline — measured, not theorised. One unlucky tap
+  // therefore emptied the layer and wedged it there until the process died:
+  // toggling the layer off and on could not retry, because the latch had
+  // already been claimed by the request that failed.
+  //
+  // The latch is now claimed on the ANSWER. A failure releases it and schedules
+  // one retry, so returning to a warm CDN entry — which is the ordinary state
+  // seconds later — refills the layer.
+  const damsLoaded = useRef(false);
+  const damsAttempts = useRef(0);
   useEffect(() => {
-    if (!wantsDams || damsRequested.current) return;
-    damsRequested.current = true;
-    void fetchDams().then(setDams);
+    if (!wantsDams || damsLoaded.current) return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const attempt = () => {
+      const nth = ++damsAttempts.current;
+      void fetchDams()
+        .then((live) => {
+          if (cancelled) return;
+          damsLoaded.current = true;
+          // Told apart in the log: an empty array from a healthy route is a
+          // claim about the Corps, and it has never been true. If this line
+          // ever appears, the route changed shape.
+          if (live.length === 0) warn('map', 'dams responded with no dams', { attempt: nth });
+          setDams(live);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          // WHICH failure, because the two want different fixes: 'No connection'
+          // is the deadline expiring on a cold read-through and argues for
+          // caching the route; a status code is the route itself failing.
+          warn('map', 'dams fetch failed', {
+            attempt: nth,
+            reason: err instanceof ApiError ? (err.status ?? err.message) : 'unknown',
+          });
+          // Once. A second failure leaves the catalog pins standing rather than
+          // retrying into a route that is evidently unwell — and the layer is
+          // still drawn, which is the difference this whole change makes.
+          if (nth === 1) timer = setTimeout(attempt, DAMS_RETRY_MS);
+        });
+    };
+
+    attempt();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [wantsDams]);
 
   /**
@@ -1587,30 +1649,34 @@ export default function MapScreen() {
    * district publishes nothing to CWMS at all), and null means the chip is
    * omitted rather than shown as "Not generating" — an observation nobody made.
    */
-  const damPins = useMemo<MapPin[]>(
-    () =>
-      (dams ?? []).map((dam) => {
-        const release = dam.metrics.release;
-        return {
-          id: `dam:${dam.id}`,
-          name: dam.name,
-          layer: 'dams' as LayerKey,
-          subtitle: [dam.lakeName, dam.state].filter(Boolean).join(' · ') || null,
-          coordinates: { lng: dam.lon, lat: dam.lat },
-          ...(dam.generating !== null
-            ? { codeLabel: dam.generating ? 'Generating' : 'Units idle' }
-            : {}),
-          value: release
-            ? `${Math.round(release.value).toLocaleString()} cfs${release.dailyMean ? ' (daily avg)' : ''}`
-            : null,
-          updatedAt: release ? relativeAge(release.at) : null,
-          // The dam screen, never the gauge screen — see MapPin.damId.
-          damId: dam.id,
-          riverSlug: dam.tailwater?.riverSlug ?? null,
-        };
-      }),
-    [dams],
-  );
+  const damPins = useMemo<MapPin[]>(() => {
+    const live = (dams ?? []).map((dam) => {
+      const release = dam.metrics.release;
+      return {
+        id: dam.id,
+        name: dam.name,
+        lakeName: dam.lakeName,
+        state: dam.state,
+        generating: dam.generating,
+        value: release
+          ? `${Math.round(release.value).toLocaleString()} cfs${release.dailyMean ? ' (daily avg)' : ''}`
+          : null,
+        updatedAt: release ? relativeAge(release.at) : null,
+        riverSlug: dam.tailwater?.riverSlug ?? null,
+      };
+    });
+    // Positions for anything the shipped catalog has never heard of — a project
+    // added to the registry since this build left. Everything else is placed
+    // from the catalog, which is what lets the layer draw with no answer at all.
+    const positions = new Map(
+      (dams ?? []).map((dam) => [dam.id, { lng: dam.lon, lat: dam.lat }]),
+    );
+
+    return damPinFacts(live, positions).map((facts) => ({
+      ...facts,
+      layer: 'dams' as LayerKey,
+    }));
+  }, [dams]);
 
   /**
    * The access family, resolved for the sheet's numbers and its overlap notes.
@@ -1765,61 +1831,22 @@ export default function MapScreen() {
     publicLands.features,
   ]);
 
-  /**
-   * How many services each tier COULD draw, if every one of them had a location.
-   *
-   * ── A SIBLING OF layerCounts, NOT A FIELD IN IT ─────────────────────────
-   * That memo's contract is "a count of pins, and `undefined` until the layer
-   * has answered". Teaching it to also mean "of N" would overload the one rule
-   * the whole file is built around. This inherits the contract and answers a
-   * different question.
-   *
-   * ELIGIBLE BUT NOT MAPPABLE — that is the entire point. The denominator has to
-   * be the rows Eddy WOULD show if it knew where they were, so it excludes the
-   * permanently closed one (which is a policy decision, not a coverage fact) and
-   * includes the 128 with no geocode (which is exactly what the note is about).
-   * Mixing the two would smuggle closure policy into a sentence about locations.
-   *
-   * Statewide, like the services fetch itself — one call, gated on the layers
-   * rather than on a river — so these figures do not move as you pan.
-   */
-  /**
-   * How many of each tier's services have a location, and how many exist.
-   *
-   * ── NOT DERIVED FROM `layerCounts`, AND THAT IS THE FIX ─────────────────
-   *
-   * The first version compared `layerCounts[tier]` against a total counted
-   * here, and those two are not the same population. `layerCounts` reports
-   * PINS, so the lodging tier subtracts whatever the rentals tier is already
-   * drawing — one service is one pin. The total did no such thing. With both
-   * tiers on, 10 of the 13 mappable lodging rows are also rentals, so the note
-   * would have read "3 of 81" where the truth is 13 of 81 — understating the
-   * very number it exists to be honest about.
-   *
-   * Coverage is a fact about the TIER'S DATA, not about which switches happen
-   * to be on, so both halves are counted per tier before any cross-tier
-   * deduplication. The count chip and this note therefore answer different
-   * questions and may differ; the note's wording says "have a confirmed
-   * location" rather than "mapped" so they do not read as contradicting.
-   */
-  const tierCoverage = useMemo<
-    Partial<Record<LayerKey, { located: number; total: number }>>
-  >(() => {
-    if (!services) return {};
-    const eligible = services.filter(serviceEligible);
-    const per = (layer: 'outfitters' | 'lodging' | 'campgrounds') => {
-      const inTier = eligible.filter((s) => serviceOnLayer(s, layer));
-      return { located: inTier.filter(mappableService).length, total: inTier.length };
-    };
-    return {
-      outfitters: per('outfitters'),
-      lodging: per('lodging'),
-      // Services only, unlike the count chip beside it. The access points this
-      // row also draws all have coordinates, so folding them in would dilute a
-      // figure that is entirely about the directory's geocoding gap.
-      campgrounds: per('campgrounds'),
-    };
-  }, [services]);
+  // ── `tierCoverage` is gone ───────────────────────────────────────────
+  //
+  // It computed "77 of 80 have a confirmed location" per service tier, for a
+  // line under the row. The line is gone and so is the memo, because the
+  // premise was wrong in a way worth recording: the count beside the row was
+  // NEVER the 80. `resolveAccessMarkers` skips a service with no coordinates
+  // before it counts anything, so the chip has always reported drawable
+  // places only — and the sentence sat beneath it introducing a second,
+  // larger population that the reader then had to reconcile with the first.
+  // Two numbers, two populations, one row, and no way to tell which the
+  // switch would draw.
+  //
+  // The directory's geocoding gap is real and still reachable: every service
+  // Eddy holds is listed on its river page, located or not. That is where a
+  // reader looking for a specific outfitter goes, and it is a list rather
+  // than a map, so a missing coordinate costs nothing there.
 
   const conditionCode = drawn?.currentCondition?.code ?? 'unknown';
 
@@ -1989,9 +2016,26 @@ export default function MapScreen() {
   // drawing it: the map is now a way of CHOOSING a river, not just of looking
   // at one you already chose. Any open callout belongs to the old river.
   //
+  // ── AND IT STAYS WHERE THE FINGER LANDED ─────────────────────────────────
+  //
+  // This framed the whole river, on the reasoning above: the reader asked for
+  // the river, so show them the river. That is true of picking one from search
+  // or from a list, where they have named a river and are looking at nothing in
+  // particular. It is false of a TAP: tapping the Current near Van Buren says
+  // "this stretch", and answering it by fitting 134 miles of river moves the
+  // map off the thing under the finger — which is exactly what it felt like.
+  //
+  // So a tap that carried a coordinate keeps the reader there, at their own
+  // zoom, nudged only by what the sheet covers (`poiSelected` waits for the
+  // sheet and frames into what is left). Without one — a shape event that did
+  // not carry it — the old fit is still the honest fallback: something has to
+  // put the river on screen.
+  //
+  // The other callers still pass `fitRiver` and should: search results and the
+  // river picker name a river without pointing at any part of it.
   const onSelectNetworkRiver = useCallback(
-    (slug: string) => {
-      selectRiver(slug, { camera: 'fitRiver' });
+    (slug: string, at?: { lng: number; lat: number }) => {
+      selectRiver(slug, at ? { camera: 'pin', lng: at.lng, lat: at.lat } : { camera: 'fitRiver' });
       setSelectedPin(null);
       pendingAccessSelection.current = null;
     },
@@ -2018,6 +2062,51 @@ export default function MapScreen() {
     setSelectedPin(null);
     pendingAccessSelection.current = null;
   }, [selectRiver]);
+
+  /**
+   * Dismiss the open pin — and, when nothing was underneath it, the river its
+   * own tap selected.
+   *
+   * ── TWO CLOSES FOR ONE THING ─────────────────────────────────────────────
+   *
+   * `onSelectPin` SELECTS THE RIVER a pin sits on when nobody had chosen it,
+   * and it does that for good reasons of its own (everything downstream of a
+   * put-in is river-scoped — see its docblock). The cost landed on the way out:
+   * × cleared the pin, the selection it had silently made stayed, and a river
+   * sheet the reader had never opened rose into the gap. Tapping a campground
+   * from the statewide map therefore cost two dismissals, the second of them
+   * for a sheet that only existed because of the first tap.
+   *
+   * It was survivable while access points were the only pins anyone met at that
+   * zoom. With camping, cabins and rentals on by default it is most taps on the
+   * map.
+   *
+   * ── The rule: × GOES WHERE BACK GOES ─────────────────────────────────────
+   *
+   * `revealsRiverSheet` already records the only fact that decides this —
+   * whether a river sheet was on screen BEFORE this pin — and the Back control
+   * is drawn from it. So:
+   *
+   *   • Something to go back to → pop one level, exactly as before, and land on
+   *     the sheet Back names.
+   *   • Nothing to go back to → the river underneath, if any, is this tap's own
+   *     doing, so take it back down with the pin.
+   *
+   * That keeps the old promise ("Back names where × already goes") and drops
+   * the half of it that was making the reader close a sheet they never opened.
+   * A river the reader chose is still never destroyed by dismissing a pin: in
+   * that case revealsRiverSheet is true and this pops one level.
+   *
+   * THE CAMERA STAYS either way — clearRiver holds it, and dismissal is not
+   * navigation.
+   */
+  const dismissPin = useCallback(() => {
+    if (revealsRiverSheet) {
+      setSelectedPin(null);
+      return;
+    }
+    clearRiver();
+  }, [revealsRiverSheet, clearRiver]);
 
   const onLocate = useCallback(async () => {
     // Recorded BEFORE the request, not after it. This is what mounts the puck,
@@ -2620,20 +2709,21 @@ export default function MapScreen() {
                   : null
               }
               backLabel={revealsRiverSheet ? riverSheetData?.name ?? null : null}
-              // ── × POPS ONE LEVEL. ALWAYS. ────────────────────────────────
-              // It used to clear the river as well when the pin had come from
-              // the river sheet, which made one glyph mean two things decided
-              // by state the reader could not see — the exact defect this whole
-              // change set out to remove, reintroduced one level down.
+              // ── × GOES WHERE BACK GOES ───────────────────────────────────
+              // One glyph, one meaning: it lands on whatever was on screen
+              // before this pin. When that is a river sheet, Back is drawn
+              // beside it naming the same destination and both pop one level.
+              // When there is no Back — because no river sheet was ever open —
+              // the only thing under the pin is a selection the pin's OWN tap
+              // made, and × takes that with it rather than leaving the reader a
+              // second sheet to close. See dismissPin.
               //
-              // Dismissing a pin now never destroys a river selection: that is
-              // a separate choice, made by a separate gesture, and the river
-              // sheet has its own × for it. Getting to a bare map is two taps,
-              // which is what "pops one level" implies.
+              // A river the reader chose is still never destroyed by dismissing
+              // a pin; that case has a Back control and pops one level.
               //
               // Dismissal is not navigation. The native camera stays exactly
               // where the reader left it; no old target or bounds can wake up.
-              onClose={() => setSelectedPin(null)}
+              onClose={dismissPin}
               starred={pinGauge ? isStarred('gauge', pinGauge.id) : false}
               onToggleStar={
                 pinGauge
@@ -2678,124 +2768,27 @@ export default function MapScreen() {
         // Gauge filtering lives under the layer it refines, not behind a third
         // button on the map. Rendered only while the layer is ON, because
         // chips that narrow a layer nobody is drawing narrow nothing.
-        renderLayerDetail={(key, on) => {
-          // ── WHERE THIS ROW'S PLACES ACTUALLY WENT ─────────────────────
-          // The access family's counts are membership, so "Boat ramps · 10"
-          // stays 10 while three of those ten wear tents. A number that holds
-          // still is only honest if the sheet says what happened behind it;
-          // otherwise the reader counts ramp marks, finds seven, and concludes
-          // the map is broken. Built by the resolver rather than recomputed
-          // here, so the sentence and the count come from one pass — see
-          // accessOverlapNote.
-          //
-          // Silent when there is nothing to explain, which is most of the time:
-          // every place wearing its own mark needs no sentence.
-          const role = on ? LAYER_ROLE[key as AccessLayerKey] : undefined;
-          const known =
-            role === 'campground' ? accessFamily.servicesKnown : drawnAccessPoints.length > 0;
-          // ── The service rows need the same sentence, for the same reason ──
-          // Their counts are membership now too, so "River services · 84" holds
-          // still while Campgrounds owns the marker of every row that also
-          // camps. Without the note the reader counts canoes, finds forty
-          // fewer, and concludes the layer is broken.
-          //
-          // Folded into `overlap` rather than returned early, and that is not a
-          // tidying: the coverage line below ("13 of 81 have a confirmed
-          // location") fires for these same two keys, so an early return here
-          // would answer the overlap question by DELETING the geocoding one.
-          // Two facts, two lines, one row — which is exactly the shape the
-          // campgrounds branch below already handles.
-          const serviceOwner =
-            on && key === 'outfitters' ? 'rentals' : on && key === 'lodging' ? 'lodging' : null;
-          const overlap =
-            role && known
-              ? accessOverlapNote(role, accessFamily.statsByRole[role])
-              : serviceOwner && accessFamily.servicesKnown
-                ? accessOverlapNote(serviceOwner, accessFamily.statsByServiceOwner[serviceOwner])
-                : null;
-          if (key === 'access' || key === 'boatRamps') {
-            return overlap ? <LayerNote text={overlap} /> : null;
-          }
-          // ── The one layer a downloaded river cannot carry ──────────────
-          // Radar streams PNGs from a third party. An offline pack holds the
-          // basemap and our own geometry and nothing else, so switching this
-          // on with no signal draws precisely nothing — which reads as broken
-          // rather than as absent. Said on the row, while the switch is under
-          // the thumb that flipped it.
-          if (key === 'weatherRadar' && on) {
-            return (
-              <LayerNote
-                text="Where it is raining now · needs a connection"
-                attribution={RADAR_ATTRIBUTION}
-              />
-            );
-          }
-          // ── The caveat, on the control ────────────────────────────────
-          // Not only in the callout, because the fill is visible without
-          // anyone ever tapping a parcel — and what the fill does NOT mean is
-          // the entire reason this layer is allowed to draw. One sentence,
-          // written once, shared with the website (@eddy/types) so the two
-          // maps cannot say different things about the same boundaries.
-          if (key === 'publicLand' && on) {
-            return (
-              <LayerNote
-                text={`${PUBLIC_LAND_OWNERSHIP_NOTE} ${PUBLIC_LAND_ATTRIBUTION}.`}
-              />
-            );
-          }
-          // ── WHAT THE LAYER IS NOT SHOWING ─────────────────────────────
-          // 128 of the 156 services in Eddy's directory have no confirmed
-          // location, so the Rentals tier draws 12 pins where somebody who
-          // knows the river expects 70. That is the CORRECT behaviour — see
-          // map/mappable.ts, which measured three geocoder near-misses that
-          // each landed on a real but DIFFERENT business, up to 71 miles away —
-          // but a layer that silently draws a sixth of what it promises reads
-          // as broken rather than as careful.
-          //
-          // The clause after the dash is the whole sentence's job. Without it
-          // the reader concludes Eddy's map is faulty instead of that Eddy
-          // declined to guess, and every one of these is still reachable in the
-          // river page's services directory.
-          //
-          // Per tier rather than per row, because renderLayerDetail already
-          // fires per tier and the two are not alike: rentals is 12 of 70 and
-          // cabins is 2 of 41. One combined figure would hide which is thin.
-          if (on && (key === 'outfitters' || key === 'lodging' || key === 'campgrounds')) {
-            const coverage = tierCoverage[key];
-            // Absent until the fetch lands, and silent when coverage is total —
-            // a layer drawing everything it knows about has nothing to explain.
-            const gap = coverage && coverage.total > coverage.located ? coverage : null;
-            if (!gap && !overlap) return null;
-            // All three service rows can carry BOTH lines, and they are different
-            // facts: one
-            // is about the directory's geocoding, the other about which mark a
-            // place that Eddy CAN place ended up wearing. Coverage first — a row
-            // that is missing places has a bigger problem than a row whose places
-            // moved.
-            //
-            // The second line is silent TODAY, and wired anyway: the campground
-            // role is first in MARK_PRIORITY, so while this row is on it owns
-            // every place it matches and has nothing to explain. That is a fact
-            // about a constant in another module, and a sheet that went quiet if
-            // somebody reordered it is the drift this whole change is about.
-            return (
-              <>
-                {gap ? (
-                  // "have a confirmed location", not "mapped". The count chip on
-                  // the row above counts places and this counts ROWS, and they
-                  // legitimately differ — a cabin-renting outfitter is one pin
-                  // under Rentals and still a located lodging row. Two different
-                  // words for two different questions, so neither looks like it
-                  // is contradicting the other.
-                  <LayerNote
-                    text={`${gap.located} of ${gap.total} have a confirmed location — the rest are listed on the river page.`}
-                  />
-                ) : null}
-                {overlap ? <LayerNote text={overlap} /> : null}
-              </>
-            );
-          }
-          return key === 'allGauges' && on ? (
+        // ── ONE REFINEMENT, AND NOTHING ELSE ────────────────────────
+        // This slot used to carry four kinds of muted sentence as well:
+        // where a row's places went when a neighbour owned their mark, how
+        // much of the services directory has a confirmed location, that radar
+        // needs a connection, and the public-land caveat. Every one was true
+        // and every one was on the wrong surface — a reader in a "Show on
+        // map" sheet is choosing what to draw, and each sentence competed
+        // with the switch beside it while pushing the rows below it further
+        // off a phone screen.
+        //
+        // The caveat and both attributions are LayerDef.info now, behind the
+        // row's ⓘ. The coverage and overlap lines are gone outright: the
+        // count beside a row already counts only what that row can draw — the
+        // resolver drops services with no coordinates before counting — so a
+        // sentence explaining the shortfall was explaining one the number
+        // does not have.
+        //
+        // What is left is the one thing here that was never prose: a control
+        // that narrows the layer it hangs under.
+        renderLayerDetail={(key, on) =>
+          key === 'allGauges' && on ? (
             <GaugeFilterBar
               // The DRAWABLE set, not the raw response — see layerGauges. Every
               // count in the strip is a count of pins you can actually see.
@@ -2814,8 +2807,8 @@ export default function MapScreen() {
               }
               onClear={() => setGaugeFilter(new Set())}
             />
-          ) : null;
-        }}
+          ) : null
+        }
       />
 
       {/* The plan flow is deliberately a sibling of the map rather than a child

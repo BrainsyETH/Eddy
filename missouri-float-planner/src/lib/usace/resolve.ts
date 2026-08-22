@@ -116,6 +116,48 @@ export function parseTsId(name: string): ParsedTsId | null {
   };
 }
 
+/** `15Minutes`, `1Hour`, `~1Day` → milliseconds. Null when unparseable. */
+function durationToMs(duration: string): number | null {
+  const m = /^~?(\d+)(Minutes?|Hours?|Days?)$/i.exec(duration.trim());
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const unit = m[2].toLowerCase();
+  if (unit.startsWith('minute')) return n * 60_000;
+  if (unit.startsWith('hour')) return n * 3_600_000;
+  return n * 86_400_000;
+}
+
+/**
+ * How long a period a point covers, in ms — 0 when the series samples an
+ * instant.
+ *
+ * ── Why this is the DURATION field and not the interval ────────────────────
+ * The two are different questions and the ids answer them separately.
+ * `Interval` is how often a point arrives; `Duration` is how much time each
+ * point summarises. `TENK.Flow-Power.Inst.1Hour.0.Rev-Regi-Flowgroup` arrives
+ * hourly and summarises nothing — it is a spot reading, duration `0`. Its
+ * sibling `TENK.Flow-Power.Ave.1Hour.1Hour.Rev-Regi-Flowgroup` arrives hourly
+ * and summarises the hour, duration `1Hour`. Reading the interval would call
+ * both of them hourly averages and shift the instantaneous one for no reason.
+ *
+ * A non-zero duration means PERIOD-ENDING: a point stamped t covers
+ * [t - duration, t). Measured, not assumed — the same discrimination
+ * dam-forecast.ts's header records for Wolf Creek, re-confirmed at Tenkiller
+ * on 2026-08-16: the `Inst` series read 258 cfs AT 12:00Z while the `Ave`
+ * series stamped 13:00Z read the same 258, i.e. the 13:00Z stamp is the
+ * average of the hour that ENDED at 13:00.
+ *
+ * An unparseable duration returns 0 — the shift is a correction applied to
+ * series we can read a duration from, and a series we cannot parse is left
+ * where its stamp puts it rather than moved by a guess.
+ */
+export function periodEndingMs(tsId: string): number {
+  const parsed = parseTsId(tsId);
+  if (!parsed) return 0;
+  return durationToMs(parsed.duration) ?? 0;
+}
+
 /**
  * One acceptable way a district spells a metric: a parameter name AND the
  * sub-location it must sit on. `subLocation: ''` means the bare project.
@@ -149,10 +191,21 @@ interface MetricSpec {
   forecast: boolean;
 }
 
-/** `Flow-Res Out` (SWL/SWT/SPK) and `Flow-Out` (MVS/NAB/SAM) on the project. */
+/**
+ * `Flow-Res Out` (SWL/SWT/SPK) and `Flow-Out` (MVS/NAB/SAM) on the project.
+ *
+ * Bare `Flow` is LRN, which posts total station discharge under exactly that
+ * on its NWS-handbook stations (`RWNK2-WOLF_CREEK.Flow`) and its prose-name
+ * forecast locations (`Wolf Creek Dam.Flow`). It is the one generic name in
+ * this file, so it is ranked LAST — the specific spellings always win where
+ * both exist, and the catalog fetch is prefix-scoped to the project's own
+ * locations, which is what keeps a name this broad from matching someone
+ * else's water.
+ */
 const RELEASE_PAIRS: ParamPair[] = [
   { parameter: 'Flow-Res Out', subLocation: '' },
   { parameter: 'Flow-Out', subLocation: '' },
+  { parameter: 'Flow', subLocation: '' },
 ];
 
 const SPECS: Partial<Record<UsaceMetric, MetricSpec>> = {
@@ -168,12 +221,25 @@ const SPECS: Partial<Record<UsaceMetric, MetricSpec>> = {
     unit: 'cfs',
     forecast: true,
   },
+  generationForecast: {
+    // LRN publishes the turbine component of its operating forecast at
+    // `<prose name>-Turbines` (`Wolf Creek Dam-Turbines.Flow.…-forecast`) —
+    // the series behind DamSnapshot.generationForecast. No other district
+    // publishes a turbine forecast to CWMS at all (measured 2026-08-15), so
+    // this spec has one spelling until a second district teaches it another.
+    pairs: [{ parameter: 'Flow', subLocation: '-Turbines' }],
+    intervals: ['1Hour'],
+    unit: 'cfs',
+    forecast: true,
+  },
   poolElevation: {
     // SWL hangs pool elevation off `-Headwater`; MVS and SWT use the bare
-    // project. `~1Hour` is SWT's interlaced series.
+    // project; LRN spells it `Elev-Pool` on its lake station. `~1Hour` is
+    // SWT's interlaced series.
     pairs: [
       { parameter: 'Elev', subLocation: '-Headwater' },
       { parameter: 'Elev', subLocation: '' },
+      { parameter: 'Elev-Pool', subLocation: '' },
     ],
     intervals: ['1Hour', '30Minutes', '15Minutes', '~1Hour'],
     unit: 'ft',
@@ -201,13 +267,16 @@ const SPECS: Partial<Record<UsaceMetric, MetricSpec>> = {
     forecast: false,
   },
   generationFlow: {
-    // SWL calls turbine discharge `Flow-Plant`; SWT calls it `Flow-Power`.
-    // Verified 2026-08-02: TENK.Flow-Power read 0 cfs while total release was
-    // 330 cfs — units idle with a low-flow release running, which is exactly
-    // the distinction generationOnCfs exists to make.
+    // SWL calls turbine discharge `Flow-Plant`; SWT calls it `Flow-Power`;
+    // LRN calls it `Flow-Turbine` on its tailwater station — the third
+    // district, the third spelling, exactly the pattern this file's header
+    // predicts. Verified 2026-08-02: TENK.Flow-Power read 0 cfs while total
+    // release was 330 cfs — units idle with a low-flow release running, which
+    // is exactly the distinction generationOnCfs exists to make.
     pairs: [
       { parameter: 'Flow-Plant', subLocation: '' },
       { parameter: 'Flow-Power', subLocation: '' },
+      { parameter: 'Flow-Turbine', subLocation: '' },
     ],
     intervals: ['1Hour', '15Minutes'],
     unit: 'cfs',
@@ -215,17 +284,23 @@ const SPECS: Partial<Record<UsaceMetric, MetricSpec>> = {
   },
   tailwaterElevation: {
     // Bare `Elev` is deliberately ABSENT — that is the pool. See ParamPair.
+    // `Elev-Tail` is LRN's spelling, on the tailwater station itself.
     pairs: [
       { parameter: 'Elev-Downstream', subLocation: '-Tailwater' },
       { parameter: 'Elev', subLocation: '-Tailwater' },
       { parameter: 'Elev-Tailwater', subLocation: '' },
+      { parameter: 'Elev-Tail', subLocation: '' },
     ],
     intervals: ['1Hour', '30Minutes', '15Minutes'],
     unit: 'ft',
     forecast: false,
   },
   tailwaterTempF: {
-    pairs: [{ parameter: 'Temp-Water', subLocation: '-Tailwater' }],
+    // `Temp-Water-Tail` is LRN's spelling, on the tailwater station.
+    pairs: [
+      { parameter: 'Temp-Water', subLocation: '-Tailwater' },
+      { parameter: 'Temp-Water-Tail', subLocation: '' },
+    ],
     intervals: ['1Hour', '30Minutes', '15Minutes'],
     unit: 'F',
     forecast: false,
@@ -259,17 +334,25 @@ export interface ResolvedSeries {
 function score(
   entry: CatalogEntry,
   spec: MetricSpec,
-  location: string,
+  locations: string[],
   now: number,
   maxAgeDays: number
 ): { points: number; reason: string } | null {
   const parsed = parseTsId(entry.name);
   if (!parsed) return null;
 
+  // A pair matches on ANY of the project's locations. One base location was
+  // the model until Nashville: LRN hangs observed series off two NWS-handbook
+  // stations per project (RWNK2-WOLF_CREEK tailwater, WLCK2-WOLF_CREEK pool)
+  // and its forecast off a prose name ('Wolf Creek Dam') — three namespaces
+  // no single prefix can span. The pair still decides WHICH series carries a
+  // metric; the location list only widens where to look, and the exact-match
+  // discipline (never a prefix match — see the shared-name-prefix test) is
+  // unchanged per location.
   const pairIndex = spec.pairs.findIndex(
     (pair) =>
       parsed.parameter === pair.parameter &&
-      parsed.location === `${location}${pair.subLocation}`
+      locations.some((location) => parsed.location === `${location}${pair.subLocation}`)
   );
   if (pairIndex === -1) return null;
 
@@ -311,18 +394,19 @@ function score(
 export function rankSeries(
   entries: CatalogEntry[],
   metric: UsaceMetric,
-  location: string,
+  location: string | string[],
   options?: { now?: number; maxAgeDays?: number }
 ): ResolvedSeries[] {
   const spec = SPECS[metric];
   if (!spec) return [];
 
+  const locations = Array.isArray(location) ? location : [location];
   const now = options?.now ?? Date.now();
   const maxAgeDays = options?.maxAgeDays ?? CATALOG_MAX_AGE_DAYS;
 
   return entries
     .map((entry) => {
-      const s = score(entry, spec, location, now, maxAgeDays);
+      const s = score(entry, spec, locations, now, maxAgeDays);
       return s ? { entry, ...s } : null;
     })
     .filter((c): c is { entry: CatalogEntry; points: number; reason: string } => c !== null)
@@ -334,7 +418,7 @@ export function rankSeries(
 export function pickSeries(
   entries: CatalogEntry[],
   metric: UsaceMetric,
-  location: string,
+  location: string | string[],
   options?: { now?: number; maxAgeDays?: number }
 ): ResolvedSeries | null {
   return rankSeries(entries, metric, location, options)[0] ?? null;
@@ -446,12 +530,18 @@ const defaultProbe: SeriesProbe = async (office, { tsId, unit, forecast }) => {
  */
 export async function resolveSeries(
   office: string,
-  location: string,
+  location: string | string[],
   metrics: UsaceMetric[],
   options?: { probe?: SeriesProbe; now?: number }
 ): Promise<Partial<Record<UsaceMetric, ResolvedSeries>>> {
-  const entries = await fetchCatalog(office, location);
-  if (!entries) return {};
+  // One catalog fetch per location, concatenated. A location whose fetch
+  // fails contributes nothing rather than failing the set — the same
+  // partial-results posture as everything else in this file — but if EVERY
+  // fetch fails there is nothing to rank and the honest answer is {}.
+  const locations = Array.isArray(location) ? location : [location];
+  const fetched = await Promise.all(locations.map((loc) => fetchCatalog(office, loc)));
+  const entries = fetched.filter((e): e is CatalogEntry[] => e !== null).flat();
+  if (entries.length === 0 && fetched.every((e) => e === null)) return {};
 
   const probe = options?.probe ?? defaultProbe;
   const out: Partial<Record<UsaceMetric, ResolvedSeries>> = {};
@@ -460,7 +550,7 @@ export async function resolveSeries(
     metrics.map(async (metric) => {
       const spec = SPECS[metric];
       if (!spec) return;
-      const candidates = rankSeries(entries, metric, location, {
+      const candidates = rankSeries(entries, metric, locations, {
         now: options?.now,
       }).slice(0, MAX_PROBES_PER_METRIC);
 
@@ -475,7 +565,7 @@ export async function resolveSeries(
           return;
         }
         console.info(
-          `[CDA resolve] ${office}/${location}.${metric}: ${candidate.tsId} returned no value, trying next`
+          `[CDA resolve] ${office}/${locations.join('|')}.${metric}: ${candidate.tsId} returned no value, trying next`
         );
       }
     })

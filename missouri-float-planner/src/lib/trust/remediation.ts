@@ -443,8 +443,3 @@ export function remediationFor(ruleKey: string): Remediation {
 export function hasRemediation(ruleKey: string): boolean {
   return ruleKey in REMEDIATION_BY_RULE;
 }
-
-/** Rules whose fix is a re-runnable command rather than a decision. */
-export function isMechanical(ruleKey: string): boolean {
-  return remediationFor(ruleKey).kind === 'mechanical';
-}

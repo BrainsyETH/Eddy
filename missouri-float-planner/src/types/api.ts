@@ -147,7 +147,20 @@ export interface AccessPointGaugeStatus {
   lastUpdated: string | null;  // ISO timestamp
   gaugeId: string;
   gaugeName: string;
-  usgsId: string;
+  /**
+   * The station's provider-native site id — a USGS site number, an NWS LID, or
+   * a USACE dam slug.
+   *
+   * NULLABLE, and it always was: this is filled from `usgs_site_id` OR
+   * `site_id_external`, both nullable columns, and it was typed `string` while
+   * Clearwater — a Corps release rated for the Black River, and reachable from
+   * every access point on it — carries null in the first and a slug in the
+   * second. Pair it with `provider` before printing it; never caption it USGS
+   * on its own.
+   */
+  usgsId: string | null;
+  /** Registry id from src/lib/flow-providers. Absent means 'usgs'. */
+  provider?: string | null;
 }
 
 /** Simplified access point for "nearby" list */
@@ -1312,4 +1325,63 @@ export interface EddyUpdateEntry {
 export interface EddyUpdatesResponse {
   /** Keyed by river slug; the statewide summary is under "global". */
   updates: Record<string, EddyUpdateEntry>;
+}
+
+// ── /api/gauges/[siteId]/history ────────────────────────────────────────────
+//
+// Mirrored in packages/eddy-types/index.ts, by hand — @eddy/types is not
+// resolvable from this app's tsconfig, because Vercel installs only
+// missouri-float-planner/. tsconfig.test.json's header records what happened
+// the last time that alias reached production code. It is a wire format, so a
+// change to either is a change to both.
+
+export interface GaugeHistoryReading {
+  timestamp: string;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+  /** Provider quality codes on this observation ('P' provisional, 'e', 'Ice'). */
+  qualifiers?: string[];
+}
+
+/** Day-of-year discharge statistics — what this river normally does on this date. */
+export interface GaugeTypicalReading {
+  /** Calendar date these statistics were matched to (server-local, UTC in production), as YYYY-MM-DD. */
+  date: string;
+  p25Cfs: number | null;
+  p50Cfs: number | null;
+  p75Cfs: number | null;
+  yearsOfRecord: number | null;
+}
+
+/** An official NWS forecast point. Never model guidance presented as official. */
+export interface GaugeForecastReading {
+  timestamp: string;
+  gaugeHeightFt: number | null;
+  dischargeCfs: number | null;
+}
+
+export interface GaugeHistoryResponse {
+  siteId: string;
+  siteName: string;
+  /** Oldest first. Can be empty; the endpoint 404s only when it has nothing. */
+  readings: GaugeHistoryReading[];
+  /** Timestamp of the newest observation, for an explicit "now" boundary. */
+  observedThrough: string | null;
+  /** True when the server reduced the series. Extrema are retained either way. */
+  sampled: boolean;
+  /** Empty for non-USGS providers and for sites with no percentile record. */
+  typical: GaugeTypicalReading[];
+  /** Only points still ahead of observedThrough. Empty is the ordinary case. */
+  forecast: GaugeForecastReading[];
+  /** Null whenever forecast is empty, or when NWPS reports no issuance time. */
+  forecastIssuedAt: string | null;
+  /** Publisher page, for attribution and deeper inspection. */
+  sourceUrl: string | null;
+  /** Extremes over the FULL window, not the sampled series. */
+  stats: {
+    minDischarge: number | null;
+    maxDischarge: number | null;
+    minHeight: number | null;
+    maxHeight: number | null;
+  };
 }

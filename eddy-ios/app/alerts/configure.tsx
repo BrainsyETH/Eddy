@@ -336,40 +336,28 @@ export default function ConfigureAlertScreen() {
   const canSave =
     mode === 'condition' ? canUseCondition : hasStation && valueValid && maxValid;
 
-  /** The sentence under the controls — the same one the row and push will use. */
+  /**
+   * The sentence under the controls — the same one the row, the push body and
+   * the primer will use.
+   *
+   * Only the TRIGGER fields. This used to assemble a whole fabricated AlertRule
+   * — an empty id, a made-up createdAt, a `source` this screen cannot know yet
+   * — because describeAlertRule asked for one; it reads six fields and ignored
+   * the rest, so the other fourteen were scaffolding that implied they mattered
+   * and had to be kept plausible as the type changed. AlertRuleTrigger is that
+   * function's real input.
+   */
   const preview = useMemo(
     () =>
       describeAlertRule({
-        id: '',
-        source: 'gauge',
-        scope,
         mode,
-        riverId,
-        riverName,
-        riverSlug: params.riverSlug || null,
-        gaugeId: null,
-        gaugeName: context?.gaugeName ?? null,
-        usgsSiteId: null,
-        curated: context?.curated ?? false,
         conditionKind,
         metric,
         comparator,
         thresholdValue: valueValid ? parsedValue : null,
         thresholdValueMax: comparator === 'between' && Number.isFinite(parsedMax) ? parsedMax : null,
-        enabled: true,
-        oneShot,
-        firedAt: null,
-        lastTriggeredAt: null,
-        // This screen never creates a child. A rule made here stands on its own,
-        // by design — the only surface that parents one to a river alert is the
-        // section inside that alert's own edit screen. See RiverGaugeAlerts.
-        parentId: null,
-        createdAt: '',
       }),
-    [
-      scope, mode, riverId, riverName, params.riverSlug, context, conditionKind,
-      metric, comparator, valueValid, parsedValue, parsedMax, oneShot,
-    ],
+    [mode, conditionKind, metric, comparator, valueValid, parsedValue, parsedMax],
   );
 
   /**
@@ -410,6 +398,9 @@ export default function ConfigureAlertScreen() {
           return;
         }
 
+        // No parentSubscriptionId. A rule made here stands on its own, by
+        // design — the only surface that parents one to a river alert is the
+        // section inside that alert's own edit screen. See RiverGaugeAlerts.
         const { rule, seed } = await createGaugeAlert(token, {
           // Same params fallback as `hasStation`, and required by it: enabling
           // Save on the strength of a route param and then sending neither id
@@ -774,6 +765,11 @@ export default function ConfigureAlertScreen() {
       <PushPrimer
         visible={gate.primerOpen}
         riverName={targetName}
+        // The same sentence the preview above showed and the row will show —
+        // this sheet is asking for the one-shot iOS prompt on the strength of
+        // the alert just saved, so it has to describe that alert and not a
+        // generic one.
+        promise={preview}
         onAllow={() => {
           gate.setPrimerOpen(false);
           void gate.enablePush();

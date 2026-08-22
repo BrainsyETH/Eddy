@@ -114,12 +114,17 @@ async function syncDam(
       if (!series || series.points.length === 0) continue;
 
       metrics += 1;
-      // The most recent hour is still filling — its mean would be built from
-      // whatever fraction of samples has arrived, then frozen by the upsert
-      // only to be corrected on the next pass anyway. Drop it and let the next
-      // run write it whole.
+      // The hour we are STANDING IN is still filling — its mean would be built
+      // from whatever fraction of samples has arrived, then frozen by the
+      // upsert only to be corrected on the next pass anyway. Drop it and let
+      // the next run write it whole.
+      //
+      // This is a comparison against the bucket's own beginning, which is why
+      // the period-ending shift has to happen first: before it, the hour that
+      // had just CLOSED was stamped `currentHour` and got dropped here too, so
+      // the freshest bar always lagged an extra pass on top of being misplaced.
       const currentHour = Math.floor(now / 3_600_000) * 3_600_000;
-      const buckets = bucketHourly(series.points).filter(
+      const buckets = bucketHourly(series.points, periodEndingMs(source.tsId)).filter(
         (b) => Date.parse(b.observedHour) < currentHour
       );
       written += await writeHours(supabase, dam.id, metric, buckets);

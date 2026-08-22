@@ -22,7 +22,8 @@
 
 import { planDrain, spentOneShots } from './drain';
 import { isRuleLive, parentIdsOf, type GatedRule } from './gating';
-import { buildGaugeNotification, suppressedByQuietHours, type GaugeEventKind } from './gauge-threshold';
+import { buildGaugeNotification, type GaugeEventKind } from './gauge-threshold';
+import { suppressedByQuietHours } from './quiet-hours';
 import { disableTokens, recordTokenFailures } from './token-health';
 import { chunkMessages, classifyTicketError, sendExpoPush, type ExpoMessage } from '@/lib/push/expo';
 import type { AlertComparator, AlertMetric, AlertSubscriptionKind, NotificationPreferences } from '@/types/api';

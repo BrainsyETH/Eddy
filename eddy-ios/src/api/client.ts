@@ -806,12 +806,21 @@ export async function fetchPublicLands(
  * starred row, a search result and a deep link, where neither list has been paid
  * for and the station is usually a national one that /api/gauges never returns.
  *
- * Returns NULL on 404, and on any failure, rather than throwing. The gauge
- * screen opens with whatever the tapping surface already held — a MapGauge from
- * the curated list, a MapGaugeLite from the viewport — and this call refines it.
- * A screen that has a reading on it must not blank because the refinement
- * failed, and a website deployed before this route existed answers 404 to every
- * call. Same posture as searchEddy, for the same reason.
+ * NULL MEANS "THERE IS NO SUCH STATION", AND NOTHING ELSE.
+ *
+ * A 404 is an answer: the route says it has no record, and a website deployed
+ * before this endpoint existed says the same thing about every station. Both
+ * are honest nulls, and callers keep whatever the tapping surface already held
+ * — a MapGauge from the curated list, a MapGaugeLite from the viewport — so a
+ * screen with a reading on it never blanks.
+ *
+ * EVERY OTHER FAILURE THROWS, and that is the correction. This used to swallow
+ * all of them into the same null, which handed useGaugeDetail a settled,
+ * successful, empty answer — so its `failed` branch was unreachable and the
+ * Levels tab read `thresholds: null` and said "Eddy has not rated this station
+ * against a river yet" about a station whose ladder had just graded the pin the
+ * reader tapped. A 500 has to look like a 500 by the time it reaches a tab that
+ * words the difference.
  */
 export async function fetchGaugeDetail(
   siteId: string,
@@ -823,8 +832,9 @@ export async function fetchGaugeDetail(
       signal,
     );
     return data.gauge ?? null;
-  } catch {
-    return null;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
   }
 }
 
@@ -1081,14 +1091,27 @@ export async function searchEddy(
    * Gauges scope scroll all 14,264 stations instead of opening on the 45
    * curated ones, and the Access scope open with rows at all.
    */
-  page?: { limit?: number; offset?: number },
+  page?: { limit?: number; offset?: number; offsets?: Partial<Record<SearchResultKind, number>> },
 ): Promise<{ results: SearchResult[]; available: boolean; hasMore: boolean }> {
   try {
     const scope = kinds?.length ? `&kinds=${kinds.join(',')}` : '';
     const limit = page?.limit ?? SEARCH_PAGE_SIZE;
     const offset = page?.offset ?? 0;
+    // Where each kind has got to, for a caller asking for more than one. There
+    // is no single `offset` that describes three kinds paging at their own
+    // rates, so a multi-kind caller states them and the server reads them per
+    // kind. Sent ALONGSIDE `offset`, never instead of it: a deployment older
+    // than this parameter ignores it and still gets a usable — if flatter —
+    // answer from the number it does understand.
+    const perKind = page?.offsets
+      ? Object.entries(page.offsets)
+          .filter(([, v]) => typeof v === 'number' && v > 0)
+          .map(([k, v]) => `${k}:${v}`)
+          .join(',')
+      : '';
+    const offsets = perKind ? `&offsets=${encodeURIComponent(perKind)}` : '';
     const data = await get<SearchResponse>(
-      `/api/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}${scope}`,
+      `/api/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}${offsets}${scope}`,
       signal,
     );
     const results = data.results ?? [];
@@ -1374,6 +1397,18 @@ export interface UpdateAlertRuleInput {
   rearm?: boolean;
 }
 
+export interface UpdateAlertRuleResult {
+  /**
+   * The rule as the server now holds it, for the caller to replace its copy
+   * with. Null for a river subscription, whose PATCH answers with a
+   * subscription shape rather than an AlertRule — there is nothing to
+   * reconcile there anyway, since the fields that can drift are the threshold
+   * ones and a river subscription has none.
+   */
+  rule: AlertRule | null;
+  seed: AlertRuleSeed | null;
+}
+
 /**
  * Edit one rule, whichever table it lives in.
  *
@@ -1381,12 +1416,20 @@ export interface UpdateAlertRuleInput {
  * keyed by its own id, while a river subscription is keyed by riverId, because
  * the bell that edits one knows the river and nothing else. `rule.source` picks
  * the shape, so no caller has to.
+ *
+ * Returns the SAVED rule as well as the seed. The route has always sent it and
+ * this function used to drop it, leaving every caller to guess at the result
+ * from its own patch — which is a guess that goes wrong wherever the server
+ * derives one field from another. Switching a rule off `between` is the case
+ * that shipped: the route nulls threshold_value_max, the optimistic patch has
+ * no way to know that, and the stale upper bound sat in the list until the next
+ * refetch.
  */
 export async function updateAlertRule(
   token: string,
   rule: Pick<AlertRule, 'id' | 'source' | 'riverId'>,
   patch: UpdateAlertRuleInput,
-): Promise<AlertRuleSeed | null> {
+): Promise<UpdateAlertRuleResult> {
   if (rule.source === 'river_condition') {
     if (!rule.riverId) throw new ApiError('Alert is missing its river', 400);
     // `conditionKind` here, `kind` there. The two tables named the same column
@@ -1403,7 +1446,7 @@ export async function updateAlertRule(
     });
     // A river condition subscription has no user-set level, so it has no
     // crossing state to re-seed and nothing to report.
-    return null;
+    return { rule: null, seed: null };
   }
   // The seed comes back whenever the threshold moved. Moving it re-arms the
   // rule from the CURRENT reading, and if the river is already past the new
@@ -1415,7 +1458,7 @@ export async function updateAlertRule(
     'PATCH',
     patch,
   );
-  return response.seed;
+  return { rule: response.rule ?? null, seed: response.seed };
 }
 
 /** Delete one rule. Turning an alert off never demands a fresh sign-in. */
@@ -1680,20 +1723,27 @@ export async function unregisterDeviceToken(token: string, expoPushToken: string
 /**
  * Every USACE project Eddy tracks, with its current state and today's schedule.
  *
- * Returns [] on failure rather than throwing, matching fetchHazards. A map
- * layer that does not draw is an acceptable degradation; a thrown error here
- * would take down the map for a layer the user may not even have enabled.
+ * ── IT THROWS NOW, AND THAT IS THE FIX ───────────────────────────────────
  *
- * Ten dams, one request. Callers that need a specific dam's tailwater link or
- * its pin can filter this rather than asking per dam.
+ * It used to answer `[]` on failure, reasoning that a layer which does not draw
+ * is an acceptable degradation. Two things made that wrong. The route reads
+ * through to CWMS and SWPA live, so a cold CDN entry costs five to fifty
+ * seconds against this client's fifteen-second deadline — a timeout is the
+ * ORDINARY outcome, not an exceptional one. And the caller's request latch was
+ * set before the fetch and never reset, so that one timeout emptied the Lakes &
+ * dams layer for the rest of the screen's life, with `[]` meaning both "the
+ * Corps publishes no dams" and "we gave up waiting".
+ *
+ * Those are different facts and the caller now has to tell them apart: the map
+ * draws its pins from the shipped catalog either way (src/lib/damCatalog.ts) and
+ * retries a failure rather than adopting it as an answer.
+ *
+ * Two dozen dams, one request. Callers that need a specific dam's tailwater link
+ * can filter this rather than asking per dam.
  */
 export async function fetchDams(signal?: AbortSignal): Promise<DamSnapshot[]> {
-  try {
-    const data = await get<DamsResponse>('/api/dams', signal);
-    return data.dams ?? [];
-  } catch {
-    return [];
-  }
+  const data = await get<DamsResponse>('/api/dams', signal);
+  return data.dams ?? [];
 }
 
 /**
@@ -1912,7 +1962,13 @@ export interface RiverVisualSubmission {
   submitterName?: string;
   /** ISO date the photo was taken, from EXIF where the picker supplied it. */
   capturedAt?: string;
-  /** Where the reading came from, so a moderator can weigh it. */
+  /**
+   * Where the reading came from, so a moderator can weigh it.
+   *
+   * Send 'manual' or send nothing. The other two describe work the SERVER does
+   * (it resolves the reach gauge and reads USGS at `capturedAt`), so only the
+   * server can label them honestly — omitting this lets it say which branch ran.
+   */
   readingSource?: 'live' | 'historical' | 'manual';
 }
 

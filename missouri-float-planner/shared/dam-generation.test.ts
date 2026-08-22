@@ -3,10 +3,9 @@ import test from 'node:test';
 import {
   FULL_GENERATION_SHORT_LABEL,
   generationReferenceCitation,
+  generationReferenceLine,
   RACK_ESTIMATE_NOTE,
   schedulePeak,
-  schedulePeakLabel,
-  schedulePeakTechnical,
   schedulePeakWindowLabel,
   generationFraction,
   generationNow,
@@ -27,6 +26,10 @@ import {
   speaksForNow,
   patternRowVoiceOver,
   patternRows,
+  patternSpanLabel,
+  PEAK_RELEASE_HEADING,
+  schedulePeakValue,
+  schedulePeakVoiceOver,
   unitEquivalents,
   type GenerationReference,
 } from './dam-generation';
@@ -611,6 +614,60 @@ test('a row says which of its hours were measured and which were planned', () =>
   );
 });
 
+test('the strip says which days it covers, counted from the rows it has', () => {
+  // The row labels name each row and never the whole, so the span is the only
+  // thing that tells a reader whether they are looking at a week or a fortnight.
+  // Counted from the rows rather than from the window constants: a dam with two
+  // days of history must not claim seven.
+  const rows = patternRows(
+    [observedDay('2026-07-27', { 8: 19_130 }), observedDay('2026-07-28', { 8: 19_130 })],
+    [day('2026-07-29', { 8: 391 })],
+    BULL_SHOALS,
+    100,
+    NOON_CENTRAL
+  );
+
+  assert.equal(patternSpanLabel(rows), 'The past 1 day, today, and the next 1 day');
+});
+
+test('a gap in the history does not shrink the span', () => {
+  // patternRows emits one row per day it is GIVEN — a day the feed missed
+  // produces no row at all — so counting rows called a six-day window "the past
+  // 2 days" while the labels above it plainly read Wed and Tue. The span is a
+  // statement about the window; the rows say for themselves which days landed.
+  const rows = patternRows(
+    [observedDay('2026-07-22', { 8: 19_130 }), observedDay('2026-07-28', { 8: 19_130 })],
+    [],
+    BULL_SHOALS,
+    100,
+    NOON_CENTRAL
+  );
+
+  assert.equal(rows.length, 2, 'the missing days really are absent, not blank rows');
+  assert.equal(patternSpanLabel(rows), 'The past 6 days and today');
+});
+
+test('the span never promises a tomorrow the dam has not posted', () => {
+  // Most dams have no schedule at all — SWPA posts for a handful — so a strip
+  // that always said "and the next 2 days" would be describing a forecast that
+  // is not on screen.
+  const rows = patternRows(
+    [observedDay('2026-07-26', { 8: 19_130 }), observedDay('2026-07-28', { 8: 19_130 })],
+    [],
+    BULL_SHOALS,
+    100,
+    NOON_CENTRAL
+  );
+
+  const label = patternSpanLabel(rows)!;
+  assert.doesNotMatch(label, /next/);
+  assert.match(label, /^The past \d+ days? and today$/);
+});
+
+test('an empty strip has no span to state', () => {
+  assert.equal(patternSpanLabel([]), null);
+});
+
 // ── Review fixes: the present tense, the stale schedule, the gated gap ─────
 
 test('a LAGGING observation loses "now", not just a stale one', () => {
@@ -943,11 +1000,13 @@ test('the peak leads with the river number and names when it runs', () => {
   const peak = schedulePeak(evening, BULL_SHOALS)!;
 
   assert.equal(peak.megawatts, 335);
-  assert.equal(schedulePeakLabel(peak), 'Peak release ~22,600 cfs');
-  assert.equal(schedulePeakWindowLabel(peak), '4 PM – 8 PM');
-  // The megawatts survive, one step down, for anyone checking Eddy against
-  // SWPA's own posted table.
-  assert.equal(schedulePeakTechnical(peak), '335 MW · 86% of scheduling capacity');
+  assert.equal(schedulePeakValue(peak), '~22,600 cfs · 4–8 PM');
+  assert.equal(schedulePeakWindowLabel(peak), '4–8 PM');
+  // The megawatts and the capacity share USED to sit beneath this as a
+  // technical line. They came off: neither answers "how big, and when", and
+  // both competed with the line that does. The figures are still on SWPA's own
+  // posted table for anyone checking Eddy against it.
+  assert.doesNotMatch(schedulePeakValue(peak), /MW|capacity/);
 });
 
 test('a peak reachable only through ramp hours refuses to estimate cfs', () => {
@@ -958,14 +1017,17 @@ test('a peak reachable only through ramp hours refuses to estimate cfs', () => {
   const peak = schedulePeak(rampOnly, BULL_SHOALS)!;
 
   assert.equal(peak.cfs, null);
-  assert.equal(schedulePeakLabel(peak), 'Peak load 335 MW', 'falls back rather than printing it');
-  // And the technical line does not repeat the megawatts the label just used.
-  assert.equal(schedulePeakTechnical(peak), '86% of scheduling capacity');
+  // Falls back to the published load rather than printing an estimate it does
+  // not trust — and keeps the hours, which are not in doubt either way.
+  assert.equal(schedulePeakValue(peak), '335 MW · 1–2 PM');
 });
 
-test('a day that reaches its peak twice names no window rather than a wrong one', () => {
+test('a day that reaches its peak twice names BOTH windows', () => {
   // 6-9 AM and 5-8 PM at the same load is the commonest shape a peaking plant
-  // has. Spanning both would describe a twelve-hour run that did not happen.
+  // has. Spanning both would describe a twelve-hour run that did not happen —
+  // and naming neither, which is what this used to do, left the headline
+  // stating a magnitude with no time attached on the day a reader most needs
+  // the time.
   const twice = scheduledDay([
     { hourEnding: 7, megawatts: 335, cfs: 22_600 },
     { hourEnding: 8, megawatts: 335, cfs: 22_600 },
@@ -974,8 +1036,9 @@ test('a day that reaches its peak twice names no window rather than a wrong one'
   ]);
   const peak = schedulePeak(twice, BULL_SHOALS)!;
 
-  assert.equal(schedulePeakWindowLabel(peak), null);
-  assert.equal(schedulePeakLabel(peak), 'Peak release ~22,600 cfs', 'the magnitude still stands');
+  assert.equal(peak.window, null, 'there is still no single block');
+  assert.equal(schedulePeakWindowLabel(peak), '6–8 AM and 5–7 PM');
+  assert.equal(schedulePeakValue(peak), '~22,600 cfs · 6–8 AM and 5–7 PM');
 });
 
 test('a wholly idle day has no peak, and no reference still has a magnitude', () => {
@@ -988,8 +1051,7 @@ test('a wholly idle day has no peak, and no reference still has a magnitude', ()
     undefined
   )!;
   assert.equal(noRef.fraction, null);
-  assert.equal(schedulePeakLabel(noRef), 'Peak release ~22,600 cfs');
-  assert.equal(schedulePeakTechnical(noRef), '335 MW');
+  assert.equal(schedulePeakValue(noRef), '~22,600 cfs · 5–6 PM');
 });
 
 test('the rack caveat scans, and still refuses to name physical units', () => {
@@ -998,4 +1060,173 @@ test('the rack caveat scans, and still refuses to name physical units', () => {
   assert.match(RACK_ESTIMATE_NOTE, /estimated/i);
   assert.match(RACK_ESTIMATE_NOTE, /turbines/i);
   assert.match(RACK_ESTIMATE_NOTE, /may differ/i);
+});
+
+test('a dam with no posted schedule shows the rest of today as not-yet, never as an outage', () => {
+  // Every LRN dam is this case, permanently: SEPA markets Cumberland power and
+  // publishes no hour-by-hour sheet, so `schedule` is [] on every render.
+  //
+  // The rest of today used to come back as `missing` — the dashed treatment
+  // legended "No reading", which means "there should be a reading here and
+  // there is not". Wearing it for hours that have not happened turned the
+  // normal state of three dams into a permanent feed-outage display, directly
+  // above a forecast card saying exactly what those hours hold.
+  const rows = patternRows(
+    [observedDay('2026-07-28', { 8: 19_130, 9: 19_130 })],
+    [],
+    BULL_SHOALS,
+    100,
+    NOON_CENTRAL
+  );
+
+  const today = rows.find((r) => r.today)!;
+  assert.equal(today.cells.length, 24, 'the row keeps its width so the days stay aligned');
+  assert.equal(today.cells[8].kind, 'observed', 'the measured half is unchanged');
+  assert.equal(today.cells[0].kind, 'missing', 'an elapsed hour with no reading is still a gap');
+  assert.equal(today.cells[12].kind, 'future', 'noon onward has not happened yet');
+  assert.equal(today.cells[23].kind, 'future');
+  assert.ok(
+    today.cells.every((c) => c.kind !== 'scheduled'),
+    'nothing may be drawn as scheduled when no schedule was posted'
+  );
+
+  // The flags a schedule-less row must not set — they drive the stale-schedule
+  // label, which cannot be true of a schedule that does not exist.
+  assert.equal(today.scheduled, false);
+  assert.equal(today.scheduleStale, false);
+  // But the marker stays: the boundary between observed and not-yet IS now.
+  assert.equal(today.splitIndex, 12);
+});
+
+test('the spoken row separates hours Eddy missed from hours that have not happened', () => {
+  const rows = patternRows(
+    [observedDay('2026-07-28', { 8: 19_130 })],
+    [],
+    BULL_SHOALS,
+    100,
+    NOON_CENTRAL
+  );
+  const spoken = patternRowVoiceOver(rows.find((r) => r.today)!);
+
+  // Twelve hours of today have happened; one carries a reading, eleven do not.
+  assert.match(spoken, /11 hours with no observation/);
+  // The other twelve have not happened, and are said as such rather than
+  // counted into the sentence above — which read "23 hours with no
+  // observation", a coverage complaint about the rest of the day.
+  assert.match(spoken, /12 hours still to come, with no schedule published/);
+  assert.doesNotMatch(spoken, /23 hours with no observation/);
+});
+
+test('a dam that does post a schedule is untouched by the not-yet treatment', () => {
+  // The guard on the fix: SWPA dams must keep drawing their plan.
+  const rows = patternRows(
+    [observedDay('2026-07-28', { 8: 19_130 })],
+    [day('2026-07-28', { 13: 391, 14: 391 })],
+    BULL_SHOALS,
+    100,
+    NOON_CENTRAL
+  );
+  const today = rows.find((r) => r.today)!;
+  assert.equal(today.cells[12].kind, 'scheduled');
+  assert.equal(today.scheduled, true);
+  assert.ok(
+    today.cells.every((c) => c.kind !== 'future'),
+    'a posted sheet means the rest of the day is known, not unknown'
+  );
+});
+
+/* ── The peak line: how much water, and when ──────────────────────────────── */
+
+test('the peak names every block it reaches, not just a lone one', () => {
+  // A day that peaks twice used to answer null for "when", which left the
+  // headline stating a magnitude with no time attached — on the day a reader
+  // most needs the time.
+  const split = schedulePeak(
+    day('2026-07-28', { 17: 391, 18: 391, 21: 391, 22: 391 }),
+    BULL_SHOALS
+  )!;
+
+  assert.equal(split.window, null, 'still no single block');
+  assert.deepEqual(split.windows, [
+    { from: 17, to: 18 },
+    { from: 21, to: 22 },
+  ]);
+  assert.equal(schedulePeakWindowLabel(split), '4–6 PM and 8–10 PM');
+});
+
+test('a single block reads as one compact span', () => {
+  const peak = schedulePeak(day('2026-07-28', { 17: 391, 18: 391, 19: 391, 20: 391 }), BULL_SHOALS)!;
+  assert.deepEqual(peak.window, { from: 17, to: 20 });
+  assert.equal(schedulePeakWindowLabel(peak), '4–8 PM');
+});
+
+test('a span crossing noon or midnight keeps both meridiems', () => {
+  // "11–1 PM" would name the wrong half of the day.
+  const crossing = schedulePeak(day('2026-07-28', { 12: 391, 13: 391 }), BULL_SHOALS)!;
+  assert.equal(schedulePeakWindowLabel(crossing), '11 AM–1 PM');
+});
+
+test('the value line carries the river figure and the hours, and nothing else', () => {
+  // The megawatts and the capacity share came off it deliberately: neither
+  // answers "how big, and when", and both competed with the line that does.
+  const peak = schedulePeak(
+    {
+      hours: [17, 18, 19, 20].map((hourEnding) => ({
+        hourEnding,
+        megawatts: 391,
+        cfs: 22_600,
+        isRamp: false,
+      })),
+    },
+    BULL_SHOALS
+  )!;
+
+  assert.equal(schedulePeakValue(peak), '~22,600 cfs · 4–8 PM');
+  assert.doesNotMatch(schedulePeakValue(peak), /MW|capacity/);
+  assert.equal(PEAK_RELEASE_HEADING, 'Peak scheduled release');
+  // "Peak release" alone reads as a measurement taken downstream; this is a plan.
+  assert.match(PEAK_RELEASE_HEADING, /scheduled/i);
+});
+
+test('a peak with no steady hour still leads with what it has', () => {
+  // Every hour at peak is a ramp, so there is no cfs estimate worth printing —
+  // the published load is the honest figure and it keeps its time.
+  const rampOnly = schedulePeak(
+    { hours: [{ hourEnding: 17, megawatts: 391, cfs: 22_600, isRamp: true }] },
+    BULL_SHOALS
+  )!;
+  assert.equal(rampOnly.cfs, null);
+  assert.equal(schedulePeakValue(rampOnly), '391 MW · 4–5 PM');
+});
+
+test('the peak is spoken in full units and read as a span', () => {
+  const peak = schedulePeak(
+    {
+      hours: [17, 18, 19, 20].map((hourEnding) => ({
+        hourEnding,
+        megawatts: 391,
+        cfs: 22_600,
+        isRamp: false,
+      })),
+    },
+    BULL_SHOALS
+  )!;
+  assert.equal(
+    schedulePeakVoiceOver(peak),
+    'Peak scheduled release approximately 22,600 cubic feet per second, from 4 to 8 PM.'
+  );
+});
+
+test('the estimate hedge rides on the citation instead of a paragraph', () => {
+  // Two sentences of grey subtext under an already-hedged headline were the
+  // least-read thing on the card. The word that does the work is "estimated",
+  // and it sits beside the number it qualifies now.
+  assert.equal(
+    generationReferenceLine(BULL_SHOALS),
+    'Full generation is 26,400 cfs (SWPA) · estimated from flow'
+  );
+  // The publisher survives the compression: the percentage is only checkable
+  // because the denominator is published.
+  assert.match(generationReferenceLine(BULL_SHOALS), /SWPA/);
+  assert.match(generationReferenceLine(BULL_SHOALS), /estimated/);
 });

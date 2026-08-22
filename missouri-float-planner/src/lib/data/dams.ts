@@ -44,6 +44,7 @@ import {
 } from '@/lib/flow-providers/usace-registry';
 import { buildPatternDays, patternHasObservations } from '@/lib/data/dam-history';
 import { readPatternHours } from '@/lib/data/dam-history-store';
+import { fetchOsageReadings, fetchTrumanDaily } from '@/lib/ameren/osage';
 
 /**
  * What a LIST surface needs, and nothing else.
@@ -122,6 +123,8 @@ const FETCH_CONCURRENCY = 6;
 // in packages/eddy-types. Re-exported here so every existing `@/lib/data/dams`
 // import keeps working verbatim.
 export type {
+  DamGenerationForecast,
+  DamForecastWindow,
   DamMetricValue,
   DamPatternDay,
   DamScheduleDay,
@@ -132,11 +135,13 @@ export type {
   ScheduledHour,
 } from '@shared/dam-types';
 import type {
+  DamGenerationForecast,
   DamMetricValue,
   DamPatternDay,
   DamScheduleDay,
   DamSnapshot,
 } from '@shared/dam-types';
+import { buildForecastWindows, FORECAST_HORIZON_HOURS } from '@/lib/data/dam-forecast';
 
 /** Run `fn` over `items`, at most `limit` at a time. */
 async function mapWithConcurrency<T, R>(
@@ -201,11 +206,16 @@ export async function seriesFor(
     else unresolved.push(metric);
   }
 
-  if (unresolved.length === 0 || !dam.office || !dam.cdaLocation) return out;
+  // Either shape of location config feeds the resolver: the common single
+  // prefix, or LRN's list of split station namespaces. Neither present means
+  // no resolution — explicit ids are all the dam has, and a rename 404s
+  // loudly instead of being papered over.
+  const locations = dam.cdaLocations ?? (dam.cdaLocation ? [dam.cdaLocation] : []);
+  if (unresolved.length === 0 || !dam.office || locations.length === 0) return out;
 
   const discovered: Partial<Record<UsaceMetric, ResolvedSeries>> = await resolveSeries(
     dam.office,
-    dam.cdaLocation,
+    locations,
     unresolved
   ).catch(() => ({}));
   for (const [metric, hit] of Object.entries(discovered)) {
@@ -281,11 +291,119 @@ export function publishableValue(
   return value >= FLOOD_POOL_ZERO_BAND ? 0 : null;
 }
 
+/**
+ * Metrics from Ameren's hydro reporting API, for the dams CWMS cannot serve.
+ * Same shape out as readMetrics, same staleness and trend machinery, so a
+ * reading's provenance changes nothing about how a surface treats it.
+ *
+ * - 'osage' (Bagnell): hourly pool, tailwater and discharge. The tailwater
+ *   gets the same 3-hour trend the CWMS path computes, from the same window
+ *   arithmetic (changeOver), because the number means the same thing.
+ * - 'truman': the daily report's observed pool and outflow, about a day in
+ *   arrears. Each value wears the report's own timestamp, so readingStaleness
+ *   bands it honestly — a day-old figure renders dimmed with its age, which
+ *   is the truth, rather than fresh, which would be the bug.
+ */
+async function readAmerenMetrics(
+  dam: UsaceDam,
+  requested: UsaceMetric[]
+): Promise<Partial<Record<UsaceMetric, DamMetricValue>>> {
+  const metrics: Partial<Record<UsaceMetric, DamMetricValue>> = {};
+
+  if (dam.amerenMetrics === 'osage') {
+    const readings = await fetchOsageReadings();
+    if (!readings || readings.length === 0) return {};
+    const latest = readings[readings.length - 1];
+    const at = new Date(latest.timestamp).toISOString();
+    const staleness = stalenessOf(latest.timestamp);
+
+    if (requested.includes('release')) {
+      metrics.release = { value: latest.dischargeCfs, unit: 'cfs', at, staleness };
+    }
+    if (requested.includes('poolElevation')) {
+      metrics.poolElevation = { value: latest.headwaterFt, unit: 'ft', at, staleness };
+    }
+    if (requested.includes('tailwaterElevation')) {
+      const trend = changeOver(
+        readings.map((r) => ({ timestamp: r.timestamp, value: r.tailwaterFt })),
+        TREND_HOURS
+      );
+      metrics.tailwaterElevation = {
+        value: latest.tailwaterFt,
+        unit: 'ft',
+        at,
+        staleness,
+        ...(trend ? { trend } : {}),
+      };
+    }
+    return metrics;
+  }
+
+  if (dam.amerenMetrics === 'truman') {
+    const daily = await fetchTrumanDaily();
+    if (!daily) return {};
+    const at = new Date(daily.timestamp).toISOString();
+    const staleness = stalenessOf(daily.timestamp);
+    if (requested.includes('poolElevation')) {
+      metrics.poolElevation = { value: daily.poolElevationFt, unit: 'ft', at, staleness };
+    }
+    if (requested.includes('release')) {
+      metrics.release = { value: daily.outflowCfs, unit: 'cfs', at, staleness };
+    }
+    return metrics;
+  }
+
+  return metrics;
+}
+
+/**
+ * Whether readMetrics has anything to fetch for this dam at all.
+ *
+ * The office is the fetch prerequisite; the rest is "does anything name a
+ * series" — declared ids, or a location the resolver can search. This used
+ * to be `office && cdaLocation`, which was the same set until the Nashville
+ * dams: explicit series, cdaLocations (plural), no cdaLocation — and the
+ * old gate silently returned {} for all three, blanking every metric on
+ * their pages while every test that could run offline stayed green. Pinned
+ * by dams.test.ts against the registry, which is why this is a named
+ * function and not an inline condition.
+ */
+export function hasCwmsMetricsPath(dam: UsaceDam): boolean {
+  return Boolean(
+    dam.office &&
+      (Object.keys(dam.series).length > 0 || dam.cdaLocation || dam.cdaLocations?.length)
+  );
+}
+
+/**
+ * Whether the history cron should keep an hourly record for this dam.
+ *
+ * Narrower than hasCwmsMetricsPath on purpose: a flood-control dam has no
+ * generation pattern, and storing its release alone would build a strip whose
+ * top half is permanently empty. Two shapes qualify — an explicit
+ * generationFlow series (SWL, LRN), or a SWPA column plus a location the
+ * resolver can search (the Tulsa projects, whose turbine series resolve at
+ * request time).
+ *
+ * The location half asks the SAME question hasCwmsMetricsPath asks, in the
+ * same shape-agnostic way, because this predicate was written inline as
+ * `swpaCode && cdaLocation` and that is the exact singular-only blindness the
+ * function above exists to record: a future project configured the Nashville
+ * way — turbines, cdaLocations plural, no hand-declared generationFlow — would
+ * have been dropped here silently, its strip simply never filling. Named and
+ * exported so dams.test.ts can pin the set against the registry rather than
+ * trusting a condition nobody can see.
+ */
+export function wantsHistory(dam: UsaceDam): boolean {
+  const hasLocation = Boolean(dam.cdaLocation || dam.cdaLocations?.length);
+  return Boolean(dam.office && (dam.series.generationFlow || (dam.swpaCode && hasLocation)));
+}
+
 async function readMetrics(
   dam: UsaceDam,
   requested: UsaceMetric[]
 ): Promise<Partial<Record<UsaceMetric, DamMetricValue>>> {
-  if (!dam.office || !dam.cdaLocation) return {};
+  if (!hasCwmsMetricsPath(dam)) return {};
 
   const asked = requested.filter((m) => !dam.suppressMetrics?.includes(m));
   const resolved = await seriesFor(dam, asked);
@@ -387,6 +505,61 @@ async function readSchedule(dam: UsaceDam, days: number): Promise<DamScheduleDay
 }
 
 /**
+ * Districts whose CWMS forecast is rendered, with the attribution and zone the
+ * payload carries. An office absent here produces NO forecast even if a series
+ * is declared — attribution and zone are facts about the district, and a
+ * forecast without a named source and clock has no business on a page someone
+ * wades against. A TVA-era Eastern district adds its row here; nothing else
+ * changes.
+ */
+const FORECAST_OFFICES: Partial<
+  Record<NonNullable<UsaceDam['office']>, { source: string; timeZone: string }>
+> = {
+  LRN: {
+    source: 'U.S. Army Corps of Engineers, Nashville District',
+    timeZone: 'America/Chicago',
+  },
+};
+
+/**
+ * The district's forward generation forecast, or undefined when this dam has
+ * none to offer. Undefined rather than an empty window list, for the same
+ * reason readPattern returns undefined: the section is better absent than
+ * present and empty.
+ *
+ * Requires the dam's `generationOnCfs` floor — the windows' on/off verdicts
+ * are made with the same floor the observed `generating` chip uses, so the
+ * forecast and the observation cannot disagree about what "running" means.
+ */
+async function readForecast(dam: UsaceDam): Promise<DamGenerationForecast | undefined> {
+  const series = dam.series.generationForecast;
+  const office = dam.office ? FORECAST_OFFICES[dam.office] : undefined;
+  if (!series || !office || !dam.office || dam.generationOnCfs === undefined) return undefined;
+
+  const now = bucketedNow().getTime();
+  const result = await fetchTimeseries(
+    dam.office,
+    series.tsId,
+    series.unit,
+    // Two hours back so the hour currently running (stamped at its END) is in
+    // the window; buildForecastWindows slices everything older at `now`.
+    new Date(now - 2 * 3_600_000),
+    new Date(now + FORECAST_HORIZON_HOURS * 3_600_000)
+  ).catch(() => null);
+  if (!result || result.points.length === 0) return undefined;
+
+  const windows = buildForecastWindows(result.points, dam.generationOnCfs, Date.now());
+  if (windows.length === 0) return undefined;
+
+  return {
+    windows,
+    timeZone: office.timeZone,
+    retrievedAt: result.retrievedAt,
+    source: office.source,
+  };
+}
+
+/**
  * One dam, reading exactly the metrics asked for. Never throws — a source that
  * fails simply contributes nothing, because a dam with a pool level but no
  * schedule is still worth a page.
@@ -402,20 +575,26 @@ async function readSchedule(dam: UsaceDam, days: number): Promise<DamScheduleDay
  */
 async function fetchSnapshot(
   damId: string,
-  options: { metrics: UsaceMetric[]; scheduleDays: number; pattern?: boolean }
+  options: {
+    metrics: UsaceMetric[];
+    scheduleDays: number;
+    pattern?: boolean;
+    forecast?: boolean;
+  }
 ): Promise<DamSnapshot | null> {
   const dam = getUsaceDam(damId);
   if (!dam) return null;
 
-  const [metrics, schedule, pattern] = await Promise.all([
-    readMetrics(dam, options.metrics).catch(
+  const [metrics, schedule, pattern, forecast] = await Promise.all([
+    (dam.amerenMetrics ? readAmerenMetrics(dam, options.metrics) : readMetrics(dam, options.metrics)).catch(
       () => ({}) as Partial<Record<UsaceMetric, DamMetricValue>>
     ),
     readSchedule(dam, options.scheduleDays).catch(() => [] as DamScheduleDay[]),
     options.pattern ? readPattern(damId) : Promise.resolve(undefined),
+    options.forecast ? readForecast(dam).catch(() => undefined) : Promise.resolve(undefined),
   ]);
 
-  return buildSnapshot(dam, metrics, schedule, pattern);
+  return buildSnapshot(dam, metrics, schedule, pattern, forecast);
 }
 
 /**
@@ -449,14 +628,20 @@ export function buildSnapshot(
   dam: UsaceDam,
   metrics: Partial<Record<UsaceMetric, DamMetricValue>>,
   schedule: DamScheduleDay[],
-  pattern?: DamPatternDay[]
+  pattern?: DamPatternDay[],
+  forecast?: DamGenerationForecast
 ): DamSnapshot {
   const gen = metrics.generationFlow;
   const generating =
     gen && dam.generationOnCfs !== undefined ? gen.value > dam.generationOnCfs : null;
 
   const sources: string[] = [];
-  if (Object.keys(metrics).length > 0) sources.push('USACE CWMS');
+  // Attribution follows the path the metrics actually came down: a dam with
+  // amerenMetrics reads Ameren instead of CWMS, never both, so the label is
+  // decided by the registry rather than guessed from the values.
+  if (Object.keys(metrics).length > 0) {
+    sources.push(dam.amerenMetrics ? 'Ameren Missouri' : 'USACE CWMS');
+  }
   if (schedule.length > 0) sources.push('SWPA');
 
   // The two SWPA figures a client needs to size an observation against this
@@ -496,6 +681,7 @@ export function buildSnapshot(
     ...(schedule.length > 0 ? { scheduleTimeZone: 'America/Chicago' as const } : {}),
     ...(dam.releaseExcludesGeneration ? { releaseExcludesGeneration: true } : {}),
     ...(pattern && pattern.length > 0 ? { pattern } : {}),
+    ...(forecast && forecast.windows.length > 0 ? { generationForecast: forecast } : {}),
     ...(dam.tailwaterFishery ? { tailwaterFishery: dam.tailwaterFishery } : {}),
     ...(dam.infoPhone ? { infoPhone: dam.infoPhone } : {}),
     // The reach this dam controls, when Eddy carries it. On the wire so a
@@ -521,6 +707,9 @@ export async function fetchDamDetail(
     // Detail only. A twenty-dam index has no room to draw a week per row and no
     // reason to pay twenty database reads for one that is never seen.
     pattern: true,
+    // Same argument: ~9 days of hourly forecast is a detail-page payload, and
+    // most dams have no forecast series to read anyway.
+    forecast: true,
   });
 }
 

@@ -6,7 +6,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getActiveRiverContexts, DEFAULT_TIMEZONE } from '@/lib/rivers/context';
 import { getLocalDateStrings } from '@/lib/social/local-time';
-import { SONNET_MODEL, extractUsage, type UsageStats } from '@/lib/eddy/generate-update';
+import { extractUsage, type UsageStats } from '@/lib/eddy/generate-update';
+import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 export interface GlobalUpdate {
   quoteText: string;
@@ -63,15 +64,19 @@ export interface GlobalUpdateOptions {
 }
 
 /**
- * Generates an overall Ozarks summary by reading recently generated per-river updates
- * and asking Sonnet to synthesize them into a brief overview.
+ * Generates an overall Ozarks summary by reading recently generated per-river
+ * updates and asking the model to synthesize them into a brief overview.
  *
  * Returns null when there is nothing honest to write — no key, no inputs, or a
  * model call that failed. The CALLER decides how loud that is; on the daily
  * pass it is now a failed cron rather than a line in a JSON body nobody reads.
  * See the route.
+ *
+ * `model` is resolved by the caller, alongside the river model, so one pass
+ * cannot straddle a switch.
  */
 export async function generateGlobalUpdate(
+  model: ResolvedModel,
   options: GlobalUpdateOptions = {},
 ): Promise<GlobalUpdate | null> {
   const windowMinutes = options.windowMinutes ?? GLOBAL_INPUT_WINDOW_MINUTES;
@@ -153,8 +158,12 @@ export async function generateGlobalUpdate(
 
   try {
     const message = await client.messages.create({
-      model: SONNET_MODEL,
-      max_tokens: 200,
+      model: model.id,
+      max_tokens: model.maxTokens,
+      // The tightest budget of the four workloads, and so the one where an
+      // un-disabled thinking model would spend the whole allowance reasoning
+      // and return nothing to publish.
+      ...(model.thinking ? { thinking: model.thinking } : {}),
       messages: [{ role: 'user', content: prompt }],
       system: GLOBAL_SYSTEM_PROMPT,
     });
@@ -170,10 +179,10 @@ export async function generateGlobalUpdate(
     return {
       quoteText,
       sourcesUsed: ['per-river updates', 'USGS gauge'],
-      usage: extractUsage(SONNET_MODEL, message.usage),
+      usage: extractUsage(model.id, message.usage),
     };
   } catch (e) {
-    console.error('[EddyGlobal] Sonnet call failed:', e);
+    console.error(`[EddyGlobal] ${model.id} call failed:`, e);
     return null;
   }
 }

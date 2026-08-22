@@ -11,6 +11,7 @@ import {
   type SecondaryGaugeTarget,
 } from '@/lib/eddy/generate-gauge-update';
 import { usageColumns } from '@/lib/eddy/generate-update';
+import { resolveModels } from '@/lib/ai/resolve-models';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,6 +63,9 @@ async function runGeneration(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  // Resolved once, before any generation, so a mid-pass switch cannot split
+  // this run across two models. See src/lib/ai/resolve-models.ts.
+  const models = await resolveModels();
   const targets = await getSecondaryGaugeTargets();
 
   if (targets.length === 0) {
@@ -74,7 +78,7 @@ async function runGeneration(request: NextRequest) {
   const errors: string[] = [];
 
   const processTarget = async (target: SecondaryGaugeTarget) => {
-    const update = await generateGaugeUpdate(target);
+    const update = await generateGaugeUpdate(target, models.gauge_update);
     if (!update) throw new Error('generation returned null');
 
     const { error: insertError } = await supabase.from('gauge_updates').insert({

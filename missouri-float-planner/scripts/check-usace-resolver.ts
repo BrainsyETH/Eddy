@@ -45,6 +45,11 @@ import { RESOLVABLE_METRICS, resolveSeries, parseTsId } from '../src/lib/usace/r
 /** Intervals that summarise a period. Serving one as a current reading is the bug. */
 const AGGREGATE = /^~?1(Week|Month|Year|Decade)$/i;
 
+/** Either location shape: the common single prefix, or LRN's split list. */
+function damLocations(dam: UsaceDam): string[] {
+  return dam.cdaLocations ?? (dam.cdaLocation ? [dam.cdaLocation] : []);
+}
+
 /** Breathing room before a re-check, so it is not competing with the first pass. */
 const RECHECK_DELAY_MS = 2_000;
 
@@ -79,7 +84,7 @@ function ageOf(iso: number | undefined): string {
 }
 
 async function checkDam(dam: UsaceDam): Promise<{ rows: Row[]; problems: string[] }> {
-  const resolved = await resolveSeries(dam.office!, dam.cdaLocation!, [...RESOLVABLE_METRICS]);
+  const resolved = await resolveSeries(dam.office!, damLocations(dam), [...RESOLVABLE_METRICS]);
   const rows: Row[] = [];
   const problems: string[] = [];
 
@@ -141,7 +146,7 @@ async function checkDamWithRetry(dam: UsaceDam): Promise<{ rows: Row[]; problems
 async function main(): Promise<void> {
   const requested = process.argv.slice(2);
   const dams = Object.values(USACE_DAMS).filter((d) => {
-    if (!d.office || !d.cdaLocation) return false;
+    if (!d.office || !(d.cdaLocation || d.cdaLocations?.length)) return false;
     return requested.length === 0 || requested.includes(d.id);
   });
 
@@ -172,7 +177,7 @@ async function main(): Promise<void> {
     resolvedCount += got;
     metricCount += rows.length;
 
-    console.log(`${dam.name}  [${dam.office}/${dam.cdaLocation}]  ${got}/${rows.length}`);
+    console.log(`${dam.name}  [${dam.office}/${damLocations(dam).join('|')}]  ${got}/${rows.length}`);
     for (const r of rows) {
       if (!r.resolved && !r.pinned) continue; // a metric this project simply lacks
       const mark = r.flags.length > 0 ? `  <-- ${r.flags.join(', ')}` : '';

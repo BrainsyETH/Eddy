@@ -206,19 +206,45 @@ test('the note and the row count come from the same resolve', () => {
   assert.equal(drawnAsRamps, ramps.ownedMarkers);
 });
 
-test('the sheet asks the resolver for the note rather than recomputing it', () => {
-  // The failure this file exists to prevent is a second derivation beside the
-  // count — the exact shape of the drift ADR 0008 records. A component that
-  // built its own sentence out of `layers.includes(...)` would pass every test
-  // above and still be able to disagree with the number next to it.
+test('the sheet does not hand-build a representation sentence of its own', () => {
+  // ── WHAT THIS GUARD NOW PROTECTS ────────────────────────────────────────
+  //
+  // It used to assert the OPPOSITE — that the map screen called
+  // `accessOverlapNote` — because the sheet printed the sentence and the risk
+  // was a component recomputing it beside the count and drifting from it.
+  //
+  // The sheet no longer prints it at all: "138 drawn as access points · 103 as
+  // campgrounds" is a data-integrity fact, and a "Show on map" drawer is where
+  // somebody controls a map, not where Eddy explains its mark-priority rules.
+  // The resolver still computes the buckets and the tests above still pin the
+  // algebra, so the capability is intact for an internal panel to use.
+  //
+  // The drift risk survives the removal, inverted: the temptation now is a
+  // component assembling "N drawn as X" out of `layers.includes(...)`, which
+  // would be both a second derivation AND the copy that was just removed. So
+  // the guard is that the screen builds no such sentence itself.
   const screen = readFileSync(
     join(process.cwd(), '../eddy-ios/app/(tabs)/index.tsx'),
     'utf8',
   );
+  // CODE ONLY. The comments in that file explain what was removed and quote
+  // the old copy while doing it, which is exactly what a reader arriving at
+  // the change needs and exactly what a naive scan would trip over. Stripping
+  // them is what makes this a guard against SHIPPING the sentence rather than
+  // against mentioning it. `(?<!:)` keeps `https://` out of the line-comment
+  // rule; this is a heuristic and does not need to be a parser.
+  const code = screen.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(?<!:)\/\/.*$/gm, '');
   assert.ok(
-    screen.includes('accessOverlapNote('),
-    'the map screen should render the resolver’s note',
+    !/drawn as/.test(code),
+    'the map screen must not assemble its own representation sentence',
   );
+  assert.ok(
+    !/have a confirmed location/.test(code),
+    'coverage copy belongs to the river page listing, not to a map control',
+  );
+  // And the guard has to be able to fail, or it is decoration: the stripper
+  // must leave real code behind.
+  assert.ok(code.includes('renderLayerDetail'), 'the stripper kept the screen’s code');
 });
 
 // ── Sections: a heading groups rows and does nothing else ──────────────────
@@ -300,4 +326,150 @@ test('each grouped row still counts on its own key, unsummed', () => {
   assert.equal(layerRowCount({ key: 'campgrounds' }, active, counts), 77);
   assert.equal(layerRowCount({ key: 'lodging' }, active, counts), 81);
   assert.equal(layerRowCount({ key: 'outfitters' }, active, counts), 84);
+});
+
+// ── The sheet opens with every row on except the Overlays section ──────────
+//
+// The defaults inverted: the map used to open with three layers and now opens
+// with every row that draws ON the map, leaving off only the two that draw OVER
+// it — rain radar and public land, which are exactly the Overlays section.
+//
+// The rule needs a guard because breaking it is SILENT IN BOTH DIRECTIONS. A
+// new pin layer added to the catalog and given `false` arrives dark on a sheet
+// whose every other row is lit, and looks like a layer somebody switched off. A
+// new overlay given `true` covers the map on first launch for a reader who
+// never asked for a raster. Neither fails anything.
+//
+// It parses the source because it cannot import it: `layers.ts` resolves
+// colours through `@/theme/palette`, and `@/` in this suite's tsconfig points at
+// the WEB app's src — the same constraint that put layerRowCount in its own pure
+// module (see this file's header, and layerRows.ts's).
+
+const CATALOG = readFileSync(
+  join(process.cwd(), '..', 'eddy-ios', 'src', 'map', 'layers.ts'),
+  'utf8',
+);
+
+/** `{ access: true, boatRamps: false, … }` as the source declares it. */
+function layerDefaults(): Map<string, boolean> {
+  const table = CATALOG.match(/const LAYER_DEFAULTS: Record<LayerKey, boolean> = \{([\s\S]*?)\n\};/);
+  assert.ok(table, 'LAYER_DEFAULTS must stay a total Record — see its docblock');
+  return new Map(
+    [...table[1].matchAll(/^ {2}(\w+): (true|false),$/gm)].map(([, key, on]) => [key, on === 'true']),
+  );
+}
+
+/**
+ * Catalog entries, and which of them carry a given flag.
+ *
+ * Entry fields sit at four spaces inside `MAP_LAYERS`, so a flag belongs to the
+ * last `key:` declared above it. A heuristic, and it does not need to be a
+ * parser — the parity assertion below fails loudly if it ever stops matching.
+ */
+function catalogEntries() {
+  const body = CATALOG.slice(CATALOG.indexOf('export const MAP_LAYERS'));
+  const keys = [...body.matchAll(/^ {4}key: '(\w+)',$/gm)];
+  const owning = (flag: RegExp): string[] =>
+    [...body.matchAll(flag)].map((hit) => {
+      const at = hit.index ?? 0;
+      const owner = keys.filter((k) => (k.index ?? 0) < at).pop();
+      assert.ok(owner, 'a layer flag must sit inside a layer entry');
+      return owner[1];
+    });
+  return {
+    keys: keys.map((k) => k[1]),
+    overlays: new Set(owning(/^ {4}section: 'overlays',$/gm)),
+    nested: new Set(owning(/^ {4}nested: true,$/gm)),
+  };
+}
+
+test('every layer states a default, and every stated default is a layer', () => {
+  // Also the self-check on the two parsers above: a regex that silently stopped
+  // matching would empty one side and fail here rather than passing everything
+  // below vacuously.
+  const defaults = layerDefaults();
+  const { keys } = catalogEntries();
+  assert.ok(keys.length > 5, 'the catalog parse found layers');
+  assert.deepEqual([...defaults.keys()].sort(), [...keys].sort());
+});
+
+test('the only rows that open off are the Overlays rows', () => {
+  const defaults = layerDefaults();
+  const { overlays, nested } = catalogEntries();
+  assert.ok(overlays.size > 0, 'the Overlays section has rows');
+
+  for (const [key, on] of defaults) {
+    // Tiers are exempt: they are chips under a row rather than rows, and
+    // `boatRamps` is deliberately off — a ramp already draws as an access
+    // point, so the tier changes a mark rather than adding a place.
+    if (nested.has(key)) continue;
+    assert.equal(
+      on,
+      !overlays.has(key),
+      overlays.has(key)
+        ? `${key} draws over the map, so it must open off`
+        : `${key} draws on the map, so it must open on — or move to the Overlays section`,
+    );
+  }
+});
+
+test('the defaults table is the only place a default is stated', () => {
+  // DEFAULT_LAYERS was an array literal beside the catalog, which is the second
+  // source of truth this file's other guards exist to prevent. Derived, the
+  // table above is authoritative — and so is what the two tests above read.
+  assert.match(
+    CATALOG,
+    /export const DEFAULT_LAYERS: LayerKey\[\] = \(Object\.keys\(LAYER_DEFAULTS\) as LayerKey\[\]\)/,
+    'DEFAULT_LAYERS must derive from LAYER_DEFAULTS rather than restate it',
+  );
+});
+
+// ── Every layer caveat has to be reachable without sight ───────────────────
+//
+// The ⓘ button in MapLayersSheet is nested inside the row Pressable, which
+// declares accessibilityRole="switch" and therefore subsumes its whole subtree
+// into one VoiceOver stop. The button had a role and a label and no focus, so
+// `info` — the public-land ownership caveat and the IEM radar attribution —
+// could not be reached at all. The radar attribution had previously been an
+// always-visible note, so the declutter removed the only way to read it.
+//
+// The row now exposes an `info` custom action instead. This asserts the source
+// still wires it, because the failure mode is silent: the visible ⓘ keeps
+// working and nothing about the screen looks wrong.
+
+test('a layer that carries info exposes it as an accessibility action', () => {
+  const sheet = readFileSync(
+    join(process.cwd(), '..', 'eddy-ios', 'src', 'components', 'MapLayersSheet.tsx'),
+    'utf8'
+  );
+
+  assert.match(
+    sheet,
+    /accessibilityActions=\{\s*layer\.info \? \[\{ name: 'info', label: `About \$\{layer\.label\}` \}\] : undefined\s*\}/,
+    'the row must offer an info action whenever the layer has info to give'
+  );
+  assert.match(
+    sheet,
+    /onAccessibilityAction=/,
+    'and must handle it — an advertised action that does nothing is worse than none'
+  );
+  assert.match(
+    sheet,
+    /actionName === 'info'/,
+    'the handler must dispatch on the action it advertises'
+  );
+});
+
+test('the visible info button does not claim a VoiceOver stop it cannot hold', () => {
+  const sheet = readFileSync(
+    join(process.cwd(), '..', 'eddy-ios', 'src', 'components', 'MapLayersSheet.tsx'),
+    'utf8'
+  );
+  // A role and label on a subsumed element describe a stop that does not
+  // exist, which is what made this look handled for as long as it did.
+  assert.doesNotMatch(
+    sheet,
+    /accessibilityLabel=\{`About \$\{layer\.label\}`\}/,
+    'the nested pressable must not re-declare itself as a focusable button'
+  );
 });

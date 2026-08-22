@@ -20,10 +20,10 @@ const TREND_LOOKBACK_HOURS = 9;
 /**
  * Recent readings per gauge station, in two queries rather than one per river.
  *
- * getRivers already pays a per-river cost for the access-point count and the
- * condition RPC; adding a third fan-out for history would have put ~72 queries
- * behind a CDN-cached list endpoint. These two batch calls are flat regardless
- * of how many rivers are onboarded.
+ * Adding a per-river fan-out for history would have put ~72 queries behind a
+ * CDN-cached list endpoint. These two batch calls are flat regardless of how
+ * many rivers are onboarded — as is the access-point count beside them now.
+ * The condition RPC is the only per-river call left.
  */
 async function fetchTrendInputs(supabase: ReturnType<typeof createAdminClient>) {
   const { data: primaryGauges } = await supabase
@@ -64,15 +64,71 @@ async function fetchTrendInputs(supabase: ReturnType<typeof createAdminClient>) 
   return { stationByRiver, readingsByStation };
 }
 
+/**
+ * Approved access points per river, as ONE query rather than one per river.
+ *
+ * This was a `head: true` count inside the per-river map — 24 round trips to
+ * answer a question with 312 rows behind it, every one of them waiting on the
+ * connection pool alongside the condition RPC beside it.
+ *
+ * PostgREST has no GROUP BY, so the ids come back and are counted here. One
+ * column, one row per access point — 312 of them today.
+ *
+ * PAGED, because PostgREST caps a response and a cap here would not look like
+ * an error: it would look like the rivers at the end of the alphabet lost their
+ * put-ins. A silent undercount is the one failure mode a count has, so the loop
+ * runs until a page comes back short.
+ */
+const ACCESS_POINT_PAGE = 1000;
+
+async function fetchApprovedAccessPointCounts(
+  supabase: ReturnType<typeof createAdminClient>,
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+
+  for (let from = 0; ; from += ACCESS_POINT_PAGE) {
+    const { data, error } = await supabase
+      .from('access_points')
+      .select('river_id')
+      .eq('approved', true)
+      // A total order, or a row can appear on two pages and be counted twice
+      // while another is never seen at all.
+      .order('id', { ascending: true })
+      .range(from, from + ACCESS_POINT_PAGE - 1);
+
+    if (error) {
+      // A count is decoration next to the condition; a river with an unknown
+      // number of put-ins still belongs in the list. Callers see 0, which is
+      // what the failed per-river count returned too.
+      console.error('Error counting access points:', error);
+      return counts;
+    }
+
+    const rows = data ?? [];
+    for (const row of rows) {
+      const riverId = row.river_id as string | null;
+      if (riverId) counts.set(riverId, (counts.get(riverId) ?? 0) + 1);
+    }
+
+    if (rows.length < ACCESS_POINT_PAGE) return counts;
+  }
+}
+
 export async function getRivers(): Promise<RiverListItem[]> {
   const supabase = createAdminClient();
-  const { stationByRiver, readingsByStation } = await fetchTrendInputs(supabase);
+  const [{ stationByRiver, readingsByStation }, accessPointCounts] = await Promise.all([
+    fetchTrendInputs(supabase),
+    fetchApprovedAccessPointCounts(supabase),
+  ]);
 
   // Try with active filter first, fall back to all rivers if column doesn't exist.
-  // access_points is a LEFT join (not !inner): an active river with zero access
-  // points still belongs in the list — it shows accessPointCount 0 until a human
-  // places put-ins/take-outs in the geography editor. Previously the inner join
-  // silently hid every newly-onboarded river until its first access point.
+  //
+  // Access points are NOT joined here. They used to be — `access_points(id)`,
+  // every id for every river — and nothing ever read the result: the count came
+  // from a separate per-river query beside it. A river with zero approved
+  // access points still belongs in the list either way, which is what the old
+  // LEFT join (not !inner) was protecting, and a Map lookup that misses simply
+  // yields 0. See fetchApprovedAccessPointCounts.
   let rivers;
   let error;
 
@@ -87,8 +143,7 @@ export async function getRivers(): Promise<RiverListItem[]> {
       length_miles,
       description,
       difficulty_rating,
-      region,
-      access_points(id)
+      region
     `)
     .eq('active', true)
     .order('name', { ascending: true });
@@ -105,8 +160,7 @@ export async function getRivers(): Promise<RiverListItem[]> {
         length_miles,
         description,
         difficulty_rating,
-        region,
-        access_points(id)
+        region
       `)
       .order('name', { ascending: true });
 
@@ -125,12 +179,6 @@ export async function getRivers(): Promise<RiverListItem[]> {
   // Get current conditions for each river
   const riversWithConditions = await Promise.all(
     (rivers || []).map(async (river) => {
-      const { count } = await supabase
-        .from('access_points')
-        .select('*', { count: 'exact', head: true })
-        .eq('river_id', river.id)
-        .eq('approved', true);
-
       const { data: conditionData } = await supabase.rpc('get_river_condition', {
         p_river_id: river.id,
       });
@@ -164,7 +212,7 @@ export async function getRivers(): Promise<RiverListItem[]> {
         description: river.description,
         difficultyRating: river.difficulty_rating,
         region: river.region,
-        accessPointCount: count || 0,
+        accessPointCount: accessPointCounts.get(river.id) ?? 0,
         currentCondition: condition
           ? {
               label: condition.condition_label,

@@ -79,21 +79,21 @@ export interface PinSheetProps {
   onOpenDam: (damId: string) => void;
   onOpenDetail: (route: string) => void;
   /**
-   * ── BOTH POP ONE LEVEL. THE DIFFERENCE IS THAT ONE OF THEM SAYS SO ──────
+   * ── BOTH LAND ON WHAT WAS THERE BEFORE. ONE OF THEM SAYS SO ─────────────
    *
-   * `onClose` briefly did two different things — dismiss the pin, or clear the
-   * whole selection — decided by how the pin had been selected. That is one
-   * glyph meaning two outcomes based on state the reader cannot see, which is
-   * the defect this sheet's navigation was reworked to remove, and it had been
-   * reintroduced one level down.
+   * onClose: goes back to whatever the reader was looking at before this pin.
+   * Usually that is the pin and nothing else — but a pin tap can SELECT a river
+   * as a side effect, and a caller undoing this must undo that too or the
+   * reader is left closing a sheet that only exists because of the tap they
+   * just undid. The caller decides; see the map screen's `dismissPin`.
    *
-   * onClose: dismisses the pin and nothing else. Whatever was underneath comes
-   * back. Clearing a river belongs to the river sheet's own ×.
+   * What it must never do is destroy a river the READER chose. That case has a
+   * Back control, and both land there.
    *
    * onBack: the same outcome, offered as a named 44pt target instead of a 19pt
    * glyph in a corner — "‹ Meramec River" says where it lands and × does not.
    * Null when nothing was underneath, which is not the same as "no river is
-   * selected": a pin tap can SELECT the river as a side effect, and then the
+   * selected": a pin tap can select the river as a side effect, and then the
    * river sheet was never on screen to return to.
    */
   onBack?: (() => void) | null;
@@ -445,6 +445,9 @@ function PinSheetHeader({
   // waiting forever. 'idle' is a pin with no detail route, which is answered
   // too: nothing is coming.
   const detailSettled = status === 'ready' || status === 'failed' || status === 'idle';
+  // Settled is not the same as answered. Both slots below draw a terminal line
+  // when nothing arrived, and the line has to say which kind of nothing it is.
+  const detailFailed = status === 'failed';
 
   const planAsTakeOut = canSetTakeOut;
   const performPlanAction = planAsTakeOut ? onSetTakeOut : onSetPutIn;
@@ -528,30 +531,55 @@ function PinSheetHeader({
               onOpenGauge={onOpenGauge}
               compact
               pending
-              pendingLabel="No gauge grades this stretch"
+              // ── A FAILED REQUEST IS NOT A FACT ABOUT THE RIVER ──────────
+              // "No gauge grades this stretch" is a claim about Eddy's data and
+              // may only be made from Eddy's data. The request that failed
+              // never said anything, and reporting silence as an answer is the
+              // same mistake the Levels tab was making one sheet over — there
+              // it told a station wearing its own verdict that it had never
+              // been rated. Same height either way, so the slot is unaffected.
+              pendingLabel={
+                detailFailed ? 'Conditions unavailable right now' : 'No gauge grades this stretch'
+              }
             />
           )}
         </GlanceSlot>
       ) : slot === 'availability' ? (
         <GlanceSlot slot={slot} ready={availability != null || detailSettled}>
           {availability ? (
+            // `water` is the corner reading the Overview Water section used to
+            // carry: a campground pin's glance slot went to the fortnight, so
+            // this card is the one place its river can still be glanced. Null
+            // until the detail lands, and the corner sits inside a row whose
+            // height it cannot change — see CampgroundAvailability.
             <CampgroundAvailability
               availability={availability}
               name={availabilityName}
               today={localToday()}
               onPress={onOpenCamping}
+              water={detail?.gaugeStatus ?? null}
             />
           ) : (
             // Both the waiting and the settled-empty states are the card with
-            // nothing in it — same shape, so no movement either way in.
+            // nothing in it — same shape, so no movement either way in. The
+            // corner reading still draws on the settled-empty card: a
+            // campground Eddy cannot book is still on a river somebody floats.
             <CampgroundAvailability
               availability={null}
               name={availabilityName}
               today={localToday()}
               pending
+              // Told apart by WHY, like the reading above it: a request that
+              // failed has not established that this campground takes no
+              // bookings, and a reader who is told it has stops looking.
               pendingLabel={
-                detailSettled ? 'No live availability here' : undefined
+                detailFailed
+                  ? 'Campsites unavailable right now'
+                  : detailSettled
+                    ? 'No live availability here'
+                    : undefined
               }
+              water={detail?.gaugeStatus ?? null}
             />
           )}
         </GlanceSlot>

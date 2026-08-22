@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildDeterministicEddyReport, buildEddyTakeSections, buildRiverOutlookState, getRainPresentation, groupForecastByDay } from './river-outlook';
+import { buildEddyTakeSections, buildRiverOutlookState, getRainPresentation, groupForecastByDay } from './river-outlook';
 
 const stageThresholds = {
   levelTooLow: 1,
@@ -124,7 +124,6 @@ test('builds a decision-led Bottom line, Eddy read, and Watch from the selected-
   assert.match(sections.watchFor, /dry/i);
   assert.match(sections.watchFor, /84°/);
   assert.match(sections.watchFor, /read the gauge again/i);
-  assert.match(buildDeterministicEddyReport(sections), /^Bottom line: .* Eddy’s read: .* Watch for:/);
 });
 
 test('uses a valid generated Eddy read without changing live Bottom line or Watch guidance', () => {
@@ -184,7 +183,8 @@ test('three-part summary stays honest when readings and weather are unavailable'
   // No sky described, because none came back. The composed Weather section must
   // never reach for a "dry" or a temperature it does not hold.
   assert.doesNotMatch(sections.watchFor, /dry|rain|hot|highs/i);
-  assert.doesNotMatch(buildDeterministicEddyReport(sections), /holding|no rain/i);
+  assert.doesNotMatch(sections.eddyRead, /holding|no rain/i);
+  assert.doesNotMatch(sections.bottomLine, /holding|no rain/i);
 });
 
 test('Watch for prioritizes forecast rain without inventing a river response', () => {

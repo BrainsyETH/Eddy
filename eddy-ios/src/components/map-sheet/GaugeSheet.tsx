@@ -42,6 +42,7 @@ import { flowBandSentence } from '@/theme/flow';
 // src/lib/gaugeFlow: a GaugeDetail carries the percentile directly.
 import { flowBand } from '@eddy/conditions/flow-band';
 import { GaugeChart } from '@/components/GaugeChart';
+import { ReadingScale } from '@/components/ReadingScale';
 import { Absent, Fact, LinkRow, Prose, Section } from './sections';
 import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 import type { GaugePinFacts } from './gaugeTabs';
@@ -143,6 +144,15 @@ export function GaugeLevelsTab({ facts, detail, status, onOpenRiver }: GaugeTabP
     // a reader who swiped here early would take that as the answer.
     if (status === 'loading') return <Absent>Loading levels…</Absent>;
     if (status === 'failed') return <Absent>Levels unavailable right now.</Absent>;
+    // ── AND NEVER WITHOUT A PAYLOAD IN HAND ───────────────────────────────
+    // "Not rated" is a claim about Eddy's data, so it may only be made from
+    // Eddy's data. A settled request that produced no record — a 404, or a
+    // response missing its gauge — is the absence of an answer rather than an
+    // answer of absence, and the difference is not academic: this tab exists
+    // only for CURATED stations, whose ladder is precisely what makes them
+    // curated, so a station reaching this line while wearing a verdict on the
+    // pin above it is telling the reader its own chip is a lie.
+    if (!detail) return <Absent>Levels unavailable right now.</Absent>;
     return <Absent>Eddy has not rated this station against a river yet.</Absent>;
   }
 
@@ -150,6 +160,26 @@ export function GaugeLevelsTab({ facts, detail, status, onOpenRiver }: GaugeTabP
     <View>
       {links.map((link) => (
         <Section key={`${link.riverSlug}-${link.thresholdUnit}`} title={link.riverName}>
+          {/* ── THE LADDER AS A PICTURE, ABOVE THE LADDER AS A TABLE ────────
+              Five rows of numbers say where the bands ARE; they do not say
+              where the river IS, and answering that from a table means holding
+              "876" against five bounds in your head. The same track already
+              leads the gauge screen and the favourite card — this sheet was the
+              one surface with the ladder and no drawing of it.
+
+              Bands are equal-width by construction (see ReadingScale): the
+              marker means "how far through this band", which is what keeps a
+              20,000-cfs flood band from crushing the floatable one to a sliver.
+
+              It draws nothing rather than guessing when the ladder is partial
+              or its unit disagrees with the reading, so the table below is
+              always the complete answer and this is always the glance. */}
+          <ReadingScale
+            thresholds={link}
+            value={link.thresholdUnit === 'cfs' ? (detail?.dischargeCfs ?? null) : (detail?.gaugeHeightFt ?? null)}
+            unit={link.thresholdUnit}
+          />
+
           <Fact label="Too low" value={levelText(link.levelTooLow, link.thresholdUnit)} />
           <Fact label="Low" value={levelText(link.levelLow, link.thresholdUnit)} />
           <Fact
@@ -216,9 +246,10 @@ export function GaugeHistoryTab({ facts, detail }: GaugeTabProps) {
       unit={primary?.thresholdUnit === 'ft' ? 'ft' : 'cfs'}
       thresholds={primary ? { ...primary, thresholdUnit: primary.thresholdUnit } : null}
       floodStages={detail?.floodStages ?? null}
-      // See the prop's own note: the scrub is a PanResponder and this chart
-      // sits inside two RNGH pans, so it cannot win a horizontal drag here.
-      scrubbable={false}
+      // The scrub works here too: it is a Gesture.Pan that claims horizontal
+      // travel before the pager does and yields vertical to the sheet — the
+      // same axis contract the sheet and pager keep between themselves. See
+      // the gesture's note in GaugeChart.tsx.
     />
   );
 }

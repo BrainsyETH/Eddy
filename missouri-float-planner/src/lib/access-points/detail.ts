@@ -79,76 +79,107 @@ export async function getAccessPointDetail(
     return { ok: false, reason: 'invalid-coords' };
   }
 
-  // Get nearby access points (upstream and downstream)
-  const { data: allAccessPoints } = await supabase
-    .from('access_points')
-    .select('id, name, slug, river_mile_downstream')
-    .eq('river_id', river.id)
-    .eq('approved', true)
-    .order('river_mile_downstream', { ascending: true });
-
   const currentMile = ap.river_mile_downstream != null ? parseFloat(String(ap.river_mile_downstream)) : 0;
+
+  // ── THREE INDEPENDENT READS, ONE ROUND TRIP'S WORTH OF WAITING ───────────
+  //
+  // These ran one after another, and each is answerable the moment the access
+  // point row is in hand: the neighbour list needs `river.id`, the gauge status
+  // needs `river.id` and the mile, the service links need `ap.id`. Nothing
+  // among them reads another's answer.
+  //
+  // The waiting was not theoretical. This endpoint is what the map sheet's peek
+  // is waiting on — the reading in the corner of a campground card, the water
+  // line on a put-in — and measured against production it took 2.2–2.9 seconds
+  // at the origin, of which this stretch is the largest serial run: up to five
+  // sequential Supabase round trips, since getGaugeStatus itself walks nearest
+  // gauge → primary gauge → latest reading. Vercel runs in iad1 and the
+  // database is in us-west-2, so every one of them is a continent's width of
+  // latency that nothing was overlapping.
+  //
+  // Availability stays out of this batch deliberately: it is gated on
+  // `campgroundish`, which is not answerable until `linked` lands, and three
+  // quarters of pins are not campgrounds. Paying for it on every put-in to save
+  // a round trip on some would be the trade run backwards.
+  const [neighbourResult, gaugeStatus, linked] = await Promise.all([
+    supabase
+      .from('access_points')
+      .select('id, name, slug, river_mile_downstream')
+      .eq('river_id', river.id)
+      .eq('approved', true)
+      .order('river_mile_downstream', { ascending: true }),
+    // Uses the access point's own mile, so the reach's gauge is chosen rather
+    // than the river's headline one.
+    getGaugeStatus(supabase, river.id, currentMile),
+    // Read unconditionally and first — see the long note below on why the gate
+    // cannot come before the query it gates.
+    loadLinkedServices(supabase, ap.id),
+  ]);
+
+  const allAccessPoints = neighbourResult.data;
 
   const nearbyAccessPoints: NearbyAccessPoint[] = [];
 
+  // TWO neighbours each way, nearest first — not one. One take-out per
+  // direction offered exactly one float from every put-in; the second is what
+  // lets the sheet's Float trips tab (and this page's Nearby list) offer a
+  // short and a long option each way without another request. Two rather than
+  // more because each row past the decision costs a line of a sheet that is
+  // negotiating with the map for the screen.
+  const NEIGHBORS_PER_DIRECTION = 2;
+
   if (allAccessPoints) {
-    // Find upstream (lower river mile = closer to headwaters)
-    const upstream = allAccessPoints
-      .filter(
-        (p) =>
-          p.id !== ap.id &&
-          p.river_mile_downstream != null &&
-          parseFloat(String(p.river_mile_downstream)) < currentMile
-      )
-      .sort(
-        (a, b) =>
-          (b.river_mile_downstream != null ? parseFloat(String(b.river_mile_downstream)) : 0) -
-          (a.river_mile_downstream != null ? parseFloat(String(a.river_mile_downstream)) : 0)
-      )[0];
+    const mileOf = (p: { river_mile_downstream: unknown }) =>
+      p.river_mile_downstream != null ? parseFloat(String(p.river_mile_downstream)) : null;
 
-    // Find downstream (higher river mile = further from headwaters)
-    const downstream = allAccessPoints
-      .filter(
-        (p) =>
-          p.id !== ap.id &&
-          p.river_mile_downstream != null &&
-          parseFloat(String(p.river_mile_downstream)) > currentMile
-      )
-      .sort(
-        (a, b) =>
-          (a.river_mile_downstream != null ? parseFloat(String(a.river_mile_downstream)) : 0) -
-          (b.river_mile_downstream != null ? parseFloat(String(b.river_mile_downstream)) : 0)
-      )[0];
+    const withMiles = allAccessPoints
+      .filter((p) => p.id !== ap.id)
+      .map((p) => ({ point: p, mile: mileOf(p) }))
+      .filter((entry): entry is { point: (typeof allAccessPoints)[number]; mile: number } =>
+        entry.mile != null
+      );
 
-    if (upstream) {
-      const distance = currentMile - (upstream.river_mile_downstream != null ? parseFloat(String(upstream.river_mile_downstream)) : 0);
+    // Upstream (lower river mile = closer to headwaters), nearest first.
+    const upstream = withMiles
+      .filter((entry) => entry.mile < currentMile)
+      .sort((a, b) => b.mile - a.mile)
+      .slice(0, NEIGHBORS_PER_DIRECTION);
+
+    // Downstream (higher river mile = further from headwaters), nearest first.
+    const downstream = withMiles
+      .filter((entry) => entry.mile > currentMile)
+      .sort((a, b) => a.mile - b.mile)
+      .slice(0, NEIGHBORS_PER_DIRECTION);
+
+    // Upstream first, then downstream, each nearest-first — the order the
+    // web's Nearby list renders verbatim. The app regroups by direction, so
+    // it only needs the per-direction order to hold.
+    for (const entry of upstream) {
+      const distance = currentMile - entry.mile;
       nearbyAccessPoints.push({
-        id: upstream.id,
-        name: upstream.name,
-        slug: upstream.slug,
+        id: entry.point.id,
+        name: entry.point.name,
+        slug: entry.point.slug,
         direction: 'upstream',
         distanceMiles: Math.round(distance * 10) / 10,
         estimatedFloatTime: estimateFloatTime(distance),
-        riverMile: upstream.river_mile_downstream != null ? parseFloat(String(upstream.river_mile_downstream)) : 0,
+        riverMile: entry.mile,
       });
     }
 
-    if (downstream) {
-      const distance = (downstream.river_mile_downstream != null ? parseFloat(String(downstream.river_mile_downstream)) : 0) - currentMile;
+    for (const entry of downstream) {
+      const distance = entry.mile - currentMile;
       nearbyAccessPoints.push({
-        id: downstream.id,
-        name: downstream.name,
-        slug: downstream.slug,
+        id: entry.point.id,
+        name: entry.point.name,
+        slug: entry.point.slug,
         direction: 'downstream',
         distanceMiles: Math.round(distance * 10) / 10,
         estimatedFloatTime: estimateFloatTime(distance),
-        riverMile: downstream.river_mile_downstream != null ? parseFloat(String(downstream.river_mile_downstream)) : 0,
+        riverMile: entry.mile,
       });
     }
   }
-
-  // Get gauge status for this river (using access point's river mile for segment-aware selection)
-  const gaugeStatus = await getGaugeStatus(supabase, river.id, currentMile);
 
   // ── Availability, by whichever name this place goes under ────────────────
   //
@@ -181,7 +212,9 @@ export async function getAccessPointDetail(
   // So the links are read FIRST and unconditionally: one indexed lookup by
   // access_point_id, on a page that already makes several. Gating the gate on
   // the query it gates is a circle, and the query is cheaper than the circle.
-  const linked = await loadLinkedServices(supabase, ap.id);
+  //
+  // `linked` is now read in the batch above rather than here, which is the same
+  // "first and unconditionally" one round trip earlier.
 
   const campgroundish =
     ap.nps_campground_id != null ||
@@ -342,6 +375,8 @@ async function getGaugeStatus(
           gauge_stations (
             id,
             usgs_site_id,
+            site_id_external,
+            provider,
             name
           )
         `
@@ -377,6 +412,8 @@ async function getGaugeStatus(
           gauge_stations (
             id,
             usgs_site_id,
+            site_id_external,
+            provider,
             name
           )
         `
@@ -394,9 +431,14 @@ async function getGaugeStatus(
 
     // Supabase returns joined relations - handle both array and single object cases
     const gaugeData = riverGauge.gauge_stations;
+    // `usgs_site_id` is null for anything the USGS does not publish; the id
+    // then lives in `site_id_external`. Typed `string` here for a while, which
+    // is how a Corps release came to be captioned as a USGS site number.
     const gauge = (Array.isArray(gaugeData) ? gaugeData[0] : gaugeData) as {
       id: string;
-      usgs_site_id: string;
+      usgs_site_id: string | null;
+      site_id_external: string | null;
+      provider: string | null;
       name: string;
     } | undefined;
 
@@ -438,7 +480,12 @@ async function getGaugeStatus(
       lastUpdated: latestReading?.reading_timestamp ?? null,
       gaugeId: gauge.id,
       gaugeName: gauge.name,
-      usgsId: gauge.usgs_site_id,
+      // Same coalesce order the gauge routes and search_gauges use, so one
+      // station is identified the same way wherever it appears.
+      usgsId: gauge.usgs_site_id ?? gauge.site_id_external,
+      // A null column is a legacy row and those are all USGS; the registry
+      // post-dates them. Resolved here so the renderer never has to guess.
+      provider: gauge.provider ?? 'usgs',
     };
   } catch (error) {
     console.error('Error fetching gauge status:', error);

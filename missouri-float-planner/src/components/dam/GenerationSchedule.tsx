@@ -32,10 +32,9 @@ import {
   scheduleIsStale,
 } from '@shared/dam-schedule-copy';
 import {
+  PEAK_RELEASE_HEADING,
   schedulePeak,
-  schedulePeakLabel,
-  schedulePeakTechnical,
-  schedulePeakWindowLabel,
+  schedulePeakValue,
   type GenerationReference,
 } from '@shared/dam-generation';
 
@@ -53,8 +52,6 @@ function DayRow({
   // generation observed".
   const summary = scheduledHoursSummary(day.hours);
   const peak = schedulePeak(day, reference);
-  const peakWindow = peak ? schedulePeakWindowLabel(peak) : null;
-  const peakTechnical = peak ? schedulePeakTechnical(peak) : null;
 
   return (
     <div className="border-t border-neutral-200 py-4 first:border-t-0 first:pt-0">
@@ -63,19 +60,22 @@ function DayRow({
         <span className="text-xs text-neutral-500">{summary}</span>
       </div>
 
-      {/* THE RIVER NUMBER FIRST. This block led with "peaks at 335 MW · 86% of
-          capacity", which asks somebody planning a float to convert a power
-          figure before it means anything. The cfs estimate measured within
-          ~10% at steady state and is refused entirely on ramp hours — see
-          schedulePeak — so it can lead, hedged, with the megawatts beneath. */}
+      {/* HOW BIG, AND WHEN — and nothing else. This block led with "peaks at
+          335 MW · 86% of capacity", which asks somebody planning a float to
+          convert a power figure before it means anything, and then repeated it
+          beneath as a technical line. Both are gone: megawatts are the unit the
+          schedule is PUBLISHED in, and the capacity share is a fact about the
+          plant rather than about the river.
+
+          The heading says SCHEDULED because "Peak release" alone reads as a
+          measurement taken downstream; this is SWPA's plan for the powerhouse. */}
       {peak && (
-        <p className="mt-1 text-sm">
-          <span className="font-bold text-neutral-900">{schedulePeakLabel(peak)}</span>
-          {peakWindow && <span className="text-neutral-600"> · {peakWindow}</span>}
-          {peakTechnical && (
-            <span className="ml-1.5 text-xs text-neutral-500">{peakTechnical}</span>
-          )}
-        </p>
+        <div className="mt-1">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+            {PEAK_RELEASE_HEADING}
+          </p>
+          <p className="text-base font-bold text-neutral-900">{schedulePeakValue(peak)}</p>
+        </div>
       )}
 
       <div className="mt-2">
