@@ -39,6 +39,27 @@ const API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? '';
  */
 export const ENTITLEMENT_ID = 'eddy_premium';
 
+/**
+ * Eddy's numeric Apple app ID — App Store Connect → App Information → "Apple
+ * ID". Not the bundle identifier: the redemption URL below is keyed on the
+ * store's own number, and it is immutable for the life of the app record.
+ */
+const APPLE_APP_ID = '6794933267';
+
+/**
+ * The App Store's code-entry screen for this app's subscription offer codes.
+ *
+ * Offer codes are how a subscription is granted free for a period — an
+ * influencer's month, not a discounted purchase — and redemption happens in
+ * the App Store, not in the app. StoreKit does have an in-app sheet
+ * (presentCodeRedemptionSheet), but it fires no completion callback and fails
+ * silently often enough that RevenueCat's own docs steer to this URL instead.
+ * The trade is that redemption leaves the app, so whoever opens this has to
+ * sync when they come back — that is syncRedeemedPurchases() below, and the
+ * two are only ever useful together.
+ */
+export const OFFER_CODE_REDEEM_URL = `https://apps.apple.com/redeem?ctx=offercodes&id=${APPLE_APP_ID}`;
+
 export type PurchasesUnavailableReason =
   | 'not_configured'
   | 'native_module_missing'
@@ -528,6 +549,39 @@ export async function restorePurchases(): Promise<RestoreResult> {
       entitled: false,
       message: message ?? 'Could not reach the App Store. Please try again.',
     };
+  }
+}
+
+/**
+ * Pull an App Store offer-code redemption into RevenueCat.
+ *
+ * A code is redeemed OUTSIDE the app — on the App Store screen that
+ * OFFER_CODE_REDEEM_URL opens — so the transaction lands on the Apple ID
+ * without RevenueCat hearing about it. It only learns when this app hands it
+ * the receipt, which is what syncPurchases() does; until then the webhook has
+ * nothing to write and the paywall stays up for someone who just redeemed.
+ *
+ * Returns whether the SDK now sees the entitlement. That is the SDK's view,
+ * not the verdict — the server stays the authority (see the file header), so
+ * callers still wait for the backend (waitForEntitlement) before claiming
+ * anything. Quiet on failure by design: this runs when the app foregrounds
+ * after MAYBE redeeming, and most returns from the App Store are someone who
+ * backed out. An error alert on every one of those would scold people for
+ * looking.
+ */
+export async function syncRedeemedPurchases(): Promise<boolean> {
+  const Purchases = loadPurchases();
+  if (!Purchases) return false;
+
+  try {
+    await Purchases.syncPurchases();
+    // Read the entitlement from getCustomerInfo() rather than syncPurchases()'s
+    // return value: older SDK versions resolve the latter with nothing.
+    const info = await Purchases.getCustomerInfo();
+    return Boolean(info?.entitlements?.active?.[ENTITLEMENT_ID]);
+  } catch (error) {
+    purchaseDiagnostics()?.report(error, { operation: 'revenuecat.syncRedeemedPurchases' });
+    return false;
   }
 }
 
