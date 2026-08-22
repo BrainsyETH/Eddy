@@ -1,7 +1,14 @@
--- 20260821124500_arkansas_river_characteristics.sql
+-- 20260822143610_arkansas_river_characteristics.sql
 --
--- NOT YET APPLIED. Apply by hand, then confirm the recorded version with
--- `npm run db:check-migrations` and rename this file to match.
+-- APPLIED 2026-08-22 to the FloatMe project (ilefwfpvphadsbptiaur) via the
+-- management API, which recorded it as version 20260822143610. This file was renamed
+-- from 20260821124500_arkansas_river_characteristics.sql
+-- so the recorded version matches the filename; scripts/check-migration-drift.ts
+-- enforces exact local==remote equality past the legacy baseline, and the
+-- original header said to do exactly this once applied.
+--
+-- Every assertion below ran as part of that apply and passed; had any raised,
+-- the whole migration would have rolled back.
 --
 -- The companion to 20260821123000_arkansas_river_hazards.sql, and the reason
 -- that file only has four rows in it.

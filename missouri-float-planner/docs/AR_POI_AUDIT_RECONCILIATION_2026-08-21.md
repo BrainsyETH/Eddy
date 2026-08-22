@@ -133,7 +133,7 @@ belongs in `alt_names`, not in a closure.
 
 ## What was landed
 
-### `20260821120000_backfill_marks_and_snap_diagnostics_acl.sql`
+### `20260822143308_backfill_marks_and_snap_diagnostics_acl.sql`
 
 Closes both ERROR-level `get_advisors(type: security)` findings. The audit
 reported one and understated it; it missed the other.
@@ -157,7 +157,7 @@ direct grant is not a PUBLIC grant — plus RLS on the table and
 `security_invoker` on the view. `service_role` grants are preserved explicitly:
 it carries `rolbypassrls` but not `rolsuper`, so BYPASSRLS would not have saved it.
 
-### `20260821123000_arkansas_river_hazards.sql`
+### `20260822143505_arkansas_river_hazards.sql`
 
 The first hazards on any Arkansas river. Before this, all 19 in the catalog were
 Missouri and all 7 AR rivers had zero — the one real gap the audit surfaced, and
@@ -208,7 +208,7 @@ field correction cannot trip the 150 m tripwire and block a replay; and the
 presence checks count rows rather than *active* rows, since switching a hazard
 off is an operator decision, not a regression.
 
-### `20260821124500_arkansas_river_characteristics.sql`
+### `20260822143610_arkansas_river_characteristics.sql`
 
 The reach-level material, which was never point-shaped. Fills
 `rising_water_hazards` on mulberry and kings-river and `low_water_meaning` on
@@ -276,25 +276,49 @@ where last_verified_at is null or latitude is null
 order by status, name;
 ```
 
-## Operator steps before applying
+## Applied 2026-08-22 — what ran and what it produced
 
-This work was authored in a container that could not run the repo's own gates —
-Node 22 against a pinned Node 20, no `node_modules`, no Supabase CLI. Every
-migration assertion was instead rehearsed **read-only** against production first,
-and each was confirmed to fail in the pre-state (an assertion that already passes
-proves nothing). Still, run these on a proper checkout:
+All three migrations were applied to the FloatMe project
+(`ilefwfpvphadsbptiaur`) on 2026-08-22 via the management API, on explicit
+instruction. Each ran inside one transaction with its assertions; any raise
+would have rolled the whole migration back.
 
-1. `npm run db:check-migrations` — confirm no pre-existing local/remote drift.
-2. `make check-web` on Node 20. No TypeScript changed, so this is a no-op for
-   this branch rather than a skipped gate.
-3. Apply the three migrations, then re-run the ACL role test recorded in the
-   header of `20260821120000` — `anon` and `authenticated` must come back `f`
-   on every column, `service_role` and `postgres` `t`.
-4. `npm run db:validate` and `get_advisors(type: security)` — the latter should
-   report zero ERROR-level findings.
-5. `GET /api/rivers/mulberry/hazards` — three rows, non-zero coordinates.
+**Recorded versions differ from the dates they were authored under.** The
+management API stamps a migration with the time it is applied, so production
+recorded `20260822143308`, `20260822143505` and `20260822143610`. The three
+files were renamed to match, because `scripts/check-migration-drift.ts`
+enforces exact local==remote equality past the legacy baseline and would
+otherwise report six phantom entries — three local with no remote, three remote
+with no local. Each header records the name it was renamed from.
 
-`npm run db:correct-miles` is **not** needed: no access points were added.
+Verified after applying, independently of the migrations' own assertions:
+
+| check | result |
+| --- | --- |
+| ACL role test — `anon` / `authenticated` on both objects | `false` on SELECT, DELETE, TRUNCATE, and on the view |
+| ACL role test — `service_role` / `postgres` | `true` throughout, so the dam-history path still works |
+| `get_advisors(type: security)` ERROR-level findings | **0** (was 2) |
+| `rls_disabled_in_public` occurrences | 0 |
+| `gauge_snap_diagnostics` occurrences | 0 |
+| Arkansas hazards | 4, all `active`, all **0.0 m** off their river line |
+| `river_characteristics` prose | mulberry (both fields) and kings-river (rising only), as scoped |
+| rivers deliberately left alone | crooked-creek, caddo-river, war-eagle-creek still null |
+
+`dam_history_backfill_marks` still appears in the advisor output three times,
+now at **INFO** as `rls_enabled_no_policy`. That is the intended end state, not
+a regression: RLS on with zero policies is what denies `anon` and
+`authenticated` while `postgres` and `service_role` pass on `BYPASSRLS`.
+
+`npm run db:correct-miles` was **not** run and is not needed — no access points
+were added.
+
+Still outstanding for a proper checkout, since this container could not run them
+(Node 22 against a pinned Node 20, no `node_modules`, no Supabase CLI):
+
+1. `npm run db:check-migrations` — should now report a match, given the renames.
+2. `make check-web` on Node 20.
+3. `GET /api/rivers/mulberry/hazards` — expect three rows with non-zero
+   coordinates; Kings carries the fourth.
 
 ## Reproduce the diff
 
