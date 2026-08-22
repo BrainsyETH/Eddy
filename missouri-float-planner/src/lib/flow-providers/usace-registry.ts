@@ -908,6 +908,44 @@ export function getUsaceSeries(id: string, metric: UsaceMetric): UsaceSeries | n
 }
 
 /**
+ * Whether this project has a powerhouse whose generation Eddy may report.
+ *
+ * ── Why this is not `Boolean(swpaCode)` ────────────────────────────────────
+ * It was, in two places — `hasTurbines` on the wire and the history cron's
+ * filter — and those two facts are not the same question:
+ *
+ *   a powerhouse EXISTS                 ← a fact about the concrete
+ *   somebody publishes its SCHEDULE     ← a fact about SWPA's file
+ *
+ * Every dam Eddy carries today answers both the same way, so the conflation
+ * cost nothing and was invisible. It stops being invisible at the first Corps
+ * hydro project SWPA does not schedule — DeGray, Narrows/Lake Greeson and
+ * Blakely Mountain are the near candidates, and CWMS publishes turbine flow
+ * for all three. Under the old rule each would have reported "this project has
+ * no powerhouse" while the district was serving its Flow-Plant series, which
+ * is the same class of error as calling a feed outage an idle plant: an
+ * absence of ONE fact rendered as the absence of a DIFFERENT one.
+ *
+ * ── Why `nameplate` and not "has a turbine" ────────────────────────────────
+ * Wappapello is the case that decides it. It has a turbine — 175 kW of
+ * station service, enough to run the dam's own lights — and it must stay
+ * FALSE here, because it never peaks, has no schedule, and reporting
+ * "generating" for it would answer a question nobody asked about water nobody
+ * is standing in. So the test is not "is there a turbine" but "does Eddy
+ * describe a PLANT here", which is exactly what `nameplate` records.
+ *
+ * ── Why it stays declarable without a fetch ────────────────────────────────
+ * usace-registry.test.ts pins this: /dams/[damId] once used
+ * `schedule.length === 0` to mean "no powerhouse", so a stale SWPA file made
+ * Table Rock's four units vanish from the page while the card beside it read
+ * "Generating". Whether a dam HAS turbines may never depend on a fetch — so
+ * this reads two static fields and never the resolver.
+ */
+export function hasPowerhouse(dam: UsaceDam): boolean {
+  return Boolean(dam.swpaCode || dam.nameplate);
+}
+
+/**
  * Pomme de Terre is genuinely absent from both sources — not a config gap.
  * Named so its absence reads as a finding rather than an oversight.
  */

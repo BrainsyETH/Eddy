@@ -29,9 +29,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { logger } from '@/lib/logger';
 import { fetchTimeseries } from '@/lib/usace/cda';
-import { periodEndingMs } from '@/lib/usace/resolve';
-import { USACE_DAMS, type UsaceDam } from '@/lib/flow-providers/usace-registry';
-import { seriesFor, wantsHistory } from '@/lib/data/dams';
+import { USACE_DAMS, hasPowerhouse, type UsaceDam } from '@/lib/flow-providers/usace-registry';
+import { seriesFor } from '@/lib/data/dams';
 import { bucketHourly, SYNC_LOOKBACK_HOURS, type DamHistoryMetric } from '@/lib/data/dam-history';
 import { pruneHistory, writeHours } from '@/lib/data/dam-history-store';
 
@@ -169,9 +168,19 @@ async function runSync(request: NextRequest) {
   let metricsSeen = 0;
 
   try {
-    // Only projects that can report turbine flow at all — see wantsHistory,
-    // which owns the rule and is pinned against the registry offline.
-    const dams = Object.values(USACE_DAMS).filter(wantsHistory);
+    // Only projects that can report turbine flow at all. A flood-control dam
+    // has no generation pattern, and storing its release alone would build a
+    // strip whose top half is permanently empty.
+    //
+    // `hasPowerhouse`, not `swpaCode`: the pattern strip draws what the units
+    // DID, which is a CWMS observation and owes nothing to SWPA. Gating on the
+    // schedule code would have skipped a Corps hydro project SWPA does not
+    // schedule — and history is the one thing that cannot be backfilled later,
+    // since CWMS serves only a rolling week. A dam left out of this filter
+    // loses those hours permanently.
+    const dams = Object.values(USACE_DAMS).filter(
+      (d) => hasPowerhouse(d) && d.office && d.cdaLocation
+    );
 
     const results = await mapWithConcurrency(dams, DAM_CONCURRENCY, (dam) =>
       syncDam(supabase, dam, lookbackHours, startedAt)
