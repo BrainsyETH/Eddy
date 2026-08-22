@@ -14,13 +14,9 @@
  * Types: public_ramp, private_ramp, carry_in, bridge, other
  */
 
-import { loadEnvConfig } from '@next/env';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createAdminClient } from '../src/lib/supabase/admin';
-
-// Load environment variables from .env.local
-loadEnvConfig(process.cwd());
+import { getScriptClient } from './lib/db';
 
 interface CSVRow {
   river_slug: string;
@@ -97,7 +93,7 @@ async function main() {
   const rows = parseCSV(content);
   console.log(`Found ${rows.length} rows to import\n`);
 
-  const supabase = createAdminClient();
+  const supabase = getScriptClient({ script: 'import-access-points-csv', write: true });
 
   // Get all rivers for slug lookup
   const { data: rivers, error: riverError } = await supabase

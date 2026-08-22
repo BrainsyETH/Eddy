@@ -42,29 +42,8 @@
  * reason. Export EXPECTED_SUPABASE_REF; this script honours it.
  */
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-
-function loadEnv() {
-  try {
-    const txt = readFileSync(join(process.cwd(), '.env.local'), 'utf8');
-    for (const raw of txt.split('\n')) {
-      const m = raw
-        .replace(/\r$/, '')
-        .match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
-      if (!m) continue;
-      let val = m[2].trim();
-      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-        val = val.slice(1, -1);
-      }
-      process.env[m[1]] = val;
-    }
-  } catch {
-    /* rely on exported env vars */
-  }
-}
-loadEnv();
+import { type SupabaseClient } from '@supabase/supabase-js';
+import { getScriptClient } from '../lib/db';
 
 const PADUS =
   'https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services/Manager_Name/FeatureServer/0/query';
@@ -114,21 +93,10 @@ interface Parcel {
   geometry: { type: 'MultiPolygon'; coordinates: number[][][][] };
 }
 
-function getSupabase(): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
-  if (!url || !key) {
-    throw new Error(
-      'Missing NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_KEY) — checked .env.local + shell env',
-    );
-  }
-  const ref = (url.match(/https?:\/\/([a-z0-9]+)\.supabase\./) || [])[1] || '(unknown)';
-  const expected = process.env.EXPECTED_SUPABASE_REF;
-  console.log(`  → target Supabase project: ${ref}`);
-  if (expected && ref !== expected) {
-    throw new Error(`ABORT: connected project '${ref}' != EXPECTED_SUPABASE_REF '${expected}'.`);
-  }
-  return createClient(url, key);
+function getSupabase(apply: boolean): SupabaseClient {
+  // Env loading, name resolution, and the EXPECTED_SUPABASE_REF guard now live
+  // in scripts/lib/db.ts; --apply requires the pin to be set, not just consistent.
+  return getScriptClient({ script: 'import-padus', write: apply });
 }
 
 /** Every active river's bounding box, buffered into a corridor. */
@@ -304,7 +272,7 @@ async function main() {
   const only = riverArg ? riverArg.slice('--river='.length) : null;
 
   console.log(`PAD-US public land import — ${apply ? 'APPLY' : 'DRY RUN'}`);
-  const db = getSupabase();
+  const db = getSupabase(apply);
 
   const corridors = await loadCorridors(db, only);
   if (corridors.length === 0) {

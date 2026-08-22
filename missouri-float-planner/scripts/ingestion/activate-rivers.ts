@@ -12,9 +12,9 @@
  *   npx tsx scripts/ingestion/activate-rivers.ts <slug> [<slug> ...]
  *   npx tsx scripts/ingestion/activate-rivers.ts <slug> --dry   (validate only, no change)
  */
-import { createAdminClient } from '../../src/lib/supabase/admin';
+import { getScriptClient } from '../lib/db';
 
-async function findings(db: ReturnType<typeof createAdminClient>, slugs: string[]) {
+async function findings(db: ReturnType<typeof getScriptClient>, slugs: string[]) {
   const { data, error } = await db.rpc('validate_river_data');
   if (error) throw error;
   return ((data ?? []) as any[]).filter((r) => slugs.includes(r.river_slug));
@@ -26,7 +26,7 @@ async function main() {
   const slugs = args.filter((a) => !a.startsWith('--'));
   if (!slugs.length) { console.error('Usage: activate-rivers.ts <slug> [<slug> ...] [--dry]'); process.exit(1); }
 
-  const db = createAdminClient();
+  const db = getScriptClient({ script: 'activate-rivers', write: !dry });
 
   if (!dry) {
     const { error } = await db.from('rivers').update({ active: true }).in('slug', slugs);

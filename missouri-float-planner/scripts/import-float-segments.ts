@@ -10,11 +10,7 @@
  *   npx tsx scripts/import-float-segments.ts --link  # Also link to access_points
  */
 
-import { loadEnvConfig } from '@next/env';
-import { createClient } from '@supabase/supabase-js';
-
-// Load environment variables from .env.local
-loadEnvConfig(process.cwd());
+import { getScriptClient } from './lib/db';
 
 interface FloatSegment {
   river_slug: string;
@@ -132,14 +128,9 @@ const ALL_SEGMENTS: FloatSegment[] = [
 ];
 
 function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceKey) {
-    throw new Error('Missing Supabase credentials in environment');
-  }
-
-  return createClient(supabaseUrl, serviceKey);
+  // Inserts float_segments on run (--link additionally fires the linking
+  // RPC), so write-guarded unconditionally.
+  return getScriptClient({ script: 'import-float-segments', write: true });
 }
 
 async function main() {
