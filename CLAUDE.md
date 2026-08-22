@@ -20,7 +20,7 @@ editing only this file.
 | `packages/` | Four pure shared packages: `@eddy/types`, `@eddy/geo`, `@eddy/hazards`, `@eddy/sync`. No build step; consumed via `file:` deps. |
 | `scripts/` + `clipengine-local/` | ClipEngine media/social automation (root `scripts/clipengine/`, `scripts/social/`). Operated by GitHub workflows — paths are load-bearing. See `docs/clipengine-ops.md`. |
 | `design/`, `marketing/` | Brand assets and marketing material. Not part of any build. |
-| `docs/` | Repository-level docs: ops runbooks, `decisions/` (ADRs), `research/` (source PDFs and reports). |
+| `docs/` | Repository-level docs: `architecture.md` (the system map), ops runbooks, `decisions/` (ADRs), `research/` (source PDFs and reports). |
 
 Versions live in manifests, not docs: see `missouri-float-planner/package.json`
 and `eddy-ios/package.json`. CI pins Node 20 (`.github/workflows/app-ci.yml`).
