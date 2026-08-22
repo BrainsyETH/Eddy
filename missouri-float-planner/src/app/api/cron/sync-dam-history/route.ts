@@ -29,6 +29,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { logger } from '@/lib/logger';
 import { fetchTimeseries } from '@/lib/usace/cda';
+import { periodEndingMs } from '@/lib/usace/resolve';
 import { USACE_DAMS, hasPowerhouse, type UsaceDam } from '@/lib/flow-providers/usace-registry';
 import { seriesFor } from '@/lib/data/dams';
 import { bucketHourly, SYNC_LOOKBACK_HOURS, type DamHistoryMetric } from '@/lib/data/dam-history';
