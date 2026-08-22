@@ -102,7 +102,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Save plan
-    // Note: discharge_cfs_at_creation and gauge_name_at_creation will be enabled after migrations 00020 and 00021 are applied
     const { error: insertError } = await supabase.from('float_plans').insert({
       short_code: shortCode,
       river_id: riverId,
@@ -114,8 +113,8 @@ export async function POST(request: NextRequest) {
       drive_back_minutes: snap.driveBackMinutes,
       condition_at_creation: snap.conditionCode,
       gauge_reading_at_creation: snap.gaugeHeightFt,
-      discharge_cfs_at_creation: snap.dischargeCfs, // TODO: Uncomment after migration 00020
-      gauge_name_at_creation: snap.gaugeName, // TODO: Uncomment after migration 00021
+      discharge_cfs_at_creation: snap.dischargeCfs,
+      gauge_name_at_creation: snap.gaugeName,
     });
 
     if (insertError) {
