@@ -48,10 +48,14 @@ import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { useAccount } from '@/hooks/useAccount';
 import { deleteAccount, waitForEntitlement } from '@/api/client';
 import {
+  entitlementSnapshot,
+  identifyUser,
   OFFER_CODE_REDEEM_URL,
+  redemptionOutcome,
   restorePurchases,
   subscriptionSummary,
   syncRedeemedPurchases,
+  type EntitlementSnapshot,
 } from '@/lib/purchases';
 import { usePush } from '@/hooks/usePush';
 import { notificationDetail } from '@/lib/notificationCopy';
@@ -109,6 +113,7 @@ export default function ProfileScreen() {
   const [firstRunCleared, setFirstRunCleared] = useState(false);
 
   const signedIn = Boolean(session) && !isAnonymous;
+  const userId = session?.user?.id ?? null;
 
   /**
    * Will a push actually arrive on this phone?
@@ -153,21 +158,43 @@ export default function ProfileScreen() {
   }, [refresh]);
 
   /**
-   * Same ref-not-state reasoning as the paywall's copy of this flag: nothing
-   * renders from it, it only marks the next foregrounding as a return from the
-   * App Store's code-entry screen rather than an ordinary app switch.
+   * Same ref-not-state reasoning as the paywall's copies of these: nothing
+   * renders from them. The flag marks the next foregrounding as a return from
+   * the App Store's code-entry screen rather than an ordinary app switch; the
+   * baseline is the entitlement as it stood BEFORE leaving, because this card
+   * offers redemption to active subscribers too — for them "is it active now"
+   * answers yes whether or not anything was redeemed, so success may only be
+   * claimed against an observed change. See redemptionOutcome().
    */
   const redeemPending = useRef(false);
+  const redeemBaseline = useRef<EntitlementSnapshot | null>(null);
 
   /**
    * Offer codes — the influencer month, the giveaway year — are redeemed on
    * the App Store's own screen, not in the app. This opens it; the effect
    * below finishes the job when they come back.
+   *
+   * Identity is CONFIRMED before anything leaves the app, not assumed from
+   * useAccount's fire-and-forget identifyUser: the return-trip sync
+   * attributes the receipt to whichever appUserID the SDK holds, and after a
+   * failed logIn that is the previous user. identifyUser() retries, and its
+   * result is the gate.
    */
-  const handleRedeem = useCallback(() => {
-    redeemPending.current = true;
-    void Linking.openURL(OFFER_CODE_REDEEM_URL);
-  }, []);
+  const handleRedeem = useCallback(async () => {
+    if (!userId) return;
+    setBusy('redeem');
+    try {
+      if (!(await identifyUser(userId, isAnonymous))) {
+        Alert.alert('Could not reach the App Store', 'Please try again in a moment.');
+        return;
+      }
+      redeemBaseline.current = await entitlementSnapshot();
+      redeemPending.current = true;
+      void Linking.openURL(OFFER_CODE_REDEEM_URL);
+    } finally {
+      setBusy(null);
+    }
+  }, [userId, isAnonymous]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
@@ -177,12 +204,19 @@ export default function ProfileScreen() {
       void (async () => {
         setBusy('redeem');
         try {
-          // Sync the receipt first — the redemption happened outside the app,
-          // so RevenueCat has not heard about it until the app tells it.
-          const entitled = await syncRedeemedPurchases();
-          // Backing out of the App Store without redeeming is the common case,
-          // and it gets silence: no alert, the card exactly as they left it.
-          if (!entitled) return;
+          // Identity re-confirmed on this side of the trip too — the sync
+          // must never run under a stale appUserID (see handleRedeem).
+          if (!userId || !(await identifyUser(userId, isAnonymous))) return;
+
+          // Sync the receipt — the redemption happened outside the app, so
+          // RevenueCat has not heard about it until the app tells it — then
+          // claim success only on an observed change from the baseline.
+          // Everything else gets silence: backing out without redeeming is
+          // the common case, and an active subscriber's code that Apple
+          // defers to the next renewal is indistinguishable from it. The
+          // card they are looking at is unchanged either way.
+          const after = await syncRedeemedPurchases();
+          if (redemptionOutcome(redeemBaseline.current, after) !== 'granted') return;
 
           // The SDK saw it; the card reads from the SERVER, which learns
           // through RevenueCat's webhook. Wait for it before refreshing so the
@@ -198,13 +232,14 @@ export default function ProfileScreen() {
               : 'It can take a moment to show up. If this card still looks wrong in a minute, pull to refresh.',
           );
         } finally {
+          redeemBaseline.current = null;
           setBusy(null);
         }
       })();
     });
 
     return () => subscription.remove();
-  }, [getAccessToken, refresh]);
+  }, [userId, isAnonymous, getAccessToken, refresh]);
 
   const handleDisableAlerts = useCallback(async () => {
     try {
@@ -429,7 +464,7 @@ export default function ProfileScreen() {
                 thing App Store Connect can issue. */}
             {signedIn && (
               <Pressable
-                onPress={handleRedeem}
+                onPress={() => void handleRedeem()}
                 disabled={busy === 'redeem'}
                 style={[styles.secondary, { borderColor: colors.border }]}
               >

@@ -23,6 +23,7 @@ import {
   packageTerms,
   perMonthPriceString,
   PREMIUM_UNAVAILABLE_COPY,
+  redemptionOutcome,
   savingsLabel,
   subscriptionSummary,
   trialDaysFromIntroPrice,
@@ -342,6 +343,70 @@ test('both redeem surfaces open the URL and sync the receipt on return', () => {
     // anything is claimed or unlocked.
     assert.match(source, /waitForEntitlement\(token\)/);
   }
+});
+
+test('redemption confirms identity before leaving and before syncing', () => {
+  // The receipt sync attributes the redemption to whichever appUserID the
+  // SDK is configured for. After a failed logIn that is the PREVIOUS user,
+  // and a redemption synced under them lands the entitlement on the wrong
+  // account — so identifyUser()'s result gates BOTH sides of the trip, on
+  // both surfaces, where useAccount's fire-and-forget call cannot.
+  for (const path of [
+    '../eddy-ios/src/components/PaywallSheet.tsx',
+    '../eddy-ios/app/(tabs)/profile.tsx',
+  ]) {
+    const source = readFileSync(path, 'utf8');
+    // Departure: identity confirmed, then baseline captured, then the URL.
+    assert.match(
+      source,
+      /if \(!\(await identifyUser\(userId, isAnonymous\)\)\) \{[\s\S]{0,300}redeemBaseline\.current = await entitlementSnapshot\(\);\s*redeemPending\.current = true;\s*void Linking\.openURL\(OFFER_CODE_REDEEM_URL\);/,
+    );
+    // Return: identity re-confirmed before the sync runs at all.
+    assert.match(
+      source,
+      /if \(!userId \|\| !\(await identifyUser\(userId, isAnonymous\)\)\) return;[\s\S]{0,700}await syncRedeemedPurchases\(\)/,
+    );
+    // And nothing proceeds except on an observed change from the baseline.
+    assert.match(source, /redemptionOutcome\(redeemBaseline\.current, after\) !== 'granted'/);
+  }
+
+  // The purchase button carries the same gate: the offerings effect attempts
+  // identification but ignores the result, and handleBuy is where a stale
+  // appUserID would misattribute money.
+  const paywall = readFileSync('../eddy-ios/src/components/PaywallSheet.tsx', 'utf8');
+  assert.match(
+    paywall,
+    /if \(!userId \|\| !\(await identifyUser\(userId, isAnonymous\)\)\) \{[\s\S]{0,300}await purchasePackage\(pkg\)/,
+  );
+});
+
+test('redemption claims success only on an observed entitlement change', () => {
+  const none = { entitled: false, expiresAt: null };
+  const active = { entitled: true, expiresAt: '2027-06-01T00:00:00Z' };
+  const extended = { entitled: true, expiresAt: '2027-09-01T00:00:00Z' };
+
+  // The case the control exists for: nothing before, an entitlement after.
+  assert.equal(redemptionOutcome(none, active), 'granted');
+  // An extension that landed observably — an existing subscriber's code that
+  // applied immediately.
+  assert.equal(redemptionOutcome(active, extended), 'granted');
+
+  // An active subscriber backing out of Apple's screen still HAS an active
+  // entitlement. "Code redeemed" over a cancelled sheet is a false claim
+  // about money, so continued entitlement alone never counts as one.
+  assert.equal(redemptionOutcome(active, active), 'unchanged');
+  assert.equal(redemptionOutcome(active, { ...active }), 'unchanged');
+
+  // Nothing active afterwards is nothing to claim, whatever came before.
+  assert.equal(redemptionOutcome(none, none), 'unchanged');
+  assert.equal(redemptionOutcome(active, none), 'unchanged');
+
+  // A failed read on either side never converts into a success claim: a
+  // pre-read that failed for an existing subscriber would otherwise make
+  // their own subscription look like a fresh redemption.
+  assert.equal(redemptionOutcome(null, active), 'unchanged');
+  assert.equal(redemptionOutcome(none, null), 'unchanged');
+  assert.equal(redemptionOutcome(null, null), 'unchanged');
 });
 
 test('the redeem controls are signed-in only, like every purchase control', () => {

@@ -553,6 +553,55 @@ export async function restorePurchases(): Promise<RestoreResult> {
 }
 
 /**
+ * The premium entitlement as the SDK sees it at one moment — captured before
+ * a redemption leaves the app, compared after it comes back.
+ *
+ * WHY A SNAPSHOT AND NOT A BOOLEAN: Profile deliberately offers "Redeem a
+ * code" to active subscribers (App Store Connect can issue offers for
+ * existing ones), and for them "is the entitlement active" answers yes
+ * whether or not a code was redeemed — backing out of Apple's screen would
+ * have read as success. Worse, Apple applies an existing subscriber's code at
+ * the NEXT RENEWAL, so even a genuine redemption may change nothing
+ * observable at return time. The only honest claim is one grounded in an
+ * observed change, which takes a before to compare an after against —
+ * redemptionOutcome() below is that comparison.
+ */
+export interface EntitlementSnapshot {
+  entitled: boolean;
+  /** The entitlement's expiration as the SDK reports it, null when absent. */
+  expiresAt: string | null;
+}
+
+function snapshotFromCustomerInfo(info: unknown): EntitlementSnapshot {
+  const entitlement = (
+    info as { entitlements?: { active?: Record<string, { expirationDate?: unknown }> } }
+  )?.entitlements?.active?.[ENTITLEMENT_ID];
+  return {
+    entitled: Boolean(entitlement),
+    expiresAt: entitlement?.expirationDate ? String(entitlement.expirationDate) : null,
+  };
+}
+
+/**
+ * Capture the snapshot, or null when the SDK cannot answer.
+ *
+ * Null is load-bearing: collapsing "could not read" into "not entitled"
+ * would let a failed pre-read turn an existing subscription into a false
+ * "code redeemed" on the return trip. redemptionOutcome() refuses to claim
+ * anything against a null baseline instead.
+ */
+export async function entitlementSnapshot(): Promise<EntitlementSnapshot | null> {
+  const Purchases = loadPurchases();
+  if (!Purchases) return null;
+
+  try {
+    return snapshotFromCustomerInfo(await Purchases.getCustomerInfo());
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Pull an App Store offer-code redemption into RevenueCat.
  *
  * A code is redeemed OUTSIDE the app — on the App Store screen that
@@ -561,28 +610,56 @@ export async function restorePurchases(): Promise<RestoreResult> {
  * the receipt, which is what syncPurchases() does; until then the webhook has
  * nothing to write and the paywall stays up for someone who just redeemed.
  *
- * Returns whether the SDK now sees the entitlement. That is the SDK's view,
- * not the verdict — the server stays the authority (see the file header), so
- * callers still wait for the backend (waitForEntitlement) before claiming
- * anything. Quiet on failure by design: this runs when the app foregrounds
- * after MAYBE redeeming, and most returns from the App Store are someone who
- * backed out. An error alert on every one of those would scold people for
- * looking.
+ * MUST RUN UNDER A CONFIRMED IDENTITY. The sync attributes the receipt to
+ * whichever appUserID the SDK is configured for; after a failed logIn that is
+ * the PREVIOUS user, and a redemption synced under them is stranded on the
+ * wrong account — the exact failure the file header exists to prevent.
+ * Callers await identifyUser() successfully before calling this.
+ *
+ * Returns the post-sync snapshot (the SDK's view, not the verdict — the
+ * server stays the authority, so callers still wait for the backend before
+ * claiming anything), or null on failure. Quiet on failure by design: this
+ * runs when the app foregrounds after MAYBE redeeming, and most returns from
+ * the App Store are someone who backed out. An error alert on every one of
+ * those would scold people for looking.
  */
-export async function syncRedeemedPurchases(): Promise<boolean> {
+export async function syncRedeemedPurchases(): Promise<EntitlementSnapshot | null> {
   const Purchases = loadPurchases();
-  if (!Purchases) return false;
+  if (!Purchases) return null;
 
   try {
     await Purchases.syncPurchases();
     // Read the entitlement from getCustomerInfo() rather than syncPurchases()'s
     // return value: older SDK versions resolve the latter with nothing.
-    const info = await Purchases.getCustomerInfo();
-    return Boolean(info?.entitlements?.active?.[ENTITLEMENT_ID]);
+    return snapshotFromCustomerInfo(await Purchases.getCustomerInfo());
   } catch (error) {
     purchaseDiagnostics()?.report(error, { operation: 'revenuecat.syncRedeemedPurchases' });
-    return false;
+    return null;
   }
+}
+
+/**
+ * Did the trip to the App Store actually change anything?
+ *
+ * 'granted' only on an OBSERVED change: an entitlement that was not active
+ * and now is, or an active one whose expiration moved. Everything else is
+ * 'unchanged' — including the genuinely ambiguous case of an active
+ * subscriber whose redemption Apple defers to the next renewal, which is
+ * indistinguishable at return time from having backed out. Silence is the
+ * honest answer there: the screen they return to looks the same either way,
+ * and "Code redeemed" over a cancelled sheet is a false claim about money.
+ *
+ * A null baseline (the pre-read failed) never grants — claiming success
+ * against a state that was never seen is the same false claim.
+ */
+export function redemptionOutcome(
+  before: EntitlementSnapshot | null,
+  after: EntitlementSnapshot | null,
+): 'granted' | 'unchanged' {
+  if (!after || !after.entitled) return 'unchanged';
+  if (!before) return 'unchanged';
+  if (!before.entitled) return 'granted';
+  return before.expiresAt !== after.expiresAt ? 'granted' : 'unchanged';
 }
 
 /**

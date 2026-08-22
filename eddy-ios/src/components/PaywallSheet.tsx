@@ -59,6 +59,7 @@ import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { waitForEntitlement } from '@/api/client';
 import {
+  entitlementSnapshot,
   fetchOfferings,
   identifyUser,
   OFFER_CODE_REDEEM_URL,
@@ -69,9 +70,11 @@ import {
   PREMIUM_UNAVAILABLE_COPY,
   purchasePackage,
   purchasesUnavailableReason,
+  redemptionOutcome,
   restorePurchases,
   savingsLabel,
   syncRedeemedPurchases,
+  type EntitlementSnapshot,
   type PurchasePackage,
 } from '@/lib/purchases';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
@@ -117,6 +120,12 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
    * reason the app comes back to the foreground with this sheet open.
    */
   const redeemPending = useRef(false);
+  /**
+   * The entitlement as it stood BEFORE leaving for the App Store. The return
+   * trip claims success only against an observed change from this — see
+   * redemptionOutcome() for why "is it active now" is not enough.
+   */
+  const redeemBaseline = useRef<EntitlementSnapshot | null>(null);
 
   const userId = session?.user?.id ?? null;
   const signedIn = Boolean(userId) && !isAnonymous;
@@ -172,7 +181,17 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
     async (pkg: PurchasePackage) => {
       setBusy('buy');
       try {
-        const outcome = await purchasePackage(pkg);
+        // The same identity gate the redeem flow carries, for the same reason:
+      // a purchase made while the SDK still holds the previous user's
+      // appUserID lands the entitlement on the wrong account. The offerings
+      // effect above attempts identification but ignores the result; this is
+      // where it has to be confirmed, with the retry identifyUser() built in.
+      if (!userId || !(await identifyUser(userId, isAnonymous))) {
+        Alert.alert('Could not reach the App Store', 'Please try again in a moment.');
+        return;
+      }
+
+      const outcome = await purchasePackage(pkg);
 
         // Backing out of Apple's sheet is a decision, not a failure. Say
         // nothing at all and leave the paywall as they left it.
@@ -204,23 +223,42 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
         setBusy(null);
       }
     },
-    [getAccessToken, onPurchased, onClose],
+    [userId, isAnonymous, getAccessToken, onPurchased, onClose],
   );
 
   /**
    * Offer codes are redeemed on the App Store's own screen, not in the app —
    * see OFFER_CODE_REDEEM_URL for why the in-app sheet lost. The real work is
    * the effect below, which finishes the story when they come back.
+   *
+   * Nothing leaves the app until two things hold. IDENTITY IS CONFIRMED, not
+   * assumed: the return-trip sync attributes the receipt to whichever
+   * appUserID the SDK is configured for, and after a failed logIn that is the
+   * previous user — identifyUser() retries and its result is the gate, where
+   * before it ran fire-and-forget elsewhere and a failure went unnoticed. And
+   * the BASELINE IS CAPTURED, so the return trip has a before to compare
+   * against rather than mistaking any active entitlement for a redemption.
    */
-  const handleRedeem = useCallback(() => {
-    redeemPending.current = true;
-    void Linking.openURL(OFFER_CODE_REDEEM_URL);
-  }, []);
+  const handleRedeem = useCallback(async () => {
+    if (!userId) return;
+    setBusy('redeem');
+    try {
+      if (!(await identifyUser(userId, isAnonymous))) {
+        Alert.alert('Could not reach the App Store', 'Please try again in a moment.');
+        return;
+      }
+      redeemBaseline.current = await entitlementSnapshot();
+      redeemPending.current = true;
+      void Linking.openURL(OFFER_CODE_REDEEM_URL);
+    } finally {
+      setBusy(null);
+    }
+  }, [userId, isAnonymous]);
 
-  // The return trip from the App Store. Success is a redemption that shows up
-  // once the receipt is synced; the far more common return is someone who
-  // looked and backed out, which must produce no alert, no error, nothing —
-  // the sheet simply still there, as they left it.
+  // The return trip from the App Store. Success is an OBSERVED CHANGE against
+  // the baseline once the receipt is synced; the far more common return is
+  // someone who looked and backed out, which must produce no alert, no error,
+  // nothing — the sheet simply still there, as they left it.
   useEffect(() => {
     if (!visible) return;
 
@@ -231,8 +269,12 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
       void (async () => {
         setBusy('redeem');
         try {
-          const entitled = await syncRedeemedPurchases();
-          if (!entitled) return;
+          // Identity re-confirmed on this side of the trip too — the sync
+          // must never run under a stale appUserID (see handleRedeem).
+          if (!userId || !(await identifyUser(userId, isAnonymous))) return;
+
+          const after = await syncRedeemedPurchases();
+          if (redemptionOutcome(redeemBaseline.current, after) !== 'granted') return;
 
           // Same contract as a purchase: StoreKit is done, the server learns
           // through RevenueCat's webhook, so wait for the backend before the
@@ -242,13 +284,14 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
           onPurchased?.();
           onClose();
         } finally {
+          redeemBaseline.current = null;
           setBusy(null);
         }
       })();
     });
 
     return () => subscription.remove();
-  }, [visible, getAccessToken, onPurchased, onClose]);
+  }, [visible, userId, isAnonymous, getAccessToken, onPurchased, onClose]);
 
   const handleRestore = useCallback(async () => {
     setBusy('restore');
@@ -281,6 +324,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
       onDismiss={() => {
         setSelectedId(null);
         redeemPending.current = false;
+        redeemBaseline.current = null;
       }}
     >
       <View style={[styles.sheet, { backgroundColor: colors.bg }]}>
@@ -570,7 +614,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
                     and for the same reason: the entitlement a code grants
                     arrives through the receipt, and it has to land on a real
                     account the moment it does. */}
-                <Pressable onPress={handleRedeem} disabled={busy !== null} hitSlop={8}>
+                <Pressable onPress={() => void handleRedeem()} disabled={busy !== null} hitSlop={8}>
                   <Text style={[styles.footerLink, { color: colors.textMuted }]}>
                     {busy === 'redeem' ? 'Checking…' : 'Redeem code'}
                   </Text>
