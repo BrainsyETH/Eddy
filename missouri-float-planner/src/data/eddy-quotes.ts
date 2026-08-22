@@ -6,7 +6,12 @@ import type { ConditionCode } from '@/types/api';
 import { summarizeConditionCounts } from '@shared/condition-system';
 
 // --- Condition-based quote templates ---
-// {gauge} = gauge height, {range} = optimal range, {river} = river name, {note} = local note
+// {gauge} = gauge height, {range} = optimal range, {river} = river name
+//
+// There is no {note} placeholder. Local color used to come from a hardcoded
+// RIVER_NOTES map; the canonical source is river_characteristics.river_note,
+// which this path cannot reach — see buildStaticEddyText's riverNote and
+// docs/river-metadata-fallback-inventory.md.
 
 type QuoteTemplates = Record<ConditionCode, string[]>;
 
@@ -34,7 +39,7 @@ const QUOTE_TEMPLATES: QuoteTemplates = {
   high: [
     "{gauge} ft — running hot. Strong current, use caution out there.",
     "Water's up to {gauge} ft. Use caution and check with outfitters before heading out.",
-    "{gauge} ft and moving fast. {note} Use caution out there.",
+    "{gauge} ft and moving fast. Use caution out there.",
   ],
   dangerous: [
     "{gauge} ft — stay off the water. River is closed.",
@@ -133,8 +138,7 @@ export function buildEddyQuote(
   text = text
     .replace(/\{gauge\}/g, gauge)
     .replace(/\{range\}/g, range)
-    .replace(/\{river\}/g, riverSlug)
-    .replace(/\{note\}/g, '');
+    .replace(/\{river\}/g, riverSlug);
 
   // Append weather context
   if (weather) {

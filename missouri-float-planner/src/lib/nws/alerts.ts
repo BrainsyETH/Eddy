@@ -93,8 +93,27 @@ export function filterAlertsForRiver(
 ): NWSAlert[] {
   const riverTerms = searchTerms?.length ? searchTerms : null;
   if (!riverTerms) {
-    console.warn(`[NWS] Missing canonical alert_search_terms for active river ${riverSlug}`);
-    return [];
+    // Fails OPEN, and that is load-bearing rather than lazy.
+    //
+    // Both callers of this helper are prompt builders — generate-update.ts and
+    // chat/tool-handlers.ts. Neither renders what comes back; a model reads it.
+    // Surplus alerts there cost a few tokens and some hedged prose. Returning
+    // nothing instead would tell the model the river is quiet, which is the one
+    // wrong answer available.
+    //
+    // The screen path does NOT share this posture. matchWeatherAlerts skips
+    // untermed rivers at its own boundary (src/lib/alerts/river-alerts.ts) so a
+    // newly ingested creek cannot show every flood warning in the state as its
+    // own — and the comment there says explicitly that the guard lives at the
+    // call site "rather than by changing the shared helper, so the two LLM
+    // callers keep the behaviour they were written against". Tightening this
+    // function is what that sentence is asking you not to do; it also silently
+    // makes that comment false.
+    //
+    // The missing terms are still a defect. They surface as a
+    // `canonical_alert_terms_missing` Trust finding, filed `high`.
+    console.warn(`[NWS] Missing canonical alert_search_terms for active river ${riverSlug}; returning unfiltered alerts`);
+    return alerts;
   }
 
   return alerts.filter((alert) => {
