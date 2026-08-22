@@ -31,6 +31,7 @@ import { logger } from '@/lib/logger';
 import { fetchTimeseries } from '@/lib/usace/cda';
 import { USACE_DAMS, hasPowerhouse, type UsaceDam } from '@/lib/flow-providers/usace-registry';
 import { seriesFor } from '@/lib/data/dams';
+import { periodEndingMs } from '@/lib/usace/resolve';
 import { bucketHourly, SYNC_LOOKBACK_HOURS, type DamHistoryMetric } from '@/lib/data/dam-history';
 import { pruneHistory, writeHours } from '@/lib/data/dam-history-store';
 

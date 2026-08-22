@@ -405,15 +405,46 @@ test('the powerhouse question is answerable with no live fetch', () => {
     );
   }
 
-  // Today the two rules still agree on every shipped dam, which is why the
-  // conflation was invisible. Pinned so the day they diverge is a deliberate
-  // change with a dam to point at rather than a silent behaviour shift.
+  // The day the two rules diverge, with the dams to point at.
+  //
+  // When this test was written the lists agreed everywhere, which is exactly
+  // why the conflation had stayed invisible. They stopped agreeing the moment
+  // the registry reached past SWPA's marketing area — which is the case
+  // hasPowerhouse was written for, arriving sooner than DeGray:
+  //
+  //   lrn-wolf-creek-dam    270 MW, 6 units  — Nashville District (LRN)
+  //   lrn-center-hill-dam   135 MW, 3 units  — Nashville District (LRN)
+  //   lrn-dale-hollow-dam    54 MW, 3 units  — Nashville District (LRN)
+  //   ameren-bagnell-dam    176 MW, 8 units  — Ameren, not a Corps project
+  //
+  // None of the four carries a swpaCode and none ever will: SWPA markets the
+  // Southwestern Division, the LRN projects belong to SEPA, and Bagnell is
+  // private. Under the old `Boolean(swpaCode)` rule all four would report "no
+  // powerhouse" — 635 MW of plant that Eddy would have rendered as absent.
+  //
+  // Keep this list exhaustive. A NEW name appearing here is the signal it was
+  // built for: either a genuine unscheduled plant, or a dam that lost its
+  // schedule code by accident.
   const diverging = Object.values(USACE_DAMS).filter(
     (d) => hasPowerhouse(d) !== Boolean(d.swpaCode),
   );
   assert.deepEqual(
-    diverging.map((d) => d.id),
-    [],
+    diverging.map((d) => d.id).sort(),
+    [
+      'ameren-bagnell-dam',
+      'lrn-center-hill-dam',
+      'lrn-dale-hollow-dam',
+      'lrn-wolf-creek-dam',
+    ],
     'a dam now diverges from the old rule — intended, but update this list',
   );
+
+  // Every diverging dam diverges in the SAME direction: a plant with no
+  // schedule. A dam with a schedule and no plant would be a registry defect,
+  // not an unscheduled powerhouse, and must not pass silently through the
+  // list above.
+  for (const dam of diverging) {
+    assert.equal(hasPowerhouse(dam), true, `${dam.id} diverges the wrong way`);
+    assert.ok(dam.nameplate, `${dam.id} is listed as a plant with no nameplate`);
+  }
 });
