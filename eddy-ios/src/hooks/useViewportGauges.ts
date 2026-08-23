@@ -16,6 +16,10 @@
 //   5. QUANTIZE + PAD   — snap to a grid so the URL is CDN-cacheable, and ask
 //                         for more than the screen so step 4 hits more often.
 //   6. MEMORY + DISK LRU — panning back is instant, including after relaunch.
+//   7. MERGE, NOT REPLACE — a landing payload is unioned with whatever was
+//                         already drawn inside its box (mergeViewportPayload),
+//                         so a capped wide answer cannot yank pins that a
+//                         tighter box legitimately showed a moment earlier.
 //
 // Failure keeps the previous payload. Panning into a dead cell must not erase
 // the pins you were already looking at, and the curated layer must be untouched
@@ -89,14 +93,81 @@ interface CacheEntry {
   source: 'disk' | 'network';
 }
 
-/** Most-recent containing cell, not merely an exact quantized-key hit. */
+/**
+ * Most-recent containing cell, not merely an exact quantized-key hit.
+ *
+ * An UNCAPPED entry satisfies any limit, not only its own: `capped: false`
+ * means the server returned every gauge in that box, so a request for the same
+ * ground under a different cap could not learn anything more. Without this the
+ * limit flip at GAUGE_DETAIL_ZOOM invalidated the whole cache — zooming across
+ * that line refetched a viewport whose complete answer was already in hand,
+ * and the layer blinked while the identical payload came back.
+ */
 function containingEntry(
   entries: Map<string, CacheEntry>,
   bounds: Bounds,
   limit: number,
 ): CacheEntry | null {
   const newestFirst = [...entries.values()].reverse();
-  return newestFirst.find((entry) => entry.limit === limit && bboxContains(entry.bbox, bounds)) ?? null;
+  return (
+    newestFirst.find(
+      (entry) =>
+        (entry.limit === limit || !entry.payload.capped) && bboxContains(entry.bbox, bounds),
+    ) ?? null
+  );
+}
+
+/**
+ * Ceiling on the DRAWN set after merging — see mergeViewportPayload.
+ *
+ * Above the per-request caps on purpose: the merge exists to let a zoom-out
+ * keep what was on screen while the wider answer arrives, and a ceiling equal
+ * to the request cap would forbid exactly that. Bounded all the same, because
+ * every feature here crosses the native bridge on each update.
+ */
+const MERGED_MAX = 1500;
+
+/**
+ * The landing payload, plus whatever was already drawn that still lies inside
+ * the fetched box.
+ *
+ * REPLACING the drawn set was the flicker. Zooming out fetches a wider box
+ * whose answer is capped by discharge, so the smaller creeks the reader was
+ * just looking at — fetched moments ago under a tighter box — vanished the
+ * instant the wide payload landed, then reappeared on the next zoom in. The
+ * union keeps them: a gauge that was legitimately on screen stays on screen,
+ * and the cap only ever decides what is ADDED, never what is taken away.
+ *
+ * Filtered to the fetched box, so this never re-litigates the rule that a
+ * viewport shows its own gauges — panning far away still drops the last
+ * valley. When the union would exceed MERGED_MAX, the carried-over gauges are
+ * dropped smallest-discharge first, mirroring the server's own cap.
+ */
+function mergeViewportPayload(
+  drawn: MapGaugeLite[],
+  next: Pick<ViewportGaugesState, 'gauges' | 'capped' | 'total'>,
+  bbox: Bounds,
+): Pick<ViewportGaugesState, 'gauges' | 'capped' | 'total'> {
+  if (!drawn.length) return next;
+  const have = new Set(next.gauges.map((g) => g.id));
+  const kept = drawn.filter(
+    (g) =>
+      !have.has(g.id) &&
+      g.coordinates.lng >= bbox[0] &&
+      g.coordinates.lng <= bbox[2] &&
+      g.coordinates.lat >= bbox[1] &&
+      g.coordinates.lat <= bbox[3],
+  );
+  if (!kept.length) return next;
+  const room = MERGED_MAX - next.gauges.length;
+  if (room <= 0) return next;
+  const extras =
+    kept.length > room
+      ? [...kept]
+          .sort((a, b) => (b.dischargeCfs ?? 0) - (a.dischargeCfs ?? 0))
+          .slice(0, room)
+      : kept;
+  return { ...next, gauges: [...next.gauges, ...extras] };
 }
 
 export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
@@ -109,6 +180,8 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
   const lastRequested = useRef<Bounds | null>(null);
   const hasRequested = useRef(false);
   const inFlight = useRef<AbortController | null>(null);
+  /** Which quantized box the in-flight request is FOR — see the effect below. */
+  const inFlightKey = useRef<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async (bbox: Bounds, limit: number, revalidate = false) => {
@@ -120,7 +193,11 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       cache.current.set(key, hit);
       lastRequested.current = bbox;
       drawnKey.current = key;
-      setState({ ...hit.payload, loading: false, belowMinZoom: false });
+      setState((prev) => ({
+        ...mergeViewportPayload(prev.gauges, hit.payload, hit.bbox),
+        loading: false,
+        belowMinZoom: false,
+      }));
       return;
     }
 
@@ -129,6 +206,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
     inFlight.current?.abort();
     const controller = new AbortController();
     inFlight.current = controller;
+    inFlightKey.current = key;
 
     setState((prev) => ({ ...prev, loading: true, belowMinZoom: false }));
 
@@ -180,7 +258,14 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
 
       lastRequested.current = bbox;
       drawnKey.current = key;
-      setState({ ...result, loading: false, belowMinZoom: false });
+      // The union of what landed and what was already on screen inside this
+      // box — see mergeViewportPayload. A capped wide answer must not yank the
+      // gauges the reader was just looking at.
+      setState((prev) => ({
+        ...mergeViewportPayload(prev.gauges, result, bbox),
+        loading: false,
+        belowMinZoom: false,
+      }));
     } catch (err) {
       if (controller.signal.aborted) return;
       if (err instanceof Error && err.message === 'Request cancelled') return;
@@ -190,7 +275,10 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       // something nobody asked for.
       setState((prev) => ({ ...prev, loading: false }));
     } finally {
-      if (inFlight.current === controller) inFlight.current = null;
+      if (inFlight.current === controller) {
+        inFlight.current = null;
+        inFlightKey.current = null;
+      }
     }
   }, []);
 
@@ -214,6 +302,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
     if (!enabled) {
       inFlight.current?.abort();
       inFlight.current = null;
+      inFlightKey.current = null;
       lastRequested.current = null;
       hasRequested.current = false;
       drawnKey.current = null;
@@ -226,6 +315,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
     if (viewport.zoom < MIN_GAUGE_ZOOM) {
       inFlight.current?.abort();
       inFlight.current = null;
+      inFlightKey.current = null;
       // Drop the pins as well as the request: a continental view scattered with
       // whatever happened to be in the last valley is worse than an empty one.
       lastRequested.current = null;
@@ -247,11 +337,16 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       lastRequested.current = covering.bbox;
       if (drawnKey.current !== covering.key) {
         drawnKey.current = covering.key;
-        setState({ ...covering.payload, loading: false, belowMinZoom: false });
+        setState((prev) => ({
+          ...mergeViewportPayload(prev.gauges, covering.payload, covering.bbox),
+          loading: false,
+          belowMinZoom: false,
+        }));
       }
       if (covering.source === 'network') {
         inFlight.current?.abort();
         inFlight.current = null;
+        inFlightKey.current = null;
         return;
       }
       // Disk is stale-first, never cache-only. It earns an immediate frame but
@@ -261,8 +356,16 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
     }
 
     const target = quantizeBbox(padBbox(viewport.bounds, 0.2), viewport.zoom);
+    // Already asking for exactly this box? Let the answer land. Mapbox can
+    // emit several idle events for one settled camera, and aborting the
+    // request each time meant a burst of idles kept the layer perpetually
+    // "loading" — the request restarted from zero on every echo.
+    if (inFlight.current && inFlightKey.current === `${limit}:${target.join(',')}`) {
+      return;
+    }
     inFlight.current?.abort();
     inFlight.current = null;
+    inFlightKey.current = null;
     let live = true;
 
     // onMapIdle already means the opening camera has stopped. Delaying its first
@@ -308,7 +411,11 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
             }
             lastRequested.current = stored.bbox;
             drawnKey.current = stored.key;
-            setState({ ...stored.payload, loading: false, belowMinZoom: false });
+            setState((prev) => ({
+              ...mergeViewportPayload(prev.gauges, stored.payload, stored.bbox),
+              loading: false,
+              belowMinZoom: false,
+            }));
 
             const touched = touchViewportGaugeIndex(diskIndex.current, stored.key);
             if (touched !== diskIndex.current) {
