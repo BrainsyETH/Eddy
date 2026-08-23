@@ -13,6 +13,10 @@
 --   1. approved            the record is public again — page, pin, sitemap,
 --                          export, offline bundle
 --   2. is_float_endpoint   it is a put-in, so it belongs in the picker
+--                          (WITHDRAWN AGAIN by 20260823200007 — not because the
+--                          classification changed, but because Eddy's Current
+--                          geometry stops ~1.8 mi below it and the drawn route
+--                          would start in the wrong place. Measurements there.)
 --   3. same_place          the campground and lodge rows collapse INTO this
 --                          marker instead of drawing beside it
 --
@@ -70,7 +74,20 @@ DECLARE
   m         record;
   collapsed bigint;
   leftover  bigint;
+  populated boolean;
 BEGIN
+  -- `supabase db reset` applies every migration to an EMPTY database and loads
+  -- supabase/seed/ afterwards, so on a from-scratch build there is no Montauk
+  -- row here and nothing to assert about. Asserting anyway would fail every
+  -- reset and every recovery rebuild — the failure mode 20260823190713 already
+  -- had to guard against, and this file did not carry the guard over.
+  --
+  -- The seed reproduces this migration's end state itself: the Montauk row is
+  -- inserted approved with the access role, and the same_place links are
+  -- upserted at the end of seed/access_points.sql where the directory rows
+  -- exist to link to.
+  SELECT EXISTS (SELECT 1 FROM public.access_points) INTO populated;
+
   SELECT ap.approved, ap.is_float_endpoint, ap.type, ap.types
     INTO m
     FROM public.access_points ap
@@ -78,7 +95,13 @@ BEGIN
    WHERE r.slug = 'current' AND ap.slug = 'montauk-state-park';
 
   IF m IS NULL THEN
-    RAISE EXCEPTION 'montauk-state-park not found on the current river; the slug has drifted.';
+    IF populated THEN
+      RAISE EXCEPTION
+        'montauk-state-park not found on the current river, in a database that already holds access points; the slug has drifted.';
+    END IF;
+    RAISE NOTICE
+      'montauk correction ran against an empty access_points table (a from-scratch build); seed/access_points.sql carries the same end state.';
+    RETURN;
   END IF;
 
   IF NOT m.approved OR NOT m.is_float_endpoint THEN
@@ -101,10 +124,23 @@ BEGIN
     JOIN public.access_points ap ON ap.id = aps.access_point_id
    WHERE ap.slug = 'montauk-state-park' AND aps.relationship <> 'same_place';
 
-  IF collapsed <> 2 OR leftover <> 0 THEN
+  -- The directory rows live in nearby_services, which the seed does NOT create.
+  -- So a from-scratch build legitimately has no links to collapse, and zero is
+  -- only an error where links exist to be got wrong. What must never happen is
+  -- a row left OUTSIDE same_place: that one draws its own pin.
+  IF leftover > 0 THEN
     RAISE EXCEPTION
-      'expected both Montauk directory rows to be same_place; got % collapsed and % still separate. Any row left behind draws its own pin.',
-      collapsed, leftover;
+      'Montauk has % directory row(s) not marked same_place. Any row left behind draws its own pin beside this one.',
+      leftover;
+  END IF;
+
+  IF collapsed = 0 THEN
+    RAISE NOTICE
+      'Montauk has no directory links to collapse. Expected on a build whose nearby_services table is empty; investigate if this is production.';
+  ELSIF collapsed <> 2 THEN
+    RAISE WARNING
+      'Montauk has % same_place link(s); production carries 2 (campground and lodge).',
+      collapsed;
   END IF;
 
   RAISE NOTICE

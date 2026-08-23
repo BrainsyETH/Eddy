@@ -6,11 +6,13 @@
 // would produce, where 50 approved campground-typed points are legitimately
 // offered.
 //
-// Montauk State Park appears here as the case that must NOT fire: it was
-// reclassified as a park-with-no-launch in 2026-08 on a park-boundary reading,
-// and 20260823192151 corrected that — it is the Current's first put-in, carries
-// the access role, and is a float endpoint. If this rule ever flags it again,
-// the rule is wrong, not the row.
+// Montauk State Park is here as the case that SHOULD fire, and that is the
+// point. It is the Current's first put-in (20260823192151), it carries the
+// access role, and it is deliberately not a float endpoint — Eddy's river
+// geometry stops ~1.8 mi below it, so a route from it would start in the wrong
+// place (20260823200007). `launch_not_selectable` is exactly the right thing to
+// say about that, every day, until the geometry is extended. The finding is the
+// reminder; without it the flag would quietly stay false forever.
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -37,14 +39,31 @@ test('a plain approved launch raises nothing', () => {
   assert.deepEqual(deriveEndpointEligibilityFindings([row()]), []);
 });
 
-test('Montauk — a put-in that is also a park and a campground — raises nothing', () => {
-  // Its corrected state (20260823192151): approved, a float endpoint, and
-  // carrying the access role alongside what else the park offers. A place can be
-  // a launch AND somewhere you sleep; the roles axis is a set, not a category.
+test('Montauk — a launch held back by the river line — is reported, deliberately', () => {
+  // Its live state: approved so it keeps its page, pin and marker; carrying the
+  // access role because it IS a put-in; not a float endpoint because the
+  // geometry does not reach it yet. That combination is a launch nobody can
+  // choose, and this rule is what keeps saying so until it can be.
   const findings = deriveEndpointEligibilityFindings([
     row({
       name: 'Montauk State Park',
       slug: 'montauk-state-park',
+      type: 'access',
+      types: ['access', 'campground', 'park'],
+      approved: true,
+      is_float_endpoint: false,
+    }),
+  ]);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].ruleKey, 'launch_not_selectable');
+  assert.match(findings[0].title, /nobody can choose/);
+});
+
+test('a put-in that is also a park and a campground raises nothing when eligible', () => {
+  // A place can be a launch AND somewhere you sleep; the roles axis is a set,
+  // not a category. This is Montauk's shape once the geometry reaches it.
+  const findings = deriveEndpointEligibilityFindings([
+    row({
       type: 'access',
       types: ['access', 'campground', 'park'],
       approved: true,
