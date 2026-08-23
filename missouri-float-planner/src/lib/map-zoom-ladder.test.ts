@@ -5,8 +5,9 @@ import { join } from 'node:path';
 
 // ── ONE LADDER, AND EVERY LAYER ON THE SAME RUNGS ─────────────────────────
 //
-// map/layers.ts documents a four-rung zoom ladder — OFF below 5.5, COUNTS to 8,
-// PLACES to 10.5, NAMES above — and says why it is one table: "every layer on
+// map/layers.ts documents the zoom ladder — OFF below 5.5, COUNTS to 8,
+// PLACES to 9.5, MARKS above, NAMES at 10.5 — and says why it is one table:
+// "every layer on
 // this map is statewide now and the map is only legible if they all change
 // character together."
 //
@@ -166,4 +167,84 @@ test('lakes & dams keep their names at every zoom', () => {
   const args = pinLayerArgs().get('dams');
   assert.ok(args, 'dams must be drawn through pinLayer');
   assert.equal(args[2], '0', 'dam labels are on at every zoom, on purpose');
+});
+
+// ── The rung VALUES, not only the relationships ─────────────────────────────
+//
+// Everything above asserts that the layers sit on the same rungs; nothing said
+// where the rungs are. These numbers are product decisions — 9.5 for the marks
+// was tuned because at z10 the camera already frames a single river valley and
+// the reader choosing a bank was still looking at anonymous dots — and a test
+// is where a tuned number stops being drift waiting to happen.
+
+/** A second file's code, comments stripped the same way as CODE above. */
+function codeOf(...path: string[]): string {
+  return readFileSync(join(process.cwd(), '..', 'eddy-ios', ...path), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(?<!:)\/\/.*$/gm, '');
+}
+
+test('the ladder rungs hold their agreed values', () => {
+  const layers = codeOf('src', 'map', 'layers.ts');
+  const block = layers.match(/export const ZOOM = \{([\s\S]*?)\} as const/);
+  assert.ok(block, 'layers.ts must declare the ZOOM table');
+  const rung = (name: string): number => {
+    const m = block![1].match(new RegExp(`${name}:\\s*([\\d.]+)`));
+    assert.ok(m, `the ${name} rung must be a numeric literal in the ZOOM table`);
+    return Number(m![1]);
+  };
+  assert.equal(rung('min'), 5.5, 'the statewide floor');
+  assert.equal(rung('cluster'), 8, 'where bubbles break into pins');
+  assert.equal(rung('places'), 9.5, 'where full marks arrive — a product decision');
+  assert.equal(rung('names'), 10.5, 'labels wait one rung past the marks');
+});
+
+test('the national fetch flip is decoupled from the marks rung', () => {
+  // GAUGE_FETCH_DETAIL_ZOOM was an alias for ZOOM.places, which meant retuning
+  // the marks rung — a visual decision — silently changed how many gauges a
+  // mid-zoom viewport requests. The flip is a fetch parameter with its own
+  // value, and the hook must read IT, not the visual threshold.
+  const layers = codeOf('src', 'map', 'layers.ts');
+  assert.match(
+    layers,
+    /export const GAUGE_FETCH_DETAIL_ZOOM = 10\.5/,
+    'the fetch flip is its own numeric constant, not an alias for a rung',
+  );
+  const hook = codeOf('src', 'hooks', 'useViewportGauges.ts');
+  assert.match(
+    hook,
+    /viewport\.zoom < GAUGE_FETCH_DETAIL_ZOOM \? OVERVIEW_LIMIT : DETAIL_LIMIT/,
+    'the limit choice reads the fetch constant',
+  );
+  assert.doesNotMatch(
+    hook,
+    /\bGAUGE_DETAIL_ZOOM\b/,
+    'the hook must not couple its fetch budget to the visual detail threshold',
+  );
+});
+
+test('every fetch-skipping path applies the one eligibility rule', () => {
+  // requestCovers (tested in geo-viewport.test.ts) is the rule: containment
+  // AND (same limit, or an uncapped answer). Two paths in the hook can skip a
+  // fetch — the memory-cache scan and the last-request shortcut — and the
+  // regression this pins is the shortcut judging by bounds alone: a capped
+  // detail answer kept standing in for the overview budget after the camera
+  // eased back across GAUGE_FETCH_DETAIL_ZOOM, until the padding boundary
+  // released hundreds of gauges at once.
+  const hook = codeOf('src', 'hooks', 'useViewportGauges.ts');
+  assert.match(
+    hook,
+    /requestCovers\(lastRequested\.current, viewport\.bounds, limit\)/,
+    'the last-request shortcut must ask requestCovers, never bare containment',
+  );
+  assert.match(
+    hook,
+    /newestFirst\.find\(\(entry\) =>\s*requestCovers\(/,
+    'the memory-cache scan judges entries with the same rule',
+  );
+  assert.doesNotMatch(
+    hook,
+    /bboxContains/,
+    'no fetch-skipping path may fall back to bounds-only containment',
+  );
 });

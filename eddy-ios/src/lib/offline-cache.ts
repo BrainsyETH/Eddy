@@ -280,6 +280,15 @@ export function viewportGaugeEntryIsFresh(
   );
 }
 
+/**
+ * EXACT limit only, unlike the in-memory scan. Memory entries carry the
+ * payload, so requestCovers can let an uncapped answer satisfy any budget;
+ * this index persists no `capped` and cannot make that call — a looser rule
+ * here would serve a capped 300 as a relaunch's 1000-row overview. The cost
+ * of the strict rule is only a missed stale-first frame (the disk tier always
+ * revalidates over the network anyway), which is why the field has not been
+ * added: persisting it is a stored-format migration to buy one frame.
+ */
 export function newestContainingViewportGaugeEntry(
   entries: ViewportGaugeIndexRecord[],
   bounds: [number, number, number, number],

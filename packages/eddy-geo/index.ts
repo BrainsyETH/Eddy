@@ -156,6 +156,107 @@ export function bboxContains(outer: Bounds, inner: Bounds): boolean {
   );
 }
 
+/** What a viewport request asked for, and whether its answer was complete. */
+export interface ViewportRequest {
+  bbox: Bounds;
+  limit: number;
+  /** True when the server dropped rows to meet `limit`. */
+  capped: boolean;
+}
+
+/**
+ * True when a previous request still answers this viewport — the ONE
+ * eligibility rule, shared by the memory cache and the last-request shortcut.
+ *
+ * Containment alone is not enough, and treating it as enough was a bug: a
+ * CAPPED answer under one limit does not answer the same ground under a
+ * bigger one. Fetch a capped 300 at detail zoom, ease out across the fetch
+ * threshold, and the viewport is still inside the padded box — but the map is
+ * owed the 1000-row overview, and a bounds-only check would sit on the 300
+ * until the camera crossed the padding, where the missing hundreds then
+ * arrived all at once. That cliff reads exactly like the intermittent
+ * behaviour this whole chain exists to remove.
+ *
+ * An UNCAPPED answer holds everything in its box, so it satisfies any limit;
+ * a capped one satisfies only the limit it was fetched under.
+ */
+export function requestCovers(
+  last: ViewportRequest | null,
+  bounds: Bounds,
+  limit: number,
+): boolean {
+  if (!last) return false;
+  if (last.limit !== limit && last.capped) return false;
+  return bboxContains(last.bbox, bounds);
+}
+
+/**
+ * What mergeViewportItems needs to know about a point it is carrying.
+ *
+ * Structural on purpose: MapGaugeLite satisfies it without importing
+ * @eddy/types into a package that is otherwise pure geometry. `dischargeCfs`
+ * is the drop order when the union overflows — the same order the server's own
+ * cap uses, so the merge never keeps a creek the server would have dropped
+ * ahead of a river it kept.
+ */
+export interface ViewportItem {
+  id: string;
+  coordinates: { lng: number; lat: number };
+  dischargeCfs: number | null;
+}
+
+/**
+ * A landing viewport payload, unioned with what was already drawn inside it.
+ *
+ * ── Why replacement flickered ─────────────────────────────────────────────
+ * A CAPPED response is not the viewport's contents; it is the top of them by
+ * discharge. Zooming out fetches a wider box whose cap drops the smaller
+ * gauges the reader was just looking at — fetched moments ago under a tighter
+ * box — so replacing the drawn set made them vanish the instant the wide
+ * payload landed, then reappear on the next zoom in. The union keeps them:
+ * the cap only ever decides what is ADDED, never what is taken away.
+ *
+ * ── An UNCAPPED response is authoritative, and is returned untouched ──────
+ * `capped: false` means the server sent every item in the box, so anything
+ * carried over that it does not contain is STALE — a station that aged out of
+ * the dataset — and merging it back would pin a ghost to the map and let the
+ * drawn count exceed the server's `total`. Complete answers replace; only
+ * lossy ones merge.
+ *
+ * Carried-over items are filtered to the fetched box, so this never
+ * re-litigates the rule that a viewport shows its own gauges — panning far
+ * away still drops the last valley. When the union would exceed `max`, the
+ * carried-over items are dropped smallest-discharge first, mirroring the cap.
+ */
+export function mergeViewportItems<T extends ViewportItem>(
+  drawn: T[],
+  next: T[],
+  nextCapped: boolean,
+  bbox: Bounds,
+  max = 1500,
+): T[] {
+  if (!nextCapped || !drawn.length) return next;
+  const have = new Set(next.map((item) => item.id));
+  const kept = drawn.filter(
+    (item) =>
+      !have.has(item.id) &&
+      item.coordinates.lng >= bbox[0] &&
+      item.coordinates.lng <= bbox[2] &&
+      item.coordinates.lat >= bbox[1] &&
+      item.coordinates.lat <= bbox[3],
+  );
+  if (!kept.length) return next;
+  const room = max - next.length;
+  if (room <= 0) return next;
+  const extras =
+    kept.length > room
+      ? [...kept]
+          .sort((a, b) => (b.dischargeCfs ?? 0) - (a.dischargeCfs ?? 0))
+          .slice(0, room)
+      : kept;
+  return [...next, ...extras];
+}
+
 // ── Navigation hand-off (onX, Gaia, Google, Apple) ──────────────────────────
 //
 // An access point is a place you DRIVE to, and the last mile of that drive is
