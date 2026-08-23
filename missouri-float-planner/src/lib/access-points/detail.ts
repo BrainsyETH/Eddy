@@ -104,7 +104,7 @@ export async function getAccessPointDetail(
   const [neighbourResult, gaugeStatus, linked] = await Promise.all([
     supabase
       .from('access_points')
-      .select('id, name, slug, river_mile_downstream')
+      .select('id, name, slug, river_mile_downstream, is_float_endpoint')
       .eq('river_id', river.id)
       .eq('approved', true)
       .order('river_mile_downstream', { ascending: true }),
@@ -164,6 +164,10 @@ export async function getAccessPointDetail(
         distanceMiles: Math.round(distance * 10) / 10,
         estimatedFloatTime: estimateFloatTime(distance),
         riverMile: entry.mile,
+        // `!== false` so a row read before the column existed stays eligible.
+        // The Float-trips tab offers a trip TO each of these, and a park is a
+        // neighbour worth naming without being a trip you can take.
+        isFloatEndpoint: entry.point.is_float_endpoint !== false,
       });
     }
 
@@ -177,6 +181,10 @@ export async function getAccessPointDetail(
         distanceMiles: Math.round(distance * 10) / 10,
         estimatedFloatTime: estimateFloatTime(distance),
         riverMile: entry.mile,
+        // `!== false` so a row read before the column existed stays eligible.
+        // The Float-trips tab offers a trip TO each of these, and a park is a
+        // neighbour worth naming without being a trip you can take.
+        isFloatEndpoint: entry.point.is_float_endpoint !== false,
       });
     }
   }
@@ -281,6 +289,10 @@ export async function getAccessPointDetail(
     type: ap.type as AccessPointType,
     types: (ap.types || (ap.type ? [ap.type] : [])) as AccessPointType[],
     isPublic: ap.is_public ?? false,
+    // The sheet still opens for a place that is not a launch; what the clients
+    // must not do is offer to plan from one. `!== false` keeps a pre-column row
+    // eligible.
+    isFloatEndpoint: ap.is_float_endpoint !== false,
     ownership: ap.ownership,
     description: ap.description,
     amenities: ap.amenities || [],

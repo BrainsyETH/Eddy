@@ -187,6 +187,15 @@ export interface NearbyAccessPoint {
   distanceMiles: number;
   estimatedFloatTime: string | null;  // "~1.5 hr"
   riverMile: number;
+  /**
+   * May a float end here?
+   *
+   * The Float-trips tab turns each of these rows into "plan a trip to X", so a
+   * neighbour that is not a launch has to be listed without that action — it is
+   * still the next thing down the river, and still not a take-out. Absent means
+   * eligible, matching every other payload carrying this field.
+   */
+  isFloatEndpoint?: boolean;
 }
 
 /** Extended access point for detail page */

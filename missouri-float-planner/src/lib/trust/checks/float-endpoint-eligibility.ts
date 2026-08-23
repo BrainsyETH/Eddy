@@ -30,15 +30,10 @@
 // contradicts its own eligibility.
 
 import type { RawFinding, TrustCheck, TrustCheckContext, TrustCheckResult } from '../types';
-
-/**
- * Roles that mean "you can put a boat in here".
- *
- * `bridge` is included and it is the one worth defending: a low-water crossing
- * is how a great many Ozarks floats actually start. It is a launch by use even
- * where nobody built a ramp.
- */
-const LAUNCH_ROLES = new Set(['access', 'boat_ramp', 'gravel_bar', 'bridge']);
+// Shared with the importer that writes the column and the admin route that
+// offers a default for it. A check that disagreed with the pipeline feeding it
+// would open a finding on every correctly-imported row.
+import { isLaunchRole } from '@/lib/access-points/launch-roles';
 
 export interface EndpointEligibilityRow {
   id: string;
@@ -67,7 +62,7 @@ export function deriveEndpointEligibilityFindings(
     const entityKey = row.id;
     const where = row.river_slug ? ` on the ${row.river_slug}` : '';
     const roles = (row.types ?? []).filter((t): t is string => typeof t === 'string' && t.length > 0);
-    const launchRoles = roles.filter((r) => LAUNCH_ROLES.has(r));
+    const launchRoles = roles.filter(isLaunchRole);
 
     if (row.is_float_endpoint !== true && launchRoles.length > 0) {
       findings.push({

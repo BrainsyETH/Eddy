@@ -34,14 +34,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getScriptClient } from '../lib/db';
+// One definition of "you can put a boat in here", shared with the trust check
+// that reports on this column and the admin route that offers a default for it.
+import { isLaunchRole } from '../../src/lib/access-points/launch-roles';
 
 const MAX_SNAP_M = 250; // a verified put-in should snap within ~250 m of the channel
-
-// Kinds you can put a boat in from. Everything else is a place on the river.
-//
-// Must agree with LAUNCH_ROLES in src/lib/trust/checks/float-endpoint-eligibility.ts:
-// this decides what gets written, that reports when the two disagree.
-const LAUNCH_KINDS = new Set<Kind>(['access', 'bridge', 'boat_ramp', 'gravel_bar']);
 
 type Kind = 'access' | 'bridge' | 'boat_ramp' | 'park' | 'campground' | 'gravel_bar';
 interface APRow {
@@ -121,7 +118,7 @@ async function main() {
         // accident — but a launch that nobody opts in is a put-in Eddy silently
         // never offers, which is the failure nobody reports. The importer knows
         // the kind, so it answers rather than deferring.
-        is_float_endpoint: LAUNCH_KINDS.has(r.kind),
+        is_float_endpoint: isLaunchRole(r.kind),
         location_orig: { type: 'Point', coordinates: [r.lon, r.lat] },
       };
       const { error } = await db

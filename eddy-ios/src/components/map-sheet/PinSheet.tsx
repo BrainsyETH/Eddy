@@ -590,7 +590,12 @@ function PinSheetHeader({
       ) : null}
 
       <View style={styles.actions}>
-        {accessPoint ? (
+        {/* Offered only where a float can actually start or end. `useFloatPlan`
+            refuses a non-endpoint, and a button that silently refuses is worse
+            than no button: it closes the sheet and opens an empty planner, so
+            the reader learns nothing except that Eddy is broken.
+            `!== false` keeps a payload predating the field behaving as before. */}
+        {accessPoint && accessPoint.isFloatEndpoint !== false ? (
           <Pressable
             onPress={onPlanAction}
             style={({ pressed }) => [

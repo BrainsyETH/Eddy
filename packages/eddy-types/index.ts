@@ -394,6 +394,15 @@ export interface NearbyAccessPoint {
   /** Pre-composed — "~1.5 hr". Null when the stretch has no float estimate. */
   estimatedFloatTime: string | null;
   riverMile: number;
+  /**
+   * May a float end here?
+   *
+   * The Float trips tab turns each of these into "plan a trip to X", so a
+   * neighbour that is not a launch is listed WITHOUT that action: it is still
+   * the next thing down the river, and still not a take-out. Absent means
+   * eligible, matching MapAccessPoint.isFloatEndpoint.
+   */
+  isFloatEndpoint?: boolean;
 }
 
 /**
@@ -613,6 +622,14 @@ export interface AccessPointDetail {
   type: AccessPointType;
   types: AccessPointType[];
   isPublic: boolean;
+  /**
+   * May a float start or end here? Absent means eligible — see
+   * MapAccessPoint.isFloatEndpoint for why the default runs that way.
+   *
+   * The detail sheet still opens for a place that is not a launch. What it must
+   * not do is offer to plan from one.
+   */
+  isFloatEndpoint?: boolean;
   ownership: string | null;
   description: string | null;
   amenities: string[];

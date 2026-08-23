@@ -206,12 +206,13 @@ SELECT
     'Large parking area near lodge',
     true,
     'No launch fee — there is no river launch here. Camping and lodging are paid; see mostateparks.com for current rates.',
-    -- APPROVED, and not a float endpoint. Those are two different questions and
-    -- this row is the reason they were split (20260823120000 / 20260823140000).
-    -- 20260811203000 set approved = FALSE here to keep Montauk out of the
-    -- put-in picker, and took its page, its pin and its sitemap entry with it;
-    -- the UPDATE at the end of this file is what keeps it out of the picker now.
-    true
+    -- Unapproved, matching production. Re-approving Montauk is a SEPARATE
+    -- release: it can only be applied once the endpoint resolver and the
+    -- updated clients are deployed, and migrations here reach production
+    -- through `npm run db:migrate` on nobody's schedule but the operator's. A
+    -- migration in this branch would ride along with the schema change and open
+    -- exactly the window the split exists to close. See the follow-up.
+    false
 FROM rivers r WHERE r.slug = 'current'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 

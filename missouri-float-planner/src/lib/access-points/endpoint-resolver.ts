@@ -75,7 +75,18 @@ export type EndpointFailureReason =
   /** Public and a launch, but on a different river than the one asked about. */
   | 'wrong-river'
   /** Put-in and take-out are the same point. */
-  | 'same-point';
+  | 'same-point'
+  /**
+   * The read itself failed — an outage, a permission error, a column that is
+   * not there yet. NOT a statement about the ids.
+   *
+   * This exists because the first version of this file folded it into
+   * `not-found`, which told a caller "no such access point" during a database
+   * outage. That is a 200-adjacent lie: the client retries nothing, the user is
+   * told their put-in does not exist, and the incident is invisible in the 4xx
+   * rate. A failed read is a 500 and must look like one.
+   */
+  | 'read-failed';
 
 export type EndpointResolution<T extends EndpointRow> =
   | { ok: true; putIn: T; takeOut: T }
@@ -139,9 +150,17 @@ export function classifyEndpoints<T extends EndpointRow>(
   return { ok: true, putIn: byId.get(putInId) as T, takeOut: byId.get(takeOutId) as T };
 }
 
-/** The HTTP status each failure deserves. A bad id is the caller's mistake. */
-export function endpointFailureStatus(reason: EndpointFailureReason): 400 | 404 {
-  return reason === 'not-found' ? 404 : 400;
+/**
+ * The HTTP status each failure deserves.
+ *
+ * 404 only for a query that SUCCEEDED and found nothing; 500 when the query
+ * itself failed; 400 for the three ways a caller can name real rows that may
+ * not be floated between.
+ */
+export function endpointFailureStatus(reason: EndpointFailureReason): 400 | 404 | 500 {
+  if (reason === 'read-failed') return 500;
+  if (reason === 'not-found') return 404;
+  return 400;
 }
 
 /**
@@ -175,7 +194,11 @@ export async function resolveFloatEndpoints<T extends EndpointRow = EndpointRow>
     .in('id', [putInId, takeOutId]);
 
   if (error) {
-    return { ok: false, reason: 'not-found', detail: 'Could not read the access points.' };
+    return {
+      ok: false,
+      reason: 'read-failed',
+      detail: 'Could not read the access points.',
+    };
   }
 
   return classifyEndpoints((data ?? []) as unknown as T[], { riverId, putInId, takeOutId });

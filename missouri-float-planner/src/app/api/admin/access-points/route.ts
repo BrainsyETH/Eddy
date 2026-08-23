@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { defaultFloatEndpoint } from '@/lib/access-points/launch-roles';
 import { requireAdminAuth } from '@/lib/admin-auth';
 import { getServiceAreaBounds, inBounds } from '@/lib/geo/region-bounds';
 
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
         type,
         types,
         is_public,
+        is_float_endpoint,
         ownership,
         description,
         parking_info,
@@ -115,6 +117,7 @@ export async function GET(request: NextRequest) {
           type: ap.type,
           types: ap.types || (ap.type ? [ap.type] : []),
           isPublic: ap.is_public,
+          isFloatEndpoint: ap.is_float_endpoint !== false,
           ownership: ap.ownership,
           description: ap.description,
           parkingInfo: ap.parking_info,
@@ -161,9 +164,18 @@ export async function POST(request: NextRequest) {
       longitude,
       type = 'access',
       isPublic = true,
+      isFloatEndpoint,
       ownership = null,
       description = null,
     } = body;
+
+    // This route AUTO-APPROVES what it creates, so an unanswered eligibility
+    // question ships immediately: a point drawn on the map, with a public page,
+    // missing from both planner pickers and rejected by /api/plan, with nothing
+    // saying why. The caller's answer wins; absent one, the point's own type
+    // decides and the response says what was chosen so the UI can show it.
+    const floatEndpoint =
+      typeof isFloatEndpoint === 'boolean' ? isFloatEndpoint : defaultFloatEndpoint([type], type);
 
     // Validate required fields
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -226,6 +238,7 @@ export async function POST(request: NextRequest) {
         },
         type,
         is_public: isPublic,
+        is_float_endpoint: floatEndpoint,
         ownership,
         description,
         approved: true, // Auto-approve points created through admin panel
@@ -240,6 +253,7 @@ export async function POST(request: NextRequest) {
         river_mile_downstream,
         type,
         is_public,
+        is_float_endpoint,
         ownership,
         description,
         approved
@@ -285,6 +299,7 @@ export async function POST(request: NextRequest) {
       riverMile: data.river_mile_downstream ? parseFloat(data.river_mile_downstream) : null,
       type: data.type,
       isPublic: data.is_public,
+      isFloatEndpoint: data.is_float_endpoint !== false,
       ownership: data.ownership,
       description: data.description,
       approved: data.approved,

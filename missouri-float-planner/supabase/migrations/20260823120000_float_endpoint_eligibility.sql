@@ -45,12 +45,28 @@
 -- reports approved rows carrying the `access` role with is_float_endpoint FALSE,
 -- and park/campground kinds with it TRUE. Neither direction is left to a default.
 --
--- ── What this migration does NOT do ──────────────────────────────────────
+-- ── What this migration does NOT do, and why it cannot ───────────────────
 --
--- Montauk is NOT re-approved here. Installed iOS clients that predate
--- `isFloatEndpoint` would read a re-approved Montauk as a selectable put-in, and
--- server-side rejection would turn that into a dead-end rather than a prevention.
--- Re-approval waits for 20260823140000, after the resolver and the clients ship.
+-- Montauk is NOT re-approved here, and re-approval is not in this release at
+-- all. `approved` is what puts the record back in front of the public, and
+-- until the endpoint resolver is DEPLOYED nothing rejects it as a launch:
+-- /api/rivers/[slug]/access-points on the old server code has no eligibility
+-- filter, so a re-approved Montauk reaches every client as a selectable put-in.
+--
+-- That window cannot be closed from inside a migration, because migrations here
+-- reach production through `npm run db:migrate` (scripts/run-migrations.ts),
+-- which is decoupled from the Vercel deploy entirely. Two files in one directory
+-- apply together whenever somebody runs it; a comment saying "apply this one
+-- later" is a comment, not a boundary. The only real boundary is a separate
+-- release, so re-approval is a follow-up PR to be applied after this branch's
+-- code is live.
+--
+-- Its prerequisite, tracked with it: Montauk's two nearby_services rows sit at
+-- IDENTICAL coordinates (37.4407,-91.6739) and both link `located_at`, which
+-- /api/services never turns into an accessPointId (IDENTITY_RELATIONSHIP is
+-- 'same_place', route.ts:177). So iOS draws them as two stacked pins today, and
+-- re-approval would add the access marker as a third. They need geocoding apart
+-- from Missouri State Parks sources first.
 --
 -- The wider inconsistency is also untouched and worth naming: 50 approved
 -- `campground`-typed and 4 approved `park`-typed rows remain, and this migration
@@ -128,10 +144,14 @@ BEGIN
       'montauk-state-park is marked a float endpoint. It is the one record this column exists to exclude.';
   END IF;
 
-  IF montauk.approved THEN
-    RAISE EXCEPTION
-      'montauk-state-park is already approved. Re-approval belongs to 20260823140000, after the endpoint resolver and updated clients ship; approving it here opens the compatibility window this staging exists to avoid.';
-  END IF;
+  -- Reported, never enforced. `approved` is deliberately not this migration's
+  -- business: approved-and-ineligible is the state the follow-up produces and
+  -- the state Montauk should end up in, so asserting either value here would be
+  -- asserting somebody else's invariant — and would fail a rebuild that replays
+  -- this file after the follow-up.
+  RAISE NOTICE
+    'montauk-state-park: approved=%, is_float_endpoint=false. Re-approval ships separately, after this branch''s code is deployed.',
+    montauk.approved;
 
   SELECT count(*) INTO eligible
     FROM public.access_points WHERE is_float_endpoint = TRUE;
