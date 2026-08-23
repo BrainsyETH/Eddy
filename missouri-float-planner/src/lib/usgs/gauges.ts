@@ -205,86 +205,11 @@ export function calculateDischargePercentile(
   );
 }
 
-export type FlowRating = 'flood' | 'high' | 'good' | 'low' | 'poor' | 'unknown';
-
-export interface FlowCondition {
-  rating: FlowRating;
-  label: string;
-  description: string;
-  percentile: number | null;
-  dischargeCfs: number | null;
-  gaugeHeightFt: number | null;
-}
-
-/**
- * Rating thresholds based on percentile
- * These align with MOHERP's methodology and Missouri Scenic Rivers guidance
- */
-const PERCENTILE_RATINGS: Array<{ max: number; rating: FlowRating; label: string; description: string }> = [
-  { max: 10, rating: 'poor', label: 'Too Low', description: 'Frequent dragging and portaging may occur' },
-  { max: 25, rating: 'low', label: 'Low', description: 'Low - Floatable' },
-  { max: 75, rating: 'good', label: 'Good', description: 'Flowing conditions - minimal dragging' },
-  { max: 90, rating: 'high', label: 'High', description: 'Fast current - use caution' },
-  { max: 100, rating: 'flood', label: 'Flood', description: 'Dangerous flooding - do not float' },
-];
-
-/**
- * Determines flow condition rating based on current discharge and historical statistics
- *
- * @param reading Current gauge reading
- * @param stats Daily statistics for the gauge
- * @returns Flow condition with rating, description, and context
- */
-export function calculateFlowCondition(
-  reading: GaugeReading,
-  stats: DailyStatistics | null
-): FlowCondition {
-  // If no discharge data, return unknown
-  if (reading.dischargeCfs === null) {
-    return {
-      rating: 'unknown',
-      label: 'Unknown',
-      description: 'Current conditions unavailable',
-      percentile: null,
-      dischargeCfs: null,
-      gaugeHeightFt: reading.gaugeHeightFt,
-    };
-  }
-
-  // If no statistics, we can still show the reading but can't rate it
-  if (!stats || stats.p50 === null) {
-    return {
-      rating: 'unknown',
-      label: 'Unknown',
-      description: 'Historical data unavailable for comparison',
-      percentile: null,
-      dischargeCfs: reading.dischargeCfs,
-      gaugeHeightFt: reading.gaugeHeightFt,
-    };
-  }
-
-  const percentile = calculateDischargePercentile(reading.dischargeCfs, stats);
-
-  if (percentile === null) {
-    return {
-      rating: 'unknown',
-      label: 'Unknown',
-      description: 'Unable to calculate percentile',
-      percentile: null,
-      dischargeCfs: reading.dischargeCfs,
-      gaugeHeightFt: reading.gaugeHeightFt,
-    };
-  }
-
-  // Find the appropriate rating based on percentile
-  const ratingInfo = PERCENTILE_RATINGS.find((r) => percentile <= r.max) || PERCENTILE_RATINGS[PERCENTILE_RATINGS.length - 1];
-
-  return {
-    rating: ratingInfo.rating,
-    label: ratingInfo.label,
-    description: ratingInfo.description,
-    percentile,
-    dischargeCfs: reading.dischargeCfs,
-    gaugeHeightFt: reading.gaugeHeightFt,
-  };
-}
+// The percentile-verdict system that used to live here (FlowRating,
+// FlowCondition, PERCENTILE_RATINGS, calculateFlowCondition) is gone, not
+// moved. It labelled unrated gauges with recreation verdicts — "Too Low",
+// "Good", "Flood" — which is exactly the claim Eddy declines to make about a
+// station nobody has rated. The factual replacement is shared/flow-band.ts:
+// same 10/25/75/90 cuts, comparison language ("Much lower than usual"), and
+// a ramp that deliberately contains no green and no red. Nothing imported
+// the old system when it was removed.

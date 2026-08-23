@@ -27,6 +27,8 @@ import SiteFooter from '@/components/ui/SiteFooter';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import { pickPrimaryRiverLink } from '@shared/primary-river-link';
+import { stationTier } from '@shared/station-tier';
+import GaugeSummary from '@/components/gauge/GaugeSummary';
 import { ageHoursOf } from '@/lib/utils/reading-age';
 
 interface GaugeDetailViewProps {
@@ -34,7 +36,8 @@ interface GaugeDetailViewProps {
 }
 
 export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
-  const [dateRange, setDateRange] = useState(14);
+  // Seven days, and not restored from another gauge's prior selection.
+  const [dateRange, setDateRange] = useState(7);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
 
@@ -58,6 +61,14 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   const primaryRiver = pickPrimaryRiverLink(gauge?.thresholds) ?? undefined;
   const riverSlug = primaryRiver?.riverSlug || null;
   const primaryUnit = primaryRiver?.thresholdUnit || 'ft';
+
+  // Three states, not two: 'unknown' while neither payload has answered means
+  // the summary renders a shape, not a sentence — neither "Floatable" nor
+  // "not rated" is a claim the screen has earned yet (shared/station-tier.ts).
+  const tier = stationTier({
+    thresholds: gauge?.thresholds ?? gaugeDetail?.thresholds,
+    curated: gaugeDetail ? gaugeDetail.curated : null,
+  });
 
   // Initialize displayUnit from threshold
   useEffect(() => {
@@ -286,17 +297,18 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
           All River Reports
         </Link>
 
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <ConditionBadge code={condition.code} label={condition.label} size="md" />
-            {primaryRiver && (
+        {/* Header — station identity, attribution, age, actions. The condition
+            itself lives in the summary's "Right now" line below: one verdict,
+            in one place, not a badge here arguing with a chip there. */}
+        <div className="mb-6">
+          {primaryRiver && (
+            <div className="flex items-center gap-3 mb-2">
               <span className="flex items-center gap-1 text-sm text-neutral-500">
                 <MapPin className="w-3.5 h-3.5" />
                 {primaryRiver.riverName}
               </span>
-            )}
-          </div>
+            </div>
+          )}
 
           <h1 className="text-3xl md:text-4xl font-bold text-neutral-900 mb-1" style={{ fontFamily: 'var(--font-display)' }}>
             {gauge.name}
@@ -341,13 +353,32 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
           </div>
         </div>
 
+        {/* The three questions, before any chart: what is the river doing,
+            is there an official safety concern, what is expected next. */}
+        <GaugeSummary
+          className="mb-6"
+          siteId={gauge.usgsSiteId}
+          days={dateRange}
+          tier={tier}
+          provider={gaugeDetail?.provider ?? 'usgs'}
+          gaugeHeightFt={gauge.gaugeHeightFt}
+          dischargeCfs={gauge.dischargeCfs}
+          primaryUnit={primaryUnit}
+          readingAgeHours={gauge.readingAgeHours}
+          readingSuspect={gaugeDetail?.readingSuspect ?? false}
+          qualifierNote={gaugeDetail?.qualifierNote ?? null}
+          conditionCode={condition.code}
+          flowPercentile={gaugeDetail?.flowPercentile ?? null}
+          floodStages={gaugeDetail?.floodStages ?? null}
+        />
+
         {/* Chart + Reading Row */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 mb-8">
           {/* Chart */}
           <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
             <div className="flex items-center justify-between px-5 pt-4 pb-0">
               <h2 className="text-base font-bold text-neutral-900">
-                {dateRange}-Day {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
+                {dateRange === 1 ? '24-Hour' : `${dateRange}-Day`} {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
               </h2>
               <div className="flex gap-2">
                 {/* Unit toggle — show when gauge reports both ft and cfs */}
@@ -379,9 +410,10 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                     </button>
                   </div>
                 )}
-                {/* Date range toggle */}
+                {/* Date range toggle — 24h / 7d / 30d inline; longer ranges
+                    belong to the expanded mode (ADR 0010), not more buttons. */}
                 <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-                  {[{ days: 7, label: '7D' }, { days: 14, label: '14D' }, { days: 30, label: '30D' }].map((opt) => (
+                  {[{ days: 1, label: '24H' }, { days: 7, label: '7D' }, { days: 30, label: '30D' }].map((opt) => (
                     <button
                       key={opt.days}
                       onClick={() => setDateRange(opt.days)}
@@ -406,7 +438,10 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               latestValue={latestValue}
               displayUnit={effectiveUnit}
               chartClassName="h-48 md:h-56"
-              showTypical
+              // One context at a time: a rated river's chart speaks the ladder,
+              // a reference station's speaks the day-of-year typical band.
+              // Observed data and the official forecast stay visible in both.
+              showTypical={tier !== 'rated'}
               showProvenance
             />
           </div>

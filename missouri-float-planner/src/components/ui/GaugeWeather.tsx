@@ -70,8 +70,12 @@ export default function GaugeWeather({
   // Skip today from forecast (we already show current weather)
   const forecastDays = forecast?.days?.slice(1, 4) ?? [];
 
-  // High-confidence rain ahead — worth a heads-up next to live conditions,
-  // since Ozark creeks respond to rainfall within hours.
+  // High-confidence rain ahead — worth a heads-up next to live conditions.
+  // The copy says "rain likely" and STOPS THERE: a precipitation probability
+  // says nothing about rainfall amount, where in the watershed it falls, soil
+  // saturation, or how this river responds. "Levels may rise" is a causal
+  // claim about the river on a safety-adjacent surface, and probability alone
+  // has not earned it.
   const rainDays = forecastDays.filter((d) => d.precipitation >= 70);
   const rainDaysLabel = rainDays.map((d) => d.dayOfWeek).join(' & ');
 
@@ -131,11 +135,11 @@ export default function GaugeWeather({
           </div>
         )}
 
-        {/* Heavy-rain heads-up — bridges the forecast to Eddy's advice */}
+        {/* Rain heads-up — probability only, so it claims only rain. */}
         {showRainAlert && rainDays.length > 0 && (
           <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800">
             <Droplets className="w-3.5 h-3.5 flex-shrink-0" />
-            Rain {rainDaysLabel} — levels may rise
+            Rain likely {rainDaysLabel}
           </div>
         )}
       </div>
