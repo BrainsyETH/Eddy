@@ -79,6 +79,7 @@ export interface AccessPointRow {
   type: string | null;
   types: string[] | null;
   is_public: boolean | null;
+  is_float_endpoint?: boolean | null;
   ownership: string | null;
   description: string | null;
   amenities: string[] | null;
@@ -256,6 +257,11 @@ export function toAccessPoint(
     type: row.type as AccessPointType,
     types: (row.types || (row.type ? [row.type] : [])) as AccessPointType[],
     isPublic: row.is_public ?? false,
+    // `!== false`, so a row read before the column existed (an old offline
+    // bundle, a projection that did not select it) stays eligible. Defaulting
+    // the other way would empty the planner without erroring — see the field's
+    // note in packages/eddy-types.
+    isFloatEndpoint: row.is_float_endpoint !== false,
     ownership: row.ownership,
     description: row.description,
     amenities: row.amenities || [],

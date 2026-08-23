@@ -6,6 +6,7 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { resolveFloatEndpoints } from '@/lib/access-points/endpoint-resolver';
 import { loadFredokaFont, loadConditionOtter } from '@/lib/og/fonts';
 import { BRAND_COLORS } from '@/lib/og/colors';
 import { computeCondition } from '@/lib/conditions';
@@ -50,24 +51,36 @@ export async function GET(request: NextRequest) {
     try {
       const supabase = await createClient();
 
-      // Fetch access points + river in parallel
-      const [putInResult, takeOutResult] = await Promise.all([
-        supabase
-          .from('access_points')
-          .select('id, name, river_id')
-          .eq('id', putInId)
-          .single(),
-        supabase
-          .from('access_points')
-          .select('id, name, river_id')
-          .eq('id', takeOutId)
-          .single(),
-      ]);
+      // Resolved through the same gate as /api/plan, so a social card never
+      // advertises a float Eddy would refuse to build. On any failure the
+      // generic "Float Trip / Start / End" fallbacks above stand — a shared link
+      // from before a point was reclassified still renders, it just stops
+      // naming the trip.
+      const endpoints = await resolveFloatEndpoints<{
+        id: string;
+        name: string;
+        river_id: string | null;
+        approved: boolean | null;
+        is_float_endpoint: boolean | null;
+      }>(supabase, {
+        riverId: null,
+        putInId,
+        takeOutId,
+        columns: 'id, name, river_id',
+      });
 
-      if (putInResult.data) putInName = putInResult.data.name;
-      if (takeOutResult.data) takeOutName = takeOutResult.data.name;
+      const putInRow = endpoints.ok ? endpoints.putIn : null;
+      const takeOutRow = endpoints.ok ? endpoints.takeOut : null;
 
-      const riverId = putInResult.data?.river_id || takeOutResult.data?.river_id;
+      if (putInRow) putInName = putInRow.name;
+      if (takeOutRow) takeOutName = takeOutRow.name;
+
+      // Both ends or neither: the resolver was given no river to check against
+      // here, so a cross-river pair is caught by comparing them to each other.
+      const riverId =
+        putInRow && takeOutRow && putInRow.river_id === takeOutRow.river_id
+          ? putInRow.river_id
+          : null;
 
       // Fetch river name, distance, and conditions in parallel
       const [riverResult, segmentResult, conditionResult] = await Promise.all([

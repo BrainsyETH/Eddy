@@ -38,6 +38,7 @@ export async function GET(
         type,
         types,
         is_public,
+        is_float_endpoint,
         ownership,
         description,
         parking_info,
@@ -87,6 +88,7 @@ export async function GET(
       type: data.type,
       types: data.types || (data.type ? [data.type] : []),
       isPublic: data.is_public,
+      isFloatEndpoint: data.is_float_endpoint !== false,
       ownership: data.ownership,
       description: data.description,
       parkingInfo: data.parking_info,
@@ -136,6 +138,7 @@ export async function PUT(
       type,
       types,
       isPublic,
+      isFloatEndpoint,
       ownership,
       description,
       parkingInfo,
@@ -217,6 +220,14 @@ export async function PUT(
     // Handle isPublic update
     if (typeof isPublic === 'boolean') {
       updateData.is_public = isPublic;
+    }
+
+    // Handle isFloatEndpoint update — whether this point may be chosen as a
+    // put-in or take-out, which is a separate question from whether it is
+    // published. Only written when explicitly present: an editor that does not
+    // send the field must not silently reclassify the record.
+    if (typeof isFloatEndpoint === 'boolean') {
+      updateData.is_float_endpoint = isFloatEndpoint;
     }
 
     // Handle ownership update
@@ -390,6 +401,7 @@ export async function PUT(
         type,
         types,
         is_public,
+        is_float_endpoint,
         ownership,
         description,
         parking_info,
@@ -452,6 +464,7 @@ export async function PUT(
       type: data.type,
       types: data.types || (data.type ? [data.type] : []),
       isPublic: data.is_public,
+      isFloatEndpoint: data.is_float_endpoint !== false,
       ownership: data.ownership,
       description: data.description,
       parkingInfo: data.parking_info,

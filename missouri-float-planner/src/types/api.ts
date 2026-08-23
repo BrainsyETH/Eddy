@@ -56,6 +56,23 @@ export interface AccessPoint {
   type: AccessPointType; // Primary type (for backwards compatibility)
   types: AccessPointType[]; // All types (new - supports multiple)
   isPublic: boolean;
+  /**
+   * May this point be chosen as a put-in or take-out?
+   *
+   * Distinct from whether the record is published at all, which is the server's
+   * `approved` and never reaches this type. A state park or campground on the
+   * water is a real destination with a real page and pin, and can still be
+   * somewhere no boat goes in. Draw these; never offer them as endpoints.
+   *
+   * (Montauk State Park was the record this was built around and turned out NOT
+   * to be one of them — it is the Current's first put-in. See 20260823192151.)
+   *
+   * OPTIONAL because payloads predating the field omit it. Absent means "assume
+   * eligible", which matches how every point behaved before the split — do not
+   * read `undefined` as false, or an older cached payload silently empties the
+   * planner.
+   */
+  isFloatEndpoint?: boolean;
   ownership: string | null;
   description: string | null;
   amenities: string[];
@@ -172,6 +189,15 @@ export interface NearbyAccessPoint {
   distanceMiles: number;
   estimatedFloatTime: string | null;  // "~1.5 hr"
   riverMile: number;
+  /**
+   * May a float end here?
+   *
+   * The Float-trips tab turns each of these rows into "plan a trip to X", so a
+   * neighbour that is not a launch has to be listed without that action — it is
+   * still the next thing down the river, and still not a take-out. Absent means
+   * eligible, matching every other payload carrying this field.
+   */
+  isFloatEndpoint?: boolean;
 }
 
 /** Extended access point for detail page */

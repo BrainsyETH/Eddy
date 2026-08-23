@@ -197,16 +197,24 @@ SELECT
     'Montauk State Park',
     'montauk-state-park',
     ST_SetSRID(ST_MakePoint(-91.6866657, 37.4505347), 4326),
-    'park',
-    ARRAY['park', 'campground'],
+    'access',
+    ARRAY['access', 'campground', 'park'],
     true,
     'state_park',
-    'State park and campground at the Current River headwaters. This record is not a put-in or take-out: Missouri State Parks puts designated canoe access outside the park''s southeast boundary, and NPS designates Tan Vat, which Eddy carries as a separate access. Private vessels float free within Ozark National Scenic Riverways.',
+    'The first put-in on the Current River, at the headwaters where Montauk Spring rises. The park is the launch and the base camp both: campground, cabins, lodge and dining are all here. Below the hatchery this is Missouri Blue Ribbon trout water — a trout permit is required, and the stretch down to Cedargrove is fly-and-artificial-only. Tan Vat (mile 0.9) and Baptist Camp (mile 2.1) are the next accesses downstream.',
     ARRAY['parking', 'restrooms', 'camping', 'picnic'],
     'Large parking area near lodge',
-    true,
-    'No launch fee — there is no river launch here. Camping and lodging are paid; see mostateparks.com for current rates.',
-    false
+    -- No launch fee and no day-use fee: fee_required drives a "$ Fee" chip, and
+    -- the camping and lodging below are optional amenities, not a cost of using
+    -- the access. See 20260823200007.
+    false,
+    'No launch fee. Camping, cabins, lodge rooms and dining are paid — see mostateparks.com for current rates. A Missouri trout permit is required to fish.',
+    -- Approved AND a float endpoint: this is the first put-in on the Current,
+    -- and the camping and lodging are part of the same place you drive to.
+    -- 20260811203000 classified it as a park that is not a launch and
+    -- 20260823192151 corrected that; the trailing UPDATE below makes it
+    -- eligible along with every other approved row.
+    true
 FROM rivers r WHERE r.slug = 'current'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 
@@ -2199,3 +2207,59 @@ SELECT
     true
 FROM rivers r WHERE r.slug = 'courtois'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
+-- ── Float-endpoint eligibility, after every INSERT above ───────────────────
+--
+-- `supabase db reset` runs the migrations and THEN this file, so every row
+-- inserted here lands on the DEFAULT FALSE that 20260823190713 gave
+-- `is_float_endpoint`. Without this statement a from-scratch database has 78
+-- approved access points and not one selectable put-in: the planner renders,
+-- the map draws, and both pickers are empty. Nothing errors, which is what
+-- makes it worth a comment rather than a fix nobody can find.
+--
+-- This mirrors 20260823190713's backfill and the two corrections after it.
+--
+-- Montauk is excluded, and NOT because it is not a launch — it is the first
+-- put-in on the Current. Eddy's Current geometry begins at Tan Vat, ~1.8 mi
+-- below the recorded headwaters, so a float from Montauk draws a line starting
+-- 2 236 m downstream of the put-in under a distance the line does not cover.
+-- It comes back the moment the geometry is extended; 20260823200007 has the
+-- measurements, and the trust check reports it as `launch_not_selectable`
+-- every day until then so it cannot be forgotten.
+UPDATE access_points ap
+   SET is_float_endpoint = TRUE
+  FROM rivers r
+ WHERE ap.river_id = r.id
+   AND ap.approved = TRUE
+   AND ap.slug <> 'montauk-state-park';
+
+-- ── Montauk's directory links, where there is a directory to link to ───────
+--
+-- 20260823192151 marks Montauk's two nearby_services rows `same_place`, which
+-- is what collapses them into its marker instead of drawing two more pins
+-- beside it. That migration runs against an EMPTY database on `supabase db
+-- reset` and can assert nothing; this is where the end state gets reproduced.
+--
+-- Conditional and idempotent by construction: this seed does not create
+-- nearby_services rows, so on a from-scratch build the SELECT finds nothing and
+-- the statement is a no-op. Where a directory HAS been loaded — a restore, a
+-- staging refresh, production — it converges both links to same_place without
+-- caring what they were before.
+--
+-- `verified_at` is required by access_point_services_same_place_is_verified
+-- (20260811160000): same_place removes the losing record's location from the
+-- map, so it may only exist once a person has confirmed the two are one place.
+-- Both were confirmed in the 2026-08-11 audit.
+INSERT INTO access_point_services
+  (access_point_id, nearby_service_id, relationship, source, verified_at)
+SELECT ap.id, ns.id, 'same_place', 'audit', NOW()
+  FROM access_points ap
+  JOIN rivers r ON r.id = ap.river_id
+  JOIN nearby_services ns
+    ON ns.slug IN ('montauk-state-park', 'montauk-state-park-campground')
+ WHERE r.slug = 'current'
+   AND ap.slug = 'montauk-state-park'
+ON CONFLICT (access_point_id, nearby_service_id) DO UPDATE
+   SET relationship = 'same_place',
+       verified_at = COALESCE(access_point_services.verified_at, NOW()),
+       updated_at = NOW();

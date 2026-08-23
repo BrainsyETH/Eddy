@@ -60,7 +60,8 @@ const spec = {
       get: {
         operationId: 'getRiverAccessPoints',
         summary: 'Get all access points for a river',
-        description: 'Returns approved access points with coordinates, amenities, parking, and facilities.',
+        description:
+          'Returns approved access points with coordinates, amenities, parking, and facilities. By default only float endpoints — points that may start or end a trip — are returned. Pass include=non_endpoints to also receive approved places that sit on the river but are not launches (state parks, campgrounds, lodges); those carry isFloatEndpoint=false and must never be offered as a put-in or take-out.',
         parameters: [
           {
             name: 'slug',
@@ -68,6 +69,14 @@ const spec = {
             required: true,
             schema: { type: 'string' },
             description: 'River URL slug',
+          },
+          {
+            name: 'include',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', enum: ['non_endpoints'] },
+            description:
+              'Set to non_endpoints to include approved riverside places that are not float endpoints. Omit to receive endpoints only.',
           },
         ],
         responses: {
@@ -506,6 +515,11 @@ const spec = {
             enum: ['boat_ramp', 'gravel_bar', 'campground', 'bridge', 'access', 'park'],
           },
           isPublic: { type: 'boolean' },
+          isFloatEndpoint: {
+            type: 'boolean',
+            description:
+              'Whether this point may be chosen as a put-in or take-out. False for approved places that are on the river but are not launches — a state park or campground with no ramp. Absent on payloads predating the field, where it should be read as true. /api/plan and /api/shuttle reject a trip built on a point with this false.',
+          },
           description: { type: ['string', 'null'] },
           amenities: { type: 'array', items: { type: 'string' } },
           parkingInfo: { type: ['string', 'null'] },

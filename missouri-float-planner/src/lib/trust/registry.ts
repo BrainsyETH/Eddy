@@ -15,6 +15,7 @@ import { floatSummaryCheck } from './checks/float-summary';
 import { gaugeWiringCheck } from './checks/gauge-wiring';
 import { usgsSiteDriftCheck } from './checks/usgs-site-drift';
 import { serviceGeoConsistencyCheck } from './checks/service-geo-consistency';
+import { floatEndpointEligibilityCheck } from './checks/float-endpoint-eligibility';
 import { schemaInvariantsCheck } from './checks/schema-invariants';
 import { ledgerHeartbeatCheck } from './checks/ledger-heartbeat';
 import { knownRegressionsCheck } from './checks/known-regressions';
@@ -27,6 +28,7 @@ export const TRUST_CHECKS: readonly TrustCheck[] = [
   gaugeWiringCheck,
   usgsSiteDriftCheck,
   serviceGeoConsistencyCheck,
+  floatEndpointEligibilityCheck,
   schemaInvariantsCheck,
   ledgerHeartbeatCheck,
   knownRegressionsCheck,

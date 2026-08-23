@@ -14,6 +14,7 @@ import type { POI } from './POIEditor';
 import CreateAccessPointModal from './CreateAccessPointModal';
 import CreatePOIModal from './CreatePOIModal';
 import { adminFetch } from '@/hooks/useAdminAuth';
+import { defaultFloatEndpoint } from '@/lib/access-points/launch-roles';
 import { POI_TYPES } from '@/constants';
 
 type EditMode = 'access-points' | 'river-visibility' | 'pois';
@@ -46,6 +47,8 @@ interface AccessPoint {
   type: string; // Primary type (backwards compat)
   types?: string[]; // Multiple types
   isPublic: boolean;
+  /** May this point be chosen as a put-in or take-out? Absent means eligible. */
+  isFloatEndpoint?: boolean;
   ownership: string | null;
   description: string | null;
   parkingInfo?: string | null;
@@ -237,6 +240,7 @@ export default function GeographyEditor() {
     longitude: number;
     type: string;
     isPublic: boolean;
+    isFloatEndpoint: boolean;
     ownership: string | null;
     description: string | null;
   }) => {
@@ -256,9 +260,25 @@ export default function GeographyEditor() {
     setAddMode(false);
   }, [loadData]);
 
-  const handleApprovalChange = useCallback(async (id: string, approved: boolean) => {
+  const handleApprovalChange = useCallback(async (
+    id: string,
+    approved: boolean,
+    isFloatEndpoint: boolean,
+  ) => {
     const method = approved ? 'POST' : 'DELETE';
-    const response = await adminFetch(`/api/admin/access-points/${id}/approve`, { method });
+    // The approve route REQUIRES an eligibility answer: `is_float_endpoint` is
+    // opt-in, so approving without one publishes a point that is drawn, linked,
+    // and silently missing from both planner pickers. The value comes from the
+    // popup, which shows it next to the button before it is clicked.
+    const response = await adminFetch(`/api/admin/access-points/${id}/approve`, {
+      method,
+      ...(approved
+        ? {
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isFloatEndpoint }),
+          }
+        : {}),
+    });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -286,6 +306,7 @@ export default function GeographyEditor() {
           name: editingDetails.name,
           types: editingDetails.types || (editingDetails.type ? [editingDetails.type] : []),
           isPublic: editingDetails.isPublic,
+          isFloatEndpoint: editingDetails.isFloatEndpoint ?? true,
           ownership: editingDetails.ownership,
           description: editingDetails.description,
           parkingInfo: editingDetails.parkingInfo,
@@ -1179,6 +1200,28 @@ export default function GeographyEditor() {
               )}
             </div>
 
+            {/* Can a float start or end here? Separate from whether the record
+                is published: a state park or campground on the water is worth a
+                page and a pin and is still not somewhere a boat goes in. */}
+            <div className="flex flex-col gap-1 pt-1">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editingDetails.isFloatEndpoint ?? true}
+                  onChange={(e) =>
+                    setEditingDetails({ ...editingDetails, isFloatEndpoint: e.target.checked })
+                  }
+                  className="w-4 h-4 text-river-500 rounded focus:ring-river-500"
+                />
+                <span className="text-sm text-bluff-700">Can start or end a float</span>
+              </label>
+              <p className="text-xs text-bluff-500 ml-6">
+                {(editingDetails.isFloatEndpoint ?? true)
+                  ? 'Offered in the put-in and take-out pickers.'
+                  : 'Drawn on the map and linked, never offered as a put-in or take-out.'}
+              </p>
+            </div>
+
             {/* Public / Private */}
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -1488,7 +1531,16 @@ export default function GeographyEditor() {
                 <button
                   onClick={async () => {
                     try {
-                      await handleApprovalChange(selectedAccessPoint.id, !selectedAccessPoint.approved);
+                      // The eligibility checkbox sits a few rows above this
+                      // button, so the operator is confirming a value they can
+                      // see rather than answering an invisible question.
+                      await handleApprovalChange(
+                        selectedAccessPoint.id,
+                        !selectedAccessPoint.approved,
+                        editingDetails?.isFloatEndpoint ??
+                          selectedAccessPoint.isFloatEndpoint ??
+                          defaultFloatEndpoint(selectedAccessPoint.types, selectedAccessPoint.type),
+                      );
                       // Update local state immediately with toggled approval
                       // The sync useEffect will update with full data after loadData completes
                       setSelectedAccessPoint(prev => prev ? { ...prev, approved: !prev.approved } : null);

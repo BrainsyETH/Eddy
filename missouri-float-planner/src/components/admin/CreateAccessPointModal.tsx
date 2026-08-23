@@ -3,9 +3,10 @@
 // src/components/admin/CreateAccessPointModal.tsx
 // Modal for creating a new access point
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { ACCESS_POINT_TYPES, OWNERSHIP_TYPES } from '@/constants';
+import { defaultFloatEndpoint } from '@/lib/access-points/launch-roles';
 
 interface River {
   id: string;
@@ -24,6 +25,7 @@ interface CreateAccessPointModalProps {
     longitude: number;
     type: string;
     isPublic: boolean;
+    isFloatEndpoint: boolean;
     ownership: string | null;
     description: string | null;
   }) => Promise<void>;
@@ -40,6 +42,17 @@ export default function CreateAccessPointModal({
   const [riverId, setRiverId] = useState(selectedRiverId || '');
   const [type, setType] = useState('access');
   const [isPublic, setIsPublic] = useState(true);
+  // Seeded from the type and re-seeded when the type changes, until somebody
+  // touches it. This modal auto-approves what it creates, so leaving the
+  // question unanswered would publish a point that is drawn, linked and absent
+  // from both planner pickers with nothing saying why.
+  const [isFloatEndpoint, setIsFloatEndpoint] = useState(() => defaultFloatEndpoint(['access']));
+  const [endpointTouched, setEndpointTouched] = useState(false);
+
+  useEffect(() => {
+    if (endpointTouched) return;
+    setIsFloatEndpoint(defaultFloatEndpoint([type], type));
+  }, [type, endpointTouched]);
   const [ownership, setOwnership] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
@@ -68,6 +81,7 @@ export default function CreateAccessPointModal({
         longitude: coordinates.lng,
         type,
         isPublic,
+        isFloatEndpoint,
         ownership: ownership || null,
         description: description || null,
       });
@@ -153,6 +167,29 @@ export default function CreateAccessPointModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="isFloatEndpoint"
+                checked={isFloatEndpoint}
+                onChange={(e) => {
+                  setEndpointTouched(true);
+                  setIsFloatEndpoint(e.target.checked);
+                }}
+                className="w-4 h-4 text-river-500 border-bluff-300 rounded focus:ring-river-500"
+              />
+              <label htmlFor="isFloatEndpoint" className="text-sm text-bluff-700">
+                Can start or end a float
+              </label>
+            </div>
+            <p className="text-xs text-bluff-500 ml-6">
+              {isFloatEndpoint
+                ? 'Offered in the put-in and take-out pickers.'
+                : 'Drawn on the map and linked, never offered as a put-in or take-out.'}
+            </p>
           </div>
 
           <div className="flex items-center gap-2">

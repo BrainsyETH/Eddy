@@ -150,6 +150,24 @@ export interface MapAccessPoint {
    * campground, and filtering on `type` alone would hide it under one of them.
    */
   types?: string[];
+  /**
+   * May this point be chosen as a put-in or take-out?
+   *
+   * A separate question from whether it is drawn. Both apps show every approved
+   * point on the map — a state park or campground on the water is somewhere
+   * people go — but only endpoints may be selected for a float. A state park or
+   * campground with no ramp is a real place with a real page and no launch.
+   * `approved` decides whether it appears; this decides whether it can end a
+   * float. (Montauk State Park prompted the split and is NOT an example of it —
+   * it is the Current's first put-in. See migration 20260823192151.)
+   *
+   * OPTIONAL because payloads predating the field omit it, and ABSENT MEANS
+   * ELIGIBLE — the behaviour every point had before the split. Reading
+   * `undefined` as false empties the planner against an older cached payload or
+   * an offline bundle written before the upgrade, which is a silent failure in
+   * the direction nobody checks.
+   */
+  isFloatEndpoint?: boolean;
   slug?: string;
   description?: string | null;
   amenities?: string[];
@@ -377,6 +395,15 @@ export interface NearbyAccessPoint {
   /** Pre-composed — "~1.5 hr". Null when the stretch has no float estimate. */
   estimatedFloatTime: string | null;
   riverMile: number;
+  /**
+   * May a float end here?
+   *
+   * The Float trips tab turns each of these into "plan a trip to X", so a
+   * neighbour that is not a launch is listed WITHOUT that action: it is still
+   * the next thing down the river, and still not a take-out. Absent means
+   * eligible, matching MapAccessPoint.isFloatEndpoint.
+   */
+  isFloatEndpoint?: boolean;
 }
 
 /**
@@ -596,6 +623,14 @@ export interface AccessPointDetail {
   type: AccessPointType;
   types: AccessPointType[];
   isPublic: boolean;
+  /**
+   * May a float start or end here? Absent means eligible — see
+   * MapAccessPoint.isFloatEndpoint for why the default runs that way.
+   *
+   * The detail sheet still opens for a place that is not a launch. What it must
+   * not do is offer to plan from one.
+   */
+  isFloatEndpoint?: boolean;
   ownership: string | null;
   description: string | null;
   amenities: string[];

@@ -117,14 +117,21 @@ export function PinCallout({
   }[] = [];
 
   if (accessPoint) {
-    calloutButtons.push({
-      key: 'plan',
-      label: planActionLabel,
-      icon: 'flag-outline',
-      tone: 'accent',
-      onPress: onPlanAction,
-      hint: accessPoint.isPublic ? undefined : 'Private access confirmation required',
-    });
+    // Nested rather than folded into the condition above, deliberately: an
+    // access point that is not a launch is still an access point, and must not
+    // fall through to the dam/gauge/directions branches meant for other kinds
+    // of pin. It simply has no plan action — `useFloatPlan` would refuse one,
+    // and the Directions button below still gives the callout something to do.
+    if (accessPoint.isFloatEndpoint !== false) {
+      calloutButtons.push({
+        key: 'plan',
+        label: planActionLabel,
+        icon: 'flag-outline',
+        tone: 'accent',
+        onPress: onPlanAction,
+        hint: accessPoint.isPublic ? undefined : 'Private access confirmation required',
+      });
+    }
   } else if (pin.damId) {
     calloutButtons.push({
       key: 'dam',
