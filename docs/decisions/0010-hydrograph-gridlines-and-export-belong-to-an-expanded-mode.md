@@ -1,6 +1,6 @@
 # 0010 — Gridlines and data export belong to an expanded hydrograph, not to the inline one
 
-Status: open · 2026-08
+Status: active · 2026-08 (built 2026-08 — see the closing note)
 
 A chart review asked for four readability additions:
 neutral horizontal gridlines, a larger/full-screen web mode, CSV or table
@@ -45,3 +45,31 @@ ships with the export in the same change, not after it.
 Reopening this means deciding the expanded mode's surface first: a route, a
 dialog, or a full-bleed panel on the existing detail page. Everything else here
 hangs off that answer.
+
+---
+
+**Built (2026-08, gauge-experience redesign Release 3).** The surface question
+above got its answer: a **dialog on the existing detail page**
+(`src/components/gauge/ExpandedGaugeChart.tsx`), opened by an "Expand" button
+beside the inline range presets. A route would have detached the chart from
+the summary and actions it interprets; a full-bleed panel would have fought
+the two-column detail layout. The dialog traps focus, closes on Escape, and
+restores focus to the trigger.
+
+What it owns, as this record said it would:
+
+- **Gridlines** — neutral, at the value ticks, behind everything
+  (`showGridlines` on `FlowTrendChart`, never set by the inline chart).
+- **The tabular view** behind the keyboard scrub — a collapsed data table of
+  the loaded series.
+- **Export** — CSV of the currently loaded data, declaring itself in the
+  file: the filename carries the statistic and a `sampled` marker, and
+  metadata rows state the requested and covered windows, the resolution and
+  statistic, and that a sampled series is not the station's record.
+- **Long ranges and zoom** — 90d / 1y / custom dates (gated by the provider's
+  wire-declared `historyCapabilities`; unsupported presets are disabled with
+  the reason), pointer/touch brush zoom, and labeled zoom buttons. The arrow
+  keys stay bound to scrubbing, exactly as `chart-parity.test.ts` asserts.
+
+The **user-set reference level** remains unbuilt, and everything this record
+says about it still applies.

@@ -20,6 +20,8 @@ import type {
   GaugeReading,
   HistoricalData,
   HistoricalReading,
+  HistoryCapabilities,
+  HistoryFetchOptions,
 } from './types';
 
 const NWPS_BASE = 'https://api.water.noaa.gov/nwps/v1/gauges';
@@ -127,7 +129,25 @@ export class NwsProvider implements FlowProvider {
     return readings;
   }
 
-  async fetchHistory(siteId: string, days: number = 7): Promise<HistoricalData | null> {
+  // NWPS stageflow serves roughly 30 days of 15-minute observations and
+  // nothing older — measured, not assumed. No daily product, no custom
+  // windows; a longer request is truncated by the SOURCE, and the history
+  // route reports that rather than fabricating 90-day availability.
+  readonly historyCapabilities: HistoryCapabilities = {
+    maxInstantDays: 30,
+    supportsDaily: false,
+    supportsCustomRange: false,
+  };
+
+  async fetchHistory(
+    siteId: string,
+    days: number = 7,
+    options?: HistoryFetchOptions
+  ): Promise<HistoricalData | null> {
+    // Capabilities say no custom ranges and no daily values; honoring a
+    // forced request this provider cannot serve means null, not a
+    // substitute window.
+    if (options?.from || options?.to || options?.resolution === 'daily') return null;
     try {
       const res = await fetch(`${NWPS_BASE}/${encodeURIComponent(siteId)}/stageflow/observed`, {
         signal: AbortSignal.timeout(10_000),

@@ -47,3 +47,4 @@ remotion/node_modules/
 tmp/
 .terrain-tile-cache/
 .smoke/
+.smoke-gauge/

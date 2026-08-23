@@ -10,14 +10,19 @@ import { ExternalLink } from 'lucide-react';
 
 import { applyFloodStageOverride, computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
 import { hasLadder } from '@shared/condition-ladder';
+import { stationTier } from '@shared/station-tier';
 import { CFS_EXPLAINER, CONDITION_COLORS } from '@/constants';
 import InfoTip from '@/components/ui/InfoTip';
 import type { ConditionCode } from '@/types/api';
 import { useRiverGroup } from '@/hooks/useRiverGroups';
+import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
 import { useRiverOutlook } from '@/hooks/useRiverOutlook';
 import { useSelectedEddyReport } from '@/hooks/useSelectedEddyReport';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
+import GaugeSummary from '@/components/gauge/GaugeSummary';
+import ExpandedGaugeChart from '@/components/gauge/ExpandedGaugeChart';
+import GaugeWeather from '@/components/ui/GaugeWeather';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import WillItHold from '@/components/gauge/WillItHold';
 import EddyOutlookFooter from '@/components/gauge/EddyOutlookFooter';
@@ -27,6 +32,14 @@ import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import { usePathname } from 'next/navigation';
 import { buildEddyTakeSections } from '@/lib/river-outlook';
 import { buildZones } from '@/lib/gauge/threshold-zones';
+import { ageHoursOf } from '@/lib/utils/reading-age';
+import {
+  rangeLabelForDays,
+  trackGaugeContextChanged,
+  trackGaugeExpandedOpened,
+  trackGaugeRangeChanged,
+  trackGaugeSourceOpened,
+} from '@/lib/gauge/analytics';
 import { createPortal } from 'react-dom';
 
 interface RiverGaugeDetailProps {
@@ -37,7 +50,9 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   const { riverGroup, isLoading } = useRiverGroup(riverSlug);
   const prefetchHistory = useGaugeHistoryPrefetch();
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState(14);
+  // Seven days, and not restored from another gauge's prior selection.
+  const [dateRange, setDateRange] = useState(7);
+  const [expandedOpen, setExpandedOpen] = useState(false);
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
   const [gaugeNavTarget, setGaugeNavTarget] = useState<HTMLElement | null>(null);
 
@@ -77,6 +92,10 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   });
 
   // Active gauge derived state
+  // Station-level facts the river-group payload does not carry — today that
+  // means the NWS flood stages the chart draws.
+  const { data: gaugeDetail } = useGaugeDetail(activeSiteId ?? null);
+
   const activeGauge = useMemo(() => {
     if (!riverGroup || !activeSiteId) return null;
     return riverGroup.allGauges.find(g => g.usgsSiteId === activeSiteId) || riverGroup.primaryGauge;
@@ -104,17 +123,27 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
     }
   }, [activeThreshold, riverSlug]);
 
+  // Three states, not two: 'unknown' while neither payload has answered means
+  // the summary renders a shape, not a sentence (shared/station-tier.ts).
+  const tier = stationTier({
+    thresholds: activeGauge?.thresholds,
+    curated: gaugeDetail ? gaugeDetail.curated : null,
+  });
+
   // Persist unit toggle
   const handleUnitToggle = useCallback((unit: 'ft' | 'cfs') => {
     setDisplayUnit(unit);
     localStorage.setItem(`gauge-unit-${riverSlug}`, unit);
-  }, [riverSlug]);
+    trackGaugeContextChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, unit);
+  }, [riverSlug, gaugeDetail?.provider, tier]);
 
   // Determine if we're showing alt thresholds
   const effectiveUnit = displayUnit || primaryUnit;
   const showingAlt = effectiveUnit !== primaryUnit;
 
-  // Compute chart thresholds based on selected unit
+  // Compute chart thresholds based on selected unit. `unit` declares which one
+  // the levels are in, so the chart can refuse a mismatch instead of trusting
+  // this file forever got the swap right.
   const chartThresholds = useMemo(() => {
     if (!activeThreshold) return null;
     if (showingAlt) {
@@ -125,6 +154,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         levelOptimalMax: activeThreshold.altLevelOptimalMax,
         levelHigh: activeThreshold.altLevelHigh,
         levelDangerous: activeThreshold.altLevelDangerous,
+        unit: effectiveUnit,
       };
     }
     return {
@@ -134,8 +164,9 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
       levelOptimalMax: activeThreshold.levelOptimalMax,
       levelHigh: activeThreshold.levelHigh,
       levelDangerous: activeThreshold.levelDangerous,
+      unit: effectiveUnit,
     };
-  }, [activeThreshold, showingAlt]);
+  }, [activeThreshold, showingAlt, effectiveUnit]);
 
   // Alt thresholds for ThresholdTable
   const altThresholds = useMemo(() => {
@@ -354,6 +385,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               href={sourceLink.href}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackGaugeSourceOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier })}
               className="text-primary-600 hover:text-primary-700 font-mono inline-flex items-center gap-1"
             >
               {sourceLink.label}
@@ -365,78 +397,31 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         {/* Now, next, and interpretation share one decision surface. Their data
             roles stay distinct; the outer shell removes card fragmentation. */}
         <div className="space-y-6">
-        <section
-          className="overflow-hidden rounded-xl border-2 border-t-4 border-primary-800 bg-white shadow-[4px_4px_0_var(--color-primary-200)]"
-          style={{
-            borderTopColor: condition.code === 'flowing'
-              ? 'var(--cond-flowing-solid)'
-              : (CONDITION_COLORS[condition.code] ?? CONDITION_COLORS.unknown),
-          }}
-          aria-label="Current reading and 72-hour river outlook"
-        >
-          <div className="grid grid-cols-1 items-stretch lg:grid-cols-[340px_minmax(0,1fr)]">
-            <CurrentReadingCard
-              key={`reading-${activeSiteId}`}
-              siteId={activeGauge.usgsSiteId}
-              gaugeHeightFt={activeGauge.gaugeHeightFt}
-              dischargeCfs={activeGauge.dischargeCfs}
-              thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
-              conditionCode={condition.code}
-              readingAgeHours={activeGauge.readingAgeHours}
-              zones={ladderZones}
-              className="h-full"
-              embedded
-            />
-            <div className="border-t-2 border-primary-200 lg:border-l-2 lg:border-t-0">
-              <WillItHold
-                key={`outlook-${activeSiteId}`}
-                outlook={outlook}
-                embedded
-              />
-            </div>
-          </div>
+        {/* The three questions, before any chart: what is the river doing,
+            is there an official safety concern, what is expected next. */}
+        <GaugeSummary
+          siteId={activeGauge.usgsSiteId}
+          days={dateRange}
+          tier={tier}
+          provider={gaugeDetail?.provider ?? 'usgs'}
+          gaugeHeightFt={activeGauge.gaugeHeightFt}
+          dischargeCfs={activeGauge.dischargeCfs}
+          primaryUnit={activeThreshold?.thresholdUnit || 'ft'}
+          readingAgeHours={activeGauge.readingAgeHours}
+          readingSuspect={gaugeDetail?.readingSuspect ?? false}
+          qualifierNote={gaugeDetail?.qualifierNote ?? null}
+          conditionCode={condition.code}
+          flowPercentile={gaugeDetail?.flowPercentile ?? null}
+          floodStages={gaugeDetail?.floodStages ?? null}
+        />
 
-          <EddyOutlookFooter
-            riverSlug={riverSlug}
-            sections={eddyTakeSections}
-            isGuidance={outlook.isGuidance}
-            readLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
-            readIsGenerated={Boolean(activeEddyUpdate?.quoteText || activeEddyUpdate?.eddyRead)}
-            generatedAt={activeEddyUpdate?.generatedAt}
-            gaugeName={eddySourceGaugeName}
-          />
-        </section>
-
-        {/* Condition Thresholds Table */}
-        {activeThreshold && (
-          <div>
-            <ThresholdTable
-              thresholdUnit={activeThreshold.thresholdUnit}
-              levelTooLow={activeThreshold.levelTooLow}
-              levelLow={activeThreshold.levelLow}
-              levelOptimalMin={activeThreshold.levelOptimalMin}
-              levelOptimalMax={activeThreshold.levelOptimalMax}
-              levelHigh={activeThreshold.levelHigh}
-              levelDangerous={activeThreshold.levelDangerous}
-              altThresholds={altThresholds}
-              altUnit={altUnit}
-              thresholdDescriptions={activeGauge.thresholdDescriptions}
-              currentCondition={condition.code}
-            />
-          </div>
-        )}
-
-        {/* Show the current visual condition before asking floaters to parse the
-            longer historical trend. */}
-        <div>
-          <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} layout="wide" />
-        </div>
-
-        {/* Historical trend deep dive. */}
+        {/* The hydrograph — third, above the outdoor conditions and the
+            deeper interpretation. It used to close the column, below the
+            photos; the redesign leads with how the number came about. */}
           <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
             <div className="flex flex-col gap-3 px-5 pt-4 pb-0 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-base font-bold text-neutral-900 whitespace-nowrap">
-                {dateRange}-Day {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
+                {dateRange === 1 ? '24-Hour' : `${dateRange}-Day`} {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
               </h2>
               <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
                 <InfoTip
@@ -482,12 +467,16 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                     </button>
                   </div>
                 )}
-                {/* Date range toggle */}
+                {/* Date range toggle — 24h / 7d / 30d inline; longer ranges
+                    belong to the expanded mode (ADR 0010), not more buttons. */}
                 <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-                  {[{ days: 7, label: '7D' }, { days: 14, label: '14D' }, { days: 30, label: '30D' }].map((opt) => (
+                  {[{ days: 1, label: '24H' }, { days: 7, label: '7D' }, { days: 30, label: '30D' }].map((opt) => (
                     <button
                       key={opt.days}
-                      onClick={() => setDateRange(opt.days)}
+                      onClick={() => {
+                        setDateRange(opt.days);
+                        trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(opt.days));
+                      }}
                       aria-pressed={dateRange === opt.days}
                       className={`px-3 py-1 text-xs font-semibold transition-colors ${
                         dateRange === opt.days
@@ -499,6 +488,15 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                     </button>
                   ))}
                 </div>
+                <button
+                  onClick={() => {
+                    setExpandedOpen(true);
+                    trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier });
+                  }}
+                  className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
+                >
+                  Expand
+                </button>
               </div>
             </div>
             <FlowTrendChart
@@ -506,13 +504,108 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               gaugeSiteId={activeGauge.usgsSiteId}
               days={dateRange}
               thresholds={chartThresholds}
+              floodStages={gaugeDetail?.floodStages ?? null}
               latestValue={latestValue}
               displayUnit={effectiveUnit}
               chartClassName="h-48 md:h-56"
-              showTypical
+              // One context at a time: a rated river's chart speaks the ladder,
+              // a reference station's speaks the day-of-year typical band.
+              // Observed data and the official forecast stay visible in both.
+              showTypical={tier !== 'rated'}
               showProvenance
             />
           </div>
+
+        <ExpandedGaugeChart
+          open={expandedOpen}
+          onClose={() => setExpandedOpen(false)}
+          siteId={activeGauge.usgsSiteId}
+          siteName={activeGauge.name}
+          thresholds={chartThresholds}
+          floodStages={gaugeDetail?.floodStages ?? null}
+          displayUnit={effectiveUnit}
+          showTypical={tier !== 'rated'}
+          capabilities={gaugeDetail?.historyCapabilities ?? null}
+        />
+        {/* Outdoor conditions, after the hydrograph and before the deeper
+            interpretation below. */}
+        <GaugeWeather
+          lat={activeGauge.coordinates.lat}
+          lon={activeGauge.coordinates.lng}
+          enabled={true}
+          variant="compact"
+        />
+
+        <section
+          className="overflow-hidden rounded-xl border-2 border-t-4 border-primary-800 bg-white shadow-[4px_4px_0_var(--color-primary-200)]"
+          style={{
+            borderTopColor: condition.code === 'flowing'
+              ? 'var(--cond-flowing-solid)'
+              : (CONDITION_COLORS[condition.code] ?? CONDITION_COLORS.unknown),
+          }}
+          aria-label="Current reading and 72-hour river outlook"
+        >
+          <div className="grid grid-cols-1 items-stretch lg:grid-cols-[340px_minmax(0,1fr)]">
+            <CurrentReadingCard
+              key={`reading-${activeSiteId}`}
+              siteId={activeGauge.usgsSiteId}
+              gaugeHeightFt={activeGauge.gaugeHeightFt}
+              dischargeCfs={activeGauge.dischargeCfs}
+              thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
+              conditionCode={condition.code}
+              waterTempF={gaugeDetail?.waterTemperature?.valueF ?? null}
+              waterTempAgeHours={ageHoursOf(gaugeDetail?.waterTemperature?.observedAt)}
+              readingAgeHours={activeGauge.readingAgeHours}
+              zones={ladderZones}
+              className="h-full"
+              embedded
+            />
+            <div className="border-t-2 border-primary-200 lg:border-l-2 lg:border-t-0">
+              <WillItHold
+                key={`outlook-${activeSiteId}`}
+                outlook={outlook}
+                embedded
+              />
+            </div>
+          </div>
+
+          <EddyOutlookFooter
+            riverSlug={riverSlug}
+            sections={eddyTakeSections}
+            isGuidance={outlook.isGuidance}
+            readLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
+            readIsGenerated={Boolean(activeEddyUpdate?.quoteText || activeEddyUpdate?.eddyRead)}
+            generatedAt={activeEddyUpdate?.generatedAt}
+            gaugeName={eddySourceGaugeName}
+          />
+        </section>
+
+        {/* Condition Thresholds Table */}
+        {activeThreshold && (
+          <div>
+            <ThresholdTable
+              thresholdUnit={activeThreshold.thresholdUnit}
+              levelTooLow={activeThreshold.levelTooLow}
+              levelLow={activeThreshold.levelLow}
+              levelOptimalMin={activeThreshold.levelOptimalMin}
+              levelOptimalMax={activeThreshold.levelOptimalMax}
+              levelHigh={activeThreshold.levelHigh}
+              levelDangerous={activeThreshold.levelDangerous}
+              altThresholds={altThresholds}
+              altUnit={altUnit}
+              thresholdDescriptions={activeGauge.thresholdDescriptions}
+              currentCondition={condition.code}
+            />
+          </div>
+        )}
+
+        {/* Community photos — what the current condition looks like, closing
+            the interpretation column. (They used to precede the trend chart;
+            the chart now leads, per the redesigned information order.) */}
+        <div>
+          <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} layout="wide" />
+        </div>
+
 
         </div>
 

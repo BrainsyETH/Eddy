@@ -1,5 +1,7 @@
 // src/lib/usgs/percentile-snapshot.ts
-// Snapshot + read-back of USGS day-of-year discharge percentiles.
+// Snapshot + read-back of USGS day-of-year percentiles — discharge ('00060')
+// and, in the table though not yet in any user-facing band, gage height
+// ('00065'; see STAGE PUBLICATION POLICY below).
 //
 // WHY THIS EXISTS
 // The percentile ladder (p10/p25/p50/p75/p90) behind "× normal" framing and
@@ -35,9 +37,68 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DailyStatistics } from '@/lib/flow-providers/types';
-import { fetchDailyStatisticsRows } from '@/lib/flow-providers/usgs-statistics';
+import {
+  PARAM_DISCHARGE,
+  PARAM_GAGE_HEIGHT,
+  fetchDailyStatisticsRows,
+} from '@/lib/flow-providers/usgs-statistics';
 
-const PARAM_DISCHARGE = '00060';
+export { PARAM_DISCHARGE, PARAM_GAGE_HEIGHT };
+
+/**
+ * The parameters this table snapshots. Everything else is rejected loudly:
+ * usgs_daily_percentiles keys on (site_no, parameter_code, day_of_year), so a
+ * typo'd code would not fail — it would build a parallel ladder nobody reads.
+ */
+export const SNAPSHOT_PARAMETERS = [PARAM_DISCHARGE, PARAM_GAGE_HEIGHT] as const;
+export type SnapshotParameter = (typeof SNAPSHOT_PARAMETERS)[number];
+
+export function assertSnapshotParameter(code: string): SnapshotParameter {
+  if ((SNAPSHOT_PARAMETERS as readonly string[]).includes(code)) {
+    return code as SnapshotParameter;
+  }
+  throw new Error(
+    `Unsupported percentile parameter '${code}' — expected one of ${SNAPSHOT_PARAMETERS.join(', ')}`
+  );
+}
+
+// ── STAGE PUBLICATION POLICY ─────────────────────────────────────
+// Snapshotting stage percentiles and SHOWING a user a seasonal comparison
+// built on them are different decisions. Two hazards discharge does not have:
+//
+//   DATUM. Stage is measured against a station datum, and a datum shift
+//   silently corrupts the older half of the record — the ladder still parses,
+//   the numbers are just about a different zero. Until continuity can be
+//   established per station, the default is SILENCE: no stage seasonal band.
+//   A missing comparison is strictly better than a confident, datum-corrupted
+//   one, and flow-band.ts already has the vocabulary for it
+//   (FLOW_BAND_UNKNOWN_SOLID, "No historical comparison published").
+//
+//   DEPTH. Stage records are much shallower (31 years vs 105 at Van Buren),
+//   so thin-sample suppression (the Feb-29 note above) bites more often.
+//   Below MIN_YEARS_FOR_SEASONAL_BAND a band is not published at all: ten
+//   years is the floor at which "higher than usual for the date" describes a
+//   climate rather than a memory of a few wet springs.
+//
+// seasonalBandEligible() is the one gate every consumer must pass before
+// turning a percentile row into a user-facing band. Flipping stage on is a
+// deliberate edit HERE (with the datum mechanism that justifies it), not a
+// side effect of data arriving in the table.
+
+export const MIN_YEARS_FOR_SEASONAL_BAND = 10;
+
+const STAGE_SEASONAL_CONTEXT_ENABLED = false;
+
+export function seasonalBandEligible(input: {
+  parameterCode: string;
+  yearsOfRecord: number | null | undefined;
+}): boolean {
+  if (input.yearsOfRecord == null || input.yearsOfRecord < MIN_YEARS_FOR_SEASONAL_BAND) {
+    return false;
+  }
+  if (input.parameterCode === PARAM_GAGE_HEIGHT) return STAGE_SEASONAL_CONTEXT_ENABLED;
+  return input.parameterCode === PARAM_DISCHARGE;
+}
 
 /**
  * Written to usgs_daily_percentiles.source. Rows predating the migration carry
@@ -72,9 +133,11 @@ export function leapDayOfYearForDate(date: Date): number | null {
 export async function snapshotSite(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any>,
-  siteId: string
+  siteId: string,
+  parameterCode: SnapshotParameter = PARAM_DISCHARGE
 ): Promise<number> {
-  const rows = await fetchDailyStatisticsRows(siteId, PARAM_DISCHARGE);
+  assertSnapshotParameter(parameterCode);
+  const rows = await fetchDailyStatisticsRows(siteId, parameterCode);
   if (!rows.length) return 0;
 
   const payload = rows.flatMap((row) => {
@@ -82,7 +145,7 @@ export async function snapshotSite(
     if (dayOfYear === null) return [];
     return [{
     site_no: siteId,
-    parameter_code: PARAM_DISCHARGE,
+    parameter_code: parameterCode,
     day_of_year: dayOfYear,
     p05: row.p05,
     p10: row.p10,
@@ -135,7 +198,8 @@ const SNAPSHOT_COLUMNS = 'p05, p10, p20, p25, p50, p75, p80, p90, p95, mean, cou
 export async function readAllSnapshotStatistics(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any>,
-  date: Date = new Date()
+  date: Date = new Date(),
+  parameterCode: SnapshotParameter = PARAM_DISCHARGE
 ): Promise<Map<string, DailyStatistics>> {
   const out = new Map<string, DailyStatistics>();
   const dayOfYear = leapDayOfYearForDate(date);
@@ -146,7 +210,7 @@ export async function readAllSnapshotStatistics(
     const { data, error } = await supabase
       .from('usgs_daily_percentiles')
       .select(`site_no, ${SNAPSHOT_COLUMNS}`)
-      .eq('parameter_code', PARAM_DISCHARGE)
+      .eq('parameter_code', parameterCode)
       .eq('day_of_year', dayOfYear)
       // Ordered because .range() over an unordered result is not stable
       // pagination — windows can repeat and skip rows, which here would look
@@ -161,6 +225,7 @@ export async function readAllSnapshotStatistics(
     for (const row of data ?? []) {
       out.set(row.site_no, {
         siteId: row.site_no,
+        parameterCode,
         month: date.getMonth() + 1,
         day: date.getDate(),
         p05: row.p05,
@@ -191,7 +256,8 @@ export async function readSnapshotStatistics(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any>,
   siteId: string,
-  date: Date = new Date()
+  date: Date = new Date(),
+  parameterCode: SnapshotParameter = PARAM_DISCHARGE
 ): Promise<DailyStatistics | null> {
   const dayOfYear = leapDayOfYearForDate(date);
   if (dayOfYear === null) return null;
@@ -200,7 +266,7 @@ export async function readSnapshotStatistics(
     .from('usgs_daily_percentiles')
     .select('p05, p10, p20, p25, p50, p75, p80, p90, p95, mean, count_years')
     .eq('site_no', siteId)
-    .eq('parameter_code', PARAM_DISCHARGE)
+    .eq('parameter_code', parameterCode)
     .eq('day_of_year', dayOfYear)
     .maybeSingle();
 
@@ -208,6 +274,7 @@ export async function readSnapshotStatistics(
 
   return {
     siteId,
+    parameterCode,
     month: date.getMonth() + 1,
     day: date.getDate(),
     p05: data.p05,

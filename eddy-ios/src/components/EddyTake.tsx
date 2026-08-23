@@ -342,7 +342,7 @@ export function EddyTake({
                 ]}
                 accessibilityLabel={
                   day.weather
-                    ? `${dayLabel(day.date, index)}, high ${day.weather.tempHigh}, low ${day.weather.tempLow}, ${day.rainLabel}${day.heatAdvisory ? ', heat advisory range' : ''}`
+                    ? `${dayLabel(day.date, index)}, high ${day.weather.tempHigh}, low ${day.weather.tempLow}, ${day.rainLabel}${day.weather.windSpeed != null ? `, wind ${Math.round(day.weather.windSpeed)} miles per hour` : ''}${day.heatAdvisory ? ', heat advisory range' : ''}`
                     : `${dayLabel(day.date, index)}, weather unavailable`
                 }
               >
@@ -385,6 +385,16 @@ export function EddyTake({
                     >
                       {day.rainLabel}
                     </Text>
+                    {/* Wind, when the server sent it. OMITTED, never zeroed,
+                        for a payload predating the field — absent means "the
+                        source did not say", not calm. Part of the outdoor-
+                        conditions answer the phone could not give before the
+                        outlook carried wind. */}
+                    {day.weather.windSpeed != null ? (
+                      <Text style={[styles.rain, { color: colors.textSubtle }]} numberOfLines={1}>
+                        {Math.round(day.weather.windSpeed)} mph wind
+                      </Text>
+                    ) : null}
                     {day.heatAdvisory ? (
                       <View style={[styles.heat, { backgroundColor: conditionBg('high') }]}>
                         <Text style={[styles.heatText, { color: conditionInk('high') }]}>HEAT</Text>

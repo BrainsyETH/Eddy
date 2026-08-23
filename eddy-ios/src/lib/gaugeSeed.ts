@@ -38,7 +38,7 @@ import type {
   MapGaugeLite,
   SearchResult,
 } from '@eddy/types';
-import { hasLadder } from '@eddy/conditions/condition-ladder';
+import { stationTier } from '@eddy/conditions/station-tier';
 
 export interface GaugeSeed {
   /** gauge_stations.id, when the source knew it. Stars are keyed on this. */
@@ -113,6 +113,12 @@ export interface GaugeSeed {
    * threshold that appears a beat later is not a threshold anyone missed.
    */
   floodStages: GaugeFloodStages | null;
+  /**
+   * Latest water temperature, from the detail fetch only — the same
+   * lands-a-beat-later trade floodStages makes above. Absent-like-null on
+   * every list seed. Display it only WITH its measurement time.
+   */
+  waterTemperature: { valueF: number; observedAt: string } | null;
 }
 
 /**
@@ -181,6 +187,7 @@ export function seedFromMapGauge(gauge: MapGauge): GaugeSeed | null {
     flowPercentile: null,
     thresholds: gauge.thresholds ?? null,
     floodStages: null,
+    waterTemperature: null,
   };
 }
 
@@ -206,6 +213,7 @@ export function seedFromMapGaugeLite(gauge: MapGaugeLite): GaugeSeed {
     flowPercentile: gauge.flowPercentile,
     thresholds: null,
     floodStages: null,
+    waterTemperature: null,
   };
 }
 
@@ -246,6 +254,7 @@ export function seedFromSearchResult(result: SearchResult): GaugeSeed | null {
     flowPercentile: reading?.flowPercentile ?? null,
     thresholds: null,
     floodStages: null,
+    waterTemperature: null,
   };
 }
 
@@ -302,6 +311,7 @@ export function seedFromStar(star: {
     flowPercentile: null,
     thresholds: null,
     floodStages: null,
+    waterTemperature: null,
   };
 }
 
@@ -341,19 +351,15 @@ export function seedFromStar(star: {
  */
 export type GaugeTier = 'rated' | 'reference' | 'unknown';
 
+/**
+ * The decision itself now lives in @eddy/conditions/station-tier, because the
+ * web detail views needed the same three states — web is MORE exposed to the
+ * first-frame problem, since its list and search payloads carry no ladders
+ * either. This wrapper keeps the app's seed-shaped call sites and the name
+ * the web parity suite pins.
+ */
 export function gaugeTier(seed: GaugeSeed): GaugeTier {
-  // FIND-PRIMARY, matching the screen and gaugeLink() everywhere else: a
-  // station that rates two rivers must be graded on the one it is primary for.
-  const link = seed.thresholds?.find((l) => l.isPrimary) ?? seed.thresholds?.[0] ?? null;
-  if (link && hasLadder(link)) return 'rated';
-  // Ladders were on the wire and none of them is a ladder. That is an answer:
-  // the source that carries ladders carried this station's, and it has none.
-  if (seed.thresholds != null) return 'reference';
-  // No ladders, but the source stated the tier outright. The national tier says
-  // `curated: false` and means it — those stations get their band immediately,
-  // with the percentile the lite seed already carries.
-  if (seed.curated === false) return 'reference';
-  return 'unknown';
+  return stationTier({ thresholds: seed.thresholds, curated: seed.curated });
 }
 
 /** The fetched record, so a revisit within the session paints from the fuller one. */
@@ -376,5 +382,6 @@ export function seedFromDetail(gauge: GaugeDetail): GaugeSeed {
     flowPercentile: gauge.flowPercentile,
     thresholds: gauge.thresholds,
     floodStages: gauge.floodStages,
+    waterTemperature: gauge.waterTemperature ?? null,
   };
 }

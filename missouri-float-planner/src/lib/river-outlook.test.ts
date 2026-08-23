@@ -58,6 +58,8 @@ const baseOutlookInput = {
     condition: 'Clear',
     conditionIcon: '01d',
     precipitation: 10,
+    windSpeed: 5,
+    humidity: 60,
   }],
   weatherPending: false,
   weatherError: false,
@@ -200,6 +202,8 @@ test('Watch for prioritizes forecast rain without inventing a river response', (
         condition: 'Rain',
         conditionIcon: '10d',
         precipitation: 80,
+        windSpeed: 8,
+        humidity: 85,
       },
     ],
   });

@@ -384,3 +384,22 @@ export function nearestChartPoint(points: ChartPoint[], targetTime: number): Cha
   const after = points[low];
   return Math.abs(before.t - targetTime) <= Math.abs(after.t - targetTime) ? before : after;
 }
+
+/**
+ * The newest observed point, or NULL — and null is a state every consumer
+ * must survive, not an impossibility to assert away. The history endpoint
+ * serves forecast-only stations (readings: [] with a real forecast), because
+ * NWPS forecasts stations it has no telemetry at. Both renderers used to
+ * assume observed[length - 1] existed in half a dozen places each; these two
+ * helpers are the names those places reach for instead, so the assumption is
+ * visible where it is made.
+ */
+export function latestObservedPoint(observed: ChartPoint[]): ChartPoint | null {
+  return observed.length ? observed[observed.length - 1] : null;
+}
+
+/** The first forecast point, or null. A domain is constructible from either
+ *  series alone — observed, forecast, or both. */
+export function forecastStartPoint(forecast: ChartPoint[]): ChartPoint | null {
+  return forecast.length ? forecast[0] : null;
+}
