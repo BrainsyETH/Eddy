@@ -14,6 +14,7 @@ import { conditionChip } from '@shared/condition-system';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import { useGaugeStations } from '@/hooks/useGaugeStations';
+import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import type { ConditionCode } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
@@ -26,6 +27,7 @@ import SiteFooter from '@/components/ui/SiteFooter';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import { pickPrimaryRiverLink } from '@shared/primary-river-link';
+import { ageHoursOf } from '@/lib/utils/reading-age';
 
 interface GaugeDetailViewProps {
   siteId: string;
@@ -45,6 +47,10 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   // consumer of /api/gauges instead of a one-off raw fetch of the full list.
   const { data: allGauges, isLoading: loading } = useGaugeStations();
   const gauge = allGauges?.find((g) => g.usgsSiteId === siteId) ?? null;
+
+  // Station-level facts the list payload does not carry — today that means
+  // the NWS flood stages the chart draws.
+  const { data: gaugeDetail } = useGaugeDetail(siteId);
 
   // Deterministic rather than find(isPrimary): 07014000 is legitimately primary
   // for both Huzzah and Courtois, and `find` returned whichever row the query
@@ -144,7 +150,9 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
     } catch { /* clipboard failed */ }
   };
 
-  // Build chart thresholds based on selected unit
+  // Build chart thresholds based on selected unit. `unit` declares which one
+  // the levels are in, so the chart can refuse a mismatch instead of trusting
+  // this file forever got the swap right.
   const chartThresholds = (() => {
     if (!primaryRiver) return null;
     if (showingAlt) {
@@ -155,6 +163,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
         levelOptimalMax: primaryRiver.altLevelOptimalMax,
         levelHigh: primaryRiver.altLevelHigh,
         levelDangerous: primaryRiver.altLevelDangerous,
+        unit: effectiveUnit,
       };
     }
     return {
@@ -164,6 +173,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
       levelOptimalMax: primaryRiver.levelOptimalMax,
       levelHigh: primaryRiver.levelHigh,
       levelDangerous: primaryRiver.levelDangerous,
+      unit: effectiveUnit,
     };
   })();
 
@@ -392,6 +402,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               gaugeSiteId={gauge.usgsSiteId}
               days={dateRange}
               thresholds={chartThresholds}
+              floodStages={gaugeDetail?.floodStages ?? null}
               latestValue={latestValue}
               displayUnit={effectiveUnit}
               chartClassName="h-48 md:h-56"
@@ -408,6 +419,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               dischargeCfs={gauge.dischargeCfs}
               thresholdUnit={primaryRiver?.thresholdUnit || 'ft'}
               conditionCode={condition.code}
+              waterTempF={gaugeDetail?.waterTemperature?.valueF ?? null}
+              waterTempAgeHours={ageHoursOf(gaugeDetail?.waterTemperature?.observedAt)}
               readingAgeHours={gauge.readingAgeHours}
               zones={ladderZones}
             />

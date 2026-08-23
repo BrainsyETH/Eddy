@@ -171,6 +171,32 @@ test('the plot itself is announced on both platforms', () => {
   assert.match(app, /Latest reading \$\{latestQualifiers\}/);
 });
 
+test('NWS flood stages come from one visual system, and only onto a feet axis', () => {
+  // The violet, the opacity ramp and the dash tightening live in
+  // shared/flood-stage.ts (the app reaches it through its theme re-export).
+  // Until this release the web chart drew no stages at all, so a national
+  // station could show an official flood category on the phone and a bare
+  // chart in the browser.
+  for (const [name, source] of RENDERERS) {
+    assert.match(source, /FLOOD_STAGE_SYSTEM/, `${name} does not draw from the shared flood-stage system`);
+    assert.match(source, /floodStageColor\(\)/, `${name} does not take the NWS hue from the system`);
+  }
+  // The feet-only guard, on each side's own terms. NWPS publishes stages and
+  // nothing else — a flood line against discharge puts "flood" at 20 cfs on a
+  // river that floods at 20 feet.
+  assert.match(app, /!floodStages \|\| drawnUnit !== 'ft'/, 'app lost its feet-axis stage guard');
+  assert.match(web, /isFt && floodStages/, 'web lost its feet-axis stage guard');
+});
+
+test("threshold shading obeys the ladder's declared unit on both platforms", () => {
+  // The band bounds are raw numbers and the drawn series is raw numbers;
+  // comparing them is arithmetic that cannot tell feet from cfs. The app has
+  // guarded this since the unit toggle shipped; the web type had no unit field
+  // at all, so nothing could refuse a mismatch.
+  assert.match(app, /thresholds\.thresholdUnit && thresholds\.thresholdUnit !== drawnUnit/);
+  assert.match(web, /thresholds\.unit == null \|\| thresholds\.unit === displayUnit/);
+});
+
 test('the web scrub is reachable without a pointer', () => {
   // NOT a parity claim — the app has no keyboard, and its scrub is a
   // PanResponder. This is the floor for the platform that does have one: the

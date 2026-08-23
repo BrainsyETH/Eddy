@@ -782,6 +782,14 @@ export interface RiverConditionDetail {
     levelDangerous: number | null;
     thresholdUnit?: 'ft' | 'cfs';
   };
+  /**
+   * Official NWS flood stages for the gauge this condition came from — the
+   * same shape and precedence as GaugeDetail.floodStages, so the river
+   * screen's chart can draw the safety lines the gauge screen draws.
+   * Optional because a TestFlight build predating this field must render the
+   * river screen unchanged: treat absent exactly like null (no stages drawn).
+   */
+  floodStages?: GaugeFloodStages | null;
   usgsUrl?: string | null;
 }
 
@@ -1080,6 +1088,14 @@ export interface GaugeDetail {
    * station is not an NWS forecast point, which is most of them.
    */
   floodStages: GaugeFloodStages | null;
+  /**
+   * Latest water temperature — USGS parameter 00010, served in °F with the
+   * time it was measured. Optional because a TestFlight build predating this
+   * field must render the gauge screen unchanged: treat absent exactly like
+   * null, which is the ordinary case (most Ozark stations publish no
+   * water-temperature series). Display it only WITH its measurement age.
+   */
+  waterTemperature?: { valueF: number; observedAt: string; source: 'usgs' } | null;
   /** The station's own public page, or null for a provider without one. */
   publicUrl: string | null;
   /**
@@ -1799,6 +1815,15 @@ export interface OutlookWeatherDay {
   conditionIcon: string;
   /** Probability, 0-100. */
   precipitation: number;
+  /**
+   * Daily average wind, mph. Optional here because a TestFlight build predating
+   * this field must render the outlook unchanged; a client should treat absent
+   * or null as "don't show a wind row", never as calm. This is what feeds the
+   * Outdoor Conditions section — the phone has no weather fetch of its own.
+   */
+  windSpeed?: number | null;
+  /** Daily average relative humidity, percent. Same absent-means-hide rule. */
+  humidity?: number | null;
 }
 
 export interface RiverOutlookDay {

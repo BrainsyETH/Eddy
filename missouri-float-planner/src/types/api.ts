@@ -383,6 +383,25 @@ export type ConditionCode =
 /** Flow rating based on discharge percentile comparison to historical data */
 export type FlowRating = 'flood' | 'high' | 'good' | 'low' | 'poor' | 'unknown';
 
+/**
+ * The four official NWS stages for a station, with which source answered.
+ *
+ * FEET ONLY. NWPS publishes stages and its category `flow` comes back as
+ * -9999 everywhere, so nothing downstream may compare these against
+ * discharge. Station-level `nwps_*` columns win where both exist; a curated
+ * river_gauges pairing is the fallback and carries only two stages. The
+ * precedence lives in src/lib/gauges/flood-stages.ts — one implementation,
+ * whatever route is answering.
+ */
+export interface GaugeFloodStages {
+  actionFt: number | null;
+  floodFt: number | null;
+  moderateFt: number | null;
+  majorFt: number | null;
+  lid: string | null;
+  source: 'nwps' | 'curated';
+}
+
 export interface RiverCondition {
   label: string;
   code: ConditionCode;
@@ -395,6 +414,15 @@ export interface RiverCondition {
   accuracyWarningReason: string | null;
   gaugeName: string | null;
   gaugeUsgsId: string | null;
+  /**
+   * Official NWS flood stages for the gauge this condition came from. What
+   * lets the river screen draw the same safety lines the gauge screen draws —
+   * it had no path to them before this field existed. Null when the station
+   * is not an NWS forecast point, and on payloads that quote a condition
+   * without drawing a hydrograph (the plan summary), which do not resolve
+   * stages at all.
+   */
+  floodStages: GaugeFloodStages | null;
   /** Percentile-based flow rating (new system) */
   flowRating?: FlowRating;
   /** User-friendly flow description */

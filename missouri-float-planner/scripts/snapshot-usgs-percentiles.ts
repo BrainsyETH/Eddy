@@ -17,19 +17,40 @@
  *   npx tsx scripts/snapshot-usgs-percentiles.ts --dry-run
  *   npx tsx scripts/snapshot-usgs-percentiles.ts --sites 07068000,07067000
  *   npx tsx scripts/snapshot-usgs-percentiles.ts --only-missing
+ *   npx tsx scripts/snapshot-usgs-percentiles.ts --parameter 00065
+ *
+ * --parameter selects the ladder ('00060' discharge, the default, or '00065'
+ * gage height). THIS SCRIPT IS THE STAGE BACKFILL: the monthly cron re-walks
+ * the same curated-first head of the national list each pass and never
+ * reaches the tail, so national coverage for a parameter is established here,
+ * once, and the cron only maintains what actually gets refreshed. Stage rows
+ * feed no user-facing band until the publication policy in
+ * percentile-snapshot.ts enables them.
  *
  * Default site set: every active gauge_stations row with a usgs_site_id —
  * i.e. the gauges that actually drive curated river conditions. Uncurated
  * observatory gauges are fetched on demand and are not snapshotted here.
  */
 
-import { snapshotSite } from '../src/lib/usgs/percentile-snapshot';
+import {
+  PARAM_DISCHARGE,
+  assertSnapshotParameter,
+  snapshotSite,
+} from '../src/lib/usgs/percentile-snapshot';
 import { getScriptClient } from './lib/db';
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const onlyMissing = args.includes('--only-missing');
 const sitesArg = args.find((a) => a.startsWith('--sites'));
+const parameterArg = args.find((a) => a.startsWith('--parameter'));
+const parameterCode = assertSnapshotParameter(
+  parameterArg
+    ? (parameterArg.includes('=')
+        ? parameterArg.split('=')[1]
+        : args[args.indexOf(parameterArg) + 1]) || ''
+    : PARAM_DISCHARGE
+);
 
 /** Be a good citizen: the legacy service is shared infrastructure. */
 const DELAY_MS = 500;
@@ -57,9 +78,12 @@ async function main() {
   }
 
   if (onlyMissing) {
+    // Filtered by parameter, or a stage backfill would skip every site the
+    // discharge pass already covered — i.e. all of them.
     const { data } = await supabase
       .from('usgs_daily_percentiles')
       .select('site_no')
+      .eq('parameter_code', parameterCode)
       .in('site_no', siteIds);
     const have = new Set((data ?? []).map((r: { site_no: string }) => r.site_no));
     const before = siteIds.length;
@@ -67,7 +91,9 @@ async function main() {
     console.log(`--only-missing: skipping ${before - siteIds.length} already-snapshotted site(s)`);
   }
 
-  console.log(`Snapshotting ${siteIds.length} site(s)${dryRun ? ' (dry run)' : ''}…\n`);
+  console.log(
+    `Snapshotting ${siteIds.length} site(s) for parameter ${parameterCode}${dryRun ? ' (dry run)' : ''}…\n`
+  );
 
   let ok = 0;
   let empty = 0;
@@ -81,12 +107,12 @@ async function main() {
         // one service while the write hits another — which is exactly what this
         // branch did through the WaterServices migration.
         const { fetchDailyStatisticsRows } = await import('../src/lib/flow-providers/usgs-statistics');
-        const rows = await fetchDailyStatisticsRows(siteId);
+        const rows = await fetchDailyStatisticsRows(siteId, parameterCode);
         console.log(`${label}: would write ${rows.length} row(s)`);
         if (rows.length) ok++;
         else empty++;
       } else {
-        const written = await snapshotSite(supabase, siteId);
+        const written = await snapshotSite(supabase, siteId, parameterCode);
         if (written) {
           console.log(`${label}: wrote ${written} row(s)`);
           ok++;

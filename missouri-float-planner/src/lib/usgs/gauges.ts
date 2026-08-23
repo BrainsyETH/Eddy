@@ -8,6 +8,10 @@
 
 import { getFlowProvider } from '@/lib/flow-providers';
 import { readSnapshotStatistics } from '@/lib/usgs/percentile-snapshot';
+// The suspect-qualifier vocabulary is defined once in shared/reading-trust.ts;
+// this facade classifies with it rather than keeping a second copy that can
+// drift (it did: this table and the alert gate's disagreed with the chart's).
+import { SUSPECT_QUALIFIERS } from '@shared/reading-trust';
 import type {
   DailyStatistics,
   GaugeReading,
@@ -18,9 +22,6 @@ import type {
 export type { GaugeReading, DailyStatistics, HistoricalData, HistoricalReading };
 
 const usgs = () => getFlowProvider('usgs')!;
-
-/** Qualifier codes that mean the value itself is suspect (not just unapproved). */
-const SUSPECT_QUALIFIERS = new Set(['e', 'Ice', 'Eqp', 'Bkw', 'Mnt', 'ZFl', '***', 'Dis', 'Rat', 'Ssn']);
 
 export interface QualifierStatus {
   /** Provisional (unapproved) — normal for real-time data; footnote only. */

@@ -20,3 +20,11 @@ export function formatAgeFromTimestamp(timestamp: string, now = Date.now()): str
   if (!Number.isFinite(parsed)) return null;
   return formatAgeFromHours(Math.max(0, now - parsed) / 3_600_000);
 }
+
+/** Age in hours from an ISO timestamp, or null for absent/unparseable. */
+export function ageHoursOf(timestamp: string | null | undefined, now = Date.now()): number | null {
+  if (!timestamp) return null;
+  const parsed = new Date(timestamp).getTime();
+  if (!Number.isFinite(parsed)) return null;
+  return Math.max(0, now - parsed) / 3_600_000;
+}

@@ -57,8 +57,20 @@ export interface DailyStatistics {
   p95?: number | null;
   /** Mean discharge (cfs) */
   mean: number | null;
-  /** Number of years of data used */
+  /**
+   * Number of years of data used.
+   *
+   * PER PARAMETER, never assumed across parameters: the same site can hold
+   * 105 years of discharge and 31 of stage, so a ladder's sample depth must
+   * come from the row actually read.
+   */
   yearsOfRecord: number | null;
+  /**
+   * Which USGS parameter this ladder describes ('00060' discharge, '00065'
+   * gage height). Optional — readers that predate stage statistics only ever
+   * produced discharge, and absent means discharge.
+   */
+  parameterCode?: string;
 }
 
 /**

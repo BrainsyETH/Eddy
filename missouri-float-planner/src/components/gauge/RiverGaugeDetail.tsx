@@ -14,6 +14,7 @@ import { CFS_EXPLAINER, CONDITION_COLORS } from '@/constants';
 import InfoTip from '@/components/ui/InfoTip';
 import type { ConditionCode } from '@/types/api';
 import { useRiverGroup } from '@/hooks/useRiverGroups';
+import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
 import { useRiverOutlook } from '@/hooks/useRiverOutlook';
 import { useSelectedEddyReport } from '@/hooks/useSelectedEddyReport';
@@ -27,6 +28,7 @@ import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import { usePathname } from 'next/navigation';
 import { buildEddyTakeSections } from '@/lib/river-outlook';
 import { buildZones } from '@/lib/gauge/threshold-zones';
+import { ageHoursOf } from '@/lib/utils/reading-age';
 import { createPortal } from 'react-dom';
 
 interface RiverGaugeDetailProps {
@@ -77,6 +79,10 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   });
 
   // Active gauge derived state
+  // Station-level facts the river-group payload does not carry — today that
+  // means the NWS flood stages the chart draws.
+  const { data: gaugeDetail } = useGaugeDetail(activeSiteId ?? null);
+
   const activeGauge = useMemo(() => {
     if (!riverGroup || !activeSiteId) return null;
     return riverGroup.allGauges.find(g => g.usgsSiteId === activeSiteId) || riverGroup.primaryGauge;
@@ -114,7 +120,9 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   const effectiveUnit = displayUnit || primaryUnit;
   const showingAlt = effectiveUnit !== primaryUnit;
 
-  // Compute chart thresholds based on selected unit
+  // Compute chart thresholds based on selected unit. `unit` declares which one
+  // the levels are in, so the chart can refuse a mismatch instead of trusting
+  // this file forever got the swap right.
   const chartThresholds = useMemo(() => {
     if (!activeThreshold) return null;
     if (showingAlt) {
@@ -125,6 +133,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
         levelOptimalMax: activeThreshold.altLevelOptimalMax,
         levelHigh: activeThreshold.altLevelHigh,
         levelDangerous: activeThreshold.altLevelDangerous,
+        unit: effectiveUnit,
       };
     }
     return {
@@ -134,8 +143,9 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
       levelOptimalMax: activeThreshold.levelOptimalMax,
       levelHigh: activeThreshold.levelHigh,
       levelDangerous: activeThreshold.levelDangerous,
+      unit: effectiveUnit,
     };
-  }, [activeThreshold, showingAlt]);
+  }, [activeThreshold, showingAlt, effectiveUnit]);
 
   // Alt thresholds for ThresholdTable
   const altThresholds = useMemo(() => {
@@ -382,6 +392,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               dischargeCfs={activeGauge.dischargeCfs}
               thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
               conditionCode={condition.code}
+              waterTempF={gaugeDetail?.waterTemperature?.valueF ?? null}
+              waterTempAgeHours={ageHoursOf(gaugeDetail?.waterTemperature?.observedAt)}
               readingAgeHours={activeGauge.readingAgeHours}
               zones={ladderZones}
               className="h-full"
@@ -506,6 +518,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               gaugeSiteId={activeGauge.usgsSiteId}
               days={dateRange}
               thresholds={chartThresholds}
+              floodStages={gaugeDetail?.floodStages ?? null}
               latestValue={latestValue}
               displayUnit={effectiveUnit}
               chartClassName="h-48 md:h-56"

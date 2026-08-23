@@ -1301,6 +1301,15 @@ export default function RiverDetailScreen() {
             siteId={shownSiteId}
             unit={reading?.unit ?? scaleThresholds?.thresholdUnit ?? 'cfs'}
             thresholds={scaleThresholds}
+            // Only when the chart is showing the station the condition was
+            // computed from: /api/conditions resolves stages for ITS source
+            // gauge, and pinning those to a picked sibling would flood-line
+            // one station with another's thresholds. A picked gauge simply
+            // has none here (MapGauge carries no stages) — same as the gauge
+            // screen before /api/gauges/[siteId] is consulted.
+            floodStages={
+              shownSiteId === condition?.gaugeUsgsId ? condition?.floodStages ?? null : null
+            }
             title="Recent history"
           />
         ) : null}

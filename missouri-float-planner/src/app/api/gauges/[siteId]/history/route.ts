@@ -275,17 +275,6 @@ async function _GET(
       }
     }
 
-    if (!historicalData) {
-      return NextResponse.json(
-        { error: 'Historical data not available for this gauge' },
-        { status: 404 }
-      );
-    }
-
-    const rawReadings = historicalData.readings as GaugeHistoryReading[];
-    const readings = sampleHistory(rawReadings, validDays);
-    const observedThrough = readings.at(-1)?.timestamp ?? null;
-
     // Both context queries are independent of each other and of the series, so
     // they overlap. Each degrades to nothing on its own rather than failing the
     // chart: a river with no percentile record and no NWS forecast point is the
@@ -296,6 +285,12 @@ async function _GET(
     // percentile context for no reason. A station that IS registered gets only
     // what its row declares — a dam slug matched via site_id_external must not
     // be keyed against usgs_daily_percentiles.site_no.
+    //
+    // Fetched BEFORE the not-found decision, because observed and forecast are
+    // independently optional: NWPS forecasts stations it has no telemetry at
+    // (and the reverse — BDPM7 observes with no forecast), so a station with a
+    // forecast and no readings is a chart, not a 404. The old order returned
+    // 404 before ever asking for the forecast.
     const usgsSiteId = station ? station.usgs_site_id : siteId;
     const [typical, forecastDoc] = await Promise.all([
       providerId === 'usgs' && usgsSiteId
@@ -304,18 +299,33 @@ async function _GET(
       station?.nws_lid ? fetchNwsForecast(station.nws_lid) : Promise.resolve(null),
     ]);
 
+    // 404 only when the station has NEITHER observed nor forecast data.
+    if (!historicalData && !(forecastDoc?.points ?? []).length) {
+      return NextResponse.json(
+        { error: 'Historical data not available for this gauge' },
+        { status: 404 }
+      );
+    }
+
+    // readings: [] is a valid response body — forecast-only stations ship an
+    // empty observed series, and clients build the domain from the forecast.
+    const rawReadings = (historicalData?.readings ?? []) as GaugeHistoryReading[];
+    const readings = sampleHistory(rawReadings, validDays);
+    const observedThrough = readings.at(-1)?.timestamp ?? null;
+
     // Only the part of the forecast that is still ahead of the observed series.
     // NWPS reissues on a schedule, so its early points overlap what already
     // happened — drawing those as forecast would put a dashed "prediction" on
-    // top of readings the gauge has already taken.
+    // top of readings the gauge has already taken. With no observed series at
+    // all, every forecast point is ahead of it.
     const observedTime = observedThrough ? new Date(observedThrough).getTime() : -Infinity;
     const forecast: GaugeForecastReading[] = (forecastDoc?.points ?? []).filter(
       (point) => new Date(point.timestamp).getTime() > observedTime
     );
 
     return NextResponse.json({
-      siteId: historicalData.siteId,
-      siteName: historicalData.siteName,
+      siteId: historicalData?.siteId ?? siteId,
+      siteName: historicalData?.siteName ?? station?.name ?? siteId,
       readings,
       observedThrough,
       sampled: readings.length < rawReadings.length,
@@ -324,10 +334,10 @@ async function _GET(
       forecastIssuedAt: forecast.length ? forecastDoc?.issuedAt ?? null : null,
       sourceUrl: provider?.publicUrl(siteId) ?? null,
       stats: {
-        minDischarge: historicalData.minDischarge,
-        maxDischarge: historicalData.maxDischarge,
-        minHeight: historicalData.minHeight,
-        maxHeight: historicalData.maxHeight,
+        minDischarge: historicalData?.minDischarge ?? null,
+        maxDischarge: historicalData?.maxDischarge ?? null,
+        minHeight: historicalData?.minHeight ?? null,
+        maxHeight: historicalData?.maxHeight ?? null,
       },
     }, { headers: cdnCacheHeaders(900, 3600) });
   } catch (error) {

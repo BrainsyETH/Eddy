@@ -54,6 +54,12 @@ import {
   timeTicks,
   type ChartPoint,
 } from '@shared/chart-model';
+import {
+  FLOOD_STAGE_ORDER,
+  FLOOD_STAGE_SYSTEM,
+  floodStageColor,
+  type FloodStageKey,
+} from '@shared/flood-stage';
 
 // Threshold line configuration
 export interface ChartThresholdLines {
@@ -63,9 +69,22 @@ export interface ChartThresholdLines {
   levelOptimalMax: number | null;
   levelHigh: number | null;
   levelDangerous: number | null;
+  /**
+   * The unit the levels are expressed in. When set and it differs from the
+   * chart's displayUnit, NO threshold is drawn and no zone is named: the
+   * bounds are raw numbers and the series is raw numbers, and comparing them
+   * is arithmetic that cannot tell feet from cfs — a stage ladder against a
+   * discharge line would put "Flood" at 4 cfs. Same guard the iOS chart makes
+   * (GaugeChart's zones memo), now declared on the type so a caller cannot
+   * forget it exists. Absent means "trust the caller matched them", which is
+   * the pre-existing contract.
+   */
+  unit?: 'ft' | 'cfs' | null;
 }
 
-const THRESHOLD_LINE_CONFIG: { key: keyof ChartThresholdLines; label: string; color: string; dash?: string }[] = [
+type ThresholdLevelKey = Exclude<keyof ChartThresholdLines, 'unit'>;
+
+const THRESHOLD_LINE_CONFIG: { key: ThresholdLevelKey; label: string; color: string; dash?: string }[] = [
   { key: 'levelLow', label: 'Good', color: '#65a30d', dash: '3,3' },
   { key: 'levelOptimalMin', label: 'Flowing', color: '#059669', dash: '2,2' },
   { key: 'levelOptimalMax', label: 'Flowing', color: '#059669', dash: '2,2' },
@@ -98,10 +117,29 @@ function publisherLabel(sourceUrl: string): string | null {
   }
 }
 
+/** The four NWS stages, feet only — the shape /api/gauges/[siteId] publishes. */
+export interface ChartFloodStages {
+  actionFt: number | null;
+  floodFt: number | null;
+  moderateFt: number | null;
+  majorFt: number | null;
+}
+
 interface FlowTrendChartProps {
   gaugeSiteId: string;
   days: number;
   thresholds?: ChartThresholdLines | null;
+  /**
+   * Official NWS flood stages, drawn as violet rules with their labels.
+   *
+   * ONLY ON A FEET AXIS, unconditionally — NWPS publishes these as stages and
+   * nothing else (its category `flow` field comes back as -9999), so a flood
+   * line against discharge would put "flood" at 20 cfs on a river that floods
+   * at 20 feet. Violet because red is spoken for by a claim Eddy is declining
+   * to make; see shared/flood-stage.ts. The iOS chart has drawn these since
+   * the national tier shipped; the web chart drew nothing.
+   */
+  floodStages?: ChartFloodStages | null;
   latestValue?: number | null;
   displayUnit?: 'ft' | 'cfs';
   chartClassName?: string;
@@ -145,6 +183,7 @@ export default function FlowTrendChart({
   gaugeSiteId,
   days,
   thresholds,
+  floodStages,
   latestValue,
   displayUnit = 'cfs',
   chartClassName,
@@ -156,6 +195,16 @@ export default function FlowTrendChart({
   const isFt = displayUnit === 'ft';
   const [hoverFraction, setHoverFraction] = useState<number | null>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
+
+  // The declared-unit guard, applied once so every consumer below — the lines,
+  // the zone fills, the tooltip's zone label — inherits the same refusal.
+  const activeThresholds = useMemo(
+    () =>
+      thresholds && (thresholds.unit == null || thresholds.unit === displayUnit)
+        ? thresholds
+        : null,
+    [thresholds, displayUnit]
+  );
 
   const chartData = useMemo(() => {
     if (!history) return null;
@@ -194,11 +243,27 @@ export default function FlowTrendChart({
         })
       : [];
 
-    const thresholdValues = thresholds
-      ? THRESHOLD_LINE_CONFIG.map((config) => thresholds[config.key]).filter(
+    const thresholdValues = activeThresholds
+      ? THRESHOLD_LINE_CONFIG.map((config) => activeThresholds[config.key]).filter(
           (value): value is number => value !== null
         )
       : [];
+
+    // NWS stages exist only in feet; on a cfs axis this is empty by
+    // construction, so the JSX below cannot get it wrong.
+    const stageLevels: { key: FloodStageKey; value: number }[] =
+      isFt && floodStages
+        ? FLOOD_STAGE_ORDER.flatMap((key) => {
+            const byKey: Record<FloodStageKey, number | null> = {
+              action: floodStages.actionFt,
+              flood: floodStages.floodFt,
+              moderate: floodStages.moderateFt,
+              major: floodStages.majorFt,
+            };
+            const value = byKey[key];
+            return value != null && Number.isFinite(value) && value > 0 ? [{ key, value }] : [];
+          })
+        : [];
 
     const typicalPoints: ChartPoint[] = typical.flatMap((row) =>
       [row.low, row.median, row.high].flatMap((value) =>
@@ -207,7 +272,13 @@ export default function FlowTrendChart({
     );
 
     const spanning = [...observed, ...forecast, ...typicalPoints].sort((a, b) => a.t - b.t);
-    const domain = chartDomain(spanning, displayUnit, thresholdValues);
+    // Stage values ride along as domain context the same way thresholds do:
+    // chartDomain only stretches toward a context value within reach of the
+    // data, so a 25ft major-flood line cannot flatten a 3ft series.
+    const domain = chartDomain(spanning, displayUnit, [
+      ...thresholdValues,
+      ...stageLevels.map((stage) => stage.value),
+    ]);
     if (!domain) return null;
 
     const spanT = domain.t1 - domain.t0 || 1;
@@ -240,11 +311,21 @@ export default function FlowTrendChart({
             .join(' ')} Z`
         : '';
 
-    const thresholdLineData = thresholds
-      ? THRESHOLD_LINE_CONFIG.filter((config) => thresholds[config.key] !== null)
-          .map((config) => ({ ...config, value: thresholds[config.key]!, y: y(thresholds[config.key]!) }))
+    const thresholdLineData = activeThresholds
+      ? THRESHOLD_LINE_CONFIG.filter((config) => activeThresholds[config.key] !== null)
+          .map((config) => ({
+            ...config,
+            value: activeThresholds[config.key]!,
+            y: y(activeThresholds[config.key]!),
+          }))
           .filter((line) => line.y >= -5 && line.y <= 105)
       : [];
+
+    // Only the stages that landed inside the plot; the rest exist but are
+    // above the window, which the reader can tell from the axis.
+    const stageLineData = stageLevels
+      .map((stage) => ({ ...stage, y: y(stage.value) }))
+      .filter((line) => line.y >= 0 && line.y <= 100);
 
     // Collapse the optimal pair to one centred label, then drop any label that
     // would collide with one already placed.
@@ -299,8 +380,9 @@ export default function FlowTrendChart({
       xTicks: timeTicks(domain.t0, domain.t1, days <= 2 ? 4 : 5),
       thresholdLineData,
       thresholdLabels,
+      stageLineData,
     };
-  }, [history, thresholds, displayUnit, isFt, showTypical, days]);
+  }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days]);
 
   const hovered = useMemo<HoverPoint | null>(() => {
     if (hoverFraction === null || !chartData) return null;
@@ -382,10 +464,12 @@ export default function FlowTrendChart({
 
   const formatTooltipVal = (val: number) => (isFt ? val.toFixed(2) : Math.round(val).toLocaleString());
 
-  // Determine which condition zone a value falls in
+  // Determine which condition zone a value falls in. Reads the unit-guarded
+  // thresholds: a zone name is a claim about the water, and it must go silent
+  // on a mismatched axis exactly like the lines do.
   const getZoneLabel = (val: number): string | null => {
-    if (!thresholds) return null;
-    const { levelTooLow, levelLow, levelOptimalMin, levelOptimalMax, levelHigh, levelDangerous } = thresholds;
+    if (!activeThresholds) return null;
+    const { levelTooLow, levelLow, levelOptimalMin, levelOptimalMax, levelHigh, levelDangerous } = activeThresholds;
     if (levelDangerous !== null && val >= levelDangerous) return 'Flood';
     const highStart = levelOptimalMax ?? levelHigh;
     if (highStart !== null && val > highStart) return 'High';
@@ -669,6 +753,30 @@ export default function FlowTrendChart({
               />
             ))}
 
+            {/* NWS flood stages — over the bands and under the line: somebody
+                else's threshold laid across the picture must not sit behind a
+                condition fill that would tint it, and must not cover the
+                reading it is context for. Empty on a cfs axis by construction.
+                The labels live in the DOM overlay below, because text inside
+                this non-uniformly scaled SVG renders with the wrong aspect. */}
+            {chartData.stageLineData.map((line) => {
+              const def = FLOOD_STAGE_SYSTEM[line.key];
+              return (
+                <line
+                  key={`stage-${line.key}`}
+                  x1="0"
+                  x2="100"
+                  y1={line.y}
+                  y2={line.y}
+                  stroke={floodStageColor()}
+                  strokeWidth="1.5"
+                  strokeDasharray={def.dash}
+                  vectorEffect="non-scaling-stroke"
+                  opacity={def.opacity}
+                />
+              );
+            })}
+
             {chartData.observedAreas.map((d, i) => (
               <path key={`area-${i}`} d={d} fill={`url(#flowGradient-${gaugeSiteId})`} />
             ))}
@@ -776,6 +884,30 @@ export default function FlowTrendChart({
               </>
             )}
           </svg>
+
+          {/* NWS stage labels. In the DOM, on the same 0–100 percentage space
+              the SVG uses — the label carries "NWS" every time, because a bare
+              violet rule is an unattributed claim about danger. Above its own
+              line, pushed below it near the top edge so the topmost label
+              cannot clip out of the plot. */}
+          {chartData.stageLineData.map((line) => {
+            const def = FLOOD_STAGE_SYSTEM[line.key];
+            const nearTop = line.y < 10;
+            return (
+              <div
+                key={`stage-label-${line.key}`}
+                className="absolute left-1 pointer-events-none text-[9px] font-medium leading-none whitespace-nowrap"
+                style={{
+                  top: `${line.y}%`,
+                  color: floodStageColor(),
+                  opacity: Math.max(def.opacity, 0.75),
+                  transform: nearTop ? 'translateY(3px)' : 'translateY(calc(-100% - 3px))',
+                }}
+              >
+                {def.label}
+              </div>
+            );
+          })}
 
           {/* Tooltip popup. `left` is the same 0–100 number the SVG used, which
               is only true because the viewBox spans the container exactly. */}
