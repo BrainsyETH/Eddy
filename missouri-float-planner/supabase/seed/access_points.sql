@@ -2209,13 +2209,13 @@ ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 -- ── Float-endpoint eligibility, after every INSERT above ───────────────────
 --
 -- `supabase db reset` runs the migrations and THEN this file, so every row
--- inserted here lands on the DEFAULT FALSE that 20260823120000 gave
+-- inserted here lands on the DEFAULT FALSE that 20260823190713 gave
 -- `is_float_endpoint`. Without this statement a from-scratch database has 78
 -- approved access points and not one selectable put-in: the planner renders,
 -- the map draws, and both pickers are empty. Nothing errors, which is what
 -- makes it worth a comment rather than a fix nobody can find.
 --
--- This mirrors the backfill in 20260823120000 exactly — every approved row
+-- This mirrors the backfill in 20260823190713 exactly — every approved row
 -- becomes an endpoint except Montauk State Park, which is a headwaters park
 -- with its designated canoe access outside the park boundary. Keep the two in
 -- step: they answer the same question for the same rows.

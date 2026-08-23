@@ -78,7 +78,7 @@ ALTER TABLE public.access_points
   ADD COLUMN IF NOT EXISTS is_float_endpoint boolean NOT NULL DEFAULT false;
 
 COMMENT ON COLUMN public.access_points.is_float_endpoint IS
-  'May this point be chosen as a float put-in or take-out? Distinct from `approved`, which asks only whether an admin has reviewed the record and it may be shown at all. A park or campground on the water can be approved (page, pin, sitemap) while never being offered as a launch. Opt-in: see 20260823120000.';
+  'May this point be chosen as a float put-in or take-out? Distinct from `approved`, which asks only whether an admin has reviewed the record and it may be shown at all. A park or campground on the water can be approved (page, pin, sitemap) while never being offered as a launch. Opt-in: see 20260823190713.';
 
 -- Everything the planner offers TODAY keeps being offered. This is a
 -- behaviour-preserving backfill, not a re-classification — the audit that

@@ -208,7 +208,7 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     action: 'Set is_float_endpoint = true if this really is a launch.',
     where: '/admin/access-points',
     method:
-      'Eligibility is opt-in (20260823120000 added the column DEFAULT false), so a row added or approved without setting it lands here. Confirm the roles are honest first — the rule fires on access, boat_ramp, gravel_bar and bridge — then flip the flag. If the roles are the thing that is wrong, fix those instead.',
+      'Eligibility is opt-in (20260823190713 added the column DEFAULT false), so a row added or approved without setting it lands here. Confirm the roles are honest first — the rule fires on access, boat_ramp, gravel_bar and bridge — then flip the flag. If the roles are the thing that is wrong, fix those instead.',
   },
 
   // ── geometry and mileage ─────────────────────────────────────────────

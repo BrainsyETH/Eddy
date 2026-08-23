@@ -3,7 +3,7 @@
 //
 // ── Why a check and not a better default ─────────────────────────────────
 //
-// 20260823120000 added `is_float_endpoint` with DEFAULT FALSE, because the two
+// 20260823190713 added `is_float_endpoint` with DEFAULT FALSE, because the two
 // ways of being wrong are not equally bad: a launch wrongly marked ineligible is
 // visible-but-unselectable and gets reported the first time somebody looks for
 // it, while a park wrongly marked eligible offers a put-in where there is no

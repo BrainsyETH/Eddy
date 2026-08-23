@@ -113,7 +113,7 @@ async function main() {
         facilities: r.facilities ?? null,
         description: r.description ?? null,
         approved: false,
-        // Set here, not left to the column default. 20260823120000 made
+        // Set here, not left to the column default. 20260823190713 made
         // is_float_endpoint opt-in precisely so nothing becomes a launch by
         // accident — but a launch that nobody opts in is a put-in Eddy silently
         // never offers, which is the failure nobody reports. The importer knows

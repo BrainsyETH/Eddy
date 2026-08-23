@@ -45,7 +45,7 @@ export function launchRolesOf(
 /**
  * The default eligibility to OFFER for a record — never to apply silently.
  *
- * The column is opt-in (DEFAULT false, see 20260823120000) because offering a
+ * The column is opt-in (DEFAULT false, see 20260823190713) because offering a
  * launch where there is no ramp is a safety error. That makes this a
  * suggestion for a human to confirm or a pipeline to record deliberately, not
  * an inference anything should apply behind somebody's back.

@@ -21,7 +21,7 @@ export async function POST(
 
     // ── Approval must answer the second question too ──────────────────────
     //
-    // `is_float_endpoint` is opt-in (DEFAULT false, 20260823120000). Approving
+    // `is_float_endpoint` is opt-in (DEFAULT false, 20260823190713). Approving
     // a record without setting it produced a point that is drawn on the map,
     // has a public page, and is silently absent from both planner pickers —
     // the quiet half of the opt-in trade, and the half nobody reports.
