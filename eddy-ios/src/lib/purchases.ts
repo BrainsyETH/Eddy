@@ -553,6 +553,114 @@ export async function restorePurchases(): Promise<RestoreResult> {
 }
 
 /**
+ * What the SDK knows about this app's entitlement at one instant.
+ *
+ * Every field here is a COMPARISON key, not a display value. The snapshot
+ * exists to be taken twice — once before someone leaves for the App Store,
+ * once after the receipt syncs — so that "something happened" is an
+ * observation rather than an inference. `isActive` alone cannot carry that: an
+ * offer code issued to an EXISTING subscriber, which App Store Connect will
+ * happily issue, leaves it true on both sides while adding months.
+ */
+export interface EntitlementSnapshot {
+  isActive: boolean;
+  productIdentifier: string | null;
+  expirationDate: string | null;
+  latestPurchaseDate: string | null;
+  /**
+   * Read defensively. react-native-purchases 10 does not surface a transaction
+   * id on PurchasesEntitlementInfo, so this is null on today's SDK and the four
+   * fields above carry the whole signal. It is read anyway because a redemption
+   * whose dates happen to land identically is precisely the case a transaction
+   * id would catch, and the day the SDK exposes one this begins working with no
+   * other change here.
+   */
+  storeTransactionId: string | null;
+}
+
+/**
+ * The three honest answers to "did anything change while they were gone".
+ *
+ * `changed` deliberately does NOT mean "a code was redeemed". An ordinary
+ * renewal or a recovered billing problem moves the same fields, and Apple's
+ * offer codes are not all immediate extensions — free, pay-up-front and
+ * pay-as-you-go codes each land on their own schedule. Copy built on this says
+ * the subscription was UPDATED; it never claims a code was accepted.
+ * Attributing an entitlement to a specific code is a server job, because
+ * RevenueCat's webhook carries the offer identifier and CustomerInfo does not.
+ */
+export type RedemptionSyncResult =
+  | { status: 'changed'; entitled: boolean }
+  | { status: 'unchanged'; entitled: boolean }
+  | { status: 'error' };
+
+/**
+ * Reduce a RevenueCat CustomerInfo to the fields worth comparing.
+ *
+ * Takes the raw object rather than calling the SDK itself so that it stays pure
+ * and testable from Node — see purchase-copy.test.ts in the web app, which is
+ * the only runner this file's logic has.
+ */
+export function entitlementSnapshot(info: unknown): EntitlementSnapshot {
+  const active = (info as { entitlements?: { active?: Record<string, unknown> } })?.entitlements
+    ?.active?.[ENTITLEMENT_ID] as Record<string, unknown> | undefined;
+
+  const str = (value: unknown): string | null => (typeof value === 'string' ? value : null);
+
+  return {
+    isActive: Boolean(active),
+    productIdentifier: str(active?.productIdentifier),
+    expirationDate: str(active?.expirationDate),
+    latestPurchaseDate: str(active?.latestPurchaseDate),
+    storeTransactionId: str(active?.storeTransactionId),
+  };
+}
+
+/**
+ * Did the entitlement move between two snapshots?
+ *
+ * A null `before` means the baseline was never captured — no native module, or
+ * the read failed. That is not evidence of a change, so it reports `false`:
+ * this function exists to stop the app claiming a transaction it cannot see,
+ * and a missing baseline is exactly the case where it cannot see one.
+ */
+export function entitlementChanged(
+  before: EntitlementSnapshot | null,
+  after: EntitlementSnapshot,
+): boolean {
+  if (!before) return false;
+
+  return (
+    before.isActive !== after.isActive ||
+    before.productIdentifier !== after.productIdentifier ||
+    before.expirationDate !== after.expirationDate ||
+    before.latestPurchaseDate !== after.latestPurchaseDate ||
+    before.storeTransactionId !== after.storeTransactionId
+  );
+}
+
+/**
+ * The baseline, taken BEFORE the App Store opens.
+ *
+ * Timing is the whole point of it being its own function. RevenueCat observes
+ * StoreKit transactions on its own and can refresh CustomerInfo as the app
+ * foregrounds, so a "before" captured on the return trip may already contain
+ * the redemption it was supposed to predate. Null when there is nothing to read
+ * from, which degrades the comparison to `unchanged` — the safe direction.
+ */
+export async function readEntitlementSnapshot(): Promise<EntitlementSnapshot | null> {
+  const Purchases = loadPurchases();
+  if (!Purchases) return null;
+
+  try {
+    return entitlementSnapshot(await Purchases.getCustomerInfo());
+  } catch (error) {
+    purchaseDiagnostics()?.report(error, { operation: 'revenuecat.readEntitlementSnapshot' });
+    return null;
+  }
+}
+
+/**
  * Pull an App Store offer-code redemption into RevenueCat.
  *
  * A code is redeemed OUTSIDE the app — on the App Store screen that
@@ -561,28 +669,81 @@ export async function restorePurchases(): Promise<RestoreResult> {
  * the receipt, which is what syncPurchases() does; until then the webhook has
  * nothing to write and the paywall stays up for someone who just redeemed.
  *
- * Returns whether the SDK now sees the entitlement. That is the SDK's view,
- * not the verdict — the server stays the authority (see the file header), so
- * callers still wait for the backend (waitForEntitlement) before claiming
- * anything. Quiet on failure by design: this runs when the app foregrounds
- * after MAYBE redeeming, and most returns from the App Store are someone who
- * backed out. An error alert on every one of those would scold people for
- * looking.
+ * `before` is what readEntitlementSnapshot() saw before the App Store opened.
+ * Comparing against it separates the two returns this used to conflate: someone
+ * who redeemed, and someone already subscribed who looked and backed out. The
+ * result also separates a FAILED sync from a quiet one, which the old boolean
+ * collapsed into the same `false` — a valid code plus a dropped connection was
+ * indistinguishable from a cancel, and got the same silence.
+ *
+ * Still the SDK's view and not the verdict: the server stays the authority (see
+ * the file header), so callers wait for the backend before claiming anything.
  */
-export async function syncRedeemedPurchases(): Promise<boolean> {
+export async function syncRedeemedPurchases(
+  before: EntitlementSnapshot | null,
+): Promise<RedemptionSyncResult> {
   const Purchases = loadPurchases();
-  if (!Purchases) return false;
+  if (!Purchases) return { status: 'error' };
 
   try {
     await Purchases.syncPurchases();
     // Read the entitlement from getCustomerInfo() rather than syncPurchases()'s
     // return value: older SDK versions resolve the latter with nothing.
-    const info = await Purchases.getCustomerInfo();
-    return Boolean(info?.entitlements?.active?.[ENTITLEMENT_ID]);
+    const after = entitlementSnapshot(await Purchases.getCustomerInfo());
+
+    return {
+      status: entitlementChanged(before, after) ? 'changed' : 'unchanged',
+      entitled: after.isActive,
+    };
   } catch (error) {
     purchaseDiagnostics()?.report(error, { operation: 'revenuecat.syncRedeemedPurchases' });
-    return false;
+    return { status: 'error' };
   }
+}
+
+/**
+ * What to say when the app comes back from the App Store's redemption screen.
+ *
+ * Pure, and the only place this flow's copy lives, so the strings are checked
+ * from Node like every other string on the purchase path.
+ *
+ * `null` means SAY NOTHING, and it is the common case: most returns from that
+ * screen are someone who looked and backed out, and an alert on every one of
+ * those scolds people for looking.
+ *
+ * Note what is missing — any claim that a code was accepted. See
+ * RedemptionSyncResult for why the app is not in a position to know that.
+ */
+export function redemptionAlert(
+  result: RedemptionSyncResult,
+  serverConfirmed: boolean,
+): { title: string; message: string } | null {
+  // A failed sync is NOT a cancellation, and the old boolean made it look like
+  // one. Someone holding a valid code deserves to know the check did not run.
+  if (result.status === 'error') {
+    return {
+      title: 'Could not check your subscription',
+      message:
+        'Eddy could not reach the App Store. Any code you redeemed is safe on your Apple ID — try Restore purchases, or come back in a moment.',
+    };
+  }
+
+  if (result.status === 'unchanged') return null;
+
+  if (!result.entitled) {
+    return {
+      title: 'Subscription updated',
+      message:
+        'Something changed on this Apple ID, but Eddy still sees no active subscription. If you just redeemed a code, pull to refresh in a moment.',
+    };
+  }
+
+  return {
+    title: 'Subscription updated',
+    message: serverConfirmed
+      ? 'Eddy Premium is active on your account.'
+      : 'It can take a moment to show up. If this card still looks wrong in a minute, pull to refresh.',
+  };
 }
 
 /**
