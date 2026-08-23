@@ -458,6 +458,18 @@ export const MIN_GAUGE_ZOOM = ZOOM.min;
  */
 export const GAUGE_DETAIL_ZOOM = ZOOM.places;
 
+/**
+ * Where the national tier's fetch budget flips from OVERVIEW to DETAIL.
+ *
+ * A FETCH parameter, deliberately NOT an alias for ZOOM.places. It was, and
+ * that coupling meant retuning the ladder's marks rung — a purely visual
+ * decision — silently moved this flip with it, changing how many gauges a
+ * mid-zoom viewport requests. useViewportGauges asks for the server's full
+ * page below this and the smaller detail page above it; that trade is about
+ * payload size against viewport area, and it does not move when an icon does.
+ */
+export const GAUGE_FETCH_DETAIL_ZOOM = 10.5;
+
 
 /**
  * Required attribution for the radar tiles.

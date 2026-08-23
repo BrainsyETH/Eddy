@@ -9,9 +9,11 @@ import test from 'node:test';
 import {
   bboxContains,
   bboxGridSize,
+  mergeViewportItems,
   padBbox,
   quantizeBbox,
   type Bounds,
+  type ViewportItem,
 } from '../../../packages/eddy-geo/index';
 
 test('grid coarsens as the camera pulls back', () => {
@@ -86,4 +88,87 @@ test('containment is inclusive on the edges', () => {
   assert.ok(bboxContains(outer, [-99.5, 40.5, -99.4, 40.6]));
   assert.ok(!bboxContains(outer, [-100.1, 40, -99, 41]));
   assert.ok(!bboxContains(outer, [-100, 40, -98.9, 41]));
+});
+
+// ── mergeViewportItems ──────────────────────────────────────────────────────
+// The rule under test: a CAPPED payload is lossy, so what was legitimately on
+// screen inside its box is carried over; an UNCAPPED payload is the complete
+// contents of the box and replaces outright. See the function's header for why
+// merging into a complete answer would pin stale ghosts to the map.
+
+const BOX: Bounds = [-100, 40, -98, 42];
+
+function item(id: string, lng: number, lat: number, dischargeCfs: number | null): ViewportItem {
+  return { id, coordinates: { lng, lat }, dischargeCfs };
+}
+
+test('an uncapped payload replaces outright — complete answers are authoritative', () => {
+  const drawn = [item('stale', -99, 41, 500)];
+  const next = [item('a', -99.5, 41.5, 100)];
+  // Identity, not just contents: the caller must be able to reuse the server
+  // payload untouched, and a drawn count that could exceed the server's
+  // `total` starts exactly here.
+  assert.equal(mergeViewportItems(drawn, next, false, BOX), next);
+});
+
+test('a capped payload carries over drawn items inside its box, deduped by id', () => {
+  const drawn = [
+    item('kept', -99, 41, 5), // inside, not in next → carried over
+    item('dupe', -99.2, 41.2, 50), // inside, also in next → next's copy wins, once
+    item('outside', -101, 41, 900), // outside the fetched box → dropped
+  ];
+  const next = [item('a', -99.5, 41.5, 100), item('dupe', -99.2, 41.2, 50)];
+  const merged = mergeViewportItems(drawn, next, true, BOX);
+  assert.deepEqual(
+    merged.map((i) => i.id),
+    ['a', 'dupe', 'kept'],
+  );
+});
+
+test('nothing to carry over returns the payload untouched', () => {
+  const next = [item('a', -99.5, 41.5, 100)];
+  assert.equal(mergeViewportItems([], next, true, BOX), next);
+  // Everything drawn is already in the payload — same answer.
+  assert.equal(mergeViewportItems([item('a', -99.5, 41.5, 100)], next, true, BOX), next);
+});
+
+test('carried-over items sit on the box edge inclusively', () => {
+  // The fetched box is what the server answered for; a gauge ON its edge was
+  // in that answer's ground and must survive the merge.
+  const drawn = [item('edge', -100, 40, 10)];
+  const next = [item('a', -99, 41, 100)];
+  const merged = mergeViewportItems(drawn, next, true, BOX);
+  assert.deepEqual(
+    merged.map((i) => i.id),
+    ['a', 'edge'],
+  );
+});
+
+test('overflow drops carried-over items smallest-discharge first, never payload items', () => {
+  const drawn = [
+    item('small', -99.1, 41, 1),
+    item('mid', -99.2, 41, 50),
+    item('big', -99.3, 41, 900),
+    item('nullFlow', -99.4, 41, null), // ranks as 0 — dropped before any number
+  ];
+  const next = [item('a', -99.5, 41.5, 100), item('b', -99.6, 41.6, 200)];
+  const merged = mergeViewportItems(drawn, next, true, BOX, 4);
+  assert.deepEqual(
+    merged.map((i) => i.id),
+    ['a', 'b', 'big', 'mid'],
+  );
+});
+
+test('a payload already at the ceiling takes no extras at all', () => {
+  const drawn = [item('kept', -99, 41, 5000)];
+  const next = [item('a', -99.5, 41.5, 100), item('b', -99.6, 41.6, 200)];
+  const merged = mergeViewportItems(drawn, next, true, BOX, 2);
+  assert.equal(merged, next);
+});
+
+test('the merged set never exceeds the ceiling', () => {
+  const drawn = Array.from({ length: 50 }, (_, i) => item(`d${i}`, -99, 41, i));
+  const next = Array.from({ length: 10 }, (_, i) => item(`n${i}`, -99.5, 41.5, i));
+  const merged = mergeViewportItems(drawn, next, true, BOX, 30);
+  assert.equal(merged.length, 30);
 });
