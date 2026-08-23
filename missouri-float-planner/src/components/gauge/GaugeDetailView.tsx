@@ -29,6 +29,7 @@ import { EddyIcon } from '@/components/ui/EddyIcon';
 import { pickPrimaryRiverLink } from '@shared/primary-river-link';
 import { stationTier } from '@shared/station-tier';
 import GaugeSummary from '@/components/gauge/GaugeSummary';
+import ExpandedGaugeChart from '@/components/gauge/ExpandedGaugeChart';
 import { ageHoursOf } from '@/lib/utils/reading-age';
 
 interface GaugeDetailViewProps {
@@ -39,6 +40,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   // Seven days, and not restored from another gauge's prior selection.
   const [dateRange, setDateRange] = useState(7);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
+  const [expandedOpen, setExpandedOpen] = useState(false);
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
 
   // Eddy AI update
@@ -428,6 +430,12 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                     </button>
                   ))}
                 </div>
+                <button
+                  onClick={() => setExpandedOpen(true)}
+                  className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
+                >
+                  Expand
+                </button>
               </div>
             </div>
             <FlowTrendChart
@@ -445,6 +453,18 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               showProvenance
             />
           </div>
+
+          <ExpandedGaugeChart
+            open={expandedOpen}
+            onClose={() => setExpandedOpen(false)}
+            siteId={gauge.usgsSiteId}
+            siteName={gauge.name}
+            thresholds={chartThresholds}
+            floodStages={gaugeDetail?.floodStages ?? null}
+            displayUnit={effectiveUnit}
+            showTypical={tier !== 'rated'}
+            capabilities={gaugeDetail?.historyCapabilities ?? null}
+          />
 
           {/* Right column: Current Reading + Weather */}
           <div className="flex flex-col gap-4">

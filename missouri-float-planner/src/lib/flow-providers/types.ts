@@ -115,6 +115,44 @@ export interface HistoricalReading {
   qualifiers?: string[];
 }
 
+/**
+ * What produced each value in a history series. `instantaneous` is the
+ * sensor's own cadence (USGS IV, NWPS stageflow); the daily pair are USGS
+ * daily-values statistics — `daily_mean` is statistic 00003 (discharge's
+ * daily product) and `daily_selected` is 30800 ("selected value", stage's).
+ */
+export type HistoryStatistic = 'instantaneous' | 'daily_mean' | 'daily_selected';
+
+export interface HistoryFetchOptions {
+  /** Explicit window. When both are present they win over `days`. */
+  from?: Date;
+  to?: Date;
+  /**
+   * 'auto' (default): instantaneous within the provider's supported recent
+   * window, daily beyond it where the provider has daily values. 'instant'
+   * and 'daily' force one, and a provider that cannot serve the forced
+   * resolution for the window returns null rather than substituting.
+   */
+  resolution?: 'auto' | 'instant' | 'daily';
+}
+
+/**
+ * What a provider's history endpoint can actually serve — declared per
+ * provider instead of assumed-USGS-everywhere, which is how a 90-day request
+ * used to be clamped to 30 globally while an NWS station silently topped out
+ * near 30 and a USGS one could have gone further. Shipped on the wire
+ * (GaugeDetail.historyCapabilities): there is no client-side provider
+ * registry, so a client-side table would be a second copy waiting to drift.
+ */
+export interface HistoryCapabilities {
+  /** Longest window (days ending now) servable at instantaneous resolution. */
+  maxInstantDays: number;
+  /** Whether longer windows can be served from daily values. */
+  supportsDaily: boolean;
+  /** Whether explicit from/to windows are supported at all. */
+  supportsCustomRange: boolean;
+}
+
 export interface HistoricalData {
   siteId: string;
   siteName: string;
@@ -123,6 +161,12 @@ export interface HistoricalData {
   maxDischarge: number | null;
   minHeight: number | null;
   maxHeight: number | null;
+  /**
+   * How the series was sampled. Optional — absent means instantaneous, which
+   * is what every provider produced before daily values existed. A 1-year
+   * plot built from daily means must be able to say so.
+   */
+  statistic?: HistoryStatistic;
 }
 
 /**
@@ -140,8 +184,21 @@ export interface FlowProvider {
     options?: { skipCache?: boolean }
   ): Promise<GaugeReading[]>;
 
-  /** Recent observation history for one site (default 7 days). */
-  fetchHistory(siteId: string, days?: number): Promise<HistoricalData | null>;
+  /** What fetchHistory can serve for this provider's stations. */
+  readonly historyCapabilities: HistoryCapabilities;
+
+  /**
+   * Observation history for one site (default: last 7 days, instantaneous).
+   * `options` widens the old single-scalar contract — an explicit window
+   * and/or a resolution — and every implementation must honor its
+   * declared capabilities: an unsupported window returns null, never a
+   * silently different window than asked for.
+   */
+  fetchHistory(
+    siteId: string,
+    days?: number,
+    options?: HistoryFetchOptions
+  ): Promise<HistoricalData | null>;
 
   /**
    * Day-of-year discharge percentiles, or null when the provider has no

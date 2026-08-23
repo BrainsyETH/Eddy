@@ -1423,8 +1423,42 @@ export interface GaugeHistoryResponse {
   observedThrough: string | null;
   /** True when the server reduced the series. Extrema are retained either way. */
   sampled: boolean;
+  /** How the served series is spaced. 'daily' rows are one value per day. */
+  resolution: 'instant' | 'daily';
+  /**
+   * What produced each value: the sensor's own cadence, USGS statistic 00003
+   * (discharge daily mean), or 30800 (stage daily "selected value"). A 1-year
+   * plot is daily data and must be able to say so.
+   */
+  statistic: 'instantaneous' | 'daily_mean' | 'daily_selected';
+  /** The window the request asked for, resolved to explicit instants. */
+  requestedWindow: { from: string; to: string };
+  /**
+   * What the served series actually covers, or null when it is empty. Less
+   * than requestedWindow is DATA, not a bug — stage dailies are shallow, and
+   * NWPS holds ~30 days — which is why the gap is reported, never papered
+   * over.
+   */
+  coverageWindow: { from: string; to: string } | null;
+  /** True when coverageWindow reaches (near) both ends of requestedWindow. */
+  coverageComplete: boolean;
+  /** Why the response covers less than asked, in words, or null. */
+  truncationReason: string | null;
   /** Empty for non-USGS providers and for sites with no percentile record. */
   typical: GaugeTypicalReading[];
+  /**
+   * The unit-declared twin of `typical`, which is retained unchanged for
+   * deployed clients. Discharge-only until the stage publication policy in
+   * percentile-snapshot.ts opens.
+   */
+  seasonalRange: Array<{
+    date: string;
+    unit: 'cfs' | 'ft';
+    p25: number | null;
+    p50: number | null;
+    p75: number | null;
+    yearsOfRecord: number | null;
+  }>;
   /** Only points still ahead of observedThrough. Empty is the ordinary case. */
   forecast: GaugeForecastReading[];
   /** Null whenever forecast is empty, or when NWPS reports no issuance time. */

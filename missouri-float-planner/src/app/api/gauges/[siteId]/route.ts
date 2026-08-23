@@ -44,6 +44,13 @@ import { maxReadingAgeHours } from '@/lib/alerts/gate';
 import { classifyQualifiers } from '@/lib/usgs/gauges';
 import { resolveFloodStages, type GaugeFloodStages } from '@/lib/gauges/flood-stages';
 import { fetchWaterTemperature, type WaterTemperature } from '@/lib/usgs/water-temperature';
+import {
+  PARAM_DISCHARGE,
+  readSnapshotStatistics,
+  seasonalBandEligible,
+} from '@/lib/usgs/percentile-snapshot';
+import { flowBand, type FlowBand } from '@shared/flow-band';
+import type { HistoryCapabilities } from '@/lib/flow-providers/types';
 import { toNum } from '@/lib/utils/num';
 import { withX402Route } from '@/lib/x402-config';
 import { orderRiverLinks } from '@shared/primary-river-link';
@@ -130,6 +137,31 @@ export interface GaugeDetail {
   qualifierNote: string | null;
   /** 0-100 vs this site's own day-of-year history; null when none is held. */
   flowPercentile: number | null;
+  /**
+   * The seasonal comparison as one self-describing object: which parameter it
+   * compares, where today sits, which band that is (shared/flow-band.ts
+   * vocabulary — deliberately NOT FlowRating, whose two declarations disagree),
+   * and how deep the record behind it runs. Null whenever the publication
+   * policy withholds it (thin record, stage datum unresolved) — a missing
+   * comparison is strictly better than a confident wrong one. flowPercentile
+   * above stays live for deployed clients.
+   */
+  seasonalContext: {
+    unit: 'ft' | 'cfs';
+    parameterCode: string;
+    percentile: number;
+    band: FlowBand;
+    yearsOfRecord: number | null;
+    asOf: string;
+  } | null;
+  /**
+   * What this station's provider can serve /history requests from — on the
+   * wire because there is no client-side provider registry to consult, and a
+   * client-side table would be a second copy waiting to drift. Lets a client
+   * disable an unsupported range preset with an explanation instead of
+   * requesting it and shrugging at the truncation.
+   */
+  historyCapabilities: HistoryCapabilities;
   /**
    * The ladder, per river this station grades.
    *
@@ -396,6 +428,33 @@ async function _GET(
 
     const waterTemperature = await waterTemperaturePromise;
 
+    // The seasonal comparison, published only when the policy allows it: the
+    // band vocabulary is shared/flow-band.ts, the eligibility gate (record
+    // depth, stage datum silence) is percentile-snapshot.ts's. yearsOfRecord
+    // comes from the row actually used, never assumed across parameters.
+    let seasonalContext: GaugeDetail['seasonalContext'] = null;
+    if (provider === 'usgs' && row.flow_percentile != null) {
+      const band = flowBand(row.flow_percentile);
+      const statsRow = band ? await readSnapshotStatistics(supabase, siteId) : null;
+      if (
+        band &&
+        statsRow &&
+        seasonalBandEligible({
+          parameterCode: PARAM_DISCHARGE,
+          yearsOfRecord: statsRow.yearsOfRecord,
+        })
+      ) {
+        seasonalContext = {
+          unit: 'cfs',
+          parameterCode: PARAM_DISCHARGE,
+          percentile: row.flow_percentile,
+          band,
+          yearsOfRecord: statsRow.yearsOfRecord,
+          asOf: new Date().toISOString(),
+        };
+      }
+    }
+
     const gauge: GaugeDetail = {
       id: row.id,
       siteId,
@@ -412,6 +471,12 @@ async function _GET(
       readingSuspect: suspect,
       qualifierNote: note,
       flowPercentile: row.flow_percentile,
+      seasonalContext,
+      historyCapabilities: getFlowProvider(provider)?.historyCapabilities ?? {
+        maxInstantDays: 30,
+        supportsDaily: false,
+        supportsCustomRange: false,
+      },
       thresholds: orderedThresholds.length > 0 ? orderedThresholds : null,
       floodStages,
       waterTemperature,

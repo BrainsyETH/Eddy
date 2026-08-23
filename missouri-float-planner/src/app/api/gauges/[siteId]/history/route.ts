@@ -93,15 +93,15 @@ async function fetchHistoryFromDb(
   supabase: ReturnType<typeof createAdminClient>,
   station: Station,
   siteId: string,
-  days: number
+  window: { from: Date; to: Date | null }
 ): Promise<HistoricalData | null> {
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-  const { data: rows, error } = await supabase
+  let query = supabase
     .from('gauge_readings')
     .select('reading_timestamp, gauge_height_ft, discharge_cfs, qualifiers')
     .eq('gauge_station_id', station.id)
-    .gte('reading_timestamp', since)
-    .order('reading_timestamp', { ascending: true });
+    .gte('reading_timestamp', window.from.toISOString());
+  if (window.to) query = query.lte('reading_timestamp', window.to.toISOString());
+  const { data: rows, error } = await query.order('reading_timestamp', { ascending: true });
 
   if (error || !rows) return null;
 
@@ -196,10 +196,15 @@ function serverDateKey(date: Date): string {
 async function fetchTypicalRange(
   supabase: ReturnType<typeof createAdminClient>,
   usgsSiteId: string,
-  days: number
+  window: { from: Date; to: Date | null }
 ): Promise<GaugeTypicalReading[]> {
+  const end = window.to ?? new Date();
+  const days = Math.min(
+    366,
+    Math.max(1, Math.ceil((end.getTime() - window.from.getTime()) / 86_400_000))
+  );
   const dates = Array.from({ length: days + 1 }, (_, index) => {
-    const date = new Date();
+    const date = new Date(end);
     date.setHours(12, 0, 0, 0);
     date.setDate(date.getDate() - (days - index));
     return date;
@@ -241,36 +246,154 @@ async function _GET(
     const { searchParams } = new URL(request.url);
     const days = parseInt(searchParams.get('days') || '7', 10);
 
-    // Validate days parameter (max 30 days)
-    const validDays = Math.min(Math.max(days, 1), 30);
+    // ── The request, validated rather than coerced ─────────────────────────
+    // `days` keeps its original clamp-to-legal behaviour exactly — deployed
+    // clients send ?days=1|7|30 and depend on it. The ADDITIVE parameters
+    // (`from`, `to`, `resolution`) are REJECTED when invalid instead: a
+    // client that asks for a reversed window typed it, and silently serving
+    // some other window is worse than a 400 that says what was wrong.
+    const fromParam = searchParams.get('from');
+    const toParam = searchParams.get('to');
+    const resolutionParam = searchParams.get('resolution');
 
-    // Prefer the cron-populated DB; fall back to the live upstream when it is
-    // sparse OR stale. Stale is the case that matters for any station the cron
-    // no longer polls — see MAX_DB_AGE_HOURS.
-    //
-    // The fallback goes through the provider registry rather than straight to
-    // USGS: this route is provider-agnostic, and a usace or nws station
-    // reaching fetchHistoricalReadings would query waterservices with an id
-    // that means nothing there.
+    if (resolutionParam && !['auto', 'instant', 'daily'].includes(resolutionParam)) {
+      return NextResponse.json(
+        { error: `Invalid resolution '${resolutionParam}' — expected auto, instant, or daily` },
+        { status: 400 }
+      );
+    }
+    const resolution = (resolutionParam ?? 'auto') as 'auto' | 'instant' | 'daily';
+
+    let from: Date | null = null;
+    let to: Date | null = null;
+    if (fromParam !== null || toParam !== null) {
+      if (fromParam === null) {
+        return NextResponse.json({ error: "'to' requires 'from'" }, { status: 400 });
+      }
+      from = new Date(fromParam);
+      if (!Number.isFinite(from.getTime())) {
+        return NextResponse.json({ error: `Invalid 'from' date: ${fromParam}` }, { status: 400 });
+      }
+      if (toParam !== null) {
+        to = new Date(toParam);
+        if (!Number.isFinite(to.getTime())) {
+          return NextResponse.json({ error: `Invalid 'to' date: ${toParam}` }, { status: 400 });
+        }
+        if (to.getTime() <= from.getTime()) {
+          return NextResponse.json(
+            { error: "'to' must be after 'from'" },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     const supabase = createAdminClient();
     const station = await findStation(supabase, siteId);
-    let historicalData = station
-      ? await fetchHistoryFromDb(supabase, station, siteId, validDays)
-      : null;
-
-    const newest = historicalData?.readings.at(-1)?.timestamp;
-    const ageHours = newest ? (Date.now() - new Date(newest).getTime()) / 3_600_000 : Infinity;
-    const stale = !Number.isFinite(ageHours) || ageHours > MAX_DB_AGE_HOURS;
-
     const providerId = station?.provider ?? DEFAULT_PROVIDER_ID;
     const provider = getFlowProvider(providerId);
+    // Provider-declared limits replace the old global 30-day clamp, which was
+    // provider-blind in both directions: it capped USGS below what daily
+    // values can serve and implied 30 days for sources that top out sooner.
+    const capabilities = provider?.historyCapabilities ?? {
+      maxInstantDays: 30,
+      supportsDaily: false,
+      supportsCustomRange: false,
+    };
 
-    if (!historicalData || historicalData.readings.length < MIN_DB_POINTS || stale) {
-      const live = provider ? await provider.fetchHistory(siteId, validDays) : null;
-      // When the stored history is merely STALE the live series is the better
-      // answer even if it is shorter, so the length comparison that guards the
-      // sparse case must not veto it.
-      if (live && (!historicalData || stale || live.readings.length > historicalData.readings.length)) {
+    if (from && !capabilities.supportsCustomRange) {
+      return NextResponse.json(
+        { error: `The ${providerId} provider does not support custom date ranges` },
+        { status: 400 }
+      );
+    }
+
+    // The window this response is ABOUT. Days-mode keeps its floor of 1; its
+    // ceiling is now what the provider can actually serve — instantaneous to
+    // maxInstantDays, a year of daily values beyond that where supported.
+    const maxServableDays = capabilities.supportsDaily ? 366 : capabilities.maxInstantDays;
+    const validDays = Math.min(Math.max(Number.isFinite(days) ? days : 7, 1), maxServableDays);
+    let truncationReason: string | null =
+      Number.isFinite(days) && days > maxServableDays
+        ? `Requested ${days} days; the ${providerId} provider serves at most ${maxServableDays}`
+        : null;
+
+    const requestedFrom = from ?? new Date(Date.now() - validDays * 86_400_000);
+    const requestedTo = to; // null = "now"
+    const window = { from: requestedFrom, to: requestedTo };
+    const windowDays = Math.max(
+      1,
+      Math.ceil(((requestedTo ?? new Date()).getTime() - requestedFrom.getTime()) / 86_400_000)
+    );
+
+    // Whether this request is served from daily values. Mirrors the USGS
+    // provider's own dispatch so the response can SAY what it is before the
+    // data arrives: a 1-year plot is daily data and must be labelled as such.
+    const startAgeDays = (Date.now() - requestedFrom.getTime()) / 86_400_000;
+    const instantServable =
+      windowDays <= capabilities.maxInstantDays && startAgeDays <= capabilities.maxInstantDays + 1;
+    const useDaily =
+      resolution === 'daily' || (resolution === 'auto' && !instantServable && capabilities.supportsDaily);
+
+    if (resolution === 'daily' && !capabilities.supportsDaily) {
+      return NextResponse.json(
+        { error: `The ${providerId} provider has no daily-values product` },
+        { status: 400 }
+      );
+    }
+    if (resolution === 'instant' && !instantServable) {
+      return NextResponse.json(
+        {
+          error: `Instantaneous data covers roughly the last ${capabilities.maxInstantDays} days for this provider — use daily resolution for older windows`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // ── Source selection: freshness AND completeness, never point count
+    // alone ────────────────────────────────────────────────────────────────
+    // ~14,000 stations pass a bare MIN_DB_POINTS check on history frozen the
+    // day the cron stopped polling them. Daily-resolution and custom-window
+    // requests skip the DB outright — its rows are instantaneous and recent.
+    let historicalData: HistoricalData | null = null;
+    if (!useDaily && !from && station) {
+      historicalData = await fetchHistoryFromDb(supabase, station, siteId, window);
+    }
+
+    const newest = historicalData?.readings.at(-1)?.timestamp;
+    const oldest = historicalData?.readings[0]?.timestamp;
+    const ageHours = newest ? (Date.now() - new Date(newest).getTime()) / 3_600_000 : Infinity;
+    const stale = !Number.isFinite(ageHours) || ageHours > MAX_DB_AGE_HOURS;
+    // Complete enough = the stored series actually reaches back near the
+    // requested start. A window served from its back half reads as "the
+    // river was quiet last week" when the truth is "we stopped recording".
+    const coverageSlackMs = windowDays * 86_400_000 * 0.1;
+    const dbIncomplete =
+      !oldest || new Date(oldest).getTime() > requestedFrom.getTime() + coverageSlackMs;
+
+    if (
+      !historicalData ||
+      historicalData.readings.length < MIN_DB_POINTS ||
+      stale ||
+      dbIncomplete
+    ) {
+      const live = provider
+        ? await provider.fetchHistory(siteId, validDays, {
+            from: from ?? undefined,
+            to: to ?? undefined,
+            resolution,
+          })
+        : null;
+      // When the stored history is merely STALE or INCOMPLETE the live series
+      // is the better answer even if it is shorter, so the length comparison
+      // that guards the sparse case must not veto it.
+      if (
+        live &&
+        (!historicalData ||
+          stale ||
+          dbIncomplete ||
+          live.readings.length > historicalData.readings.length)
+      ) {
         historicalData = live;
       }
     }
@@ -294,7 +417,7 @@ async function _GET(
     const usgsSiteId = station ? station.usgs_site_id : siteId;
     const [typical, forecastDoc] = await Promise.all([
       providerId === 'usgs' && usgsSiteId
-        ? fetchTypicalRange(supabase, usgsSiteId, validDays)
+        ? fetchTypicalRange(supabase, usgsSiteId, window)
         : Promise.resolve([] as GaugeTypicalReading[]),
       station?.nws_lid ? fetchNwsForecast(station.nws_lid) : Promise.resolve(null),
     ]);
@@ -310,8 +433,48 @@ async function _GET(
     // readings: [] is a valid response body — forecast-only stations ship an
     // empty observed series, and clients build the domain from the forecast.
     const rawReadings = (historicalData?.readings ?? []) as GaugeHistoryReading[];
-    const readings = sampleHistory(rawReadings, validDays);
+    const readings = sampleHistory(rawReadings, windowDays);
     const observedThrough = readings.at(-1)?.timestamp ?? null;
+
+    // What the served series actually covers, against what was asked for.
+    // Reported rather than inferred client-side, because only the server
+    // knows whether a short answer is truncation or the whole record — a
+    // 1-year stage request legitimately returns less than a year on a
+    // station whose stage dailies are shallow.
+    const coverageWindow = readings.length
+      ? { from: readings[0].timestamp, to: readings.at(-1)!.timestamp }
+      : null;
+    const requestedWindow = {
+      from: requestedFrom.toISOString(),
+      to: (requestedTo ?? new Date()).toISOString(),
+    };
+    const coverageComplete = Boolean(
+      coverageWindow &&
+        new Date(coverageWindow.from).getTime() <=
+          requestedFrom.getTime() + coverageSlackMs &&
+        (requestedTo
+          ? new Date(coverageWindow.to).getTime() >= requestedTo.getTime() - coverageSlackMs
+          : !stale || historicalData?.statistic?.startsWith('daily') === true)
+    );
+    if (!truncationReason && coverageWindow && !coverageComplete) {
+      truncationReason = 'The source holds less history than the requested window';
+    }
+
+    const servedStatistic = historicalData?.statistic ?? 'instantaneous';
+    const servedResolution: 'instant' | 'daily' =
+      servedStatistic === 'instantaneous' ? 'instant' : 'daily';
+
+    // The generic, unit-declared twin of `typical`, which is retained
+    // unchanged for deployed clients. Discharge only until the stage
+    // publication policy in percentile-snapshot.ts opens.
+    const seasonalRange = typical.map((row) => ({
+      date: row.date,
+      unit: 'cfs' as const,
+      p25: row.p25Cfs,
+      p50: row.p50Cfs,
+      p75: row.p75Cfs,
+      yearsOfRecord: row.yearsOfRecord,
+    }));
 
     // Only the part of the forecast that is still ahead of the observed series.
     // NWPS reissues on a schedule, so its early points overlap what already
@@ -329,7 +492,14 @@ async function _GET(
       readings,
       observedThrough,
       sampled: readings.length < rawReadings.length,
+      resolution: servedResolution,
+      statistic: servedStatistic,
+      requestedWindow,
+      coverageWindow,
+      coverageComplete,
+      truncationReason,
       typical,
+      seasonalRange,
       forecast,
       forecastIssuedAt: forecast.length ? forecastDoc?.issuedAt ?? null : null,
       sourceUrl: provider?.publicUrl(siteId) ?? null,

@@ -1096,6 +1096,32 @@ export interface GaugeDetail {
    * water-temperature series). Display it only WITH its measurement age.
    */
   waterTemperature?: { valueF: number; observedAt: string; source: 'usgs' } | null;
+  /**
+   * The seasonal comparison as one self-describing object. `band` speaks
+   * shared/flow-band.ts's vocabulary (comparison, never verdict) —
+   * deliberately NOT FlowRating. Optional: a build predating it reads
+   * flowPercentile exactly as before; absent means "not published", the same
+   * as null (thin record, stage datum unresolved, non-USGS provider).
+   */
+  seasonalContext?: {
+    unit: 'ft' | 'cfs';
+    parameterCode: string;
+    percentile: number;
+    band: 'much_lower' | 'lower' | 'normal' | 'higher' | 'much_higher';
+    yearsOfRecord: number | null;
+    asOf: string;
+  } | null;
+  /**
+   * What this station's provider can serve /history requests from. Optional
+   * for older payloads; absent should be read as the pre-capability world —
+   * up to 30 instantaneous days, nothing custom — so a client never offers a
+   * range the server may not honor.
+   */
+  historyCapabilities?: {
+    maxInstantDays: number;
+    supportsDaily: boolean;
+    supportsCustomRange: boolean;
+  };
   /** The station's own public page, or null for a provider without one. */
   publicUrl: string | null;
   /**
@@ -1177,6 +1203,29 @@ export interface GaugeHistoryResponse {
   forecastIssuedAt?: string | null;
   /** Publisher page, for attribution and deeper inspection. */
   sourceUrl?: string | null;
+  /**
+   * Release-3 additions, optional for the same reason as the block above: a
+   * TestFlight build predating them must render the chart unchanged, and a
+   * payload cached by one carries none of them. Clients read them through
+   * the shared normalizer (@eddy/conditions/history-normalize), which
+   * derives what can be derived and defaults the rest — absent resolution
+   * reads as 'instant', absent statistic as 'instantaneous'.
+   */
+  resolution?: 'instant' | 'daily';
+  statistic?: 'instantaneous' | 'daily_mean' | 'daily_selected';
+  requestedWindow?: { from: string; to: string } | null;
+  coverageWindow?: { from: string; to: string } | null;
+  coverageComplete?: boolean;
+  truncationReason?: string | null;
+  /** Unit-declared twin of `typical`; discharge-only until stage opens. */
+  seasonalRange?: Array<{
+    date: string;
+    unit: 'cfs' | 'ft';
+    p25: number | null;
+    p50: number | null;
+    p75: number | null;
+    yearsOfRecord: number | null;
+  }>;
   /**
    * Extremes over the returned window, per unit.
    *

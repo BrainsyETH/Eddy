@@ -1,65 +1,65 @@
 // src/hooks/useGaugeHistory.ts
-// React Query hook for fetching gauge history (default 14-day)
+// React Query hook for fetching gauge history.
+//
+// Normalization happens once here, at the fetch boundary, via the SHARED
+// normalizer (shared/history-normalize.ts) — the same one the iOS client
+// runs — so a response cached before a field existed, or served by an older
+// deploy mid-rollout, still satisfies the type every chart trusts. Deriving
+// where a derivation exists (observedThrough from the last reading,
+// seasonalRange from typical) rather than defaulting to null is the
+// normalizer's rule, not this file's; see its header.
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
-import type {
-  GaugeHistoryReading as HistoricalReading,
-  GaugeHistoryResponse,
-} from '@/types/api';
+import {
+  normalizeGaugeHistory,
+  type NormalizedGaugeHistory,
+} from '@shared/history-normalize';
+import type { GaugeHistoryReading as HistoricalReading } from '@/types/api';
 
-export type { HistoricalReading, GaugeHistoryResponse };
+export type { HistoricalReading, NormalizedGaugeHistory };
+/** The normalized shape every consumer sees; the wire type is in types/api. */
+export type GaugeHistoryResponse = NormalizedGaugeHistory;
 
 /**
- * Fill in the context fields a payload may not carry.
- *
- * GaugeHistoryResponse declares `typical`, `forecast` and friends as required,
- * which is true of what the endpoint sends TODAY and not true of everything a
- * browser can hand this hook: a response cached before those fields existed, or
- * one served by an older deploy mid-rollout. TypeScript cannot see either case,
- * so `history.typical.length` would be a TypeError at render with no compile
- * error anywhere near it.
- *
- * Normalizing once here — rather than making every field optional and pushing a
- * `?? []` onto each of the three charts — means the rest of the app can trust
- * the type it has been given.
+ * An explicit window for the expanded mode's 90d / 1y / custom ranges.
+ * `days` keeps its behaviour exactly for every existing caller.
  */
-function normalizeHistory(raw: Partial<GaugeHistoryResponse> | null): GaugeHistoryResponse | null {
-  if (!raw || !Array.isArray(raw.readings)) return null;
-  return {
-    siteId: raw.siteId ?? '',
-    siteName: raw.siteName ?? '',
-    readings: raw.readings,
-    observedThrough: raw.observedThrough ?? raw.readings.at(-1)?.timestamp ?? null,
-    sampled: raw.sampled ?? false,
-    typical: raw.typical ?? [],
-    forecast: raw.forecast ?? [],
-    forecastIssuedAt: raw.forecastIssuedAt ?? null,
-    sourceUrl: raw.sourceUrl ?? null,
-    stats: raw.stats ?? {
-      minDischarge: null,
-      maxDischarge: null,
-      minHeight: null,
-      maxHeight: null,
-    },
-  };
+export interface HistoryWindowRequest {
+  from: string;
+  to?: string | null;
+  resolution?: 'auto' | 'instant' | 'daily';
 }
 
-async function fetchHistory(siteId: string, days: number): Promise<GaugeHistoryResponse | null> {
-  const response = await fetch(`/api/gauges/${siteId}/history?days=${days}`);
+async function fetchHistory(
+  siteId: string,
+  days: number,
+  window?: HistoryWindowRequest | null,
+): Promise<NormalizedGaugeHistory | null> {
+  const params = new URLSearchParams({ days: String(days) });
+  if (window?.from) params.set('from', window.from);
+  if (window?.to) params.set('to', window.to);
+  if (window?.resolution && window.resolution !== 'auto') {
+    params.set('resolution', window.resolution);
+  }
+  const response = await fetch(`/api/gauges/${siteId}/history?${params.toString()}`);
   if (!response.ok) {
     if (response.status === 404) return null;
     throw new Error('Failed to fetch gauge history');
   }
-  return normalizeHistory(await response.json());
+  return normalizeGaugeHistory(await response.json());
 }
 
-export function useGaugeHistory(siteId: string | null, days: number = 14) {
-  return useQuery<GaugeHistoryResponse | null, Error>({
-    queryKey: ['gaugeHistory', siteId, days],
-    queryFn: async (): Promise<GaugeHistoryResponse | null> => {
+export function useGaugeHistory(
+  siteId: string | null,
+  days: number = 14,
+  window?: HistoryWindowRequest | null,
+) {
+  return useQuery<NormalizedGaugeHistory | null, Error>({
+    queryKey: ['gaugeHistory', siteId, days, window?.from ?? null, window?.to ?? null, window?.resolution ?? 'auto'],
+    queryFn: async (): Promise<NormalizedGaugeHistory | null> => {
       if (!siteId) return null;
-      return fetchHistory(siteId, days);
+      return fetchHistory(siteId, days, window);
     },
     enabled: !!siteId,
     staleTime: 30 * 60 * 1000, // 30 minutes
@@ -77,8 +77,8 @@ export function useGaugeHistoryPrefetch() {
   return useCallback((siteIds: string[], days: number = 14) => {
     for (const siteId of siteIds) {
       queryClient.prefetchQuery({
-        queryKey: ['gaugeHistory', siteId, days],
-        queryFn: (): Promise<GaugeHistoryResponse | null> => fetchHistory(siteId, days),
+        queryKey: ['gaugeHistory', siteId, days, null, null, 'auto'],
+        queryFn: (): Promise<NormalizedGaugeHistory | null> => fetchHistory(siteId, days),
         staleTime: 30 * 60 * 1000,
       });
     }

@@ -42,11 +42,12 @@
 // number, so the readout and the crosshair cannot drift apart.
 
 import { useMemo, useState, useRef, useCallback, type ReactNode } from 'react';
-import { useGaugeHistory } from '@/hooks/useGaugeHistory';
+import { useGaugeHistory, type HistoryWindowRequest } from '@/hooks/useGaugeHistory';
 import {
   chartDomain,
   chartPoints,
   chartSegments,
+  latestObservedPoint,
   nearestChartPoint,
   niceValueTicks,
   qualifierText,
@@ -164,6 +165,31 @@ interface FlowTrendChartProps {
    */
   showProvenance?: boolean;
   /**
+   * Explicit request window for the expanded mode's 90d / 1y / custom
+   * ranges. Absent for every inline chart — `days` alone keeps its exact
+   * pre-existing behaviour.
+   */
+  window?: HistoryWindowRequest | null;
+  /**
+   * A client-side zoom onto the loaded series (epoch-ms bounds), owned by the
+   * expanded mode. The inline chart never passes it: per ADR 0010, new
+   * affordances go to the expanded surface, not the already-dense inline one.
+   */
+  zoomWindow?: { t0: number; t1: number } | null;
+  /**
+   * Neutral horizontal gridlines at the value ticks. Expanded mode only, per
+   * ADR 0010 — the inline chart already carries five threshold rules and a
+   * typical band, and more horizontal lines there compete with meaning.
+   */
+  showGridlines?: boolean;
+  /**
+   * Enables pointer/touch BRUSH selection: drag across the plot, release, and
+   * this fires with the selected time range. Scrubbing stays on hover and on
+   * the arrow keys — the ADR's one hard rule is that zoom never repurposes
+   * the scrub keys, which are the accessibility story this chart wins on.
+   */
+  onBrushZoom?: (window: { t0: number; t1: number }) => void;
+  /**
    * Whether pointer and keyboard can scrub the series.
    *
    * ON BY DEFAULT, OFF FOR CARDS, and that is the navigation fix rather than a
@@ -190,10 +216,18 @@ export default function FlowTrendChart({
   showTypical = false,
   showProvenance = false,
   interactive = true,
+  window: requestWindow,
+  zoomWindow,
+  onBrushZoom,
+  showGridlines = false,
 }: FlowTrendChartProps) {
-  const { data: history, isLoading, error } = useGaugeHistory(gaugeSiteId, days);
+  const { data: history, isLoading, error } = useGaugeHistory(gaugeSiteId, days, requestWindow);
   const isFt = displayUnit === 'ft';
   const [hoverFraction, setHoverFraction] = useState<number | null>(null);
+  // Brush selection, as fractions of the plot width. Only ever set when
+  // onBrushZoom is provided (the expanded mode); the inline chart cannot
+  // grow this affordance by accident.
+  const [brush, setBrush] = useState<{ start: number; end: number } | null>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
   // The declared-unit guard, applied once so every consumer below — the lines,
@@ -209,11 +243,13 @@ export default function FlowTrendChart({
   const chartData = useMemo(() => {
     if (!history) return null;
 
-    const observed = chartPoints(history.readings, displayUnit);
+    const inZoom = (point: { t: number }) =>
+      !zoomWindow || (point.t >= zoomWindow.t0 && point.t <= zoomWindow.t1);
+    const observed = chartPoints(history.readings, displayUnit).filter(inZoom);
 
     // Forecast points share the reading shape, so the same reader applies —
     // including its refusal to invent a value for the unit that is absent.
-    const forecast = chartPoints(history.forecast, displayUnit);
+    const forecast = chartPoints(history.forecast, displayUnit).filter(inZoom);
 
     // ONE READING PLUS A FORECAST IS A CHART. This guard used to run before the
     // forecast was read and to demand two OBSERVED points, so a gauge with one
@@ -230,14 +266,20 @@ export default function FlowTrendChart({
     // 6,830 with no stored readings at all take the live-upstream fallback or
     // the 404. So the cheap half ships and the expensive half waits for a
     // station that needs it, which starts as a route change, not a chart one.
-    if (!observed.length || (observed.length < 2 && !forecast.length)) return null;
+    // A chart is constructible from observed points, forecast points, or
+    // both. ZERO observed with a real forecast is a served response now —
+    // the endpoint stopped 404ing forecast-only stations — so `current`
+    // (the newest observed reading) is nullable and everything downstream
+    // says so instead of assuming.
+    if (!observed.length && !forecast.length) return null;
+    if (!forecast.length && observed.length < 2) return null;
 
     // Percentiles are a discharge statistic; there is no stage equivalent in
     // usgs_daily_percentiles, so a foot axis simply has no typical range.
     const typical = showTypical && !isFt
       ? history.typical.flatMap((row) => {
           const t = new Date(`${row.date}T12:00:00`).getTime();
-          return Number.isFinite(t) && row.p50Cfs !== null
+          return Number.isFinite(t) && row.p50Cfs !== null && inZoom({ t })
             ? [{ t, median: row.p50Cfs, low: row.p25Cfs, high: row.p75Cfs }]
             : [];
         })
@@ -347,7 +389,7 @@ export default function FlowTrendChart({
       }
     }
 
-    const current = observed[observed.length - 1];
+    const current = latestObservedPoint(observed);
     return {
       observed,
       forecast,
@@ -359,7 +401,7 @@ export default function FlowTrendChart({
       observedAreas: observedSplit.lines.map(areaFor),
       // The newest reading is excluded because it already has the current-value
       // dot; drawing both would stack two circles of different radii.
-      observedDots: observedSplit.isolated.filter((point) => point.t !== current.t),
+      observedDots: observedSplit.isolated.filter((point) => point.t !== current?.t),
       // Every instant a keyboard can land on, in order. Stepping by POINT rather
       // than by a fraction of the width is what makes arrow keys usable: a 14-day
       // window is ~340 points across ~700px, so a pixel step would sometimes move
@@ -382,7 +424,7 @@ export default function FlowTrendChart({
       thresholdLabels,
       stageLineData,
     };
-  }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days]);
+  }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days, zoomWindow]);
 
   const hovered = useMemo<HoverPoint | null>(() => {
     if (hoverFraction === null || !chartData) return null;
@@ -399,11 +441,33 @@ export default function FlowTrendChart({
       : { point: forecast, kind: 'forecast' };
   }, [hoverFraction, chartData]);
 
-  const handleInteraction = useCallback((clientX: number) => {
+  const fractionAt = useCallback((clientX: number): number | null => {
     const rect = chartContainerRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0) return;
-    setHoverFraction(Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)));
+    if (!rect || rect.width === 0) return null;
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   }, []);
+
+  const handleInteraction = useCallback((clientX: number) => {
+    const fraction = fractionAt(clientX);
+    if (fraction !== null) setHoverFraction(fraction);
+  }, [fractionAt]);
+
+  const commitBrush = useCallback(() => {
+    setBrush((current) => {
+      if (current && onBrushZoom && chartData) {
+        const [a, b] = [current.start, current.end].sort((x, y) => x - y);
+        // A sub-2% drag is a click that wobbled, not a zoom request.
+        if (b - a > 0.02) {
+          const span = chartData.domain.t1 - chartData.domain.t0 || 1;
+          onBrushZoom({
+            t0: chartData.domain.t0 + a * span,
+            t1: chartData.domain.t0 + b * span,
+          });
+        }
+      }
+      return null;
+    });
+  }, [onBrushZoom, chartData]);
 
   /** Put the scrub on an instant, as the fraction the pointer path also speaks. */
   const scrubToTime = useCallback(
@@ -429,7 +493,7 @@ export default function FlowTrendChart({
       if (!chartData) return;
       const from =
         hoverFraction === null
-          ? chartData.current.t
+          ? chartData.current?.t ?? chartData.scrubTimes[chartData.scrubTimes.length - 1]
           : chartData.domain.t0 + hoverFraction * (chartData.domain.t1 - chartData.domain.t0 || 1);
       const next = stepScrubTime(chartData.scrubTimes, from, step);
       if (next !== null) scrubToTime(next);
@@ -490,9 +554,12 @@ export default function FlowTrendChart({
 
   const unitLabel = isFt ? 'ft' : 'cfs';
   const chartLabel = isFt ? 'Stage (ft)' : 'Flow (cfs)';
-  const currentDisplay = latestValue ?? chartData.current.v;
+  const currentDisplay = latestValue ?? chartData.current?.v ?? null;
   const hasForecast = chartData.forecast.length > 0;
-  const nowX = chartData.x(chartData.current.t);
+  // The now-line and the current dot exist only when a current READING does;
+  // a forecast-only chart has no "now" boundary to draw, and inventing one
+  // at the forecast's start would claim an observation nobody took.
+  const nowX = chartData.current ? chartData.x(chartData.current.t) : null;
   const hoveredQualifiers = hovered?.kind === 'observed' ? qualifierText(hovered.point.qualifiers) : null;
 
   /**
@@ -512,7 +579,9 @@ export default function FlowTrendChart({
       ]
         .filter(Boolean)
         .join(', ')
-    : `${formatVal(currentDisplay)} ${unitLabel}, latest reading`;
+    : currentDisplay != null
+      ? `${formatVal(currentDisplay)} ${unitLabel}, latest reading`
+      : 'No current reading; forecast only';
 
   const forecastIssued = (() => {
     const raw = history?.forecastIssuedAt;
@@ -574,15 +643,51 @@ export default function FlowTrendChart({
         // promised a Home/End that could not arrive.
         'aria-valuemin': chartData.scrubTimes[0],
         'aria-valuemax': chartData.scrubTimes[chartData.scrubTimes.length - 1],
-        'aria-valuenow': (hovered?.point ?? chartData.current).t,
+        'aria-valuenow': (hovered?.point ?? chartData.current)?.t ?? chartData.scrubTimes[chartData.scrubTimes.length - 1],
         'aria-valuetext': scrubReadout,
-        onMouseMove: (event: React.MouseEvent) => handleInteraction(event.clientX),
-        onMouseLeave: () => setHoverFraction(null),
-        onTouchMove: (event: React.TouchEvent) => {
-          if (event.touches[0]) handleInteraction(event.touches[0].clientX);
+        onMouseDown: onBrushZoom
+          ? (event: React.MouseEvent) => {
+              const fraction = fractionAt(event.clientX);
+              if (fraction !== null) setBrush({ start: fraction, end: fraction });
+            }
+          : undefined,
+        onMouseUp: onBrushZoom ? commitBrush : undefined,
+        onMouseMove: (event: React.MouseEvent) => {
+          handleInteraction(event.clientX);
+          if (brush) {
+            const fraction = fractionAt(event.clientX);
+            if (fraction !== null) setBrush({ ...brush, end: fraction });
+          }
         },
-        onTouchEnd: () => setHoverFraction(null),
-        onTouchCancel: () => setHoverFraction(null),
+        onMouseLeave: () => {
+          setHoverFraction(null);
+          setBrush(null);
+        },
+        onTouchStart: onBrushZoom
+          ? (event: React.TouchEvent) => {
+              const touch = event.touches[0];
+              if (!touch) return;
+              const fraction = fractionAt(touch.clientX);
+              if (fraction !== null) setBrush({ start: fraction, end: fraction });
+            }
+          : undefined,
+        onTouchMove: (event: React.TouchEvent) => {
+          if (event.touches[0]) {
+            handleInteraction(event.touches[0].clientX);
+            if (brush) {
+              const fraction = fractionAt(event.touches[0].clientX);
+              if (fraction !== null) setBrush({ ...brush, end: fraction });
+            }
+          }
+        },
+        onTouchEnd: () => {
+          commitBrush();
+          setHoverFraction(null);
+        },
+        onTouchCancel: () => {
+          setBrush(null);
+          setHoverFraction(null);
+        },
         onBlur: () => setHoverFraction(null),
         onKeyDown: (event: React.KeyboardEvent) => {
           // Up and Down as well as Right and Left, per the APG slider pattern:
@@ -629,9 +734,11 @@ export default function FlowTrendChart({
               NWS forecast
             </span>
           )}
-          <span className="text-xs text-primary-600 font-medium">
-            Current: {formatVal(currentDisplay)} {unitLabel}
-          </span>
+          {currentDisplay != null && (
+            <span className="text-xs text-primary-600 font-medium">
+              Current: {formatVal(currentDisplay)} {unitLabel}
+            </span>
+          )}
         </div>
       </div>
 
@@ -674,9 +781,9 @@ export default function FlowTrendChart({
               ? { 'aria-hidden': true }
               : {
                   role: 'img',
-                  'aria-label': `${chartLabel} trend chart, currently ${formatVal(currentDisplay)} ${unitLabel}${
-                    hasForecast ? ', with official NWS forecast' : ''
-                  }`,
+                  'aria-label': `${chartLabel} trend chart${
+                    currentDisplay != null ? `, currently ${formatVal(currentDisplay)} ${unitLabel}` : ', forecast only'
+                  }${hasForecast ? ', with official NWS forecast' : ''}`,
                 })}
           >
             <defs>
@@ -685,6 +792,23 @@ export default function FlowTrendChart({
                 <stop offset="100%" stopColor={SERIES_COLOR} stopOpacity="0.05" />
               </linearGradient>
             </defs>
+
+            {/* Neutral gridlines, behind everything — a reading aid, never a
+                threshold; they take no colour that could be read as one. */}
+            {showGridlines &&
+              chartData.yTicks.map((tick) => (
+                <line
+                  key={`grid-${tick.value}`}
+                  x1="0"
+                  x2="100"
+                  y1={(1 - tick.position) * 100}
+                  y2={(1 - tick.position) * 100}
+                  stroke="#a3a3a3"
+                  strokeWidth="1"
+                  vectorEffect="non-scaling-stroke"
+                  opacity="0.25"
+                />
+              ))}
 
             {/* High/Warning zone fill — anything above optimal_max is "high" */}
             {(() => {
@@ -807,8 +931,9 @@ export default function FlowTrendChart({
               />
             ))}
 
-            {/* The boundary between what happened and what is predicted */}
-            {hasForecast && (
+            {/* The boundary between what happened and what is predicted —
+                drawable only when something HAS happened on this plot. */}
+            {hasForecast && nowX !== null && (
               <line
                 x1={nowX}
                 x2={nowX}
@@ -849,15 +974,17 @@ export default function FlowTrendChart({
             ))}
 
             {/* Current value dot — the newest OBSERVED reading, never a forecast */}
-            <circle
-              cx={nowX}
-              cy={chartData.y(chartData.current.v)}
-              r="4"
-              fill={SERIES_COLOR}
-              stroke="#f5f5f5"
-              strokeWidth="2"
-              vectorEffect="non-scaling-stroke"
-            />
+            {chartData.current && nowX !== null && (
+              <circle
+                cx={nowX}
+                cy={chartData.y(chartData.current.v)}
+                r="4"
+                fill={SERIES_COLOR}
+                stroke="#f5f5f5"
+                strokeWidth="2"
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
 
             {hovered && (
               <>
@@ -884,6 +1011,19 @@ export default function FlowTrendChart({
               </>
             )}
           </svg>
+
+          {/* Brush selection, while dragging — same percentage space as the
+              SVG, like every overlay here. */}
+          {brush && (
+            <div
+              aria-hidden="true"
+              className="absolute inset-y-0 pointer-events-none bg-primary-500/15 border-x border-primary-500/60"
+              style={{
+                left: `${Math.min(brush.start, brush.end) * 100}%`,
+                width: `${Math.abs(brush.end - brush.start) * 100}%`,
+              }}
+            />
+          )}
 
           {/* NWS stage labels. In the DOM, on the same 0–100 percentage space
               the SVG uses — the label carries "NWS" every time, because a bare

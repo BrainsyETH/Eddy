@@ -21,6 +21,7 @@ import { useRiverOutlook } from '@/hooks/useRiverOutlook';
 import { useSelectedEddyReport } from '@/hooks/useSelectedEddyReport';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import GaugeSummary from '@/components/gauge/GaugeSummary';
+import ExpandedGaugeChart from '@/components/gauge/ExpandedGaugeChart';
 import GaugeWeather from '@/components/ui/GaugeWeather';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import WillItHold from '@/components/gauge/WillItHold';
@@ -44,6 +45,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
   // Seven days, and not restored from another gauge's prior selection.
   const [dateRange, setDateRange] = useState(7);
+  const [expandedOpen, setExpandedOpen] = useState(false);
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
   const [gaugeNavTarget, setGaugeNavTarget] = useState<HTMLElement | null>(null);
 
@@ -474,6 +476,12 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                     </button>
                   ))}
                 </div>
+                <button
+                  onClick={() => setExpandedOpen(true)}
+                  className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
+                >
+                  Expand
+                </button>
               </div>
             </div>
             <FlowTrendChart
@@ -492,6 +500,18 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               showProvenance
             />
           </div>
+
+        <ExpandedGaugeChart
+          open={expandedOpen}
+          onClose={() => setExpandedOpen(false)}
+          siteId={activeGauge.usgsSiteId}
+          siteName={activeGauge.name}
+          thresholds={chartThresholds}
+          floodStages={gaugeDetail?.floodStages ?? null}
+          displayUnit={effectiveUnit}
+          showTypical={tier !== 'rated'}
+          capabilities={gaugeDetail?.historyCapabilities ?? null}
+        />
         {/* Outdoor conditions, after the hydrograph and before the deeper
             interpretation below. */}
         <GaugeWeather

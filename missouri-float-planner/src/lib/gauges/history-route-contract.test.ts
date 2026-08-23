@@ -49,3 +49,42 @@ test('an empty observed series is a response body, not an error', () => {
   const source = readFileSync(ROUTE, 'utf-8');
   assert.match(source, /historicalData\?\.readings \?\? \[\]/);
 });
+
+// ── Release 3: additive request, provider-aware limits ───────────
+
+test('invalid or reversed explicit windows are rejected, never coerced', () => {
+  // A change in kind from the days clamp, on purpose: ?days=90 predates this
+  // route knowing providers and keeps its clamp-to-legal behaviour, but a
+  // client that sends a reversed from/to typed it, and silently serving some
+  // other window is worse than a 400 that says what was wrong.
+  const source = readFileSync(ROUTE, 'utf-8');
+  assert.match(source, /"'to' must be after 'from'"/);
+  assert.match(source, /Invalid 'from' date/);
+  assert.match(source, /Invalid resolution/);
+});
+
+test('the days ceiling is the provider declaration, not a global 30', () => {
+  const source = readFileSync(ROUTE, 'utf-8');
+  assert.doesNotMatch(
+    source,
+    /Math\.min\(Math\.max\(days, 1\), 30\)/,
+    'the provider-blind 30-day clamp is back',
+  );
+  assert.match(source, /historyCapabilities/, 'the route no longer consults provider capabilities');
+});
+
+test('the response reports coverage instead of letting truncation pass as data', () => {
+  const source = readFileSync(ROUTE, 'utf-8');
+  for (const field of ['requestedWindow', 'coverageWindow', 'coverageComplete', 'truncationReason', 'seasonalRange', 'statistic']) {
+    assert.match(source, new RegExp(`\\b${field}\\b`), `response lost ${field}`);
+  }
+});
+
+test('source selection weighs completeness, never point count alone', () => {
+  // ~14,000 stations pass a bare MIN_DB_POINTS check on history frozen the
+  // day the cron stopped polling them; a window served from its back half
+  // reads as "the river was quiet" when the truth is "we stopped recording".
+  const source = readFileSync(ROUTE, 'utf-8');
+  assert.match(source, /dbIncomplete/);
+  assert.match(source, /stale \|\|[\s\S]*?dbIncomplete/);
+});
