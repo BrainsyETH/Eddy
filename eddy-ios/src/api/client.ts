@@ -446,13 +446,24 @@ export async function fetchRiverDetail(slug: string, signal?: AbortSignal): Prom
   return data.river;
 }
 
-/** Approved access points, ordered from headwaters downstream. */
+/**
+ * Approved access points, ordered from headwaters downstream.
+ *
+ * `include=non_endpoints` asks for the approved places that sit on the river
+ * without being launches — Montauk State Park at the Current's headwaters is the
+ * one this was added for. The route withholds them by default because every
+ * build shipped before `isFloatEndpoint` existed would put them straight into
+ * the put-in picker; asking for them is this client stating that it draws them
+ * and filters them out of the pickers (useFloatPlan.putInOptions).
+ *
+ * Do not send this parameter from anything that cannot honour that.
+ */
 export async function fetchRiverAccessPoints(
   slug: string,
   signal?: AbortSignal,
 ): Promise<MapAccessPoint[]> {
   const data = await get<AccessPointsResponse>(
-    `/api/rivers/${encodeURIComponent(slug)}/access-points`,
+    `/api/rivers/${encodeURIComponent(slug)}/access-points?include=non_endpoints`,
     signal,
   );
   const accessPoints = data.accessPoints ?? [];

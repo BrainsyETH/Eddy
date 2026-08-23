@@ -17,10 +17,17 @@
  * Usage:
  *   npx tsx scripts/ingestion/import-dossier-access-points.ts <slug> [--write] [--approve]
  *     (no flag)  dry-run: show what WOULD import + current DB state
- *     --write    upsert rows (approved=false); trigger snaps; prints validation
+ *     --write    upsert rows (approved=false, is_float_endpoint from kind);
+ *                trigger snaps; prints validation
  *     --approve  flip approved=true for rows that PASS validation
- *                (snap_distance_m <= MAX_SNAP_M and river_mile_downstream not null
- *                 and monotonic ordering vs expected_mile)
+ *                (river_mile_downstream not null, monotonic ordering vs
+ *                 expected_mile, and — for LAUNCH kinds only —
+ *                 snap_distance_m <= MAX_SNAP_M)
+ *
+ *                Distance from the channel does not disqualify a park or a
+ *                campground: those are places on the river, not put-ins, and a
+ *                headwaters park legitimately sits kilometres from where Eddy's
+ *                river geometry starts. FAR is still printed for every row.
  *
  * Env: NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
  */
@@ -29,6 +36,12 @@ import * as path from 'path';
 import { getScriptClient } from '../lib/db';
 
 const MAX_SNAP_M = 250; // a verified put-in should snap within ~250 m of the channel
+
+// Kinds you can put a boat in from. Everything else is a place on the river.
+//
+// Must agree with LAUNCH_ROLES in src/lib/trust/checks/float-endpoint-eligibility.ts:
+// this decides what gets written, that reports when the two disagree.
+const LAUNCH_KINDS = new Set<Kind>(['access', 'bridge', 'boat_ramp', 'gravel_bar']);
 
 type Kind = 'access' | 'bridge' | 'boat_ramp' | 'park' | 'campground' | 'gravel_bar';
 interface APRow {
@@ -103,6 +116,12 @@ async function main() {
         facilities: r.facilities ?? null,
         description: r.description ?? null,
         approved: false,
+        // Set here, not left to the column default. 20260823120000 made
+        // is_float_endpoint opt-in precisely so nothing becomes a launch by
+        // accident — but a launch that nobody opts in is a put-in Eddy silently
+        // never offers, which is the failure nobody reports. The importer knows
+        // the kind, so it answers rather than deferring.
+        is_float_endpoint: LAUNCH_KINDS.has(r.kind),
         location_orig: { type: 'Point', coordinates: [r.lon, r.lat] },
       };
       const { error } = await db
@@ -125,7 +144,7 @@ async function main() {
   // Read back current DB state (post-trigger snap)
   const { data: dbPts, error: qErr } = await db
     .from('access_points')
-    .select('id, name, slug, type, river_mile_downstream, snap_distance_m, approved, managing_agency, official_site_url')
+    .select('id, name, slug, type, river_mile_downstream, snap_distance_m, approved, is_float_endpoint, managing_agency, official_site_url')
     .eq('river_id', river.id)
     .order('river_mile_downstream', { ascending: true, nullsFirst: false });
   if (qErr) throw qErr;
@@ -138,22 +157,45 @@ async function main() {
   for (const p of dbPts ?? []) {
     const exp = expBySlug.get(p.slug);
     const snap = p.snap_distance_m == null ? null : Math.round(p.snap_distance_m);
+    // ── FAR still reports; it no longer BLOCKS a place that is not a launch ──
+    //
+    // Distance from the channel is the right test for a put-in and the wrong one
+    // for a park. Montauk State Park sits 2 236 m from the Current's line, and
+    // that number is not a bad coordinate: the nearest point on Eddy's geometry
+    // to Montauk IS the geometry's first vertex, because the line begins 2.2 km
+    // below the park. Any correctly-pinned headwaters record measures the same.
+    // Blocking on it meant a whole class of honest record could never be
+    // approved, and the only lever anyone had left was `approved` — which is how
+    // Montauk lost its page as well as its put-in.
+    //
+    // So the flag is still printed for every row, because it is also the signal
+    // that catches a genuinely wrong park coordinate. It just stops being
+    // disqualifying for a record that was never claiming to be a launch.
+    const isLaunch = p.is_float_endpoint === true;
     const flags: string[] = [];
-    if (p.river_mile_downstream == null) flags.push('NO-MILE');
-    if (snap != null && snap > MAX_SNAP_M) flags.push(`FAR(${snap}m)`);
+    const blocking: string[] = [];
+    if (p.river_mile_downstream == null) blocking.push('NO-MILE');
+    if (snap != null && snap > MAX_SNAP_M) {
+      const far = `FAR(${snap}m)`;
+      flags.push(far);
+      if (isLaunch) blocking.push(far);
+    }
     if (p.river_mile_downstream != null) {
-      if (p.river_mile_downstream < prevMile - 0.5) flags.push('ORDER?');
+      if (p.river_mile_downstream < prevMile - 0.5) blocking.push('ORDER?');
       prevMile = p.river_mile_downstream;
     }
-    const ok = flags.length === 0;
+    // Union for display, so the printed line still shows everything observed.
+    const shown = [...new Set([...blocking, ...flags])];
+    const ok = blocking.length === 0;
     const line =
       `    ${ok ? '✅' : '⚠️ '} ${p.name.padEnd(34)} type=${(p.type as string).padEnd(10)} ` +
       `mile=${p.river_mile_downstream ?? '—'}${exp != null ? ` (exp~${exp})` : ''} ` +
       `snap=${snap ?? '—'}m agency=${p.managing_agency ?? '—'} approved=${p.approved}` +
-      (flags.length ? `  [${flags.join(', ')}]` : '');
+      `${isLaunch ? '' : ' not-a-launch'}` +
+      (shown.length ? `  [${shown.join(', ')}]` : '');
     console.log(line);
     if (ok) validated.push(p.id);
-    else problems.push(`${p.name}: ${flags.join(', ')}`);
+    else problems.push(`${p.name}: ${blocking.join(', ')}`);
   }
 
   if (problems.length) {

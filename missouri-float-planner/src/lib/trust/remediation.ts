@@ -195,6 +195,22 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
       'Without a service_rivers row the business appears in no per-river directory and on no map layer fetched per river — it is in the table and nowhere else. The finding names the nearest river as a starting candidate, not an answer.',
   },
 
+  // ── float-endpoint eligibility ───────────────────────────────────────
+  non_launch_offered_as_endpoint: {
+    kind: 'judgment',
+    action: 'Decide whether this place is a launch, then set is_float_endpoint or fix its roles.',
+    where: '/admin/access-points',
+    method:
+      'Two different defects look the same here. Either the roles are incomplete — a campground WITH a ramp that never had boat_ramp added — in which case add the role and leave eligibility alone; or the place genuinely has no launch, in which case set is_float_endpoint = false and it keeps its page, its pin and its sitemap entry while leaving the planner. Check the managing agency\'s own map before deciding: Montauk State Park reads like a put-in and its designated canoe access is outside the park boundary.',
+  },
+  launch_not_selectable: {
+    kind: 'mechanical',
+    action: 'Set is_float_endpoint = true if this really is a launch.',
+    where: '/admin/access-points',
+    method:
+      'Eligibility is opt-in (20260823120000 added the column DEFAULT false), so a row added or approved without setting it lands here. Confirm the roles are honest first — the rule fires on access, boat_ramp, gravel_bar and bridge — then flip the flag. If the roles are the thing that is wrong, fix those instead.',
+  },
+
   // ── geometry and mileage ─────────────────────────────────────────────
   geometry_missing: {
     kind: 'investigate',

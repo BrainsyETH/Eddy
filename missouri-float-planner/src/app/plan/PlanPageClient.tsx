@@ -203,7 +203,26 @@ export default function PlanPageClient({
   // Data fetching — all hooks gracefully handle null/empty slug
   const { data: rivers } = useRivers();
   const { data: river, isLoading: riverLoading, error: riverError } = useRiver(riverSlug ?? '');
-  const { data: accessPoints } = useAccessPoints(riverSlug);
+  // ── Two arrays, because two different questions ─────────────────────────
+  //
+  // `visibleAccessPoints` is everything the map draws. `floatEndpointAccessPoints`
+  // is what a trip may be built from. They used to be one array, which meant
+  // every marker was implicitly an endpoint: handleMarkerClick took whatever it
+  // was handed and made it a put-in.
+  //
+  // Montauk State Park is why they are separate. It is a real place with a real
+  // page and a pin at the Current's headwaters, and it is not a launch — so it
+  // has to be drawable and unselectable at the same time. The API only sends
+  // non-endpoints because this page asked for them (`include=non_endpoints`);
+  // filtering here is the other half of that bargain.
+  //
+  // `!== false` and not `=== true`: a payload predating the field omits it, and
+  // absent means eligible. See the field's note in packages/eddy-types.
+  const { data: visibleAccessPoints } = useAccessPoints(riverSlug);
+  const floatEndpointAccessPoints = useMemo(
+    () => visibleAccessPoints?.filter(ap => ap.isFloatEndpoint !== false),
+    [visibleAccessPoints],
+  );
   const { data: conditionData } = useConditions(river?.id || null, {
     putInAccessPointId: selectedPutIn,
   });
@@ -304,15 +323,15 @@ export default function PlanPageClient({
 
   // Validate URL access points belong to the loaded river
   useEffect(() => {
-    if (accessPoints && accessPoints.length > 0 && urlInitialized) {
-      if (selectedPutIn && !accessPoints.find(ap => ap.id === selectedPutIn)) {
+    if (floatEndpointAccessPoints && floatEndpointAccessPoints.length > 0 && urlInitialized) {
+      if (selectedPutIn && !floatEndpointAccessPoints.find(ap => ap.id === selectedPutIn)) {
         setSelectedPutIn(null);
       }
-      if (selectedTakeOut && !accessPoints.find(ap => ap.id === selectedTakeOut)) {
+      if (selectedTakeOut && !floatEndpointAccessPoints.find(ap => ap.id === selectedTakeOut)) {
         setSelectedTakeOut(null);
       }
     }
-  }, [accessPoints, selectedPutIn, selectedTakeOut, urlInitialized]);
+  }, [floatEndpointAccessPoints, selectedPutIn, selectedTakeOut, urlInitialized]);
 
   // River change: clear access point selections (a put-in from one river
   // never makes sense on another)
@@ -325,13 +344,13 @@ export default function PlanPageClient({
 
   // Put-in is always upstream of take-out (lower river_mile_downstream).
   const setBothPoints = useCallback((idA: string, idB: string) => {
-    if (!accessPoints) {
+    if (!floatEndpointAccessPoints) {
       setSelectedPutIn(idA);
       setSelectedTakeOut(idB);
       return;
     }
-    const a = accessPoints.find(ap => ap.id === idA);
-    const b = accessPoints.find(ap => ap.id === idB);
+    const a = floatEndpointAccessPoints.find(ap => ap.id === idA);
+    const b = floatEndpointAccessPoints.find(ap => ap.id === idB);
     if (a && b && a.riverMile > b.riverMile) {
       setSelectedPutIn(idB);
       setSelectedTakeOut(idA);
@@ -339,7 +358,7 @@ export default function PlanPageClient({
       setSelectedPutIn(idA);
       setSelectedTakeOut(idB);
     }
-  }, [accessPoints]);
+  }, [floatEndpointAccessPoints]);
 
   const planParams = (river && selectedPutIn && selectedTakeOut)
     ? {
@@ -364,7 +383,7 @@ export default function PlanPageClient({
   const planHasError = !!(selectedPutIn && selectedTakeOut && planIsError);
   const showStandalonePlanError = planHasError && !isLastValidFallback;
 
-  const selectedPutInPoint = accessPoints?.find(ap => ap.id === selectedPutIn);
+  const selectedPutInPoint = floatEndpointAccessPoints?.find(ap => ap.id === selectedPutIn);
   const nearestGauge = gaugeStations && gaugeStations.length > 0
     ? selectedPutInPoint
       ? findNearestGauge(gaugeStations, selectedPutInPoint.coordinates.lat, selectedPutInPoint.coordinates.lng)
@@ -388,6 +407,11 @@ export default function PlanPageClient({
   const { data: forecast } = useForecastByCoords(forecastLat, forecastLng);
 
   const handleMarkerClick = useCallback((point: AccessPoint) => {
+    // Belt and braces. AccessPointMarkers no longer wires a click handler to a
+    // non-endpoint and the picker strips are built from the eligible array, so
+    // nothing should reach here with one — but this function turns whatever it
+    // is handed into a trip endpoint, and that is not a thing to leave open.
+    if (point.isFloatEndpoint === false) return;
     if (point.id === selectedPutIn) {
       setSelectedPutIn(null);
       return;
@@ -531,8 +555,8 @@ export default function PlanPageClient({
   }, [selectedPutIn, selectedTakeOut, river, plan, riverSlug]);
 
   const handleAccessPointHover = useCallback((point: AccessPoint) => {
-    if (!river || !accessPoints || !selectedVesselTypeId) return;
-    const sortedPoints = [...accessPoints].sort((a, b) => a.riverMile - b.riverMile);
+    if (!river || !floatEndpointAccessPoints || !selectedVesselTypeId) return;
+    const sortedPoints = [...floatEndpointAccessPoints].sort((a, b) => a.riverMile - b.riverMile);
     const pointIndex = sortedPoints.findIndex(ap => ap.id === point.id);
 
     if (selectedPutIn && !selectedTakeOut) {
@@ -576,11 +600,11 @@ export default function PlanPageClient({
         });
       });
     }
-  }, [river, accessPoints, selectedPutIn, selectedTakeOut, selectedVesselTypeId, queryClient]);
+  }, [river, floatEndpointAccessPoints, selectedPutIn, selectedTakeOut, selectedVesselTypeId, queryClient]);
 
-  const putInPoint = accessPoints?.find(ap => ap.id === selectedPutIn)
+  const putInPoint = floatEndpointAccessPoints?.find(ap => ap.id === selectedPutIn)
     || (isLastValidFallback && plan?.putIn.id === selectedPutIn ? plan.putIn : null);
-  const takeOutPoint = accessPoints?.find(ap => ap.id === selectedTakeOut)
+  const takeOutPoint = floatEndpointAccessPoints?.find(ap => ap.id === selectedTakeOut)
     || (isLastValidFallback && plan?.takeOut.id === selectedTakeOut ? plan.takeOut : null);
 
   const pointsAlongRoute: RouteItem[] = useMemo(() => {
@@ -588,7 +612,10 @@ export default function PlanPageClient({
     const minMile = Math.min(putInPoint.riverMile, takeOutPoint.riverMile);
     const maxMile = Math.max(putInPoint.riverMile, takeOutPoint.riverMile);
 
-    const intermediateAPs: RouteItem[] = (accessPoints || [])
+    // Everything you pass, not everything you could stop at: a park or
+    // campground between the two ends is worth naming on the route even though
+    // it could not have been chosen as one of them.
+    const intermediateAPs: RouteItem[] = (visibleAccessPoints || [])
       .filter(ap =>
         ap.id !== putInPoint.id &&
         ap.id !== takeOutPoint.id &&
@@ -623,7 +650,7 @@ export default function PlanPageClient({
       }));
 
     return [...intermediateAPs, ...routePOIs].sort((a, b) => a.riverMile - b.riverMile);
-  }, [putInPoint, takeOutPoint, accessPoints, pois]);
+  }, [putInPoint, takeOutPoint, visibleAccessPoints, pois]);
 
   const activeMileRange = putInPoint && takeOutPoint
     ? { min: Math.min(putInPoint.riverMile, takeOutPoint.riverMile), max: Math.max(putInPoint.riverMile, takeOutPoint.riverMile) }
@@ -762,9 +789,9 @@ export default function PlanPageClient({
             showLegend={false}
             syncCameraToUrl
           >
-            {accessPoints && (
+            {visibleAccessPoints && (
               <AccessPointMarkers
-                accessPoints={accessPoints}
+                accessPoints={visibleAccessPoints}
                 selectedPutIn={selectedPutIn}
                 selectedTakeOut={selectedTakeOut}
                 onMarkerClick={handleMarkerClick}
@@ -866,11 +893,11 @@ export default function PlanPageClient({
           )}
           <MapLegend />
 
-          {accessPoints && accessPoints.length > 0 && (
+          {floatEndpointAccessPoints && floatEndpointAccessPoints.length > 0 && (
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-8 pb-2 px-2 pointer-events-none">
               <div className="pointer-events-auto">
                 <AccessPointStrip
-                  accessPoints={accessPoints}
+                  accessPoints={floatEndpointAccessPoints}
                   selectedPutInId={selectedPutIn}
                   selectedTakeOutId={selectedTakeOut}
                   onSelect={handleMarkerClick}
@@ -929,9 +956,9 @@ export default function PlanPageClient({
             showLegend={false}
             syncCameraToUrl
           >
-            {accessPoints && (
+            {visibleAccessPoints && (
               <AccessPointMarkers
-                accessPoints={accessPoints}
+                accessPoints={visibleAccessPoints}
                 selectedPutIn={selectedPutIn}
                 selectedTakeOut={selectedTakeOut}
                 onMarkerClick={handleMarkerClick}
@@ -1022,11 +1049,11 @@ export default function PlanPageClient({
           {/* Access point picker strip — only while picking. Once both
               endpoints are chosen the bottom sheet carries all the detail and
               the strip would just stack a third band of UI over the map. */}
-          {accessPoints && accessPoints.length > 0 && !(putInPoint && takeOutPoint) && (
+          {floatEndpointAccessPoints && floatEndpointAccessPoints.length > 0 && !(putInPoint && takeOutPoint) && (
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-6 pb-[calc(0.25rem+env(safe-area-inset-bottom))] px-1 pointer-events-none">
               <div className="pointer-events-auto">
                 <AccessPointStrip
-                  accessPoints={accessPoints}
+                  accessPoints={floatEndpointAccessPoints}
                   selectedPutInId={selectedPutIn}
                   selectedTakeOutId={selectedTakeOut}
                   onSelect={handleMarkerClick}
@@ -1159,7 +1186,7 @@ export default function PlanPageClient({
           >
             <RiverVisualSubmitForm
               riverId={river.id}
-              accessPoints={accessPoints}
+              accessPoints={visibleAccessPoints}
               currentGaugeHeightFt={condition?.gaugeHeightFt ?? null}
               currentDischargeCfs={condition?.dischargeCfs ?? null}
               gaugeStationId={conditionData?.gauges?.find(g => g.isPrimary)?.id}

@@ -206,7 +206,12 @@ SELECT
     'Large parking area near lodge',
     true,
     'No launch fee — there is no river launch here. Camping and lodging are paid; see mostateparks.com for current rates.',
-    false
+    -- APPROVED, and not a float endpoint. Those are two different questions and
+    -- this row is the reason they were split (20260823120000 / 20260823140000).
+    -- 20260811203000 set approved = FALSE here to keep Montauk out of the
+    -- put-in picker, and took its page, its pin and its sitemap entry with it;
+    -- the UPDATE at the end of this file is what keeps it out of the picker now.
+    true
 FROM rivers r WHERE r.slug = 'current'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 
@@ -2199,3 +2204,23 @@ SELECT
     true
 FROM rivers r WHERE r.slug = 'courtois'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+
+-- ── Float-endpoint eligibility, after every INSERT above ───────────────────
+--
+-- `supabase db reset` runs the migrations and THEN this file, so every row
+-- inserted here lands on the DEFAULT FALSE that 20260823120000 gave
+-- `is_float_endpoint`. Without this statement a from-scratch database has 78
+-- approved access points and not one selectable put-in: the planner renders,
+-- the map draws, and both pickers are empty. Nothing errors, which is what
+-- makes it worth a comment rather than a fix nobody can find.
+--
+-- This mirrors the backfill in 20260823120000 exactly — every approved row
+-- becomes an endpoint except Montauk State Park, which is a headwaters park
+-- with its designated canoe access outside the park boundary. Keep the two in
+-- step: they answer the same question for the same rows.
+UPDATE access_points ap
+   SET is_float_endpoint = TRUE
+  FROM rivers r
+ WHERE ap.river_id = r.id
+   AND ap.approved = TRUE
+   AND ap.slug <> 'montauk-state-park';

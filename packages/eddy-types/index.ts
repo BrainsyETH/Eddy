@@ -150,6 +150,23 @@ export interface MapAccessPoint {
    * campground, and filtering on `type` alone would hide it under one of them.
    */
   types?: string[];
+  /**
+   * May this point be chosen as a put-in or take-out?
+   *
+   * A separate question from whether it is drawn. Both apps show every approved
+   * point on the map — a state park or campground on the water is somewhere
+   * people go — but only endpoints may be selected for a float. Montauk State
+   * Park at the Current's headwaters is the record this exists for: a real
+   * place, a real page, no launch. `approved` decides whether it appears;
+   * this decides whether it can end a float.
+   *
+   * OPTIONAL because payloads predating the field omit it, and ABSENT MEANS
+   * ELIGIBLE — the behaviour every point had before the split. Reading
+   * `undefined` as false empties the planner against an older cached payload or
+   * an offline bundle written before the upgrade, which is a silent failure in
+   * the direction nobody checks.
+   */
+  isFloatEndpoint?: boolean;
   slug?: string;
   description?: string | null;
   amenities?: string[];

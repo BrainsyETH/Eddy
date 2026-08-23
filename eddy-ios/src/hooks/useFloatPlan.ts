@@ -85,8 +85,23 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
     setError(null);
   }, [riverId]);
 
+  // ── Eligibility is filtered here, not validated after the fact ────────────
+  //
+  // Same principle as the downstream rule below: an impossible selection should
+  // be unreachable rather than rejected. `accessPoints` is everything the map
+  // draws, and that now includes places on the river that are not launches — a
+  // state park, a campground, a lodge. They keep their marker and their sheet;
+  // they never reach a picker.
+  //
+  // `!== false` and not `=== true`: an offline bundle or a cached payload
+  // written before the field existed omits it, and absent means eligible. The
+  // other reading empties both pickers with no error, on exactly the devices
+  // least able to refetch.
   const putInOptions = useMemo(
-    () => [...accessPoints].sort((a, b) => a.riverMile - b.riverMile),
+    () =>
+      accessPoints
+        .filter((p) => p.isFloatEndpoint !== false)
+        .sort((a, b) => a.riverMile - b.riverMile),
     [accessPoints],
   );
 
@@ -136,6 +151,12 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
   );
 
   const choosePutIn = useCallback((point: MapAccessPoint) => {
+    // Not every caller comes through putInOptions. A restored plan, a deep link
+    // and a Float-trips row all hand over a point they already hold, and a
+    // stored pair can name a place that has since stopped being a launch. The
+    // pickers filter; these three guards are what make the rule hold for
+    // everything else.
+    if (point.isFloatEndpoint === false) return;
     setPutIn(point);
     // A take-out upstream of the new put-in is no longer a float. Dropping it
     // here is what keeps takeOutOptions and the selection from disagreeing.
@@ -148,6 +169,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
   // to the answer rather than through a boat nobody wanted to choose.
   const chooseTakeOut = useCallback(
     (point: MapAccessPoint) => {
+      if (point.isFloatEndpoint === false) return;
       setTakeOut(point);
       setPlan(null);
       if (putIn) void calculate(putIn, point);
@@ -182,6 +204,11 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
    */
   const planFloat = useCallback(
     (start: MapAccessPoint, end: MapAccessPoint) => {
+      // The likeliest way a non-endpoint reaches the planner: a float saved
+      // before the point was reclassified, replayed from Float trips. /api/plan
+      // would refuse it, so refuse it here rather than spending the round trip
+      // to show a failure.
+      if (start.isFloatEndpoint === false || end.isFloatEndpoint === false) return;
       setPutIn(start);
       setTakeOut(end);
       setPlan(null);

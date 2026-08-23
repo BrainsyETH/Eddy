@@ -125,6 +125,15 @@ export const LEDGER_RULES = [
   'known_defect_regressed',
 ] as const;
 
+/**
+ * Emitted by float-endpoint-eligibility.ts. Two rules, one per direction of
+ * being wrong about whether a place is a launch.
+ */
+export const FLOAT_ENDPOINT_RULES = [
+  'launch_not_selectable',
+  'non_launch_offered_as_endpoint',
+] as const;
+
 export const ALL_TRUST_RULES = [
   ...VALIDATE_RIVER_DATA_RULES,
   ...RIVER_GEOMETRY_RULES,
@@ -132,6 +141,7 @@ export const ALL_TRUST_RULES = [
   ...GAUGE_WIRING_RULES,
   ...USGS_SITE_DRIFT_RULES,
   ...SERVICE_GEO_RULES,
+  ...FLOAT_ENDPOINT_RULES,
   ...SCHEMA_INVARIANT_RULES,
   ...LEDGER_RULES,
 ] as const;
@@ -263,6 +273,16 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   // A located service linked to no river is in no per-river directory and on no
   // layer fetched per river. Nothing is ambiguous here — the join is missing.
   service_no_river_link: 'medium',
+  // Eddy is offering a put-in at a place whose own roles say there is nowhere to
+  // put in. This is the direction that ends with somebody towing a boat to a
+  // park boundary, which is why `is_float_endpoint` defaults to false — but the
+  // default only covers rows nobody touched.
+  non_launch_offered_as_endpoint: 'high',
+  // The opposite miss, and a quiet one: a real launch that is drawn on the map
+  // and cannot be selected. Nobody reports a put-in that was never offered, so
+  // this rule is the only thing that will say so. Not a safety defect — the
+  // planner is incomplete, not wrong.
+  launch_not_selectable: 'medium',
 
   // ── low: real, visible to nobody in danger ───────────────────────────
   // Geometry has raised a question about an editorial fact, and the answer may

@@ -56,6 +56,21 @@ export interface AccessPoint {
   type: AccessPointType; // Primary type (for backwards compatibility)
   types: AccessPointType[]; // All types (new - supports multiple)
   isPublic: boolean;
+  /**
+   * May this point be chosen as a put-in or take-out?
+   *
+   * Distinct from whether the record is published at all, which is the server's
+   * `approved` and never reaches this type. A state park or campground on the
+   * water is a real destination with a real page and pin, and still not
+   * somewhere a boat goes in — Montauk State Park at the Current's headwaters is
+   * the case this exists for. Draw these; never offer them as endpoints.
+   *
+   * OPTIONAL because payloads predating the field omit it. Absent means "assume
+   * eligible", which matches how every point behaved before the split — do not
+   * read `undefined` as false, or an older cached payload silently empties the
+   * planner.
+   */
+  isFloatEndpoint?: boolean;
   ownership: string | null;
   description: string | null;
   amenities: string[];

@@ -130,7 +130,7 @@ async function handleGetAccessPoints(input: Record<string, unknown>) {
 
   const { data: accessPoints } = await supabase
     .from('access_points')
-    .select('id, name, slug, river_mile_downstream, type, types, is_public, amenities, parking_info, road_access, fee_required, description, location_orig, location_snap')
+    .select('id, name, slug, river_mile_downstream, type, types, is_public, is_float_endpoint, amenities, parking_info, road_access, fee_required, description, location_orig, location_snap')
     .eq('river_id', river.id)
     .eq('approved', true)
     .order('river_mile_downstream', { ascending: true });
@@ -146,6 +146,11 @@ async function handleGetAccessPoints(input: Record<string, unknown>) {
         riverMile: ap.river_mile_downstream ? parseFloat(ap.river_mile_downstream) : null,
         type: ap.type,
         types: ap.types || [],
+        // Kept in the list, labelled rather than hidden: a park or campground on
+        // the water is worth telling somebody about, and is still not somewhere
+        // they can put a boat in. get_float_route will refuse to start a float
+        // here, so say so before the model recommends one.
+        isFloatEndpoint: ap.is_float_endpoint === true,
         amenities: ap.amenities || [],
         parkingInfo: ap.parking_info,
         roadAccess: ap.road_access,
@@ -176,12 +181,19 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
     return { error: `River not found: ${riverSlug}` };
   }
 
-  // Get all access points to fuzzy-match names
+  // Get the float-eligible access points to fuzzy-match names against.
+  //
+  // Endpoints only, deliberately: this handler builds a float, and the match is
+  // fuzzy. With every approved point in scope, "montauk" resolves to Montauk
+  // State Park — a headwaters park with no launch — and the model happily
+  // reports a float time from it. Places that are not launches stay visible
+  // through get_access_points, which labels them.
   const { data: allAps } = await supabase
     .from('access_points')
     .select('id, name, river_mile_downstream, location_orig, location_snap, driving_lat, driving_lng, directions_override')
     .eq('river_id', river.id)
     .eq('approved', true)
+    .eq('is_float_endpoint', true)
     .order('river_mile_downstream', { ascending: true });
 
   if (!allAps || allAps.length === 0) {

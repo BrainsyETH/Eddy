@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { resolveFloatEndpoints, endpointFailureStatus } from '@/lib/access-points/endpoint-resolver';
 import type { SavePlanRequest, SavePlanResponse, SavePlanSnapshot } from '@/types/api';
 
 // Force dynamic rendering (uses cookies for Supabase)
@@ -27,6 +28,25 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient();
+
+    // Validate the endpoints BEFORE anything is persisted. The snapshot path
+    // below never calls /api/plan, so without this a saved plan — and the short
+    // code shared from it — could name a point that is unapproved, not a launch,
+    // or on another river entirely. A stored plan replays for as long as the
+    // link lives, so an unchecked write outlives the request that made it.
+    const endpoints = await resolveFloatEndpoints(supabase, {
+      riverId,
+      putInId: startId,
+      takeOutId: endId,
+      columns: 'id',
+    });
+
+    if (!endpoints.ok) {
+      return NextResponse.json(
+        { error: endpoints.detail },
+        { status: endpointFailureStatus(endpoints.reason) }
+      );
+    }
 
     // The interactive planner already computed the plan and sends its snapshot,
     // so we persist those numbers directly. Only fall back to the full (and

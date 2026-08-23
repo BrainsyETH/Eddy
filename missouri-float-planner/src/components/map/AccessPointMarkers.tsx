@@ -98,6 +98,11 @@ export default function AccessPointMarkers({
         iconType = 'neutral';
       }
 
+      // A place Eddy draws but will not let you float from — a state park or
+      // campground on the water. `!== false` so a payload predating the field
+      // still behaves as it always did: selectable.
+      const isEndpoint = point.isFloatEndpoint !== false;
+
       // Create custom marker element with React icon
       // Note: Avoid position: relative and will-change: transform as they interfere with MapLibre's positioning
       // Use larger base size on touch devices for better tap targets
@@ -116,7 +121,7 @@ export default function AccessPointMarkers({
         align-items: center;
         justify-content: center;
         background: transparent;
-        cursor: ${onMarkerClick ? 'pointer' : 'default'};
+        cursor: ${onMarkerClick && isEndpoint ? 'pointer' : 'default'};
         z-index: ${zIndex};
         pointer-events: auto;
         box-sizing: border-box;
@@ -181,7 +186,9 @@ export default function AccessPointMarkers({
 
       // Create popup with flat, nature-inspired styling
       let selectionPrompt = '';
-      if (onMarkerClick) {
+      if (!isEndpoint) {
+        selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: var(--color-text-secondary); font-weight: 600;">Not a launch \u2014 no put-in or take-out here</p>`;
+      } else if (onMarkerClick) {
         if (isPutIn) {
           selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: var(--color-primary-700); font-weight: 600;">Click to deselect put-in</p>`;
         } else if (isTakeOut) {
@@ -250,7 +257,7 @@ export default function AccessPointMarkers({
         .addTo(map);
 
       // Add click handler - always allow clicks so user can deselect or change selection
-      if (onMarkerClick) {
+      if (onMarkerClick && isEndpoint) {
         // Expose the marker to keyboard + assistive tech as a real button.
         const action = isPutIn
           ? 'deselect put-in'
@@ -291,6 +298,21 @@ export default function AccessPointMarkers({
           }
         });
         // Surface the popup on keyboard focus, mirroring hover.
+        el.addEventListener('focus', () => {
+          presentPopup(map, popup, [point.coordinates.lng, point.coordinates.lat]);
+        });
+        el.addEventListener('blur', () => popup.remove());
+      } else if (!isEndpoint) {
+        // Reachable, but not a button. Dropping the click handler above also
+        // dropped the only keyboard route to this marker's popup, which would
+        // have made a place readable by mouse and invisible by keyboard. It
+        // stays in the tab order and still announces what it is; there is just
+        // nothing to press.
+        el.setAttribute('tabindex', '0');
+        el.setAttribute(
+          'aria-label',
+          `${point.name}, river mile ${point.riverMile.toFixed(1)}, ${point.type.replace('_', ' ')}. Not a launch \u2014 no put-in or take-out here.`,
+        );
         el.addEventListener('focus', () => {
           presentPopup(map, popup, [point.coordinates.lng, point.coordinates.lat]);
         });

@@ -25,7 +25,9 @@ If the result shows "high" or "dangerous", lead your response with a clear safet
   },
   {
     name: 'get_access_points',
-    description: `Get access points (put-ins and take-outs) for a river. Returns names, types, amenities, parking info, road access, and coordinates.
+    description: `Get access points and riverside places for a river. Returns names, types, amenities, parking info, road access, and coordinates.
+
+Each entry carries isFloatEndpoint. When it is false the place is on the river but is NOT a launch — a state park, a campground, a lodge — so never offer it as a put-in or take-out, and say what it is instead. get_float_route will refuse it.
 
 WHEN TO CALL: When the user asks where to put in, take out, or park. Also useful for listing options on a river.`,
     input_schema: {
