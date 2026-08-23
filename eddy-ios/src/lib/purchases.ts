@@ -568,12 +568,11 @@ export interface EntitlementSnapshot {
   expirationDate: string | null;
   latestPurchaseDate: string | null;
   /**
-   * Read defensively. react-native-purchases 10 does not surface a transaction
-   * id on PurchasesEntitlementInfo, so this is null on today's SDK and the four
-   * fields above carry the whole signal. It is read anyway because a redemption
-   * whose dates happen to land identically is precisely the case a transaction
-   * id would catch, and the day the SDK exposes one this begins working with no
-   * other change here.
+   * From CustomerInfo.subscriptionsByProductIdentifier, NOT from the
+   * entitlement: PurchasesEntitlementInfo carries no transaction id in
+   * react-native-purchases 10, so reading it there was a comparison key that
+   * could only ever be null. It earns its place because a redemption whose
+   * dates happen to land identically is exactly the case the other four miss.
    */
   storeTransactionId: string | null;
 }
@@ -590,8 +589,8 @@ export interface EntitlementSnapshot {
  * RevenueCat's webhook carries the offer identifier and CustomerInfo does not.
  */
 export type RedemptionSyncResult =
-  | { status: 'changed'; entitled: boolean }
-  | { status: 'unchanged'; entitled: boolean }
+  | { status: 'changed'; entitled: boolean; snapshot: EntitlementSnapshot }
+  | { status: 'unchanged'; entitled: boolean; snapshot: EntitlementSnapshot }
   | { status: 'error' };
 
 /**
@@ -602,17 +601,38 @@ export type RedemptionSyncResult =
  * the only runner this file's logic has.
  */
 export function entitlementSnapshot(info: unknown): EntitlementSnapshot {
-  const active = (info as { entitlements?: { active?: Record<string, unknown> } })?.entitlements
-    ?.active?.[ENTITLEMENT_ID] as Record<string, unknown> | undefined;
+  const customer = info as
+    | {
+        entitlements?: { active?: Record<string, unknown> };
+        subscriptionsByProductIdentifier?: Record<string, unknown>;
+      }
+    | null
+    | undefined;
+
+  const active = customer?.entitlements?.active?.[ENTITLEMENT_ID] as
+    | Record<string, unknown>
+    | undefined;
 
   const str = (value: unknown): string | null => (typeof value === 'string' ? value : null);
 
+  const productIdentifier = str(active?.productIdentifier);
+
+  // The transaction id hangs off the SUBSCRIPTION, keyed by product id — the
+  // entitlement does not carry one. Reading it from the entitlement compiled,
+  // returned undefined forever, and quietly reduced the comparison to four
+  // keys while claiming five.
+  const subscription = productIdentifier
+    ? (customer?.subscriptionsByProductIdentifier?.[productIdentifier] as
+        | Record<string, unknown>
+        | undefined)
+    : undefined;
+
   return {
     isActive: Boolean(active),
-    productIdentifier: str(active?.productIdentifier),
+    productIdentifier,
     expirationDate: str(active?.expirationDate),
     latestPurchaseDate: str(active?.latestPurchaseDate),
-    storeTransactionId: str(active?.storeTransactionId),
+    storeTransactionId: str(subscription?.storeTransactionId),
   };
 }
 
@@ -694,11 +714,44 @@ export async function syncRedeemedPurchases(
     return {
       status: entitlementChanged(before, after) ? 'changed' : 'unchanged',
       entitled: after.isActive,
+      snapshot: after,
     };
   } catch (error) {
     purchaseDiagnostics()?.report(error, { operation: 'revenuecat.syncRedeemedPurchases' });
     return { status: 'error' };
   }
+}
+
+/**
+ * Has the SERVER caught up to what the SDK saw after the sync?
+ *
+ * "Is there an active entitlement" is the wrong question for this flow, and
+ * asking it is how an extension gets confirmed against the OLD expiry: an
+ * existing subscriber is already active server-side, so that check passes on
+ * the first poll, before RevenueCat's webhook has written anything. The card
+ * then refreshes to the renewal date they had before they redeemed, under a
+ * line saying the subscription was updated.
+ *
+ * So the target is the post-sync snapshot, and the server has caught up only
+ * when it agrees with it: same product, and an expiry at least as far out as
+ * the one the SDK is holding. Falls back to what it can compare when a field
+ * is missing — the fallbacks are for shapes the server may not fill, not for
+ * getting to `true` sooner.
+ */
+export function entitlementMatchesSnapshot(
+  entitlement: MeEntitlement | null,
+  target: EntitlementSnapshot,
+): boolean {
+  if (!entitlement?.isActive) return false;
+
+  if (target.productIdentifier && entitlement.productId !== target.productIdentifier) return false;
+  if (!target.expirationDate) return true;
+
+  const wanted = Date.parse(target.expirationDate);
+  if (Number.isNaN(wanted)) return true;
+
+  const reached = entitlement.expiresAt ? Date.parse(entitlement.expiresAt) : Number.NaN;
+  return !Number.isNaN(reached) && reached >= wanted;
 }
 
 /**

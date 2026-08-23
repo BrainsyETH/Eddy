@@ -66,6 +66,7 @@ import type {
   AlertRulesResponse,
   NotificationPreferences,
   NotificationPreferencesResponse,
+  MeEntitlement,
   MeProfileResponse,
   MeDeleteResponse,
   CreateFeedbackRequest,
@@ -1656,15 +1657,32 @@ export async function deleteAccount(token: string): Promise<MeDeleteResponse> {
  * Returns false on timeout, and that is NOT a failure to show as an error. The
  * money moved and Apple has the receipt; the only true statement is that it has
  * not reached us yet. Callers say that, and let the user proceed.
+ *
+ * `until` decides what "caught up" means, because for one caller it is not "an
+ * entitlement exists". Someone ALREADY subscribed who redeems an extension is
+ * active server-side the whole time, so the default test passes on the first
+ * poll and confirms the update against the pre-redemption expiry. That caller
+ * passes a predicate that compares against the post-sync snapshot instead —
+ * see entitlementMatchesSnapshot in lib/purchases.
  */
 export async function waitForEntitlement(
   token: string,
-  { attempts = 6, delayMs = 1200 }: { attempts?: number; delayMs?: number } = {},
+  {
+    attempts = 6,
+    delayMs = 1200,
+    until,
+  }: {
+    attempts?: number;
+    delayMs?: number;
+    until?: (entitlement: MeEntitlement | null) => boolean;
+  } = {},
 ): Promise<boolean> {
+  const satisfied = until ?? ((entitlement: MeEntitlement | null) => Boolean(entitlement?.isActive));
+
   for (let i = 0; i < attempts; i += 1) {
     try {
       const profile = await fetchMeProfile(token);
-      if (profile?.entitlement?.isActive) return true;
+      if (satisfied(profile?.entitlement ?? null)) return true;
     } catch {
       // A network blip mid-poll is not terminal — keep trying the remaining
       // attempts rather than reporting a purchase as unconfirmed.

@@ -13,10 +13,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import type { MeEntitlement } from '@eddy/types';
 import {
   annotateSavings,
   annualSavingsPercent,
   entitlementChanged,
+  entitlementMatchesSnapshot,
   entitlementSnapshot,
   OFFER_CODE_REDEEM_URL,
   packageCadence,
@@ -333,9 +335,28 @@ test('the redeem URL is the App Store offer-code screen for this app', () => {
   );
 });
 
-/** A CustomerInfo shaped the way react-native-purchases returns one. */
-function customerInfo(entitlement: Record<string, unknown> | null) {
-  return { entitlements: { active: entitlement ? { eddy_premium: entitlement } : {} } };
+/**
+ * A CustomerInfo shaped the way react-native-purchases 10 returns one.
+ *
+ * The two halves are separate on purpose, because the SDK keeps them separate:
+ * PurchasesEntitlementInfo carries the product and the dates,
+ * `subscriptionsByProductIdentifier` carries the transaction id, and a fixture
+ * that invented the second on the first would let a snapshot read a field the
+ * real SDK never puts there.
+ */
+function customerInfo(
+  entitlement: Record<string, unknown> | null,
+  subscription: Record<string, unknown> | null = null,
+) {
+  const productIdentifier = entitlement?.productIdentifier;
+
+  return {
+    entitlements: { active: entitlement ? { eddy_premium: entitlement } : {} },
+    subscriptionsByProductIdentifier:
+      subscription && typeof productIdentifier === 'string'
+        ? { [productIdentifier]: subscription }
+        : {},
+  };
 }
 
 const ACTIVE = {
@@ -344,14 +365,36 @@ const ACTIVE = {
   latestPurchaseDate: '2026-01-01T00:00:00Z',
 };
 
+/** Results carry the post-sync snapshot; these tests only read status/entitled. */
+function synced(status: 'changed' | 'unchanged', entitled: boolean) {
+  return { status, entitled, snapshot: entitlementSnapshot(customerInfo(null)) } as const;
+}
+
 test('a snapshot reads the comparison keys, and survives a shape it does not know', () => {
-  assert.deepEqual(entitlementSnapshot(customerInfo(ACTIVE)), {
-    isActive: true,
-    productIdentifier: 'eddy_premium_annual',
-    expirationDate: '2027-01-01T00:00:00Z',
-    latestPurchaseDate: '2026-01-01T00:00:00Z',
-    storeTransactionId: null,
-  });
+  assert.deepEqual(
+    entitlementSnapshot(customerInfo(ACTIVE, { storeTransactionId: '2000000123456789' })),
+    {
+      isActive: true,
+      productIdentifier: 'eddy_premium_annual',
+      expirationDate: '2027-01-01T00:00:00Z',
+      latestPurchaseDate: '2026-01-01T00:00:00Z',
+      storeTransactionId: '2000000123456789',
+    },
+  );
+
+  // The transaction id comes from subscriptionsByProductIdentifier and NOWHERE
+  // else. PurchasesEntitlementInfo has no such field in react-native-purchases
+  // 10, so a snapshot that read it there had a fifth comparison key on paper
+  // and four in fact — and a fixture that put it on the entitlement would have
+  // agreed with the bug rather than caught it.
+  assert.equal(
+    entitlementSnapshot(customerInfo({ ...ACTIVE, storeTransactionId: '2000000123456789' }))
+      .storeTransactionId,
+    null,
+  );
+
+  // An entitlement with no matching subscription entry is ordinary, not broken.
+  assert.equal(entitlementSnapshot(customerInfo(ACTIVE)).storeTransactionId, null);
 
   // No entitlement, and the two ways the SDK can hand back nothing at all.
   // A snapshot that throws here would take the whole return trip with it.
@@ -375,7 +418,7 @@ test('an existing subscriber who backs out of Apple’s screen has changed nothi
   const after = entitlementSnapshot(customerInfo(ACTIVE));
 
   assert.equal(entitlementChanged(before, after), false);
-  assert.equal(redemptionAlert({ status: 'unchanged', entitled: true }, true), null);
+  assert.equal(redemptionAlert(synced('unchanged', true), true), null);
 });
 
 test('a code that extends an existing subscription is a change', () => {
@@ -393,17 +436,19 @@ test('a code that extends an existing subscription is a change', () => {
 test('every comparison key on its own is enough to count as a change', () => {
   const before = entitlementSnapshot(customerInfo(ACTIVE));
 
-  const moved: Record<string, unknown>[] = [
-    { ...ACTIVE, productIdentifier: 'eddy_premium_monthly' },
-    { ...ACTIVE, expirationDate: '2028-01-01T00:00:00Z' },
-    { ...ACTIVE, latestPurchaseDate: '2026-06-01T00:00:00Z' },
-    // Null on react-native-purchases 10, which is why the four above carry the
-    // signal today — pinned so the day the SDK exposes one it is already read.
-    { ...ACTIVE, storeTransactionId: '2000000123456789' },
+  const moved: [Record<string, unknown>, Record<string, unknown> | null][] = [
+    [{ ...ACTIVE, productIdentifier: 'eddy_premium_monthly' }, null],
+    [{ ...ACTIVE, expirationDate: '2028-01-01T00:00:00Z' }, null],
+    [{ ...ACTIVE, latestPurchaseDate: '2026-06-01T00:00:00Z' }, null],
+    // Through subscriptionsByProductIdentifier, the only place it lives.
+    [ACTIVE, { storeTransactionId: '2000000123456789' }],
   ];
 
-  for (const entitlement of moved) {
-    assert.equal(entitlementChanged(before, entitlementSnapshot(customerInfo(entitlement))), true);
+  for (const [entitlement, subscription] of moved) {
+    assert.equal(
+      entitlementChanged(before, entitlementSnapshot(customerInfo(entitlement, subscription))),
+      true,
+    );
   }
 
   // And the transition that started this: nothing, then something.
@@ -426,7 +471,7 @@ test('a missing baseline never reports a change', () => {
 test('a failed sync is told apart from someone who backed out', () => {
   // Both used to return `false` and both got silence, so a valid code plus a
   // dropped connection looked exactly like a cancellation and said nothing.
-  const cancelled = redemptionAlert({ status: 'unchanged', entitled: false }, false);
+  const cancelled = redemptionAlert(synced('unchanged', false), false);
   assert.equal(cancelled, null);
 
   const failed = redemptionAlert({ status: 'error' }, false);
@@ -442,7 +487,7 @@ test('the confirmation never claims a code was accepted', () => {
   // subscription CHANGED; the offer identifier reaches only the webhook, so
   // "Code redeemed" is a claim this screen is not in a position to make.
   for (const serverConfirmed of [true, false]) {
-    const alert = redemptionAlert({ status: 'changed', entitled: true }, serverConfirmed);
+    const alert = redemptionAlert(synced('changed', true), serverConfirmed);
     assert.ok(alert);
     assert.equal(alert.title, 'Subscription updated');
     assert.doesNotMatch(alert.title + alert.message, /code redeemed/i);
@@ -453,16 +498,16 @@ test('a confirmation waits for the server before saying Premium is on', () => {
   // The SDK is not the authority — the card reads from the server, which
   // learns through RevenueCat's webhook. Saying "active" before the backend
   // agrees is how a card reads "no subscription" a beat after the good news.
-  const live = redemptionAlert({ status: 'changed', entitled: true }, true);
+  const live = redemptionAlert(synced('changed', true), true);
   assert.match(live!.message, /active on your account/);
 
-  const pending = redemptionAlert({ status: 'changed', entitled: true }, false);
+  const pending = redemptionAlert(synced('changed', true), false);
   assert.match(pending!.message, /take a moment/);
   assert.doesNotMatch(pending!.message, /active on your account/);
 
   // Something moved and there is still no entitlement. Rare, and it must not
   // borrow either of the messages above.
-  const notEntitled = redemptionAlert({ status: 'changed', entitled: false }, false);
+  const notEntitled = redemptionAlert(synced('changed', false), false);
   assert.match(notEntitled!.message, /no active subscription/);
 });
 
@@ -484,9 +529,16 @@ test('both redeem surfaces open the URL and sync against a baseline', () => {
     // AppState listener is what makes redemption in another app land here.
     assert.match(source, /AppState\.addEventListener\('change'/);
     // And the SDK's view is not the verdict: the server is re-read before
-    // anything is claimed or unlocked.
-    assert.match(source, /waitForEntitlement\(token\)/);
+    // anything is claimed or unlocked. Either arity — the paywall asks the
+    // default question (is there an entitlement at all), Profile passes a
+    // predicate that asks the stricter one (has THIS change landed).
+    assert.match(source, /waitForEntitlement\(token[,)]/);
   }
+
+  // And Profile is the one that must ask the stricter question, because it is
+  // the one making a claim about what changed.
+  const profile = readFileSync('../eddy-ios/app/(tabs)/profile.tsx', 'utf8');
+  assert.match(profile, /until: \(entitlement\) => entitlementMatchesSnapshot\(entitlement, target\)/);
 });
 
 test('the redeem controls are signed-in only, like every purchase control', () => {
@@ -502,12 +554,89 @@ test('the redeem controls are signed-in only, like every purchase control', () =
   assert.match(footer, /\{signedIn \? \([\s\S]*handleRedeem[\s\S]*\) : null\}/);
 });
 
-test('no subscription control is reachable while another one is running', () => {
-  // Restore and Redeem both sync receipts and both end in an alert. Started
-  // together they race: two syncs, two alerts, and a busy label that reports
-  // whichever finished last. The paywall already gated every control on the
-  // whole busy state; Profile gated each on its own.
+test('the server is polled for THIS change, not for any entitlement at all', () => {
+  // An existing subscriber is already active server-side, so "is there an
+  // entitlement" is satisfied on the first poll — before the webhook has
+  // written the extension. Confirming against that reads back the renewal date
+  // they had BEFORE they redeemed, under a line saying it was updated.
+  const target = entitlementSnapshot(
+    customerInfo({ ...ACTIVE, expirationDate: '2028-01-01T00:00:00Z' }),
+  );
+
+  const server = (over: Partial<MeEntitlement> = {}): MeEntitlement => ({
+    entitlementId: 'eddy_premium',
+    isActive: true,
+    expiresAt: '2027-01-01T00:00:00Z',
+    willRenew: true,
+    productId: 'eddy_premium_annual',
+    billingIssue: false,
+    ...over,
+  });
+
+  // Active, right product, stale expiry — the exact state the old check passed.
+  assert.equal(entitlementMatchesSnapshot(server(), target), false);
+  // The webhook lands.
+  assert.equal(entitlementMatchesSnapshot(server({ expiresAt: '2028-01-01T00:00:00Z' }), target), true);
+  // Further out than the SDK saw is still caught up — a renewal on top of it.
+  assert.equal(entitlementMatchesSnapshot(server({ expiresAt: '2029-01-01T00:00:00Z' }), target), true);
+
+  // A different product is a different subscription, however far out it runs.
+  assert.equal(
+    entitlementMatchesSnapshot(
+      server({ expiresAt: '2029-01-01T00:00:00Z', productId: 'eddy_premium_monthly' }),
+      target,
+    ),
+    false,
+  );
+
+  // Nothing to compare against is never a confirmation.
+  assert.equal(entitlementMatchesSnapshot(null, target), false);
+  assert.equal(entitlementMatchesSnapshot(server({ isActive: false }), target), false);
+  assert.equal(entitlementMatchesSnapshot(server({ expiresAt: null }), target), false);
+
+  // A target with no expiry to reach falls back to the product being live.
+  const noExpiry = entitlementSnapshot(customerInfo({ ...ACTIVE, expirationDate: undefined }));
+  assert.equal(entitlementMatchesSnapshot(server(), noExpiry), true);
+});
+
+test('every identity and purchase control is gated on the whole busy state', () => {
+  // Restore and Redeem both sync receipts and both end in an alert; Sign out
+  // changes the identity the receipt would land on; Get Eddy Premium opens a
+  // second purchase flow with its own busy state and its own receipt-sync
+  // listener. Any two of them at once is a race.
+  //
+  // Asserted control by control. The negative form this replaces — "no
+  // `disabled={busy === }` survives" — passed just as happily with every
+  // `disabled` prop deleted, which is the opposite of what it was pinning.
   const profile = readFileSync('../eddy-ios/app/(tabs)/profile.tsx', 'utf8');
+
+  const control = (onPress: string): string => {
+    const at = profile.indexOf(onPress);
+    assert.notEqual(at, -1, `Profile has no control with ${onPress}`);
+    const open = profile.lastIndexOf('<Pressable', at);
+    const close = profile.indexOf('</Pressable>', at);
+    assert.ok(open !== -1 && close !== -1, `${onPress} is not inside a Pressable`);
+    return profile.slice(open, close);
+  };
+
+  for (const onPress of [
+    'onPress={handleSignOut}',
+    'onPress={() => setPaywallOpen(true)}',
+    'onPress={() => void Linking.openURL(MANAGE_SUBSCRIPTIONS_URL)}',
+    'onPress={handleRestore}',
+    'onPress={() => void handleRedeem()}',
+    'onPress={handleDelete}',
+  ]) {
+    assert.match(control(onPress), /disabled=\{busy !== null\}/, `${onPress} is not gated`);
+  }
+
+  // Apple's own button takes no `disabled` prop, and the HIG requires the real
+  // control rather than a facsimile that would — so its wrapper is the gate.
+  // It IS reachable mid-operation: Restore is offered to people who are not
+  // signed in, which is exactly when this button renders.
+  assert.match(profile, /pointerEvents=\{busy === null \? 'auto' : 'none'\}/);
+
+  // And nothing may go back to gating on its own operation alone.
   assert.doesNotMatch(profile, /disabled=\{busy === /);
 });
 

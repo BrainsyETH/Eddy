@@ -48,6 +48,7 @@ import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { useAccount } from '@/hooks/useAccount';
 import { deleteAccount, waitForEntitlement } from '@/api/client';
 import {
+  entitlementMatchesSnapshot,
   OFFER_CODE_REDEEM_URL,
   readEntitlementSnapshot,
   redemptionAlert,
@@ -226,10 +227,20 @@ export default function ProfileScreen() {
           // reads from the SERVER, which learns through RevenueCat's webhook,
           // so wait for it before refreshing — otherwise the card flips to a
           // stale "no subscription" a beat after the good news.
+          //
+          // And wait for THIS change, not for any entitlement at all: an
+          // existing subscriber is already active server-side, so "is there an
+          // entitlement" is satisfied on the first poll and would confirm an
+          // extension against the renewal date they had before they redeemed.
           let serverConfirmed = false;
           if (result.status === 'changed' && result.entitled) {
+            const target = result.snapshot;
             const token = await getAccessToken();
-            serverConfirmed = token ? await waitForEntitlement(token) : false;
+            serverConfirmed = token
+              ? await waitForEntitlement(token, {
+                  until: (entitlement) => entitlementMatchesSnapshot(entitlement, target),
+                })
+              : false;
             await refresh();
           }
 
@@ -362,7 +373,14 @@ export default function ProfileScreen() {
                   </Text>
                 </View>
               </View>
-              <Pressable onPress={handleSignOut} style={[styles.secondary, { borderColor: colors.border }]}>
+              <Pressable
+                onPress={handleSignOut}
+                disabled={busy !== null}
+                accessibilityRole="button"
+                accessibilityLabel="Sign out"
+                accessibilityState={{ disabled: busy !== null }}
+                style={[styles.secondary, { borderColor: colors.border }]}
+              >
                 <Text style={[styles.secondaryText, { color: colors.textMuted }]}>Sign out</Text>
               </Pressable>
             </View>
@@ -378,7 +396,10 @@ export default function ProfileScreen() {
               </Text>
 
               {!unavailable && (
-                <View style={styles.appleWrap}>
+                <View
+                  style={styles.appleWrap}
+                  pointerEvents={busy === null ? 'auto' : 'none'}
+                >
                   {busy === 'apple' ? (
                     <ActivityIndicator color={colors.interactive} />
                   ) : (
@@ -433,6 +454,10 @@ export default function ProfileScreen() {
             {loaded && !entitlement?.isActive && (
               <Pressable
                 onPress={() => setPaywallOpen(true)}
+                disabled={busy !== null}
+                accessibilityRole="button"
+                accessibilityLabel="Get Eddy Premium"
+                accessibilityState={{ disabled: busy !== null }}
                 style={[styles.primary, { backgroundColor: colors.accentFill }]}
               >
                 <Text style={[styles.primaryText, { color: colors.onAccent }]}>
@@ -444,6 +469,10 @@ export default function ProfileScreen() {
             {entitlement?.isActive && (
               <Pressable
                 onPress={() => void Linking.openURL(MANAGE_SUBSCRIPTIONS_URL)}
+                disabled={busy !== null}
+                accessibilityRole="button"
+                accessibilityLabel="Manage or cancel in Settings"
+                accessibilityState={{ disabled: busy !== null }}
                 style={[styles.secondary, { borderColor: colors.border }]}
               >
                 <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
