@@ -30,11 +30,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MapGaugeLite } from '@eddy/types';
 import {
-  bboxContains,
   mergeViewportItems,
   padBbox,
   quantizeBbox,
+  requestCovers,
   type Bounds,
+  type ViewportRequest,
 } from '@eddy/geo';
 import { fetchMapGauges } from '@/api/client';
 import { GAUGE_FETCH_DETAIL_ZOOM, MIN_GAUGE_ZOOM } from '@/map/layers';
@@ -104,9 +105,10 @@ interface CacheEntry {
 /**
  * Most-recent containing cell, not merely an exact quantized-key hit.
  *
- * An UNCAPPED entry satisfies any limit, not only its own: `capped: false`
- * means the server returned every gauge in that box, so a request for the same
- * ground under a different cap could not learn anything more. Without this the
+ * Eligibility is requestCovers — the same rule the last-request shortcut in
+ * the effect applies, deliberately shared: an UNCAPPED entry satisfies any
+ * limit (the server returned every gauge in its box, so a different cap could
+ * not learn more), a capped one only its own. Without the uncapped half the
  * limit flip at GAUGE_FETCH_DETAIL_ZOOM invalidated the whole cache — zooming
  * across that line refetched a viewport whose complete answer was already in
  * hand, and the layer blinked while the identical payload came back.
@@ -118,9 +120,12 @@ function containingEntry(
 ): CacheEntry | null {
   const newestFirst = [...entries.values()].reverse();
   return (
-    newestFirst.find(
-      (entry) =>
-        (entry.limit === limit || !entry.payload.capped) && bboxContains(entry.bbox, bounds),
+    newestFirst.find((entry) =>
+      requestCovers(
+        { bbox: entry.bbox, limit: entry.limit, capped: entry.payload.capped },
+        bounds,
+        limit,
+      ),
     ) ?? null
   );
 }
@@ -169,7 +174,13 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
    */
   const drawnGauges = useRef<MapGaugeLite[]>([]);
   const drawnKey = useRef<string | null>(null);
-  const lastRequested = useRef<Bounds | null>(null);
+  /**
+   * The whole request, not only its bounds. The shortcut below asks
+   * requestCovers whether this still answers the camera, and bounds alone
+   * cannot say: a capped detail answer contains the ground of a slightly
+   * wider overview camera without containing its gauges.
+   */
+  const lastRequested = useRef<ViewportRequest | null>(null);
   const hasRequested = useRef(false);
   const inFlight = useRef<AbortController | null>(null);
   /** Which quantized box the in-flight request is FOR — see the effect below. */
@@ -183,7 +194,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       // Touch on read: this is a real LRU rather than insertion-order FIFO.
       cache.current.delete(key);
       cache.current.set(key, hit);
-      lastRequested.current = bbox;
+      lastRequested.current = { bbox: hit.bbox, limit: hit.limit, capped: hit.payload.capped };
       drawnKey.current = key;
       const payload = mergeViewportPayload(drawnGauges.current, hit.payload, hit.bbox);
       drawnGauges.current = payload.gauges;
@@ -252,7 +263,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       ].slice(-VIEWPORT_GAUGE_CACHE_SIZE);
       writeViewportGaugeCache(entry);
 
-      lastRequested.current = bbox;
+      lastRequested.current = { bbox, limit, capped: result.capped };
       drawnKey.current = key;
       // The union of what landed and what was already on screen inside this
       // box — see mergeViewportItems. A capped wide answer must not yank the
@@ -330,7 +341,11 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
         diskIndex.current = touched;
         touchViewportGaugeCache(covering.key);
       }
-      lastRequested.current = covering.bbox;
+      lastRequested.current = {
+        bbox: covering.bbox,
+        limit: covering.limit,
+        capped: covering.payload.capped,
+      };
       if (drawnKey.current !== covering.key) {
         drawnKey.current = covering.key;
         const payload = mergeViewportPayload(drawnGauges.current, covering.payload, covering.bbox);
@@ -352,9 +367,15 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       }
       // Disk is stale-first, never cache-only. It earns an immediate frame but
       // the live request below still replaces it.
-    } else if (lastRequested.current && bboxContains(lastRequested.current, viewport.bounds)) {
+    } else if (requestCovers(lastRequested.current, viewport.bounds, limit)) {
+      // Same eligibility rule as containingEntry, and it must be: a
+      // bounds-only check here let a capped detail answer keep answering an
+      // overview camera that had eased back across the fetch threshold —
+      // 300 gauges standing in for the 1000-row page until the viewport
+      // crossed the padding, where the missing hundreds arrived as a cliff.
       logViewportDecision('within-last-request', {
         zoom: viewport.zoom,
+        limit,
         drawn: drawnGauges.current.length,
       });
       return;
@@ -423,7 +444,11 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
               const oldest = cache.current.keys().next().value;
               if (oldest !== undefined) cache.current.delete(oldest);
             }
-            lastRequested.current = stored.bbox;
+            lastRequested.current = {
+              bbox: stored.bbox,
+              limit: stored.limit,
+              capped: stored.payload.capped,
+            };
             drawnKey.current = stored.key;
             const payload = mergeViewportPayload(drawnGauges.current, stored.payload, stored.bbox);
             drawnGauges.current = payload.gauges;

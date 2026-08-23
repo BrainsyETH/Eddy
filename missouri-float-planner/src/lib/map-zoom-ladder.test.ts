@@ -222,3 +222,29 @@ test('the national fetch flip is decoupled from the marks rung', () => {
     'the hook must not couple its fetch budget to the visual detail threshold',
   );
 });
+
+test('every fetch-skipping path applies the one eligibility rule', () => {
+  // requestCovers (tested in geo-viewport.test.ts) is the rule: containment
+  // AND (same limit, or an uncapped answer). Two paths in the hook can skip a
+  // fetch — the memory-cache scan and the last-request shortcut — and the
+  // regression this pins is the shortcut judging by bounds alone: a capped
+  // detail answer kept standing in for the overview budget after the camera
+  // eased back across GAUGE_FETCH_DETAIL_ZOOM, until the padding boundary
+  // released hundreds of gauges at once.
+  const hook = codeOf('src', 'hooks', 'useViewportGauges.ts');
+  assert.match(
+    hook,
+    /requestCovers\(lastRequested\.current, viewport\.bounds, limit\)/,
+    'the last-request shortcut must ask requestCovers, never bare containment',
+  );
+  assert.match(
+    hook,
+    /newestFirst\.find\(\(entry\) =>\s*requestCovers\(/,
+    'the memory-cache scan judges entries with the same rule',
+  );
+  assert.doesNotMatch(
+    hook,
+    /bboxContains/,
+    'no fetch-skipping path may fall back to bounds-only containment',
+  );
+});
