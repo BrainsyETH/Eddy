@@ -79,6 +79,7 @@ export type Database = {
           google_maps_url: string | null
           id: string
           image_urls: string[] | null
+          is_float_endpoint: boolean
           is_public: boolean | null
           local_tips: string | null
           location_orig: unknown
@@ -121,6 +122,7 @@ export type Database = {
           google_maps_url?: string | null
           id?: string
           image_urls?: string[] | null
+          is_float_endpoint?: boolean
           is_public?: boolean | null
           local_tips?: string | null
           location_orig: unknown
@@ -163,6 +165,7 @@ export type Database = {
           google_maps_url?: string | null
           id?: string
           image_urls?: string[] | null
+          is_float_endpoint?: boolean
           is_public?: boolean | null
           local_tips?: string | null
           location_orig?: unknown

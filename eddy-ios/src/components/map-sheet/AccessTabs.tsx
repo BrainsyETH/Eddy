@@ -494,9 +494,22 @@ export function AccessOverviewTab({
  * once per line. Ionicons rather than Eddy art: an arrow is a direction, not a
  * thing, and the catalog is a catalog of things.
  */
-export function AccessFloatsTab({ detail, onPlanTo, nearbyMarks }: TabProps) {
+export function AccessFloatsTab({ accessPoint, detail, onPlanTo, nearbyMarks }: TabProps) {
   const { colors } = useTheme();
   const nearby = detail?.nearbyAccessPoints ?? [];
+
+  // ── A float has to start somewhere you can launch ─────────────────────────
+  //
+  // Every row here proposes a trip BETWEEN this place and a neighbour, so both
+  // ends have to be launches. When this place is not one — a state park, a
+  // campground — the neighbours are still worth listing (they are what is
+  // upstream and downstream of you) and not one of them is a trip you can take
+  // from here.
+  //
+  // Saying so beats hiding the tab: the reader came looking for the river
+  // around them, and an empty tab answers a question they did not ask.
+  // `!== false` throughout, so a payload predating the field behaves as before.
+  const canFloatFromHere = accessPoint.isFloatEndpoint !== false;
 
   if (!nearby.length) {
     return <Absent>No neighbouring access points are mapped on this stretch yet.</Absent>;
@@ -519,13 +532,23 @@ export function AccessFloatsTab({ detail, onPlanTo, nearbyMarks }: TabProps) {
         </View>
         {entries.map((entry) => {
           const mark = nearbyMarks.get(entry.id) ?? 'accessPoint';
+          // Both ends: this place, and the one the row proposes floating to.
+          const plannable = canFloatFromHere && entry.isFloatEndpoint !== false;
           return (
             <Pressable
               key={entry.id}
-              onPress={() => onPlanTo(entry)}
-              style={({ pressed }) => [styles.floatRow, { opacity: pressed ? 0.6 : 1 }]}
-              accessibilityRole="button"
-              accessibilityLabel={`${verb} ${entry.name}, ${entry.distanceMiles.toFixed(1)} miles`}
+              onPress={plannable ? () => onPlanTo(entry) : undefined}
+              disabled={!plannable}
+              style={({ pressed }) => [
+                styles.floatRow,
+                { opacity: pressed && plannable ? 0.6 : 1 },
+              ]}
+              accessibilityRole={plannable ? 'button' : 'text'}
+              accessibilityLabel={
+                plannable
+                  ? `${verb} ${entry.name}, ${entry.distanceMiles.toFixed(1)} miles`
+                  : `${entry.name}, ${entry.distanceMiles.toFixed(1)} miles. Not a launch.`
+              }
             >
               {/* A well, so the row's optical left edge holds still: the
                   catalog's drawings are trimmed to their own ink and a wide mark
@@ -543,7 +566,11 @@ export function AccessFloatsTab({ detail, onPlanTo, nearbyMarks }: TabProps) {
                   {entry.estimatedFloatTime ? ` · ${entry.estimatedFloatTime}` : ''}
                 </Text>
               </View>
-              <Text style={[styles.floatAction, { color: colors.interactive }]}>Plan</Text>
+              {plannable ? (
+                <Text style={[styles.floatAction, { color: colors.interactive }]}>Plan</Text>
+              ) : (
+                <Text style={[styles.floatAction, { color: colors.textMuted }]}>Not a launch</Text>
+              )}
             </Pressable>
           );
         })}
@@ -552,6 +579,12 @@ export function AccessFloatsTab({ detail, onPlanTo, nearbyMarks }: TabProps) {
 
   return (
     <View>
+      {canFloatFromHere ? null : (
+        <Absent>
+          This place is not a put-in or take-out, so a float cannot start or end here. What is
+          upstream and downstream of it:
+        </Absent>
+      )}
       {group('Downstream take-outs', 'arrow-down', downstream, 'Float to')}
       {group('Upstream put-ins', 'arrow-up', upstream, 'Float from')}
     </View>

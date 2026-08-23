@@ -9,6 +9,7 @@ import { useMap } from '@/components/map/MapContainer';
 import { MapPin } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { adminFetch } from '@/hooks/useAdminAuth';
+import { defaultFloatEndpoint } from '@/lib/access-points/launch-roles';
 import React from 'react';
 
 interface AccessPoint {
@@ -19,7 +20,10 @@ interface AccessPoint {
   riverName?: string;
   riverMile: number | null;
   type: string;
+  types?: string[];
   isPublic: boolean;
+  /** May this point be chosen as a put-in or take-out? Absent means eligible. */
+  isFloatEndpoint?: boolean;
   ownership: string | null;
   description: string | null;
   feeRequired?: boolean;
@@ -38,7 +42,7 @@ interface AccessPointEditorProps {
   onRefresh?: () => void;
   addMode?: boolean;
   onMapClick?: (coords: { lng: number; lat: number }) => void;
-  onApprovalChange?: (id: string, approved: boolean) => Promise<void>;
+  onApprovalChange?: (id: string, approved: boolean, isFloatEndpoint: boolean) => Promise<void>;
   onSelectAccessPoint?: (point: AccessPoint | null) => void;
   selectedAccessPointId?: string;
 }
@@ -418,6 +422,11 @@ export default function AccessPointEditor({
         }
 
         // Create popup content with current data
+        const willBeEndpoint = point.isFloatEndpoint ?? defaultFloatEndpoint(point.types, point.type);
+        const endpointNote = willBeEndpoint
+          ? 'Selectable as a put-in / take-out'
+          : 'NOT a launch — drawn and linked, never offered as a put-in';
+        const endpointNoteColor = willBeEndpoint ? '#22c55e' : '#a16207';
         const approvalStatusColor = isApproved ? '#22c55e' : '#f97316';
         const approvalStatusText = isApproved ? 'Visible in app' : 'Hidden (not approved)';
         const approvalButtonText = isApproved ? 'Hide from App' : 'Approve for App';
@@ -447,6 +456,9 @@ export default function AccessPointEditor({
             ${isSaving ? '<div style="margin-top: 4px; color: #f59e0b; font-size: 11px;">Saving location...</div>' : ''}
             ${isApproving ? '<div style="margin-top: 4px; color: #f59e0b; font-size: 11px;">Updating approval...</div>' : ''}
             ${hasError ? '<div style="margin-top: 4px; color: #dc2626; font-size: 11px;">Error saving</div>' : ''}
+            <div style="margin-top: 8px; font-size: 11px; color: ${endpointNoteColor};">
+              ${endpointNote}
+            </div>
             <div style="margin-top: 10px; display: flex; gap: 8px;">
               <button
                 id="approve-btn-${point.id}"
@@ -479,7 +491,7 @@ export default function AccessPointEditor({
               btnEvent.stopPropagation();
               setApprovingIds((prev) => new Set(prev).add(point.id));
               try {
-                await onApprovalChange(point.id, !isApproved);
+                await onApprovalChange(point.id, !isApproved, willBeEndpoint);
                 // Close popup and refresh
                 if (popupRef.current) {
                   popupRef.current.remove();

@@ -31,7 +31,7 @@ export async function GET() {
     ] = await Promise.all([
       supabase
         .from('access_points')
-        .select('id, river_id, name, slug, river_mile_downstream, type, types, is_public, ownership, description, amenities, parking_info, road_access, facilities, fee_required, fee_notes, location_snap, location_orig, road_surface, parking_capacity, managing_agency')
+        .select('id, river_id, name, slug, river_mile_downstream, type, types, is_public, is_float_endpoint, ownership, description, amenities, parking_info, road_access, facilities, fee_required, fee_notes, location_snap, location_orig, road_surface, parking_capacity, managing_agency')
         .eq('approved', true)
         .order('river_mile_downstream'),
       supabase
@@ -74,6 +74,11 @@ export async function GET() {
             type: ap.type,
             types: ap.types || [],
             isPublic: ap.is_public,
+            // Without this an external consumer reads every approved record as
+            // a launch, and this feed is also the x402-paid surface. A park or
+            // campground on the water is in here on purpose — it is a place
+            // worth knowing about — and it is not somewhere to put a boat in.
+            isFloatEndpoint: ap.is_float_endpoint !== false,
             ownership: ap.ownership,
             description: ap.description,
             amenities: ap.amenities || [],

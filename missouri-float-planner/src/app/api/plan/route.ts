@@ -18,7 +18,12 @@ import { conditionCodeToFlowRating, FLOW_DESCRIPTIONS, type FlowRating } from '@
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
+import { resolveFloatEndpoints, endpointFailureStatus } from '@/lib/access-points/endpoint-resolver';
+import type { Database } from '@/types/database';
 import { toNum } from '@/lib/utils/num';
+
+/** This route selects `*`, so it gets the whole generated row back. */
+type AccessPointRow = Database['public']['Tables']['access_points']['Row'];
 import { STALE_READING_HOURS } from '@shared/reading-staleness';
 
 // Reading age beyond which we surface an accuracy warning (mirrors the DB RPC).
@@ -81,22 +86,25 @@ async function _GET(request: NextRequest) {
       );
     }
 
-    // Get access points
-    const { data: accessPoints, error: accessError } = await supabase
-      .from('access_points')
-      .select('*')
-      .in('id', [startId, endId])
-      .eq('approved', true);
+    // Get access points. The resolver is the only thing that decides whether a
+    // float may be built from these two ids: it requires both to be approved,
+    // both to be float endpoints (so a park with no ramp is refused rather than
+    // merely hidden by the UI), and both to be on THIS river — which this route
+    // never checked, though `riverId` was already in hand above.
+    const endpoints = await resolveFloatEndpoints<AccessPointRow>(supabase, {
+      riverId,
+      putInId: startId,
+      takeOutId: endId,
+    });
 
-    if (accessError || !accessPoints || accessPoints.length !== 2) {
+    if (!endpoints.ok) {
       return NextResponse.json(
-        { error: 'Access points not found' },
-        { status: 404 }
+        { error: endpoints.detail },
+        { status: endpointFailureStatus(endpoints.reason) }
       );
     }
 
-    const putIn = accessPoints.find(ap => ap.id === startId);
-    const takeOut = accessPoints.find(ap => ap.id === endId);
+    const { putIn, takeOut } = endpoints;
 
     if (!putIn || !takeOut) {
       return NextResponse.json(

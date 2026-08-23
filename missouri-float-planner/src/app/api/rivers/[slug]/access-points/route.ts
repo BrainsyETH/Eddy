@@ -40,12 +40,32 @@ async function _GET(
       );
     }
 
-    // Get approved access points
-    const { data: accessPoints, error: accessError } = await supabase
+    // ── Endpoints only, unless the caller says it understands the difference ──
+    //
+    // Every installed iOS build older than the endpoint split treats whatever
+    // this route returns as selectable put-ins. Shipping a non-launch to those
+    // clients would put a false launch in their picker; the server would refuse
+    // the resulting plan, which turns a prevention into a dead end.
+    //
+    // So the DEFAULT payload is what every existing client already expects, and
+    // a client that knows to draw non-endpoints without offering them asks for
+    // them explicitly. New clients send `?include=non_endpoints`; old ones send
+    // nothing and are unaffected. This can be dropped once the old builds are
+    // out of circulation.
+    const includeNonEndpoints =
+      request.nextUrl.searchParams.get('include') === 'non_endpoints';
+
+    let query = supabase
       .from('access_points')
       .select('*')
       .eq('river_id', river.id)
-      .eq('approved', true)
+      .eq('approved', true);
+
+    if (!includeNonEndpoints) {
+      query = query.eq('is_float_endpoint', true);
+    }
+
+    const { data: accessPoints, error: accessError } = await query
       // Note: river_mile_downstream now represents "mile from headwaters" 
       // (mile 0.0 = headwaters, increasing downstream)
       // ascending: true = upstream to downstream (natural float direction)
