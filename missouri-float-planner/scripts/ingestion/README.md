@@ -195,7 +195,8 @@ Research per corridor (outfitter sites, Google/Yelp/TripAdvisor, chamber
 directories; NPS / State Parks / USFS / MDC / AGFC for campgrounds). The repo's
 Data Gap Analysis and Business Database documents in `docs/research/` (repo
 root) are prior groundwork (75 businesses across 6 corridors, incl. Black,
-Gasconade, Spring AR). Load via CSV:
+Gasconade, Spring AR). **That database is now fully drained** — see the coverage
+note below before assuming it can fill another river. Load via CSV:
 
 ```bash
 npx tsx scripts/import-services-csv.ts <file>.csv            # dry-run / validate
@@ -207,8 +208,37 @@ cabin_lodge), river_slugs` (pipe-separated, first = `is_primary`), `phone, email
 website, reservation_url, booking_platform, latitude, longitude, services_offered`
 (pipe-separated: `canoe_rental|shuttle|showers|…`), `tent_sites, rv_sites,
 cabin_count, fee_range, season_open_month, season_close_month`. Idempotent by
-`slug`. **Backlog:** backfill the five Wave-1 rivers (Black, Bourbeuse, Buffalo,
-Gasconade, St. Francis) from the Business Database in `docs/research/`.
+`slug`. Do **not** re-run a corridor's original CSV to add rows to it: the
+importer upserts by `slug`, so a stale file silently reverts hand-corrections
+made since (20260809120000 renamed six rows this way). Write a new CSV holding
+only the new businesses.
+
+#### What the Business Database can and cannot fill (2026-08-23)
+
+All 75 businesses in `docs/research/` are now loaded. The last 17 went in on
+2026-08-23 — `services-black.csv` (10), `services-spring-river-ar.csv` (6),
+`services-big-piney.csv` (1) — taking Black from **0 → 10**, Spring River (AR)
+7 → 13, and Big Piney 4 → 5. Every one landed without coordinates; geocoding is
+a separate pass that needs `MAPBOX_ACCESS_TOKEN` (`geocode-services-mapbox.ts`,
+which writes nothing and emits a migration for review).
+
+The database covers **six corridors only** — Huzzah/Meramec, Current/Jacks Fork,
+Eleven Point, Black, Spring River (Hardy AR), Big Piney/Gasconade — which is
+nine river slugs. Eleven Point's 5 and Gasconade's 4 are not thin against it:
+they are everything it holds for those rivers. So the remaining bare rivers are
+**not a backfill backlog, they are a research backlog** — the document has
+nothing for them and never did:
+
+| River | Services | Needs |
+|---|---|---|
+| `bourbeuse`, `niangua`, `spring-river-mo` | 0 | new corridor research |
+| `st-francis` | 1 | new corridor research |
+| `courtois`, `james` | 2 | new corridor research |
+| `buffalo` | 3 | new corridor research (NPS-authorized outfitter list) |
+
+Commission that the way `research-prompt-missouri.md` is written — one river per
+task, markdown table out, every fact carrying its source URL — and land it as a
+new `services-<slug>.csv`.
 
 ### Phase 9 — Activate [human] + cold-start
 

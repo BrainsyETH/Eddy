@@ -7,6 +7,49 @@ file is now the record of what shipped and what remains. **For the repeatable
 add-a-river process, see `README.md` in this directory (the canonical, finalized
 guide).**
 
+## Services backfill — the Phase 8.5 backlog, closed (2026-08-23)
+
+The Wave-1 rivers shipped with 0 services and the README has carried "do not
+skip it again" ever since. Black was still at 0 in prod today. Diffed all 75
+businesses in `docs/research/2026-07-ozark-float-business-database-outreach.md`
+against `nearby_services` by name: **17 had never been loaded.** Written as
+three CSVs and imported with `EXPECTED_SUPABASE_REF` pinned — 17 rows, 17
+`service_rivers` links, 0 skipped, 0 warnings:
+
+- `services-black.csv` — **10 rows, Black 0 → 10.** Franklin Floats, Parks Bluff
+  Campground, Bearcat Getaway, Black River Camping at Horse Shoe Ranch,
+  Riversedge Campground, Black River Lodge, Log Cabin Suites, Wilderness Lodge
+  Resort, Sunset Ridge Cabin, The Black River Cabins. All Lesterville, MO.
+- `services-spring-river-ar.csv` — **6 rows, Spring River (AR) 7 → 13.** Spring
+  River Oaks, Star Falls Cabins, Spring River Cabins and Campground, Riverside
+  Resort, Camp Miramichee Falls, Hardy's Spring River Lodge.
+- `services-big-piney.csv` — **1 row, Big Piney 4 → 5.** Wilderness Ridge Resort.
+
+Addresses came from each business's own site, not the research document, which
+publishes none: that added street addresses for 9 of 17 and corrected four
+phone numbers the document had recorded as "phone only" or missing (Riversedge
+573-307-1140, Wilderness Lodge 573-307-1141, Log Cabin Suites 573-747-9721,
+Riverside Resort 870-625-7501). It also settled the one river assignment the
+document left ambiguous: **Wilderness Ridge Resort is on the Big Piney** (33850
+Windsor Lane, Duke MO), not the Gasconade or Little Piney.
+
+Two rows are deliberately imperfect. **The Black River Cabins** is `status =
+unverified` — theblackrivercabins.com no longer resolves, so its address
+(36050 Highway 1, Lesterville) comes from the chamber/Yelp listing and its unit
+count from nothing. **Bearcat Getaway** kept the document's data with no street
+address; its site returned 503 on every attempt.
+
+All 17 landed **without coordinates** — `MAPBOX_ACCESS_TOKEN` was not in the
+session env. `trust_service_geo()` returns 0 rows for them (it scopes to located
+services), so nothing was filed against the trust console, but nothing is on the
+map either. **Follow-up: run `geocode-services-mapbox.ts`** with the token, run
+its emitted river-distance query, and apply the surviving UPDATEs.
+
+**This does not clear the zero-service rivers.** The research document covers
+six corridors and no more; Bourbeuse, Niangua, Spring River (MO), St. Francis,
+Courtois, James and Buffalo appear nowhere in it. They need new research, not
+another backfill — see the coverage table in `README.md` Phase 8.5.
+
 ## Safety-threshold hardening (2026-07-12, branch claude/river-ingestion-status-o1rvt2)
 
 Audited the Wave-1 condition ladders and found three gaps that passed
