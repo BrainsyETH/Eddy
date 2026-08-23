@@ -386,9 +386,20 @@ export interface RowPlan {
   primaryFlips: string[];
 }
 
+/** An ISO instant, as opposed to any other string that happens to parse. */
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
 function sameValue(a: unknown, b: unknown): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
     return a.length === b.length && [...a].sort().join('|') === [...b].sort().join('|');
+  }
+  // Postgres returns 2026-08-23T00:00:00+00:00 where toISOString() produced
+  // 2026-08-23T00:00:00.000Z. Comparing those as text reports every timestamp
+  // this script writes as having failed to land, and reports a row that is
+  // already correct as needing an update. They are the same instant.
+  if (typeof a === 'string' && typeof b === 'string' && ISO_INSTANT.test(a) && ISO_INSTANT.test(b)) {
+    const [x, y] = [Date.parse(a), Date.parse(b)];
+    if (!Number.isNaN(x) && !Number.isNaN(y)) return x === y;
   }
   return a === b;
 }

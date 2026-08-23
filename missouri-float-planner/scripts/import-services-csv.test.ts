@@ -298,3 +298,18 @@ test('slugify strips punctuation the way stored slugs were built', () => {
   assert.equal(slugify("Akers Ferry Canoe Rental"), 'akers-ferry-canoe-rental');
   assert.equal(slugify("Windy's Floats"), 'windys-floats');
 });
+
+test('a timestamp is compared as an instant, not as text', () => {
+  // Postgres returns +00:00 where toISOString() produced .000Z. Comparing them
+  // as strings made every timestamp this script writes look like it had failed
+  // to land, and made an already-correct row look like it needed an update.
+  const row = rowFrom(
+    `Bennett Spring Canoe Rental,outfitter,niangua,bennett-spring-canoe,,,,,,,,,,,,https://bennettspringcanoe.com,${RECENT}`,
+  );
+  const existing = existingService({
+    verified_source: 'https://bennettspringcanoe.com',
+    last_verified_at: `${RECENT}T00:00:00+00:00`,
+  });
+  const plan = planRow(row, existing, [{ river_slug: 'niangua', is_primary: true }], RIVERS, false);
+  assert.equal(plan.action, 'unchanged', 'same instant, different serialisation');
+});
