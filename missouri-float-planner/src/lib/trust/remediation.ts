@@ -201,7 +201,7 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     action: 'Decide whether this place is a launch, then set is_float_endpoint or fix its roles.',
     where: '/admin/access-points',
     method:
-      'Two different defects look the same here. Either the roles are incomplete — a campground WITH a ramp that never had boat_ramp added — in which case add the role and leave eligibility alone; or the place genuinely has no launch, in which case set is_float_endpoint = false and it keeps its page, its pin and its sitemap entry while leaving the planner. Check the managing agency\'s own map before deciding: Montauk State Park reads like a put-in and its designated canoe access is outside the park boundary.',
+      'Two different defects look the same here. Either the roles are incomplete — a campground WITH a ramp that never had boat_ramp added — in which case add the role and leave eligibility alone; or the place genuinely has no launch, in which case set is_float_endpoint = false and it keeps its page, its pin and its sitemap entry while leaving the planner. Check the managing agency\'s own map before deciding, and prefer local knowledge to a boundary line: Montauk State Park was classified a non-launch on exactly that reading in 2026-08, and it is in fact the first put-in on the Current.',
   },
   launch_not_selectable: {
     kind: 'mechanical',

@@ -155,10 +155,11 @@ export interface MapAccessPoint {
    *
    * A separate question from whether it is drawn. Both apps show every approved
    * point on the map — a state park or campground on the water is somewhere
-   * people go — but only endpoints may be selected for a float. Montauk State
-   * Park at the Current's headwaters is the record this exists for: a real
-   * place, a real page, no launch. `approved` decides whether it appears;
-   * this decides whether it can end a float.
+   * people go — but only endpoints may be selected for a float. A state park or
+   * campground with no ramp is a real place with a real page and no launch.
+   * `approved` decides whether it appears; this decides whether it can end a
+   * float. (Montauk State Park prompted the split and is NOT an example of it —
+   * it is the Current's first put-in. See migration 20260823192151.)
    *
    * OPTIONAL because payloads predating the field omit it, and ABSENT MEANS
    * ELIGIBLE — the behaviour every point had before the split. Reading

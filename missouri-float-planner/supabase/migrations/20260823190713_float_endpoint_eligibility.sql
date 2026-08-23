@@ -45,28 +45,20 @@
 -- reports approved rows carrying the `access` role with is_float_endpoint FALSE,
 -- and park/campground kinds with it TRUE. Neither direction is left to a default.
 --
--- ── What this migration does NOT do, and why it cannot ───────────────────
+-- ── SUPERSEDED IN PART by 20260823192151 ─────────────────────────────────
 --
--- Montauk is NOT re-approved here, and re-approval is not in this release at
--- all. `approved` is what puts the record back in front of the public, and
--- until the endpoint resolver is DEPLOYED nothing rejects it as a launch:
--- /api/rivers/[slug]/access-points on the old server code has no eligibility
--- filter, so a re-approved Montauk reaches every client as a selectable put-in.
+-- This migration excluded montauk-state-park from the backfill below, because
+-- at the time it ran Montauk was unapproved and classified as a park that is
+-- not a launch. That classification was wrong: Montauk is the FIRST PUT-IN on
+-- the Current, and 20260823192151 re-approved it, marked it a float endpoint,
+-- and collapsed its two directory rows into its marker. The exclusion in the
+-- UPDATE below is therefore history, not policy — do not read it as a standing
+-- statement about that row.
 --
--- That window cannot be closed from inside a migration, because migrations here
--- reach production through `npm run db:migrate` (scripts/run-migrations.ts),
--- which is decoupled from the Vercel deploy entirely. Two files in one directory
--- apply together whenever somebody runs it; a comment saying "apply this one
--- later" is a comment, not a boundary. The only real boundary is a separate
--- release, so re-approval is a follow-up PR to be applied after this branch's
--- code is live.
---
--- Its prerequisite, tracked with it: Montauk's two nearby_services rows sit at
--- IDENTICAL coordinates (37.4407,-91.6739) and both link `located_at`, which
--- /api/services never turns into an accessPointId (IDENTITY_RELATIONSHIP is
--- 'same_place', route.ts:177). So iOS draws them as two stacked pins today, and
--- re-approval would add the access marker as a third. They need geocoding apart
--- from Missouri State Parks sources first.
+-- What survives unchanged is the reason the COLUMN exists: `approved` answers
+-- "may this be shown at all" and cannot also answer "may a float start here".
+-- No row is currently classified as a non-launch. The trust check is what will
+-- surface the first one that should be.
 --
 -- The wider inconsistency is also untouched and worth naming: 50 approved
 -- `campground`-typed and 4 approved `park`-typed rows remain, and this migration

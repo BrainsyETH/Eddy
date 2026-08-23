@@ -55,8 +55,9 @@ test('an unapproved point is refused as not-approved, not as missing', () => {
   assert.equal(result.reason, 'not-approved');
 });
 
-test('a non-endpoint is refused — the Montauk case', () => {
-  // Approved, real, has a page and a pin. Still not a launch.
+test('a non-endpoint is refused', () => {
+  // Approved, real, has a page and a pin. Still not a launch — a state park or
+  // campground with no ramp.
   const result = classifyEndpoints(
     [row({ id: 'baptist-camp', is_float_endpoint: false }), takeOut],
     ask,

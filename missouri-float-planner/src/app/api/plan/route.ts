@@ -88,7 +88,7 @@ async function _GET(request: NextRequest) {
 
     // Get access points. The resolver is the only thing that decides whether a
     // float may be built from these two ids: it requires both to be approved,
-    // both to be float endpoints (so a park like Montauk is refused rather than
+    // both to be float endpoints (so a park with no ramp is refused rather than
     // merely hidden by the UI), and both to be on THIS river — which this route
     // never checked, though `riverId` was already in hand above.
     const endpoints = await resolveFloatEndpoints<AccessPointRow>(supabase, {

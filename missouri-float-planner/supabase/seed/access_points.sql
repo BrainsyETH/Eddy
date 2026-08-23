@@ -197,22 +197,21 @@ SELECT
     'Montauk State Park',
     'montauk-state-park',
     ST_SetSRID(ST_MakePoint(-91.6866657, 37.4505347), 4326),
-    'park',
-    ARRAY['park', 'campground'],
+    'access',
+    ARRAY['access', 'campground', 'park'],
     true,
     'state_park',
-    'State park and campground at the Current River headwaters. This record is not a put-in or take-out: Missouri State Parks puts designated canoe access outside the park''s southeast boundary, and NPS designates Tan Vat, which Eddy carries as a separate access. Private vessels float free within Ozark National Scenic Riverways.',
+    'The first put-in on the Current River, at the headwaters where Montauk Spring rises. The park is the launch and the base camp both: campground, cabins, lodge and dining are all here. Below the hatchery this is Missouri Blue Ribbon trout water — a trout permit is required, and the stretch down to Cedargrove is fly-and-artificial-only. Tan Vat (mile 0.9) and Baptist Camp (mile 2.1) are the next accesses downstream.',
     ARRAY['parking', 'restrooms', 'camping', 'picnic'],
     'Large parking area near lodge',
     true,
-    'No launch fee — there is no river launch here. Camping and lodging are paid; see mostateparks.com for current rates.',
-    -- Unapproved, matching production. Re-approving Montauk is a SEPARATE
-    -- release: it can only be applied once the endpoint resolver and the
-    -- updated clients are deployed, and migrations here reach production
-    -- through `npm run db:migrate` on nobody's schedule but the operator's. A
-    -- migration in this branch would ride along with the schema change and open
-    -- exactly the window the split exists to close. See the follow-up.
-    false
+    'No launch fee. Camping, cabins, lodge rooms and dining are paid — see mostateparks.com for current rates. A Missouri trout permit is required to fish.',
+    -- Approved AND a float endpoint: this is the first put-in on the Current,
+    -- and the camping and lodging are part of the same place you drive to.
+    -- 20260811203000 classified it as a park that is not a launch and
+    -- 20260823192151 corrected that; the trailing UPDATE below makes it
+    -- eligible along with every other approved row.
+    true
 FROM rivers r WHERE r.slug = 'current'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 
@@ -2215,13 +2214,13 @@ ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 -- the map draws, and both pickers are empty. Nothing errors, which is what
 -- makes it worth a comment rather than a fix nobody can find.
 --
--- This mirrors the backfill in 20260823190713 exactly — every approved row
--- becomes an endpoint except Montauk State Park, which is a headwaters park
--- with its designated canoe access outside the park boundary. Keep the two in
--- step: they answer the same question for the same rows.
+-- This mirrors the backfill in 20260823190713 plus the correction in
+-- 20260823192151: every approved row is a float endpoint, Montauk included —
+-- it is the first put-in on the Current. Nothing in the seed is currently a
+-- non-launch. When something is, set is_float_endpoint = false on that row
+-- explicitly rather than carving an exception out of this statement.
 UPDATE access_points ap
    SET is_float_endpoint = TRUE
   FROM rivers r
  WHERE ap.river_id = r.id
-   AND ap.approved = TRUE
-   AND ap.slug <> 'montauk-state-park';
+   AND ap.approved = TRUE;

@@ -68,8 +68,8 @@ export type EndpointFailureReason =
   /** The record exists but is not public — unreviewed, or withdrawn. */
   | 'not-approved'
   /**
-   * Public, but not a launch. Montauk State Park is the case this was built
-   * for: a real place with a real page that is not a put-in.
+   * Public, but not a launch — a real place with a real page that is not a
+   * put-in. A state park or campground on the water with no ramp.
    */
   | 'not-an-endpoint'
   /** Public and a launch, but on a different river than the one asked about. */

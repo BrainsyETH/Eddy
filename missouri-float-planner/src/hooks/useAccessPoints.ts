@@ -10,7 +10,7 @@ export function useAccessPoints(riverSlug: string | null) {
     queryFn: async () => {
       if (!riverSlug) return [];
       // `include=non_endpoints` asks for the places that are on the river but
-      // are not launches — Montauk State Park and the like. The web draws them
+      // are not launches — a park or campground with no ramp. The web draws them
       // and keeps them out of the put-in/take-out pickers, which is the deal the
       // parameter represents; a caller that cannot make that distinction must
       // not ask for them. See the route's header.

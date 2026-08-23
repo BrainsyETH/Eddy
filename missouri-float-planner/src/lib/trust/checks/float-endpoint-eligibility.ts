@@ -88,7 +88,7 @@ export function deriveEndpointEligibilityFindings(
         title: `"${row.name}"${where} is offered as a put-in but claims no launch`,
         detail: `Every role on this point (${roles.join(
           ', ',
-        )}) is a place-to-be rather than a place-to-launch, yet it may be chosen as a put-in or take-out. Montauk State Park was exactly this — a headwaters park with its designated canoe access outside the park boundary — and it was offered as a launch until 2026-08-11. Either the roles are incomplete, or is_float_endpoint should be false.`,
+        )}) is a place-to-be rather than a place-to-launch, yet it may be chosen as a put-in or take-out. Either the roles are incomplete — a campground whose boat ramp was never recorded — or is_float_endpoint should be false. Check the ground before the boundary line: Montauk State Park was reclassified as a non-launch on a park-boundary reading in 2026-08 and is in fact the Current's first put-in.`,
         evidence: { accessPointId: row.id, slug: row.slug, type: row.type, roles },
       });
     }

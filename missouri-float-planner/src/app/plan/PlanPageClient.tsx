@@ -210,9 +210,10 @@ export default function PlanPageClient({
   // every marker was implicitly an endpoint: handleMarkerClick took whatever it
   // was handed and made it a put-in.
   //
-  // Montauk State Park is why they are separate. It is a real place with a real
-  // page and a pin at the Current's headwaters, and it is not a launch — so it
-  // has to be drawable and unselectable at the same time. The API only sends
+  // A place with a real page and a real pin that is not a launch has to be
+  // drawable and unselectable at the same time, and one array cannot say both.
+  // (Montauk State Park prompted this and is not itself an example: it is the
+  // Current's first put-in — see 20260823192151.) The API only sends
   // non-endpoints because this page asked for them (`include=non_endpoints`);
   // filtering here is the other half of that bargain.
   //

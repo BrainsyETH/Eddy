@@ -43,10 +43,9 @@ async function _GET(
     // ── Endpoints only, unless the caller says it understands the difference ──
     //
     // Every installed iOS build older than the endpoint split treats whatever
-    // this route returns as selectable put-ins. Montauk State Park is approved
-    // again but is not a launch, so shipping it to those clients would put a
-    // false launch in their picker; the server would refuse the resulting plan,
-    // which turns a prevention into a dead end.
+    // this route returns as selectable put-ins. Shipping a non-launch to those
+    // clients would put a false launch in their picker; the server would refuse
+    // the resulting plan, which turns a prevention into a dead end.
     //
     // So the DEFAULT payload is what every existing client already expects, and
     // a client that knows to draw non-endpoints without offering them asks for

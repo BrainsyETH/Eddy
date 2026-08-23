@@ -61,9 +61,11 @@ export interface AccessPoint {
    *
    * Distinct from whether the record is published at all, which is the server's
    * `approved` and never reaches this type. A state park or campground on the
-   * water is a real destination with a real page and pin, and still not
-   * somewhere a boat goes in — Montauk State Park at the Current's headwaters is
-   * the case this exists for. Draw these; never offer them as endpoints.
+   * water is a real destination with a real page and pin, and can still be
+   * somewhere no boat goes in. Draw these; never offer them as endpoints.
+   *
+   * (Montauk State Park was the record this was built around and turned out NOT
+   * to be one of them — it is the Current's first put-in. See 20260823192151.)
    *
    * OPTIONAL because payloads predating the field omit it. Absent means "assume
    * eligible", which matches how every point behaved before the split — do not

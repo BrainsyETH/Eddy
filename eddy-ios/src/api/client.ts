@@ -450,8 +450,8 @@ export async function fetchRiverDetail(slug: string, signal?: AbortSignal): Prom
  * Approved access points, ordered from headwaters downstream.
  *
  * `include=non_endpoints` asks for the approved places that sit on the river
- * without being launches — Montauk State Park at the Current's headwaters is the
- * one this was added for. The route withholds them by default because every
+ * without being launches — a state park or campground with no ramp. The route
+ * withholds them by default because every
  * build shipped before `isFloatEndpoint` existed would put them straight into
  * the put-in picker; asking for them is this client stating that it draws them
  * and filters them out of the pickers (useFloatPlan.putInOptions).

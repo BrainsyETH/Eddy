@@ -184,10 +184,10 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
   // Get the float-eligible access points to fuzzy-match names against.
   //
   // Endpoints only, deliberately: this handler builds a float, and the match is
-  // fuzzy. With every approved point in scope, "montauk" resolves to Montauk
-  // State Park — a headwaters park with no launch — and the model happily
-  // reports a float time from it. Places that are not launches stay visible
-  // through get_access_points, which labels them.
+  // fuzzy. With every approved point in scope a query can resolve to a park or a
+  // campground with no ramp, and the model will happily report a float time from
+  // it. Places that are not launches stay visible through get_access_points,
+  // which labels them.
   const { data: allAps } = await supabase
     .from('access_points')
     .select('id, name, river_mile_downstream, location_orig, location_snap, driving_lat, driving_lng, directions_override')

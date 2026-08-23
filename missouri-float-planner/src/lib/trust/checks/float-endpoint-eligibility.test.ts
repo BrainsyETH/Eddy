@@ -1,11 +1,16 @@
 // src/lib/trust/checks/float-endpoint-eligibility.test.ts
 // The two directions of being wrong about whether a place is a launch.
 //
-// The fixtures are real rows. Montauk State Park is the record the column was
-// added for, and the 2026-08-11 audit that unapproved it is the reason the rule
-// exists at all; the campground-with-a-ramp cases are the false positives a
-// naive "campgrounds are not launches" rule would have produced against live
-// data, where 50 approved campground-typed points are legitimately offered.
+// The fixtures are real shapes from the live table. The campground-with-a-ramp
+// cases are the false positives a naive "campgrounds are not launches" rule
+// would produce, where 50 approved campground-typed points are legitimately
+// offered.
+//
+// Montauk State Park appears here as the case that must NOT fire: it was
+// reclassified as a park-with-no-launch in 2026-08 on a park-boundary reading,
+// and 20260823192151 corrected that — it is the Current's first put-in, carries
+// the access role, and is a float endpoint. If this rule ever flags it again,
+// the rule is wrong, not the row.
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -32,15 +37,32 @@ test('a plain approved launch raises nothing', () => {
   assert.deepEqual(deriveEndpointEligibilityFindings([row()]), []);
 });
 
-test('Montauk — a park with no launch role, not offered — raises nothing', () => {
-  // The end state this whole change exists to produce: approved, so it keeps its
-  // page and pin, and ineligible, so it never reaches the picker.
+test('Montauk — a put-in that is also a park and a campground — raises nothing', () => {
+  // Its corrected state (20260823192151): approved, a float endpoint, and
+  // carrying the access role alongside what else the park offers. A place can be
+  // a launch AND somewhere you sleep; the roles axis is a set, not a category.
   const findings = deriveEndpointEligibilityFindings([
     row({
       name: 'Montauk State Park',
       slug: 'montauk-state-park',
+      type: 'access',
+      types: ['access', 'campground', 'park'],
+      approved: true,
+      is_float_endpoint: true,
+    }),
+  ]);
+  assert.deepEqual(findings, []);
+});
+
+test('a park with no launch role, correctly not offered, raises nothing', () => {
+  // The state the column exists to express: approved, so it keeps its page and
+  // pin, and ineligible, so it never reaches the picker.
+  const findings = deriveEndpointEligibilityFindings([
+    row({
+      name: 'Some Bluff Overlook',
+      slug: 'some-bluff-overlook',
       type: 'park',
-      types: ['park', 'campground'],
+      types: ['park'],
       approved: true,
       is_float_endpoint: false,
     }),
@@ -49,11 +71,10 @@ test('Montauk — a park with no launch role, not offered — raises nothing', (
 });
 
 test('a park still offered as an endpoint is flagged', () => {
-  // Montauk before 2026-08-11.
   const findings = deriveEndpointEligibilityFindings([
     row({
-      name: 'Montauk State Park',
-      slug: 'montauk-state-park',
+      name: 'Some Bluff Overlook',
+      slug: 'some-bluff-overlook',
       type: 'park',
       types: ['park', 'campground'],
       is_float_endpoint: true,
