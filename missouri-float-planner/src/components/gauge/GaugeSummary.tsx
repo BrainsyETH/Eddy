@@ -27,8 +27,9 @@
 //   · Infer safety from missing stages. Absence reads as a statement about
 //     publication, in shared/safety-summary.ts's exact words.
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
+import { trackGaugeDataUnavailable } from '@/lib/gauge/analytics';
 import { computeTrend } from '@/lib/gauge-trend';
 import { formatAgeFromHours } from '@/lib/utils/reading-age';
 import ConditionBadge from '@/components/ui/ConditionBadge';
@@ -104,7 +105,17 @@ export default function GaugeSummary({
   floodStages,
   className = '',
 }: GaugeSummaryProps) {
-  const { data: history } = useGaugeHistory(siteId, days);
+  const { data: history, isError: historyFailed } = useGaugeHistory(siteId, days);
+
+  // gauge_data_unavailable — one event per summary mount per category, never
+  // a stream. The bag carries provider, tier and the category only: no
+  // reading, no station identifier, no coordinate.
+  const reportedUnavailable = useRef<Set<string>>(new Set());
+  const reportUnavailable = (category: 'history' | 'reading') => {
+    if (reportedUnavailable.current.has(category)) return;
+    reportedUnavailable.current.add(category);
+    trackGaugeDataUnavailable({ provider: provider ?? 'usgs', tier }, category);
+  };
 
   // ── Trust ────────────────────────────────────────────────────────
   // The qualifier half arrives pre-classified as `readingSuspect` (the server
@@ -152,6 +163,14 @@ export default function GaugeSummary({
   const safetySentence = safetySummarySentence(safety, {
     forecastDayLabel: safety.kind === 'forecast' ? dayLabel(safety.crossesAt) : null,
   });
+
+  useEffect(() => {
+    if (historyFailed) reportUnavailable('history');
+    // A resolved tier with no primary value is a station that answered and
+    // had nothing — the missing-data case, not the still-loading case.
+    if (tier !== 'unknown' && value == null) reportUnavailable('reading');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyFailed, tier, value]);
 
   // ── Official forecast ────────────────────────────────────────────
   const crest = useMemo(() => crestOf(history?.forecast ?? []), [history]);

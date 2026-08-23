@@ -31,6 +31,13 @@ import { stationTier } from '@shared/station-tier';
 import GaugeSummary from '@/components/gauge/GaugeSummary';
 import ExpandedGaugeChart from '@/components/gauge/ExpandedGaugeChart';
 import { ageHoursOf } from '@/lib/utils/reading-age';
+import {
+  rangeLabelForDays,
+  trackGaugeContextChanged,
+  trackGaugeExpandedOpened,
+  trackGaugeRangeChanged,
+  trackGaugeSourceOpened,
+} from '@/lib/gauge/analytics';
 
 interface GaugeDetailViewProps {
   siteId: string;
@@ -86,7 +93,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   const handleUnitToggle = useCallback((unit: 'ft' | 'cfs') => {
     setDisplayUnit(unit);
     localStorage.setItem(`gauge-unit-${siteId}`, unit);
-  }, [siteId]);
+    trackGaugeContextChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, unit);
+  }, [siteId, gaugeDetail?.provider, tier]);
 
   const effectiveUnit = displayUnit || primaryUnit;
   const showingAlt = effectiveUnit !== primaryUnit;
@@ -327,6 +335,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               href={`https://waterdata.usgs.gov/monitoring-location/${gauge.usgsSiteId}/`}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackGaugeSourceOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier })}
               className="text-primary-600 hover:text-primary-700 font-mono flex items-center gap-1"
             >
               USGS {gauge.usgsSiteId}
@@ -418,7 +427,10 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                   {[{ days: 1, label: '24H' }, { days: 7, label: '7D' }, { days: 30, label: '30D' }].map((opt) => (
                     <button
                       key={opt.days}
-                      onClick={() => setDateRange(opt.days)}
+                      onClick={() => {
+                        setDateRange(opt.days);
+                        trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(opt.days));
+                      }}
                       aria-pressed={dateRange === opt.days}
                       className={`px-3 py-1 text-xs font-semibold transition-colors ${
                         dateRange === opt.days
@@ -431,7 +443,10 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                   ))}
                 </div>
                 <button
-                  onClick={() => setExpandedOpen(true)}
+                  onClick={() => {
+                    setExpandedOpen(true);
+                    trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier });
+                  }}
                   className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
                 >
                   Expand

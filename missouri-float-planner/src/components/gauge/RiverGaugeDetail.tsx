@@ -33,6 +33,13 @@ import { usePathname } from 'next/navigation';
 import { buildEddyTakeSections } from '@/lib/river-outlook';
 import { buildZones } from '@/lib/gauge/threshold-zones';
 import { ageHoursOf } from '@/lib/utils/reading-age';
+import {
+  rangeLabelForDays,
+  trackGaugeContextChanged,
+  trackGaugeExpandedOpened,
+  trackGaugeRangeChanged,
+  trackGaugeSourceOpened,
+} from '@/lib/gauge/analytics';
 import { createPortal } from 'react-dom';
 
 interface RiverGaugeDetailProps {
@@ -127,7 +134,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   const handleUnitToggle = useCallback((unit: 'ft' | 'cfs') => {
     setDisplayUnit(unit);
     localStorage.setItem(`gauge-unit-${riverSlug}`, unit);
-  }, [riverSlug]);
+    trackGaugeContextChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, unit);
+  }, [riverSlug, gaugeDetail?.provider, tier]);
 
   // Determine if we're showing alt thresholds
   const effectiveUnit = displayUnit || primaryUnit;
@@ -377,6 +385,7 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               href={sourceLink.href}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackGaugeSourceOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier })}
               className="text-primary-600 hover:text-primary-700 font-mono inline-flex items-center gap-1"
             >
               {sourceLink.label}
@@ -464,7 +473,10 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                   {[{ days: 1, label: '24H' }, { days: 7, label: '7D' }, { days: 30, label: '30D' }].map((opt) => (
                     <button
                       key={opt.days}
-                      onClick={() => setDateRange(opt.days)}
+                      onClick={() => {
+                        setDateRange(opt.days);
+                        trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(opt.days));
+                      }}
                       aria-pressed={dateRange === opt.days}
                       className={`px-3 py-1 text-xs font-semibold transition-colors ${
                         dateRange === opt.days
@@ -477,7 +489,10 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
                   ))}
                 </div>
                 <button
-                  onClick={() => setExpandedOpen(true)}
+                  onClick={() => {
+                    setExpandedOpen(true);
+                    trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier });
+                  }}
                   className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
                 >
                   Expand

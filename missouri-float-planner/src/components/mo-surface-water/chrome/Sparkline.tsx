@@ -164,8 +164,23 @@ export function Sparkline({
     : null;
   const hoverLabel = hv != null ? `${fmtVal(hv)}${hoverDate ? ` · ${hoverDate}` : ''}` : '';
 
+  // The chart's one sentence for a reader who cannot see it. It had no
+  // accessible name at all — an unlabelled box in a rail full of numbers.
+  const spokenSummary =
+    cur != null
+      ? `Trend chart, latest ${fmtVal(cur)}${unit ? ` ${unit}` : mode === 'percentile' ? 'th percentile' : ''}`
+      : 'Trend chart, no recent readings';
+
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} width={width} height={height} style={{ display: 'block' }}>
+    <svg
+      ref={svgRef}
+      viewBox={`0 0 ${width} ${height}`}
+      width={width}
+      height={height}
+      style={{ display: 'block' }}
+      role="img"
+      aria-label={spokenSummary}
+    >
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={curColor} stopOpacity="0.26" />
