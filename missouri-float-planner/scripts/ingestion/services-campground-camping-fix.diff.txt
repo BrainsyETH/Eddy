@@ -1,0 +1,44 @@
+UPDATE     silver-mines-campground-usfs  — Silver Mines Campground [campground]
+             verified_source      (unset) -> https://www.fs.usda.gov/r09/marktwain/recreation/silver-mines-recreation-area
+             tent_sites           (unset) -> 59
+             rv_sites             (unset) -> 11
+             season_open_month    (unset) -> 3
+             season_close_month   (unset) -> 10
+             services_offered     {} -> {camping_primitive,camping_rv,vault_toilets,potable_water,fire_rings,picnic_tables}   [union]
+             last_verified_at     (unset) -> 2026-08-23T00:00:00.000Z
+UPDATE     withrow-springs-state-park  — Withrow Springs State Park [campground]
+             website              https://www.arkansasstateparks.com/parks/withrow-springs-state-park -> https://www.arkansas.com/state-parks/parks/withrow-springs-state-park
+             verified_source      csv_import -> https://www.arkansas.com/state-parks/parks/withrow-springs-state-park
+             services_offered     {showers} -> {showers,camping_primitive,camping_rv}   [union]
+             last_verified_at     (unset) -> 2026-08-23T00:00:00.000Z
+UPDATE     wolf-pen-recreation-area  — Wolf Pen Recreation Area [campground]
+             verified_source      csv_import -> https://www.fs.usda.gov/r08/ozark-stfrancis/recreation/wolf-pen-recreation-area
+             services_offered     {} -> {camping_primitive,vault_toilets}   [union]
+             last_verified_at     (unset) -> 2026-08-23T00:00:00.000Z
+UPDATE     redding-recreation-area  — Redding Recreation Area [campground]
+             verified_source      csv_import -> https://www.fs.usda.gov/r08/ozark-stfrancis/recreation/redding-recreation-area
+             services_offered     {showers} -> {showers,camping_primitive,flush_toilets}   [union]
+             last_verified_at     (unset) -> 2026-08-23T00:00:00.000Z
+UPDATE     washington-state-park-campground  — Washington State Park Campground [campground]
+             website              https://mostateparks.com/park/washington-state-park -> https://mostateparks.com/park/washington-state-park/camping
+             verified_source      csv_import -> https://mostateparks.com/park/washington-state-park/camping
+             services_offered     {showers} -> {showers,camping_primitive,camping_rv,flush_toilets,potable_water}   [union]
+             last_verified_at     (unset) -> 2026-08-23T00:00:00.000Z
+UPDATE     st-francois-state-park-campground  — St. Francois State Park Campground [campground]
+             website              https://mostateparks.com/park/st-francois-state-park -> https://mostateparks.com/park/st-francois-state-park/camping
+             verified_source      csv_import -> https://mostateparks.com/park/st-francois-state-park/camping
+             services_offered     {showers} -> {showers,camping_primitive,camping_rv,flush_toilets,potable_water}   [union]
+             last_verified_at     (unset) -> 2026-08-23T00:00:00.000Z
+UPDATE     war-eagle-campground-beaver-lake-coe  — War Eagle Campground - Beaver Lake (COE) [campground]
+             verified_source      csv_import -> https://www.recreation.gov/camping/campgrounds/233279
+             services_offered     {showers} -> {showers,camping_primitive,camping_rv,flush_toilets,potable_water,fire_rings,picnic_tables}   [union]
+             last_verified_at     (unset) -> 2026-08-23T00:00:00.000Z
+UPDATE     rocky-top-campground-cabins  — Rocky Top Campground & Cabins [campground]
+             verified_source      csv_import -> https://www.visitmo.com/places-to-stay/rocky-top-campground
+             cabin_count          (unset) -> 17
+             services_offered     {cabins,showers} -> {cabins,showers,camping_primitive,camping_rv,dump_station}   [union]
+             last_verified_at     (unset) -> 2026-08-23T00:00:00.000Z
+UPDATE     caddo-river-access-rv-park  — Caddo River Access RV Park [campground]
+             verified_source      csv_import -> https://www.caddoriveraccessrv.com
+             services_offered     {showers} -> {showers,camping_rv,wifi}   [union]
+             last_verified_at     2026-08-09T15:30:08.415688+00:00 -> 2026-08-23T00:00:00.000Z
