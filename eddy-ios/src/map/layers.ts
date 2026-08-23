@@ -394,11 +394,15 @@ export const LAYER_SECTIONS: readonly { key: LayerSectionKey; label: string }[] 
  *                        continental view asks for nothing.
  *   COUNTS   5.5 – 8     Clusters and small coloured dots. "Where is there
  *                        water, and where can I get on it" at a glance.
- *   PLACES   8 – 10.5    Individual places as compact dots, no marks and no
+ *   PLACES   8 – 9.5     Individual places as compact dots, no marks and no
  *                        names. Enough to see arrangement.
- *   NAMES    10.5+       The full Eddy mark, and labels. The camera is close
- *                        enough for text to land beside the thing it names
- *                        rather than across it.
+ *   MARKS    9.5+        The full Eddy mark. 9.5 rather than 10.5: at 10 the
+ *                        camera already frames a single river valley, and a
+ *                        reader choosing a bank there was still looking at
+ *                        anonymous dots — the marks arrived one rung after
+ *                        the zoom where they are needed.
+ *   NAMES    10.5+       Labels. Text still waits a rung past the marks,
+ *                        because an icon reads at a distance a name does not.
  *
  * ── AND THE PLACE LAYERS FINALLY CLIMB IT ────────────────────────────────
  *
@@ -424,8 +428,8 @@ export const ZOOM = {
   /** Clusters collapse into individual pins at this zoom. */
   cluster: 8,
   /** Pins gain their full mark, and dots give way to symbols. */
-  places: 10.5,
-  /** Labels switch on. */
+  places: 9.5,
+  /** Labels switch on — one rung after the marks, see the ladder above. */
   names: 10.5,
 } as const;
 

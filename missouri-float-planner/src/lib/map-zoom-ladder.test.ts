@@ -5,8 +5,9 @@ import { join } from 'node:path';
 
 // ── ONE LADDER, AND EVERY LAYER ON THE SAME RUNGS ─────────────────────────
 //
-// map/layers.ts documents a four-rung zoom ladder — OFF below 5.5, COUNTS to 8,
-// PLACES to 10.5, NAMES above — and says why it is one table: "every layer on
+// map/layers.ts documents the zoom ladder — OFF below 5.5, COUNTS to 8,
+// PLACES to 9.5, MARKS above, NAMES at 10.5 — and says why it is one table:
+// "every layer on
 // this map is statewide now and the map is only legible if they all change
 // character together."
 //
