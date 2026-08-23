@@ -48,10 +48,14 @@ import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { useAccount } from '@/hooks/useAccount';
 import { deleteAccount, waitForEntitlement } from '@/api/client';
 import {
+  entitlementMatchesSnapshot,
   OFFER_CODE_REDEEM_URL,
+  readEntitlementSnapshot,
+  redemptionAlert,
   restorePurchases,
   subscriptionSummary,
   syncRedeemedPurchases,
+  type EntitlementSnapshot,
 } from '@/lib/purchases';
 import { usePush } from '@/hooks/usePush';
 import { notificationDetail } from '@/lib/notificationCopy';
@@ -59,7 +63,7 @@ import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
-import { resolveEnvironment } from '@/lib/monitoring';
+import { report, resolveEnvironment } from '@/lib/monitoring';
 import { resetFirstRun } from '@/lib/onboarding';
 
 /**
@@ -160,13 +164,44 @@ export default function ProfileScreen() {
   const redeemPending = useRef(false);
 
   /**
+   * What the entitlement looked like BEFORE the App Store opened, which is the
+   * only moment it can be read honestly: RevenueCat observes StoreKit on its
+   * own and may have refreshed CustomerInfo by the time the app foregrounds,
+   * so a baseline taken on the return trip can already contain the redemption
+   * it was meant to predate.
+   */
+  const redeemBaseline = useRef<EntitlementSnapshot | null>(null);
+
+  /**
    * Offer codes — the influencer month, the giveaway year — are redeemed on
    * the App Store's own screen, not in the app. This opens it; the effect
    * below finishes the job when they come back.
+   *
+   * The open is awaited rather than fired and forgotten. It rejects when
+   * nothing on the device can handle an App Store URL — Screen Time or an MDM
+   * profile hiding the store, a simulator without it — and the old form left
+   * `redeemPending` set through that failure, so the next unrelated
+   * foregrounding, hours later, would be mistaken for a return trip.
    */
-  const handleRedeem = useCallback(() => {
-    redeemPending.current = true;
-    void Linking.openURL(OFFER_CODE_REDEEM_URL);
+  const handleRedeem = useCallback(async () => {
+    setBusy('redeem');
+    try {
+      redeemBaseline.current = await readEntitlementSnapshot();
+      redeemPending.current = true;
+      await Linking.openURL(OFFER_CODE_REDEEM_URL);
+    } catch (error) {
+      redeemPending.current = false;
+      redeemBaseline.current = null;
+      report(error, { operation: 'offerCode.openRedeemUrl', surface: 'profile' });
+      Alert.alert(
+        'Could not open the App Store',
+        'Codes are redeemed on the App Store’s own screen. Open the App Store, tap your account picture, and choose “Redeem Gift Card or Code”.',
+      );
+    } finally {
+      // Cleared either way. On success the app is already leaving, so nothing
+      // is visible between here and the listener below setting it again.
+      setBusy(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -174,29 +209,46 @@ export default function ProfileScreen() {
       if (state !== 'active' || !redeemPending.current) return;
       redeemPending.current = false;
 
+      const before = redeemBaseline.current;
+      redeemBaseline.current = null;
+
       void (async () => {
         setBusy('redeem');
         try {
           // Sync the receipt first — the redemption happened outside the app,
-          // so RevenueCat has not heard about it until the app tells it.
-          const entitled = await syncRedeemedPurchases();
-          // Backing out of the App Store without redeeming is the common case,
-          // and it gets silence: no alert, the card exactly as they left it.
-          if (!entitled) return;
+          // so RevenueCat has not heard about it until the app tells it. The
+          // baseline is what turns "Premium is on" into "Premium CHANGED":
+          // this control is offered to existing subscribers too, and for them
+          // backing out of Apple's screen leaves an active entitlement that
+          // says nothing about whether a code was accepted.
+          const result = await syncRedeemedPurchases(before);
 
-          // The SDK saw it; the card reads from the SERVER, which learns
-          // through RevenueCat's webhook. Wait for it before refreshing so the
-          // card flips to active rather than to a stale "no subscription".
-          const token = await getAccessToken();
-          const live = token ? await waitForEntitlement(token) : false;
-          await refresh();
+          // Only a real change is worth waiting on the server for. The card
+          // reads from the SERVER, which learns through RevenueCat's webhook,
+          // so wait for it before refreshing — otherwise the card flips to a
+          // stale "no subscription" a beat after the good news.
+          //
+          // And wait for THIS change, not for any entitlement at all: an
+          // existing subscriber is already active server-side, so "is there an
+          // entitlement" is satisfied on the first poll and would confirm an
+          // extension against the renewal date they had before they redeemed.
+          let serverConfirmed = false;
+          if (result.status === 'changed' && result.entitled) {
+            const target = result.snapshot;
+            const token = await getAccessToken();
+            serverConfirmed = token
+              ? await waitForEntitlement(token, {
+                  until: (entitlement) => entitlementMatchesSnapshot(entitlement, target),
+                })
+              : false;
+            await refresh();
+          }
 
-          Alert.alert(
-            'Code redeemed',
-            live
-              ? 'Eddy Premium is active on your account.'
-              : 'It can take a moment to show up. If this card still looks wrong in a minute, pull to refresh.',
-          );
+          // Silence for the common case — someone who looked and backed out —
+          // and honest copy for the rest. Nothing here claims a code was
+          // accepted: see RedemptionSyncResult for why the app cannot know.
+          const alert = redemptionAlert(result, serverConfirmed);
+          if (alert) Alert.alert(alert.title, alert.message);
         } finally {
           setBusy(null);
         }
@@ -321,7 +373,14 @@ export default function ProfileScreen() {
                   </Text>
                 </View>
               </View>
-              <Pressable onPress={handleSignOut} style={[styles.secondary, { borderColor: colors.border }]}>
+              <Pressable
+                onPress={handleSignOut}
+                disabled={busy !== null}
+                accessibilityRole="button"
+                accessibilityLabel="Sign out"
+                accessibilityState={{ disabled: busy !== null }}
+                style={[styles.secondary, { borderColor: colors.border }]}
+              >
                 <Text style={[styles.secondaryText, { color: colors.textMuted }]}>Sign out</Text>
               </Pressable>
             </View>
@@ -337,7 +396,10 @@ export default function ProfileScreen() {
               </Text>
 
               {!unavailable && (
-                <View style={styles.appleWrap}>
+                <View
+                  style={styles.appleWrap}
+                  pointerEvents={busy === null ? 'auto' : 'none'}
+                >
                   {busy === 'apple' ? (
                     <ActivityIndicator color={colors.interactive} />
                   ) : (
@@ -392,6 +454,10 @@ export default function ProfileScreen() {
             {loaded && !entitlement?.isActive && (
               <Pressable
                 onPress={() => setPaywallOpen(true)}
+                disabled={busy !== null}
+                accessibilityRole="button"
+                accessibilityLabel="Get Eddy Premium"
+                accessibilityState={{ disabled: busy !== null }}
                 style={[styles.primary, { backgroundColor: colors.accentFill }]}
               >
                 <Text style={[styles.primaryText, { color: colors.onAccent }]}>
@@ -403,6 +469,10 @@ export default function ProfileScreen() {
             {entitlement?.isActive && (
               <Pressable
                 onPress={() => void Linking.openURL(MANAGE_SUBSCRIPTIONS_URL)}
+                disabled={busy !== null}
+                accessibilityRole="button"
+                accessibilityLabel="Manage or cancel in Settings"
+                accessibilityState={{ disabled: busy !== null }}
                 style={[styles.secondary, { borderColor: colors.border }]}
               >
                 <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
@@ -413,7 +483,10 @@ export default function ProfileScreen() {
 
             <Pressable
               onPress={handleRestore}
-              disabled={busy === 'restore'}
+              disabled={busy !== null}
+              accessibilityRole="button"
+              accessibilityLabel="Restore purchases"
+              accessibilityState={{ disabled: busy !== null, busy: busy === 'restore' }}
               style={[styles.secondary, { borderColor: colors.border }]}
             >
               <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
@@ -429,8 +502,11 @@ export default function ProfileScreen() {
                 thing App Store Connect can issue. */}
             {signedIn && (
               <Pressable
-                onPress={handleRedeem}
-                disabled={busy === 'redeem'}
+                onPress={() => void handleRedeem()}
+                disabled={busy !== null}
+                accessibilityRole="button"
+                accessibilityLabel="Redeem a code"
+                accessibilityState={{ disabled: busy !== null, busy: busy === 'redeem' }}
                 style={[styles.secondary, { borderColor: colors.border }]}
               >
                 <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
@@ -658,7 +734,10 @@ export default function ProfileScreen() {
               </Text>
               <Pressable
                 onPress={handleDelete}
-                disabled={busy === 'delete'}
+                disabled={busy !== null}
+                accessibilityRole="button"
+                accessibilityLabel="Delete account"
+                accessibilityState={{ disabled: busy !== null, busy: busy === 'delete' }}
                 style={[styles.danger, { borderColor: colors.error }]}
               >
                 <Text style={[styles.dangerText, { color: colors.error }]}>

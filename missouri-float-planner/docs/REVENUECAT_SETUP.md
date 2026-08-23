@@ -446,13 +446,23 @@ subscription.
 Everything here is App Store Connect configuration. **No backend change**: a
 redemption reaches RevenueCat when the app syncs the receipt, the webhook
 fires like any purchase, and the route writes `entitlements` as normal. The
-app's part already ships — a "Redeem code" control on the paywall and the
+app's part already ships — a "Redeem a code" control on the paywall and the
 Profile card opens `OFFER_CODE_REDEEM_URL` (`eddy-ios/src/lib/purchases.ts`,
 keyed on the numeric Apple app ID **6794933267**), and on return to the
 foreground the app calls `syncRedeemedPurchases()` to hand RevenueCat the
 receipt. The in-app redemption sheet was rejected deliberately: it fires no
 completion callback and fails silently; the URL is RevenueCat's own
 recommendation.
+
+**The app cannot tell you a code was accepted, and does not claim to.** It
+takes an entitlement snapshot before opening the App Store and compares it
+against one taken after the sync, so what it actually knows is that the
+subscription *changed* — which an ordinary renewal or a recovered billing
+problem would also do. That matters because the redeem control is offered to
+existing subscribers too (offers can be issued to them), so "Premium is on" is
+not evidence of anything; only the comparison is. The confirmation copy says
+"Subscription updated" for that reason. Attribution to a specific code lives in
+the webhook, not on the device — see **Tracking** below.
 
 ### Creating the offers
 

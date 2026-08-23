@@ -69,11 +69,15 @@ import {
   PREMIUM_UNAVAILABLE_COPY,
   purchasePackage,
   purchasesUnavailableReason,
+  readEntitlementSnapshot,
+  redemptionAlert,
   restorePurchases,
   savingsLabel,
   syncRedeemedPurchases,
+  type EntitlementSnapshot,
   type PurchasePackage,
 } from '@/lib/purchases';
+import { report } from '@/lib/monitoring';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
 import {
   PREMIUM_BENEFITS,
@@ -117,6 +121,14 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
    * reason the app comes back to the foreground with this sheet open.
    */
   const redeemPending = useRef(false);
+
+  /**
+   * The entitlement as it stood before that trip, so the return can tell a
+   * redemption from a look-and-back-out. Cleared with the flag above and for
+   * the same reason: a stale baseline is worse than none, because a comparison
+   * against it would be confidently wrong rather than merely silent.
+   */
+  const redeemBaseline = useRef<EntitlementSnapshot | null>(null);
 
   const userId = session?.user?.id ?? null;
   const signedIn = Boolean(userId) && !isAnonymous;
@@ -211,10 +223,33 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
    * Offer codes are redeemed on the App Store's own screen, not in the app —
    * see OFFER_CODE_REDEEM_URL for why the in-app sheet lost. The real work is
    * the effect below, which finishes the story when they come back.
+   *
+   * The open is awaited. It rejects when nothing on the device can handle an
+   * App Store URL — Screen Time or an MDM profile hiding the store, a
+   * simulator without it — and fired-and-forgotten it left `redeemPending` set
+   * through that failure with no way for anyone to know the tap did nothing.
    */
-  const handleRedeem = useCallback(() => {
-    redeemPending.current = true;
-    void Linking.openURL(OFFER_CODE_REDEEM_URL);
+  const handleRedeem = useCallback(async () => {
+    setBusy('redeem');
+    try {
+      // Before the store opens, not after: RevenueCat observes StoreKit itself
+      // and may have refreshed CustomerInfo by the time the app foregrounds.
+      redeemBaseline.current = await readEntitlementSnapshot();
+      redeemPending.current = true;
+      await Linking.openURL(OFFER_CODE_REDEEM_URL);
+    } catch (error) {
+      redeemPending.current = false;
+      redeemBaseline.current = null;
+      report(error, { operation: 'offerCode.openRedeemUrl', surface: 'paywall' });
+      Alert.alert(
+        'Could not open the App Store',
+        'Codes are redeemed on the App Store’s own screen. Open the App Store, tap your account picture, and choose “Redeem Gift Card or Code”.',
+      );
+    } finally {
+      // On success the app is already leaving, so nothing is visible between
+      // here and the listener below setting it again on the return trip.
+      setBusy(null);
+    }
   }, []);
 
   // The return trip from the App Store. Success is a redemption that shows up
@@ -228,11 +263,28 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
       if (state !== 'active' || !redeemPending.current) return;
       redeemPending.current = false;
 
+      const before = redeemBaseline.current;
+      redeemBaseline.current = null;
+
       void (async () => {
         setBusy('redeem');
         try {
-          const entitled = await syncRedeemedPurchases();
-          if (!entitled) return;
+          const result = await syncRedeemedPurchases(before);
+
+          // A sync that FAILED is not a cancellation, and until now it looked
+          // like one. Someone who tapped a button deserves to hear that the
+          // check did not run; everything else this returns is still silent.
+          if (result.status === 'error') {
+            const alert = redemptionAlert(result, false);
+            if (alert) Alert.alert(alert.title, alert.message);
+            return;
+          }
+
+          // Entitled is the whole question HERE, deliberately unlike Profile:
+          // this sheet's job is to stop walling someone who has Premium, and
+          // that is true however they came by it. It has no claim to make
+          // about a code, so it needs no proof that one was redeemed.
+          if (!result.entitled) return;
 
           // Same contract as a purchase: StoreKit is done, the server learns
           // through RevenueCat's webhook, so wait for the backend before the
@@ -281,6 +333,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
       onDismiss={() => {
         setSelectedId(null);
         redeemPending.current = false;
+        redeemBaseline.current = null;
       }}
     >
       <View style={[styles.sheet, { backgroundColor: colors.bg }]}>
@@ -552,34 +605,61 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
               only from Profile — a reviewer looks for it here, and so does
               anyone who already paid and is seeing this wall by mistake.
 
-              It and "Not now" are text links rather than the bordered buttons
-              they used to be: the chooser needs the height, and a full-width
-              outlined button is the shape of the thing being offered. Neither
-              of these is that. Dismissing also still has the close control at
-              the top of the sheet and the swipe. */}
+              These are text links rather than the bordered buttons they used to
+              be: a full-width outlined button is the shape of the thing being
+              offered, and none of these is that. Dismissing also still has the
+              close control at the top of the sheet and the swipe.
+
+              STACKED, not a row. "Restore purchases · Redeem a code · Not now"
+              measures roughly 300pt against the ~327pt this sheet has to give
+              on a 375pt phone, so it fit at the default text size and nothing
+              above it — the row could not wrap, and one Dynamic Type step past
+              default pushed it out of the sheet. Wrapping alone would not have
+              fixed it either: the "·" separators are siblings of the links, so
+              a wrap orphans one at the head of the next line. The stack costs
+              height on a screen whose chooser wants it, and that is the right
+              way round — a payment screen that clips is worse than a payment
+              screen that scrolls. */}
           <View style={styles.footerLinks}>
             {signedIn ? (
               <>
-                <Pressable onPress={() => void handleRestore()} disabled={busy !== null} hitSlop={8}>
+                <Pressable
+                  onPress={() => void handleRestore()}
+                  disabled={busy !== null}
+                  accessibilityRole="button"
+                  accessibilityLabel="Restore purchases"
+                  accessibilityState={{ disabled: busy !== null, busy: busy === 'restore' }}
+                  style={styles.footerAction}
+                >
                   <Text style={[styles.footerLink, { color: colors.textMuted }]}>
                     {busy === 'restore' ? 'Restoring…' : 'Restore purchases'}
                   </Text>
                 </Pressable>
-                <Text style={[styles.footerLink, { color: colors.textSubtle }]}>·</Text>
                 {/* Signed-in only, like every purchase control on this sheet
                     and for the same reason: the entitlement a code grants
                     arrives through the receipt, and it has to land on a real
                     account the moment it does. */}
-                <Pressable onPress={handleRedeem} disabled={busy !== null} hitSlop={8}>
+                <Pressable
+                  onPress={() => void handleRedeem()}
+                  disabled={busy !== null}
+                  accessibilityRole="button"
+                  accessibilityLabel="Redeem a code"
+                  accessibilityState={{ disabled: busy !== null, busy: busy === 'redeem' }}
+                  style={styles.footerAction}
+                >
                   <Text style={[styles.footerLink, { color: colors.textMuted }]}>
-                    {busy === 'redeem' ? 'Checking…' : 'Redeem code'}
+                    {busy === 'redeem' ? 'Checking…' : 'Redeem a code'}
                   </Text>
                 </Pressable>
-                <Text style={[styles.footerLink, { color: colors.textSubtle }]}>·</Text>
               </>
             ) : null}
 
-            <Pressable onPress={onClose} hitSlop={8}>
+            <Pressable
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Not now"
+              style={styles.footerAction}
+            >
               <Text style={[styles.footerLink, { color: colors.textMuted }]}>Not now</Text>
             </Pressable>
           </View>
@@ -597,8 +677,14 @@ const styles = StyleSheet.create({
   primary: { borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
   primaryText: { ...t.base, fontFamily: fonts.semibold },
   terms: { ...t.xs, fontFamily: fonts.body, textAlign: 'center' },
-  footerLinks: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  footerLink: { ...t.sm, fontFamily: fonts.medium, paddingVertical: 4 },
+  footerLinks: { alignSelf: 'stretch', alignItems: 'stretch' },
+  // 44pt is Apple's minimum touch target, and it is the row's own height here
+  // rather than hitSlop: stacked links with overlapping slop have an ambiguous
+  // boundary, and the one resolved by render order is not the one anyone aims
+  // at. minHeight, not height, so the row grows with the text instead of
+  // clipping it.
+  footerAction: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
+  footerLink: { ...t.sm, fontFamily: fonts.medium, textAlign: 'center' },
 
   // ── The plan chooser ──────────────────────────────────────────────────────
   options: { alignSelf: 'stretch', gap: 10 },
