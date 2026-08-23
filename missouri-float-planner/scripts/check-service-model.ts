@@ -25,9 +25,21 @@
  * Usage:
  *   npm run db:check-services              (exit 1 on an error)
  *   npm run db:check-services -- --strict  (exit 1 on warnings too)
+ *   npm run db:check-services -- --update-baseline  (re-record known debt)
  */
 
 import { createClient } from '@supabase/supabase-js';
+import * as fs from 'fs';
+import * as path from 'path';
+import {
+  buildBaseline,
+  compareToBaseline,
+  DEBT_CLASSES,
+  measureDebt,
+  scorable,
+  type Baseline,
+  type QualityRow,
+} from './service-quality';
 import {
   isKnownServiceType,
   serviceEligible,
@@ -129,6 +141,11 @@ interface ServiceRow {
   services_offered: string[] | null;
   last_verified_at: string | null;
   google_place_id: string | null;
+  slug: string;
+  phone_toll_free: string | null;
+  website: string | null;
+  description: string | null;
+  verified_source: string | null;
 }
 
 let errors = 0;
@@ -173,15 +190,18 @@ function asService(row: ServiceRow) {
 
 async function main() {
   const strict = process.argv.includes('--strict');
+  const updateBaseline = process.argv.includes('--update-baseline');
   const supabase = getSupabaseClient();
 
   const { data, error } = await supabase
     .from('nearby_services')
     .select(
-      'id, name, type, status, phone, latitude, longitude, geocode_precision, services_offered, last_verified_at, google_place_id',
+      'id, slug, name, type, status, phone, phone_toll_free, website, description, ' +
+        'latitude, longitude, geocode_precision, services_offered, last_verified_at, ' +
+        'verified_source, google_place_id',
     );
   if (error) throw new Error(`Could not read nearby_services: ${error.message}`);
-  const rows = (data ?? []) as ServiceRow[];
+  const rows = (data ?? []) as unknown as ServiceRow[];
 
   console.log(`\nService model — ${rows.length} directory rows\n`);
 
@@ -673,6 +693,72 @@ async function main() {
       `${names.length} facilities name a service but no access point — ` +
         `their availability cannot reach an access-point sheet: ${names.join(', ')}`,
     );
+  }
+
+  /* ── The quality ratchet ───────────────────────────────────────────────
+     Existing debt is named and tolerated; NEW debt fails. See the header of
+     service-quality.ts for why this is a derivative and not a threshold. */
+  console.log('\nQuality ratchet');
+
+  const qualityRows = rows as unknown as QualityRow[];
+  const perRiver: Record<string, number> = {};
+  const { data: riverSlugRows, error: riverErr } = await supabase.from('rivers').select('id, slug');
+  const { data: serviceRiverRows, error: linkErr } = await supabase
+    .from('service_rivers')
+    .select('service_id, river_id');
+  if (riverErr || linkErr) {
+    warn(`Could not read river links: ${(riverErr ?? linkErr)?.message}`);
+  } else {
+    const riverSlugById = new Map(
+      (riverSlugRows ?? []).map((r) => [(r as { id: string }).id, (r as { slug: string }).slug]),
+    );
+    const live = new Set(scorable(qualityRows).map((r) => r.slug));
+    const idToSlug = new Map(rows.map((r) => [r.id, (r as unknown as QualityRow).slug]));
+    for (const slug of riverSlugById.values()) perRiver[slug] = 0;
+    for (const link of (serviceRiverRows ?? []) as unknown as Array<{ service_id: string; river_id: string }>) {
+      const riverSlug = riverSlugById.get(link.river_id);
+      const serviceSlug = idToSlug.get(link.service_id);
+      if (!riverSlug || !serviceSlug || !live.has(serviceSlug)) continue;
+      perRiver[riverSlug] = (perRiver[riverSlug] ?? 0) + 1;
+    }
+  }
+
+  const baselinePath = path.join(__dirname, 'service-quality-baseline.json');
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (updateBaseline) {
+    const next = buildBaseline(qualityRows, perRiver, today);
+    fs.writeFileSync(baselinePath, `${JSON.stringify(next, null, 2)}\n`, 'utf-8');
+    for (const cls of DEBT_CLASSES) {
+      const n = next.classes[cls.key].length;
+      console.log(`  · ${String(n).padStart(3)}  ${cls.key}`);
+    }
+    ok(`baseline rewritten — ${path.relative(process.cwd(), baselinePath)}`);
+  } else if (!fs.existsSync(baselinePath)) {
+    warn('no baseline recorded yet — run with --update-baseline to record one');
+  } else {
+    const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf-8')) as Baseline;
+    const result = compareToBaseline(measureDebt(qualityRows), perRiver, baseline);
+
+    for (const r of result.regressions) {
+      fail(`${r.slugs.length} NEW row(s) with ${r.label}: ${r.slugs.join(', ')}`);
+    }
+    for (const d of result.riverDrops) {
+      fail(`${d.river} fell from ${d.floor} services to ${d.now}`);
+    }
+    if (result.unknownRivers.length > 0) {
+      warn(
+        `${result.unknownRivers.length} river(s) absent from the baseline: ` +
+          `${result.unknownRivers.join(', ')} — re-record it`,
+      );
+    }
+    for (const i of result.improvements) {
+      ok(`${i.slugs.length} row(s) no longer have ${i.label}`);
+    }
+    if (result.regressions.length === 0 && result.riverDrops.length === 0) {
+      const carried = DEBT_CLASSES.reduce((n, c) => n + (baseline.classes[c.key] ?? []).length, 0);
+      ok(`no new defects (${carried} known, recorded ${baseline.generatedAt})`);
+    }
   }
 
   console.log(
