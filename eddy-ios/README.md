@@ -427,7 +427,7 @@ only ever spent on an explicit tap of the locate button.
 Two payloads, two jobs, and they are easy to confuse: `/api/rivers/{slug}`
 serves the **full-resolution** centreline used to snap a float route and still
 loads one river at a time, while `/api/usgs/mo-dataset?slim=1` serves coarse
-geometry for all 24 at once (~260 KB, CDN-cached) purely as context. Readings
+geometry for every curated river at once (~260 KB, CDN-cached) purely as context. Readings
 come separately from `/api/usgs/mo-statewide` and are graded on the phone, the
 same way gauge pins are.
 
@@ -630,7 +630,7 @@ that gets proposed again.
 
 The download saved basemap tiles and **nothing else**. Everything that actually
 makes a river readable with no signal — put-ins, hazards, the river line, the
-last reading — is seeded free for all 25 rivers on every launch with a
+last reading — is seeded free for every curated (active) river on every launch with a
 connection (`seedOfflineBundle`, see `src/lib/riverCache.ts`). So the paid
 feature sold the least valuable half, and the giveaway test showed it: download
 a river, switch on airplane mode, relaunch, and everything still worked. The
@@ -760,11 +760,29 @@ started — look at step 2, not step 3.
 
 | Tab | Status |
 |---|---|
-| Map | **live** in a dev build — search, layer filters, the float plan flow, premium-gated offline packs |
+| Map | **live** in a dev build — search, layer filters, the float plan flow |
 | Search | **live** against `/api/rivers`, with local search and condition filters |
 | Alerts | **live** against `/api/alerts` |
 | Favorites | **live**, local-first via AsyncStorage, reconciled with the server on sign-in (`useStarredRivers`) |
 | Profile | **live** — Sign in with Apple, subscription state, Restore Purchases, account deletion |
+
+This table said "premium-gated offline packs" against the Map row long after the
+download feature was removed — see [There is no offline map download](#there-is-no-offline-map-download),
+which is the authoritative account. The row is corrected here rather than
+annotated because a status table is read as current state, not as history: a
+competitive review of this repo took the two passages as a contradiction it had
+to adjudicate, which is a fair reading of a table that claims a shipped feature
+the code deletes on launch.
+
+**What ships offline today:** river data — put-ins, hazards, the river line, the
+last reading — seeded free for every curated river on any launch with a
+connection. The basemap does not; with no signal it renders blank while the rest
+of the river screen still works. There is no GPS track recording, no user
+waypoints, and no Apple Watch app.
+
+**The only entitlement gate is Eddy's written read.** Conditions, gauge
+readings, hazards and the float plan are free, online or off — see `PaywallSheet`
+for why safety data can never sit behind a wall.
 
 Remote config and the forced-upgrade gate are wired (`/api/app-config`), and both
 fail open: an unreachable config means no upgrade requirement and all features

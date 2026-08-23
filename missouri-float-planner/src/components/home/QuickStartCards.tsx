@@ -1,5 +1,11 @@
 // src/components/home/QuickStartCards.tsx
-// 4-card grid for quick feature discovery on the landing page
+// 4-card grid for quick feature discovery on the landing page.
+//
+// Currently imported by nothing — kept for reuse. The copy below carries NO
+// river count on purpose: this component has no parent to fetch one from, and
+// the literal "8 rivers" it used to hold was three times under the real roster
+// by the time anyone noticed. Any surface that wants to state coverage should
+// read it from `@/lib/coverage`, which derives every figure from the database.
 
 import Link from 'next/link';
 import Image from 'next/image';
@@ -12,7 +18,7 @@ const cards = [
     href: '/rivers',
     icon: <Activity className="w-6 h-6 text-primary-600" />,
     title: 'Check Conditions',
-    description: 'Live levels for all 8 rivers',
+    description: 'Live levels on every curated river',
   },
   {
     href: '/plan',
