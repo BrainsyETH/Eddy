@@ -92,7 +92,7 @@ Only 13 ARIA labels exist across the entire codebase. Key fixes:
 |------|--------|
 | Blog river tagging | Allow filtering blog posts by river — useful as content grows |
 | Embed showcase | `/embed` page could show live widget previews instead of just descriptions |
-| Home page conditions overview | Add a quick "conditions at a glance" strip to hero showing all 8 rivers |
+| Home page conditions overview | Add a quick "conditions at a glance" strip to hero showing every curated river |
 | Plan share preview | Ensure OG image is included in share links (already generates, may need meta tag in share flow) |
 
 ---
@@ -316,12 +316,17 @@ Prioritized by popularity, USGS gauge availability, data richness, and geographi
 
 ### Scaling Milestones
 
-| Milestone | Rivers | Target |
-|-----------|--------|--------|
-| **MVP** (current) | 8 rivers | Done |
-| **Phase 2** | 12 rivers (+Gasconade, North Fork, Black, Bourbeuse) | +4 popular rivers with good data |
-| **Phase 3** | 16 rivers (+Elk, Bryant, St. Francis, Big Creek) | Geographic completeness across MO Ozarks |
-| **Phase 4** | 20+ rivers | Long-tail rivers, community-driven additions |
+**These milestones are all met — the plan is kept as a record of the route
+taken, not as current status.** For what Eddy covers right now, read
+`/api/coverage` or `/coverage`; both derive every figure from the database, and
+no count in this repo should be quoted from a doc when a query will answer.
+
+| Milestone | Rivers | Target | Status |
+|-----------|--------|--------|--------|
+| **MVP** | 8 rivers | Done | ✅ |
+| **Phase 2** | 12 rivers (+Gasconade, North Fork, Black, Bourbeuse) | +4 popular rivers with good data | ✅ |
+| **Phase 3** | 16 rivers (+Elk, Bryant, St. Francis, Big Creek) | Geographic completeness across MO Ozarks | ✅ |
+| **Phase 4** | 20+ rivers | Long-tail rivers, community-driven additions | ✅ — now spanning MO and AR |
 
 ---
 

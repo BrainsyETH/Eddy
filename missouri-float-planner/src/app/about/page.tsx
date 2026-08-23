@@ -10,6 +10,11 @@ import type { ConditionCode } from '@/types/api';
 import AboutCollapsibleSection from '@/components/ui/AboutCollapsibleSection';
 import SiteFooter from '@/components/ui/SiteFooter';
 import { jsonLdString } from '@/lib/json-ld';
+import { getCoverageCounts, getCuratedRivers, curatedStates } from '@/lib/coverage';
+
+// ISR, matching /rivers and /dams. The roster below is read from the database,
+// so this page must be rebuilt periodically rather than frozen at deploy.
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: 'How Eddy Works',
@@ -96,7 +101,31 @@ const conditionDescriptions: Record<ConditionCode, {
   },
 };
 
-export default function AboutPage() {
+/**
+ * Async because the river roster and the coverage figures are READ, not typed.
+ *
+ * This page used to name eight rivers in a literal array and repeat the number
+ * in its FAQ structured data. Production had twenty-four. Both are now derived
+ * from the same source the rest of the site reads, so onboarding a river
+ * updates the roster, the sentence and the Google-facing FAQ at once.
+ */
+export default async function AboutPage() {
+  const [rivers, counts] = await Promise.all([getCuratedRivers(), getCoverageCounts()]);
+  const states = curatedStates(rivers);
+
+  // Rendered in several places, so it is built once here. Null counts collapse
+  // to a phrase that still reads as a sentence — never "0 rivers".
+  const riverCountPhrase =
+    counts.curatedRivers === null
+      ? 'every river Eddy covers'
+      : `${counts.curatedRivers} curated river${counts.curatedRivers === 1 ? '' : 's'}`;
+
+  const rosterAnswer = rivers.length
+    ? `Eddy curates ${riverCountPhrase} across ${states.join(' and ')}: ${rivers
+        .map((river) => river.name)
+        .join(', ')}. Eddy also carries live readings and forecasts for USGS reference gauges nationwide, without a float recommendation attached.`
+    : 'Eddy curates float conditions and logistics for Ozark rivers in Missouri and Arkansas, and carries live readings for USGS reference gauges nationwide.';
+
   return (
     <div className="min-h-screen bg-neutral-50">
       {/* Hero */}
@@ -371,23 +400,27 @@ export default function AboutPage() {
           icon={<Waves className="w-6 h-6 text-white" />}
           defaultExpanded={false}
         >
+          <p className="text-neutral-700 mb-4">
+            Eddy curates {riverCountPhrase}
+            {states.length ? ` across ${states.join(' and ')}` : ''} — researched thresholds,
+            verified access points, float times and hazards. Beyond these, Eddy shows live
+            readings and forecasts for USGS reference gauges nationwide, without a float
+            recommendation attached.{' '}
+            <Link href="/coverage" className="text-primary-700 font-semibold underline">
+              What that difference means
+            </Link>
+            .
+          </p>
+          {/* Derived from the database, never a literal. See src/lib/coverage.ts. */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[
-              'Meramec River',
-              'Current River',
-              'Eleven Point River',
-              'Jacks Fork',
-              'Niangua River',
-              'Big Piney River',
-              'Huzzah Creek',
-              'Courtois Creek'
-            ].map((river) => (
-              <div
-                key={river}
+            {rivers.map((river) => (
+              <Link
+                key={river.slug}
+                href={river.path}
                 className="bg-white border-2 border-neutral-200 rounded-lg px-4 py-3 text-center font-semibold text-neutral-900 shadow-sm hover:shadow-md transition-shadow"
               >
-                {river}
-              </div>
+                {river.name}
+              </Link>
             ))}
           </div>
         </AboutCollapsibleSection>
@@ -430,8 +463,20 @@ export default function AboutPage() {
                 '@type': 'Question',
                 name: 'What rivers does Eddy cover?',
                 acceptedAnswer: {
+                  // Built from the live roster. Structured data is the worst
+                  // place for a hardcoded count: it outlives the page copy in
+                  // search results, so a stale figure keeps being quoted back
+                  // long after anyone has looked at this file.
                   '@type': 'Answer',
-                  text: 'Eddy currently covers 8 Ozark rivers: Meramec River, Current River, Eleven Point River, Jacks Fork, Niangua River, Big Piney River, Huzzah Creek, and Courtois Creek.',
+                  text: rosterAnswer,
+                },
+              },
+              {
+                '@type': 'Question',
+                name: 'Does Eddy work outside Missouri and Arkansas?',
+                acceptedAnswer: {
+                  '@type': 'Answer',
+                  text: 'Partly. Eddy carries live readings, trends and National Weather Service forecasts for USGS reference gauges across the United States, so you can check a gauge anywhere. Float recommendations — condition verdicts, float times, access points and shuttle logistics — exist only on the rivers Eddy has curated, because those require researched local thresholds rather than a raw gauge reading.',
                 },
               },
             ],
