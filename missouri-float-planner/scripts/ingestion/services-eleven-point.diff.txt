@@ -1,0 +1,38 @@
+UPDATE     hufstedlers-canoe-rental  — Hufstedler's Canoe Rental & Campground [outfitter]
+             website              https://hufstedlers.com -> https://www.hufstedlers.com
+             address_line1        33200 US-160 -> 33200 US 160
+             city                 Riverton -> Alton
+             zip                  63965 -> 65606
+             description          USFS authorized outfitter on the Eleven Point River near Riverton/Alton. Canoe, kayak, and raft rentals with shuttle service and campground. Under new ownership as of 2024. -> Forest Service authorised concessioner on the Eleven Point, the usual choice for trips taking out at Riverton. Canoe and kayak rentals with shuttle, tent and RV camping, one-, two- and three-bedroom cabins, and a general store.
+             verified_source      usfs_authorized_list, knowledge_base -> https://www.fs.usda.gov/r09/marktwain/recreation/eleven-point-national-wild-and-scenic-river, https://www.hufstedlers.com/
+             services_offered     {canoe_rental,kayak_rental,raft_rental,shuttle,camping_primitive,camping_rv} -> {canoe_rental,kayak_rental,raft_rental,shuttle,camping_primitive,camping_rv,cabins,general_store}   [union]
+             last_verified_at     2026-08-09T15:30:08.415688+00:00 -> 2026-08-24T00:00:00.000Z
+UPDATE     richards-canoe-rental  — Richard's Canoe Rental [outfitter]
+             description          Family-run outfitter on the Eleven Point River near Alton. Canoe and kayak rentals with shuttle service. Now operated by the grandson of founder Jerry Richard. -> Family-run Forest Service authorised concessioner at Alton, the usual choice for trips putting in or taking out at Greer Crossing. Canoe and kayak rentals with shuttle.
+             verified_source      knowledge_base -> https://www.fs.usda.gov/r09/marktwain/recreation/eleven-point-national-wild-and-scenic-river, https://missouriscenicrivers.com/11-point-outfitters
+             usfs_authorized      false -> true
+             last_verified_at     2026-08-09T15:30:08.415688+00:00 -> 2026-08-24T00:00:00.000Z
+INSERT     greer-crossing-recreation-area  — Greer Crossing Recreation Area [campground]
+             status               = active
+             state                = MO
+             display_order        = 100
+             nps_authorized       = false
+             usfs_authorized      = false
+             services_offered     = {camping_primitive,vault_toilets,fire_rings,picnic_tables,potable_water,boat_ramp}
+             alt_names            = {}
+             name                 = Greer Crossing Recreation Area
+             type                 = campground
+             website              = https://www.fs.usda.gov/r09/marktwain/recreation/greer-crossing-recreation-area
+             city                 = Alton
+             zip                  = 65606
+             description          = The Forest Service's developed campground on the Eleven Point and one of the river's most popular launch sites. Sixteen single and three double sites with tables, fire rings and lantern posts; vault toilets, and drinking water and trash collection from 1 April to 1 November. First come, first served, year round.
+             seasonal_notes       = Drinking water and trash collection run 1 April to 1 November; outside that window bring water and pack out rubbish.
+             fee_range            = $10-20
+             managing_agency      = USDA Forest Service — Mark Twain National Forest
+             verified_source      = https://www.fs.usda.gov/r09/marktwain/recreation/greer-crossing-recreation-area
+             tent_sites           = 19
+             season_open_month    = 1
+             season_close_month   = 12
+             last_verified_at     = 2026-08-24T00:00:00.000Z
+             slug                 = greer-crossing-recreation-area
+             + river link eleven-point
