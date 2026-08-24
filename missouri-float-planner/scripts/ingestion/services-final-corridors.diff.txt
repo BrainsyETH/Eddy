@@ -1,0 +1,49 @@
+INSERT     hootentown-canoe-rental  — Hootentown Canoe Rental [outfitter]
+             status               = active
+             state                = MO
+             display_order        = 100
+             nps_authorized       = false
+             usfs_authorized      = false
+             services_offered     = {canoe_rental,kayak_rental,raft_rental,tube_rental,shuttle,camping_primitive,camping_rv,general_store}
+             alt_names            = {Hootontown Canoe Rental,Hooten Town Canoe Rental,Hootentown Canoe Rental Campground and Store}
+             name                 = Hootentown Canoe Rental
+             type                 = outfitter
+             phone                = 417-369-2266
+             address_line1        = 1254 Hooten Town Rd
+             city                 = Crane
+             zip                  = 65633
+             description          = Family-run outfitter at the Hooten Town access on the lower James, running canoe, raft, tube and kayak floats with shuttle since 1993, over routes of roughly 4 to 13 miles. Trades as Hootentown Canoe Rental, Campground and Store, with tent sites, full-hookup RV pads and a camp store.
+             verified_source      = https://www.visitmo.com/things-to-do/hooton-town-canoe-rental, https://www.floatmissouri.com/plan/camp/hootontown/
+             latitude             = 36.939301
+             longitude            = -93.388212
+             last_verified_at     = 2026-08-24T00:00:00.000Z
+             slug                 = hootentown-canoe-rental
+             + river link james
+UPDATE     james-river-outfitters  — James River Outfitters [outfitter]
+             address_line1        110 Y-Bridge Blvd -> 110 Y Bridge Blvd
+             description          At the Y-Bridge/Galena take-out; standard ~6-mi float ends at their property. Publishes a live badge off USGS 07052500 gage height (<7 ft clear, 7-8 ft caution, >8 ft closed). -> Family-owned float outfitter at the Galena Y-Bridge on the James, renting kayaks, canoes, rafts, tubes and jon boats with shuttle, over trips from a few hours to overnight. Tent sites and RV hookups on the river.
+             verified_source      csv_import -> https://www.visitmo.com/things-to-do/james-river-outfitters
+             services_offered     {canoe_rental,kayak_rental,raft_rental,tube_rental,shuttle,camping_primitive,camping_rv,showers,general_store} -> {canoe_rental,kayak_rental,raft_rental,tube_rental,shuttle,camping_primitive,camping_rv,showers,general_store,jon_boat_rental}   [union]
+             last_verified_at     2026-08-07T02:47:22.844026+00:00 -> 2026-08-24T00:00:00.000Z
+INSERT     devils-back-floats  — Devil's Back Floats [outfitter]
+             status               = active
+             state                = MO
+             display_order        = 100
+             nps_authorized       = false
+             usfs_authorized      = false
+             services_offered     = {canoe_rental,kayak_rental,jon_boat_rental,camping_primitive,boat_ramp}
+             alt_names            = {}
+             name                 = Devil's Back Floats
+             type                 = outfitter
+             phone                = 573-484-3231
+             website              = http://www.devilsbackfloats.com
+             address_line1        = 5103 Noser Mill Road
+             city                 = Leslie
+             zip                  = 63056
+             description          = Family-run since 1980 and the only float service on the Bourbeuse, an hour from St Louis at Noser Mill. Canoe, kayak and jon boat rentals, primitive riverside camping and a concrete boat ramp. Reservations required for floats; the ramp and campground stay open.
+             verified_source      = https://www.visitmo.com/things-to-do/devils-back-floats, https://missouricanoe.org/places/devils-back-floats/
+             latitude             = 38.392008
+             longitude            = -91.193674
+             last_verified_at     = 2026-08-24T00:00:00.000Z
+             slug                 = devils-back-floats
+             + river link bourbeuse

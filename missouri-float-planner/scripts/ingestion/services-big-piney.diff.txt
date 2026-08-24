@@ -1,0 +1,25 @@
+UPDATE     wilderness-ridge-resort  — Wilderness Ridge Resort [outfitter]
+             description          Float service and resort on the Big Piney River at Duke: canoeing, rafting and tubing, plus campsites with 20/30-amp and pull-through RV hookups, primitive camping, cabins and a bunkhouse. Site and cabin counts not published. Second number 417-217-0824; reservations by phone. -> Float service and resort on the Big Piney at Duke, in the Mark Twain National Forest: canoeing, rafting and tubing with shuttles, tent camping, RV hookups, cabins and a small store carrying snacks, ice and firewood.
+             verified_source      csv_import -> https://wildernessridgeresort.com, https://visitpulaskicounty.org/experiences/outdoors/outfitters
+             latitude             (unset) -> 37.664284
+             longitude            (unset) -> -92.050389
+             services_offered     {canoe_rental,raft_rental,tube_rental,shuttle,camping_primitive,camping_rv,cabins} -> {canoe_rental,raft_rental,tube_rental,shuttle,camping_primitive,camping_rv,cabins,general_store}   [union]
+             last_verified_at     (unset) -> 2026-08-24T00:00:00.000Z
+UPDATE     pecks-last-resort  — Peck's Last Resort [outfitter]
+             phone                (unset) -> 573-435-6669
+             website              (unset) -> https://www.peckslastresort.com
+             address_line1        (unset) -> 33401 Windsor Lane
+             city                 Jerome -> Duke
+             zip                  65529 -> 65461
+             description          Outfitter and small campground on the Big Piney River. 9 RV sites and 2 cabins. -> Family-run campground and float service in the Mark Twain National Forest at Duke, renting canoes, rafts and kayaks for half- and full-day floats of up to 15 miles, with canoes available for multi-day trips as far as 45 miles. Tent and group camping, RV sites, cabins, showers and a store.
+             seasonal_notes       (unset) -> The mini cabin is out of service following flood damage in November.
+             verified_source      business_database_2026 -> https://www.peckslastresort.com, https://visitpulaskicounty.org/experiences/outdoors/outfitters
+             services_offered     {canoe_rental,kayak_rental,shuttle,camping_rv,cabins} -> {canoe_rental,kayak_rental,shuttle,camping_rv,cabins,raft_rental,camping_primitive,showers,general_store}   [union]
+             last_verified_at     2026-08-07T18:57:02.588792+00:00 -> 2026-08-24T00:00:00.000Z
+UPDATE     devils-elbow-river-safari  — Devil's Elbow River Safari [campground]
+             phone                (unset) -> 573-855-4733
+             address_line1        (unset) -> 12000 Timber Road
+             description          Campground on the Big Piney River at Devil's Elbow. 50 tent sites and 7 RV sites. -> Campground and float service on the Big Piney at Devil's Elbow on Route 66, with 50 tent sites and 7 RV sites — 50-amp, back-in and pull-through — plus primitive camping, a shower house, a pavilion and boat rentals with shuttles.
+             verified_source      business_database_2026 -> https://visitpulaskicounty.org/stay?id=152719, https://visitpulaskicounty.org/experiences/outdoors/outfitters
+             services_offered     {camping_primitive,camping_rv} -> {camping_primitive,camping_rv,showers,canoe_rental,kayak_rental,raft_rental,tube_rental,shuttle}   [union]
+             last_verified_at     2026-08-07T02:47:22.844026+00:00 -> 2026-08-24T00:00:00.000Z

@@ -1,0 +1,38 @@
+UPDATE     gasconade-hills-resort  — Gasconade Hills Resort [cabin_lodge]
+             phone                (unset) -> 573-765-3044
+             address_line1        (unset) -> 28425 Spring Rd
+             city                 Jerome -> Richland
+             zip                  65529 -> 65556
+             description          Resort near Jerome with 18 cabins and 30 RV sites. Full amenities for Big Piney River floaters. -> Family resort on the Gasconade River at Richland with cabins, a campground and a swimming pool, running float trips with canoes, kayaks, rafts and tubes.
+             verified_source      business_database_2026 -> https://gasconadehills.com, https://missouricanoe.org/gasconade-river/
+             services_offered     {cabins,camping_rv,showers} -> {cabins,camping_rv,showers,canoe_rental,kayak_rental,raft_rental,tube_rental,swimming_pool}   [union]
+             last_verified_at     2026-08-07T18:57:02.588792+00:00 -> 2026-08-24T00:00:00.000Z
+UPDATE     froggys-river-resort  — Froggy's River Resort [campground]
+             phone                (unset) -> 573-421-8714
+             website              (unset) -> https://www.froggysriverresort.com
+             address_line1        (unset) -> 30399 Smokey Ln
+             city                 Jerome -> Richland
+             zip                  65529 -> 65556
+             description          River resort campground on the Big Piney River. 35 tent sites and 1 cabin. -> Campground on the Gasconade River at Richland with primitive riverbank tent sites, water-and-electric and full-hookup RV sites, three lodging units, a free shower house and a camp store. Canoe, kayak, raft and tube rental on site.
+             verified_source      business_database_2026 -> https://www.froggysriverresort.com/camping
+             rv_sites             (unset) -> 19
+             cabin_count          1 -> 3
+             services_offered     {camping_primitive,cabins} -> {camping_primitive,cabins,camping_rv,showers,general_store,canoe_rental,kayak_rental,raft_rental,tube_rental}   [union]
+             last_verified_at     2026-08-07T18:57:02.588792+00:00 -> 2026-08-24T00:00:00.000Z
+UPDATE     rubys-landing  — Ruby's Landing [campground]
+             phone                (unset) -> 573-855-9567
+             website              (unset) -> https://rubyslanding.com
+             zip                  65529 -> 65583
+             description          Large campground on the Big Piney River with 100 RV sites, 12 tent sites, and 12 cabins. -> Year-round campground on the Gasconade River north of Waynesville: 11 cabins plus a tiny home, 99 RV sites with 20/30/50-amp water and sewer, and primitive sites with and without electric. Five-mile floats all finish at the property, and private vessels can be shuttled.
+             verified_source      business_database_2026 -> https://rubyslanding.com, https://www.visitmo.com/places-to-stay/rubys-landing, https://missouricanoe.org/gasconade-river/
+             rv_sites             100 -> 99
+             cabin_count          12 -> 11
+             services_offered     {camping_rv,camping_primitive,cabins,showers} -> {camping_rv,camping_primitive,cabins,showers,laundry,general_store,playground,potable_water,canoe_rental,kayak_rental,raft_rental,tube_rental,jon_boat_rental,shuttle}   [union]
+             last_verified_at     2026-08-09T15:30:08.415688+00:00 -> 2026-08-24T00:00:00.000Z
+UPDATE     bsc-outdoors  — BSC Outdoors [outfitter]
+             phone                (unset) -> 573-759-7294
+             zip                  65529 -> 65459
+             description          Full-service outfitter on the Big Piney River. 40 RV sites with 20/30/50 amp hookups, 8 cabins, and float trip services. -> Boiling Spring Campground, a full-service outfitter running 3-, 5- and 8-mile float trips on both the Gasconade and the Big Piney. Canoes, kayaks, rafts, tubes and jon boats, with tent sites, full-hookup RV sites, cabins, a camp store and Wi-Fi.
+             verified_source      business_database_2026 -> https://bscoutdoors.com, https://missouricanoe.org/gasconade-river/
+             services_offered     {canoe_rental,kayak_rental,raft_rental,shuttle,camping_rv,cabins} -> {canoe_rental,kayak_rental,raft_rental,shuttle,camping_rv,cabins,tube_rental,jon_boat_rental,camping_primitive,showers,flush_toilets,general_store,wifi,picnic_tables,fishing_supplies}   [union]
+             last_verified_at     2026-08-09T15:30:08.415688+00:00 -> 2026-08-24T00:00:00.000Z

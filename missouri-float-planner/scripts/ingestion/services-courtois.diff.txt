@@ -1,0 +1,41 @@
+UPDATE     ozark-outdoors-resort  — Ozark Outdoors Resort [outfitter]
+             phone                573-245-6517 -> 573-245-6837
+             website              https://ozarkoutdoors.net -> https://ozarkoutdoorsresort.com
+             address_line1        (unset) -> 200 Ozark Outdoor Lane
+             description          Primary Meramec River outfitter with 1 mile of riverfront near Leasburg. Canoe, kayak, raft, and tube rentals with shuttle service. Also offers camping, cabins, and services for Huzzah Creek floaters. -> Resort near Leasburg with a mile of Meramec riverfront, floating the Meramec, the Huzzah and the Courtois with canoes, kayaks, rafts and river tubes. Courtois routes include the 10-mile Butts Slab run and a seasonal 5-mile Courtois Primitive trip. Camping and cabins on site.
+             verified_source      ozarkoutdoors.net, existing_codebase_migration_00068 -> https://ozarkoutdoorsresort.com/canoeing/
+             last_verified_at     2026-08-07T02:47:22.844026+00:00 -> 2026-08-24T00:00:00.000Z
+             + river link courtois
+UPDATE     bass-river-resort  — Bass River Resort [outfitter]
+             phone_toll_free      (unset) -> 800-392-3700
+             email                jab10bass@gmail.com -> ContactUs@Bassresort.com
+             address_line1        (unset) -> 204 Butts Rd
+             description          Full-service outfitter on Courtois Creek, also serving Huzzah Creek and Meramec River. Family-run for 50+ years. Canoe/kayak/raft rentals, shuttle service, camping, cabins, and horseback riding. -> The Courtois specialist at Steelville, running 6-mile (Blunts to Bass'), 7-mile (Berryman to Blunts, or Bass' to Scotia) and 13-mile (Berryman to Bass') trips, with multi-day floats of 20 to 25 miles. Canoes, single and tandem kayaks and rafts, all with shuttle. Camping, cabins, meals and horseback riding on site.
+             verified_source      bassresort.com, existing_codebase_migration_00055 -> https://bassresort.com/river-trips/, https://missouricanoe.org/huzzah-creek-and-courtois-creek/
+             services_offered     {canoe_rental,kayak_rental,raft_rental,shuttle,camping_rv,camping_primitive,cabins,horseback_riding,showers,general_store} -> {canoe_rental,kayak_rental,raft_rental,shuttle,camping_rv,camping_primitive,cabins,horseback_riding,showers,general_store,food_service}   [union]
+             last_verified_at     2026-08-07T02:47:22.844026+00:00 -> 2026-08-24T00:00:00.000Z
+INSERT     berryman-campground-usfs  — Berryman Campground [campground]
+             status               = active
+             state                = MO
+             display_order        = 100
+             nps_authorized       = false
+             usfs_authorized      = false
+             services_offered     = {camping_primitive,vault_toilets,fire_rings,picnic_tables}
+             alt_names            = {}
+             name                 = Berryman Campground
+             type                 = campground
+             website              = https://www.fs.usda.gov/r09/marktwain/recreation/berryman-campground
+             city                 = Berryman
+             zip                  = 65565
+             description          = Eight-site Forest Service campground on the site of a 1937 CCC camp, at the trailhead for the Berryman Trail and the Courtois Section of the Ozark Trail. It is the upstream put-in for the Courtois float trips run out of Steelville. Each site has a concrete pad, picnic table, lantern post and fire ring; vault toilets and no drinking water.
+             fee_range            = $15
+             managing_agency      = USDA Forest Service — Mark Twain National Forest
+             verified_source      = https://www.fs.usda.gov/r09/marktwain/recreation/berryman-campground
+             latitude             = 37.929039
+             longitude            = -91.062694
+             tent_sites           = 8
+             season_open_month    = 1
+             season_close_month   = 12
+             last_verified_at     = 2026-08-24T00:00:00.000Z
+             slug                 = berryman-campground-usfs
+             + river link courtois

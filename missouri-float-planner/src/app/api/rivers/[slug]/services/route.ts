@@ -45,6 +45,9 @@ async function _GET(
       .select(`
         is_primary,
         section_description,
+        services_offered,
+        routes,
+        seasonal_notes,
         nearby_services (
           id, name, slug, type,
           phone, phone_toll_free, email, website,
@@ -109,8 +112,20 @@ async function _GET(
           latitude: s.latitude,
           longitude: s.longitude,
           description: s.description,
-          servicesOffered: s.services_offered || [],
-          seasonalNotes: s.seasonal_notes,
+          // ── River-specific facts win where they exist ──────────────────
+          // A business linked to two rivers has one services_offered array,
+          // which quietly asserts that every rental and shuttle it lists
+          // applies on both. Bass' River Resort sells 6-, 7- and 13-mile
+          // Courtois runs between Berryman, Blunts, Bass' and Scotia; its
+          // Meramec trips are different water. An EMPTY river-specific array
+          // means "no river-specific claim" and falls back to the business's
+          // own — it must never be read as "offers nothing here".
+          servicesOffered:
+            (link.services_offered?.length ? link.services_offered : s.services_offered) || [],
+          seasonalNotes: link.seasonal_notes ?? s.seasonal_notes,
+          // Routes are river-specific by nature; there is nothing on the
+          // business to fall back to.
+          routes: link.routes ?? [],
           npsAuthorized: s.nps_authorized,
           usfsAuthorized: s.usfs_authorized,
           status: s.status,
