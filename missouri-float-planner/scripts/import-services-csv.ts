@@ -126,6 +126,13 @@ export const FORBIDDEN_SOURCES = new Set(['csv_import', 'unknown', 'n/a']);
 /** Same threshold the coordinate and place-id pipelines already use. */
 export const NAME_COLLISION_MIN = 0.86;
 
+/**
+ * Generous continental-US envelope. Not a precision check — it exists to catch
+ * the coordinate that is well-formed and somewhere else entirely, which in
+ * practice means a dropped minus sign putting an Ozark outfitter in China.
+ */
+export const US_BOUNDS = { minLat: 24, maxLat: 50, minLon: -125, maxLon: -66 };
+
 // ── RFC4180-ish CSV parser (handles quoted fields, embedded commas/newlines) ──
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
@@ -162,16 +169,32 @@ export function slugify(text: string): string {
   return text.toLowerCase().replace(/['‘’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
-function int(v: string): number | null {
-  const n = parseInt(v, 10);
-  return Number.isNaN(n) ? null : n;
+// parseInt and parseFloat stop at the first character they cannot use and
+// return what they had. `parseInt('10abc')` is 10 and `parseFloat('37x')` is
+// 37, so a typo in a site count or a coordinate arrives looking like data.
+// These refuse the whole value instead, and report why.
+function int(v: string): number | { bad: string } {
+  if (!/^-?\d+$/.test(v)) return { bad: `"${v}" is not a whole number` };
+  const n = Number(v);
+  return Number.isSafeInteger(n) ? n : { bad: `"${v}" is out of range` };
 }
-function num(v: string): number | null {
-  const n = parseFloat(v);
-  return Number.isNaN(n) ? null : n;
+function num(v: string): number | { bad: string } {
+  if (!/^-?(\d+\.?\d*|\.\d+)$/.test(v)) return { bad: `"${v}" is not a number` };
+  const n = Number(v);
+  return Number.isFinite(n) ? n : { bad: `"${v}" is not a finite number` };
 }
-function bool(v: string): boolean {
-  return ['true', '1', 'yes', 'y'].includes(v.toLowerCase());
+const TRUE_WORDS = ['true', '1', 'yes', 'y'];
+const FALSE_WORDS = ['false', '0', 'no', 'n'];
+// Anything unrecognised used to read as false, so `nps_authorized = ture`
+// silently un-authorised a concessioner.
+function bool(v: string): boolean | { bad: string } {
+  const t = v.toLowerCase();
+  if (TRUE_WORDS.includes(t)) return true;
+  if (FALSE_WORDS.includes(t)) return false;
+  return { bad: `"${v}" is not true/false (accepted: ${[...TRUE_WORDS, ...FALSE_WORDS].join(', ')})` };
+}
+function isBad(v: unknown): v is { bad: string } {
+  return typeof v === 'object' && v !== null && 'bad' in v;
 }
 function list(v: string): string[] {
   return v.split('|').map((s) => s.trim()).filter(Boolean);
@@ -210,6 +233,9 @@ export function checkedAtProblem(raw: string, today = new Date()): string | null
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return 'must be YYYY-MM-DD';
   const when = new Date(`${raw}T00:00:00Z`);
   if (Number.isNaN(when.getTime())) return 'is not a real date';
+  // JavaScript rolls impossible days forward rather than rejecting them, so
+  // 2026-02-31 parses happily as 3 March. Round-tripping catches that.
+  if (when.toISOString().slice(0, 10) !== raw) return `is not a real calendar date (${raw})`;
   const days = (today.getTime() - when.getTime()) / 86_400_000;
   if (days < -1) return 'is in the future';
   if (days > SOURCE_MAX_AGE_DAYS) {
@@ -314,9 +340,50 @@ export function buildRows(
 
     const claimed: Record<string, unknown> = {};
     for (const f of TEXT_FIELDS) if (has(f)) claimed[f] = cell(f);
-    for (const f of NUM_FIELDS) if (has(f)) claimed[f] = num(cell(f));
-    for (const f of INT_FIELDS) if (has(f)) claimed[f] = int(cell(f));
-    for (const f of BOOL_FIELDS) if (has(f)) claimed[f] = bool(cell(f));
+    for (const f of NUM_FIELDS) {
+      if (!has(f)) continue;
+      const parsed = num(cell(f));
+      if (isBad(parsed)) errors.push({ line, who, message: `${f} ${parsed.bad}` });
+      else claimed[f] = parsed;
+    }
+    for (const f of INT_FIELDS) {
+      if (!has(f)) continue;
+      const parsed = int(cell(f));
+      if (isBad(parsed)) errors.push({ line, who, message: `${f} ${parsed.bad}` });
+      else claimed[f] = parsed;
+    }
+    for (const f of BOOL_FIELDS) {
+      if (!has(f)) continue;
+      const parsed = bool(cell(f));
+      if (isBad(parsed)) errors.push({ line, who, message: `${f} ${parsed.bad}` });
+      else claimed[f] = parsed;
+    }
+
+    // ── A coordinate is a pair, and it has to be somewhere Eddy operates ──
+    // Half a coordinate cannot draw a pin, and the quality ratchet tested only
+    // latitude, so a row with a latitude and no longitude passed it.
+    if (has('latitude') !== has('longitude')) {
+      errors.push({ line, who, message: 'latitude and longitude must be given together' });
+    }
+    const lat = claimed.latitude;
+    const lon = claimed.longitude;
+    if (typeof lat === 'number' && Math.abs(lat) > 90) {
+      errors.push({ line, who, message: `latitude ${lat} is outside -90..90` });
+    } else if (typeof lat === 'number' && (lat < US_BOUNDS.minLat || lat > US_BOUNDS.maxLat)) {
+      errors.push({ line, who, message: `latitude ${lat} is outside the area Eddy covers` });
+    }
+    if (typeof lon === 'number' && Math.abs(lon) > 180) {
+      errors.push({ line, who, message: `longitude ${lon} is outside -180..180` });
+    } else if (typeof lon === 'number' && (lon < US_BOUNDS.minLon || lon > US_BOUNDS.maxLon)) {
+      // A dropped minus sign is the usual cause and stays inside -180..180.
+      errors.push({ line, who, message: `longitude ${lon} is outside the area Eddy covers — check the sign` });
+    }
+    for (const f of ['season_open_month', 'season_close_month']) {
+      const v = claimed[f];
+      if (typeof v === 'number' && (v < 1 || v > 12)) {
+        errors.push({ line, who, message: `${f} ${v} is not a month` });
+      }
+    }
 
     if (has('services_offered')) {
       const { offerings, errors: offErrors } = resolveOfferings(list(cell('services_offered')));
@@ -541,7 +608,13 @@ async function main() {
 
   const supabase = getScriptClient({ script: 'import-services-csv', write: shouldImport });
 
-  const { data: rivers } = await supabase.from('rivers').select('id, slug');
+  // A failed read used to arrive as an empty array, which reads as "no rivers
+  // exist" — every row would then fail with "unknown river slug" and the real
+  // cause would never be printed. Same for the reads below: an empty result
+  // from an error is indistinguishable from an empty table, and each one would
+  // quietly change what this script decides to do.
+  const { data: rivers, error: riversError } = await supabase.from('rivers').select('id, slug');
+  if (riversError) throw new Error(`Could not read rivers: ${riversError.message}`);
   const riverMap = new Map<string, string>((rivers ?? []).map((r: { id: string; slug: string }) => [r.slug, r.id]));
   for (const row of rows) {
     const unknown = row.riverSlugs.filter((s) => !riverMap.has(s));
@@ -550,7 +623,9 @@ async function main() {
     }
   }
 
-  const { data: existingRaw } = await supabase.from('nearby_services').select('*');
+  const { data: existingRaw, error: existingError } =
+    await supabase.from('nearby_services').select('*');
+  if (existingError) throw new Error(`Could not read nearby_services: ${existingError.message}`);
   const existing = (existingRaw ?? []) as ExistingService[];
   const bySlug = new Map(existing.map((e) => [e.slug, e]));
 
@@ -568,9 +643,10 @@ async function main() {
     }
   }
 
-  const { data: linkRaw } = await supabase
+  const { data: linkRaw, error: linkError } = await supabase
     .from('service_rivers')
     .select('service_id, is_primary, rivers(slug)');
+  if (linkError) throw new Error(`Could not read service_rivers: ${linkError.message}`);
   const linksByService = new Map<string, Array<{ river_slug: string; is_primary: boolean }>>();
   for (const link of (linkRaw ?? []) as Array<Record<string, unknown>>) {
     const serviceId = link.service_id as string;
@@ -664,8 +740,10 @@ async function main() {
   }
 
   // ── Pass 4: read back, and name anything that did not land ──
-  const { data: after } = await supabase
+  const { data: after, error: afterError } = await supabase
     .from('nearby_services').select('*').in('slug', written.map((w) => w.slug));
+  // Read-back is the verification step; if it fails, nothing has been verified.
+  if (afterError) throw new Error(`Wrote rows but could not verify them: ${afterError.message}`);
   const afterBySlug = new Map(((after ?? []) as ExistingService[]).map((r) => [r.slug, r]));
 
   for (const plan of plans) {

@@ -313,3 +313,81 @@ test('a timestamp is compared as an instant, not as text', () => {
   const plan = planRow(row, existing, [{ river_slug: 'niangua', is_primary: true }], RIVERS, false);
   assert.equal(plan.action, 'unchanged', 'same instant, different serialisation');
 });
+
+// ── Numbers, booleans and dates are refused, not coerced ──────────────────
+// parseInt and parseFloat stop at the first unusable character and return what
+// they had, so a typo arrived looking like data: parseInt('10abc') is 10 and
+// parseFloat('37x') is 37.
+
+test('a malformed number is an error, not a truncated number', () => {
+  const { errors } = buildRows(
+    csv(`X,outfitter,niangua,,,,,,,37x,,,,,10abc,https://x.com,${RECENT}`),
+    TODAY,
+  );
+  assert.ok(errors.some((e) => /latitude .*"37x" is not a number/.test(e.message)), JSON.stringify(errors));
+  assert.ok(errors.some((e) => /tent_sites .*"10abc" is not a whole number/.test(e.message)), JSON.stringify(errors));
+});
+
+test('an unrecognised boolean is an error, not silently false', () => {
+  // `nps_authorized = ture` used to quietly un-authorise a concessioner.
+  const { errors } = buildRows(
+    csv(`X,outfitter,niangua,,,,,,,,,,,ture,,https://x.com,${RECENT}`),
+    TODAY,
+  );
+  assert.ok(errors.some((e) => /nps_authorized .*is not true\/false/.test(e.message)), JSON.stringify(errors));
+});
+
+test('true and false are both still accepted in their usual spellings', () => {
+  for (const [word, expected] of [['yes', true], ['1', true], ['no', false], ['FALSE', false]] as const) {
+    const r = rowFrom(`X,outfitter,niangua,,,,,,,,,,,${word},,https://x.com,${RECENT}`);
+    assert.equal(r.claimed.nps_authorized, expected, word);
+  }
+});
+
+test('an impossible calendar date is refused', () => {
+  // JavaScript rolls 2026-02-31 forward to 3 March rather than rejecting it.
+  assert.match(String(checkedAtProblem('2026-02-31', TODAY)), /not a real calendar date/);
+  assert.match(String(checkedAtProblem('2026-06-31', TODAY)), /not a real calendar date/);
+  assert.equal(checkedAtProblem('2026-08-01', TODAY), null, 'a real date still passes');
+});
+
+// ── A coordinate is a pair, in a place Eddy covers ───────────────────────
+
+test('half a coordinate is refused', () => {
+  const latOnly = buildRows(csv(`X,outfitter,niangua,,,,,,,37.5,,,,,,https://x.com,${RECENT}`), TODAY);
+  assert.ok(latOnly.errors.some((e) => /must be given together/.test(e.message)));
+});
+
+test('an out-of-range coordinate is refused', () => {
+  const { errors } = buildRows(
+    csv(`X,outfitter,niangua,,,,,,,999,,,,,,https://x.com,${RECENT}`),
+    TODAY,
+  );
+  assert.ok(errors.some((e) => /latitude 999 is outside -90\.\.90/.test(e.message)), JSON.stringify(errors));
+});
+
+test('a dropped minus sign is caught, though it is a valid longitude', () => {
+  // 92 is a perfectly legal longitude. It is also in China.
+  const { errors } = buildRows(
+    parseCsv([
+      'name,type,river_slugs,latitude,longitude,verified_source,source_checked_at',
+      `Sign Flip,outfitter,niangua,37.5,92.5,https://x.com,${RECENT}`,
+    ].join('\n')),
+    TODAY,
+  );
+  assert.ok(
+    errors.some((e) => /longitude 92\.5 is outside the area Eddy covers — check the sign/.test(e.message)),
+    JSON.stringify(errors),
+  );
+});
+
+test('a month outside 1-12 is refused', () => {
+  const { errors } = buildRows(
+    parseCsv([
+      'name,type,river_slugs,season_open_month,verified_source,source_checked_at',
+      `X,outfitter,niangua,13,https://x.com,${RECENT}`,
+    ].join('\n')),
+    TODAY,
+  );
+  assert.ok(errors.some((e) => /season_open_month 13 is not a month/.test(e.message)), JSON.stringify(errors));
+});

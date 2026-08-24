@@ -25,6 +25,7 @@ function row(over: Partial<QualityRow> = {}): QualityRow {
     website: 'https://good.example',
     description: 'A long enough description to be useful to a reader.',
     latitude: 37.5,
+    longitude: -92.5,
     services_offered: ['canoe_rental', 'shuttle'],
     last_verified_at: '2026-08-01T00:00:00Z',
     verified_source: 'https://good.example',
@@ -45,7 +46,7 @@ test('each class catches the defect it names', () => {
   const cases: Array<[string, Partial<QualityRow>]> = [
     ['campground_without_camping', { type: 'campground', services_offered: ['showers'] }],
     ['no_contact', { phone: null, phone_toll_free: null, website: null }],
-    ['no_coordinates', { latitude: null }],
+    ['no_coordinates', { latitude: null, longitude: null }],
     ['never_verified', { last_verified_at: null }],
     ['placeholder_source', { verified_source: 'csv_import' }],
     ['thin_description', { description: 'short' }],
@@ -89,8 +90,8 @@ test('a new row with the same defect fails', () => {
 test('fixing one row while breaking another is a regression, not a wash', () => {
   // This is why the baseline records slugs and not counts: the total is
   // unchanged, and a count-based ratchet would report nothing.
-  const before = [row({ slug: 'a', latitude: null }), row({ slug: 'b' })];
-  const after = [row({ slug: 'a' }), row({ slug: 'b', latitude: null })];
+  const before = [row({ slug: 'a', latitude: null, longitude: null }), row({ slug: 'b' })];
+  const after = [row({ slug: 'a' }), row({ slug: 'b', latitude: null, longitude: null })];
   const result = compareToBaseline(measureDebt(after), {}, baselineOf(before));
 
   assert.equal(measureDebt(before).no_coordinates.length, measureDebt(after).no_coordinates.length);
@@ -99,7 +100,7 @@ test('fixing one row while breaking another is a regression, not a wash', () => 
 });
 
 test('paying debt down is reported and does not fail', () => {
-  const before = [row({ slug: 'legacy', latitude: null })];
+  const before = [row({ slug: 'legacy', latitude: null, longitude: null })];
   const after = [row({ slug: 'legacy' })];
   const result = compareToBaseline(measureDebt(after), {}, baselineOf(before));
   assert.deepEqual(result.regressions, []);
@@ -135,7 +136,7 @@ test('a river missing from the baseline is surfaced rather than ignored', () => 
 });
 
 test('the baseline records the date and every class, so a diff is readable', () => {
-  const baseline = baselineOf([row({ slug: 'legacy', latitude: null })], { niangua: 4 });
+  const baseline = baselineOf([row({ slug: 'legacy', latitude: null, longitude: null })], { niangua: 4 });
   assert.equal(baseline.generatedAt, '2026-08-23');
   assert.deepEqual(baseline.riverFloors, { niangua: 4 });
   for (const cls of DEBT_CLASSES) assert.ok(cls.key in baseline.classes, cls.key);
@@ -165,7 +166,7 @@ test('a defect that only makes the product thinner is a warning', () => {
 
 test('a new row with no coordinates is reported, and does not fail the check', () => {
   const before = [row({ slug: 'known' })];
-  const after = [...before, row({ slug: 'crocketts-canoe-rental', latitude: null })];
+  const after = [...before, row({ slug: 'crocketts-canoe-rental', latitude: null, longitude: null })];
   const result = compareToBaseline(measureDebt(after), {}, baselineOf(before));
 
   const reported = result.regressions.find((r) => r.classKey === 'no_coordinates');
@@ -179,4 +180,28 @@ test('a new row that answers nothing still fails, pin or no pin', () => {
   const after = [...before, row({ slug: 'unreachable', phone: null, phone_toll_free: null, website: null })];
   const result = compareToBaseline(measureDebt(after), {}, baselineOf(before));
   assert.equal(result.regressions.find((r) => r.classKey === 'no_contact')?.severity, 'error');
+});
+
+// ── A coordinate is a pair ────────────────────────────────────────────────
+// no_coordinates used to test latitude alone, so a row carrying a latitude and
+// no longitude passed the ratchet while being undrawable.
+
+test('a row missing either half counts as having no coordinates', () => {
+  for (const half of [{ latitude: null }, { longitude: null }]) {
+    const debt = measureDebt([row({ slug: 'half', ...half })]);
+    assert.deepEqual(debt.no_coordinates, ['half'], JSON.stringify(half));
+  }
+});
+
+test('exactly one half is an error, because it is a contradiction not a gap', () => {
+  const cls = DEBT_CLASSES.find((c) => c.key === 'half_a_coordinate');
+  assert.equal(cls?.severity, 'error');
+  assert.deepEqual(measureDebt([row({ slug: 'lat-only', longitude: null })]).half_a_coordinate, ['lat-only']);
+  assert.deepEqual(measureDebt([row({ slug: 'lon-only', latitude: null })]).half_a_coordinate, ['lon-only']);
+});
+
+test('having neither half is a gap, not a contradiction', () => {
+  const debt = measureDebt([row({ slug: 'neither', latitude: null, longitude: null })]);
+  assert.deepEqual(debt.no_coordinates, ['neither']);
+  assert.deepEqual(debt.half_a_coordinate, [], 'a row with no coordinate at all is not incoherent');
 });

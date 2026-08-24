@@ -50,6 +50,7 @@ export interface QualityRow {
   website: string | null;
   description: string | null;
   latitude: number | null;
+  longitude: number | null;
   services_offered: string[] | null;
   last_verified_at: string | null;
   verified_source: string | null;
@@ -90,7 +91,24 @@ export const DEBT_CLASSES: DebtClass[] = [
     key: 'no_coordinates',
     severity: 'warn',
     label: 'no coordinates — the row cannot be drawn on the map',
-    applies: (r) => r.latitude === null || r.latitude === undefined,
+    // Both halves, because a pin needs both. Testing latitude alone let a row
+    // with a latitude and no longitude past the ratchet entirely.
+    applies: (r) =>
+      r.latitude === null || r.latitude === undefined ||
+      r.longitude === null || r.longitude === undefined,
+  },
+  {
+    key: 'half_a_coordinate',
+    severity: 'error',
+    label: 'one half of a coordinate and not the other — the pair is incoherent',
+    // Distinct from the class above on purpose. Having neither is a gap and
+    // waits its turn; having exactly one is a contradiction in a row that has
+    // been touched, and someone should look at it now.
+    applies: (r) => {
+      const lat = r.latitude !== null && r.latitude !== undefined;
+      const lon = r.longitude !== null && r.longitude !== undefined;
+      return lat !== lon;
+    },
   },
   {
     key: 'never_verified',
