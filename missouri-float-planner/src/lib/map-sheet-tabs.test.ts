@@ -199,19 +199,56 @@ test('a late tab INSERTS rather than appending, which is why index is unsafe', (
   assert.equal(after[wentTo].key, before[cameFrom].key);
 });
 
-test('tapping a tent lands on Camping, tapping a put-in lands on Overview', () => {
-  // The same access point, presented through two layers. RiverMap keeps the
-  // canonical access:{id} identity either way, so the layer is the only record
-  // of which icon the finger hit.
-  const tabs = accessTabs(point({ types: ['access', 'campground'] }), detail());
-  assert.equal(tabs[initialTabIndex(tabs, pin('campgrounds'))].key, 'camping');
-  assert.equal(tabs[initialTabIndex(tabs, pin('access'))].key, 'overview');
+test('a place that is ONLY a tent lands on Camping', () => {
+  // A state park or campground with no ramp: somewhere you sleep, not somewhere
+  // you launch. Tapping its tent and being shown road surface and parking is
+  // answering a question nobody asked.
+  const campgroundOnly = point({ types: ['campground'], isFloatEndpoint: false });
+  const tabs = accessTabs(campgroundOnly, detail());
+  assert.equal(tabs[initialTabIndex(tabs, pin('campgrounds'), campgroundOnly)].key, 'camping');
+});
+
+test('a put-in that also camps lands on Overview even when tapped as a tent', () => {
+  // ── THE BUG THIS PINS ─────────────────────────────────────────────────
+  // Campgrounds ships ON and MARK_PRIORITY puts campground first, so the
+  // campgrounds layer claims every access point that also camps — Akers,
+  // Cedargrove, Red Bluff. Their pins carry layer 'campgrounds' through no
+  // choice of the reader's, and the sheet read that as a tent tap. Out of the
+  // box, tapping the put-in you float from opened the campsite list.
+  const putInThatCamps = point({ types: ['access', 'campground'], isFloatEndpoint: true });
+  const tabs = accessTabs(putInThatCamps, detail());
+  // Camping is PRESENT and still not chosen — otherwise this test would pass
+  // for the wrong reason the day the tab stopped qualifying.
+  assert.ok(tabs.some((t) => t.key === 'camping'), 'the Camping tab should still exist here');
+  assert.equal(tabs[initialTabIndex(tabs, pin('campgrounds'), putInThatCamps)].key, 'overview');
+  assert.equal(tabs[initialTabIndex(tabs, pin('access'), putInThatCamps)].key, 'overview');
+});
+
+test('an older payload with no isFloatEndpoint lands on Overview', () => {
+  // ABSENT MEANS ELIGIBLE everywhere else in the app, so absent must mean "this
+  // may be a put-in" here too. Reading undefined as campground-only would send
+  // every cached pin from a build predating the field to Camping.
+  const legacy = point({ types: ['access', 'campground'] });
+  assert.equal(legacy.isFloatEndpoint, undefined);
+  const tabs = accessTabs(legacy, detail());
+  assert.ok(tabs.some((t) => t.key === 'camping'), 'the Camping tab should still exist here');
+  assert.equal(tabs[initialTabIndex(tabs, pin('campgrounds'), legacy)].key, 'overview');
+});
+
+test('a boat ramp lands on Overview, and so does a pin with no access point', () => {
+  const ramp = point({ types: ['access', 'boat_ramp'] });
+  const tabs = accessTabs(ramp, detail());
+  assert.equal(tabs[initialTabIndex(tabs, pin('boatRamps'), ramp)].key, 'overview');
+  // No access point in hand at all — the gauge path, and the frame before a
+  // detail request lands. Must not throw or index past the end.
+  assert.equal(initialTabIndex(tabs, pin('campgrounds'), null), 0);
 });
 
 test('a tent pin whose Camping tab has not qualified yet lands on Overview', () => {
   // The window before the request settles. Must not index past the end.
-  const tabs = accessTabs(point(), null);
-  assert.equal(initialTabIndex(tabs, pin('campgrounds')), 0);
+  const bare = point({ isFloatEndpoint: false });
+  const tabs = accessTabs(bare, null);
+  assert.equal(initialTabIndex(tabs, pin('campgrounds'), bare), 0);
 });
 
 /* ── Service facts no longer move the tab set ────────────────────────────── */
