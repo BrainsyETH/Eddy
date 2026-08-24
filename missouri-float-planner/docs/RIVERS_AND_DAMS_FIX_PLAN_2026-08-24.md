@@ -118,8 +118,18 @@ original failure.
 So: **a dam that has ever written history is expected to keep writing.**
 
 ```sql
-select dam_id, max(observed_hour) from dam_metric_readings group by dam_id
+select dam_id, metric, max(observed_hour) from dam_metric_readings group by dam_id, metric
 ```
+
+**In SQL, via an RPC — not a PostgREST page.** Review caught the first cut
+doing this client-side over `.limit(5000)`: PostgREST caps at 1,000 rows here,
+and a frozen dam stops adding rows while the healthy fleet writes over it, so
+at 18 dams x 2 metrics it fell out of the response after ~28 hours. Absent
+reads as never-enrolled, the finding stops being raised, and the healthy dams
+keep `scopeCount` nonzero — so reconciliation resolves the live outage as
+FIXED. The 53-hour freeze would have been closed as fixed around hour 28. What
+matters is that the result size scales with the number of DAMS, not with how
+long one has been broken; a bigger limit only moves the cliff.
 
 - `> 6 h` → `medium`
 - `> 24 h` → `high`
@@ -444,3 +454,49 @@ done, deploy owed. (2) done. (3) mostly not a gate at all** — of the six
 river-side items, two were deliberate, one is a decision, and three are
 geometry or editorial. The one that survives as a genuine defect is War
 Eagle's 2.06x, and it belongs to the ingestion session.
+
+## Review follow-up — the freshness check was blind past ~28 hours
+
+Caught in review, and it was the worst possible bug for this particular check:
+it went blind on exactly the failure it was written to catch.
+
+The first cut read `dam_metric_readings` through PostgREST with `.limit(5000)`
+and derived a per-dam max in TypeScript. Two facts combine badly. PostgREST
+caps a response at `db-max-rows`, 1,000 on this project. And a **frozen dam
+stops contributing rows while every healthy dam keeps adding them** — so the
+frozen dam's newest row sinks through the window as the fleet writes over it.
+Measured: 18 dams x 2 metrics = 36 rows an hour, so 1,000 rows is about 28
+hours of fleet history.
+
+Past that horizon the frozen dam is simply *absent*. Absent does not read as
+broken — it reads as never-enrolled, which is the check's own scoping rule. No
+finding is raised; the seventeen healthy dams keep `scopeCount` nonzero, so
+`reconcile.ts` has no empty-scope refusal to fall back on; and the open finding
+is resolved as **fixed** while the outage runs on. The Nashville freeze that
+motivated the check would have been closed as fixed around hour 28 and stayed
+closed for the remaining 25.
+
+Fixed by `20260824221500_trust_dam_history_freshness.sql`: a grouped RPC
+returning one row per (dam, metric) with its `max(observed_hour)` and row
+count. The property that matters is not a bigger limit — it is that the result
+size scales with the **number of dams**, not with how long one has been broken,
+so there is no horizon to fall off. Verified against production: 36 rows for 18
+dams, with the frozen LRN series still present at 2026-08-22 16:00.
+
+Two things came free with the RPC:
+
+- **Per-metric detection.** `release` and `generationFlow` can fail
+  independently — a renamed turbine series freezes one while the other keeps
+  arriving — and a per-dam `max()` hides that behind the healthy half. The
+  check now judges each dam by its **stalest** series and names it in evidence.
+- **A testable fetch path.** `run()` now makes one `rpc()` call, so it can be
+  driven by a three-line stub instead of a query-builder mock. Five new tests
+  cover it, including one asserting the check never calls `.from()` at all.
+
+The review's other observation was the important one: **every existing test
+passed throughout**, because they all exercised the pure derivation and the bug
+was in the query. That gap is closed — reverting to the capped query now fails
+five tests.
+
+`20260824221500` joins `20260824214500` as a **prerequisite migration**: both
+must land before the deploy that registers the check, or its first tick errors.

@@ -69,13 +69,44 @@ export const STALE_HOURS = 6;
  */
 export const FROZEN_HOURS = 24;
 
-export interface DamHistoryAge {
+/** One (dam, metric) series, as trust_dam_history_freshness() returns it. */
+export interface DamMetricAge {
   damId: string;
-  /** Newest observed_hour for this dam, across every metric it records. */
+  metric: string;
   latest: Date;
 }
 
+export interface DamHistoryAge {
+  damId: string;
+  /**
+   * The STALEST series this dam records, not the newest.
+   *
+   * A dam records `release` and `generationFlow` independently and they can
+   * fail independently — a renamed turbine series freezes generationFlow while
+   * release keeps arriving. Judging the dam by max() across its metrics would
+   * hide that behind the healthy half, which is the same shape of mistake as
+   * reading an absent dam as a healthy one.
+   */
+  latest: Date;
+  /** Which series is the stalest, so the finding can name it. */
+  metric?: string;
+}
+
 const MS_PER_HOUR = 3_600_000;
+
+/**
+ * Pure. Collapse per-metric rows to one age per dam, taking the stalest.
+ */
+export function stalestPerDam(rows: DamMetricAge[]): DamHistoryAge[] {
+  const worst = new Map<string, DamHistoryAge>();
+  for (const row of rows) {
+    const current = worst.get(row.damId);
+    if (!current || row.latest.getTime() < current.latest.getTime()) {
+      worst.set(row.damId, { damId: row.damId, latest: row.latest, metric: row.metric });
+    }
+  }
+  return Array.from(worst.values());
+}
 
 /** Pure. Reports dams whose recorded history has stopped advancing. */
 export function deriveDamFreshnessFindings(ages: DamHistoryAge[], now: Date): RawFinding[] {
@@ -103,6 +134,10 @@ export function deriveDamFreshnessFindings(ages: DamHistoryAge[], now: Date): Ra
         : `The newest row in dam_metric_readings for this dam is ${rounded} hours old; the recording fleet normally sits between 2 and 4. One skipped cron run looks like this and repairs itself on the next pass. If it reaches ${FROZEN_HOURS} hours it will be refiled as frozen.`,
       evidence: {
         damId: age.damId,
+        // Which series stopped. On a whole-dam freeze both are equally stale
+        // and this names either; on a single renamed series it names the one
+        // that matters, which is the case a per-dam max() would have hidden.
+        stalestMetric: age.metric ?? null,
         latestObservedHour: age.latest.toISOString(),
         hoursStale: rounded,
         staleThresholdHours: STALE_HOURS,
@@ -124,38 +159,47 @@ export const damFreshnessCheck: TrustCheck = {
   cadence: 'hourly',
 
   async run(ctx: TrustCheckContext): Promise<TrustCheckResult> {
-    // PostgREST cannot GROUP BY, and the table holds one row per dam per metric
-    // per hour — roughly 17k rows at a 730-day retention and growing. Reading
-    // it whole to take a max per dam would be absurd, so this reads the newest
-    // row per dam by asking for the newest rows overall and keeping the first
-    // sighting of each dam.
+    // Grouped in SQL, and that is a correctness requirement rather than a
+    // performance one.
     //
-    // The limit has to exceed (dams x metrics x hours-in-the-freshest-window)
-    // or a dam that IS current could be pushed off the end and read as missing
-    // rather than fresh. Eighteen dams x 2 metrics x 24 hours is 864; 5000
-    // holds several days of that and still transfers three columns.
-    const { data, error } = await ctx.supabase
-      .from('dam_metric_readings')
-      .select('dam_id, observed_hour')
-      .order('observed_hour', { ascending: false })
-      .limit(5000);
+    // The first version of this read the newest rows straight from PostgREST
+    // and took the first sighting of each dam. PostgREST caps a response at
+    // `db-max-rows` (1,000 here), and — the part that actually bites — a FROZEN
+    // dam stops contributing rows while the healthy fleet keeps writing over
+    // it. At 18 dams x 2 metrics that window is about 28 hours, after which the
+    // frozen dam falls out of the response entirely.
+    //
+    // An absent dam does not read as broken. It reads as never-enrolled: no
+    // finding is raised, and since the healthy dams keep scopeCount nonzero,
+    // reconcile.ts resolves the open finding as FIXED while the outage runs on.
+    // The 53-hour freeze this check exists for would have been closed as fixed
+    // around hour 28.
+    //
+    // The RPC's result size scales with the number of DAMS, not with how long
+    // one has been broken, so there is no horizon to fall off. See
+    // 20260824221500_trust_dam_history_freshness.sql.
+    const { data, error } = await ctx.supabase.rpc('trust_dam_history_freshness');
 
     if (error) {
-      throw new Error(`Failed to read dam_metric_readings: ${error.message}`);
+      throw new Error(`trust_dam_history_freshness() failed: ${error.message}`);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rows: any[] = data ?? [];
-    const newest = new Map<string, Date>();
+    const series: DamMetricAge[] = [];
     for (const row of rows) {
       const damId = typeof row.dam_id === 'string' ? row.dam_id : null;
-      if (!damId || newest.has(damId)) continue;
-      const stamp = new Date(row.observed_hour);
+      if (!damId) continue;
+      const stamp = new Date(row.latest_observed_hour);
       if (Number.isNaN(stamp.getTime())) continue;
-      newest.set(damId, stamp);
+      series.push({
+        damId,
+        metric: typeof row.metric === 'string' ? row.metric : 'unknown',
+        latest: stamp,
+      });
     }
 
-    const ages: DamHistoryAge[] = Array.from(newest, ([damId, latest]) => ({ damId, latest }));
+    const ages = stalestPerDam(series);
 
     // Scope is the dams that have ever recorded. Zero means either the table is
     // empty or the read is broken, and reconcile.ts refuses to resolve anything
