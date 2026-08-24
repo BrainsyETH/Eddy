@@ -344,12 +344,29 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     cdaLocation: 'Norfork_Dam',
     swpaCode: 'NFD',
     nameplate: { units: 2, megawatts: 80 },
-    // Publishes no tailwater temperature, yet is a premier trout tailwater —
-    // the case that proves this must be declared rather than inferred.
     tailwaterFishery: 'trout' as const,
     infoPhone: '870-431-5311',
     generationOnCfs: 100,
-    series: swlSeries('Norfork_Dam', { turbines: true, tailwaterTemp: false }),
+    // Norfork DOES publish tailwater temperature — it just does not publish it
+    // under the id swlSeries() builds. The standard shape
+    // (`-Tailwater.Temp-Water.Inst.1Hour.0.Decodes-rev`) returns an HTTP error
+    // here; Norfork files the same measurement as `Temp-Water_Ave` under
+    // `CCP-Comp`, corroborated by per-bank `Decodes-rev` sensors that agreed to
+    // a tenth of a degree when probed. 53.5 F on 2026-08-24, in August.
+    //
+    // This entry read "publishes no tailwater temperature at all" until then,
+    // and offered that as the proof that fishery must be declared rather than
+    // inferred. The argument is sound and the example was wrong; the two Tulsa
+    // trout projects carry it now, since SWT publishes no water temperature at
+    // any project. See
+    // scripts/ingestion/dossiers/verified-identifiers-tailwater-swl-norfork-dam.md.
+    series: {
+      ...swlSeries('Norfork_Dam', { turbines: true, tailwaterTemp: false }),
+      tailwaterTempF: {
+        tsId: 'Norfork_Dam-Tailwater.Temp-Water_Ave.Inst.1Hour.0.CCP-Comp',
+        unit: 'F',
+      },
+    },
   },
   'swl-greers-ferry-dam': {
     id: 'swl-greers-ferry-dam',

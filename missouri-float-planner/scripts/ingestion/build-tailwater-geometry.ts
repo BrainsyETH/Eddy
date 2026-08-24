@@ -56,6 +56,22 @@ interface Anchor {
   source: string;
 }
 
+/** Everything the rivers row needs that geometry does not supply. */
+interface TailwaterMeta {
+  name: string;
+  description: string;
+  difficultyRating: string;
+  region: string;
+  state: string;
+  timezone: string;
+  /** Always 'dam_tailwater' here — that is what makes it a tailwater. */
+  riverType: 'dam_tailwater';
+  /** USACE_DAMS registry id of the dam whose release drives this river. */
+  controllingDamId: string;
+  weather: { city: string; lat: number; lon: number };
+  alertSearchTerms: string[];
+}
+
 interface TailwaterSpec {
   slug: string;
   gnisNames: string[];
@@ -64,6 +80,7 @@ interface TailwaterSpec {
   to: Anchor;
   /** Sanity bound: fail loudly if the slice is not roughly this long. */
   expectMiles: [number, number];
+  meta: TailwaterMeta;
 }
 
 const TAILWATERS: TailwaterSpec[] = [
@@ -90,6 +107,32 @@ const TAILWATERS: TailwaterSpec[] = [
         '"Rocky Bayou at Guion" (35°55\'41"N 91°56\'40"W), whose mouth is at Guion.',
     },
     expectMiles: [65, 95],
+    meta: {
+      name: 'White River',
+      description:
+        'The White River below Bull Shoals Dam — Arkansas’s flagship trout ' +
+        'tailwater, cold year-round and running at whatever the Corps releases. ' +
+        'Ninety miles of shoals and long pools from the dam past Cotter, Buffalo ' +
+        'City and Norfork down to the Highway 58 bridge at Guion, where the Game ' +
+        'and Fish Commission’s trout water ends. Eight generators can take the ' +
+        'river from a wadeable 800 cfs to over 20,000 cfs in an hour, under a ' +
+        'clear sky and with no rain anywhere in the basin.',
+      difficultyRating: 'Class I',
+      region: 'Ozarks',
+      state: 'AR',
+      timezone: 'America/Chicago',
+      riverType: 'dam_tailwater',
+      controllingDamId: 'swl-bull-shoals-dam',
+      weather: { city: 'Cotter', lat: 36.2812, lon: -92.5266 },
+      alertSearchTerms: [
+        'white river',
+        'bull shoals',
+        'baxter county',
+        'marion county',
+        'izard county',
+        'stone county',
+      ],
+    },
   },
   {
     slug: 'norfork-tailwater',
@@ -111,6 +154,30 @@ const TAILWATERS: TailwaterSpec[] = [
         'fishery from Norfork Dam to the White River confluence.',
     },
     expectMiles: [3.5, 6.5],
+    meta: {
+      name: 'Norfork Tailwater',
+      description:
+        'Not quite five miles of the North Fork River between Norfork Dam and ' +
+        'the White River — small, cold and catch-and-release from end to end. ' +
+        'A siphon holds a steady 185 cfs whenever the two generators are idle, ' +
+        'which is what makes it wadeable; when a unit comes on, the river ' +
+        'roughly quadruples. Named for the tailwater rather than the river ' +
+        'because Eddy already carries the North Fork River above Norfork Lake, ' +
+        'in Missouri, and they are not the same water.',
+      difficultyRating: 'Class I',
+      region: 'Ozarks',
+      state: 'AR',
+      timezone: 'America/Chicago',
+      riverType: 'dam_tailwater',
+      controllingDamId: 'swl-norfork-dam',
+      weather: { city: 'Norfork', lat: 36.2076, lon: -92.2793 },
+      alertSearchTerms: [
+        'norfork tailwater',
+        'north fork river',
+        'norfork dam',
+        'baxter county',
+      ],
+    },
   },
   {
     slug: 'taneycomo',
@@ -133,6 +200,30 @@ const TAILWATERS: TailwaterSpec[] = [
         'USACE registry.',
     },
     expectMiles: [17, 28],
+    meta: {
+      name: 'Lake Taneycomo',
+      description:
+        'Twenty-three miles of the White River between Table Rock Dam and ' +
+        'Powersite Dam at Forsyth — a lake by name and by law, a cold ' +
+        'tailwater in practice. The top few miles below the dam fish and wade ' +
+        'like a river at 53 °F in August; the bottom half is flatwater backed ' +
+        'up behind Powersite. Four generators drive the whole thing, and the ' +
+        'tailwater below the dam swings eight feet between idle and full ' +
+        'generation — the largest, fastest move Eddy measures anywhere.',
+      difficultyRating: 'Class I',
+      region: 'Ozarks',
+      state: 'MO',
+      timezone: 'America/Chicago',
+      riverType: 'dam_tailwater',
+      controllingDamId: 'swl-table-rock-dam',
+      weather: { city: 'Branson', lat: 36.6437, lon: -93.2185 },
+      alertSearchTerms: [
+        'lake taneycomo',
+        'taneycomo',
+        'table rock dam',
+        'taney county',
+      ],
+    },
   },
 ];
 
@@ -251,17 +342,47 @@ async function main() {
       JSON.stringify({ type: 'Feature', properties: { slug: spec.slug }, geometry: simplified.geometry }),
     );
 
+    const m = spec.meta;
     sqlChunks.push(
-      `-- ${spec.slug}: ${spec.from.label} → ${spec.to.label}, ${lengthMiles} mi`,
+      `-- ── ${m.name} (${spec.slug}) ${'─'.repeat(Math.max(0, 46 - m.name.length))}`,
+      `-- ${spec.from.label} → ${spec.to.label}, ${lengthMiles} mi, ${coords.length} vertices`,
       `--   from: ${spec.from.source}`,
       `--   to:   ${spec.to.source}`,
-      `UPDATE rivers SET`,
-      `  geom = ST_GeomFromText(${sqlQuote(wkt)}, 4326),`,
-      `  length_miles = ${lengthMiles},`,
-      `  downstream_point = ST_SetSRID(ST_MakePoint(${dLon}, ${dLat}), 4326),`,
-      `  direction_verified = true,`,
-      `  geometry_starts_at_headwaters = true`,
-      `WHERE slug = ${sqlQuote(spec.slug)};`,
+      `--`,
+      `-- active = false. No agency publishes a rating mapping release to`,
+      `-- wade/float safety on this river, so river_gauges.level_* stay NULL,`,
+      `-- and validate_river_data() raises missing_thresholds as an ERROR for`,
+      `-- an ACTIVE river whose primary gauge has no ladder. Inactive is the`,
+      `-- honest state, not a half-finished one.`,
+      `INSERT INTO rivers (`,
+      `    name, slug, geom, length_miles, downstream_point, direction_verified,`,
+      `    geometry_starts_at_headwaters, description, difficulty_rating, region,`,
+      `    state, country, timezone, river_type, controlling_dam_id, active,`,
+      `    weather_city, weather_lat, weather_lon, alert_search_terms`,
+      `) VALUES (`,
+      `    ${sqlQuote(m.name)}, ${sqlQuote(spec.slug)},`,
+      `    ST_GeomFromText(${sqlQuote(wkt)}, 4326),`,
+      `    ${lengthMiles}, ST_SetSRID(ST_MakePoint(${dLon}, ${dLat}), 4326), true,`,
+      `    true, ${sqlQuote(m.description)},`,
+      `    ${sqlQuote(m.difficultyRating)}, ${sqlQuote(m.region)},`,
+      `    ${sqlQuote(m.state)}, 'US', ${sqlQuote(m.timezone)},`,
+      `    ${sqlQuote(m.riverType)}, ${sqlQuote(m.controllingDamId)}, false,`,
+      `    ${sqlQuote(m.weather.city)}, ${m.weather.lat}, ${m.weather.lon},`,
+      `    ARRAY[${m.alertSearchTerms.map(sqlQuote).join(', ')}]::text[]`,
+      `)`,
+      `ON CONFLICT (slug) DO UPDATE SET`,
+      `    geom = EXCLUDED.geom,`,
+      `    length_miles = EXCLUDED.length_miles,`,
+      `    downstream_point = EXCLUDED.downstream_point,`,
+      `    direction_verified = EXCLUDED.direction_verified,`,
+      `    geometry_starts_at_headwaters = EXCLUDED.geometry_starts_at_headwaters,`,
+      `    description = EXCLUDED.description,`,
+      `    river_type = EXCLUDED.river_type,`,
+      `    controlling_dam_id = EXCLUDED.controlling_dam_id,`,
+      `    weather_city = EXCLUDED.weather_city,`,
+      `    weather_lat = EXCLUDED.weather_lat,`,
+      `    weather_lon = EXCLUDED.weather_lon,`,
+      `    alert_search_terms = EXCLUDED.alert_search_terms;`,
       '',
     );
   }
