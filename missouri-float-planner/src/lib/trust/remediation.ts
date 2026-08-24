@@ -196,6 +196,23 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
   },
 
   // ── float-endpoint eligibility ───────────────────────────────────────
+  // ── dam history — investigate first, and hurry ───────────────────────
+  dam_history_frozen: {
+    kind: 'investigate',
+    action:
+      'Find why the recorder stopped reaching this dam, fix it, then backfill before the missing hours leave CWMS.',
+    where: 'src/lib/flow-providers/usace-registry.ts (recordsHistory), then GET /api/cron/sync-dam-history?backfillHours=192',
+    method:
+      'Three causes, cheapest first. (1) The dam no longer passes recordsHistory() — this is what happened on 2026-08-22, when the filter tested the singular cdaLocation and the three Nashville dams carry cdaLocations; usace-registry.test.ts now fails at merge for that shape, so it should not recur silently. (2) A series id was renamed upstream: the registry\'s explicit ids WIN over the resolver, so a rename 404s rather than falling back — run scripts/check-usace-resolver.ts and believe it over the registry comments. (3) The district genuinely stopped publishing, which is the only one that is not ours; confirm by asking CDA for the series directly before concluding it. Backfill the moment the cause is known: the recorder re-reads only 48 hours by default, and CWMS serves a rolling window, so hours lost past it are lost permanently.',
+  },
+  dam_history_stale: {
+    kind: 'investigate',
+    action: 'Check whether the last cron run failed; if it did, do nothing — the next pass repairs it.',
+    where: '/api/cron/sync-dam-history logs, and dam_metric_readings',
+    method:
+      'The recorder re-reads a 48-hour window every pass and the primary key makes the overlap idempotent, which is exactly so a skipped or failed run heals itself. So most of these close without action. What matters is whether it keeps climbing: at 24 hours it refiles as dam_history_frozen, and that one is not self-healing.',
+  },
+
   non_launch_offered_as_endpoint: {
     kind: 'judgment',
     action: 'Decide whether this place is a launch, then set is_float_endpoint or fix its roles.',

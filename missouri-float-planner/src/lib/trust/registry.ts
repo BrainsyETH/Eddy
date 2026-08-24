@@ -19,6 +19,7 @@ import { floatEndpointEligibilityCheck } from './checks/float-endpoint-eligibili
 import { schemaInvariantsCheck } from './checks/schema-invariants';
 import { ledgerHeartbeatCheck } from './checks/ledger-heartbeat';
 import { knownRegressionsCheck } from './checks/known-regressions';
+import { damFreshnessCheck } from './checks/dam-freshness';
 
 export const TRUST_CHECKS: readonly TrustCheck[] = [
   validateRiverDataCheck,
@@ -32,6 +33,7 @@ export const TRUST_CHECKS: readonly TrustCheck[] = [
   schemaInvariantsCheck,
   ledgerHeartbeatCheck,
   knownRegressionsCheck,
+  damFreshnessCheck,
 ];
 
 export function getCheck(id: string): TrustCheck | undefined {
