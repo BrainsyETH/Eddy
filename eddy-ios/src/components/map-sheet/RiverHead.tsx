@@ -21,6 +21,19 @@
 // reservation is needed. See peekSlot.ts for what the pin sheet has to do
 // instead, and why rivers are the easy case.
 //
+// ── Eddy's line reads the cache and NEVER fetches ─────────────────────────
+//
+// useCachedEddyUpdate, not useEddyUpdates. The ordinary hook initiates, and on a
+// cold open of the Map tab the shared cache is empty — so mounting it here would
+// fire a request on tap, which is exactly the rule above broken. The cached
+// reader subscribes and reads, and if nothing has filled the cache the line is
+// simply absent.
+//
+// It SUBSCRIBES rather than peeking once, and that distinction is the whole
+// reason it is a hook. A sheet opened before the Today tab's fetch lands would
+// read nothing and, with a one-shot peek, stay blank for its whole life even
+// though the data arrived a moment later.
+//
 // ── NOT floatableHeadline ─────────────────────────────────────────────────
 //
 // The obvious move is to reuse `floatableHeadline`, and RiverConditionsTab did.
@@ -42,6 +55,8 @@ import {
   conditionLongLabel,
 } from '@/theme/conditions';
 import { EddySymbol } from '@/components/EddySymbol';
+import { useCachedEddyUpdate } from '@/hooks/useEddyUpdates';
+import { selectEddySays } from '@/lib/eddySays';
 import type { RiverSheetData } from './riverTabs';
 
 /** All four match PlaceHead's, deliberately. See the header. */
@@ -60,6 +75,7 @@ export function RiverHead({
   onOpenGauge: (siteId: string) => void;
 }) {
   const { colors } = useTheme();
+  const says = selectEddySays(useCachedEddyUpdate(river.slug));
 
   // The station the river is graded on. Falls back to the first, because a river
   // with gauges but none flagged primary still has a reading worth showing and
@@ -153,6 +169,16 @@ export function RiverHead({
           </Text>
         </View>
       )}
+
+      {/* Eddy's free line, under the verdict it elaborates on. Two lines at
+          most: this is a glance above a collapsed detent, and a paragraph here
+          would push the tabs off the peek. Absent whenever the app has not
+          already fetched — see the header on why this sheet does not ask. */}
+      {says ? (
+        <Text style={[styles.says, { color: colors.textMuted }]} numberOfLines={2}>
+          {says.text}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -186,4 +212,5 @@ const styles = StyleSheet.create({
   chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
   chipText: { ...t.sm, fontFamily: fonts.semibold },
   reading: { ...t.sm, fontFamily: fonts.body, flexShrink: 1, minWidth: 0 },
+  says: { ...t.sm, fontFamily: fonts.body, lineHeight: 19, marginTop: 8 },
 });

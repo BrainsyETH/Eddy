@@ -56,6 +56,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Otter } from '@/components/Otter';
 import { primary } from '@/theme/palette';
+// Shared with every per-river surface, so the statewide card and the river
+// screen cannot end up describing the same daily generator in different words.
+// It was this file's private function first; see src/lib/eddySays.ts.
+import { writtenAge } from '@/lib/eddySays';
 import {
   collapsedAfterToggle,
   isUpdateOpen,
@@ -71,22 +75,6 @@ interface Props {
   prose: string | null;
   /** When the prose was generated. Ignored when there is no prose. */
   generatedAt: string | null;
-}
-
-/**
- * "this morning" / "3 hours ago" — deliberately vague at the coarse end.
- *
- * The precision people need from this is "not just now", and a paragraph is
- * not a reading. Minutes would imply the prose tracks the water.
- */
-function writtenAge(iso: string, now = new Date()): string | null {
-  const then = new Date(iso).getTime();
-  if (!Number.isFinite(then)) return null;
-  const hours = (now.getTime() - then) / 3_600_000;
-  if (hours < 0) return null;
-  if (hours < 1) return 'Written in the last hour';
-  if (hours < 2) return 'Written an hour ago';
-  return `Written ${Math.round(hours)} hours ago`;
 }
 
 export function TodaySummary({ headline, prose, generatedAt }: Props) {
