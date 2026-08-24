@@ -87,10 +87,14 @@ export function matchesGaugeFilter(gauge: MapGaugeLite, key: GaugeFilterKey): bo
 /**
  * Gauges passing the active set.
  *
- * Keys within the same family are OR (any of these bands), and families are
- * AND (a band AND reporting flow). One flat set with everything OR'd would make
- * "Reports flow + Much higher" show every flow gauge plus every high one, which
- * is the opposite of narrowing.
+ * The BANDS are OR'd (any of these bands) and every selected TRAIT must hold
+ * (reports flow AND reports stage, when both are on), with the two groups
+ * AND'd against each other. Bands are alternatives — a reading is in exactly
+ * one — so OR is the only sense selecting two can have; traits are
+ * independent properties, and someone selecting both is asking for gauges
+ * that satisfy both. One flat set with everything OR'd would make
+ * "Reports flow + Much higher" show every flow gauge plus every high one,
+ * which is the opposite of narrowing.
  */
 export function applyGaugeFilters(
   gauges: MapGaugeLite[],

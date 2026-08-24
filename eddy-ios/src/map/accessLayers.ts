@@ -162,8 +162,9 @@ export const COMPOSED_MARK_PRIORITY: readonly MarkOwner[] = [
   'access',
 ];
 
-/** The layer each service mark is switched by. */
-const SERVICE_OWNER_LAYER: Record<ServiceMarkOwner, ServiceLayerKey> = {
+/** The layer each service mark is switched by. Exported for search, which has
+ * to name the owning layer of a pin it builds outside the resolver. */
+export const SERVICE_OWNER_LAYER: Record<ServiceMarkOwner, ServiceLayerKey> = {
   campground: 'campgrounds',
   rentals: 'outfitters',
   lodging: 'lodging',
