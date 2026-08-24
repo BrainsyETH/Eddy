@@ -697,47 +697,45 @@ async function main() {
     return;
   }
 
-  // ── Pass 3: write ──
-  const written: Array<{ slug: string; id: string }> = [];
+  // ── Pass 3: hand the whole plan to the database, once ──
+  // Every operation goes in a single import_services() call, and a plpgsql
+  // body is atomic: if any statement raises, the entire plan rolls back. The
+  // previous loop issued a separate request per row and per link, so a dropped
+  // connection or a constraint violation part-way through left some rows
+  // written and some not — the failure validation-before-write does not cover.
+  //
+  // The function decides nothing. Everything below has already been decided by
+  // planRow() and printed in the diff a person just read.
+  const operations = plans
+    .filter((plan) => plan.action !== 'unchanged')
+    .map((plan) => ({
+      action: plan.action,
+      slug: plan.row.slug,
+      payload: plan.payload,
+      link_adds: plan.linkAdds,
+      link_removes: plan.linkRemoves,
+      // is_primary for a NEW row's first river. An existing row's primary is
+      // never re-pointed except through --overwrite, which sets primary_river.
+      insert_primary: plan.action === 'insert' ? plan.row.riverSlugs[0] : null,
+      primary_river: plan.primaryFlips[0] ?? null,
+    }));
+
   const failures: string[] = [];
-
-  for (const plan of plans) {
-    if (plan.action === 'unchanged') continue;
-    let serviceId = plan.existingId;
-
-    if (plan.action === 'insert') {
-      const { data, error } = await supabase
-        .from('nearby_services').insert(plan.payload).select('id').single();
-      if (error || !data) { failures.push(`${plan.row.slug}: insert failed — ${error?.message}`); continue; }
-      serviceId = data.id;
-    } else if (Object.keys(plan.payload).length > 0) {
-      const { error } = await supabase
-        .from('nearby_services').update(plan.payload).eq('id', plan.existingId);
-      if (error) { failures.push(`${plan.row.slug}: update failed — ${error.message}`); continue; }
-    }
-    if (!serviceId) continue;
-    written.push({ slug: plan.row.slug, id: serviceId });
-
-    for (const riverSlug of plan.linkAdds) {
-      const isPrimary = plan.action === 'insert' && riverSlug === plan.row.riverSlugs[0];
-      const { error } = await supabase.from('service_rivers').upsert(
-        { service_id: serviceId, river_id: riverMap.get(riverSlug)!, is_primary: isPrimary },
-        { onConflict: 'service_id,river_id' },
-      );
-      if (error) failures.push(`${plan.row.slug} -> ${riverSlug}: link failed — ${error.message}`);
-    }
-    for (const riverSlug of plan.linkRemoves) {
-      const { error } = await supabase.from('service_rivers')
-        .delete().eq('service_id', serviceId).eq('river_id', riverMap.get(riverSlug)!);
-      if (error) failures.push(`${plan.row.slug} -> ${riverSlug}: unlink failed — ${error.message}`);
-    }
-    for (const riverSlug of plan.primaryFlips) {
-      await supabase.from('service_rivers').update({ is_primary: false }).eq('service_id', serviceId);
-      const { error } = await supabase.from('service_rivers').update({ is_primary: true })
-        .eq('service_id', serviceId).eq('river_id', riverMap.get(riverSlug)!);
-      if (error) failures.push(`${plan.row.slug}: is_primary flip failed — ${error.message}`);
-    }
+  const { data: tally, error: rpcError } = await supabase.rpc('import_services', {
+    p_plan: operations,
+  });
+  if (rpcError) {
+    console.error('\n' + '='.repeat(70));
+    console.error(`❌ Nothing was written — the whole plan rolled back.`);
+    console.error(`   ${rpcError.message}`);
+    console.error('='.repeat(70));
+    process.exit(1);
   }
+  console.log(`\nDatabase applied: ${JSON.stringify(tally)}`);
+
+  const written = plans
+    .filter((plan) => plan.action !== 'unchanged')
+    .map((plan) => ({ slug: plan.row.slug }));
 
   // ── Pass 4: read back, and name anything that did not land ──
   const { data: after, error: afterError } = await supabase
