@@ -54,6 +54,13 @@ export interface QualityRow {
   services_offered: string[] | null;
   last_verified_at: string | null;
   verified_source: string | null;
+  /**
+   * River membership, filled in by the audit after it reads service_rivers.
+   * Undefined means "not measured" — the link read failed — rather than
+   * "zero", so a transient read error cannot make every row look broken.
+   */
+  river_links?: number;
+  primary_rivers?: number;
 }
 
 export type Severity = 'error' | 'warn';
@@ -133,6 +140,20 @@ export const DEBT_CLASSES: DebtClass[] = [
     },
   },
   {
+    key: 'no_primary_river',
+    severity: 'error',
+    label:
+      'linked to a river but no link is primary — the row cannot say which ' +
+      'river the business is mainly on',
+    // Two statements set a primary, and until 20260824124650 the import could
+    // run the first and not the second. Hand-written migrations can still do
+    // it by omitting is_primary on insert, which is how the one row in this
+    // class got here. The database has no constraint for it, so this is the
+    // only thing that notices.
+    applies: (r) =>
+      r.river_links !== undefined && r.river_links > 0 && r.primary_rivers === 0,
+  },
+  {
     key: 'never_verified',
     severity: 'error',
     label: 'never verified — no date anybody checked it',
@@ -184,6 +205,8 @@ export const DEBT_CLASSES: DebtClass[] = [
 
 export interface Baseline {
   generatedAt: string;
+  /** Which Supabase project produced these numbers. */
+  projectRef?: string;
   note: string;
   /** debt class key -> the slugs known to be in it */
   classes: Record<string, string[]>;
@@ -233,6 +256,42 @@ export function baselineShapeProblem(baseline: Baseline): string | null {
   if (!baseline.riverMembers) {
     return 'predates river membership (it records `riverFloors`, a count). ' +
       'Re-record it with --update-baseline; the diff is the record of what changed.';
+  }
+  return null;
+}
+
+/**
+ * Which Supabase project a set of numbers came from.
+ *
+ * A baseline recorded against a branch or a staging copy and then compared
+ * against production reports every difference between the two databases as a
+ * regression, which reads as "somebody broke the data" rather than "you are
+ * looking at the wrong database".
+ */
+export function projectRefFromUrl(url: string | undefined): string {
+  return (url ?? '').match(/https:\/\/([a-z0-9]+)\.supabase\./)?.[1] ?? 'unknown';
+}
+
+/**
+ * Whether it is safe to rewrite the baseline from this run's readings.
+ *
+ * `--update-baseline` is the one command that replaces the recorded truth, so
+ * it is the one command that must not guess. A failed river read used to
+ * arrive as a warning and an empty `perRiver`; rewriting from that wrote an
+ * empty `riverMembers`, which silently disabled the coverage gate — no river
+ * has members, so no river can lose one.
+ */
+export function baselineWriteProblem(
+  perRiver: Record<string, string[]>,
+  readError?: string | null,
+): string | null {
+  if (readError) {
+    return `could not read river links (${readError}). ` +
+      'An empty riverMembers would disable the coverage gate.';
+  }
+  if (Object.keys(perRiver).length === 0) {
+    return 'no rivers were read, so riverMembers would be empty and the ' +
+      'coverage gate would be disabled.';
   }
   return null;
 }

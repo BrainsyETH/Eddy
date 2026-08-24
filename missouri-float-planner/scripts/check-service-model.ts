@@ -39,10 +39,12 @@ import {
 } from './negative-evidence';
 import {
   baselineShapeProblem,
+  baselineWriteProblem,
   buildBaseline,
   compareToBaseline,
   DEBT_CLASSES,
   measureDebt,
+  projectRefFromUrl,
   scorable,
   type Baseline,
   type QualityRow,
@@ -712,9 +714,19 @@ async function main() {
   const { data: riverSlugRows, error: riverErr } = await supabase.from('rivers').select('id, slug');
   const { data: serviceRiverRows, error: linkErr } = await supabase
     .from('service_rivers')
-    .select('service_id, river_id');
-  if (riverErr || linkErr) {
-    warn(`Could not read river links: ${(riverErr ?? linkErr)?.message}`);
+    .select('service_id, river_id, is_primary');
+  // A warning here used to be enough, and it was not. perRiver stayed empty,
+  // and --update-baseline then wrote an empty riverMembers — silently
+  // disabling the coverage gate on the strength of one transient read error.
+  // The one command that rewrites the baseline is the one that must not guess.
+  const linkReadError = (riverErr ?? linkErr)?.message ?? null;
+  if (linkReadError) {
+    if (updateBaseline) {
+      throw new Error(
+        `Refusing to rewrite the baseline: ${baselineWriteProblem({}, linkReadError)}`,
+      );
+    }
+    warn(`Could not read river links: ${linkReadError}`);
   } else {
     const riverSlugById = new Map(
       (riverSlugRows ?? []).map((r) => [(r as { id: string }).id, (r as { slug: string }).slug]),
@@ -722,13 +734,33 @@ async function main() {
     const live = new Set(scorable(qualityRows).map((r) => r.slug));
     const idToSlug = new Map(rows.map((r) => [r.id, (r as unknown as QualityRow).slug]));
     for (const slug of riverSlugById.values()) perRiver[slug] = [];
-    for (const link of (serviceRiverRows ?? []) as unknown as Array<{ service_id: string; river_id: string }>) {
+    const links = (serviceRiverRows ?? []) as unknown as
+      Array<{ service_id: string; river_id: string; is_primary: boolean }>;
+    for (const link of links) {
       const riverSlug = riverSlugById.get(link.river_id);
       const serviceSlug = idToSlug.get(link.service_id);
       if (!riverSlug || !serviceSlug || !live.has(serviceSlug)) continue;
       (perRiver[riverSlug] ??= []).push(serviceSlug);
     }
     for (const slug of Object.keys(perRiver)) perRiver[slug].sort();
+
+    // How many rivers each row is linked to, and how many of those links call
+    // themselves primary. Counted over every link, not only the ones that
+    // survived the filters above: a row whose sole link points at a river that
+    // is not curated still has to say which river it is on.
+    const linkCounts = new Map<string, { links: number; primaries: number }>();
+    for (const link of links) {
+      const at = linkCounts.get(link.service_id) ?? { links: 0, primaries: 0 };
+      at.links += 1;
+      if (link.is_primary) at.primaries += 1;
+      linkCounts.set(link.service_id, at);
+    }
+    for (const raw of rows) {
+      const counted = linkCounts.get(raw.id) ?? { links: 0, primaries: 0 };
+      const row = raw as unknown as QualityRow;
+      row.river_links = counted.links;
+      row.primary_rivers = counted.primaries;
+    }
   }
 
   /* ── Negative evidence ─────────────────────────────────────────────────
@@ -755,12 +787,21 @@ async function main() {
     console.log(`  · ${slug.padEnd(18)} ${evidencePhrasing(record)}`);
   }
 
+  // Which project the numbers came from. A baseline recorded against a branch
+  // or a staging copy and compared against production would report every
+  // difference between the two as a regression.
+  const projectRef = projectRefFromUrl(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL,
+  );
+
   const baselinePath = path.join(__dirname, 'service-quality-baseline.json');
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
 
   if (updateBaseline) {
-    const next = buildBaseline(qualityRows, perRiver, today, now);
+    const problem = baselineWriteProblem(perRiver, linkReadError);
+    if (problem) throw new Error(`Refusing to rewrite the baseline: ${problem}`);
+    const next = { ...buildBaseline(qualityRows, perRiver, today, now), projectRef };
     fs.writeFileSync(baselinePath, `${JSON.stringify(next, null, 2)}\n`, 'utf-8');
     for (const cls of DEBT_CLASSES) {
       const n = next.classes[cls.key].length;
@@ -771,6 +812,14 @@ async function main() {
     warn('no baseline recorded yet — run with --update-baseline to record one');
   } else {
     const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf-8')) as Baseline;
+    if (baseline.projectRef && baseline.projectRef !== projectRef) {
+      fail(
+        `the baseline was recorded against project ${baseline.projectRef} but this ` +
+        `run read ${projectRef} — every difference between the two would read as a regression`,
+      );
+      console.log(`\n${errors ? '✗' : '✓'} ${errors} error(s), ${warnings} warning(s)\n`);
+      process.exit(1);
+    }
     const shape = baselineShapeProblem(baseline);
     if (shape) {
       fail(`the recorded baseline ${shape}`);

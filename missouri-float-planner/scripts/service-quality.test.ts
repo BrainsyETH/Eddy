@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   baselineShapeProblem,
+  baselineWriteProblem,
   buildBaseline,
   compareToBaseline,
   DEBT_CLASSES,
   measureDebt,
+  projectRefFromUrl,
   scorable,
   type Baseline,
   type QualityRow,
@@ -304,4 +306,70 @@ test('a permanently closed row is still excluded from every class', () => {
   const gone = row({ slug: 'gone', status: 'permanently_closed', last_verified_at: null });
   assert.deepEqual(measureDebt([gone], NOW).closure_ageing, []);
   assert.deepEqual(measureDebt([gone], NOW).never_verified, []);
+});
+
+// ── What may overwrite the recorded truth ─────────────────────────────────
+// The coverage gate fires when a river LOSES a service it had. It can only do
+// that against a baseline that lists them, so an empty riverMembers is not a
+// permissive baseline — it is no baseline at all, while still looking like one.
+
+test('a failed river read never becomes a rewritten baseline', () => {
+  const problem = baselineWriteProblem({}, 'fetch failed');
+  assert.ok(problem, 'a read error must block the rewrite');
+  assert.match(problem, /fetch failed/, 'the reason the read failed has to reach the operator');
+  assert.match(problem, /coverage gate/, 'and what it would have cost');
+});
+
+test('an empty read is refused even when nothing errored', () => {
+  // The failure mode this catches had no error at all: a scoped key that can
+  // see nearby_services and not service_rivers returns an empty array, and
+  // "no rivers exist" is indistinguishable from "no rivers were readable".
+  assert.ok(baselineWriteProblem({}, null));
+  assert.equal(baselineWriteProblem({ niangua: ['bennett-spring-canoe'] }, null), null);
+});
+
+test('a river that is genuinely empty does not block the rewrite', () => {
+  // bourbeuse has no services and that is the fact being recorded, not a hole.
+  assert.equal(baselineWriteProblem({ niangua: ['a'], bourbeuse: [] }, null), null);
+});
+
+test('the baseline records which database it came from', () => {
+  assert.equal(projectRefFromUrl('https://ilefwfpvphadsbptiaur.supabase.co'), 'ilefwfpvphadsbptiaur');
+  assert.equal(projectRefFromUrl('https://abc123.supabase.in/rest/v1'), 'abc123');
+  // Anything that is not a Supabase URL is 'unknown' rather than a guess: a
+  // wrong ref would compare two databases and call the difference a regression.
+  assert.equal(projectRefFromUrl('http://localhost:54321'), 'unknown');
+  assert.equal(projectRefFromUrl(undefined), 'unknown');
+});
+
+// ── A row that cannot say which river it is on ────────────────────────────
+// Setting a primary river is two statements — clear all, then set one — and
+// until 20260824124650 the import could run the first and not the second.
+// A hand-written migration can still land here by omitting is_primary on
+// insert, which is exactly how silver-mines-campground-usfs got here.
+
+test('a linked row with no primary river is an error', () => {
+  const orphan = row({ slug: 'no-primary', river_links: 1, primary_rivers: 0 });
+  assert.deepEqual(measureDebt([orphan], NOW).no_primary_river, ['no-primary']);
+  assert.equal(DEBT_CLASSES.find((c) => c.key === 'no_primary_river')?.severity, 'error');
+});
+
+test('a row linked to no river at all is not in this class', () => {
+  // Nothing claims it, so there is no river page missing it. That is a
+  // different gap and it is not this one.
+  const unlinked = row({ slug: 'unlinked', river_links: 0, primary_rivers: 0 });
+  assert.deepEqual(measureDebt([unlinked], NOW).no_primary_river, []);
+});
+
+test('a failed link read leaves the class dormant, not universally failing', () => {
+  // Undefined means "not measured". If a read error made every row look
+  // primary-less, one transient failure would report the whole directory
+  // broken — and the fix would look like a mass regression the next day.
+  const unmeasured = row({ slug: 'unmeasured' });
+  assert.deepEqual(measureDebt([unmeasured], NOW).no_primary_river, []);
+});
+
+test('a healthy row with one primary is clean', () => {
+  const ok = row({ slug: 'healthy', river_links: 2, primary_rivers: 1 });
+  assert.deepEqual(measureDebt([ok], NOW).no_primary_river, []);
 });
