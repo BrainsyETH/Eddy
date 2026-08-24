@@ -631,13 +631,26 @@ export interface FieldSourceRow { field: string; source: string; checked_at: str
  * `verified_source` are excluded for the same reason — they ARE the provenance,
  * so recording provenance for them says nothing.
  */
-export function fieldSourceRows(plan: RowPlan): FieldSourceRow[] {
+export function fieldSourceRows(
+  plan: RowPlan,
+  scope: 'written' | 'claimed' = 'written',
+): FieldSourceRow[] {
   const rowSource = plan.row.claimed.verified_source;
   const checkedAt = plan.row.checkedAt;
   if (typeof rowSource !== 'string' || !checkedAt) return [];
 
   const skip = new Set(['slug', 'verified_source', 'last_verified_at']);
-  return Object.keys(plan.payload)
+  // 'written' is what an ordinary import records: the columns this operation
+  // actually changed. 'claimed' is what --record-sources records for a row
+  // that changed nothing — the columns the CSV states, whose values the
+  // database already agrees with. Saying where an already-correct value came
+  // from is still provenance; without it every row imported before
+  // 20260824115114 is unattributable forever, because a re-run plans as
+  // unchanged and an unchanged row writes nothing to attribute.
+  const fields = scope === 'claimed'
+    ? Object.keys(plan.row.claimed)
+    : Object.keys(plan.payload);
+  return fields
     .filter((field) => !skip.has(field))
     .sort()
     .map((field) => ({
@@ -678,12 +691,13 @@ async function main() {
   const args = process.argv.slice(2);
   const shouldImport = args.includes('--import');
   const overwrite = args.includes('--overwrite');
+  const recordSources = args.includes('--record-sources');
   const outIdx = args.indexOf('--out');
   const outFile = outIdx === -1 ? null : args[outIdx + 1];
   const file = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--out');
 
   if (!file) {
-    console.error('Usage: npx tsx scripts/import-services-csv.ts <csv-file> [--out <file>] [--import] [--overwrite]');
+    console.error('Usage: npx tsx scripts/import-services-csv.ts <csv-file> [--out <file>] [--import] [--overwrite] [--record-sources]');
     process.exit(1);
   }
   const csvPath = path.resolve(process.cwd(), file);
@@ -695,6 +709,10 @@ async function main() {
   console.log('🏕️  Nearby Services CSV Import');
   console.log('='.repeat(70));
   console.log(`Mode: ${shouldImport ? 'IMPORT (writing to DB)' : 'VALIDATE + DIFF (no writes)'}`);
+  if (recordSources) {
+    console.log('📝 --record-sources: rows that change nothing still record where');
+    console.log('   each value they claim came from. No column is written.');
+  }
   if (overwrite) {
     console.log('');
     console.log('⚠️  --overwrite: arrays may be REPLACED, is_primary may be RE-POINTED,');
@@ -820,10 +838,14 @@ async function main() {
   //
   // The function decides nothing. Everything below has already been decided by
   // planRow() and printed in the diff a person just read.
+  // --record-sources carries the rows that changed nothing as well. They go as
+  // updates with an EMPTY payload, so the RPC writes no column and only records
+  // where each claimed value came from — the one way to attribute a corridor
+  // imported before provenance existed, since re-running it plans as unchanged.
   const operations = plans
-    .filter((plan) => plan.action !== 'unchanged')
+    .filter((plan) => plan.action !== 'unchanged' || recordSources)
     .map((plan) => ({
-      action: plan.action,
+      action: plan.action === 'unchanged' ? 'update' : plan.action,
       slug: plan.row.slug,
       payload: plan.payload,
       link_adds: plan.linkAdds,
@@ -836,7 +858,7 @@ async function main() {
       // individually keeps that attribution; everything else inherits the
       // row's verified_source, so provenance covers the whole write rather
       // than only the columns somebody thought to annotate.
-      field_sources: fieldSourceRows(plan),
+      field_sources: fieldSourceRows(plan, plan.action === 'unchanged' ? 'claimed' : 'written'),
     }));
 
   const failures: string[] = [];

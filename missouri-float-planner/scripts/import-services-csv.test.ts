@@ -525,3 +525,71 @@ test('an update that omits city keeps the stored one', () => {
   assert.equal(plan.action, 'update');
   assert.deepEqual(insertProblems([plan]), []);
 });
+
+/** An existing row the CSV below agrees with completely — provenance too, or
+ *  the plan is an update and the case proves nothing. */
+function unchangedService(): ExistingService {
+  return existingService({
+    phone: '(417) 532-4307',
+    city: 'Lebanon',
+    verified_source: 'https://operator.example',
+    last_verified_at: `${RECENT}T00:00:00Z`,
+  });
+}
+
+/** The river link has to already exist too: an unlinked row is a link ADD,
+ *  which makes the plan an update however identical the columns are. */
+const LINKED_TO_NIANGUA = [{ river_slug: 'niangua', is_primary: true }];
+
+/** A plan for a row the database already agrees with in every respect. */
+function unchangedPlanFor(line: string) {
+  return planRow(rowFrom(line), unchangedService(), LINKED_TO_NIANGUA, RIVERS, false);
+}
+
+// ── Attributing a row that changes nothing ────────────────────────────────
+// service_field_sources shipped empty: every corridor was imported before
+// 20260824115114 existed, and re-running one plans as unchanged, so there is
+// no payload to attribute. --record-sources is the only way those rows ever
+// get provenance.
+
+test('an unchanged row attributes what the CSV claims, not what it wrote', () => {
+  const plan = unchangedPlanFor(
+    `Bennett Spring Canoe Rental,outfitter,niangua,bennett-spring-canoe,,(417) 532-4307,,Lebanon,,,,,,,,https://operator.example,${RECENT}`,
+  );
+  assert.equal(plan.action, 'unchanged', 'nothing about this row differs');
+  assert.deepEqual(fieldSourceRows(plan), [], 'nothing was written, so nothing is attributed');
+
+  const claimed = fieldSourceRows(plan, 'claimed').map((s) => s.field);
+  assert.ok(claimed.includes('phone'), 'the CSV claims the phone even though it matched');
+  assert.ok(claimed.includes('city'));
+});
+
+test('claimed scope still refuses to attribute identity or provenance itself', () => {
+  const plan = unchangedPlanFor(
+    `Bennett Spring Canoe Rental,outfitter,niangua,bennett-spring-canoe,,(417) 532-4307,,Lebanon,,,,,,,,https://operator.example,${RECENT}`,
+  );
+  const fields = fieldSourceRows(plan, 'claimed').map((s) => s.field);
+  for (const excluded of ['slug', 'verified_source', 'last_verified_at']) {
+    assert.ok(!fields.includes(excluded), `${excluded} is provenance, not a sourced fact`);
+  }
+});
+
+test('claimed scope honours a per-field attribution', () => {
+  const header = `${HEADER},field_sources`;
+  const line =
+    `Bennett Spring Canoe Rental,outfitter,niangua,bennett-spring-canoe,,(417) 532-4307,,Lebanon,,,,,,,,https://operator.example,${RECENT},phone=https://phonebook.example`;
+  const { rows, errors } = buildRows(parseCsv([header, line].join('\n')), TODAY);
+  assert.deepEqual(errors, []);
+  const plan = planRow(rows[0], unchangedService(), LINKED_TO_NIANGUA, RIVERS, false);
+  const sources = fieldSourceRows(plan, 'claimed');
+  assert.equal(sources.find((s) => s.field === 'phone')?.source, 'https://phonebook.example');
+  assert.equal(sources.find((s) => s.field === 'city')?.source, 'https://operator.example');
+});
+
+test('an unattributable unchanged row still produces nothing', () => {
+  const plan = unchangedPlanFor(
+    `Bennett Spring Canoe Rental,outfitter,niangua,bennett-spring-canoe,,(417) 532-4307,,Lebanon,,,,,,,,https://operator.example,${RECENT}`,
+  );
+  const bare = { ...plan, row: { ...plan.row, checkedAt: null } };
+  assert.deepEqual(fieldSourceRows(bare, 'claimed'), []);
+});
