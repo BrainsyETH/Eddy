@@ -588,6 +588,37 @@ export function planRow(
   return { row, action, existingId: existing.id, payload, changes, linkAdds, linkRemoves, primaryFlips };
 }
 
+/**
+ * Columns the table declares NOT NULL with no default, minus the ones
+ * `buildRows` already demands and the ones INSERT_DEFAULTS supplies.
+ *
+ * `city` is the whole list today (supabase/migrations/00072_nearby_services_tables.sql).
+ * Without this check a city-less row parses clean, renders in the diff, and
+ * dies inside the RPC as a Postgres NOT NULL violation naming a constraint
+ * instead of a line number — and, because the import is one transaction, it
+ * takes every other row in the file down with it.
+ */
+export const REQUIRED_ON_INSERT = ['city'] as const;
+
+/** Requirements that only bind when a row is new. An update that omits a
+ *  field is making no claim about it, and the stored value stands. */
+export function insertProblems(plans: RowPlan[]): Problem[] {
+  const problems: Problem[] = [];
+  for (const plan of plans) {
+    if (plan.action !== 'insert') continue;
+    for (const field of REQUIRED_ON_INSERT) {
+      const value = plan.payload[field];
+      if (typeof value === 'string' && value.trim().length > 0) continue;
+      problems.push({
+        line: plan.row.line,
+        who: plan.row.name,
+        message: `${field} is required on a new business — the column is NOT NULL`,
+      });
+    }
+  }
+  return problems;
+}
+
 // ── Provenance ────────────────────────────────────────────────────────────
 
 export interface FieldSourceRow { field: string; source: string; checked_at: string }
@@ -746,6 +777,8 @@ async function main() {
     const found = bySlug.get(row.slug);
     return planRow(row, found, found ? (linksByService.get(found.id) ?? []) : [], riverMap, overwrite);
   });
+
+  errors.push(...insertProblems(plans));
 
   const diff = renderDiff(plans);
   console.log('\nProposed changes');

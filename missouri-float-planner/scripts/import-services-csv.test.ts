@@ -5,6 +5,7 @@ import {
   checkedAtProblem,
   nameCollisions,
   fieldSourceRows,
+  insertProblems,
   parseCsv,
   parseFieldSources,
   planRow,
@@ -479,4 +480,48 @@ test('an update sources only the columns it actually changes', () => {
   const fields = fieldSourceRows(plan).map((s) => s.field);
   assert.ok(fields.includes('phone'));
   assert.ok(!fields.includes('city'), 'city was not claimed, so it gets no new source');
+});
+
+// ── What the table demands that the CSV does not ──────────────────────────
+// nearby_services.city is NOT NULL with no default. A city-less row parsed
+// clean, rendered in the diff a human approved, and then died inside the RPC
+// as a Postgres constraint violation — which, because the import is one
+// transaction, took every other row in the file down with it.
+
+test('a new business without a city fails validation, not the database', () => {
+  const plan = planFor(
+    `Cityless Outfitter,outfitter,niangua,,,417-555-0000,,,,,,,,,,https://operator.example,${RECENT}`,
+  );
+  assert.equal(plan.action, 'insert');
+  const problems = insertProblems([plan]);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0].message, /city is required on a new business/);
+  assert.equal(problems[0].who, 'Cityless Outfitter', 'the operator needs the row, not the column');
+});
+
+test('a whitespace-only city is not a city', () => {
+  const plan = planFor(
+    `Blank City,outfitter,niangua,,,417-555-0000,,   ,,,,,,,,https://operator.example,${RECENT}`,
+  );
+  assert.equal(insertProblems([plan]).length, 1);
+});
+
+test('a new business with a city passes', () => {
+  const plan = planFor(
+    `Lebanon Outfitter,outfitter,niangua,,,417-555-0000,,Lebanon,,,,,,,,https://operator.example,${RECENT}`,
+  );
+  assert.deepEqual(insertProblems([plan]), []);
+});
+
+test('an update that omits city keeps the stored one', () => {
+  // Presence-aware merge means an absent cell is no claim. Demanding city on
+  // every row would turn every narrow correction — one phone number — into a
+  // re-statement of the whole business, which is how stale values get rewritten
+  // over fresh ones.
+  const plan = planFor(
+    `Bennett Spring Canoe Rental,outfitter,niangua,bennett-spring-canoe,,(417) 555-9999,,,,,,,,,,https://operator.example,${RECENT}`,
+    existingService(),
+  );
+  assert.equal(plan.action, 'update');
+  assert.deepEqual(insertProblems([plan]), []);
 });
