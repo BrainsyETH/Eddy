@@ -30,7 +30,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { trackGaugeDataUnavailable } from '@/lib/gauge/analytics';
-import { computeTrend } from '@/lib/gauge-trend';
+import { computeTrend } from '@shared/gauge-trend';
 import { formatAgeFromHours } from '@/lib/utils/reading-age';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import type { ConditionCode, GaugeFloodStages } from '@/types/api';
