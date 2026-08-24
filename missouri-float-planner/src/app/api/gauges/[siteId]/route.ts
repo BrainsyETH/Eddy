@@ -42,6 +42,15 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { loadCurrentReadings } from '@/lib/gauges/latest-readings';
 import { maxReadingAgeHours } from '@/lib/alerts/gate';
 import { classifyQualifiers } from '@/lib/usgs/gauges';
+import { resolveFloodStages, type GaugeFloodStages } from '@/lib/gauges/flood-stages';
+import { fetchWaterTemperature, type WaterTemperature } from '@/lib/usgs/water-temperature';
+import {
+  PARAM_DISCHARGE,
+  readSnapshotStatistics,
+  seasonalBandEligible,
+} from '@/lib/usgs/percentile-snapshot';
+import { flowBand, type FlowBand } from '@shared/flow-band';
+import type { HistoryCapabilities } from '@/lib/flow-providers/types';
 import { toNum } from '@/lib/utils/num';
 import { withX402Route } from '@/lib/x402-config';
 import { orderRiverLinks } from '@shared/primary-river-link';
@@ -107,14 +116,7 @@ export interface GaugeDetailThreshold {
  * FEET ONLY. NWPS publishes stages and its category `flow` comes back as -9999
  * everywhere, so nothing downstream may compare these against discharge.
  */
-export interface GaugeFloodStages {
-  actionFt: number | null;
-  floodFt: number | null;
-  moderateFt: number | null;
-  majorFt: number | null;
-  lid: string | null;
-  source: 'nwps' | 'curated';
-}
+export type { GaugeFloodStages } from '@/lib/gauges/flood-stages';
 
 export interface GaugeDetail {
   /** gauge_stations.id — the key stars are stored under. */
@@ -136,6 +138,31 @@ export interface GaugeDetail {
   /** 0-100 vs this site's own day-of-year history; null when none is held. */
   flowPercentile: number | null;
   /**
+   * The seasonal comparison as one self-describing object: which parameter it
+   * compares, where today sits, which band that is (shared/flow-band.ts
+   * vocabulary — deliberately NOT FlowRating, whose two declarations disagree),
+   * and how deep the record behind it runs. Null whenever the publication
+   * policy withholds it (thin record, stage datum unresolved) — a missing
+   * comparison is strictly better than a confident wrong one. flowPercentile
+   * above stays live for deployed clients.
+   */
+  seasonalContext: {
+    unit: 'ft' | 'cfs';
+    parameterCode: string;
+    percentile: number;
+    band: FlowBand;
+    yearsOfRecord: number | null;
+    asOf: string;
+  } | null;
+  /**
+   * What this station's provider can serve /history requests from — on the
+   * wire because there is no client-side provider registry to consult, and a
+   * client-side table would be a second copy waiting to drift. Lets a client
+   * disable an unsupported range preset with an explanation instead of
+   * requesting it and shrugging at the truncation.
+   */
+  historyCapabilities: HistoryCapabilities;
+  /**
    * The ladder, per river this station grades.
    *
    * Null — not an empty array — for a station Eddy has not rated, so a consumer
@@ -145,6 +172,14 @@ export interface GaugeDetail {
   thresholds: GaugeDetailThreshold[] | null;
   /** Null when the station is not an NWS forecast point — most are not. */
   floodStages: GaugeFloodStages | null;
+  /**
+   * Latest water temperature (USGS parameter 00010, served in °F), with the
+   * time it was measured. Null is the ORDINARY case — most Ozark stations
+   * publish no water-temperature series at all — and clients omit the row
+   * rather than rendering a placeholder. Old values are still served; the
+   * display rule is "always with its measurement age", not a freshness gate.
+   */
+  waterTemperature: WaterTemperature | null;
   /** The station's own public page, or null for a provider without one. */
   publicUrl: string | null;
   /**
@@ -267,6 +302,14 @@ async function _GET(
       ((stationResult.data as { provider?: string | null } | null)?.provider as string | null) ??
       DEFAULT_PROVIDER_ID;
 
+    // Started here, awaited at the end — it needs only the provider, and the
+    // reading pipeline below should not wait on it. USGS-only: the parameter
+    // is a USGS vocabulary, and a dam slug or NWS LID means nothing to that
+    // API. (USACE tailwater temperature is a different pipeline, on dam
+    // screens, and stays there.)
+    const waterTemperaturePromise: Promise<WaterTemperature | null> =
+      provider === 'usgs' ? fetchWaterTemperature(siteId) : Promise.resolve(null);
+
     // The station's own prose about what its number means. Written per station
     // in gauge_stations.threshold_descriptions — migration 00198 put the one
     // that matters most there, explaining that the Black below Clearwater runs
@@ -356,14 +399,10 @@ async function _GET(
     const orderedThresholds = orderRiverLinks(thresholds);
 
     // ── The NWS stages ──────────────────────────────────────────────────────
-    // Station columns first. They are the national import and exist only on
-    // UNCURATED rows by construction, so on a curated station they are all null
-    // and the river_gauges pairing answers instead.
-    //
-    // A row with no minor-flood stage is not published as a flood-stage station
-    // at all: `action` alone is a watch threshold with no flood line under it,
-    // which is not enough to draw a flood overlay from and would leave a chart
-    // with one unexplained violet line on it.
+    // Precedence (station nwps_* columns win, curated pairing is the fallback,
+    // no minor flood → not published) lives in src/lib/gauges/flood-stages.ts,
+    // shared with /api/conditions/[riverId] so the river screen and this one
+    // cannot disagree about a station's official thresholds.
     const station = stationResult.data as {
       nws_lid?: string | null;
       nwps_action_stage_ft?: number | null;
@@ -372,7 +411,6 @@ async function _GET(
       nwps_major_stage_ft?: number | null;
     } | null;
 
-    const nwpsFlood = toNum(station?.nwps_flood_stage_ft);
     // Same tiebreak as the thresholds array above, so the flood stage quoted
     // here belongs to the river the client will name. find(is_primary) picked
     // arbitrarily between Huzzah and Courtois.
@@ -385,30 +423,37 @@ async function _GET(
           distanceFromSectionMiles: l.distance_from_section_miles,
         })),
       )[0] ?? null;
-    const curatedFlood = toNum(curatedLink?.flood_stage_ft);
 
-    const floodStages: GaugeFloodStages | null = nwpsFlood
-      ? {
-          actionFt: toNum(station?.nwps_action_stage_ft),
-          floodFt: nwpsFlood,
-          moderateFt: toNum(station?.nwps_moderate_stage_ft),
-          majorFt: toNum(station?.nwps_major_stage_ft),
-          lid: (station?.nws_lid as string | null) ?? null,
-          source: 'nwps',
-        }
-      : curatedFlood
-        ? {
-            actionFt: toNum(curatedLink?.action_stage_ft),
-            floodFt: curatedFlood,
-            // river_gauges holds only the two stages the condition ladder needs
-            // to anchor against. Absent is absent — it is not evidence that the
-            // Weather Service publishes no moderate stage for this station.
-            moderateFt: null,
-            majorFt: null,
-            lid: (station?.nws_lid as string | null) ?? null,
-            source: 'curated',
-          }
-        : null;
+    const floodStages: GaugeFloodStages | null = resolveFloodStages(station, curatedLink);
+
+    const waterTemperature = await waterTemperaturePromise;
+
+    // The seasonal comparison, published only when the policy allows it: the
+    // band vocabulary is shared/flow-band.ts, the eligibility gate (record
+    // depth, stage datum silence) is percentile-snapshot.ts's. yearsOfRecord
+    // comes from the row actually used, never assumed across parameters.
+    let seasonalContext: GaugeDetail['seasonalContext'] = null;
+    if (provider === 'usgs' && row.flow_percentile != null) {
+      const band = flowBand(row.flow_percentile);
+      const statsRow = band ? await readSnapshotStatistics(supabase, siteId) : null;
+      if (
+        band &&
+        statsRow &&
+        seasonalBandEligible({
+          parameterCode: PARAM_DISCHARGE,
+          yearsOfRecord: statsRow.yearsOfRecord,
+        })
+      ) {
+        seasonalContext = {
+          unit: 'cfs',
+          parameterCode: PARAM_DISCHARGE,
+          percentile: row.flow_percentile,
+          band,
+          yearsOfRecord: statsRow.yearsOfRecord,
+          asOf: new Date().toISOString(),
+        };
+      }
+    }
 
     const gauge: GaugeDetail = {
       id: row.id,
@@ -426,8 +471,15 @@ async function _GET(
       readingSuspect: suspect,
       qualifierNote: note,
       flowPercentile: row.flow_percentile,
+      seasonalContext,
+      historyCapabilities: getFlowProvider(provider)?.historyCapabilities ?? {
+        maxInstantDays: 30,
+        supportsDaily: false,
+        supportsCustomRange: false,
+      },
       thresholds: orderedThresholds.length > 0 ? orderedThresholds : null,
       floodStages,
+      waterTemperature,
       publicUrl: getFlowProvider(provider)?.publicUrl(siteId) ?? null,
       stationNote,
     };

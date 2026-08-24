@@ -37,6 +37,16 @@ const NORMAL_TYPE_DOY = 'DOY';
 const DAY_OF_YEAR = 'day_of_year';
 
 export const PARAM_DISCHARGE = '00060';
+/**
+ * Gage height. The Statistics API publishes the same day-of-year ladder for it
+ * (derived from statistic 30800, "selected value", where discharge uses the
+ * 00003 daily mean) — but stage percentiles are DATUM-RELATIVE: a datum shift
+ * silently invalidates the older half of the record in a way discharge is
+ * immune to, and the sample is much shallower (31 years vs 105 at Van Buren).
+ * See the publication policy in src/lib/usgs/percentile-snapshot.ts before
+ * showing a user anything derived from these.
+ */
+export const PARAM_GAGE_HEIGHT = '00065';
 
 /**
  * Percentile label (as the API spells it) → our column name.

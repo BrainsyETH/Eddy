@@ -10,6 +10,7 @@ import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { CONDITION_COLORS, getEddyImageForCondition, CFS_EXPLAINER } from '@/constants';
 import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
+import { computeTrend } from '@/lib/gauge-trend';
 import { eddyDeepLink } from '@/lib/embed/branding';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 import { FLAG_GREEN_ICON } from '@/lib/embed/tileIcons';
@@ -224,23 +225,25 @@ export default function EmbedWidgetPage() {
                 .catch(() => {});
             }
 
-            // Fetch gauge history for trends (#22)
+            // Fetch gauge history for trends (#22).
+            //
+            // ?days=1, because the route reads `days` and nothing else — the
+            // old `?hours=6` silently returned the 7-day default. And the
+            // API returns readings OLDEST FIRST, which the old code read
+            // backwards: readings[0] as "latest" inverted every arrow, so a
+            // rising river wore a falling badge. computeTrend is the same
+            // ascending-order reader the river list uses, over the same
+            // six-hour window this fetch always meant to ask about.
             for (const gauge of riverGauges) {
-              fetch(`/api/gauges/${gauge.usgsSiteId}/history?hours=6`)
+              fetch(`/api/gauges/${gauge.usgsSiteId}/history?days=1`)
                 .then(r => r.ok ? r.json() : null)
                 .then(data => {
                   if (data?.readings && data.readings.length >= 2) {
-                    const latest = data.readings[0];
-                    const previous = data.readings[data.readings.length - 1];
-                    const latestVal = latest.gaugeHeightFt ?? latest.dischargeCfs;
-                    const prevVal = previous.gaugeHeightFt ?? previous.dischargeCfs;
-                    if (latestVal !== null && prevVal !== null) {
-                      const delta = latestVal - prevVal;
-                      const threshold = latestVal * 0.02; // 2% change threshold
-                      let trend: 'rising' | 'falling' | 'steady' = 'steady';
-                      if (delta > threshold) trend = 'rising';
-                      else if (delta < -threshold) trend = 'falling';
-                      setGaugeTrends(prev => ({ ...prev, [gauge.usgsSiteId]: trend }));
+                    const newest = data.readings[data.readings.length - 1];
+                    const unit = newest.gaugeHeightFt != null ? ('ft' as const) : ('cfs' as const);
+                    const result = computeTrend(data.readings, unit, 6);
+                    if (result) {
+                      setGaugeTrends(prev => ({ ...prev, [gauge.usgsSiteId]: result.direction }));
                     }
                   }
                 })
@@ -274,6 +277,10 @@ export default function EmbedWidgetPage() {
                         levelOptimalMax: primaryThreshold.levelOptimalMax,
                         levelHigh: primaryThreshold.levelHigh,
                         levelDangerous: primaryThreshold.levelDangerous,
+                        // Declared so the chart can refuse a mismatch — the
+                        // levels above are in the ladder's unit, and `useCfs`
+                        // picked the series to match it.
+                        unit: useCfs ? ('cfs' as const) : ('ft' as const),
                       } : null,
                     });
                   }

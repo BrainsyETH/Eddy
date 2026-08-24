@@ -383,6 +383,25 @@ export type ConditionCode =
 /** Flow rating based on discharge percentile comparison to historical data */
 export type FlowRating = 'flood' | 'high' | 'good' | 'low' | 'poor' | 'unknown';
 
+/**
+ * The four official NWS stages for a station, with which source answered.
+ *
+ * FEET ONLY. NWPS publishes stages and its category `flow` comes back as
+ * -9999 everywhere, so nothing downstream may compare these against
+ * discharge. Station-level `nwps_*` columns win where both exist; a curated
+ * river_gauges pairing is the fallback and carries only two stages. The
+ * precedence lives in src/lib/gauges/flood-stages.ts — one implementation,
+ * whatever route is answering.
+ */
+export interface GaugeFloodStages {
+  actionFt: number | null;
+  floodFt: number | null;
+  moderateFt: number | null;
+  majorFt: number | null;
+  lid: string | null;
+  source: 'nwps' | 'curated';
+}
+
 export interface RiverCondition {
   label: string;
   code: ConditionCode;
@@ -395,6 +414,15 @@ export interface RiverCondition {
   accuracyWarningReason: string | null;
   gaugeName: string | null;
   gaugeUsgsId: string | null;
+  /**
+   * Official NWS flood stages for the gauge this condition came from. What
+   * lets the river screen draw the same safety lines the gauge screen draws —
+   * it had no path to them before this field existed. Null when the station
+   * is not an NWS forecast point, and on payloads that quote a condition
+   * without drawing a hydrograph (the plan summary), which do not resolve
+   * stages at all.
+   */
+  floodStages: GaugeFloodStages | null;
   /** Percentile-based flow rating (new system) */
   flowRating?: FlowRating;
   /** User-friendly flow description */
@@ -1395,8 +1423,42 @@ export interface GaugeHistoryResponse {
   observedThrough: string | null;
   /** True when the server reduced the series. Extrema are retained either way. */
   sampled: boolean;
+  /** How the served series is spaced. 'daily' rows are one value per day. */
+  resolution: 'instant' | 'daily';
+  /**
+   * What produced each value: the sensor's own cadence, USGS statistic 00003
+   * (discharge daily mean), or 30800 (stage daily "selected value"). A 1-year
+   * plot is daily data and must be able to say so.
+   */
+  statistic: 'instantaneous' | 'daily_mean' | 'daily_selected';
+  /** The window the request asked for, resolved to explicit instants. */
+  requestedWindow: { from: string; to: string };
+  /**
+   * What the served series actually covers, or null when it is empty. Less
+   * than requestedWindow is DATA, not a bug — stage dailies are shallow, and
+   * NWPS holds ~30 days — which is why the gap is reported, never papered
+   * over.
+   */
+  coverageWindow: { from: string; to: string } | null;
+  /** True when coverageWindow reaches (near) both ends of requestedWindow. */
+  coverageComplete: boolean;
+  /** Why the response covers less than asked, in words, or null. */
+  truncationReason: string | null;
   /** Empty for non-USGS providers and for sites with no percentile record. */
   typical: GaugeTypicalReading[];
+  /**
+   * The unit-declared twin of `typical`, which is retained unchanged for
+   * deployed clients. Discharge-only until the stage publication policy in
+   * percentile-snapshot.ts opens.
+   */
+  seasonalRange: Array<{
+    date: string;
+    unit: 'cfs' | 'ft';
+    p25: number | null;
+    p50: number | null;
+    p75: number | null;
+    yearsOfRecord: number | null;
+  }>;
   /** Only points still ahead of observedThrough. Empty is the ordinary case. */
   forecast: GaugeForecastReading[];
   /** Null whenever forecast is empty, or when NWPS reports no issuance time. */

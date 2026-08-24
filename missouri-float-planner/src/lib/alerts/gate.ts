@@ -10,10 +10,11 @@
 //
 // Pure and I/O-free so the whole policy is unit-testable.
 
-/** Codes meaning the VALUE is suspect (not merely unapproved). */
-const SUSPECT_QUALIFIERS: ReadonlySet<string> = new Set([
-  'e', 'Ice', 'Eqp', 'Bkw', 'Mnt', 'ZFl', '***', 'Dis', 'Rat', 'Ssn',
-]);
+// Which codes mean the VALUE is suspect (not merely unapproved) is defined
+// once, in shared/reading-trust.ts, so this gate and the presentation layer
+// can never disagree about it. This module keeps its own age limits and the
+// flatline/future checks — those are alert policy, not trust vocabulary.
+import { SUSPECT_QUALIFIERS } from '@shared/reading-trust';
 
 /**
  * Qualifiers that can only describe a DISCHARGE series.

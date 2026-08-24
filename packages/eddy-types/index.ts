@@ -782,6 +782,14 @@ export interface RiverConditionDetail {
     levelDangerous: number | null;
     thresholdUnit?: 'ft' | 'cfs';
   };
+  /**
+   * Official NWS flood stages for the gauge this condition came from — the
+   * same shape and precedence as GaugeDetail.floodStages, so the river
+   * screen's chart can draw the safety lines the gauge screen draws.
+   * Optional because a TestFlight build predating this field must render the
+   * river screen unchanged: treat absent exactly like null (no stages drawn).
+   */
+  floodStages?: GaugeFloodStages | null;
   usgsUrl?: string | null;
 }
 
@@ -1080,6 +1088,40 @@ export interface GaugeDetail {
    * station is not an NWS forecast point, which is most of them.
    */
   floodStages: GaugeFloodStages | null;
+  /**
+   * Latest water temperature — USGS parameter 00010, served in °F with the
+   * time it was measured. Optional because a TestFlight build predating this
+   * field must render the gauge screen unchanged: treat absent exactly like
+   * null, which is the ordinary case (most Ozark stations publish no
+   * water-temperature series). Display it only WITH its measurement age.
+   */
+  waterTemperature?: { valueF: number; observedAt: string; source: 'usgs' } | null;
+  /**
+   * The seasonal comparison as one self-describing object. `band` speaks
+   * shared/flow-band.ts's vocabulary (comparison, never verdict) —
+   * deliberately NOT FlowRating. Optional: a build predating it reads
+   * flowPercentile exactly as before; absent means "not published", the same
+   * as null (thin record, stage datum unresolved, non-USGS provider).
+   */
+  seasonalContext?: {
+    unit: 'ft' | 'cfs';
+    parameterCode: string;
+    percentile: number;
+    band: 'much_lower' | 'lower' | 'normal' | 'higher' | 'much_higher';
+    yearsOfRecord: number | null;
+    asOf: string;
+  } | null;
+  /**
+   * What this station's provider can serve /history requests from. Optional
+   * for older payloads; absent should be read as the pre-capability world —
+   * up to 30 instantaneous days, nothing custom — so a client never offers a
+   * range the server may not honor.
+   */
+  historyCapabilities?: {
+    maxInstantDays: number;
+    supportsDaily: boolean;
+    supportsCustomRange: boolean;
+  };
   /** The station's own public page, or null for a provider without one. */
   publicUrl: string | null;
   /**
@@ -1161,6 +1203,29 @@ export interface GaugeHistoryResponse {
   forecastIssuedAt?: string | null;
   /** Publisher page, for attribution and deeper inspection. */
   sourceUrl?: string | null;
+  /**
+   * Release-3 additions, optional for the same reason as the block above: a
+   * TestFlight build predating them must render the chart unchanged, and a
+   * payload cached by one carries none of them. Clients read them through
+   * the shared normalizer (@eddy/conditions/history-normalize), which
+   * derives what can be derived and defaults the rest — absent resolution
+   * reads as 'instant', absent statistic as 'instantaneous'.
+   */
+  resolution?: 'instant' | 'daily';
+  statistic?: 'instantaneous' | 'daily_mean' | 'daily_selected';
+  requestedWindow?: { from: string; to: string } | null;
+  coverageWindow?: { from: string; to: string } | null;
+  coverageComplete?: boolean;
+  truncationReason?: string | null;
+  /** Unit-declared twin of `typical`; discharge-only until stage opens. */
+  seasonalRange?: Array<{
+    date: string;
+    unit: 'cfs' | 'ft';
+    p25: number | null;
+    p50: number | null;
+    p75: number | null;
+    yearsOfRecord: number | null;
+  }>;
   /**
    * Extremes over the returned window, per unit.
    *
@@ -1799,6 +1864,15 @@ export interface OutlookWeatherDay {
   conditionIcon: string;
   /** Probability, 0-100. */
   precipitation: number;
+  /**
+   * Daily average wind, mph. Optional here because a TestFlight build predating
+   * this field must render the outlook unchanged; a client should treat absent
+   * or null as "don't show a wind row", never as calm. This is what feeds the
+   * Outdoor Conditions section — the phone has no weather fetch of its own.
+   */
+  windSpeed?: number | null;
+  /** Daily average relative humidity, percent. Same absent-means-hide rule. */
+  humidity?: number | null;
 }
 
 export interface RiverOutlookDay {

@@ -34,6 +34,8 @@ import type {
   GaugeReading,
   HistoricalData,
   HistoricalReading,
+  HistoryCapabilities,
+  HistoryFetchOptions,
 } from './types';
 
 /** Parallel in-flight requests. CDA is public and unauthenticated — stay polite. */
@@ -146,7 +148,21 @@ export class UsaceProvider implements FlowProvider {
     return results.filter((r): r is GaugeReading => r !== null);
   }
 
-  async fetchHistory(siteId: string, days = 7): Promise<HistoricalData | null> {
+  // CWMS takes begin/end and could in principle serve custom ranges, but a
+  // release schedule read a year back answers an operations question this
+  // product does not ask — declare the minimum that is true and used.
+  readonly historyCapabilities: HistoryCapabilities = {
+    maxInstantDays: 30,
+    supportsDaily: false,
+    supportsCustomRange: false,
+  };
+
+  async fetchHistory(
+    siteId: string,
+    days = 7,
+    options?: HistoryFetchOptions
+  ): Promise<HistoricalData | null> {
+    if (options?.from || options?.to || options?.resolution === 'daily') return null;
     const dam = getUsaceDam(siteId);
     const series = dam?.series.release;
     if (!dam || !series) return null;

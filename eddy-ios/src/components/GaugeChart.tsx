@@ -588,18 +588,20 @@ function GaugeChartInner({
 
   const lineColor = colors.interactive;
   /**
-   * ONE OBSERVED READING IS ENOUGH, and zero is still nothing.
+   * ONE OBSERVED READING IS ENOUGH — and so is a forecast with none.
    *
-   * A single reading used to fall through to the placeholder because a line needs
-   * two points; it now draws as a dot at a real instant on a real axis, which is
-   * what the reading is. A forecast with NO observations behind it deliberately
-   * does not draw — the same line the web chart holds. That case wants a nullable
-   * "current", a header that can say there is no recent reading, and an endpoint
-   * that stops 404ing a station whose only data is ahead of it; drawing it here
-   * first would put the two charts back out of step, which is the thing this
-   * whole change is about.
+   * A single reading used to fall through to the placeholder because a line
+   * needs two points; it draws as a dot at a real instant on a real axis,
+   * which is what the reading is. A forecast with no observations behind it
+   * now draws too, in the same release the web chart made its "current"
+   * nullable and the endpoint stopped 404ing forecast-only stations — the
+   * three moved together, which is what kept the two charts in step. The
+   * now-line and the current dot stay observed-only below: a forecast-only
+   * plot has no "now" boundary to draw, and inventing one at the forecast's
+   * start would claim an observation nobody took.
    */
-  const hasPlot = scale !== null && domain !== null && points.length > 0;
+  const hasPlot =
+    scale !== null && domain !== null && (points.length > 0 || forecastPoints.length > 0);
 
   const scrubQualifiers =
     scrubbed?.kind === 'observed' ? qualifierText(scrubbed.point.qualifiers) : null;

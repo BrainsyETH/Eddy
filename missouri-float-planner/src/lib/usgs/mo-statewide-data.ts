@@ -11,6 +11,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { computeCondition } from '@/lib/conditions';
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
+import { FLOW_BAND_ORDER, FLOW_BAND_SYSTEM, FLOW_BAND_UNKNOWN_SOLID, flowBand } from '@shared/flow-band';
 import type { ConditionCode } from '@/types/api';
 
 export type ThresholdSource = 'usgs' | 'nws_ahps' | 'outfitter' | 'editorial';
@@ -190,7 +191,16 @@ export const THEME = {
   tan: '#B89D72',           // secondary-500
 };
 
-// ─── Percentile classification (USGS NWIS standard 5-band scheme) ───────
+// ─── Percentile classification (USGS NWIS standard 5-band cuts) ─────────
+//
+// Labels and colours come from shared/flow-band.ts — the one comparison
+// vocabulary in the product. This table used to carry its own ramp with RED
+// at the dry end, which flow-band.test.ts forbids for a reason: green and
+// red are learnable verdicts in this product, and a reference gauge makes no
+// verdict. A river at the 5th percentile is low, not dangerous. The `short`
+// percentile ranges stay — they are the factual half and belong to this
+// observatory's register.
+
 
 export interface PercentileClass {
   min: number;
@@ -200,21 +210,26 @@ export interface PercentileClass {
   color: string;
 }
 
-export const PERCENTILE_CLASSES: PercentileClass[] = [
-  { min: 0,  max: 10,  label: 'Much below normal', short: '<P10',   color: '#7A2419' }, // accent-900
-  { min: 10, max: 25,  label: 'Below normal',      short: 'P10–25', color: '#CC3E2B' }, // accent-700
-  { min: 25, max: 75,  label: 'Normal',            short: 'P25–75', color: '#2D7889' }, // primary-500
-  { min: 75, max: 90,  label: 'Above normal',      short: 'P75–90', color: '#4A9AAD' }, // primary-400
-  { min: 90, max: 100, label: 'Much above normal', short: '>P90',   color: '#0F2D35' }, // primary-900
-];
+const SHORT_LABELS = ['<P10', 'P10–25', 'P25–75', 'P75–90', '>P90'];
+const CUTS = [0, 10, 25, 75, 90, 100];
+
+export const PERCENTILE_CLASSES: PercentileClass[] = FLOW_BAND_ORDER.map((band, i) => ({
+  min: CUTS[i],
+  max: CUTS[i + 1],
+  label: FLOW_BAND_SYSTEM[band].label,
+  short: SHORT_LABELS[i],
+  color: FLOW_BAND_SYSTEM[band].solid,
+}));
 
 export function classifyPercentile(p: number): PercentileClass {
-  for (const c of PERCENTILE_CLASSES) if (p >= c.min && p < c.max) return c;
-  return PERCENTILE_CLASSES[PERCENTILE_CLASSES.length - 1];
+  const band = flowBand(p) ?? 'much_higher';
+  return PERCENTILE_CLASSES[FLOW_BAND_ORDER.indexOf(band)];
 }
 
 export function colorForPercentile(p: number | null | undefined): string {
-  if (p == null || isNaN(p)) return '#857D70'; // neutral-500
+  // The unknown colour is flow-band's own: painting an ungraded gauge as
+  // anything on the ramp claims a comparison nobody made.
+  if (p == null || isNaN(p)) return FLOW_BAND_UNKNOWN_SOLID;
   return classifyPercentile(p).color;
 }
 

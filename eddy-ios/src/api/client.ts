@@ -75,6 +75,7 @@ import type {
   RiverAlertsResponse,
 } from '@eddy/types';
 import type { CampsiteSitesResponse } from '@eddy/types';
+import { normalizeGaugeHistory } from '@eddy/conditions/history-normalize';
 import type { ServerStar } from '@eddy/sync';
 import type { StatewideReading, StatewideRiver } from '@/lib/statewideNetwork';
 import {
@@ -882,10 +883,17 @@ export async function fetchGaugeHistory(
   signal?: AbortSignal,
 ): Promise<GaugeHistoryResponse | null | undefined> {
   try {
-    return await get<GaugeHistoryResponse>(
+    const raw = await get<GaugeHistoryResponse>(
       `/api/gauges/${encodeURIComponent(siteId)}/history?days=${days}`,
       signal,
     );
+    // The SHARED normalizer — the same one the website's hook runs — so a
+    // payload from an older deploy satisfies the same shape here as there.
+    // This used to be a raw pass-through with a `?? default` at every read
+    // site, which is one platform-drift per added field; Release 3 added
+    // seven at once. Normalizing preserves the three-valued contract above:
+    // only the successful-response arm changes shape.
+    return (normalizeGaugeHistory(raw) as GaugeHistoryResponse | null) ?? null;
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) return null;
     return undefined;

@@ -37,16 +37,28 @@ import test from 'node:test';
 
 const WEB_CHART = join(process.cwd(), 'src/components/ui/FlowTrendChart.tsx');
 const APP_CHART = join(process.cwd(), '../eddy-ios/src/components/GaugeChart.tsx');
+const EMBED_CHART = join(process.cwd(), 'src/components/embed/EmbedTrendChart.tsx');
 const MODEL = join(process.cwd(), 'shared/chart-model.ts');
 
 const web = readFileSync(WEB_CHART, 'utf8');
 const app = readFileSync(APP_CHART, 'utf8');
+const embed = readFileSync(EMBED_CHART, 'utf8');
 const model = readFileSync(MODEL, 'utf8');
 
+/** The detail charts — full experience: scrub, forecast, qualifiers. */
 const RENDERERS: [string, string][] = [
   ['web FlowTrendChart', web],
   ['app GaugeChart', app],
 ];
+
+/**
+ * Every renderer, embeds included. The embed stays COMPACT — no summary, no
+ * scrubber, no expanded controls — so it is held to the geometry rules only,
+ * not to the detail assertions (forecast, qualifiers, role="slider") below.
+ * Splitting the lists rather than relaxing the detail checks is the point:
+ * adding a renderer here must never weaken what the detail charts promise.
+ */
+const ALL_RENDERERS: [string, string][] = [...RENDERERS, ['embed EmbedTrendChart', embed]];
 
 /**
  * The model functions a renderer must not answer for itself.
@@ -62,25 +74,36 @@ const REQUIRED_MODEL_CALLS = [
   'chartSegments',
   'niceValueTicks',
   'timeTicks',
-  'nearestChartPoint',
-  'qualifierText',
 ];
 
-test('both charts draw from the shared chart model', () => {
-  for (const [name, source] of RENDERERS) {
+/** Interrogation machinery only the detail charts carry. */
+const DETAIL_MODEL_CALLS = ['nearestChartPoint', 'qualifierText'];
+
+test('every chart draws from the shared chart model', () => {
+  for (const [name, source] of ALL_RENDERERS) {
     for (const call of REQUIRED_MODEL_CALLS) {
       assert.match(source, new RegExp(`\\b${call}\\b`), `${name} does not use ${call}`);
     }
     assert.match(source, /chart-model/, `${name} does not import the chart model at all`);
+  }
+  for (const [name, source] of RENDERERS) {
+    for (const call of DETAIL_MODEL_CALLS) {
+      assert.match(source, new RegExp(`\\b${call}\\b`), `${name} does not use ${call}`);
+    }
   }
 });
 
 test('neither chart re-derives the domain it is handed', () => {
   // The app's own min/max scan is the one that lost the cfs floor. Any renderer
   // walking the series to find its own extremes has stopped sharing the axis,
-  // whatever it imports elsewhere in the file.
-  for (const [name, source] of RENDERERS) {
-    assert.doesNotMatch(source, /\bminV\b|\bmaxV\b/, `${name} scans for its own value extremes`);
+  // whatever it imports elsewhere in the file. The embed carried exactly this
+  // scan (minVal/maxVal over values) until Release 4.
+  for (const [name, source] of ALL_RENDERERS) {
+    assert.doesNotMatch(
+      source,
+      /\bminV\b|\bmaxV\b|\bminVal\b|\bmaxVal\b/,
+      `${name} scans for its own value extremes`,
+    );
     assert.doesNotMatch(
       source,
       /\(\s*domain\.max\s*\+\s*domain\.min\s*\)\s*\/\s*2/,
@@ -93,7 +116,7 @@ test('the cfs floor and the stage non-floor live in the model, and only there', 
   // Stated as an assertion about the model so this file fails loudly if the rule
   // is ever moved into a renderer, where only one platform would get it.
   assert.match(model, /unit === 'cfs' \? 0 : -Infinity/);
-  for (const [name, source] of RENDERERS) {
+  for (const [name, source] of ALL_RENDERERS) {
     // Anchored on a domain minimum specifically. A renderer clamping a POINTER
     // fraction to 0–1 is not clamping an axis, and both do the former.
     assert.doesNotMatch(
@@ -109,7 +132,7 @@ test('neither chart discards a reading it cannot join to a line', () => {
   // true reason that a lone point is not a line. It made a real reading render as
   // empty space. chartSegments() returns the isolated points; a renderer that
   // filters segments by length is deciding not to draw them again.
-  for (const [name, source] of RENDERERS) {
+  for (const [name, source] of ALL_RENDERERS) {
     assert.doesNotMatch(
       source,
       /segment\s*\)\s*=>\s*segment\.length\s*>\s*1/,
@@ -154,7 +177,7 @@ test('the qualifier vocabulary is written once, in the model', () => {
   // chart owned the only copy of the table, so the app's scrub read out a
   // provisional reading with nothing marking it provisional.
   assert.match(model, /provisional/);
-  for (const [name, source] of RENDERERS) {
+  for (const [name, source] of ALL_RENDERERS) {
     assert.doesNotMatch(source, /'provisional'/, `${name} carries its own qualifier copy`);
   }
 });
@@ -169,6 +192,32 @@ test('the plot itself is announced on both platforms', () => {
   // The summary has to carry the things that are visual and only visual.
   assert.match(app, /NWS forecast included/);
   assert.match(app, /Latest reading \$\{latestQualifiers\}/);
+});
+
+test('NWS flood stages come from one visual system, and only onto a feet axis', () => {
+  // The violet, the opacity ramp and the dash tightening live in
+  // shared/flood-stage.ts (the app reaches it through its theme re-export).
+  // Until this release the web chart drew no stages at all, so a national
+  // station could show an official flood category on the phone and a bare
+  // chart in the browser.
+  for (const [name, source] of RENDERERS) {
+    assert.match(source, /FLOOD_STAGE_SYSTEM/, `${name} does not draw from the shared flood-stage system`);
+    assert.match(source, /floodStageColor\(\)/, `${name} does not take the NWS hue from the system`);
+  }
+  // The feet-only guard, on each side's own terms. NWPS publishes stages and
+  // nothing else — a flood line against discharge puts "flood" at 20 cfs on a
+  // river that floods at 20 feet.
+  assert.match(app, /!floodStages \|\| drawnUnit !== 'ft'/, 'app lost its feet-axis stage guard');
+  assert.match(web, /isFt && floodStages/, 'web lost its feet-axis stage guard');
+});
+
+test("threshold shading obeys the ladder's declared unit on both platforms", () => {
+  // The band bounds are raw numbers and the drawn series is raw numbers;
+  // comparing them is arithmetic that cannot tell feet from cfs. The app has
+  // guarded this since the unit toggle shipped; the web type had no unit field
+  // at all, so nothing could refuse a mismatch.
+  assert.match(app, /thresholds\.thresholdUnit && thresholds\.thresholdUnit !== drawnUnit/);
+  assert.match(web, /thresholds\.unit == null \|\| thresholds\.unit === displayUnit/);
 });
 
 test('the web scrub is reachable without a pointer', () => {

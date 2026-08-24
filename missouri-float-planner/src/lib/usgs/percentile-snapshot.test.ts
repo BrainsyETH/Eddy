@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { leapDayOfYear, leapDayOfYearForDate } from './percentile-snapshot';
+import {
+  assertSnapshotParameter,
+  leapDayOfYear,
+  leapDayOfYearForDate,
+  seasonalBandEligible,
+} from './percentile-snapshot';
 import { parseDailyStatisticsRdb, parseRdb } from '../flow-providers/usgs';
 import { calculateDischargePercentile } from './gauges';
 import type { DailyStatistics } from '../flow-providers/types';
@@ -154,4 +159,32 @@ test('returns null only when no upper percentile at all is available', () => {
 test('flow above the upper anchor still yields a bounded percentile', () => {
   const result = calculateDischargePercentile(5000, stats({ p90: null, p95: 500 }));
   assert.ok(result !== null && result <= 100, `expected ≤100, got ${result}`);
+});
+
+// ── the parameterized snapshot + publication policy ──────────────
+
+test('unknown parameters are rejected loudly, not written', () => {
+  // The table keys on (site_no, parameter_code, day_of_year), so a typo'd code
+  // would not fail — it would build a parallel ladder nobody reads.
+  assert.equal(assertSnapshotParameter('00060'), '00060');
+  assert.equal(assertSnapshotParameter('00065'), '00065');
+  assert.throws(() => assertSnapshotParameter('00010'));
+  assert.throws(() => assertSnapshotParameter(''));
+});
+
+test('a thin record publishes no seasonal band, whatever the parameter', () => {
+  // Ten years is the floor at which "higher than usual for the date" describes
+  // a climate rather than a memory of a few wet springs.
+  assert.equal(seasonalBandEligible({ parameterCode: '00060', yearsOfRecord: 9 }), false);
+  assert.equal(seasonalBandEligible({ parameterCode: '00060', yearsOfRecord: null }), false);
+  assert.equal(seasonalBandEligible({ parameterCode: '00060', yearsOfRecord: 10 }), true);
+});
+
+test('stage percentiles are snapshotted but publish no band yet', () => {
+  // Datum policy: stage is measured against a station datum, and a shift
+  // silently corrupts the older half of the record. Until continuity can be
+  // established per station, the default is silence — flipping stage on is a
+  // deliberate edit in percentile-snapshot.ts, not a side effect of rows
+  // arriving in the table.
+  assert.equal(seasonalBandEligible({ parameterCode: '00065', yearsOfRecord: 31 }), false);
 });

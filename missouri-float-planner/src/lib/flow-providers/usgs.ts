@@ -26,6 +26,8 @@ import type {
   GaugeReading,
   HistoricalData,
   HistoricalReading,
+  HistoryCapabilities,
+  HistoryFetchOptions,
 } from './types';
 
 // Exported because src/lib/usgs/national-sites.ts fetches the SAME collections
@@ -241,29 +243,11 @@ async function fetchLatestModern(
   return Array.from(foldOgcFeatures(data.features ?? []).values());
 }
 
-async function fetchHistoryModern(siteId: string, days: number): Promise<HistoricalData | null> {
-  const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-  const url = new URL(`${MODERN_BASE}/continuous/items`);
-  url.searchParams.set('f', 'json');
-  url.searchParams.set('monitoring_location_id', toLocationId(siteId));
-  url.searchParams.set('parameter_code', `${PARAM_GAGE_HEIGHT},${PARAM_DISCHARGE}`);
-  url.searchParams.set('datetime', `${start}/..`);
-  // ~15-min data × 2 parameters: 96 × 2 × days, padded
-  url.searchParams.set('limit', String(Math.min(days * 220, 10000)));
-
-  const response = await fetch(url.toString(), {
-    next: { revalidate: 3600 },
-    headers: modernHeaders(),
-  });
-  if (!response.ok) {
-    throw new Error(`USGS modern history error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = (await response.json()) as OgcFeatureCollection;
-  const features = data.features ?? [];
-  if (features.length === 0) return null;
-
-  const readingsMap = new Map<string, HistoricalReading>();
+/** Fold continuous (instantaneous) OGC features into a readings map. */
+function foldContinuousFeatures(
+  features: OgcFeature[],
+  readingsMap: Map<string, HistoricalReading>
+): void {
   for (const feature of features) {
     const props = feature.properties;
     if (!props?.time) continue;
@@ -280,8 +264,117 @@ async function fetchHistoryModern(siteId: string, days: number): Promise<Histori
       reading.dischargeCfs = value;
     }
   }
+}
 
-  return assembleHistory(siteId, siteId, readingsMap);
+async function fetchOgcItems(url: URL): Promise<OgcFeature[]> {
+  const response = await fetch(url.toString(), {
+    next: { revalidate: 3600 },
+    headers: modernHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`USGS modern history error: ${response.status} ${response.statusText}`);
+  }
+  const data = (await response.json()) as OgcFeatureCollection;
+  return data.features ?? [];
+}
+
+async function fetchHistoryModern(
+  siteId: string,
+  days: number,
+  window?: { from: Date; to: Date | null }
+): Promise<HistoricalData | null> {
+  const start = (window?.from ?? new Date(Date.now() - days * 24 * 60 * 60 * 1000)).toISOString();
+  const datetime = window?.to ? `${start}/${window.to.toISOString()}` : `${start}/..`;
+
+  const buildUrl = (parameterCodes: string, limit: number) => {
+    const url = new URL(`${MODERN_BASE}/continuous/items`);
+    url.searchParams.set('f', 'json');
+    url.searchParams.set('monitoring_location_id', toLocationId(siteId));
+    url.searchParams.set('parameter_code', parameterCodes);
+    url.searchParams.set('datetime', datetime);
+    url.searchParams.set('limit', String(Math.min(limit, 10000)));
+    return url;
+  };
+
+  // ~15-min data: 96 points × days per parameter, padded. One request for
+  // both parameters until that budget would blow the API's 10,000-feature
+  // cap (a bit past 45 days) — beyond it, one request PER parameter, each
+  // inside the cap, so a long window is served complete instead of silently
+  // truncated at whichever parameter happened to sort first.
+  const budget = days * 220;
+  const readingsMap = new Map<string, HistoricalReading>();
+  if (budget <= 10000) {
+    foldContinuousFeatures(
+      await fetchOgcItems(buildUrl(`${PARAM_GAGE_HEIGHT},${PARAM_DISCHARGE}`, budget)),
+      readingsMap
+    );
+  } else {
+    const perParam = Math.min(days * 110, 10000);
+    const [heights, discharges] = await Promise.all([
+      fetchOgcItems(buildUrl(PARAM_GAGE_HEIGHT, perParam)),
+      fetchOgcItems(buildUrl(PARAM_DISCHARGE, perParam)),
+    ]);
+    foldContinuousFeatures(heights, readingsMap);
+    foldContinuousFeatures(discharges, readingsMap);
+  }
+  if (readingsMap.size === 0) return null;
+
+  const history = assembleHistory(siteId, siteId, readingsMap);
+  return history ? { ...history, statistic: 'instantaneous' } : null;
+}
+
+/** Daily-values statistic ids: discharge publishes a daily MEAN, stage a
+ *  "selected value" — the two are different products with different ids,
+ *  which is why this is two requests and not one with two codes. */
+const STAT_DAILY_MEAN = '00003';
+const STAT_DAILY_SELECTED = '30800';
+
+/**
+ * Long-range history from USGS daily values.
+ *
+ * The features come back UNORDERED — assembleHistory sorts, and skipping
+ * that sort is how a year of daily means once plotted as a scribble. Stage
+ * daily history is shallower and patchier than discharge, so a 1-year stage
+ * request legitimately returning less than a year is data, not a bug — the
+ * route reports the covered window rather than pretending.
+ */
+async function fetchDailyHistoryModern(
+  siteId: string,
+  from: Date,
+  to: Date
+): Promise<HistoricalData | null> {
+  const range = `${from.toISOString().slice(0, 10)}/${to.toISOString().slice(0, 10)}`;
+
+  const buildUrl = (parameterCode: string, statisticId: string) => {
+    const url = new URL(`${MODERN_BASE}/daily/items`);
+    url.searchParams.set('f', 'json');
+    url.searchParams.set('monitoring_location_id', toLocationId(siteId));
+    url.searchParams.set('parameter_code', parameterCode);
+    url.searchParams.set('statistic_id', statisticId);
+    url.searchParams.set('datetime', range);
+    // One row per day per parameter; two years fits comfortably.
+    url.searchParams.set('limit', '1000');
+    return url;
+  };
+
+  const [discharges, heights] = await Promise.all([
+    fetchOgcItems(buildUrl(PARAM_DISCHARGE, STAT_DAILY_MEAN)),
+    fetchOgcItems(buildUrl(PARAM_GAGE_HEIGHT, STAT_DAILY_SELECTED)),
+  ]);
+
+  const readingsMap = new Map<string, HistoricalReading>();
+  foldContinuousFeatures(discharges, readingsMap);
+  foldContinuousFeatures(heights, readingsMap);
+  if (readingsMap.size === 0) return null;
+
+  const history = assembleHistory(siteId, siteId, readingsMap);
+  if (!history) return null;
+  // When both series exist the label follows the primary product people read
+  // a long-range plot for; the response-level `statistic` cannot be per-unit.
+  return {
+    ...history,
+    statistic: discharges.length > 0 ? 'daily_mean' : 'daily_selected',
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -626,17 +719,64 @@ export class UsgsProvider implements FlowProvider {
     return fetchLatestLegacy(siteIds, options);
   }
 
-  async fetchHistory(siteId: string, days: number = 7): Promise<HistoricalData | null> {
+  // maxInstantDays is deliberately inside the measured ceiling: the IV
+  // service serves P90D and returns ZERO rows for P180D or any explicit
+  // older window (measured Aug 2026, ceiling ≈120 days). Everything longer
+  // comes from daily values.
+  readonly historyCapabilities: HistoryCapabilities = {
+    maxInstantDays: 90,
+    supportsDaily: true,
+    supportsCustomRange: true,
+  };
+
+  async fetchHistory(
+    siteId: string,
+    days: number = 7,
+    options?: HistoryFetchOptions
+  ): Promise<HistoricalData | null> {
+    const now = Date.now();
+    const to = options?.to ?? null;
+    const from = options?.from ?? null;
+    const hasWindow = from != null;
+    const windowEnd = to ?? new Date(now);
+    const windowStart = from ?? new Date(now - days * 24 * 60 * 60 * 1000);
+    const windowDays = Math.max(1, Math.ceil((windowEnd.getTime() - windowStart.getTime()) / 86_400_000));
+
+    // Instantaneous data only reaches back so far, whatever the window's
+    // length — a narrow window from last year is a daily-values question.
+    const { maxInstantDays } = this.historyCapabilities;
+    const startAgeDays = (now - windowStart.getTime()) / 86_400_000;
+    const instantServable = windowDays <= maxInstantDays && startAgeDays <= maxInstantDays + 1;
+
+    const resolution = options?.resolution ?? 'auto';
+    if (resolution === 'instant' && !instantServable) return null;
+    const useDaily = resolution === 'daily' || (resolution === 'auto' && !instantServable);
+
+    if (useDaily) {
+      try {
+        return await fetchDailyHistoryModern(siteId, windowStart, windowEnd);
+      } catch (error) {
+        console.error(`[USGS] Daily history failed for ${siteId}:`, error);
+        return null;
+      }
+    }
+
     const mode = apiMode();
     if (mode === 'legacy') {
+      // The legacy path predates windows; a windowed request cannot use it.
+      if (hasWindow || to) return null;
       return safeHistory(() => fetchHistoryLegacy(siteId, days), siteId);
     }
     try {
-      const history = await fetchHistoryModern(siteId, days);
-      if (history || mode === 'modern-only') return history;
+      const history = await fetchHistoryModern(
+        siteId,
+        windowDays,
+        hasWindow || to ? { from: windowStart, to } : undefined
+      );
+      if (history || mode === 'modern-only' || hasWindow || to) return history;
       console.warn(`[USGS] Modern history empty for ${siteId}; falling back to legacy`);
     } catch (error) {
-      if (mode === 'modern-only') {
+      if (mode === 'modern-only' || hasWindow || to) {
         console.error(`Error fetching USGS historical data for site ${siteId}:`, error);
         return null;
       }

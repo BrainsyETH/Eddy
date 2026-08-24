@@ -23,10 +23,11 @@
 //
 // ── Why these cut points ────────────────────────────────────────────────────
 // 10 / 25 / 75 / 90 are not a new invention. They are exactly the boundaries
-// percentileSentence() in eddy-ios/src/lib/readingCopy.ts has been shipping,
-// and the same ones PERCENTILE_RATINGS uses in src/lib/usgs/gauges.ts. Sharing
-// them means the band, the sentence and the server's own rating can never
-// disagree about the same number.
+// percentileSentence() in eddy-ios/src/lib/readingCopy.ts has been shipping.
+// (They were also PERCENTILE_RATINGS' cuts in src/lib/usgs/gauges.ts, before
+// that system was retired for labelling unrated gauges with recreation
+// verdicts.) Sharing them means the band and the sentence can never disagree
+// about the same number.
 //
 // Pure TypeScript, no imports — the same constraint condition-system.ts is
 // under, so Metro, tsx and Next can all consume it.
