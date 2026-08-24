@@ -133,6 +133,39 @@ export const NAME_COLLISION_MIN = 0.86;
  */
 export const US_BOUNDS = { minLat: 24, maxLat: 50, minLon: -125, maxLon: -66 };
 
+/**
+ * `field_sources` lets one pass attribute individual columns to different
+ * places, which is the normal case rather than the exotic one: the Buffalo
+ * corridor took phones from operators and coordinates from the US Census
+ * geocoder in the same row. Format is `field=source;field=source`. Anything
+ * not named here inherits the row's verified_source, so every column written
+ * gets a source rather than only the interesting ones.
+ */
+export function parseFieldSources(raw: string): {
+  sources: Record<string, string>;
+  errors: string[];
+} {
+  const sources: Record<string, string> = {};
+  const errors: string[] = [];
+  for (const pair of raw.split(';').map((x) => x.trim()).filter(Boolean)) {
+    const at = pair.indexOf('=');
+    if (at <= 0) {
+      errors.push(`field_sources entry "${pair}" is not field=source`);
+      continue;
+    }
+    const field = pair.slice(0, at).trim();
+    const source = pair.slice(at + 1).trim();
+    if (!field || !source) {
+      errors.push(`field_sources entry "${pair}" is missing a field or a source`);
+      continue;
+    }
+    const problem = sourceProblem(source);
+    if (problem) errors.push(`field_sources for ${field}: ${problem}`);
+    else sources[field] = source;
+  }
+  return { sources, errors };
+}
+
 // ── RFC4180-ish CSV parser (handles quoted fields, embedded commas/newlines) ──
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
@@ -276,6 +309,15 @@ export interface ParsedRow {
   /** Only the columns this row actually had an opinion about. */
   claimed: Record<string, unknown>;
   slugWasExplicit: boolean;
+  /** Per-field attribution; fields absent here inherit verified_source. */
+  fieldSources: Record<string, string>;
+  /**
+   * The plain YYYY-MM-DD, kept off `claimed` on purpose — `claimed` becomes the
+   * payload and nearby_services has no such column. service_field_sources
+   * .checked_at is a DATE, so carrying the raw string avoids round-tripping the
+   * timestamp back into one and getting the timezone wrong on the way.
+   */
+  checkedAt: string | null;
 }
 
 export interface Problem { line: number; who: string; message: string }
@@ -393,6 +435,14 @@ export function buildRows(
     if (has('alt_names')) claimed.alt_names = list(cell('alt_names'));
     if (has('source_checked_at')) {
       claimed.last_verified_at = new Date(`${cell('source_checked_at')}T00:00:00Z`).toISOString();
+
+    }
+
+    let fieldSources: Record<string, string> = {};
+    if (has('field_sources')) {
+      const parsed = parseFieldSources(cell('field_sources'));
+      for (const message of parsed.errors) errors.push({ line, who, message });
+      fieldSources = parsed.sources;
     }
 
     const slugWasExplicit = has('slug');
@@ -405,7 +455,10 @@ export function buildRows(
     }
     seenSlugs.set(slug, line);
 
-    rows.push({ line, slug, name, type, riverSlugs, claimed, slugWasExplicit });
+    rows.push({
+      line, slug, name, type, riverSlugs, claimed, slugWasExplicit, fieldSources,
+      checkedAt: has('source_checked_at') ? cell('source_checked_at') : null,
+    });
   }
 
   return { rows, errors };
@@ -533,6 +586,34 @@ export function planRow(
     && linkRemoves.length === 0 && primaryFlips.length === 0 ? 'unchanged' : 'update';
 
   return { row, action, existingId: existing.id, payload, changes, linkAdds, linkRemoves, primaryFlips };
+}
+
+// ── Provenance ────────────────────────────────────────────────────────────
+
+export interface FieldSourceRow { field: string; source: string; checked_at: string }
+
+/**
+ * Which source established each column this operation writes.
+ *
+ * `slug` is excluded: it is identity, not a fact about the business, and
+ * attributing it to a source would be a category error. `last_verified_at` and
+ * `verified_source` are excluded for the same reason — they ARE the provenance,
+ * so recording provenance for them says nothing.
+ */
+export function fieldSourceRows(plan: RowPlan): FieldSourceRow[] {
+  const rowSource = plan.row.claimed.verified_source;
+  const checkedAt = plan.row.checkedAt;
+  if (typeof rowSource !== 'string' || !checkedAt) return [];
+
+  const skip = new Set(['slug', 'verified_source', 'last_verified_at']);
+  return Object.keys(plan.payload)
+    .filter((field) => !skip.has(field))
+    .sort()
+    .map((field) => ({
+      field,
+      source: plan.row.fieldSources[field] ?? rowSource,
+      checked_at: checkedAt,
+    }));
 }
 
 // ── Diff rendering ────────────────────────────────────────────────────────
@@ -718,6 +799,11 @@ async function main() {
       // never re-pointed except through --overwrite, which sets primary_river.
       insert_primary: plan.action === 'insert' ? plan.row.riverSlugs[0] : null,
       primary_river: plan.primaryFlips[0] ?? null,
+      // One source per column actually written. A field the CSV attributes
+      // individually keeps that attribution; everything else inherits the
+      // row's verified_source, so provenance covers the whole write rather
+      // than only the columns somebody thought to annotate.
+      field_sources: fieldSourceRows(plan),
     }));
 
   const failures: string[] = [];

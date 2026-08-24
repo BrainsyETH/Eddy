@@ -4,7 +4,9 @@ import {
   buildRows,
   checkedAtProblem,
   nameCollisions,
+  fieldSourceRows,
   parseCsv,
+  parseFieldSources,
   planRow,
   resolveOfferings,
   sourceProblem,
@@ -390,4 +392,91 @@ test('a month outside 1-12 is refused', () => {
     TODAY,
   );
   assert.ok(errors.some((e) => /season_open_month 13 is not a month/.test(e.message)), JSON.stringify(errors));
+});
+
+// ── Field-level provenance ────────────────────────────────────────────────
+// One source per row cannot say that the phone came from the operator and the
+// coordinate from the Census geocoder — which is what the Buffalo corridor
+// actually did, in the same rows.
+
+function planFor(line: string, existing?: ExistingService) {
+  const row = rowFrom(line);
+  return planRow(row, existing, [], RIVERS, false);
+}
+
+test('every column written gets a source', () => {
+  const plan = planFor(
+    `New Outfitter,outfitter,niangua,,,417-555-0000,,,,,,,,,,https://operator.example,${RECENT}`,
+  );
+  const sources = fieldSourceRows(plan);
+  const fields = sources.map((s) => s.field);
+  for (const expected of ['name', 'type', 'phone', 'status', 'state']) {
+    assert.ok(fields.includes(expected), `${expected} should carry a source`);
+  }
+  assert.ok(sources.every((s) => s.source === 'https://operator.example'));
+  assert.ok(sources.every((s) => s.checked_at === RECENT));
+});
+
+test('a per-field attribution overrides the row source for that field only', () => {
+  const header =
+    'name,type,river_slugs,phone,latitude,longitude,field_sources,verified_source,source_checked_at';
+  const { rows, errors } = buildRows(
+    parseCsv([
+      header,
+      `Mixed,outfitter,niangua,417-555-0000,37.5,-92.5,` +
+        `latitude=https://geocoding.geo.census.gov/;longitude=https://geocoding.geo.census.gov/,` +
+        `https://operator.example,${RECENT}`,
+    ].join('\n')),
+    TODAY,
+  );
+  assert.deepEqual(errors, []);
+  const sources = fieldSourceRows(planRow(rows[0], undefined, [], RIVERS, false));
+  const by = Object.fromEntries(sources.map((s) => [s.field, s.source]));
+  assert.equal(by.latitude, 'https://geocoding.geo.census.gov/');
+  assert.equal(by.longitude, 'https://geocoding.geo.census.gov/');
+  assert.equal(by.phone, 'https://operator.example', 'unnamed fields inherit the row source');
+});
+
+test('identity and the provenance columns are not given provenance of their own', () => {
+  // slug is identity, not a fact about the business. verified_source and
+  // last_verified_at ARE the provenance, so sourcing them says nothing.
+  const plan = planFor(
+    `New Outfitter,outfitter,niangua,,,417-555-0000,,,,,,,,,,https://operator.example,${RECENT}`,
+  );
+  const fields = fieldSourceRows(plan).map((s) => s.field);
+  for (const excluded of ['slug', 'verified_source', 'last_verified_at']) {
+    assert.ok(!fields.includes(excluded), `${excluded} should not carry a source`);
+  }
+});
+
+test('an unattributable row produces no provenance rather than a guess', () => {
+  const plan = planFor(
+    `New Outfitter,outfitter,niangua,,,417-555-0000,,,,,,,,,,https://operator.example,${RECENT}`,
+  );
+  const bare = { ...plan, row: { ...plan.row, checkedAt: null } };
+  assert.deepEqual(fieldSourceRows(bare), []);
+});
+
+test('a malformed field_sources entry is an error', () => {
+  const bad = parseFieldSources('latitude');
+  assert.ok(bad.errors.some((e) => /not field=source/.test(e)));
+  const placeholder = parseFieldSources('phone=csv_import');
+  assert.ok(placeholder.errors.some((e) => /records nothing/.test(e)));
+  const good = parseFieldSources('phone=https://a.example;website=b.example');
+  assert.deepEqual(good.errors, []);
+  assert.deepEqual(good.sources, { phone: 'https://a.example', website: 'b.example' });
+});
+
+test('an update sources only the columns it actually changes', () => {
+  const existing = existingService({
+    verified_source: 'https://old.example',
+    last_verified_at: `${RECENT}T00:00:00Z`,
+  });
+  const plan = planFor(
+    `Bennett Spring Canoe Rental,outfitter,niangua,bennett-spring-canoe,,(417) 555-9999,,,,,,,,,,https://operator.example,${RECENT}`,
+    existing,
+  );
+  const fields = fieldSourceRows(plan).map((s) => s.field);
+  assert.ok(fields.includes('phone'));
+  assert.ok(!fields.includes('city'), 'city was not claimed, so it gets no new source');
 });
