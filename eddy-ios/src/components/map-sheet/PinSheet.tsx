@@ -42,7 +42,7 @@ import { GlanceSlot } from './GlanceSlot';
 import { MapSheet, type SheetMetrics } from './MapSheet';
 import { PinCallout } from './PinCallout';
 import { PlaceHead } from './PlaceHead';
-import { AccessGaugeReading, AccessTypeBadges } from './sections';
+import { AccessGaugeReading, AccessTypeBadges, LinkRow } from './sections';
 import { SheetTabBar } from './SheetTabBar';
 import { SheetPager, mountedPages } from './SheetPager';
 import { accessTabs, initialTabKey, type TabKey } from './tabs';
@@ -216,7 +216,7 @@ export function PinSheet(props: PinSheetProps) {
 
   // A chosen tab that no longer qualifies falls back to the pin's preference
   // rather than to wherever its index now points.
-  const preferred = accessPoint ? initialTabKey(tabs, pin) : (gTabs[0]?.key ?? null);
+  const preferred = accessPoint ? initialTabKey(tabs, pin, accessPoint) : (gTabs[0]?.key ?? null);
   const activeKey =
     chosen && activeTabs.some((tab) => tab.key === chosen) ? chosen : preferred;
   const activeIndex = Math.max(0, activeTabs.findIndex((tab) => tab.key === activeKey));
@@ -633,6 +633,43 @@ function PinSheetHeader({
           </Pressable>
         ) : null}
       </View>
+
+      {/* ── THE WAY OUT, IN THE PEEK ──────────────────────────────────────
+          This row used to be the LAST element of the Overview tab, under the
+          photos, the description, the campsites card, Getting in, Parking,
+          Facilities, Camping nearby, Outfitters, Lodging and River notes. On a
+          well-documented put-in that is several screens of scrolling inside a
+          sheet the reader has to drag to its tall detent first — and it existed
+          on Overview alone, so a sheet that opened on Camping never showed it
+          at all.
+
+          The river sheet has always done it this way (RiverSheetHeader's "Open
+          {river}"), and that is the copy people find. Here it is now: above the
+          tab bar, on screen at every detent, reachable from every tab.
+
+          ── BOTH GATES ARE KNOWN ON THE FIRST FRAME ──────────────────────
+          `pin.detailRoute` and `pin.siteId` are on the pin before the sheet
+          opens, so this row cannot appear a moment later and resize the peek
+          under the reader's thumb. That is the bug the glance slot above exists
+          to prevent, and it must not be reintroduced here: do NOT gate this on
+          the detail response. */}
+      {accessPoint && pin.detailRoute ? (
+        <View style={styles.headerLink}>
+          <LinkRow
+            label="Access point details"
+            symbol="accessPoint"
+            onPress={() => onOpenDetail(pin.detailRoute as string)}
+          />
+        </View>
+      ) : gaugeFacts?.siteId ? (
+        <View style={styles.headerLink}>
+          <LinkRow
+            label={`Open ${pin.name}`}
+            symbol="gauge"
+            onPress={() => onOpenGauge(gaugeFacts.siteId as string)}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -676,6 +713,9 @@ function PinSheetDetail({
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: 16 },
+  // Matches RiverSheet's headerLink so the two sheets' one way out sits at
+  // the same offset under the same kind of row.
+  headerLink: { marginTop: 2 },
   // 44 laid out, ~34 spent. See the call site for why the target is real and
   // why the margin is negative on the bottom rather than the top.
   back: {

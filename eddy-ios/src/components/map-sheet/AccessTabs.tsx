@@ -437,32 +437,23 @@ export function AccessOverviewTab({
         </Section>
       ) : null}
 
-      {/* ── ONE WAY OUT, AND NOW IT IS UNCONDITIONAL ──────────────────────
-          There used to be two rows to one destination — Overview's "Access
-          point details" and Place's "Open the full details screen" — so the
-          rule became "Overview carries it exactly when Place does not", spelled
-          `hasPlaceTab`. With one tab there is one row, and the branch that
-          decided which tab owned it is gone with the tab.
+      {/* ── THE RIVER, AND ONLY THE RIVER ─────────────────────────────────
+          "Access point details" used to sit here too, at the very bottom of the
+          longest tab in the sheet, and on this tab alone — so a pin that opened
+          on Camping never offered it. It lives in the peek now, beside the
+          plan and Directions buttons, where the river sheet has always kept its
+          equivalent and where every tab can see it. See PinSheetHeader.
 
-          It is `onOpenDetail` alone that gates it now, which is the honest
-          condition: null means the map could not compose a route, not that
-          another tab has the link.
-
-          The river row stands on its own condition rather than sharing the
-          section's: it needs the river's NAME, which only the detail response
-          carries, and this tab is drawn from the first frame. */}
-      {point?.river || onOpenDetail ? (
+          What stays is the row to the RIVER, which belongs to this tab rather
+          than to the header: it needs the river's NAME, and only the detail
+          response carries that, while the peek is drawn from the first frame. */}
+      {point?.river ? (
         <Section>
-          {point?.river ? (
-            <LinkRow
-              label={`View ${point.river.name}`}
-              symbol="river"
-              onPress={() => onOpenRiver(point.river.slug)}
-            />
-          ) : null}
-          {onOpenDetail ? (
-            <LinkRow label="Access point details" symbol="accessPoint" onPress={onOpenDetail} />
-          ) : null}
+          <LinkRow
+            label={`View ${point.river.name}`}
+            symbol="river"
+            onPress={() => onOpenRiver(point.river.slug)}
+          />
         </Section>
       ) : null}
     </View>

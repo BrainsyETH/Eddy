@@ -49,6 +49,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { Ionicons } from '@expo/vector-icons';
@@ -132,6 +133,10 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
 
   const userId = session?.user?.id ?? null;
   const signedIn = Boolean(userId) && !isAnonymous;
+  // Restore and Redeem sit in two columns until the text is large enough that a
+  // column would break "Restore purchases" across two lines. See the footer.
+  const { fontScale } = useWindowDimensions();
+  const sideBySide = fontScale <= 1.3;
   const blocked = purchasesUnavailableReason(userId, isAnonymous);
 
   // YEARLY IS THE DEFAULT, and it is derived rather than stored so that it is
@@ -610,26 +615,36 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
               offered, and none of these is that. Dismissing also still has the
               close control at the top of the sheet and the swipe.
 
-              STACKED, not a row. "Restore purchases · Redeem a code · Not now"
-              measures roughly 300pt against the ~327pt this sheet has to give
-              on a 375pt phone, so it fit at the default text size and nothing
-              above it — the row could not wrap, and one Dynamic Type step past
-              default pushed it out of the sheet. Wrapping alone would not have
-              fixed it either: the "·" separators are siblings of the links, so
-              a wrap orphans one at the head of the next line. The stack costs
-              height on a screen whose chooser wants it, and that is the right
-              way round — a payment screen that clips is worse than a payment
-              screen that scrolls. */}
+              TWO COLUMNS, not a separator run. The version that clipped was
+              "Restore purchases · Redeem a code · Not now" on ONE line: ~300pt
+              against the ~327pt this sheet has on a 375pt phone, and it could
+              not wrap, because the "·" separators are siblings of the links and
+              a wrap orphans one at the head of the next line. One Dynamic Type
+              step past default pushed it out of the sheet.
+
+              Columns fix that at the root. There are no separators to orphan,
+              and each column wraps INSIDE itself, so the row grows in height
+              rather than running off the edge — which is why footerAction sets
+              minHeight and not height. Stacking them was the other way to stop
+              the clipping, and it cost the plan chooser two full rows of the
+              height it is short of.
+
+              Above fontScale 1.3 they stack anyway. Past that step a column is
+              narrow enough that "Restore purchases" breaks to "Restore /
+              purchases", and a two-line label beside a one-line one reads as a
+              layout accident rather than a pair. This is the only place in the
+              app that reads fontScale; it is here because it is the only place
+              with two side-by-side labels that must not wrap. */}
           <View style={styles.footerLinks}>
             {signedIn ? (
-              <>
+              <View style={sideBySide ? styles.footerPair : styles.footerStack}>
                 <Pressable
                   onPress={() => void handleRestore()}
                   disabled={busy !== null}
                   accessibilityRole="button"
                   accessibilityLabel="Restore purchases"
                   accessibilityState={{ disabled: busy !== null, busy: busy === 'restore' }}
-                  style={styles.footerAction}
+                  style={[styles.footerAction, sideBySide ? styles.footerColumn : null]}
                 >
                   <Text style={[styles.footerLink, { color: colors.textMuted }]}>
                     {busy === 'restore' ? 'Restoring…' : 'Restore purchases'}
@@ -645,13 +660,13 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
                   accessibilityRole="button"
                   accessibilityLabel="Redeem a code"
                   accessibilityState={{ disabled: busy !== null, busy: busy === 'redeem' }}
-                  style={styles.footerAction}
+                  style={[styles.footerAction, sideBySide ? styles.footerColumn : null]}
                 >
                   <Text style={[styles.footerLink, { color: colors.textMuted }]}>
                     {busy === 'redeem' ? 'Checking…' : 'Redeem a code'}
                   </Text>
                 </Pressable>
-              </>
+              </View>
             ) : null}
 
             <Pressable
@@ -683,6 +698,11 @@ const styles = StyleSheet.create({
   // boundary, and the one resolved by render order is not the one anyone aims
   // at. minHeight, not height, so the row grows with the text instead of
   // clipping it.
+  footerPair: { flexDirection: 'row', alignSelf: 'stretch' },
+  footerStack: { alignSelf: 'stretch', alignItems: 'stretch' },
+  // minWidth 0 is what lets the label wrap inside its own half instead of
+  // forcing the row wider than the sheet.
+  footerColumn: { flex: 1, minWidth: 0 },
   footerAction: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
   footerLink: { ...t.sm, fontFamily: fonts.medium, textAlign: 'center' },
 

@@ -96,8 +96,6 @@ import { Ionicons } from '@expo/vector-icons';
 import type { RiverOutlookResponse } from '@eddy/types';
 import { conditionBg, conditionInk, conditionLabel } from '@/theme/conditions';
 import { EddySymbol } from '@/components/EddySymbol';
-import { EddySaysDeck } from '@/components/river/EddySaysDeck';
-import type { EddySays } from '@/lib/eddySays';
 import { Otter } from '@/components/Otter';
 import { PREMIUM_LOCK_TITLE } from '@/lib/premiumCopy';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -282,18 +280,6 @@ interface EddyTakeProps {
   entitled?: boolean | null | 'pending';
   /** Opens the paywall. Only ever called from the locked take. */
   onUpgrade?: () => void;
-  /**
-   * Eddy's FREE line about this river, rendered as the deck over the read.
-   *
-   * Absent on the gauge screen, which shows this card about a station rather
-   * than a river and has no per-river summary to head it with.
-   *
-   * It is deliberately not derived from `outlook` — that payload carries
-   * `fullRead`, which is the paid column. This arrives from the batched
-   * /api/eddy-updates through selectEddySays, in a shape with no field the full
-   * quote could occupy. See src/lib/eddySays.ts.
-   */
-  says?: EddySays | null;
 }
 
 export function EddyTake({
@@ -301,7 +287,6 @@ export function EddyTake({
   ratedUnit = null,
   entitled = null,
   onUpgrade,
-  says = null,
 }: EddyTakeProps) {
   const { colors, elevation } = useTheme();
   const { sections, days } = outlook;
@@ -483,17 +468,6 @@ export function EddyTake({
         <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
           <Text style={[styles.takeHeading, { color: colors.textMuted }]}>EDDY&apos;S TAKE</Text>
 
-          {/* ── The deck ────────────────────────────────────────────
-              FREE, and rendered before the entitlement branch below rather
-              than inside it — this line is the same at every state, so it must
-              not be able to flicker with one. It is the standfirst for the read
-              underneath: one sentence in, several sentences out.
-
-              Sits above the skeleton too. A card that shows Eddy's line while
-              the rest of it resolves is a card that has already said something
-              useful, which is the whole argument for a free tier here. */}
-          {says ? <EddySaysDeck says={says} /> : null}
-
           {/* THE WHOLE CARD IS THE GATE — see the header for what stays free
               and why that is enough to make this defensible.
 
@@ -518,12 +492,10 @@ export function EddyTake({
             </View>
           ) : (
             <>
-              {/* A top rule ONLY when the deck is above it. Without the deck
-                  this is still the card's first section and needs no divider;
-                  with it, the rule is what makes the pair read as one section
-                  with a standfirst rather than as two loose paragraphs. The two
-                  sections below always separate themselves. */}
-              <View style={says ? [styles.section, { borderTopColor: colors.border }] : undefined}>
+              {/* NO top rule. This is the card's first section, directly under
+                  the EDDY'S TAKE label, so there is nothing above it to divide
+                  it from. The two sections below always separate themselves. */}
+              <View>
                 <View style={styles.sectionHead}>
                   <EddySymbol name="aiAssistant" size={17} />
                   <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>

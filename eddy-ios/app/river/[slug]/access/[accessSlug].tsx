@@ -81,12 +81,7 @@ import {
 } from '@/components/map-sheet/availabilitySource';
 import { CampgroundAvailability } from '@/components/map-sheet/CampgroundAvailability';
 import { localToday } from '@/components/map-sheet/availability';
-
-const TREND_ICON = {
-  rising: 'arrow-up' as const,
-  falling: 'arrow-down' as const,
-  steady: 'remove' as const,
-};
+import { TREND_ICON } from '@/components/TrendPill';
 
 const SERVICE_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   outfitter: 'boat-outline',

@@ -129,7 +129,7 @@ export function accessTabs(
  * question nobody asked. The access family presents the very same access point
  * under whichever of its marks won — RiverMap keeps the canonical `access:{id}`
  * identity while doing it — so `pin.layer` is a clean record of which icon the
- * finger actually landed on, and the only intent signal available.
+ * finger actually landed on.
  *
  * ── THE ROLE, not the layer key ──────────────────────────────────────────
  *
@@ -140,17 +140,49 @@ export function accessTabs(
  * right, and it does so because the rule says what it means rather than because
  * a string happened not to match.
  *
+ * ── WHY THE LAYER IS NOT ENOUGH ON ITS OWN ───────────────────────────────
+ *
+ * Campgrounds ships ON (see LAYER_DEFAULTS), and MARK_PRIORITY puts campground
+ * first, so the campgrounds layer CLAIMS every access point that also camps —
+ * Akers, Cedargrove, Red Bluff, Meramec State Park. Those pins are built with
+ * `layer: 'campgrounds'`, so the role test read them as a tent tap and opened
+ * every one of them on Camping. Out of the box, a reader tapping the put-in
+ * they float from got the campsite list and had to swipe back to find the
+ * water. The signal was never intent; it was which layer happened to own the
+ * marker, which changes under the reader as they toggle layers.
+ *
+ * So the tent tap is honoured only for a place that is ONLY a tent.
+ * `isFloatEndpoint` is the question already written for this: a state park or
+ * campground with no ramp is a real place with a real page and no launch. If
+ * you can start a float here, this is a put-in that happens to camp, and
+ * Overview is what you came for.
+ *
+ * `=== false`, never a falsy check — ABSENT MEANS ELIGIBLE, so a payload
+ * cached before the field existed lands on Overview, which is the safe
+ * direction. See MapAccessPoint.isFloatEndpoint in @eddy/types.
+ *
  * Falls back to 0 whenever the preferred tab is not in the set, including
  * during the window before the detail request has qualified it.
  */
-export function initialTabKey(tabs: TabDef[], pin: LayerTapped): TabKey | null {
+export function initialTabKey(
+  tabs: TabDef[],
+  pin: LayerTapped,
+  accessPoint?: MapAccessPoint | null,
+): TabKey | null {
   const tapped = accessRoleForLayer(pin.layer);
-  if (tapped === 'campground' && tabs.some((tab) => tab.key === 'camping')) return 'camping';
+  const campgroundOnly = accessPoint?.isFloatEndpoint === false;
+  if (tapped === 'campground' && campgroundOnly && tabs.some((tab) => tab.key === 'camping')) {
+    return 'camping';
+  }
   return tabs[0]?.key ?? null;
 }
 
 /** Convenience for callers that want a position rather than an identity. */
-export function initialTabIndex(tabs: TabDef[], pin: LayerTapped): number {
-  const key = initialTabKey(tabs, pin);
+export function initialTabIndex(
+  tabs: TabDef[],
+  pin: LayerTapped,
+  accessPoint?: MapAccessPoint | null,
+): number {
+  const key = initialTabKey(tabs, pin, accessPoint);
   return Math.max(0, tabs.findIndex((tab) => tab.key === key));
 }
