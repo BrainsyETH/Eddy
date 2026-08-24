@@ -610,3 +610,20 @@ test('a known managing_agency passes', () => {
   const { errors } = buildRows(parseCsv([header, good].join('\n')), TODAY);
   assert.deepEqual(errors, []);
 });
+
+test('a placeholder inside a compound source is still a placeholder', () => {
+  // The SQL backfill reverted by 20260824192132 tested the whole string, so
+  // "mcfa_directory, knowledge_base" passed a filter meant to exclude
+  // knowledge_base. sourceProblem tests each comma-separated part.
+  // Rejected whichever part fails first — mcfa_directory is not a URL, a
+  // hostname or a record id, so it trips the shape check before the
+  // placeholder check is reached. Both parts are unusable; what matters is
+  // that the compound value does not pass.
+  assert.ok(sourceProblem('mcfa_directory, knowledge_base'));
+
+  // A placeholder riding behind a perfectly good URL is the shape the SQL
+  // filter missed, and the one that names itself here.
+  assert.match(sourceProblem('https://operator.example, knowledge_base') ?? '', /records nothing/);
+  assert.match(sourceProblem('https://operator.example, csv_import') ?? '', /records nothing/);
+  assert.equal(sourceProblem('https://operator.example, operator.example/trips'), null);
+});

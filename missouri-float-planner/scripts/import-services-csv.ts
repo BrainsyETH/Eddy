@@ -123,7 +123,19 @@ const UNION_FIELDS = ['services_offered', 'alt_names'];
 /** A source older than this is re-research, not a re-import of old research. */
 export const SOURCE_MAX_AGE_DAYS = 180;
 /** The value the old script defaulted to. It records nothing; it is an error. */
-export const FORBIDDEN_SOURCES = new Set(['csv_import', 'unknown', 'n/a']);
+/**
+ * Words that name no page. Kept in step with the CHECK on
+ * service_field_sources.source (20260824114557), which also forbids
+ * knowledge_base — a model's recollection is not a source anybody can reopen.
+ *
+ * sourceProblem splits on commas and tests each part, which is the property
+ * that matters: the SQL backfill reverted by 20260824192132 tested the WHOLE
+ * string against a list like this one, so "mcfa_directory, knowledge_base"
+ * sailed past a filter written to exclude knowledge_base.
+ */
+export const FORBIDDEN_SOURCES = new Set([
+  'csv_import', 'unknown', 'n/a', 'knowledge_base', 'existing_codebase',
+]);
 /** Same threshold the coordinate and place-id pipelines already use. */
 export const NAME_COLLISION_MIN = 0.86;
 

@@ -124,3 +124,22 @@ test('a bad distance fails the whole route, naming it', () => {
   assert.equal(errors.length, 1);
   assert.match(errors[0], /Hammond to Blair/);
 });
+
+test('a range is rejected when EITHER end is impossible', () => {
+  // The sanity limit existed and the value that would have tripped it was
+  // discarded before it was tested: only the retained lower bound was checked,
+  // so "20-999999" passed as 20.
+  for (const bad of ['20-999999', '20-301', '0.5-400']) {
+    const r = parseMiles(bad);
+    assert.equal(typeof r, 'string', `${bad} should be rejected, got ${JSON.stringify(r)}`);
+    assert.match(r as string, /sanity limit/, bad);
+  }
+  assert.equal(parseMiles('20-25'), 20, 'a real range still keeps its floor');
+  assert.equal(parseMiles('299-300'), 299, 'and the limit itself is not off by one');
+});
+
+test('a range with a zero end is rejected too', () => {
+  const r = parseMiles('0-10');
+  assert.equal(typeof r, 'string');
+  assert.match(r as string, /a float has length/);
+});

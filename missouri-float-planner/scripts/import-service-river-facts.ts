@@ -85,9 +85,18 @@ export function parseMiles(raw: string): number | null | string {
     if (low > high) {
       return `has a backwards range: "${text}" — write the smaller number first`;
     }
+    // BOTH ends get checked before either is kept. Checking only the bound we
+    // retain let "20-999999" through as 20: the sanity limit existed and the
+    // value that would have tripped it was discarded before it was tested.
+    // A range whose far end is impossible is a typo in the whole range, not a
+    // usable floor that happens to sit beside one.
+    for (const end of [low, high]) {
+      const problem = check(end, text);
+      if (typeof problem === 'string') return problem;
+    }
     // A range keeps its lower bound: a 20-25 mile trip is at least 20, and a
     // reader deciding whether they have the day for it wants the floor.
-    return check(low, text);
+    return low;
   }
 
   if (!/^\d+(?:\.\d+)?$/.test(text)) {
