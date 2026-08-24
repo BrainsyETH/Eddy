@@ -15,6 +15,9 @@
 // cannot load. The row is described structurally instead, the same way
 // `serviceLayers.ts` declares its own keys — see that file's header.
 
+/** Where a tier's count is measured. Absent means statewide. */
+export type LayerCountScope = 'statewide' | 'viewport';
+
 /** Just the fields the count rule reads. Structural — see the header. */
 export interface CountableRow<K extends string> {
   key: K;
@@ -26,6 +29,12 @@ export interface CountableRow<K extends string> {
    * before it. See LayerDef.tiersRefine for the whole argument.
    */
   tiersRefine?: boolean;
+  /**
+   * Where each tier's count is measured, when the tiers do not all measure the
+   * same universe. Tiers with different scopes must never be summed — see
+   * layerRowCount.
+   */
+  scopes?: Partial<Record<K, LayerCountScope>>;
 }
 
 /**
@@ -57,6 +66,10 @@ export interface CountableRow<K extends string> {
  * is only worth printing when the whole of it has arrived. "1" beside a row
  * whose second tier is still fetching is a number that will change under the
  * reader's eyes, and this sheet has never shown a figure it cannot stand behind.
+ *
+ * And `undefined` when the live tiers are counted in DIFFERENT SCOPES — one
+ * statewide, one per viewport — because their sum is a number measured in no
+ * universe at all. See the scope check below.
  */
 export function layerRowCount<K extends string>(
   row: CountableRow<K>,
@@ -71,6 +84,16 @@ export function layerRowCount<K extends string>(
   // Nested: the first live tier is the widest, and it contains the rest.
   if (row.tiersRefine) return counts?.[live[0]];
 
+  // ── TIERS IN DIFFERENT SCOPES HAVE NO SUM ────────────────────────────────
+  //
+  // The gauges row is the case: the rated tier is counted statewide while the
+  // national tier is counted per viewport ("N in view"). Adding those gave a
+  // figure that was part-state, part-screen, changed on every pan, and said so
+  // nowhere. A row whose live tiers measure different universes prints
+  // nothing; each tier chip still prints its own honestly-scoped number.
+  const scopes = new Set(live.map((key) => row.scopes?.[key] ?? 'statewide'));
+  if (scopes.size > 1) return undefined;
+
   let total = 0;
   for (const key of live) {
     const value = counts?.[key];
@@ -78,6 +101,40 @@ export function layerRowCount<K extends string>(
     total += value;
   }
   return total;
+}
+
+/**
+ * The stored layer set, with this session's own enables laid over it.
+ *
+ * ── THE RACE THIS RESOLVES ───────────────────────────────────────────────
+ *
+ * The map restores its layer set from AsyncStorage asynchronously, and a
+ * search result or a "View on map" deep link can switch a layer on BEFORE the
+ * restore answers — the deep link runs in the screen's first effect flush,
+ * squarely inside that window. Applying the stored set wholesale then strips
+ * the layer the camera is already flying toward: an invisible pin under an
+ * open sheet.
+ *
+ * Neither blunt answer is right. Persisting the enable would overwrite the
+ * user's stored choices with `defaults + one layer`; skipping the restore
+ * would throw their choices away for the session. So the restore applies and
+ * the session's enables are merged over it — a search enable is a view
+ * affordance, not a settings choice, and it persists only if the user later
+ * touches the sheet (which writes the whole current set, as it always has).
+ *
+ * Stored order first, then any session enables not already present. `stored`
+ * may be `[]` — everything switched off is a choice, and an enable over it
+ * yields exactly that one layer.
+ */
+export function mergeRestoredLayers<K extends string>(
+  stored: readonly K[],
+  sessionEnabled: Iterable<K>,
+): K[] {
+  const merged = [...stored];
+  for (const key of sessionEnabled) {
+    if (!merged.includes(key)) merged.push(key);
+  }
+  return merged;
 }
 
 /** Just the fields the grouping rule reads. Structural — see the header. */

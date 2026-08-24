@@ -30,7 +30,17 @@
 //   with no campgrounds should say 0, but a layer that has never been fetched
 //   must not claim zero of anything.
 
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { EddySymbol } from '@/components/EddySymbol';
@@ -97,6 +107,14 @@ export function MapLayersSheet({
 }: Props) {
   const { colors, floating } = useTheme();
   const insets = useSafeAreaInsets();
+  // The rows outgrew the fixed 340pt this scroll used to get: eleven layers,
+  // three headings, two tier strips and the gauge filter left the control the
+  // sheet exists for two scrolls deep. 60% of the window keeps the head, the
+  // rows and Done comfortably on an SE-class screen while still leaving the
+  // top of the map visible — the sheet's own premise is that you watch the
+  // pins arrive. From the window rather than measured, like the map screen's
+  // own width read, so it survives rotation without a layout round-trip.
+  const { height: windowHeight } = useWindowDimensions();
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -132,7 +150,10 @@ export function MapLayersSheet({
           )}
         </View>
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.rows}>
+        <ScrollView
+          style={{ maxHeight: Math.round(windowHeight * 0.6) }}
+          contentContainerStyle={styles.rows}
+        >
           {/* ── HEADINGS, NOT A FILTER ────────────────────────────────────
               A section groups rows and does nothing else: it has no switch, no
               count and no population, and `groupLayerRows` reorders nothing and
@@ -502,8 +523,8 @@ const styles = StyleSheet.create({
   },
   title: { ...t.lg, fontFamily: fonts.display },
   reset: { ...t.sm, fontFamily: fonts.semibold },
-  // Capped so a future sixth layer scrolls rather than pushing Done off screen.
-  scroll: { maxHeight: 340 },
+  // The scroll's cap is 60% of the window, computed in the component — a
+  // number in here would be frozen against whichever screen ran the import.
   rows: { paddingVertical: 4 },
   // A heading, sized so it reads as a label over the rows rather than as a row
   // itself — the sheet has one title already and a second thing at title weight

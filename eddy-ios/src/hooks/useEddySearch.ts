@@ -1,12 +1,16 @@
 // eddy-ios/src/hooks/useEddySearch.ts
-// The Map tab's search: rivers, gauges and access points in one field.
+// The Map tab's search: rivers, gauges, access points, dams, hazards and
+// services in one field.
 //
-// TWO SOURCES, ON PURPOSE. Rivers and gauges are already in memory — the map
-// fetches both to draw itself — so they are matched locally and appear the
-// instant a character lands, with no request and no spinner. Access points are
-// not: several hundred of them exist, served per river, and downloading the lot
-// to build a client index would be paid on cellular at a put-in for a feature
-// most sessions never use. Those come from /api/search, debounced.
+// TWO SOURCES, ON PURPOSE. Rivers, gauges, dams, hazards and services are
+// already in memory — the map fetches or ships all of them to draw itself —
+// so they are matched locally and appear the instant a character lands, with
+// no request and no spinner. Access points are not: several hundred of them
+// exist, served per river, and downloading the lot to build a client index
+// would be paid on cellular at a put-in for a feature most sessions never
+// use. Those come from /api/search, debounced. The server is never asked for
+// the three local-only kinds — it ignores kinds it does not know, and results
+// merge by kind:id, so the two halves cannot collide.
 //
 // The two are layered rather than switched between: local hits render
 // immediately and the server's fuller list replaces them when it lands. A
@@ -22,9 +26,21 @@
 // access points with it and leaving no way to retry.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { MapGauge, RiverListItem, SearchResult, SearchResultKind } from '@eddy/types';
+import type {
+  Hazard,
+  MapGauge,
+  RiverListItem,
+  RiverService,
+  SearchResult,
+  SearchResultKind,
+} from '@eddy/types';
+import { hasCoordinates, serviceEligible } from '@eddy/types';
+import { hazardTypeLabel } from '@eddy/hazards';
 import { searchEddy } from '@/api/client';
 import { stationCaption } from '@/lib/gaugeProvider';
+import { DAM_CATALOG, damSubtitle } from '@/lib/damCatalog';
+import { mappableService } from '@/map/mappable';
+import { serviceTypeLabel } from '@/map/serviceLayers';
 
 /** Matches the server's floor — below this a query matches most of the data. */
 const MIN_QUERY_LENGTH = 2;
@@ -47,6 +63,29 @@ const MAX_BACKOFF_MULTIPLE = 32;
 interface Options {
   rivers: RiverListItem[] | null;
   gauges: MapGauge[] | null;
+  /**
+   * True to match the Corps' dams. LOCAL, like rivers and gauges — the whole
+   * catalog ships in the binary (DAM_CATALOG), so this is a boolean rather
+   * than a list the caller has to fetch. The server is never asked.
+   */
+  dams?: boolean;
+  /**
+   * The statewide hazard set, matched locally.
+   *
+   * The launch bundle already holds every hazard Eddy has; the map screen
+   * passes its merged set. Rows without usable coordinates are dropped — a
+   * result that can move the camera nowhere reads as a broken search.
+   */
+  hazards?: Hazard[] | null;
+  /**
+   * The services directory, matched locally.
+   *
+   * Only the rows the MAP can draw are searchable here — eligible, and with a
+   * confirmed coordinate (the same two gates the resolver applies before a
+   * pin exists). The un-geocoded majority stays findable on its river's page,
+   * which is a list and loses nothing by a missing coordinate.
+   */
+  services?: RiverService[] | null;
   /**
    * Which kinds to ask the server for. Omit for all three.
    *
@@ -99,13 +138,93 @@ interface SearchState {
   loadMore: () => void;
 }
 
+/** Everything the local half can match against. All of it already in memory. */
+interface LocalData {
+  rivers: RiverListItem[] | null;
+  gauges: MapGauge[] | null;
+  dams: boolean;
+  hazards: Hazard[] | null;
+  services: RiverService[] | null;
+}
+
 function localMatches(
   query: string,
-  rivers: RiverListItem[] | null,
-  gauges: MapGauge[] | null,
+  { rivers, gauges, dams, hazards, services }: LocalData,
 ): SearchResult[] {
   const needle = query.trim().toLowerCase();
   if (needle.length < MIN_QUERY_LENGTH) return [];
+
+  /** Empty non-gauge fields, so each block below states only what it has. */
+  const rest = {
+    riverId: null,
+    riverName: null,
+    riverSlug: null,
+    riverMile: null,
+    coordinates: null,
+  };
+
+  const damHits: SearchResult[] = dams
+    ? DAM_CATALOG.filter(
+        (d) =>
+          d.name.toLowerCase().includes(needle) ||
+          (d.lakeName ?? '').toLowerCase().includes(needle),
+      ).map((d) => ({
+        kind: 'dam' as const,
+        id: d.id,
+        name: d.name,
+        subtitle: damSubtitle(d),
+        ...rest,
+        coordinates: { lng: d.lon, lat: d.lat },
+      }))
+    : [];
+
+  const hazardHits: SearchResult[] = (hazards ?? [])
+    .filter((h) => h.name.toLowerCase().includes(needle) && hasCoordinates(h))
+    .map((h) => {
+      // The hazard names a river by id only; the river list — when it has
+      // landed — turns that into the name and slug a row and a callout want.
+      const river = (rivers ?? []).find((r) => r.id === h.riverId) ?? null;
+      return {
+        kind: 'hazard' as const,
+        id: h.id,
+        name: h.name,
+        subtitle: [
+          hazardTypeLabel(h.type),
+          river?.name ?? (h.riverMile ? `Mile ${h.riverMile}` : null),
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        ...rest,
+        riverId: h.riverId,
+        riverName: river?.name ?? null,
+        // Deliberately NOT the river's slug, though it is in hand: a set
+        // riverSlug makes selecting this result select the river, and tapping
+        // a hazard PIN selects none — the callout is about the water hazard,
+        // not the trip. Search and tap must land in the same state.
+        riverMile: h.riverMile ?? null,
+        coordinates: h.coordinates,
+      };
+    });
+
+  const serviceHits: SearchResult[] = (services ?? [])
+    .filter(
+      (s) =>
+        serviceEligible(s) &&
+        mappableService(s) &&
+        s.name.toLowerCase().includes(needle),
+    )
+    .map((s) => ({
+      kind: 'service' as const,
+      id: s.id,
+      name: s.name,
+      subtitle: [serviceTypeLabel(s), [s.city, s.state].filter(Boolean).join(', ')]
+        .filter(Boolean)
+        .join(' · '),
+      // No riverSlug for the same reason the hazard rows carry none: tapping
+      // a service pin selects no river, and search must match the tap.
+      ...rest,
+      coordinates: { lng: s.longitude as number, lat: s.latitude as number },
+    }));
 
   const riverHits: SearchResult[] = (rivers ?? [])
     .filter(
@@ -136,7 +255,9 @@ function localMatches(
     )
     .map(gaugeToSearchResult);
 
-  return [...riverHits, ...gaugeHits];
+  // Rivers first, as ever; the new kinds trail the two originals so the rows
+  // most searches are for keep their positions.
+  return [...riverHits, ...gaugeHits, ...damHits, ...hazardHits, ...serviceHits];
 }
 
 /**
@@ -205,6 +326,9 @@ function merge(server: SearchResult[], local: SearchResult[]): SearchResult[] {
 export function useEddySearch({
   rivers,
   gauges,
+  dams = false,
+  hazards = null,
+  services = null,
   kinds,
   enabled = true,
   browse = false,
@@ -263,7 +387,10 @@ export function useEddySearch({
   // array without an array literal re-running the effect on every keystroke.
   const kindKey = kinds?.length ? kinds.join(',') : '';
 
-  const local = useMemo(() => localMatches(trimmed, rivers, gauges), [trimmed, rivers, gauges]);
+  const local = useMemo(
+    () => localMatches(trimmed, { rivers, gauges, dams, hazards, services }),
+    [trimmed, rivers, gauges, dams, hazards, services],
+  );
 
   useEffect(() => {
     if (!askable || !enabled) {

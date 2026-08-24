@@ -8,7 +8,11 @@ import {
   resolveAccessMarkers,
   type RoleStats,
 } from '../../../eddy-ios/src/map/accessLayers';
-import { groupLayerRows, layerRowCount } from '../../../eddy-ios/src/map/layerRows';
+import {
+  groupLayerRows,
+  layerRowCount,
+  mergeRestoredLayers,
+} from '../../../eddy-ios/src/map/layerRows';
 import type { MapAccessPoint } from '@eddy/types';
 
 // The three shapes of row the sheet draws, as the count rule sees them.
@@ -38,6 +42,44 @@ test('a tier that has not answered makes the whole row unknown', () => {
   // "1" beside a row whose second tier is still fetching is a number that will
   // change under the reader's eyes.
   assert.equal(layerRowCount(PARTITIONED, ['gauges', 'allGauges'], { gauges: 40 }), undefined);
+});
+
+// The shipped gauges row: partitioned, and the two tiers measure different
+// universes — rated is one statewide list, the national tier is whatever the
+// camera holds.
+const SCOPED = {
+  key: 'gauges',
+  tiers: ['gauges', 'allGauges'],
+  scopes: { gauges: 'statewide', allGauges: 'viewport' },
+} as const;
+
+test('tiers counted in different scopes are never summed', () => {
+  // 40 statewide + 300 in view is a figure measured in no universe at all —
+  // it changed on every pan and said so nowhere. The row prints nothing; the
+  // tier chips keep their own honestly-scoped numbers.
+  assert.equal(
+    layerRowCount(SCOPED, ['gauges', 'allGauges'], { gauges: 40, allGauges: 300 }),
+    undefined,
+  );
+});
+
+test('a lone live tier prints its own count, whatever its scope', () => {
+  const counts = { gauges: 40, allGauges: 300 };
+  assert.equal(layerRowCount(SCOPED, ['gauges'], counts), 40);
+  assert.equal(layerRowCount(SCOPED, ['allGauges'], counts), 300);
+});
+
+test('tiers declared in the SAME scope still sum', () => {
+  // `scopes` narrows nothing by itself — only a genuine mix refuses.
+  const sameScope = {
+    key: 'gauges',
+    tiers: ['gauges', 'allGauges'],
+    scopes: { gauges: 'statewide', allGauges: 'statewide' },
+  } as const;
+  assert.equal(
+    layerRowCount(sameScope, ['gauges', 'allGauges'], { gauges: 40, allGauges: 12 }),
+    52,
+  );
 });
 
 test('refining tiers report the outermost live one, never the sum', () => {
@@ -422,6 +464,48 @@ test('the defaults table is the only place a default is stated', () => {
     /export const DEFAULT_LAYERS: LayerKey\[\] = \(Object\.keys\(LAYER_DEFAULTS\) as LayerKey\[\]\)/,
     'DEFAULT_LAYERS must derive from LAYER_DEFAULTS rather than restate it',
   );
+});
+
+test('the gauges row declares its mixed count scopes in the catalog', () => {
+  // The scope rule lives in layerRowCount and does nothing until a row
+  // DECLARES its tiers' scopes — wired-but-undeclared is the silent state
+  // where the mixed-scope sum quietly returns. The rated tier is statewide,
+  // the national tier is per viewport, and the catalog has to say so.
+  assert.match(
+    CATALOG,
+    /scopes:\s*\{\s*gauges:\s*'statewide',\s*allGauges:\s*'viewport'\s*\}/,
+    "the gauges row must declare scopes: { gauges: 'statewide', allGauges: 'viewport' }",
+  );
+});
+
+// ── A session's own layer enables survive the restore ──────────────────────
+//
+// Search results and "View on map" deep links switch a layer on, and the deep
+// link runs inside the window before AsyncStorage answers with the stored set.
+// Applying the stored set wholesale stripped the layer the camera was already
+// flying toward. The restore now merges the session's enables over what was
+// stored — see mergeRestoredLayers' docblock for why neither persisting the
+// enable nor skipping the restore was the right shape.
+
+test('the restore keeps stored order and lays session enables over it', () => {
+  assert.deepEqual(
+    mergeRestoredLayers(['hazards', 'gauges'], new Set(['access'])),
+    ['hazards', 'gauges', 'access'],
+  );
+});
+
+test('an enable already stored is not duplicated', () => {
+  assert.deepEqual(
+    mergeRestoredLayers(['access', 'gauges'], new Set(['access'])),
+    ['access', 'gauges'],
+  );
+});
+
+test('everything-off stays a choice, and an enable lands on top of it', () => {
+  // `[]` is somebody having switched every layer off — a choice, not an
+  // absence — and the session's one enable is the only thing added back.
+  assert.deepEqual(mergeRestoredLayers([], new Set(['dams'])), ['dams']);
+  assert.deepEqual(mergeRestoredLayers([], new Set()), []);
 });
 
 // ── Every layer caveat has to be reachable without sight ───────────────────
