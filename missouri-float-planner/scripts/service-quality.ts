@@ -64,13 +64,35 @@ export interface DebtClass {
   label: string;
   /** error = the row says something untrue or answers nothing. warn = thinner. */
   severity: Severity;
-  applies: (row: QualityRow) => boolean;
+  applies: (row: QualityRow, today: Date) => boolean;
 }
 
 /** Sources that name no page anybody could open again. */
 const PLACEHOLDER_SOURCES = new Set(['csv_import', 'unknown', 'n/a', '']);
 
 const CAMPING_OFFERINGS = ['camping_primitive', 'camping_rv'];
+
+/**
+ * A verification date does not stay true. Businesses change hands, change
+ * numbers and close — this branch found a motel that had shut, an outfitter
+ * closed until March 2027, and three dead domains. A row verified once and
+ * never again is a claim about the past wearing the badge of the present.
+ *
+ * Warn at six months, fail at a year. Seasonal and temporarily-closed rows get
+ * a much shorter fuse, because "temporarily" is the part that expires: an
+ * unconfirmed temporary closure is indistinguishable from a permanent one.
+ */
+export const STALE_WARN_DAYS = 180;
+export const STALE_FAIL_DAYS = 365;
+export const STALE_CLOSURE_DAYS = 120;
+
+/** Days since the row was verified, or null if it never was. */
+export function daysSinceVerified(row: QualityRow, today: Date): number | null {
+  if (!row.last_verified_at) return null;
+  const when = Date.parse(row.last_verified_at);
+  if (Number.isNaN(when)) return null;
+  return (today.getTime() - when) / 86_400_000;
+}
 
 export const DEBT_CLASSES: DebtClass[] = [
   {
@@ -128,6 +150,36 @@ export const DEBT_CLASSES: DebtClass[] = [
     label: 'no usable description',
     applies: (r) => !r.description || r.description.trim().length < 20,
   },
+  {
+    key: 'verification_ageing',
+    severity: 'warn',
+    label: `last verified over ${STALE_WARN_DAYS} days ago`,
+    applies: (r, today) => {
+      const age = daysSinceVerified(r, today);
+      return age !== null && age > STALE_WARN_DAYS && age <= STALE_FAIL_DAYS;
+    },
+  },
+  {
+    key: 'verification_expired',
+    severity: 'error',
+    label: `last verified over ${STALE_FAIL_DAYS} days ago — the row is a claim about a year ago`,
+    applies: (r, today) => {
+      const age = daysSinceVerified(r, today);
+      return age !== null && age > STALE_FAIL_DAYS;
+    },
+  },
+  {
+    key: 'closure_ageing',
+    severity: 'error',
+    label:
+      `recorded as seasonal or temporarily closed and not re-checked in ${STALE_CLOSURE_DAYS} days — ` +
+      'a temporary state nobody has confirmed is a permanent claim',
+    applies: (r, today) => {
+      if (r.status !== 'seasonal' && r.status !== 'temporarily_closed') return false;
+      const age = daysSinceVerified(r, today);
+      return age === null || age > STALE_CLOSURE_DAYS;
+    },
+  },
 ];
 
 export interface Baseline {
@@ -147,11 +199,11 @@ export function scorable(rows: QualityRow[]): QualityRow[] {
   return rows.filter((r) => r.status !== 'permanently_closed');
 }
 
-export function measureDebt(rows: QualityRow[]): Record<string, string[]> {
+export function measureDebt(rows: QualityRow[], today = new Date()): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   const scored = scorable(rows);
   for (const cls of DEBT_CLASSES) {
-    out[cls.key] = scored.filter(cls.applies).map((r) => r.slug).sort();
+    out[cls.key] = scored.filter((r) => cls.applies(r, today)).map((r) => r.slug).sort();
   }
   return out;
 }
@@ -231,6 +283,7 @@ export function buildBaseline(
   rows: QualityRow[],
   perRiver: Record<string, string[]>,
   generatedAt: string,
+  today = new Date(),
 ): Baseline {
   return {
     generatedAt,
@@ -241,7 +294,7 @@ export function buildBaseline(
       'records WHICH services each river carries, not how many — a count would ' +
       'let two services swap rivers and call it no change. A corridor pass adds ' +
       'names; nothing may drop one.',
-    classes: measureDebt(rows),
+    classes: measureDebt(rows, today),
     riverMembers: perRiver,
   };
 }

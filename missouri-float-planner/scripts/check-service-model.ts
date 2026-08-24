@@ -726,10 +726,11 @@ async function main() {
   }
 
   const baselinePath = path.join(__dirname, 'service-quality-baseline.json');
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
 
   if (updateBaseline) {
-    const next = buildBaseline(qualityRows, perRiver, today);
+    const next = buildBaseline(qualityRows, perRiver, today, now);
     fs.writeFileSync(baselinePath, `${JSON.stringify(next, null, 2)}\n`, 'utf-8');
     for (const cls of DEBT_CLASSES) {
       const n = next.classes[cls.key].length;
@@ -746,7 +747,7 @@ async function main() {
       console.log(`\n${errors ? '✗' : '✓'} ${errors} error(s), ${warnings} warning(s)\n`);
       process.exit(1);
     }
-    const result = compareToBaseline(measureDebt(qualityRows), perRiver, baseline);
+    const result = compareToBaseline(measureDebt(qualityRows, now), perRiver, baseline);
 
     for (const r of result.regressions) {
       const say = r.severity === 'error' ? fail : warn;

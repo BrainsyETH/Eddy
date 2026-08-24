@@ -243,7 +243,10 @@
       "washington-state-park-concessions",
       "withrow-springs-state-park",
       "wolf-pen-recreation-area"
-    ]
+    ],
+    "verification_ageing": [],
+    "verification_expired": [],
+    "closure_ageing": []
   },
   "riverMembers": {
     "bourbeuse": [

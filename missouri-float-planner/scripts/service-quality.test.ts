@@ -240,3 +240,68 @@ test('a baseline that is not a baseline at all is named as such', () => {
   assert.match(String(baselineShapeProblem(undefined as unknown as Baseline)), /missing or not an object/);
   assert.match(String(baselineShapeProblem({ generatedAt: '', note: '' } as unknown as Baseline)), /no `classes`/);
 });
+
+// ── Verification ages ─────────────────────────────────────────────────────
+// A row verified once and never again is a claim about the past wearing the
+// badge of the present. This branch found a shut motel, an outfitter closed
+// until March 2027, and three dead domains — all on rows that read as current.
+
+const NOW = new Date('2026-08-24T00:00:00Z');
+function verifiedDaysAgo(days: number, over: Partial<QualityRow> = {}): QualityRow {
+  const d = new Date(NOW.getTime() - days * 86_400_000);
+  return row({ slug: `aged-${days}`, last_verified_at: d.toISOString(), ...over });
+}
+
+test('a freshly verified row is in no ageing class', () => {
+  const debt = measureDebt([verifiedDaysAgo(30)], NOW);
+  assert.deepEqual(debt.verification_ageing, []);
+  assert.deepEqual(debt.verification_expired, []);
+});
+
+test('past six months it warns; past a year it fails', () => {
+  const warn = measureDebt([verifiedDaysAgo(200)], NOW);
+  assert.deepEqual(warn.verification_ageing, ['aged-200']);
+  assert.deepEqual(warn.verification_expired, [], 'not yet expired');
+
+  const expired = measureDebt([verifiedDaysAgo(400)], NOW);
+  assert.deepEqual(expired.verification_expired, ['aged-400']);
+  assert.deepEqual(expired.verification_ageing, [], 'expired rows are not also merely ageing');
+});
+
+test('the two ageing classes carry the severities they claim', () => {
+  assert.equal(DEBT_CLASSES.find((c) => c.key === 'verification_ageing')?.severity, 'warn');
+  assert.equal(DEBT_CLASSES.find((c) => c.key === 'verification_expired')?.severity, 'error');
+});
+
+test('a never-verified row ages into no class, because it is already counted', () => {
+  // never_verified owns that row; double-reporting it would inflate the debt.
+  const debt = measureDebt([row({ slug: 'x', last_verified_at: null })], NOW);
+  assert.deepEqual(debt.never_verified, ['x']);
+  assert.deepEqual(debt.verification_ageing, []);
+  assert.deepEqual(debt.verification_expired, []);
+});
+
+test('a temporary closure gets a shorter fuse than an open business', () => {
+  // 150 days is fine for an open row and stale for one claiming to be shut:
+  // "temporarily" is the part that expires.
+  const open = measureDebt([verifiedDaysAgo(150)], NOW);
+  assert.deepEqual(open.closure_ageing, []);
+  assert.deepEqual(open.verification_ageing, [], '150 days has not reached the open-row warning yet');
+
+  for (const status of ['seasonal', 'temporarily_closed']) {
+    const shut = measureDebt([verifiedDaysAgo(150, { status })], NOW);
+    assert.deepEqual(shut.closure_ageing, ['aged-150'], status);
+  }
+});
+
+test('an unconfirmed closure is an error, not a warning', () => {
+  assert.equal(DEBT_CLASSES.find((c) => c.key === 'closure_ageing')?.severity, 'error');
+  const never = measureDebt([row({ slug: 'shut', status: 'seasonal', last_verified_at: null })], NOW);
+  assert.deepEqual(never.closure_ageing, ['shut'], 'a closure never verified at all counts too');
+});
+
+test('a permanently closed row is still excluded from every class', () => {
+  const gone = row({ slug: 'gone', status: 'permanently_closed', last_verified_at: null });
+  assert.deepEqual(measureDebt([gone], NOW).closure_ageing, []);
+  assert.deepEqual(measureDebt([gone], NOW).never_verified, []);
+});
