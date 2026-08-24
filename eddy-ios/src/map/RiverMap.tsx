@@ -81,6 +81,7 @@ import {
   gaugeRiverSlug,
 } from '@/lib/gaugeCondition';
 import type { NetworkCollection } from '@/lib/statewideNetwork';
+import type { MilePost } from '@eddy/geo';
 import { loadMapbox, STYLE_URL } from './runtime';
 import {
   GAUGE_DETAIL_ZOOM,
@@ -742,6 +743,13 @@ interface Props {
    * missing that river.
    */
   river: MapRiver | null;
+  /**
+   * Mile posts along the selected river, computed by the screen (see
+   * riverMilePosts there — the length only the river list knows). Null when
+   * no river is selected or its length is not in hand; the source stays
+   * mounted and empties, per the teardown rule every source here follows.
+   */
+  milePosts?: MilePost[] | null;
   /** Live condition code, used only for the line colour. */
   conditionCode: string;
   /** Every curated river, condition-coloured. Drawn under the selected one. */
@@ -790,7 +798,16 @@ interface Props {
    * and hands over bounds and zoom directly, where onCameraChanged fires every
    * frame and would need throttling before it could be used at all.
    */
-  onViewportChange?: (viewport: { bounds: [number, number, number, number]; zoom: number }) => void;
+  onViewportChange?: (viewport: {
+    bounds: [number, number, number, number];
+    zoom: number;
+    /**
+     * Where the camera settled, when the event carried it. What the screen
+     * remembers for the next launch — see mapCamera.ts. Optional because it
+     * comes off a native event: a shape without it must still fetch.
+     */
+    center?: [number, number];
+  }) => void;
   /** A tapped cluster: the caller issues a one-shot closer camera command. */
   onZoomToCluster?: (point: { lng: number; lat: number }) => void;
   hazards: Hazard[];
@@ -889,6 +906,7 @@ export function RiverMap({
   cameraPaddingBottom,
   ornamentBottomInset = 0,
   river,
+  milePosts,
   conditionCode,
   network,
   onSelectRiverSlug,
@@ -1461,6 +1479,26 @@ export function RiverMap({
       features: layers.includes('publicLand') ? (publicLands ?? []) : [],
     }),
     [layers, publicLands],
+  );
+
+  /**
+   * The selected river's mile posts as features, or an empty collection.
+   *
+   * `major` marks the five-mile posts, which arrive with the other labels at
+   * ZOOM.names; the rest wait for z12, where a reader is close enough to be
+   * pacing a stretch rather than choosing a river.
+   */
+  const milePostShape = useMemo(
+    () => ({
+      type: 'FeatureCollection' as const,
+      features: (milePosts ?? []).map((post) => ({
+        type: 'Feature' as const,
+        id: `mile:${post.mile}`,
+        properties: { label: String(post.mile), major: post.mile % 5 === 0 },
+        geometry: { type: 'Point' as const, coordinates: [post.lng, post.lat] },
+      })),
+    }),
+    [milePosts],
   );
 
   /**
@@ -2301,7 +2339,17 @@ export function RiverMap({
               const ne = state?.properties?.bounds?.ne;
               const zoom = state?.properties?.zoom;
               if (!sw || !ne || typeof zoom !== 'number') return;
-              onViewportChange({ bounds: [sw[0], sw[1], ne[0], ne[1]], zoom });
+              const center = state?.properties?.center;
+              onViewportChange({
+                bounds: [sw[0], sw[1], ne[0], ne[1]],
+                zoom,
+                center:
+                  center &&
+                  Number.isFinite(center[0]) &&
+                  Number.isFinite(center[1])
+                    ? [center[0], center[1]]
+                    : undefined,
+              });
             }
           : undefined
       }
@@ -2491,6 +2539,70 @@ export function RiverMap({
           />
         </Mapbox.ShapeSource>
       ) : null}
+
+      {/* ── Mile posts ─────────────────────────────────────────────────────
+          Over the river lines, under every pin: a mile number is context for
+          the places on the water, never competition for them. No onPress —
+          a post is a coordinate with a label, not a place with a sheet. The
+          labels collide-suppress against the pin labels (no textAllowOverlap)
+          so a put-in's name always beats the number beside it. Mounted
+          unconditionally and empty when no river is selected — the teardown
+          rule every source here follows. */}
+      <Mapbox.ShapeSource id="mile-posts" shape={milePostShape}>
+        <Mapbox.CircleLayer
+          id="mile-posts-major-tick"
+          filter={['get', 'major']}
+          minZoomLevel={ZOOM.names}
+          style={{
+            circleRadius: 3,
+            circleColor: LABEL_INK,
+            circleStrokeColor: LABEL_HALO,
+            circleStrokeWidth: 1.5,
+          }}
+        />
+        <Mapbox.SymbolLayer
+          id="mile-posts-major-label"
+          filter={['get', 'major']}
+          minZoomLevel={ZOOM.names}
+          style={{
+            textField: ['get', 'label'],
+            textSize: 10,
+            textOffset: [0, 0.8],
+            textAnchor: 'top',
+            textColor: LABEL_INK,
+            textHaloColor: LABEL_HALO,
+            textHaloWidth: 1.5,
+          }}
+        />
+        {/* Every-mile posts wait for z12: a reader there is pacing a stretch
+            rather than choosing a river, and 130 numbers at river zoom would
+            be noise beside the ten that already say where you are. */}
+        <Mapbox.CircleLayer
+          id="mile-posts-minor-tick"
+          filter={['!', ['get', 'major']]}
+          minZoomLevel={12}
+          style={{
+            circleRadius: 2.5,
+            circleColor: LABEL_INK,
+            circleStrokeColor: LABEL_HALO,
+            circleStrokeWidth: 1,
+          }}
+        />
+        <Mapbox.SymbolLayer
+          id="mile-posts-minor-label"
+          filter={['!', ['get', 'major']]}
+          minZoomLevel={12}
+          style={{
+            textField: ['get', 'label'],
+            textSize: 10,
+            textOffset: [0, 0.7],
+            textAnchor: 'top',
+            textColor: LABEL_INK,
+            textHaloColor: LABEL_HALO,
+            textHaloWidth: 1.5,
+          }}
+        />
+      </Mapbox.ShapeSource>
 
       {/* The national tier goes FIRST of the pin layers, so everything Eddy has
           curated paints over it. A reference dot must never sit on top of a

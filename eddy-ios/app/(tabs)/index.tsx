@@ -72,7 +72,7 @@ import type {
 // PUBLIC_LAND_OWNERSHIP_NOTE is no longer read here: the caveat moved onto the
 // layer definition as `info` and is shown behind the row's ⓘ. See layers.ts.
 import { hasCoordinates } from '@eddy/types';
-import { boundsForLine } from '@eddy/geo';
+import { boundsForLine, milePosts } from '@eddy/geo';
 import {
   formatFloatTimeCeilingCompact,
   formatFloatTimeCompact,
@@ -151,6 +151,7 @@ import {
   isDefaultLayers,
 } from '@/components/MapLayersSheet';
 import { defaultMapLayers, readMapLayers, writeMapLayers } from '@/lib/mapPreferences';
+import { readMapCamera, writeMapCamera, type StoredMapCamera } from '@/lib/mapCamera';
 import {
   GaugeFilterBar,
   applyGaugeFilters,
@@ -517,6 +518,40 @@ export default function MapScreen() {
   // The camera, as of the last time it stopped moving. Only the national gauge
   // layer reads it — everything else on this screen loads a bounded set up front.
   const [viewport, setViewport] = useState<Viewport | null>(null);
+  /**
+   * The camera the LAST session settled on, once the read answers.
+   *
+   * Read on mount, kept as state so `initialCamera` below can prefer it. Only
+   * ever set to a non-null camera: a null answer changes nothing, and setting
+   * it after the map has latched its defaultSettings changes nothing either —
+   * that race is accepted and stated at `initialCamera`.
+   */
+  const [storedCamera, setStoredCamera] = useState<StoredMapCamera | null>(null);
+  useEffect(() => {
+    let live = true;
+    void readMapCamera().then((camera) => {
+      if (live && camera) setStoredCamera(camera);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  /**
+   * The camera settled: publish the viewport, and remember where.
+   *
+   * The write is fire-and-forget on every idle — idle fires once per settled
+   * motion, so this is a handful of tiny writes per session, and a map that
+   * draws correctly and forgets is the smaller failure (see mapCamera.ts).
+   */
+  const onViewportChange = useCallback(
+    (next: { bounds: Viewport['bounds']; zoom: number; center?: [number, number] }) => {
+      setViewport({ bounds: next.bounds, zoom: next.zoom });
+      if (next.center) {
+        void writeMapCamera({ lng: next.center[0], lat: next.center[1], zoom: next.zoom });
+      }
+    },
+    [],
+  );
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   /**
    * Whether dismissing this pin will reveal a river sheet the reader was just
@@ -967,6 +1002,26 @@ export default function MapScreen() {
   }, [network.bySlug, selectedSlug]);
 
   /**
+   * Mile posts along the selected river, or nothing.
+   *
+   * The one thing on the map that speaks the planner's language: every
+   * put-in, hazard and float is quoted in river miles, and the line they are
+   * miles ALONG never said so. Computed with the database's own formula
+   * (fraction × lengthMiles — see milePosts in @eddy/geo), so a post labelled
+   * 12 sits where a put-in at Mile 12.0 sits.
+   *
+   * `lengthMiles` comes from the river list — the one request on this screen
+   * with nothing on disk behind it — so offline the markers are simply absent,
+   * which costs a nicety and never a wrong number.
+   */
+  const riverMilePosts = useMemo(() => {
+    const coordinates = mapRiver?.geometry?.coordinates;
+    const lengthMiles = selected?.lengthMiles;
+    if (!coordinates?.length || !lengthMiles) return null;
+    return milePosts(coordinates, lengthMiles, 1);
+  }, [mapRiver, selected?.lengthMiles]);
+
+  /**
    * Every river's put-ins, with the drawn river's LIVE list laid over the top.
    *
    * The cached half comes off disk and is a monthly-ish snapshot; the live half
@@ -1104,9 +1159,20 @@ export default function MapScreen() {
 
     const attempt = () => {
       const nth = ++damsAttempts.current;
+      // Same first-paint-cost log ensureGauges keeps: these two fetches are
+      // the price the everything-on default added to a cold open, and a
+      // number in the dev console is what keeps that claim checkable.
+      const startedAt = Date.now();
       void fetchDams()
         .then((live) => {
           if (cancelled) return;
+          if (__DEV__) {
+            console.info('[map] dams loaded', {
+              durationMs: Date.now() - startedAt,
+              returned: live.length,
+              attempt: nth,
+            });
+          }
           damsLoaded.current = true;
           // Told apart in the log: an empty array from a healthy route is a
           // claim about the Corps, and it has never been true. If this line
@@ -1213,10 +1279,18 @@ export default function MapScreen() {
   useEffect(() => {
     if (!wantsServices || servicesRequested.current) return;
     servicesRequested.current = true;
+    // The other half of the first-paint cost the dams effect logs above.
+    const startedAt = Date.now();
     void fetchServices().then((rows) => {
       if (rows === null) {
         servicesRequested.current = false;
         return;
+      }
+      if (__DEV__) {
+        console.info('[map] services loaded', {
+          durationMs: Date.now() - startedAt,
+          returned: rows.length,
+        });
       }
       setServices(rows);
     });
@@ -2089,24 +2163,33 @@ export default function MapScreen() {
    * river both can see.
    */
   // ── Where the map opens ────────────────────────────────────────────────────
-  // Nothing selected, so: the user's own position if location was ALREADY
-  // granted on a previous run (useLocation resolves that without prompting),
-  // otherwise the whole network. Never a river nobody picked.
+  // The camera the last session settled on, when one is stored and fresh —
+  // "where you were" outranks "where you are", because it is a position the
+  // reader chose themselves. Then the user's own position if location was
+  // ALREADY granted on a previous run (useLocation resolves that without
+  // prompting), otherwise the whole network. Never a river nobody picked.
   //
   // This is handed to Mapbox as defaultSettings only. A later render can never
-  // replay it over a gesture or selection.
-  const initialCamera: InitialMapCamera | null = location.coords
-    ? {
-        type: 'center',
-        lng: location.coords.lng,
-        lat: location.coords.lat,
-        // Regional, not local. The question this answers is "which rivers are
-        // near me", and that is unanswerable at street zoom.
-        zoom: 8.5,
-      }
-    : network.bounds
-      ? { type: 'bounds', bounds: network.bounds }
-      : null;
+  // replay it over a gesture or selection. THE ACCEPTED RACE: the map does not
+  // mount until the statewide collection has features, and the one-key camera
+  // read usually answers well before that hydrate — but when it loses, the map
+  // opens exactly as it always has and the stored camera is NOT applied late.
+  // A fly-to over a map the reader is already looking at is the jolt the
+  // startup-location effect below refuses, for the same reason.
+  const initialCamera: InitialMapCamera | null = storedCamera
+    ? { type: 'center', lng: storedCamera.lng, lat: storedCamera.lat, zoom: storedCamera.zoom }
+    : location.coords
+      ? {
+          type: 'center',
+          lng: location.coords.lng,
+          lat: location.coords.lat,
+          // Regional, not local. The question this answers is "which rivers are
+          // near me", and that is unanswerable at street zoom.
+          zoom: 8.5,
+        }
+      : network.bounds
+        ? { type: 'bounds', bounds: network.bounds }
+        : null;
 
   /**
    * "Open near me" when the location arrives AFTER the map already opened.
@@ -2136,6 +2219,14 @@ export default function MapScreen() {
   const hasGestured = useRef(false);
   const openedWithoutLocation = useRef(false);
   const startupLocationSettled = useRef(false);
+  /**
+   * Whether the map's first mount opened on a remembered camera.
+   *
+   * Latched on the effect's first pass with the map on screen — the same
+   * commit RiverMap latched its defaultSettings in, so this records what the
+   * map actually consumed, not what later arrived. Null until then.
+   */
+  const openedOnStoredCamera = useRef<boolean | null>(null);
   const onUserGesture = useCallback(() => {
     hasGestured.current = true;
     // Also counted, for the deferred fit above — see `gestureCount`.
@@ -2148,6 +2239,17 @@ export default function MapScreen() {
     // the map is rendered under below, and effects run child-first, so RiverMap
     // has already latched its defaultSettings by the time this runs.
     if (unavailable || !network.collection.features.length) return;
+    // A map that opened on a remembered camera is already where the reader
+    // left it — the session's camera belongs to the restore, and flying to
+    // their position on top of it would be the jolt this effect exists to
+    // avoid. The locate button remains one tap away.
+    if (openedOnStoredCamera.current === null) {
+      openedOnStoredCamera.current = storedCamera !== null;
+    }
+    if (openedOnStoredCamera.current) {
+      startupLocationSettled.current = true;
+      return;
+    }
     if (!location.coords) {
       openedWithoutLocation.current = true;
       return;
@@ -2168,6 +2270,7 @@ export default function MapScreen() {
     unavailable,
     network.collection.features.length,
     location.coords,
+    storedCamera,
     selectedSlug,
     issueCameraCommand,
   ]);
@@ -2568,6 +2671,7 @@ export default function MapScreen() {
             // may not, because it is a term of the licence. See the prop.
             ornamentBottomInset={sheetOpen ? sheet.height : 0}
             river={mapRiver}
+            milePosts={riverMilePosts}
             conditionCode={conditionCode}
             network={network.collection}
             onSelectRiverSlug={onSelectNetworkRiver}
@@ -2576,7 +2680,7 @@ export default function MapScreen() {
             referenceGauges={referencePins}
             publicLands={publicLands.features}
             dams={damPins}
-            onViewportChange={setViewport}
+            onViewportChange={onViewportChange}
             onZoomToCluster={(point) =>
               issueCameraCommand({ type: 'clusterSelected', lng: point.lng, lat: point.lat })
             }
