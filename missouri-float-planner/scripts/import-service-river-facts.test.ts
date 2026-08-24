@@ -143,3 +143,39 @@ test('a range with a zero end is rejected too', () => {
   assert.equal(typeof r, 'string');
   assert.match(r as string, /a float has length/);
 });
+
+// ── The migration's pinned list must not drift from the CSV ───────────────
+// 20260824193653 encodes the nine per-river sources as SQL literals so a fresh
+// replay converges on the right values instead of whatever an earlier
+// migration left behind. That makes the CSV and the migration two copies of
+// one fact, which is the shape that drifts. This is the thing that notices.
+
+test('the pinned link sources in 20260824193653 match service-river-facts.csv', () => {
+  const migration = fs.readFileSync(
+    path.join(__dirname, '..', 'supabase', 'migrations',
+      '20260824193653_link_provenance_is_pinned_to_values_not_identities.sql'),
+    'utf-8',
+  );
+
+  const block = migration.split('INSERT INTO pinned_link_sources VALUES')[1];
+  assert.ok(block, 'the migration no longer has a pinned_link_sources INSERT');
+  const pinned = [...block.split(';')[0].matchAll(
+    /\(\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*DATE\s+'([^']+)'\s*\)/g,
+  )].map((m) => `${m[1]}|${m[2]}|${m[3]}|${m[4]}`).sort();
+
+  const csvText = fs.readFileSync(
+    path.join(__dirname, 'ingestion', 'service-river-facts.csv'), 'utf-8',
+  );
+  const matrix = parseCsv(csvText);
+  const headers = matrix[0].map((h) => h.trim());
+  const col = (row: string[], key: string) => row[headers.indexOf(key)]?.trim() ?? '';
+  const fromCsv = matrix.slice(1)
+    .filter((row) => row.some((cell) => cell.trim() !== ''))
+    .map((row) =>
+      `${col(row, 'service_slug')}|${col(row, 'river_slug')}|` +
+      `${col(row, 'verified_source')}|${col(row, 'source_checked_at')}`)
+    .sort();
+
+  assert.deepEqual(pinned, fromCsv,
+    'the migration and the CSV disagree about which page established which river link');
+});
