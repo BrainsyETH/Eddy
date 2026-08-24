@@ -29,8 +29,18 @@
 //
 // The track replaced the prose, and every input it needs was already in the
 // /api/gauges response: each gauge carries the threshold ladder per river it
-// grades. So the fan-out and all of its machinery are gone. The prose still
-// exists on the river screen, one tap away, where there is room for it.
+// grades. So the fan-out and all of its machinery are gone.
+//
+// ── The prose is back, and the count of requests did not change ─────────────
+// One LINE of it, from /api/eddy-updates — a single batched call carrying an
+// entry for every river, which the Today tab already makes and which is now
+// shared through useEddyUpdates. What was expensive was asking per river, not
+// asking at all, so nothing about the paragraph above is undone by this.
+//
+// It is the free summary, never the gated report: the card takes an EddySays,
+// whose type has no field the paid quote could arrive in. The long version is
+// still on the river screen, one tap away, where there is room for it — and
+// after this it is one tap away for everybody rather than for subscribers.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
@@ -48,6 +58,8 @@ import { DamRow } from '@/components/dam/DamRow';
 import { SwipeRow } from '@/components/SwipeRow';
 import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { useEddyUpdates } from '@/hooks/useEddyUpdates';
+import { selectEddySays } from '@/lib/eddySays';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { useRouter } from 'expo-router';
 
@@ -158,11 +170,18 @@ export default function FavoritesScreen() {
     return () => controller.abort();
   }, [load]);
 
+  // Shared with every other surface; this screen initiates like the others and
+  // pays nothing extra when the Today tab has already filled the cache.
+  const { updates: eddyUpdates, refresh: refreshEddyUpdates } = useEddyUpdates();
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await load();
+    // The prose one INVALIDATES before re-asking. Inside the shared cache's TTL
+    // a plain re-read hands back the same line without contacting the server,
+    // and a refresh control that refreshes nothing looks like an answer.
+    await Promise.all([load(), refreshEddyUpdates()]);
     setRefreshing(false);
-  }, [load]);
+  }, [load, refreshEddyUpdates]);
 
   const byId = useMemo(
     () => new Map((rivers ?? []).map((river) => [river.id, river])),
@@ -424,6 +443,7 @@ export default function FavoritesScreen() {
           thresholds={rated?.link ?? null}
           // WHICH STATION THE NUMBER CAME FROM. See the card.
           gaugeName={rated?.gauge.name ?? null}
+          says={selectEddySays(eddyUpdates?.[item.slug])}
           onPress={() => router.push(`/river/${item.slug}`)}
           onToggleStar={() => toggleStar(item)}
         />

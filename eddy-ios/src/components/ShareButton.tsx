@@ -21,6 +21,7 @@ export function ShareButton({
   title,
   path,
   label,
+  note = null,
 }: {
   /** What the recipient sees above the link. Usually the thing's own name. */
   title: string;
@@ -32,11 +33,19 @@ export function ShareButton({
   path: string;
   /** Screen-reader label, e.g. "Share Current River". */
   label: string;
+  /**
+   * One line about the thing, between the title and the link.
+   *
+   * Optional, and only the river screen passes it today — the gauge and access
+   * point screens share this component and their message is unchanged. Never
+   * the paid report; see shareLink.
+   */
+  note?: string | null;
 }) {
   const { colors } = useTheme();
   return (
     <Pressable
-      onPress={() => void shareLink(title, path)}
+      onPress={() => void shareLink(title, path, note)}
       hitSlop={12}
       accessibilityRole="button"
       accessibilityLabel={label}

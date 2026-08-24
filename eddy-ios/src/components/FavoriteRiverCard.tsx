@@ -58,6 +58,7 @@ import { KindMark } from '@/components/KindMark';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { ReadingScale } from '@/components/ReadingScale';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
+import type { EddySays } from '@/lib/eddySays';
 
 /**
  * One river's row out of a gauge's `thresholds` array.
@@ -99,6 +100,22 @@ interface Props {
    * is simply absent rather than guessed at.
    */
   gaugeName?: string | null;
+  /**
+   * Eddy's FREE line about this river, or null when there is none.
+   *
+   * ── The prose is back, and it costs ONE request now ──────────────────────
+   *
+   * This screen used to fan out /api/rivers/[slug]/outlook per starred river to
+   * put Eddy's bottom line on each card, with batching and an epoch counter to
+   * stop twenty sockets opening on one bar of LTE. That is why the prose was
+   * removed. /api/eddy-updates is a SINGLE call carrying an entry for every
+   * river, already made for the Today tab and shared through useEddyUpdates —
+   * so the reason no longer applies.
+   *
+   * It is an EddySays, not an update: the type has no field the paid quote
+   * could arrive in. See src/lib/eddySays.ts.
+   */
+  says?: EddySays | null;
   onPress: () => void;
   onToggleStar: () => void;
 }
@@ -107,6 +124,7 @@ function FavoriteRiverCardComponent({
   river,
   thresholds,
   gaugeName = null,
+  says = null,
   onPress,
   onToggleStar,
 }: Props) {
@@ -250,6 +268,21 @@ function FavoriteRiverCardComponent({
             <ReadingScale thresholds={thresholds} value={reading.value} unit={reading.unit} />
           </View>
         ) : null}
+
+        {/* ── What Eddy makes of it ──────────────────────────────────
+            LAST, under the track. The card's argument runs number, then where
+            that number sits, then the sentence about it — so the prose is read
+            as a comment on the answer above rather than as the answer. The
+            track is still what this screen is for.
+
+            One line only. A curated list of three or four rivers checked at a
+            glance is not the place for a paragraph; the full report is on the
+            river screen, which is one tap away and where there is room. */}
+        {says ? (
+          <Text style={[styles.says, { color: colors.textMuted }]} numberOfLines={2}>
+            {says.text}
+          </Text>
+        ) : null}
       </View>
     </View>
   );
@@ -267,6 +300,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   stripe: { width: 4 },
+  // Sits under the track with the same left margin as the reading block above
+  // it, so the three read as one column rather than as a caption bolted on.
+  says: { ...t.sm, fontFamily: fonts.body, lineHeight: 19, marginTop: 10, paddingRight: 9 },
   body: { flex: 1, minWidth: 0, paddingVertical: 12, paddingLeft: 13, paddingRight: 4 },
   head: { flexDirection: 'row', alignItems: 'flex-start' },
   headMain: { flex: 1, minWidth: 0, gap: 6 },

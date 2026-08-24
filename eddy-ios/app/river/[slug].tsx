@@ -118,12 +118,15 @@ import { AlertSignInSheet } from '@/components/AlertSignInSheet';
 import { gaugeConditionCode, gaugeLink, gaugesForRiver } from '@/lib/gaugeCondition';
 import { driveToUrl } from '@/lib/directions';
 import { useAccount } from '@/hooks/useAccount';
+import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { useAlertGate } from '@/hooks/useAlertGate';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useSession } from '@/hooks/useSession';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { readConditions, readIndex } from '@/lib/riverCache';
 import { useRiverData } from '@/hooks/useRiverData';
+import { selectEddySays } from '@/lib/eddySays';
+import { EddySaysDeck } from '@/components/river/EddySaysDeck';
 import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
 import { goBack } from '@/lib/nav';
 
@@ -374,6 +377,21 @@ export default function RiverDetailScreen() {
   const { colors, elevation } = useTheme();
   const { getAccessToken } = useSession();
   const { isStarred, toggleStar } = useStarredRivers();
+
+  /**
+   * Eddy's FREE line about this river, for the deck over EddyTake's read.
+   *
+   * INITIATES, unlike the map sheet's reader — this screen is reachable
+   * directly from a deep link or a push, so it cannot assume the Today tab has
+   * already filled the shared cache. One batched request covers every river and
+   * is shared with every other surface that wants a line.
+   *
+   * Selected rather than read: selectEddySays returns a shape with no field the
+   * paid quote could arrive in, which is what keeps the gated column out of a
+   * free surface by construction rather than by care. See src/lib/eddySays.ts.
+   */
+  const { updates: eddyUpdates } = useEddyUpdates();
+  const eddySays = selectEddySays(slug ? eddyUpdates?.[slug] : null);
 
   // Eddy's take is the one gated card on this screen, and it fails OPEN — see
   // the `entitled` computation below and the prop comment in EddyTake. Every
@@ -1057,7 +1075,14 @@ export default function RiverDetailScreen() {
           {/* river.path is the WEBSITE's /rivers/<state>/<slug>, served by the
               API. This screen's own route has no state segment and cannot be
               turned into a working link — see src/lib/share.ts. */}
-          <ShareButton title={river.name} path={river.path} label={`Share ${river.name}`} />
+          <ShareButton
+            title={river.name}
+            path={river.path}
+            label={`Share ${river.name}`}
+            // The FREE summary, never the gated report. Null on a river with no
+            // current update, and the message is then what it has always been.
+            note={eddySays?.text ?? null}
+          />
           <Pressable
             onPress={() => toggleStar({ kind: 'river', entityId: river.id, name: river.name, slug: river.slug })}
             hitSlop={12}
@@ -1242,16 +1267,32 @@ export default function RiverDetailScreen() {
             ratedUnit={reading?.unit ?? null}
             entitled={entitled}
             onUpgrade={() => setPaywallOpen(true)}
+            says={eddySays}
           />
         ) : outlookLoading ? (
           // A placeholder the height of a sentence, not a full-card skeleton.
           // This panel is absent on plenty of rivers, so the loading state has
           // to be quiet enough that its disappearance is not a loss.
-          <View style={[styles.card, styles.outlookLoading, { backgroundColor: colors.card }]}>
-            <ActivityIndicator size="small" color={colors.interactive} />
-            <Text style={[styles.outlookLoadingText, { color: colors.textMuted }]}>
-              {shownGaugeName ? `Reading ${shownGaugeName}…` : 'Reading the gauge…'}
-            </Text>
+          //
+          // THE DECK IS DRAWN HERE TOO, and that is the point of it being free:
+          // it comes from the batched updates, not from this river's outlook
+          // request, so Eddy's line lands while the gauge is still being read
+          // rather than waiting behind it.
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
+            {eddySays ? <EddySaysDeck says={eddySays} /> : null}
+            <View style={[styles.outlookLoading, eddySays ? styles.outlookLoadingUnderDeck : null]}>
+              <ActivityIndicator size="small" color={colors.interactive} />
+              <Text style={[styles.outlookLoadingText, { color: colors.textMuted }]}>
+                {shownGaugeName ? `Reading ${shownGaugeName}…` : 'Reading the gauge…'}
+              </Text>
+            </View>
+          </View>
+        ) : eddySays ? (
+          // No outlook at all — no gauge, or every upstream source failed. The
+          // paid take is rightly absent, but Eddy's free line is not about the
+          // outlook and should not disappear with it.
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
+            <EddySaysDeck says={eddySays} />
           </View>
         ) : null}
 
@@ -1806,6 +1847,9 @@ const styles = StyleSheet.create({
   },
   caveatText: { ...t.xs, fontFamily: fonts.body, flex: 1 },
   outlookLoading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // Only when the deck is above it, so the spinner row keeps its own spacing
+  // on the rivers that have no free line to head it with.
+  outlookLoadingUnderDeck: { marginTop: 12 },
   outlookLoadingText: { ...t.sm, fontFamily: fonts.body, flex: 1 },
   notifyButton: {
     flexDirection: 'row',
