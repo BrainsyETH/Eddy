@@ -61,10 +61,15 @@
   --color-support-100: #DCF4E2;
   --color-support-50: #EDFAF1;
 
-  /* Flowing condition — trail-green surface triplet */
-  --cond-flowing-solid: var(--color-support-500);
-  --cond-flowing-bg: var(--color-support-100);
-  --cond-flowing-ink: var(--color-support-900);
+  /* Flowing condition — the canonical Eddy green from CONDITION_SYSTEM
+     (shared/condition-system.ts), NOT Trail Green: --color-support-500 is the
+     brand's trail/support family, and pointing the flowing condition at it had
+     one surface wearing #4EB86B while every chart and chip drew #10b981 for
+     the same verdict. Values transcribed from CONDITION_SYSTEM.flowing
+     (solid / bg-at-full-opacity / ink); change them there first. */
+  --cond-flowing-solid: #10b981;
+  --cond-flowing-bg: #d1fae5; /* emerald-100 — the light surface for bg rgba(16,185,129,.15) */
+  --cond-flowing-ink: #065f46;
 
   /* Neutrals — Warm stone tones */
   --color-neutral-950: #1A1814;

@@ -56,6 +56,19 @@ export interface OutlookWeatherDay {
   condition: string;
   conditionIcon: string;
   precipitation: number;
+  /**
+   * Daily average wind, mph (OpenWeather is queried in imperial units).
+   *
+   * These two were already ON THE WIRE — the outlook route passes ForecastDay
+   * objects through structurally, and JSON.stringify does not consult a
+   * TypeScript interface — but undeclared, so no client could read them
+   * honestly. Declared now because the phone's Outdoor Conditions section
+   * needs wind and has no weather fetch of its own (see the eddy-types
+   * mirror). Null when the weather source did not report it.
+   */
+  windSpeed: number | null;
+  /** Daily average relative humidity, percent. Same provenance as windSpeed. */
+  humidity: number | null;
 }
 
 export interface RiverOutlookDay {

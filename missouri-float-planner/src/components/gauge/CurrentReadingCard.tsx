@@ -29,6 +29,12 @@ interface CurrentReadingCardProps {
   thresholdUnit: 'ft' | 'cfs';
   conditionCode?: ConditionCode;
   waterTempF?: number | null;
+  /**
+   * Age of the water-temperature measurement, hours. Water temperature stays
+   * visible however old it is — it moves slowly — but never without its age:
+   * an undated number under a live reading borrows the reading's freshness.
+   */
+  waterTempAgeHours?: number | null;
   readingAgeHours?: number | null;
   /** Condition ladder in `thresholdUnit`. Omit to render the card without a track. */
   zones?: Zone[];
@@ -43,6 +49,7 @@ export default function CurrentReadingCard({
   thresholdUnit,
   conditionCode,
   waterTempF,
+  waterTempAgeHours,
   readingAgeHours,
   zones,
   className = '',
@@ -209,7 +216,7 @@ export default function CurrentReadingCard({
         </div>
       )}
 
-      {/* Water temperature (when available) */}
+      {/* Water temperature (when available) — always with its measurement age */}
       {waterTempF != null && (
         <div className="px-4 py-2.5 border-t border-white/10">
           <span className="font-sans text-[11px] font-semibold uppercase tracking-wider text-primary-100">
@@ -218,6 +225,11 @@ export default function CurrentReadingCard({
           <span className="ml-2 font-mono text-lg font-bold tabular-nums text-white">
             {waterTempF}°F
           </span>
+          {waterTempAgeHours != null && (
+            <span className="ml-2 text-[10px] text-primary-100">
+              measured {formatAgeFromHours(waterTempAgeHours)}
+            </span>
+          )}
         </div>
       )}
 

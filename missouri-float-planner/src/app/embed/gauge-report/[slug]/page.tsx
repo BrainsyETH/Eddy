@@ -10,6 +10,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 import EmbedFooter from '@/components/embed/EmbedFooter';
+import EmbedTrendChart from '@/components/embed/EmbedTrendChart';
 import { useEmbedBranding } from '@/components/embed/useEmbedBranding';
 
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
@@ -52,6 +53,7 @@ interface ChartThresholds {
   levelOptimalMax: number | null;
   levelHigh: number | null;
   levelDangerous: number | null;
+  unit?: 'ft' | 'cfs' | null;
 }
 
 interface GaugeThreshold {
@@ -87,7 +89,10 @@ export default function EmbedGaugeReportPage() {
   const isDark = theme === 'dark';
   const { branding } = useEmbedBranding();
 
-  const days = parseInt(searchParams.get('days') || '', 10) || DEFAULT_DAYS;
+  // Clamped like the server clamps it — this is user input off the URL, and
+  // an unclamped value only mislabelled the range the server actually served.
+  const rawDays = parseInt(searchParams.get('days') || '', 10) || DEFAULT_DAYS;
+  const days = Math.min(Math.max(rawDays, 1), 30);
   const [river, setRiver] = useState<RiverBasic | null>(null);
   const [update, setUpdate] = useState<EddyUpdate | null>(null);
   const [history, setHistory] = useState<GaugeHistoryResponse | null>(null);
@@ -145,6 +150,7 @@ export default function EmbedGaugeReportPage() {
                 levelOptimalMax: primary.levelOptimalMax ?? null,
                 levelHigh: primary.levelHigh ?? null,
                 levelDangerous: primary.levelDangerous ?? null,
+                unit: primary.thresholdUnit === 'cfs' ? 'cfs' : 'ft',
               });
               fallbackGauge = null;
               break;
@@ -285,7 +291,10 @@ export default function EmbedGaugeReportPage() {
         </div>
       )}
 
-      {/* Chart */}
+      {/* Chart — the same shared-model renderer the widget embeds; this page
+          used to carry its own inline SVG, index-spaced and gap-blind, which
+          Release 4 of the gauge redesign retired. Compact on purpose: no
+          summary, no scrubber, no expanded controls in an embed. */}
       {(() => {
         const readings = history?.readings || [];
         const useCfs = chartUnit === 'cfs';
@@ -301,111 +310,12 @@ export default function EmbedGaugeReportPage() {
           );
         }
 
-        const W = 540;
-        const H = 160;
-        const PAD_L = 40;
-        const PAD_R = 8;
-        const PAD_T = 6;
-        const PAD_B = 18;
-        const chartW = W - PAD_L - PAD_R;
-        const chartH = H - PAD_T - PAD_B;
-
-        const values = chartReadings.map(r => r.value);
-        const minVal = Math.min(...values);
-        const maxVal = Math.max(...values);
-        const range = maxVal - minVal || 1;
-        const padded_min = minVal - range * 0.05;
-        const padded_max = maxVal + range * 0.05;
-        const padded_range = padded_max - padded_min;
-
-        const toX = (i: number) => PAD_L + (i / (chartReadings.length - 1)) * chartW;
-        const toY = (v: number) => PAD_T + (1 - (v - padded_min) / padded_range) * chartH;
-
-        const pathPoints = chartReadings.map((r, i) => `${toX(i).toFixed(1)},${toY(r.value).toFixed(1)}`);
-        const linePath = `M${pathPoints.join('L')}`;
-        const areaPath = `${linePath}L${toX(chartReadings.length - 1).toFixed(1)},${(PAD_T + chartH).toFixed(1)}L${PAD_L.toFixed(1)},${(PAD_T + chartH).toFixed(1)}Z`;
-
-        // Threshold lines
-        const thresholdLines: { y: number; color: string; label: string }[] = [];
-        if (chartThresholds) {
-          const t = chartThresholds;
-          if (t.levelOptimalMin !== null && t.levelOptimalMin >= padded_min && t.levelOptimalMin <= padded_max) {
-            thresholdLines.push({ y: toY(t.levelOptimalMin), color: '#059669', label: 'Flowing' });
-          }
-          if (t.levelOptimalMax !== null && t.levelOptimalMax >= padded_min && t.levelOptimalMax <= padded_max) {
-            thresholdLines.push({ y: toY(t.levelOptimalMax), color: '#059669', label: 'Flowing' });
-          }
-          if (t.levelHigh !== null && t.levelHigh >= padded_min && t.levelHigh <= padded_max) {
-            thresholdLines.push({ y: toY(t.levelHigh), color: '#f97316', label: 'High' });
-          }
-          if (t.levelDangerous !== null && t.levelDangerous >= padded_min && t.levelDangerous <= padded_max) {
-            thresholdLines.push({ y: toY(t.levelDangerous), color: '#ef4444', label: 'Flood' });
-          }
-        }
-
-        // Date labels (first, middle, last)
-        const formatDate = (ts: string) => {
-          const d = new Date(ts);
-          return `${d.getMonth() + 1}/${d.getDate()}`;
-        };
-        const midIdx = Math.floor(chartReadings.length / 2);
-        const dateLabels = [
-          { x: PAD_L, label: formatDate(chartReadings[0].timestamp) },
-          { x: toX(midIdx), label: formatDate(chartReadings[midIdx].timestamp) },
-          { x: W - PAD_R, label: formatDate(chartReadings[chartReadings.length - 1].timestamp) },
-        ];
-
-        // Y-axis labels
-        const yLabels = [
-          { y: PAD_T, label: useCfs ? Math.round(padded_max).toLocaleString() : padded_max.toFixed(1) },
-          { y: PAD_T + chartH, label: useCfs ? Math.round(padded_min).toLocaleString() : padded_min.toFixed(1) },
-        ];
-
         return (
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {days}-Day Trend ({chartUnit})
-              </div>
-            </div>
-            <div style={{ background: cardBg, borderRadius: 8, border: `1px solid ${borderColor}`, padding: '6px 4px 2px', overflow: 'hidden' }}>
-              <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="auto" style={{ display: 'block' }}>
-                {/* Area fill */}
-                <defs>
-                  <linearGradient id="grAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={palette.link} stopOpacity="0.2" />
-                    <stop offset="100%" stopColor={palette.link} stopOpacity="0.02" />
-                  </linearGradient>
-                </defs>
-                <path d={areaPath} fill="url(#grAreaGrad)" />
-
-                {/* Threshold lines */}
-                {thresholdLines.map((t, i) => (
-                  <line key={i} x1={PAD_L} y1={t.y} x2={W - PAD_R} y2={t.y} stroke={t.color} strokeWidth="0.7" strokeDasharray="3,2" opacity="0.6" />
-                ))}
-
-                {/* Data line */}
-                <path d={linePath} fill="none" stroke={palette.link} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-
-                {/* Current value dot */}
-                <circle cx={toX(chartReadings.length - 1)} cy={toY(chartReadings[chartReadings.length - 1].value)} r="3" fill={palette.link} stroke={isDark ? palette.cardBg : '#fff'} strokeWidth="1.5" />
-
-                {/* Y-axis labels */}
-                {yLabels.map((yl, i) => (
-                  <text key={i} x={PAD_L - 4} y={yl.y + (i === 0 ? 8 : -2)} fill={isDark ? '#666' : '#aaa'} fontSize="8" textAnchor="end" fontFamily="ui-monospace, monospace">
-                    {yl.label}
-                  </text>
-                ))}
-
-                {/* Date labels */}
-                {dateLabels.map((dl, i) => (
-                  <text key={i} x={dl.x} y={H - 2} fill={isDark ? '#666' : '#aaa'} fontSize="8" textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'} fontFamily="system-ui, sans-serif">
-                    {dl.label}
-                  </text>
-                ))}
-              </svg>
-            </div>
-          </div>
+          <EmbedTrendChart
+            data={{ readings: chartReadings, unit: chartUnit, thresholds: chartThresholds }}
+            palette={palette}
+            periodLabel={`${days}-day`}
+          />
         );
       })()}
 

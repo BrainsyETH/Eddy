@@ -1282,10 +1282,48 @@ export default function RiverDetailScreen() {
             everything below this point interprets it. */}
         <RiverReaches reaches={reaches} highlightSlug={section} damName={dam?.name ?? null} />
 
-        {/* ── What it means. Directly under the status card, because the card
-               above says what the river IS and this says what to do about it.
-               Hidden entirely when the river has no gauge or every upstream
-               source failed — an empty interpretation is worse than none. ── */}
+        {/* ── How it got to that number ──────────────────────────
+            THIRD, directly under the status card and the reaches — above the
+            take and the photos. This order is the redesign's deliberate
+            reversal of the one this comment used to defend ("the card says
+            what the river IS … and this says how it got there", with the
+            chart closing the column): the hydrograph now carries the NWS
+            flood stages and the official forecast, which are safety context,
+            and safety context reads before interpretation, not after the
+            photo gallery.
+
+            Follows the PICKER, like everything else on this screen since the
+            outlook started to — a chart of Van Buren under a Montauk reading is
+            the exact mismatch that effect was written to end. The unit and the
+            bands come from the SAME link the reading and the scale use, so the
+            three cannot disagree; GaugeChart drops the shading itself if that
+            ladder is in a unit it is not drawing.
+
+            Absent when the river has no gauge at all. There is nothing to plot
+            and nothing to apologise for. */}
+        {shownSiteId ? (
+          <GaugeChart
+            siteId={shownSiteId}
+            unit={reading?.unit ?? scaleThresholds?.thresholdUnit ?? 'cfs'}
+            thresholds={scaleThresholds}
+            // Only when the chart is showing the station the condition was
+            // computed from: /api/conditions resolves stages for ITS source
+            // gauge, and pinning those to a picked sibling would flood-line
+            // one station with another's thresholds. A picked gauge simply
+            // has none here (MapGauge carries no stages) — same as the gauge
+            // screen before /api/gauges/[siteId] is consulted.
+            floodStages={
+              shownSiteId === condition?.gaugeUsgsId ? condition?.floodStages ?? null : null
+            }
+            title="Recent history"
+          />
+        ) : null}
+
+        {/* ── What it means. Under the hydrograph: the card says what the
+               river IS, the chart says how it got there and what the NWS
+               expects, and this says what to do about it. Hidden entirely when
+               the river has no gauge or every upstream source failed — an
+               empty interpretation is worse than none. ── */}
         {outlook ? (
           <EddyTake
             outlook={outlook}
@@ -1343,31 +1381,6 @@ export default function RiverDetailScreen() {
               setReportedPhoto(visual);
               setFeedbackOpen(true);
             }}
-          />
-        ) : null}
-
-        {/* ── How it got to that number ──────────────────────────
-            BELOW the photos, and that order is the argument the whole column
-            makes: the card says what the river IS, the take says what to do
-            about it, the photos say what that looks like, and this says how it
-            got there. A hydrograph above any of them is a shape with nothing
-            to interpret it.
-
-            Follows the PICKER, like everything else on this screen since the
-            outlook started to — a chart of Van Buren under a Montauk reading is
-            the exact mismatch that effect was written to end. The unit and the
-            bands come from the SAME link the reading and the scale use, so the
-            three cannot disagree; GaugeChart drops the shading itself if that
-            ladder is in a unit it is not drawing.
-
-            Absent when the river has no gauge at all. There is nothing to plot
-            and nothing to apologise for. */}
-        {shownSiteId ? (
-          <GaugeChart
-            siteId={shownSiteId}
-            unit={reading?.unit ?? scaleThresholds?.thresholdUnit ?? 'cfs'}
-            thresholds={scaleThresholds}
-            title="Recent history"
           />
         ) : null}
 

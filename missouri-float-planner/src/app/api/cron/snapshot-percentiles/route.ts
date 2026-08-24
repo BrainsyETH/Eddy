@@ -13,14 +13,25 @@
 //
 // Sites with too short a record simply have no published statistics — that is
 // normal and counted separately from real failures.
+//
+// ONE PARAMETER PER RUN. `?parameter=00060` (default) or `?parameter=00065`
+// selects which ladder a pass refreshes. Separate staggered schedules rather
+// than one pass over both, and that is required, not stylistic: a single pass
+// cannot finish even one parameter inside maxDuration (see the ordering note
+// below), so interleaving two would halve the coverage of each. Stage rows
+// land in the table but feed no user-facing band until the publication policy
+// in percentile-snapshot.ts says otherwise.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
-import { snapshotSite } from '@/lib/usgs/percentile-snapshot';
+import {
+  PARAM_DISCHARGE,
+  assertSnapshotParameter,
+  snapshotSite,
+} from '@/lib/usgs/percentile-snapshot';
 
 export const dynamic = 'force-dynamic';
-// ~250 curated sites at 400ms apart plus request time; Pro allows 300s.
 export const maxDuration = 300;
 
 const DELAY_MS = 400;
@@ -34,6 +45,15 @@ async function run(request: NextRequest) {
   }
   if (!hasValidMachineBearer(request.headers.get('authorization'), cronSecret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  let parameterCode;
+  try {
+    parameterCode = assertSnapshotParameter(
+      request.nextUrl.searchParams.get('parameter') ?? PARAM_DISCHARGE
+    );
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 400 });
   }
 
   const supabase = createAdminClient();
@@ -71,7 +91,7 @@ async function run(request: NextRequest) {
 
   for (const [index, siteId] of siteIds.entries()) {
     try {
-      const written = await snapshotSite(supabase, siteId);
+      const written = await snapshotSite(supabase, siteId, parameterCode);
       if (written) snapshotted++;
       else withoutStatistics++;
     } catch (err) {
@@ -91,12 +111,13 @@ async function run(request: NextRequest) {
 
   const durationMs = Date.now() - startedAt;
   console.log(
-    `[SnapshotPercentiles] ${snapshotted} snapshotted, ${withoutStatistics} without statistics, ` +
+    `[SnapshotPercentiles] [${parameterCode}] ${snapshotted} snapshotted, ${withoutStatistics} without statistics, ` +
     `${failed} failed of ${siteIds.length} site(s) (${durationMs}ms)`
   );
 
   return NextResponse.json({
     ok: true,
+    parameter: parameterCode,
     sites: siteIds.length,
     snapshotted,
     withoutStatistics,

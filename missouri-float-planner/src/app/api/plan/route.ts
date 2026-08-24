@@ -778,6 +778,10 @@ async function _GET(request: NextRequest) {
         accuracyWarningReason: condition?.accuracy_warning_reason,
         gaugeName: condition?.gauge_name,
         gaugeUsgsId: condition?.gauge_usgs_id,
+        // The plan summary quotes a condition; it draws no hydrograph, so the
+        // stages are not resolved here. Null means "not carried on this
+        // payload", and the type's doc says so.
+        floodStages: null,
         flowRating,
         flowDescription,
         percentile,

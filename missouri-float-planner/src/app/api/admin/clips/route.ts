@@ -58,6 +58,14 @@ function derivePostState(posts: ResolvedPost[]): {
   return { post_state, posts, last_posted_at, posted_platforms };
 }
 
+// Clamp a numeric query param, falling back when it is absent or unparseable.
+// Without this a `?offset=abc` reaches .range() as NaN and PostgREST 500s.
+function intParam(raw: string | null, fallback: number, min: number, max: number): number {
+  const n = Number.parseInt(raw ?? '', 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(Math.max(n, min), max);
+}
+
 export async function GET(request: NextRequest) {
   const authError = requireAdminAuth(request);
   if (authError) return authError;
@@ -66,8 +74,8 @@ export async function GET(request: NextRequest) {
   const riverSlug = searchParams.get('river_slug');
   const brandStatus = searchParams.get('brand_status');
   const contentType = searchParams.get('content_type');
-  const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
-  const offset = parseInt(searchParams.get('offset') || '0', 10);
+  const limit = intParam(searchParams.get('limit'), 50, 1, 100);
+  const offset = intParam(searchParams.get('offset'), 0, 0, Number.MAX_SAFE_INTEGER);
 
   const supabase = createAdminClient();
 

@@ -14,6 +14,7 @@ import { conditionChip } from '@shared/condition-system';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import { useGaugeStations } from '@/hooks/useGaugeStations';
+import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import type { ConditionCode } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
@@ -26,14 +27,27 @@ import SiteFooter from '@/components/ui/SiteFooter';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import { pickPrimaryRiverLink } from '@shared/primary-river-link';
+import { stationTier } from '@shared/station-tier';
+import GaugeSummary from '@/components/gauge/GaugeSummary';
+import ExpandedGaugeChart from '@/components/gauge/ExpandedGaugeChart';
+import { ageHoursOf } from '@/lib/utils/reading-age';
+import {
+  rangeLabelForDays,
+  trackGaugeContextChanged,
+  trackGaugeExpandedOpened,
+  trackGaugeRangeChanged,
+  trackGaugeSourceOpened,
+} from '@/lib/gauge/analytics';
 
 interface GaugeDetailViewProps {
   siteId: string;
 }
 
 export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
-  const [dateRange, setDateRange] = useState(14);
+  // Seven days, and not restored from another gauge's prior selection.
+  const [dateRange, setDateRange] = useState(7);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
+  const [expandedOpen, setExpandedOpen] = useState(false);
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
 
   // Eddy AI update
@@ -46,12 +60,24 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   const { data: allGauges, isLoading: loading } = useGaugeStations();
   const gauge = allGauges?.find((g) => g.usgsSiteId === siteId) ?? null;
 
+  // Station-level facts the list payload does not carry — today that means
+  // the NWS flood stages the chart draws.
+  const { data: gaugeDetail } = useGaugeDetail(siteId);
+
   // Deterministic rather than find(isPrimary): 07014000 is legitimately primary
   // for both Huzzah and Courtois, and `find` returned whichever row the query
   // happened to order first. See shared/primary-river-link.ts.
   const primaryRiver = pickPrimaryRiverLink(gauge?.thresholds) ?? undefined;
   const riverSlug = primaryRiver?.riverSlug || null;
   const primaryUnit = primaryRiver?.thresholdUnit || 'ft';
+
+  // Three states, not two: 'unknown' while neither payload has answered means
+  // the summary renders a shape, not a sentence — neither "Floatable" nor
+  // "not rated" is a claim the screen has earned yet (shared/station-tier.ts).
+  const tier = stationTier({
+    thresholds: gauge?.thresholds ?? gaugeDetail?.thresholds,
+    curated: gaugeDetail ? gaugeDetail.curated : null,
+  });
 
   // Initialize displayUnit from threshold
   useEffect(() => {
@@ -67,7 +93,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   const handleUnitToggle = useCallback((unit: 'ft' | 'cfs') => {
     setDisplayUnit(unit);
     localStorage.setItem(`gauge-unit-${siteId}`, unit);
-  }, [siteId]);
+    trackGaugeContextChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, unit);
+  }, [siteId, gaugeDetail?.provider, tier]);
 
   const effectiveUnit = displayUnit || primaryUnit;
   const showingAlt = effectiveUnit !== primaryUnit;
@@ -144,7 +171,9 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
     } catch { /* clipboard failed */ }
   };
 
-  // Build chart thresholds based on selected unit
+  // Build chart thresholds based on selected unit. `unit` declares which one
+  // the levels are in, so the chart can refuse a mismatch instead of trusting
+  // this file forever got the swap right.
   const chartThresholds = (() => {
     if (!primaryRiver) return null;
     if (showingAlt) {
@@ -155,6 +184,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
         levelOptimalMax: primaryRiver.altLevelOptimalMax,
         levelHigh: primaryRiver.altLevelHigh,
         levelDangerous: primaryRiver.altLevelDangerous,
+        unit: effectiveUnit,
       };
     }
     return {
@@ -164,6 +194,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
       levelOptimalMax: primaryRiver.levelOptimalMax,
       levelHigh: primaryRiver.levelHigh,
       levelDangerous: primaryRiver.levelDangerous,
+      unit: effectiveUnit,
     };
   })();
 
@@ -276,17 +307,18 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
           All River Reports
         </Link>
 
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <ConditionBadge code={condition.code} label={condition.label} size="md" />
-            {primaryRiver && (
+        {/* Header — station identity, attribution, age, actions. The condition
+            itself lives in the summary's "Right now" line below: one verdict,
+            in one place, not a badge here arguing with a chip there. */}
+        <div className="mb-6">
+          {primaryRiver && (
+            <div className="flex items-center gap-3 mb-2">
               <span className="flex items-center gap-1 text-sm text-neutral-500">
                 <MapPin className="w-3.5 h-3.5" />
                 {primaryRiver.riverName}
               </span>
-            )}
-          </div>
+            </div>
+          )}
 
           <h1 className="text-3xl md:text-4xl font-bold text-neutral-900 mb-1" style={{ fontFamily: 'var(--font-display)' }}>
             {gauge.name}
@@ -303,6 +335,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               href={`https://waterdata.usgs.gov/monitoring-location/${gauge.usgsSiteId}/`}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackGaugeSourceOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier })}
               className="text-primary-600 hover:text-primary-700 font-mono flex items-center gap-1"
             >
               USGS {gauge.usgsSiteId}
@@ -331,13 +364,32 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
           </div>
         </div>
 
+        {/* The three questions, before any chart: what is the river doing,
+            is there an official safety concern, what is expected next. */}
+        <GaugeSummary
+          className="mb-6"
+          siteId={gauge.usgsSiteId}
+          days={dateRange}
+          tier={tier}
+          provider={gaugeDetail?.provider ?? 'usgs'}
+          gaugeHeightFt={gauge.gaugeHeightFt}
+          dischargeCfs={gauge.dischargeCfs}
+          primaryUnit={primaryUnit}
+          readingAgeHours={gauge.readingAgeHours}
+          readingSuspect={gaugeDetail?.readingSuspect ?? false}
+          qualifierNote={gaugeDetail?.qualifierNote ?? null}
+          conditionCode={condition.code}
+          flowPercentile={gaugeDetail?.flowPercentile ?? null}
+          floodStages={gaugeDetail?.floodStages ?? null}
+        />
+
         {/* Chart + Reading Row */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 mb-8">
           {/* Chart */}
           <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
             <div className="flex items-center justify-between px-5 pt-4 pb-0">
               <h2 className="text-base font-bold text-neutral-900">
-                {dateRange}-Day {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
+                {dateRange === 1 ? '24-Hour' : `${dateRange}-Day`} {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
               </h2>
               <div className="flex gap-2">
                 {/* Unit toggle — show when gauge reports both ft and cfs */}
@@ -369,12 +421,16 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                     </button>
                   </div>
                 )}
-                {/* Date range toggle */}
+                {/* Date range toggle — 24h / 7d / 30d inline; longer ranges
+                    belong to the expanded mode (ADR 0010), not more buttons. */}
                 <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-                  {[{ days: 7, label: '7D' }, { days: 14, label: '14D' }, { days: 30, label: '30D' }].map((opt) => (
+                  {[{ days: 1, label: '24H' }, { days: 7, label: '7D' }, { days: 30, label: '30D' }].map((opt) => (
                     <button
                       key={opt.days}
-                      onClick={() => setDateRange(opt.days)}
+                      onClick={() => {
+                        setDateRange(opt.days);
+                        trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(opt.days));
+                      }}
                       aria-pressed={dateRange === opt.days}
                       className={`px-3 py-1 text-xs font-semibold transition-colors ${
                         dateRange === opt.days
@@ -386,19 +442,44 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                     </button>
                   ))}
                 </div>
+                <button
+                  onClick={() => {
+                    setExpandedOpen(true);
+                    trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier });
+                  }}
+                  className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
+                >
+                  Expand
+                </button>
               </div>
             </div>
             <FlowTrendChart
               gaugeSiteId={gauge.usgsSiteId}
               days={dateRange}
               thresholds={chartThresholds}
+              floodStages={gaugeDetail?.floodStages ?? null}
               latestValue={latestValue}
               displayUnit={effectiveUnit}
               chartClassName="h-48 md:h-56"
-              showTypical
+              // One context at a time: a rated river's chart speaks the ladder,
+              // a reference station's speaks the day-of-year typical band.
+              // Observed data and the official forecast stay visible in both.
+              showTypical={tier !== 'rated'}
               showProvenance
             />
           </div>
+
+          <ExpandedGaugeChart
+            open={expandedOpen}
+            onClose={() => setExpandedOpen(false)}
+            siteId={gauge.usgsSiteId}
+            siteName={gauge.name}
+            thresholds={chartThresholds}
+            floodStages={gaugeDetail?.floodStages ?? null}
+            displayUnit={effectiveUnit}
+            showTypical={tier !== 'rated'}
+            capabilities={gaugeDetail?.historyCapabilities ?? null}
+          />
 
           {/* Right column: Current Reading + Weather */}
           <div className="flex flex-col gap-4">
@@ -408,6 +489,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               dischargeCfs={gauge.dischargeCfs}
               thresholdUnit={primaryRiver?.thresholdUnit || 'ft'}
               conditionCode={condition.code}
+              waterTempF={gaugeDetail?.waterTemperature?.valueF ?? null}
+              waterTempAgeHours={ageHoursOf(gaugeDetail?.waterTemperature?.observedAt)}
               readingAgeHours={gauge.readingAgeHours}
               zones={ladderZones}
             />

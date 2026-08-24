@@ -44,6 +44,7 @@ function seed(over: Partial<GaugeSeed>): GaugeSeed {
     flowPercentile: null,
     thresholds: null,
     floodStages: null,
+    waterTemperature: null,
     ...over,
   };
 }

@@ -12,6 +12,7 @@ import {
   classifyQualifiers,
 } from '@/lib/usgs/gauges';
 import { computeCondition, mapConditionCode, type ConditionThresholds } from '@/lib/conditions';
+import { resolveFloodStages } from '@/lib/gauges/flood-stages';
 import {
   conditionCodeToFlowRating,
   getThresholdBasedDescription,
@@ -92,7 +93,7 @@ async function _GET(
     // Kick off linked gauges query immediately (resolves while we process access point)
     const linkedGaugesPromise = supabase
       .from('river_gauges')
-      .select('id, is_primary, gauge_station_id, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, threshold_unit, gauge_stations(id, name, usgs_site_id)')
+      .select('id, is_primary, gauge_station_id, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, threshold_unit, flood_stage_ft, action_stage_ft, gauge_stations(id, name, usgs_site_id, nws_lid, nwps_action_stage_ft, nwps_flood_stage_ft, nwps_moderate_stage_ft, nwps_major_stage_ft)')
       .eq('river_id', riverId);
 
     // Get put-in coordinates if access point ID provided
@@ -176,10 +177,19 @@ async function _GET(
     // Build gauge summaries from pre-fetched data (synchronous — no more N+1 queries)
     const usgsReadingMap = new Map(usgsReadings.map((reading) => [reading.siteId, reading]));
 
+    // NWS stages per station, resolved by the same precedence /api/gauges/
+    // [siteId] applies (station nwps_* columns win, this river's curated
+    // pairing is the fallback) — see src/lib/gauges/flood-stages.ts.
+    const floodStagesByStationId = new Map<string, ReturnType<typeof resolveFloodStages>>();
+
     const gaugeSummaries: ConditionGauge[] = (linkedGauges || []).map((gauge, index) => {
       const gaugeStation = Array.isArray(gauge.gauge_stations)
         ? gauge.gauge_stations[0]
         : gauge.gauge_stations;
+      floodStagesByStationId.set(
+        gauge.gauge_station_id,
+        resolveFloodStages(gaugeStation, gauge),
+      );
       const usgsReading = gaugeStation?.usgs_site_id
         ? usgsReadingMap.get(gaugeStation.usgs_site_id)
         : undefined;
@@ -393,6 +403,9 @@ async function _GET(
               : stale ? `Reading is ${Math.round(readingAgeHours!)} hours old` : null,
             gaugeName: selectedGaugeName || condition.gauge_name,
             gaugeUsgsId: usgsSiteId,
+            // Filled in at the convergence spread below, where the source
+            // gauge is known.
+            floodStages: null,
           };
         } else {
           diagnostic = 'No live USGS data available for this gauge.';
@@ -407,6 +420,7 @@ async function _GET(
             accuracyWarningReason: condition.accuracy_warning_reason,
             gaugeName: condition.gauge_name,
             gaugeUsgsId: condition.gauge_usgs_id,
+            floodStages: null,
           };
         }
       } else {
@@ -422,6 +436,7 @@ async function _GET(
           accuracyWarningReason: condition.accuracy_warning_reason,
           gaugeName: condition.gauge_name,
           gaugeUsgsId: condition.gauge_usgs_id,
+          floodStages: null,
         };
       }
     } else {
@@ -437,6 +452,7 @@ async function _GET(
         accuracyWarningReason: condition.accuracy_warning_reason,
         gaugeName: condition.gauge_name,
         gaugeUsgsId: condition.gauge_usgs_id,
+        floodStages: null,
       };
     }
 
@@ -496,6 +512,10 @@ async function _GET(
       // ?? undefined, not ?? null: the field is optional, and JSON.stringify
       // drops an undefined key entirely rather than sending "thresholds": null.
       thresholds: sourceGauge?.thresholds ?? undefined,
+      // The stages belong to the same gauge the condition came from — banding
+      // a reading against one station and flood-lining it against another
+      // would be two different rivers on one screen.
+      floodStages: (sourceGauge && floodStagesByStationId.get(sourceGauge.id)) ?? null,
       usgsUrl: finalCondition.gaugeUsgsId
         ? `https://waterdata.usgs.gov/monitoring-location/${finalCondition.gaugeUsgsId}/`
         : null,

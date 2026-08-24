@@ -58,11 +58,11 @@ import {
 } from '@/theme/conditions';
 import { flowBandChip, flowBandLabel, flowBandSentence } from '@/theme/flow';
 import {
-  FLOOD_STAGE_SYSTEM,
   floodStageColor,
   formatStage,
-  highestStagePassed,
 } from '@/theme/floodStage';
+import { safetySummarySentence, summarizeSafety } from '@eddy/conditions/safety-summary';
+import { isReadingStale } from '@eddy/conditions/reading-staleness';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
@@ -136,6 +136,15 @@ function displayUnit(gauge: GaugeSeed, link: GaugeDetailThreshold | null): 'ft' 
  * of src/theme/floodStage.ts for why relaying somebody else's threshold is the
  * one safety-adjacent thing an unrated gauge is allowed to carry.
  */
+/** "measured 3 hours ago", or null when the timestamp does not parse. */
+function waterTempAge(observedAt: string): string | null {
+  const t = new Date(observedAt).getTime();
+  if (!Number.isFinite(t)) return null;
+  const hours = Math.max(0, (Date.now() - t) / 3_600_000);
+  const label = readingAge(hours);
+  return label ? label.replace('Updated', 'measured') : null;
+}
+
 function stageSummary(stages: GaugeFloodStages): string {
   return (
     [
@@ -366,20 +375,27 @@ export default function GaugeDetailScreen() {
   const bandChip = flowBandChip(band, colors);
 
   const stages = gauge.floodStages;
-  // FEET AGAINST FEET, always. highestStagePassed takes a bare number and cannot
-  // check the unit itself, so the guard lives here: gaugeHeightFt is the only
-  // value these thresholds may be compared against.
-  const stagePassed = stages
-    ? highestStagePassed(
-        {
+  // FEET AGAINST FEET, always — gaugeHeightFt is the only value these
+  // thresholds may be compared against. The five-state answer itself comes
+  // from shared/safety-summary.ts, the same machine the website's summary
+  // speaks through, so the two platforms cannot phrase safety differently.
+  // An untrusted reading (suspect, or past the shared six-hour line)
+  // contributes no comparison: "official stages published; current comparison
+  // unavailable" is the honest state for it.
+  const safety = summarizeSafety({
+    stages: stages
+      ? {
           action: stages.actionFt,
           flood: stages.floodFt,
           moderate: stages.moderateFt,
           major: stages.majorFt,
-        },
-        gauge.gaugeHeightFt,
-      )
-    : null;
+        }
+      : null,
+    currentFt:
+      gauge.readingSuspect || isReadingStale(gauge.readingAgeHours)
+        ? null
+        : gauge.gaugeHeightFt,
+  });
 
   const age = readingAge(gauge.readingAgeHours);
   const percentile = percentileLabel(gauge.flowPercentile);
@@ -614,16 +630,34 @@ export default function GaugeDetailScreen() {
               numbers behind it are the reference. */}
           {stages ? (
             <View style={[styles.stages, { borderTopColor: colors.border }]}>
-              {stagePassed ? (
-                <Text style={[styles.stagePassed, { color: floodStageColor() }]}>
-                  {FLOOD_STAGE_SYSTEM[stagePassed].sentence}
-                </Text>
-              ) : null}
+              {/* Only the current-category state speaks in the violet and the
+                  present tense; every other state is quiet reference text. */}
+              <Text
+                style={
+                  safety.kind === 'current'
+                    ? [styles.stagePassed, { color: floodStageColor() }]
+                    : [styles.stageSummary, { color: colors.textSubtle }]
+                }
+              >
+                {safetySummarySentence(safety)}
+              </Text>
               <Text style={[styles.stageSummary, { color: colors.textSubtle }]}>
                 {stageSummary(stages)}
                 {stages.lid ? ` · NWS ${stages.lid}` : ''}
               </Text>
             </View>
+          ) : null}
+
+          {/* Water temperature, when this station measures it (most do not) —
+              never without its measurement time, so an old number cannot
+              borrow the reading's freshness. */}
+          {gauge.waterTemperature ? (
+            <Text style={[styles.bandSentence, { color: colors.textMuted }]}>
+              Water {gauge.waterTemperature.valueF}°F
+              {waterTempAge(gauge.waterTemperature.observedAt)
+                ? ` · ${waterTempAge(gauge.waterTemperature.observedAt)}`
+                : ''}
+            </Text>
           ) : null}
         </View>
 
