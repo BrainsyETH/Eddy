@@ -141,3 +141,42 @@ test('the baseline records the date and every class, so a diff is readable', () 
   for (const cls of DEBT_CLASSES) assert.ok(cls.key in baseline.classes, cls.key);
   assert.deepEqual(baseline.classes.no_coordinates, ['legacy']);
 });
+
+// ── Severity ──────────────────────────────────────────────────────────────
+// Three NPS-authorized Buffalo concessioners with confirmed phones, websites
+// and offerings were held out of the directory because no geocoder would
+// resolve a PO box suite or a road intersection. A row you can call is useful
+// before it can be drawn, so a missing pin must not fail the way a false claim
+// about somewhere to sleep does.
+
+test('a defect that makes the product wrong is an error', () => {
+  for (const key of ['campground_without_camping', 'no_contact', 'placeholder_source', 'never_verified']) {
+    const cls = DEBT_CLASSES.find((c) => c.key === key);
+    assert.equal(cls?.severity, 'error', key);
+  }
+});
+
+test('a defect that only makes the product thinner is a warning', () => {
+  for (const key of ['no_coordinates', 'thin_description']) {
+    const cls = DEBT_CLASSES.find((c) => c.key === key);
+    assert.equal(cls?.severity, 'warn', key);
+  }
+});
+
+test('a new row with no coordinates is reported, and does not fail the check', () => {
+  const before = [row({ slug: 'known' })];
+  const after = [...before, row({ slug: 'crocketts-canoe-rental', latitude: null })];
+  const result = compareToBaseline(measureDebt(after), {}, baselineOf(before));
+
+  const reported = result.regressions.find((r) => r.classKey === 'no_coordinates');
+  assert.deepEqual(reported?.slugs, ['crocketts-canoe-rental'], 'it must still be surfaced');
+  assert.equal(reported?.severity, 'warn', 'but it must not block the corridor');
+  assert.equal(result.regressions.filter((r) => r.severity === 'error').length, 0);
+});
+
+test('a new row that answers nothing still fails, pin or no pin', () => {
+  const before = [row({ slug: 'known' })];
+  const after = [...before, row({ slug: 'unreachable', phone: null, phone_toll_free: null, website: null })];
+  const result = compareToBaseline(measureDebt(after), {}, baselineOf(before));
+  assert.equal(result.regressions.find((r) => r.classKey === 'no_contact')?.severity, 'error');
+});

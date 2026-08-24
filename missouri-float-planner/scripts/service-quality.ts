@@ -22,6 +22,22 @@
 // The baseline is regenerated from the database by --update-baseline, never
 // hand-edited, so it cannot drift from what is actually there. Its diff in a
 // pull request is the visible record of debt paid down.
+//
+// ── WHY CLASSES CARRY A SEVERITY ──────────────────────────────────────────
+//
+// Not every defect deserves to stop a corridor landing. Three NPS-authorized
+// Buffalo concessioners — Crockett's, Lost Valley Canoe, Buffalo River Canoes —
+// were held out of the directory with confirmed phones, websites and offerings,
+// because no geocoder would resolve a PO box suite, a road intersection, or an
+// address two geocoders disagreed about by 1.4 miles. A row you can call is
+// useful before it can be drawn, so refusing it made Eddy worse, not safer.
+//
+// So a class that makes the product WRONG fails: a campground that does not say
+// it offers camping is a false claim about somewhere to sleep, a row with no
+// phone and no website answers nothing, and a source that records nothing
+// cannot be re-checked. A class that merely makes the product THINNER warns: a
+// missing pin degrades the map, a missing description degrades a card, and
+// neither tells anybody something untrue.
 
 /** A directory row, reduced to the fields quality is judged on. */
 export interface QualityRow {
@@ -39,10 +55,14 @@ export interface QualityRow {
   verified_source: string | null;
 }
 
+export type Severity = 'error' | 'warn';
+
 export interface DebtClass {
   key: string;
   /** Printed when this class regresses. Says what is wrong, not what to run. */
   label: string;
+  /** error = the row says something untrue or answers nothing. warn = thinner. */
+  severity: Severity;
   applies: (row: QualityRow) => boolean;
 }
 
@@ -54,6 +74,7 @@ const CAMPING_OFFERINGS = ['camping_primitive', 'camping_rv'];
 export const DEBT_CLASSES: DebtClass[] = [
   {
     key: 'campground_without_camping',
+    severity: 'error',
     label: 'a campground that does not say it offers camping',
     applies: (r) =>
       r.type === 'campground' &&
@@ -61,26 +82,31 @@ export const DEBT_CLASSES: DebtClass[] = [
   },
   {
     key: 'no_contact',
+    severity: 'error',
     label: 'no phone and no website — the row cannot answer "who do I call"',
     applies: (r) => !r.phone && !r.phone_toll_free && !r.website,
   },
   {
     key: 'no_coordinates',
+    severity: 'warn',
     label: 'no coordinates — the row cannot be drawn on the map',
     applies: (r) => r.latitude === null || r.latitude === undefined,
   },
   {
     key: 'never_verified',
+    severity: 'error',
     label: 'never verified — no date anybody checked it',
     applies: (r) => !r.last_verified_at,
   },
   {
     key: 'placeholder_source',
+    severity: 'error',
     label: 'a source that records nothing, so the row cannot be re-checked',
     applies: (r) => PLACEHOLDER_SOURCES.has((r.verified_source ?? '').trim().toLowerCase()),
   },
   {
     key: 'thin_description',
+    severity: 'warn',
     label: 'no usable description',
     applies: (r) => !r.description || r.description.trim().length < 20,
   },
@@ -115,6 +141,7 @@ export function measureDebt(rows: QualityRow[]): Record<string, string[]> {
 export interface Regression {
   classKey: string;
   label: string;
+  severity: Severity;
   slugs: string[];
 }
 
@@ -138,8 +165,12 @@ export function compareToBaseline(
     const now = new Set(current[cls.key] ?? []);
     const added = [...now].filter((s) => !known.has(s)).sort();
     const fixed = [...known].filter((s) => !now.has(s)).sort();
-    if (added.length > 0) regressions.push({ classKey: cls.key, label: cls.label, slugs: added });
-    if (fixed.length > 0) improvements.push({ classKey: cls.key, label: cls.label, slugs: fixed });
+    if (added.length > 0) {
+      regressions.push({ classKey: cls.key, label: cls.label, severity: cls.severity, slugs: added });
+    }
+    if (fixed.length > 0) {
+      improvements.push({ classKey: cls.key, label: cls.label, severity: cls.severity, slugs: fixed });
+    }
   }
 
   // A river losing services is a regression too — an --overwrite run that

@@ -1,0 +1,86 @@
+INSERT     crocketts-canoe-rental  — Crockett's Canoe Rental [outfitter]
+             status               = active
+             state                = AR
+             display_order        = 100
+             nps_authorized       = true
+             usfs_authorized      = false
+             services_offered     = {canoe_rental,kayak_rental,raft_rental,shuttle,general_store,fishing_supplies,wifi}
+             alt_names            = {Crockett's Country Store & Buffalo River Canoe Rental}
+             name                 = Crockett's Canoe Rental
+             type                 = outfitter
+             phone                = 870-448-3892
+             phone_toll_free      = 800-355-6111
+             website              = https://www.buffalorivercanoerental.com
+             address_line1        = 119 W Hwy 14
+             city                 = Harriet
+             zip                  = 72639
+             description          = Family-run NPS-authorized concessioner at the junction of Hwy 14 and Hwy 27 north, renting canoes, kayaks and rafts with shuttle service, alongside a country store carrying groceries and camping supplies.
+             verified_source      = https://www.nps.gov/buff/rentals-and-other-services.htm, https://www.arkansas.com/harriet/outdoor-recreation/crocketts-country-store-buffalo-river-canoe-rental
+             last_verified_at     = 2026-08-24T00:00:00.000Z
+             slug                 = crocketts-canoe-rental
+             + river link buffalo
+INSERT     lost-valley-canoe-lodging  — Lost Valley Canoe & Lodging [outfitter]
+             status               = active
+             state                = AR
+             display_order        = 100
+             nps_authorized       = true
+             usfs_authorized      = false
+             services_offered     = {canoe_rental,shuttle,cabins,general_store}
+             alt_names            = {}
+             name                 = Lost Valley Canoe & Lodging
+             type                 = outfitter
+             phone                = 870-861-5522
+             email                = lostvalleycanoe@gmail.com
+             website              = https://www.lostvalleycanoe.com
+             address_line1        = Hwy 43 Ste 10
+             city                 = Ponca
+             zip                  = 72670
+             description          = NPS-authorized upper-river concessioner at Ponca with canoe rentals and shuttles, a historic general store, and eight lodging units — three cabins, three yurts and two bunkhouses.
+             verified_source      = https://www.nps.gov/buff/rentals-and-other-services.htm, https://www.lostvalleycanoe.com
+             cabin_count          = 8
+             last_verified_at     = 2026-08-24T00:00:00.000Z
+             slug                 = lost-valley-canoe-lodging
+             + river link buffalo
+INSERT     buffalo-river-canoes  — Buffalo River Canoes [outfitter]
+             status               = active
+             state                = AR
+             display_order        = 100
+             nps_authorized       = true
+             usfs_authorized      = false
+             services_offered     = {canoe_rental,kayak_rental,raft_rental,shuttle,general_store}
+             alt_names            = {Float the Buffalo}
+             name                 = Buffalo River Canoes
+             type                 = outfitter
+             phone                = 870-446-2644
+             email                = info@floatthebuffalo.com
+             website              = https://buffalorivercanoes.com
+             address_line1        = HC 70 Box 136 B
+             city                 = Jasper
+             zip                  = 72641
+             description          = NPS-authorized concessioner with more than thirty years on the Buffalo, based at the corner of Kyles Landing Road and Highway 74 West. Canoes, kayaks and rafts with shuttles, and a river shop open 9 to 5.
+             verified_source      = https://www.nps.gov/buff/rentals-and-other-services.htm, https://buffalorivercanoes.com/
+             last_verified_at     = 2026-08-24T00:00:00.000Z
+             slug                 = buffalo-river-canoes
+             + river link buffalo
+INSERT     rio-buffalo-outfitter  — Rio Buffalo Outfitter [outfitter]
+             status               = seasonal
+             state                = AR
+             display_order        = 100
+             nps_authorized       = true
+             usfs_authorized      = false
+             services_offered     = {canoe_rental,kayak_rental,raft_rental,shuttle,cabins,camping_primitive}
+             alt_names            = {}
+             name                 = Rio Buffalo Outfitter
+             type                 = outfitter
+             phone                = 870-204-1566
+             email                = reservations@riobuffalo.com
+             website              = https://www.riobuffalo.com
+             address_line1        = 10039 AR 74 W
+             city                 = Jasper
+             zip                  = 72641
+             description          = NPS-authorized middle-river concessioner at Low Gap renting solo and tandem sit-on-top kayaks, two-seat canoes and four- to six-person rafts, with shuttles, yurts, cabins and campgrounds on the upper Buffalo.
+             seasonal_notes       = Closed as of August 2026 due to low water; the operator's site states it reopens 1 March 2027.
+             verified_source      = https://www.nps.gov/buff/rentals-and-other-services.htm, https://www.riobuffalo.com
+             last_verified_at     = 2026-08-24T00:00:00.000Z
+             slug                 = rio-buffalo-outfitter
+             + river link buffalo

@@ -741,7 +741,8 @@ async function main() {
     const result = compareToBaseline(measureDebt(qualityRows), perRiver, baseline);
 
     for (const r of result.regressions) {
-      fail(`${r.slugs.length} NEW row(s) with ${r.label}: ${r.slugs.join(', ')}`);
+      const say = r.severity === 'error' ? fail : warn;
+      say(`${r.slugs.length} NEW row(s) with ${r.label}: ${r.slugs.join(', ')}`);
     }
     for (const d of result.riverDrops) {
       fail(`${d.river} fell from ${d.floor} services to ${d.now}`);
