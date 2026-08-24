@@ -64,6 +64,7 @@ import type {
   NearbyAccessPoint,
   DamSnapshot,
   MapGauge,
+  MapGaugeLite,
   RiverListItem,
   RiverService,
   SearchResult,
@@ -88,7 +89,16 @@ import {
 import { floatableRank } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { mapAccessPointPin, RiverMap, type InitialMapCamera, type MapPin } from '@/map/RiverMap';
+import {
+  mapAccessPointPin,
+  mapCampgroundServicePin,
+  mapGaugePin,
+  mapHazardPin,
+  mapServicePin,
+  RiverMap,
+  type InitialMapCamera,
+  type MapPin,
+} from '@/map/RiverMap';
 import {
   cameraCommandFor,
   planFramingDecision,
@@ -102,8 +112,13 @@ import { mapUnavailableReason } from '@/map/runtime';
 // tests assert — but the sheet no longer prints them: "138 drawn as access
 // points · 103 as campgrounds" is a data-integrity fact, and a map control is
 // not where it belongs. The attributions moved onto the layer definitions.
-import { activeRoles, resolveAccessMarkers } from '@/map/accessLayers';
-import { SERVICE_LAYER_KEYS } from '@/map/serviceLayers';
+import {
+  activeRoles,
+  resolveAccessMarkers,
+  SERVICE_MARK_PRIORITY,
+  SERVICE_OWNER_LAYER,
+} from '@/map/accessLayers';
+import { SERVICE_LAYER_KEYS, serviceOnLayer } from '@/map/serviceLayers';
 import { type LayerKey } from '@/map/layers';
 import { mergeRestoredLayers } from '@/map/layerRows';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
@@ -141,6 +156,7 @@ import {
   applyGaugeFilters,
   type GaugeFilterKey,
 } from '@/components/GaugeFilterBar';
+import { LayerZoomHint } from '@/components/LayerZoomHint';
 import { PlanSheet } from '@/components/PlanSheet';
 import { PinSheet } from '@/components/map-sheet/PinSheet';
 import { RiverSheetPanel } from '@/components/map-sheet/RiverSheetPanel';
@@ -232,6 +248,114 @@ function planButtonLabel(plan: FloatPlan): string {
     ? formatFloatTimeCeilingCompact(plan.floatTime.timeRange.max)
     : `~${formatFloatTimeCompact(plan.floatTime.minutes)}`;
   return `${miles} · ${time}`;
+}
+
+/**
+ * The canonical presentation object for a NATIONAL-tier gauge.
+ *
+ * Module scope, like RiverMap's own builders, because two callers need the
+ * identical pin: the layer's own memo, and a search result that has to open
+ * the exact callout a tap would. The layer memo used to inline this.
+ */
+function referenceGaugePin(g: MapGaugeLite): MapPin {
+  const band = flowBandFor(g);
+  const usgs = usgsGaugeUrl(g.siteId);
+  return {
+    id: `refgauge:${g.id}`,
+    name: g.name,
+    // The place, for the label under the dot. A national station name is
+    // a sentence, and the map has room for a town.
+    label: gaugePlaceLabel(g.name),
+    layer: 'allGauges' as LayerKey,
+    subtitle: `USGS ${g.siteId} — not Eddy-rated`,
+    coordinates: g.coordinates,
+    color: flowBandColor(band),
+    // No `code`: that field drives a CONDITION-tinted chip in the
+    // callout, and this gauge has no condition. codeLabel carries the
+    // band's words instead, which is a comparison, not a verdict.
+    codeLabel: flowBandLabel(band),
+    value: flowReadingText(g),
+    magnitude: flowMagnitude(g),
+    siteId: g.siteId,
+    // WHEN THIS WAS MEASURED. The one thing this tier never said.
+    //
+    // Curated stations are polled continuously; everything else is
+    // refreshed by an hourly national pass, and a station that reports
+    // seasonally can be days old without anything on screen admitting it.
+    // A bare number invites you to read it as "now".
+    updatedAt: readingAge(g.readingAgeHours),
+    // STILL OFFERED, and no longer the only destination. The gauge screen
+    // below draws this station's own hydrograph, which is what people
+    // came for; USGS remains the source of record and the place the rest
+    // of the station's history lives, so the callout keeps the link.
+    link: usgs ? { label: 'Open on USGS', url: usgs } : null,
+  };
+}
+
+/**
+ * The pin a gauge SEARCH RESULT opens, or null when one cannot be built.
+ *
+ * Choosing a gauge used to move the camera and stop — the reader then had to
+ * find and tap the pin they had just named, which for an access point the same
+ * field already did on their behalf. Both tiers go through the canonical
+ * builders, so a searched gauge and a tapped one open identical callouts.
+ *
+ * Null is a real answer, not an error: a curated station whose statewide list
+ * has not landed yet, or a national row from an older backend without
+ * coordinates or a site id. The caller then degrades to exactly the old
+ * behaviour — camera and layer, no callout.
+ */
+function gaugeResultPin(result: SearchResult, gauges: MapGauge[] | null): MapPin | null {
+  if (result.gauge?.curated === false) {
+    if (!result.coordinates || !result.siteId) return null;
+    return referenceGaugePin({
+      id: result.id,
+      siteId: result.siteId,
+      name: result.name,
+      coordinates: result.coordinates,
+      dischargeCfs: result.gauge.dischargeCfs,
+      gaugeHeightFt: result.gauge.gaugeHeightFt,
+      readingTimestamp: result.gauge.readingTimestamp,
+      readingAgeHours: result.gauge.readingAgeHours,
+      // The search row does not carry qualifier codes; an unflagged reading is
+      // the same assumption the row itself made when it printed the number.
+      readingSuspect: false,
+      curated: false,
+      flowPercentile: result.gauge.flowPercentile,
+    });
+  }
+  // Curated: the full MapGauge — thresholds, condition, qualifier — is already
+  // in memory (ensureGauges fires on search focus), and it is the only shape
+  // the condition ladder can be graded from. A result is never graded from its
+  // own thinner fields: half a ladder is a wrong verdict, not a fallback.
+  const known = (gauges ?? []).find((g) => g.id === result.id);
+  return known && hasCoordinates(known) ? mapGaugePin(known) : null;
+}
+
+/**
+ * The pin a service SEARCH RESULT opens, and the layer that owns it.
+ *
+ * Owner is decided from what the row IS — every mark it holds, by the same
+ * SERVICE_MARK_PRIORITY the resolver uses — rather than from which layers are
+ * currently on, because the caller is about to switch the owning layer on
+ * anyway. Two knowing simplifications against the resolver, both stated:
+ * absorption into an access point is not consulted (a searched row opens its
+ * own record even where the map draws the composed place), and the cue line
+ * names every mark the row holds rather than only the live ones — for a
+ * callout somebody asked for by name, more is honest.
+ */
+function serviceResultPin(s: RiverService): { pin: MapPin; layer: LayerKey } | null {
+  const held = SERVICE_MARK_PRIORITY.filter((owner) =>
+    serviceOnLayer(s, SERVICE_OWNER_LAYER[owner]),
+  );
+  const owner = held[0];
+  if (!owner) return null;
+  const layers = new Set(held);
+  if (owner === 'campground') {
+    return { pin: mapCampgroundServicePin({ service: s, layers }), layer: 'campgrounds' };
+  }
+  const layer = owner === 'rentals' ? ('outfitters' as const) : ('lodging' as const);
+  return { pin: mapServicePin({ service: s, owner, layers }, layer), layer };
 }
 
 export default function MapScreen() {
@@ -437,6 +561,19 @@ export default function MapScreen() {
      */
     layer: LayerKey;
   } | null>(null);
+  /**
+   * A pin set in the same breath as a river selection, and complete already.
+   *
+   * `pendingAccessSelection` carries a pin that must be REBUILT when the
+   * river's access points land, and the selection effect spares the open
+   * callout only for it. A gauge or hazard picked from search needs the other
+   * half of that bargain and none of the machinery: its pin is built whole
+   * from data already in memory, so all it needs is to not be cleared by the
+   * river change its own tap caused. One-shot: consumed by the selection
+   * effect, and disposed at the top of selectRiver so a stale token can never
+   * spare a pin across some later, unrelated navigation.
+   */
+  const pinSurvivesSelection = useRef<string | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
 
   const network = useStatewideNetwork();
@@ -615,7 +752,15 @@ export default function MapScreen() {
     // selection was caused by tapping a put-in on that very river. Clearing it
     // there would blink the callout out and then put back the same one, which
     // reads as the tap having failed and been retried by itself.
-    if (pendingAccessSelection.current?.riverSlug !== slug) setSelectedPin(null);
+    //
+    // A survival token is the same exemption for a pin that is already whole —
+    // a gauge or hazard chosen from search, whose selection of this river is a
+    // side effect of its own opening. Consumed here, once.
+    const keepPin =
+      pendingAccessSelection.current?.riverSlug === slug ||
+      pinSurvivesSelection.current === slug;
+    if (pinSurvivesSelection.current === slug) pinSurvivesSelection.current = null;
+    if (!keepPin) setSelectedPin(null);
 
     // The app seeds every river's static data on launch. Read that first so the
     // planner can show put-ins without waiting for a network round trip, then
@@ -719,6 +864,11 @@ export default function MapScreen() {
       // Whatever this call asks for supersedes a fit still waiting on geometry:
       // the reader has navigated again, and the older river is not owed a frame.
       pendingRiverFit.current = null;
+      // And a survival token from an earlier selection is spent or stale
+      // either way — the caller that wants THIS selection to spare a pin sets
+      // the token after this call returns. Disposing it here, at the single
+      // place a selection changes, is what keeps it one-shot.
+      pinSurvivesSelection.current = null;
       switch (intent.camera) {
         case 'fitRiver': {
           // Clearing a selection has no river to frame; `hold` is the honest
@@ -1072,11 +1222,63 @@ export default function MapScreen() {
     });
   }, [wantsServices]);
 
+  /**
+   * The dam pins.
+   *
+   * `code`/`codeLabel` carry GENERATING or IDLE, not a condition — the callout
+   * tints that chip, and this one must not borrow the condition palette: a dam
+   * running its units is a fact about machinery, not a verdict on a river. The
+   * colour therefore comes from the layer, which is instrumentation teal.
+   *
+   * `generating` is NULL for a dam that publishes no turbine flow (Kansas City
+   * district publishes nothing to CWMS at all), and null means the chip is
+   * omitted rather than shown as "Not generating" — an observation nobody made.
+   *
+   * Declared BEFORE the search block below, because a dam search result opens
+   * one of these pins and a useCallback may not read a memo declared after it.
+   */
+  const damPins = useMemo<MapPin[]>(() => {
+    const live = (dams ?? []).map((dam) => {
+      const release = dam.metrics.release;
+      return {
+        id: dam.id,
+        name: dam.name,
+        lakeName: dam.lakeName,
+        state: dam.state,
+        generating: dam.generating,
+        value: release
+          ? `${Math.round(release.value).toLocaleString()} cfs${release.dailyMean ? ' (daily avg)' : ''}`
+          : null,
+        updatedAt: release ? relativeAge(release.at) : null,
+        riverSlug: dam.tailwater?.riverSlug ?? null,
+      };
+    });
+    // Positions for anything the shipped catalog has never heard of — a project
+    // added to the registry since this build left. Everything else is placed
+    // from the catalog, which is what lets the layer draw with no answer at all.
+    const positions = new Map(
+      (dams ?? []).map((dam) => [dam.id, { lng: dam.lon, lat: dam.lat }]),
+    );
+
+    return damPinFacts(live, positions).map((facts) => ({
+      ...facts,
+      layer: 'dams' as LayerKey,
+    }));
+  }, [dams]);
+
   // ── Search ──────────────────────────────────────────────────────
-  // No `kinds`: this field is unscoped and wants all three. Naming them would
-  // be identical — parseKinds() treats an absent list as every kind — so the
-  // omission is the honest spelling of "everything".
-  const search = useEddySearch({ rivers, gauges });
+  // No `kinds`: this field is unscoped and wants everything. Naming the server
+  // kinds would be identical — parseKinds() treats an absent list as every
+  // kind — so the omission is the honest spelling of "everything". Dams,
+  // hazards and services are matched locally out of what this screen already
+  // holds; the server is never asked for them.
+  const search = useEddySearch({
+    rivers,
+    gauges,
+    dams: true,
+    hazards: drawnHazards,
+    services,
+  });
 
   const clearSearch = search.clear;
   const onSelectResult = useCallback((result: SearchResult) => {
@@ -1161,10 +1363,62 @@ export default function MapScreen() {
     if (result.kind === 'gauge') {
       const layer: LayerKey = result.gauge?.curated === false ? 'allGauges' : 'gauges';
       enableLayer(layer);
+      // ── AND THE CALLOUT OPENS, exactly as an access result's does ────────
+      // The camera arriving on an unmarked spot was the access-point bug one
+      // layer over: choosing "Van Buren" and then hunting for the dot you
+      // named. Set AFTER selectRiver above, which disposes survival tokens at
+      // its top — the token below has to outlive this handler, not precede it.
+      const pin = gaugeResultPin(result, gauges);
+      if (pin) {
+        setRevealsRiverSheet(false);
+        // The river change this selection caused must not clear the pin it
+        // opened. Only when a river was actually selected — a national
+        // station belongs to none and nothing will try to clear it.
+        if (result.riverSlug) pinSurvivesSelection.current = result.riverSlug;
+        setSelectedPin(pin);
+      }
     } else if (result.kind === 'access_point') {
       enableLayer('access');
+    } else if (result.kind === 'dam') {
+      // The catalog is the spine, so this pin exists before /api/dams has ever
+      // answered — a searched dam opens with its identity now and its live
+      // release figures whenever they land, same as a tapped one.
+      enableLayer('dams');
+      const pin = damPins.find((p) => p.damId === result.id);
+      if (pin) {
+        setRevealsRiverSheet(false);
+        setSelectedPin(pin);
+      }
+    } else if (result.kind === 'hazard') {
+      enableLayer('hazards');
+      const hazard = drawnHazards.find((h) => h.id === result.id);
+      if (hazard && hasCoordinates(hazard)) {
+        setRevealsRiverSheet(false);
+        setSelectedPin(mapHazardPin(hazard));
+      }
+    } else if (result.kind === 'service') {
+      const service = (services ?? []).find((s) => s.id === result.id);
+      const opened = service ? serviceResultPin(service) : null;
+      if (opened) {
+        enableLayer(opened.layer);
+        setRevealsRiverSheet(false);
+        setSelectedPin(opened.pin);
+      }
     }
-  }, [drawnAccessPoints, clearSearch, selectRiver, issueCameraCommand, enableLayer]);
+    // None of the three new kinds carries a riverSlug (see localMatches), so
+    // none selects a river and none needs a survival token: the camera block
+    // above flew to the point, and nothing will try to clear the pin.
+  }, [
+    drawnAccessPoints,
+    drawnHazards,
+    gauges,
+    services,
+    damPins,
+    clearSearch,
+    selectRiver,
+    issueCameraCommand,
+    enableLayer,
+  ]);
 
   /**
    * ── "View on map", arriving from an access point's own screen ────────────
@@ -1640,84 +1894,9 @@ export default function MapScreen() {
   );
 
   const referencePins = useMemo<MapPin[]>(
-    () =>
-      visibleReferenceGauges.map((g) => {
-        const band = flowBandFor(g);
-        const usgs = usgsGaugeUrl(g.siteId);
-        return {
-          id: `refgauge:${g.id}`,
-          name: g.name,
-          // The place, for the label under the dot. A national station name is
-          // a sentence, and the map has room for a town.
-          label: gaugePlaceLabel(g.name),
-          layer: 'allGauges' as LayerKey,
-          subtitle: `USGS ${g.siteId} — not Eddy-rated`,
-          coordinates: g.coordinates,
-          color: flowBandColor(band),
-          // No `code`: that field drives a CONDITION-tinted chip in the
-          // callout, and this gauge has no condition. codeLabel carries the
-          // band's words instead, which is a comparison, not a verdict.
-          codeLabel: flowBandLabel(band),
-          value: flowReadingText(g),
-          magnitude: flowMagnitude(g),
-          siteId: g.siteId,
-          // WHEN THIS WAS MEASURED. The one thing this tier never said.
-          //
-          // Curated stations are polled continuously; everything else is
-          // refreshed by an hourly national pass, and a station that reports
-          // seasonally can be days old without anything on screen admitting it.
-          // A bare number invites you to read it as "now".
-          updatedAt: readingAge(g.readingAgeHours),
-          // STILL OFFERED, and no longer the only destination. The gauge screen
-          // below draws this station's own hydrograph, which is what people
-          // came for; USGS remains the source of record and the place the rest
-          // of the station's history lives, so the callout keeps the link.
-          link: usgs ? { label: 'Open on USGS', url: usgs } : null,
-        };
-      }),
+    () => visibleReferenceGauges.map(referenceGaugePin),
     [visibleReferenceGauges],
   );
-
-  /**
-   * The dam pins.
-   *
-   * `code`/`codeLabel` carry GENERATING or IDLE, not a condition — the callout
-   * tints that chip, and this one must not borrow the condition palette: a dam
-   * running its units is a fact about machinery, not a verdict on a river. The
-   * colour therefore comes from the layer, which is instrumentation teal.
-   *
-   * `generating` is NULL for a dam that publishes no turbine flow (Kansas City
-   * district publishes nothing to CWMS at all), and null means the chip is
-   * omitted rather than shown as "Not generating" — an observation nobody made.
-   */
-  const damPins = useMemo<MapPin[]>(() => {
-    const live = (dams ?? []).map((dam) => {
-      const release = dam.metrics.release;
-      return {
-        id: dam.id,
-        name: dam.name,
-        lakeName: dam.lakeName,
-        state: dam.state,
-        generating: dam.generating,
-        value: release
-          ? `${Math.round(release.value).toLocaleString()} cfs${release.dailyMean ? ' (daily avg)' : ''}`
-          : null,
-        updatedAt: release ? relativeAge(release.at) : null,
-        riverSlug: dam.tailwater?.riverSlug ?? null,
-      };
-    });
-    // Positions for anything the shipped catalog has never heard of — a project
-    // added to the registry since this build left. Everything else is placed
-    // from the catalog, which is what lets the layer draw with no answer at all.
-    const positions = new Map(
-      (dams ?? []).map((dam) => [dam.id, { lng: dam.lon, lat: dam.lat }]),
-    );
-
-    return damPinFacts(live, positions).map((facts) => ({
-      ...facts,
-      layer: 'dams' as LayerKey,
-    }));
-  }, [dams]);
 
   /**
    * The access family, resolved for the sheet's numbers and its overlap notes.
@@ -2336,7 +2515,7 @@ export default function MapScreen() {
         <SearchBar
           value={search.query}
           onChangeText={search.setQuery}
-          placeholder="Search rivers, gauges and access points"
+          placeholder="Search rivers, gauges, dams and more"
           // Gauges are matched locally, so the list has to exist before the
           // first keystroke rather than after the first gauge query.
           onFocus={ensureGauges}
@@ -2435,7 +2614,7 @@ export default function MapScreen() {
               results={search.results}
               onSelect={onSelectResult}
               loading={search.searching}
-              emptyMessage="Nothing matched. Try a river, a gauge or an access point."
+              emptyMessage="Nothing matched. Try a river, gauge, access point, dam or outfitter."
             />
           </View>
         ) : null}
@@ -2831,8 +3010,15 @@ export default function MapScreen() {
         //
         // What is left is the one thing here that was never prose: a control
         // that narrows the layer it hangs under.
-        renderLayerDetail={(key, on) =>
-          key === 'allGauges' && on ? (
+        renderLayerDetail={(key, on) => {
+          // The camera, not the switch, is why this layer is empty — say so
+          // where the switch is, exactly as the gauge tier's own belowMinZoom
+          // hint does. Parcels need a river to be read against, and the
+          // opening statewide view sits below the layer's z7 floor.
+          if (key === 'publicLand' && on && publicLands.belowMinZoom) {
+            return <LayerZoomHint text="Zoom in to see public land boundaries." />;
+          }
+          return key === 'allGauges' && on ? (
             <GaugeFilterBar
               // The DRAWABLE set, not the raw response — see layerGauges. Every
               // count in the strip is a count of pins you can actually see.
@@ -2851,8 +3037,8 @@ export default function MapScreen() {
               }
               onClear={() => setGaugeFilter(new Set())}
             />
-          ) : null
-        }
+          ) : null;
+        }}
       />
 
       {/* The plan flow is deliberately a sibling of the map rather than a child

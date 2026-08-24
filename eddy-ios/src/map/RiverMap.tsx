@@ -543,6 +543,173 @@ export function mapAccessPointPin(
   };
 }
 
+/**
+ * One service, one pin, whichever tier of the River services row draws it.
+ *
+ * ── THE TIERS OVERLAP; THE PINS MUST NOT ────────────────────────────────
+ * An outfitter that rents cabins is in BOTH tiers — that is the whole point
+ * of `serviceTiers` returning a set — so drawing each tier independently
+ * would put two pins on one coordinate, which is exactly the failure
+ * `drawnAsAccessPoint` exists upstream to prevent. The lodging tier therefore
+ * drops whatever the rentals tier is currently drawing, the same way
+ * `allGauges` drops the curated stations so a rated gauge is never drawn
+ * twice.
+ *
+ * The id is canonical — `service:{id}`, not the tier's name — so a selected
+ * pin survives the reader toggling tiers underneath it. Same reasoning as the
+ * campgrounds layer keeping `access:{id}` while presenting a put-in as a tent.
+ *
+ * Exported, like the builders below it, so a search result opens the exact
+ * callout a tap would.
+ */
+export function mapServicePin(
+  marker: ResolvedServiceMarker,
+  layer: 'outfitters' | 'lodging',
+): MapPin {
+  const s = marker.service;
+  return {
+    id: `service:${s.id}`,
+    name: s.name,
+    layer,
+    // ── AND THE ROWS THIS MARK IS HIDING ───────────────────────────────
+    //
+    // Resolving ownership across the three tiers stopped a place drawing
+    // twice and, on its own, would have made it draw once while saying
+    // nothing about the row it stopped answering: a canoe outfitter that also
+    // rents cabins wore a canoe and the cabins vanished. That is the same
+    // defect the access family's caption was fixed for, arriving in the
+    // service family by the same mechanism.
+    //
+    // `serviceTypeLabel` still leads — it says what the BUSINESS is, which is
+    // finer than the tier, so `markCues` is asked only for what the mark
+    // is hiding. See its header for why that is not symmetric with roleCues.
+    subtitle: [
+      serviceTypeLabel(s),
+      ...markCues(marker.layers, marker.owner),
+      [s.city, s.state].filter(Boolean).join(', '),
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    coordinates: { lng: s.longitude as number, lat: s.latitude as number },
+    body: s.description,
+    link: serviceLink(s),
+  };
+}
+
+/**
+ * A directory campground's pin — the tent a service wears on the Camping
+ * layer. Exported for the same search-parity reason as mapServicePin above.
+ *
+ * ── ONE ID NAMESPACE FOR A SERVICE, WHATEVER MARK IT WEARS ─────────────────
+ * This was `camp-service:{id}` while rentals and lodging used `service:{id}`,
+ * so one directory row had two identities and the branches could each draw it
+ * without noticing the other. Canonical now, exactly as the access family
+ * keeps `access:{id}` through a change of mark — so a selection survives
+ * toggling the layer underneath it.
+ *
+ * ── The subtitle NAMES THE ROWS THIS TENT IS HIDING ────────────────────────
+ * No type label leads here — the tent has already said "campground" — so the
+ * cues lead instead. A campground that also rents cabins reads
+ * `Camp · Cabins · Salem, MO` rather than drawing a tent and letting the
+ * cabins vanish, which is what resolving ownership across the three tiers
+ * would otherwise have cost.
+ *
+ * ── Availability is a FIELD, not a paragraph ───────────────────────────────
+ * It used to be joined onto the front of `body`, which meant the one fact
+ * that decides whether you care was rendered by the callout's prose slot:
+ * muted grey, clipped at four lines, glued to a description written last
+ * season. That was a data-path bug, not a styling one. This is still where a
+ * Missouri State Park's inventory surfaces at all — campsite_facilities hangs
+ * off a nearby_services row, so a state park reaches the map through here or
+ * nowhere.
+ */
+export function mapCampgroundServicePin({
+  service: s,
+  layers: serviceLayers,
+}: Pick<ResolvedServiceMarker, 'service' | 'layers'>): MapPin {
+  return {
+    id: `service:${s.id}`,
+    name: s.name,
+    layer: 'campgrounds' as const,
+    subtitle: [
+      ...markCues(serviceLayers),
+      [s.city, s.state].filter(Boolean).join(', '),
+      s.managingAgency,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    coordinates: { lng: s.longitude as number, lat: s.latitude as number },
+    availability: s.availability ?? null,
+    body: s.description ?? null,
+    link: serviceLink(s),
+  };
+}
+
+/**
+ * The canonical presentation object for a CURATED gauge.
+ *
+ * Exported for the same reason mapAccessPointPin is: a search result has to
+ * open the exact callout a tap on the pin would, and two builders would be two
+ * shapes. The caller filters on hasCoordinates first, as the gauge layer does.
+ */
+export function mapGaugePin(g: MapGauge): MapPin {
+  const code = gaugeConditionCode(g);
+  return {
+    id: `gauge:${g.id}`,
+    name: g.name,
+    // "Van Buren, MO", not "Current River at Van Buren, MO". These labels
+    // are drawn from ZOOM.places up (see pinLayer), and at statewide zoom a
+    // full station name is a paragraph laid across the river it names.
+    label: gaugePlaceLabel(g.name),
+    layer: 'gauges' as const,
+    // The site id is dropped rather than printed when the station has none
+    // — "USGS null" under a pin is worse than a subtitle that is only a
+    // name. The age lives in the callout footer, so a rated gauge and a
+    // reference gauge date their readings the same way instead of one
+    // burying it in an identification line and the other not stating it.
+    subtitle: g.usgsSiteId ? `USGS ${g.usgsSiteId}` : null,
+    coordinates: g.coordinates,
+    color: conditionColor(code),
+    code,
+    codeLabel: conditionLabel(code),
+    value: gaugeReadingText(g),
+    // The qualifier note is the reason the pin is grey. Saying so beats a
+    // colourless dot with no explanation.
+    body: g.qualifierNote,
+    riverSlug: gaugeRiverSlug(g),
+    siteId: g.usgsSiteId,
+    updatedAt: readingAge(g.readingAgeHours),
+  };
+}
+
+/**
+ * The canonical presentation object for a hazard. Exported for search, like
+ * the two builders above it — found by name or tapped on the map, one shape.
+ */
+export function mapHazardPin(h: Hazard): MapPin {
+  const code = hazardConditionCode(h.severity);
+  return {
+    id: `hazard:${h.id}`,
+    name: h.name,
+    layer: 'hazards' as const,
+    subtitle: [hazardTypeLabel(h.type), h.riverMile ? `Mile ${h.riverMile}` : null]
+      .filter(Boolean)
+      .join(' · '),
+    coordinates: h.coordinates,
+    // Severity, not one flat red. A `caution` shoal and a low-water dam
+    // are both hazards and they are not the same news.
+    color: conditionColor(code),
+    code,
+    codeLabel: severityLabel(h.severity),
+    // ── THE PORTAGE IS NOT A DESCRIPTION ─────────────────────────────
+    // Its own field, drawn as its own block — being first in a string
+    // handed to the prose renderer bought nothing but position. Same
+    // correction the availability line already got. See MapPin.
+    instruction: portageNote(h),
+    body: [h.description, h.seasonalNotes].filter(Boolean).join('\n\n') || null,
+  };
+}
+
 interface Props {
   /**
    * Extra bottom padding for the camera, in points.
@@ -963,54 +1130,7 @@ export function RiverMap({
       // rows on no camping tier, so what arrives here is what draws.
       ...accessFamily.serviceMarkers
         .filter((marker) => marker.owner === 'campground')
-        .map(({ service: s, layers: serviceLayers }) => ({
-          // ── ONE ID NAMESPACE FOR A SERVICE, WHATEVER MARK IT WEARS ─────
-          //
-          // This was `camp-service:{id}` while rentals and lodging used
-          // `service:{id}`, so one directory row had two identities and the two
-          // branches could each draw it without noticing the other. Canonical
-          // now, exactly as the access family keeps `access:{id}` through a
-          // change of mark — so a selection survives toggling the layer
-          // underneath it, which it previously did not across these three.
-          id: `service:${s.id}`,
-          name: s.name,
-          layer: 'campgrounds' as const,
-          // ── AND THE ROWS THIS TENT IS HIDING ─────────────────────────
-          //
-          // No type label leads here — the tent has already said "campground" —
-          // so the cues lead instead, exactly as the access family's campground
-          // pin reads `Camp · River access · Mile 12.3`. A campground that also
-          // rents cabins now reads `Camp · Cabins · Salem, MO` rather than
-          // drawing a tent and letting the cabins vanish, which is what
-          // resolving ownership across the three tiers would otherwise have
-          // cost. `Camp` is passed rather than excluded for that reason: it is
-          // the only thing naming the mark.
-          subtitle:
-            [
-              ...markCues(serviceLayers),
-              [s.city, s.state].filter(Boolean).join(', '),
-              s.managingAgency,
-            ]
-              .filter(Boolean)
-              .join(' · '),
-          coordinates: { lng: s.longitude as number, lat: s.latitude as number },
-          // ── Availability is a FIELD now, not a paragraph ─────────────────
-          // It used to be joined onto the front of `body`, which meant the one
-          // fact that decides whether you care was rendered by the callout's
-          // prose slot: muted grey, at body weight, clipped at four lines, and
-          // glued to a description written last season. That was not a styling
-          // bug, it was a data-path bug — the sentence was being smuggled
-          // through a field whose renderer is for descriptions.
-          //
-          // This is still where a Missouri State Park's inventory surfaces at
-          // all: campsite_facilities hangs off a nearby_services row, so a
-          // state park has no nps_campgrounds record and reaches the map
-          // through here or nowhere. Now it arrives as itself and the callout
-          // draws it the same way the tabbed sheet does.
-          availability: s.availability ?? null,
-          body: s.description ?? null,
-          link: serviceLink(s),
-        })),
+        .map(mapCampgroundServicePin),
     ];
     return campgrounds;
   }, [accessFamily, riverSlug]);
@@ -1020,120 +1140,19 @@ export function RiverMap({
   // labels and a layer that answers "where is the water good right now" —
   // and the colours are the canonical ones, so a green dot here means what a
   // green row means in River Reports.
-  const gaugePins: MapPin[] = useMemo(() => gauges.filter(hasCoordinates).map((g) => {
-      const code = gaugeConditionCode(g);
-      const reading = gaugeReadingText(g);
-      return {
-        id: `gauge:${g.id}`,
-        name: g.name,
-        // "Van Buren, MO", not "Current River at Van Buren, MO". These labels
-        // are drawn at every zoom now (see pinLayer), and at statewide zoom a
-        // full station name is a paragraph laid across the river it names.
-        label: gaugePlaceLabel(g.name),
-        layer: 'gauges' as const,
-        // The site id is dropped rather than printed when the station has none
-        // — "USGS null" under a pin is worse than a subtitle that is only a
-        // name. The age moved OUT of here and into the callout footer, so a
-        // rated gauge and a reference gauge date their readings the same way
-        // instead of one burying it in an identification line and the other not
-        // stating it at all.
-        subtitle: g.usgsSiteId ? `USGS ${g.usgsSiteId}` : null,
-        coordinates: g.coordinates,
-        color: conditionColor(code),
-        code,
-        codeLabel: conditionLabel(code),
-        value: reading,
-        // The qualifier note is the reason the pin is grey. Saying so beats a
-        // colourless dot with no explanation.
-        body: g.qualifierNote,
-        riverSlug: gaugeRiverSlug(g),
-        siteId: g.usgsSiteId,
-        updatedAt: readingAge(g.readingAgeHours),
-      };
-    }), [gauges]);
-
-  const hazardPins: MapPin[] = useMemo(() => hazards
-      .filter((h) => hasCoordinates(h))
-      .map((h) => {
-        const code = hazardConditionCode(h.severity);
-        const portage = portageNote(h);
-        return {
-          id: `hazard:${h.id}`,
-          name: h.name,
-          layer: 'hazards' as const,
-          subtitle: [hazardTypeLabel(h.type), h.riverMile ? `Mile ${h.riverMile}` : null]
-            .filter(Boolean)
-            .join(' · '),
-          coordinates: h.coordinates,
-          // Severity, not one flat red. A `caution` shoal and a low-water dam
-          // are both hazards and they are not the same news.
-          color: conditionColor(code),
-          code,
-          codeLabel: severityLabel(h.severity),
-          // ── THE PORTAGE IS NOT A DESCRIPTION ─────────────────────────────
-          // It used to lead this joined string, on the argument that it is the
-          // only part of a hazard that is an instruction rather than a
-          // description. That argument was right and the mechanism was wrong:
-          // being first in a string handed to the prose renderer buys nothing
-          // but position, and the reader met "carry left of the chute" in the
-          // same muted grey as the two paragraphs under it.
-          //
-          // Its own field now, drawn as its own block. Same correction the
-          // availability line already got, in the same file — see MapPin.
-          instruction: portage,
-          body: [h.description, h.seasonalNotes].filter(Boolean).join('\n\n') || null,
-        };
-      }), [hazards]);
-
-  /**
-   * One service, one pin, whichever tier of the River services row draws it.
-   *
-   * ── THE TIERS OVERLAP; THE PINS MUST NOT ────────────────────────────────
-   * An outfitter that rents cabins is in BOTH tiers — that is the whole point
-   * of `serviceTiers` returning a set — so drawing each tier independently
-   * would put two pins on one coordinate, which is exactly the failure
-   * `drawnAsAccessPoint` exists upstream to prevent. The lodging tier therefore
-   * drops whatever the rentals tier is currently drawing, the same way
-   * `allGauges` drops the curated stations so a rated gauge is never drawn
-   * twice.
-   *
-   * The id is canonical — `service:{id}`, not the tier's name — so a selected
-   * pin survives the reader toggling tiers underneath it. Same reasoning as the
-   * campgrounds layer keeping `access:{id}` while presenting a put-in as a tent.
-   */
-  const servicePin = useCallback(
-    (marker: ResolvedServiceMarker, layer: 'outfitters' | 'lodging'): MapPin => {
-      const s = marker.service;
-      return {
-      id: `service:${s.id}`,
-      name: s.name,
-      layer,
-      // ── AND THE ROWS THIS MARK IS HIDING ───────────────────────────────
-      //
-      // Resolving ownership across the three tiers stopped a place drawing
-      // twice and, on its own, would have made it draw once while saying
-      // nothing about the row it stopped answering: a canoe outfitter that also
-      // rents cabins wore a canoe and the cabins vanished. That is the same
-      // defect the access family's caption was fixed for, arriving in the
-      // service family by the same mechanism.
-      //
-      // `serviceTypeLabel` still leads — it says what the BUSINESS is, which is
-      // finer than the tier, so `serviceCues` is asked only for what the mark
-      // is hiding. See its header for why that is not symmetric with roleCues.
-      subtitle: [
-        serviceTypeLabel(s),
-        ...markCues(marker.layers, marker.owner),
-        [s.city, s.state].filter(Boolean).join(', '),
-      ]
-        .filter(Boolean)
-        .join(' · '),
-      coordinates: { lng: s.longitude as number, lat: s.latitude as number },
-      body: s.description,
-      link: serviceLink(s),
-      };
-    },
-    [],
+  const gaugePins: MapPin[] = useMemo(
+    () => gauges.filter(hasCoordinates).map(mapGaugePin),
+    [gauges],
   );
+
+  const hazardPins: MapPin[] = useMemo(
+    () => hazards.filter((h) => hasCoordinates(h)).map(mapHazardPin),
+    [hazards],
+  );
+
+  // One service, one pin, whichever tier draws it — see mapServicePin, which
+  // moved to module scope so a search result can build the same pin a tap
+  // would. The rules it encodes are unchanged.
 
   // ── Both tiers now read the ONE resolved list ──────────────────────────
   //
@@ -1181,20 +1200,20 @@ export function RiverMap({
     () => [
       ...accessFamily.serviceMarkers
         .filter((marker) => marker.owner === 'rentals')
-        .map((marker) => servicePin(marker, 'outfitters')),
+        .map((marker) => mapServicePin(marker, 'outfitters')),
       ...composedServicePins('rentals', 'outfitters'),
     ],
-    [accessFamily, servicePin, composedServicePins],
+    [accessFamily, composedServicePins],
   );
 
   const lodgingPins: MapPin[] = useMemo(
     () => [
       ...accessFamily.serviceMarkers
         .filter((marker) => marker.owner === 'lodging')
-        .map((marker) => servicePin(marker, 'lodging')),
+        .map((marker) => mapServicePin(marker, 'lodging')),
       ...composedServicePins('lodging', 'lodging'),
     ],
-    [accessFamily, servicePin, composedServicePins],
+    [accessFamily, composedServicePins],
   );
 
   /** The seven, as one object. References only — nothing is rebuilt here. */
@@ -1729,11 +1748,11 @@ export function RiverMap({
     /**
      * The zoom a layer's labels switch on at.
      *
-     * 11 for the place layers, where thirty overlapping put-in names at river
-     * zoom are noise. Gauges pass 0: a gauge is a NUMBER attached to a place,
-     * and a coloured dot with no name is a verdict about somewhere you cannot
-     * identify — which was the state of the map at every zoom below 11,
-     * including the one it opens on. Collision detection still drops labels
+     * ZOOM.names for the place layers, where thirty overlapping put-in names
+     * at river zoom are noise. Gauges pass GAUGE_DETAIL_ZOOM, so a station is
+     * named from the moment it draws as a full staff mark. Dams pass 0 — the
+     * one layer off the label rung, because two dozen landmarks are told
+     * apart by name or not at all. Collision detection still drops labels
      * that would overlap, so the statewide view thins itself rather than
      * turning into a wall of text.
      */
