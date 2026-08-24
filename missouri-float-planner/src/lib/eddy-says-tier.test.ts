@@ -124,6 +124,59 @@ test('the statewide card still renders the global quote directly', () => {
   );
 });
 
+test('the deck is withheld whenever the picker is off the primary gauge', () => {
+  // /api/eddy-updates carries ONE entry per river, written against its rated
+  // station. EddyTake's read directly below the deck does not: /outlook?gaugeId
+  // re-reads the panel for whichever gauge the picker is on and serves that
+  // station's own report. Shipping both ungated paired a Van Buren-shaped deck
+  // with a Montauk-shaped body inside a single visual section — and merging
+  // them into a deck and a body is what made that mismatch worse than two
+  // cards would have been.
+  //
+  // Same `!pickedGauge` rule the trend, the percentile and the accuracy caveat
+  // on this screen already follow, for the same reason each of them states:
+  // nothing is better than the wrong stretch.
+  const screen = readFileSync(
+    join(process.cwd(), '../eddy-ios/app/river/[slug].tsx'),
+    'utf8',
+  );
+  assert.match(
+    screen,
+    /const deckSays = pickedGauge \? null : eddySays;/,
+    'the river screen no longer withholds the deck when a gauge is picked',
+  );
+  // The ungated value must not reach the deck by any route. The share note is
+  // the one legitimate consumer of it — it sends river.path, the river's own
+  // page, which is what the river-wide summary describes.
+  assert.ok(
+    !/says=\{eddySays\}|EddySaysDeck says=\{eddySays\}/.test(screen),
+    'the ungated river summary is being rendered as the deck again',
+  );
+});
+
+test('refresh never discards the cache it is refreshing', () => {
+  // The bug this pins: refresh() nulled the cache and then requested, so a pull
+  // on a phone that had just lost signal threw away a perfectly good paragraph
+  // for nothing — every current subscriber lost it on the next render and every
+  // new one got null at once. Clearing was never what made refresh contact the
+  // server: revalidate() ignores the TTL, which only the mount effect consults.
+  const hook = readFileSync(
+    join(process.cwd(), '../eddy-ios/src/hooks/useEddyUpdates.ts'),
+    'utf8',
+  );
+  const clears = hook.match(/cached\s*=\s*null/g) ?? [];
+  assert.equal(
+    clears.length,
+    1,
+    'the only `cached = null` may be the test-reset seam — refresh must not clear',
+  );
+  assert.match(
+    hook,
+    /__resetEddyUpdatesCacheForTests[\s\S]*cached\s*=\s*null/,
+    'the surviving `cached = null` is no longer the test seam',
+  );
+});
+
 test('written age is vague at the coarse end and silent about the future', () => {
   const now = new Date('2026-08-23T12:00:00.000Z');
   assert.equal(writtenAge('2026-08-23T11:40:00.000Z', now), 'Written in the last hour');

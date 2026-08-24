@@ -506,10 +506,10 @@ export default function ReportsScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Both, and the prose one INVALIDATES before it re-asks. Inside the shared
-    // cache's TTL a plain re-read would hand back the same paragraph without
-    // contacting the server — a refresh control that refreshes nothing looks
-    // like an answer, which is worse than having no control at all.
+    // Both. The prose one always reaches the server — the shared cache's TTL
+    // governs mounting, not refreshing — and it does not clear what is on
+    // screen first, so pulling down with no signal costs the reader nothing.
+    // See clauses 3 and 4 in src/hooks/useEddyUpdates.ts.
     await Promise.all([load(), refreshEddyUpdates()]);
     setRefreshing(false);
   }, [load, refreshEddyUpdates]);

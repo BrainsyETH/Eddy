@@ -176,9 +176,9 @@ export default function FavoritesScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // The prose one INVALIDATES before re-asking. Inside the shared cache's TTL
-    // a plain re-read hands back the same line without contacting the server,
-    // and a refresh control that refreshes nothing looks like an answer.
+    // The prose one always reaches the server, and never clears what is on
+    // screen on its way — a failed pull on a dead connection leaves the lines
+    // exactly as they were. See clauses 3 and 4 in useEddyUpdates.ts.
     await Promise.all([load(), refreshEddyUpdates()]);
     setRefreshing(false);
   }, [load, refreshEddyUpdates]);

@@ -48,10 +48,16 @@
 //    previous good answer standing, which is what keeps a dropped bar of signal
 //    from blanking prose already on screen.
 //
-// 4. PULL-TO-REFRESH INVALIDATES, THEN REVALIDATES. Without that step a refresh
-//    control on a screen inside the TTL returns the cached paragraph and never
-//    contacts the server — a refresh that refreshes nothing, which is worse than
-//    no refresh at all because it looks like an answer.
+// 4. PULL-TO-REFRESH ALWAYS REQUESTS, AND NEVER DISCARDS FIRST. A refresh that
+//    returned the cached paragraph without contacting the server would be a
+//    refresh that refreshes nothing, which is worse than no control at all
+//    because it looks like an answer. `revalidate` therefore ignores the TTL —
+//    only the mount effect consults it.
+//
+//    But it must not clear the cache on its way, which is what an earlier
+//    version did: that made clause 3 a lie on the one path where it matters
+//    most, throwing away a good paragraph the moment somebody pulled down on a
+//    phone that had just lost signal.
 //
 // 5. THE TTL CANNOT EXCEED THE ENDPOINT'S OWN FRESHNESS. The route sets
 //    cdnCacheHeaders(300, 1800), so 300s is the ceiling; going longer would make
@@ -129,11 +135,6 @@ function revalidate(): Promise<Updates> {
   return inFlight;
 }
 
-/** Clause 4's first half. Exported for tests; callers use `refresh` below. */
-function invalidate(): void {
-  cached = null;
-}
-
 /**
  * The batched updates, fetching them if nobody has recently.
  *
@@ -166,12 +167,24 @@ export function useEddyUpdates(): {
   }, []);
 
   const refresh = useCallback(async () => {
-    invalidate();
     try {
+      // NOTHING IS CLEARED FIRST, and that is the fix for a bug this had.
+      //
+      // It used to null the cache and then request, which made "a failure
+      // leaves the previous good answer standing" false on the one path where
+      // it matters most: pull down on a phone that has just lost signal, and
+      // the paragraph already on screen was thrown away for nothing. Every
+      // current subscriber lost it on its next render and every new one got
+      // null immediately.
+      //
+      // Clearing was never what made this contact the server anyway.
+      // `revalidate` does not consult `isFresh` — only the mount effect does —
+      // so calling it is already an unconditional request, which is all clause
+      // 4 asked for.
       await revalidate();
     } catch {
-      // Same reasoning as above: a refresh that could not reach the server
-      // leaves the screen exactly as it was.
+      // A refresh that could not reach the server leaves the screen exactly as
+      // it was, which is now true rather than merely intended.
     }
   }, []);
 

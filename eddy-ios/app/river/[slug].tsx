@@ -1038,6 +1038,31 @@ export default function RiverDetailScreen() {
       : (outlook?.trend ?? (pickedGauge ? null : (river.currentCondition?.trend ?? null)));
 
   const caveat = condition && !pickedGauge ? accuracyNote(condition) : null;
+
+  /**
+   * The deck, but only while the panel is reading the river's OWN gauge.
+   *
+   * ── PRIMARY ONLY, like the trend, the percentile and the caveat ───────────
+   *
+   * /api/eddy-updates carries one entry per river, written against its rated
+   * station — the rows are the section_slug IS NULL ones. EddyTake's read
+   * directly below it does NOT: /outlook?gaugeId re-reads the whole panel for
+   * whichever station the picker is on, and serves that gauge's own report out
+   * of gauge_updates when it has one.
+   *
+   * So on a five-gauge river, picking Montauk paired a Van Buren-shaped deck
+   * with a Montauk-shaped body inside one visual section — and merging the two
+   * into a deck and a body is exactly what made that mismatch worse than it
+   * would have been as two cards. A standfirst that describes different water
+   * from the paragraph under it is not a standfirst.
+   *
+   * Nothing is better than the wrong stretch. Same rule, same reasoning, and
+   * the same `!pickedGauge` guard the three facts above it already use.
+   *
+   * The SHARE note deliberately does not take this gate: it sends river.path,
+   * the river's own page, which is the thing the river-wide summary describes.
+   */
+  const deckSays = pickedGauge ? null : eddySays;
   const percentileText = percentileSentence(condition?.percentile);
   const starred = isStarred('river', river.id);
   const sortedHazards = sortHazards(hazards);
@@ -1267,7 +1292,7 @@ export default function RiverDetailScreen() {
             ratedUnit={reading?.unit ?? null}
             entitled={entitled}
             onUpgrade={() => setPaywallOpen(true)}
-            says={eddySays}
+            says={deckSays}
           />
         ) : outlookLoading ? (
           // A placeholder the height of a sentence, not a full-card skeleton.
@@ -1279,20 +1304,20 @@ export default function RiverDetailScreen() {
           // request, so Eddy's line lands while the gauge is still being read
           // rather than waiting behind it.
           <View style={[styles.card, { backgroundColor: colors.card }]}>
-            {eddySays ? <EddySaysDeck says={eddySays} /> : null}
-            <View style={[styles.outlookLoading, eddySays ? styles.outlookLoadingUnderDeck : null]}>
+            {deckSays ? <EddySaysDeck says={deckSays} /> : null}
+            <View style={[styles.outlookLoading, deckSays ? styles.outlookLoadingUnderDeck : null]}>
               <ActivityIndicator size="small" color={colors.interactive} />
               <Text style={[styles.outlookLoadingText, { color: colors.textMuted }]}>
                 {shownGaugeName ? `Reading ${shownGaugeName}…` : 'Reading the gauge…'}
               </Text>
             </View>
           </View>
-        ) : eddySays ? (
+        ) : deckSays ? (
           // No outlook at all — no gauge, or every upstream source failed. The
           // paid take is rightly absent, but Eddy's free line is not about the
           // outlook and should not disappear with it.
           <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <EddySaysDeck says={eddySays} />
+            <EddySaysDeck says={deckSays} />
           </View>
         ) : null}
 
