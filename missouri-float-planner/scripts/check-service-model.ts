@@ -32,6 +32,12 @@ import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
+  EVIDENCE_STALE_DAYS,
+  evidencePhrasing,
+  evidenceProblems,
+  type EvidenceFile,
+} from './negative-evidence';
+import {
   baselineShapeProblem,
   buildBaseline,
   compareToBaseline,
@@ -723,6 +729,30 @@ async function main() {
       (perRiver[riverSlug] ??= []).push(serviceSlug);
     }
     for (const slug of Object.keys(perRiver)) perRiver[slug].sort();
+  }
+
+  /* ── Negative evidence ─────────────────────────────────────────────────
+     A river showing zero services is either a finding or a gap, and the two
+     look identical in a coverage table. Anything claimed absent has to have a
+     record saying where somebody looked and when, and a claim of completeness
+     against a published roster has to cite the roster — that citation is the
+     whole difference between "complete" and "none found". */
+  console.log('\nNegative evidence');
+  const evidencePath = path.join(__dirname, 'ingestion', 'negative-evidence.json');
+  const evidence: EvidenceFile = fs.existsSync(evidencePath)
+    ? (JSON.parse(fs.readFileSync(evidencePath, 'utf-8')) as EvidenceFile)
+    : {};
+  const evidenceIssues: string[] = [];
+  for (const [slug, record] of Object.entries(evidence)) {
+    evidenceIssues.push(...evidenceProblems(slug, record, new Date()));
+  }
+  for (const issue of evidenceIssues) fail(issue);
+  if (evidenceIssues.length === 0 && Object.keys(evidence).length > 0) {
+    ok(`${Object.keys(evidence).length} negative-evidence record(s) intact ` +
+      `(re-look after ${EVIDENCE_STALE_DAYS} days)`);
+  }
+  for (const [slug, record] of Object.entries(evidence)) {
+    console.log(`  · ${slug.padEnd(18)} ${evidencePhrasing(record)}`);
   }
 
   const baselinePath = path.join(__dirname, 'service-quality-baseline.json');

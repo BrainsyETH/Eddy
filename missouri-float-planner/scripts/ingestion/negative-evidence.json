@@ -1,0 +1,102 @@
+{
+  "spring-river-mo": {
+    "scope": "any commercial outfitter, rental or shuttle on the Missouri Spring River",
+    "basis": "search_exhaustion",
+    "checkedAt": "2026-08-24",
+    "directories": [
+      "https://missouricanoe.org/directory/",
+      "https://www.floatmissouri.com/plan/find/",
+      "https://www.visitmo.com/",
+      "https://mdc.mo.gov/discover-nature/activities/paddling/find-canoe-outfitters-bag-providers"
+    ],
+    "queryVariants": [
+      "Spring River Missouri Jasper Lawrence County canoe kayak rental float trips outfitter campground Carthage Verona",
+      "\"Spring River\" Missouri float trip Carl Junction Purcell Waco canoe kayak rental outfitter access MDC",
+      "Spring River Jasper County Missouri float trip outfitter canoe rental southwest paddling access guide"
+    ],
+    "bounds": "Barry–Lawrence county line south of Verona, north-west through Lawrence and Jasper counties to the Kansas line; the 15 access points Eddy holds are public road crossings and MDC accesses",
+    "notAttempted": [
+      "phone canvass of the Carthage and Jasper County chambers of commerce",
+      "Missouri Secretary of State business registry search",
+      "Facebook and local classifieds, where a one-boat shuttle operation would most likely appear"
+    ],
+    "note": "Not the Arkansas Spring River at Hardy, which Eddy holds separately as spring-river with 13 services. Every directory searched returned operators on other rivers. The float literature treats this as a bring-your-own-boat run."
+  },
+  "bourbeuse": {
+    "scope": "commercial float services beyond the one recorded",
+    "basis": "search_exhaustion",
+    "checkedAt": "2026-08-24",
+    "directories": [
+      "https://missouricanoe.org/bourbeuse-river/",
+      "https://www.floatmissouri.com/plan/missouri-rivers/bourbeuse-river/",
+      "https://www.visitmo.com/"
+    ],
+    "queryVariants": [
+      "Bourbeuse River Missouri canoe rental outfitter float trips campground \"Devils Back\" Noser Mill Union Missouri",
+      "Bourbeuse River outfitters campgrounds resorts lodging directory"
+    ],
+    "bounds": "Mint Spring MDC Access to Chouteau Claim MDC Access, roughly 114 river miles through Gasconade, Franklin and Crawford counties",
+    "notAttempted": [
+      "county-level chamber directories for Union, Owensville and Sullivan",
+      "phone confirmation with Devil's Back Floats about neighbouring operators"
+    ],
+    "note": "MCFA's own Bourbeuse page names no businesses at all. Devil's Back Floats, family-run since 1980, appears to be the whole commercial answer for the river rather than a first instalment."
+  },
+  "st-francis": {
+    "scope": "commercial outfitter, rental or shuttle on the whitewater reach",
+    "basis": "search_exhaustion",
+    "checkedAt": "2026-08-24",
+    "directories": [
+      "https://missouricanoe.org/st-francis-river-and-big-creek/",
+      "https://www.visitmo.com/",
+      "https://missouriwhitewater.org/"
+    ],
+    "queryVariants": [
+      "St. Francis River Missouri whitewater outfitter canoe kayak rental shuttle Fredericktown Millstream Gardens Silver Mines",
+      "whitewater kayak rental shuttle service Fredericktown Missouri \"St. Francis\" Tiemann Shut-Ins commercial outfitter rental 2026"
+    ],
+    "bounds": "Millstream Gardens Conservation Area (mile 20.2) to Silver Mines Recreation Area (mile 23.2), through the Tiemann Shut-Ins",
+    "notAttempted": [
+      "contacting the Missouri Whitewater Association for operator referrals",
+      "MDC Millstream Gardens area office"
+    ],
+    "note": "Class II–III+, neither spring- nor dam-fed, and only runs after heavy rain. The Missouri Whitewater Association treats it as its home river and races there, but a club is not a business. Zero on this reach is the river, not the research. The float half of the St. Francis below Sam A. Baker is separately covered."
+  },
+  "buffalo": {
+    "scope": "canoe, kayak and raft concessioners authorized to operate on the national river",
+    "basis": "authoritative_roster",
+    "checkedAt": "2026-08-24",
+    "roster": "https://www.nps.gov/buff/rentals-and-other-services.htm",
+    "directories": [
+      "https://www.nps.gov/buff/rentals-and-other-services.htm",
+      "https://www.nps.gov/buff/planyourvisit/lodging.htm"
+    ],
+    "queryVariants": [
+      "nps.gov buff Buffalo National River authorized concessioners canoe rental outfitters list"
+    ],
+    "bounds": "Boxley to Buffalo City, all three NPS districts",
+    "notAttempted": [
+      "cross-check against the NPS commercial-use-authorization register, which lists guides rather than liveries"
+    ],
+    "note": "All twelve on the NPS roster are recorded, and each was checked against its own site. The roster is authoritative about who is permitted, not about what each business is doing this season: it still lists Riverview Motel under lodging, and the operator says the motel is closed."
+  },
+  "eleven-point": {
+    "scope": "canoe rental concessioners authorized on the national scenic river",
+    "basis": "authoritative_roster",
+    "checkedAt": "2026-08-24",
+    "roster": "https://www.fs.usda.gov/r09/marktwain/recreation/eleven-point-national-wild-and-scenic-river",
+    "directories": [
+      "https://www.fs.usda.gov/r09/marktwain/recreation/eleven-point-national-wild-and-scenic-river",
+      "https://missouriscenicrivers.com/11-point-outfitters",
+      "https://missouricanoe.org/eleven-point-river/"
+    ],
+    "queryVariants": [
+      "Eleven Point National Scenic River Missouri authorized outfitters canoe rental list Alton Riverton Greer USFS permitted"
+    ],
+    "bounds": "Thomasville to Myrtle, the whole scenic-river corridor",
+    "notAttempted": [
+      "resolving whether \"Eleven Point River Canoe Rental\" on 417-778-6497 is a stale listing for Hufstedler's under prior ownership or a separate business"
+    ],
+    "note": "Two liveries operate, which is what the roster reduces to once its errors are removed: the third entry, \"Down River Canoe — downriver.com\", is Downriver Canoe Company of Bentonville, Virginia, on the Shenandoah. A roster is only as good as its maintenance."
+  }
+}
