@@ -129,6 +129,7 @@ import { selectEddySays } from '@/lib/eddySays';
 import { EddySaysDeck } from '@/components/river/EddySaysDeck';
 import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
 import { goBack } from '@/lib/nav';
+import { TrendPill } from '@/components/TrendPill';
 
 /**
  * What the one-tap bell subscribes to.
@@ -165,12 +166,6 @@ const BELL_PROMISE = describeAlertRule({
 /**
  * Direction, as a glyph. The same three the Today rows and Favorites cards use.
  */
-const TREND_ICON = {
-  rising: 'arrow-up',
-  falling: 'arrow-down',
-  steady: 'remove',
-} as const;
-
 function UnavailableNote({ text, onRetry }: { text: string; onRetry: () => void }) {
   const { colors } = useTheme();
   return (
@@ -1202,16 +1197,7 @@ export default function RiverDetailScreen() {
                 approaching flood "rising fast" is the opposite of good news,
                 and the chip beside it already carries the verdict. */}
             {shownTrend ? (
-              <View style={[styles.trend, { backgroundColor: colors.cardRaised }]}>
-                <Ionicons
-                  name={TREND_ICON[shownTrend.direction]}
-                  size={13}
-                  color={colors.textMuted}
-                />
-                <Text style={[styles.trendText, { color: colors.textMuted }]} numberOfLines={1}>
-                  {shownTrend.label}
-                </Text>
-              </View>
+              <TrendPill direction={shownTrend.direction} label={shownTrend.label} />
             ) : null}
           </View>
 
@@ -1860,21 +1846,6 @@ const styles = StyleSheet.create({
   // `flex: 1` still lets a long station name take the width — but it is the
   // only thing competing for it now that the trend has moved to the card head.
   updated: { ...t.xs, fontFamily: fonts.body, flex: 1 },
-  // Same glyph, muted ink and 3pt gap as the trend on the Today rows and the
-  // Favorites cards — it is one fact and should read as one thing wherever it
-  // appears. What it gains here is a pill: at the top of the card it stands
-  // beside the condition chip rather than inside a line of small print, and two
-  // adjacent facts with only one of them enclosed reads as an accident.
-  trend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    flexShrink: 0,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  trendText: { ...t.xs, fontFamily: fonts.semibold },
   caveat: {
     flexDirection: 'row',
     alignItems: 'flex-start',

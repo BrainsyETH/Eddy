@@ -34,6 +34,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { allReadings, formatReading, primaryReading } from '@/lib/readingCopy';
 import { KindMark } from '@/components/KindMark';
+import { TREND_ICON } from '@/components/TrendPill';
 
 /** Compact age for a row — the detail screen owns the long-form phrasing. */
 function shortAge(hours: number | null | undefined): string | null {
@@ -43,12 +44,6 @@ function shortAge(hours: number | null | undefined): string | null {
   const days = Math.round(hours / 24);
   return `${days}d ago`;
 }
-
-const TREND_ICON = {
-  rising: 'arrow-up' as const,
-  falling: 'arrow-down' as const,
-  steady: 'remove' as const,
-};
 
 interface RiverRowProps {
   river: RiverListItem;

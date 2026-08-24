@@ -120,6 +120,7 @@ import {
   type ChartPoint,
 } from '@eddy/conditions/chart-model';
 import { buildZones, type ThresholdValues } from '@eddy/conditions/threshold-zones';
+import { computeTrend } from '@eddy/conditions/gauge-trend';
 import { conditionColor } from '@/theme/conditions';
 import {
   FLOOD_STAGE_ORDER,
@@ -132,6 +133,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { warn } from '@/lib/monitoring';
+import { TrendPill } from '@/components/TrendPill';
 
 /** The three questions people actually ask, and nothing else. */
 const RANGES = [
@@ -292,6 +294,42 @@ function GaugeChartInner({
   const { history, loading, unavailable, failed, retry } = useGaugeHistory(siteId, days);
 
   const drawnUnit = unitOverride ?? unit;
+
+  /**
+   * Which way it is going, over roughly the last six hours.
+   *
+   * ── COMPUTED HERE, NOT SENT ───────────────────────────────────────────
+   * The series is already in hand and the unit is under the reader's thumb, so
+   * a wire field could not follow the unit toggle even if one existed. The same
+   * rule the website runs (shared/gauge-trend.ts) over the same points the line
+   * is drawn from means the badge and the line cannot disagree.
+   *
+   * ── SIX HOURS, WHATEVER THE RANGE IS SET TO ───────────────────────────
+   * Not scaled to `days`. This is the same fact the river screen, the Today
+   * rows and the Favorites cards show, and it has to be the same number on all
+   * of them — a badge that silently changes meaning when you zoom out is worse
+   * than one that is absent.
+   *
+   * ── WHY 30d IS EXCLUDED, AND WHY THE WINDOW IS CHECKED ────────────────
+   * The endpoint downsamples a month to ~360 points by KEEPING EACH BUCKET'S
+   * MIN AND MAX, so at roughly four hours per bucket the point nearest six
+   * hours back is a local extremum rather than a representative reading, and
+   * the delta gets measured against a peak or a trough. There is nothing to
+   * compute honestly from at that range, so nothing is claimed.
+   *
+   * The window check covers the other direction: computeTrend takes the reading
+   * NEAREST six hours back with no floor on how near that is, so a sparse or
+   * stalled station can answer from a window nothing like the one asked for.
+   * Past a twelve-hour gap it even selects the latest reading as its own
+   * comparison and reports a rising river as "Holding steady" — always with a
+   * 1h window, which this rejects. See shared/gauge-trend.test.ts, which pins
+   * that behaviour and explains why it is not fixed there.
+   */
+  const trend = useMemo(
+    () => (days === 30 || !history ? null : computeTrend(history.readings, drawnUnit)),
+    [days, history, drawnUnit],
+  );
+  const shownTrend = trend && Math.abs(trend.windowHours - 6) <= 3 ? trend : null;
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     setWidth(e.nativeEvent.layout.width);
@@ -644,6 +682,8 @@ function GaugeChartInner({
         ? `${measure}, ${window}. Latest ${formatReading(newest.v, drawnUnit)}.`
         : `${measure}, ${window}.`,
     ];
+    // The pill is a fact about the water, not decoration, so it is spoken.
+    if (shownTrend) bits.push(`${shownTrend.label} over the last ${shownTrend.windowHours} hours.`);
     const latestQualifiers = newest ? qualifierText(newest.qualifiers) : null;
     if (latestQualifiers) bits.push(`Latest reading ${latestQualifiers}.`);
     if (forecastPoints.length > 0) {
@@ -696,8 +736,23 @@ function GaugeChartInner({
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
       <View style={styles.head}>
         <View style={styles.headText}>
-          {title ? (
-            <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+          {/* ── The pill sits on the TITLE line, not the subtitle ───────────
+              The subtitle is replaced outright by the scrub readout below, so a
+              trend rendered there would vanish the moment a finger touched the
+              plot — exactly when the reader is asking which way the water is
+              going. The title is short ("Recent history") and the unit and
+              range controls sit hard right, so the room is here. */}
+          {title || shownTrend ? (
+            <View style={styles.titleRow}>
+              {title ? (
+                <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+                  {title}
+                </Text>
+              ) : null}
+              {shownTrend ? (
+                <TrendPill direction={shownTrend.direction} label={shownTrend.label} />
+              ) : null}
+            </View>
           ) : null}
           {/* The scrub readout replaces the subtitle rather than sitting beside
               it: a finger on the plot means the question is "what was it then",
@@ -1227,7 +1282,9 @@ const styles = StyleSheet.create({
   card: { marginBottom: 14, borderRadius: 16, padding: 16 },
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
   headText: { flex: 1 },
-  title: { ...t.base, fontFamily: fonts.heading },
+  // The title takes the squeeze, not the pill — TrendPill is flexShrink 0.
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { ...t.base, fontFamily: fonts.heading, flexShrink: 1 },
   subtitle: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   scrubLine: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   scrubValue: { ...t.sm, fontFamily: fonts.monoMedium },
