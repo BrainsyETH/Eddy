@@ -86,7 +86,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   DamSnapshot,
-  EddyUpdateEntry,
   MapGauge,
   RiverListItem,
   SearchResult,
@@ -97,7 +96,6 @@ import { floatableHeadline } from '@eddy/conditions/floatable-headline';
 import {
   ApiError,
   fetchDams,
-  fetchEddyUpdates,
   fetchGaugeCount,
   fetchGauges,
   fetchRivers,
@@ -117,6 +115,7 @@ import { TodaySummary } from '@/components/TodaySummary';
 import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { gaugeToSearchResult, useEddySearch } from '@/hooks/useEddySearch';
+import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useLocation, type Coords } from '@/hooks/useLocation';
 import { riverMilesByGauge } from '@/lib/riverDistance';
@@ -300,8 +299,14 @@ export default function ReportsScreen() {
    * this is the colour. Never cached across launches for the same reason: a
    * stored paragraph about yesterday's water is precisely what the server's
    * gate exists to stop us showing.
+   *
+   * Read from the shared batched response rather than fetched here. The
+   * statewide entry is keyed 'global' and is ABSENT rather than stale when the
+   * server withholds it, so a missing key is the signal — never fall back to a
+   * previously seen one.
    */
-  const [summary, setSummary] = useState<EddyUpdateEntry | null>(null);
+  const { updates: eddyUpdates, refresh: refreshEddyUpdates } = useEddyUpdates();
+  const summary = eddyUpdates?.global ?? null;
   const [damFilter, setDamFilter] = useState<DamFilterKey>('all');
   const [dams, setDams] = useState<DamSnapshot[]>([]);
   const [gaugeCount, setGaugeCount] = useState<number | null>(null);
@@ -386,11 +391,13 @@ export default function ReportsScreen() {
     (starsReady && starred.some((entry) => entry.kind === 'river') ? 'starred' : 'all');
 
   const load = useCallback(async (signal?: AbortSignal) => {
-    // Not awaited with the rivers, and its failure is not this screen's error:
-    // the list is the screen, and a missing paragraph is a missing paragraph.
-    void fetchEddyUpdates(signal)
-      .then((updates) => setSummary(updates.global ?? null))
-      .catch(() => setSummary(null));
+    // The statewide paragraph is NOT fetched here any more. It arrives through
+    // useEddyUpdates, which holds the batched response for the whole app — this
+    // screen was fetching an entry for all 24 rivers and keeping one key.
+    //
+    // The signal below is still this screen's own, and still aborts on unmount.
+    // That is exactly why the shared fetch does not take one: see clause 1 of
+    // the contract in src/hooks/useEddyUpdates.ts.
     try {
       setError(null);
       setRivers(await fetchRivers(signal));
@@ -499,9 +506,13 @@ export default function ReportsScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await load();
+    // Both. The prose one always reaches the server — the shared cache's TTL
+    // governs mounting, not refreshing — and it does not clear what is on
+    // screen first, so pulling down with no signal costs the reader nothing.
+    // See clauses 3 and 4 in src/hooks/useEddyUpdates.ts.
+    await Promise.all([load(), refreshEddyUpdates()]);
     setRefreshing(false);
-  }, [load]);
+  }, [load, refreshEddyUpdates]);
 
   // Floatable first, then by canonical rank, then by name. A paddler opening
   // this screen wants somewhere to go, not an index — so this stays the
