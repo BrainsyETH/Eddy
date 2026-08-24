@@ -138,6 +138,17 @@ export interface LayerDef {
    * row, and which draws ten places under a row that would claim fifty.
    */
   tiersRefine?: boolean;
+  /**
+   * Where each tier's count is measured, when the tiers do not all measure
+   * the same universe.
+   *
+   * The gauges row is the only holder today: the rated tier is counted
+   * statewide while the national tier is counted per viewport, and
+   * layerRowCount refuses to sum across scopes — the row prints nothing and
+   * the tier chips keep their own honestly-scoped figures. Absent means every
+   * tier is statewide, which keeps every other row's arithmetic untouched.
+   */
+  scopes?: Partial<Record<LayerKey, 'statewide' | 'viewport'>>;
   /** How this layer is named inside a tier strip, where the row is the context. */
   tierLabel?: string;
   /**
@@ -555,6 +566,10 @@ export const MAP_LAYERS: LayerDef[] = [
     label: 'USGS gauges',
     accessibilityHint: 'Live USGS readings on the water',
     tiers: ['gauges', 'allGauges'],
+    // The rated tier is one statewide list; the national tier holds whatever
+    // the camera holds. layerRowCount reads this and declines to add them —
+    // the sum was a number that changed on every pan and meant nothing.
+    scopes: { gauges: 'statewide', allGauges: 'viewport' },
     tierLabel: 'Eddy-rated',
     icon: 'speedometer-outline',
     symbol: 'gauge',

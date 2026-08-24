@@ -1268,6 +1268,16 @@ export function RiverMap({
     () => featureCollection(dams ?? [], layerColorFor('dams', colors)),
     [dams, colors],
   );
+  // The national tier's collection. This was built inline inside
+  // contextGaugeLayer — the one source in this file that was — so every render
+  // of this component handed the native ShapeSource a structurally identical
+  // object with a new identity, and the bridge re-uploaded up to a thousand
+  // reference gauges per sheet settle. Same argument, and same fix, as every
+  // memo above it.
+  const referenceShape = useMemo(
+    () => featureCollection(referenceGauges ?? [], layerColorFor('allGauges', colors)),
+    [referenceGauges, colors],
+  );
 
   /**
    * ── THE TWO FAMILY INDEXES ────────────────────────────────────────────────
@@ -1649,6 +1659,11 @@ export function RiverMap({
 
   const layerOn = (key: LayerKey) => layers.includes(key);
 
+  // `features[0]` on a stack of overlapping pins is whichever feature the
+  // native hit-test returns first — an ARBITRARY winner, not a ranked one. A
+  // gauge sitting on a put-in resolves to either. Known and accepted for now;
+  // disambiguation (cycling the stack on a repeated tap) is deliberately out
+  // of scope until the interaction is designed rather than implied.
   const onPress = (event: { features?: { properties?: Record<string, unknown> }[] }) => {
     const id = event.features?.[0]?.properties?.id;
     const match = typeof id === 'string' ? byId.get(id) : undefined;
@@ -1899,9 +1914,19 @@ export function RiverMap({
         <Mapbox.SymbolLayer
           id={`pins-${id}-label`}
           filter={solo}
-          // The higher of the two floors. A label is allowed to arrive after
-          // its pin, never before it.
-          minZoomLevel={Math.max(labelMinZoom, compactUntilZoom ?? minZoom ?? 0)}
+          // The PIN floor, not the mark floor. A label is allowed to arrive
+          // after its pin, never before it — and the pin arrives at `minZoom`:
+          // wherever `compactUntilZoom` is set, the overview dot covers
+          // [minZoom, compactUntilZoom), so there is geometry under the text
+          // from the layer's first zoom. Clamping to `compactUntilZoom` (as
+          // this once did) silently re-floored the dam labels to ZOOM.places,
+          // exactly the "unnamed dot cannot be told from the lake it sits on"
+          // failure that layer's labelMinZoom of 0 exists to prevent.
+          //
+          // The one shape this reasoning does not cover is a future caller
+          // passing `compactUntilZoom` with the bare `dot` shape, which has no
+          // overview layer; no call site does that today.
+          minZoomLevel={Math.max(labelMinZoom, minZoom ?? 0)}
           style={{
             // `label`, not `name`: gauges write a short place name into it and
             // everything else falls back to the name it is called.
@@ -1932,7 +1957,7 @@ export function RiverMap({
    * a 1pt halo instead of 2, labels held back two more zoom levels. The tier is
    * reference, and it should look like reference.
    */
-  const contextGaugeLayer = (data: MapPin[]) => {
+  const contextGaugeLayer = () => {
     // No early return on an empty list, for the reason above networkShape — and
     // this layer would have hit it harder than any other. Its data empties on
     // every pan below the zoom floor, on every filter that matches nothing, and
@@ -1947,7 +1972,7 @@ export function RiverMap({
     return (
       <Mapbox.ShapeSource
         id="pins-allGauges"
-        shape={featureCollection(data, layerColorFor('allGauges', colors))}
+        shape={referenceShape}
         onPress={onClusterablePress}
         cluster
         clusterRadius={50}
@@ -2452,7 +2477,7 @@ export function RiverMap({
           curated paints over it. A reference dot must never sit on top of a
           rated gauge, an access point or a hazard — it is the layer with the
           least to say and the most members. */}
-      {layerOn('allGauges') ? contextGaugeLayer(referenceGauges ?? []) : null}
+      {layerOn('allGauges') ? contextGaugeLayer() : null}
 
       {/* ── The two family indexes, under everything they consolidate ───────
           Below ZOOM.cluster these are the ONLY thing the place layers draw, so
@@ -2578,6 +2603,15 @@ export function RiverMap({
           the wall of text a statewide access layer would. An earlier pass here
           moved them onto the rung with everything else; map-zoom-ladder.test.ts
           pins them back off it, deliberately, and is right to.
+
+          Below ZOOM.cluster a bubble carries its count instead — the label
+          layer's `solo` filter keeps per-dam names off clusters — so "every
+          zoom" means every zoom at which a dam draws as itself. For one
+          stretch the shared label floor clamped this layer to ZOOM.places
+          anyway (see the label layer's note), so the 8–9.5 dot band drew
+          nameless dams while this comment and the test both claimed
+          otherwise; the test now asserts the EFFECTIVE floor, not just the
+          argument.
 
           ── AND IT KEEPS NO FLOOR, WHICH THE OTHER TIERS DO ─────────────────
 

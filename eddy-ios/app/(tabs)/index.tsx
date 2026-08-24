@@ -105,6 +105,7 @@ import { mapUnavailableReason } from '@/map/runtime';
 import { activeRoles, resolveAccessMarkers } from '@/map/accessLayers';
 import { SERVICE_LAYER_KEYS } from '@/map/serviceLayers';
 import { type LayerKey } from '@/map/layers';
+import { mergeRestoredLayers } from '@/map/layerRows';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
 import { useNetworkPlaces } from '@/hooks/useNetworkPlaces';
 import { usePublicLands } from '@/hooks/usePublicLands';
@@ -294,6 +295,17 @@ export default function MapScreen() {
    * on a key-value read to draw anything.
    */
   const layersRestored = useRef(false);
+  /**
+   * Layers this SESSION switched on as a side effect — a search result, a
+   * "View on map" deep link — as against a choice made in the sheet.
+   *
+   * Kept so the restore below can lay them over the stored set instead of
+   * stripping them: the deep link runs in the first effect flush, inside the
+   * restore window, and a stored set with that layer off used to win — the
+   * camera flew to a put-in whose pin then never drew. Never persisted by
+   * itself; see mergeRestoredLayers.
+   */
+  const sessionLayerEnables = useRef<Set<LayerKey>>(new Set());
   useEffect(() => {
     let cancelled = false;
     void readMapLayers().then((stored) => {
@@ -301,11 +313,24 @@ export default function MapScreen() {
       layersRestored.current = true;
       // Null means this device has never chosen. An EMPTY ARRAY is a choice —
       // somebody switched everything off — and is restored as one.
-      if (stored) setLayers(stored);
+      if (stored) setLayers(mergeRestoredLayers(stored, sessionLayerEnables.current));
     });
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  /**
+   * Switch a layer on because something else needs it visible — never off.
+   *
+   * The one way a search result or deep link may touch the layer set. Records
+   * the enable so a restore landing later cannot strip it (see
+   * sessionLayerEnables), and deliberately does NOT persist: asking to see a
+   * gauge is not a settings choice about gauges.
+   */
+  const enableLayer = useCallback((key: LayerKey) => {
+    sessionLayerEnables.current.add(key);
+    setLayers((prev) => (prev.includes(key) ? prev : [...prev, key]));
   }, []);
   // THERE IS NO CONDITION FILTER HERE ANY MORE, and the removal was the point
   // rather than a casualty of one. A filter narrows a set you are reading; the
@@ -321,6 +346,22 @@ export default function MapScreen() {
   // Not persisted, for the same reason the condition filter is not: a filter
   // restored from last week reads as gauges having gone missing.
   const [gaugeFilter, setGaugeFilter] = useState<ReadonlySet<GaugeFilterKey>>(() => new Set());
+  /**
+   * A filter must not outlive the layer it narrows.
+   *
+   * The chips only render while the layer is on, so a filter left behind by
+   * switching the layer off would survive invisibly and re-apply — gauges
+   * quietly missing — when the layer next comes on. Declarative rather than
+   * cleared inside the toggle handler, so every off-path is covered at once:
+   * the row's own on→off (which clears each tier key), Reset, and a restore
+   * that strips the layer. The functional no-op guard keeps an already-empty
+   * set's identity, so this never loops.
+   */
+  useEffect(() => {
+    if (!layers.includes('allGauges')) {
+      setGaugeFilter((prev) => (prev.size ? new Set() : prev));
+    }
+  }, [layers]);
   const cameraCommandId = useRef(0);
   const [cameraCommand, setCameraCommand] = useState<MapCameraCommand | null>(null);
   /**
@@ -1119,11 +1160,11 @@ export default function MapScreen() {
     // round: the curated layer is the smaller set and drawing it costs nothing.
     if (result.kind === 'gauge') {
       const layer: LayerKey = result.gauge?.curated === false ? 'allGauges' : 'gauges';
-      setLayers((prev) => (prev.includes(layer) ? prev : [...prev, layer]));
+      enableLayer(layer);
     } else if (result.kind === 'access_point') {
-      setLayers((prev) => (prev.includes('access') ? prev : [...prev, 'access']));
+      enableLayer('access');
     }
-  }, [drawnAccessPoints, clearSearch, selectRiver, issueCameraCommand]);
+  }, [drawnAccessPoints, clearSearch, selectRiver, issueCameraCommand, enableLayer]);
 
   /**
    * ── "View on map", arriving from an access point's own screen ────────────
@@ -1185,13 +1226,13 @@ export default function MapScreen() {
 
       // The put-in has to be drawable when the camera lands, for somebody who
       // switched the access layer off earlier in the session.
-      setLayers((prev) => (prev.includes('access') ? prev : [...prev, 'access']));
+      enableLayer('access');
 
       // Clears the params so a later return to this tab does not re-select a
       // place the reader looked at once and has since closed.
       router.setParams({ focusAccess: undefined, focusRiver: undefined });
     },
-    [drawnAccessPoints, clearSearch, selectRiver, router],
+    [drawnAccessPoints, clearSearch, selectRiver, router, enableLayer],
   );
 
   useEffect(() => {
@@ -2408,7 +2449,10 @@ export default function MapScreen() {
         {!unavailable && !search.active ? (
           <MapLayersButton
             onPress={() => setLayersOpen(true)}
-            changed={!isDefaultLayers(layers)}
+            // The gauge filter counts too: a map narrowed to one flow band
+            // with no dot anywhere reads as gauges having gone missing — the
+            // exact complaint that keeps the filter from being persisted.
+            changed={!isDefaultLayers(layers) || gaugeFilter.size > 0}
           />
         ) : null}
 
