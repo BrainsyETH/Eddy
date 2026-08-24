@@ -62,7 +62,6 @@ import type {
   Hazard,
   MapAccessPoint,
   NearbyAccessPoint,
-  DamSnapshot,
   MapGauge,
   MapGaugeLite,
   RiverListItem,
@@ -77,15 +76,7 @@ import {
   formatFloatTimeCeilingCompact,
   formatFloatTimeCompact,
 } from '@eddy/conditions/float-time-format';
-import {
-  ApiError,
-  fetchGauges,
-  fetchDams,
-  fetchHazards,
-  fetchRiverAccessPoints,
-  fetchServices,
-  fetchRivers,
-} from '@/api/client';
+import { ApiError, fetchRiverAccessPoints, fetchRivers } from '@/api/client';
 import { floatableRank } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -123,6 +114,10 @@ import { type LayerKey } from '@/map/layers';
 import { mergeRestoredLayers } from '@/map/layerRows';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
 import { useNetworkPlaces } from '@/hooks/useNetworkPlaces';
+import { useCuratedGauges } from '@/hooks/useCuratedGauges';
+import { useDams } from '@/hooks/useDams';
+import { useRiverServices } from '@/hooks/useRiverServices';
+import { useRiverHazards } from '@/hooks/useRiverHazards';
 import { usePublicLands } from '@/hooks/usePublicLands';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
@@ -138,7 +133,6 @@ import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { milesBetween, useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
 import { gradeGauge, readingIndex, riverBounds } from '@/lib/statewideNetwork';
-import { warn } from '@/lib/monitoring';
 import { damPins as damPinFacts } from '@/lib/damCatalog';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
@@ -204,17 +198,6 @@ const PLAN_CLUSTER_BOTTOM = 16;
  */
 const CONTROLS_ROOM_MIN = MAP_CHROME_BOTTOM + 44 + 12;
 const CONTROLS_ROOM_FADE = 60;
-
-/**
- * How long to wait before asking the Corps' dams once more.
- *
- * Long enough that a cold /api/dams read-through has finished filling the CDN
- * entry — the measured cold path is five to fifty seconds — and short enough
- * that somebody who opened the layer is still looking at it. The retry is what
- * turns a fifteen-second deadline expiring into a pause rather than an empty
- * layer for the life of the screen.
- */
-const DAMS_RETRY_MS = 20_000;
 
 /**
  * A per-river layer's data, tagged with the river it was fetched for.
@@ -378,17 +361,9 @@ export default function MapScreen() {
   // deliberately keeps the previous river visible during a switch; the planner
   // must never pair that river's access points with the newly selected river.
   const [plannerAccess, setPlannerAccess] = useState<RiverScoped<MapAccessPoint> | null>(null);
-  // Null rather than [] until fetched, so the layers sheet can tell "this river
-  // has none" from "we have not asked yet" and only claims a zero it knows.
-  const [hazards, setHazards] = useState<RiverScoped<Hazard> | null>(null);
-  // Null until the layer has been switched on, so the sheet can tell "not fetched"
-  // from "none" — see layerCounts.
-  const [dams, setDams] = useState<DamSnapshot[] | null>(null);
-  // Statewide and unscoped, unlike hazards above: every service Eddy can place
-  // on a map, fetched once. Null until then, so the layers sheet can tell "not
-  // asked" from "none" — see layerCounts.
-  const [services, setServices] = useState<RiverService[] | null>(null);
-  const [gauges, setGauges] = useState<MapGauge[] | null>(null);
+  // The hazard, dam, service and gauge DATA all live in their own hooks now —
+  // see the "Layer data, fetched on demand" section below, and each hook's
+  // header for the fetch posture it carries (all four moved verbatim).
   /**
    * The river list's own failure. Retried and retracted by the list.
    *
@@ -1060,6 +1035,11 @@ export default function MapScreen() {
     return [...byId.values()];
   }, [networkPlaces.accessPoints, accessPoints, drawnSlug]);
 
+  // The selected river's LIVE hazards, over the statewide set below. Fetch
+  // posture in the hook's header — a safety surface, so a hazard added since
+  // the last bundle does not wait for a relaunch on the river being planned.
+  const hazards = useRiverHazards(layers.includes('hazards'), selectedSlug);
+
   /**
    * Every hazard Eddy has, with the selected river's live list over the top.
    *
@@ -1077,224 +1057,37 @@ export default function MapScreen() {
   }, [networkPlaces.hazards, hazards]);
 
   // ── Layer data, fetched on demand ───────────────────────────────
-  // Nothing below is requested until its layer is on. Hazards and services are
-  // per-river and cheap; gauges are one flat list for the whole state, which is
-  // why the request is fired once and reused by search.
-  const wantsGauges = layers.includes('gauges');
-  const gaugesRequested = useRef(false);
+  // Nothing here is requested until its layer (or another consumer) wants it.
+  // The fetch behaviour lives in each hook, moved verbatim from this screen —
+  // latch-on-success and one retry for dams, release-on-failure for services,
+  // fire-once-and-reuse for gauges — so the screen states only WHO wants WHAT.
+  const { gauges, ensureGauges } = useCuratedGauges(layers.includes('gauges'));
 
-  const ensureGauges = useCallback(() => {
-    if (gaugesRequested.current) return;
-    gaugesRequested.current = true;
-    // Deliberately un-aborted and un-erroring: this is a background enrichment
-    // for search and a map layer, and a failure means "no gauges", not a
-    // message. Retrying is one more tap in the layers sheet.
-    const startedAt = Date.now();
-    fetchGauges()
-      .then((loaded) => {
-        const durationMs = Date.now() - startedAt;
-        if (__DEV__) {
-          console.info('[map] curated gauges loaded', {
-            durationMs,
-            returned: loaded.length,
-          });
-        }
-        if (durationMs >= 2000) {
-          warn('map', 'curated gauge load was slow', {
-            durationMs,
-            returned: loaded.length,
-          });
-        }
-        setGauges(loaded);
-      })
-      .catch(() => setGauges([]));
-  }, []);
-
-  useEffect(() => {
-    if (wantsGauges) ensureGauges();
-  }, [wantsGauges, ensureGauges]);
+  // Every USACE project's LIVE state, statewide — an enrichment, not the
+  // layer: the pins ship in the binary (DAM_CATALOG) and draw with no answer
+  // at all. See the hook for the cold-CDN retry story.
+  const dams = useDams(layers.includes('dams'));
 
   /**
-   * Every USACE project, fetched once on first enable and kept.
+   * Every service in the state, fetched once when something wants them.
    *
-   * NOT river-scoped, which is the structural difference from services below:
-   * those are "what is on THIS river" and re-fetch when the selection changes,
-   * while the dam set is fixed and regional. Most of these dams have no Eddy
-   * river at all — more so since the Tulsa district projects were added, which
-   * put dams in Oklahoma and Texas where Eddy carries no rivers at all — so
-   * scoping them to a selection would hide the majority of the layer behind a
-   * river that does not exist.
+   * ── A SELECTED RIVER WANTS THEM TOO, AND THAT IS NOT A LAYER ───────────
+   * The river sheet's Camping & outfitters tab is built from this same
+   * directory. Gated on the layers alone, the tab would be missing entirely
+   * for a reader who has those three switches off — a tab appearing and
+   * disappearing with a map layer is a relationship nobody could guess, and
+   * the switches are about PINS. So a river selection asks as well. Still one
+   * statewide request per session, still nothing on launch, and still nothing
+   * at all for somebody who never taps a river.
    *
-   * ── AND IT IS AN ENRICHMENT, NOT THE LAYER ─────────────────────────────
-   *
-   * The pins come from DAM_CATALOG, which ships in the binary. This request
-   * adds what the catalog cannot know — whether the units are turning, what is
-   * coming out, when it was measured — and its failure costs exactly those
-   * three things rather than the whole layer.
+   * The layer half is read off the tier table rather than named here: spelled
+   * out by hand it once said `campgrounds || outfitters`, written before the
+   * lodging tier existed — so a phone restored with only Cabins & lodges on
+   * never fetched anything. See SERVICE_LAYER_KEYS.
    */
-  const wantsDams = layers.includes('dams');
-  // ── A LATCH THAT ONLY HOLDS ON SUCCESS ──────────────────────────────────
-  //
-  // This was `useRef(false)`, set BEFORE the fetch and never reset, on the
-  // reasoning quoted above: fetchDams answered [] on failure, so a layer that
-  // draws nothing was "the honest outcome of a feed being down".
-  //
-  // The feed is not down. /api/dams reads through to CWMS and SWPA live for two
-  // dozen projects, so a cold CDN entry runs five to fifty seconds against the
-  // client's fifteen-second deadline — measured, not theorised. One unlucky tap
-  // therefore emptied the layer and wedged it there until the process died:
-  // toggling the layer off and on could not retry, because the latch had
-  // already been claimed by the request that failed.
-  //
-  // The latch is now claimed on the ANSWER. A failure releases it and schedules
-  // one retry, so returning to a warm CDN entry — which is the ordinary state
-  // seconds later — refills the layer.
-  const damsLoaded = useRef(false);
-  const damsAttempts = useRef(0);
-  useEffect(() => {
-    if (!wantsDams || damsLoaded.current) return;
-
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const attempt = () => {
-      const nth = ++damsAttempts.current;
-      // Same first-paint-cost log ensureGauges keeps: these two fetches are
-      // the price the everything-on default added to a cold open, and a
-      // number in the dev console is what keeps that claim checkable.
-      const startedAt = Date.now();
-      void fetchDams()
-        .then((live) => {
-          if (cancelled) return;
-          if (__DEV__) {
-            console.info('[map] dams loaded', {
-              durationMs: Date.now() - startedAt,
-              returned: live.length,
-              attempt: nth,
-            });
-          }
-          damsLoaded.current = true;
-          // Told apart in the log: an empty array from a healthy route is a
-          // claim about the Corps, and it has never been true. If this line
-          // ever appears, the route changed shape.
-          if (live.length === 0) warn('map', 'dams responded with no dams', { attempt: nth });
-          setDams(live);
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          // WHICH failure, because the two want different fixes: 'No connection'
-          // is the deadline expiring on a cold read-through and argues for
-          // caching the route; a status code is the route itself failing.
-          warn('map', 'dams fetch failed', {
-            attempt: nth,
-            reason: err instanceof ApiError ? (err.status ?? err.message) : 'unknown',
-          });
-          // Once. A second failure leaves the catalog pins standing rather than
-          // retrying into a route that is evidently unwell — and the layer is
-          // still drawn, which is the difference this whole change makes.
-          if (nth === 1) timer = setTimeout(attempt, DAMS_RETRY_MS);
-        });
-    };
-
-    attempt();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [wantsDams]);
-
-  /**
-   * The selected river's hazards, LIVE, over the statewide set from disk.
-   *
-   * The layer no longer depends on this — every hazard Eddy has is already
-   * drawn from the launch bundle — so what this adds is freshness for the one
-   * river somebody is looking at. Kept rather than dropped because it is a
-   * safety layer: a hazard added since the last bundle should not wait for a
-   * relaunch on the river being planned right now.
-   */
-  const wantsHazards = layers.includes('hazards');
-  useEffect(() => {
-    if (!wantsHazards || !selectedSlug) return;
-    const slug = selectedSlug;
-    const controller = new AbortController();
-    fetchHazards(slug, controller.signal)
-      .then((items) => setHazards({ slug, items }))
-      .catch(() => {
-        // Neither a cancelled request NOR a failed one is "this river has no
-        // hazards". Leaving the state null is what the layers sheet already
-        // reads as "not asked" — see the RiverScoped docblock above, which
-        // calls publishing a count for unfetched hazards "the one thing a
-        // count must never do". Writing [] here did exactly that, and on the
-        // safety surface: a river with a low-water dam on it reported
-        // "Hazards 0" whenever the endpoint was down.
-      });
-    return () => controller.abort();
-  }, [wantsHazards, selectedSlug]);
-
-  /**
-   * Every service in the state, fetched once when a layer wants them.
-   *
-   * Was per-river and re-fetched on every selection, which made both layers
-   * empty until a river was chosen and then two or three pins deep. One
-   * statewide request draws all of them — and it now carries the un-geocoded
-   * rows too, because the coverage sentence under each tier counts them. See
-   * /api/services, which says the same thing from the other end.
-   *
-   * A ref rather than a slug guard: the set is fixed and statewide, so once it
-   * has been asked for there is nothing a change of selection could add.
-   *
-   * ── A FAILURE IS NOT AN EMPTY DIRECTORY ─────────────────────────────────
-   *
-   * `fetchServices` used to answer `[]` when the request failed, and the note
-   * here used to say that was why no error branch was needed. It was the
-   * reason one WAS: `services` became a non-null empty array, so three layers
-   * reported a confident `0` and the coverage lines vanished — a set of claims
-   * about a directory Eddy had never managed to read. It answers `null` now,
-   * `services` stays null, and every count stays `undefined`, which the sheet
-   * already draws as absent rather than as zero.
-   *
-   * And the ref is RELEASED on failure. Marking the request as made before it
-   * succeeds meant one flaky moment disabled these layers for the life of the
-   * screen. Releasing it lets the next layer toggle try again — no timer and no
-   * retry loop, because a map screen quietly re-requesting on a schedule is a
-   * bigger commitment than this needs. If it never succeeds, the layers stay
-   * honestly silent.
-   */
-  // Every layer that draws services, read off the tier table rather than named
-  // here. Spelled out by hand, this said `campgrounds || outfitters` and was
-  // written before the lodging tier existed — so a phone restored with only
-  // Cabins & lodges on never fetched anything. See SERVICE_LAYER_KEYS.
-  //
-  // ── A SELECTED RIVER WANTS THEM TOO, AND THAT IS NOT A LAYER ───────────
-  // The river sheet's Camping & outfitters tab is built from this same
-  // directory. Gated on the layers alone, the tab would be missing entirely for
-  // a reader who has those three switches off — a tab appearing and
-  // disappearing with a map layer is a relationship nobody could guess, and the
-  // switches are about PINS. So a river selection asks as well. Still one
-  // statewide request per session behind the ref, still nothing on launch, and
-  // still nothing at all for somebody who never taps a river.
   const wantsServices =
     SERVICE_LAYER_KEYS.some((key) => layers.includes(key)) || selectedSlug != null;
-  const servicesRequested = useRef(false);
-  useEffect(() => {
-    if (!wantsServices || servicesRequested.current) return;
-    servicesRequested.current = true;
-    // The other half of the first-paint cost the dams effect logs above.
-    const startedAt = Date.now();
-    void fetchServices().then((rows) => {
-      if (rows === null) {
-        servicesRequested.current = false;
-        return;
-      }
-      if (__DEV__) {
-        console.info('[map] services loaded', {
-          durationMs: Date.now() - startedAt,
-          returned: rows.length,
-        });
-      }
-      setServices(rows);
-    });
-  }, [wantsServices]);
+  const services = useRiverServices(wantsServices);
 
   /**
    * The dam pins.
