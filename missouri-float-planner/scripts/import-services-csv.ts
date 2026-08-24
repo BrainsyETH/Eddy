@@ -57,6 +57,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getScriptClient } from './lib/db';
 import { nameScore } from './ingestion/geocode-services-dryrun';
+import { MANAGING_AGENCIES, isKnownAgency } from './service-quality';
 
 // ── Vocabulary ────────────────────────────────────────────────────────────
 // Mirror of ServiceOffering in src/types/api.ts and the labels in
@@ -378,6 +379,19 @@ export function buildRows(
 
     if (has('status') && !VALID_STATUSES.has(cell('status'))) {
       errors.push({ line, who, message: `status "${cell('status')}" is not a service_status value` });
+    }
+    // A typo here is not a cosmetic problem. The audit's duplicate check asks
+    // whether an agency runs the site to decide if a shared phone number is a
+    // switchboard, and anything it does not recognise counts as private — so
+    // "Privte" does not suppress a warning, it just fails to explain one.
+    // Catching it at the line that wrote it is better than either.
+    if (has('managing_agency') && !isKnownAgency(cell('managing_agency'))) {
+      errors.push({
+        line, who,
+        message:
+          `managing_agency "${cell('managing_agency')}" is not one of ` +
+          `${MANAGING_AGENCIES.join(', ')}`,
+      });
     }
 
     const claimed: Record<string, unknown> = {};
@@ -854,6 +868,14 @@ async function main() {
       // never re-pointed except through --overwrite, which sets primary_river.
       insert_primary: plan.action === 'insert' ? plan.row.riverSlugs[0] : null,
       primary_river: plan.primaryFlips[0] ?? null,
+      // "This business serves this river" is a claim like any other, and the
+      // page the row cited is what established it. Only a NEW link takes these;
+      // an existing link's provenance may name a river page this row never
+      // read, so the RPC leaves it alone.
+      link_source: typeof plan.row.claimed.verified_source === 'string'
+        ? plan.row.claimed.verified_source
+        : null,
+      link_checked_at: plan.row.checkedAt,
       // One source per column actually written. A field the CSV attributes
       // individually keeps that attribution; everything else inherits the
       // row's verified_source, so provenance covers the whole write rather

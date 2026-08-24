@@ -593,3 +593,20 @@ test('an unattributable unchanged row still produces nothing', () => {
   const bare = { ...plan, row: { ...plan.row, checkedAt: null } };
   assert.deepEqual(fieldSourceRows(bare, 'claimed'), []);
 });
+
+test('an unknown managing_agency names the line that wrote it', () => {
+  const header = `${HEADER},managing_agency`;
+  const bad = `Typo Camp,campground,niangua,,,417-555-0000,,Lebanon,,,,,,,,https://operator.example,${RECENT},Privte`;
+  const { errors } = buildRows(parseCsv([header, bad].join('\n')), TODAY);
+  const hit = errors.find((e) => /managing_agency/.test(e.message));
+  assert.ok(hit, `expected a managing_agency error, got ${JSON.stringify(errors)}`);
+  assert.match(hit.message, /Privte/);
+  assert.match(hit.message, /Private/, 'the message lists what is allowed');
+});
+
+test('a known managing_agency passes', () => {
+  const header = `${HEADER},managing_agency`;
+  const good = `Real Camp,campground,niangua,,,417-555-0000,,Lebanon,,,,,,,,https://operator.example,${RECENT},MO State Parks`;
+  const { errors } = buildRows(parseCsv([header, good].join('\n')), TODAY);
+  assert.deepEqual(errors, []);
+});

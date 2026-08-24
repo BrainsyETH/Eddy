@@ -313,6 +313,48 @@ export function baselineWriteProblem(
   return null;
 }
 
+/**
+ * Who may run a site, for nearby_services.
+ *
+ * ── THIS IS NOT @eddy/types ManagingAgency, AND THAT IS A KNOWN PROBLEM ────
+ *
+ * access_points.managing_agency has its own vocabulary — MDC, NPS, USFS, COE,
+ * State Park, County, Municipal, Private — with a CHECK constraint since
+ * 00034 and a shipped `ManagingAgency` union. The two disagree: COE vs USACE
+ * for one agency, `State Park` vs a per-state spelling, and each has a value
+ * the other lacks. That split predates this file (the directory already held
+ * `MO State Parks` and `USFS` before any of this work) and unifying it means
+ * touching 274 access points, the map sheet and an iOS type — separate work,
+ * deliberately not done here. What IS fixed here is that the directory's own
+ * vocabulary is now closed rather than aspirational.
+ */
+export const MANAGING_AGENCIES = [
+  'NPS', 'USFS', 'USACE', 'MO State Parks', 'AR State Parks',
+  'MDC', 'AGFC', 'County', 'Private',
+] as const;
+
+export type ManagingAgencyValue = (typeof MANAGING_AGENCIES)[number];
+
+export function isKnownAgency(value: string | null | undefined): boolean {
+  return MANAGING_AGENCIES.includes((value ?? '') as ManagingAgencyValue);
+}
+
+/**
+ * Whether this value says an AGENCY runs the site — the question that decides
+ * whether a shared phone number is a switchboard or a duplicate.
+ *
+ * Deliberately false for anything unrecognised, and that is the whole point.
+ * The obvious reading — "not null and not Private, so an agency runs it" —
+ * fails OPEN: a typo like `Privte` is neither, so the group is treated as an
+ * agency switchboard and the duplicate warning is suppressed silently, for
+ * every row on that number, with no symptom anybody would ever notice. An
+ * unknown value therefore counts as private, which at worst asks somebody to
+ * confirm a pair that is fine.
+ */
+export function agencyRuns(value: string | null | undefined): boolean {
+  return isKnownAgency(value) && value !== 'Private';
+}
+
 /** A row reduced to what the shared-contact check needs. */
 export interface ContactRow {
   slug: string;
@@ -366,12 +408,14 @@ export function phoneDigits(value: string | null | undefined): string | null {
  * collapsed.
  *
  * A NULL managing_agency counts as private, so a column nobody has filled in
- * yet makes this check MORE eager rather than silently blind. A column that
- * was never SELECTED is a different thing and must not be mistaken for the
- * same one: the first run of this check omitted managing_agency from the query
- * and reported all six switchboards as duplicates, because absent read as
- * private. So absence of the key is a programming error and says so, rather
- * than quietly producing ten findings that are all wrong.
+ * yet makes this check MORE eager rather than silently blind — and so does a
+ * value outside the vocabulary; see agencyRuns for why a typo must never read
+ * as an agency. A column that was never SELECTED is a different thing and must
+ * not be mistaken for either: the first run of this check omitted
+ * managing_agency from the query and reported all six switchboards as
+ * duplicates, because absent read as private. So absence of the key is a
+ * programming error and says so, rather than quietly producing ten findings
+ * that are all wrong.
  */
 export function sharedContacts(rows: ContactRow[]): SharedContact[] {
   const groups = new Map<string, ContactRow[]>();
@@ -392,9 +436,7 @@ export function sharedContacts(rows: ContactRow[]): SharedContact[] {
   const flagged: SharedContact[] = [];
   for (const [digits, members] of groups) {
     if (members.length < 2) continue;
-    const agencyRun = members.some(
-      (m) => m.managing_agency != null && m.managing_agency !== 'Private',
-    );
+    const agencyRun = members.some((m) => agencyRuns(m.managing_agency));
     if (agencyRun) continue;
     if (new Set(members.map((m) => m.type)).size > 1) continue;
     flagged.push({ digits, slugs: members.map((m) => m.slug).sort() });

@@ -6,6 +6,9 @@ import {
   buildBaseline,
   compareToBaseline,
   DEBT_CLASSES,
+  agencyRuns,
+  isKnownAgency,
+  MANAGING_AGENCIES,
   measureDebt,
   phoneDigits,
   projectRefFromUrl,
@@ -491,4 +494,47 @@ test('a column that was never selected is a programming error, not a finding', (
 
 test('an explicit null is fine — that is an unfilled column, not an unfetched one', () => {
   assert.equal(sharedContacts([contact({ slug: 'one' }), contact({ slug: 'two' })]).length, 1);
+});
+
+// ── A typo must not disable the duplicate check ───────────────────────────
+// The obvious reading of managing_agency — "not null and not Private, so an
+// agency runs it" — fails OPEN. An unrecognised value is neither, so the
+// group reads as a switchboard and the warning vanishes with no symptom.
+
+test('an unrecognised agency counts as private, not as an agency', () => {
+  assert.equal(agencyRuns('Privte'), false, 'a typo must never read as an agency');
+  assert.equal(agencyRuns('National Park Service'), false, 'a pre-normalisation spelling either');
+  assert.equal(agencyRuns(''), false);
+  assert.equal(agencyRuns(null), false);
+  assert.equal(agencyRuns('Private'), false);
+  assert.equal(agencyRuns('NPS'), true);
+  assert.equal(agencyRuns('MO State Parks'), true);
+});
+
+test('a typo does not suppress the duplicate warning', () => {
+  // This is the failure the constraint and agencyRuns exist to prevent: two
+  // rows on one number where somebody fat-fingered the agency.
+  const found = sharedContacts([
+    contact({ slug: 'one', managing_agency: 'Privte' }),
+    contact({ slug: 'two', managing_agency: 'Private' }),
+  ]);
+  assert.equal(found.length, 1, 'still flagged — eager beats silent');
+  assert.deepEqual(found[0].slugs, ['one', 'two']);
+});
+
+test('a real switchboard is still skipped', () => {
+  const found = sharedContacts([
+    contact({ slug: 'one', type: 'campground', managing_agency: 'NPS' }),
+    contact({ slug: 'two', type: 'campground', managing_agency: 'NPS' }),
+  ]);
+  assert.deepEqual(found, []);
+});
+
+test('every vocabulary value is recognised, and Private is the only non-agency', () => {
+  for (const value of MANAGING_AGENCIES) {
+    assert.ok(isKnownAgency(value), `${value} should be known`);
+    assert.equal(agencyRuns(value), value !== 'Private', value);
+  }
+  assert.equal(isKnownAgency('State Park'), false,
+    "access_points' vocabulary is a different set — see the comment on MANAGING_AGENCIES");
 });

@@ -53,6 +53,59 @@ export interface RiverRoute {
   seasonal: boolean;
 }
 
+/**
+ * The longest float on a curated Ozark river is well under this. A distance
+ * above it is a typo — a phone number in the miles column, or metres.
+ */
+const MAX_ROUTE_MILES = 300;
+
+/**
+ * A route distance, or a sentence saying why it is not one.
+ *
+ * `split('-')[0]` was doing this job and got three cases wrong, all silently:
+ *
+ *   · "-5"  → "" → read as NO DISTANCE GIVEN. A negative was not rejected and
+ *     was not even repaired to null on purpose; it vanished into the same
+ *     branch as an empty cell, so the route shipped claiming no length.
+ *   · "5-3" → 5. A reversed range kept its FIRST number and called it the
+ *     lower bound, which is the ceiling.
+ *   · "1e5" and "0" → finite numbers, accepted. A hundred thousand mile float,
+ *     or one with no length at all.
+ *
+ * An absent distance is still legitimate — plenty of routes are described
+ * without one — so "" stays null. Everything else has to be a real distance.
+ */
+export function parseMiles(raw: string): number | null | string {
+  const text = raw.trim();
+  if (text === '') return null;
+
+  const range = text.match(/^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)$/);
+  if (range) {
+    const [low, high] = [Number(range[1]), Number(range[2])];
+    if (low > high) {
+      return `has a backwards range: "${text}" — write the smaller number first`;
+    }
+    // A range keeps its lower bound: a 20-25 mile trip is at least 20, and a
+    // reader deciding whether they have the day for it wants the floor.
+    return check(low, text);
+  }
+
+  if (!/^\d+(?:\.\d+)?$/.test(text)) {
+    return `has a distance that is not a number: "${text}"`;
+  }
+  return check(Number(text), text);
+}
+
+function check(miles: number, text: string): number | string {
+  if (!Number.isFinite(miles)) return `has a distance that is not a number: "${text}"`;
+  if (miles <= 0) return `has a distance of ${miles} miles — a float has length`;
+  if (miles > MAX_ROUTE_MILES) {
+    return `has a distance of ${miles} miles, which is past the ${MAX_ROUTE_MILES}-mile ` +
+      'sanity limit — check the column';
+  }
+  return miles;
+}
+
 /** `Name,miles,put-in,take-out[,seasonal]` — miles may be a range like 20-25. */
 export function parseRoutes(raw: string): { routes: RiverRoute[]; errors: string[] } {
   const routes: RiverRoute[] = [];
@@ -65,14 +118,12 @@ export function parseRoutes(raw: string): { routes: RiverRoute[]; errors: string
     }
     const [name, milesRaw, putIn, takeOut, seasonalRaw] = parts;
     if (!name) { errors.push(`route "${chunk}" has no name`); continue; }
-    // A range keeps its lower bound: a 20-25 mile trip is at least 20, and a
-    // reader deciding whether they have the day for it wants the floor.
-    const milesText = (milesRaw ?? '').split('-')[0];
-    const miles = milesText === '' ? null : Number(milesText);
-    if (miles !== null && !Number.isFinite(miles)) {
-      errors.push(`route "${name}" has a distance that is not a number: "${milesRaw}"`);
+    const parsed = parseMiles(milesRaw ?? '');
+    if (typeof parsed === 'string') {
+      errors.push(`route "${name}" ${parsed}`);
       continue;
     }
+    const miles = parsed;
     if (seasonalRaw && !['seasonal', 'year-round'].includes(seasonalRaw)) {
       errors.push(`route "${name}" fifth field must be seasonal or year-round, got "${seasonalRaw}"`);
       continue;
@@ -187,11 +238,38 @@ async function main() {
   console.log(`\n${updates.length} link(s) validated.`);
   if (!shouldImport) { console.log('\n💡 Validation only. Re-run with --import to write.'); return; }
 
-  for (const u of updates) {
-    const { error } = await supabase.from('service_rivers').update(u.patch).eq('id', u.id);
-    if (error) { console.error(`  ❌ ${u.label}: ${error.message}`); process.exit(1); }
+  // One call, one transaction. The previous loop issued a request per link, so
+  // a failure part-way left the earlier links decorated and the rest not —
+  // the failure validate-before-write does not cover.
+  const { data: tally, error: rpcError } = await supabase.rpc('apply_service_river_facts', {
+    p_plan: updates.map((u) => ({ id: u.id, patch: u.patch })),
+  });
+  if (rpcError) {
+    console.error(`\n❌ Nothing was written — the whole plan rolled back.`);
+    console.error(`   ${rpcError.message}`);
+    process.exit(1);
   }
-  console.log(`\n✅ ${updates.length} link(s) updated.`);
+  console.log(`\nDatabase applied: ${JSON.stringify(tally)}`);
+
+  // Read back, and name anything that did not land.
+  const { data: after, error: afterError } = await supabase
+    .from('service_rivers')
+    .select('id, verified_source, checked_at')
+    .in('id', updates.map((u) => u.id));
+  if (afterError) throw new Error(`Could not verify the write: ${afterError.message}`);
+  const seen = new Map(
+    ((after ?? []) as Array<{ id: string; verified_source: string | null; checked_at: string | null }>)
+      .map((r) => [r.id, r]),
+  );
+  const missed = updates.filter((u) => {
+    const row = seen.get(u.id);
+    return !row || row.verified_source !== u.patch.verified_source;
+  });
+  if (missed.length > 0) {
+    console.error(`\n❌ ${missed.length} link(s) did not land: ${missed.map((m) => m.label).join(', ')}`);
+    process.exit(1);
+  }
+  console.log(`\n✅ ${updates.length} link(s) updated and verified.`);
 }
 
 if (path.basename(process.argv[1] ?? '').replace(/\.[cm]?[tj]s$/, '') === 'import-service-river-facts') {
