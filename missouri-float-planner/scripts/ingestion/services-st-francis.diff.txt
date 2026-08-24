@@ -1,0 +1,74 @@
+INSERT     sam-a-baker-state-park  — Sam A. Baker State Park [campground]
+             status               = active
+             state                = MO
+             display_order        = 100
+             nps_authorized       = false
+             usfs_authorized      = false
+             services_offered     = {camping_primitive,camping_rv,cabins,canoe_rental,kayak_rental,raft_rental,general_store,food_service,showers,laundry,dump_station,vault_toilets,potable_water}
+             alt_names            = {Sam Baker State Park}
+             name                 = Sam A. Baker State Park
+             type                 = campground
+             phone                = 573-856-4524
+             phone_toll_free      = 888-210-3889
+             website              = https://mostateparks.com/park/sam-baker-state-park
+             address_line1        = 5580 State Highway 143
+             city                 = Patterson
+             zip                  = 63956
+             description          = Three camping areas across 5,323 acres in the St. Francois Mountains — two campgrounds plus an equestrian camp — with basic, electric and family sites. The concessionaire runs 19 native stone and wood cabins, the Mudlick Mountain Grill and Store, and rents canoes, sit-on-top kayaks and six-person rafts for floats of 4 to 18 miles.
+             seasonal_notes       = Campground 2 is open year round; Campground 1 runs April 1 to October 31 and the equestrian camp March 1 to November 30. Showerhouses close in the off-season. Float rentals run April through November, water permitting.
+             managing_agency      = Missouri State Parks
+             verified_source      = https://mostateparks.com/park/sam-a-baker-state-park/camping, https://mostateparks.com/park/sam-baker-state-park/lodging, https://mostateparks.com/park/sam-a-baker-state-park/floating
+             latitude             = 37.23526
+             longitude            = -90.51294
+             cabin_count          = 19
+             season_open_month    = 4
+             season_close_month   = 11
+             last_verified_at     = 2026-08-24T00:00:00.000Z
+             slug                 = sam-a-baker-state-park
+             + river link st-francis
+INSERT     otahki-lake-koa  — Otahki Lake KOA [outfitter]
+             status               = active
+             state                = MO
+             display_order        = 100
+             nps_authorized       = false
+             usfs_authorized      = false
+             services_offered     = {canoe_rental,kayak_rental,raft_rental,tube_rental,cabins,camping_rv,camping_primitive}
+             alt_names            = {Otahki Outfitters,Otahki Lake Cabins & Campground}
+             name                 = Otahki Lake KOA
+             type                 = outfitter
+             phone                = 855-568-2454
+             website              = https://www.otahkilake.com
+             address_line1        = 1224 Wayne 318
+             city                 = Patterson
+             zip                  = 63956
+             description          = Float trips of 1, 3, 5 and 10 miles on the St. Francis by canoe, kayak, raft, paddleboard or solo raft, on 1,236 acres bordering Sam A. Baker State Park. Deluxe cabins, RV sites and glamping tents.
+             verified_source      = https://www.otahkilake.com/river-floats/, https://missouricanoe.org/st-francis-river-and-big-creek/
+             last_verified_at     = 2026-08-24T00:00:00.000Z
+             slug                 = otahki-lake-koa
+             + river link st-francis
+INSERT     greenville-recreation-area-coe  — Greenville Recreation Area [campground]
+             status               = active
+             state                = MO
+             display_order        = 100
+             nps_authorized       = false
+             usfs_authorized      = false
+             services_offered     = {camping_rv,showers,flush_toilets,potable_water,boat_ramp,dump_station,playground}
+             alt_names            = {Greenville Campground}
+             name                 = Greenville Recreation Area
+             type                 = campground
+             phone                = 573-224-3884
+             website              = https://www.recreation.gov/camping/campgrounds/233688
+             address_line1        = 10992 Highway T
+             city                 = Wappapello
+             zip                  = 63966
+             description          = Corps of Engineers campground on Wappapello Lake at the downstream end of the St. Francis, renovated in 2019 to 106 full-hookup sites with 50-amp electric, water and sewer on concrete pads. Central shower house, three further restroom buildings, a two-lane boat ramp and playgrounds.
+             seasonal_notes       = Staffed April 1 to November 2; unstaffed outside that window.
+             managing_agency      = US Army Corps of Engineers
+             verified_source      = https://www.recreation.gov/camping/campgrounds/233688
+             latitude             = 37.11699
+             longitude            = -90.4689
+             season_open_month    = 4
+             season_close_month   = 11
+             last_verified_at     = 2026-08-24T00:00:00.000Z
+             slug                 = greenville-recreation-area-coe
+             + river link st-francis
