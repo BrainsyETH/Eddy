@@ -78,6 +78,8 @@ when running the write phases.
 | `activate-rivers.ts` | 9 — Activate | `rivers.active=true` (auto-rollback on validation errors) | **write-default**, `--dry` to validate only |
 | `set-cold-start.ts` / `set-cold-start-batch3.ts` | 9 — cold-start prose | `rivers` update (`float_summary`, `float_tip`) — one-time, batch-specific, idempotent | **NONE** |
 | `build-dossiers-batch3.ts`, `gen-verified-ids-batch3.ts` | 2–3, batch 3 only | none — local dossier/gate files | n/a |
+| `build-tailwater-geometry.ts` | tailwater onboarding | none — slices an NHD main stem between two named endpoints and emits river SQL | writes nothing, ever |
+| `propose-tailwater-access-points.ts` | tailwater onboarding | none — proposes access candidates from OpenStreetMap, filtered to within 300 m of the river line | writes nothing, ever |
 | `dossier.ts` | — | not a script: the `RiverDossier` type + gate taxonomy | n/a |
 
 ## Importers & backfills (top-level)

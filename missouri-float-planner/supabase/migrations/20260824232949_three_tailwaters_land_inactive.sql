@@ -1,7 +1,22 @@
--- 20260824232000_three_tailwaters_land_inactive.sql
+-- 20260824232949_three_tailwaters_land_inactive.sql
 --
 -- The White below Bull Shoals, the Norfork tailwater, and Lake Taneycomo —
 -- ingested as rivers, wired to the dams that drive them, and left INACTIVE.
+--
+-- ── APPLIED 2026-08-24; filename carries production's version ───────────────
+-- Applied through the Supabase API rather than the CLI, which stamped its own
+-- version (20260824232949) instead of the one this file was written under.
+-- Renamed to match, for the same reason 20260813005710 was adopted verbatim:
+-- a local-only version and a remote-only version are exactly the drift
+-- `npm run db:check-migrations` exists to report, and the histories have to
+-- pair.
+--
+-- The statements applied were these, minus the long comment blocks — trimmed
+-- only to keep the payload transmissible, never altering an effect. Verified
+-- afterwards against this file: 3 rivers at active=false with their
+-- controlling dams set, 4 usace stations, 8 roled river_gauges, and all 303
+-- geometry coordinates checksum-identical to the output of
+-- scripts/ingestion/build-tailwater-geometry.ts.
 --
 -- ── Why these are rivers and not reaches ────────────────────────────────────
 -- reach-types.ts exists for the Black: above Clearwater it is a spring-fed
