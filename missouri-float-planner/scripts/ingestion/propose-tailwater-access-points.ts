@@ -76,21 +76,35 @@ async function overpass(query: string): Promise<OsmElement[]> {
   throw new Error(`All Overpass endpoints failed: ${String(lastErr)}`);
 }
 
-/** Split a bbox into north-south tiles so no single query is too heavy. */
+/**
+ * Split a bbox into a grid so no single query is too heavy.
+ *
+ * BOTH axes, which the first version got wrong. Splitting only by latitude left
+ * the White's tiles 0.12° tall and 0.67° WIDE — barely smaller in area than the
+ * whole box — and Overpass answered them with a 500 just the same. What costs a
+ * query is the AREA it has to scan, so a strip is not a smaller question than
+ * the rectangle it came from.
+ */
 function tileBbox(
   minLat: number,
   minLon: number,
   maxLat: number,
   maxLon: number,
-  maxSpanDeg = 0.25,
+  maxSpanDeg = 0.12,
 ): string[] {
   const tiles: string[] = [];
-  const steps = Math.max(1, Math.ceil((maxLat - minLat) / maxSpanDeg));
-  const step = (maxLat - minLat) / steps;
-  for (let i = 0; i < steps; i++) {
-    const lo = minLat + i * step;
-    const hi = i === steps - 1 ? maxLat : lo + step;
-    tiles.push([lo, minLon, hi, maxLon].join(','));
+  const rows = Math.max(1, Math.ceil((maxLat - minLat) / maxSpanDeg));
+  const cols = Math.max(1, Math.ceil((maxLon - minLon) / maxSpanDeg));
+  const dLat = (maxLat - minLat) / rows;
+  const dLon = (maxLon - minLon) / cols;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const lo = minLat + r * dLat;
+      const hi = r === rows - 1 ? maxLat : lo + dLat;
+      const west = minLon + c * dLon;
+      const east = c === cols - 1 ? maxLon : west + dLon;
+      tiles.push([lo, west, hi, east].join(','));
+    }
   }
   return tiles;
 }
@@ -160,12 +174,27 @@ async function main() {
       Math.max(...lons) + pad,
     );
 
-    process.stderr.write(`\n${slug}: querying Overpass over ${tiles.length} tile(s)\n`);
+    // A grid over a river's bounding box is mostly empty: the White runs
+    // diagonally across ninety miles, so most cells contain no river at all.
+    // Querying them would be pure load on a free service for guaranteed-empty
+    // answers. Keep only cells the line actually passes through (plus the pad,
+    // so a ramp set back from the bank still falls inside one).
+    const occupied = tiles.filter((bbox) => {
+      const [s, w, n, e] = bbox.split(',').map(Number);
+      return feat.geometry.coordinates.some(
+        ([lon, lat]) =>
+          lat >= s - pad && lat <= n + pad && lon >= w - pad && lon <= e + pad,
+      );
+    });
+
+    process.stderr.write(
+      `\n${slug}: ${occupied.length} of ${tiles.length} tiles touch the river\n`,
+    );
     const elements: OsmElement[] = [];
-    for (const [i, bbox] of tiles.entries()) {
-      process.stderr.write(`  tile ${i + 1}/${tiles.length} ${bbox}\n`);
+    for (const [i, bbox] of occupied.entries()) {
+      process.stderr.write(`  tile ${i + 1}/${occupied.length} ${bbox}\n`);
       elements.push(...(await overpass(buildQuery(bbox))));
-      if (i < tiles.length - 1) await sleep(1500);
+      if (i < occupied.length - 1) await sleep(1500);
     }
 
     const rows: Array<{
