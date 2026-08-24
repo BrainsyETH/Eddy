@@ -291,9 +291,28 @@ function GaugeChartInner({
    */
   const [unitOverride, setUnitOverride] = useState<'ft' | 'cfs' | null>(null);
 
-  const { history, loading, unavailable, failed, retry } = useGaugeHistory(siteId, days);
+  const { history, loading, unavailable, failed, retry, historyDays, matchesRequest } =
+    useGaugeHistory(siteId, days);
 
   const drawnUnit = unitOverride ?? unit;
+
+  /**
+   * The range the line on screen actually covers, which is NOT always `days`.
+   *
+   * useGaugeHistory keeps the previous series through a range change so the
+   * chart does not flash empty, and through a failure so a reader is not handed
+   * an error in place of a chart they were reading. Both are deliberate. What
+   * was not deliberate is that everything describing the series read `days` —
+   * the range that was ASKED for — so the subtitle printed "last 24 hours" over
+   * a month of line, the axis labelled thirty days with three bare hour stamps,
+   * and VoiceOver spoke both as fact.
+   *
+   * The line is honest about itself. The words around it have to follow the
+   * line, not the request. The range STRIP is the one exception below and
+   * stays on `days`: it shows what you chose, and a control that quietly
+   * re-selects itself from arriving data is a control you cannot trust.
+   */
+  const drawnDays = historyDays ?? days;
 
   /**
    * Which way it is going, over roughly the last six hours.
@@ -310,24 +329,45 @@ function GaugeChartInner({
    * of them — a badge that silently changes meaning when you zoom out is worse
    * than one that is absent.
    *
-   * ── WHY 30d IS EXCLUDED, AND WHY THE WINDOW IS CHECKED ────────────────
+   * ── WHY 30d IS EXCLUDED ───────────────────────────────────────────────
    * The endpoint downsamples a month to ~360 points by KEEPING EACH BUCKET'S
    * MIN AND MAX, so at roughly four hours per bucket the point nearest six
    * hours back is a local extremum rather than a representative reading, and
    * the delta gets measured against a peak or a trough. There is nothing to
    * compute honestly from at that range, so nothing is claimed.
    *
-   * The window check covers the other direction: computeTrend takes the reading
-   * NEAREST six hours back with no floor on how near that is, so a sparse or
-   * stalled station can answer from a window nothing like the one asked for.
+   * ── AND WHY THAT IS NOT ENOUGH ON ITS OWN ─────────────────────────────
+   * This gate used to be `days === 30` alone, which tested the range the reader
+   * ASKED for while computeTrend read the series the hook was HOLDING. Those
+   * are not the same window. Going 30d → 24h, `days` becomes 1 while the month
+   * of data is still on screen, so the gate stood open in exactly the direction
+   * it was written to close — and the window check below does not catch it,
+   * because a 30-day series is only ~2-4h between points, so the reading
+   * nearest six hours back rounds to five or seven and passes cleanly.
+   *
+   * `matchesRequest` is the fix: the series must be the one that was asked for,
+   * for this station and this range. It is deliberately stricter than the
+   * subtitle and the axis, which follow the drawn range and stay honest that
+   * way. A trend cannot do that — it is a claim about the last six hours, not a
+   * description of what is on screen — so while the series is mismatched it is
+   * withheld rather than relabelled. That costs a blink on every range change,
+   * which is the right price for never stating a trend off the wrong window.
+   *
+   * ── THE WINDOW CHECK, WHICH IS A DIFFERENT PROBLEM ────────────────────
+   * computeTrend takes the reading NEAREST six hours back with no floor on how
+   * near that is, so a sparse or stalled station can answer from a window
+   * nothing like the one asked for.
    * Past a twelve-hour gap it even selects the latest reading as its own
    * comparison and reports a rising river as "Holding steady" — always with a
    * 1h window, which this rejects. See shared/gauge-trend.test.ts, which pins
    * that behaviour and explains why it is not fixed there.
    */
   const trend = useMemo(
-    () => (days === 30 || !history ? null : computeTrend(history.readings, drawnUnit)),
-    [days, history, drawnUnit],
+    () =>
+      !matchesRequest || !history || days === 30
+        ? null
+        : computeTrend(history.readings, drawnUnit),
+    [matchesRequest, history, days, drawnUnit],
   );
   const shownTrend = trend && Math.abs(trend.windowHours - 6) <= 3 ? trend : null;
 
@@ -675,7 +715,7 @@ function GaugeChartInner({
    * stepped-to reading is announced through accessibilityValue below.
    */
   const plotSummary = (() => {
-    const window = days === 1 ? 'last 24 hours' : `last ${days} days`;
+    const window = drawnDays === 1 ? 'last 24 hours' : `last ${drawnDays} days`;
     const measure = drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height';
     const bits = [
       newest
@@ -778,7 +818,7 @@ function GaugeChartInner({
           ) : (
             <Text style={[styles.subtitle, { color: colors.textSubtle }]} numberOfLines={1}>
               {drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height'} · last{' '}
-              {days === 1 ? '24 hours' : `${days} days`}
+              {drawnDays === 1 ? '24 hours' : `${drawnDays} days`}
             </Text>
           )}
         </View>
@@ -1120,7 +1160,7 @@ function GaugeChartInner({
                     fontFamily={fonts.body}
                     textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}
                   >
-                    {axisTime(tick.value, days)}
+                    {axisTime(tick.value, drawnDays)}
                   </SvgText>
                 ))}
               </Svg>

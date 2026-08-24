@@ -18,6 +18,7 @@ import { computeTrend } from '@shared/gauge-trend';
 import type { ChartReadingLike } from '@shared/chart-model';
 
 const CHART = readFileSync(join(process.cwd(), '../eddy-ios/src/components/GaugeChart.tsx'), 'utf8');
+const HOOK = readFileSync(join(process.cwd(), '../eddy-ios/src/hooks/useGaugeHistory.ts'), 'utf8');
 
 function cfs(hoursAgo: number, value: number): ChartReadingLike {
   const base = Date.parse('2026-08-24T18:00:00Z');
@@ -28,13 +29,101 @@ function cfs(hoursAgo: number, value: number): ChartReadingLike {
   };
 }
 
+/* ── The series in hand is not always the series that was asked for ─────── */
+
+test('BEHAVIOUR: a 30-day-shaped series slips through the window check', () => {
+  // ── THE ASSERTION THAT WOULD HAVE CAUGHT THE BUG ────────────────────────
+  // The first version of this guard was `days === 30` alone, on the assumption
+  // that if a month of data ever reached computeTrend the |windowHours - 6| <= 3
+  // check would reject it. It does not, and this is why.
+  //
+  // A 30-day response is capped at 360 points and split per unit, so ~2-4h
+  // between retained points. The reading nearest six hours back therefore lands
+  // ON six hours, and the window check waves it through — computed against a
+  // bucket extremum rather than a representative reading.
+  const monthly: ChartReadingLike[] = [];
+  for (let h = 720; h >= 0; h -= 3) monthly.push(cfs(h, 500 + (h % 6 === 0 ? 300 : 0)));
+
+  const trend = computeTrend(monthly, 'cfs');
+  assert.ok(trend, 'a month of 3-hourly points still produces a trend');
+  assert.ok(
+    Math.abs(trend.windowHours - 6) <= 3,
+    'the window check does NOT reject a 30-day series — only the range gate can',
+  );
+});
+
+test('the hook aborts before the cache-hit path can return', () => {
+  // The bug: the hit returned while an older request was still live, and the
+  // orphan overwrote state when it landed. Resting result was a range naming
+  // one window while holding another, with loading false and failed false.
+  const load = HOOK.slice(HOOK.indexOf('const load = useCallback'));
+  const abortAt = load.indexOf('inFlight.current?.abort()');
+  const cacheHitAt = load.indexOf('if (cache.current.has(key))');
+  assert.ok(abortAt !== -1 && cacheHitAt !== -1, 'the load callback lost a landmark');
+  assert.ok(
+    abortAt < cacheHitAt,
+    'useGaugeHistory aborts the in-flight request AFTER the cache-hit return again',
+  );
+});
+
+test('a response for a superseded pairing never reaches the screen', () => {
+  assert.match(
+    HOOK,
+    /currentKey\.current !== key\) return;/,
+    'useGaugeHistory no longer discards a late response for a stale pairing',
+  );
+  assert.match(HOOK, /currentKey\.current = key;/, 'useGaugeHistory no longer records the request');
+});
+
+test('the hook says which station and window it is actually holding', () => {
+  for (const field of ['historySiteId', 'historyDays', 'matchesRequest']) {
+    assert.ok(HOOK.includes(field), `useGaugeHistory no longer exposes ${field}`);
+  }
+  // matchesRequest must test BOTH axes: a stale series from another station at
+  // the same range would otherwise pass, and draw station A's water under
+  // station B's name.
+  assert.match(HOOK, /state\.historySiteId === siteId/, 'matchesRequest stopped checking station');
+  assert.match(HOOK, /state\.historyDays === days/, 'matchesRequest stopped checking range');
+});
+
+test('the trend requires the series it was handed to be the one asked for', () => {
+  assert.match(
+    CHART,
+    /!matchesRequest \|\| !history \|\| days === 30/,
+    'the trend is testing the requested range again instead of the delivered one',
+  );
+});
+
+test('everything that DESCRIBES the series reads the drawn range, not the request', () => {
+  assert.match(CHART, /const drawnDays = historyDays \?\? days;/, 'drawnDays is gone');
+
+  // The subtitle, the axis tick format and the spoken summary. Each printed a
+  // claim about a window it was not drawing.
+  assert.match(CHART, /drawnDays === 1 \? '24 hours'/, 'the subtitle reads the request again');
+  assert.match(CHART, /axisTime\(tick\.value, drawnDays\)/, 'the axis reads the request again');
+  assert.match(CHART, /drawnDays === 1 \? 'last 24 hours'/, 'VoiceOver reads the request again');
+
+  // And none of them may go back to bare `days`.
+  assert.ok(!/\{days === 1 \? '24 hours'/.test(CHART), 'the subtitle is back on days');
+  assert.ok(!/axisTime\(tick\.value, days\)/.test(CHART), 'the axis is back on days');
+});
+
+test('the range strip still follows the reader, not the data', () => {
+  // The one thing that must NOT track the delivered range. It shows what you
+  // chose; a control that re-selects itself from arriving data is a control
+  // nobody can trust.
+  assert.match(CHART, /const active = r\.days === days;/, 'the range strip started following data');
+});
+
+/* ── The 30-day exclusion and the window check ───────────────────────────── */
+
 test('the 30-day range computes no trend at all', () => {
   // Not "computes one and hides it" — the month view downsamples by keeping
   // each bucket's min and max, so the point nearest six hours back is a local
   // extremum and there is nothing honest to derive.
   assert.match(
     CHART,
-    /days === 30 \|\| !history \? null : computeTrend\(/,
+    /days === 30\s*\n?\s*\? null\s*\n?\s*: computeTrend\(/,
     'the gauge chart no longer excludes the 30-day range from the trend',
   );
 });
