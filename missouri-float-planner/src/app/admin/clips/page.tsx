@@ -23,6 +23,8 @@ import {
   Layers,
   Send,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 type Tab = 'library' | 'pipeline' | 'montage' | 'decisions' | 'review';
@@ -122,6 +124,9 @@ const RIVER_OPTIONS: [string, string][] = [
   ['courtois', 'Courtois Creek'],
 ];
 
+// Rows per library page. The API caps `limit` at 100, so this must stay <= 100.
+const PAGE_SIZE = 50;
+
 const TAB_ITEMS: { key: Tab; label: string; icon: typeof Film }[] = [
   { key: 'library', label: 'Clip Library', icon: Film },
   { key: 'pipeline', label: 'Extract Clips', icon: Scissors },
@@ -137,8 +142,12 @@ export default function ClipsAdminPage() {
   // ─── Library state ───
   const [clips, setClips] = useState<ClipItem[]>([]);
   const [clipCount, setClipCount] = useState(0);
+  const [clipOffset, setClipOffset] = useState(0);
   const [clipFilter, setClipFilter] = useState({ brand_status: '', river_slug: '' });
-  const [selectedClips, setSelectedClips] = useState<Set<string>>(new Set());
+  // Selection is keyed by id but holds the whole clip, so a montage can span
+  // pages — the Montage tab still has the metadata for a clip scrolled off the
+  // current page.
+  const [selectedClips, setSelectedClips] = useState<Map<string, ClipItem>>(new Map());
   const [previewClip, setPreviewClip] = useState<ClipItem | null>(null);
 
   // ─── Pipeline state ───
@@ -166,12 +175,21 @@ export default function ClipsAdminPage() {
       const params = new URLSearchParams();
       if (clipFilter.brand_status) params.set('brand_status', clipFilter.brand_status);
       if (clipFilter.river_slug) params.set('river_slug', clipFilter.river_slug);
-      params.set('limit', '50');
+      params.set('limit', String(PAGE_SIZE));
+      params.set('offset', String(clipOffset));
 
       const res = await adminFetch(`/api/admin/clips?${params}`);
       if (res.ok) {
         const data = await res.json();
-        setClips(data.clips || []);
+        const page: ClipItem[] = data.clips || [];
+        // The library shrank under us (clips deleted, filter narrowed) and this
+        // offset is now past the end — fall back to page 1 rather than showing
+        // an empty table over a non-zero count.
+        if (page.length === 0 && clipOffset > 0) {
+          setClipOffset(0);
+          return;
+        }
+        setClips(page);
         setClipCount(data.total || 0);
       }
     } catch (err) {
@@ -179,11 +197,23 @@ export default function ClipsAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [clipFilter]);
+  }, [clipFilter, clipOffset]);
 
   useEffect(() => {
     if (activeTab === 'library') fetchClips();
   }, [activeTab, fetchClips]);
+
+  // Any filter change invalidates the current page number.
+  const updateClipFilter = (patch: Partial<typeof clipFilter>) => {
+    setClipFilter((f) => ({ ...f, ...patch }));
+    setClipOffset(0);
+  };
+
+  const pageStart = clipCount === 0 ? 0 : clipOffset + 1;
+  const pageEnd = Math.min(clipOffset + clips.length, clipCount);
+  const totalPages = Math.max(1, Math.ceil(clipCount / PAGE_SIZE));
+  const currentPage = Math.floor(clipOffset / PAGE_SIZE) + 1;
+  const allOnPageSelected = clips.length > 0 && clips.every((c) => selectedClips.has(c.id));
 
   // ─── Trigger pipeline ───
   const triggerPipeline = async () => {
@@ -290,7 +320,7 @@ export default function ClipsAdminPage() {
 
   // ─── Compile montage ───
   const compileMontage = async () => {
-    const ids = Array.from(selectedClips);
+    const ids = Array.from(selectedClips.keys());
     if (ids.length < 2) {
       setMontageStatus('Select at least 2 clips');
       return;
@@ -307,7 +337,7 @@ export default function ClipsAdminPage() {
       });
       if (res.ok) {
         setMontageStatus('dispatched');
-        setSelectedClips(new Set());
+        setSelectedClips(new Map());
       } else {
         const err = await res.json();
         setMontageStatus(`error: ${err.error || 'Unknown error'}`);
@@ -350,11 +380,24 @@ export default function ClipsAdminPage() {
   };
 
   // ─── Toggle clip selection ───
-  const toggleClipSelection = (id: string) => {
+  const toggleClipSelection = (clip: ClipItem) => {
     setSelectedClips((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      const next = new Map(prev);
+      if (next.has(clip.id)) next.delete(clip.id);
+      else next.set(clip.id, clip);
+      return next;
+    });
+  };
+
+  // Header checkbox acts on the current page only — selections made on other
+  // pages are left alone.
+  const togglePageSelection = (checked: boolean) => {
+    setSelectedClips((prev) => {
+      const next = new Map(prev);
+      for (const c of clips) {
+        if (checked) next.set(c.id, c);
+        else next.delete(c.id);
+      }
       return next;
     });
   };
@@ -389,7 +432,7 @@ export default function ClipsAdminPage() {
             <div className="flex flex-wrap gap-3 items-center">
               <select
                 value={clipFilter.brand_status}
-                onChange={(e) => setClipFilter({ ...clipFilter, brand_status: e.target.value })}
+                onChange={(e) => updateClipFilter({ brand_status: e.target.value })}
                 className="px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white text-sm"
               >
                 <option value="">All Statuses</option>
@@ -401,7 +444,7 @@ export default function ClipsAdminPage() {
               </select>
               <select
                 value={clipFilter.river_slug}
-                onChange={(e) => setClipFilter({ ...clipFilter, river_slug: e.target.value })}
+                onChange={(e) => updateClipFilter({ river_slug: e.target.value })}
                 className="px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white text-sm"
               >
                 <option value="">All Rivers</option>
@@ -422,7 +465,9 @@ export default function ClipsAdminPage() {
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               </button>
               <span className="text-sm text-neutral-400 ml-auto">
-                {clipCount} clip{clipCount !== 1 ? 's' : ''}
+                {clipCount > 0 && clipCount > clips.length
+                  ? `${pageStart}–${pageEnd} of ${clipCount} clips`
+                  : `${clipCount} clip${clipCount !== 1 ? 's' : ''}`}
                 {selectedClips.size > 0 && (
                   <span className="ml-2 text-primary-400">
                     ({selectedClips.size} selected)
@@ -449,14 +494,8 @@ export default function ClipsAdminPage() {
                         <th className="text-left text-xs font-medium text-neutral-400 uppercase px-4 py-3 w-10">
                           <input
                             type="checkbox"
-                            checked={selectedClips.size === clips.length && clips.length > 0}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedClips(new Set(clips.map((c) => c.id)));
-                              } else {
-                                setSelectedClips(new Set());
-                              }
-                            }}
+                            checked={allOnPageSelected}
+                            onChange={(e) => togglePageSelection(e.target.checked)}
                             className="rounded bg-neutral-900 border-neutral-600"
                           />
                         </th>
@@ -485,7 +524,7 @@ export default function ClipsAdminPage() {
                               <input
                                 type="checkbox"
                                 checked={selectedClips.has(clip.id)}
-                                onChange={() => toggleClipSelection(clip.id)}
+                                onChange={() => toggleClipSelection(clip)}
                                 className="rounded bg-neutral-900 border-neutral-600"
                               />
                             </td>
@@ -635,6 +674,37 @@ export default function ClipsAdminPage() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Pager — the library is server-paginated, so without this only
+                    the newest PAGE_SIZE clips are reachable. */}
+                {clipCount > PAGE_SIZE && (
+                  <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-neutral-700">
+                    <span className="text-sm text-neutral-400">
+                      Showing {pageStart}–{pageEnd} of {clipCount}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setClipOffset(Math.max(0, clipOffset - PAGE_SIZE))}
+                        disabled={clipOffset === 0 || loading}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-neutral-900 border border-neutral-600 rounded-lg text-sm text-neutral-300 hover:text-white hover:border-neutral-500 transition-colors disabled:opacity-40 disabled:hover:text-neutral-300 disabled:hover:border-neutral-600"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        Previous
+                      </button>
+                      <span className="text-sm text-neutral-400 whitespace-nowrap">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <button
+                        onClick={() => setClipOffset(clipOffset + PAGE_SIZE)}
+                        disabled={clipOffset + clips.length >= clipCount || loading}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-neutral-900 border border-neutral-600 rounded-lg text-sm text-neutral-300 hover:text-white hover:border-neutral-500 transition-colors disabled:opacity-40 disabled:hover:text-neutral-300 disabled:hover:border-neutral-600"
+                      >
+                        Next
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -771,24 +841,21 @@ export default function ClipsAdminPage() {
                     </p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {Array.from(selectedClips).map((id) => {
-                        const clip = clips.find((c) => c.id === id);
-                        return (
-                          <span
-                            key={id}
-                            className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-900 border border-neutral-600 rounded-lg text-sm text-neutral-300"
+                      {Array.from(selectedClips.values()).map((clip) => (
+                        <span
+                          key={clip.id}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-900 border border-neutral-600 rounded-lg text-sm text-neutral-300"
+                        >
+                          <Film className="w-3 h-3 text-neutral-500" />
+                          {clip.youtube_video_id || clip.id.slice(0, 8)}
+                          <button
+                            onClick={() => toggleClipSelection(clip)}
+                            className="ml-1 text-neutral-500 hover:text-red-400"
                           >
-                            <Film className="w-3 h-3 text-neutral-500" />
-                            {clip?.youtube_video_id || id.slice(0, 8)}
-                            <button
-                              onClick={() => toggleClipSelection(id)}
-                              className="ml-1 text-neutral-500 hover:text-red-400"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </span>
-                        );
-                      })}
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>
