@@ -457,7 +457,14 @@ async function _GET(request: NextRequest) {
         distanceMiles,
         { speedLowWater, speedNormal, speedHighWater },
         conditionCode,
-        { dischargeCfs, refCfs, basis: 'trip', speedCurve: riverCtx?.characteristics?.speedCurve }
+        {
+          dischargeCfs,
+          refCfs,
+          basis: 'trip',
+          speedCurve: riverCtx?.characteristics?.speedCurve,
+          // A tailwater returns null here — the release can change mid-float.
+          riverType: riverCtx?.riverType,
+        }
       );
 
       if (calcResult) {

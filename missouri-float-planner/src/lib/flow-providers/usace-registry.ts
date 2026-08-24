@@ -289,6 +289,10 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     tailwaterFishery: 'trout' as const,
     infoPhone: '866-494-1993',
     generationOnCfs: 100,
+    // Lake Taneycomo is its own river row, so no sectionSlug. It is bounded
+    // below by Powersite Dam, which is Liberty Utilities' and not in this
+    // registry — Powersite ends this water, Table Rock drives it.
+    tailwater: { riverSlug: 'taneycomo', gaugeSiteId: 'swl-table-rock-dam' },
     series: swlSeries('Table_Rock_Dam', { turbines: true, tailwaterTemp: true }),
   },
   'swl-bull-shoals-dam': {
@@ -315,6 +319,11 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     tailwaterFishery: 'trout' as const,
     infoPhone: '870-431-5311',
     generationOnCfs: 100,
+    // No sectionSlug: the White below this dam is its own river, not a reach of
+    // one. gaugeSiteId is this dam's own release, because USGS publishes no
+    // discharge or stage anywhere in the tailwater — the three sites below the
+    // dam are water-quality monitors.
+    tailwater: { riverSlug: 'white', gaugeSiteId: 'swl-bull-shoals-dam' },
     series: swlSeries('Bull_Shoals_Dam', { turbines: true, tailwaterTemp: true }),
   },
   'swl-beaver-dam': {
@@ -347,6 +356,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     tailwaterFishery: 'trout' as const,
     infoPhone: '870-431-5311',
     generationOnCfs: 100,
+    tailwater: { riverSlug: 'norfork-tailwater', gaugeSiteId: 'swl-norfork-dam' },
     // Norfork DOES publish tailwater temperature — it just does not publish it
     // under the id swlSeries() builds. The standard shape
     // (`-Tailwater.Temp-Water.Inst.1Hour.0.Decodes-rev`) returns an HTTP error

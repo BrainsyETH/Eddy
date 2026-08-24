@@ -491,6 +491,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               conditionCode={condition.code}
               waterTempF={gaugeDetail?.waterTemperature?.valueF ?? null}
               waterTempAgeHours={ageHoursOf(gaugeDetail?.waterTemperature?.observedAt)}
+              dissolvedOxygenMgL={gaugeDetail?.dissolvedOxygen?.valueMgL ?? null}
+              dissolvedOxygenAgeHours={ageHoursOf(gaugeDetail?.dissolvedOxygen?.observedAt)}
               readingAgeHours={gauge.readingAgeHours}
               zones={ladderZones}
             />

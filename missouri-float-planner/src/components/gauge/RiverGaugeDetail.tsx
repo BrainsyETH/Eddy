@@ -555,6 +555,8 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
               conditionCode={condition.code}
               waterTempF={gaugeDetail?.waterTemperature?.valueF ?? null}
               waterTempAgeHours={ageHoursOf(gaugeDetail?.waterTemperature?.observedAt)}
+              dissolvedOxygenMgL={gaugeDetail?.dissolvedOxygen?.valueMgL ?? null}
+              dissolvedOxygenAgeHours={ageHoursOf(gaugeDetail?.dissolvedOxygen?.observedAt)}
               readingAgeHours={activeGauge.readingAgeHours}
               zones={ladderZones}
               className="h-full"

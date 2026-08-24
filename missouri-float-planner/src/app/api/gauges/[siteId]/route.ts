@@ -44,6 +44,7 @@ import { maxReadingAgeHours } from '@/lib/alerts/gate';
 import { classifyQualifiers } from '@/lib/usgs/gauges';
 import { resolveFloodStages, type GaugeFloodStages } from '@/lib/gauges/flood-stages';
 import { fetchWaterTemperature, type WaterTemperature } from '@/lib/usgs/water-temperature';
+import { fetchDissolvedOxygen, type DissolvedOxygen } from '@/lib/usgs/dissolved-oxygen';
 import {
   PARAM_DISCHARGE,
   readSnapshotStatistics,
@@ -180,6 +181,15 @@ export interface GaugeDetail {
    * display rule is "always with its measurement age", not a freshness gate.
    */
   waterTemperature: WaterTemperature | null;
+  /**
+   * Latest dissolved oxygen (USGS parameter 00300, mg/L), with the time it was
+   * measured. Null is the ordinary case for the same reason as above, with one
+   * class of exception: the water-quality monitors below the White River system
+   * dams publish 00300 and 00010 and no flow at all, so on a tailwater this is
+   * a large share of what exists to report. Served as a bare number with its
+   * unit and age — no habitat verdict is attached to it here.
+   */
+  dissolvedOxygen: DissolvedOxygen | null;
   /** The station's own public page, or null for a provider without one. */
   publicUrl: string | null;
   /**
@@ -309,6 +319,9 @@ async function _GET(
     // screens, and stays there.)
     const waterTemperaturePromise: Promise<WaterTemperature | null> =
       provider === 'usgs' ? fetchWaterTemperature(siteId) : Promise.resolve(null);
+    // Same treatment, same reasoning, same provider gate.
+    const dissolvedOxygenPromise: Promise<DissolvedOxygen | null> =
+      provider === 'usgs' ? fetchDissolvedOxygen(siteId) : Promise.resolve(null);
 
     // The station's own prose about what its number means. Written per station
     // in gauge_stations.threshold_descriptions — migration 00198 put the one
@@ -427,6 +440,7 @@ async function _GET(
     const floodStages: GaugeFloodStages | null = resolveFloodStages(station, curatedLink);
 
     const waterTemperature = await waterTemperaturePromise;
+    const dissolvedOxygen = await dissolvedOxygenPromise;
 
     // The seasonal comparison, published only when the policy allows it: the
     // band vocabulary is shared/flow-band.ts, the eligibility gate (record
@@ -480,6 +494,7 @@ async function _GET(
       thresholds: orderedThresholds.length > 0 ? orderedThresholds : null,
       floodStages,
       waterTemperature,
+      dissolvedOxygen,
       publicUrl: getFlowProvider(provider)?.publicUrl(siteId) ?? null,
       stationNote,
     };

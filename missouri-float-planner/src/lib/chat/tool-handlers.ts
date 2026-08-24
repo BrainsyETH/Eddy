@@ -261,10 +261,17 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
   // calculateFloatTime silently degrades to the legacy condition-band step, and
   // chat quoted a different number than the planner for the same two access
   // points — same speeds, different model, no error anywhere.
+  //
+  // riverType matters for the same reason: on a dam tailwater the release can
+  // change mid-float, so calculateFloatTime returns null and chat says nothing
+  // rather than quoting a number computed from the flow at launch.
   const flow = await resolveFlowInputs(gauge?.usgsSiteId, gauge?.dischargeCfs);
+  const { getRiverContext } = await import('@/lib/rivers/context');
+  const riverCtx = await getRiverContext(riverSlug).catch(() => null);
   const floatTime = calculateFloatTime(distanceMiles, DEFAULT_CANOE_SPEEDS, currentCondition, {
     dischargeCfs: flow.dischargeCfs,
     refCfs: flow.refCfs,
+    riverType: riverCtx?.riverType,
   });
 
   const estimatedHours = floatTime

@@ -12,6 +12,7 @@
 //  - Dangerous water returns null: we never print a float time next to "do not float".
 
 import type { ConditionCode } from '@/types/api';
+import type { ReachRiverType } from '@shared/reach-types';
 
 export interface VesselSpeeds {
   speedLowWater: number; // mph
@@ -79,6 +80,12 @@ export interface FloatTimeOptions {
   basis?: TimeBasis;
   /** Per-river low-water multipliers (river_characteristics.speed_curve). */
   speedCurve?: SpeedCurve | null;
+  /**
+   * This river's hydrological archetype. Only `dam_tailwater` changes the
+   * answer, and it changes it to "no answer" — see the guard in
+   * calculateFloatTime.
+   */
+  riverType?: ReachRiverType | null;
 }
 
 // --- Model constants (tune to calibration residuals; see scripts/calibrate-float-times.ts) ---
@@ -145,7 +152,7 @@ function bandSpeed(
  * Calculates float time from distance, vessel speeds, and water conditions.
  *
  * Returns `null` for dangerous conditions (we do not estimate a float time for
- * water that should not be floated).
+ * water that should not be floated) and for dam tailwaters (we cannot).
  */
 export function calculateFloatTime(
   distanceMiles: number,
@@ -155,6 +162,27 @@ export function calculateFloatTime(
 ): FloatTimeResult | null {
   // Never produce a float time for dangerous water.
   if (conditionCode === 'dangerous') {
+    return null;
+  }
+
+  // Never produce one for a dam tailwater either.
+  //
+  // Every model above takes ONE discharge and holds it for the whole trip.
+  // That is a fair assumption on a rain-fed river, where the flow a floater
+  // launches on is roughly the flow they take out on. It is simply false below
+  // a hydro dam: Bull Shoals can go from a minimum-flow 800 cfs to over 20,000
+  // in about an hour, so a party that launches on an idle river can be on a
+  // different river by mile five — faster, deeper, and pushing.
+  //
+  // The failure is asymmetric, which is why this is a hard null rather than a
+  // wider range. An estimate computed at idle flow is too LONG, so it reads as
+  // conservative while actually telling someone they have hours of daylight
+  // left on water that is about to rise under them.
+  //
+  // Restoring a number here means knowing when the release arrives at each
+  // access, which is the travel-time lag calibration in docs/TAILWATER_PLAN.md
+  // — measured, with a correlation floor, not assumed.
+  if (options?.riverType === 'dam_tailwater') {
     return null;
   }
 
