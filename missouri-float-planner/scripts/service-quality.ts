@@ -61,6 +61,15 @@ export interface QualityRow {
    */
   river_links?: number;
   primary_rivers?: number;
+  /** Who runs the site, from the closed vocabulary. Private, or NULL if nobody
+   *  has established it — see the column comment on nearby_services. */
+  managing_agency?: string | null;
+  /**
+   * Other rows this one shares a phone number with, once the shared-contact
+   * check has ruled out switchboards and tier splits. Undefined means "not
+   * measured", empty means "measured and clean".
+   */
+  shares_contact_with?: string[];
 }
 
 export type Severity = 'error' | 'warn';
@@ -152,6 +161,14 @@ export const DEBT_CLASSES: DebtClass[] = [
     // only thing that notices.
     applies: (r) =>
       r.river_links !== undefined && r.river_links > 0 && r.primary_rivers === 0,
+  },
+  {
+    key: 'shared_contact',
+    severity: 'error',
+    label:
+      'shares a phone number with another row that is not an agency ' +
+      'switchboard — the same business is probably filed twice',
+    applies: (r) => (r.shares_contact_with?.length ?? 0) > 0,
   },
   {
     key: 'never_verified',
@@ -294,6 +311,95 @@ export function baselineWriteProblem(
       'coverage gate would be disabled.';
   }
   return null;
+}
+
+/** A row reduced to what the shared-contact check needs. */
+export interface ContactRow {
+  slug: string;
+  type: string;
+  status: string;
+  phone?: string | null;
+  phone_toll_free?: string | null;
+  managing_agency?: string | null;
+}
+
+export interface SharedContact {
+  digits: string;
+  slugs: string[];
+}
+
+/** Digits only, so 417-284-3290 and (417) 284-3290 are one number. */
+export function phoneDigits(value: string | null | undefined): string | null {
+  const digits = (value ?? '').replace(/\D/g, '');
+  return digits.length >= 10 ? digits : null;
+}
+
+/**
+ * Rows that share a phone number and are probably the same business twice.
+ *
+ * ── WHY THIS IS NOT JUST "SAME PHONE" ─────────────────────────────────────
+ *
+ * Sharing a number is usually correct. Six ONSR campgrounds sit on one
+ * concessioner line; Redding and Wolf Pen share an Ozark-St. Francis district
+ * line; St. Francois and Washington share 877-I-CAMP-MO. Flagging those would
+ * make the check noise, and noise is how a check gets ignored.
+ *
+ * ── WHY NOT NAME SIMILARITY ───────────────────────────────────────────────
+ *
+ * Tried and rejected against real data. nameScore at the importer's 0.86
+ * threshold scores Dawt Mill / Dawt Mill Resort and Montauk State Park /
+ * Montauk State Park Campground at 1.000 — the two pairs that are CORRECT,
+ * one facility deliberately filed under two types so it reaches both the
+ * lodging and camping tiers. It scores the one real duplicate,
+ * Pettit's Canoe & Campground / Pettit's Canoe Rental, at 0.788, below the
+ * highest-scoring switchboard pair (Alley Spring / Big Spring, 0.810). Name
+ * similarity ranks this exactly backwards.
+ *
+ * What does separate them is who runs the place and what tier it is in:
+ *
+ *   · any row in the group run by an agency → a switchboard, not a duplicate.
+ *   · more than one `type` in the group → the deliberate tier split.
+ *   · otherwise → two private rows of the same kind on one number. Look.
+ *
+ * Verified against production 2026-08-24: six shared-number groups, all six
+ * correctly skipped, and the sole flag was the duplicate that 20260824171732
+ * collapsed.
+ *
+ * A NULL managing_agency counts as private, so a column nobody has filled in
+ * yet makes this check MORE eager rather than silently blind. A column that
+ * was never SELECTED is a different thing and must not be mistaken for the
+ * same one: the first run of this check omitted managing_agency from the query
+ * and reported all six switchboards as duplicates, because absent read as
+ * private. So absence of the key is a programming error and says so, rather
+ * than quietly producing ten findings that are all wrong.
+ */
+export function sharedContacts(rows: ContactRow[]): SharedContact[] {
+  const groups = new Map<string, ContactRow[]>();
+  for (const row of rows) {
+    if (row.status === 'permanently_closed') continue;
+    const digits = phoneDigits(row.phone) ?? phoneDigits(row.phone_toll_free);
+    if (!digits) continue;
+    if (!('managing_agency' in row)) {
+      throw new Error(
+        `sharedContacts: ${row.slug} carries no managing_agency key — add the ` +
+        'column to the select. Treating it as private would report every ' +
+        'agency switchboard as a duplicate.',
+      );
+    }
+    groups.set(digits, [...(groups.get(digits) ?? []), row]);
+  }
+
+  const flagged: SharedContact[] = [];
+  for (const [digits, members] of groups) {
+    if (members.length < 2) continue;
+    const agencyRun = members.some(
+      (m) => m.managing_agency != null && m.managing_agency !== 'Private',
+    );
+    if (agencyRun) continue;
+    if (new Set(members.map((m) => m.type)).size > 1) continue;
+    flagged.push({ digits, slugs: members.map((m) => m.slug).sort() });
+  }
+  return flagged.sort((a, b) => a.digits.localeCompare(b.digits));
 }
 
 export function compareToBaseline(

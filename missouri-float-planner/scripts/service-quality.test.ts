@@ -7,9 +7,12 @@ import {
   compareToBaseline,
   DEBT_CLASSES,
   measureDebt,
+  phoneDigits,
   projectRefFromUrl,
   scorable,
+  sharedContacts,
   type Baseline,
+  type ContactRow,
   type QualityRow,
 } from './service-quality';
 
@@ -372,4 +375,120 @@ test('a failed link read leaves the class dormant, not universally failing', () 
 test('a healthy row with one primary is clean', () => {
   const ok = row({ slug: 'healthy', river_links: 2, primary_rivers: 1 });
   assert.deepEqual(measureDebt([ok], NOW).no_primary_river, []);
+});
+
+// ── The same business, filed twice ────────────────────────────────────────
+// Every case below is a real production group as of 2026-08-24. The check
+// exists because a name-similarity rule ranked these exactly backwards: it
+// scored the two CORRECT tier splits at 1.000 and the one real duplicate at
+// 0.788, below the highest-scoring switchboard pair.
+
+function contact(over: Partial<ContactRow> = {}): ContactRow {
+  return {
+    slug: 'a-business', type: 'outfitter', status: 'active',
+    phone: '417-555-0000', phone_toll_free: null, managing_agency: 'Private',
+    ...over,
+  };
+}
+
+test('two private rows of one kind on one number are flagged', () => {
+  // Pettit's, before 20260824171732 collapsed it.
+  const found = sharedContacts([
+    contact({ slug: 'pettits-canoe-campground', phone: '417-284-3290', managing_agency: null }),
+    contact({ slug: 'pettits-canoe-rental', phone: '(417) 284-3290', managing_agency: null }),
+  ]);
+  assert.equal(found.length, 1);
+  assert.deepEqual(found[0].slugs, ['pettits-canoe-campground', 'pettits-canoe-rental']);
+});
+
+test('an agency switchboard is not a duplicate', () => {
+  // Six ONSR campgrounds on one concessioner line.
+  const nps = ['akers', 'alley-spring', 'big-spring', 'pulltite', 'round-spring', 'two-rivers']
+    .map((slug) => contact({
+      slug, type: 'campground', phone: '573-323-4236', managing_agency: 'NPS',
+    }));
+  assert.deepEqual(sharedContacts(nps), []);
+});
+
+test('one agency row in the group is enough to explain the number', () => {
+  // 877-I-CAMP-MO is a central reservation line, not a business.
+  const found = sharedContacts([
+    contact({ slug: 'st-francois', type: 'campground', phone: '877-422-6766', managing_agency: 'MO State Parks' }),
+    contact({ slug: 'washington', type: 'campground', phone: '877-422-6766', managing_agency: null }),
+  ]);
+  assert.deepEqual(found, []);
+});
+
+test('one facility across two tiers is not a duplicate', () => {
+  // Dawt Mill is deliberately filed as both an outfitter and a lodge so it
+  // reaches both directories. Different types, so it is the tier split.
+  const found = sharedContacts([
+    contact({ slug: 'dawt-mill', type: 'outfitter', phone: '417-284-3540', managing_agency: null }),
+    contact({ slug: 'dawt-mill-resort', type: 'cabin_lodge', phone: '417-284-3540', managing_agency: null }),
+  ]);
+  assert.deepEqual(found, []);
+});
+
+test('an unpopulated managing_agency makes the check eager, not blind', () => {
+  // NULL counts as private. The failure mode to avoid is a missing column
+  // silently suppressing the check — better a pair to confirm than a miss.
+  const found = sharedContacts([
+    contact({ slug: 'one', managing_agency: null }),
+    contact({ slug: 'two', managing_agency: null }),
+  ]);
+  assert.equal(found.length, 1);
+});
+
+test('a permanently closed row cannot make a duplicate', () => {
+  const found = sharedContacts([
+    contact({ slug: 'open' }),
+    contact({ slug: 'shut', status: 'permanently_closed' }),
+  ]);
+  assert.deepEqual(found, []);
+});
+
+test('a toll-free number counts when there is no direct line', () => {
+  const found = sharedContacts([
+    contact({ slug: 'one', phone: null, phone_toll_free: '800-555-1212' }),
+    contact({ slug: 'two', phone: null, phone_toll_free: '(800) 555-1212' }),
+  ]);
+  assert.equal(found.length, 1);
+});
+
+test('a number too short to be a phone number groups nothing', () => {
+  // "call us" style junk and extensions must not collapse unrelated rows.
+  assert.equal(phoneDigits('ext. 42'), null);
+  assert.equal(phoneDigits(null), null);
+  assert.equal(phoneDigits('417-284-3290'), '4172843290');
+  const found = sharedContacts([
+    contact({ slug: 'one', phone: '555' }),
+    contact({ slug: 'two', phone: '555' }),
+  ]);
+  assert.deepEqual(found, []);
+});
+
+test('the debt class carries every slug in a flagged group', () => {
+  const rows = [
+    row({ slug: 'one', shares_contact_with: ['two'] }),
+    row({ slug: 'two', shares_contact_with: ['one'] }),
+    row({ slug: 'clean', shares_contact_with: [] }),
+    row({ slug: 'unmeasured' }),
+  ];
+  assert.deepEqual(measureDebt(rows, NOW).shared_contact, ['one', 'two']);
+  assert.equal(DEBT_CLASSES.find((c) => c.key === 'shared_contact')?.severity, 'error');
+});
+
+test('a column that was never selected is a programming error, not a finding', () => {
+  // The first run of this check omitted managing_agency from the query and
+  // reported all six agency switchboards as duplicates. Absent must not read
+  // as private.
+  const noKey = { slug: 'one', type: 'outfitter', status: 'active', phone: '417-555-0000' };
+  assert.throws(
+    () => sharedContacts([noKey as ContactRow, { ...noKey, slug: 'two' } as ContactRow]),
+    /carries no managing_agency key/,
+  );
+});
+
+test('an explicit null is fine — that is an unfilled column, not an unfetched one', () => {
+  assert.equal(sharedContacts([contact({ slug: 'one' }), contact({ slug: 'two' })]).length, 1);
 });

@@ -65,9 +65,8 @@
       "wilderness-lodge-resort"
     ],
     "half_a_coordinate": [],
-    "no_primary_river": [
-      "silver-mines-campground-usfs"
-    ],
+    "no_primary_river": [],
+    "shared_contact": [],
     "never_verified": [
       "arapaho-campground",
       "arrowhead-cabin-canoe-rental",
@@ -96,7 +95,6 @@
       "montauk-state-park-campground",
       "north-fork-recreation-area-hammond-camp",
       "parks-bluff-campground",
-      "pettits-canoe-rental",
       "red-bluff-campground-usfs",
       "riverhills-retreats",
       "rivers-edge-resort-eminence",
@@ -163,8 +161,6 @@
       "oar-war-eagle-kayak-campground",
       "parks-bluff-campground",
       "patrick-bridge-campground",
-      "pettits-canoe-campground",
-      "pettits-canoe-rental",
       "river-of-life-farm",
       "river-ranch-resort",
       "river-wilderness-sports",
@@ -225,7 +221,6 @@
       "montauk-state-park-campground",
       "mulberry-mountain-lodging-rv-park",
       "oar-war-eagle-kayak-campground",
-      "pettits-canoe-rental",
       "redding-recreation-area",
       "rivers-bend-guest-cabin",
       "riverside-canoe-rental",
@@ -475,7 +470,6 @@
       "lost-cabins-resort",
       "north-fork-recreation-area-hammond-camp",
       "patrick-bridge-campground",
-      "pettits-canoe-campground",
       "pettits-canoe-rental",
       "river-of-life-farm",
       "riverside-canoe-rental",
@@ -498,7 +492,6 @@
     ],
     "bryant-creek": [
       "lost-cabins-resort",
-      "pettits-canoe-rental",
       "riverside-canoe-rental",
       "rockbridge-rainbow-trout-game-ranch",
       "rocky-top-campground-cabins",

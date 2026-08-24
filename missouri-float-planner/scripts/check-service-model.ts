@@ -46,7 +46,9 @@ import {
   measureDebt,
   projectRefFromUrl,
   scorable,
+  sharedContacts,
   type Baseline,
+  type ContactRow,
   type QualityRow,
 } from './service-quality';
 import {
@@ -155,6 +157,7 @@ interface ServiceRow {
   website: string | null;
   description: string | null;
   verified_source: string | null;
+  managing_agency: string | null;
 }
 
 let errors = 0;
@@ -207,7 +210,7 @@ async function main() {
     .select(
       'id, slug, name, type, status, phone, phone_toll_free, website, description, ' +
         'latitude, longitude, geocode_precision, services_offered, last_verified_at, ' +
-        'verified_source, google_place_id',
+        'verified_source, google_place_id, managing_agency',
     );
   if (error) throw new Error(`Could not read nearby_services: ${error.message}`);
   const rows = (data ?? []) as unknown as ServiceRow[];
@@ -761,6 +764,31 @@ async function main() {
       row.river_links = counted.links;
       row.primary_rivers = counted.primaries;
     }
+  }
+
+  // ── The same business, filed twice ──────────────────────────────────────
+  // Independent of the river read above on purpose: a failed link read must
+  // not silently take this check down with it.
+  const contactGroups = sharedContacts(qualityRows as unknown as ContactRow[]);
+  const sharesWith = new Map<string, string[]>();
+  for (const group of contactGroups) {
+    for (const slug of group.slugs) {
+      sharesWith.set(slug, group.slugs.filter((s) => s !== slug));
+    }
+  }
+  for (const row of qualityRows) {
+    row.shares_contact_with = sharesWith.get(row.slug) ?? [];
+  }
+  if (contactGroups.length > 0) {
+    for (const group of contactGroups) {
+      warn(
+        `${group.slugs.join(' and ')} share one phone number, are the same kind ` +
+        'of business, and neither is agency-run — confirm they are two ' +
+        'businesses before leaving both',
+      );
+    }
+  } else {
+    ok('no two private rows of one kind share a phone number');
   }
 
   /* ── Negative evidence ─────────────────────────────────────────────────
