@@ -16,6 +16,20 @@
 //
 // The Expo app has no test runner; its pure logic is covered from here. Same
 // arrangement as today-fold.test.ts next door.
+//
+// ── TWO CASES LEFT WITH THE DECK, DELIBERATELY ─────────────────────────────
+// EddySaysDeck — the otter, the bold line and the "Written 3 hours ago" that
+// used to head the river screen's take card — was removed, and with it the two
+// source-reading cases that watched it: one that grepped the component for a
+// paid field, and one that pinned the `deckSays = pickedGauge ? null : eddySays`
+// guard on the river screen.
+//
+// Neither was the real invariant. Both were the belt to the selector's braces,
+// and the selector is what remains: it CANNOT return quote_text, by its return
+// type, so no surface downstream can render it however the props are named.
+// selectEddySays still feeds the share note, the map sheet's river head, the
+// Favorites cards and the Today tab, and every one of them is covered by the
+// shape assertions above rather than by a grep over a component.
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -82,28 +96,6 @@ test('the selector cannot return the full quote, by construction', () => {
   );
 });
 
-test('the free surface is typed so it cannot be handed the quote', () => {
-  // Secondary to the type, and cheap. The deck takes an EddySays and nothing
-  // else; if it ever starts reading an EddyUpdateEntry or an outlook directly,
-  // the structural guarantee above stops being the thing that holds.
-  const deck = readFileSync(
-    join(process.cwd(), '../eddy-ios/src/components/river/EddySaysDeck.tsx'),
-    'utf8',
-  );
-  // Field ACCESS, not the word. The component's header explains why it cannot
-  // render quoteText, and a test that forbids naming the thing being guarded
-  // against forbids documenting it too.
-  assert.ok(
-    !/\.\s*(quoteText|fullRead)\b/.test(deck),
-    'EddySaysDeck.tsx now reads a paid field',
-  );
-  assert.match(
-    deck,
-    /says\s*:\s*EddySays/,
-    'EddySaysDeck.tsx no longer takes the narrowed EddySays DTO',
-  );
-});
-
 test('the statewide card still renders the global quote directly', () => {
   // The rule is about PER-RIVER quote_text. insertGlobal in the
   // generate-eddy-updates cron writes quote_text and nothing else for
@@ -121,36 +113,6 @@ test('the statewide card still renders the global quote directly', () => {
     reports,
     /prose=\{summary\?\.quoteText \?\? null\}/,
     'the Today tab no longer renders the statewide quote directly',
-  );
-});
-
-test('the deck is withheld whenever the picker is off the primary gauge', () => {
-  // /api/eddy-updates carries ONE entry per river, written against its rated
-  // station. EddyTake's read directly below the deck does not: /outlook?gaugeId
-  // re-reads the panel for whichever gauge the picker is on and serves that
-  // station's own report. Shipping both ungated paired a Van Buren-shaped deck
-  // with a Montauk-shaped body inside a single visual section — and merging
-  // them into a deck and a body is what made that mismatch worse than two
-  // cards would have been.
-  //
-  // Same `!pickedGauge` rule the trend, the percentile and the accuracy caveat
-  // on this screen already follow, for the same reason each of them states:
-  // nothing is better than the wrong stretch.
-  const screen = readFileSync(
-    join(process.cwd(), '../eddy-ios/app/river/[slug].tsx'),
-    'utf8',
-  );
-  assert.match(
-    screen,
-    /const deckSays = pickedGauge \? null : eddySays;/,
-    'the river screen no longer withholds the deck when a gauge is picked',
-  );
-  // The ungated value must not reach the deck by any route. The share note is
-  // the one legitimate consumer of it — it sends river.path, the river's own
-  // page, which is what the river-wide summary describes.
-  assert.ok(
-    !/says=\{eddySays\}|EddySaysDeck says=\{eddySays\}/.test(screen),
-    'the ungated river summary is being rendered as the deck again',
   );
 });
 

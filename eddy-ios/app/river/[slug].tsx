@@ -126,7 +126,6 @@ import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { readConditions, readIndex } from '@/lib/riverCache';
 import { useRiverData } from '@/hooks/useRiverData';
 import { selectEddySays } from '@/lib/eddySays';
-import { EddySaysDeck } from '@/components/river/EddySaysDeck';
 import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
 import { goBack } from '@/lib/nav';
 import { TrendPill } from '@/components/TrendPill';
@@ -1034,30 +1033,6 @@ export default function RiverDetailScreen() {
 
   const caveat = condition && !pickedGauge ? accuracyNote(condition) : null;
 
-  /**
-   * The deck, but only while the panel is reading the river's OWN gauge.
-   *
-   * ── PRIMARY ONLY, like the trend, the percentile and the caveat ───────────
-   *
-   * /api/eddy-updates carries one entry per river, written against its rated
-   * station — the rows are the section_slug IS NULL ones. EddyTake's read
-   * directly below it does NOT: /outlook?gaugeId re-reads the whole panel for
-   * whichever station the picker is on, and serves that gauge's own report out
-   * of gauge_updates when it has one.
-   *
-   * So on a five-gauge river, picking Montauk paired a Van Buren-shaped deck
-   * with a Montauk-shaped body inside one visual section — and merging the two
-   * into a deck and a body is exactly what made that mismatch worse than it
-   * would have been as two cards. A standfirst that describes different water
-   * from the paragraph under it is not a standfirst.
-   *
-   * Nothing is better than the wrong stretch. Same rule, same reasoning, and
-   * the same `!pickedGauge` guard the three facts above it already use.
-   *
-   * The SHARE note deliberately does not take this gate: it sends river.path,
-   * the river's own page, which is the thing the river-wide summary describes.
-   */
-  const deckSays = pickedGauge ? null : eddySays;
   const percentileText = percentileSentence(condition?.percentile);
   const starred = isStarred('river', river.id);
   const sortedHazards = sortHazards(hazards);
@@ -1316,32 +1291,18 @@ export default function RiverDetailScreen() {
             ratedUnit={reading?.unit ?? null}
             entitled={entitled}
             onUpgrade={() => setPaywallOpen(true)}
-            says={deckSays}
           />
         ) : outlookLoading ? (
           // A placeholder the height of a sentence, not a full-card skeleton.
           // This panel is absent on plenty of rivers, so the loading state has
           // to be quiet enough that its disappearance is not a loss.
-          //
-          // THE DECK IS DRAWN HERE TOO, and that is the point of it being free:
-          // it comes from the batched updates, not from this river's outlook
-          // request, so Eddy's line lands while the gauge is still being read
-          // rather than waiting behind it.
           <View style={[styles.card, { backgroundColor: colors.card }]}>
-            {deckSays ? <EddySaysDeck says={deckSays} /> : null}
-            <View style={[styles.outlookLoading, deckSays ? styles.outlookLoadingUnderDeck : null]}>
+            <View style={styles.outlookLoading}>
               <ActivityIndicator size="small" color={colors.interactive} />
               <Text style={[styles.outlookLoadingText, { color: colors.textMuted }]}>
                 {shownGaugeName ? `Reading ${shownGaugeName}…` : 'Reading the gauge…'}
               </Text>
             </View>
-          </View>
-        ) : deckSays ? (
-          // No outlook at all — no gauge, or every upstream source failed. The
-          // paid take is rightly absent, but Eddy's free line is not about the
-          // outlook and should not disappear with it.
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <EddySaysDeck says={deckSays} />
           </View>
         ) : null}
 
@@ -1858,7 +1819,6 @@ const styles = StyleSheet.create({
   outlookLoading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   // Only when the deck is above it, so the spinner row keeps its own spacing
   // on the rivers that have no free line to head it with.
-  outlookLoadingUnderDeck: { marginTop: 12 },
   outlookLoadingText: { ...t.sm, fontFamily: fonts.body, flex: 1 },
   notifyButton: {
     flexDirection: 'row',
