@@ -9,18 +9,14 @@
     "no_contact": [
       "4j-vacation-rentals",
       "current-river-campground-van-buren",
-      "devils-elbow-river-safari",
       "driftwood-vacation-rentals",
-      "froggys-river-resort",
       "indian-springs-resort",
       "kickn-k-farmhouse",
       "meramec-park-concessions",
       "patrick-bridge-campground",
-      "pecks-last-resort",
       "river-ridge-cabins",
       "rivertime-rv",
       "rt66-canoe-rental",
-      "rubys-landing",
       "shady-lane-cabins",
       "shawnee-creek-cottages",
       "storys-creek-campground",
@@ -42,11 +38,13 @@
       "current-river-campground-van-buren",
       "driftwood-vacation-rentals",
       "franklin-floats",
+      "greer-crossing-recreation-area",
       "hardys-spring-river-lodge",
       "log-cabin-suites",
       "lost-cabins-resort",
       "lost-valley-canoe-lodging",
       "north-fork-recreation-area-hammond-camp",
+      "otahki-lake-koa",
       "parks-bluff-campground",
       "rio-buffalo-outfitter",
       "riverhills-retreats",
@@ -64,8 +62,7 @@
       "the-black-river-cabins",
       "the-landing-meramec",
       "war-eagle-creek-retreat-cabin-on-the-creek",
-      "wilderness-lodge-resort",
-      "wilderness-ridge-resort"
+      "wilderness-lodge-resort"
     ],
     "never_verified": [
       "arapaho-campground",
@@ -116,8 +113,7 @@
       "turner-bend-outfitter",
       "war-eagle-creek-retreat-cabin-on-the-creek",
       "washington-state-park-concessions",
-      "wilderness-lodge-resort",
-      "wilderness-ridge-resort"
+      "wilderness-lodge-resort"
     ],
     "placeholder_source": [
       "arrowhead-cabin-canoe-rental",
@@ -151,7 +147,6 @@
       "franklin-floats",
       "hangout-properties-llc",
       "hardys-spring-river-lodge",
-      "james-river-outfitters",
       "kozy-kamp-elk-river-floats",
       "living-water-cabins",
       "log-cabin-suites",
@@ -195,8 +190,7 @@
       "war-eagle-canoeing-camping-war-eagle-r-v-resort",
       "war-eagle-creek-retreat-cabin-on-the-creek",
       "washington-state-park-concessions",
-      "wilderness-lodge-resort",
-      "wilderness-ridge-resort"
+      "wilderness-lodge-resort"
     ],
     "thin_description": [
       "arrowhead-cabin-canoe-rental",
@@ -251,7 +245,7 @@
     ]
   },
   "riverFloors": {
-    "bourbeuse": 0,
+    "bourbeuse": 1,
     "current": 32,
     "meramec": 25,
     "gasconade": 4,
@@ -263,16 +257,16 @@
     "niangua": 8,
     "spring-river-mo": 0,
     "big-piney": 5,
-    "eleven-point": 5,
+    "eleven-point": 6,
     "huzzah": 8,
-    "courtois": 2,
+    "courtois": 4,
     "caddo-river": 14,
     "war-eagle-creek": 6,
     "crooked-creek": 7,
     "spring-river": 13,
-    "st-francis": 1,
+    "st-francis": 4,
     "north-fork-white": 12,
-    "james": 2,
+    "james": 3,
     "mulberry": 6,
     "bryant-creek": 6,
     "jacks-fork": 25
