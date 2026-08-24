@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  baselineShapeProblem,
   buildBaseline,
   compareToBaseline,
   DEBT_CLASSES,
@@ -33,8 +34,8 @@ function row(over: Partial<QualityRow> = {}): QualityRow {
   };
 }
 
-function baselineOf(rows: QualityRow[], riverFloors: Record<string, number> = {}): Baseline {
-  return buildBaseline(rows, riverFloors, '2026-08-23');
+function baselineOf(rows: QualityRow[], riverMembers: Record<string, string[]> = {}): Baseline {
+  return buildBaseline(rows, riverMembers, '2026-08-23');
 }
 
 test('a clean row is in no debt class at all', () => {
@@ -107,22 +108,41 @@ test('paying debt down is reported and does not fail', () => {
   assert.deepEqual(result.improvements[0].slugs, ['legacy']);
 });
 
-// ── River floors ──────────────────────────────────────────────────────────
+// ── River membership ─────────────────────────────────────────────────────
+// Recorded by slug, not by count, for the same reason the debt classes are.
 
-test('a river losing services fails even when every row is clean', () => {
+test('a river losing a service fails even when every row is clean', () => {
   // An --overwrite run that unlinks more than it meant to passes every class
   // above, because the rows it detached are still perfectly good rows.
   const rows = [row()];
   const result = compareToBaseline(
-    measureDebt(rows), { niangua: 3 }, baselineOf(rows, { niangua: 7 }),
+    measureDebt(rows),
+    { niangua: ['a', 'b'] },
+    baselineOf(rows, { niangua: ['a', 'b', 'c'] }),
   );
-  assert.deepEqual(result.riverDrops, [{ river: 'niangua', floor: 7, now: 3 }]);
+  assert.deepEqual(result.riverDrops, [{ river: 'niangua', lost: ['c'] }]);
+});
+
+test('two services swapping rivers is two departures, not no change', () => {
+  // This is the case a count-based floor cannot see: both totals stay at one.
+  const rows = [row()];
+  const before = { niangua: ['bass'], courtois: ['ozark'] };
+  const after = { niangua: ['ozark'], courtois: ['bass'] };
+  const result = compareToBaseline(measureDebt(rows), after, baselineOf(rows, before));
+
+  assert.equal(Object.values(before).flat().length, Object.values(after).flat().length);
+  assert.deepEqual(result.riverDrops, [
+    { river: 'niangua', lost: ['bass'] },
+    { river: 'courtois', lost: ['ozark'] },
+  ]);
 });
 
 test('a river gaining services passes — that is what a corridor pass does', () => {
   const rows = [row()];
   const result = compareToBaseline(
-    measureDebt(rows), { niangua: 12 }, baselineOf(rows, { niangua: 0 }),
+    measureDebt(rows),
+    { niangua: ['a', 'b', 'c'] },
+    baselineOf(rows, { niangua: ['a'] }),
   );
   assert.deepEqual(result.riverDrops, []);
 });
@@ -130,15 +150,17 @@ test('a river gaining services passes — that is what a corridor pass does', ()
 test('a river missing from the baseline is surfaced rather than ignored', () => {
   const rows = [row()];
   const result = compareToBaseline(
-    measureDebt(rows), { niangua: 4, courtois: 2 }, baselineOf(rows, { niangua: 4 }),
+    measureDebt(rows),
+    { niangua: ['a'], courtois: ['b'] },
+    baselineOf(rows, { niangua: ['a'] }),
   );
   assert.deepEqual(result.unknownRivers, ['courtois']);
 });
 
 test('the baseline records the date and every class, so a diff is readable', () => {
-  const baseline = baselineOf([row({ slug: 'legacy', latitude: null, longitude: null })], { niangua: 4 });
+  const baseline = baselineOf([row({ slug: 'legacy', latitude: null, longitude: null })], { niangua: ['a'] });
   assert.equal(baseline.generatedAt, '2026-08-23');
-  assert.deepEqual(baseline.riverFloors, { niangua: 4 });
+  assert.deepEqual(baseline.riverMembers, { niangua: ['a'] });
   for (const cls of DEBT_CLASSES) assert.ok(cls.key in baseline.classes, cls.key);
   assert.deepEqual(baseline.classes.no_coordinates, ['legacy']);
 });
@@ -204,4 +226,17 @@ test('having neither half is a gap, not a contradiction', () => {
   const debt = measureDebt([row({ slug: 'neither', latitude: null, longitude: null })]);
   assert.deepEqual(debt.no_coordinates, ['neither']);
   assert.deepEqual(debt.half_a_coordinate, [], 'a row with no coordinate at all is not incoherent');
+});
+
+test('a baseline written before river membership says so, rather than throwing', () => {
+  // Reading a riverFloors-era file used to throw "Cannot convert undefined or
+  // null to object" from inside a loop, which tells the reader nothing.
+  const stale = { generatedAt: '2026-08-23', note: '', classes: {}, riverFloors: { niangua: 4 } };
+  assert.match(String(baselineShapeProblem(stale as unknown as Baseline)), /predates river membership/);
+  assert.equal(baselineShapeProblem(baselineOf([row()], { niangua: ['a'] })), null);
+});
+
+test('a baseline that is not a baseline at all is named as such', () => {
+  assert.match(String(baselineShapeProblem(undefined as unknown as Baseline)), /missing or not an object/);
+  assert.match(String(baselineShapeProblem({ generatedAt: '', note: '' } as unknown as Baseline)), /no `classes`/);
 });

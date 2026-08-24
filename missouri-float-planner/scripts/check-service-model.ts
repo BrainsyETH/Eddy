@@ -32,6 +32,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
+  baselineShapeProblem,
   buildBaseline,
   compareToBaseline,
   DEBT_CLASSES,
@@ -701,7 +702,7 @@ async function main() {
   console.log('\nQuality ratchet');
 
   const qualityRows = rows as unknown as QualityRow[];
-  const perRiver: Record<string, number> = {};
+  const perRiver: Record<string, string[]> = {};
   const { data: riverSlugRows, error: riverErr } = await supabase.from('rivers').select('id, slug');
   const { data: serviceRiverRows, error: linkErr } = await supabase
     .from('service_rivers')
@@ -714,13 +715,14 @@ async function main() {
     );
     const live = new Set(scorable(qualityRows).map((r) => r.slug));
     const idToSlug = new Map(rows.map((r) => [r.id, (r as unknown as QualityRow).slug]));
-    for (const slug of riverSlugById.values()) perRiver[slug] = 0;
+    for (const slug of riverSlugById.values()) perRiver[slug] = [];
     for (const link of (serviceRiverRows ?? []) as unknown as Array<{ service_id: string; river_id: string }>) {
       const riverSlug = riverSlugById.get(link.river_id);
       const serviceSlug = idToSlug.get(link.service_id);
       if (!riverSlug || !serviceSlug || !live.has(serviceSlug)) continue;
-      perRiver[riverSlug] = (perRiver[riverSlug] ?? 0) + 1;
+      (perRiver[riverSlug] ??= []).push(serviceSlug);
     }
+    for (const slug of Object.keys(perRiver)) perRiver[slug].sort();
   }
 
   const baselinePath = path.join(__dirname, 'service-quality-baseline.json');
@@ -738,6 +740,12 @@ async function main() {
     warn('no baseline recorded yet — run with --update-baseline to record one');
   } else {
     const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf-8')) as Baseline;
+    const shape = baselineShapeProblem(baseline);
+    if (shape) {
+      fail(`the recorded baseline ${shape}`);
+      console.log(`\n${errors ? '✗' : '✓'} ${errors} error(s), ${warnings} warning(s)\n`);
+      process.exit(1);
+    }
     const result = compareToBaseline(measureDebt(qualityRows), perRiver, baseline);
 
     for (const r of result.regressions) {
@@ -745,7 +753,7 @@ async function main() {
       say(`${r.slugs.length} NEW row(s) with ${r.label}: ${r.slugs.join(', ')}`);
     }
     for (const d of result.riverDrops) {
-      fail(`${d.river} fell from ${d.floor} services to ${d.now}`);
+      fail(`${d.river} lost ${d.lost.length} service(s): ${d.lost.join(', ')}`);
     }
     if (result.unknownRivers.length > 0) {
       warn(
