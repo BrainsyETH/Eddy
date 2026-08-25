@@ -30,10 +30,37 @@ const SLUGS = ['white', 'norfork-tailwater', 'taneycomo'];
 /** Past this, it is on another water body, not this river. */
 const MAX_OFFSET_M = 300;
 
+/**
+ * Mirrors, in the order they are tried.
+ *
+ * TWO HOSTS ARE DELIBERATELY ABSENT, both because they fail in ways that do
+ * not look like failure:
+ *
+ *   `overpass.openstreetmap.fr` answers this script with
+ *   `403 This service is only available to white-listed usages`. It is not a
+ *   public mirror. It is named here rather than quietly dropped because it
+ *   briefly looked like the ONLY host that worked — a hand-probe with curl got
+ *   a 200 from it — and the next person hunting for a mirror will find it too.
+ *
+ *   `overpass.osm.ch` returned HTTP 200 and ZERO elements for a box where the
+ *   main instance returned seven (36.19,-92.31,36.27,-92.20, leisure=slipway,
+ *   2026-08-25). An empty success is the worst answer this script can get: it
+ *   does not look like an outage, it looks like a stretch of river with no
+ *   access points on it, and it would land in a dossier as one.
+ */
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
 ];
+
+/**
+ * Overpass wants an identifying User-Agent, and Node's fetch does not send a
+ * useful one. The instances are donated capacity and ask to know who is
+ * calling. Measured 2026-08-25 on one query and box: an empty agent and "node"
+ * each drew a 403 where curl's own agent drew a 200.
+ */
+const USER_AGENT =
+  'eddy-float-planner/1.0 (tailwater access-point proposal; https://eddy.guide)';
 
 interface OsmElement {
   type: string;
@@ -54,22 +81,33 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  */
 async function overpass(query: string): Promise<OsmElement[]> {
   let lastErr: unknown = null;
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 6; attempt++) {
     for (const ep of OVERPASS_ENDPOINTS) {
       try {
         const res = await fetch(ep, {
           method: 'POST',
+          headers: { 'User-Agent': USER_AGENT },
           body: new URLSearchParams({ data: query }),
           signal: AbortSignal.timeout(180_000),
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          // Overpass explains itself in the body. Discarding it is how a
+          // "This service is only available to white-listed usages" spent an
+          // afternoon looking like an overloaded server throttling a noisy
+          // client — a diagnosis that was wrong in both halves.
+          const detail = (await res.text().catch(() => '')).slice(0, 200).trim();
+          throw new Error(`HTTP ${res.status}${detail ? ` — ${detail}` : ''}`);
+        }
         const doc = (await res.json()) as { elements?: OsmElement[] };
         return doc.elements ?? [];
       } catch (e) {
         lastErr = e;
+        // A 403 is a refused request, not a busy server: retrying it with
+        // backoff burns minutes and then blames the service.
+        if (e instanceof Error && e.message.startsWith('HTTP 403')) throw e;
       }
     }
-    const wait = 2000 * 2 ** attempt;
+    const wait = Math.min(30_000, 2000 * 2 ** attempt);
     process.stderr.write(`    overpass retry in ${wait / 1000}s (${String(lastErr)})\n`);
     await sleep(wait);
   }
@@ -191,10 +229,23 @@ async function main() {
       `\n${slug}: ${occupied.length} of ${tiles.length} tiles touch the river\n`,
     );
     const elements: OsmElement[] = [];
+    // A tile that will not answer after six tries does not abort the run — but
+    // it is NOT allowed to pass silently either. A short candidate list that
+    // looks complete is worse than a short one that says which stretch of
+    // river it could not see, because only one of those gets re-run.
+    const unreachable: string[] = [];
     for (const [i, bbox] of occupied.entries()) {
       process.stderr.write(`  tile ${i + 1}/${occupied.length} ${bbox}\n`);
-      elements.push(...(await overpass(buildQuery(bbox))));
-      if (i < occupied.length - 1) await sleep(1500);
+      try {
+        elements.push(...(await overpass(buildQuery(bbox))));
+      } catch (e) {
+        process.stderr.write(`    UNREACHABLE: ${String(e)}\n`);
+        unreachable.push(bbox);
+      }
+      // Overpass asks callers to space their queries. Four seconds between
+      // tiles costs a minute over a river and is the difference between a
+      // run that finishes and one that gets 502s halfway down.
+      if (i < occupied.length - 1) await sleep(4000);
     }
 
     const rows: Array<{
@@ -244,6 +295,14 @@ async function main() {
     );
 
     report.push(`## ${slug} — ${rows.length} candidates within ${MAX_OFFSET_M} m of the line`, '');
+    if (unreachable.length) {
+      report.push(
+        `> **INCOMPLETE.** ${unreachable.length} of ${occupied.length} tiles never answered, ` +
+          `so this list has holes in it. Re-run before treating it as a survey. ` +
+          `Missing: ${unreachable.join(' · ')}`,
+        '',
+      );
+    }
     report.push('| Mile | Name | Kind | Lat | Lon | Off (m) | Operator | OSM |');
     report.push('| ---: | --- | --- | ---: | ---: | ---: | --- | --- |');
     for (const r of rows) {
