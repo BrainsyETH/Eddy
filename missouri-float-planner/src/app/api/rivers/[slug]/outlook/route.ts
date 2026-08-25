@@ -55,7 +55,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders, getCoordinates } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { computeTrend } from '@/lib/gauge-trend';
+import { computeTrend } from '@shared/gauge-trend';
 import {
   applyFloodStageOverride,
   computeConditionFromDbRow,

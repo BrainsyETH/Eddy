@@ -7,10 +7,11 @@ import { buildGaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { toNum } from '@/lib/utils/num';
 import { fetchWeather, fetchForecast, getWeatherPointForRiver } from '@/lib/weather/openweather';
 import { fetchNWSAlerts, filterAlertsForRiver } from '@/lib/nws/alerts';
-import { calculateFloatTime, DEFAULT_CANOE_SPEEDS } from '@/lib/calculations/floatTime';
+import { calculateFloatTime, floatTimeWithholding, DEFAULT_CANOE_SPEEDS } from '@/lib/calculations/floatTime';
 import { resolveFlowInputs } from '@/lib/calculations/flow-inputs';
 import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
 import { overlayLiveConditions } from '@/lib/social/live-conditions';
+import type { ReachRiverType } from '@shared/reach-types';
 // Note: getDriveTime/geocodeAddress from mapbox/directions are used by /api/plan, not here
 
 // Slug map: user-facing names → DB slugs
@@ -173,7 +174,12 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
   // Get river
   const { data: river } = await supabase
     .from('rivers')
-    .select('id, name')
+    // river_type comes from the row this handler already needs, not from a
+    // separate cached lookup. Resolving it through getRiverContext meant a
+    // swallowed failure produced `undefined`, which reads as "not a
+    // tailwater" — the float-time refusal failed open on exactly the
+    // rivers it exists for.
+    .select('id, name, river_type')
     .eq('slug', riverSlug)
     .single();
 
@@ -261,10 +267,20 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
   // calculateFloatTime silently degrades to the legacy condition-band step, and
   // chat quoted a different number than the planner for the same two access
   // points — same speeds, different model, no error anywhere.
+  //
+  // riverType matters for the same reason: on a dam tailwater the release can
+  // change mid-float, so calculateFloatTime returns null and chat says nothing
+  // rather than quoting a number computed from the flow at launch. It is read
+  // off the river row above, so it cannot fail open.
   const flow = await resolveFlowInputs(gauge?.usgsSiteId, gauge?.dischargeCfs);
+  const withholdReason = floatTimeWithholding(
+    currentCondition,
+    river.river_type as ReachRiverType | null,
+  );
   const floatTime = calculateFloatTime(distanceMiles, DEFAULT_CANOE_SPEEDS, currentCondition, {
     dischargeCfs: flow.dischargeCfs,
     refCfs: flow.refCfs,
+    riverType: river.river_type as ReachRiverType | null,
   });
 
   const estimatedHours = floatTime
@@ -273,9 +289,22 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
         high: Math.round((floatTime.maxMinutes / 60) * 10) / 10,
       }
     : null;
+
+  // Two different silences, and they must not be worded the same.
+  //
+  // This note said "Conditions are dangerous" for EVERY missing float time.
+  // Once tailwaters could withhold one, that sentence started telling anglers
+  // a 185 cfs catch-and-release river was dangerous — a false statement, and
+  // one that spends the credibility of the phrase that has to mean something
+  // when the river really is in flood. Regulated water is uncertainty about
+  // WHEN, not a verdict about whether.
   const floatTimeNote = floatTime
     ? null
-    : 'Conditions are dangerous — no float time is provided; do not float.';
+    : withholdReason === 'regulated'
+      ? 'No float time on a dam-controlled river: the release can change mid-float, ' +
+        'so any single estimate would be wrong as soon as the units start or stop. ' +
+        'Check the generation schedule for the controlling dam before launching.'
+      : 'Conditions are dangerous — no float time is provided; do not float.';
 
   // Build Google Maps shuttle directions URL (take-out → put-in)
   // Uses directions_override if available, otherwise lat/lng coordinates

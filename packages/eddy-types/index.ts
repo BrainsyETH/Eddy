@@ -1713,7 +1713,21 @@ export interface CampgroundsResponse {
 // downloaded index: there are ~500 access points, and shipping all of them to
 // every phone that opens the map would cost more than the feature is worth.
 
-export type SearchResultKind = 'river' | 'gauge' | 'access_point';
+/**
+ * The first three are the kinds /api/search indexes. The last three are
+ * LOCAL-ONLY: the app matches dams (a shipped catalog), hazards (the launch
+ * bundle) and services (one statewide fetch) out of memory and never asks the
+ * server for them — the server ignores kinds it does not know, and results
+ * merge by `kind:id`, so the two halves cannot collide. A server-side index
+ * for these would extend the route, not this union.
+ */
+export type SearchResultKind =
+  | 'river'
+  | 'gauge'
+  | 'access_point'
+  | 'dam'
+  | 'hazard'
+  | 'service';
 
 /**
  * The live reading a gauge result carries.

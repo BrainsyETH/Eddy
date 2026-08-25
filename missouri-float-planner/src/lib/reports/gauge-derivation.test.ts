@@ -18,7 +18,7 @@ import {
   resolveGaugeRelation,
   resolveReadingSource,
 } from './gauge-derivation';
-import { classifyTrend, TREND_FAST_PCT, TREND_STEADY_PCT } from '@/lib/gauge-trend';
+import { classifyTrend, TREND_FAST_PCT, TREND_STEADY_PCT } from '@shared/gauge-trend';
 
 test('a photo further down the river than its gauge reads as downstream', () => {
   // snap_to_river: mile 0 is the headwaters and grows downstream, so the larger

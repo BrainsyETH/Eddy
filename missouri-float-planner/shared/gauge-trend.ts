@@ -1,4 +1,4 @@
-// src/lib/gauge-trend.ts
+// shared/gauge-trend.ts
 // Plain-language context for a raw gauge reading. A bare number ("1.8 ft")
 // doesn't tell a paddler whether the river is getting better or worse, or
 // whether today is unusual — this turns it into an actionable signal:
@@ -6,10 +6,32 @@
 // Shared by RiverCard, the gauge detail reading card, and anywhere else a
 // reading is shown. Returns null whenever there isn't enough data to say
 // something honestly (we never invent a trend from one point).
+//
+// LIVES IN shared/ FOR THE SAME REASON reading-unit.ts DOES: eddy-ios reaches
+// this folder through the `@eddy/conditions` file: dependency and cannot reach
+// src/lib at all, so a rule the app needs has to live here or be copied — and a
+// second copy of "what counts as steady" is a second answer. The app's gauge
+// chart derives its own trend from the series it already holds; the website
+// derives the same one from the same function. Keep imports here relative and
+// within shared/, which is the condition every module in this folder keeps.
+//
+// NOT shared/trend-meta.ts. That module answers a different question — how a
+// trend is DRAWN in Remotion reels and OG images, where rising is green and the
+// third direction is called 'flat'. This one answers what the trend IS for the
+// apps, where rising is never green (see the pill in eddy-ios) and the third
+// direction is 'steady'. They are deliberately not merged.
 
-import type { HistoricalReading } from '@/hooks/useGaugeHistory';
+import type { ChartReadingLike } from './chart-model';
+import type { ReadingUnit } from './reading-unit';
 
-export type GaugeUnit = 'ft' | 'cfs';
+/**
+ * The unit a trend is measured in — the same two the whole app grades in.
+ *
+ * An alias rather than a second declaration: `ReadingUnit` is the canonical
+ * name, and the alias is kept only so the eleven existing call sites keep
+ * compiling against the name they already import.
+ */
+export type GaugeUnit = ReadingUnit;
 export type TrendDirection = 'rising' | 'falling' | 'steady';
 
 export interface GaugeTrend {
@@ -32,7 +54,7 @@ export interface GaugePercentile {
   descriptor: string;
 }
 
-function valueFor(r: HistoricalReading, unit: GaugeUnit): number | null {
+function valueFor(r: ChartReadingLike, unit: GaugeUnit): number | null {
   return unit === 'cfs' ? r.dischargeCfs : r.gaugeHeightFt;
 }
 
@@ -49,7 +71,7 @@ export const TREND_FAST_PCT = 0.15;
  *
  * Exported because the server derives the SAME trend at a photo's capture time
  * (src/lib/flow-providers/usgs-historical.ts) from a USGS window rather than
- * from `HistoricalReading[]`. Two call sites, one rule — a photo's stored trend
+ * from `ChartReadingLike[]`. Two call sites, one rule — a photo's stored trend
  * and the live trend on the gauge card must never disagree about what counts as
  * "steady".
  */
@@ -86,7 +108,7 @@ function ordinal(n: number): string {
  * steady, >=15% as fast. Returns null when there isn't enough data.
  */
 export function computeTrend(
-  readings: HistoricalReading[] | undefined | null,
+  readings: ChartReadingLike[] | undefined | null,
   unit: GaugeUnit,
   targetHours = 6,
 ): GaugeTrend | null {
@@ -129,7 +151,7 @@ export function computeTrend(
  * Returns null when there isn't enough history to be meaningful.
  */
 export function computePercentile(
-  readings: HistoricalReading[] | undefined | null,
+  readings: ChartReadingLike[] | undefined | null,
   currentValue: number | null,
   unit: GaugeUnit,
   windowDays = 14,

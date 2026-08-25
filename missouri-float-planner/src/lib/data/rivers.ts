@@ -4,7 +4,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { mapConditionCode } from '@/lib/conditions';
-import { computeTrend, type GaugeUnit } from '@/lib/gauge-trend';
+import { computeTrend, type GaugeUnit } from '@shared/gauge-trend';
 import { riverPath } from '@/lib/navigation/river-path';
 import type { RiverListItem } from '@/types/api';
 

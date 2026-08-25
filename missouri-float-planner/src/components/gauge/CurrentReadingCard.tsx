@@ -13,7 +13,7 @@ import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS, getEddyImageForCondition } from '@/constants';
 import type { ConditionCode } from '@/types/api';
-import { computeTrend } from '@/lib/gauge-trend';
+import { computeTrend } from '@shared/gauge-trend';
 import {
   findZoneIndex,
   formatZoneRange,
@@ -35,6 +35,22 @@ interface CurrentReadingCardProps {
    * an undated number under a live reading borrows the reading's freshness.
    */
   waterTempAgeHours?: number | null;
+  /**
+   * Dissolved oxygen, mg/L. Rendered as a bare number with its age and no
+   * verdict: published thresholds for what trout tolerate exist, but a habitat
+   * badge would read as advice Eddy has not sourced. Mostly null — the
+   * stations that carry it are the water-quality monitors below the White
+   * River system dams, which publish this and temperature and no flow at all.
+   */
+  dissolvedOxygenMgL?: number | null;
+  dissolvedOxygenAgeHours?: number | null;
+  /**
+   * Station that produced the water-quality readings, when it is NOT this
+   * gauge. A dam release measures discharge and nothing else, so on a tailwater
+   * these come from a USGS water-quality monitor down the river. Rendering the
+   * number without naming that station would attribute it to the wrong water.
+   */
+  waterQualitySourceName?: string | null;
   readingAgeHours?: number | null;
   /** Condition ladder in `thresholdUnit`. Omit to render the card without a track. */
   zones?: Zone[];
@@ -50,6 +66,9 @@ export default function CurrentReadingCard({
   conditionCode,
   waterTempF,
   waterTempAgeHours,
+  dissolvedOxygenMgL,
+  dissolvedOxygenAgeHours,
+  waterQualitySourceName,
   readingAgeHours,
   zones,
   className = '',
@@ -228,6 +247,25 @@ export default function CurrentReadingCard({
           {waterTempAgeHours != null && (
             <span className="ml-2 text-[10px] text-primary-100">
               measured {formatAgeFromHours(waterTempAgeHours)}
+              {waterQualitySourceName ? ` at ${waterQualitySourceName}` : ''}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Dissolved oxygen (when available) — same rule, same reason */}
+      {dissolvedOxygenMgL != null && (
+        <div className="px-4 py-2.5 border-t border-white/10">
+          <span className="font-sans text-[11px] font-semibold uppercase tracking-wider text-primary-100">
+            Dissolved O&#8322;
+          </span>
+          <span className="ml-2 font-mono text-lg font-bold tabular-nums text-white">
+            {dissolvedOxygenMgL} mg/L
+          </span>
+          {dissolvedOxygenAgeHours != null && (
+            <span className="ml-2 text-[10px] text-primary-100">
+              measured {formatAgeFromHours(dissolvedOxygenAgeHours)}
+              {waterQualitySourceName ? ` at ${waterQualitySourceName}` : ''}
             </span>
           )}
         </div>

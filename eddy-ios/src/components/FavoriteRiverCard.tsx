@@ -59,6 +59,7 @@ import { Otter, otterForCondition } from '@/components/Otter';
 import { ReadingScale } from '@/components/ReadingScale';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import type { EddySays } from '@/lib/eddySays';
+import { TREND_ICON } from '@/components/TrendPill';
 
 /**
  * One river's row out of a gauge's `thresholds` array.
@@ -68,12 +69,6 @@ import type { EddySays } from '@/lib/eddySays';
  * keeps type-checking against it.
  */
 export type GaugeThresholds = NonNullable<MapGauge['thresholds']>[number];
-
-const TREND_ICON = {
-  rising: 'arrow-up' as const,
-  falling: 'arrow-down' as const,
-  steady: 'remove' as const,
-};
 
 interface Props {
   river: RiverListItem;

@@ -4,7 +4,7 @@ import {
   hasMaterialConditionChange,
   type ConditionThresholds,
 } from '@/lib/conditions';
-import type { GaugeTrend } from '@/lib/gauge-trend';
+import type { GaugeTrend } from '@shared/gauge-trend';
 import type { ConditionCode } from '@/types/api';
 import type { EddyTakeSections } from '@/lib/eddy/take-sections';
 

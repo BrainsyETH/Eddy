@@ -169,6 +169,26 @@ test('lakes & dams keep their names at every zoom', () => {
   assert.equal(args[2], '0', 'dam labels are on at every zoom, on purpose');
 });
 
+test('the label floor is the pin floor, not the mark floor', () => {
+  // The other half of the test above, and the half that was missing when it
+  // went wrong: `labelMinZoom: 0` on the dams call is only a promise if the
+  // shared label layer honours it. It once clamped to `compactUntilZoom`,
+  // which silently re-floored dam labels to ZOOM.places — the argument said 0,
+  // the assertion on the argument passed, and the 8–9.5 dot band drew
+  // nameless dams anyway. So this pins the EFFECTIVE floor: a label may wait
+  // for its pin (`minZoom`) and for its own rung (`labelMinZoom`), and for
+  // nothing else.
+  const label = /id=\{`pins-\$\{id\}-label`\}[\s\S]*?minZoomLevel=\{([^}]*)\}/.exec(CODE);
+  assert.ok(label, 'pinLayer must declare a floor on its label layer');
+  assert.match(label[1], /labelMinZoom/, 'the label rung still applies');
+  assert.match(label[1], /minZoom \?\? 0/, 'a label is allowed to wait for its pin');
+  assert.doesNotMatch(
+    label[1],
+    /compactUntilZoom/,
+    'clamping labels to compactUntilZoom silently re-floors dam labels to ZOOM.places',
+  );
+});
+
 // ── The rung VALUES, not only the relationships ─────────────────────────────
 //
 // Everything above asserts that the layers sit on the same rungs; nothing said

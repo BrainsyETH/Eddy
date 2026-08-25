@@ -78,6 +78,8 @@ when running the write phases.
 | `activate-rivers.ts` | 9 — Activate | `rivers.active=true` (auto-rollback on validation errors) | **write-default**, `--dry` to validate only |
 | `set-cold-start.ts` / `set-cold-start-batch3.ts` | 9 — cold-start prose | `rivers` update (`float_summary`, `float_tip`) — one-time, batch-specific, idempotent | **NONE** |
 | `build-dossiers-batch3.ts`, `gen-verified-ids-batch3.ts` | 2–3, batch 3 only | none — local dossier/gate files | n/a |
+| `build-tailwater-geometry.ts` | tailwater onboarding | none — slices an NHD main stem between two named endpoints and emits river SQL | writes nothing, ever |
+| `propose-tailwater-access-points.ts` | tailwater onboarding | none — proposes access candidates from OpenStreetMap, filtered to within 300 m of the river line | writes nothing, ever |
 | `dossier.ts` | — | not a script: the `RiverDossier` type + gate taxonomy | n/a |
 
 ## Importers & backfills (top-level)
@@ -86,7 +88,7 @@ when running the write phases.
 | --- | --- | --- | --- |
 | `import-usgs-gauges.ts` | direct | `gauge_stations` upsert (national OGC import) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
 | `import-nwps-gauges.ts` | direct | `gauge_stations` update (NWS flood/action stages) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
-| `import-nhd-rivers-from-tnm.ts` | `npm run db:import-rivers-tnm` | `rivers` geometry insert/update (or SQL to `--out`) | dry-default, `--apply` |
+| `import-nhd-rivers-from-tnm.ts` | `npm run db:import-rivers-tnm` | `rivers` geometry insert/update (or SQL to `--out`) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` (migrated off the legacy allowlist 2026-08-25) |
 | `import-services-csv.ts` | `npm run db:import-services <csv>` | `nearby_services` + `service_rivers` upsert | dry-default, `--import` |
 | `import-floatmissouri.ts` | `npm run db:import-floatmissouri` | `access_points` + `river_hazards` insert/update. **Legacy — header warns it duplicates and mislocates; superseded by migration 00173** | dry-default, `--import` |
 | `fetch-drainage-areas.ts` | direct | `gauge_stations.drainage_area_sqmi` update | dry-default, `--write` |

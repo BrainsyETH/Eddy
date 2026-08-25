@@ -40,7 +40,6 @@ const LEGACY_DIRECT_CLIENTS = new Set([
   'scripts/fix-gauge-associations.ts',
   'scripts/fix-niangua-gauge.ts',
   'scripts/import-floatmissouri.ts',
-  'scripts/import-nhd-rivers-from-tnm.ts',
   'scripts/ingestion/camping-availability-dryrun.ts',
   'scripts/ingestion/geocode-services-dryrun.ts',
   'scripts/run-migrations.ts',

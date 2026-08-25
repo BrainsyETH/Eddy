@@ -8,7 +8,7 @@
 
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
-import { computeTrend, computePercentile, type GaugeUnit } from '@/lib/gauge-trend';
+import { computeTrend, computePercentile, type GaugeUnit } from '@shared/gauge-trend';
 
 interface GaugeTrendContextProps {
   siteId: string | null | undefined;

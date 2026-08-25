@@ -14,8 +14,9 @@
 import type { ServiceLayerKey } from './serviceLayers';
 import type { AccessLayerKey } from './accessLayers';
 import { PUBLIC_LAND_OWNERSHIP_NOTE } from '@eddy/types';
+import { CONDITION_ORDER } from '@eddy/conditions';
 import { neutral, primary, type Palette } from '@/theme/palette';
-import { conditionColor } from '@/theme/conditions';
+import { conditionColor, conditionLabel } from '@/theme/conditions';
 import { flowBandColor } from '@/theme/flow';
 import type { EddySymbolName } from '@/components/EddySymbol';
 import type { Ionicons } from '@expo/vector-icons';
@@ -138,6 +139,17 @@ export interface LayerDef {
    * row, and which draws ten places under a row that would claim fifty.
    */
   tiersRefine?: boolean;
+  /**
+   * Where each tier's count is measured, when the tiers do not all measure
+   * the same universe.
+   *
+   * The gauges row is the only holder today: the rated tier is counted
+   * statewide while the national tier is counted per viewport, and
+   * layerRowCount refuses to sum across scopes — the row prints nothing and
+   * the tier chips keep their own honestly-scoped figures. Absent means every
+   * tier is statewide, which keeps every other row's arithmetic untouched.
+   */
+  scopes?: Partial<Record<LayerKey, 'statewide' | 'viewport'>>;
   /** How this layer is named inside a tier strip, where the row is the context. */
   tierLabel?: string;
   /**
@@ -205,11 +217,11 @@ const LAYER_DEFAULTS: Record<LayerKey, boolean> = {
   access: true,
   // ── THE ONE `false` THAT IS NOT AN OVERLAY, and it is a TIER ───────────
   // A ramp IS an access point and is already drawn as one; this tier only
-  // changes which MARK it wears. Switching it on also pulls every ramp out of
-  // the clustered access source into an unclustered pin at every zoom — a
-  // trade the render site accepts on the explicit grounds that "nobody sees
-  // this layer without having asked for it". Defaulting it on would spend that
-  // on the statewide view and add no place to the map.
+  // changes which MARK it wears. The family index clusters ramps with the
+  // rest of the access family below ZOOM.cluster, so switching the tier on no
+  // longer costs the statewide view anything — the default stays off because
+  // the tier ADDS no place to the map, only a different mark on places
+  // already drawn, and that is a distinction someone asks for.
   boatRamps: false,
   gauges: true,
   allGauges: true,
@@ -553,8 +565,22 @@ export const MAP_LAYERS: LayerDef[] = [
     // the row after this one), because that distinction is the whole point:
     // both hold USGS gauges, and only one of them carries a verdict.
     label: 'USGS gauges',
+    // ── The map's one colour key, behind the ⓘ ────────────────────────────
+    // The floating legend card was removed for covering the water it
+    // explained, and the sheet's rows only teach the LAYER colours — nothing
+    // on the map surface paired the condition ladder with its words until a
+    // pin was tapped. One derived sentence closes that: derived from
+    // CONDITION_ORDER so a new code reaches it without anyone remembering to,
+    // which is the same argument CLUSTER_CONDITION_COLOR makes in RiverMap.
+    info: `Rated stations wear a condition colour, graded against each river's own ladder — ${CONDITION_ORDER.map(
+      (code) => conditionLabel(code),
+    ).join(' · ')}. Grey means the station has no current rating.`,
     accessibilityHint: 'Live USGS readings on the water',
     tiers: ['gauges', 'allGauges'],
+    // The rated tier is one statewide list; the national tier holds whatever
+    // the camera holds. layerRowCount reads this and declines to add them —
+    // the sum was a number that changed on every pan and meant nothing.
+    scopes: { gauges: 'statewide', allGauges: 'viewport' },
     tierLabel: 'Eddy-rated',
     icon: 'speedometer-outline',
     symbol: 'gauge',
@@ -632,7 +658,11 @@ export const MAP_LAYERS: LayerDef[] = [
     // report if it ever needs to; a control sheet is not the place to
     // pre-emptively explain a failure that has not happened.
     description: 'Live precipitation radar',
-    info: RADAR_ATTRIBUTION,
+    // The delay is disclosed with the attribution: the composite is minutes
+    // behind the sky, cached on top of that, and a paddler deciding whether to
+    // get off the water reads an undated image as "now" — the same misreading
+    // updatedAt exists to prevent on every gauge pin.
+    info: `${RADAR_ATTRIBUTION}. Radar imagery runs several minutes behind the sky.`,
     accessibilityHint: 'Live precipitation radar. Needs a connection.',
     icon: 'rainy-outline',
     // Already in the bundled catalog — this is the mark the weather panel on

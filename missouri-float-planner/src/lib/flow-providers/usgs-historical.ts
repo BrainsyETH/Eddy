@@ -33,7 +33,7 @@ import {
   validHeight,
   type OgcFeature,
 } from './usgs';
-import { classifyTrend, type TrendDirection } from '@/lib/gauge-trend';
+import { classifyTrend, type TrendDirection } from '@shared/gauge-trend';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

@@ -62,8 +62,8 @@ import type {
   Hazard,
   MapAccessPoint,
   NearbyAccessPoint,
-  DamSnapshot,
   MapGauge,
+  MapGaugeLite,
   RiverListItem,
   RiverService,
   SearchResult,
@@ -71,24 +71,25 @@ import type {
 // PUBLIC_LAND_OWNERSHIP_NOTE is no longer read here: the caveat moved onto the
 // layer definition as `info` and is shown behind the row's ⓘ. See layers.ts.
 import { hasCoordinates } from '@eddy/types';
-import { boundsForLine } from '@eddy/geo';
+import { boundsForLine, milePosts } from '@eddy/geo';
 import {
   formatFloatTimeCeilingCompact,
   formatFloatTimeCompact,
 } from '@eddy/conditions/float-time-format';
-import {
-  ApiError,
-  fetchGauges,
-  fetchDams,
-  fetchHazards,
-  fetchRiverAccessPoints,
-  fetchServices,
-  fetchRivers,
-} from '@/api/client';
+import { ApiError, fetchRiverAccessPoints, fetchRivers } from '@/api/client';
 import { floatableRank } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { mapAccessPointPin, RiverMap, type InitialMapCamera, type MapPin } from '@/map/RiverMap';
+import {
+  mapAccessPointPin,
+  mapCampgroundServicePin,
+  mapGaugePin,
+  mapHazardPin,
+  mapServicePin,
+  RiverMap,
+  type InitialMapCamera,
+  type MapPin,
+} from '@/map/RiverMap';
 import {
   cameraCommandFor,
   planFramingDecision,
@@ -102,11 +103,21 @@ import { mapUnavailableReason } from '@/map/runtime';
 // tests assert — but the sheet no longer prints them: "138 drawn as access
 // points · 103 as campgrounds" is a data-integrity fact, and a map control is
 // not where it belongs. The attributions moved onto the layer definitions.
-import { activeRoles, resolveAccessMarkers } from '@/map/accessLayers';
-import { SERVICE_LAYER_KEYS } from '@/map/serviceLayers';
+import {
+  activeRoles,
+  resolveAccessMarkers,
+  SERVICE_MARK_PRIORITY,
+  SERVICE_OWNER_LAYER,
+} from '@/map/accessLayers';
+import { SERVICE_LAYER_KEYS, serviceOnLayer } from '@/map/serviceLayers';
 import { type LayerKey } from '@/map/layers';
+import { mergeRestoredLayers } from '@/map/layerRows';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
 import { useNetworkPlaces } from '@/hooks/useNetworkPlaces';
+import { useCuratedGauges } from '@/hooks/useCuratedGauges';
+import { useDams } from '@/hooks/useDams';
+import { useRiverServices } from '@/hooks/useRiverServices';
+import { useRiverHazards } from '@/hooks/useRiverHazards';
 import { usePublicLands } from '@/hooks/usePublicLands';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
@@ -122,7 +133,6 @@ import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { milesBetween, useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
 import { gradeGauge, readingIndex, riverBounds } from '@/lib/statewideNetwork';
-import { warn } from '@/lib/monitoring';
 import { damPins as damPinFacts } from '@/lib/damCatalog';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
@@ -135,11 +145,13 @@ import {
   isDefaultLayers,
 } from '@/components/MapLayersSheet';
 import { defaultMapLayers, readMapLayers, writeMapLayers } from '@/lib/mapPreferences';
+import { readMapCamera, writeMapCamera, type StoredMapCamera } from '@/lib/mapCamera';
 import {
   GaugeFilterBar,
   applyGaugeFilters,
   type GaugeFilterKey,
 } from '@/components/GaugeFilterBar';
+import { LayerZoomHint } from '@/components/LayerZoomHint';
 import { PlanSheet } from '@/components/PlanSheet';
 import { PinSheet } from '@/components/map-sheet/PinSheet';
 import { RiverSheetPanel } from '@/components/map-sheet/RiverSheetPanel';
@@ -188,17 +200,6 @@ const CONTROLS_ROOM_MIN = MAP_CHROME_BOTTOM + 44 + 12;
 const CONTROLS_ROOM_FADE = 60;
 
 /**
- * How long to wait before asking the Corps' dams once more.
- *
- * Long enough that a cold /api/dams read-through has finished filling the CDN
- * entry — the measured cold path is five to fifty seconds — and short enough
- * that somebody who opened the layer is still looking at it. The retry is what
- * turns a fifteen-second deadline expiring into a pause rather than an empty
- * layer for the life of the screen.
- */
-const DAMS_RETRY_MS = 20_000;
-
-/**
  * A per-river layer's data, tagged with the river it was fetched for.
  *
  * Necessary because river geometry and layer data arrive independently, and the
@@ -233,6 +234,114 @@ function planButtonLabel(plan: FloatPlan): string {
   return `${miles} · ${time}`;
 }
 
+/**
+ * The canonical presentation object for a NATIONAL-tier gauge.
+ *
+ * Module scope, like RiverMap's own builders, because two callers need the
+ * identical pin: the layer's own memo, and a search result that has to open
+ * the exact callout a tap would. The layer memo used to inline this.
+ */
+function referenceGaugePin(g: MapGaugeLite): MapPin {
+  const band = flowBandFor(g);
+  const usgs = usgsGaugeUrl(g.siteId);
+  return {
+    id: `refgauge:${g.id}`,
+    name: g.name,
+    // The place, for the label under the dot. A national station name is
+    // a sentence, and the map has room for a town.
+    label: gaugePlaceLabel(g.name),
+    layer: 'allGauges' as LayerKey,
+    subtitle: `USGS ${g.siteId} — not Eddy-rated`,
+    coordinates: g.coordinates,
+    color: flowBandColor(band),
+    // No `code`: that field drives a CONDITION-tinted chip in the
+    // callout, and this gauge has no condition. codeLabel carries the
+    // band's words instead, which is a comparison, not a verdict.
+    codeLabel: flowBandLabel(band),
+    value: flowReadingText(g),
+    magnitude: flowMagnitude(g),
+    siteId: g.siteId,
+    // WHEN THIS WAS MEASURED. The one thing this tier never said.
+    //
+    // Curated stations are polled continuously; everything else is
+    // refreshed by an hourly national pass, and a station that reports
+    // seasonally can be days old without anything on screen admitting it.
+    // A bare number invites you to read it as "now".
+    updatedAt: readingAge(g.readingAgeHours),
+    // STILL OFFERED, and no longer the only destination. The gauge screen
+    // below draws this station's own hydrograph, which is what people
+    // came for; USGS remains the source of record and the place the rest
+    // of the station's history lives, so the callout keeps the link.
+    link: usgs ? { label: 'Open on USGS', url: usgs } : null,
+  };
+}
+
+/**
+ * The pin a gauge SEARCH RESULT opens, or null when one cannot be built.
+ *
+ * Choosing a gauge used to move the camera and stop — the reader then had to
+ * find and tap the pin they had just named, which for an access point the same
+ * field already did on their behalf. Both tiers go through the canonical
+ * builders, so a searched gauge and a tapped one open identical callouts.
+ *
+ * Null is a real answer, not an error: a curated station whose statewide list
+ * has not landed yet, or a national row from an older backend without
+ * coordinates or a site id. The caller then degrades to exactly the old
+ * behaviour — camera and layer, no callout.
+ */
+function gaugeResultPin(result: SearchResult, gauges: MapGauge[] | null): MapPin | null {
+  if (result.gauge?.curated === false) {
+    if (!result.coordinates || !result.siteId) return null;
+    return referenceGaugePin({
+      id: result.id,
+      siteId: result.siteId,
+      name: result.name,
+      coordinates: result.coordinates,
+      dischargeCfs: result.gauge.dischargeCfs,
+      gaugeHeightFt: result.gauge.gaugeHeightFt,
+      readingTimestamp: result.gauge.readingTimestamp,
+      readingAgeHours: result.gauge.readingAgeHours,
+      // The search row does not carry qualifier codes; an unflagged reading is
+      // the same assumption the row itself made when it printed the number.
+      readingSuspect: false,
+      curated: false,
+      flowPercentile: result.gauge.flowPercentile,
+    });
+  }
+  // Curated: the full MapGauge — thresholds, condition, qualifier — is already
+  // in memory (ensureGauges fires on search focus), and it is the only shape
+  // the condition ladder can be graded from. A result is never graded from its
+  // own thinner fields: half a ladder is a wrong verdict, not a fallback.
+  const known = (gauges ?? []).find((g) => g.id === result.id);
+  return known && hasCoordinates(known) ? mapGaugePin(known) : null;
+}
+
+/**
+ * The pin a service SEARCH RESULT opens, and the layer that owns it.
+ *
+ * Owner is decided from what the row IS — every mark it holds, by the same
+ * SERVICE_MARK_PRIORITY the resolver uses — rather than from which layers are
+ * currently on, because the caller is about to switch the owning layer on
+ * anyway. Two knowing simplifications against the resolver, both stated:
+ * absorption into an access point is not consulted (a searched row opens its
+ * own record even where the map draws the composed place), and the cue line
+ * names every mark the row holds rather than only the live ones — for a
+ * callout somebody asked for by name, more is honest.
+ */
+function serviceResultPin(s: RiverService): { pin: MapPin; layer: LayerKey } | null {
+  const held = SERVICE_MARK_PRIORITY.filter((owner) =>
+    serviceOnLayer(s, SERVICE_OWNER_LAYER[owner]),
+  );
+  const owner = held[0];
+  if (!owner) return null;
+  const layers = new Set(held);
+  if (owner === 'campground') {
+    return { pin: mapCampgroundServicePin({ service: s, layers }), layer: 'campgrounds' };
+  }
+  const layer = owner === 'rentals' ? ('outfitters' as const) : ('lodging' as const);
+  return { pin: mapServicePin({ service: s, owner, layers }, layer), layer };
+}
+
 export default function MapScreen() {
   const [isFocused, setIsFocused] = useState(false);
   useFocusEffect(
@@ -252,17 +361,9 @@ export default function MapScreen() {
   // deliberately keeps the previous river visible during a switch; the planner
   // must never pair that river's access points with the newly selected river.
   const [plannerAccess, setPlannerAccess] = useState<RiverScoped<MapAccessPoint> | null>(null);
-  // Null rather than [] until fetched, so the layers sheet can tell "this river
-  // has none" from "we have not asked yet" and only claims a zero it knows.
-  const [hazards, setHazards] = useState<RiverScoped<Hazard> | null>(null);
-  // Null until the layer has been switched on, so the sheet can tell "not fetched"
-  // from "none" — see layerCounts.
-  const [dams, setDams] = useState<DamSnapshot[] | null>(null);
-  // Statewide and unscoped, unlike hazards above: every service Eddy can place
-  // on a map, fetched once. Null until then, so the layers sheet can tell "not
-  // asked" from "none" — see layerCounts.
-  const [services, setServices] = useState<RiverService[] | null>(null);
-  const [gauges, setGauges] = useState<MapGauge[] | null>(null);
+  // The hazard, dam, service and gauge DATA all live in their own hooks now —
+  // see the "Layer data, fetched on demand" section below, and each hook's
+  // header for the fetch posture it carries (all four moved verbatim).
   /**
    * The river list's own failure. Retried and retracted by the list.
    *
@@ -294,6 +395,17 @@ export default function MapScreen() {
    * on a key-value read to draw anything.
    */
   const layersRestored = useRef(false);
+  /**
+   * Layers this SESSION switched on as a side effect — a search result, a
+   * "View on map" deep link — as against a choice made in the sheet.
+   *
+   * Kept so the restore below can lay them over the stored set instead of
+   * stripping them: the deep link runs in the first effect flush, inside the
+   * restore window, and a stored set with that layer off used to win — the
+   * camera flew to a put-in whose pin then never drew. Never persisted by
+   * itself; see mergeRestoredLayers.
+   */
+  const sessionLayerEnables = useRef<Set<LayerKey>>(new Set());
   useEffect(() => {
     let cancelled = false;
     void readMapLayers().then((stored) => {
@@ -301,11 +413,24 @@ export default function MapScreen() {
       layersRestored.current = true;
       // Null means this device has never chosen. An EMPTY ARRAY is a choice —
       // somebody switched everything off — and is restored as one.
-      if (stored) setLayers(stored);
+      if (stored) setLayers(mergeRestoredLayers(stored, sessionLayerEnables.current));
     });
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  /**
+   * Switch a layer on because something else needs it visible — never off.
+   *
+   * The one way a search result or deep link may touch the layer set. Records
+   * the enable so a restore landing later cannot strip it (see
+   * sessionLayerEnables), and deliberately does NOT persist: asking to see a
+   * gauge is not a settings choice about gauges.
+   */
+  const enableLayer = useCallback((key: LayerKey) => {
+    sessionLayerEnables.current.add(key);
+    setLayers((prev) => (prev.includes(key) ? prev : [...prev, key]));
   }, []);
   // THERE IS NO CONDITION FILTER HERE ANY MORE, and the removal was the point
   // rather than a casualty of one. A filter narrows a set you are reading; the
@@ -321,6 +446,22 @@ export default function MapScreen() {
   // Not persisted, for the same reason the condition filter is not: a filter
   // restored from last week reads as gauges having gone missing.
   const [gaugeFilter, setGaugeFilter] = useState<ReadonlySet<GaugeFilterKey>>(() => new Set());
+  /**
+   * A filter must not outlive the layer it narrows.
+   *
+   * The chips only render while the layer is on, so a filter left behind by
+   * switching the layer off would survive invisibly and re-apply — gauges
+   * quietly missing — when the layer next comes on. Declarative rather than
+   * cleared inside the toggle handler, so every off-path is covered at once:
+   * the row's own on→off (which clears each tier key), Reset, and a restore
+   * that strips the layer. The functional no-op guard keeps an already-empty
+   * set's identity, so this never loops.
+   */
+  useEffect(() => {
+    if (!layers.includes('allGauges')) {
+      setGaugeFilter((prev) => (prev.size ? new Set() : prev));
+    }
+  }, [layers]);
   const cameraCommandId = useRef(0);
   const [cameraCommand, setCameraCommand] = useState<MapCameraCommand | null>(null);
   /**
@@ -352,6 +493,40 @@ export default function MapScreen() {
   // The camera, as of the last time it stopped moving. Only the national gauge
   // layer reads it — everything else on this screen loads a bounded set up front.
   const [viewport, setViewport] = useState<Viewport | null>(null);
+  /**
+   * The camera the LAST session settled on, once the read answers.
+   *
+   * Read on mount, kept as state so `initialCamera` below can prefer it. Only
+   * ever set to a non-null camera: a null answer changes nothing, and setting
+   * it after the map has latched its defaultSettings changes nothing either —
+   * that race is accepted and stated at `initialCamera`.
+   */
+  const [storedCamera, setStoredCamera] = useState<StoredMapCamera | null>(null);
+  useEffect(() => {
+    let live = true;
+    void readMapCamera().then((camera) => {
+      if (live && camera) setStoredCamera(camera);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  /**
+   * The camera settled: publish the viewport, and remember where.
+   *
+   * The write is fire-and-forget on every idle — idle fires once per settled
+   * motion, so this is a handful of tiny writes per session, and a map that
+   * draws correctly and forgets is the smaller failure (see mapCamera.ts).
+   */
+  const onViewportChange = useCallback(
+    (next: { bounds: Viewport['bounds']; zoom: number; center?: [number, number] }) => {
+      setViewport({ bounds: next.bounds, zoom: next.zoom });
+      if (next.center) {
+        void writeMapCamera({ lng: next.center[0], lat: next.center[1], zoom: next.zoom });
+      }
+    },
+    [],
+  );
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   /**
    * Whether dismissing this pin will reveal a river sheet the reader was just
@@ -396,6 +571,19 @@ export default function MapScreen() {
      */
     layer: LayerKey;
   } | null>(null);
+  /**
+   * A pin set in the same breath as a river selection, and complete already.
+   *
+   * `pendingAccessSelection` carries a pin that must be REBUILT when the
+   * river's access points land, and the selection effect spares the open
+   * callout only for it. A gauge or hazard picked from search needs the other
+   * half of that bargain and none of the machinery: its pin is built whole
+   * from data already in memory, so all it needs is to not be cleared by the
+   * river change its own tap caused. One-shot: consumed by the selection
+   * effect, and disposed at the top of selectRiver so a stale token can never
+   * spare a pin across some later, unrelated navigation.
+   */
+  const pinSurvivesSelection = useRef<string | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
 
   const network = useStatewideNetwork();
@@ -574,7 +762,15 @@ export default function MapScreen() {
     // selection was caused by tapping a put-in on that very river. Clearing it
     // there would blink the callout out and then put back the same one, which
     // reads as the tap having failed and been retried by itself.
-    if (pendingAccessSelection.current?.riverSlug !== slug) setSelectedPin(null);
+    //
+    // A survival token is the same exemption for a pin that is already whole —
+    // a gauge or hazard chosen from search, whose selection of this river is a
+    // side effect of its own opening. Consumed here, once.
+    const keepPin =
+      pendingAccessSelection.current?.riverSlug === slug ||
+      pinSurvivesSelection.current === slug;
+    if (pinSurvivesSelection.current === slug) pinSurvivesSelection.current = null;
+    if (!keepPin) setSelectedPin(null);
 
     // The app seeds every river's static data on launch. Read that first so the
     // planner can show put-ins without waiting for a network round trip, then
@@ -678,6 +874,11 @@ export default function MapScreen() {
       // Whatever this call asks for supersedes a fit still waiting on geometry:
       // the reader has navigated again, and the older river is not owed a frame.
       pendingRiverFit.current = null;
+      // And a survival token from an earlier selection is spent or stale
+      // either way — the caller that wants THIS selection to spare a pin sets
+      // the token after this call returns. Disposing it here, at the single
+      // place a selection changes, is what keeps it one-shot.
+      pinSurvivesSelection.current = null;
       switch (intent.camera) {
         case 'fitRiver': {
           // Clearing a selection has no river to frame; `hold` is the honest
@@ -776,6 +977,26 @@ export default function MapScreen() {
   }, [network.bySlug, selectedSlug]);
 
   /**
+   * Mile posts along the selected river, or nothing.
+   *
+   * The one thing on the map that speaks the planner's language: every
+   * put-in, hazard and float is quoted in river miles, and the line they are
+   * miles ALONG never said so. Computed with the database's own formula
+   * (fraction × lengthMiles — see milePosts in @eddy/geo), so a post labelled
+   * 12 sits where a put-in at Mile 12.0 sits.
+   *
+   * `lengthMiles` comes from the river list — the one request on this screen
+   * with nothing on disk behind it — so offline the markers are simply absent,
+   * which costs a nicety and never a wrong number.
+   */
+  const riverMilePosts = useMemo(() => {
+    const coordinates = mapRiver?.geometry?.coordinates;
+    const lengthMiles = selected?.lengthMiles;
+    if (!coordinates?.length || !lengthMiles) return null;
+    return milePosts(coordinates, lengthMiles, 1);
+  }, [mapRiver, selected?.lengthMiles]);
+
+  /**
    * Every river's put-ins, with the drawn river's LIVE list laid over the top.
    *
    * The cached half comes off disk and is a monthly-ish snapshot; the live half
@@ -814,6 +1035,11 @@ export default function MapScreen() {
     return [...byId.values()];
   }, [networkPlaces.accessPoints, accessPoints, drawnSlug]);
 
+  // The selected river's LIVE hazards, over the statewide set below. Fetch
+  // posture in the hook's header — a safety surface, so a hazard added since
+  // the last bundle does not wait for a relaunch on the river being planned.
+  const hazards = useRiverHazards(layers.includes('hazards'), selectedSlug);
+
   /**
    * Every hazard Eddy has, with the selected river's live list over the top.
    *
@@ -831,211 +1057,95 @@ export default function MapScreen() {
   }, [networkPlaces.hazards, hazards]);
 
   // ── Layer data, fetched on demand ───────────────────────────────
-  // Nothing below is requested until its layer is on. Hazards and services are
-  // per-river and cheap; gauges are one flat list for the whole state, which is
-  // why the request is fired once and reused by search.
-  const wantsGauges = layers.includes('gauges');
-  const gaugesRequested = useRef(false);
+  // Nothing here is requested until its layer (or another consumer) wants it.
+  // The fetch behaviour lives in each hook, moved verbatim from this screen —
+  // latch-on-success and one retry for dams, release-on-failure for services,
+  // fire-once-and-reuse for gauges — so the screen states only WHO wants WHAT.
+  const { gauges, ensureGauges } = useCuratedGauges(layers.includes('gauges'));
 
-  const ensureGauges = useCallback(() => {
-    if (gaugesRequested.current) return;
-    gaugesRequested.current = true;
-    // Deliberately un-aborted and un-erroring: this is a background enrichment
-    // for search and a map layer, and a failure means "no gauges", not a
-    // message. Retrying is one more tap in the layers sheet.
-    const startedAt = Date.now();
-    fetchGauges()
-      .then((loaded) => {
-        const durationMs = Date.now() - startedAt;
-        if (__DEV__) {
-          console.info('[map] curated gauges loaded', {
-            durationMs,
-            returned: loaded.length,
-          });
-        }
-        if (durationMs >= 2000) {
-          warn('map', 'curated gauge load was slow', {
-            durationMs,
-            returned: loaded.length,
-          });
-        }
-        setGauges(loaded);
-      })
-      .catch(() => setGauges([]));
-  }, []);
-
-  useEffect(() => {
-    if (wantsGauges) ensureGauges();
-  }, [wantsGauges, ensureGauges]);
+  // Every USACE project's LIVE state, statewide — an enrichment, not the
+  // layer: the pins ship in the binary (DAM_CATALOG) and draw with no answer
+  // at all. See the hook for the cold-CDN retry story.
+  const dams = useDams(layers.includes('dams'));
 
   /**
-   * Every USACE project, fetched once on first enable and kept.
+   * Every service in the state, fetched once when something wants them.
    *
-   * NOT river-scoped, which is the structural difference from services below:
-   * those are "what is on THIS river" and re-fetch when the selection changes,
-   * while the dam set is fixed and regional. Most of these dams have no Eddy
-   * river at all — more so since the Tulsa district projects were added, which
-   * put dams in Oklahoma and Texas where Eddy carries no rivers at all — so
-   * scoping them to a selection would hide the majority of the layer behind a
-   * river that does not exist.
+   * ── A SELECTED RIVER WANTS THEM TOO, AND THAT IS NOT A LAYER ───────────
+   * The river sheet's Camping & outfitters tab is built from this same
+   * directory. Gated on the layers alone, the tab would be missing entirely
+   * for a reader who has those three switches off — a tab appearing and
+   * disappearing with a map layer is a relationship nobody could guess, and
+   * the switches are about PINS. So a river selection asks as well. Still one
+   * statewide request per session, still nothing on launch, and still nothing
+   * at all for somebody who never taps a river.
    *
-   * ── AND IT IS AN ENRICHMENT, NOT THE LAYER ─────────────────────────────
-   *
-   * The pins come from DAM_CATALOG, which ships in the binary. This request
-   * adds what the catalog cannot know — whether the units are turning, what is
-   * coming out, when it was measured — and its failure costs exactly those
-   * three things rather than the whole layer.
+   * The layer half is read off the tier table rather than named here: spelled
+   * out by hand it once said `campgrounds || outfitters`, written before the
+   * lodging tier existed — so a phone restored with only Cabins & lodges on
+   * never fetched anything. See SERVICE_LAYER_KEYS.
    */
-  const wantsDams = layers.includes('dams');
-  // ── A LATCH THAT ONLY HOLDS ON SUCCESS ──────────────────────────────────
-  //
-  // This was `useRef(false)`, set BEFORE the fetch and never reset, on the
-  // reasoning quoted above: fetchDams answered [] on failure, so a layer that
-  // draws nothing was "the honest outcome of a feed being down".
-  //
-  // The feed is not down. /api/dams reads through to CWMS and SWPA live for two
-  // dozen projects, so a cold CDN entry runs five to fifty seconds against the
-  // client's fifteen-second deadline — measured, not theorised. One unlucky tap
-  // therefore emptied the layer and wedged it there until the process died:
-  // toggling the layer off and on could not retry, because the latch had
-  // already been claimed by the request that failed.
-  //
-  // The latch is now claimed on the ANSWER. A failure releases it and schedules
-  // one retry, so returning to a warm CDN entry — which is the ordinary state
-  // seconds later — refills the layer.
-  const damsLoaded = useRef(false);
-  const damsAttempts = useRef(0);
-  useEffect(() => {
-    if (!wantsDams || damsLoaded.current) return;
-
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const attempt = () => {
-      const nth = ++damsAttempts.current;
-      void fetchDams()
-        .then((live) => {
-          if (cancelled) return;
-          damsLoaded.current = true;
-          // Told apart in the log: an empty array from a healthy route is a
-          // claim about the Corps, and it has never been true. If this line
-          // ever appears, the route changed shape.
-          if (live.length === 0) warn('map', 'dams responded with no dams', { attempt: nth });
-          setDams(live);
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          // WHICH failure, because the two want different fixes: 'No connection'
-          // is the deadline expiring on a cold read-through and argues for
-          // caching the route; a status code is the route itself failing.
-          warn('map', 'dams fetch failed', {
-            attempt: nth,
-            reason: err instanceof ApiError ? (err.status ?? err.message) : 'unknown',
-          });
-          // Once. A second failure leaves the catalog pins standing rather than
-          // retrying into a route that is evidently unwell — and the layer is
-          // still drawn, which is the difference this whole change makes.
-          if (nth === 1) timer = setTimeout(attempt, DAMS_RETRY_MS);
-        });
-    };
-
-    attempt();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [wantsDams]);
-
-  /**
-   * The selected river's hazards, LIVE, over the statewide set from disk.
-   *
-   * The layer no longer depends on this — every hazard Eddy has is already
-   * drawn from the launch bundle — so what this adds is freshness for the one
-   * river somebody is looking at. Kept rather than dropped because it is a
-   * safety layer: a hazard added since the last bundle should not wait for a
-   * relaunch on the river being planned right now.
-   */
-  const wantsHazards = layers.includes('hazards');
-  useEffect(() => {
-    if (!wantsHazards || !selectedSlug) return;
-    const slug = selectedSlug;
-    const controller = new AbortController();
-    fetchHazards(slug, controller.signal)
-      .then((items) => setHazards({ slug, items }))
-      .catch(() => {
-        // Neither a cancelled request NOR a failed one is "this river has no
-        // hazards". Leaving the state null is what the layers sheet already
-        // reads as "not asked" — see the RiverScoped docblock above, which
-        // calls publishing a count for unfetched hazards "the one thing a
-        // count must never do". Writing [] here did exactly that, and on the
-        // safety surface: a river with a low-water dam on it reported
-        // "Hazards 0" whenever the endpoint was down.
-      });
-    return () => controller.abort();
-  }, [wantsHazards, selectedSlug]);
-
-  /**
-   * Every service in the state, fetched once when a layer wants them.
-   *
-   * Was per-river and re-fetched on every selection, which made both layers
-   * empty until a river was chosen and then two or three pins deep. One
-   * statewide request draws all of them — and it now carries the un-geocoded
-   * rows too, because the coverage sentence under each tier counts them. See
-   * /api/services, which says the same thing from the other end.
-   *
-   * A ref rather than a slug guard: the set is fixed and statewide, so once it
-   * has been asked for there is nothing a change of selection could add.
-   *
-   * ── A FAILURE IS NOT AN EMPTY DIRECTORY ─────────────────────────────────
-   *
-   * `fetchServices` used to answer `[]` when the request failed, and the note
-   * here used to say that was why no error branch was needed. It was the
-   * reason one WAS: `services` became a non-null empty array, so three layers
-   * reported a confident `0` and the coverage lines vanished — a set of claims
-   * about a directory Eddy had never managed to read. It answers `null` now,
-   * `services` stays null, and every count stays `undefined`, which the sheet
-   * already draws as absent rather than as zero.
-   *
-   * And the ref is RELEASED on failure. Marking the request as made before it
-   * succeeds meant one flaky moment disabled these layers for the life of the
-   * screen. Releasing it lets the next layer toggle try again — no timer and no
-   * retry loop, because a map screen quietly re-requesting on a schedule is a
-   * bigger commitment than this needs. If it never succeeds, the layers stay
-   * honestly silent.
-   */
-  // Every layer that draws services, read off the tier table rather than named
-  // here. Spelled out by hand, this said `campgrounds || outfitters` and was
-  // written before the lodging tier existed — so a phone restored with only
-  // Cabins & lodges on never fetched anything. See SERVICE_LAYER_KEYS.
-  //
-  // ── A SELECTED RIVER WANTS THEM TOO, AND THAT IS NOT A LAYER ───────────
-  // The river sheet's Camping & outfitters tab is built from this same
-  // directory. Gated on the layers alone, the tab would be missing entirely for
-  // a reader who has those three switches off — a tab appearing and
-  // disappearing with a map layer is a relationship nobody could guess, and the
-  // switches are about PINS. So a river selection asks as well. Still one
-  // statewide request per session behind the ref, still nothing on launch, and
-  // still nothing at all for somebody who never taps a river.
   const wantsServices =
     SERVICE_LAYER_KEYS.some((key) => layers.includes(key)) || selectedSlug != null;
-  const servicesRequested = useRef(false);
-  useEffect(() => {
-    if (!wantsServices || servicesRequested.current) return;
-    servicesRequested.current = true;
-    void fetchServices().then((rows) => {
-      if (rows === null) {
-        servicesRequested.current = false;
-        return;
-      }
-      setServices(rows);
+  const services = useRiverServices(wantsServices);
+
+  /**
+   * The dam pins.
+   *
+   * `code`/`codeLabel` carry GENERATING or IDLE, not a condition — the callout
+   * tints that chip, and this one must not borrow the condition palette: a dam
+   * running its units is a fact about machinery, not a verdict on a river. The
+   * colour therefore comes from the layer, which is instrumentation teal.
+   *
+   * `generating` is NULL for a dam that publishes no turbine flow (Kansas City
+   * district publishes nothing to CWMS at all), and null means the chip is
+   * omitted rather than shown as "Not generating" — an observation nobody made.
+   *
+   * Declared BEFORE the search block below, because a dam search result opens
+   * one of these pins and a useCallback may not read a memo declared after it.
+   */
+  const damPins = useMemo<MapPin[]>(() => {
+    const live = (dams ?? []).map((dam) => {
+      const release = dam.metrics.release;
+      return {
+        id: dam.id,
+        name: dam.name,
+        lakeName: dam.lakeName,
+        state: dam.state,
+        generating: dam.generating,
+        value: release
+          ? `${Math.round(release.value).toLocaleString()} cfs${release.dailyMean ? ' (daily avg)' : ''}`
+          : null,
+        updatedAt: release ? relativeAge(release.at) : null,
+        riverSlug: dam.tailwater?.riverSlug ?? null,
+      };
     });
-  }, [wantsServices]);
+    // Positions for anything the shipped catalog has never heard of — a project
+    // added to the registry since this build left. Everything else is placed
+    // from the catalog, which is what lets the layer draw with no answer at all.
+    const positions = new Map(
+      (dams ?? []).map((dam) => [dam.id, { lng: dam.lon, lat: dam.lat }]),
+    );
+
+    return damPinFacts(live, positions).map((facts) => ({
+      ...facts,
+      layer: 'dams' as LayerKey,
+    }));
+  }, [dams]);
 
   // ── Search ──────────────────────────────────────────────────────
-  // No `kinds`: this field is unscoped and wants all three. Naming them would
-  // be identical — parseKinds() treats an absent list as every kind — so the
-  // omission is the honest spelling of "everything".
-  const search = useEddySearch({ rivers, gauges });
+  // No `kinds`: this field is unscoped and wants everything. Naming the server
+  // kinds would be identical — parseKinds() treats an absent list as every
+  // kind — so the omission is the honest spelling of "everything". Dams,
+  // hazards and services are matched locally out of what this screen already
+  // holds; the server is never asked for them.
+  const search = useEddySearch({
+    rivers,
+    gauges,
+    dams: true,
+    hazards: drawnHazards,
+    services,
+  });
 
   const clearSearch = search.clear;
   const onSelectResult = useCallback((result: SearchResult) => {
@@ -1119,11 +1229,63 @@ export default function MapScreen() {
     // round: the curated layer is the smaller set and drawing it costs nothing.
     if (result.kind === 'gauge') {
       const layer: LayerKey = result.gauge?.curated === false ? 'allGauges' : 'gauges';
-      setLayers((prev) => (prev.includes(layer) ? prev : [...prev, layer]));
+      enableLayer(layer);
+      // ── AND THE CALLOUT OPENS, exactly as an access result's does ────────
+      // The camera arriving on an unmarked spot was the access-point bug one
+      // layer over: choosing "Van Buren" and then hunting for the dot you
+      // named. Set AFTER selectRiver above, which disposes survival tokens at
+      // its top — the token below has to outlive this handler, not precede it.
+      const pin = gaugeResultPin(result, gauges);
+      if (pin) {
+        setRevealsRiverSheet(false);
+        // The river change this selection caused must not clear the pin it
+        // opened. Only when a river was actually selected — a national
+        // station belongs to none and nothing will try to clear it.
+        if (result.riverSlug) pinSurvivesSelection.current = result.riverSlug;
+        setSelectedPin(pin);
+      }
     } else if (result.kind === 'access_point') {
-      setLayers((prev) => (prev.includes('access') ? prev : [...prev, 'access']));
+      enableLayer('access');
+    } else if (result.kind === 'dam') {
+      // The catalog is the spine, so this pin exists before /api/dams has ever
+      // answered — a searched dam opens with its identity now and its live
+      // release figures whenever they land, same as a tapped one.
+      enableLayer('dams');
+      const pin = damPins.find((p) => p.damId === result.id);
+      if (pin) {
+        setRevealsRiverSheet(false);
+        setSelectedPin(pin);
+      }
+    } else if (result.kind === 'hazard') {
+      enableLayer('hazards');
+      const hazard = drawnHazards.find((h) => h.id === result.id);
+      if (hazard && hasCoordinates(hazard)) {
+        setRevealsRiverSheet(false);
+        setSelectedPin(mapHazardPin(hazard));
+      }
+    } else if (result.kind === 'service') {
+      const service = (services ?? []).find((s) => s.id === result.id);
+      const opened = service ? serviceResultPin(service) : null;
+      if (opened) {
+        enableLayer(opened.layer);
+        setRevealsRiverSheet(false);
+        setSelectedPin(opened.pin);
+      }
     }
-  }, [drawnAccessPoints, clearSearch, selectRiver, issueCameraCommand]);
+    // None of the three new kinds carries a riverSlug (see localMatches), so
+    // none selects a river and none needs a survival token: the camera block
+    // above flew to the point, and nothing will try to clear the pin.
+  }, [
+    drawnAccessPoints,
+    drawnHazards,
+    gauges,
+    services,
+    damPins,
+    clearSearch,
+    selectRiver,
+    issueCameraCommand,
+    enableLayer,
+  ]);
 
   /**
    * ── "View on map", arriving from an access point's own screen ────────────
@@ -1185,13 +1347,13 @@ export default function MapScreen() {
 
       // The put-in has to be drawable when the camera lands, for somebody who
       // switched the access layer off earlier in the session.
-      setLayers((prev) => (prev.includes('access') ? prev : [...prev, 'access']));
+      enableLayer('access');
 
       // Clears the params so a later return to this tab does not re-select a
       // place the reader looked at once and has since closed.
       router.setParams({ focusAccess: undefined, focusRiver: undefined });
     },
-    [drawnAccessPoints, clearSearch, selectRiver, router],
+    [drawnAccessPoints, clearSearch, selectRiver, router, enableLayer],
   );
 
   useEffect(() => {
@@ -1599,84 +1761,9 @@ export default function MapScreen() {
   );
 
   const referencePins = useMemo<MapPin[]>(
-    () =>
-      visibleReferenceGauges.map((g) => {
-        const band = flowBandFor(g);
-        const usgs = usgsGaugeUrl(g.siteId);
-        return {
-          id: `refgauge:${g.id}`,
-          name: g.name,
-          // The place, for the label under the dot. A national station name is
-          // a sentence, and the map has room for a town.
-          label: gaugePlaceLabel(g.name),
-          layer: 'allGauges' as LayerKey,
-          subtitle: `USGS ${g.siteId} — not Eddy-rated`,
-          coordinates: g.coordinates,
-          color: flowBandColor(band),
-          // No `code`: that field drives a CONDITION-tinted chip in the
-          // callout, and this gauge has no condition. codeLabel carries the
-          // band's words instead, which is a comparison, not a verdict.
-          codeLabel: flowBandLabel(band),
-          value: flowReadingText(g),
-          magnitude: flowMagnitude(g),
-          siteId: g.siteId,
-          // WHEN THIS WAS MEASURED. The one thing this tier never said.
-          //
-          // Curated stations are polled continuously; everything else is
-          // refreshed by an hourly national pass, and a station that reports
-          // seasonally can be days old without anything on screen admitting it.
-          // A bare number invites you to read it as "now".
-          updatedAt: readingAge(g.readingAgeHours),
-          // STILL OFFERED, and no longer the only destination. The gauge screen
-          // below draws this station's own hydrograph, which is what people
-          // came for; USGS remains the source of record and the place the rest
-          // of the station's history lives, so the callout keeps the link.
-          link: usgs ? { label: 'Open on USGS', url: usgs } : null,
-        };
-      }),
+    () => visibleReferenceGauges.map(referenceGaugePin),
     [visibleReferenceGauges],
   );
-
-  /**
-   * The dam pins.
-   *
-   * `code`/`codeLabel` carry GENERATING or IDLE, not a condition — the callout
-   * tints that chip, and this one must not borrow the condition palette: a dam
-   * running its units is a fact about machinery, not a verdict on a river. The
-   * colour therefore comes from the layer, which is instrumentation teal.
-   *
-   * `generating` is NULL for a dam that publishes no turbine flow (Kansas City
-   * district publishes nothing to CWMS at all), and null means the chip is
-   * omitted rather than shown as "Not generating" — an observation nobody made.
-   */
-  const damPins = useMemo<MapPin[]>(() => {
-    const live = (dams ?? []).map((dam) => {
-      const release = dam.metrics.release;
-      return {
-        id: dam.id,
-        name: dam.name,
-        lakeName: dam.lakeName,
-        state: dam.state,
-        generating: dam.generating,
-        value: release
-          ? `${Math.round(release.value).toLocaleString()} cfs${release.dailyMean ? ' (daily avg)' : ''}`
-          : null,
-        updatedAt: release ? relativeAge(release.at) : null,
-        riverSlug: dam.tailwater?.riverSlug ?? null,
-      };
-    });
-    // Positions for anything the shipped catalog has never heard of — a project
-    // added to the registry since this build left. Everything else is placed
-    // from the catalog, which is what lets the layer draw with no answer at all.
-    const positions = new Map(
-      (dams ?? []).map((dam) => [dam.id, { lng: dam.lon, lat: dam.lat }]),
-    );
-
-    return damPinFacts(live, positions).map((facts) => ({
-      ...facts,
-      layer: 'dams' as LayerKey,
-    }));
-  }, [dams]);
 
   /**
    * The access family, resolved for the sheet's numbers and its overlap notes.
@@ -1869,24 +1956,33 @@ export default function MapScreen() {
    * river both can see.
    */
   // ── Where the map opens ────────────────────────────────────────────────────
-  // Nothing selected, so: the user's own position if location was ALREADY
-  // granted on a previous run (useLocation resolves that without prompting),
-  // otherwise the whole network. Never a river nobody picked.
+  // The camera the last session settled on, when one is stored and fresh —
+  // "where you were" outranks "where you are", because it is a position the
+  // reader chose themselves. Then the user's own position if location was
+  // ALREADY granted on a previous run (useLocation resolves that without
+  // prompting), otherwise the whole network. Never a river nobody picked.
   //
   // This is handed to Mapbox as defaultSettings only. A later render can never
-  // replay it over a gesture or selection.
-  const initialCamera: InitialMapCamera | null = location.coords
-    ? {
-        type: 'center',
-        lng: location.coords.lng,
-        lat: location.coords.lat,
-        // Regional, not local. The question this answers is "which rivers are
-        // near me", and that is unanswerable at street zoom.
-        zoom: 8.5,
-      }
-    : network.bounds
-      ? { type: 'bounds', bounds: network.bounds }
-      : null;
+  // replay it over a gesture or selection. THE ACCEPTED RACE: the map does not
+  // mount until the statewide collection has features, and the one-key camera
+  // read usually answers well before that hydrate — but when it loses, the map
+  // opens exactly as it always has and the stored camera is NOT applied late.
+  // A fly-to over a map the reader is already looking at is the jolt the
+  // startup-location effect below refuses, for the same reason.
+  const initialCamera: InitialMapCamera | null = storedCamera
+    ? { type: 'center', lng: storedCamera.lng, lat: storedCamera.lat, zoom: storedCamera.zoom }
+    : location.coords
+      ? {
+          type: 'center',
+          lng: location.coords.lng,
+          lat: location.coords.lat,
+          // Regional, not local. The question this answers is "which rivers are
+          // near me", and that is unanswerable at street zoom.
+          zoom: 8.5,
+        }
+      : network.bounds
+        ? { type: 'bounds', bounds: network.bounds }
+        : null;
 
   /**
    * "Open near me" when the location arrives AFTER the map already opened.
@@ -1916,6 +2012,14 @@ export default function MapScreen() {
   const hasGestured = useRef(false);
   const openedWithoutLocation = useRef(false);
   const startupLocationSettled = useRef(false);
+  /**
+   * Whether the map's first mount opened on a remembered camera.
+   *
+   * Latched on the effect's first pass with the map on screen — the same
+   * commit RiverMap latched its defaultSettings in, so this records what the
+   * map actually consumed, not what later arrived. Null until then.
+   */
+  const openedOnStoredCamera = useRef<boolean | null>(null);
   const onUserGesture = useCallback(() => {
     hasGestured.current = true;
     // Also counted, for the deferred fit above — see `gestureCount`.
@@ -1928,6 +2032,17 @@ export default function MapScreen() {
     // the map is rendered under below, and effects run child-first, so RiverMap
     // has already latched its defaultSettings by the time this runs.
     if (unavailable || !network.collection.features.length) return;
+    // A map that opened on a remembered camera is already where the reader
+    // left it — the session's camera belongs to the restore, and flying to
+    // their position on top of it would be the jolt this effect exists to
+    // avoid. The locate button remains one tap away.
+    if (openedOnStoredCamera.current === null) {
+      openedOnStoredCamera.current = storedCamera !== null;
+    }
+    if (openedOnStoredCamera.current) {
+      startupLocationSettled.current = true;
+      return;
+    }
     if (!location.coords) {
       openedWithoutLocation.current = true;
       return;
@@ -1948,6 +2063,7 @@ export default function MapScreen() {
     unavailable,
     network.collection.features.length,
     location.coords,
+    storedCamera,
     selectedSlug,
     issueCameraCommand,
   ]);
@@ -2295,7 +2411,7 @@ export default function MapScreen() {
         <SearchBar
           value={search.query}
           onChangeText={search.setQuery}
-          placeholder="Search rivers, gauges and access points"
+          placeholder="Search rivers, gauges, dams and more"
           // Gauges are matched locally, so the list has to exist before the
           // first keystroke rather than after the first gauge query.
           onFocus={ensureGauges}
@@ -2348,6 +2464,7 @@ export default function MapScreen() {
             // may not, because it is a term of the licence. See the prop.
             ornamentBottomInset={sheetOpen ? sheet.height : 0}
             river={mapRiver}
+            milePosts={riverMilePosts}
             conditionCode={conditionCode}
             network={network.collection}
             onSelectRiverSlug={onSelectNetworkRiver}
@@ -2356,7 +2473,7 @@ export default function MapScreen() {
             referenceGauges={referencePins}
             publicLands={publicLands.features}
             dams={damPins}
-            onViewportChange={setViewport}
+            onViewportChange={onViewportChange}
             onZoomToCluster={(point) =>
               issueCameraCommand({ type: 'clusterSelected', lng: point.lng, lat: point.lat })
             }
@@ -2394,7 +2511,7 @@ export default function MapScreen() {
               results={search.results}
               onSelect={onSelectResult}
               loading={search.searching}
-              emptyMessage="Nothing matched. Try a river, a gauge or an access point."
+              emptyMessage="Nothing matched. Try a river, gauge, access point, dam or outfitter."
             />
           </View>
         ) : null}
@@ -2408,7 +2525,10 @@ export default function MapScreen() {
         {!unavailable && !search.active ? (
           <MapLayersButton
             onPress={() => setLayersOpen(true)}
-            changed={!isDefaultLayers(layers)}
+            // The gauge filter counts too: a map narrowed to one flow band
+            // with no dot anywhere reads as gauges having gone missing — the
+            // exact complaint that keeps the filter from being persisted.
+            changed={!isDefaultLayers(layers) || gaugeFilter.size > 0}
           />
         ) : null}
 
@@ -2787,8 +2907,15 @@ export default function MapScreen() {
         //
         // What is left is the one thing here that was never prose: a control
         // that narrows the layer it hangs under.
-        renderLayerDetail={(key, on) =>
-          key === 'allGauges' && on ? (
+        renderLayerDetail={(key, on) => {
+          // The camera, not the switch, is why this layer is empty — say so
+          // where the switch is, exactly as the gauge tier's own belowMinZoom
+          // hint does. Parcels need a river to be read against, and the
+          // opening statewide view sits below the layer's z7 floor.
+          if (key === 'publicLand' && on && publicLands.belowMinZoom) {
+            return <LayerZoomHint text="Zoom in to see public land boundaries." />;
+          }
+          return key === 'allGauges' && on ? (
             <GaugeFilterBar
               // The DRAWABLE set, not the raw response — see layerGauges. Every
               // count in the strip is a count of pins you can actually see.
@@ -2807,8 +2934,8 @@ export default function MapScreen() {
               }
               onClear={() => setGaugeFilter(new Set())}
             />
-          ) : null
-        }
+          ) : null;
+        }}
       />
 
       {/* The plan flow is deliberately a sibling of the map rather than a child
