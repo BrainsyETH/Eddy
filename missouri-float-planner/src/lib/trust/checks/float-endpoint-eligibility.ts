@@ -28,6 +28,33 @@
 // and plenty are. Only a row whose roles are all non-launch — a park, a
 // campground, and nothing you could put a boat in from — is a claim that
 // contradicts its own eligibility.
+//
+// ── Roles are not the only way to be un-launchable ───────────────────────
+//
+// The roles axis answers "could you get a boat into the water here", and that
+// is not the whole question a picker asks. A float trip needs a VEHICLE at both
+// ends, so a place you can only arrive at BY river cannot be a put-in or a
+// take-out however good its bank is.
+//
+// The six USFS float camps on the Eleven Point are exactly that: primitive
+// boat-in camps, `road_access` "NO ROAD ACCESS", `parking_info` "No vehicle
+// access. River only." — and all six were offered as endpoints. Five happened
+// to be caught by the roles rule because each carries `campground` alone, but
+// that was luck twice over:
+//
+//   - Adding `gravel_bar` (which is physically true — you land on one) would
+//     have silenced the finding and left them in the picker.
+//   - The sixth, Greenbriar, was never caught at all. Its `types` is the empty
+//     array, so the roles rule correctly declined to judge it, and it sat in
+//     the put-in picker beside five neighbours that were being reported daily.
+//
+// Road reachability is a separate claim from roles, it is recorded on the row,
+// and it gets its own rule.
+//
+// It also runs in the OTHER direction, which is why it is a guard and not just
+// a third finding: a boat-in camp that is correctly `is_float_endpoint = false`
+// must not be reported as "a launch nobody can choose". It is a launch nobody
+// SHOULD choose, and saying otherwise would send somebody to flip the flag.
 
 import type { RawFinding, TrustCheck, TrustCheckContext, TrustCheckResult } from '../types';
 // Shared with the importer that writes the column and the admin route that
@@ -44,6 +71,54 @@ export interface EndpointEligibilityRow {
   approved: boolean | null;
   is_float_endpoint: boolean | null;
   river_slug: string | null;
+  /** Free text. See isVehicleUnreachable() for why it is read so narrowly. */
+  road_access: string | null;
+  /** The other field the same declaration lands in. Also free text. */
+  parking_info: string | null;
+}
+
+/**
+ * Anchored on purpose, because `road_access` is prose and both ways of being
+ * wrong about it are expensive.
+ *
+ * The ingestion pipeline writes the disqualifying case as a LEADING
+ * declaration — "NO ROAD ACCESS", or "NO ROAD ACCESS. Primary access by river
+ * from Riverton." — so matching the head of the string catches every live
+ * instance. A loose `includes('no road access')` would also catch "gravel road,
+ * no road access issues" and "no road access fee", and a false positive here
+ * does two bad things at once: it files a finding asking somebody to pull a
+ * real launch out of the planner, and it suppresses `launch_not_selectable` on
+ * that same row, hiding the opposite defect behind the mistake.
+ *
+ * A miss is the cheaper error and is covered: anything this does not catch
+ * still falls through to the roles rules, which is how these five were found in
+ * the first place.
+ *
+ * The trailing lookahead is what makes anchoring enough. Without it a leading
+ * "No road access fee." matches — the phrase is there, at the front, and the
+ * sentence means the opposite. Requiring the declaration to END (at the string,
+ * or at punctuation) rather than run on into another word rejects that while
+ * still accepting "NO ROAD ACCESS. Primary access by river from Riverton."
+ *
+ * BOTH fields are read, because the importer puts the declaration in whichever
+ * one it has. Greenbriar Float Camp is the row that proves it: `road_access` is
+ * NULL, `parking_info` reads "No vehicle access. River only.", `types` is the
+ * empty array — so the roles rule could not judge it, a road_access-only guard
+ * could not see it, and it sat in the put-in picker while its five identical
+ * neighbours were being reported. Reading one field and calling that
+ * reachability is the same narrowness that produced the finding in the first
+ * place.
+ */
+const UNREACHABLE_BY_VEHICLE =
+  /^\s*(?:no road access|no vehicle access|river access only)(?!\s+\w)/i;
+
+export function isVehicleUnreachable(
+  roadAccess: string | null | undefined,
+  parkingInfo?: string | null | undefined,
+): boolean {
+  return [roadAccess, parkingInfo].some(
+    (field) => typeof field === 'string' && UNREACHABLE_BY_VEHICLE.test(field),
+  );
 }
 
 /** Pure. Rows in, findings out — no database, so the rule is testable alone. */
@@ -63,6 +138,32 @@ export function deriveEndpointEligibilityFindings(
     const where = row.river_slug ? ` on the ${row.river_slug}` : '';
     const roles = (row.types ?? []).filter((t): t is string => typeof t === 'string' && t.length > 0);
     const launchRoles = roles.filter(isLaunchRole);
+
+    // First, and regardless of roles: you cannot shuttle to a place with no
+    // road. This both raises its own finding and — by returning here — keeps
+    // `launch_not_selectable` off a boat-in camp that is correctly excluded.
+    if (isVehicleUnreachable(row.road_access, row.parking_info)) {
+      if (row.is_float_endpoint === true) {
+        const said = (
+          isVehicleUnreachable(row.road_access) ? row.road_access : row.parking_info
+        )?.trim();
+        findings.push({
+          entityType: 'access_point',
+          entityKey,
+          ruleKey: 'unreachable_offered_as_endpoint',
+          title: `"${row.name}"${where} is offered as a put-in but has no road to it`,
+          detail: `This point declares "${said?.slice(0, 60)}", so a party cannot leave a vehicle here — yet it may be chosen as a put-in or take-out, and every trip built on it strands its own shuttle. A float needs a road at BOTH ends, which is a separate question from whether the bank is launchable: this fires whatever the roles say, because a boat-in camp genuinely does have a gravel bar. If the note is wrong, fix it; otherwise set is_float_endpoint = false and the point keeps its page, its pin and its place on the map.`,
+          evidence: {
+            accessPointId: row.id,
+            slug: row.slug,
+            roles,
+            roadAccess: row.road_access,
+            parkingInfo: row.parking_info,
+          },
+        });
+      }
+      continue;
+    }
 
     if (row.is_float_endpoint !== true && launchRoles.length > 0) {
       findings.push({
@@ -109,7 +210,9 @@ export const floatEndpointEligibilityCheck: TrustCheck = {
   async run(ctx: TrustCheckContext): Promise<TrustCheckResult> {
     const { data, error } = await ctx.supabase
       .from('access_points')
-      .select('id, name, slug, type, types, approved, is_float_endpoint, rivers!inner(slug)')
+      .select(
+        'id, name, slug, type, types, approved, is_float_endpoint, road_access, parking_info, rivers!inner(slug)',
+      )
       .eq('approved', true);
 
     if (error) {
@@ -128,6 +231,8 @@ export const floatEndpointEligibilityCheck: TrustCheck = {
       approved: r.approved ?? null,
       is_float_endpoint: r.is_float_endpoint ?? null,
       river_slug: r.rivers?.slug ?? null,
+      road_access: r.road_access ?? null,
+      parking_info: r.parking_info ?? null,
     }));
 
     // One set-based read, so there is no truncation path and `partial` can never

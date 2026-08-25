@@ -126,12 +126,14 @@ export const LEDGER_RULES = [
 ] as const;
 
 /**
- * Emitted by float-endpoint-eligibility.ts. Two rules, one per direction of
- * being wrong about whether a place is a launch.
+ * Emitted by float-endpoint-eligibility.ts. Two rules for the two directions of
+ * being wrong about whether a place is a launch, and a third for the question
+ * roles cannot answer: whether a vehicle can get there at all.
  */
 export const FLOAT_ENDPOINT_RULES = [
   'launch_not_selectable',
   'non_launch_offered_as_endpoint',
+  'unreachable_offered_as_endpoint',
 ] as const;
 
 export const ALL_TRUST_RULES = [
@@ -278,6 +280,12 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   // park boundary, which is why `is_float_endpoint` defaults to false — but the
   // default only covers rows nobody touched.
   non_launch_offered_as_endpoint: 'high',
+  // The same ending — a party towing a boat to a place they cannot reach —
+  // arrived at through the axis roles do not cover. Worse than its sibling in
+  // one respect: a bad put-in still leaves you standing next to your vehicle,
+  // while a take-out with no road strands the shuttle at the END of the float,
+  // in the dark, on a river people run in one day.
+  unreachable_offered_as_endpoint: 'high',
   // The opposite miss, and a quiet one: a real launch that is drawn on the map
   // and cannot be selected. Nobody reports a put-in that was never offered, so
   // this rule is the only thing that will say so. Not a safety defect — the
