@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { useRiverForecast } from '@/hooks/useRiverForecast';
 import { useForecastByCoords } from '@/hooks/useWeather';
-import { computeTrend } from '@/lib/gauge-trend';
+import { computeTrend } from '@shared/gauge-trend';
 import { buildRiverOutlookState } from '@/lib/river-outlook';
 import type { ConditionThresholds } from '@/lib/conditions';
 

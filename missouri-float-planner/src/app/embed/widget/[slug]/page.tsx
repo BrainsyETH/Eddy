@@ -10,7 +10,7 @@ import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { CONDITION_COLORS, getEddyImageForCondition, CFS_EXPLAINER } from '@/constants';
 import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
-import { computeTrend } from '@/lib/gauge-trend';
+import { computeTrend } from '@shared/gauge-trend';
 import { eddyDeepLink } from '@/lib/embed/branding';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 import { FLAG_GREEN_ICON } from '@/lib/embed/tileIcons';

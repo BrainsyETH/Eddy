@@ -13,7 +13,7 @@ import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS, getEddyImageForCondition } from '@/constants';
 import type { ConditionCode } from '@/types/api';
-import { computeTrend } from '@/lib/gauge-trend';
+import { computeTrend } from '@shared/gauge-trend';
 import {
   findZoneIndex,
   formatZoneRange,

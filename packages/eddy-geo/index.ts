@@ -47,6 +47,75 @@ export function milesBetween(a: Coords, b: Coords): number {
   return 2 * EARTH_RADIUS_MILES * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
+/** A mile post along a river line, for the map's mile-marker layer. */
+export interface MilePost {
+  lng: number;
+  lat: number;
+  mile: number;
+}
+
+/**
+ * Posts every `intervalMiles` along a line whose true channel length is known.
+ *
+ * ── mile = fraction × lengthMiles, THE DATABASE'S OWN FORMULA ──────────────
+ * Every riverMile in the app — access points, hazards — is computed server-side
+ * as `length_miles * ST_LineLocatePoint(geom, point)`: a normalised position
+ * along the stored line, scaled by the catalogued length. This walks the same
+ * line and applies the same scaling, so a post labelled 12 lands where a
+ * put-in at riverMile 12.0 sits, WHICH IS THE ONLY CORRECTNESS THAT MATTERS
+ * HERE. Measuring true ground miles along the thinned geometry instead would
+ * drift from every number the app already prints (the import thins to 3–5
+ * points per mile, and a chord across a meander shortens the walk).
+ *
+ * Planar segment lengths with a per-segment cos(lat) correction on the
+ * longitude delta — positions along one line, not distances, exactly as the
+ * statewide network's own progressAlong computes its colour stops.
+ *
+ * Interpolated within the crossing segment, monotone by construction. Empty
+ * for a degenerate line or a non-positive length/interval. Mile 0 and the
+ * final endpoint are deliberately not posted: the ends of a river are already
+ * marked by everything else on it.
+ */
+export function milePosts(
+  coordinates: Array<[number, number]>,
+  lengthMiles: number,
+  intervalMiles: number,
+): MilePost[] {
+  if (coordinates.length < 2 || lengthMiles <= 0 || intervalMiles <= 0) return [];
+
+  // Cumulative planar progress at each vertex, 0..total.
+  const progress: number[] = [0];
+  for (let i = 1; i < coordinates.length; i++) {
+    const [lng1, lat1] = coordinates[i - 1];
+    const [lng2, lat2] = coordinates[i];
+    const dx = (lng2 - lng1) * Math.cos(((lat1 + lat2) / 2) * (Math.PI / 180));
+    const dy = lat2 - lat1;
+    progress.push(progress[i - 1] + Math.hypot(dx, dy));
+  }
+  const total = progress[progress.length - 1];
+  if (!(total > 0)) return [];
+
+  const posts: MilePost[] = [];
+  let segment = 1;
+  for (let mile = intervalMiles; mile < lengthMiles; mile += intervalMiles) {
+    const target = (mile / lengthMiles) * total;
+    while (segment < progress.length - 1 && progress[segment] < target) segment++;
+    const before = progress[segment - 1];
+    const span = progress[segment] - before;
+    const t = span > 0 ? (target - before) / span : 0;
+    const [lng1, lat1] = coordinates[segment - 1];
+    const [lng2, lat2] = coordinates[segment];
+    posts.push({
+      lng: lng1 + (lng2 - lng1) * t,
+      lat: lat1 + (lat2 - lat1) * t,
+      // Rounded to the printed precision so 4.999999 posts as 5 — the label
+      // is an integer count of interval steps, not a float.
+      mile: Math.round(mile * 100) / 100,
+    });
+  }
+  return posts;
+}
+
 /**
  * Bytes as a person reads them. Its one caller is the Storage screen, which
  * reports how much room the cached river data takes on the phone.

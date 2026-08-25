@@ -60,9 +60,39 @@ export interface GaugeHistoryState {
    * cached — a failure is not an answer about the river.
    */
   failed: boolean;
+  /**
+   * WHICH station and window the held series is actually for.
+   *
+   * Not the same question as the arguments this hook was called with, and that
+   * gap is the whole reason these exist. `history` is deliberately kept across a
+   * range change so the line does not flash empty, and kept across a failure so
+   * a reader is not shown an error in place of a chart they were reading — so
+   * there are real, resting states where the series on screen belongs to a
+   * different window, or a different station, than the one being asked for.
+   *
+   * Drawing it anyway is fine: a line is honest about itself. DESCRIBING it from
+   * the request is not — that is how the chart came to print "last 24 hours"
+   * over a month of data, and how a six-hour trend came to be computed from a
+   * month's worth of extrema-sampled points. Anything that makes a CLAIM about
+   * the series must read it from here, or check `matchesRequest`.
+   *
+   * Both null exactly when `history` is null.
+   */
+  historySiteId: string | null;
+  historyDays: number | null;
 }
 
 interface GaugeHistory extends GaugeHistoryState {
+  /**
+   * The held series is the one that was asked for.
+   *
+   * Derived once here rather than by each consumer, because four of them in
+   * GaugeChart alone need it and three had already got it wrong. `loading` is
+   * NOT a substitute: it is false during the one-render lag after a cache hit,
+   * false after a failure that kept a foreign window, and false once a
+   * superseded response has landed.
+   */
+  matchesRequest: boolean;
   /** Re-request the current window. Failures are uncached, so this really refetches. */
   retry: () => void;
 }
@@ -72,6 +102,8 @@ const EMPTY: GaugeHistoryState = {
   loading: false,
   unavailable: false,
   failed: false,
+  historySiteId: null,
+  historyDays: null,
 };
 
 export function useGaugeHistory(siteId: string | null, days: number): GaugeHistory {
@@ -79,25 +111,53 @@ export function useGaugeHistory(siteId: string | null, days: number): GaugeHisto
 
   const cache = useRef(new Map<string, GaugeHistoryResponse | null>());
   const inFlight = useRef<AbortController | null>(null);
+  /** The pairing currently being asked for, so a late response can tell it is stale. */
+  const currentKey = useRef<string | null>(null);
 
   const load = useCallback(async (key: string, site: string, window: number) => {
+    // ── ABORT FIRST, BEFORE ANY RETURN ────────────────────────────────────
+    // This used to sit below the cache-hit branch, so the hit RETURNED while an
+    // older request was still live. Ask for 30d (a miss, so it goes out), then
+    // tap 7d while it is loading and 7d is already cached: the hit painted the
+    // 7-day series and left the 30-day request running, and when it landed it
+    // overwrote state. The resting result was `days === 7` holding a month of
+    // data, with loading false and failed false — nothing to signal it and
+    // nothing to correct it until the next toggle. The cross-station form is
+    // the same bug: station B's chart ends up drawing station A's series.
+    //
+    // Whatever this call is about to do, no earlier request may outlive it.
+    inFlight.current?.abort();
+    inFlight.current = null;
+    currentKey.current = key;
+
     // Map preserves insertion order, so `has` is the cheap hit test and the
     // first key is the oldest. A cached NULL is a real answer — "we asked, this
     // station has nothing" — and must not be re-requested on every toggle.
     if (cache.current.has(key)) {
       const hit = cache.current.get(key) ?? null;
-      setState({ history: hit, loading: false, unavailable: hit === null, failed: false });
+      setState({
+        history: hit,
+        loading: false,
+        unavailable: hit === null,
+        failed: false,
+        historySiteId: hit ? site : null,
+        historyDays: hit ? window : null,
+      });
       return;
     }
 
-    inFlight.current?.abort();
     const controller = new AbortController();
     inFlight.current = controller;
 
     setState((prev) => ({ ...prev, loading: true, failed: false }));
 
     const result = await fetchGaugeHistory(site, window, controller.signal);
-    if (controller.signal.aborted) return;
+    // Aborted covers the ordinary supersede; the key check makes it true by
+    // CONSTRUCTION rather than by the abort above happening to have fired.
+    // Dropped rather than cached: the cache is written below from one place,
+    // under one rule about what counts as a usable answer, and a second writer
+    // up here would be a second rule to keep in step for no gain.
+    if (controller.signal.aborted || currentKey.current !== key) return;
 
     // `undefined` is a FAILED request; `null` is the endpoint's 404; a response
     // with no readings is a station that answered and has nothing. The client
@@ -130,7 +190,14 @@ export function useGaugeHistory(siteId: string | null, days: number): GaugeHisto
       if (oldest !== undefined) cache.current.delete(oldest);
     }
 
-    setState({ history: usable, loading: false, unavailable: usable === null, failed: false });
+    setState({
+      history: usable,
+      loading: false,
+      unavailable: usable === null,
+      failed: false,
+      historySiteId: usable ? site : null,
+      historyDays: usable ? window : null,
+    });
     if (inFlight.current === controller) inFlight.current = null;
   }, []);
 
@@ -138,6 +205,7 @@ export function useGaugeHistory(siteId: string | null, days: number): GaugeHisto
     if (!siteId) {
       inFlight.current?.abort();
       inFlight.current = null;
+      currentKey.current = null;
       setState(EMPTY);
       return;
     }
@@ -155,5 +223,10 @@ export function useGaugeHistory(siteId: string | null, days: number): GaugeHisto
     void load(`${siteId}:${days}`, siteId, days);
   }, [siteId, days, load]);
 
-  return { ...state, retry };
+  const matchesRequest =
+    state.history !== null &&
+    state.historySiteId === siteId &&
+    state.historyDays === days;
+
+  return { ...state, matchesRequest, retry };
 }
