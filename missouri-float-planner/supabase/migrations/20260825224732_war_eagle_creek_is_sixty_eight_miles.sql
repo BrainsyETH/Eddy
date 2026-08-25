@@ -1,6 +1,8 @@
 -- War Eagle Creek is 68 miles long. Eddy has been quoting 33, and halving every
 -- float on it.
 --
+-- APPLIED to production 2026-08-25 as 20260825224732.
+--
 -- `rivers.length_miles` read 33.17 against a stored line measuring 68.10. The
 -- river_geometry check has filed that as `length_miles_disagrees_geometry` at
 -- 51% off since 2026-08-06. It is not a cosmetic disagreement between two

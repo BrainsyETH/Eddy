@@ -1,5 +1,7 @@
 -- The six Eleven Point float camps leave the picker. You cannot drive to them.
 --
+-- APPLIED to production 2026-08-25 as 20260825224514.
+--
 -- Denny Hollow, Horseshoe Bend, Greenbriar, Morgan Spring, Whites Creek and
 -- Barn Hollow are USFS primitive float camps in and around the Irish
 -- Wilderness. Every one carried is_float_endpoint = TRUE, so every one could be

@@ -1,5 +1,7 @@
 -- Eddy's Current River begins 2.4 miles below its own first put-in. Extend it.
 --
+-- APPLIED to production 2026-08-25 as 20260825224950.
+--
 -- 20260823200007 withheld Montauk State Park from the put-in and take-out
 -- pickers and said exactly what would unblock it: "extending the line upstream
 -- to the park is an NHD import, and it is what unblocks this row." This is that
