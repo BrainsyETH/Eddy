@@ -58,7 +58,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
-import { waitForEntitlement } from '@/api/client';
+import { refreshEntitlement, waitForEntitlement } from '@/api/client';
 import {
   fetchOfferings,
   identifyUser,
@@ -72,6 +72,7 @@ import {
   purchasesUnavailableReason,
   readEntitlementSnapshot,
   redemptionAlert,
+  restoreAlert,
   restorePurchases,
   savingsLabel,
   syncRedeemedPurchases,
@@ -313,12 +314,34 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
       const result = await restorePurchases();
       if (result.entitled) {
         const token = await getAccessToken();
-        if (token) await waitForEntitlement(token);
+        let serverConfirmed = false;
+        if (token) {
+          // Reconcile before polling. A restore onto an account that did not
+          // buy — anyone who deleted their account and signed in again —
+          // reaches the server as a TRANSFER carrying no entitlement state, so
+          // there may be no webhook for the poll below to wait for. See
+          // refreshEntitlement in src/api/client.ts.
+          await refreshEntitlement(token);
+          serverConfirmed = await waitForEntitlement(token);
+        }
+
+        // The sheet closes either way: the purchase is real, and holding
+        // someone on a paywall they have paid past is worse than a card that
+        // catches up a moment later. But it must not close SILENTLY when the
+        // server has not agreed, or Premium simply stays locked with no
+        // explanation — which is exactly what a restore after account deletion
+        // used to do.
+        if (!serverConfirmed) {
+          const alert = restoreAlert(result, false);
+          Alert.alert(alert.title, alert.message);
+        }
         onPurchased?.();
         onClose();
         return;
       }
-      Alert.alert('Nothing to restore', result.message);
+
+      const alert = restoreAlert(result, false);
+      Alert.alert(alert.title, alert.message);
     } finally {
       setBusy(null);
     }

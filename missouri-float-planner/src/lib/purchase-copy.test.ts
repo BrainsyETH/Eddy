@@ -28,6 +28,7 @@ import {
   perMonthPriceString,
   PREMIUM_UNAVAILABLE_COPY,
   redemptionAlert,
+  restoreAlert,
   savingsLabel,
   subscriptionSummary,
   trialDaysFromIntroPrice,
@@ -680,4 +681,61 @@ test('no entitlement reads as no subscription', () => {
     }),
     'No active subscription',
   );
+});
+
+// ── Restore purchases ────────────────────────────────────────────
+
+test('a failed restore is never reported as an empty one', () => {
+  // These were the same alert. "Nothing to restore" over a dropped connection
+  // tells a paying customer they never paid — the one wrong answer here.
+  const failed = restoreAlert(
+    { ok: false, entitled: false, message: 'Eddy could not reach the App Store.' },
+    false,
+  );
+  assert.equal(failed.title, 'Could not restore');
+  assert.doesNotMatch(failed.title, /nothing/i);
+
+  const empty = restoreAlert({ ok: true, entitled: false, message: 'No subscription found.' }, false);
+  assert.equal(empty.title, 'Nothing to restore');
+});
+
+test('the SDK finding a subscription is not enough to claim it is restored', () => {
+  // The server is the authority on entitlement (purchases.ts header). Claiming
+  // success on the SDK's word alone is how the alert says "restored" over a
+  // Profile card that still reads "No active subscription" — which is exactly
+  // what a restore after account deletion did.
+  const found: Parameters<typeof restoreAlert>[0] = {
+    ok: true,
+    entitled: true,
+    message: 'Your subscription is restored.',
+  };
+
+  const confirmed = restoreAlert(found, true);
+  assert.equal(confirmed.title, 'Subscription restored');
+
+  const pending = restoreAlert(found, false);
+  assert.notEqual(pending.title, 'Subscription restored');
+  // It must not read as a refusal either — the purchase is real and Apple has
+  // confirmed it — and it has to leave a way out.
+  assert.doesNotMatch(pending.title + pending.message, /no subscription found/i);
+  assert.match(pending.message, /App Store confirms/);
+  assert.match(pending.message, /support/);
+});
+
+test('both restore surfaces reconcile with the server before claiming anything', () => {
+  for (const path of [
+    '../eddy-ios/src/components/PaywallSheet.tsx',
+    '../eddy-ios/app/(tabs)/profile.tsx',
+  ]) {
+    const source = readFileSync(path, 'utf8');
+    // A restore onto an account that did not buy — anyone who deleted their
+    // account and signed in again — arrives at the server as a TRANSFER, which
+    // carries no entitlement state. Polling alone can wait that out forever, so
+    // the reconcile has to be asked for first.
+    assert.match(source, /await refreshEntitlement\(token\)/);
+    assert.match(source, /serverConfirmed = await waitForEntitlement\(token\)/);
+    // And the alert is the shared one, so neither screen can drift back into
+    // titling a failure "Nothing to restore".
+    assert.match(source, /restoreAlert\(result, /);
+  }
 });

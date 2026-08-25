@@ -511,11 +511,21 @@ export async function purchasePackage(pkg: PurchasePackage): Promise<PurchaseOut
 }
 
 export interface RestoreResult {
+  /** False means the restore did not RUN — distinct from running and finding nothing. */
   ok: boolean;
   /** True when the restore found a live entitlement attached to this Apple ID. */
   entitled: boolean;
   message: string;
 }
+
+/**
+ * RevenueCat's RECEIPT_ALREADY_IN_USE. Raised only when the dashboard's
+ * transfer behaviour is "Keep with original App User ID": the receipt is valid,
+ * it simply belongs to a different app user and RevenueCat has been told not to
+ * move it. Worth its own sentence because the generic "could not reach the App
+ * Store" is actively misleading here — nothing failed, and retrying never helps.
+ */
+const RECEIPT_ALREADY_IN_USE = '9';
 
 /**
  * Restore Purchases. App Review requires this control to exist and work on any
@@ -524,6 +534,11 @@ export interface RestoreResult {
  * The message is written for the case that actually happens: someone taps it
  * expecting their subscription back and it finds nothing, usually because they
  * are signed into a different Apple ID than the one that paid.
+ *
+ * `ok` and `entitled` are separate answers and callers must not collapse them.
+ * A network failure is not "nothing to restore", and telling someone their
+ * subscription does not exist when we merely failed to look is the one wrong
+ * answer on this screen — see restoreAlert.
  */
 export async function restorePurchases(): Promise<RestoreResult> {
   const Purchases = loadPurchases();
@@ -543,13 +558,57 @@ export async function restorePurchases(): Promise<RestoreResult> {
         : 'No subscription found for this Apple ID. If you paid with a different one, sign into that Apple ID in Settings and try again.',
     };
   } catch (err) {
-    const message = (err as { message?: string })?.message;
+    const e = err as { code?: string | number; message?: string };
+
+    if (String(e?.code) === RECEIPT_ALREADY_IN_USE) {
+      return {
+        ok: false,
+        entitled: false,
+        message:
+          'This subscription is attached to a different Eddy account. Sign in to that account to use it, or contact support to have it moved.',
+      };
+    }
+
+    // Never the SDK's own string: RevenueCat's error text describes dashboard
+    // and StoreKit configuration, which is diagnostics, not customer copy.
+    purchaseDiagnostics()?.report(err, { operation: 'revenuecat.restorePurchases' });
     return {
       ok: false,
       entitled: false,
-      message: message ?? 'Could not reach the App Store. Please try again.',
+      message: 'Eddy could not reach the App Store. Please try again in a moment.',
     };
   }
+}
+
+/**
+ * What to say when Restore purchases finishes.
+ *
+ * Four outcomes, and the reason this is a function rather than a ternary at
+ * each call site is that two of them used to be one. Both screens titled a
+ * FAILED restore "Nothing to restore" and printed the SDK's error underneath
+ * it, so a dropped connection and a genuinely unowned subscription were the
+ * same sentence — the first of which tells a paying customer, wrongly, that
+ * they never paid.
+ *
+ * `serverConfirmed` is the other half. The SDK finding an entitlement means
+ * APPLE agrees; this app's authority on entitlement is the server (see the file
+ * header), and the two can disagree for a moment after a restore while the
+ * account catches up. Claiming success on the SDK's word alone is how the alert
+ * says "restored" over a screen that still shows no subscription.
+ */
+export function restoreAlert(
+  result: RestoreResult,
+  serverConfirmed: boolean,
+): { title: string; message: string } {
+  if (!result.ok) return { title: 'Could not restore', message: result.message };
+  if (!result.entitled) return { title: 'Nothing to restore', message: result.message };
+  if (serverConfirmed) return { title: 'Subscription restored', message: result.message };
+
+  return {
+    title: 'Purchase found',
+    message:
+      'The App Store confirms a subscription on this Apple ID, but this Eddy account has not picked it up yet. Pull to refresh in a moment — if Premium is still locked, contact support.',
+  };
 }
 
 /**
