@@ -134,6 +134,13 @@ export const FLOAT_ENDPOINT_RULES = [
   'non_launch_offered_as_endpoint',
 ] as const;
 
+/**
+ * Emitted by dam-freshness.ts. Two keys for one condition, split at a
+ * threshold, because the fingerprint hashes the rule key: one rule whose
+ * severity moved would rewrite a finding in place and lose the date it froze.
+ */
+export const DAM_FRESHNESS_RULES = ['dam_history_stale', 'dam_history_frozen'] as const;
+
 export const ALL_TRUST_RULES = [
   ...VALIDATE_RIVER_DATA_RULES,
   ...RIVER_GEOMETRY_RULES,
@@ -142,6 +149,7 @@ export const ALL_TRUST_RULES = [
   ...USGS_SITE_DRIFT_RULES,
   ...SERVICE_GEO_RULES,
   ...FLOAT_ENDPOINT_RULES,
+  ...DAM_FRESHNESS_RULES,
   ...SCHEMA_INVARIANT_RULES,
   ...LEDGER_RULES,
 ] as const;
@@ -283,6 +291,19 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   // this rule is the only thing that will say so. Not a safety defect — the
   // planner is incomplete, not wrong.
   launch_not_selectable: 'medium',
+
+  // A dam whose recorded history has stopped advancing entirely. High rather
+  // than critical: no badge and no go/no-go moves, because the dam pages read
+  // CWMS live and never touch this table — that independence is precisely why
+  // the 2026-08-22 freeze was invisible for 53 hours. What it costs is the
+  // pattern strip, permanently, for every hour that falls out of CWMS's
+  // rolling window before somebody looks. Filed above the mileage band because
+  // those defects wait patiently to be fixed and this one does not.
+  dam_history_frozen: 'high',
+  // The same condition inside a window where one skipped cron run explains it.
+  // Medium, because the recorder repairs itself by re-reading 48 hours on the
+  // next pass, so most of these close without anyone acting.
+  dam_history_stale: 'medium',
 
   // ── low: real, visible to nobody in danger ───────────────────────────
   // Geometry has raised a question about an editorial fact, and the answer may

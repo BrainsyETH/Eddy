@@ -1002,6 +1002,61 @@ export function hasPowerhouse(dam: UsaceDam): boolean {
 }
 
 /**
+ * Whether the hourly history cron will read this project at all.
+ *
+ * ── Why this is a function here and not an expression in the route ─────────
+ * It was an expression in the route — `hasPowerhouse(d) && d.office &&
+ * d.cdaLocation` — and it silently dropped the three Nashville dams from
+ * 2026-08-22, when the branch carrying `cdaLocations` merged to main. LRN
+ * keys observed series on two station prefixes per project, so those entries
+ * carry the PLURAL field and no `cdaLocation`; the filter tested only the
+ * singular. `seriesFor()` reads both shapes, so the dam pages went on showing
+ * live metrics from the same registry while the recorder wrote nothing —
+ * which is exactly why nobody saw it. Measured on 2026-08-24: the three had
+ * been frozen at 08-22 16:00 for 53 hours while every other dam was 2-4 hours
+ * fresh, and CWMS was serving the missing window the whole time.
+ *
+ * The location test has to mirror `seriesFor()`'s own
+ * `cdaLocations ?? cdaLocation` fallback, and the only way to keep two
+ * expressions in step is to stop having two. So the predicate lives here,
+ * beside `hasPowerhouse`, where the registry test can import it WITHOUT
+ * importing the route — the route pulls in next/server and the admin client,
+ * which no unit test should need.
+ *
+ * ── Why the cost of being wrong is asymmetric ──────────────────────────────
+ * A dam wrongly included fetches a series that 404s and writes nothing: one
+ * wasted request an hour. A dam wrongly excluded loses hours that cannot be
+ * recovered once they fall out of CWMS's rolling window. So when in doubt
+ * this should return TRUE.
+ */
+export function recordsHistory(dam: UsaceDam): boolean {
+  const hasLocation = Boolean(dam.cdaLocation || dam.cdaLocations?.length);
+  return Boolean(hasPowerhouse(dam) && dam.office && hasLocation);
+}
+
+/**
+ * Metrics the history recorder stores, and the shape a dam must declare for
+ * `recordsHistory` to be the RIGHT answer rather than merely a permissive one.
+ *
+ * Kept beside the predicate because the registry test pairs them: a dam that
+ * declares an hourly series in either metric and does not pass
+ * `recordsHistory` is the 2026-08-22 defect, reintroduced.
+ *
+ * `dailyMean` is excluded deliberately, and it is the reason this is not just
+ * `Object.keys(dam.series).length`. St. Louis publishes release as a daily
+ * average about a day in arrears; the recorder skips it (route.ts) because
+ * averaging one day into 24 identical bars would draw a flat week and call it
+ * a generation pattern. A dam whose only history metric is a daily mean is
+ * therefore correctly silent, and must not fail the test.
+ */
+export function declaresHourlyHistory(dam: UsaceDam): boolean {
+  return (['release', 'generationFlow'] as const).some((metric) => {
+    const series = dam.series[metric];
+    return Boolean(series && !series.dailyMean);
+  });
+}
+
+/**
  * Pomme de Terre is genuinely absent from both sources — not a config gap.
  * Named so its absence reads as a finding rather than an oversight.
  */

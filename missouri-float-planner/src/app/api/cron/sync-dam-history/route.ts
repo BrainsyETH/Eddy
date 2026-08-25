@@ -30,7 +30,7 @@ import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { logger } from '@/lib/logger';
 import { fetchTimeseries } from '@/lib/usace/cda';
 import { periodEndingMs } from '@/lib/usace/resolve';
-import { USACE_DAMS, hasPowerhouse, type UsaceDam } from '@/lib/flow-providers/usace-registry';
+import { USACE_DAMS, recordsHistory, type UsaceDam } from '@/lib/flow-providers/usace-registry';
 import { seriesFor } from '@/lib/data/dams';
 import { bucketHourly, SYNC_LOOKBACK_HOURS, type DamHistoryMetric } from '@/lib/data/dam-history';
 import { pruneHistory, writeHours } from '@/lib/data/dam-history-store';
@@ -173,15 +173,13 @@ async function runSync(request: NextRequest) {
     // has no generation pattern, and storing its release alone would build a
     // strip whose top half is permanently empty.
     //
-    // `hasPowerhouse`, not `swpaCode`: the pattern strip draws what the units
-    // DID, which is a CWMS observation and owes nothing to SWPA. Gating on the
-    // schedule code would have skipped a Corps hydro project SWPA does not
-    // schedule — and history is the one thing that cannot be backfilled later,
-    // since CWMS serves only a rolling week. A dam left out of this filter
-    // loses those hours permanently.
-    const dams = Object.values(USACE_DAMS).filter(
-      (d) => hasPowerhouse(d) && d.office && d.cdaLocation
-    );
+    // The predicate lives in the registry rather than here, and that is a
+    // repair rather than a tidy-up: as an expression written out at this line
+    // it tested `d.cdaLocation` only, so the three LRN dams — which carry the
+    // PLURAL `cdaLocations`, because Nashville splits a project across two
+    // station prefixes — were dropped from 2026-08-22 to 2026-08-24 while
+    // their pages kept rendering live metrics. See recordsHistory().
+    const dams = Object.values(USACE_DAMS).filter(recordsHistory);
 
     const results = await mapWithConcurrency(dams, DAM_CONCURRENCY, (dam) =>
       syncDam(supabase, dam, lookbackHours, startedAt)

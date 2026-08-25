@@ -4,9 +4,11 @@ import {
   UNWIRED_SWPA_PROJECTS,
   USACE_DAMS,
   USACE_RELEASE_SITE_IDS,
+  declaresHourlyHistory,
   getUsaceDam,
   getUsaceSeries,
   hasPowerhouse,
+  recordsHistory,
   type UsaceDam,
 } from './usace-registry';
 import { SWPA_PROJECTS, swpaCodeCandidates } from '@/lib/usace/swpa';
@@ -446,4 +448,95 @@ test('the powerhouse question is answerable with no live fetch', () => {
     ].sort(),
     'a dam now diverges from the old rule — intended, but update this list',
   );
+});
+
+// ── The history recorder's reach ─────────────────────────────────────────
+//
+// Added after the defect it describes. On 2026-08-22 the merge that brought
+// `cdaLocations` to main also left sync-dam-history filtering on the singular
+// `cdaLocation`, so Wolf Creek, Center Hill and Dale Hollow stopped being
+// read. Nothing failed: every other test in this file passed, dam-catalog
+// parity passed, the routes passed, and the three dam pages went on rendering
+// live metrics because seriesFor() reads both location shapes. The only
+// symptom was a table nobody was watching, and by the time it was measured on
+// 2026-08-24 the strips had been frozen for 53 hours.
+//
+// So this is the cheap half of the guard: it runs in `make check-web` and
+// fails at merge. The other half is the dam_freshness trust check, which
+// catches what a static test cannot — a series that is resolved at runtime, or
+// an upstream that stops answering.
+
+test('every powerhouse that declares an hourly history series is one the recorder reads', () => {
+  for (const dam of Object.values(USACE_DAMS)) {
+    // `hasPowerhouse` is part of the invariant, not just of the predicate.
+    // The pattern strip draws what the UNITS did, so a project with no units
+    // is correctly absent however good its release series is — see the
+    // Clearwater pin below, which this loop would otherwise drag in.
+    if (!hasPowerhouse(dam) || !declaresHourlyHistory(dam)) continue;
+    assert.ok(
+      recordsHistory(dam),
+      `${dam.id} declares an hourly release/generation series that sync-dam-history will never fetch. ` +
+        `History cannot be backfilled once it leaves CWMS's rolling window, so this is lost data, not a lost feature.`,
+    );
+  }
+});
+
+test('a dam with no units stays out, however good its release series', () => {
+  // Clearwater is the case, and it is worth pinning because it looks like a
+  // gap and is not one. It publishes the same hourly `Flow-Res Out` every
+  // Little Rock reservoir does, and that release matters more than most —
+  // it IS the Black River tailwater Eddy carries. But it has no powerhouse, so
+  // a pattern strip for it would be a permanently empty top half over a bar
+  // chart of gate releases, which is not what that component means.
+  //
+  // Recording it anyway would be a feature decision about what the strip is
+  // for, not a repair. Left alone deliberately; if the tailwater reach ever
+  // wants release history, that is the argument to have, and this pin is where
+  // to have it.
+  const clearwater = getUsaceDam('swl-clearwater-dam');
+  assert.ok(clearwater, 'swl-clearwater-dam missing from the registry');
+  assert.equal(declaresHourlyHistory(clearwater!), true, 'Clearwater does publish hourly release');
+  assert.equal(hasPowerhouse(clearwater!), false, 'Clearwater has no turbines');
+  assert.equal(recordsHistory(clearwater!), false, 'so the recorder correctly skips it');
+});
+
+test('the recorder reaches the Nashville dams, which carry cdaLocations and no cdaLocation', () => {
+  // Pinned by name rather than left to the loop above, because these three ARE
+  // the regression. A future refactor that reintroduces a singular-only test
+  // would pass the general assertion for as long as no other district uses the
+  // plural form — which is how this got through the first time.
+  for (const id of ['lrn-wolf-creek-dam', 'lrn-center-hill-dam', 'lrn-dale-hollow-dam']) {
+    const dam = getUsaceDam(id);
+    assert.ok(dam, `${id} missing from the registry`);
+    assert.equal(dam!.cdaLocation, undefined, `${id} should carry cdaLocations, not cdaLocation`);
+    assert.ok(dam!.cdaLocations?.length, `${id} has no cdaLocations`);
+    assert.equal(recordsHistory(dam!), true, `${id} is invisible to the history recorder`);
+  }
+});
+
+test('a daily mean alone does not make a dam a history dam', () => {
+  // St. Louis is the case. Both MVS projects publish release as a ~1Day
+  // average and the recorder skips daily means outright, so neither declares
+  // hourly history — Wappapello because it has no plant to report on at all,
+  // Mark Twain because its 2x58 MW plant publishes no turbine series. Asserting
+  // this keeps someone from "fixing" the loop above by widening
+  // declaresHourlyHistory() until a flat 24-bar day counts as a pattern.
+  for (const id of ['mvs-wappapello', 'mvs-mark-twain']) {
+    const dam = getUsaceDam(id);
+    assert.ok(dam, `${id} missing from the registry`);
+    assert.equal(dam!.series.release?.dailyMean, true, `${id} release should be a daily mean`);
+    assert.equal(declaresHourlyHistory(dam!), false, `${id} declares no hourly history`);
+  }
+});
+
+test('schedule-only dams stay out of the recorder', () => {
+  // Stockton and Truman have nameplates and SWPA columns but publish nothing to
+  // CWMS — Kansas City serves no timeseries. They must not be fetched: a dam
+  // with no office and no location has no series to ask for, and including it
+  // would spend a request an hour on a guaranteed miss.
+  for (const id of ['nwk-stockton-dam', 'nwk-truman-dam']) {
+    const dam = getUsaceDam(id);
+    assert.ok(dam, `${id} missing from the registry`);
+    assert.equal(recordsHistory(dam!), false, `${id} has nothing for the recorder to read`);
+  }
 });

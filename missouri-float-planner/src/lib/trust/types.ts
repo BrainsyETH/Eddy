@@ -21,6 +21,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * hashes the entity key, filing them under the river would merge every service
  * on the Current into a single finding.
  *
+ * `dam` is a USACE_DAMS registry id. It is deliberately not `gauge`: only one
+ * of the twenty-four dams (`swl-clearwater-dam`) has a gauge_stations row at
+ * all, so filing the other twenty-three under a gauge key would mean inventing
+ * identities for rows that do not exist. It is not `river` either — twenty-three
+ * of the twenty-four have no Eddy river below them.
+ *
  * Mirrored by the `trust_findings_entity_type` CHECK constraint — widening this
  * union alone is not enough, because trust_apply_reconcile() inserts the value
  * unvalidated and the constraint is the only gate.
@@ -30,6 +36,7 @@ export type TrustEntityType =
   | 'gauge'
   | 'access_point'
   | 'service'
+  | 'dam'
   | 'repo'
   | 'global';
 
