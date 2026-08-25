@@ -322,18 +322,29 @@ test('trout tailwaters are declared, not inferred from temperature', () => {
     'swt-tenkiller-dam',
   ]);
 
-  const norfork = getUsaceDam('swl-norfork-dam')!;
-  assert.equal(norfork.tailwaterFishery, 'trout');
-  assert.equal(norfork.series.tailwaterTempF, undefined, 'Norfork publishes no water temp');
-
-  // The Tulsa district publishes no water temperature at any project, so both
-  // Oklahoma trout tailwaters would be unlabelled if this were inferred — the
-  // same trap Norfork sets, twice over.
+  // The Tulsa district publishes no water temperature at ANY project, so both
+  // Oklahoma trout tailwaters would be unlabelled if fishery were inferred
+  // from a temperature reading. This is what makes the rule load-bearing.
   for (const id of ['swt-broken-bow-dam', 'swt-tenkiller-dam']) {
     const dam = getUsaceDam(id)!;
     assert.equal(dam.office, 'SWT');
+    assert.equal(dam.tailwaterFishery, 'trout');
     assert.equal(dam.series.tailwaterTempF, undefined);
   }
+
+  // Norfork used to be this test's headline example, asserted as publishing no
+  // water temperature at all. That was wrong: it publishes under a
+  // sub-location the standard id does not use, and read 53.5 F when probed
+  // on 2026-08-24. Pin the override so a future tidy-up that "simplifies" it
+  // back to swlSeries(..., { tailwaterTemp: false }) fails here rather than
+  // silently dropping a live reading from a premier trout tailwater.
+  const norfork = getUsaceDam('swl-norfork-dam')!;
+  assert.equal(norfork.tailwaterFishery, 'trout');
+  assert.equal(
+    norfork.series.tailwaterTempF?.tsId,
+    'Norfork_Dam-Tailwater.Temp-Water_Ave.Inst.1Hour.0.CCP-Comp',
+    'Norfork publishes tailwater temp under Temp-Water_Ave/CCP-Comp, not the standard id',
+  );
 });
 
 test('every project declares what its tailwater fishery is', () => {

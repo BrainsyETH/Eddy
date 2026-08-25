@@ -72,9 +72,20 @@ location a district publishes, diffs against the registry, and prints candidates
 with the coordinates and state CWMS itself reports. It also flags any *registered*
 location that has disappeared upstream, which would break a shipped dam.
 
-It needs network access to `cwms-data.usace.army.mil`, which the Claude Code web
-environment's default policy blocks. Run it locally, or widen the environment's
-network policy.
+It needs network access to `cwms-data.usace.army.mil`. **That host is reachable
+from the Claude Code web environment** — verified 2026-08-24, when every series
+in the three White River system tailwater dossiers was probed live from one.
+This paragraph previously said the default policy blocked it; that is no longer
+true and may never have been true for this host specifically. What genuinely is
+unreachable from there is the district *water-control* subdomain
+(`swl-wc.usace.army.mil`, which hosts the White River FAQ) — DNS times out and
+then TLS fails, the same failure this doc records for `nwk-wc`.
+
+One trap worth carrying over from that probing: the catalog's `like` parameter
+is a **regex over the full timeseries id and needs a trailing `.*`**.
+`like=Bull_Shoals_Dam` returns `total: 0`; `like=Bull_Shoals_Dam.*` returns 220
+entries. `fetchCatalog()` appends it correctly, but a hand-probe that forgets
+will conclude a live project publishes nothing.
 
 ## What each candidate would actually deliver
 
@@ -135,21 +146,39 @@ entry is `office`, `cdaLocation`, coordinates and a fishery.
 
 **Estimate:** ~30 minutes each. None is an Ozarks float destination.
 
-## The thing worth deciding first
+## The thing worth deciding first — acted on 2026-08-24
 
-Every river Eddy carries near a dam sits **above** the lake, not below it:
+This section used to read: every river Eddy carries near a dam sits **above**
+the lake, so **1 of 20 dams declares a `tailwater`** and all seven trout
+tailwaters declare none. Adding dams increased that ratio without improving it,
+and the real constraint was river coverage below the dams, not dam count.
 
-- `north-fork-white` is the Missouri reach, SH 14 → Tecumseh (gauge 07057500).
-  Tecumseh is where the river enters Norfork Lake — it feeds the pool.
-- The Caddo sections run Norman → Caddo Gap → Glenwood → Amity, and the dossier
-  describes DeGray Lake as sitting "at the lower end".
-- No `white`, `little-red`, `taneycomo`, `lower-illinois` or `mountain-fork`
-  slug exists anywhere in the data.
+**Three tailwaters were ingested in answer to it**, so the count is now **4 of
+20**, and three of the trout projects declare one:
 
-Clearwater → Black is the sole exception, and only because Eddy carries the lower
-Black at Poplar Bluff as well as the Lesterville float above — which is exactly
-why `sectionSlug` had to exist.
+| Dam | River | Extent |
+| --- | --- | --- |
+| Bull Shoals | `white` | dam → AR Hwy 58 at Guion, 90.5 mi |
+| Norfork | `norfork-tailwater` | dam → White confluence, 4.9 mi |
+| Table Rock | `taneycomo` | dam → Powersite Dam, 23.1 mi |
 
-So **1 of 20 dams declares a `tailwater`**, and all seven trout tailwaters
-declare none. Adding dams increases that ratio; it does not improve it. The
-constraint on this feature is river coverage below the dams, not dam count.
+`north-fork-white` was clipped at the Highway PP bridge as part of that work —
+its geometry used to run through Norfork Lake and past the dam to the
+confluence, so the last five miles of it *were* the Norfork tailwater.
+
+Two things the ingest established that change the estimates above:
+
+- **None of these three carries a `sectionSlug`.** Each tailwater is its own
+  river, which `dam-types.ts` always allowed ("a tailwater that is its own river
+  needs no reach"). Clearwater → Black remains the only case where a dam
+  controls a *reach* of a river Eddy carries above it, which is still why
+  `sectionSlug` exists.
+- **A tailwater has no USGS flow gauge.** All six USGS sites below these three
+  dams publish water temperature and dissolved oxygen and nothing else, so the
+  dam's own release is the river's primary gauge — not a supplementary one as
+  at Clearwater. Budget for that when scoping the next one.
+
+They are all **inactive**, because no agency publishes a rating mapping release
+to wade or float safety, and `validate_river_data()` will not let an active
+river's primary gauge have no ladder. Coverage below the dams is no longer the
+constraint. **A citable condition rating is.**

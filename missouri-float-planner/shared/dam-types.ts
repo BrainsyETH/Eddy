@@ -163,6 +163,35 @@ export interface DamTailwater {
    * dams-route-contract.test.ts asserts it survives assembly.
    */
   sectionSlug?: string;
+  /**
+   * A USGS site that measures WATER QUALITY in this tailwater — temperature
+   * (00010) and dissolved oxygen (00300).
+   *
+   * ── Why this cannot be inferred from the gauge wiring ──────────────────────
+   * These sites are not river gauges and are deliberately not wired as any:
+   * they publish no discharge and no stage, and `import-usgs-gauges.ts` only
+   * enrols stations that report one of those, so most are not in
+   * `gauge_stations` at all. There is no join that finds them.
+   *
+   * Without this field the parameter is unreachable exactly where it matters.
+   * A tailwater's primary gauge is the dam's release, whose provider is
+   * 'usace', and /api/gauges only asks USGS for 00300 when the station it is
+   * serving is itself a USGS one — so every tailwater screen returned
+   * `dissolvedOxygen: null` forever while four sites published it a mile
+   * downstream.
+   *
+   * It is a hypolimnetic-release fact, not a nicety: water drawn off the
+   * bottom of a stratified reservoir in late summer arrives cold and short of
+   * oxygen and re-aerates as it runs. Below Norfork it read 3.2 mg/L on
+   * 2026-08-24; below Table Rock, 5.1 at the dam against 9.2 ten miles down.
+   *
+   * A reading served from here belongs to a DIFFERENT station than the one
+   * being viewed, so whatever renders it must say where it came from — which
+   * is what the paired name is for. Both are USGS's own values, transcribed
+   * from the site service, not paraphrased.
+   */
+  waterQualitySiteId?: string;
+  waterQualitySiteName?: string;
 }
 
 /**
