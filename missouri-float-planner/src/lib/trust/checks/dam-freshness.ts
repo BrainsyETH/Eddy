@@ -177,7 +177,7 @@ export const damFreshnessCheck: TrustCheck = {
     //
     // The RPC's result size scales with the number of DAMS, not with how long
     // one has been broken, so there is no horizon to fall off. See
-    // 20260824221500_trust_dam_history_freshness.sql.
+    // 20260825142201_trust_dam_history_freshness.sql.
     const { data, error } = await ctx.supabase.rpc('trust_dam_history_freshness');
 
     if (error) {

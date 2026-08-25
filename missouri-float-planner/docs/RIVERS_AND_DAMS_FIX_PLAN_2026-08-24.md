@@ -476,7 +476,7 @@ is resolved as **fixed** while the outage runs on. The Nashville freeze that
 motivated the check would have been closed as fixed around hour 28 and stayed
 closed for the remaining 25.
 
-Fixed by `20260824221500_trust_dam_history_freshness.sql`: a grouped RPC
+Fixed by `20260825142201_trust_dam_history_freshness.sql`: a grouped RPC
 returning one row per (dam, metric) with its `max(observed_hour)` and row
 count. The property that matters is not a bigger limit — it is that the result
 size scales with the **number of dams**, not with how long one has been broken,
@@ -498,5 +498,10 @@ passed throughout**, because they all exercised the pure derivation and the bug
 was in the query. That gap is closed — reverting to the capped query now fails
 five tests.
 
-`20260824221500` joins `20260824214500` as a **prerequisite migration**: both
+`20260825142201` joins `20260825140050` as a **prerequisite migration**: both
 must land before the deploy that registers the check, or its first tick errors.
+
+**Both were applied to production on 2026-08-25** and verified: the constraint
+admits `dam`, the function exists, `service_role` can execute it and `anon` and
+`authenticated` cannot. Filenames were renamed to the versions the apply
+recorded, so local and remote histories pair exactly.

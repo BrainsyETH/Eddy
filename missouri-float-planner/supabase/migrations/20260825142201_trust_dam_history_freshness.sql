@@ -1,6 +1,9 @@
 -- One row per dam per metric: when that series last recorded, and how much of
 -- it there is.
 --
+-- APPLIED to production 2026-08-25 as 20260825142201. The filename carries
+-- production's version so the histories pair exactly.
+--
 -- ── Why this is an RPC and not a PostgREST select ─────────────────────────
 --
 -- Because the check that reads it must not go blind exactly when it matters.
