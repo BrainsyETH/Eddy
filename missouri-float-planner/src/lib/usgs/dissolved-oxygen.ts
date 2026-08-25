@@ -49,6 +49,14 @@ export interface DissolvedOxygen {
   /** When the sensor read it — display it WITH this, always. */
   observedAt: string;
   source: 'usgs';
+  /**
+   * Set ONLY when the reading came from a different station than the one being
+   * viewed — a tailwater's water-quality monitor standing in for a dam release
+   * gauge that measures no such thing. Whatever renders the value must name
+   * this station; an unattributed number reads as the viewed gauge's own.
+   */
+  measuredAtSiteId?: string;
+  measuredAtName?: string;
 }
 
 /** Pure half, so the parsing and validation are testable without a network. */

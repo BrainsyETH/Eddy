@@ -44,6 +44,13 @@ interface CurrentReadingCardProps {
    */
   dissolvedOxygenMgL?: number | null;
   dissolvedOxygenAgeHours?: number | null;
+  /**
+   * Station that produced the water-quality readings, when it is NOT this
+   * gauge. A dam release measures discharge and nothing else, so on a tailwater
+   * these come from a USGS water-quality monitor down the river. Rendering the
+   * number without naming that station would attribute it to the wrong water.
+   */
+  waterQualitySourceName?: string | null;
   readingAgeHours?: number | null;
   /** Condition ladder in `thresholdUnit`. Omit to render the card without a track. */
   zones?: Zone[];
@@ -61,6 +68,7 @@ export default function CurrentReadingCard({
   waterTempAgeHours,
   dissolvedOxygenMgL,
   dissolvedOxygenAgeHours,
+  waterQualitySourceName,
   readingAgeHours,
   zones,
   className = '',
@@ -239,6 +247,7 @@ export default function CurrentReadingCard({
           {waterTempAgeHours != null && (
             <span className="ml-2 text-[10px] text-primary-100">
               measured {formatAgeFromHours(waterTempAgeHours)}
+              {waterQualitySourceName ? ` at ${waterQualitySourceName}` : ''}
             </span>
           )}
         </div>
@@ -256,6 +265,7 @@ export default function CurrentReadingCard({
           {dissolvedOxygenAgeHours != null && (
             <span className="ml-2 text-[10px] text-primary-100">
               measured {formatAgeFromHours(dissolvedOxygenAgeHours)}
+              {waterQualitySourceName ? ` at ${waterQualitySourceName}` : ''}
             </span>
           )}
         </div>

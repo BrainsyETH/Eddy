@@ -28,8 +28,13 @@
  *       npx tsx scripts/import-nhd-rivers-from-tnm.ts bourbeuse --apply  # write to DB
  *
  * The script emits SQL to stdout (or to a file with --out), or writes rows
- * directly with --apply (needs NEXT_PUBLIC_SUPABASE_URL/SUPABASE_URL +
- * SUPABASE_SERVICE_ROLE_KEY/SUPABASE_KEY). Rivers already in prod get their
+ * directly with --apply. `--apply` goes through `getScriptClient` from
+ * scripts/lib/db.ts, so it needs credentials AND `EXPECTED_SUPABASE_REF`
+ * exported in the shell naming the project those credentials resolve to.
+ * Without the pin it refuses to open a write connection and prints the exact
+ * export line — this script rewrites `rivers.geom`, which every access-point
+ * river mile is measured against, so "which project am I pointed at" is not a
+ * question to answer by accident. Rivers already in prod get their
  * geometry refreshed (mode 'update'); rivers marked mode:'insert' are
  * created if absent, with metadata pulled from scripts/config/nhd-rivers.json
  * and active=false — activation stays a human call after
@@ -47,7 +52,6 @@
 
 import { readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { createClient } from '@supabase/supabase-js';
 import { simplify, lineString as turfLine, length as turfLength } from '@turf/turf';
 import type { Feature, LineString } from 'geojson';
 // The flowline download and dissolve live in scripts/lib/nhd.ts so
@@ -59,6 +63,7 @@ import {
   loadFlowlines,
   type SegFeature,
 } from './lib/nhd';
+import { getScriptClient } from './lib/db';
 
 // Per-river spec: which GNIS names to match (NHD sometimes carries name
 // variants — list them all) and which HUC8 basins the main stem crosses
@@ -132,21 +137,21 @@ function sqlQuote(s: string): string {
   return "'" + s.replace(/'/g, "''") + "'";
 }
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
-  if (!url || !key) {
-    throw new Error('Set NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_KEY = service_role key).');
-  }
-  return createClient(url, key);
-}
+
 
 async function main() {
   const args = process.argv.slice(2);
   const outIdx = args.indexOf('--out');
   const outPath = outIdx >= 0 ? args[outIdx + 1] : null;
   const apply = args.includes('--apply');
-  const db = apply ? getSupabase() : null;
+  // --apply REWRITES rivers.geom, which is what every access-point river mile
+  // is measured against. It goes through the guarded client so the write
+  // cannot land on whichever project the ambient environment happens to name:
+  // getScriptClient refuses a write connection unless EXPECTED_SUPABASE_REF is
+  // exported in the shell AND matches the project the credentials resolve to.
+  const db = apply
+    ? getScriptClient({ script: 'import-nhd-rivers-from-tnm', write: true })
+    : null;
   const slugArgs = args.filter((a, i) => !a.startsWith('--') && (outIdx < 0 || i !== outIdx + 1));
   const rivers = slugArgs.length
     ? RIVERS.filter((r) => slugArgs.includes(r.slug))

@@ -40,6 +40,8 @@
 // Grows one district at a time, deliberately: `office` goes straight into a CDA
 // query parameter, so a typo is a silent 404 rather than a type error, and this
 // union is the only thing that catches it.
+import type { DamTailwater } from '@shared/dam-types';
+
 export type UsaceOffice = 'SWL' | 'MVS' | 'SWT' | 'LRN';
 
 // Mirrors shared/dam-types.ts UsaceMetric — the wire side documents why the
@@ -175,7 +177,10 @@ export interface UsaceDam {
    * Lesterville float, which is not the water this dam controls. Optional: a
    * tailwater that is its own river needs no reach.
    */
-  tailwater?: { riverSlug: string; gaugeSiteId: string; sectionSlug?: string };
+  // The shared type, not a second inline copy of it. The copy that used to be
+  // here had drifted: shared/dam-types.ts grew waterQualitySiteId and this did
+  // not, so the registry could not declare the field the wire already carried.
+  tailwater?: DamTailwater;
   /**
    * NAMEPLATE generating capacity — deliberately not SWPA's number.
    *
@@ -292,7 +297,15 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     // Lake Taneycomo is its own river row, so no sectionSlug. It is bounded
     // below by Powersite Dam, which is Liberty Utilities' and not in this
     // registry — Powersite ends this water, Table Rock drives it.
-    tailwater: { riverSlug: 'taneycomo', gaugeSiteId: 'swl-table-rock-dam' },
+    // 07053450 sits immediately below the dam. Its 5.1 mg/L against 9.2 at
+    // School of the Ozarks ten miles down is the clearest re-aeration
+    // gradient in the footprint.
+    tailwater: {
+      riverSlug: 'taneycomo',
+      gaugeSiteId: 'swl-table-rock-dam',
+      waterQualitySiteId: '07053450',
+      waterQualitySiteName: 'White River bl Table Rock Dam near Branson, MO',
+    },
     series: swlSeries('Table_Rock_Dam', { turbines: true, tailwaterTemp: true }),
   },
   'swl-bull-shoals-dam': {
@@ -323,7 +336,15 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     // one. gaugeSiteId is this dam's own release, because USGS publishes no
     // discharge or stage anywhere in the tailwater — the three sites below the
     // dam are water-quality monitors.
-    tailwater: { riverSlug: 'white', gaugeSiteId: 'swl-bull-shoals-dam' },
+    // 07054501 is the water-quality monitor AT the dam (temp + dissolved
+    // oxygen, no flow). 5.2 mg/L on 2026-08-24, against 7.3 at Fairview a few
+    // miles down — the release re-aerates as it runs.
+    tailwater: {
+      riverSlug: 'white',
+      gaugeSiteId: 'swl-bull-shoals-dam',
+      waterQualitySiteId: '07054501',
+      waterQualitySiteName: 'White River at Bull Shoals Dam near Flippin',
+    },
     series: swlSeries('Bull_Shoals_Dam', { turbines: true, tailwaterTemp: true }),
   },
   'swl-beaver-dam': {
@@ -356,7 +377,15 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     tailwaterFishery: 'trout' as const,
     infoPhone: '870-431-5311',
     generationOnCfs: 100,
-    tailwater: { riverSlug: 'norfork-tailwater', gaugeSiteId: 'swl-norfork-dam' },
+    // 07060000 is the only USGS site in this tailwater and it measures no
+    // flow at all — temperature and dissolved oxygen only. 3.2 mg/L on
+    // 2026-08-24, low enough to matter to the fish this water exists for.
+    tailwater: {
+      riverSlug: 'norfork-tailwater',
+      gaugeSiteId: 'swl-norfork-dam',
+      waterQualitySiteId: '07060000',
+      waterQualitySiteName: 'North Fork Riv US of Dry Ck bl Norfork Dam, AR',
+    },
     // Norfork DOES publish tailwater temperature — it just does not publish it
     // under the id swlSeries() builds. The standard shape
     // (`-Tailwater.Temp-Water.Inst.1Hour.0.Decodes-rev`) returns an HTTP error

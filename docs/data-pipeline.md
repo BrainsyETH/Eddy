@@ -88,7 +88,7 @@ when running the write phases.
 | --- | --- | --- | --- |
 | `import-usgs-gauges.ts` | direct | `gauge_stations` upsert (national OGC import) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
 | `import-nwps-gauges.ts` | direct | `gauge_stations` update (NWS flood/action stages) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
-| `import-nhd-rivers-from-tnm.ts` | `npm run db:import-rivers-tnm` | `rivers` geometry insert/update (or SQL to `--out`) | dry-default, `--apply` |
+| `import-nhd-rivers-from-tnm.ts` | `npm run db:import-rivers-tnm` | `rivers` geometry insert/update (or SQL to `--out`) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` (migrated off the legacy allowlist 2026-08-25) |
 | `import-services-csv.ts` | `npm run db:import-services <csv>` | `nearby_services` + `service_rivers` upsert | dry-default, `--import` |
 | `import-floatmissouri.ts` | `npm run db:import-floatmissouri` | `access_points` + `river_hazards` insert/update. **Legacy — header warns it duplicates and mislocates; superseded by migration 00173** | dry-default, `--import` |
 | `fetch-drainage-areas.ts` | direct | `gauge_stations.drainage_area_sqmi` update | dry-default, `--write` |

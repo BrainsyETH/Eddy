@@ -149,6 +149,36 @@ function bandSpeed(
 }
 
 /**
+ * Why a float time is being withheld, or null when it is not.
+ *
+ * TWO DIFFERENT SILENCES, and callers must not word them the same:
+ *
+ *   'dangerous' — there IS a float time and we decline to quote it, because
+ *                 the water should not be floated at all.
+ *   'regulated' — there is no single float time to quote. The release can
+ *                 change mid-float, so any one number is wrong the moment the
+ *                 units start or stop. It is uncertainty about WHEN, not a
+ *                 verdict about whether.
+ *
+ * Exported and shared because both /api/plan and chat have to make this
+ * decision, and each of them previously made a DIFFERENT part of it: the
+ * planner checked `dangerous` before serving published float_segments times
+ * but only checked the river type on the estimate branch, and chat reported
+ * "conditions are dangerous" for every withheld time regardless of cause.
+ * One function, so the gate and the reason cannot drift apart again.
+ */
+export type FloatTimeWithholdReason = 'dangerous' | 'regulated';
+
+export function floatTimeWithholding(
+  conditionCode: ConditionCode,
+  riverType?: ReachRiverType | null,
+): FloatTimeWithholdReason | null {
+  if (conditionCode === 'dangerous') return 'dangerous';
+  if (riverType === 'dam_tailwater') return 'regulated';
+  return null;
+}
+
+/**
  * Calculates float time from distance, vessel speeds, and water conditions.
  *
  * Returns `null` for dangerous conditions (we do not estimate a float time for
@@ -160,12 +190,12 @@ export function calculateFloatTime(
   conditionCode: ConditionCode,
   options?: FloatTimeOptions
 ): FloatTimeResult | null {
-  // Never produce a float time for dangerous water.
-  if (conditionCode === 'dangerous') {
+  // One decision, made in one place — see floatTimeWithholding above.
+  if (floatTimeWithholding(conditionCode, options?.riverType)) {
     return null;
   }
 
-  // Never produce one for a dam tailwater either.
+  // Kept as prose because the reason is not obvious from the predicate:
   //
   // Every model above takes ONE discharge and holds it for the whole trip.
   // That is a fair assumption on a rain-fed river, where the flow a floater
@@ -182,9 +212,6 @@ export function calculateFloatTime(
   // Restoring a number here means knowing when the release arrives at each
   // access, which is the travel-time lag calibration in docs/TAILWATER_PLAN.md
   // — measured, with a correlation floor, not assumed.
-  if (options?.riverType === 'dam_tailwater') {
-    return null;
-  }
 
   const basis: TimeBasis = options?.basis ?? 'trip';
 

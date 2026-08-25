@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getDriveTime, geocodeAddress } from '@/lib/mapbox/directions';
 import { assessShuttlePlausibility } from '@/lib/shuttle-plausibility';
-import { calculateFloatTime, formatFloatTime, formatFloatTimeRange, formatDistance, formatDriveTime } from '@/lib/calculations/floatTime';
+import { calculateFloatTime, floatTimeWithholding, formatFloatTime, formatFloatTimeRange, formatDistance, formatDriveTime } from '@/lib/calculations/floatTime';
 import {
   fetchGaugeReadings,
   fetchDailyStatistics,
@@ -17,6 +17,7 @@ import { classifyQualifiers } from '@/lib/usgs/gauges';
 import { conditionCodeToFlowRating, FLOW_DESCRIPTIONS, type FlowRating } from '@/lib/calculations/conditions';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode } from '@/types/api';
+import type { ReachRiverType } from '@shared/reach-types';
 import { withX402Route } from '@/lib/x402-config';
 import { resolveFloatEndpoints, endpointFailureStatus } from '@/lib/access-points/endpoint-resolver';
 import type { Database } from '@/types/database';
@@ -75,7 +76,12 @@ async function _GET(request: NextRequest) {
     // Get river details
     const { data: river, error: riverError } = await supabase
       .from('rivers')
-      .select('id, name, slug')
+      // river_type rides along on the query that already has to succeed.
+      // Resolving it separately (through the 5-minute getRiverContext cache,
+      // behind a swallowed catch) meant the tailwater float-time refusal
+      // failed OPEN on a cache miss or a transient error — the wrong
+      // direction for a guard whose whole job is to withhold a number.
+      .select('id, name, slug, river_type')
       .eq('id', riverId)
       .single();
 
@@ -434,7 +440,22 @@ async function _GET(request: NextRequest) {
     // Dangerous water gets NO float time (neither known nor estimated).
     const isDangerous = conditionCode === 'dangerous';
 
-    if (!isDangerous && segmentTime && segmentTime.length > 0 && segmentTime[0].time_avg_minutes) {
+    // Neither does regulated water, and for a different reason. Dangerous
+    // water has a float time we decline to quote; a tailwater has one we
+    // cannot compute, because every model here takes ONE discharge and holds
+    // it for the whole trip while the release can change mid-float.
+    //
+    // This gate has to sit HERE rather than only inside calculateFloatTime:
+    // the published-times branch below never calls that function, so a
+    // float_segments row on a tailwater would serve a stored time straight
+    // past the refusal. Read off the river row, so it cannot fail open.
+    const withholdReason = floatTimeWithholding(
+      conditionCode,
+      river.river_type as ReachRiverType | null,
+    );
+    const withholdFloatTime = withholdReason !== null;
+
+    if (!withholdFloatTime && segmentTime && segmentTime.length > 0 && segmentTime[0].time_avg_minutes) {
       // Known, published (trip-basis) times — scale by current flow, never serve raw.
       const st = segmentTime[0];
       const avg = scaleKnownTimeForCondition(st.time_avg_minutes, conditionCode);
@@ -447,7 +468,7 @@ async function _GET(request: NextRequest) {
         basis: 'trip',
         timeRange: rMin != null && rMax != null ? { min: rMin, max: rMax } : undefined,
       };
-    } else if (!isDangerous) {
+    } else if (!withholdFloatTime) {
       // Flow-dependent estimate (falls back to the condition-band step if no
       // discharge), using this river's calibrated low-water speed curve when
       // one exists (river_characteristics.speed_curve).
@@ -462,8 +483,10 @@ async function _GET(request: NextRequest) {
           refCfs,
           basis: 'trip',
           speedCurve: riverCtx?.characteristics?.speedCurve,
-          // A tailwater returns null here — the release can change mid-float.
-          riverType: riverCtx?.riverType,
+          // Belt and braces behind withholdFloatTime above, and from the river
+          // ROW rather than the cached context so the two agree even when the
+          // cache does not answer.
+          riverType: river.river_type as ReachRiverType | null,
         }
       );
 

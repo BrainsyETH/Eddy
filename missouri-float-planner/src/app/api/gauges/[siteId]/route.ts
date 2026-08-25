@@ -45,6 +45,7 @@ import { classifyQualifiers } from '@/lib/usgs/gauges';
 import { resolveFloodStages, type GaugeFloodStages } from '@/lib/gauges/flood-stages';
 import { fetchWaterTemperature, type WaterTemperature } from '@/lib/usgs/water-temperature';
 import { fetchDissolvedOxygen, type DissolvedOxygen } from '@/lib/usgs/dissolved-oxygen';
+import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
 import {
   PARAM_DISCHARGE,
   readSnapshotStatistics,
@@ -317,11 +318,55 @@ async function _GET(
     // is a USGS vocabulary, and a dam slug or NWS LID means nothing to that
     // API. (USACE tailwater temperature is a different pipeline, on dam
     // screens, and stays there.)
-    const waterTemperaturePromise: Promise<WaterTemperature | null> =
-      provider === 'usgs' ? fetchWaterTemperature(siteId) : Promise.resolve(null);
-    // Same treatment, same reasoning, same provider gate.
-    const dissolvedOxygenPromise: Promise<DissolvedOxygen | null> =
-      provider === 'usgs' ? fetchDissolvedOxygen(siteId) : Promise.resolve(null);
+    // Which USGS site can answer for water quality at this station.
+    //
+    // For a USGS station: itself. For a USACE dam release — the primary gauge
+    // on every tailwater Eddy carries — the release measures discharge and
+    // nothing else, so 00010/00300 must come from the tailwater's own
+    // water-quality monitor, declared in the registry. Without this the
+    // parameter was unreachable on exactly the rivers it was added for: three
+    // primary gauges with provider 'usace', a provider gate that only asked
+    // USGS about its own stations, and four sites publishing dissolved oxygen
+    // a mile downstream that nothing ever queried.
+    //
+    // A reading borrowed this way is stamped with the station that produced
+    // it. An unattributed number would read as this gauge's own.
+    const waterQuality: { siteId: string; name?: string } | null = (() => {
+      if (provider === 'usgs') return { siteId };
+      const tw = getUsaceDam(siteId)?.tailwater;
+      if (!tw?.waterQualitySiteId) return null;
+      return { siteId: tw.waterQualitySiteId, name: tw.waterQualitySiteName };
+    })();
+    const borrowed = waterQuality != null && waterQuality.siteId !== siteId;
+
+    // A BORROWED reading gets an age limit that a station's own does not.
+    //
+    // water-temperature.ts serves a station's own reading however old it is,
+    // on the reasoning that water temperature moves slowly and a dated number
+    // is still useful. That holds for the gauge you actually asked about. It
+    // does not hold for one fetched from a neighbouring station on this
+    // route's initiative: nobody asked for it, and a dead sensor is a real
+    // possibility rather than a hypothetical. Probed 2026-08-25, USGS
+    // 07053450 below Table Rock returned dissolved oxygen from twenty minutes
+    // ago and a water temperature from JANUARY 2025 — the DO sensor lives, the
+    // thermistor does not. Nineteen months is not "slow-moving", it is a
+    // different year, and it would have rendered under a live release reading
+    // as though it belonged to it.
+    const BORROWED_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+    const stamp = <T extends { observedAt: string }>(v: T | null): T | null => {
+      if (!v || !borrowed) return v;
+      const age = Date.now() - new Date(v.observedAt).getTime();
+      if (!Number.isFinite(age) || age > BORROWED_MAX_AGE_MS) return null;
+      return { ...v, measuredAtSiteId: waterQuality!.siteId, measuredAtName: waterQuality!.name };
+    };
+
+    const waterTemperaturePromise: Promise<WaterTemperature | null> = waterQuality
+      ? fetchWaterTemperature(waterQuality.siteId).then(stamp)
+      : Promise.resolve(null);
+    // Same treatment, same reasoning, same resolution.
+    const dissolvedOxygenPromise: Promise<DissolvedOxygen | null> = waterQuality
+      ? fetchDissolvedOxygen(waterQuality.siteId).then(stamp)
+      : Promise.resolve(null);
 
     // The station's own prose about what its number means. Written per station
     // in gauge_stations.threshold_descriptions — migration 00198 put the one
