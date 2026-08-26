@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getFlowProvider, type GaugeReading } from '@/lib/flow-providers';
 import { computeCondition, hasMaterialConditionChange, type ConditionThresholds } from '@/lib/conditions';
+import { hasLadder } from '@shared/condition-ladder';
 import { publishConditionChangeAlert, isElevatedCrossing, publishElevatedCrossings } from '@/lib/social/condition-alerts';
 import { regenerateEddyForRiver, type TriggerReason } from '@/lib/eddy/regenerate';
 import { toNum } from '@/lib/utils/num';
@@ -198,6 +199,11 @@ async function runUpdate(request: NextRequest) {
     let conditionChanges = 0;
     let flatlined = 0;
     let outboxErrors = 0;
+    // Gauges skipped because nobody has rated them. Reported rather than merely
+    // skipped: a curated gauge wired to a river with no ladder is a river that
+    // shows "Unknown" to every visitor, and the only way that gets noticed is
+    // if this number is visible and stops being zero.
+    let unratedGaugesSkipped = 0;
     // Observability for the new gate/outbox: without these, a gate that starts
     // rejecting everything would look identical to a quiet river day.
     const gatedReadings: Partial<Record<GateRejection, number>> = {};
@@ -441,6 +447,37 @@ async function runUpdate(request: NextRequest) {
               // "Dangerous" on the site while alerts stayed silent.
               floodStageFt: rg.flood_stage_ft,
             };
+
+            // ── An UNRATED gauge has no opinion, and must not be given one ───
+            //
+            // classifyReading() grades from the top of the ladder down and
+            // falls through to 'too_low' when every band is null — so a gauge
+            // nobody has rated classifies as "Too Low - Not Recommended" at any
+            // flow whatsoever. hasLadder() is the guard that exists for exactly
+            // this, and this path did not call it.
+            //
+            // It cost the three tailwaters landed by 20260824232949, which hold
+            // a null ladder on purpose because no agency publishes a rating for
+            // them. On 2026-08-25 this loop stamped last_condition_code =
+            // 'too_low' on all three and wrote an outbox event for each:
+            //
+            //   white             11,399 cfs   unknown → too_low
+            //   taneycomo          5,155 cfs   unknown → too_low
+            //   norfork-tailwater  3,211 cfs   unknown → too_low
+            //
+            // Those readings are the Corps generating, not a drought. The
+            // events were kind='info' so nothing was pushed, but the STAMP is
+            // the lasting damage: the day somebody adds a real ladder, the next
+            // pass reads too_low → high off a false baseline and classifies it
+            // 'warning', which is pushed.
+            //
+            // Skipping leaves last_condition_code untouched (null, or whatever
+            // it held while the gauge was rated), so a later rating starts from
+            // 'unknown' and its first real code is an initialization, not news.
+            if (!hasLadder(thresholds)) {
+              unratedGaugesSkipped++;
+              continue;
+            }
 
             // Refuse to act on untrustworthy data. A stuck or equipment-flagged
             // sensor used to classify exactly like a clean one — and because
@@ -797,6 +834,7 @@ async function runUpdate(request: NextRequest) {
       flatlined,
       wiredStations: wiredEntries.length,
       gatedReadings,
+      unratedGaugesSkipped,
       outboxOutcomes,
       outboxErrors,
       enrichmentSkipped,

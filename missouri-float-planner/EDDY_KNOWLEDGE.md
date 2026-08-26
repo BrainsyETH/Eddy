@@ -621,7 +621,7 @@ Not quite five miles of the North Fork River between Norfork Dam and the White, 
 
 - **Not the same river Eddy carries in Missouri.** The North Fork River above Norfork Lake is a spring-fed Ozark float in Ozark County, Missouri. This is the water below the dam, in Arkansas, with thirty miles of reservoir between them. Same name, different river, different rules.
 - **A siphon holds the floor.** When both units are idle a siphon runs a steady release, in cfs, which is what makes this tailwater wadeable at all and is the reason the fishery survives late summer. Total release is turbine flow plus that siphon.
-- **One unit changes everything.** With only two generators the step between idle and generating is abrupt — a single unit roughly quadruples the river. There is no gentle middle here the way there is on the eight-unit White.
+- **One unit changes everything.** With only two generators the step between idle and generating is abrupt — a single unit takes the release from a couple of hundred cfs to well over three thousand, roughly sixteen times, and wading is finished. There is no gentle middle here the way there is on the eight-unit White.
 - **Cold and thin on oxygen.** The tailwater ran about 53 °F in August, and the dissolved oxygen immediately below the dam was low enough in late summer to matter to fish — hypolimnetic water from a stratified lake comes out cold and oxygen-poor, and re-aerates as it runs.
 - **The turbines are not a given.** Norfork's units have been out of service for extended stretches, with release made through the siphon and flood gates instead. "Not generating" here has meant months, not hours.
 
@@ -632,6 +632,6 @@ Twenty-three miles of the White River between Table Rock Dam and Powersite Dam a
 - **Two different waters under one name.** The upper reach below Table Rock Dam is riverine, cold and wadeable when the units are off. Below Fall Creek it gradually becomes the impoundment Powersite has held since 1913. Advice for one half is wrong for the other.
 - **The biggest, fastest move Eddy measures.** The tailwater stage below Table Rock swings roughly eight feet between idle and full generation on four units. Water can come up feet in minutes; the dam sounds a horn before it starts, and that horn is the only warning wading anglers get.
 - **Cold enough to be the point.** The release ran about 53 °F in August, which is why a trout fishery exists this far south and why the hatchery sits where it does.
-- **Oxygen improves downstream.** Dissolved oxygen measured about half again as high ten miles down as it did immediately below the dam — the release comes out oxygen-poor and re-aerates as it moves.
+- **Oxygen improves downstream.** Dissolved oxygen measured close to double ten miles down what it did immediately below the dam — the release comes out oxygen-poor and re-aerates as it moves.
 - **The lake level is its own reading.** Because Powersite impounds it, Taneycomo has a surface elevation rather than a stage, and gauges at both ends report it in feet. That is not a river stage and does not mean what a river stage means.
 - Missouri's special regulations apply from Table Rock Dam down to Fall Creek — check MDC's Lake Taneycomo rules before keeping anything.
