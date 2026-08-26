@@ -153,8 +153,13 @@ UPDATE public.service_rivers sr
 -- river_mile 34.9 places it between Sinking Creek Campground (33.8) and Round
 -- Spring (35.2), interpolated from where the park projects onto the Current
 -- line, so it sorts into the access list where it physically belongs.
--- location_snap records that projection and snap_distance_m records the
--- 540 m — the row says "off the river" in a column rather than only in prose.
+--
+-- location_snap and snap_distance_m are supplied but NOT authoritative: the
+-- `access_points_auto_snap` BEFORE INSERT trigger recomputes both from
+-- rivers.geom and overwrote them on apply (540 -> 551.51 m). They are passed
+-- anyway so the statement is complete and correct if run where the trigger is
+-- absent. The point either way is that the row states "off the river" in a
+-- column and not only in prose — ~552 m of it.
 
 INSERT INTO public.access_points (
   river_id, name, slug, location_orig, location_snap, snap_distance_m,
@@ -193,7 +198,7 @@ SELECT
   -- that file already flags as drifting. They are in `facilities` prose, which
   -- drawableAmenitiesFor reads anyway.
   ARRAY['parking', 'restrooms', 'camping', 'store', 'picnic']::text[],
-  '<p><strong>This is a base, not a put-in.</strong> Echo Bluff sits on Sinking Creek, a short way up from where it meets the Current — there is no float access from the park itself. Round Spring is directly across Hwy 19 and Sinking Creek Campground is a couple of minutes north; both are on the Current and both are in the planner.</p><p>It is also the most comfortable roof within reach of the Jacks Fork: Alley Spring is about a 25-minute drive south on Hwy 19, which is why the park shows up on both rivers'' lodging lists.</p>'
+  '<p><strong>This is a base, not a put-in.</strong> Echo Bluff sits on Sinking Creek, a short way up from where it meets the Current — there is no float access from the park itself. Round Spring is directly across Hwy 19 and Sinking Creek Campground is a couple of minutes north; both are on the Current and both are in the planner.</p><p>It is also within reach of the Jacks Fork if you do not mind driving: Alley Spring is about 25 minutes south on Hwy 19. The park is listed under the Current, which is the river it is actually on.</p>'
 FROM public.rivers r
 WHERE r.slug = 'current'
   AND NOT EXISTS (
