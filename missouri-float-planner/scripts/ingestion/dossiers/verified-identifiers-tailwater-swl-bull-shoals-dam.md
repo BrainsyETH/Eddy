@@ -19,10 +19,17 @@ needs no reach."
 
 ## Extent, from the managing agency
 
-**Bull Shoals Dam → Arkansas Highway 58 bridge at Guion**, ~78 river miles.
+**Bull Shoals Dam → Arkansas Highway 58 bridge at Guion**, 90.46 river miles.
 Not a product choice — the Arkansas Game & Fish Commission's Bull Shoals
 Tailwater page states it manages the trout fishery "from Bull Shoals Dam to
 the Arkansas Highway 58 Bridge at Guion." Fetched 2026-08-24.
+
+The figure is the measured length of the NHD slice
+`build-tailwater-geometry.ts` emits between those two endpoints, which is what
+`rivers.length_miles` carries. It read "~78" here until 2026-08-26 — an estimate
+written before the geometry was cut, left standing beside the number the cut
+produced. Secondary sources put the trout water at 90–92 miles, which the
+measured slice agrees with and the estimate did not.
 
 ## CWMS locations (from /locations?office=SWL)
 
