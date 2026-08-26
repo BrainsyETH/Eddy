@@ -58,7 +58,7 @@ recorded as unreachable was not the only route to that number.
 
 ## 2. The blocking defect: a null ladder is not silence
 
-**Fixed in this branch** by `20260826120000_an_unrated_gauge_reads_unknown_not_too_low.sql`
+**Fixed in this branch** by `20260826162627_an_unrated_gauge_reads_unknown_not_too_low.sql`
 and the `hasLadder` guard in `/api/cron/update-gauges`.
 
 Both condition RPCs grade top-down and end in a bare `ELSE 'Too Low - Not
@@ -304,12 +304,19 @@ ingestion intended and did not get.
 
 | File | Change |
 | --- | --- |
-| `supabase/migrations/20260826120000_…unknown_not_too_low.sql` | Both condition RPCs return `unknown` for an unrated gauge, with the flood-stage override still ahead of it; clears the three `last_condition_code` stamps and deletes the three manufactured outbox events, scoped to those rivers and that day; corrects the Norfork description. **Not applied to production** — needs authorisation. |
+| `supabase/migrations/20260826162627_…unknown_not_too_low.sql` | Both condition RPCs return `unknown` for an unrated gauge, with the flood-stage override still ahead of it; clears the three `last_condition_code` stamps and deletes the three manufactured outbox events, scoped to those rivers and that day; corrects the Norfork description. **Applied to production 2026-08-26** as `20260826162627` (renamed to the version Supabase recorded). |
 | `src/app/api/cron/update-gauges/route.ts` | `hasLadder` guard before `computeCondition`, applied only below flood stage, so the cron stops manufacturing a condition for an unrated gauge without going quiet on one that is genuinely in flood. Clears stale stamps; reports `unratedGaugesSkipped` and `unratedStampsCleared`. |
 | `src/lib/conditions/unrated-gauge.test.ts` | Pins the trap, the 00150 partial-ladder exemption, the flood-stage behaviour on an empty ladder, the cron guard and its stale-stamp clear, and the SQL guard in whichever migration most recently defines each RPC. |
 | `EDDY_KNOWLEDGE.md` | Norfork's "quadruples" → sixteenfold; Taneycomo's DO ratio. |
 | `scripts/ingestion/dossiers/verified-identifiers-tailwater-swl-bull-shoals-dam.md` | 78 → 90.46 river miles, with the reason it was wrong. |
 
-The migration is written and verified against a scratch cluster but **has not
-been applied to production**; the three rivers still read `too_low` there until
-someone applies it.
+The migration was verified against a scratch cluster and **applied to production
+on 2026-08-26**, recorded as `20260826162627`. Verified after the fact: the
+installed `prosrc` of both RPCs is byte-identical to this file (matching MD5);
+`get_river_condition()` returns `unknown` for the White, the Norfork tailwater
+and Lake Taneycomo, and is unchanged on the rated rivers (`black` flowing,
+`current` good, `meramec` low, `niangua` low); `river_condition_events` went
+from 193 rows to 190 with none left on the three tailwaters; and the Norfork
+description now reads sixteenfold. The stamp `UPDATE` matched zero rows, because
+the cron's own stale-stamp clear had already reached them — which is the
+belt-and-braces the guard was written to be.
