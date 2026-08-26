@@ -324,9 +324,25 @@ FROM rivers r WHERE r.slug = 'current'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 
 -- Van Buren
+--
+-- river_mile_downstream is set HERE, unlike its neighbours in this file, and
+-- that is the point. The miles for this river live in
+-- supabase/seed/current_river_miles.sql, which sets Van Buren to 85.9 from the
+-- Missouri Ozark Waterways guide — but that file is not in SEED_FILES in
+-- scripts/run-seeds.ts and is referenced nowhere else, so nothing runs it. It
+-- was applied by hand at some point BEFORE this row existed, which is how this
+-- row alone came to be an approved float endpoint with no mile.
+--
+-- A missing mile is not read as missing: toAccessPoint maps NULL to 0
+-- (src/lib/offline/shapes.ts), 0 is the headwaters, and the point then sorts
+-- ahead of its whole river. See migration
+-- 20260826190000_van_buren_has_a_river_mile.sql, which repaired the databases
+-- that already exist; this line is what stops a fresh `db reset` from
+-- recreating the row without one.
 INSERT INTO access_points (
     river_id, name, slug, location_orig, type, is_public, ownership,
-    description, amenities, parking_info, fee_required, approved
+    description, amenities, parking_info, fee_required, approved,
+    river_mile_downstream
 )
 SELECT 
     r.id,
@@ -340,9 +356,15 @@ SELECT
     ARRAY['parking', 'restrooms', 'boat_ramp'],
     'Paved lot near downtown',
     false,
-    true
+    true,
+    85.9
 FROM rivers r WHERE r.slug = 'current'
-ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+ON CONFLICT (river_id, slug) DO UPDATE SET
+    approved = EXCLUDED.approved,
+    -- COALESCE, so re-seeding fills a blank without overwriting a mile
+    -- somebody has since corrected in the admin.
+    river_mile_downstream =
+        COALESCE(access_points.river_mile_downstream, EXCLUDED.river_mile_downstream);
 
 -- Big Spring
 INSERT INTO access_points (
