@@ -2041,6 +2041,21 @@ export interface MeProfileResponse {
   entitlement: MeEntitlement | null;
 }
 
+/**
+ * Response from POST /api/me/entitlement/refresh — what asking RevenueCat about
+ * the caller's own subscription established.
+ *
+ * `refreshed` is deliberately narrow: it means THIS call moved the entitlement
+ * forward, not that the caller is subscribed. `current` — already correct — is
+ * the ordinary answer, and reporting it as a refresh would let the app claim it
+ * fixed something every single time.
+ */
+export interface MeEntitlementRefreshResponse {
+  refreshed: boolean;
+  status: 'granted' | 'current' | 'none' | 'not_configured' | 'unknown_user' | 'error';
+  expiresAt: string | null;
+}
+
 /** Response from DELETE /api/me. */
 export interface MeDeleteResponse {
   ok: true;

@@ -85,6 +85,15 @@ RESEND_WEBHOOK_SECRET=whsec_your_signing_secret # verifies the Svix signature
 # Authorization header to exactly "Bearer <REVENUECAT_WEBHOOK_SECRET>".
 REVENUECAT_WEBHOOK_SECRET=a_long_random_secret
 
+# RevenueCat SECRET API key (Project Settings → API Keys → "Secret API key").
+# Lets the server ASK RevenueCat what a subscriber owns, rather than only being
+# told by webhooks. Without it, restoring a purchase onto an account that did
+# not buy it — anyone who deleted their account and signed in again — resolves
+# to nothing, because a TRANSFER event carries no entitlement state and the
+# original row cascaded away with the deleted user. Server-side only; never the
+# app's public appl_ key. See docs/REVENUECAT_SETUP.md §8b.
+# REVENUECAT_SECRET_API_KEY=sk_...
+
 # Honor StoreKit sandbox / TestFlight purchases as real entitlements.
 # Set ONLY on preview/dev deploys — with this unset in production, a sandbox
 # purchase can never unlock Eddy Premium. See src/lib/entitlement.ts.

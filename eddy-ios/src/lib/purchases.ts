@@ -67,7 +67,7 @@ export type PurchasesUnavailableReason =
 
 type PurchasesModule = any;
 
-let cached: PurchasesModule | null = null;
+let cachedModule: PurchasesModule | null = null;
 let configuredFor: string | null = null;
 
 /**
@@ -91,21 +91,31 @@ function purchaseDiagnostics(): PurchaseDiagnostics | null {
 }
 
 /**
- * The native module, or null in Expo Go.
+ * The whole module NAMESPACE, or null in Expo Go.
  *
  * Required lazily so that merely importing this file cannot break the JS
  * bundle where the native side is absent.
+ *
+ * Separate from loadPurchases() because the namespace carries more than the
+ * Purchases class — PURCHASES_ERROR_CODE hangs off it beside the default
+ * export, and reading error codes from the SDK rather than writing them down
+ * here is the difference between a correct branch and a plausible one.
  */
-function loadPurchases(): PurchasesModule | null {
-  if (cached) return cached;
+function loadPurchasesModule(): PurchasesModule | null {
+  if (cachedModule) return cachedModule;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require('react-native-purchases');
-    cached = mod.default ?? mod;
-    return cached;
+    cachedModule = require('react-native-purchases');
+    return cachedModule;
   } catch {
     return null;
   }
+}
+
+/** The Purchases class itself — what every SDK call below goes through. */
+function loadPurchases(): PurchasesModule | null {
+  const mod = loadPurchasesModule();
+  return mod ? (mod.default ?? mod) : null;
 }
 
 export function purchasesUnavailableReason(
@@ -511,10 +521,61 @@ export async function purchasePackage(pkg: PurchasePackage): Promise<PurchaseOut
 }
 
 export interface RestoreResult {
+  /** False means the restore did not RUN — distinct from running and finding nothing. */
   ok: boolean;
   /** True when the restore found a live entitlement attached to this Apple ID. */
   entitled: boolean;
   message: string;
+}
+
+/** The subset of PURCHASES_ERROR_CODE this file reads, as the SDK exports it. */
+export interface PurchasesErrorCodes {
+  RECEIPT_ALREADY_IN_USE_ERROR?: string;
+  RECEIPT_IN_USE_BY_OTHER_SUBSCRIBER_ERROR?: string;
+}
+
+/**
+ * Is this "the receipt is real, but it belongs to another Eddy account"?
+ *
+ * Two codes, and they are the two the app can do nothing about.
+ * RECEIPT_ALREADY_IN_USE_ERROR is what a restore raises when the RevenueCat
+ * dashboard's transfer behaviour is "Keep with original App User ID" — the
+ * receipt is valid, it simply belongs to a different app user and RevenueCat
+ * has been told not to move it. RECEIPT_IN_USE_BY_OTHER_SUBSCRIBER_ERROR is the
+ * backend's version of the same refusal. Both deserve their own sentence,
+ * because the generic "could not reach the App Store" is actively misleading:
+ * nothing failed, and retrying never helps.
+ *
+ * ── The codes are READ from the SDK, never written down ───────────────────
+ *
+ * They are consecutive small integers with no mnemonic value, and the
+ * neighbours are traps: 7 is the one this wants, 8 is INVALID_RECEIPT, and 9 —
+ * one position away, and where this branch first landed — is
+ * MISSING_RECEIPT_FILE. A hardcoded code that is off by one does not fail
+ * loudly; it silently shows the wrong sentence to the one person who most needs
+ * the right one, and shows nothing to the person it was written for.
+ *
+ * Pure, with the enum passed in, so the matching can be tested from Node where
+ * the native module cannot load. The caller supplies it from the lazy require.
+ */
+export function receiptBelongsToAnotherAccount(
+  error: unknown,
+  codes: PurchasesErrorCodes | null | undefined,
+): boolean {
+  if (!codes) return false;
+
+  const code = (error as { code?: unknown })?.code;
+  if (code === undefined || code === null) return false;
+
+  // Stringified on both sides: the enum's members are strings, but the value
+  // arrives from native code and has been a number in past SDK versions.
+  const seen = String(code);
+  return (
+    (codes.RECEIPT_ALREADY_IN_USE_ERROR !== undefined &&
+      seen === String(codes.RECEIPT_ALREADY_IN_USE_ERROR)) ||
+    (codes.RECEIPT_IN_USE_BY_OTHER_SUBSCRIBER_ERROR !== undefined &&
+      seen === String(codes.RECEIPT_IN_USE_BY_OTHER_SUBSCRIBER_ERROR))
+  );
 }
 
 /**
@@ -524,6 +585,11 @@ export interface RestoreResult {
  * The message is written for the case that actually happens: someone taps it
  * expecting their subscription back and it finds nothing, usually because they
  * are signed into a different Apple ID than the one that paid.
+ *
+ * `ok` and `entitled` are separate answers and callers must not collapse them.
+ * A network failure is not "nothing to restore", and telling someone their
+ * subscription does not exist when we merely failed to look is the one wrong
+ * answer on this screen — see restoreAlert.
  */
 export async function restorePurchases(): Promise<RestoreResult> {
   const Purchases = loadPurchases();
@@ -543,13 +609,55 @@ export async function restorePurchases(): Promise<RestoreResult> {
         : 'No subscription found for this Apple ID. If you paid with a different one, sign into that Apple ID in Settings and try again.',
     };
   } catch (err) {
-    const message = (err as { message?: string })?.message;
+    if (receiptBelongsToAnotherAccount(err, loadPurchasesModule()?.PURCHASES_ERROR_CODE)) {
+      return {
+        ok: false,
+        entitled: false,
+        message:
+          'This subscription is attached to a different Eddy account. Sign in to that account to use it, or contact support to have it moved.',
+      };
+    }
+
+    // Never the SDK's own string: RevenueCat's error text describes dashboard
+    // and StoreKit configuration, which is diagnostics, not customer copy.
+    purchaseDiagnostics()?.report(err, { operation: 'revenuecat.restorePurchases' });
     return {
       ok: false,
       entitled: false,
-      message: message ?? 'Could not reach the App Store. Please try again.',
+      message: 'Eddy could not reach the App Store. Please try again in a moment.',
     };
   }
+}
+
+/**
+ * What to say when Restore purchases finishes.
+ *
+ * Four outcomes, and the reason this is a function rather than a ternary at
+ * each call site is that two of them used to be one. Both screens titled a
+ * FAILED restore "Nothing to restore" and printed the SDK's error underneath
+ * it, so a dropped connection and a genuinely unowned subscription were the
+ * same sentence — the first of which tells a paying customer, wrongly, that
+ * they never paid.
+ *
+ * `serverConfirmed` is the other half. The SDK finding an entitlement means
+ * APPLE agrees; this app's authority on entitlement is the server (see the file
+ * header), and the two can disagree for a moment after a restore while the
+ * account catches up. Claiming success on the SDK's word alone is how the alert
+ * says "restored" over a screen that still shows no subscription.
+ */
+export function restoreAlert(
+  result: RestoreResult,
+  serverConfirmed: boolean,
+): { title: string; message: string } {
+  if (!result.ok) return { title: 'Could not restore', message: result.message };
+  if (!result.entitled) return { title: 'Nothing to restore', message: result.message };
+  if (serverConfirmed) return { title: 'Subscription restored', message: result.message };
+
+  return {
+    title: 'Purchase found',
+    message:
+      'The App Store confirms a subscription on this Apple ID, but this Eddy account has not picked it up yet. Pull to refresh in a moment — if Premium is still locked, contact support.',
+  };
 }
 
 /**

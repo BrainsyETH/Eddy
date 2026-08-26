@@ -27,7 +27,9 @@ import {
   packageTerms,
   perMonthPriceString,
   PREMIUM_UNAVAILABLE_COPY,
+  receiptBelongsToAnotherAccount,
   redemptionAlert,
+  restoreAlert,
   savingsLabel,
   subscriptionSummary,
   trialDaysFromIntroPrice,
@@ -680,4 +682,115 @@ test('no entitlement reads as no subscription', () => {
     }),
     'No active subscription',
   );
+});
+
+// ── Restore purchases ────────────────────────────────────────────
+
+test('a failed restore is never reported as an empty one', () => {
+  // These were the same alert. "Nothing to restore" over a dropped connection
+  // tells a paying customer they never paid — the one wrong answer here.
+  const failed = restoreAlert(
+    { ok: false, entitled: false, message: 'Eddy could not reach the App Store.' },
+    false,
+  );
+  assert.equal(failed.title, 'Could not restore');
+  assert.doesNotMatch(failed.title, /nothing/i);
+
+  const empty = restoreAlert({ ok: true, entitled: false, message: 'No subscription found.' }, false);
+  assert.equal(empty.title, 'Nothing to restore');
+});
+
+test('the SDK finding a subscription is not enough to claim it is restored', () => {
+  // The server is the authority on entitlement (purchases.ts header). Claiming
+  // success on the SDK's word alone is how the alert says "restored" over a
+  // Profile card that still reads "No active subscription" — which is exactly
+  // what a restore after account deletion did.
+  const found: Parameters<typeof restoreAlert>[0] = {
+    ok: true,
+    entitled: true,
+    message: 'Your subscription is restored.',
+  };
+
+  const confirmed = restoreAlert(found, true);
+  assert.equal(confirmed.title, 'Subscription restored');
+
+  const pending = restoreAlert(found, false);
+  assert.notEqual(pending.title, 'Subscription restored');
+  // It must not read as a refusal either — the purchase is real and Apple has
+  // confirmed it — and it has to leave a way out.
+  assert.doesNotMatch(pending.title + pending.message, /no subscription found/i);
+  assert.match(pending.message, /App Store confirms/);
+  assert.match(pending.message, /support/);
+});
+
+test('both restore surfaces reconcile with the server before claiming anything', () => {
+  for (const path of [
+    '../eddy-ios/src/components/PaywallSheet.tsx',
+    '../eddy-ios/app/(tabs)/profile.tsx',
+  ]) {
+    const source = readFileSync(path, 'utf8');
+    // A restore onto an account that did not buy — anyone who deleted their
+    // account and signed in again — arrives at the server as a TRANSFER, which
+    // carries no entitlement state. Polling alone can wait that out forever, so
+    // the reconcile has to be asked for first.
+    assert.match(source, /await refreshEntitlement\(token\)/);
+    assert.match(source, /serverConfirmed = await waitForEntitlement\(token\)/);
+    // And the alert is the shared one, so neither screen can drift back into
+    // titling a failure "Nothing to restore".
+    assert.match(source, /restoreAlert\(result, /);
+  }
+});
+
+test('the receipt-in-use branch reads the SDK enum instead of a written-down code', () => {
+  // These codes are consecutive small integers with no mnemonic value and the
+  // neighbours are traps: 7 is the one this wants, 8 is INVALID_RECEIPT, and 9
+  // — one position away, and where this branch first landed — is
+  // MISSING_RECEIPT_FILE. Off by one does not fail loudly. It shows the wrong
+  // sentence to the one person who needs the right one.
+  const codes = {
+    RECEIPT_ALREADY_IN_USE_ERROR: '7',
+    RECEIPT_IN_USE_BY_OTHER_SUBSCRIBER_ERROR: '13',
+  };
+
+  assert.equal(receiptBelongsToAnotherAccount({ code: '7' }, codes), true);
+  assert.equal(receiptBelongsToAnotherAccount({ code: '13' }, codes), true);
+  // The value arrives from native code and has been a number in past versions.
+  assert.equal(receiptBelongsToAnotherAccount({ code: 7 }, codes), true);
+
+  // MISSING_RECEIPT_FILE_ERROR, INVALID_RECEIPT_ERROR, NETWORK_ERROR: real
+  // failures that must keep the "could not reach the App Store" message.
+  for (const code of ['9', '8', '10', '', undefined, null]) {
+    assert.equal(receiptBelongsToAnotherAccount({ code }, codes), false, `code ${code}`);
+  }
+
+  // No enum means the native module is absent, and a restore cannot have run.
+  assert.equal(receiptBelongsToAnotherAccount({ code: '7' }, null), false);
+  assert.equal(receiptBelongsToAnotherAccount({}, codes), false);
+
+  // And the source reads the enum off the module rather than restating it.
+  const purchases = readFileSync('../eddy-ios/src/lib/purchases.ts', 'utf8');
+  assert.match(purchases, /loadPurchasesModule\(\)\?\.PURCHASES_ERROR_CODE/);
+});
+
+test('the SDK still exports both receipt-in-use codes under those names', () => {
+  // Reads the installed types when they are there. CI's web job installs only
+  // missouri-float-planner, so this is skipped rather than imported — a value
+  // import from eddy-ios/node_modules is the MODULE_NOT_FOUND documented in
+  // tsconfig.test.json. Local runs and the mobile checkout still catch a rename.
+  let declaration: string;
+  try {
+    declaration = readFileSync(
+      '../eddy-ios/node_modules/@revenuecat/purchases-typescript-internal/dist/generated/error-codes.d.ts',
+      'utf8',
+    );
+  } catch {
+    return; // the Expo app is not installed in this checkout
+  }
+
+  assert.match(declaration, /RECEIPT_ALREADY_IN_USE_ERROR = "\d+"/);
+  assert.match(declaration, /RECEIPT_IN_USE_BY_OTHER_SUBSCRIBER_ERROR = "\d+"/);
+  // The trap, asserted so a future SDK renumbering shows up here as a diff
+  // rather than as a wrong alert in someone's hands.
+  assert.match(declaration, /MISSING_RECEIPT_FILE_ERROR = "9"/);
+  assert.match(declaration, /RECEIPT_ALREADY_IN_USE_ERROR = "7"/);
 });
