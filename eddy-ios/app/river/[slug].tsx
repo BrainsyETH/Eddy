@@ -32,7 +32,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   MapAccessPoint,
@@ -445,6 +445,66 @@ export default function RiverDetailScreen() {
   const [visuals, setVisuals] = useState<RiverVisualsResponse | null>(null);
   const [gauges, setGauges] = useState<MapGauge[]>([]);
   const [dam, setDam] = useState<DamSnapshot | null>(null);
+
+  /**
+   * The controlling dam, refetched on every focus.
+   *
+   * ── Why this is not a mount-only fetch ────────────────────────────────────
+   * It was, and the row above it reports GENERATION — a live fact with a tense.
+   * The dam screen already learned this and says so at app/dam/[damId].tsx:
+   * "Live data that only arrives once is cached data with no cache policy." A
+   * screen backgrounded at 9:55 and resumed at noon re-rendered the same
+   * payload underneath ages computed on this device. The old bottom-of-screen
+   * link survived that because it only ever claimed the dam's NAME.
+   *
+   * ── Why a refresh may not clear the row ───────────────────────────────────
+   * `initial` is the whole point of the flag. fetchDams() has no client cache
+   * and THROWS on failure, and /api/dams reads through to CWMS and SWPA live —
+   * a cold entry can take longer than the client deadline, so a timeout here is
+   * ordinary rather than exotic. On mount, failure means there is nothing to
+   * show and null is honest. On a refresh there IS something on screen and it
+   * was true when it arrived, so a failed refetch keeps it and lets it age
+   * visibly. Same rule the dam screen states: a refresh failure must not blank
+   * a screen already showing good data.
+   */
+  const loadDam = useCallback(
+    async (signal: AbortSignal, initial: boolean) => {
+      try {
+        const dams = await fetchDams(signal);
+        if (!signal.aborted) setDam(damForRiver(dams, slug));
+      } catch {
+        if (!signal.aborted && initial) setDam(null);
+      }
+    },
+    [slug],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      const controller = new AbortController();
+      void loadDam(controller.signal, false);
+      return () => controller.abort();
+    }, [loadDam]),
+  );
+
+  /**
+   * A minute's tick, so the row ages while the screen is open.
+   *
+   * buildTailwaterStatus() reads the staleness band off the READER's clock at
+   * render time, which is what lets "is generating" decay to "last observed
+   * generating" — but only when a render happens. Focus covers coming back to
+   * the screen; this covers sitting on it. Without both, a screen left open
+   * holds the present tense over a reading that left it two hours ago.
+   *
+   * State that nothing reads: the tick exists for its re-render.
+   */
+  const [, setDamClock] = useState(0);
+  useEffect(() => {
+    if (!dam) return;
+    const id = setInterval(() => setDamClock((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, [dam]);
+
   /**
    * Which gauge the reading card is showing. Null means the river's own
    * primary, which is what /api/conditions already answered with — so the card
@@ -646,18 +706,10 @@ export default function RiverDetailScreen() {
           },
         );
         // The dam controlling this reach, if one does. Ten items, CDN-cached,
-        // and already returning [] on failure — so this costs one cheap
-        // request to answer a question with no endpoint of its own, rather
-        // than adding /api/rivers/[slug]/dam for a panel that is absent on
-        // every river but one.
-        void fetchDams(controller.signal).then(
-          (dams) => {
-            if (!controller.signal.aborted) setDam(damForRiver(dams, slug));
-          },
-          () => {
-            if (!controller.signal.aborted) setDam(null);
-          },
-        );
+        // so this costs one cheap request to answer a question with no endpoint
+        // of its own, rather than adding /api/rivers/[slug]/dam for a row that
+        // is absent on every river but four.
+        void loadDam(controller.signal, true);
         setError(null);
       } catch (err) {
         if (err instanceof ApiError && err.message === 'Request cancelled') return;
@@ -669,7 +721,7 @@ export default function RiverDetailScreen() {
     })();
 
     return () => controller.abort();
-  }, [slug, reloadNonce]);
+  }, [slug, reloadNonce, loadDam]);
 
   /**
    * The outlook, for whichever gauge the picker is on.

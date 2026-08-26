@@ -11,6 +11,11 @@
 // second coloured chip under the first reads as a second rating, and a reader
 // would then have to decide which to believe.
 //
+// ── Why a divider and not a card ───────────────────────────────────────────
+// A hairline rule with no fill. It shipped as a bordered rounded box sitting
+// under the live status card, which is also a bordered rounded box; stacked,
+// the two read as competing objects rather than as a line qualifying a reading.
+//
 // ── Why the whole row is the target ────────────────────────────────────────
 // It replaces the muted "X Dam controls this reach" line that used to sit at
 // the very bottom of the screen, below the outfitters. That link was correct
@@ -23,7 +28,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
-import { buildTailwaterStatus } from '@eddy/conditions/tailwater-status';
+import {
+  buildTailwaterStatus,
+  tailwaterStatusVoiceOver,
+} from '@eddy/conditions/tailwater-status';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -42,12 +50,25 @@ export function TailwaterStatusRow({ dam }: { dam: DamSnapshot | null }) {
       onPress={() => router.push(`/dam/${status.damId}`)}
       style={({ pressed }) => [
         styles.row,
-        { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+        { borderTopColor: colors.border, opacity: pressed ? 0.6 : 1 },
       ]}
       accessibilityRole="button"
-      // The headline names the dam, so it is a sufficient accessible name on
-      // its own — no separate "opens the dam page" label to fall out of sync.
-      accessibilityLabel={status.headline}
+      // ── Why the label is composed and not the headline ──────────────────
+      // An accessibilityLabel REPLACES the label React Native aggregates from
+      // the children. This carried the headline alone, so VoiceOver heard
+      // "Bull Shoals Dam is generating" and none of the lines that qualify it —
+      // including the wading warning, the one line here that exists to stop
+      // somebody standing in a rising river. A partial label is the single
+      // option that drops content silently: DamRow sets none at all so the
+      // children are read, and RiverRow / GaugeRow compose every field.
+      //
+      // Built in shared/ rather than here so the spoken order is testable and
+      // the two platforms cannot drift. Web needs no equivalent: its row is an
+      // <a> with no aria-label, so the browser already reads all of it.
+      //
+      // `button`, not `link`: PlanResult states the house rule as "a link, not
+      // a button: it LEAVES for the browser". This push stays in the app.
+      accessibilityLabel={tailwaterStatusVoiceOver(status)}
     >
       <Ionicons
         name={status.tone === 'generating' ? 'flash-outline' : 'water-outline'}
@@ -86,13 +107,17 @@ export function TailwaterStatusRow({ dam }: { dam: DamSnapshot | null }) {
 // marginHorizontal: the ScrollView already pads 16, and a second inset would
 // step this row in from the card above it.
 const styles = StyleSheet.create({
+  // A hairline rule, not a card. It shipped bordered and rounded directly under
+  // the status card, which is also bordered and rounded — a second outline on
+  // the first, reading as another object competing with the reading rather than
+  // as a line qualifying it.
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    padding: 13,
-    borderRadius: 12,
-    borderWidth: 1,
+    paddingTop: 12,
+    paddingBottom: 14,
+    borderTopWidth: 1,
     marginBottom: 10,
   },
   icon: { marginTop: 1 },

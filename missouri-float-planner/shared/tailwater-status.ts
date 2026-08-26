@@ -30,7 +30,11 @@ import {
   generatorEquivalentPhrase,
   speaksForNow,
 } from './dam-generation';
-import { readingStaleness, tailwaterMovementProse } from './dam-schedule-copy';
+import {
+  readingStaleness,
+  relativeAge,
+  tailwaterMovementProse,
+} from './dam-schedule-copy';
 
 /** What the powerhouse is doing, for an icon. NEVER a condition code. */
 export type TailwaterTone = 'generating' | 'idle' | 'unavailable';
@@ -87,6 +91,23 @@ export const TAILWATER_IDLE_NOTE = 'Water already released may still be moving d
 /** Where the schedule actually lives, said as a destination rather than a gap. */
 export const TAILWATER_UNAVAILABLE_NOTE = 'See the latest release and schedule';
 
+/**
+ * The metrics this model reads, named so a contract test can hold them.
+ *
+ * ── Why this is exported and not just implied ──────────────────────────────
+ * The row reads its metrics THROUGH buildTailwaterStatus rather than inline,
+ * so dams-route-contract.test.ts's `.metrics.X` regex — which is what keeps a
+ * list surface from reading something /api/dams no longer sends — sees nothing
+ * in the components at all. Listing the file there was decorative: dropping
+ * tailwaterElevation from SUMMARY_METRICS passed every test in the repo and
+ * silently took the movement line away from every installed client, which
+ * cannot be fixed by shipping a new server.
+ *
+ * So the requirement is declared here, beside the code that has it, and
+ * asserted against SUMMARY_METRICS there.
+ */
+export const TAILWATER_STATUS_METRICS = ['generationFlow', 'tailwaterElevation'] as const;
+
 type TailwaterInputs = Pick<
   DamSnapshot,
   'id' | 'name' | 'hasTurbines' | 'metrics' | 'generationReference' | 'generationFloorCfs'
@@ -114,18 +135,32 @@ export function buildTailwaterStatus(
   const state = generationNow(dam, now);
   if (state.kind === 'unavailable' && state.reason === 'no-powerhouse') return null;
 
-  // ── Movement, gated on freshness before it is ever worded ────────────────
-  // tailwaterMovementSentence() cannot be used here: it answers with the bare
-  // AGE ("18 minutes ago") when there is no trend or the reading has gone
-  // stale, and under a heading about the dam that reads as movement. This row
-  // carries no age at all, so the gate has to happen before the wording.
+  // ── Movement, gated on freshness and stamped with its own age ────────────
+  // tailwaterMovementSentence() cannot be dropped in here: it answers with the
+  // bare AGE ("18 minutes ago") when there is no trend or the reading has gone
+  // stale, and under a heading about the dam that reads as movement. So the
+  // gate happens before the wording, and the age is attached after it.
   //
-  // `fresh` and not `lagging`: an undated "rose 2.1 ft over 3 hours" on a
-  // four-hour-old reading is a true number attached to the wrong moment, which
-  // is the error the staleness bands exist to prevent.
+  // ── Why the age is attached at all ───────────────────────────────────────
+  // This once carried none, on the reasoning that the condition card directly
+  // above already states when it was taken. That was wrong, and wrong in the
+  // way this file keeps trying to close: the condition card reads a USGS
+  // GAUGE, while tailwaterElevation is a CWMS reading at the DAM. Two
+  // observations, two clocks. Borrowing one age for the other is the same
+  // true-number-wrong-moment error as an hour-ending off-by-one.
+  //
+  // `fresh` still gates — a `lagging` reading gets no movement line at all —
+  // but `fresh` runs to two hours, and "rose 2.1 ft over 3 hours" with no date
+  // on it reads as the last three hours no matter how old it is. The age is
+  // what makes the ninety-minute case honest rather than the gate alone.
+  //
+  // Separator and wording follow tailwaterMovementSentence's fresh branch, so
+  // the two forms cannot describe one reading differently.
   const tailwater = dam.metrics?.tailwaterElevation ?? null;
   const movementIsCurrent = tailwater ? readingStaleness(tailwater.at, now) === 'fresh' : false;
-  const movement = movementIsCurrent ? tailwaterMovementProse(tailwater!.trend) : null;
+  const movementProse = movementIsCurrent ? tailwaterMovementProse(tailwater!.trend) : null;
+  const movementAge = movementProse ? relativeAge(tailwater!.at, now) : null;
+  const movement = movementProse && movementAge ? `${movementProse} · ${movementAge}` : null;
   const rising = movement !== null && (tailwater!.trend?.delta ?? 0) > 0;
 
   const supporting: string[] = [];
@@ -183,4 +218,35 @@ export function buildTailwaterStatus(
     supporting: supporting.slice(0, 2),
     safetyNote: rising ? TAILWATER_RISE_NOTE : null,
   };
+}
+
+/**
+ * The row, said in words.
+ *
+ * ── Why this exists ────────────────────────────────────────────────────────
+ * The iOS row is one Pressable wrapping several Text nodes, and an
+ * accessibilityLabel on it REPLACES the label React Native would otherwise
+ * aggregate from those children. It shipped carrying only the headline, which
+ * meant VoiceOver heard "Bull Shoals Dam is generating" and none of the lines
+ * that qualify it — including "Water already released may still be moving
+ * downstream" and the wading warning. A partial label is the one option that
+ * drops content silently; the app's other rows either compose every field
+ * (RiverRow, GaugeRow, ReferenceGaugeRow) or set no label at all so the
+ * children are read (DamRow).
+ *
+ * ── Why it lives here and not at the call site ─────────────────────────────
+ * Same reason this module returns strings: the wording is the safety property.
+ * Composed in the component, the spoken order is untestable and the two
+ * platforms drift. Mirrors the `*VoiceOver` builders in dam-generation.ts.
+ *
+ * The destination goes last, after the facts, so a listener hears what the row
+ * says before what it does.
+ */
+export function tailwaterStatusVoiceOver(status: TailwaterStatus): string {
+  const parts = [status.headline, ...status.supporting];
+  if (status.safetyNote) parts.push(status.safetyNote);
+  // Sentence-joined rather than comma-joined: these are whole sentences, and
+  // ", " would run the safety note onto the end of a measurement.
+  const spoken = parts.map((part) => part.replace(/\.$/, '')).join('. ');
+  return `${spoken}. Opens ${status.damName} details.`;
 }

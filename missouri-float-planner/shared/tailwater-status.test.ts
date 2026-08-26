@@ -4,8 +4,10 @@ import type { DamMetricValue, DamSnapshot } from './dam-types';
 import type { GenerationReference } from './dam-generation';
 import {
   buildTailwaterStatus,
+  tailwaterStatusVoiceOver,
   TAILWATER_IDLE_NOTE,
   TAILWATER_RISE_NOTE,
+  TAILWATER_STATUS_METRICS,
   TAILWATER_UNAVAILABLE_NOTE,
 } from './tailwater-status';
 
@@ -169,7 +171,9 @@ test('a rising tailwater reads as prose and earns the wading line', () => {
     }),
     NOON_CENTRAL
   )!;
-  assert.ok(status.supporting.includes('Water below the dam rose 2.1 ft over 3 hours'));
+  assert.ok(
+    status.supporting.includes('Water below the dam rose 2.1 ft over 3 hours · 20 minutes ago')
+  );
   assert.equal(status.safetyNote, TAILWATER_RISE_NOTE);
 });
 
@@ -185,7 +189,9 @@ test('a falling tailwater reports the fall and does NOT carry the rise line', ()
     }),
     NOON_CENTRAL
   )!;
-  assert.ok(status.supporting.includes('Water below the dam fell 2.6 ft over 3 hours'));
+  assert.ok(
+    status.supporting.includes('Water below the dam fell 2.6 ft over 3 hours · 20 minutes ago')
+  );
   assert.equal(status.safetyNote, null);
 });
 
@@ -203,7 +209,7 @@ test('no trend renders no movement line and invents no steady band', () => {
 test('a bare age never leaks through as if it were movement', () => {
   // tailwaterMovementSentence() answers with the AGE alone when there is no
   // trend. Under a heading about the dam that reads as movement, so this row
-  // gates before it words anything.
+  // gates before it words anything — no trend means no line, age included.
   const status = buildTailwaterStatus(
     dam({
       metrics: { generationFlow: reading(3_300, 20), tailwaterElevation: stage(20) },
@@ -211,6 +217,35 @@ test('a bare age never leaks through as if it were movement', () => {
     NOON_CENTRAL
   )!;
   assert.doesNotMatch(allText(status), /ago\b/i);
+});
+
+test('a movement line always carries the age of its OWN observation', () => {
+  // This once carried none, borrowing the condition card's age. The condition
+  // card reads a USGS gauge; tailwaterElevation is a CWMS reading at the dam.
+  // Two observations, two clocks — so a 100-minute-old rise was rendering as
+  // undated current context and arming the wading line with it.
+  const status = buildTailwaterStatus(
+    dam({
+      metrics: {
+        generationFlow: reading(3_300, 5),
+        tailwaterElevation: stage(100, { hours: 3, delta: 2.14 }),
+      },
+    }),
+    NOON_CENTRAL
+  )!;
+  const line = status.supporting.find((l) => l.includes('Water below the dam'))!;
+  assert.ok(line, 'a fresh trend produced no movement line');
+  assert.match(line, /· an hour ago$/, `movement went undated: ${line}`);
+});
+
+test('every movement line in every state is dated', () => {
+  for (const [label, input] of EVERY_STATE) {
+    const status = buildTailwaterStatus(input, NOON_CENTRAL)!;
+    for (const line of status.supporting) {
+      if (!line.includes('Water below the dam')) continue;
+      assert.match(line, / · .+ ago$/, `${label} rendered an undated movement line`);
+    }
+  }
 });
 
 test('a lagging or stale tailwater reading reports no movement at all', () => {
@@ -324,4 +359,38 @@ test('a project with no powerhouse gets no row at all', () => {
     ),
     null
   );
+});
+
+// ── What a screen reader hears ─────────────────────────────────────────────
+
+test('the spoken row contains every line the row shows', () => {
+  // The defect this pins: an accessibilityLabel of just the headline, which
+  // replaces the label RN aggregates from the children and drops the wading
+  // warning along with everything else.
+  for (const [label, input] of EVERY_STATE) {
+    const status = buildTailwaterStatus(input, NOON_CENTRAL)!;
+    const spoken = tailwaterStatusVoiceOver(status);
+    assert.ok(spoken.includes(status.headline), `${label}: headline missing`);
+    for (const line of status.supporting) {
+      assert.ok(spoken.includes(line), `${label}: supporting line missing — ${line}`);
+    }
+    if (status.safetyNote) {
+      // Trailing period is normalised by the joiner, so compare without it.
+      const note = status.safetyNote.replace(/\.$/, '');
+      assert.ok(spoken.includes(note), `${label}: safety note missing`);
+    }
+  }
+});
+
+test('the spoken row names its destination last', () => {
+  const status = buildTailwaterStatus(dam(), NOON_CENTRAL)!;
+  const spoken = tailwaterStatusVoiceOver(status);
+  assert.match(spoken, /Opens Bull Shoals Dam details\.$/);
+  // The facts come before what the row does.
+  assert.ok(spoken.indexOf(status.headline) < spoken.indexOf('Opens'));
+});
+
+test('the metrics the model needs are declared for the route contract', () => {
+  // dams-route-contract.test.ts asserts this list against SUMMARY_METRICS.
+  assert.deepEqual([...TAILWATER_STATUS_METRICS], ['generationFlow', 'tailwaterElevation']);
 });

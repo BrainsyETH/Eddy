@@ -44,9 +44,31 @@ import { createPortal } from 'react-dom';
 
 interface RiverGaugeDetailProps {
   riverSlug: string;
+  /**
+   * A slot rendered directly under the "Right now" summary — today the dam
+   * operations row on a tailwater.
+   *
+   * ── Why a slot and not a prop of data ──────────────────────────────────────
+   * The row is a SERVER component fed by the dam snapshot the page already
+   * fetched. This file is 'use client', so taking the snapshot as data would
+   * mean importing @/lib/data/dams into the browser bundle for one river in
+   * every twenty. A pre-rendered node costs nothing and keeps the fetch on the
+   * server where it already was.
+   *
+   * ── Why it is here rather than after this component ───────────────────────
+   * It was placed after <RiverGaugeDetail /> on the page, on the assumption
+   * that this rendered the condition and little else. It renders the whole
+   * report — chart, weather, reading, outlook, Eddy Says, thresholds and the
+   * photo gallery — so "directly under the verdict" put the row a thousand
+   * pixels below the verdict and one section above the dam panel it was meant
+   * to be distinct from. Under the summary is where it was always supposed to be.
+   *
+   * Optional, because every other consumer of this component has no dam.
+   */
+  damSlot?: React.ReactNode;
 }
 
-export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
+export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetailProps) {
   const { riverGroup, isLoading } = useRiverGroup(riverSlug);
   const prefetchHistory = useGaugeHistoryPrefetch();
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
@@ -414,6 +436,13 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
           flowPercentile={gaugeDetail?.flowPercentile ?? null}
           floodStages={gaugeDetail?.floodStages ?? null}
         />
+
+        {/* Dam operations, under the reading they qualify and above the
+            hydrograph. Subordinate on purpose: the condition in the summary is
+            a verdict about FLOATING, and on a tailwater that is a different
+            question from what the powerhouse is doing. Absent on every river
+            without a dam, which is nearly all of them. */}
+        {damSlot}
 
         {/* The hydrograph — third, above the outdoor conditions and the
             deeper interpretation. It used to close the column, below the

@@ -13,8 +13,17 @@
 // ── Why the whole row is the link ───────────────────────────────────────────
 // A "details" link floating inside a bordered box is two targets for one
 // destination, and the smaller one is the one on a phone. The row is a single
-// anchor whose accessible name is the headline — which is why the headline
-// always names the dam rather than leaning on a "Tailwater update" eyebrow.
+// anchor whose accessible name is computed from its text — which is why the
+// headline always names the dam rather than leaning on a "Tailwater update"
+// eyebrow, and why nothing here sets an aria-label: doing so would REPLACE that
+// computed name and drop the lines below the headline, which is exactly what
+// went wrong on the iOS side.
+//
+// ── Why a divider and not a card ────────────────────────────────────────────
+// It shipped as a rounded bordered box directly beneath GaugeSummary, which is
+// itself a rounded bordered box — a second outline stacked on the first, which
+// reads as another object competing with the reading rather than as a line
+// qualifying it. A hairline rule and no fill is the quiet version.
 //
 // Server component, fed by the riverDam the page already fetched inside its
 // existing Promise.all, so it costs no request and no client-side flash.
@@ -35,12 +44,14 @@ export default function TailwaterStatusRow({ dam }: { dam: DamSnapshot }) {
   return (
     <Link
       href={`/dams/${status.damId}`}
-      className="group mt-3 flex w-full items-start gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 no-underline transition-colors hover:border-primary-300 hover:bg-primary-50/40"
+      className="group flex w-full items-start gap-3 border-t border-neutral-200 pt-3 no-underline"
     >
       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary-700" aria-hidden />
 
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-semibold text-neutral-900">{status.headline}</div>
+        <div className="text-sm font-semibold text-neutral-900 transition-colors group-hover:text-primary-800">
+          {status.headline}
+        </div>
 
         {status.supporting.map((line) => (
           <div key={line} className="mt-0.5 text-sm text-neutral-600">

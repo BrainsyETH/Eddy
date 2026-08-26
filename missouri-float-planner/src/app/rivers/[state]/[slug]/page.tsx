@@ -456,14 +456,14 @@ export default async function RiverGuidePage({ params }: Props) {
             <h2 className="mb-3 text-xl font-bold text-neutral-900 md:text-2xl" style={{ fontFamily: 'var(--font-display)' }}>
               Live report
             </h2>
-            <RiverGaugeDetail riverSlug={slug} />
-            {/* Dam operations, directly under the verdict they qualify.
-                Subordinate on purpose: the condition above is about FLOATING,
-                and on a tailwater that is a different question from what the
-                powerhouse is doing — minimum release is the best wading on the
-                river and unfloatable. Renders nothing for a flood-control
-                project with no turbines, which is every dam but three. */}
-            {riverDam && <TailwaterStatusRow dam={riverDam.dam} />}
+            {/* The dam row goes THROUGH the report, not after it: it belongs
+                under the "Right now" summary, and this component renders the
+                whole report below that. Server-rendered here, so the snapshot
+                never reaches the browser bundle. */}
+            <RiverGaugeDetail
+              riverSlug={slug}
+              damSlot={riverDam ? <TailwaterStatusRow dam={riverDam.dam} /> : null}
+            />
           </section>
 
           {/* ===== Reaches — only where the river's halves differ ===== */}
