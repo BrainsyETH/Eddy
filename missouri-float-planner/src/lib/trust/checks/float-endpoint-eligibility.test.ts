@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   deriveEndpointEligibilityFindings,
+  isVehicleUnreachable,
   type EndpointEligibilityRow,
 } from './float-endpoint-eligibility';
 
@@ -31,6 +32,8 @@ function row(overrides: Partial<EndpointEligibilityRow> = {}): EndpointEligibili
     approved: true,
     is_float_endpoint: true,
     river_slug: 'current',
+    road_access: 'Gravel road off Hwy 19, passable in a car.',
+    parking_info: 'Gravel lot for about eight vehicles.',
     ...overrides,
   };
 }
@@ -186,6 +189,137 @@ test('one row never raises both rules', () => {
   ]);
   assert.equal(findings.length, 1);
   assert.equal(findings[0].ruleKey, 'launch_not_selectable');
+});
+
+test('a boat-in float camp offered as an endpoint is flagged on the road, not the roles', () => {
+  // The live shape of five of the six USFS float camps on the Eleven Point, all
+  // offered as put-ins with "NO ROAD ACCESS" on the row itself. Nobody
+  // can leave a vehicle at any of them.
+  const findings = deriveEndpointEligibilityFindings([
+    row({
+      name: 'Denny Hollow Float Camp',
+      slug: 'denny-hollow-float-camp',
+      type: 'campground',
+      types: ['campground'],
+      river_slug: 'eleven-point',
+      is_float_endpoint: true,
+      road_access: 'NO ROAD ACCESS',
+    }),
+  ]);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].ruleKey, 'unreachable_offered_as_endpoint');
+  assert.match(findings[0].title, /no road to it/);
+});
+
+test('the road rule outranks the roles rule, so one row still raises one finding', () => {
+  // Denny Hollow qualifies for BOTH: campground-only roles AND no road. The
+  // road is the more fundamental fact and the one whose remediation is right,
+  // so it wins — and the ledger never sees the same row twice.
+  const findings = deriveEndpointEligibilityFindings([
+    row({ types: ['campground'], is_float_endpoint: true, road_access: 'NO ROAD ACCESS' }),
+  ]);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].ruleKey, 'unreachable_offered_as_endpoint');
+});
+
+test('a launch role does not rescue a boat-in camp', () => {
+  // The gap this rule exists to close. A float camp really does have a gravel
+  // bar, so adding the role is not wrong — but before this rule it silenced the
+  // roles finding and left the point in the picker.
+  const findings = deriveEndpointEligibilityFindings([
+    row({
+      types: ['campground', 'gravel_bar'],
+      is_float_endpoint: true,
+      road_access: 'NO ROAD ACCESS. Primary access by river from Riverton.',
+    }),
+  ]);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].ruleKey, 'unreachable_offered_as_endpoint');
+});
+
+test('a boat-in camp correctly excluded is not reported as a launch nobody can choose', () => {
+  // The other direction, and the reason this is a guard rather than a third
+  // finding. Once the flag is false these five are RIGHT, and telling somebody
+  // to flip it would undo the fix.
+  assert.deepEqual(
+    deriveEndpointEligibilityFindings([
+      row({
+        types: ['campground', 'gravel_bar'],
+        is_float_endpoint: false,
+        road_access: 'NO ROAD ACCESS',
+      }),
+    ]),
+    [],
+  );
+});
+
+test('isVehicleUnreachable only fires on a leading declaration', () => {
+  // Anchored deliberately: a loose match would pull in prose that says the
+  // opposite, and a false positive both files a bogus finding AND suppresses
+  // launch_not_selectable on the same row.
+  for (const yes of [
+    'NO ROAD ACCESS',
+    'no road access',
+    '  No road access. Hike or float in.',
+    'NO VEHICLE ACCESS',
+    'River access only',
+  ]) {
+    assert.equal(isVehicleUnreachable(yes), true, `${yes} should read as unreachable`);
+  }
+  for (const no of [
+    'Gravel road, no road access issues in a passenger car.',
+    'Paved to the ramp. No road access fee.',
+    // The one anchoring alone would get wrong: the phrase IS at the front, and
+    // the sentence says the opposite of what the rule is looking for.
+    'No road access fee. Paved lot at the ramp.',
+    'No vehicle access restrictions in summer.',
+    'Good road access.',
+    '',
+    null,
+  ]) {
+    assert.equal(isVehicleUnreachable(no), false, `${no} should NOT read as unreachable`);
+  }
+});
+
+test('Greenbriar — the one no rule could see — is caught on parking_info', () => {
+  // Its exact live shape. road_access is NULL and `types` is empty, so the
+  // roles rule correctly declined to judge it and a road_access-only guard
+  // would have missed it too. It sat in the put-in picker beside five identical
+  // neighbours that were being reported every day. The declaration is on the
+  // row; it is just in the other field.
+  const findings = deriveEndpointEligibilityFindings([
+    row({
+      name: 'Greenbriar Float Camp',
+      slug: 'greenbriar-float-camp',
+      type: 'float_camp',
+      types: [],
+      river_slug: 'eleven-point',
+      is_float_endpoint: true,
+      road_access: null,
+      parking_info: 'No vehicle access. River only.',
+    }),
+  ]);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].ruleKey, 'unreachable_offered_as_endpoint');
+  // The detail must quote the field that actually carried the declaration.
+  assert.match(findings[0].detail, /No vehicle access/);
+});
+
+test('either field alone is enough, and neither is required', () => {
+  assert.equal(isVehicleUnreachable('NO ROAD ACCESS', 'Gravel lot for eight.'), true);
+  assert.equal(isVehicleUnreachable(null, 'No vehicle access. River only.'), true);
+  assert.equal(isVehicleUnreachable(null, null), false);
+  assert.equal(isVehicleUnreachable('Paved to the ramp.', 'Large paved lot.'), false);
+});
+
+test('a null road_access leaves the roles rules in charge', () => {
+  // Most rows say nothing about the road. Silence is not a claim of
+  // unreachability, and the roles rules must still work underneath.
+  const findings = deriveEndpointEligibilityFindings([
+    row({ types: ['park'], is_float_endpoint: true, road_access: null }),
+  ]);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].ruleKey, 'non_launch_offered_as_endpoint');
 });
 
 test('findings are ordered deterministically', () => {

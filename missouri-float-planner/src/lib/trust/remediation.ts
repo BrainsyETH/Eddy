@@ -220,6 +220,13 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     method:
       'Two different defects look the same here. Either the roles are incomplete — a campground WITH a ramp that never had boat_ramp added — in which case add the role and leave eligibility alone; or the place genuinely has no launch, in which case set is_float_endpoint = false and it keeps its page, its pin and its sitemap entry while leaving the planner. Check the managing agency\'s own map before deciding, and prefer local knowledge to a boundary line: Montauk State Park was classified a non-launch on exactly that reading in 2026-08, and it is in fact the first put-in on the Current.',
   },
+  unreachable_offered_as_endpoint: {
+    kind: 'judgment',
+    action: 'Confirm the road note, then set is_float_endpoint = false.',
+    where: '/admin/access-points',
+    method:
+      'Read road_access and parking_info together before deciding — the rule fires on a leading "NO ROAD ACCESS" / "no vehicle access" / "river access only", which is how the ingestion pipeline writes a boat-in site. If that is accurate the answer is is_float_endpoint = false, and the point keeps its page, its pin and its sitemap entry; it only leaves the put-in and take-out pickers. Do not "fix" this by adding a launch role: the roles are probably right, since a float camp really does have a gravel bar. The disqualifying fact is the missing road, not the missing bank. If the point IS road-reachable and the note is stale prose from an old import, correct the note instead and the finding closes on the next run.',
+  },
   launch_not_selectable: {
     kind: 'mechanical',
     action: 'Set is_float_endpoint = true if this really is a launch.',
