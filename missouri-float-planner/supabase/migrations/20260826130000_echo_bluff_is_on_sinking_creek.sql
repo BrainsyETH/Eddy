@@ -21,7 +21,8 @@
 --
 -- The same "near Eminence" premise also wrote an explicit service_rivers row
 -- against the Jacks Fork (00073:264), so this was never only a rounding error
--- in a coordinate — the wrong river was recorded as a fact.
+-- in a coordinate — the wrong river was recorded as a fact. That row is
+-- deleted here; see step 2.
 --
 -- ── WHY NO GUARDRAIL CAUGHT IT, WHICH IS THE PART WORTH FIXING ───────────
 --
@@ -89,21 +90,24 @@ UPDATE public.nearby_services
 -- 2. The river links
 -- ─────────────────────────────────────────────────────────────
 --
--- The Jacks Fork link is KEPT, and deliberately. Echo Bluff is a real and
--- commonly used base for a Jacks Fork trip — Alley Spring is a 25-minute
--- drive — and dropping it would take a genuinely useful lodging option out of
--- that river's directory. What was wrong was never that it appeared there; it
--- was that it appeared there as a riverside place, at a coordinate on the
--- bank, described as "Eminence area" as though it sat among the Eminence
--- outfitters.
+-- The Jacks Fork link GOES. Echo Bluff is a Current River place: it sits on
+-- Sinking Creek a third of a mile off the Current, its access point is on the
+-- Current, and it belongs to that river's directory. It is 8.8 miles from the
+-- Jacks Fork with a state highway in between.
 --
--- So the link stays non-primary and the section_description now says what the
--- relationship actually is. is_primary already points at the Current and is
--- left alone.
+-- Keeping a softened version of the link was considered and rejected. Being
+-- listed against a river is Eddy's claim that a place SERVES that river, and
+-- the directory has no tier that means "useful from here but not on it" — a
+-- reader scanning the Jacks Fork lodging list has no way to see that one of
+-- its entries is a different river's park. Every honest version of that row is
+-- a sentence in a description, not a row in service_rivers.
+--
+-- This also restores the invariant the whole defect violated: a service's
+-- links should be rivers it is actually near. Echo Bluff now has exactly one,
+-- and it is 0.34 mi away.
 
-UPDATE public.service_rivers sr
-   SET section_description = 'Base camp — ~9 mi north of the river via Hwy 19, on Sinking Creek off the Current. Not a Jacks Fork riverside property.'
-  FROM public.nearby_services ns, public.rivers r
+DELETE FROM public.service_rivers sr
+ USING public.nearby_services ns, public.rivers r
  WHERE sr.service_id = ns.id
    AND sr.river_id = r.id
    AND r.slug = 'jacks-fork'
@@ -314,6 +318,18 @@ BEGIN
       'echo-bluff-state-park is % mi from the Jacks Fork. It is ~8.8 mi away; anything close to the bank is the 2026-03 seed coordinate returning.', mi_jacks;
   END IF;
 
+  -- No Jacks Fork link survives, for either row.
+  IF EXISTS (
+    SELECT 1 FROM public.service_rivers sr
+      JOIN public.nearby_services ns ON ns.id = sr.service_id
+      JOIN public.rivers r ON r.id = sr.river_id
+     WHERE r.slug = 'jacks-fork'
+       AND ns.slug IN ('echo-bluff-state-park', 'timbuktu-campground')
+  ) THEN
+    RAISE EXCEPTION
+      'a jacks-fork service_rivers row survives for echo-bluff-state-park or timbuktu-campground. Echo Bluff is a Current River place; being listed against a river is a claim that it serves that river.';
+  END IF;
+
   -- The primary river must be the nearest linked river. This inversion is
   -- what the original bug looked like from the database's side.
   IF (SELECT sr.is_primary
@@ -377,7 +393,7 @@ BEGIN
   END IF;
 
   RAISE NOTICE
-    'echo-bluff-state-park: % mi from the Current, % mi from the Jacks Fork; access point created (non-launch), park same_place + Timbuktu located_at, availability routed.',
+    'echo-bluff-state-park: % mi from the Current, % mi from the Jacks Fork (link dropped); access point created (non-launch), park same_place + Timbuktu located_at, availability routed.',
     mi_current, mi_jacks;
 END $$;
 
