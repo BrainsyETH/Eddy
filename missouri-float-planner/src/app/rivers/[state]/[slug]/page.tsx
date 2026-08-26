@@ -24,6 +24,7 @@ import HubSectionNav from './HubSectionNav';
 import RiverAlertsPanel from '@/components/river/RiverAlertsPanel';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import RiverDamPanel from '@/components/dam/RiverDamPanel';
+import TailwaterStatusRow from '@/components/dam/TailwaterStatusRow';
 import { fetchRiverDam } from '@/lib/data/dams';
 import { getRiverAlerts } from '@/lib/alerts/river-alerts';
 import RiverReaches from '@/components/river/RiverReaches';
@@ -456,6 +457,13 @@ export default async function RiverGuidePage({ params }: Props) {
               Live report
             </h2>
             <RiverGaugeDetail riverSlug={slug} />
+            {/* Dam operations, directly under the verdict they qualify.
+                Subordinate on purpose: the condition above is about FLOATING,
+                and on a tailwater that is a different question from what the
+                powerhouse is doing — minimum release is the best wading on the
+                river and unfloatable. Renders nothing for a flood-control
+                project with no turbines, which is every dam but three. */}
+            {riverDam && <TailwaterStatusRow dam={riverDam.dam} />}
           </section>
 
           {/* ===== Reaches — only where the river's halves differ ===== */}

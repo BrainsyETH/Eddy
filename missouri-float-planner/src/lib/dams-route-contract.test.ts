@@ -34,6 +34,12 @@ const IOS_LIST_SURFACES = [
   '../eddy-ios/src/components/dam/DamRow.tsx',
   '../eddy-ios/src/components/dam/RiverDamPanel.tsx',
   '../eddy-ios/app/(tabs)/index.tsx',
+  // The river screen's tailwater row. It reads its metrics through
+  // buildTailwaterStatus() rather than inline, so the regex below sees nothing
+  // here today — it is listed because it is the first list-fed surface to need
+  // generationFlow and tailwaterElevation, and the day somebody reaches for a
+  // metric directly is the day this list has to already contain the file.
+  '../eddy-ios/src/components/dam/TailwaterStatusRow.tsx',
 ];
 
 /** Comments discuss fields they do not read — `dam.metrics.inflow` in prose. */

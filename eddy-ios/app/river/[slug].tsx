@@ -97,6 +97,7 @@ import { EddySymbol } from '@/components/EddySymbol';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { EddyTake } from '@/components/EddyTake';
 import { damForRiver } from '@/components/dam/RiverDamPanel';
+import { TailwaterStatusRow } from '@/components/dam/TailwaterStatusRow';
 import { RiverReaches } from '@/components/river/RiverReaches';
 import { GaugeChart } from '@/components/GaugeChart';
 import { offeringLabel } from '@/map/serviceLayers';
@@ -1241,6 +1242,13 @@ export default function RiverDetailScreen() {
         {/* The river's own stretches, each with the gauge that actually reads
             it. Directly under the status card because a reach IS the river —
             everything below this point interprets it. */}
+        {/* Dam operations, directly under the reading they explain. This used
+            to be one muted line at the very BOTTOM of the screen, below the
+            outfitters — the controlling fact about a regulated river, filed
+            under trivia. Renders nothing for a flood-control project with no
+            turbines, which is every dam but three. */}
+        <TailwaterStatusRow dam={dam} />
+
         <RiverReaches reaches={reaches} highlightSlug={section} damName={dam?.name ?? null} />
 
         {/* ── How it got to that number ──────────────────────────
@@ -1621,21 +1629,6 @@ export default function RiverDetailScreen() {
           </CollapsibleSection>
         ) : null}
 
-        {dam ? (
-          <Pressable
-            onPress={() => router.push(`/dam/${dam.id}`)}
-            style={({ pressed }) => [styles.damLink, { opacity: pressed ? 0.6 : 1 }]}
-            accessibilityRole="button"
-            accessibilityLabel={`${dam.name} controls this reach`}
-          >
-            <Ionicons name="water-outline" size={16} color={colors.interactive} />
-            <Text style={[styles.damLinkText, { color: colors.textMuted }]}>
-              {dam.name} controls this reach
-            </Text>
-            <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
-          </Pressable>
-        ) : null}
-
         <SafetyDisclaimer />
 
         {/* ── Directly under the disclaimer, on purpose ──
@@ -1885,13 +1878,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 13,
   },
-  damLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
-  },
-  damLinkText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
   serviceBody: { flex: 1 },
   serviceName: { ...t.sm, fontFamily: fonts.semibold },
   serviceMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },

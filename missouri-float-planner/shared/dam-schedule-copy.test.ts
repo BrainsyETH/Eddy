@@ -19,6 +19,7 @@ import {
   SCHEDULE_CHANGE_NOTE,
   SCHEDULE_CHANGE_SENTENCE,
   tailwaterMovementLabel,
+  tailwaterMovementProse,
   tailwaterMovementSentence,
   readingStaleness,
 } from './dam-schedule-copy';
@@ -568,4 +569,71 @@ test('a midnight change two days out names the night it actually falls on', () =
     nextScheduleChangeSentence(sixAm, NOON_CENTRAL),
     'Generation scheduled to start at 6 AM Thursday'
   );
+});
+
+// ── The prose form of the same movement ────────────────────────────────────
+//
+// A second rendering of one rule is a second place for it to drift, so these
+// pin the two against each other rather than only against fixed strings.
+
+test('movement prose names the subject and the direction', () => {
+  assert.equal(
+    tailwaterMovementProse({ hours: 3, delta: 2.14 }),
+    'Water below the dam rose 2.1 ft over 3 hours'
+  );
+  assert.equal(
+    tailwaterMovementProse({ hours: 3, delta: -0.44 }),
+    'Water below the dam fell 0.4 ft over 3 hours'
+  );
+});
+
+test('movement prose says one hour rather than 1 hours', () => {
+  // The window is a wire value, not a constant. 00213 shifted it once already.
+  assert.equal(
+    tailwaterMovementProse({ hours: 1, delta: 0.7 }),
+    'Water below the dam rose 0.7 ft over 1 hour'
+  );
+});
+
+test('movement prose has no age and no sign glyph', () => {
+  // The row it renders in sits under a reading that already states its age, and
+  // a second timestamp there reads as a second, disagreeing one. The signed
+  // glyph belongs to the instrument form.
+  const prose = tailwaterMovementProse({ hours: 3, delta: 2.14 })!;
+  assert.doesNotMatch(prose, /ago|·|\+|−/);
+});
+
+test('a change that rounds to zero is not movement in either form', () => {
+  // The rounding IS the threshold — there is no invented "steady" band, and
+  // both forms have to agree there is nothing to say.
+  for (const delta of [0, 0.04, -0.04]) {
+    assert.equal(tailwaterMovementProse({ hours: 3, delta }), null, `prose at ${delta}`);
+    assert.equal(tailwaterMovementLabel({ hours: 3, delta }), null, `label at ${delta}`);
+  }
+});
+
+test('an absent trend is null in both forms', () => {
+  assert.equal(tailwaterMovementProse(null), null);
+  assert.equal(tailwaterMovementProse(undefined), null);
+  assert.equal(tailwaterMovementLabel(null), null);
+});
+
+test('prose and label never disagree about sign or magnitude', () => {
+  // The failure this prevents: one surface saying the tailwater is flat while
+  // another, reading the same trend, says it rose. Both round through the same
+  // helper, and this is what holds them there.
+  for (const delta of [-4.06, -2.57, -0.05, 0, 0.05, 0.44, 2.14, 9.99]) {
+    const label = tailwaterMovementLabel({ hours: 3, delta });
+    const prose = tailwaterMovementProse({ hours: 3, delta });
+    assert.equal(label === null, prose === null, `null-ness disagrees at ${delta}`);
+    if (label === null || prose === null) continue;
+
+    const magnitude = label.match(/([\d.]+) ft/)![1];
+    assert.ok(prose.includes(`${magnitude} ft`), `magnitude disagrees at ${delta}`);
+    assert.equal(
+      label.startsWith('+'),
+      prose.includes('rose'),
+      `direction disagrees at ${delta}`
+    );
+  }
 });
