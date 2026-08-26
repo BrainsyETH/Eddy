@@ -222,11 +222,23 @@ async function applyTransfer(
       stamp: { id: event.id ?? null, type: event.type ?? null, at: eventAt },
     });
 
+    // Nothing copied AND the pull failed means NOTHING was written for someone
+    // who is being billed — the precise state this whole path exists to
+    // prevent. RevenueCat retries on 5xx and will not retry a 200, so
+    // acknowledging here would strand them exactly as the copy-only handler
+    // did. A transient RevenueCat or database failure is retryable; say so.
+    if (sourceRows === 0 && reconciled.status === 'error') {
+      console.error(
+        `${LOG_PREFIX} TRANSFER ${event.id} → ${targetId} had no source rows and the ` +
+          `RevenueCat reconcile failed (${reconciled.detail}) — asking for a retry`
+      );
+      return { status: 'error' };
+    }
+
     if (sourceRows === 0 && reconciled.status === 'not_configured') {
-      // Loud, and only in the case that actually strands someone: nothing to
-      // copy AND no way to ask. The symptom is otherwise invisible — the
-      // customer is billed, the restore looks fine on the device, and not one
-      // row is written.
+      // Loud, but NOT retryable: no number of redeliveries adds an environment
+      // variable. The symptom is otherwise invisible — the customer is billed,
+      // the restore looks fine on the device, and not one row is written.
       console.error(
         `${LOG_PREFIX} TRANSFER ${event.id} → ${targetId} had no source rows and ` +
           'REVENUECAT_SECRET_API_KEY is unset — the entitlement could NOT be resolved ' +

@@ -27,6 +27,7 @@ import {
   packageTerms,
   perMonthPriceString,
   PREMIUM_UNAVAILABLE_COPY,
+  receiptBelongsToAnotherAccount,
   redemptionAlert,
   restoreAlert,
   savingsLabel,
@@ -738,4 +739,58 @@ test('both restore surfaces reconcile with the server before claiming anything',
     // titling a failure "Nothing to restore".
     assert.match(source, /restoreAlert\(result, /);
   }
+});
+
+test('the receipt-in-use branch reads the SDK enum instead of a written-down code', () => {
+  // These codes are consecutive small integers with no mnemonic value and the
+  // neighbours are traps: 7 is the one this wants, 8 is INVALID_RECEIPT, and 9
+  // — one position away, and where this branch first landed — is
+  // MISSING_RECEIPT_FILE. Off by one does not fail loudly. It shows the wrong
+  // sentence to the one person who needs the right one.
+  const codes = {
+    RECEIPT_ALREADY_IN_USE_ERROR: '7',
+    RECEIPT_IN_USE_BY_OTHER_SUBSCRIBER_ERROR: '13',
+  };
+
+  assert.equal(receiptBelongsToAnotherAccount({ code: '7' }, codes), true);
+  assert.equal(receiptBelongsToAnotherAccount({ code: '13' }, codes), true);
+  // The value arrives from native code and has been a number in past versions.
+  assert.equal(receiptBelongsToAnotherAccount({ code: 7 }, codes), true);
+
+  // MISSING_RECEIPT_FILE_ERROR, INVALID_RECEIPT_ERROR, NETWORK_ERROR: real
+  // failures that must keep the "could not reach the App Store" message.
+  for (const code of ['9', '8', '10', '', undefined, null]) {
+    assert.equal(receiptBelongsToAnotherAccount({ code }, codes), false, `code ${code}`);
+  }
+
+  // No enum means the native module is absent, and a restore cannot have run.
+  assert.equal(receiptBelongsToAnotherAccount({ code: '7' }, null), false);
+  assert.equal(receiptBelongsToAnotherAccount({}, codes), false);
+
+  // And the source reads the enum off the module rather than restating it.
+  const purchases = readFileSync('../eddy-ios/src/lib/purchases.ts', 'utf8');
+  assert.match(purchases, /loadPurchasesModule\(\)\?\.PURCHASES_ERROR_CODE/);
+});
+
+test('the SDK still exports both receipt-in-use codes under those names', () => {
+  // Reads the installed types when they are there. CI's web job installs only
+  // missouri-float-planner, so this is skipped rather than imported — a value
+  // import from eddy-ios/node_modules is the MODULE_NOT_FOUND documented in
+  // tsconfig.test.json. Local runs and the mobile checkout still catch a rename.
+  let declaration: string;
+  try {
+    declaration = readFileSync(
+      '../eddy-ios/node_modules/@revenuecat/purchases-typescript-internal/dist/generated/error-codes.d.ts',
+      'utf8',
+    );
+  } catch {
+    return; // the Expo app is not installed in this checkout
+  }
+
+  assert.match(declaration, /RECEIPT_ALREADY_IN_USE_ERROR = "\d+"/);
+  assert.match(declaration, /RECEIPT_IN_USE_BY_OTHER_SUBSCRIBER_ERROR = "\d+"/);
+  // The trap, asserted so a future SDK renumbering shows up here as a diff
+  // rather than as a wrong alert in someone's hands.
+  assert.match(declaration, /MISSING_RECEIPT_FILE_ERROR = "9"/);
+  assert.match(declaration, /RECEIPT_ALREADY_IN_USE_ERROR = "7"/);
 });

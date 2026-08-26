@@ -238,12 +238,15 @@ export interface ReconcileParams extends FetchOptions {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AdminClient = any;
 
+/** The forward-only writer. See its migration for why it is one statement. */
+export const RECONCILE_RPC = 'reconcile_entitlement';
+
 /**
  * Bring one user's entitlement row up to what RevenueCat currently reports.
  *
  * ── The expiry guard, which is the whole safety story ─────────────────────
  *
- * This writes only when RevenueCat's expiry is LATER than the one already
+ * The write lands only when RevenueCat's expiry is LATER than the one already
  * stored. Three things follow, and all three are load-bearing:
  *
  *   * It cannot revoke. A reconcile that raced a RENEWAL, or ran against a
@@ -255,8 +258,22 @@ type AdminClient = any;
  *   * A no-op is reported honestly (`current`) rather than as a write, so the
  *     app can tell "already correct" from "just fixed".
  *
- * Takes a SERVICE-ROLE client: `entitlements` has no write policy for anyone
- * (migration 00180), by design.
+ * ── And why that guard is not in this file ────────────────────────────────
+ *
+ * It was, once: read the stored expiry, compare, upsert. Which is not the rule
+ * above — it is the rule above with a gap in the middle. A RENEWAL webhook
+ * landing between the read and the write gets silently overwritten by the older
+ * expiry this was holding, which is precisely the revocation the guard exists
+ * to forbid, on a live subscriber, reported as success. Small window, ordinary
+ * trigger: a restore on the day a subscription renews.
+ *
+ * So the comparison and the write are one statement, in Postgres, under the row
+ * lock — public.reconcile_entitlement(). A guarantee that has to hold under
+ * concurrency cannot be enforced by a process that only observes it.
+ *
+ * Called with a SERVICE-ROLE client: `entitlements` has no write policy for
+ * anyone (migration 00180), by design, and the function is granted to
+ * service_role alone.
  */
 export async function reconcileEntitlement(
   admin: AdminClient,
@@ -274,46 +291,33 @@ export async function reconcileEntitlement(
   const patch = subscriberEntitlementPatch(fetched.subscriber, entitlementId);
   if (!patch?.expires_at) return { status: 'none', expiresAt: null };
 
-  const { data: existing, error: readError } = await admin
-    .from('entitlements')
-    .select('expires_at')
-    .eq('user_id', userId)
-    .eq('entitlement_id', entitlementId)
-    .maybeSingle();
+  const { data, error } = await admin.rpc(RECONCILE_RPC, {
+    p_user_id: userId,
+    p_entitlement_id: entitlementId,
+    p_expires_at: patch.expires_at,
+    p_will_renew: patch.will_renew ?? null,
+    p_product_id: patch.product_id ?? null,
+    p_store: patch.store ?? null,
+    p_environment: patch.environment ?? null,
+    p_billing_issue_detected_at: patch.billing_issue_detected_at ?? null,
+    p_last_event_id: stamp?.id ?? null,
+    p_last_event_type: stamp?.type ?? null,
+    p_last_event_at: stamp?.at ?? null,
+  });
 
-  if (readError) {
-    return { status: 'error', expiresAt: null, detail: readError.message };
+  if (error) {
+    // Includes the function not existing yet, which is a deployment that ran
+    // ahead of its migration. Reported as an error rather than swallowed: the
+    // webhook then 5xxes and RevenueCat retries, so the entitlement survives
+    // the gap instead of being dropped on the floor.
+    return { status: 'error', expiresAt: null, detail: error.message };
   }
 
-  const stored = existing?.expires_at ? new Date(existing.expires_at).getTime() : null;
-  const wanted = new Date(patch.expires_at).getTime();
-  if (stored !== null && !Number.isNaN(stored) && stored >= wanted) {
-    return { status: 'current', expiresAt: existing.expires_at };
-  }
+  if (data === 'granted') return { status: 'granted', expiresAt: patch.expires_at };
+  if (data === 'unknown_user') return { status: 'unknown_user', expiresAt: null };
+  if (data === 'current') return { status: 'current', expiresAt: null };
 
-  const row: Record<string, unknown> = {
-    user_id: userId,
-    entitlement_id: entitlementId,
-    rc_app_user_id: userId,
-    ...(stamp
-      ? { last_event_id: stamp.id, last_event_type: stamp.type, last_event_at: stamp.at }
-      : {}),
-  };
-  for (const [key, value] of Object.entries(patch)) {
-    if (value !== undefined) row[key] = value;
-  }
-
-  const { error: upsertError } = await admin
-    .from('entitlements')
-    .upsert(row, { onConflict: 'user_id,entitlement_id' });
-
-  if (upsertError) {
-    // 23503 = FK violation: a well-formed uuid with no auth user behind it.
-    // Reconciling a deleted account is not retryable and not an error worth
-    // 500-ing a webhook over.
-    if (upsertError.code === '23503') return { status: 'unknown_user', expiresAt: null };
-    return { status: 'error', expiresAt: null, detail: upsertError.message };
-  }
-
-  return { status: 'granted', expiresAt: patch.expires_at };
+  // A status this file does not know is a function it does not know. Treating
+  // it as success would report a write nobody can show happened.
+  return { status: 'error', expiresAt: null, detail: `unexpected rpc result: ${String(data)}` };
 }

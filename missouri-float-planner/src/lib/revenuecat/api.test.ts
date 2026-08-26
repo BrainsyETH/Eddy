@@ -9,9 +9,11 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import {
   fetchSubscriber,
   reconcileEntitlement,
+  RECONCILE_RPC,
   subscriberEntitlementPatch,
 } from './api';
 
@@ -172,31 +174,23 @@ test('an unknown subscriber is reported as owning nothing', async () => {
 
 // ── Reconcile ────────────────────────────────────────────────────
 
-/** Minimal stand-in for the service-role client, recording what it was asked. */
-function fakeAdmin(existing: { expires_at: string } | null) {
-  const upserts: Record<string, unknown>[] = [];
+/**
+ * Stand-in for the service-role client, recording every RPC it was asked for.
+ *
+ * `result` is what public.reconcile_entitlement() answered — the forward-only
+ * decision is the FUNCTION's, not this module's, which is the point of the
+ * migration. So these tests check that the call carries the right arguments and
+ * that each answer is reported honestly; the guarantee itself is SQL.
+ */
+function fakeAdmin(result: string | null, error: { message: string } | null = null) {
+  const calls: Record<string, unknown>[] = [];
   const client = {
-    from() {
-      return {
-        select() {
-          return {
-            eq() {
-              return {
-                eq() {
-                  return { maybeSingle: async () => ({ data: existing, error: null }) };
-                },
-              };
-            },
-          };
-        },
-        upsert: async (row: Record<string, unknown>) => {
-          upserts.push(row);
-          return { error: null };
-        },
-      };
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      calls.push({ name, ...args });
+      return { data: result, error };
     },
   };
-  return { client, upserts };
+  return { client, calls };
 }
 
 function okFetch() {
@@ -206,10 +200,10 @@ function okFetch() {
     })) as unknown as typeof fetch;
 }
 
-test('a transferred subscription is written onto an account with no row', async () => {
+test('a transferred subscription is handed to the forward-only writer', async () => {
   // The whole point: the buying account was deleted, its row cascaded away, and
   // the TRANSFER event carries no state to rebuild it from.
-  const { client, upserts } = fakeAdmin(null);
+  const { client, calls } = fakeAdmin('granted');
 
   const outcome = await reconcileEntitlement(client, {
     userId: USER,
@@ -219,18 +213,38 @@ test('a transferred subscription is written onto an account with no row', async 
   });
 
   assert.equal(outcome.status, 'granted');
-  assert.equal(upserts.length, 1);
-  assert.equal(upserts[0].user_id, USER);
-  assert.equal(upserts[0].entitlement_id, ENTITLEMENT);
-  assert.equal(upserts[0].expires_at, '2027-08-14T01:44:04.000Z');
-  assert.equal(upserts[0].rc_app_user_id, USER);
+  assert.equal(outcome.expiresAt, '2027-08-14T01:44:04.000Z');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, RECONCILE_RPC);
+  assert.equal(calls[0].p_user_id, USER);
+  assert.equal(calls[0].p_entitlement_id, ENTITLEMENT);
+  assert.equal(calls[0].p_expires_at, '2027-08-14T01:44:04.000Z');
+  assert.equal(calls[0].p_will_renew, true);
+  assert.equal(calls[0].p_environment, 'PRODUCTION');
 });
 
-test('a reconcile can never move an entitlement backwards', async () => {
-  // A reconcile racing a fresh RENEWAL, or reading a replica a second behind,
-  // must not walk a subscriber back to an expiry they have already passed.
-  // This is what makes the endpoint safe to hand to the app.
-  const { client, upserts } = fakeAdmin({ expires_at: '2028-01-01T00:00:00.000Z' });
+test('the compare-and-write is one statement, not a read then an upsert', () => {
+  // A RENEWAL landing between a client-side read and its write is silently
+  // overwritten by the older expiry — the exact revocation the forward-only
+  // rule forbids, on a live subscriber, reported as success. The guarantee has
+  // to hold under concurrency, so it lives under the row lock.
+  const source = readFileSync('src/lib/revenuecat/api.ts', 'utf8');
+  assert.doesNotMatch(source, /\.upsert\(/);
+
+  const migration = readFileSync(
+    'supabase/migrations/20260826112559_reconcile_entitlement_can_only_move_forward.sql',
+    'utf8',
+  );
+  assert.match(migration, /on conflict \(user_id, entitlement_id\) do update/);
+  assert.match(migration, /where e\.expires_at is null or e\.expires_at < excluded\.expires_at/);
+  // PostgREST exposes every public function as an RPC, so the grants are the
+  // access control on a SECURITY DEFINER writer of a table with no write policy.
+  assert.match(migration, /revoke all on function public\.reconcile_entitlement/);
+  assert.match(migration, /from public, anon, authenticated/);
+});
+
+test('already-current is reported as a no-op, not as a write', async () => {
+  const { client } = fakeAdmin('current');
 
   const outcome = await reconcileEntitlement(client, {
     userId: USER,
@@ -239,12 +253,13 @@ test('a reconcile can never move an entitlement backwards', async () => {
     fetchImpl: okFetch(),
   });
 
+  // The app tells "already correct" from "just fixed" by this, so reporting a
+  // no-op as a refresh would let it claim it fixed something every time.
   assert.equal(outcome.status, 'current');
-  assert.equal(upserts.length, 0);
 });
 
-test('an expired row is extended when RevenueCat reports a later expiry', async () => {
-  const { client, upserts } = fakeAdmin({ expires_at: '2026-01-01T00:00:00.000Z' });
+test('a deleted target account is reported as unknown, not retried forever', async () => {
+  const { client } = fakeAdmin('unknown_user');
 
   const outcome = await reconcileEntitlement(client, {
     userId: USER,
@@ -253,12 +268,11 @@ test('an expired row is extended when RevenueCat reports a later expiry', async 
     fetchImpl: okFetch(),
   });
 
-  assert.equal(outcome.status, 'granted');
-  assert.equal(upserts.length, 1);
+  assert.equal(outcome.status, 'unknown_user');
 });
 
 test('webhook provenance is stamped when a webhook triggered the reconcile', async () => {
-  const { client, upserts } = fakeAdmin(null);
+  const { client, calls } = fakeAdmin('granted');
 
   await reconcileEntitlement(client, {
     userId: USER,
@@ -268,13 +282,13 @@ test('webhook provenance is stamped when a webhook triggered the reconcile', asy
     stamp: { id: 'evt_transfer_1', type: 'TRANSFER', at: '2026-08-24T20:32:00.000Z' },
   });
 
-  assert.equal(upserts[0].last_event_id, 'evt_transfer_1');
-  assert.equal(upserts[0].last_event_type, 'TRANSFER');
-  assert.equal(upserts[0].last_event_at, '2026-08-24T20:32:00.000Z');
+  assert.equal(calls[0].p_last_event_id, 'evt_transfer_1');
+  assert.equal(calls[0].p_last_event_type, 'TRANSFER');
+  assert.equal(calls[0].p_last_event_at, '2026-08-24T20:32:00.000Z');
 });
 
 test('without the secret key nothing is written and the caller is told why', async () => {
-  const { client, upserts } = fakeAdmin(null);
+  const { client, calls } = fakeAdmin('granted');
 
   const outcome = await reconcileEntitlement(client, {
     userId: USER,
@@ -285,11 +299,11 @@ test('without the secret key nothing is written and the caller is told why', asy
   // Distinct from 'none': the difference is "they own nothing" versus "we did
   // not look", and only one of those is worth alerting a deployment about.
   assert.equal(outcome.status, 'not_configured');
-  assert.equal(upserts.length, 0);
+  assert.equal(calls.length, 0);
 });
 
 test('a RevenueCat outage never writes and never claims an absence', async () => {
-  const { client, upserts } = fakeAdmin(null);
+  const { client, calls } = fakeAdmin('granted');
 
   const outcome = await reconcileEntitlement(client, {
     userId: USER,
@@ -301,5 +315,51 @@ test('a RevenueCat outage never writes and never claims an absence', async () =>
   });
 
   assert.equal(outcome.status, 'error');
-  assert.equal(upserts.length, 0);
+  assert.equal(calls.length, 0);
+});
+
+test('a database failure is an error, so the webhook can ask for a retry', async () => {
+  // Includes the function not existing yet — a deploy that ran ahead of its
+  // migration. Swallowing it would drop a live entitlement on the floor.
+  const { client } = fakeAdmin(null, { message: 'function does not exist' });
+
+  const outcome = await reconcileEntitlement(client, {
+    userId: USER,
+    entitlementId: ENTITLEMENT,
+    apiKey: 'sk_test',
+    fetchImpl: okFetch(),
+  });
+
+  assert.equal(outcome.status, 'error');
+  assert.match(String(outcome.detail), /does not exist/);
+});
+
+test('an unrecognised rpc answer is never reported as a successful write', async () => {
+  const { client } = fakeAdmin('something_new');
+
+  const outcome = await reconcileEntitlement(client, {
+    userId: USER,
+    entitlementId: ENTITLEMENT,
+    apiKey: 'sk_test',
+    fetchImpl: okFetch(),
+  });
+
+  assert.equal(outcome.status, 'error');
+});
+
+test('a transfer that resolved to nothing asks RevenueCat to try again', () => {
+  // RevenueCat retries 5xx and never retries a 200. Acknowledging a transfer
+  // that wrote no row strands a billed customer exactly as the copy-only
+  // handler did — the failure this branch exists to remove.
+  const route = readFileSync('src/app/api/webhooks/revenuecat/route.ts', 'utf8');
+  assert.match(
+    route,
+    /if \(sourceRows === 0 && reconciled\.status === 'error'\)[\s\S]{0,400}return \{ status: 'error' \}/,
+  );
+  // Not configured is the one that must NOT retry: no redelivery adds an
+  // environment variable.
+  assert.match(
+    route,
+    /if \(sourceRows === 0 && reconciled\.status === 'not_configured'\)[\s\S]{0,600}console\.error/,
+  );
 });
