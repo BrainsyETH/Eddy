@@ -1,0 +1,159 @@
+-- The Niangua stops 33 miles short of the lake. Re-import it.
+--
+-- APPLIED to production 2026-08-26 as 20260826014051.
+--
+-- The stored line measured 92.29 miles. NHD's own "Niangua River" flowlines in
+-- HUC 10290110 total 125.38. A third of the river was missing from its
+-- downstream end, and with it every access point below Tunnel Dam.
+--
+-- Not the same defect as the Current. 20260825224950 extended the Current
+-- because NHD does not carry the name "Current River" above Tan Vat -- the
+-- importer's gnis_name filter was correct and the data genuinely was not there
+-- under that name.
+--
+-- Here the data WAS there. Whistle Bridge sits 95 feet from a flowline NHD
+-- calls "Niangua River". The importer had it and dropped it, because
+-- dissolveLongest() exports the single longest connected component and this
+-- river's named segments were split by NHD HR digitization gaps. That is the
+-- exact failure scripts/lib/nhd.ts documents on CHAIN_BRIDGE_TOLERANCE_DEG:
+-- "Without bridging, the longest single component gets exported, which for
+-- Eleven Point is the AR portion -- dropping the entire MO main stem."
+--
+-- So this is not a hand-built splice. Running the repo's own importer today
+-- produces the whole river:
+--
+--   HUC 10290110 - 5146 flowlines - 320 kept
+--   niangua  320 segs -> 3149 pts (125.3 mi) -> 479 simplified [update]
+--
+-- The stored geometry simply predates the bridging fix. This migration carries
+-- that output verbatim; the first vertex is unchanged, so the headwaters end is
+-- exactly where it was and only the missing tail is added.
+--
+-- (125.3 mi is the importer's pre-simplification figure. Douglas-Peucker at
+-- 0.0005 deg trims about 2.7%, so the stored line measures 121.94 -- still a
+-- 32 % gain on the 92.29 it replaced, and length_miles tracks it exactly.)
+--
+-- What it fixes. Three approved access points were stranded past the old line's
+-- end and could not snap -- the trigger's ceiling is 1500 m:
+--
+--   point                                 was        now
+--   Whistle Bridge                     1542 m      16 m
+--   Mother Nature's Riverfront Retreat 1518 m      96 m
+--   Ha Ha Tonka State Park             7765 m     638 m
+--
+-- Whistle Bridge is the one validate_river_data names in
+-- `access_point_not_snapped` for this river, and those three were the whole of
+-- the approved unsnapped set, so the finding closes.
+--
+-- Points on the existing reach barely move, which is the check that this is an
+-- extension rather than a redraw: Moon Valley 46.99 -> 47.13, Bennett Spring
+-- 54.19 -> 54.35, Prosperine 65.88 -> 66.07. Order is preserved throughout.
+--
+-- What it does NOT fix, deliberately. Thirteen more Niangua access points have
+-- no location_snap and still will not: they carry coordinates 40 to 162 km from
+-- the river ("Smith Ford" is 162 km out). Every one is `approved = false`,
+-- which is why the check has never reported them -- its rule filters on
+-- approved -- and why this migration leaves them alone. Junk coordinates on
+-- unapproved rows are a separate cleanup, and quietly folding it into a
+-- geometry fix would hide it.
+--
+-- The access-point miles are not recomputed. As on the Current, they are
+-- editorial here: ZERO of 34 rows satisfy `river_mile_downstream +
+-- river_mile_upstream = length_miles`. Whose mileage Eddy quotes is not this
+-- migration's decision. `length_miles` IS updated, because it tracked the line
+-- exactly (92.30 stored against 92.29 measured) and snap_to_river() multiplies
+-- by it.
+UPDATE public.rivers
+   SET geom = ST_GeomFromText('LINESTRING(-92.919545 37.445926,-92.924983 37.451381,-92.925844 37.453894,-92.930047 37.455487,-92.933112 37.45802,-92.933418 37.460883,-92.935627 37.462692,-92.939844 37.464159,-92.94207 37.463948,-92.945501 37.466018,-92.947721 37.468757,-92.955027 37.469476,-92.957591 37.471183,-92.96009 37.474888,-92.959337 37.476456,-92.958018 37.476613,-92.959018 37.480029,-92.963182 37.483804,-92.969437 37.486385,-92.970205 37.489629,-92.968458 37.490382,-92.967266 37.495724,-92.969368 37.501779,-92.975089 37.504385,-92.977173 37.507009,-92.983876 37.510585,-92.985941 37.512644,-92.984945 37.518053,-92.982997 37.52071,-92.984608 37.525474,-92.987522 37.52648,-93.002698 37.52609,-93.00265 37.528108,-92.998161 37.537657,-92.999858 37.538423,-93.001444 37.540504,-93.005974 37.541146,-93.009992 37.539718,-93.011548 37.540819,-93.011271 37.543248,-93.008498 37.546167,-93.005545 37.547481,-92.998302 37.548407,-92.993277 37.55031,-92.994522 37.551152,-92.99482 37.55271,-93.001927 37.555088,-93.00586 37.559086,-93.009619 37.56147,-93.007807 37.56547,-93.008527 37.566729,-93.007658 37.568174,-93.008418 37.572826,-93.006992 37.574504,-93.000496 37.57764,-92.997097 37.577978,-92.993913 37.577182,-92.992553 37.578308,-92.993006 37.581057,-92.994365 37.582274,-93.005754 37.586176,-93.005335 37.587974,-93.001042 37.590557,-93.000471 37.591664,-92.997382 37.592459,-92.992024 37.591695,-92.985982 37.588905,-92.985076 37.590521,-92.979849 37.592216,-92.979196 37.593947,-92.981667 37.596554,-92.98597 37.597785,-92.986945 37.599355,-92.992184 37.600862,-92.994061 37.60647,-92.998564 37.609141,-93.001196 37.609474,-93.006757 37.606897,-93.007864 37.60714,-93.011468 37.602714,-93.013584 37.601731,-93.014805 37.602243,-93.015265 37.604433,-93.017041 37.606823,-93.016362 37.61106,-93.014493 37.614936,-93.012911 37.615525,-93.011377 37.617505,-93.012337 37.619605,-93.01508 37.621581,-93.024795 37.62111,-93.029215 37.61981,-93.035852 37.616328,-93.038051 37.617867,-93.039003 37.621665,-93.036734 37.625716,-93.031352 37.630221,-93.027781 37.629786,-93.026605 37.632429,-93.027682 37.634817,-93.029763 37.63554,-93.031304 37.639314,-93.03291 37.640539,-93.0408 37.638687,-93.042445 37.638819,-93.043383 37.640221,-93.044462 37.64324,-93.042991 37.648784,-93.036003 37.652442,-93.031686 37.653292,-93.031034 37.655412,-93.035345 37.660954,-93.045154 37.66334,-93.045778 37.66425,-93.045508 37.666125,-93.046959 37.666851,-93.04664 37.668974,-93.041757 37.674684,-93.037621 37.677538,-93.031101 37.679884,-93.028493 37.68002,-93.023107 37.678683,-93.019817 37.679931,-93.018202 37.681762,-93.016472 37.68187,-93.013921 37.68552,-93.013195 37.689922,-93.012357 37.690512,-93.012481 37.694776,-93.011805 37.696537,-93.011063 37.697365,-93.007403 37.697944,-93.005189 37.697734,-93.003714 37.696653,-93.000935 37.692507,-93.000255 37.689532,-93.001022 37.686716,-93.002563 37.68577,-93.002582 37.683496,-92.999575 37.682024,-92.994516 37.681528,-92.989821 37.683691,-92.988857 37.686215,-92.989253 37.689009,-92.986348 37.690451,-92.985289 37.689089,-92.983011 37.690475,-92.983576 37.692158,-92.981937 37.693019,-92.969971 37.691664,-92.965206 37.692474,-92.958059 37.695086,-92.956302 37.693688,-92.955262 37.690147,-92.953696 37.688775,-92.952108 37.688954,-92.949443 37.687646,-92.943772 37.687599,-92.941332 37.689265,-92.941443 37.69278,-92.940023 37.695754,-92.936409 37.699389,-92.934802 37.697193,-92.935204 37.694084,-92.934015 37.691469,-92.936765 37.688728,-92.936627 37.686964,-92.937934 37.684306,-92.935158 37.68106,-92.927897 37.682265,-92.923871 37.684208,-92.921202 37.687406,-92.921198 37.690591,-92.925899 37.697053,-92.924764 37.698494,-92.917353 37.695613,-92.914907 37.691522,-92.912925 37.690721,-92.912014 37.688436,-92.908103 37.686405,-92.90141 37.687526,-92.895392 37.692343,-92.893123 37.693242,-92.891592 37.692835,-92.890008 37.69022,-92.89063 37.687141,-92.889922 37.686606,-92.889381 37.682793,-92.886164 37.682194,-92.880661 37.683361,-92.877594 37.686512,-92.877364 37.68836,-92.882175 37.695578,-92.881775 37.697129,-92.879943 37.69828,-92.882499 37.704454,-92.879483 37.71058,-92.880673 37.711212,-92.885213 37.71054,-92.888507 37.70802,-92.893945 37.708919,-92.894811 37.710117,-92.893548 37.713252,-92.889231 37.716493,-92.88195 37.717802,-92.878417 37.7171,-92.877259 37.718013,-92.877762 37.722385,-92.878611 37.723423,-92.889896 37.72767,-92.888983 37.730914,-92.884336 37.732826,-92.883303 37.734514,-92.882955 37.73911,-92.884368 37.742807,-92.88252 37.743717,-92.879147 37.743072,-92.877446 37.741854,-92.876889 37.736009,-92.878302 37.733182,-92.877945 37.732454,-92.87469 37.730998,-92.865867 37.731569,-92.860748 37.734827,-92.859592 37.745687,-92.85405 37.750166,-92.84928 37.751016,-92.843822 37.755786,-92.844384 37.758446,-92.848183 37.760479,-92.85471 37.760712,-92.85896 37.7592,-92.860108 37.758015,-92.863458 37.757433,-92.868847 37.759422,-92.869125 37.762667,-92.867816 37.764603,-92.867242 37.768163,-92.863658 37.772215,-92.863428 37.773657,-92.864901 37.775326,-92.868873 37.777133,-92.878371 37.777442,-92.878519 37.779117,-92.875 37.782458,-92.867747 37.785356,-92.862046 37.784516,-92.86 37.785235,-92.861413 37.788571,-92.864816 37.790828,-92.864641 37.793397,-92.873211 37.796967,-92.871609 37.8035,-92.867741 37.806785,-92.862685 37.80696,-92.860075 37.80592,-92.856106 37.80213,-92.854863 37.798793,-92.855435 37.796901,-92.853312 37.795064,-92.847038 37.7927,-92.836705 37.791559,-92.834654 37.794215,-92.834821 37.795793,-92.83635 37.797778,-92.838902 37.799404,-92.842366 37.799904,-92.840823 37.804138,-92.835649 37.806565,-92.83542 37.807556,-92.83644 37.808774,-92.846772 37.811447,-92.856204 37.810242,-92.858414 37.812678,-92.859317 37.815834,-92.858687 37.818852,-92.856297 37.820968,-92.856579 37.821689,-92.859871 37.823631,-92.862995 37.82386,-92.868452 37.822018,-92.873055 37.821663,-92.876102 37.824695,-92.876267 37.82803,-92.875753 37.829562,-92.874062 37.830857,-92.868262 37.833375,-92.86417 37.83355,-92.859503 37.837691,-92.852345 37.836916,-92.848714 37.834252,-92.845823 37.830779,-92.844403 37.830642,-92.83945 37.834916,-92.839103 37.83771,-92.840743 37.841452,-92.844776 37.842269,-92.848008 37.845608,-92.859256 37.84792,-92.866411 37.851624,-92.868571 37.851401,-92.872155 37.849512,-92.87584 37.845425,-92.877601 37.845878,-92.879131 37.848313,-92.878101 37.852683,-92.878724 37.854081,-92.876786 37.857324,-92.875467 37.864217,-92.879446 37.864447,-92.881661 37.865936,-92.888993 37.866709,-92.892519 37.865811,-92.894169 37.8641,-92.898433 37.863969,-92.903269 37.860909,-92.907021 37.860371,-92.909354 37.858705,-92.913103 37.860511,-92.912588 37.863575,-92.909572 37.865736,-92.90508 37.866633,-92.895296 37.871718,-92.893018 37.874419,-92.893882 37.876068,-92.892095 37.878063,-92.888877 37.877415,-92.884782 37.878628,-92.877923 37.874382,-92.87485 37.876384,-92.875 37.880899,-92.874386 37.881747,-92.876129 37.885063,-92.883874 37.889612,-92.887489 37.893006,-92.887087 37.895755,-92.884546 37.897993,-92.886107 37.903605,-92.889006 37.905356,-92.889004 37.906663,-92.887409 37.908419,-92.882914 37.908955,-92.880294 37.911431,-92.880688 37.913775,-92.882108 37.915263,-92.888191 37.917387,-92.88665 37.920991,-92.882494 37.922609,-92.876751 37.920981,-92.871985 37.922213,-92.867495 37.919414,-92.863864 37.914362,-92.857785 37.910434,-92.855338 37.910792,-92.853115 37.913313,-92.849585 37.915156,-92.84998 37.916644,-92.851286 37.917547,-92.854755 37.918362,-92.858453 37.918141,-92.86169 37.920939,-92.860714 37.925895,-92.853991 37.930531,-92.850741 37.93404,-92.850452 37.936473,-92.851303 37.937691,-92.854485 37.939542,-92.859994 37.938432,-92.862754 37.936757,-92.867568 37.930276,-92.869636 37.931403,-92.869804 37.933161,-92.876157 37.936303,-92.875584 37.938465,-92.87315 37.939023,-92.871668 37.940869,-92.869447 37.941723,-92.866831 37.940954,-92.865121 37.942439,-92.865681 37.947127,-92.864648 37.951902,-92.863451 37.952937,-92.857874 37.952886,-92.855188 37.958651,-92.853004 37.961028,-92.850573 37.961311,-92.848127 37.960309,-92.845913 37.957287,-92.84609 37.954448,-92.852928 37.950176,-92.852768 37.944858,-92.850272 37.940979,-92.847317 37.938857,-92.844417 37.938087,-92.840774 37.938668,-92.837696 37.940827,-92.836269 37.943214,-92.835807 37.945917,-92.83677 37.947991,-92.839952 37.950384,-92.841142 37.952459,-92.840616 37.957323,-92.841206 37.959674,-92.837592 37.962188,-92.835543 37.96232,-92.83168 37.95916,-92.82656 37.958116,-92.818883 37.955221,-92.817181 37.952965,-92.818029 37.951124,-92.817249 37.948594,-92.811905 37.946467,-92.810311 37.946645,-92.806831 37.949974,-92.806764 37.953624,-92.804024 37.956639,-92.80447 37.960245,-92.807588 37.964982,-92.806959 37.966243,-92.807636 37.968407,-92.807232 37.970614,-92.808364 37.972959,-92.807394 37.974175,-92.803916 37.976152,-92.803428 37.977435,-92.797018 37.97952,-92.792977 37.978792,-92.789117 37.975,-92.786157 37.974769,-92.783246 37.977467,-92.77658 37.979167,-92.77538 37.980427,-92.774693 37.981868,-92.775257 37.983446,-92.78146 37.984494,-92.785664 37.987837,-92.788213 37.992213,-92.789107 37.998298,-92.787796 38.000257,-92.78916 38.001341,-92.78795 38.006206,-92.788399 38.00837,-92.790616 38.009816,-92.800638 38.01096,-92.804617 38.013715,-92.804669 38.015608,-92.795138 38.022306,-92.794337 38.023612,-92.794902 38.025325,-92.79746 38.027177,-92.802815 38.027547,-92.806239 38.025254,-92.806705 38.021425,-92.807963 38.019444,-92.809676 38.018095,-92.81241 38.017829,-92.821694 38.018249,-92.826134 38.019743,-92.830057 38.022858,-92.829644 38.029346,-92.825249 38.03281,-92.823981 38.038666,-92.826532 38.044033,-92.826261 38.062644,-92.824776 38.063813,-92.81708 38.064162,-92.8136 38.065373,-92.812455 38.067354,-92.81245 38.069427,-92.813983 38.071863,-92.813966 38.078307,-92.806597 38.083928,-92.802435 38.083967,-92.800551 38.085045,-92.787836 38.085338,-92.783276 38.084609,-92.77821 38.082076,-92.762816 38.082046,-92.756959 38.086889)', 4326),
+       direction_verified = true,
+       updated_at = NOW()
+ WHERE slug = 'niangua';
+
+UPDATE public.rivers
+   SET length_miles = round((ST_Length(geom::geography) / 1609.34)::numeric, 2),
+       updated_at = NOW()
+ WHERE slug = 'niangua' AND geom IS NOT NULL;
+
+-- Fires access_points_auto_snap (BEFORE UPDATE OF location_orig, river_id),
+-- the canonical path: it recomputes location_snap, snap_distance_m and the
+-- mile columns via snap_to_river() rather than duplicating that logic. Scoped
+-- to currently-unsnapped rows now inside the trigger's own 1500 m ceiling, so
+-- nothing correctly snapped is disturbed.
+UPDATE public.access_points ap
+   SET location_orig = ap.location_orig
+  FROM public.rivers r
+ WHERE ap.river_id = r.id
+   AND r.slug = 'niangua'
+   AND ap.location_snap IS NULL
+   AND ap.location_orig IS NOT NULL
+   AND ST_Distance(ap.location_orig::geography, r.geom::geography) <= 1500;
+
+DO $$
+DECLARE
+  populated boolean;
+  g         record;
+  n_unsnapped integer;
+  wb        record;
+BEGIN
+  SELECT EXISTS (SELECT 1 FROM public.access_points) INTO populated;
+
+  SELECT GeometryType(geom) gtype, ST_IsSimple(geom) simple, ST_NPoints(geom) npts,
+         length_miles,
+         round((ST_Length(geom::geography) / 1609.34)::numeric, 2) line_mi,
+         round((ST_Distance(ST_StartPoint(geom)::geography,
+                ST_SetSRID(ST_MakePoint(-92.919545, 37.445926), 4326)::geography))::numeric, 0) start_drift_m
+    INTO g FROM public.rivers WHERE slug = 'niangua';
+
+  IF g IS NULL THEN
+    IF populated THEN RAISE EXCEPTION 'the niangua is missing from a populated database.'; END IF;
+    RAISE NOTICE 'ran against an empty database (a from-scratch build).';
+    RETURN;
+  END IF;
+
+  IF g.gtype <> 'LINESTRING' OR NOT g.simple THEN
+    RAISE EXCEPTION 'the niangua came out % / simple=%; the import is not a single clean channel.', g.gtype, g.simple;
+  END IF;
+
+  IF g.line_mi < 120 THEN
+    RAISE EXCEPTION 'the niangua measures % mi; the truncated line was 92.29 and the full river is about 125.', g.line_mi;
+  END IF;
+
+  IF abs(g.length_miles - g.line_mi) > 0.01 THEN
+    RAISE EXCEPTION 'length_miles % does not match the measured line %.', g.length_miles, g.line_mi;
+  END IF;
+
+  -- The headwaters end must not have moved. If it did, this is a redraw rather
+  -- than an extension and every upstream access point shifted with it.
+  IF g.start_drift_m > 50 THEN
+    RAISE EXCEPTION 'the niangua now starts % m from where it did; that is a redraw, not an extension.', g.start_drift_m;
+  END IF;
+
+  SELECT count(*) INTO n_unsnapped
+    FROM public.access_points ap JOIN public.rivers r ON r.id = ap.river_id
+   WHERE r.slug = 'niangua' AND ap.approved AND ap.location_snap IS NULL;
+
+  IF n_unsnapped > 0 THEN
+    RAISE EXCEPTION
+      '% approved niangua access points still have no location_snap; the finding this migration closes would stay open.', n_unsnapped;
+  END IF;
+
+  SELECT ap.location_snap IS NOT NULL snapped, ap.snap_distance_m
+    INTO wb
+    FROM public.access_points ap JOIN public.rivers r ON r.id = ap.river_id
+   WHERE r.slug = 'niangua' AND ap.name = 'Whistle Bridge';
+
+  IF wb IS NULL THEN
+    IF populated THEN RAISE EXCEPTION 'Whistle Bridge not found on the niangua; the name has drifted.'; END IF;
+    RETURN;
+  END IF;
+
+  IF NOT wb.snapped OR wb.snap_distance_m > 200 THEN
+    RAISE EXCEPTION
+      'Whistle Bridge snap is % m (snapped=%). It sat 1542 m out and the re-imported line runs within about 16 m of it.',
+      wb.snap_distance_m, wb.snapped;
+  END IF;
+
+  RAISE NOTICE
+    'the niangua reaches the lake: % mi over % vertices, Whistle Bridge snapped at % m, no approved point left unsnapped.',
+    g.line_mi, g.npts, wb.snap_distance_m;
+END $$;
