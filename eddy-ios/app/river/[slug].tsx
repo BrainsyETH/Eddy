@@ -444,36 +444,54 @@ export default function RiverDetailScreen() {
   const [outlook, setOutlook] = useState<RiverOutlookResponse | null>(null);
   const [visuals, setVisuals] = useState<RiverVisualsResponse | null>(null);
   const [gauges, setGauges] = useState<MapGauge[]>([]);
-  const [dam, setDam] = useState<DamSnapshot | null>(null);
+  // Keyed by the slug it was fetched for, so a change of river cannot show the
+  // previous river's dam for even one frame. Derived during render rather than
+  // cleared in an effect: an effect runs one render too late, and this is the
+  // case React's own guidance says to adjust state during render for.
+  const [damFor, setDamFor] = useState<{ slug: string; dam: DamSnapshot | null }>({
+    slug,
+    dam: null,
+  });
+  const dam = damFor.slug === slug ? damFor.dam : null;
 
   /**
-   * The controlling dam, refetched on every focus.
+   * The controlling dam. This effect is its ONLY loader.
    *
-   * ── Why this is not a mount-only fetch ────────────────────────────────────
-   * It was, and the row above it reports GENERATION — a live fact with a tense.
-   * The dam screen already learned this and says so at app/dam/[damId].tsx:
-   * "Live data that only arrives once is cached data with no cache policy." A
-   * screen backgrounded at 9:55 and resumed at noon re-rendered the same
-   * payload underneath ages computed on this device. The old bottom-of-screen
-   * link survived that because it only ever claimed the dam's NAME.
+   * ── Why not a mount fetch as well ─────────────────────────────────────────
+   * Because useFocusEffect already fires on mount — expo-router runs the
+   * callback immediately when the screen is focused, which it is. Keeping the
+   * fetch in the big load effect too meant TWO /api/dams requests on every
+   * screen open, on a route that reads through to CWMS and SWPA live and can
+   * take five to fifty seconds cold.
    *
-   * ── Why a refresh may not clear the row ───────────────────────────────────
-   * `initial` is the whole point of the flag. fetchDams() has no client cache
-   * and THROWS on failure, and /api/dams reads through to CWMS and SWPA live —
-   * a cold entry can take longer than the client deadline, so a timeout here is
-   * ordinary rather than exotic. On mount, failure means there is nothing to
-   * show and null is honest. On a refresh there IS something on screen and it
-   * was true when it arrived, so a failed refetch keeps it and lets it age
-   * visibly. Same rule the dam screen states: a refresh failure must not blank
-   * a screen already showing good data.
+   * They also raced, and the loser won. The focus call started first and
+   * resolved; the mount call, started later, timed out and — carrying the
+   * `initial` flag — cleared the row that had been correct on screen for ten
+   * seconds. The flag written to stop a refresh blanking good data became the
+   * thing that blanked it.
+   *
+   * ── Why a failure never clears ────────────────────────────────────────────
+   * There is no `initial` flag any more, because the question it tried to
+   * answer has a better answer. A fetch failure is never a reason to clear:
+   * on a first load there is nothing to lose (already null), and on a refresh
+   * there is something real to lose — a snapshot that was true when it arrived
+   * and whose age the row states honestly. The one case where null IS the right
+   * answer is a change of river, and that is a fact about the slug rather than
+   * about a request — so it is derived above, and this only ever sets.
+   *
+   * The old `initial` flag was wrong for a second reason: it lived in an effect
+   * keyed on `reloadNonce`, which the hazards and access-point "Try again"
+   * buttons bump. Retrying a failed hazards section could blank a perfectly
+   * good dam row.
    */
   const loadDam = useCallback(
-    async (signal: AbortSignal, initial: boolean) => {
+    async (signal: AbortSignal) => {
       try {
         const dams = await fetchDams(signal);
-        if (!signal.aborted) setDam(damForRiver(dams, slug));
+        if (!signal.aborted) setDamFor({ slug, dam: damForRiver(dams, slug) });
       } catch {
-        if (!signal.aborted && initial) setDam(null);
+        // Deliberately empty. See above: keep what is on screen and let the
+        // row's own age carry the truth.
       }
     },
     [slug],
@@ -482,7 +500,7 @@ export default function RiverDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       const controller = new AbortController();
-      void loadDam(controller.signal, false);
+      void loadDam(controller.signal);
       return () => controller.abort();
     }, [loadDam]),
   );
@@ -499,11 +517,12 @@ export default function RiverDetailScreen() {
    * State that nothing reads: the tick exists for its re-render.
    */
   const [, setDamClock] = useState(0);
+  const damId = dam?.id ?? null;
   useEffect(() => {
-    if (!dam) return;
+    if (!damId) return;
     const id = setInterval(() => setDamClock((n) => n + 1), 60_000);
     return () => clearInterval(id);
-  }, [dam]);
+  }, [damId]);
 
   /**
    * Which gauge the reading card is showing. Null means the river's own
@@ -705,11 +724,6 @@ export default function RiverDetailScreen() {
             if (!controller.signal.aborted) setGauges([]);
           },
         );
-        // The dam controlling this reach, if one does. Ten items, CDN-cached,
-        // so this costs one cheap request to answer a question with no endpoint
-        // of its own, rather than adding /api/rivers/[slug]/dam for a row that
-        // is absent on every river but four.
-        void loadDam(controller.signal, true);
         setError(null);
       } catch (err) {
         if (err instanceof ApiError && err.message === 'Request cancelled') return;
@@ -721,7 +735,7 @@ export default function RiverDetailScreen() {
     })();
 
     return () => controller.abort();
-  }, [slug, reloadNonce, loadDam]);
+  }, [slug, reloadNonce]);
 
   /**
    * The outlook, for whichever gauge the picker is on.

@@ -54,23 +54,32 @@ export interface TailwaterStatus {
   headline: string;
   /** Ordered, 0–2 entries. */
   supporting: string[];
-  /** Set only on a RISING tailwater. Null is not an all-clear — see below. */
-  safetyNote: string | null;
 }
 
-/**
- * The one caution this row carries, and only when the water is coming up.
- *
- * ── Why it is conditional ───────────────────────────────────────────────────
- * A caution printed under every state is chrome, and chrome is read once and
- * then never again — which is exactly the wrong outcome for the state where it
- * matters. A rise is the observable, and it is the moment a wader has to move.
- *
- * ── Why "never" and not "do not" ────────────────────────────────────────────
- * "Do not wade during a rise" reads as advice about this rise. The rule is not
- * about this rise.
- */
-export const TAILWATER_RISE_NOTE = 'Never wade or anchor mid-channel during a rise.';
+// ── Why there is no wading warning here ────────────────────────────────────
+//
+// There was one: "Never wade or anchor mid-channel during a rise.", set whenever
+// the trend was positive. It is gone, and putting it back needs more than an
+// opinion.
+//
+// The trigger was any rise the rounding floor admits, which is 0.1 ft over three
+// hours — an inch and a bit. Measured on Norfork the day this shipped, that is
+// exactly what fired it. But tailwaterMovementLabel's own research is that 25%
+// of GENERATING hours move under 0.23 ft and the idle distribution reaches 4.0
+// ft at p99: the two overlap across the whole range a threshold could sit in.
+// That number is descriptive data, not a validated hazard boundary, and it
+// cannot be promoted into one here.
+//
+// So the row states the measurement and stops. "Water below the dam rose 0.1 ft
+// over 3 hours" is precise and appropriately modest; the same figure under an
+// alarm is a claim Eddy cannot source. A warning that fires on an inch is also
+// a warning nobody reads by the third river.
+//
+// What would justify bringing it back: a published hazard flow or stage for one
+// of these reaches, or a rate of rise somebody with authority is willing to sign
+// — the same bar river_gauges' condition_rating_approved_by sets for a ladder.
+// The standing caution about horns and posted warnings already lives in
+// RiverDamPanel's footnote, which is where an unconditional rule belongs.
 
 /**
  * What Eddy can honestly say when the turbines are off.
@@ -161,7 +170,6 @@ export function buildTailwaterStatus(
   const movementProse = movementIsCurrent ? tailwaterMovementProse(tailwater!.trend) : null;
   const movementAge = movementProse ? relativeAge(tailwater!.at, now) : null;
   const movement = movementProse && movementAge ? `${movementProse} · ${movementAge}` : null;
-  const rising = movement !== null && (tailwater!.trend?.delta ?? 0) > 0;
 
   const supporting: string[] = [];
   let tone: TailwaterTone;
@@ -216,7 +224,6 @@ export function buildTailwaterStatus(
     tone,
     headline,
     supporting: supporting.slice(0, 2),
-    safetyNote: rising ? TAILWATER_RISE_NOTE : null,
   };
 }
 
@@ -244,9 +251,8 @@ export function buildTailwaterStatus(
  */
 export function tailwaterStatusVoiceOver(status: TailwaterStatus): string {
   const parts = [status.headline, ...status.supporting];
-  if (status.safetyNote) parts.push(status.safetyNote);
   // Sentence-joined rather than comma-joined: these are whole sentences, and
-  // ", " would run the safety note onto the end of a measurement.
+  // ", " would run one onto the end of another.
   const spoken = parts.map((part) => part.replace(/\.$/, '')).join('. ');
   return `${spoken}. Opens ${status.damName} details.`;
 }

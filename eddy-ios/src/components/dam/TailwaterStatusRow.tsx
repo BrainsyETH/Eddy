@@ -57,10 +57,10 @@ export function TailwaterStatusRow({ dam }: { dam: DamSnapshot | null }) {
       // An accessibilityLabel REPLACES the label React Native aggregates from
       // the children. This carried the headline alone, so VoiceOver heard
       // "Bull Shoals Dam is generating" and none of the lines that qualify it —
-      // including the wading warning, the one line here that exists to stop
-      // somebody standing in a rising river. A partial label is the single
-      // option that drops content silently: DamRow sets none at all so the
-      // children are read, and RiverRow / GaugeRow compose every field.
+      // not the generator equivalent, not the movement, not the "may still be
+      // moving downstream" correction. A partial label is the single option
+      // that drops content silently: DamRow sets none at all so the children
+      // are read, and RiverRow / GaugeRow compose every field.
       //
       // Built in shared/ rather than here so the spoken order is testable and
       // the two platforms cannot drift. Web needs no equivalent: its row is an
@@ -85,12 +85,6 @@ export function TailwaterStatusRow({ dam }: { dam: DamSnapshot | null }) {
             {line}
           </Text>
         ))}
-
-        {/* colors.warm, never a condition colour — a rise must not borrow the
-            ladder's red, which on this screen means "do not float". */}
-        {status.safetyNote ? (
-          <Text style={[styles.safety, { color: colors.warm }]}>{status.safetyNote}</Text>
-        ) : null}
       </View>
 
       <Ionicons
@@ -124,5 +118,4 @@ const styles = StyleSheet.create({
   body: { flex: 1, minWidth: 0 },
   headline: { ...t.sm, fontFamily: fonts.semibold },
   supporting: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
-  safety: { ...t.sm, fontFamily: fonts.medium, marginTop: 4 },
 });

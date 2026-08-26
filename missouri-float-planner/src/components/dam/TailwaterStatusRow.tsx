@@ -58,12 +58,6 @@ export default function TailwaterStatusRow({ dam }: { dam: DamSnapshot }) {
             {line}
           </div>
         ))}
-
-        {/* Emphasis ink, never a condition colour — the same ink RiverDamPanel
-            uses for a caution, so a rise does not borrow the ladder's red. */}
-        {status.safetyNote && (
-          <div className="mt-1 text-sm font-medium text-accent-700">{status.safetyNote}</div>
-        )}
       </div>
 
       <ChevronRight

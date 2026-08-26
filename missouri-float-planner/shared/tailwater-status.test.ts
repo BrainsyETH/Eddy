@@ -6,7 +6,6 @@ import {
   buildTailwaterStatus,
   tailwaterStatusVoiceOver,
   TAILWATER_IDLE_NOTE,
-  TAILWATER_RISE_NOTE,
   TAILWATER_STATUS_METRICS,
   TAILWATER_UNAVAILABLE_NOTE,
 } from './tailwater-status';
@@ -68,7 +67,7 @@ function dam(overrides: Partial<Inputs> = {}): Inputs {
 
 /** Every string the row would render, for the sweeps below. */
 function allText(status: NonNullable<ReturnType<typeof buildTailwaterStatus>>): string {
-  return [status.headline, ...status.supporting, status.safetyNote ?? ''].join(' | ');
+  return [status.headline, ...status.supporting].join(' | ');
 }
 
 // ── The headline ───────────────────────────────────────────────────────────
@@ -161,7 +160,7 @@ test('without a reference the state is still reported and the equivalent is drop
 
 // ── Movement, and the rise it qualifies ────────────────────────────────────
 
-test('a rising tailwater reads as prose and earns the wading line', () => {
+test('a rising tailwater reads as prose and raises no alarm', () => {
   const status = buildTailwaterStatus(
     dam({
       metrics: {
@@ -174,12 +173,12 @@ test('a rising tailwater reads as prose and earns the wading line', () => {
   assert.ok(
     status.supporting.includes('Water below the dam rose 2.1 ft over 3 hours · 20 minutes ago')
   );
-  assert.equal(status.safetyNote, TAILWATER_RISE_NOTE);
 });
 
-test('a falling tailwater reports the fall and does NOT carry the rise line', () => {
-  // The caution is about a rise. Printing it under every state makes it chrome,
-  // and chrome is read once and then never again.
+test('a falling tailwater reports the fall in the same shape as a rise', () => {
+  // Direction changes the verb and nothing else. It used to change whether a
+  // wading alarm fired; see the note in tailwater-status.ts for why it no
+  // longer does.
   const status = buildTailwaterStatus(
     dam({
       metrics: {
@@ -192,7 +191,6 @@ test('a falling tailwater reports the fall and does NOT carry the rise line', ()
   assert.ok(
     status.supporting.includes('Water below the dam fell 2.6 ft over 3 hours · 20 minutes ago')
   );
-  assert.equal(status.safetyNote, null);
 });
 
 test('no trend renders no movement line and invents no steady band', () => {
@@ -203,7 +201,6 @@ test('no trend renders no movement line and invents no steady band', () => {
     NOON_CENTRAL
   )!;
   assert.doesNotMatch(allText(status), /steady|water below the dam/i);
-  assert.equal(status.safetyNote, null);
 });
 
 test('a bare age never leaks through as if it were movement', () => {
@@ -262,7 +259,6 @@ test('a lagging or stale tailwater reading reports no movement at all', () => {
       NOON_CENTRAL
     )!;
     assert.doesNotMatch(allText(status), /water below the dam/i, `at ${minutesAgo} min`);
-    assert.equal(status.safetyNote, null, `at ${minutesAgo} min`);
   }
 });
 
@@ -331,11 +327,42 @@ test('no state ever reads as an all-clear for wading', () => {
       /safe to wade|ok to wade|clear to wade|water is off|all[- ]clear/i,
       `${label} read as an all-clear`
     );
-    assert.ok(
-      status.safetyNote === null || status.safetyNote === TAILWATER_RISE_NOTE,
-      `${label} invented a safety note: ${status.safetyNote}`
+  }
+});
+
+test('no state raises a wading alarm off a measurement', () => {
+  // The other half of the same rule, and the newer one. A rise of 0.1 ft — the
+  // smallest the rounding floor admits — used to fire "Never wade or anchor
+  // mid-channel during a rise", turning an inch of movement into an alarm on a
+  // number the research says overlaps ordinary steady generation. The row
+  // states the measurement now and stops.
+  for (const [label, input] of EVERY_STATE) {
+    const status = buildTailwaterStatus(input, NOON_CENTRAL)!;
+    assert.doesNotMatch(
+      allText(status),
+      /never wade|do not wade|don.t wade|danger|hazard/i,
+      `${label} raised an alarm`
     );
   }
+});
+
+test('the smallest reportable rise is stated, not alarmed', () => {
+  // 0.1 ft over 3 hours, which is what Norfork was doing the day the alarm was
+  // removed. It should read as a fact and nothing more.
+  const status = buildTailwaterStatus(
+    dam({
+      metrics: {
+        generationFlow: reading(18, 20),
+        tailwaterElevation: stage(20, { hours: 3, delta: 0.1 }),
+      },
+    }),
+    NOON_CENTRAL
+  )!;
+  assert.ok(
+    status.supporting.some((l) => l.startsWith('Water below the dam rose 0.1 ft over 3 hours')),
+    `expected the modest statement, got ${JSON.stringify(status.supporting)}`
+  );
+  assert.doesNotMatch(allText(status), /never wade|alarm|danger/i);
 });
 
 test('no state claims to know the river where the reader is standing', () => {
@@ -373,11 +400,6 @@ test('the spoken row contains every line the row shows', () => {
     assert.ok(spoken.includes(status.headline), `${label}: headline missing`);
     for (const line of status.supporting) {
       assert.ok(spoken.includes(line), `${label}: supporting line missing — ${line}`);
-    }
-    if (status.safetyNote) {
-      // Trailing period is normalised by the joiner, so compare without it.
-      const note = status.safetyNote.replace(/\.$/, '');
-      assert.ok(spoken.includes(note), `${label}: safety note missing`);
     }
   }
 });
