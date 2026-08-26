@@ -478,11 +478,59 @@ export function relativeAge(iso: string | null | undefined, now = Date.now()): s
 export function tailwaterMovementLabel(
   trend: { hours: number; delta: number } | undefined | null
 ): string | null {
+  const rounded = roundedDelta(trend);
+  if (rounded === null) return null;
+  const sign = rounded > 0 ? '+' : '−';
+  return `${sign}${Math.abs(rounded).toFixed(1)} ft over ${trend!.hours}h`;
+}
+
+/**
+ * The one number, to the tenth of a foot, or null when there is nothing to say.
+ *
+ * ── Why this is a function and not two copies of one expression ────────────
+ * The rounding IS the threshold — see above — so it is also the definition of
+ * "no movement". Two renderings of that rule is two places for the 0.0 ft floor
+ * to drift, and the failure would be silent and asymmetric: one surface saying
+ * the tailwater is flat while another, reading the same trend, says it rose.
+ */
+function roundedDelta(
+  trend: { hours: number; delta: number } | undefined | null
+): number | null {
   if (!trend) return null;
   const rounded = Math.round(trend.delta * 10) / 10;
-  if (rounded === 0) return null;
-  const sign = rounded > 0 ? '+' : '−';
-  return `${sign}${Math.abs(rounded).toFixed(1)} ft over ${trend.hours}h`;
+  return rounded === 0 ? null : rounded;
+}
+
+/**
+ * The same movement as a sentence a reader does not have to decode.
+ *
+ * ── Why this exists next to the label rather than instead of it ────────────
+ * `+2.1 ft over 3h` is right for a dam screen, where it sits in a row of
+ * measurements and a reader is already reading instruments. On a river page it
+ * is one line among prose, and a signed number with no subject makes the reader
+ * work out WHAT rose before they can act on it. This says the subject out loud:
+ * the water below the dam.
+ *
+ * ── Why it carries no age ──────────────────────────────────────────────────
+ * Callers gate on freshness before calling — a dated claim belongs to
+ * tailwaterMovementSentence, which is the form for a surface that has room for
+ * provenance. This one is for a row directly under a live reading that already
+ * says when it was taken, and repeating the age there reads as a second,
+ * disagreeing timestamp.
+ *
+ * Same rounding, same floor, so it cannot disagree with the label about whether
+ * the tailwater moved at all.
+ */
+export function tailwaterMovementProse(
+  trend: { hours: number; delta: number } | undefined | null
+): string | null {
+  const rounded = roundedDelta(trend);
+  if (rounded === null) return null;
+  const verb = rounded > 0 ? 'rose' : 'fell';
+  const hours = trend!.hours;
+  return `Water below the dam ${verb} ${Math.abs(rounded).toFixed(1)} ft over ${hours} ${
+    hours === 1 ? 'hour' : 'hours'
+  }`;
 }
 
 /** Bands for how live a reading is. Same vocabulary the wire uses. */

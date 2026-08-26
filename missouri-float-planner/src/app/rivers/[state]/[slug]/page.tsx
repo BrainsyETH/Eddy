@@ -24,6 +24,7 @@ import HubSectionNav from './HubSectionNav';
 import RiverAlertsPanel from '@/components/river/RiverAlertsPanel';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import RiverDamPanel from '@/components/dam/RiverDamPanel';
+import TailwaterStatusRow from '@/components/dam/TailwaterStatusRow';
 import { fetchRiverDam } from '@/lib/data/dams';
 import { getRiverAlerts } from '@/lib/alerts/river-alerts';
 import RiverReaches from '@/components/river/RiverReaches';
@@ -455,7 +456,14 @@ export default async function RiverGuidePage({ params }: Props) {
             <h2 className="mb-3 text-xl font-bold text-neutral-900 md:text-2xl" style={{ fontFamily: 'var(--font-display)' }}>
               Live report
             </h2>
-            <RiverGaugeDetail riverSlug={slug} />
+            {/* The dam row goes THROUGH the report, not after it: it belongs
+                under the "Right now" summary, and this component renders the
+                whole report below that. Server-rendered here, so the snapshot
+                never reaches the browser bundle. */}
+            <RiverGaugeDetail
+              riverSlug={slug}
+              damSlot={riverDam ? <TailwaterStatusRow dam={riverDam.dam} /> : null}
+            />
           </section>
 
           {/* ===== Reaches — only where the river's halves differ ===== */}

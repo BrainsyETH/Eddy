@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { SUMMARY_METRICS, DETAIL_METRICS, buildSnapshot } from '@/lib/data/dams';
 import { USACE_DAMS } from '@/lib/flow-providers/usace-registry';
+import { TAILWATER_STATUS_METRICS } from '@shared/tailwater-status';
 
 // What /api/dams is allowed to stop sending.
 //
@@ -34,6 +35,13 @@ const IOS_LIST_SURFACES = [
   '../eddy-ios/src/components/dam/DamRow.tsx',
   '../eddy-ios/src/components/dam/RiverDamPanel.tsx',
   '../eddy-ios/app/(tabs)/index.tsx',
+  // The river screen's tailwater row. It reads NOTHING inline — every metric
+  // goes through buildTailwaterStatus() — so the regex below finds nothing here
+  // and this entry buys no coverage on its own. What actually holds that
+  // component's payload is the TAILWATER_STATUS_METRICS assertion further down.
+  // The file is listed anyway, for the day somebody reaches for a metric
+  // directly: the list has to already name it, or that read is unguarded.
+  '../eddy-ios/src/components/dam/TailwaterStatusRow.tsx',
 ];
 
 /** Comments discuss fields they do not read — `dam.metrics.inflow` in prose. */
@@ -288,4 +296,25 @@ test('the generation forecast is detail-only and survives assembly intact', () =
   assert.equal(carried.windows[1].peakCfs, 15_720);
   assert.equal(carried.timeZone, 'America/Chicago');
   assert.equal(carried.retrievedAt, '2026-08-15T13:05:00.000Z');
+});
+
+test('the summary payload carries every metric the tailwater row derives from', () => {
+  // ── Why this is not covered by the regex above ────────────────────────────
+  // TailwaterStatusRow reads its metrics through buildTailwaterStatus() rather
+  // than inline, so `\.metrics\.X` finds nothing in it and listing the file in
+  // IOS_LIST_SURFACES proved nothing. Measured before this assertion existed:
+  // deleting 'tailwaterElevation' from SUMMARY_METRICS passed every test in the
+  // repo, and the only visible effect was the movement line quietly vanishing
+  // from the river screen of every INSTALLED client — the failure this whole
+  // file exists to catch, arriving through the one door it had left open.
+  //
+  // The list is declared beside the code that reads it, in shared/, so it
+  // cannot drift from the model the way a restated literal here would.
+  for (const metric of TAILWATER_STATUS_METRICS) {
+    assert.ok(
+      SUMMARY_METRICS.includes(metric),
+      `SUMMARY_METRICS no longer carries ${metric}; the tailwater row on the river ` +
+        `screen derives from it, so dropping it blanks that row on installed clients`
+    );
+  }
 });

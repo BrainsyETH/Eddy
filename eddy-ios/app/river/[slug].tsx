@@ -32,7 +32,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   MapAccessPoint,
@@ -97,6 +97,7 @@ import { EddySymbol } from '@/components/EddySymbol';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { EddyTake } from '@/components/EddyTake';
 import { damForRiver } from '@/components/dam/RiverDamPanel';
+import { TailwaterStatusRow } from '@/components/dam/TailwaterStatusRow';
 import { RiverReaches } from '@/components/river/RiverReaches';
 import { GaugeChart } from '@/components/GaugeChart';
 import { offeringLabel } from '@/map/serviceLayers';
@@ -443,7 +444,86 @@ export default function RiverDetailScreen() {
   const [outlook, setOutlook] = useState<RiverOutlookResponse | null>(null);
   const [visuals, setVisuals] = useState<RiverVisualsResponse | null>(null);
   const [gauges, setGauges] = useState<MapGauge[]>([]);
-  const [dam, setDam] = useState<DamSnapshot | null>(null);
+  // Keyed by the slug it was fetched for, so a change of river cannot show the
+  // previous river's dam for even one frame. Derived during render rather than
+  // cleared in an effect: an effect runs one render too late, and this is the
+  // case React's own guidance says to adjust state during render for.
+  const [damFor, setDamFor] = useState<{ slug: string; dam: DamSnapshot | null }>({
+    slug,
+    dam: null,
+  });
+  const dam = damFor.slug === slug ? damFor.dam : null;
+
+  /**
+   * The controlling dam. This effect is its ONLY loader.
+   *
+   * ── Why not a mount fetch as well ─────────────────────────────────────────
+   * Because useFocusEffect already fires on mount — expo-router runs the
+   * callback immediately when the screen is focused, which it is. Keeping the
+   * fetch in the big load effect too meant TWO /api/dams requests on every
+   * screen open, on a route that reads through to CWMS and SWPA live and can
+   * take five to fifty seconds cold.
+   *
+   * They also raced, and the loser won. The focus call started first and
+   * resolved; the mount call, started later, timed out and — carrying the
+   * `initial` flag — cleared the row that had been correct on screen for ten
+   * seconds. The flag written to stop a refresh blanking good data became the
+   * thing that blanked it.
+   *
+   * ── Why a failure never clears ────────────────────────────────────────────
+   * There is no `initial` flag any more, because the question it tried to
+   * answer has a better answer. A fetch failure is never a reason to clear:
+   * on a first load there is nothing to lose (already null), and on a refresh
+   * there is something real to lose — a snapshot that was true when it arrived
+   * and whose age the row states honestly. The one case where null IS the right
+   * answer is a change of river, and that is a fact about the slug rather than
+   * about a request — so it is derived above, and this only ever sets.
+   *
+   * The old `initial` flag was wrong for a second reason: it lived in an effect
+   * keyed on `reloadNonce`, which the hazards and access-point "Try again"
+   * buttons bump. Retrying a failed hazards section could blank a perfectly
+   * good dam row.
+   */
+  const loadDam = useCallback(
+    async (signal: AbortSignal) => {
+      try {
+        const dams = await fetchDams(signal);
+        if (!signal.aborted) setDamFor({ slug, dam: damForRiver(dams, slug) });
+      } catch {
+        // Deliberately empty. See above: keep what is on screen and let the
+        // row's own age carry the truth.
+      }
+    },
+    [slug],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      const controller = new AbortController();
+      void loadDam(controller.signal);
+      return () => controller.abort();
+    }, [loadDam]),
+  );
+
+  /**
+   * A minute's tick, so the row ages while the screen is open.
+   *
+   * buildTailwaterStatus() reads the staleness band off the READER's clock at
+   * render time, which is what lets "is generating" decay to "last observed
+   * generating" — but only when a render happens. Focus covers coming back to
+   * the screen; this covers sitting on it. Without both, a screen left open
+   * holds the present tense over a reading that left it two hours ago.
+   *
+   * State that nothing reads: the tick exists for its re-render.
+   */
+  const [, setDamClock] = useState(0);
+  const damId = dam?.id ?? null;
+  useEffect(() => {
+    if (!damId) return;
+    const id = setInterval(() => setDamClock((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, [damId]);
+
   /**
    * Which gauge the reading card is showing. Null means the river's own
    * primary, which is what /api/conditions already answered with — so the card
@@ -642,19 +722,6 @@ export default function RiverDetailScreen() {
           },
           () => {
             if (!controller.signal.aborted) setGauges([]);
-          },
-        );
-        // The dam controlling this reach, if one does. Ten items, CDN-cached,
-        // and already returning [] on failure — so this costs one cheap
-        // request to answer a question with no endpoint of its own, rather
-        // than adding /api/rivers/[slug]/dam for a panel that is absent on
-        // every river but one.
-        void fetchDams(controller.signal).then(
-          (dams) => {
-            if (!controller.signal.aborted) setDam(damForRiver(dams, slug));
-          },
-          () => {
-            if (!controller.signal.aborted) setDam(null);
           },
         );
         setError(null);
@@ -1241,6 +1308,13 @@ export default function RiverDetailScreen() {
         {/* The river's own stretches, each with the gauge that actually reads
             it. Directly under the status card because a reach IS the river —
             everything below this point interprets it. */}
+        {/* Dam operations, directly under the reading they explain. This used
+            to be one muted line at the very BOTTOM of the screen, below the
+            outfitters — the controlling fact about a regulated river, filed
+            under trivia. Renders nothing for a flood-control project with no
+            turbines, which is every dam but three. */}
+        <TailwaterStatusRow dam={dam} />
+
         <RiverReaches reaches={reaches} highlightSlug={section} damName={dam?.name ?? null} />
 
         {/* ── How it got to that number ──────────────────────────
@@ -1621,21 +1695,6 @@ export default function RiverDetailScreen() {
           </CollapsibleSection>
         ) : null}
 
-        {dam ? (
-          <Pressable
-            onPress={() => router.push(`/dam/${dam.id}`)}
-            style={({ pressed }) => [styles.damLink, { opacity: pressed ? 0.6 : 1 }]}
-            accessibilityRole="button"
-            accessibilityLabel={`${dam.name} controls this reach`}
-          >
-            <Ionicons name="water-outline" size={16} color={colors.interactive} />
-            <Text style={[styles.damLinkText, { color: colors.textMuted }]}>
-              {dam.name} controls this reach
-            </Text>
-            <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
-          </Pressable>
-        ) : null}
-
         <SafetyDisclaimer />
 
         {/* ── Directly under the disclaimer, on purpose ──
@@ -1885,13 +1944,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 13,
   },
-  damLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
-  },
-  damLinkText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
   serviceBody: { flex: 1 },
   serviceName: { ...t.sm, fontFamily: fonts.semibold },
   serviceMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },

@@ -480,7 +480,7 @@ async function runUpdate(request: NextRequest) {
             // ── The guard belongs BELOW the flood-stage override ─────────────
             //
             // classifyReading() checks floodStageFt before it touches the
-            // ladder, and 20260826120000 puts the RPC's has_ladder term in the
+            // ladder, and 20260826162627 puts the RPC's has_ladder term in the
             // same place, because an NWS flood stage is a fact about the water
             // rather than an opinion about floating it. The floodStageFt line a
             // few lines above exists precisely so this loop reaches the same

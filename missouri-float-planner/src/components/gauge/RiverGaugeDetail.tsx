@@ -44,9 +44,31 @@ import { createPortal } from 'react-dom';
 
 interface RiverGaugeDetailProps {
   riverSlug: string;
+  /**
+   * A slot rendered directly under the "Right now" summary — today the dam
+   * operations row on a tailwater.
+   *
+   * ── Why a slot and not a prop of data ──────────────────────────────────────
+   * The row is a SERVER component fed by the dam snapshot the page already
+   * fetched. This file is 'use client', so taking the snapshot as data would
+   * mean importing @/lib/data/dams into the browser bundle for one river in
+   * every twenty. A pre-rendered node costs nothing and keeps the fetch on the
+   * server where it already was.
+   *
+   * ── Why it is here rather than after this component ───────────────────────
+   * It was placed after <RiverGaugeDetail /> on the page, on the assumption
+   * that this rendered the condition and little else. It renders the whole
+   * report — chart, weather, reading, outlook, Eddy Says, thresholds and the
+   * photo gallery — so "directly under the verdict" put the row a thousand
+   * pixels below the verdict and one section above the dam panel it was meant
+   * to be distinct from. Under the summary is where it was always supposed to be.
+   *
+   * Optional, because every other consumer of this component has no dam.
+   */
+  damSlot?: React.ReactNode;
 }
 
-export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
+export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetailProps) {
   const { riverGroup, isLoading } = useRiverGroup(riverSlug);
   const prefetchHistory = useGaugeHistoryPrefetch();
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
@@ -333,6 +355,30 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
   // (alt thresholds are a bonus — threshold lines just won't draw in the alt unit if missing)
   const canToggleUnit = activeGauge?.gaugeHeightFt != null && activeGauge?.dischargeCfs != null;
 
+  // ── Why damSlot renders in EVERY branch ───────────────────────────────────
+  //
+  // It rendered only in the main return, and that made the tailwater row
+  // invisible on all three rivers it was written for.
+  //
+  // This component's data is a client useQuery on /api/gauges, and /api/gauges
+  // filters on active = true. The White, Lake Taneycomo and the Norfork
+  // tailwater are all active = false, so riverGroup is null for every one of
+  // them and the second branch below is what they render — permanently, not
+  // just while loading. Measured against production: 0 threshold rows for those
+  // three, against 3 for the Black and 5 for the Current.
+  //
+  // The slot has nothing to do with any of that. It is a SERVER-rendered node
+  // built from a dam snapshot the page already resolved in its own Promise.all,
+  // so gating it behind a gauge query suppresses data that was in hand because a
+  // DIFFERENT request failed. On an unrated tailwater with no gauge in the
+  // reach, the dam is the only live thing on the page — the "no gauge data"
+  // branch is where this row matters MOST, not least.
+  //
+  // It also belongs in the loading branch, because isLoading is true for the
+  // whole SSR pass (there is no HydrationBoundary anywhere in this app). Absent
+  // there, the row never reaches the server HTML at all, which is the opposite
+  // of what the page comment above fetchRiverDam promises.
+
   // Loading state
   if (isLoading) {
     return (
@@ -345,16 +391,21 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             <div className="h-24 bg-neutral-200 rounded-xl" />
           </div>
         </div>
+        {/* Not pulsing: it is real, and it is already here. */}
+        <div className="animate-none">{damSlot}</div>
       </section>
     );
   }
 
   if (!riverGroup || !activeGauge) {
     return (
-      <section className="bg-white border border-neutral-200 rounded-xl p-6 text-center">
-        <p className="text-sm text-neutral-600">
-          Live gauge data isn&apos;t available for this river right now.
-        </p>
+      <section className="space-y-6">
+        <div className="bg-white border border-neutral-200 rounded-xl p-6 text-center">
+          <p className="text-sm text-neutral-600">
+            Live gauge data isn&apos;t available for this river right now.
+          </p>
+        </div>
+        {damSlot}
       </section>
     );
   }
@@ -398,22 +449,37 @@ export default function RiverGaugeDetail({ riverSlug }: RiverGaugeDetailProps) {
             roles stay distinct; the outer shell removes card fragmentation. */}
         <div className="space-y-6">
         {/* The three questions, before any chart: what is the river doing,
-            is there an official safety concern, what is expected next. */}
-        <GaugeSummary
-          siteId={activeGauge.usgsSiteId}
-          days={dateRange}
-          tier={tier}
-          provider={gaugeDetail?.provider ?? 'usgs'}
-          gaugeHeightFt={activeGauge.gaugeHeightFt}
-          dischargeCfs={activeGauge.dischargeCfs}
-          primaryUnit={activeThreshold?.thresholdUnit || 'ft'}
-          readingAgeHours={activeGauge.readingAgeHours}
-          readingSuspect={gaugeDetail?.readingSuspect ?? false}
-          qualifierNote={gaugeDetail?.qualifierNote ?? null}
-          conditionCode={condition.code}
-          flowPercentile={gaugeDetail?.flowPercentile ?? null}
-          floodStages={gaugeDetail?.floodStages ?? null}
-        />
+            is there an official safety concern, what is expected next.
+
+            The dam row shares this wrapper rather than sitting beside it in the
+            space-y-6, so its hairline rule lands FLUSH under the summary card
+            instead of floating 24px below it — a rule with air on both sides
+            reads as a separator between two blocks, which is the opposite of
+            "a line qualifying the reading above". */}
+        <div>
+          <GaugeSummary
+            siteId={activeGauge.usgsSiteId}
+            days={dateRange}
+            tier={tier}
+            provider={gaugeDetail?.provider ?? 'usgs'}
+            gaugeHeightFt={activeGauge.gaugeHeightFt}
+            dischargeCfs={activeGauge.dischargeCfs}
+            primaryUnit={activeThreshold?.thresholdUnit || 'ft'}
+            readingAgeHours={activeGauge.readingAgeHours}
+            readingSuspect={gaugeDetail?.readingSuspect ?? false}
+            qualifierNote={gaugeDetail?.qualifierNote ?? null}
+            conditionCode={condition.code}
+            flowPercentile={gaugeDetail?.flowPercentile ?? null}
+            floodStages={gaugeDetail?.floodStages ?? null}
+          />
+
+          {/* Dam operations, under the reading they qualify and above the
+              hydrograph. Subordinate on purpose: the condition in the summary
+              is a verdict about FLOATING, and on a tailwater that is a
+              different question from what the powerhouse is doing. Absent on
+              every river without a dam, which is nearly all of them. */}
+          {damSlot}
+        </div>
 
         {/* The hydrograph — third, above the outdoor conditions and the
             deeper interpretation. It used to close the column, below the
