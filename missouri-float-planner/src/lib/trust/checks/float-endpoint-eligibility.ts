@@ -70,6 +70,16 @@ export interface EndpointEligibilityRow {
   types: string[] | null;
   approved: boolean | null;
   is_float_endpoint: boolean | null;
+  /**
+   * Mile from the headwaters, and NULL is the case this file now reports.
+   *
+   * `toAccessPoint` (src/lib/offline/shapes.ts) maps NULL to 0 because
+   * `riverMile: number` is not nullable on the wire and the mapper is shared
+   * with the offline bundle. So a missing mile does not read as missing
+   * anywhere downstream — it reads as the HEADWATERS, and the row sorts ahead
+   * of its whole river.
+   */
+  river_mile_downstream: number | null;
   river_slug: string | null;
   /** Free text. See isVehicleUnreachable() for why it is read so narrowly. */
   road_access: string | null;
@@ -165,6 +175,36 @@ export function deriveEndpointEligibilityFindings(
       continue;
     }
 
+    // ── A point the picker OFFERS must know where it is ─────────────────
+    //
+    // Checked before the roles rules and independently of them, because it is
+    // a different kind of wrong. The roles rules ask whether a place COULD be
+    // a launch; this asks whether a place the planner already offers can be
+    // ordered against its neighbours at all.
+    //
+    // It fails silently in a way the others do not. An ineligible launch is
+    // absent from the picker, which somebody eventually notices. A launch with
+    // no mile is PRESENT and confidently wrong: NULL becomes 0, 0 is the
+    // headwaters, and the point sorts ahead of every access on its river. Van
+    // Buren City Access sat at mile 0 rather than 85.9 that way, which made
+    // the entire Current read as downstream of it.
+    if (row.is_float_endpoint === true && row.river_mile_downstream == null) {
+      findings.push({
+        entityType: 'access_point',
+        entityKey,
+        ruleKey: 'endpoint_without_river_mile',
+        title: `"${row.name}"${where} is offered as a put-in with no river mile`,
+        detail: `This point is approved and is_float_endpoint, so the planner offers it — but river_mile_downstream is NULL. Nothing downstream treats that as unknown: toAccessPoint maps it to 0 (src/lib/offline/shapes.ts, where riverMile is a non-nullable wire field shared with the offline bundle), and 0 is the headwaters. So the point sorts to the top of its river, every other access compares as downstream of it, and the access-point sheet asks getGaugeStatus for the gauge nearest mile 0. Set river_mile_downstream to the point's actual mile from the headwaters; do not make the wire field nullable to describe one row.`,
+        evidence: {
+          accessPointId: row.id,
+          slug: row.slug,
+          river: row.river_slug,
+          riverMileDownstream: null,
+        },
+      });
+      continue;
+    }
+
     if (row.is_float_endpoint !== true && launchRoles.length > 0) {
       findings.push({
         entityType: 'access_point',
@@ -211,7 +251,7 @@ export const floatEndpointEligibilityCheck: TrustCheck = {
     const { data, error } = await ctx.supabase
       .from('access_points')
       .select(
-        'id, name, slug, type, types, approved, is_float_endpoint, road_access, parking_info, rivers!inner(slug)',
+        'id, name, slug, type, types, approved, is_float_endpoint, river_mile_downstream, road_access, parking_info, rivers!inner(slug)',
       )
       .eq('approved', true);
 
@@ -230,6 +270,8 @@ export const floatEndpointEligibilityCheck: TrustCheck = {
       types: r.types ?? null,
       approved: r.approved ?? null,
       is_float_endpoint: r.is_float_endpoint ?? null,
+      river_mile_downstream:
+        r.river_mile_downstream != null ? Number(r.river_mile_downstream) : null,
       river_slug: r.rivers?.slug ?? null,
       road_access: r.road_access ?? null,
       parking_info: r.parking_info ?? null,

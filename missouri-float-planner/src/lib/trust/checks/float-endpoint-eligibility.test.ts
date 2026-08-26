@@ -31,6 +31,7 @@ function row(overrides: Partial<EndpointEligibilityRow> = {}): EndpointEligibili
     types: ['access'],
     approved: true,
     is_float_endpoint: true,
+    river_mile_downstream: 12.4,
     river_slug: 'current',
     road_access: 'Gravel road off Hwy 19, passable in a car.',
     parking_info: 'Gravel lot for about eight vehicles.',
@@ -40,6 +41,63 @@ function row(overrides: Partial<EndpointEligibilityRow> = {}): EndpointEligibili
 
 test('a plain approved launch raises nothing', () => {
   assert.deepEqual(deriveEndpointEligibilityFindings([row()]), []);
+});
+
+/* ── A launch with no mile ────────────────────────────────────────────────── */
+
+test('Van Buren — offered as a put-in with no river mile — is reported', () => {
+  // The live shape that produced this rule. `van-buren` comes from
+  // supabase/seed/access_points.sql, whose INSERT never lists
+  // river_mile_downstream, so the row was approved and selectable at NULL from
+  // the day it was created. toAccessPoint turns that into 0, 0 is the
+  // headwaters, and the whole Current then compares as downstream of a landing
+  // 85.9 miles in.
+  const findings = deriveEndpointEligibilityFindings([
+    row({
+      name: 'Van Buren City Access',
+      slug: 'van-buren',
+      type: 'boat_ramp',
+      types: [],
+      river_mile_downstream: null,
+    }),
+  ]);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].ruleKey, 'endpoint_without_river_mile');
+});
+
+test('mile 0 is a real mile, not a missing one', () => {
+  // The headwaters row of any river legitimately reads 0. Testing `== null`
+  // rather than falsiness is what keeps it out of this finding — a `!row.mile`
+  // guard would report every river's first put-in forever.
+  assert.deepEqual(
+    deriveEndpointEligibilityFindings([row({ river_mile_downstream: 0 })]),
+    [],
+  );
+});
+
+test('a point with no mile that is NOT offered raises nothing here', () => {
+  // The harm is being offered at the wrong place. A row the picker never shows
+  // has no position to be wrong about, and Echo Bluff State Park is the live
+  // example of a deliberate non-endpoint. It still falls through to the roles
+  // rules, which is where a non-launch belongs.
+  assert.deepEqual(
+    deriveEndpointEligibilityFindings([
+      row({ types: ['campground', 'park'], is_float_endpoint: false, river_mile_downstream: null }),
+    ]),
+    [],
+  );
+});
+
+test('a missing mile is reported instead of the roles finding, not alongside it', () => {
+  // Both could fire on one row — no mile AND no launch role. The mile is the
+  // one that makes the point actively wrong in the picker, so it wins and the
+  // rule returns; two findings for one row would double-count the entity in
+  // the ledger.
+  const findings = deriveEndpointEligibilityFindings([
+    row({ types: ['campground'], river_mile_downstream: null }),
+  ]);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].ruleKey, 'endpoint_without_river_mile');
 });
 
 test('Montauk — a launch held back by the river line — is reported, deliberately', () => {
