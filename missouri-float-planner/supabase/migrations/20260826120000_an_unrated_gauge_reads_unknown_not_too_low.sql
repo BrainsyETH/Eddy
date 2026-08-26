@@ -429,25 +429,49 @@ COMMENT ON FUNCTION get_river_condition_segment(UUID, GEOMETRY, NUMERIC) IS
 -- gauge has no condition. NULL is what a gauge that has never been classified
 -- holds, and it makes the first genuine reading an initialization ('unknown' →
 -- something) instead of news.
+--
+-- ── Scoped to the incident, not to a predicate ──────────────────────────────
+-- Both statements below name the three rivers and bound the window, rather
+-- than matching "any unrated gauge" and "any unknown → too_low event".
+--
+-- The predicate looked equivalent and is not. It reads the ladder as it stands
+-- TODAY, and an event is a record of what was true when it was written — so
+-- "only an event whose gauge is unrated" cannot distinguish a manufactured
+-- event from a genuine one recorded while the gauge was rated and later
+-- blanked. 00198 blanked exactly that way on the Black ("calibrating them is a
+-- safety judgement Eddy would be held to"), so the shape is not hypothetical,
+-- and a migration that silently ate real history while claiming to preserve it
+-- is the wrong way to fix a migration that silently manufactured it.
+--
+-- A repair of a known incident should say which incident. This one: three
+-- rivers, stamped 2026-08-25 01:01 UTC by the cron pass after 20260824232949
+-- landed. On a database rebuilt from migrations both statements are no-ops,
+-- because cron output is not in the history.
+--
+-- The FORWARD-GOING rule lives in update-gauges, where it can see the reading
+-- it is classifying — not here.
 UPDATE public.river_gauges rg
 SET last_condition_code = NULL
-WHERE rg.last_condition_code IS NOT NULL
+FROM public.rivers r
+WHERE r.id = rg.river_id
+  AND r.slug IN ('white', 'norfork-tailwater', 'taneycomo')
+  AND rg.last_condition_code = 'too_low'
   AND rg.level_too_low IS NULL AND rg.level_low IS NULL
   AND rg.level_optimal_min IS NULL AND rg.level_optimal_max IS NULL
   AND rg.level_high IS NULL AND rg.level_dangerous IS NULL;
 
--- Narrow on purpose: only an event whose own gauge is unrated, and only the
--- unknown → too_low shape the fall-through manufactures. An event recorded
--- while a gauge WAS rated is real history and stays, even if the ladder was
--- blanked afterwards.
 DELETE FROM public.river_condition_events e
-USING public.river_gauges rg
-WHERE rg.id = e.river_gauge_id
+USING public.rivers r
+WHERE r.id = e.river_id
+  AND r.slug IN ('white', 'norfork-tailwater', 'taneycomo')
   AND e.old_condition_code = 'unknown'
   AND e.new_condition_code = 'too_low'
-  AND rg.level_too_low IS NULL AND rg.level_low IS NULL
-  AND rg.level_optimal_min IS NULL AND rg.level_optimal_max IS NULL
-  AND rg.level_high IS NULL AND rg.level_dangerous IS NULL;
+  -- The three rows were written within one second of 2026-08-25 01:01:13, by
+  -- the first pass that saw these gauges. Bounded to that day so a later
+  -- genuine event on the same rivers — once they carry a rating — is out of
+  -- reach of this statement no matter when it is run.
+  AND e.detected_at >= TIMESTAMPTZ '2026-08-25 00:00:00+00'
+  AND e.detected_at <  TIMESTAMPTZ '2026-08-26 00:00:00+00';
 
 -- ── Norfork's description is out by a factor of four ────────────────────────
 --
@@ -477,10 +501,16 @@ DECLARE
     n integer;
     bad text;
 BEGIN
-    -- The three tailwaters must now read unknown rather than too_low. Asserted
-    -- against the live function on the live readings, not against a fixture:
-    -- the fall-through this migration removes was invisible to every test in
-    -- the repo precisely because no test ran the RPC.
+    -- Every unrated primary gauge must now read unknown rather than too_low.
+    -- Asserted against the live function on the live readings, not against a
+    -- fixture: the fall-through this migration removes was invisible to every
+    -- test in the repo precisely because no test ran the RPC.
+    --
+    -- Restricted to gauges with NO flood stage, which is where 'unknown' is the
+    -- only admissible answer. An unrated gauge that has one and is sitting above
+    -- it correctly reads 'dangerous' — the override runs ahead of the has_ladder
+    -- term by design — and asserting otherwise would make this migration fail
+    -- during exactly the event it must not interfere with.
     SELECT string_agg(x.slug || '=' || x.condition_code, ', ' ORDER BY x.slug)
       INTO bad
     FROM (
@@ -488,7 +518,8 @@ BEGIN
         FROM public.rivers r
         JOIN public.river_gauges rg ON rg.river_id = r.id AND rg.is_primary
         CROSS JOIN LATERAL public.get_river_condition(r.id) c
-        WHERE rg.level_too_low IS NULL AND rg.level_low IS NULL
+        WHERE rg.flood_stage_ft IS NULL
+          AND rg.level_too_low IS NULL AND rg.level_low IS NULL
           AND rg.level_optimal_min IS NULL AND rg.level_optimal_max IS NULL
           AND rg.level_high IS NULL AND rg.level_dangerous IS NULL
           AND c.condition_code IS DISTINCT FROM 'unknown'
@@ -497,14 +528,20 @@ BEGIN
         RAISE EXCEPTION 'an unrated primary gauge still grades: %', bad;
     END IF;
 
+    -- Scoped to the three rivers this migration repairs, for the same reason
+    -- the UPDATE is: an unrated gauge elsewhere carrying a stamp is not this
+    -- migration's to judge, and one carrying 'dangerous' off a flood stage is
+    -- carrying the right value.
     SELECT count(*) INTO n
     FROM public.river_gauges rg
-    WHERE rg.last_condition_code IS NOT NULL
+    JOIN public.rivers r ON r.id = rg.river_id
+    WHERE r.slug IN ('white', 'norfork-tailwater', 'taneycomo')
+      AND rg.last_condition_code IS NOT NULL
       AND rg.level_too_low IS NULL AND rg.level_low IS NULL
       AND rg.level_optimal_min IS NULL AND rg.level_optimal_max IS NULL
       AND rg.level_high IS NULL AND rg.level_dangerous IS NULL;
     IF n > 0 THEN
-        RAISE EXCEPTION 'an unrated gauge still carries last_condition_code (% rows)', n;
+        RAISE EXCEPTION 'a tailwater gauge still carries last_condition_code (% rows)', n;
     END IF;
 
     -- Belt and braces on the replace() above: the row must not still say it.

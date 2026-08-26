@@ -115,21 +115,59 @@ Nothing reached a person: `deliver-push` drains only `floatable|warning|easing`,
 and `info` is outside `/api/alerts`' default kinds. **The stamp was the damage.**
 It is the baseline the next comparison runs against — so the day a real ladder
 lands, the next cron pass reads `too_low → high` off a fiction and classifies it
-`warning`, which *is* pushed and *is* in the feed. The migration clears it.
+`warning`, which *is* pushed and *is* in the feed.
+
+The migration clears those three stamps and deletes those three events, scoped
+to the three named rivers and to 2026-08-25 rather than to a predicate over the
+gauge's *current* thresholds. The predicate looked equivalent and was not: an
+event records what was true when it was written, so "the gauge is unrated now"
+cannot separate a manufactured event from a genuine one recorded while the gauge
+was rated and later blanked — which is how 00198 left Clearwater. A repair that
+silently ate real history while claiming to preserve it would be the wrong way
+to fix a migration that silently manufactured it. The forward-going rule lives
+in the cron, where it can see the reading it is classifying.
 
 ### Blast radius of the fix
 
 Exactly three rows. No active river has an all-null primary ladder, and a
 *partial* ladder is deliberately untouched: `has_ladder` is the same OR-of-six
 that `hasLadder()` uses, so 00150's "Good begins at 400 cfs" rating on the
-Gasconade still grades exactly as before. Flood stage stays ahead of the new
-guard — an NWS flood stage with no editorial ladder is a fact about the water,
-not an opinion about floating it.
+Gasconade still grades exactly as before.
 
-Verified against a scratch PostgreSQL 16 cluster with a stub schema: the bug
-reproduces before the migration, both RPCs return `unknown` after it, the rated
-and partial-ladder fixtures are unchanged, the flood-stage override still wins,
-and a second run is a clean no-op.
+### Flood stage outranks the guard, in both halves
+
+An unrated gauge is not silent — it has **two** truthful states, and the second
+one matters more than the first: `dangerous` at or above an NWS flood stage,
+`unknown` below it. `classifyReading()` checks `floodStageFt` before it touches
+the ladder, and the migration puts the RPC's `has_ladder` term in the same
+place, because a flood stage is a fact about the water rather than an opinion
+about floating it.
+
+The first version of the cron guard here got this wrong: it skipped *every*
+unrated gauge, which would have taken the alert away from an unrated gauge
+sitting in flood while the river page painted it red — restoring exactly the
+split that the `floodStageFt` line in that loop was added to close. Corrected:
+the skip applies only below flood stage, the comparison goes through
+`applyFloodStageOverride` (the single source of truth for that escalation), and
+the skip path now *clears* a stale stamp rather than leaving it, because an
+unrated gauge left stamped `dangerous` after a crossing recedes would compare
+`dangerous` against `dangerous` on the next one and emit nothing.
+
+No gauge is in that state today — zero unrated `river_gauges` rows carry a
+`flood_stage_ft` — so this was latent rather than live. It would not have
+stayed latent: `sync-gauge-thresholds.ts` stamps flood stages from NWS AHPS onto
+any gauge with an `nws_lid`, and Calico Rock (`07060500`, LID `CLRA4`) is wired
+to the White with a null ladder.
+
+### Verification
+
+Against a scratch PostgreSQL 16 cluster with a stub schema: the bug reproduces
+before the migration; both RPCs return `unknown` after it; the rated and
+partial-ladder fixtures are unchanged; an unrated gauge above its flood stage
+still reads `dangerous` and keeps its stamp; a genuine event on a gauge whose
+ladder was blanked afterwards survives the repair; a later genuine event on a
+tailwater is out of the repair's reach; and a second run is a clean no-op.
+Counted against production: 3 stamps, 3 of 193 events, 1 description.
 
 ---
 
@@ -266,9 +304,9 @@ ingestion intended and did not get.
 
 | File | Change |
 | --- | --- |
-| `supabase/migrations/20260826120000_…unknown_not_too_low.sql` | Both condition RPCs return `unknown` for an unrated gauge; clears the three `last_condition_code` stamps and the three manufactured outbox events; corrects the Norfork description. **Not applied to production** — needs authorisation. |
-| `src/app/api/cron/update-gauges/route.ts` | `hasLadder` guard before `computeCondition`, so the cron stops manufacturing and persisting a condition for an unrated gauge. Reports `unratedGaugesSkipped`. |
-| `src/lib/conditions/unrated-gauge.test.ts` | Pins the trap, the 00150 partial-ladder exemption, the cron guard, and the SQL guard in whichever migration most recently defines each RPC. |
+| `supabase/migrations/20260826120000_…unknown_not_too_low.sql` | Both condition RPCs return `unknown` for an unrated gauge, with the flood-stage override still ahead of it; clears the three `last_condition_code` stamps and deletes the three manufactured outbox events, scoped to those rivers and that day; corrects the Norfork description. **Not applied to production** — needs authorisation. |
+| `src/app/api/cron/update-gauges/route.ts` | `hasLadder` guard before `computeCondition`, applied only below flood stage, so the cron stops manufacturing a condition for an unrated gauge without going quiet on one that is genuinely in flood. Clears stale stamps; reports `unratedGaugesSkipped` and `unratedStampsCleared`. |
+| `src/lib/conditions/unrated-gauge.test.ts` | Pins the trap, the 00150 partial-ladder exemption, the flood-stage behaviour on an empty ladder, the cron guard and its stale-stamp clear, and the SQL guard in whichever migration most recently defines each RPC. |
 | `EDDY_KNOWLEDGE.md` | Norfork's "quadruples" → sixteenfold; Taneycomo's DO ratio. |
 | `scripts/ingestion/dossiers/verified-identifiers-tailwater-swl-bull-shoals-dam.md` | 78 → 90.46 river miles, with the reason it was wrong. |
 

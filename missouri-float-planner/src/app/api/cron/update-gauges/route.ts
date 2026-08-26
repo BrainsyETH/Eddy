@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getFlowProvider, type GaugeReading } from '@/lib/flow-providers';
-import { computeCondition, hasMaterialConditionChange, type ConditionThresholds } from '@/lib/conditions';
+import { applyFloodStageOverride, computeCondition, hasMaterialConditionChange, type ConditionThresholds } from '@/lib/conditions';
 import { hasLadder } from '@shared/condition-ladder';
 import { publishConditionChangeAlert, isElevatedCrossing, publishElevatedCrossings } from '@/lib/social/condition-alerts';
 import { regenerateEddyForRiver, type TriggerReason } from '@/lib/eddy/regenerate';
@@ -199,11 +199,17 @@ async function runUpdate(request: NextRequest) {
     let conditionChanges = 0;
     let flatlined = 0;
     let outboxErrors = 0;
-    // Gauges skipped because nobody has rated them. Reported rather than merely
-    // skipped: a curated gauge wired to a river with no ladder is a river that
-    // shows "Unknown" to every visitor, and the only way that gets noticed is
-    // if this number is visible and stops being zero.
+    // Gauges skipped because nobody has rated them AND they are below any
+    // flood stage they have. Reported rather than merely skipped: a curated
+    // gauge wired to a river with no ladder is a river that shows "Unknown" to
+    // every visitor, and the only way that gets noticed is if this number is
+    // visible and stops being zero.
     let unratedGaugesSkipped = 0;
+    // Stale stamps cleared off unrated gauges. Expected to be nonzero exactly
+    // once — the pass after this ships, cleaning up the three 2026-08-25
+    // tailwater stamps — and zero forever after. A number that keeps climbing
+    // means something is re-stamping a gauge nobody has rated.
+    let unratedStampsCleared = 0;
     // Observability for the new gate/outbox: without these, a gate that starts
     // rejecting everything would look identical to a quiet river day.
     const gatedReadings: Partial<Record<GateRejection, number>> = {};
@@ -448,7 +454,7 @@ async function runUpdate(request: NextRequest) {
               floodStageFt: rg.flood_stage_ft,
             };
 
-            // ── An UNRATED gauge has no opinion, and must not be given one ───
+            // ── An UNRATED gauge has TWO truthful states, not one ────────────
             //
             // classifyReading() grades from the top of the ladder down and
             // falls through to 'too_low' when every band is null — so a gauge
@@ -471,11 +477,63 @@ async function runUpdate(request: NextRequest) {
             // pass reads too_low → high off a false baseline and classifies it
             // 'warning', which is pushed.
             //
-            // Skipping leaves last_condition_code untouched (null, or whatever
-            // it held while the gauge was rated), so a later rating starts from
-            // 'unknown' and its first real code is an initialization, not news.
-            if (!hasLadder(thresholds)) {
+            // ── The guard belongs BELOW the flood-stage override ─────────────
+            //
+            // classifyReading() checks floodStageFt before it touches the
+            // ladder, and 20260826120000 puts the RPC's has_ladder term in the
+            // same place, because an NWS flood stage is a fact about the water
+            // rather than an opinion about floating it. The floodStageFt line a
+            // few lines above exists precisely so this loop reaches the same
+            // verdict as the website — its comment records what happens when it
+            // does not: "a river above flood stage but below the editorial
+            // dangerous band read Dangerous on the site while alerts stayed
+            // silent."
+            //
+            // Skipping every unrated gauge would have restored that split, and
+            // in the worse direction: an unrated gauge sitting above its flood
+            // stage would produce no transition, no outbox event and no social
+            // post, while the river page painted it red. So the skip applies
+            // only BELOW flood stage. At or above it, classification runs and
+            // reports 'dangerous' out of the override, with no ladder involved.
+            //
+            // applyFloodStageOverride is the single source of truth for that
+            // escalation; comparing the numbers here by hand is how the two
+            // halves drift apart again.
+            const unrated = !hasLadder(thresholds);
+            const aboveFloodStage =
+              applyFloodStageOverride('unknown', reading.gaugeHeightFt, rg.flood_stage_ft) ===
+              'dangerous';
+
+            if (unrated && !aboveFloodStage) {
               unratedGaugesSkipped++;
+
+              // Clear a stamp rather than merely leaving it, because a stale
+              // one SUPPRESSES the next real signal — the same failure the
+              // 2026-08-25 stamps caused, one step later. An unrated gauge that
+              // crossed its flood stage is left stamped 'dangerous'; once it
+              // recedes this branch takes over, and without the clear the next
+              // crossing compares 'dangerous' against 'dangerous', finds no
+              // change, and never emits. Cleared, the gauge is back to the
+              // 'unknown' baseline a never-classified gauge holds.
+              //
+              // Guarded on the current value so this is a no-op on the pass
+              // after it runs, and conditioned on it so the common case (an
+              // unrated gauge that has never been stamped) costs no write.
+              if (rg.last_condition_code) {
+                const { error: clearError } = await supabase
+                  .from('river_gauges')
+                  .update({ last_condition_code: null })
+                  .eq('id', rg.id)
+                  .eq('last_condition_code', rg.last_condition_code);
+                if (clearError) {
+                  console.error(
+                    `[update-gauges] could not clear stale stamp on ${riverSlug}:`,
+                    clearError.message,
+                  );
+                } else {
+                  unratedStampsCleared++;
+                }
+              }
               continue;
             }
 
@@ -835,6 +893,7 @@ async function runUpdate(request: NextRequest) {
       wiredStations: wiredEntries.length,
       gatedReadings,
       unratedGaugesSkipped,
+      unratedStampsCleared,
       outboxOutcomes,
       outboxErrors,
       enrichmentSkipped,

@@ -57,6 +57,44 @@ test('a single level is enough to grade — the guard must not swallow 00150 lad
   assert.equal(classifyReading(null, partial, 600), 'good');
 });
 
+test('an empty ladder above NWS flood stage is still dangerous', () => {
+  // The behavioural fact the cron guard has to respect. classifyReading checks
+  // floodStageFt BEFORE the null guard and before the ladder, so an unrated
+  // gauge is not silent — it has two truthful states, and this is the one that
+  // matters. A guard that skipped every unrated gauge would take an alert away
+  // from a river that is genuinely in flood.
+  const withFloodStage: ConditionThresholds = { ...EMPTY_LADDER, floodStageFt: 12 };
+
+  assert.equal(hasLadder(withFloodStage), false, 'a flood stage is not a ladder');
+  assert.equal(classifyReading(14, withFloodStage, 9100), 'dangerous');
+  assert.equal(classifyReading(12, withFloodStage, 9100), 'dangerous', 'at stage counts');
+
+  // Below it, the ladder has nothing to say and the fall-through is a lie —
+  // which is why the cron skips this case rather than trusting the answer.
+  assert.equal(classifyReading(4, withFloodStage, 9100), 'too_low');
+});
+
+test('the cron decides the flood case with the shared override, not by hand', () => {
+  // applyFloodStageOverride is the single source of truth for the escalation
+  // (its own docstring says so, after the gauge-report API and the river report
+  // disagreed about it). Re-deriving the comparison in the cron is how the two
+  // halves drift apart again.
+  const source = readFileSync(
+    join(REPO, 'src/app/api/cron/update-gauges/route.ts'),
+    'utf8',
+  );
+  assert.match(
+    source,
+    /const aboveFloodStage\s*=\s*\n?\s*applyFloodStageOverride\(/,
+    'the cron must ask applyFloodStageOverride whether the reading is above flood stage',
+  );
+  assert.match(
+    source,
+    /if \(unrated && !aboveFloodStage\)/,
+    'the unrated skip must be conditioned on being BELOW flood stage',
+  );
+});
+
 test('update-gauges refuses to classify a gauge nobody has rated', () => {
   const source = readFileSync(
     join(REPO, 'src/app/api/cron/update-gauges/route.ts'),
@@ -69,12 +107,22 @@ test('update-gauges refuses to classify a gauge nobody has rated', () => {
     'update-gauges must import the guard',
   );
 
-  const guardAt = source.indexOf('if (!hasLadder(thresholds))');
+  const guardAt = source.indexOf('const unrated = !hasLadder(thresholds);');
   const classifyAt = source.indexOf('const newCondition = computeCondition(');
   assert.ok(guardAt > 0, 'update-gauges must guard on hasLadder before classifying');
   assert.ok(
     guardAt < classifyAt,
     'the hasLadder guard must run BEFORE computeCondition, or the fiction is already computed',
+  );
+
+  // A stale stamp suppresses the NEXT real signal, which is the same failure
+  // one step later: an unrated gauge stamped 'dangerous' by a flood crossing
+  // would compare 'dangerous' against 'dangerous' on the next one and emit
+  // nothing.
+  assert.match(
+    source,
+    /\.update\(\{ last_condition_code: null \}\)/,
+    'the skip path must clear a stale stamp rather than leave it as a baseline',
   );
 });
 
