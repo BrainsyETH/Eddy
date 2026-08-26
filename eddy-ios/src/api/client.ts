@@ -67,6 +67,7 @@ import type {
   NotificationPreferences,
   NotificationPreferencesResponse,
   MeEntitlement,
+  MeEntitlementRefreshResponse,
   MeProfileResponse,
   MeDeleteResponse,
   CreateFeedbackRequest,
@@ -1661,6 +1662,35 @@ export async function deleteAccount(token: string): Promise<MeDeleteResponse> {
   }
 
   return (await response.json()) as MeDeleteResponse;
+}
+
+/**
+ * Ask the server to reconcile this account's entitlement with RevenueCat.
+ *
+ * Paired with waitForEntitlement, and it is the half that makes waiting
+ * terminate at all in one case. A restore onto an account that did not buy —
+ * anyone who deleted their account and signed in again — produces a TRANSFER
+ * webhook, which carries no entitlement state, and if the buying account is
+ * gone there is nothing on the server left to resolve it against. Polling alone
+ * would then wait out its attempts and give up on a live subscription.
+ *
+ * The app never says what it bought: this asks the server to go and ask
+ * RevenueCat about this user. The server remains the authority.
+ *
+ * Best-effort by design — swallows everything. A failure here just means the
+ * poll that follows has to find the entitlement the ordinary way, which is what
+ * it did before this endpoint existed.
+ */
+export async function refreshEntitlement(
+  token: string,
+): Promise<MeEntitlementRefreshResponse | null> {
+  try {
+    return await authed<MeEntitlementRefreshResponse>('/api/me/entitlement/refresh', token, {
+      method: 'POST',
+    });
+  } catch {
+    return null;
+  }
 }
 
 /**

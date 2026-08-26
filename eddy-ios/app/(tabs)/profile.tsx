@@ -46,12 +46,13 @@ import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { useAccount } from '@/hooks/useAccount';
-import { deleteAccount, waitForEntitlement } from '@/api/client';
+import { deleteAccount, refreshEntitlement, waitForEntitlement } from '@/api/client';
 import {
   entitlementMatchesSnapshot,
   OFFER_CODE_REDEEM_URL,
   readEntitlementSnapshot,
   redemptionAlert,
+  restoreAlert,
   restorePurchases,
   subscriptionSummary,
   syncRedeemedPurchases,
@@ -146,15 +147,32 @@ export default function ProfileScreen() {
     setBusy('restore');
     try {
       const result = await restorePurchases();
-      // A successful restore reaches us through RevenueCat's webhook, so the
-      // SERVER is what to re-read — the SDK's own response is not the authority
-      // on entitlement.
-      if (result.entitled) await refresh();
-      Alert.alert(result.entitled ? 'Subscription restored' : 'Nothing to restore', result.message);
+
+      // The SDK finding an entitlement is Apple's answer, not ours. The SERVER
+      // is the authority, so ask it to reconcile with RevenueCat and then wait
+      // for it to agree before saying anything was restored.
+      //
+      // refreshEntitlement is what makes that terminate for the case this whole
+      // path exists for: restoring onto an account that did not buy — anyone
+      // who deleted their account and signed in again — arrives as a TRANSFER
+      // carrying no entitlement state, which polling alone can wait out
+      // forever. See src/api/client.ts.
+      let serverConfirmed = false;
+      if (result.entitled) {
+        const token = await getAccessToken();
+        if (token) {
+          await refreshEntitlement(token);
+          serverConfirmed = await waitForEntitlement(token);
+        }
+        await refresh();
+      }
+
+      const alert = restoreAlert(result, serverConfirmed);
+      Alert.alert(alert.title, alert.message);
     } finally {
       setBusy(null);
     }
-  }, [refresh]);
+  }, [getAccessToken, refresh]);
 
   /**
    * Same ref-not-state reasoning as the paywall's copy of this flag: nothing

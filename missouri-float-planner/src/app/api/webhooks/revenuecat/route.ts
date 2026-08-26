@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
 import { DEFAULT_ENTITLEMENT_ID } from '@/lib/entitlement';
+import { reconcileEntitlement } from '@/lib/revenuecat/api';
 import {
   computeEntitlementPatch,
   entitlementIdsFor,
@@ -121,6 +122,24 @@ async function applyToEntitlement(
  * row rather than granting fresh access: copy the source's remaining
  * entitlement to the target, then expire the source. Without this, a
  * transferred sub would leave the losing account entitled forever.
+ *
+ * ── When there is nothing to copy ─────────────────────────────────────────
+ *
+ * A TRANSFER event carries no entitlement state whatsoever — no
+ * expiration_at_ms, no product_id, no entitlement_ids, just transferred_from
+ * and transferred_to. So the copy below is not a shortcut; the source row is
+ * the only entitlement state this event can be resolved against.
+ *
+ * Which breaks precisely where it matters most. Deleting an account cascades
+ * its entitlements row away (migration 00180), and "delete my account, sign in
+ * again, tap Restore purchases" is exactly the sequence that produces a
+ * TRANSFER whose source no longer exists. The loop then copies nothing, writes
+ * nothing, and returns success — leaving someone who is still being billed with
+ * no access and nothing in the logs to say so.
+ *
+ * So the copy is no longer the last word: RevenueCat is asked directly what the
+ * target owns, and its answer can only grant or extend what the copy wrote.
+ * See src/lib/revenuecat/api.ts.
  */
 async function applyTransfer(
   supabase: AdminClient,
@@ -136,8 +155,10 @@ async function applyTransfer(
   }
 
   for (const targetId of toIds) {
+    let sourceRows = 0;
+
     for (const sourceId of fromIds) {
-      const { data: sourceRows, error: readError } = await supabase
+      const { data: rows, error: readError } = await supabase
         .from('entitlements')
         .select('entitlement_id, expires_at, will_renew, product_id, store, environment')
         .eq('user_id', sourceId);
@@ -147,7 +168,8 @@ async function applyTransfer(
         return { status: 'error' };
       }
 
-      for (const source of sourceRows ?? []) {
+      for (const source of rows ?? []) {
+        sourceRows += 1;
         const moved = await applyToEntitlement(supabase, {
           userId: targetId,
           entitlementId: source.entitlement_id,
@@ -183,6 +205,50 @@ async function applyTransfer(
           return { status: 'error' };
         }
       }
+    }
+
+    // Then ask RevenueCat what the target actually owns, ALWAYS — not only
+    // when the copy found nothing. A source row can itself be behind (a missed
+    // RENEWAL leaves one short), and the reconcile can only ever grant or
+    // extend, so it either corrects the copy or reports `current` and writes
+    // nothing. Transfers are rare enough that the extra call costs nothing.
+    //
+    // Only Eddy Premium is reconciled: it is the one entitlement this app
+    // sells, and an id we hold no row for is an id whose entitlements we cannot
+    // enumerate.
+    const reconciled = await reconcileEntitlement(supabase, {
+      userId: targetId,
+      entitlementId: DEFAULT_ENTITLEMENT_ID,
+      stamp: { id: event.id ?? null, type: event.type ?? null, at: eventAt },
+    });
+
+    // Nothing copied AND the pull failed means NOTHING was written for someone
+    // who is being billed — the precise state this whole path exists to
+    // prevent. RevenueCat retries on 5xx and will not retry a 200, so
+    // acknowledging here would strand them exactly as the copy-only handler
+    // did. A transient RevenueCat or database failure is retryable; say so.
+    if (sourceRows === 0 && reconciled.status === 'error') {
+      console.error(
+        `${LOG_PREFIX} TRANSFER ${event.id} → ${targetId} had no source rows and the ` +
+          `RevenueCat reconcile failed (${reconciled.detail}) — asking for a retry`
+      );
+      return { status: 'error' };
+    }
+
+    if (sourceRows === 0 && reconciled.status === 'not_configured') {
+      // Loud, but NOT retryable: no number of redeliveries adds an environment
+      // variable. The symptom is otherwise invisible — the customer is billed,
+      // the restore looks fine on the device, and not one row is written.
+      console.error(
+        `${LOG_PREFIX} TRANSFER ${event.id} → ${targetId} had no source rows and ` +
+          'REVENUECAT_SECRET_API_KEY is unset — the entitlement could NOT be resolved ' +
+          'and this user has no access. See src/lib/revenuecat/api.ts.'
+      );
+    } else {
+      console.log(
+        `${LOG_PREFIX} TRANSFER ${event.id} → ${targetId}: ${sourceRows} source row(s), ` +
+          `RevenueCat reconcile ${reconciled.status}${reconciled.detail ? ` (${reconciled.detail})` : ''}`
+      );
     }
   }
 

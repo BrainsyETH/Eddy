@@ -326,10 +326,56 @@ Vercel → project → **Settings → Environment Variables**:
 | Variable | Value | Environments |
 |---|---|---|
 | `REVENUECAT_WEBHOOK_SECRET` | the secret from step 6 | **Production + Preview** |
+| `REVENUECAT_SECRET_API_KEY` | Project Settings → API Keys → **Secret API key** (`sk_…`) | **Production + Preview** |
 | `DENY_SANDBOX_ENTITLEMENTS` | *unset* | — see below |
 
 `REVENUECAT_WEBHOOK_SECRET` is mandatory: without it the route returns 500 by
 design (fail-closed) rather than accepting unverified events.
+
+`REVENUECAT_SECRET_API_KEY` is what lets the server **ask** RevenueCat instead of
+only being told — see §8b. Without it, restoring a purchase onto an account that
+did not buy it silently grants nothing. It is a server-side secret and must
+never reach the app; the app ships the public `appl_…` key, which can only read
+offerings and start purchases.
+
+### 8b. Restore behaviour, and the pull that backs it
+
+Two settings decide whether **Restore purchases** can work at all, and neither
+lives in this repository.
+
+**RevenueCat → Project Settings → Restore Behavior must be "Transfer to new App
+User ID"** (the default for new projects). Eddy's appUserID *is* the Supabase
+user id, so anyone who deletes their account and signs in again is a new app
+user restoring a receipt that belongs to the old one. Under "Keep with original
+App User ID" that raises `RECEIPT_ALREADY_IN_USE` and the purchase can never be
+moved without support; the app now says so in plain words instead of showing the
+raw SDK error, but it cannot fix it.
+
+**And a transfer carries no entitlement state.** A `TRANSFER` webhook contains
+`transferred_from` and `transferred_to` and nothing else — no expiry, no product,
+no entitlement ids ([event fields][rc-events]). The handler therefore used to
+resolve it the only way it could, by copying the source user's row.
+
+Deleting an account destroys that row: `entitlements.user_id` references
+`auth.users` **ON DELETE CASCADE** (migration 00180). So "delete my account,
+sign in again, Restore purchases" — the one sequence that most needs to work,
+and the one App Store Guideline 5.1.1(v) obliges us to offer to a subscriber —
+copied nothing, wrote nothing, and returned success. The customer kept being
+billed with no access until their next renewal, up to a year away on annual.
+
+`REVENUECAT_SECRET_API_KEY` closes it. `src/lib/revenuecat/api.ts` reads
+`GET /v1/subscribers/{app_user_id}` and writes what RevenueCat itself reports:
+
+- the webhook falls back to it when a `TRANSFER` has no source row to copy, and
+- `POST /api/me/entitlement/refresh` lets the app trigger the same reconcile for
+  its own account, which is what Restore purchases now calls before it polls.
+
+The client still never states what it bought — it asks the server to go and ask
+RevenueCat — so a tampered app cannot grant itself Premium. The reconcile can
+only **grant or extend**, never revoke or shorten: revocation stays with the
+webhook, where `EXPIRATION`, `CANCELLATION` and refunds arrive.
+
+[rc-events]: https://www.revenuecat.com/docs/integrations/webhooks/event-types-and-fields
 
 ### Sandbox entitlements are honoured, and that is deliberate
 
