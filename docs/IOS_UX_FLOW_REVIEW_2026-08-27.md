@@ -14,6 +14,25 @@ scope.
 
 ---
 
+## Fixed on this branch
+
+Written as a review, then worked: the follow-up commits on this same branch
+fix **1.1** (the dam→river gate, client-side against the active river index),
+**1.2** (the gauge-fetch latch), **1.3** (the river paywall's missing
+refresh), **1.4** (Profile pull-to-refresh plus the copy that pointed at it,
+and the support address in the two alerts that said "contact support"),
+**1.5** (the withhold reason on the wire and the regulated plan copy),
+**2.1** (the Black's handoff row), **2.6/2.10** (services retry on focus and
+fetch-on-search), **2.12** (loading chevrons on dam/gauge/river), **2.13**
+(Try again on dam/gauge/river failures), **2.16** (the bell resumes the
+action that was tapped), **2.17** (SDK strings off the purchase alert),
+**2.18** (the "catching up" card state), **3.11** (the billing Settings
+path), **3.12** (link roles on Terms/Privacy), and **3.13**
+("Dam-controlled" on list rows). Validated with `make check-web`,
+`make check-mobile`, and `make bundle-mobile`. The remaining map findings
+(2.7–2.9, 2.11, 3.1–3.5), the push→rule path (2.14), the stack/ticker
+growth (2.15), and the rest of section 3 are still open.
+
 ## Verdict in one line
 
 The recent work is well-defended in the small — shared copy modules keep the
