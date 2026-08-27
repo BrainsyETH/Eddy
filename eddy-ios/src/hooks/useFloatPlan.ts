@@ -223,6 +223,11 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
     setPutIn(null);
     setTakeOut(null);
     setPlan(null);
+    // The bumped generation makes the in-flight calculate skip its OWN
+    // `finally` cleanup, so this has to clear the flag itself — the
+    // river-change effect above always did, and reset tapped mid-spinner
+    // left `calculating` latched true until the next calculation.
+    setCalculating(false);
     setError(null);
   }, []);
 

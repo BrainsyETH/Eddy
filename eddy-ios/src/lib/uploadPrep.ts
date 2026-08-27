@@ -3,6 +3,14 @@ export const UPLOAD_SAFE_BYTES = Math.floor(3.5 * 1024 * 1024);
 export type UploadMime = 'image/jpeg' | 'image/png' | 'image/webp';
 
 export interface UploadPreparation {
+  /**
+   * True when the photo needs the shrinking ladder — oversize, unmeasurable,
+   * or an unsupported format. False no longer means the original bytes are
+   * uploaded: EVERY photo is re-drawn before upload so the camera's own EXIF
+   * (a GPS tag, on most phones) never crosses the wire; false only means the
+   * re-draw keeps the original dimensions and format. See prepareUpload in
+   * PhotoSubmitSheet.
+   */
   reencode: boolean;
   name: string;
   type: UploadMime;

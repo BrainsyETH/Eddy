@@ -344,12 +344,21 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       // and giving them separate clock reads would order them arbitrarily in
       // Favorites for no reason a user could see.
       const now = new Date().toISOString();
-      setEntries((current) => {
-        const next = addStars(current, items, now);
-        persist(next);
-        return next;
-      });
-      sync();
+      // Same three guards as toggleStar, for the same reason — and the moment
+      // this runs is the one where they matter MOST. The first-run picker
+      // fires this right after the first sign-in, which is exactly when the
+      // mount sync is on the wire; a pass that snapshotted the pre-follow set
+      // would sail through the generation check and commit over the follows,
+      // in memory and on disk, unpushed — the erased stars gone with nothing
+      // left for a later sync to restore. This took only the setEntries path,
+      // so the gen never bumped and sync() below read a ref an effect had not
+      // flushed yet.
+      const next = addStars(entriesRef.current, items, now);
+      entriesRef.current = next;
+      mutationGen.current += 1;
+      setEntries(next);
+      persist(next);
+      void sync();
     },
     [persist, sync],
   );

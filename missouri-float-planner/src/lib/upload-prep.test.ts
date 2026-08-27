@@ -32,6 +32,18 @@ test('the client leaves multipart headroom under Vercel limits', () => {
   assert.equal(UPLOAD_SAFE_BYTES, COMMUNITY_UPLOAD_MAX_BYTES);
 });
 
+test('the mobile sheet never uploads original bytes — every photo is re-drawn', () => {
+  // A camera-roll photo's own EXIF carries a GPS tag on most phones, and the
+  // location permission copy promises "It is never sent to our servers". The
+  // server strips metadata before storage, but a pass-through still sent the
+  // tag across the wire. The strip is a no-resize manipulateAsync — any
+  // re-draw drops every metadata block — so the small-file fast path must go
+  // through it, not around it.
+  const mobile = readFileSync('../eddy-ios/src/components/PhotoSubmitSheet.tsx', 'utf8');
+  assert.doesNotMatch(mobile, /return \{ uri: asset\.uri/);
+  assert.match(mobile, /manipulateAsync\(asset\.uri, \[\], \{/);
+});
+
 test('both clients reject a prepared payload that remains over the server limit', () => {
   const web = readFileSync('src/components/river/RiverVisualSubmitForm.tsx', 'utf8');
   const mobile = readFileSync('../eddy-ios/src/components/PhotoSubmitSheet.tsx', 'utf8');

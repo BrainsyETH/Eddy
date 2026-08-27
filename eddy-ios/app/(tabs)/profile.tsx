@@ -135,7 +135,14 @@ export default function ProfileScreen() {
    */
   const settleConfirmPending = useCallback(async () => {
     const token = await getAccessToken();
-    if (token) await waitForEntitlement(token);
+    if (token) {
+      // Reconcile BEFORE polling, same as the restore path itself: the case
+      // this pending state exists for — a transfer onto an account with no
+      // entitlement row — is exactly the one polling alone can wait out
+      // forever. See refreshEntitlement in src/api/client.ts.
+      await refreshEntitlement(token);
+      await waitForEntitlement(token);
+    }
     await refresh();
   }, [getAccessToken, refresh]);
 

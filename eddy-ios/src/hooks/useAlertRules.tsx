@@ -187,20 +187,43 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
       rule: AlertRule,
       optimistic: (rules: AlertRule[]) => AlertRule[],
       write: (token: string) => Promise<T>,
+      // Every rule this mutation touches. remove() passes the cascade; the
+      // patches touch only their own rule and take the default.
+      affected: AlertRule[] = [rule],
     ): Promise<T> => {
       const before = rulesRef.current;
       if (before) setRules(optimistic(before));
 
+      // Revert ONLY what this mutation touched, as it was — never the whole
+      // snapshot. Restoring the full `before` list meant two overlapping
+      // mutations could undo each other: pause A (slow write), pause B
+      // (succeeds, reconciles), A's write fails → the wholesale revert put
+      // back a list where B was enabled again, though the server had it
+      // paused, and the screen lied until the next refetch.
+      const keys = new Set(affected.map(alertRuleKey));
+      const beforeAffected = (before ?? []).filter((r) => keys.has(alertRuleKey(r)));
+      const revert = () =>
+        setRules((current) => {
+          if (!current) return current;
+          const beforeByKey = new Map(beforeAffected.map((r) => [alertRuleKey(r), r]));
+          // Patched rules swap back in place; deleted ones are re-inserted at
+          // the front — the grouping downstream decides display order anyway.
+          const swapped = current.map((r) => beforeByKey.get(alertRuleKey(r)) ?? r);
+          const present = new Set(current.map(alertRuleKey));
+          const missing = beforeAffected.filter((r) => !present.has(alertRuleKey(r)));
+          return missing.length ? [...missing, ...swapped] : swapped;
+        });
+
       const token = await getAccessToken();
       if (!token) {
-        if (before) setRules(before);
+        if (before) revert();
         throw new ApiError('Sign in to change alerts', 401);
       }
 
       try {
         return await write(token);
       } catch (err) {
-        if (before) setRules(before);
+        if (before) revert();
         throw err;
       }
     },
@@ -309,6 +332,8 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
         rule,
         (current) => current.filter((r) => !gone.has(alertRuleKey(r))),
         (token) => deleteAlertRule(token, rule),
+        // The cascade is part of what a failed delete has to put back.
+        [rule, ...cascaded],
       );
     },
     [mutate],

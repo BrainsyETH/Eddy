@@ -10,7 +10,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MapGauge } from '@eddy/types';
 import { fetchGauges } from '@/api/client';
+import { onForeground } from '@/lib/foreground';
 import { warn } from '@/lib/monitoring';
+
+/** /api/gauges' own s-maxage — the app must not hold readings longer. */
+const GAUGES_TTL_MS = 300_000;
 
 export function useCuratedGauges(wanted: boolean): {
   /** Null until a request SUCCEEDS; a failure leaves it null, never []. */
@@ -20,6 +24,7 @@ export function useCuratedGauges(wanted: boolean): {
 } {
   const [gauges, setGauges] = useState<MapGauge[] | null>(null);
   const requested = useRef(false);
+  const fetchedAt = useRef<number | null>(null);
 
   const ensureGauges = useCallback(() => {
     if (requested.current) return;
@@ -52,6 +57,7 @@ export function useCuratedGauges(wanted: boolean): {
             returned: loaded.length,
           });
         }
+        fetchedAt.current = Date.now();
         setGauges(loaded);
       })
       .catch(() => {
@@ -61,6 +67,20 @@ export function useCuratedGauges(wanted: boolean): {
 
   useEffect(() => {
     if (wanted) ensureGauges();
+  }, [wanted, ensureGauges]);
+
+  // A resumed phone re-asks once the readings have outlived the route's own
+  // freshness. Stale-while-revalidate: the old list stays drawn until the new
+  // one lands, so foregrounding never blanks a layer — it just stops last
+  // night's condition colours presenting as this morning's.
+  useEffect(() => {
+    if (!wanted) return;
+    return onForeground(() => {
+      if (fetchedAt.current === null) return;
+      if (Date.now() - fetchedAt.current < GAUGES_TTL_MS) return;
+      requested.current = false;
+      ensureGauges();
+    });
   }, [wanted, ensureGauges]);
 
   return { gauges, ensureGauges };

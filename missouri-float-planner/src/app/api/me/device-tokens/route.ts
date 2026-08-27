@@ -92,7 +92,19 @@ export async function DELETE(request: NextRequest) {
     if (auth instanceof NextResponse) return auth;
     const { supabase, user } = auth;
 
-    const token = request.nextUrl.searchParams.get('expoPushToken');
+    // The token arrives in the BODY now, like registration's does — a push
+    // token in a query string persists in CDN and proxy access logs that no
+    // app-side redaction can reach. The query parameters stay accepted for
+    // installed clients that still send them.
+    let bodyToken: string | null = null;
+    try {
+      const body = (await request.json()) as { expoPushToken?: string } | null;
+      bodyToken = body?.expoPushToken?.trim() || null;
+    } catch {
+      // No JSON body — an older client using the query string.
+    }
+
+    const token = bodyToken ?? request.nextUrl.searchParams.get('expoPushToken');
     const id = request.nextUrl.searchParams.get('id');
     if (!token && !id) {
       return jsonPrivate({ error: 'expoPushToken or id required' }, { status: 400 });

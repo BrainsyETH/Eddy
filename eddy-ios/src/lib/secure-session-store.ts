@@ -26,9 +26,17 @@ import { createChunkedStore } from '@/lib/chunked-store';
  * the device is unlocked. Token refresh runs from a background AppState
  * transition, which can happen with the screen locked; the stricter default
  * (WHEN_UNLOCKED) would fail those refreshes and log the user out.
+ *
+ * THIS_DEVICE_ONLY, deliberately. Without it the item rides along in
+ * encrypted backups and restores onto other devices — a long-lived refresh
+ * token in every backup, for nothing: the durability this store exists for
+ * ("reinstalls keep identity", above) is the Keychain surviving reinstall on
+ * THIS device, which the device-only class provides. A restored phone signs
+ * in with Apple once, exactly as a new phone does. Existing items migrate on
+ * the next write — every setSession rewrite carries the new class.
  */
 const OPTIONS: SecureStore.SecureStoreOptions = {
-  keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
+  keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
 };
 
 /**

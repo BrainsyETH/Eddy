@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import {
   CACHE_VERSION,
   INDEX_KEY,
@@ -284,4 +285,37 @@ test('clearing the cache cannot reach anything a user chose', () => {
   assert.equal(isCacheKey(''), false);
   // The dot matters: a future `eddy.caches.*` would not be ours.
   assert.equal(isCacheKey('eddy.cachedThing'), false);
+});
+
+// ── the offline fallback on the two tabs ─────────────────────────
+//
+// riverCache imports AsyncStorage, so agedIndex cannot be imported here the
+// way this module is; the rules it composes (effectiveReadingAgeHours,
+// mayPaintCachedCondition) are tested above. These pin the composition and
+// the wiring: the aging rules are worth nothing if the tabs never read the
+// cache, which is exactly the state this closed — an offline cold start
+// showed an error over an empty list while every river's last condition sat
+// on disk.
+
+test('agedIndex withholds stale verdicts and stamps "Last known"', () => {
+  const source = readFileSync('../eddy-ios/src/lib/riverCache.ts', 'utf8');
+  assert.match(source, /export function agedIndex/);
+  // Past the trusted window the verdict is withheld, not re-painted…
+  assert.match(source, /code: 'unknown'/);
+  assert.match(source, /`Last known: \$\{condition\.label\}`/);
+  // …and the stale trend goes with it — yesterday's arrow is not a fact.
+  assert.match(source, /trend: null/);
+});
+
+test('Today and Favorites read the cache when the network fails', () => {
+  for (const path of [
+    '../eddy-ios/app/(tabs)/reports.tsx',
+    '../eddy-ios/app/(tabs)/favorites.tsx',
+  ]) {
+    const source = readFileSync(path, 'utf8');
+    assert.match(source, /await readIndex\(\)/, `${path} must fall back to the stored index`);
+    assert.match(source, /agedIndex\(cached, Date\.now\(\)\)/, `${path} must age what it shows`);
+    // Never over a live list — a failed refresh keeps what is on screen.
+    assert.match(source, /\(current\) => current \?\? agedIndex/, `${path} must not clobber live data`);
+  }
 });

@@ -234,11 +234,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     //
     // The two are told apart by whether the abandoned id had server-side rows,
     // which only the backend can answer — hence both ids in the report.
+    //
+    // TRUNCATED to eight characters, deliberately. The full UUIDs slipped past
+    // redact.ts — its hex rule wants 32+ CONTIGUOUS chars, which a dashed
+    // UUID never is — so two account ids reached Sentry on every ordinary
+    // reinstall-then-sign-in, while app-privacy-labels.md declares crash data
+    // "not linked to identity" and flags this exact breadcrumb. Eight chars
+    // still say whether the two ids differ and give the backend a prefix to
+    // search on, without being an account identifier.
     const nextId = data.session?.user?.id ?? null;
     if (previousId && nextId && previousId !== nextId) {
       warn('auth', 'Apple sign-in changed the user id', {
-        previousId,
-        nextId,
+        previousId: previousId.slice(0, 8),
+        nextId: nextId.slice(0, 8),
         previousWasAnonymous,
       });
     }

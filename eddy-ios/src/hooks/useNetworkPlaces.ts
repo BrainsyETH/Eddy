@@ -39,20 +39,33 @@ export function useNetworkPlaces(): CachedPlaces {
 
   useEffect(() => {
     let live = true;
+    // Once a seed payload has been applied, the disk read is history: on a
+    // first launch the read can catch the cache MID-seed — some rivers
+    // written, most not, so non-empty — and resolving after the seed event it
+    // would replace 25 rivers' pins with 3. The empty-read guard below never
+    // caught that case; only an emptiness check did, and a partial write is
+    // not empty.
+    let seeded = false;
     void readAllPlaces().then((stored) => {
       // Never replace a set with an empty one: on a first launch the bundle
       // listener below may well win the race, and a late empty read landing
       // afterwards would blank the layers it just filled.
-      if (live && stored.accessPoints.length > 0) setPlaces(stored);
+      if (live && !seeded && stored.accessPoints.length > 0) setPlaces(stored);
     });
 
+    // Subscribing REPLAYS a seed that already fired (see onOfflineBundleSeeded),
+    // synchronously — so a map tab first mounted after the seed still hears it,
+    // and `seeded` is set before the disk read above can resolve.
     const unsubscribe = onOfflineBundleSeeded((payload) => {
       if (!live) return;
       const accessPoints = payload.flatMap((entry) =>
         entry.accessPoints.map((point) => ({ point, riverSlug: entry.riverSlug })),
       );
       const hazards = payload.flatMap((entry) => entry.hazards);
-      if (accessPoints.length > 0 || hazards.length > 0) setPlaces({ accessPoints, hazards });
+      if (accessPoints.length > 0 || hazards.length > 0) {
+        seeded = true;
+        setPlaces({ accessPoints, hazards });
+      }
     });
 
     return () => {

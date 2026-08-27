@@ -78,6 +78,14 @@ export function usePublicLands(enabled: boolean, viewport: Viewport | null): Pub
     const key = `${bbox.join(',')}@${zoom}`;
     const hit = cache.current.get(key);
     if (hit) {
+      // ABORT FIRST, BEFORE ANY RETURN — useGaugeHistory's rule, and the
+      // A/B race is the same one: pan to A (slow fetch goes out), pan back to
+      // a cached B, and without this abort A's answer lands later, passes its
+      // own signal check, and paints A's parcels under B's camera — with
+      // lastRequested then claiming A, so containment holds the lie until the
+      // camera leaves A's padded box.
+      inFlight.current?.abort();
+      inFlight.current = null;
       lastRequested.current = { bbox, zoom };
       setState({ ...hit, loading: false, belowMinZoom: false });
       return;
@@ -150,6 +158,11 @@ export function usePublicLands(enabled: boolean, viewport: Viewport | null): Pub
       lastRequested.current.zoom === zoom &&
       bboxContains(lastRequested.current.bbox, viewport.bounds)
     ) {
+      // Same abort as the cache hit in load(), same race: what is on screen is
+      // already right for this camera, so a request still on the wire can only
+      // repaint it with somewhere else.
+      inFlight.current?.abort();
+      inFlight.current = null;
       return;
     }
 

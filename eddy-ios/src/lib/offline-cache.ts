@@ -71,6 +71,8 @@ export const NETWORK_KEY = `${VERSIONED}.network`;
 export const CONDITIONS_KEY = `${VERSIONED}.conditions`;
 /** Small index for the individually stored national-gauge viewport payloads. */
 export const VIEWPORT_GAUGES_INDEX_KEY = `${VERSIONED}.viewport-gauges`;
+/** LRU of per-gauge cache keys, so visited gauges cannot accumulate forever. */
+export const GAUGE_LRU_KEY = `${VERSIONED}.gauge-index`;
 
 const RIVER_INFIX = '.river:';
 const GAUGE_INFIX = '.gauge:';

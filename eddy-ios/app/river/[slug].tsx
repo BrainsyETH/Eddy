@@ -67,7 +67,6 @@ import {
   ApiError,
   fetchCondition,
   fetchGauges,
-  fetchDams,
   fetchRiverOutlook,
   fetchRiverVisuals,
   fetchRivers,
@@ -97,6 +96,7 @@ import { EddySymbol } from '@/components/EddySymbol';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { EddyTake } from '@/components/EddyTake';
 import { damForRiver } from '@/components/dam/RiverDamPanel';
+import { getSharedDams } from '@/hooks/useDams';
 import { TailwaterStatusRow } from '@/components/dam/TailwaterStatusRow';
 import { RiverReaches } from '@/components/river/RiverReaches';
 import { GaugeChart } from '@/components/GaugeChart';
@@ -492,7 +492,13 @@ export default function RiverDetailScreen() {
   const loadDam = useCallback(
     async (signal: AbortSignal) => {
       try {
-        const dams = await fetchDams(signal);
+        // The shared store, not a private fetch: this ran on EVERY focus of
+        // every river screen against a route measured at five to fifty
+        // seconds cold, and the river↔dam ping-pong refired it per hop. The
+        // store answers from its 15-minute cache — the route's own s-maxage —
+        // and no signal is passed because the request is shared; the aborted
+        // check below still keeps a late answer off an unfocused screen.
+        const dams = await getSharedDams();
         if (!signal.aborted) setDamFor({ slug, dam: damForRiver(dams, slug) });
       } catch {
         // Deliberately empty. See above: keep what is on screen and let the
