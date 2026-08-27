@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Eddy — Is the river floatable today? (print flyer)</title>
+<!--
+  Eddy print flyer — US Letter portrait, 8.5 x 11in.
+
+  Audience: floaters standing in an outfitter, campground office, gear shop or
+  boat-ramp kiosk. It leads with the question they already arrived with and
+  hands them the app that answers it.
+
+  The QR goes to Eddy River Guide on the App Store — see README.md for the app
+  id, the campaign token, and the decode check to re-run after any change to
+  the code's target or printed size. The "search Eddy River Guide" line beside
+  it is the human fallback and must keep naming that same destination.
+
+  Hand-edit this file. `build.py` regenerates assets/eddy-guide-qr.svg and
+  renders eddy-flyer.pdf / .png from it — it never rewrites this markup.
+
+  Brand sources, all in-repo — do not invent values here:
+    colors      missouri-float-planner/src/app/globals.css (:root ramps)
+    conditions  missouri-float-planner/shared/condition-system.ts (CONDITION_SYSTEM)
+    fonts + art marketing/app-store/assets/ (shared with share-card.svg)
+    layout      marketing/app-store/share-card.svg — the same Organic Brutalist
+                grammar: near-black outlines, hard offset shadows, no blur.
+-->
+<style>
+  /* ── Fonts ────────────────────────────────────────────────────────────────
+     Shared with share-card.svg rather than copied, so the flyer can never
+     drift onto a different cut of Fredoka than the rest of marketing/. */
+  @font-face {
+    font-family: "Fredoka";
+    src: url("../app-store/assets/Fredoka-Variable.ttf") format("truetype");
+    font-weight: 300 700;
+    font-display: block;
+  }
+  @font-face {
+    font-family: "Geist";
+    src: url("../app-store/assets/GeistVF.woff") format("woff");
+    font-weight: 100 900;
+    font-display: block;
+  }
+  @font-face {
+    font-family: "Geist Mono";
+    src: url("../app-store/assets/GeistMonoVF.woff") format("woff");
+    font-weight: 100 900;
+    font-display: block;
+  }
+
+  :root {
+    /* Brand ramps — transcribed from globals.css :root. */
+    --ink: #2D2A24;          /* neutral-900 — every outline on the page */
+    --ink-soft: #6B6459;     /* neutral-600 — body copy */
+    --bleed: #E7E1D4;        /* sandbar, one step under the card */
+    --card: #F4EFE7;         /* secondary-100 — the flyer surface */
+    --wave: #E2D7C2;         /* the water lines behind the masthead */
+    --teal-900: #163F4A;
+    --teal-700: #1D525F;
+    --teal-500: #2D7889;
+    --coral: #F07052;        /* accent-500 */
+    --sand-200: #E8DFD0;
+
+    /* Condition scale — transcribed from CONDITION_SYSTEM `solid` values in
+       missouri-float-planner/shared/condition-system.ts. That file is the
+       single source of truth for every condition color Eddy prints or draws:
+       change it there first, then re-transcribe here. */
+    --cond-too-low: #78716c;   /* stone-500  */
+    --cond-low: #eab308;       /* yellow-500 */
+    --cond-good: #84cc16;      /* lime-500   */
+    --cond-flowing: #10b981;   /* emerald-500 — canonical "Eddy green" */
+    --cond-high: #f97316;      /* orange-500 */
+    --cond-flood: #ef4444;     /* red-500    */
+  }
+
+  @page { size: 8.5in 11in; margin: 0; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: var(--page-w);
+    height: var(--page-h);
+  }
+
+  body {
+    /* The cream ring outside the card. Sized so the black frame clears the
+       ~0.25in unprintable edge of a desk printer — only bleed gets trimmed. */
+    --page-w: 8.5in;
+    --page-h: 11in;
+    --gutter: 0.28in;
+
+    background: var(--bleed);
+    color: var(--ink);
+    font-family: "Geist", system-ui, sans-serif;
+    padding: var(--gutter);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── The card ─────────────────────────────────────────────────────────── */
+  .flyer {
+    position: relative;
+    /* Stated absolutely rather than as height:100%. A percentage resolves
+       against whatever viewport the renderer decided on, and Chromium's
+       screenshot and print-to-pdf passes do not agree on that — which showed
+       up as a preview whose footer was cropped off a PDF that was fine. */
+    width: calc(var(--page-w) - 2 * var(--gutter));
+    height: calc(var(--page-h) - 2 * var(--gutter));
+    display: flex;
+    flex-direction: column;
+    padding: 0.34in 0.40in 0.28in;
+    border: 5px solid var(--ink);
+    border-radius: 22px;
+    background: var(--card);
+    overflow: hidden;
+  }
+
+  /* Share-card water lines, redrawn for portrait. Purely decorative. */
+  .waves {
+    position: absolute;
+    inset: -0.2in -0.4in auto;
+    height: 3.1in;
+    z-index: 0;
+    opacity: 0.85;
+  }
+
+  /* Lift the real content above the decorations. Both decorations must be
+     excluded by name: this selector outweighs `.waves` / `.canoe`'s own rules,
+     so a bare `:not(.waves)` silently re-flows the canoe as position:relative
+     and its 1.7in pushes every block below it off the bottom of the page. */
+  .flyer > *:not(.waves):not(.canoe) { position: relative; z-index: 1; }
+
+  /* ── Masthead ─────────────────────────────────────────────────────────── */
+  .masthead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .lockup { display: flex; align-items: center; gap: 14px; }
+
+  /* The favicon tile: teal chip, near-black outline, hard offset shadow.
+     Identical construction to share-card.svg's logo group. */
+  .mark {
+    width: 62px;
+    height: 62px;
+    border: 4px solid var(--ink);
+    border-radius: 17px;
+    background: var(--teal-700);
+    box-shadow: 5px 5px 0 var(--ink);
+    overflow: hidden;
+  }
+  .mark img { display: block; width: 100%; height: 100%; }
+
+  .wordmark {
+    font-family: "Fredoka", "Arial Rounded MT Bold", sans-serif;
+    font-weight: 650;
+    font-size: 42px;
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+
+  /* ── Headline block ───────────────────────────────────────────────────── */
+  .eyebrow {
+    margin-top: 0.22in;
+    font-family: "Geist Mono", monospace;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 2.3px;
+    color: var(--teal-700);
+  }
+
+  /* Double-print headline: a near-black plate offset down-right with the coral
+     plate sitting on top of it, the same trick share-card.svg uses. Rendered
+     with a real duplicate rather than text-shadow so the offset stays a crisp
+     second impression at press resolution instead of a resampled blur. The
+     duplicate is aria-hidden so a screen reader hears the line once. */
+  .headline {
+    position: relative;
+    margin-top: 6px;
+    font-family: "Fredoka", "Arial Rounded MT Bold", sans-serif;
+    font-weight: 620;
+    font-size: 72px;
+    line-height: 0.97;
+    letter-spacing: -2.2px;
+  }
+  .headline .plate {
+    position: absolute;
+    inset: 0;
+    color: var(--ink);
+    transform: translate(7px, 7px);
+  }
+  .headline .face { position: relative; color: var(--coral); }
+
+  .subhead {
+    margin-top: 0.22in;
+    max-width: 6.0in;
+    font-size: 18px;
+    font-weight: 520;
+    line-height: 1.4;
+    color: var(--ink-soft);
+  }
+  .subhead b { color: var(--ink); font-weight: 640; }
+
+  /* ── Condition scale ──────────────────────────────────────────────────── */
+  .scale { margin-top: 0.24in; }
+
+  .scale-label {
+    font-family: "Geist Mono", monospace;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 1.8px;
+    color: var(--teal-700);
+    margin-bottom: 8px;
+  }
+
+  /* Six solid segments in CONDITION_ORDER (worst → most alarming), read left to
+     right as a scale. Color carries the meaning; the label sits below in ink so
+     no swatch has to survive a contrast check against its own fill. */
+  .scale-bar {
+    display: flex;
+    height: 30px;
+    border: 4px solid var(--ink);
+    border-radius: 11px;
+    box-shadow: 5px 5px 0 var(--ink);
+    overflow: hidden;
+  }
+  .scale-bar span { flex: 1; }
+  .scale-bar span + span { border-left: 3px solid var(--ink); }
+
+  .scale-keys {
+    display: flex;
+    margin-top: 8px;
+  }
+  .scale-keys span {
+    flex: 1;
+    text-align: center;
+    font-family: "Fredoka", sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: -0.2px;
+  }
+
+  /* ── Feature cards ────────────────────────────────────────────────────── */
+  .features {
+    display: flex;
+    gap: 0.18in;
+    margin-top: 0.24in;
+  }
+
+  .feature {
+    flex: 1;
+    padding: 12px 14px 13px;
+    border: 4px solid var(--ink);
+    border-radius: 16px;
+    background: #FFFFFF;
+    box-shadow: 5px 5px 0 var(--ink);
+  }
+
+  /* A fixed-height, bottom-aligned strip rather than a square box: the mascot
+     icons are tall portraits and the boat-ramp symbol is a wide landscape, so
+     constraining height (not width) is what makes them sit on one baseline at
+     matching visual weight. */
+  .feature .icon {
+    display: flex;
+    align-items: flex-end;
+    height: 46px;
+    margin-bottom: 8px;
+  }
+  .feature .icon img {
+    display: block;
+    height: 100%;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+  }
+
+  .feature h3 {
+    font-family: "Fredoka", sans-serif;
+    font-weight: 620;
+    font-size: 18px;
+    line-height: 1.12;
+    letter-spacing: -0.4px;
+    margin-bottom: 5px;
+  }
+
+  .feature p {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.36;
+    color: var(--ink-soft);
+  }
+
+  /* ── QR band ──────────────────────────────────────────────────────────── */
+  .scan {
+    display: flex;
+    align-items: center;
+    gap: 0.24in;
+    margin-top: auto;
+    padding: 0.16in 0.20in;
+    border: 5px solid var(--ink);
+    border-radius: 20px;
+    background: var(--teal-700);
+    box-shadow: 6px 6px 0 var(--ink);
+  }
+
+  /* The QR tile is white on purpose: the quiet zone a scanner needs has to be
+     white paper, not teal. The SVG carries its own 4-module quiet zone, so this
+     padding is design margin only. At this size the 49-module version-8 symbol
+     prints ~1.5in / ~0.78mm per module — well over the ~0.4mm a phone camera
+     needs, and good for a scan from roughly a foot away. Shrinking the tile
+     shrinks that margin: re-run the decode check in README.md after any change. */
+  .qr {
+    flex: none;
+    width: 1.86in;
+    height: 1.86in;
+    padding: 0.07in;
+    background: #FFFFFF;
+    border: 4px solid var(--ink);
+    border-radius: 12px;
+  }
+  .qr img { display: block; width: 100%; height: 100%; }
+
+  .scan-copy { color: var(--card); }
+
+  .scan-copy h2 {
+    font-family: "Fredoka", sans-serif;
+    font-weight: 640;
+    font-size: 37px;
+    line-height: 1.02;
+    letter-spacing: -1.1px;
+    color: #FFFFFF;
+  }
+
+  /* Apple's supplied "Download on the App Store" badge, unaltered, sitting on a
+     white chip. The badge artwork only ships in black here, and Apple's
+     guidelines want it on a background it contrasts with — so the chip supplies
+     that rather than recoloring the badge, which the guidelines forbid. The
+     chip's border and offset shadow match the QR tile beside it. */
+  .scan-copy .store {
+    display: inline-block;
+    margin-top: 9px;
+    padding: 7px 11px;
+    background: #FFFFFF;
+    border: 3px solid var(--ink);
+    border-radius: 12px;
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .scan-copy .store img { display: block; height: 36px; width: auto; }
+
+  .scan-copy p {
+    margin-top: 10px;
+    font-size: 14px;
+    font-weight: 520;
+    line-height: 1.4;
+    color: #D9E6EA;
+  }
+  .scan-copy p b { color: #FFFFFF; font-weight: 650; }
+
+  /* ── Footer ───────────────────────────────────────────────────────────── */
+  .rule {
+    height: 12px;
+    margin-top: 0.16in;
+    border: 3px solid var(--ink);
+    border-radius: 8px;
+    background: var(--teal-500);
+  }
+
+  .footer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.3in;
+    margin-top: 0.11in;
+  }
+
+  .footer p {
+    max-width: 5.5in;
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1.36;
+    color: var(--ink-soft);
+  }
+
+  .footer .credit {
+    font-family: "Geist Mono", monospace;
+    font-weight: 700;
+    font-size: 10.5px;
+    letter-spacing: 1px;
+    color: var(--teal-700);
+    white-space: nowrap;
+  }
+
+  /* The paddling otter rides the masthead's right shoulder, over the water
+     lines. Positioned absolutely so it can sit higher than the wordmark
+     without pushing the flexbox rhythm below it around. */
+  .canoe {
+    position: absolute;
+    top: 0.16in;
+    right: 0.02in;
+    width: 2.5in;
+    z-index: 0;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div class="flyer">
+
+  <svg class="waves" viewBox="0 0 800 300" preserveAspectRatio="none" aria-hidden="true">
+    <g fill="none" stroke="#E2D7C2" stroke-width="5" stroke-linecap="round">
+      <path d="M-60 118C70 18 200 32 288 109s211 88 325 3 213-35 250 50" />
+      <path d="M-66 145C61 45 192 60 273 135s212 86 329 3 215-31 250 54" />
+      <path d="M-72 172C55 73 179 88 265 162s214 84 333 2 217-26 251 58" />
+    </g>
+  </svg>
+
+  <img class="canoe" src="../app-store/assets/eddy-canoe.png" alt="">
+
+  <header class="masthead">
+    <div class="lockup">
+      <span class="mark"><img src="../app-store/assets/eddy-favicon.png" alt="Eddy the otter"></span>
+      <span class="wordmark">Eddy</span>
+    </div>
+  </header>
+
+  <p class="eyebrow">LIVE OZARKS RIVER CONDITIONS</p>
+
+  <h1 class="headline">
+    <span class="plate" aria-hidden="true">Is the river<br>floatable today?</span>
+    <span class="face">Is the river<br>floatable today?</span>
+  </h1>
+
+  <p class="subhead">
+    Eddy reads the live USGS gauges on <b>24 Ozarks float rivers</b> and turns the
+    numbers into one honest rating — so you know what you are driving to before
+    you load the boat.
+  </p>
+
+  <section class="scale">
+    <p class="scale-label">ONE RATING, EVERY RIVER, UPDATED ALL DAY</p>
+    <div class="scale-bar" aria-hidden="true">
+      <span style="background: var(--cond-too-low)"></span>
+      <span style="background: var(--cond-low)"></span>
+      <span style="background: var(--cond-good)"></span>
+      <span style="background: var(--cond-flowing)"></span>
+      <span style="background: var(--cond-high)"></span>
+      <span style="background: var(--cond-flood)"></span>
+    </div>
+    <div class="scale-keys">
+      <span>Too Low</span>
+      <span>Low</span>
+      <span>Good</span>
+      <span>Flowing</span>
+      <span>High</span>
+      <span>Flood</span>
+    </div>
+  </section>
+
+  <section class="features">
+    <article class="feature">
+      <span class="icon"><img src="../app-store/assets/eddy-checking-gauge.png" alt=""></span>
+      <h3>Check the water</h3>
+      <p>Real-time gauge readings, a 14-day trend, and the weather about to
+         change it.</p>
+    </article>
+    <article class="feature">
+      <span class="icon"><img src="../app-store/assets/eddy-route-planning.png" alt=""></span>
+      <h3>Plan the float</h3>
+      <p>Put-in to take-out: river miles, time on the water, and the shuttle
+         drive.</p>
+    </article>
+    <article class="feature">
+      <span class="icon"><img src="assets/eddy-boat-ramp.png" alt=""></span>
+      <h3>Find the access</h3>
+      <p>Ramps, hazards, campgrounds and outfitters mapped along every
+         stretch.</p>
+    </article>
+  </section>
+
+  <section class="scan">
+    <div class="qr">
+      <img src="assets/eddy-guide-qr.svg"
+           alt="QR code linking to Eddy River Guide on the App Store">
+    </div>
+    <div class="scan-copy">
+      <h2>Scan it.<br>Get the app.</h2>
+      <span class="store">
+        <img src="assets/download-on-app-store.svg" alt="Download on the App Store">
+      </span>
+      <p>Free on the App Store — search <b>Eddy River Guide</b>. No iPhone?
+         It all works at <b>eddy.guide</b>.</p>
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <footer class="footer">
+    <p>River conditions change fast. Eddy is an informational planning tool — not a
+       substitute for local knowledge, official alerts, proper equipment, or your own
+       judgment. Conditions data from USGS and NWS.</p>
+    <span class="credit">EDDY.GUIDE</span>
+  </footer>
+
+</div>
+</body>
+</html>
