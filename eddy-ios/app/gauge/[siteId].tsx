@@ -214,6 +214,14 @@ export default function GaugeDetailScreen() {
     null,
   );
 
+  /**
+   * Bumped by the failure body's "Try again". The error copy always SAID try
+   * again; with the load living in a [siteId]-keyed effect there was no way to
+   * do so short of leaving and coming back — an instruction with no control,
+   * on the screen whose whole content is one request.
+   */
+  const [reloadNonce, setReloadNonce] = useState(0);
+
   useEffect(() => {
     if (!siteId) return;
     const controller = new AbortController();
@@ -251,7 +259,7 @@ export default function GaugeDetailScreen() {
     })();
 
     return () => controller.abort();
-  }, [siteId]);
+  }, [siteId, reloadNonce]);
 
   // ── The two vocabularies ──────────────────────────────────────────────────
   // The ladder to grade against.
@@ -310,10 +318,19 @@ export default function GaugeDetailScreen() {
   const outlook = reportKey && report?.key === reportKey ? report.data : null;
 
   if (loading && !gauge) {
+    // The chevron renders DURING the load — configure.tsx's own rule: a
+    // spinner with no chevron is a wait with no visible way off the screen.
     return (
-      <SafeAreaView style={[styles.screen, styles.centre, { backgroundColor: colors.bg }]}>
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ActivityIndicator size="large" color={colors.interactive} />
+        <View style={styles.navRow}>
+          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
+            <Ionicons name="chevron-back" size={26} color={colors.text} />
+          </Pressable>
+        </View>
+        <View style={[styles.screen, styles.centre]}>
+          <ActivityIndicator size="large" color={colors.interactive} />
+        </View>
       </SafeAreaView>
     );
   }
@@ -336,6 +353,25 @@ export default function GaugeDetailScreen() {
               ? 'Could not reach the gauge record. Check your connection and try again.'
               : `No station is published under ${siteId}.`}
           </Text>
+          {/* The control the copy promises. Only for a FAILURE — retrying a
+              "not found" would re-ask a question whose answer is not going to
+              change. */}
+          {failed ? (
+            <Pressable
+              onPress={() => {
+                setFailed(false);
+                setLoading(true);
+                setReloadNonce((n) => n + 1);
+              }}
+              style={({ pressed }) => [
+                styles.sourceButton,
+                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+              ]}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.sourceText, { color: colors.text }]}>Try again</Text>
+            </Pressable>
+          ) : null}
           {/* Only offered when the id LOOKS like a USGS site number. There is no
               record here to read a provider off — that is what "not found"
               means — so the shape of the id is all there is to go on, and

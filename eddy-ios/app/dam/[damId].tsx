@@ -36,7 +36,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
-import { fetchDam } from '@/api/client';
+import { fetchDam, fetchRivers } from '@/api/client';
+import { readIndex } from '@/lib/riverCache';
 import { DamStateCard } from '@/components/dam/DamStateCard';
 import { GenerationCard } from '@/components/dam/GenerationCard';
 import { DamPatternStrip } from '@/components/dam/DamPatternStrip';
@@ -55,6 +56,42 @@ export default function DamDetailScreen() {
   const [dam, setDam] = useState<DamSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+
+  /**
+   * The rivers the app can actually OPEN, for gating the tailwater button.
+   *
+   * The snapshot's `tailwater` block is registry fact — the dam does control
+   * that reach — but /api/rivers serves ACTIVE rivers only, and the three new
+   * tailwaters landed inactive, staged behind their access points. The wire
+   * carries the block regardless (it also feeds the release-alert button and
+   * the water-quality card, which must keep working), so the fact that a
+   * river page exists to open has to be checked here. Without this check the
+   * one filled, accent-coloured button on Bull Shoals, Norfork and Table Rock
+   * pushed /river/[slug] straight into "River not found".
+   *
+   * Null until answered; the button waits for a yes. On a fetch failure the
+   * offline index answers — a phone that cannot reach /api/rivers could not
+   * have opened the river screen either, so hiding the button then is the
+   * honest default, not a loss.
+   */
+  const [knownRiverSlugs, setKnownRiverSlugs] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const rivers = await fetchRivers(controller.signal);
+        if (!controller.signal.aborted) {
+          setKnownRiverSlugs(new Set(rivers.map((r) => r.slug)));
+        }
+      } catch {
+        const cached = await readIndex();
+        if (!controller.signal.aborted && cached) {
+          setKnownRiverSlugs(new Set(cached.payload.map((r) => r.slug)));
+        }
+      }
+    })();
+    return () => controller.abort();
+  }, []);
 
   /**
    * The whole screen's clock, ticked once a minute.
@@ -105,11 +142,18 @@ export default function DamDetailScreen() {
     [damId]
   );
 
+  /**
+   * Bumped by the failure body's "Try again". The error copy always said try
+   * again; the load living in effects meant there was no control to do it
+   * with, short of leaving the screen and coming back.
+   */
+  const [reloadNonce, setReloadNonce] = useState(0);
+
   useEffect(() => {
     const controller = new AbortController();
     load(controller.signal, true);
     return () => controller.abort();
-  }, [load]);
+  }, [load, reloadNonce]);
 
   /**
    * Refetch whenever the screen comes back into view.
@@ -132,10 +176,21 @@ export default function DamDetailScreen() {
   );
 
   if (loading) {
+    // The chevron renders DURING the load, same rule configure.tsx states for
+    // itself: this fetch reads through to CWMS and SWPA and can run five to
+    // fifty seconds cold, and a spinner with no chevron is that long with no
+    // visible way off the screen.
     return (
-      <SafeAreaView style={[styles.screen, styles.centre, { backgroundColor: colors.bg }]}>
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ActivityIndicator size="large" color={colors.interactive} />
+        <View style={styles.navRow}>
+          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
+            <Ionicons name="chevron-back" size={26} color={colors.text} />
+          </Pressable>
+        </View>
+        <View style={[styles.screen, styles.centre]}>
+          <ActivityIndicator size="large" color={colors.interactive} />
+        </View>
       </SafeAreaView>
     );
   }
@@ -158,6 +213,20 @@ export default function DamDetailScreen() {
               ? 'Could not reach the Corps’ feed. Check your connection and try again.'
               : `No project is published under ${damId}.`}
           </Text>
+          {/* The control the copy promises. Failure only — a "not found" is
+              an answer, not an outage. */}
+          {failed ? (
+            <Pressable
+              onPress={() => setReloadNonce((n) => n + 1)}
+              style={({ pressed }) => [
+                styles.sourceButton,
+                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+              ]}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.sourceText, { color: colors.text }]}>Try again</Text>
+            </Pressable>
+          ) : null}
         </View>
       </SafeAreaView>
     );
@@ -284,7 +353,7 @@ export default function DamDetailScreen() {
           {/* The reach this dam controls, when Eddy carries it. Absent for most
               projects, and absent is the honest state — a dam whose tailwater
               Eddy does not carry has no river screen to offer. */}
-          {dam.tailwater ? (
+          {dam.tailwater && knownRiverSlugs?.has(dam.tailwater.riverSlug) ? (
             <Pressable
               // `section` names the reach this dam actually controls, when the
               // river carries more than one. Without it the Black opens on the
