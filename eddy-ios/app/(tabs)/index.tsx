@@ -1087,7 +1087,24 @@ export default function MapScreen() {
    */
   const wantsServices =
     SERVICE_LAYER_KEYS.some((key) => layers.includes(key)) || selectedSlug != null;
-  const services = useRiverServices(wantsServices);
+  const { services, ensureServices } = useRiverServices(wantsServices);
+
+  /**
+   * Retry the silent enrichments on focus.
+   *
+   * The rivers list above retries on focus gated on its error, because it has
+   * one to gate on. Gauges and services fail silently by design — so the gate
+   * lives in the hooks instead: after a success the ref never releases and
+   * these calls are free; after a failure the ref has released and coming back
+   * to the tab is the retry the released ref was always waiting for. Without
+   * this, "release on failure" promised a retry that no code path ever made.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (layers.includes('gauges')) ensureGauges();
+      if (wantsServices) ensureServices();
+    }, [layers, wantsServices, ensureGauges, ensureServices]),
+  );
 
   /**
    * The dam pins.
@@ -2412,9 +2429,16 @@ export default function MapScreen() {
           value={search.query}
           onChangeText={search.setQuery}
           placeholder="Search rivers, gauges, dams and more"
-          // Gauges are matched locally, so the list has to exist before the
-          // first keystroke rather than after the first gauge query.
-          onFocus={ensureGauges}
+          // Gauges and services are matched locally, so both lists have to
+          // exist before the first keystroke rather than after the first
+          // query. Services especially: the placeholder and the empty state
+          // both promise outfitters, and with all three service layers off
+          // nothing else would ever have fetched them — "Akers Ferry" answered
+          // "Nothing matched" while the directory sat unrequested.
+          onFocus={() => {
+            ensureGauges();
+            ensureServices();
+          }}
         />
       </View>
 

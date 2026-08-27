@@ -12,18 +12,35 @@
 // marking the request as made before it succeeds meant one flaky moment
 // disabled three layers for the life of the screen. No timer and no retry
 // loop: a map screen quietly re-requesting on a schedule is a bigger
-// commitment than this needs, and the next layer toggle tries again.
+// commitment than this needs.
+//
+// ── WHY ensureServices EXISTS ───────────────────────────────────────────
+// The released ref promised "the next layer toggle tries again" — a retry
+// nobody could reach. The service layers are on by DEFAULT, so `wanted` is
+// true from mount and never changes; the only path to a re-run of the
+// effect was switching all three service layers off with no river selected,
+// then back on. One flaky launch and the campground, rental and lodging
+// pins were gone for the session, with no message. So the ask is also a
+// callback, mirroring useCuratedGauges: the map screen fires it on tab
+// focus (the recovery moment loadRivers already uses) and on search-field
+// focus — where the placeholder promises outfitters, the list has to exist
+// before the first keystroke.
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RiverService } from '@eddy/types';
 import { fetchServices } from '@/api/client';
 
-export function useRiverServices(wanted: boolean): RiverService[] | null {
+export function useRiverServices(wanted: boolean): {
+  /** Null until a request succeeds; a failure leaves it null, never []. */
+  services: RiverService[] | null;
+  /** Ask now, idempotently. Stable, so it can sit on an onFocus prop. */
+  ensureServices: () => void;
+} {
   const [services, setServices] = useState<RiverService[] | null>(null);
   const requested = useRef(false);
 
-  useEffect(() => {
-    if (!wanted || requested.current) return;
+  const ensureServices = useCallback(() => {
+    if (requested.current) return;
     requested.current = true;
     // The other half of the first-paint cost the dams hook logs.
     const startedAt = Date.now();
@@ -40,7 +57,11 @@ export function useRiverServices(wanted: boolean): RiverService[] | null {
       }
       setServices(rows);
     });
-  }, [wanted]);
+  }, []);
 
-  return services;
+  useEffect(() => {
+    if (wanted) ensureServices();
+  }, [wanted, ensureServices]);
+
+  return { services, ensureServices };
 }
