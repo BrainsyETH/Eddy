@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { ratedUnit } from '@shared/reading-unit';
 
 // Mirrors eddy-ios/src/lib/readingCopy.ts. The app has no test runner, so the
@@ -239,4 +240,53 @@ test('ratedUnit falls back to the top-level field, then to null', () => {
   // whole bug: true of six rivers, wrong about the other eighteen.
   assert.equal(ratedUnit({}), null);
   assert.equal(ratedUnit({ thresholdUnit: null, thresholds: null }), null);
+});
+
+// ── The dam-controlled substitution ─────────────────────────────────────────
+// Mirrors damControlledLabel, same arrangement as the mirrors above; the
+// source pin below is what keeps the mirror honest.
+
+function damControlledLabel(
+  riverType: string | null | undefined,
+  code: string | null | undefined,
+): string | null {
+  return riverType === 'dam_tailwater' && (code == null || code === 'unknown')
+    ? 'Dam-controlled'
+    : null;
+}
+
+test('a dam tailwater reads "Dam-controlled" where a list row would say Unknown', () => {
+  // `unknown` on a tailwater is permanent and deliberate — the 2026-08-26
+  // migration made an unrated gauge grade unknown — but on a Today row or a
+  // favorites card the grey word reads as a data outage, not as "this river
+  // runs on releases".
+  assert.equal(damControlledLabel('dam_tailwater', 'unknown'), 'Dam-controlled');
+  assert.equal(damControlledLabel('dam_tailwater', null), 'Dam-controlled');
+  assert.equal(damControlledLabel('dam_tailwater', undefined), 'Dam-controlled');
+
+  // A rating, once one exists, is always the more specific fact — the
+  // substitution must never mask one.
+  assert.equal(damControlledLabel('dam_tailwater', 'good'), null);
+  assert.equal(damControlledLabel('dam_tailwater', 'dangerous'), null);
+
+  // Every other river type keeps the ordinary unknown.
+  assert.equal(damControlledLabel('spring_fed_float', 'unknown'), null);
+  assert.equal(damControlledLabel(null, 'unknown'), null);
+  assert.equal(damControlledLabel(undefined, 'unknown'), null);
+});
+
+test('the substitution exists in the app and reaches every list surface', () => {
+  // The mirror above proves the rule; these prove the app carries it and the
+  // three rows that showed "Unknown" actually call it. A helper nothing calls
+  // is a fixed bug that never shipped.
+  const source = readFileSync('../eddy-ios/src/lib/readingCopy.ts', 'utf8');
+  assert.match(source, /riverType === 'dam_tailwater' && \(code == null \|\| code === 'unknown'\)/);
+
+  for (const path of [
+    '../eddy-ios/src/components/RiverRow.tsx',
+    '../eddy-ios/src/components/FavoriteRiverCard.tsx',
+    '../eddy-ios/src/components/PlanSheet.tsx',
+  ]) {
+    assert.match(readFileSync(path, 'utf8'), /damControlledLabel\(river\.riverType, code\)/);
+  }
 });

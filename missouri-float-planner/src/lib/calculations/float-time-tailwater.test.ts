@@ -175,3 +175,34 @@ test('chat does not report every withheld float time as dangerous water', () => 
     'chat must have distinct copy for regulated water',
   );
 });
+
+test('the reason travels with the absence, and the iOS plan card branches on it', () => {
+  // Withholding was computed and enforced but never SAID: the response carried
+  // one null for two silences, and the iOS card worded both as flood water —
+  // "Wait for it to drop", on a tailwater at ordinary generation, where
+  // dropping is not the problem and waiting will not help.
+  assert.match(
+    PLAN_ROUTE,
+    /floatTimeWithheldReason: withholdReason/,
+    '/api/plan must put the withholding reason on the wire',
+  );
+
+  // And the client actually reads it — a field nothing consumes is the same
+  // wrong sentence with better provenance. Both the card and the share line.
+  const planResult = readFileSync(
+    join(process.cwd(), '../eddy-ios/src/components/PlanResult.tsx'),
+    'utf-8',
+  );
+  assert.match(planResult, /floatTimeWithheldReason === 'regulated'/);
+  assert.match(
+    planResult,
+    /Dam releases can change mid-float/,
+    'the regulated branch must have its own sentence, not the flood one',
+  );
+
+  const planSheet = readFileSync(
+    join(process.cwd(), '../eddy-ios/src/components/PlanSheet.tsx'),
+    'utf-8',
+  );
+  assert.match(planSheet, /floatTimeWithheldReason === 'regulated'/);
+});

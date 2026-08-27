@@ -57,7 +57,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { KindMark } from '@/components/KindMark';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { ReadingScale } from '@/components/ReadingScale';
-import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
+import { damControlledLabel, formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import type { EddySays } from '@/lib/eddySays';
 import { TREND_ICON } from '@/components/TrendPill';
 
@@ -148,7 +148,7 @@ function FavoriteRiverCardComponent({
             accessibilityRole="button"
             accessibilityLabel={[
               river.name,
-              condition?.label ?? conditionLongLabel(code),
+              damControlledLabel(river.riverType, code) ?? condition?.label ?? conditionLongLabel(code),
               reading ? formatReading(reading.value, reading.unit) : 'no gauge reading',
               trend?.label,
               gaugeName && reading ? `via ${gaugeName}` : null,
@@ -174,7 +174,7 @@ function FavoriteRiverCardComponent({
               ]}
             >
               <Text style={[styles.chipText, { color: conditionInk(code) }]}>
-                {condition?.label ?? conditionLongLabel(code)}
+                {damControlledLabel(river.riverType, code) ?? condition?.label ?? conditionLongLabel(code)}
               </Text>
             </View>
           </Pressable>

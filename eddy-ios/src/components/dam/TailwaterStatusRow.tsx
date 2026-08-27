@@ -40,10 +40,39 @@ export function TailwaterStatusRow({ dam }: { dam: DamSnapshot | null }) {
   const router = useRouter();
 
   if (!dam) return null;
-  // Null for a flood-control project with no powerhouse — every sentence this
-  // row can produce is about turbines. See buildTailwaterStatus.
+  // Null for a flood-control project with no powerhouse — every sentence
+  // buildTailwaterStatus can produce is about turbines. But the DAM is still
+  // the controlling fact about this river, so the handoff renders anyway,
+  // reduced to the one sentence that is true of a project with no powerhouse.
+  // When this row replaced the old "controls this reach" link it inherited
+  // that link's job, and returning null here walked off with it: the Black —
+  // the one ACTIVE dam-controlled river — lost its only path from the river
+  // screen to Clearwater's release figure, forecast and alert button.
+  //
+  // Web needs no equivalent: its river page renders RiverDamPanel separately,
+  // so Clearwater keeps its panel there regardless of this row.
   const status = buildTailwaterStatus(dam);
-  if (!status) return null;
+  if (!status) {
+    return (
+      <Pressable
+        onPress={() => router.push(`/dam/${dam.id}`)}
+        style={({ pressed }) => [
+          styles.row,
+          { borderTopColor: colors.border, opacity: pressed ? 0.6 : 1 },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={`${dam.name} controls this reach. Opens ${dam.name} details.`}
+      >
+        <Ionicons name="water-outline" size={16} color={colors.interactive} style={styles.icon} />
+        <View style={styles.body}>
+          <Text style={[styles.headline, { color: colors.text }]}>
+            {dam.name} controls this reach
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} style={styles.icon} />
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable

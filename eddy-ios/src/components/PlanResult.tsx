@@ -153,6 +153,24 @@ export function PlanResult({ plan, actions }: Props) {
               {floatTimeCeilingBasisNote()}
             </Text>
           </>
+        ) : plan.floatTimeWithheldReason === 'regulated' ? (
+          <>
+            {/* TWO SILENCES, TWO SENTENCES — floatTimeWithholding's own rule.
+                A tailwater's missing time is uncertainty about WHEN, not a
+                verdict about whether, so it takes the plain ink rather than
+                the condition colour: painted with the ladder it read as a
+                second rating, and at ordinary generation that colour could be
+                GREEN under a headline about refusing an estimate. "Wait for
+                it to drop" was wrong twice here — the water is not high, and
+                waiting does not help. */}
+            <Text style={[styles.headline, { color: colors.text }]}>
+              No single float time
+            </Text>
+            <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
+              Dam releases can change mid-float, so one estimate would be wrong the moment the
+              units start or stop. Check the dam’s schedule before you go.
+            </Text>
+          </>
         ) : (
           <>
             <Text style={[styles.headline, { color: conditionColor(plan.condition.code) }]}>
