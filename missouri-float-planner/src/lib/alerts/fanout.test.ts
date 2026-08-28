@@ -224,6 +224,16 @@ test('the notification names the river and carries routing data', () => {
   assert.equal(planned.message.data?.eventId, 'evt-floatable');
 });
 
+test('the notification carries the rule that fired it, addressed as (id, source)', () => {
+  // The tap's landing screen offers "manage this alert", and a rule is
+  // addressed as (id, source) everywhere — the two rule tables share an id
+  // space only by accident (see alertRuleKey). An id without its source can
+  // resolve to the wrong table.
+  const [planned] = plan().messages;
+  assert.equal(planned.message.data?.alertId, planned.subscriptionId);
+  assert.equal(planned.message.data?.alertSource, 'river_condition');
+});
+
 test('warnings send at high priority and carry a verify-locally caveat', () => {
   const [planned] = plan({ events: [event('warning')] }).messages;
   assert.equal(planned.message.priority, 'high');

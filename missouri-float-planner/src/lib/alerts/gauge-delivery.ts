@@ -308,6 +308,9 @@ export async function deliverGaugeAlerts(
             data: {
               eventId: row.id,
               alertId: row.subscription_id,
+              // The half fanout.ts explains: a rule is addressed as
+              // (id, source) across the app, never id alone.
+              alertSource: 'gauge',
               kind,
               condition: row.condition_code,
               ...routing,

@@ -334,6 +334,15 @@ export function planDeliveries(input: PlanInput): FanoutPlan {
               riverSlug: event.river_slug ?? null,
               kind: event.kind,
               condition: event.new_condition_code,
+              // The rule that fired, so the tap can offer a way to MANAGE it.
+              // A push used to land on the river screen with no path back to
+              // the thing that buzzed the phone — pausing it took four hops
+              // through the Alerts tab. `alertSource` rides along because the
+              // two rule tables share an id space only by accident: the app
+              // addresses a rule as (id, source) everywhere (alertRuleKey),
+              // and an id alone can resolve to the wrong table.
+              alertId: sub.id,
+              alertSource: 'river_condition',
             },
           },
           eventId: event.id,

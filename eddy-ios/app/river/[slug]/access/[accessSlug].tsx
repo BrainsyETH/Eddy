@@ -495,7 +495,10 @@ export default function AccessPointDetailScreen() {
               promise the map cannot keep. */}
           <Pressable
             onPress={() =>
-              router.push({
+              // navigate, not push: the Map tab already exists — returning to
+              // it is the intent, and push minted a fresh copy of the tab on
+              // the stack instead.
+              router.navigate({
                 pathname: '/',
                 params: { focusAccess: point.id, focusRiver: point.river.slug },
               })

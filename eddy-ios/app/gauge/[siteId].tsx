@@ -97,6 +97,7 @@ import { Otter, otterForCondition } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useAccount } from '@/hooks/useAccount';
 import { goBack } from '@/lib/nav';
+import { AlertOriginRow } from '@/components/AlertOriginRow';
 import { pickPrimaryRiverLink } from '@eddy/conditions/primary-river-link';
 
 /**
@@ -165,7 +166,12 @@ function readingValue(gauge: GaugeSeed, unit: 'ft' | 'cfs' | null): number | nul
 }
 
 export default function GaugeDetailScreen() {
-  const { siteId } = useLocalSearchParams<{ siteId: string }>();
+  const { siteId, alertId, alertSource } = useLocalSearchParams<{
+    siteId: string;
+    /** Set only by a push-notification tap — see routeTo in usePush. */
+    alertId?: string;
+    alertSource?: string;
+  }>();
   const router = useRouter();
   const { colors, elevation, isDark } = useTheme();
   const { isStarred, toggleStar } = useStarredRivers();
@@ -520,6 +526,11 @@ export default function GaugeDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
+        {/* The way back to the rule that fired the push this screen answered.
+            Renders nothing on ordinary navigation — only a notification tap
+            carries the params. */}
+        <AlertOriginRow alertId={alertId} alertSource={alertSource} />
+
         <Text style={[styles.name, { color: colors.text }]}>{gauge.name}</Text>
         {/* Attribution, and only where it is earned. A USGS site number is a
             public identifier worth printing; a USACE dam's id is an Eddy slug,

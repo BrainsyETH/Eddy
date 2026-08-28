@@ -55,7 +55,11 @@ export function TailwaterStatusRow({ dam }: { dam: DamSnapshot | null }) {
   if (!status) {
     return (
       <Pressable
-        onPress={() => router.push(`/dam/${dam.id}`)}
+        // navigate, not push: the dam screen links back to this river, and
+        // push let the pair stack full screens indefinitely — river, dam,
+        // river, dam — each buried copy still ticking its minute clock.
+        // navigate returns to an existing copy instead of minting another.
+        onPress={() => router.navigate(`/dam/${dam.id}`)}
         style={({ pressed }) => [
           styles.row,
           { borderTopColor: colors.border, opacity: pressed ? 0.6 : 1 },
@@ -76,7 +80,8 @@ export function TailwaterStatusRow({ dam }: { dam: DamSnapshot | null }) {
 
   return (
     <Pressable
-      onPress={() => router.push(`/dam/${status.damId}`)}
+      // navigate, not push — same reasoning as the no-powerhouse row above.
+      onPress={() => router.navigate(`/dam/${status.damId}`)}
       style={({ pressed }) => [
         styles.row,
         { borderTopColor: colors.border, opacity: pressed ? 0.6 : 1 },
